@@ -235,7 +235,37 @@ without counter and strip.
   `0` and Cmd/Ctrl + `0` fit.
 * **Accessibility.** Pages read "Image 3 of 9, name, sender, time" and offer Zoom in / Zoom out / Fit to screen actions;
   strip items are selected-state buttons; chrome targets are 44 dp.
-* **Not here yet:** the desktop comments aside, Cmd/Ctrl+S, seek by double tap.
+* **Video pages (flag).** `--dart-define=RAFT_MEDIA_BROWSER_VIDEO=true` (`MediaBrowserFlags.video`, default off) makes the
+  videos of the message pages too, in message order, and a video card's eye opens the browser instead of
+  `AttachmentPreviewDialog` (audio, PDF and documents still use the dialog; with the flag off nothing changes). Each video
+  page has a `MediaVideoStage` (`media_video_page.dart`) that holds the attachment's session as a *viewer*:
+  * **Opened from a card that has a player** (playing or paused): the stage acquires that session at once - same
+    `Player`, position, buffer and volume, no request, no pause - and the page shows it playing or paused as it is.
+  * **Paged onto a video** (swipe, strip, keys): nothing is created while the page is passed. After the page has rested
+    250 ms the stage prepares a player, which opens paused at the first frame and never plays by itself (a swipe through a
+    gallery must not play audio, spend the 120/min attachment budget or start decoders). Videos over 24 MB wait for the
+    first Play, like cards; a Play before the player is ready is queued.
+  * **Leaving a video page** (swipe, arrow, strip, back) pauses it at once, stores where it stopped (`resumeAt`) and keeps
+    the hold for 3 s: coming back inside that time shows the same player at the same place with no request; after it the
+    hold is released - a card that holds the session keeps it (paused), with no card the decoder is freed. At most two
+    stages hold a viewer session (the current page and the one just left), so the soft cap of two is never exceeded by the
+    browser itself. Pages whose stage never rested never created a player.
+  * **Closing** releases every hold at once; a card holding the session continues (playing if it was) from where the
+    viewer left it, with no seek back. A browser opened with no card frees the decoder when it closes.
+  * **HDR (Android, iOS, macOS)** keeps the exception of the dialog: the shared texture player first, the colour probe
+    (cached per attachment) decides, the native view is created only while the page rests (route settled, no swipe, no
+    drag), and the first moment of any horizontal swipe, drag-to-dismiss or pop removes it and hands the position back to
+    the shared player.
+  * **Failures** are the seven classes of [Failure classes and messages](#failure-classes-and-messages) with their actions
+    (Retry signs again, Network settings closes the browser first, Download original). A failed page is not retried by
+    paging: leaving and coming back shows the failure again with no request; only Retry opens (exactly one) new player.
+  * **Controls.** The phone page fills the stage; a tap toggles the chrome and never plays; the Play button and the bar
+    play. The control bar keeps clear of the strip (`RaftMediaChromeInsets`). Keyboard: Space, Shift+Left/Right (5 s),
+    M. The app going to the background pauses and does not resume.
+  The page code is new rather than a refactor of the dialog's (the dialog keeps its own video path while the flag is off);
+  the two will share one stage when the flag is removed.
+* **Not here yet:** the desktop comments aside, Cmd/Ctrl+S, seek by double tap, the live-texture Hero from a playing card
+  (the video card does not fly), double-tap zoom hints, the F full-screen key on video pages.
 
 ## Verification record
 
@@ -328,6 +358,14 @@ Scenarios (`PS-REPORT` lines in `suite.log` carry the measured numbers):
 | audio | tap plays; streamed |
 | viewer stage | connecting, buffering and failed on the black stage in brutal-light, elegant-light and elegant-dark, screenshots |
 | memory | the 4K clip played to its end frees the player, and so does hiding its page; `dumpsys meminfo` before and after |
+| browser (flag on, `--only browser`) | R1+R2: opened from a playing card (a message with two videos and an image): position continuous, still playing, no platform view, no new request, no extra decoder; paging to the image pauses (position frozen), back inside 3 s: same player, paused at the same place, no request; after the grace the browser holds nothing |
+| | R3+R4: no card holds a player (covered cards released theirs): quick swipes past two videos (pages on screen 61-184 ms) open no stream and create no player; resting prepares exactly one stream after the 250 ms rest, paused; away and back inside the grace: no request; after the grace the decoder is freed (`mediaprocs_rss` 44.7 -> 50.9 -> 44.4 MB) |
+| | R5 / R7: close and drag-dismiss from the playing video hand the player back to the card at the viewer position (no seek back over 500 ms, no request); a short slow drag never pauses (recordings) |
+| | R6: paging to another video then closing: the opened card stays paused where it was left, the visible video's card takes over playing, no request; R6b: with no card the decoder is freed at close |
+| | R8: HDR clip: no native view while the page arrives, native view after the rest, gone at the first frames of a drag and of a pop, back at rest, the colour probe runs once |
+| | R9: one 403 signs again once and plays; an undecodable page shows its class (unsupported) and re-entry makes no request; a network failure: re-entry no request, Retry makes one |
+| | R10: 12 items (6 videos) rested on 450 ms each: one player per video, no refusal; R11: 12 images: neighbours (current +- 1) are fetched as before, never further; R12: 12/12 swipes page, a drag on the seek rail seeks and does not page; R13: `dumpsys audio` shows one started player while playing and none after paging off |
+| | Not automatable: R14 (background the app with the browser open): the app dies with SIGSEGV in the raster thread when sent to the background while any video plays, on a host-GPU and on a SwiftShader emulator, also for a plain inline card (`background R14c`), so it is independent of the browser; the scenarios exist but only run with `--dart-define=VP_BACKGROUND=true`; the pause-on-background rule is covered by `media_browser_video_test` |
 
 ### Checklist for player changes
 

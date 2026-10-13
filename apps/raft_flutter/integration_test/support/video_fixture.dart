@@ -28,6 +28,7 @@ class VideoClip {
     this.mime = 'video/mp4',
     this.rate,
     this.text,
+    this.group,
   });
 
   /// Attachment id (`vp-...`).
@@ -46,6 +47,10 @@ class VideoClip {
   /// Server-side throttle in bytes per second (`?rate=`), null for full speed.
   final int? rate;
   final String? text;
+
+  /// Clips (and images: a `mime` of `image/...`) with the same group are the
+  /// attachments of one message, in this order; null: a message of its own.
+  final String? group;
 }
 
 /// The clips of the manual parity harness (`video_parity_main.dart`).
@@ -112,16 +117,23 @@ Future<VideoFixture> buildVideoFixture({
         ..['content'] = text
         ..['attachments'] = attachments;
   final channel = LabChannel('vp', const []);
+  // One message per clip, or per group of clips (the media browser pages
+  // through the images and videos of one message).
+  final messages = <String, List<VideoClip>>{};
+  for (final clip in clips) {
+    messages.putIfAbsent(clip.group ?? clip.id, () => []).add(clip);
+  }
   channel.rows.addAll([
-    for (var i = 0; i < clips.length; i++)
-      row(i, clips[i].text ?? clips[i].filename, [
-        {
-          'id': clips[i].id,
-          'channelId': 'vp',
-          'filename': clips[i].filename,
-          'mimeType': clips[i].mime,
-          'sizeBytes': sizes[clips[i].id],
-        },
+    for (final (i, group) in messages.values.indexed)
+      row(i, group.first.text ?? group.first.filename, [
+        for (final clip in group)
+          {
+            'id': clip.id,
+            'channelId': 'vp',
+            'filename': clip.filename,
+            'mimeType': clip.mime,
+            'sizeBytes': sizes[clip.id],
+          },
       ]),
   ]);
   final (seed, api, client) = await labWorkspace([channel], images, mobile: mobile, ownsClient: false);

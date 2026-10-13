@@ -44,6 +44,20 @@ class PlayerLab {
     }
     throw TestFailure('The host runner did not answer "$command" in $seconds s.');
   }
+
+  /// Like [host] but polls with real time instead of frames: for a command
+  /// that takes the app out of the foreground, where no frame is produced.
+  Future<String?> hostQuiet(String command, {int seconds = 60}) async {
+    if (!hostDriven) return null;
+    await _get('/__cmd?set=${Uri.encodeQueryComponent(command)}');
+    final end = DateTime.now().add(Duration(seconds: seconds));
+    while (DateTime.now().isBefore(end)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      final state = await _get('/__cmd?poll');
+      if (state['done'] == true) return state['result'] as String? ?? '';
+    }
+    throw TestFailure('The host runner did not answer "$command" in $seconds s.');
+  }
 }
 
 /// What the server really sent.

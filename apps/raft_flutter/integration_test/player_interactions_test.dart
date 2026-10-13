@@ -10,6 +10,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:raft_flutter/features/media_browser.dart';
+import 'package:raft_flutter/features/media_video_page.dart';
+import 'package:raft_flutter/platform/attachment_player.dart' show AttachmentPlayback;
 import 'package:raft_flutter/platform/video_player_attachment_player.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart' show debugLastHdrHandoff;
 import 'package:raft_ui/raft_ui.dart';
@@ -21,6 +24,11 @@ const _base = String.fromEnvironment('VP_BASE', defaultValue: 'http://127.0.0.1:
 const _hostDriven = bool.fromEnvironment('VP_HOST');
 const _only = String.fromEnvironment('VP_ONLY');
 
+/// The background scenarios (R14) take the app out of the foreground; on the
+/// emulators tried the app dies with SIGSEGV in the raster thread then (also for
+/// an inline card alone), so they only run on request.
+const _background = bool.fromEnvironment('VP_BACKGROUND');
+
 const _portrait = VideoClip('vp-portrait', 'portrait.mp4', 'portrait.mp4', size: 5416578);
 const _long = VideoClip('vp-long', 'long.mp4', 'long.mp4', size: 16383818);
 const _slow4k = VideoClip('vp-4k', 'hevc4k.mp4', 'hevc4k.mp4', size: 41607413, rate: 2000000);
@@ -30,6 +38,103 @@ const _big4k = VideoClip('vp-big4k', 'hevc4k.mp4', 'hevc4k.mp4', size: 41607413)
 const _stall = VideoClip('vp-stall', 'portrait.mp4', 'stall.mp4', size: 5416578, rate: 600);
 const _choke = VideoClip('vp-choke', 'portrait.mp4', 'choke.mp4', size: 5416578, rate: 90000);
 const _longHlg = VideoClip('vp-long-hlg', 'long-hlg.mp4', 'long-hlg.mp4', size: 16385074);
+// The media browser's message: videos and images of ONE message, in this order.
+const _bA = VideoClip(
+  'vp-b-a',
+  'portrait.mp4',
+  'a.mp4',
+  size: 5416578,
+  group: 'g',
+);
+const _bP1 = VideoClip(
+  'vp-b-p1',
+  'photo1.jpg',
+  'p1.jpg',
+  size: 55318,
+  mime: 'image/jpeg',
+  group: 'g',
+);
+const _bC = VideoClip(
+  'vp-b-c',
+  'landscape.mp4',
+  'c.mp4',
+  size: 4846435,
+  group: 'g',
+);
+const _bP2 = VideoClip(
+  'vp-b-p2',
+  'photo2.jpg',
+  'p2.jpg',
+  size: 48907,
+  mime: 'image/jpeg',
+  group: 'g',
+);
+const _bD = VideoClip(
+  'vp-b-d',
+  'long.mp4',
+  'd.mp4',
+  size: 16383818,
+  group: 'g',
+);
+const _bHlg = VideoClip('vp-b-hlg', 'portrait-hlg.mp4', 'h.mp4', size: 5416578, group: 'g');
+const _bBad = VideoClip('vp-b-bad', 'corrupt.mp4', 'bad.mp4', size: 200000, group: 'g');
+
+/// [count] items of one message alternating image / video (video first when
+/// [videoFirst]); images are photo1..12.jpg, videos cycle the short clips.
+List<VideoClip> mixedMessage(int count, {bool videoFirst = false}) {
+  const files = [
+    ('portrait.mp4', 5416578),
+    ('landscape.mp4', 4846435),
+    ('hevc1080.mp4', 3762953),
+  ];
+  var photo = 0, video = 0;
+  return [
+    for (var i = 0; i < count; i++)
+      if ((i.isEven) == videoFirst)
+        VideoClip('vp-m$i', files[video % 3].$1, 'm$i.mp4', size: files[video++ % 3].$2, group: 'g')
+      else
+        VideoClip('vp-m$i', 'photo${++photo}.jpg', 'm$i.jpg', size: 50000, mime: 'image/jpeg', group: 'g'),
+  ];
+}
+
+/// Photos only: [count] items of one message.
+List<VideoClip> photoMessage(int count) => [
+  for (var i = 0; i < count; i++)
+    VideoClip('vp-q$i', 'photo${i + 1}.jpg', 'q$i.jpg', size: 50000, mime: 'image/jpeg', group: 'g'),
+];
+
+/// When each page was the nearest one: how long a passed page was on screen
+/// decides whether it may prepare a player (the 250 ms rest).
+class PageDwell {
+  PageDwell(this.state) {
+    state.pages.addListener(_tick);
+    _tick();
+  }
+  final MediaBrowserState state;
+  final _clock = Stopwatch()..start();
+  final visits = <(int, Duration, Duration?)>[];
+  int? _page;
+
+  void _tick() {
+    final p = state.pages.page?.round();
+    if (p == null || p == _page) return;
+    if (visits.isNotEmpty) {
+      final last = visits.removeLast();
+      visits.add((last.$1, last.$2, _clock.elapsed));
+    }
+    _page = p;
+    visits.add((p, _clock.elapsed, null));
+  }
+
+  void stop() => state.pages.removeListener(_tick);
+
+  /// Milliseconds each completed visit lasted, per page, in order.
+  Map<String, int> get report => {
+    for (final (i, v) in visits.indexed)
+      if (v.$3 != null) 'v$i-page${v.$1}': (v.$3! - v.$2).inMilliseconds,
+  };
+}
+
 const _tone = VideoClip('vp-tone', 'tone.wav', 'tone.wav', size: 264678, mime: 'audio/wav');
 
 late final PlayerLab lab;
@@ -60,7 +165,12 @@ Future<VideoFixture> launch(WidgetTester tester, List<VideoClip> clips,
   // start from the workspace list and open the channel the way a user does.
   await until(tester, () => find.text('lab-vp').evaluate().isNotEmpty, 'the channel list');
   await tester.tap(find.text('lab-vp').first);
-  await until(tester, () => card(clips.first.filename).evaluate().isNotEmpty || find.byKey(const Key('audio-play-toggle')).evaluate().isNotEmpty,
+  await until(
+      tester,
+      () =>
+          card(clips.first.filename).evaluate().isNotEmpty ||
+          find.byTooltip('Preview ${clips.first.filename}').evaluate().isNotEmpty ||
+          find.byKey(const Key('audio-play-toggle')).evaluate().isNotEmpty,
       'the channel with ${clips.first.filename}');
   return fixture;
 }
@@ -435,4 +545,659 @@ void main() {
     report('memory-hidden', {'hidden': hidden});
     await shutdown(tester);
   });
+
+  // ---- media browser (RAFT_MEDIA_BROWSER_VIDEO) ------------------------------
+
+  MediaBrowserState browserOf(WidgetTester t) =>
+      t.state<MediaBrowserState>(find.byType(MediaBrowser));
+  MediaVideoStage stageOf(WidgetTester t, int i) => browserOf(t).stageFor(i);
+  final browser = find.byType(MediaBrowser);
+
+  /// A finger flick to the next (or previous) page, through the gesture arena.
+  Future<void> flick(
+    WidgetTester t, {
+    bool next = true,
+    double velocity = 1800,
+  }) async {
+    final size = t.getSize(browser);
+    await t.flingFrom(
+      Offset(size.width / 2, size.height * .4),
+      Offset(next ? -size.width * .55 : size.width * .55, 0),
+      velocity,
+    );
+    await t.pump();
+  }
+
+  Future<void> onPage(WidgetTester t, int index) => until(
+    t,
+    () =>
+        browser.evaluate().isNotEmpty &&
+        browserOf(t).index == index &&
+        !browserOf(t).pages.position.isScrollingNotifier.value,
+    'page $index at rest',
+  );
+
+  Future<void> browserLaunch(WidgetTester t, List<VideoClip> clips) async {
+    MediaBrowserFlags.override = true;
+    addTearDown(() => MediaBrowserFlags.override = null);
+    await launch(t, clips);
+  }
+
+  /// Opens the browser from the eye of the video card [name].
+  Future<void> openBrowserFromCard(WidgetTester t, String name) async {
+    await tapCentre(
+      t,
+      find.descendant(
+        of: card(name),
+        matching: find.byKey(const Key('inline-video-expand')),
+      ),
+    );
+    await until(
+      t,
+      () =>
+          browser.evaluate().isNotEmpty &&
+          viewer.evaluate().isNotEmpty &&
+          viewerOf(t).duration > Duration.zero,
+      'the browser to show $name',
+    );
+  }
+
+  scenario(
+    'browser R1+R2: opened from a playing card it continues with no new request; paging away pauses, back inside 3 s needs no stream',
+    (tester) async {
+      await browserLaunch(tester, [_bA, _bP1, _bC]);
+      await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+      final before = await lab.stats();
+      final playerBefore = before.player('portrait.mp4');
+      final cardAt = cardOf(tester, 'a.mp4').position;
+      // The message's other video card has its own decoder: opening the browser
+      // must add none.
+      final liveBefore = VideoPlayerAttachmentPlayer.debugLive;
+      await lab.host(tester, 'record-start:browser-r1-open');
+      await openBrowserFromCard(tester, 'a.mp4');
+      final first = viewerOf(tester);
+      expect(
+        first.position,
+        greaterThanOrEqualTo(cardAt - const Duration(milliseconds: 150)),
+        reason: 'position jumped back at the handoff',
+      );
+      expect(
+        first.playing || first.buffering,
+        true,
+        reason: 'playback was interrupted at the handoff',
+      );
+      expect(find.byType(PlatformViewLink), findsNothing);
+      expect(
+        VideoPlayerAttachmentPlayer.debugLive,
+        liveBefore,
+        reason: 'the browser made a second decoder',
+      );
+      await until(
+        tester,
+        () =>
+            viewerOf(tester).position >
+            first.position + const Duration(seconds: 1),
+        'the browser position to advance',
+      );
+      final during = await lab.stats();
+      report('browser-r1', {
+        'playerRequestsBefore': playerBefore,
+        'playerRequestsAfter': during.player('portrait.mp4'),
+        'cardAtOpenMs': cardAt.inMilliseconds,
+        'firstViewerMs': first.position.inMilliseconds,
+        'live': VideoPlayerAttachmentPlayer.debugLive,
+      });
+      expect(
+        during.player('portrait.mp4'),
+        playerBefore,
+        reason: 'opening from the card made a request',
+      );
+      await lab.host(tester, 'record-stop');
+      // R2: swipe to the image: paused within 200 ms, frozen afterwards.
+      await flick(tester);
+      await onPage(tester, 1);
+      final stage = stageOf(tester, 0);
+      await tester.pump(const Duration(milliseconds: 200));
+      final frozen = stage.player!.playback.position;
+      expect(
+        stage.player!.playback.playing,
+        false,
+        reason: 'the video kept playing after the page was left',
+      );
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(
+        stage.player!.playback.position,
+        frozen,
+        reason: 'position moved after the page was left',
+      );
+      // Back inside the 3 s grace: the same player, paused at the same place, no request.
+      await flick(tester, next: false);
+      await onPage(tester, 0);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(stage.player!.playback.position, frozen);
+      expect(stage.player!.playback.playing, false);
+      final back = await lab.stats();
+      report('browser-r2', {
+        'frozenMs': frozen.inMilliseconds,
+        'requestsAfterReturn': back.player('portrait.mp4'),
+        'live': VideoPlayerAttachmentPlayer.debugLive,
+      });
+      expect(
+        back.player('portrait.mp4'),
+        playerBefore,
+        reason: 'returning inside the grace opened a stream',
+      );
+      // After the grace the browser holds nothing; the card's own rules (it is
+      // covered by the route) decide whether its one decoder lives on.
+      await flick(tester);
+      await onPage(tester, 1);
+      await tester.pump(const Duration(seconds: 4));
+      report('browser-r2-grace', {
+        'live': VideoPlayerAttachmentPlayer.debugLive,
+      });
+      expect(
+        VideoPlayerAttachmentPlayer.debugLive,
+        lessThanOrEqualTo(1),
+        reason: 'a decoder besides the card\'s is alive after the grace',
+      );
+      expect((await lab.stats()).player('portrait.mp4'), playerBefore);
+      await shutdown(tester);
+    },
+  );
+
+  scenario(
+    'browser R5: closing from a playing video hands it back to the card at the viewer position',
+    (tester) async {
+      await browserLaunch(tester, [_bA, _bP1, _bC]);
+      await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+      final liveBefore = VideoPlayerAttachmentPlayer.debugLive;
+      await openBrowserFromCard(tester, 'a.mp4');
+      await until(
+        tester,
+        () => viewerOf(tester).position > const Duration(seconds: 2),
+        'the browser to play',
+      );
+      final stats = await lab.stats();
+      final playerBefore = stats.player('portrait.mp4');
+      final last = viewerOf(tester).position;
+      await lab.host(tester, 'record-start:browser-r5-close');
+      await tester.pump(const Duration(milliseconds: 500));
+      final viewerAt = viewerOf(tester).position;
+      await tester.binding.handlePopRoute();
+      await until(
+        tester,
+        () => browser.evaluate().isEmpty,
+        'the browser to close',
+      );
+      await tester.pump(const Duration(milliseconds: 700));
+      await lab.host(tester, 'record-stop');
+      expect(
+        cardOf(tester, 'a.mp4').playing,
+        true,
+        reason: 'the card did not continue after the browser closed',
+      );
+      expect(
+        cardOf(tester, 'a.mp4').position,
+        greaterThanOrEqualTo(viewerAt - const Duration(milliseconds: 500)),
+        reason: 'the card seeked back',
+      );
+      expect(VideoPlayerAttachmentPlayer.debugLive, liveBefore, reason: 'a decoder was left behind or lost');
+      final after = await lab.stats();
+      report('browser-r5', {
+        'lastViewerMs': last.inMilliseconds,
+        'viewerAtCloseMs': viewerAt.inMilliseconds,
+        'cardAfterMs': cardOf(tester, 'a.mp4').position.inMilliseconds,
+        'newRequests': after.player('portrait.mp4') - playerBefore,
+      });
+      expect(after.player('portrait.mp4'), playerBefore);
+      await shutdown(tester);
+    },
+  );
+
+  scenario(
+    'browser R7: a short drag down springs back with no interruption, a long one closes like R5',
+    (tester) async {
+      await browserLaunch(tester, [_bA, _bP1, _bC]);
+      await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+      await openBrowserFromCard(tester, 'a.mp4');
+      await until(
+        tester,
+        () => viewerOf(tester).position > const Duration(seconds: 1),
+        'the browser to play',
+      );
+      final playerBefore = (await lab.stats()).player('portrait.mp4');
+      final size = tester.getSize(browser);
+      final from = Offset(size.width / 2, size.height * .35);
+      // Short and slow: nothing closes, nothing stops, no request.
+      // Every playback event during the drag: a pause that is not buffering
+      // would be an interruption.
+      final pauses = <AttachmentPlayback>[];
+      final watch = stageOf(tester, 0).player!.changes.listen((e) {
+        if (!e.playing && !e.buffering) pauses.add(e);
+      });
+      await lab.host(tester, 'record-start:browser-r7-short');
+      await tester.flingFrom(from, const Offset(0, 70), 200);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(browser, findsOneWidget);
+      expect(pauses, isEmpty, reason: 'the short drag paused the video');
+      final pos = viewerOf(tester).position;
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(viewerOf(tester).position, greaterThan(pos));
+      await watch.cancel();
+      await lab.host(tester, 'record-stop');
+      expect((await lab.stats()).player('portrait.mp4'), playerBefore);
+      // Past the threshold: the browser closes and the card continues.
+      final viewerAt = viewerOf(tester).position;
+      await lab.host(tester, 'record-start:browser-r7-long');
+      await tester.flingFrom(from, const Offset(0, 320), 1600);
+      await until(
+        tester,
+        () => browser.evaluate().isEmpty,
+        'the drag to close the browser',
+      );
+      await tester.pump(const Duration(milliseconds: 700));
+      await lab.host(tester, 'record-stop');
+      expect(cardOf(tester, 'a.mp4').playing, true);
+      expect(
+        cardOf(tester, 'a.mp4').position,
+        greaterThanOrEqualTo(viewerAt - const Duration(milliseconds: 500)),
+      );
+      expect((await lab.stats()).player('portrait.mp4'), playerBefore);
+      await shutdown(tester);
+    },
+  );
+
+  /// A fast horizontal swipe in four quick steps (a thumb flick), through the
+  /// gesture arena. Returns when the finger is up.
+  final swipeClock = Stopwatch()..start();
+
+  Future<void> swipe(WidgetTester t, {bool next = true, int stepMs = 8}) async {
+    final size = t.getSize(browser);
+    final y = size.height * .4;
+    final dx = size.width * .9 * (next ? -1 : 1);
+    final gesture = await t.createGesture();
+    await gesture.down(
+      Offset(size.width * (next ? .95 : .05), y),
+      timeStamp: swipeClock.elapsed,
+    );
+    for (var i = 0; i < 4; i++) {
+      await t.pump(Duration(milliseconds: stepMs));
+      await gesture.moveBy(Offset(dx / 4, 0), timeStamp: swipeClock.elapsed);
+    }
+    await gesture.up(timeStamp: swipeClock.elapsed);
+    await t.pump();
+  }
+
+  /// Opens the browser on the image [tooltip] of a message whose video cards are
+  /// covered, waits until they gave their players back, and starts the counters
+  /// from zero: no card holds a player.
+  Future<void> openFromImageWithNoCards(WidgetTester t, List<VideoClip> clips, String tooltip, int index) async {
+    await browserLaunch(t, clips);
+    final image = find.byTooltip(tooltip);
+    await until(t, () => image.evaluate().isNotEmpty, 'the image card');
+    await t.ensureVisible(image);
+    await t.pump(const Duration(milliseconds: 300));
+    await tapCentre(t, image);
+    await until(t, () => browser.evaluate().isNotEmpty && browserOf(t).index == index, 'the browser on $tooltip');
+    await t.pump(const Duration(seconds: 6));
+    await until(t, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'the covered cards to release their players',
+        timeout: const Duration(seconds: 20));
+    await lab.reset();
+  }
+
+  Future<void> landOn(WidgetTester t, int page, {bool next = true}) async {
+    await flick(t, next: next);
+    await onPage(t, page);
+  }
+
+  scenario('browser R3+R4: resting prepares one stream, a flick past opens none, the grace frees the decoder', (tester) async {
+    await openFromImageWithNoCards(tester, [_bA, _bP1, _bC, _bD, _bP2], 'Preview p1.jpg', 1);
+    final idle = await lab.host(tester, 'meminfo:r3-idle');
+    final state = browserOf(tester);
+    final createdBase = state.w.playerSessions.created;
+    final dwell = PageDwell(state);
+    // R4: three flicks in a row, 1 -> 4: the two videos are only passed.
+    for (var i = 0; i < 3; i++) {
+      await swipe(tester);
+    }
+    try {
+      await onPage(tester, 4);
+    } on TestFailure {
+      report('browser-r4-stuck', {'index': state.index, 'dwellMs': dwell.report});
+      rethrow;
+    }
+    dwell.stop();
+    await tester.pump(const Duration(milliseconds: 100));
+    final flicked = await lab.stats();
+    final created = state.w.playerSessions.created - createdBase;
+    report('browser-r4', {
+      'dwellMs': dwell.report,
+      'landscapeRequests': flicked.player('landscape.mp4'),
+      'longRequests': flicked.player('long.mp4'),
+      'portraitRequests': flicked.player('portrait.mp4'),
+      'playersCreated': created,
+      'live': VideoPlayerAttachmentPlayer.debugLive,
+    });
+    final passed = {for (final v in dwell.visits) if (v.$3 != null) v.$1: v.$3! - v.$2};
+    for (final page in [2, 3]) {
+      expect(passed[page], isNotNull, reason: 'page $page was never shown');
+      expect(passed[page], lessThan(const Duration(milliseconds: 250)),
+          reason: 'page $page stayed ${passed[page]?.inMilliseconds} ms: this device cannot page faster than the settle time');
+    }
+    expect(flicked.player('landscape.mp4') + flicked.player('long.mp4') + flicked.player('portrait.mp4'), 0, reason: 'a skipped page opened a stream');
+    expect(created, 0, reason: 'a skipped page created a player');
+    expect(VideoPlayerAttachmentPlayer.debugLive, 0);
+    // R3: rest on the long video: one stream after the 250 ms rest, paused.
+    await lab.reset();
+    // Mid-flick (the page is about to become the current one): nothing yet.
+    await flick(tester, next: false);
+    await tester.pump(const Duration(milliseconds: 40));
+    expect((await lab.stats()).player('long.mp4'), 0, reason: 'prepared before the page rested');
+    await onPage(tester, 3);
+    await tester.pump(const Duration(milliseconds: 1500));
+    final rested = await lab.stats();
+    final streams = rested.player('long.mp4');
+    final mem = await lab.host(tester, 'meminfo:r3-resting');
+    report('browser-r3-rest', {'longRequests': streams, 'ranged': rested.ranged('long.mp4'), 'live': VideoPlayerAttachmentPlayer.debugLive, 'created': state.w.playerSessions.created - createdBase});
+    expect(streams, greaterThan(0), reason: 'resting did not prepare the page');
+    expect(state.w.playerSessions.created - createdBase, 1, reason: 'one player for the rested page');
+    expect(stageOf(tester, 3).player?.playback.playing, false, reason: 'paging started playback');
+    expect(VideoPlayerAttachmentPlayer.debugLive, 1);
+    // Away and back inside the grace: the same player, no request.
+    await landOn(tester, 4);
+    await tester.pump(const Duration(milliseconds: 1200));
+    await landOn(tester, 3, next: false);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect((await lab.stats()).player('long.mp4'), streams, reason: 'returning inside the grace opened a stream');
+    expect(VideoPlayerAttachmentPlayer.debugLive, 1);
+    // After the grace (no card holds it) the decoder is gone.
+    await landOn(tester, 4);
+    await tester.pump(const Duration(seconds: 4));
+    final after = await lab.host(tester, 'meminfo:r3-after-grace');
+    final live = VideoPlayerAttachmentPlayer.debugLive;
+    report('browser-r3', {'streams': streams, 'liveAfterGrace': live, 'meminfoIdle': idle, 'meminfoResting': mem, 'meminfoAfterGrace': after});
+    expect(live, 0, reason: 'the decoder survived the grace');
+    await shutdown(tester);
+  });
+
+  scenario('browser R6: paging to another video then closing: the opened card stays paused, the visible one takes over, a browser with no card frees the decoder', (tester) async {
+    await browserLaunch(tester, [_bA, _bP1, _bC]);
+    await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+    await openBrowserFromCard(tester, 'a.mp4');
+    await until(tester, () => viewerOf(tester).position > const Duration(seconds: 2), 'the browser to play');
+    await landOn(tester, 1);
+    await landOn(tester, 2);
+    final a = stageOf(tester, 0).player!.playback.position;
+    // Play the landscape clip in the browser.
+    await until(tester, () => stageOf(tester, 2).player != null && !stageOf(tester, 2).opening, 'the landscape page to be ready');
+    await tapCentre(tester, viewerPlay);
+    await until(tester, () => viewerOf(tester).playing && viewerOf(tester).position > const Duration(seconds: 1), 'the landscape clip to play');
+    final before = await lab.stats();
+    final c = viewerOf(tester).position;
+    await tester.binding.handlePopRoute();
+    await until(tester, () => browser.evaluate().isEmpty, 'the browser to close');
+    await tester.pump(const Duration(milliseconds: 800));
+    final after = await lab.stats();
+    report('browser-r6', {
+      'openedCardPlaying': cardOf(tester, 'a.mp4').playing,
+      'openedCardMs': cardOf(tester, 'a.mp4').position.inMilliseconds,
+      'leftAtMs': a.inMilliseconds,
+      'visibleCardPlaying': cardOf(tester, 'c.mp4').playing,
+      'visibleCardMs': cardOf(tester, 'c.mp4').position.inMilliseconds,
+      'viewerAtCloseMs': c.inMilliseconds,
+      'newRequests': after.player('landscape.mp4') - before.player('landscape.mp4') + after.player('portrait.mp4') - before.player('portrait.mp4'),
+      'live': VideoPlayerAttachmentPlayer.debugLive,
+    });
+    expect(cardOf(tester, 'a.mp4').playing, false, reason: 'the opened card must stay paused');
+    expect((cardOf(tester, 'a.mp4').position - a).abs(), lessThan(const Duration(milliseconds: 600)), reason: 'the opened card moved');
+    expect(cardOf(tester, 'c.mp4').playing, true, reason: 'the visible video\'s card did not take over');
+    expect(cardOf(tester, 'c.mp4').position, greaterThanOrEqualTo(c - const Duration(milliseconds: 500)));
+    expect(after.player('landscape.mp4') + after.player('portrait.mp4'), before.player('landscape.mp4') + before.player('portrait.mp4'), reason: 'closing opened a stream');
+    await shutdown(tester);
+  });
+
+  scenario('browser R6b: a browser with no card for the visible video frees its decoder at once on close', (tester) async {
+    await openFromImageWithNoCards(tester, [_bA, _bP1, _bC, _bD, _bP2], 'Preview p1.jpg', 1);
+    await landOn(tester, 2);
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(VideoPlayerAttachmentPlayer.debugLive, 1);
+    await tester.binding.handlePopRoute();
+    await until(tester, () => browser.evaluate().isEmpty, 'the browser to close');
+    final watch = Stopwatch()..start();
+    await until(tester, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'the decoder to be freed', timeout: const Duration(seconds: 5));
+    report('browser-r6b', {'freedAfterMs': watch.elapsedMilliseconds});
+    await shutdown(tester);
+  });
+
+  scenario('browser R8: the HDR native view only after the page rests, gone at the first moment of a drag, the colour probe is not repeated', (tester) async {
+    await openFromImageWithNoCards(tester, [_bA, _bP1, _bHlg, _bP2], 'Preview p1.jpg', 1);
+    await flick(tester);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(PlatformViewLink), findsNothing, reason: 'a native view while the page was still arriving');
+    await onPage(tester, 2);
+    await until(tester, () => find.byType(PlatformViewLink).evaluate().isNotEmpty, 'the native view after the rest', timeout: const Duration(seconds: 20));
+    final probes = (await lab.stats()).log.where((e) => e['file'] == 'portrait-hlg.mp4' && '${e['ua']}'.startsWith('Dart')).length;
+    // A drag begins: the native view is gone at once.
+    final size = tester.getSize(browser);
+    final finger = await tester.startGesture(Offset(size.width * .8, size.height * .4));
+    await finger.moveBy(const Offset(-40, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    report('browser-r8-drag', {'moving': stageOf(tester, 2).moving, 'hdrHold': stageOf(tester, 2).hdrHold != null, 'native': find.byType(PlatformViewLink).evaluate().length});
+    expect(find.byType(PlatformViewLink), findsNothing, reason: 'the native view survived the first frames of a swipe');
+    await finger.moveBy(const Offset(40, 0));
+    await finger.up();
+    await until(tester, () => find.byType(PlatformViewLink).evaluate().isNotEmpty, 'the native view to return at rest', timeout: const Duration(seconds: 20));
+    // Away and back: no new probe.
+    await landOn(tester, 3);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(PlatformViewLink), findsNothing, reason: 'the native view stayed on another page');
+    await landOn(tester, 2, next: false);
+    await until(tester, () => find.byType(PlatformViewLink).evaluate().isNotEmpty, 'the native view after returning', timeout: const Duration(seconds: 20));
+    final probesAfter = (await lab.stats()).log.where((e) => e['file'] == 'portrait-hlg.mp4' && '${e['ua']}'.startsWith('Dart')).length;
+    report('browser-r8', {'probeRequestsFirst': probes, 'probeRequestsAfterReturn': probesAfter});
+    expect(probesAfter, probes, reason: 'the colour probe ran again');
+    // A pop removes it at the first frames.
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(find.byType(PlatformViewLink), findsNothing, reason: 'the native view was there when the exit began');
+    await until(tester, () => browser.evaluate().isEmpty, 'the browser to close');
+    await shutdown(tester);
+  });
+
+  scenario('browser R9: one 403 signs again once; an undecodable page fails, re-entry makes no request', (tester) async {
+    await openFromImageWithNoCards(tester, [_bA, _bP1, _bC, _bBad], 'Preview p1.jpg', 1);
+    // One 403 on the landscape clip: ExoPlayer's open fails once, the app signs again.
+    await lab.failNext('landscape.mp4', status: 403, count: 1);
+    await landOn(tester, 2);
+    await until(tester, () => stageOf(tester, 2).player != null && !stageOf(tester, 2).opening, 'the page to recover from the 403', timeout: const Duration(seconds: 25));
+    final stats = await lab.stats();
+    report('browser-r9-403', {'failure': '${stageOf(tester, 2).failure}', 'landscapeRequests': stats.player('landscape.mp4'), 'statuses': [for (final e in stats.log.where((e) => e['file'] == 'landscape.mp4')) e['status']]});
+    expect(stageOf(tester, 2).failure, isNull, reason: 'a single 403 must not fail the page');
+    // The undecodable file.
+    await landOn(tester, 3);
+    await until(tester, () => stageOf(tester, 3).failure != null, 'the failure of the corrupt clip', timeout: const Duration(seconds: 25));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(RaftLoadError), findsOneWidget);
+    final first = await lab.stats();
+    final requests = first.player('corrupt.mp4');
+    // Away (past the grace) and back: the failure again, no request.
+    await landOn(tester, 2, next: false);
+    await tester.pump(const Duration(seconds: 4));
+    await landOn(tester, 3);
+    await tester.pump(const Duration(seconds: 2));
+    final again = await lab.stats();
+    report('browser-r9-bad', {'class': '${stageOf(tester, 3).failure?.kind}', 'requestsFirst': requests, 'requestsAfterReentry': again.player('corrupt.mp4')});
+    expect(find.byType(RaftLoadError), findsOneWidget, reason: 'the failure was not shown again');
+    expect(again.player('corrupt.mp4'), requests, reason: 're-entry made a request');
+    await shutdown(tester);
+  });
+
+  scenario('browser R9b: a network-class failure: re-entry makes no request, Retry opens a new stream', (tester) async {
+    await openFromImageWithNoCards(tester, [_bA, _bP1, _bD], 'Preview p1.jpg', 1);
+    // Five 500s: ExoPlayer gives up (and the one re-sign fails too).
+    await lab.failNext('long.mp4', status: 500, count: 5);
+    await landOn(tester, 2);
+    await until(tester, () => stageOf(tester, 2).failure != null, 'the failure', timeout: const Duration(seconds: 40));
+    await tester.pump(const Duration(milliseconds: 500));
+    final first = await lab.stats();
+    final retry = find.text('Retry');
+    expect(retry, findsOneWidget);
+    await landOn(tester, 1, next: false);
+    await tester.pump(const Duration(seconds: 4));
+    await landOn(tester, 2);
+    await tester.pump(const Duration(seconds: 2));
+    final again = await lab.stats();
+    expect(again.player('long.mp4'), first.player('long.mp4'), reason: 're-entry made a request');
+    await tapCentre(tester, retry);
+    await until(tester, () => stageOf(tester, 2).failure == null && stageOf(tester, 2).player != null && !stageOf(tester, 2).opening, 'the retry to open', timeout: const Duration(seconds: 40));
+    final after = await lab.stats();
+    report('browser-r9b', {'requestsFirst': first.player('long.mp4'), 'requestsAfterReentry': again.player('long.mp4'), 'requestsAfterRetry': after.player('long.mp4'), 'retryRequests': after.player('long.mp4') - again.player('long.mp4')});
+    expect(after.player('long.mp4'), greaterThan(again.player('long.mp4')));
+    await shutdown(tester);
+  });
+
+  scenario('browser R10: swiping through 12 items (6 videos) resting briefly opens at most one stream per settled video', (tester) async {
+    final clips = mixedMessage(12);
+    await openFromImageWithNoCards(tester, clips, 'Preview m0.jpg', 0);
+    final state = browserOf(tester);
+    final createdBase = state.w.playerSessions.created;
+    final dwell = PageDwell(state);
+    for (var page = 1; page < 12; page++) {
+      await landOn(tester, page);
+      await tester.pump(const Duration(milliseconds: 450));
+    }
+    dwell.stop();
+    await tester.pump(const Duration(milliseconds: 500));
+    final stats = await lab.stats();
+    final videos = clips.where((c) => c.mime.startsWith('video')).length;
+    final opens = state.w.playerSessions.created - createdBase;
+    final refused = stats.log.where((e) => e['status'] == 429).length;
+    report('browser-r10', {'videoPages': videos, 'playersCreated': opens, 'playerRequests': stats.log.where((e) => !'${e['ua']}'.startsWith('Dart') && '${e['file']}'.endsWith('.mp4')).length, 'refused429': refused, 'dwellMs': dwell.report});
+    expect(opens, lessThanOrEqualTo(videos), reason: 'more players than settled videos');
+    expect(refused, 0);
+    await shutdown(tester);
+  });
+
+  scenario('browser R11: 12 images: how many originals are decoded and requested while paging', (tester) async {
+    final clips = photoMessage(12);
+    await browserLaunch(tester, clips);
+    final image = find.byTooltip('Preview q0.jpg');
+    await until(tester, () => image.evaluate().isNotEmpty, 'the image card');
+    await tester.ensureVisible(image);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tapCentre(tester, image);
+    await until(tester, () => browser.evaluate().isNotEmpty && browserOf(tester).index == 0, 'the browser');
+    await tester.pump(const Duration(seconds: 3));
+    final cache = PaintingBinding.instance.imageCache;
+    final live = <int>[];
+    final seen = <String>{};
+    await lab.reset();
+    for (var page = 0; page < 12; page++) {
+      if (page > 0) await landOn(tester, page);
+      await tester.pump(const Duration(milliseconds: 900));
+      live.add(cache.liveImageCount);
+      final stats = await lab.stats();
+      final requested = {for (final e in stats.log) if ('${e['file']}'.startsWith('photo')) '${e['file']}'};
+      seen.addAll(requested);
+      // Which originals were asked for so far: the current one and its neighbours.
+      final far = [for (final f in requested) int.parse(f.replaceAll(RegExp(r'[^0-9]'), '')) - 1].where((n) => n > page + 1).toList();
+      expect(far, isEmpty, reason: 'on page $page originals beyond the next one were requested: $far');
+    }
+    report('browser-r11', {'liveImagesPerPage': live, 'originalsRequested': seen.length, 'maxLive': live.reduce((a, b) => a > b ? a : b)});
+    // The design keeps PR #22's rule (current plus one neighbour each side):
+    // at most three decoded originals plus the strip's thumbnails.
+    expect(live.reduce((a, b) => a > b ? a : b), lessThanOrEqualTo(16));
+    await shutdown(tester);
+  });
+
+  scenario('browser R12: flick reliability over image and video pages, and a drag on the seek rail seeks without paging', (tester) async {
+    final clips = mixedMessage(8);
+    await openFromImageWithNoCards(tester, clips, 'Preview m0.jpg', 0);
+    var page = 0, hits = 0;
+    final dwell = PageDwell(browserOf(tester));
+    const plan = [true, true, true, true, true, true, false, false, false, false, false, false];
+    for (final next in plan) {
+      final target = next ? page + 1 : page - 1;
+      await swipe(tester, next: next);
+      try {
+        await until(tester, () => browserOf(tester).index == target && !browserOf(tester).pages.position.isScrollingNotifier.value, 'page $target', timeout: const Duration(seconds: 4));
+        hits++;
+        page = target;
+      } on TestFailure {
+        page = browserOf(tester).index;
+      }
+      await tester.pump(const Duration(milliseconds: 120));
+    }
+    dwell.stop();
+    report('browser-r12-flicks', {'paged': hits, 'of': plan.length, 'dwellMs': dwell.report});
+    expect(hits, plan.length, reason: 'a flick did not page');
+    // A drag along the seek rail of a video page (paused: the bar is shown).
+    await landOn(tester, 1);
+    await until(tester, () => stageOf(tester, 1).player != null && !stageOf(tester, 1).opening && stageOf(tester, 1).player!.playback.duration > Duration.zero, 'the video page to be ready', timeout: const Duration(seconds: 20));
+    final rail = find.descendant(of: viewer, matching: find.byKey(const Key('inline-video-seek')));
+    await until(tester, () => rail.evaluate().isNotEmpty, 'the seek rail');
+    final box = tester.getRect(rail);
+    final total = stageOf(tester, 1).player!.playback.duration;
+    await tester.timedDragFrom(Offset(box.left + box.width * .15, box.center.dy), Offset(box.width * .6, 0), const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 600));
+    final at = stageOf(tester, 1).player!.playback.position;
+    report('browser-r12-rail', {'positionMs': at.inMilliseconds, 'totalMs': total.inMilliseconds, 'page': browserOf(tester).index});
+    expect(browserOf(tester).index, 1, reason: 'a rail drag paged');
+    expect(at, greaterThan(total * .5), reason: 'a rail drag did not seek');
+    await shutdown(tester);
+  });
+
+  scenario('browser R13: no audible player is left after paging off a playing video', (tester) async {
+    await browserLaunch(tester, [_bA, _bP1, _bC]);
+    await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+    await openBrowserFromCard(tester, 'a.mp4');
+    await until(tester, () => viewerOf(tester).position > const Duration(seconds: 2), 'the browser to play');
+    final playing = await lab.host(tester, 'audio');
+    await landOn(tester, 1);
+    await tester.pump(const Duration(milliseconds: 600));
+    final off = await lab.host(tester, 'audio');
+    report('browser-r13', {'whilePlaying': playing, 'afterPaging': off});
+    if (playing != null) {
+      expect(playing, startsWith('started=1'), reason: 'the audio session was not visible while playing: $playing');
+      expect(off, startsWith('started=0'), reason: 'audio still started after paging off: $off');
+    }
+    await shutdown(tester);
+  });
+
+  scenario('background R14c (control): backgrounding the app with only an inline card playing', (tester) async {
+    if (!_background) return markTestSkipped('R14c: run with --dart-define=VP_BACKGROUND=true (see _background)');
+    await launch(tester, [_portrait]);
+    await playInline(tester, 'portrait.mp4', past: const Duration(milliseconds: 800));
+    final result = await lab.hostQuiet('background:4');
+    if (result == null) {
+      markTestSkipped('needs the host runner');
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 800));
+    report('background-r14c', {'cardPlaying': cardOf(tester, 'portrait.mp4').playing});
+    expect(cardOf(tester, 'portrait.mp4').playing, false);
+    await shutdown(tester);
+  });
+  scenario('background R14: backgrounding the app with the browser on a playing video pauses; returning does not resume', (tester) async {
+    if (!_background) return markTestSkipped('R14: run with --dart-define=VP_BACKGROUND=true (see _background)');
+    await browserLaunch(tester, [_bA, _bP1, _bC]);
+    await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+    await openBrowserFromCard(tester, 'a.mp4');
+    await until(tester, () => viewerOf(tester).position > const Duration(seconds: 2), 'the browser to play');
+    final result = await lab.hostQuiet('background:4');
+    if (result == null) {
+      markTestSkipped('needs the host runner');
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 800));
+    final p1 = stageOf(tester, 0).player!.playback;
+    await tester.pump(const Duration(seconds: 2));
+    final p2 = stageOf(tester, 0).player!.playback;
+    report('browser-r14', {'playingAfterReturn': p2.playing, 'positionAfterReturnMs': p1.position.inMilliseconds, 'positionLaterMs': p2.position.inMilliseconds});
+    expect(p2.playing, false, reason: 'returning resumed playback');
+    expect(p2.position, p1.position, reason: 'the position moved while paused');
+    await shutdown(tester);
+  });
+
 }

@@ -139,6 +139,24 @@ class Host:
             'egl=' + grab(r'EGL mtrack:\s+(\d+)'),
         ])
 
+    def audio(self):
+        """How many players of the isolated app are `started` in `dumpsys audio` (audible playback)."""
+        pid = self.adb('shell', 'pidof', PACKAGE, check=False).stdout.strip().split()
+        if not pid:
+            return 'started=0 pid=none'
+        text = self.adb('shell', 'dumpsys', 'audio', check=False).stdout
+        started = [l for l in text.splitlines() if 'AudioPlaybackConfiguration' in l and re.search(r'u/pid:\d+/' + pid[0] + r'\b', l) and 'state:started' in l]
+        return f'started={len(started)} pid={pid[0]}'
+
+    def background(self, seconds):
+        """The app goes to the background (home), stays there, and comes back to the front."""
+        # Another app in front (Settings), then Back: the same task and process come back.
+        self.adb('shell', 'am', 'start', '-a', 'android.settings.SETTINGS')
+        time.sleep(seconds)
+        self.adb('shell', 'input', 'keyevent', 'KEYCODE_BACK')
+        time.sleep(1.5)
+        return f'backgrounded:{seconds}'
+
     def run(self):
         while not self.stop:
             try:
@@ -162,6 +180,10 @@ class Host:
                     result = self.shot(command.split(':', 1)[1])
                 elif command.startswith('meminfo:'):
                     result = self.meminfo(command.split(':', 1)[1])
+                elif command == 'audio':
+                    result = self.audio()
+                elif command.startswith('background:'):
+                    result = self.background(float(command.split(':', 1)[1]))
                 elif command.startswith('save-dialog:'):
                     result = self.save_dialog(command.split(':', 1)[1])
                 else:
