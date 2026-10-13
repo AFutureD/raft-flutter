@@ -267,8 +267,8 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
       unawaited(
         pages.animateToPage(
           target,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
+          duration: RaftScale.defaultTransitionDuration,
+          curve: RaftScale.defaultTransitionCurve,
         ),
       );
     } else {
