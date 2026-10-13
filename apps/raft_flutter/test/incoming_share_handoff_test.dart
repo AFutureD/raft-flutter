@@ -13,16 +13,53 @@ import 'package:raft_ui/raft_ui.dart';
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'flutter_test_config.dart' show leakDebt;
 
+/// Flushes frames until [done] holds, bounded by wall time and not by a frame
+/// count. The hand-off chains many real file operations (stage, claim, restore,
+/// bind, draft); under the fake clock each one resumes only after a real
+/// event-loop turn followed by a pump, so the number of frames it needs is the
+/// number of those hops (about 65 here) and grows when the machine is busy. A
+/// fixed frame budget therefore fails on a loaded machine though nothing is
+/// wrong.
+Future<void> flushUntil(
+  WidgetTester t,
+  RootFixture f,
+  bool Function() done, {
+  String what = 'condition',
+  Duration timeout = const Duration(seconds: 45),
+}) async {
+  final clock = Stopwatch()..start();
+  while (!done()) {
+    if (clock.elapsed > timeout) {
+      fail('Timed out after ${timeout.inSeconds}s waiting for $what');
+    }
+    await f.flush(t);
+  }
+}
+
+/// A scratch directory removed when the test ends, whether it passed or not.
+Future<Directory> scratch(WidgetTester t, String prefix) async {
+  final directory = (await t.runAsync(
+    () => Directory.systemTemp.createTemp(prefix),
+  ))!;
+  addTearDown(() {
+    if (directory.existsSync()) directory.deleteSync(recursive: true);
+  });
+  return directory;
+}
+
+bool pickerOpen() => find.byType(IncomingSharePicker).evaluate().isNotEmpty;
+
 void main() {
   // Leak debt (share flow): see docs/development.md, Leak tracking.
-  leakDebt(const ['IncomingShareStaging', 'ValueNotifier<RaftTransferProgress?>']);
+  leakDebt(const [
+    'IncomingShareStaging',
+    'ValueNotifier<RaftTransferProgress?>',
+  ]);
   for (final cold in [true, false]) {
     testWidgets(
       'iOS ${cold ? 'cold' : 'warm'} handoff opens the shared picker once without sending',
       (t) async {
-        final directory = (await t.runAsync(
-          () => Directory.systemTemp.createTemp('raft-ios-root-share-test-'),
-        ))!;
+        final directory = await scratch(t, 'raft-ios-root-share-test-');
         final token = 'a' * 32;
         Future<void> publish() async {
           final folder = await Directory('${directory.path}/$token').create();
@@ -50,13 +87,7 @@ void main() {
           await t.runAsync(publish);
           f.content.receiveLink(wake);
         }
-        for (
-          var i = 0;
-          i < 6 && find.byType(IncomingSharePicker).evaluate().isEmpty;
-          i++
-        ) {
-          await f.flush(t);
-        }
+        await flushUntil(t, f, pickerOpen, what: 'the shared picker');
         expect(find.byType(IncomingSharePicker), findsOneWidget);
         f.content.receiveLink(wake);
         f.content.receiveLink(wake);
@@ -71,16 +102,13 @@ void main() {
           isEmpty,
         );
         await t.pumpWidget(const SizedBox());
-        await t.runAsync(() => directory.delete(recursive: true));
       },
     );
   }
   testWidgets(
     'share admitted before restore selects another server and appends editable queued files without upload',
     (t) async {
-      final directory = (await t.runAsync(
-        () => Directory.systemTemp.createTemp('raft-share-handoff-test-'),
-      ))!;
+      final directory = await scratch(t, 'raft-share-handoff-test-');
       final sharing = NativeSharing(
         supported: false,
         incomingDirectory: () async => directory,
@@ -108,26 +136,27 @@ void main() {
         'serverId': 'b',
       };
       await f.mount(t, 'elegant', 412);
-      for (
-        var i = 0;
-        i < 4 && find.byType(IncomingSharePicker).evaluate().isEmpty;
-        i++
-      ) {
-        await f.flush(t);
-      }
+      await flushUntil(t, f, pickerOpen, what: 'the shared picker');
       expect(find.byType(IncomingSharePicker), findsOneWidget);
       await t.tap(find.text('Beta').last);
-      await f.flush(t);
+      await flushUntil(
+        t,
+        f,
+        () => find
+            .byKey(const ValueKey('incoming-target-cb'))
+            .evaluate()
+            .isNotEmpty,
+        what: 'the destination row',
+      );
       await t.tap(find.byKey(const ValueKey('incoming-target-cb')));
       await t.pump();
       await t.tap(find.byKey(const Key('incoming-share-continue')));
-      for (
-        var i = 0;
-        i < 8 && find.byType(IncomingSharePicker).evaluate().isNotEmpty;
-        i++
-      ) {
-        await f.flush(t);
-      }
+      await flushUntil(
+        t,
+        f,
+        () => !pickerOpen(),
+        what: 'the hand-off to finish',
+      );
       expect(find.byType(IncomingSharePicker), findsNothing);
       final w = t.widget<WorkspaceView>(find.byType(WorkspaceView)).controller;
       expect(w.server?.id, 'b');
@@ -167,15 +196,14 @@ void main() {
       w.removeUpload(w.uploads().single);
       await f.flush(t);
       expect(w.uploads(), isEmpty);
-      List<FileSystemEntity> remaining = [];
-      for (var i = 0; i < 20; i++) {
-        await f.flush(t);
-        remaining = (await t.runAsync(() => directory.list().toList()))!;
-        if (remaining.isEmpty) break;
-      }
-      expect(remaining, isEmpty);
+      await flushUntil(
+        t,
+        f,
+        () => directory.listSync().isEmpty,
+        what: 'the staged files to be removed',
+      );
+      expect(directory.listSync(), isEmpty);
       await t.pumpWidget(const SizedBox());
-      await t.runAsync(() => directory.delete(recursive: true));
     },
   );
 
@@ -187,9 +215,7 @@ void main() {
           ? 'Continue then Cancel while the copy is slow: nothing is staged and the files are removed'
           : 'Continue while the copy is slow: no request is awaited and the hand-off finishes with the copy',
       (t) async {
-        final directory = (await t.runAsync(
-          () => Directory.systemTemp.createTemp('raft-share-slow-test-'),
-        ))!;
+        final directory = await scratch(t, 'raft-share-slow-test-');
         final gate = Completer<void>();
         final sharing = NativeSharing(
           supported: false,
@@ -219,15 +245,17 @@ void main() {
           'serverId': 'b',
         };
         await f.mount(t, 'elegant', 412);
-        for (
-          var i = 0;
-          i < 4 && find.byType(IncomingSharePicker).evaluate().isEmpty;
-          i++
-        ) {
-          await f.flush(t);
-        }
+        await flushUntil(t, f, pickerOpen, what: 'the shared picker');
         await t.tap(find.text('Beta').last);
-        await f.flush(t);
+        await flushUntil(
+          t,
+          f,
+          () => find
+              .byKey(const ValueKey('incoming-target-cb'))
+              .evaluate()
+              .isNotEmpty,
+          what: 'the destination row',
+        );
         await t.tap(find.byKey(const ValueKey('incoming-target-cb')));
         await t.pump();
         final before = f.adapter.calls.length;
@@ -247,32 +275,27 @@ void main() {
         expect(find.byType(WorkspaceView, skipOffstage: false), findsNothing);
         if (cancel) {
           await t.tap(find.text('Cancel'));
-          for (var i = 0; i < 6; i++) {
-            await f.flush(t);
-          }
+          await flushUntil(t, f, () => !pickerOpen(), what: 'Cancel to close');
           gate.complete();
-          for (var i = 0; i < 6; i++) {
-            await f.flush(t);
-          }
+          await f.flush(t);
           expect(find.byType(IncomingSharePicker), findsNothing);
           // Cancelled before the copy ended: the workspace never switched.
           expect(find.byType(WorkspaceView, skipOffstage: false), findsNothing);
-          List<FileSystemEntity> remaining = [];
-          for (var i = 0; i < 20; i++) {
-            await f.flush(t);
-            remaining = (await t.runAsync(() => directory.list().toList()))!;
-            if (remaining.isEmpty) break;
-          }
-          expect(remaining, isEmpty);
+          await flushUntil(
+            t,
+            f,
+            () => directory.listSync().isEmpty,
+            what: 'the staged files to be removed',
+          );
+          expect(directory.listSync(), isEmpty);
         } else {
           gate.complete();
-          for (
-            var i = 0;
-            i < 10 && find.byType(IncomingSharePicker).evaluate().isNotEmpty;
-            i++
-          ) {
-            await f.flush(t);
-          }
+          await flushUntil(
+            t,
+            f,
+            () => !pickerOpen(),
+            what: 'the hand-off to finish',
+          );
           expect(find.byType(IncomingSharePicker), findsNothing);
           final w = t
               .widget<WorkspaceView>(find.byType(WorkspaceView))
@@ -282,7 +305,6 @@ void main() {
           expect(find.text('photo.jpg'), findsOneWidget);
         }
         await t.pumpWidget(const SizedBox());
-        await t.runAsync(() => directory.delete(recursive: true));
       },
     );
   }
