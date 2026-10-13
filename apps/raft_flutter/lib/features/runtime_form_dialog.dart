@@ -17,11 +17,8 @@ String runtimeFormLoadErrorText(Object error) {
   final code = error is RaftApiException ? error.details['code'] : null;
   logUserError(error, where: 'runtime form definition');
   return switch (code) {
-    'builtin_catalog_capability_required' =>
-      'This Computer is too old to verify Built-in models. Your saved selection is preserved; update Raft Computer before changing it.',
-    'builtin_catalog_unavailable' ||
-    'builtin_catalog_stale' =>
-      'Built-in models cannot be verified right now. Your saved selection is preserved; reconnect this Computer and retry.',
+    'builtin_catalog_capability_required' => 'This Computer is too old to verify Built-in models. Your saved selection is preserved; update Raft Computer before changing it.',
+    'builtin_catalog_unavailable' || 'builtin_catalog_stale' => 'Built-in models cannot be verified right now. Your saved selection is preserved; reconnect this Computer and retry.',
     _ => 'Runtime configuration is unavailable. Refresh and try again.',
   };
 }
@@ -96,7 +93,12 @@ class RuntimeFormController extends ChangeNotifier {
     if (!disposed) notifyListeners();
   }
 
-  Future<Map<String, dynamic>> source(String id, {bool refresh = false}) async {
+  Future<Map<String, dynamic>> source(
+    String id, {
+    bool refresh = false,
+    RuntimeForm? form,
+  }) async {
+    final owner = (form ?? definition)!;
     try {
       return Map<String, dynamic>.from(
         await w.query(
@@ -105,9 +107,9 @@ class RuntimeFormController extends ChangeNotifier {
         ),
       );
     } catch (_) {
-      if (!definition!.capabilities.contains('option_source.status')) rethrow;
+      if (!owner.capabilities.contains('option_source.status')) rethrow;
       return {
-        ...definition!.sourceRefs[id]!,
+        ...owner.sourceRefs[id]!,
         'status': 'unavailable',
         'retryable': true,
         'options': [],
@@ -131,35 +133,42 @@ class RuntimeFormController extends ChangeNotifier {
           'This runtime form needs a newer client. It cannot be edited safely.',
         );
       }
-      definition = form;
       final layout = raw is Map && raw['uiSchema'] is Map
           ? (raw['uiSchema'] as Map)['layout']
           : null;
-      advanced = {
+      final nextAdvanced = {
         if (layout is Map && layout['advanced'] is List)
           for (final p in layout['advanced'] as List)
             if (p is String && p.startsWith('/')) p.substring(1),
       };
       final loaded = await Future.wait([
-        for (final id in form.sourceRefs.keys) source(id),
+        for (final id in form.sourceRefs.keys) source(id, form: form),
       ]);
       if (disposed || !valid()) return;
-      sources = Map.fromIterables(form.sourceRefs.keys, loaded);
-      values = form.initial(sources);
+      // Publish the definition only together with its sources, values and
+      // editors: the fields render whenever `definition` is set, and any
+      // rebuild in between (the dialog's entrance animation ticks every
+      // frame while option sources load) would find no editor for a field.
+      final nextSources = Map.fromIterables(form.sourceRefs.keys, loaded);
+      var nextValues = form.initial(nextSources);
       for (final entry in seed.entries) {
         final f = form.fields.where((f) => f.key == entry.key).firstOrNull;
         if (f != null) {
-          values = form.change(sources, values, f.key, entry.value);
+          nextValues = form.change(nextSources, nextValues, f.key, entry.value);
         }
       }
       for (final f in form.fields) {
         if (!['boolean', 'unsupported'].contains(f.kind)) {
           editors[f.key]?.dispose();
           editors[f.key] = TextEditingController(
-            text: valueText(f, values[f.key]),
+            text: valueText(f, nextValues[f.key]),
           );
         }
       }
+      definition = form;
+      advanced = nextAdvanced;
+      sources = nextSources;
+      values = nextValues;
       initialValues = jsonDecode(jsonEncode(values)) as Map<String, dynamic>;
       loading = false;
       _notify();
@@ -611,7 +620,11 @@ class _RuntimeFormDialogState extends State<RuntimeFormDialog> {
             : 'Failed to create agent';
         setState(() {
           form.serverErrors = runtimeFormIssueErrors(e, fallback: fallback);
-          error = userErrorText(e, fallback: fallback, where: 'agent runtime form');
+          error = userErrorText(
+            e,
+            fallback: fallback,
+            where: 'agent runtime form',
+          );
         });
       }
     } finally {
