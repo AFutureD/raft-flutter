@@ -8,6 +8,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftHotImages, RaftImageBytes;
 
+/// Wraps the codecs `PaintingBinding.instantiateImageCodecWithSize` hands to
+/// every `ImageProvider` (Image widgets, `precacheImage`, `MemoryImage` ...).
+///
+/// Flutter's `MultiFrameImageStreamCompleter` disposes its codec when the last
+/// listener goes away; a `getNextFrame()` still in flight then completes into a
+/// completer that returns without disposing the frame (`_codec == null`), so a
+/// widget removed while its image decodes leaks one `ui.Image`. Whether the
+/// decode lands before or after the removal depends on machine load, which made
+/// the leak report flaky (and it was attributed to whichever test was running
+/// when the frame arrived). A frame that arrives after the codec was disposed
+/// has no owner, so the wrapper disposes it.
+class OwnedFrameCodec implements ui.Codec {
+  /// [inner] is the codec the engine produced (a fake in the unit test).
+  OwnedFrameCodec(ui.Codec inner) : _inner = inner;
+  final ui.Codec _inner;
+  bool _disposed = false;
+
+  @override
+  int get frameCount => _inner.frameCount;
+
+  @override
+  int get repetitionCount => _inner.repetitionCount;
+
+  @override
+  Future<ui.FrameInfo> getNextFrame() async {
+    final frame = await _inner.getNextFrame();
+    if (_disposed) frame.image.dispose();
+    return frame;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _inner.dispose();
+  }
+}
+
 /// The binding every test in this directory runs on.
 ///
 /// `flutter_test` hands `package:test` an explicit 10 minute timeout for each
@@ -37,6 +74,14 @@ class RaftTestBinding extends AutomatedTestWidgetsFlutterBinding {
 
   @override
   bool get disableShadows => !_visibleShadows;
+
+  @override
+  Future<ui.Codec> instantiateImageCodecWithSize(
+    ui.ImmutableBuffer buffer, {
+    ui.TargetImageSizeCallback? getTargetSize,
+  }) async => OwnedFrameCodec(
+    await super.instantiateImageCodecWithSize(buffer, getTargetSize: getTargetSize),
+  );
 
   @override
   ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() =>

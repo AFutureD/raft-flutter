@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,7 @@ import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/features/media_image_page.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import 'flutter_test_config.dart' show OwnedFrameCodec;
 import 'workspace_shell_contract_test.dart' show mountShell, retire;
 import 'workspace_source_location_contract_test.dart' show pageFixture;
 
@@ -45,6 +47,19 @@ AttachmentImageRepository _repository() => AttachmentImageRepository(
     release: () async {},
   ),
 );
+
+class _FakeCodec implements ui.Codec {
+  _FakeCodec(this._next);
+  final Future<ui.FrameInfo> _next;
+  @override
+  int get frameCount => 1;
+  @override
+  int get repetitionCount => 0;
+  @override
+  Future<ui.FrameInfo> getNextFrame() => _next;
+  @override
+  void dispose() {}
+}
 
 void main() {
   test('the app leak ignore list never hides what these tests guard', () {
@@ -209,5 +224,27 @@ void main() {
     expect(state.decoded, const Size(16, 16), reason: 'the listener ran');
     await t.pumpWidget(const SizedBox());
     imageCache.clear();
+  });
+
+  test('a frame that lands after its codec was disposed is disposed', () async {
+    // The shape of Flutter's MultiFrameImageStreamCompleter leak: the last
+    // listener leaves (the codec is disposed) while getNextFrame is in flight.
+    final real = await ui.instantiateImageCodec(_png);
+    final late = Completer<ui.FrameInfo>();
+    final codec = OwnedFrameCodec(_FakeCodec(late.future));
+    final pending = codec.getNextFrame();
+    codec.dispose();
+    final frame = await real.getNextFrame();
+    late.complete(frame);
+    final delivered = await pending;
+    expect(delivered.image.debugDisposed, isTrue);
+    // A frame that lands while the codec is alive belongs to its caller.
+    final other = await ui.instantiateImageCodec(_png);
+    final alive = OwnedFrameCodec(_FakeCodec(other.getNextFrame()));
+    final kept = await alive.getNextFrame();
+    expect(kept.image.debugDisposed, isFalse);
+    kept.image.dispose();
+    other.dispose();
+    real.dispose();
   });
 }
