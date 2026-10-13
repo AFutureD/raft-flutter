@@ -244,6 +244,19 @@ class MainActivity : FlutterActivity() {
             )
         }
         ViewCompat.requestApplyInsets(window.decorView)
+        disableNativeFocusHighlight(window.decorView)
+    }
+
+    // After any keyboard key event (hardware or an IME's Enter / Backspace) Android
+    // draws its own focus ring around the focused FlutterView and keeps it through
+    // later touches, like a stuck desktop focus state. Flutter paints its own focus
+    // highlights (FocusManager.highlightMode follows touch vs key input), so the
+    // platform ring is never wanted.
+    private fun disableNativeFocusHighlight(view: android.view.View) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) view.defaultFocusHighlightEnabled = false
+        if (view is android.view.ViewGroup) {
+            for (i in 0 until view.childCount) disableNativeFocusHighlight(view.getChildAt(i))
+        }
     }
 
     private var imeAnimationObserved = false
