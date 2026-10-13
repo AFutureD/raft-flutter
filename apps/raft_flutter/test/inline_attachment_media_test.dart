@@ -6,10 +6,12 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
+import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'attachment_thumbnail_restart_test.dart' show CountingFiles, png;
 import 'message_presentation_test.dart' show MessageAdapter, fixture;
 import 'flutter_test_config.dart' show leakDebt;
 
@@ -327,6 +329,7 @@ void main() {
       VoidCallback? onOpenPreview,
       bool refuse = false,
       bool frame = true,
+      AttachmentFiles? files,
     }) async {
       tester.view.physicalSize = const Size(600, 500);
       tester.view.devicePixelRatio = 1;
@@ -348,12 +351,16 @@ void main() {
               pending: false,
               onOpenPreview: onOpenPreview,
               playerFactory: () => player,
+              files: files,
             ),
           ),
         ),
       );
       for (var i = 0; i < 8; i++) {
         await tester.pump(const Duration(milliseconds: 50));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 5)),
+        );
       }
       return player;
     }
@@ -502,17 +509,22 @@ void main() {
     testWidgets('the server thumbnail is the poster until the first frame', (
       tester,
     ) async {
+      final bytes = (await tester.runAsync(() => png(320, 180)))!;
+      final files = CountingFiles(bytes);
       final player = await mountVideo(
         tester,
         frame: false,
         metadata: {...meta, 'thumbnailUrl': 'https://cdn.invalid/t.webp'},
+        files: files,
       );
-      // Decoded at display size (RaftSizedImage) under the transparent video.
-      expect(find.byType(RaftSizedImage), findsOneWidget);
+      // Fetched through the attachment repository, decoded at the card's size,
+      // under the transparent video.
+      expect(files.urls, ['https://cdn.invalid/t.webp']);
+      expect(find.byType(Image), findsOneWidget);
       player.frame = true;
       player.events.add(player.state);
       await tester.pump(const Duration(milliseconds: 50));
-      expect(find.byType(RaftSizedImage), findsNothing);
+      expect(find.byType(Image), findsNothing);
       await unmount(tester);
     });
 

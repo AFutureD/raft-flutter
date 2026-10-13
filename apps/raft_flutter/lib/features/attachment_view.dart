@@ -880,6 +880,7 @@ class _AttachmentViewState extends State<AttachmentView> {
       return InlineVideoAttachment(
         key: ValueKey('inline-video-${widget.metadata['id']}'),
         controller: w,
+        files: files,
         metadata: widget.metadata,
         channelId: ownerChannel,
         authorized: () => authorized,

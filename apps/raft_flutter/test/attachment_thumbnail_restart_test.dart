@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -13,8 +12,9 @@ import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-class _Client extends RaftClient {
-  _Client()
+/// Counts the signed-URL resolutions (an original being fetched).
+class CountingClient extends RaftClient {
+  CountingClient()
     : super(
         origin: 'https://example.invalid',
         sessionStore: MemorySessionStore(),
@@ -30,8 +30,9 @@ class _Client extends RaftClient {
   Future<dynamic> post(String path, {dynamic data}) async => {'urls': []};
 }
 
-class _Files extends AttachmentFiles {
-  _Files(this.bytes);
+/// Serves [bytes] for every image URL and records the URLs.
+class CountingFiles extends AttachmentFiles {
+  CountingFiles(this.bytes);
   final Uint8List bytes;
   final urls = <String>[];
   @override
@@ -68,11 +69,12 @@ const base = <String, dynamic>{
   'height': 1200,
 };
 
-(_Client, WorkspaceController) workspace(
+/// A controller on [store] whose channel holds one message with [metadata].
+(CountingClient, WorkspaceController) workspace(
   AttachmentImageByteStore store,
   Map<String, dynamic> metadata,
 ) {
-  final client = _Client()..user = RaftRecord({'id': 'alice'});
+  final client = CountingClient()..user = RaftRecord({'id': 'alice'});
   client.selectServer('server');
   final w = WorkspaceController(client, attachmentImageStore: store)
     ..server = RaftRecord({'id': 'server', 'role': 'owner'})
@@ -140,7 +142,7 @@ void main() {
         AttachmentDiskCache(root),
         withThumbnail,
       );
-      final firstFiles = _Files(thumbnail);
+      final firstFiles = CountingFiles(thumbnail);
       await tester.pumpWidget(view(first, firstFiles, withThumbnail));
       await waitPreview(tester);
       expect(firstFiles.urls, [thumbnailUrl]);
@@ -164,7 +166,7 @@ void main() {
 
       // Second launch: the same message restored without the URL.
       final (client, w) = workspace(AttachmentDiskCache(root), base);
-      final files = _Files(thumbnail);
+      final files = CountingFiles(thumbnail);
       await tester.pumpWidget(view(w, files, base));
       await waitPreview(tester);
       expect(files.urls, isEmpty, reason: 'the stored thumbnail serves it');

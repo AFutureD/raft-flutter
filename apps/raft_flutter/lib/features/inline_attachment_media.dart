@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/attachment_image_repository.dart';
 import '../data/workspace_controller.dart';
+import '../platform/attachment_files.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_player_factory.dart';
 import '../platform/attachment_player_sessions.dart';
 import '../platform/attachment_stream.dart';
 import '../platform/media_failure.dart';
+import 'attachment_image_loader.dart';
 import 'media_failure_text.dart';
 
 /// Seams for suites that mount the real message rows without a decoder (the
@@ -426,11 +429,15 @@ class InlineVideoAttachment extends StatefulWidget {
     this.onDownload,
     this.onNetworkSettings,
     this.playerFactory,
+    this.files,
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
   final String? channelId;
   final bool Function() authorized;
+
+  /// Fetches the poster (the server thumbnail); the shared client by default.
+  final AttachmentFiles? files;
 
   /// An optimistic (still uploading) attachment: no URL yet, spinner shown.
   final bool pending;
@@ -486,11 +493,78 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   @override
   bool get transparentVideo => true;
 
-  /// Server-rendered poster (`thumbnailUrl`), when the server provides one;
-  /// otherwise the first decoded frame is the poster.
-  String? get posterUrl {
-    final value = metadata['thumbnailUrl'];
-    return value is String && value.isNotEmpty ? value : null;
+  AttachmentFiles? _ownFiles;
+  AttachmentFiles get files =>
+      widget.files ?? (_ownFiles ??= AttachmentFiles());
+
+  /// The poster is the attachment's `thumbnail` rendition, loaded like an image
+  /// card's: persisted per account and counted in Settings > Storage, decoded
+  /// at the card's size, kept across rebuilds. Without a server thumbnail the
+  /// first decoded frame is the poster.
+  WorkspaceAttachmentImageLease? posterLease;
+  ImageProvider? posterImage;
+
+  /// The card never grows past this logical box (16:9, `maxWidth` 448).
+  static const posterBox = Size(448, 252);
+
+  /// Binds the poster to the current metadata. A message restored without its
+  /// `thumbnailUrl` still finds a poster already on disk (nothing to fetch it
+  /// from, and nothing fetched twice).
+  void syncPoster() {
+    final id = metadata['id'];
+    if (id is! String || pending) return;
+    final key = AttachmentImageKey.fromMetadata(
+      scope: controller.attachmentImageScope,
+      channelId: channelId ?? '${metadata['channelId'] ?? ''}',
+      metadata: metadata,
+      rendition: 'thumbnail',
+      target: AttachmentDecodeTarget.box(
+        posterBox.width,
+        posterBox.height,
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      ),
+    );
+    if (posterLease?.lease.key == key) return;
+    releasePoster();
+    final url = attachmentThumbnailUrl(metadata);
+    try {
+      final lease = controller.acquireAttachmentImage(
+        key,
+        authorized: () => current,
+        bestAvailable: true,
+        // Only the thumbnail: never the (video) original, whatever the
+        // status; no poster is a normal outcome.
+        load: (cancel) async {
+          if (url == null) throw const StaleAttachmentImage();
+          return await files.image(url, cancel: cancel);
+        },
+      );
+      posterLease = lease;
+      posterImage = lease.lease.value;
+      if (posterImage == null) {
+        unawaited(
+          lease.lease.ready.then<void>((provider) {
+            if (mounted && identical(posterLease, lease)) {
+              setState(() => posterImage = provider);
+            }
+          }, onError: (Object _) {}),
+        );
+      }
+    } catch (_) {
+      posterLease = null;
+    }
+  }
+
+  void releasePoster() {
+    posterLease?.release();
+    posterLease = null;
+    posterImage = null;
+  }
+
+  @override
+  void didUpdateWidget(InlineVideoAttachment oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    syncPoster();
   }
 
   @override
@@ -608,6 +682,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    syncPoster();
     watchViewport();
     // A route or tab hidden behind another one stops its video and, after a
     // grace period, frees its player.
@@ -637,6 +712,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    releasePoster();
     unwatchViewport();
     if (active == this) active = null;
     super.dispose();
@@ -648,7 +724,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
 
   @override
   Widget build(BuildContext context) {
-    final poster = posterUrl;
+    final poster = posterImage;
     return RaftTooltip(
       message: filename,
       child: RaftInlineVideo(
@@ -664,8 +740,9 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
             ? RawImage(image: still, fit: BoxFit.contain)
             : poster == null
             ? null
-            : RaftSizedImage.network(
-                poster,
+            // ignore: raft_lints/avoid_raw_image_decode -- The provider comes from an AttachmentImageRepository lease: already decoded at the card's size and owned by the repository.
+            : Image(
+                image: poster,
                 fit: BoxFit.contain,
                 gaplessPlayback: true,
                 excludeFromSemantics: true,
