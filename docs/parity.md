@@ -1302,8 +1302,8 @@ phone content column therefore starts at x = 0 and the Drawer Back sits at
 phone captures contain that line differ from Web by that 1-2px vertical line by
 design: the 6 official + 22 ext phone Settings sub-page cases, the 13 channel /
 DM settings drawer cases, the members page and the phone task detail; the
-owner decision overrides the Web analysis (this reverses the phone half of
-`docs/alignment-audit.md` fixes 1-4; their desktop halves stay).
+owner decision overrides the Web analysis (this reverses the phone half of the
+earlier alignment-audit fixes 1-4; their desktop halves stay).
 `packages/raft_ui/test/phone_no_left_border_test.dart` pins the absence on
 phone and the presence on desktop.
 
@@ -1392,6 +1392,7 @@ which rounds single-channel 1-level differences to 0. Per-channel max delta
 
 ## Known harness limitations
 
+* A Flutter fixture must use the same input device as the Source provider: the React provider clicks with a mouse and leaves the pointer over the control, so hover transforms and hover-only overlays (e.g. the Agent overflow menu anchoring) are only reproduced by a mouse click that keeps hover until capture, not by a touch tap.
 * React baseline fonts deviate from the official spec on purpose (production
   Google Fonts, see "Baseline fonts").
 * Flutter captures are host `flutter test` rasters (software Skia, Linux), not

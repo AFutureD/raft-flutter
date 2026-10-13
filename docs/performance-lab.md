@@ -188,7 +188,7 @@ profile App includes `integration_test` and the normal release excludes it.
 | `section-cycle` | Mobile opt-in: Chat → Tasks → Files → Tasks → Chat twice, checking accepted sections. | transitions |
 | `mount-<kind>` | One channel per row kind with 120 rows of that kind. Jumps 0.9 viewport per step. Per-row cost = UI time of the mounting frame ÷ rows mounted in it. Kinds: plain, markdown, code, image, attachments, reactions, thread-summary, task. | mount |
 
-Mobile section scenarios require explicit selection and a mobile viewport. They warm 600 task-tagged messages, 600 tasks and 240 PNG files, asserting visible tags, actual cards and decoded thumbnails before timing. They are not included implicitly in desktop runs. Compile scenario/theme defines into the isolated APK; changing runner options does not override defines baked into a prebuilt artifact. See [section investigation](section-swipe-investigation.md) for measurements and limitations.
+Mobile section scenarios require explicit selection and a mobile viewport. They warm 600 task-tagged messages, 600 tasks and 240 PNG files, asserting visible tags, actual cards and decoded thumbnails before timing. They are not included implicitly in desktop runs. Compile scenario/theme defines into the isolated APK; changing runner options does not override defines baked into a prebuilt artifact.
 
 For read-only native evidence, start this watcher against a new output directory **before** the runner:
 

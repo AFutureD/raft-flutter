@@ -1,6 +1,6 @@
 // Startup restore: only "no stored credentials" and a definitive rejection show
 // the login form. Everything else keeps the stored credentials and shows a
-// recovery state with retry (docs/logout-audit.md).
+// recovery state with retry (docs/architecture.md, "登出策略").
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';

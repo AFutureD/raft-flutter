@@ -51,7 +51,7 @@ tool/alignment-audit.py overlays --out DIR     # overlays of every flagged case
 tool/alignment-audit.py selftest
 ```
 
-`--root` is a parity output directory. Results go to `--out` (default `.local/alignment/audit`) and never into the root. An offset within 0.75 CSS px counts as aligned; up to 12 px is reported as an offset; beyond that is a layout difference. A near-miss pass flags mixed insets and tells you whether the Web page has them too. Method, results and the open list: [alignment audit](alignment-audit.md).
+`--root` is a parity output directory. Results go to `--out` (default `.local/alignment/audit`) and never into the root. An offset within 0.75 CSS px counts as aligned; up to 12 px is reported as an offset; beyond that is a layout difference. A near-miss pass flags mixed insets and tells you whether the Web page has them too.
 
 ## Where reports land
 

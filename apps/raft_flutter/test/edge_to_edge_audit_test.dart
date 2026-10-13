@@ -1,4 +1,4 @@
-// Edge-to-edge regression suite (docs/edge-to-edge-audit.md). It renders real
+// Edge-to-edge regression suite (docs/architecture.md, "Android 边到边"). It renders real
 // mobile routes on a simulated Android phone whose system navigation bar is
 // transparent (edge-to-edge), tints the bar region in the PNGs, and asserts:
 //  * no opaque strip under the bar (no colour step at the bar line, uniform

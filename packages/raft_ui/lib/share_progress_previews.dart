@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'raft_ui.dart';
 
 /// The three ways the incoming-share page can show a copy that is still
-/// running (docs/share-progress.md). Previews and the widget tests render real
+/// running (docs/parity.md). Previews and the widget tests render real
 /// raft_ui widgets; no API, files or platform channel.
 enum RaftShareWaitOption {
   /// A: Continue turns into a progress block (bar, bytes, Cancel).

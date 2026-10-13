@@ -1,5 +1,5 @@
 // Debug/profile-only entrypoint for the incoming-share timing and QA pass
-// (docs/share-progress.md). The production RaftApp with the real NativeSharing
+// (docs/parity.md). The production RaftApp with the real NativeSharing
 // (receive_intent + NativeSharingBridge copy) on a fixture API whose latency
 // is adjustable. Real Android SEND intents drive it; a loopback control server
 // (adb forward tcp:8791 tcp:8791) reports a timeline and taps real pointers.

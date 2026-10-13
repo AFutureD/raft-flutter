@@ -154,7 +154,7 @@ void main() {
 
   // The server never answers 403 on /auth/me (a retired account or revoked
   // session is `401 {"error":...}`), so a 403 is a proxy or WAF and says
-  // nothing about the credentials: keep them (docs/logout-audit.md).
+  // nothing about the credentials: keep them (docs/architecture.md, "登出策略").
   test(
     'cached-first restore preserves credentials on forbidden validation',
     () async {

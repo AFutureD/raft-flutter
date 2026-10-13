@@ -1,4 +1,4 @@
-// What signs the account out, and what must not (docs/logout-audit.md).
+// What signs the account out, and what must not (docs/architecture.md, "登出策略").
 //
 // The rule under test: the stored session ends only when the server says
 // definitively that the credentials are dead (401 with the server's JSON error

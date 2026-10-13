@@ -7465,7 +7465,7 @@
    "status": "covered",
    "webEntry": "MobileComputersPanel",
    "gate": "none",
-   "flutterEntry": "mobile-computer-page.md; fleet_views.dart computers list",
+   "flutterEntry": "fleet_views.dart computers list",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
@@ -15441,7 +15441,7 @@
    "status": "missing",
    "webEntry": "App.tsx route /community/chinese -> pages/ChineseCommunityPage.tsx; LeftRail.tsx openCommunity -> shouldShowChineseCommunityEntry (utils/communityServers.ts)",
    "gate": "Browser language starts with zh",
-   "flutterEntry": "Flutter Help menu 'Join Community' joins the default community server only (community_join.dart); no QR page, no community-cn branch; recorded in docs/workspace-shell-contract.md (K08 'Chinese discovery page' not implemented)",
+   "flutterEntry": "Flutter Help menu 'Join Community' joins the default community server only (community_join.dart); no QR page, no community-cn branch (K08 'Chinese discovery page' not implemented)",
    "justification": "",
    "impact": "Chinese-language users using the community entry; one-off, but it is the primary Chinese support channel.",
    "size": "S",

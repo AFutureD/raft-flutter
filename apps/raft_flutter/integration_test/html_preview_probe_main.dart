@@ -2,7 +2,7 @@
 // (the route every chat/Activity/Search/Files HTML attachment uses) against a
 // local fake server that serves /api/attachments/:id/html-preview-url and the
 // sandboxed /html-preview document with the real server's headers. No login
-// data, no app shell. See docs/html-preview.md.
+// data, no app shell. See docs/html-preview-evidence.md.
 //
 //   python3 <fake_server.py> 18951 file.html server.log
 //   tool/flutter run -d linux -t integration_test/html_preview_probe_main.dart \

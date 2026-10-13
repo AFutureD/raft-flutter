@@ -106,6 +106,6 @@ macOS AppIcon 已替换 Flutter 默认图标，使用 Android 前景与设计系
 
 版本号与当前进程用于辨认已安装的 App，不据此推断其源码等于仓库最新提交，也不据此证明 profile 当前仍具备续签条件。签名身份、team、profile、账号或凭据不进入公开文档。
 
-[Activity 原生 profile 对比](activity-preview-performance.md) 使用独立测试包及合成缓存：修正前 C 方案的热缓存首帧 raster 中位数从 233.105ms 降到 13.582ms；后续同条目双击修正没有重跑这组原生对比。它证明特定等待的移除，不认证正式 App 的网络延迟或稳定 120fps。[性能覆盖审计](mac-performance-coverage.md) 记录更广的检查范围与缺口。
+[Activity 原生 profile 对比](activity-preview-performance.md) 使用独立测试包及合成缓存：修正前 C 方案的热缓存首帧 raster 中位数从 233.105ms 降到 13.582ms；后续同条目双击修正没有重跑这组原生对比。它证明特定等待的移除，不认证正式 App 的网络延迟或稳定 120fps。
 
 仍需原生验收：通知权限/横幅/点击，OAuth 与局域网权限，系统文件面板与上传下载，冷启/热启内容链接，真实媒体播放，中文/日文 IME、VoiceOver 和完整生命周期。已有源代码、模拟插件回归或其他平台的通过结果不能代替这些检查。正式退出登录与钥匙串清理也不由会话迁移/重开确认推导为通过。

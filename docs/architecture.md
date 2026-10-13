@@ -143,7 +143,7 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 
 ## 移动导航呈现（2026-10-10）
 
-窄屏工作区由 `MobileWorkspacePages` 将既有 `WorkspaceNavigation` 历史投影为平台 `MaterialPage`，不建立第二份业务导航权威。历史页面保留实际 widget 子树及借用的呈现 controller，共享工作区已接受的数据；不再保存路由截图，并明确关闭路由快照。账号、服务器或权限范围变化会撤销旧页面。Tab 根页面与减少动态效果直接切换，层级页面采用 Flutter 平台默认进入、返回和返回手势。宽屏继续直接投影分栏内容。导航与后台数据更新的性能证据及剩余问题见 [移动路由性能调查](mobile-route-performance-investigation.md)。
+窄屏工作区由 `MobileWorkspacePages` 将既有 `WorkspaceNavigation` 历史投影为平台 `MaterialPage`，不建立第二份业务导航权威。历史页面保留实际 widget 子树及借用的呈现 controller，共享工作区已接受的数据；不再保存路由截图，并明确关闭路由快照。账号、服务器或权限范围变化会撤销旧页面。Tab 根页面与减少动态效果直接切换，层级页面采用 Flutter 平台默认进入、返回和返回手势。宽屏继续直接投影分栏内容。
 
 移动任务槽现在拥有独立 MaterialPage，桌面继续使用 modal / docked 呈现。频道设置与成员通过客户端 `channelPage=settings:<channelId>|members:<channelId>` 槽投影为页面；底层频道、消息串与任务 URI 合同仍保留。冷链接先补入底层目的地，系统返回与顶部返回消费同一份业务历史；页面身份与进入实例分离，退出动画中的旧实例不会与快速重入的新实例共享帧 key。宽窄切换保留活动子树和任务 owner；呈现实例只由既有业务历史派生，不维护额外业务位置。隐藏的工作区保留草稿与列表状态，排除焦点、语义并暂停动画。
 
@@ -162,3 +162,9 @@ NativeContentCoordinator 为 macOS 绑定 DesktopInboxNotifications，直接消�
 ### Windows 通知平台补充（2026-10-11）
 
 Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNotifications／原生宿主提供稳定身份、官方 Windows App SDK 投递、ToastNotifier.Setting 及窗口恢复；业务授权与导航仍在 NativeContentCoordinator。系统权限在每次投递时重新读取，桌面不保存私有 opt-in。ETW 确认本机在显示前拒绝默认 foreground 激活（0x80070032），官方 SDK 的 protocol 对照已由用户确认在通知中心显示。因此产品使用 raft-notification 协议：暖点击转交同 exe 的现有窗口，冷点击经参数启动后等待回调初始化，仍保留全部账户／授权检查。主应用设置按钮发送已确认显示；本机另经用户授权登记机器级 Raft 协议后，用户确认品牌图标和暖点击返回正常。冷点击仍待实测，不以接口接受、历史、fixture 或旧 COM 探针代替。当前 x64 bundle 需要 Windows App Runtime 1.7。具体矩阵、独立身份和边界见 [Windows 通知](windows-notifications.md)。
+
+## 稳定规则（原审计文档的结论）
+
+- **登出策略。** 会话只在服务器明确判定凭据无效时结束：`/auth/refresh`，或刷新成功后的 `/auth/me`，返回带服务器 JSON 错误体的 401。无 JSON 体的 401、任何 403、400/404/408/429/5xx、超时、连接错误、无法解析的 200 一律保留会话与凭据，显示非破坏性状态并退避重试；启动恢复失败（不是“没有已存凭据”）显示恢复页，不显示登录表单。实现在 `packages/raft_client/lib/src/session_policy.dart`，由 `logout_policy_test.dart` 固定。
+- **Android 边到边。** 背景绘制到系统栏下方，页面自己拥有底部内容边界：滚动页用 `raftScrollPadding`，底部栏用 `RaftBottomInsetSurface`，锚定菜单和弹层按所属 overlay 的 metrics 放置并限高；不加通用 SafeArea，嵌套滚动不重复加。回归在 `edge_to_edge_audit_test.dart`。
+- **保留但不活动的页面。** 用回调内部守卫排除输入、焦点和语义，不要传 `null` 回调：`null` 会套用控件的禁用透明度（0.6），页面滑动时表现为颜色闪变。

@@ -6,7 +6,7 @@ import 'package:raft_ui/share_progress_previews.dart' as progress;
 @RaftPreviews('Incoming share targets', size: Size(390, 844))
 Widget incomingShareTargetsPreview() => sharing.incomingShareTargetsPreview();
 
-// Waiting for the copy of the shared files (docs/share-progress.md): the
+// Waiting for the copy of the shared files (docs/parity.md): the
 // recommended option B, Continue pressed early, and a file that cannot be added.
 @RaftPreviews('Incoming share copying', size: Size(390, 700))
 Widget incomingShareCopyingPreview() => progress.incomingShareWaitPreview(
