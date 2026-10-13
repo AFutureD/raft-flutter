@@ -520,7 +520,7 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
           options: [
             for (final m in models ?? const <Map<String, dynamic>>[])
               RaftAgentSelectOption(
-                m['id'] as String,
+                '${m['id'] ?? ''}',
                 '${m['label'] ?? m['id']}',
               ),
           ],

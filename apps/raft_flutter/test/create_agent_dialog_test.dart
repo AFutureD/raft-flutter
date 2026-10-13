@@ -22,11 +22,15 @@ class _Workspace extends WorkspaceController {
   List<Map<String, dynamic>> machines = [];
   List<String> runtimes = [];
   Map<String, dynamic>? billing;
+  Object? claudeModels;
   final posts = <Map<String, dynamic>>[];
   @override
   Future<dynamic> query(String path, {Map<String, dynamic>? query}) async {
     if (path == '/servers/s/machines') return {'machines': machines};
     if (path == '/billing/subscription' && billing != null) return billing;
+    if (path.endsWith('/runtime-models/claude') && claudeModels != null) {
+      return claudeModels;
+    }
     if (path.endsWith('/runtime-options') && runtimes.isNotEmpty) {
       return {
         'options': [
@@ -147,6 +151,24 @@ void main() {
     await t.tap(find.text('Create Agent'));
     await t.pump();
     expect(w.posts, isEmpty);
+  });
+
+  testWidgets('a live model row without an id does not break the dialog', (
+    t,
+  ) async {
+    w
+      ..machines = [_machine]
+      ..claudeModels = {
+        'kind': 'live',
+        'value': {
+          'models': [
+            {'label': 'Unnamed model'},
+          ],
+        },
+      };
+    await open(t);
+    expect(t.takeException(), isNull);
+    expect(find.text('Unnamed model'), findsOneWidget);
   });
 
   testWidgets('selected runtime submits the v2 form in one dialog', (t) async {
