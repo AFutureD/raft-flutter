@@ -99,4 +99,16 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Notification settings could not be loaded on this device.": "无法在此设备上加载通知设置。",
   "System notification permission could not be checked.": "无法检查系统通知权限。",
   "Notification settings could not be saved on this device.": "无法在此设备上保存通知设置。",
+  // Failed audio / video: the real cause and what to do (Kevin approved 2026-10-13).
+  "Cannot reach the proxy {proxy}. Check Network settings, then try again.":
+      "无法连接代理 {proxy}。请检查网络设置后重试。",
+  "The proxy {proxy} needs a username and password. Check Network settings.":
+      "代理 {proxy} 需要用户名和密码。请检查网络设置。",
+  "Cannot reach the server. Check your connection and try again.":
+      "无法连接服务器。请检查网络连接后重试。",
+  "This link has expired or access was denied. Try again.": "此链接已过期或无权访问。请重试。",
+  "This file is no longer available.": "此文件已不可用。",
+  "This audio may use a codec this app cannot play.": "此音频使用的编解码器可能无法在本应用中播放。",
+  "The media could not be played.": "无法播放该媒体。",
+  "Network settings": "网络设置",
 };

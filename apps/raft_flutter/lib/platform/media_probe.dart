@@ -126,6 +126,7 @@ class MediaDiagnosis {
       socket.destroy();
       return null;
     } on SocketException catch (error) {
+      // ignore: raft_lints/avoid_caught_exception_text -- The OS reason a TCP connect to the proxy failed; it becomes the sanitized cause line of a MediaFailure, which only the journal shows. The user sees one of the fixed media failure messages.
       return error.osError?.message ?? error.message;
     } on TimeoutException {
       return 'connection timed out';
