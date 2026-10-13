@@ -5,9 +5,13 @@ import 'dart:math';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart' show ValueNotifier;
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:crypto/crypto.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'app_window.dart';
+import 'oauth_return_page.dart';
 
 class OAuthHandoff {
   const OAuthHandoff(this.code, this.verifier);
@@ -33,9 +37,20 @@ class NativeOAuthBroker {
     this.links,
     bool? android,
     this.helpDelay = const Duration(seconds: 3),
-  }) : _launch = launch ?? _open,
+    this.locale,
+    Future<void> Function()? presentWindow,
+  }) : _presentWindow = presentWindow ?? presentAppWindow,
+       _launch = launch ?? _open,
        _android = android ?? Platform.isAndroid;
   final Future<void> Function(Uri) _launch;
+
+  /// The app's display locale: the browser's "return to Raft" page is shown in
+  /// it (Chinese for `zh`, otherwise English).
+  final Locale? locale;
+
+  /// Brings the app's window to the front once the browser has handed back the
+  /// result of a desktop sign-in (the browser is in front until then).
+  final Future<void> Function() _presentWindow;
 
   /// How long a desktop sign-in waits for the browser before the page offers
   /// the link (a `launchUrl` that returned true can still open nothing, e.g.
@@ -206,15 +221,14 @@ class NativeOAuthBroker {
     request.response.headers.set('Cache-Control', 'no-store');
     request.response.headers.set('X-Content-Type-Options', 'nosniff');
     if (request.method == 'GET' && request.uri.path == '/auth/done') {
-      final cspNonce = _randomProof();
+      final page = OAuthReturnPage.render(
+        languageCode: locale?.languageCode,
+        error: _callbackError(request.uri),
+      );
       request.response.headers.contentType = ContentType.html;
-      request.response.headers.set(
-        'Content-Security-Policy',
-        "default-src 'none'; script-src 'nonce-$cspNonce'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
-      );
-      request.response.write(
-        '''<!doctype html><html><head><meta charset="utf-8"><title>Return to Raft</title></head><body><h1>Returning to Raft</h1><p id="status">Completing authentication…</p><script nonce="$cspNonce">(async()=>{const q=new URLSearchParams(location.search),h=new URLSearchParams(location.hash.slice(1));const data={state:h.get('state'),provider:q.get('provider'),mode:q.get('mode'),code:q.get('code'),error:q.get('error')};history.replaceState(null,'','/auth/done');try{const response=await fetch('/auth/callback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});document.getElementById('status').textContent=response.ok?'You can close this window and return to Raft.':'Authentication was not accepted. Return to Raft and try again.';}catch(_){document.getElementById('status').textContent='Return to Raft and try again.';}})();</script></body></html>''',
-      );
+      request.response.headers.set('Content-Security-Policy', page.csp);
+      request.response.headers.set('Referrer-Policy', 'no-referrer');
+      request.response.write(page.html);
     } else if (request.method == 'POST' &&
         request.uri.path == '/auth/callback' &&
         (request.headers.value('Origin') == null ||
@@ -245,7 +259,19 @@ class NativeOAuthBroker {
       request.response.statusCode = 404;
     }
     await request.response.close();
-    if (accepted != null) _accept(accepted, mode);
+    if (accepted != null) {
+      _accept(accepted, mode);
+      unawaited(_presentWindow().catchError((Object _) {}));
+    }
+  }
+
+  /// The callback's `error` parameter; a malformed query is just "no error".
+  static String? _callbackError(Uri uri) {
+    try {
+      return uri.queryParameters['error'];
+    } on FormatException {
+      return null;
+    }
   }
 
   void _fail(String message) {

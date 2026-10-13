@@ -98,7 +98,9 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
       return;
     }
     final generation = w.client.generation, scope = authority;
-    final active = NativeOAuthBroker();
+    final active = NativeOAuthBroker(
+      locale: Localizations.maybeLocaleOf(context),
+    );
     broker = active;
     await run(() async {
       try {

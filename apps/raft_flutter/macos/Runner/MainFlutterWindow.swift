@@ -6,6 +6,7 @@ class MainFlutterWindow: NSWindow {
   private var interactionChannel: FlutterMethodChannel?
   private var titleBar: RaftTitleBar?
   private var proxyChannel: FlutterMethodChannel?
+  private var windowChannel: FlutterMethodChannel?
   override func awakeFromNib() {
     // Do not restore an old fullscreen/Space state during background launch.
     isRestorable = false
@@ -26,6 +27,24 @@ class MainFlutterWindow: NSWindow {
     interactionChannel?.setMethodCallHandler { call, result in
       if call.method == "doubleClickInterval" {
         result(NSEvent.doubleClickInterval)
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
+    // A desktop sign-in finishes in the browser; the app raises its own window
+    // when the browser hands the result back.
+    windowChannel = FlutterMethodChannel(
+      name: "app.raft/window",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    windowChannel?.setMethodCallHandler { [weak self] call, result in
+      if call.method == "present" {
+        if let window = self {
+          if window.isMiniaturized { window.deminiaturize(nil) }
+          NSApp.activate(ignoringOtherApps: true)
+          window.makeKeyAndOrderFront(nil)
+        }
+        result(nil)
       } else {
         result(FlutterMethodNotImplemented)
       }

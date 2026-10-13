@@ -39,6 +39,25 @@ const _pendingKevinZh = <String>{
   'Cache cleared.',
   'Calculating…',
   'Cache size: {size}',
+  // Browser page after a desktop social sign-in (lib/platform/oauth_return_page.dart).
+  // It carries its own en/zh table (the page is served as HTML, not drawn
+  // through raftText), so these are tracked here only. Web zh-cn is used where
+  // Web has the string (finishingSignIn, approvedDescription, finishFailed).
+  // Proposed zh, not final: 正在返回 Raft (Web: 正在返回 App) / 请返回 Raft 重试。 /
+  // 登录已取消，或授权被拒绝。 / 这个登录请求已过期。 / 这个登录请求已被使用或已失效。 /
+  // 这个登录链接与 Raft 发起的请求不匹配。 / 该邮箱对应的账户已存在。 / 当前已关闭注册。 /
+  // 登录提供方无法确认你的账户。 / 无法连接到 Raft，它可能已被关闭。 / 无法完成登录。
+  'Returning to Raft',
+  'Return to Raft and try again.',
+  'Sign-in was cancelled, or access was denied.',
+  'This sign-in request has expired.',
+  'This sign-in request was already used or is no longer valid.',
+  "This sign-in link doesn't match the request Raft started.",
+  'An account with this email already exists.',
+  'Registration is currently disabled.',
+  "The sign-in provider couldn't confirm your account.",
+  'Raft could not be reached. It may have been closed.',
+  'Sign-in could not be completed.',
   // channel settings: a stale mounted action is refused (Web has no copy)
   'Channel editing is no longer available.',
   'Channel activity preference is no longer available.',

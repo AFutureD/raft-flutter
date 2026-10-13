@@ -174,7 +174,9 @@ class _AuthState extends State<AuthView> {
           origin: base.text.trim(),
           sessionStore: MemorySessionStore(),
         );
-    final active = widget.oauthBrokerFactory?.call() ?? NativeOAuthBroker();
+    final active =
+        widget.oauthBrokerFactory?.call() ??
+        NativeOAuthBroker(locale: Localizations.maybeLocaleOf(context));
     broker = active;
     void helpChanged() {
       if (mounted) setState(() {});
