@@ -4,6 +4,9 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:image_picker/image_picker.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
+    show ImagePickerPlatform;
 
 class PickedUpload {
   const PickedUpload(this.name, this.bytes);
@@ -44,8 +47,21 @@ const mediaPickerTypeGroups = [
   ),
 ];
 
-/// iOS Photos uses PHPicker without library access or full asset metadata.
-/// Other hosts retain their document picker; the file button always uses it.
+/// image_picker_android opens the legacy `ACTION_GET_CONTENT` document UI
+/// below Android 16 unless asked for the system Photo Picker (backported
+/// through Google Play services). Call once at startup; no-op elsewhere.
+void configureAndroidPhotoPicker({
+  TargetPlatform? platform,
+  ImagePickerPlatform? picker,
+}) {
+  if (!_isAndroid(platform)) return;
+  final instance = picker ?? ImagePickerPlatform.instance;
+  if (instance is ImagePickerAndroid) instance.useAndroidPhotoPicker = true;
+}
+
+/// iOS Photos (PHPicker) and the Android system Photo Picker need no library
+/// or storage permission and no full asset metadata. Desktop keeps its
+/// document picker; the file button always uses it.
 Future<List<XFile>> selectUploads({
   bool mediaOnly = false,
   TargetPlatform? platform,
@@ -61,8 +77,13 @@ Future<List<XFile>> selectUploads({
   );
 }
 
+bool _isAndroid(TargetPlatform? platform) =>
+    !kIsWeb && (platform ?? defaultTargetPlatform) == TargetPlatform.android;
+
 bool _usesPhotos(TargetPlatform? platform) =>
-    !kIsWeb && (platform ?? defaultTargetPlatform) == TargetPlatform.iOS;
+    !kIsWeb &&
+    ((platform ?? defaultTargetPlatform) == TargetPlatform.iOS ||
+        _isAndroid(platform));
 
 Future<XFile?> selectImage({
   required XTypeGroup typeGroup,

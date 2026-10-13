@@ -35,6 +35,7 @@ import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/auth_audit_log.dart';
+import 'platform/file_selection.dart' show configureAndroidPhotoPicker;
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
 import 'platform/launch_theme.dart';
@@ -58,6 +59,7 @@ final raftScreenshotKey = GlobalKey();
 
 Future<void> main([List<String> args = const []]) async {
   RaftWidgetsFlutterBinding.ensureInitialized();
+  configureAndroidPhotoPicker();
   await NativeSystemFonts.instance.initialize();
   await initializeSourceTimeFormatting();
   // First frames read saved layout choices synchronously from this.
