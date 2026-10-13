@@ -331,6 +331,52 @@ void main() {
     }, variant: variant);
 
     testWidgets(
+      'IME commit in the find field keeps the list and reloads once ($platform)',
+      (t) async {
+        final (_, client) = await _activity(t);
+        await _find(t);
+        expect(_focused(t), isTrue);
+        final loads = client.calls
+            .where((c) => c == 'GET:/channels/inbox')
+            .length;
+        // Pinyin: "a", "ab", "abc" compose, then the candidate commits.
+        for (final text in ['a', 'ab', 'abc']) {
+          t.testTextInput.updateEditingValue(
+            TextEditingValue(
+              text: text,
+              selection: TextSelection.collapsed(offset: text.length),
+              composing: TextRange(start: 0, end: text.length),
+            ),
+          );
+          await t.pump(const Duration(milliseconds: 40));
+        }
+        await t.pump(const Duration(milliseconds: 300));
+        t.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'abc',
+            selection: TextSelection.collapsed(offset: 3),
+          ),
+        );
+        await t.pump();
+        // The composition commit is the Search page's rule (it drops its
+        // results and re-queries); Activity find only filters, so the list
+        // stays painted and no second request is queued for it.
+        expect(find.byType(RaftConversationCard), findsWidgets);
+        await t.pump(const Duration(milliseconds: 400));
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull);
+        expect(find.byType(RaftConversationCard), findsWidgets);
+        expect(
+          client.calls.where((c) => c == 'GET:/channels/inbox').length,
+          loads + 1,
+          reason: 'one reload for the typed text, none for the commit',
+        );
+        await t.pumpWidget(const SizedBox());
+      },
+      variant: variant,
+    );
+
+    testWidgets(
       '$chord with focus traversed out to the sidebar stays out ($platform)',
       (t) async {
         await _activity(t);

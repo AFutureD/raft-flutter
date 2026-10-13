@@ -1739,7 +1739,12 @@ class _ResourceViewState extends State<ResourceView> {
     query.text = widget.initialQuery ?? '';
     lastPublishedQuery = widget.initialQuery ?? '';
     lastSearchEditingValue = query.value;
-    query.addListener(searchCompositionCommitted);
+    // The Search page re-queries when an IME composition commits. Every other
+    // section shares `query` for its own filter field (Activity find, Saved,
+    // Tasks); there the listener would drop the rows and queue a second load.
+    if (widget.section == 'search') {
+      query.addListener(searchCompositionCommitted);
+    }
     if (widget.section == 'search') {
       widget.searchFocusRequests?.addListener(focusSearchField);
       // Source MessageSearchPage focuses the field on mount (and selects a
