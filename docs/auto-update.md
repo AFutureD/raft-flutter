@@ -18,8 +18,10 @@ await AppUpdater.instance.checkAndInstall();
 
 This is separate from the lightweight update check (`build-manifest-<platform>-<arch>.json`
 `buildNumber` comparison, which drives the red dot). The dot decides *when* to
-show an update; on macOS/Windows its button calls `checkAndInstall()`, elsewhere
-(or when `available` is false) it opens the release page. The updater does no
+show an update; on macOS/Windows, when `available` is true, the About card's button
+reads "Update now" and calls `checkAndInstall()` (a `failed` outcome falls back to
+opening the release page; `openedReleasePage` already opened it). Elsewhere, or when
+`available` is false, it reads "View release" and opens the release page. The updater does no
 scheduled or startup checks and never prompts by itself.
 
 ## Decision: why a local plugin and not `auto_updater`
@@ -47,7 +49,7 @@ fallback) and C++ + WinSparkle 0.9.4 (downloaded by CMake, pinned by SHA-256).
 | Windows x64 | `https://github.com/kevinzhow/raft-flutter/releases/latest/download/appcast-windows.xml` | `raft-flutter-<tag>-windows-x64-setup.exe` (new) |
 
 `sparkle:version` is the **build number** (`GITHUB_RUN_NUMBER`, equals
-`CFBundleVersion` on macOS and the `RAFT_APP_BUILD_NUMBER` define on Windows),
+`CFBundleVersion` on macOS and the `RAFT_BUILD_NUMBER` define on Windows),
 `sparkle:shortVersionString` the app version. Enclosure URL is the tagged release
 asset; `length` and `sparkle:edSignature` come from the exact published bytes.
 Windows enclosures also carry `sparkle:os="windows-x64"` and

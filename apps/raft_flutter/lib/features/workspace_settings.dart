@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_updater/raft_updater.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/mobile_tabbar_preferences.dart';
@@ -412,8 +413,14 @@ class WorkspaceAboutSection extends StatefulWidget {
     this.frontendOrigin,
     this.showMobileApp,
     this.appUpdate,
+    this.updater,
   });
   final WorkspaceController controller;
+
+  /// Performs the update behind the card's button on macOS and Windows (where
+  /// [AppUpdater.available]); defaults to [AppUpdater.instance]. Whether the
+  /// card appears at all stays decided by [appUpdate].
+  final AppUpdater? updater;
 
   /// Native-only: shows the newer release (if any) and, once this page is
   /// open, marks it as seen so the red dots clear.
@@ -445,33 +452,54 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
     });
   }
 
+  AppUpdater get _updater => widget.updater ?? AppUpdater.instance;
+
   RaftAboutUpdate? update(BuildContext context) {
     final release = widget.appUpdate?.available;
     if (release == null) return null;
-    final android = Theme.of(context).platform == TargetPlatform.android;
+    final platform = Theme.of(context).platform;
+    final android = platform == TargetPlatform.android;
+    // Sparkle / WinSparkle run their own check, download and install dialogs;
+    // this button only starts them. Only a build that can update in place.
+    final inPlace =
+        (platform == TargetPlatform.macOS ||
+            platform == TargetPlatform.windows) &&
+        _updater.available;
+    Future<void> openReleasePage() => launchUrl(
+      android ? release.downloadUrl : release.releasePage,
+      mode: LaunchMode.externalApplication,
+    );
     return RaftAboutUpdate(
       message: raftFormat(
         context,
         'New version available: {version} ({build})',
         {'version': release.version, 'build': release.buildNumber},
       ),
-      actionLabel: android ? 'Download update' : 'View release',
-      onAction: () => launchUrl(
-        android ? release.downloadUrl : release.releasePage,
-        mode: LaunchMode.externalApplication,
-      ),
+      actionLabel: inPlace
+          ? 'Update now'
+          : android
+          ? 'Download update'
+          : 'View release',
+      onAction: !inPlace
+          ? openReleasePage
+          : () async {
+              final outcome = await _updater.checkAndInstall();
+              // openedReleasePage: the plugin already opened the page.
+              if (outcome == AppUpdateOutcome.failed) await openReleasePage();
+            },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.appUpdate case final service?) {
-      return ListenableBuilder(
-        listenable: service,
-        builder: (context, _) => body(context),
-      );
-    }
-    return body(context);
+    final listenable = Listenable.merge([
+      ?widget.appUpdate,
+      _updater.availability,
+    ]);
+    return ListenableBuilder(
+      listenable: listenable,
+      builder: (context, _) => body(context),
+    );
   }
 
   Widget body(BuildContext context) {

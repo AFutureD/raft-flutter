@@ -288,6 +288,9 @@ class IndependentPublishTests(PublishCase):
 class AutoUpdatePublishTests(PublishCase):
     """Appcast signing at publish time, with a throwaway key made inside each test."""
 
+    # setUp already created the draft, so the inherited no-draft check cannot run here.
+    test_prepare_stops_before_creating_a_draft_without_release_notes = None
+
     def setUp(self):
         super().setUp()
         sys.path.insert(0, str(release.ROOT / 'tool'))

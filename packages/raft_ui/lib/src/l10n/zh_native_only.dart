@@ -49,5 +49,6 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   // Native app-update check (the Web client updates itself).
   "New version available: {version} ({build})": "有新版本：{version}（{build}）",
   "Download update": "下载更新",
+  "Update now": "立即更新",
   "View release": "查看发布",
 };

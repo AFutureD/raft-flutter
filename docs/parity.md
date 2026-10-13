@@ -1695,7 +1695,8 @@ Full table and guard design: `docs/navigation-audit.md`. Intended differences re
 * Update check (native only, intended difference): a release build looks up the latest GitHub release's
   `build-manifest-<platform>-<arch>.json` (never the REST API) at start and at most every 6 h, and shows a red dot
   on the Settings entry and the About row plus a "New version available: X (build)" row in About with a download
-  (Android) or release-page (desktop) button. Web updates itself and has no equivalent. Skipped for iOS,
+  (Android) or release-page (desktop) button; on macOS and Windows builds that carry an update key (installed copy on
+  Windows) the button reads "Update now" and starts Sparkle/WinSparkle instead (`docs/auto-update.md`). Web updates itself and has no equivalent. Skipped for iOS,
   dev builds and Linux outside an AppImage. Build numbers: CI passes `--build-number=<run>` and
   `--dart-define=RAFT_BUILD_NUMBER=<run>`; the manifest `buildNumber` is compared with that define (Android's
   `versionCode` is 2000 + the same number for the arm64 split APK).

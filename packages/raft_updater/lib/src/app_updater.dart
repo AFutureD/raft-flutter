@@ -25,7 +25,7 @@ class AppUpdaterConfig {
     : enabled = const bool.fromEnvironment('RAFT_AUTO_UPDATE'),
       feedUrl = const String.fromEnvironment('RAFT_UPDATE_FEED_URL'),
       publicKey = const String.fromEnvironment('RAFT_SPARKLE_ED_PUBLIC_KEY'),
-      buildNumber = const String.fromEnvironment('RAFT_APP_BUILD_NUMBER'),
+      buildNumber = const String.fromEnvironment('RAFT_BUILD_NUMBER'),
       version = const String.fromEnvironment('RAFT_APP_VERSION');
 
   final bool enabled;
