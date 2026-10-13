@@ -30,7 +30,6 @@ import 'attachment_image_repository.dart';
 import 'attachment_url_cache.dart';
 import '../platform/memory_release.dart';
 import '../platform/attachment_player_sessions.dart';
-import '../platform/attachment_http.dart';
 import 'upload_mime.dart';
 import 'feature_flag_client_facts.dart';
 
