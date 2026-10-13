@@ -5,6 +5,8 @@ import 'package:video_player/video_player.dart';
 
 import 'attachment_player.dart';
 import 'attachment_player_log.dart';
+import 'media_failure.dart';
+import 'media_probe.dart';
 
 /// The platform's own player behind [AttachmentPlayer]: ExoPlayer (Media3) on
 /// Android, AVPlayer on iOS and macOS, through the official `video_player`
@@ -56,6 +58,8 @@ class VideoPlayerAttachmentPlayer
   final _output = StreamController<AttachmentPlayback>.broadcast();
   final _limiter = MediaLogLimiter(limit: 20);
   bool _closed = false, _failed = false, _observing = false;
+  bool _diagnosing = false;
+  MediaFailure? _failure;
   bool _hasFrame = false;
   AttachmentPlayback? _last;
 
@@ -113,6 +117,7 @@ class VideoPlayerAttachmentPlayer
   Future<void> _open(AttachmentSource source) async {
     await _release();
     _failed = false;
+    _failure = null;
     _hasFrame = false;
     _last = null;
     final controller = _build(source);
@@ -130,13 +135,19 @@ class VideoPlayerAttachmentPlayer
     } on Object catch (error) {
       if (_closed || _active != controller) return;
       // video_player reports "Source error" for a rejected request without the
-      // status, so an expired signature cannot be told from other failures:
-      // sign once more and try again before giving up, at the position this
-      // open was asked for (a resume), not at zero.
-      if (await _retryWithFreshUrl(source, source.start)) return;
-      _log('open failed: ${_describe(error)}');
-      _publish(error: true);
-      rethrow;
+      // status, so the class comes from the error text where it has one and
+      // from one probe request where it has not. An expired signature (or a
+      // cause nobody could name) signs once more and tries again, at the
+      // position this open was asked for (a resume), not at zero.
+      final found = await _diagnose(mediaErrorText(error), source, started: false);
+      if (_closed || _active != controller) return;
+      if (found.worthResigning && await _retryWithFreshUrl(source, source.start)) {
+        return;
+      }
+      // The re-sign attempt failed too and already reported its own failure.
+      if (_failed) throw MediaPlaybackException(_failure ?? found);
+      _fail(found, 'open failed');
+      throw MediaPlaybackException(found);
     }
     _publish();
   }
@@ -179,26 +190,15 @@ class VideoPlayerAttachmentPlayer
     if (controller == null) return;
     final value = controller.value;
     if (value.hasError) {
-      final source = _source;
-      if (!_failed && !_refreshing && source != null && !_refreshed && source.refresh != null && value.isInitialized) {
-        // A streamed source failed after it started (a ranged request was
-        // refused, or the link dropped): once, sign again and carry on from
-        // where it stopped.
-        final wasPlaying = _last?.playing ?? false;
-        final at = value.position;
-        _refreshing = true;
-        unawaited(
-          _retryWithFreshUrl(source, at)
-              .then((done) async {
-                if (done && wasPlaying) await _active?.play();
-                if (!done) _publish(error: true);
-              })
-              .whenComplete(() => _refreshing = false),
-        );
+      if (!_failed) {
+        // Report only once the class is known (and, for a stream that failed
+        // after it started, once a fresh URL had its chance).
+        if (!_diagnosing && !_refreshing) {
+          _diagnosing = true;
+          unawaited(_onPlaybackError(value));
+        }
         return;
       }
-      if (_refreshing) return;
-      if (!_failed) _log('playback error: ${value.errorDescription}');
       error = true;
     }
     _failed = _failed || error;
@@ -215,6 +215,7 @@ class VideoPlayerAttachmentPlayer
       hasFrame: _hasFrame,
       buffering: value.isBuffering,
       videoSize: size.isEmpty ? null : size,
+      failure: _failed ? _failure : null,
     );
     final last = _last;
     if (last != null &&
@@ -225,14 +226,76 @@ class VideoPlayerAttachmentPlayer
         last.error == next.error &&
         last.hasFrame == next.hasFrame &&
         last.buffering == next.buffering &&
-        last.videoSize == next.videoSize) {
+        last.videoSize == next.videoSize &&
+        last.failure == next.failure) {
       return;
     }
     _last = next;
     _output.add(next);
   }
 
-  static String _describe(Object error) => error.toString();
+  /// Settles the class of a failure: [text] first, then one probe (see
+  /// [MediaDiagnosis]). ExoPlayer and AVPlayer follow the OS proxy only.
+  Future<MediaFailure> _diagnose(
+    String text,
+    AttachmentSource? source, {
+    required bool started,
+  }) {
+    final network = source != null && source.isNetwork;
+    return MediaDiagnosis.diagnose(
+      text: text,
+      url: network ? source.url : null,
+      headers: network ? source.headers : const {},
+      playerFollowsApp: false,
+      started: started,
+    );
+  }
+
+  /// Records and publishes the final failure.
+  void _fail(MediaFailure found, String what) {
+    _failure = found;
+    _failed = true;
+    _log('$what ${found.logLine}');
+    _publish(error: true);
+  }
+
+  /// The controller reported an error after it was initialised (a ranged
+  /// request refused, the link dropped). Once, a fresh URL is tried and
+  /// playback continues from where it stopped; otherwise the class is
+  /// published.
+  Future<void> _onPlaybackError(VideoPlayerValue value) async {
+    final source = _source;
+    try {
+      final found = await _diagnose(
+        value.errorDescription ?? '',
+        source,
+        started: value.isInitialized,
+      );
+      if (_closed) return;
+      if (found.worthResigning &&
+          source != null &&
+          !_refreshed &&
+          source.refresh != null &&
+          value.isInitialized) {
+        final wasPlaying = _last?.playing ?? false;
+        final at = value.position;
+        _refreshing = true;
+        final done = await _retryWithFreshUrl(source, at);
+        _refreshing = false;
+        if (_closed) return;
+        if (done) {
+          if (wasPlaying) await _active?.play();
+          return;
+        }
+        // The re-sign attempt failed too and already reported its failure.
+        if (_failed) return;
+      }
+      _fail(found, 'playback error');
+    } finally {
+      _diagnosing = false;
+      _refreshing = false;
+    }
+  }
 
   void _log(String text) {
     final line = _limiter.admit(formatMediaLog('error', 'video_player', text));

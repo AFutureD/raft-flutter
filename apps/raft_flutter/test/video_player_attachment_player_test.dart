@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_flutter/platform/attachment_player_factory.dart';
+import 'package:raft_flutter/platform/media_failure.dart';
+import 'package:raft_flutter/platform/media_probe.dart';
 import 'package:raft_flutter/platform/video_player_attachment_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
@@ -86,12 +88,22 @@ class _Platform extends VideoPlayerPlatform {
 void main() {
   late _Platform fake;
   late VideoPlayerPlatform previous;
+  late Future<MediaFailure?> Function(Uri, Map<String, String>, String?) realProbe;
   setUp(() {
     previous = VideoPlayerPlatform.instance;
     fake = _Platform();
     VideoPlayerPlatform.instance = fake;
+    // ExoPlayer's "Source error" names no cause: the player asks the host.
+    // These tests are about the player, so the host answers 403 (an expired
+    // signature); the classes themselves are tested in media_failure_test.
+    realProbe = MediaDiagnosis.probe;
+    MediaDiagnosis.probe = (url, headers, proxy) async =>
+        const MediaFailure(MediaFailureKind.expired, cause: 'HTTP 403');
   });
-  tearDown(() => VideoPlayerPlatform.instance = previous);
+  tearDown(() {
+    VideoPlayerPlatform.instance = previous;
+    MediaDiagnosis.probe = realProbe;
+  });
 
   group('backend selection', () {
     test('system player on Android, iOS and macOS; media_kit elsewhere', () {

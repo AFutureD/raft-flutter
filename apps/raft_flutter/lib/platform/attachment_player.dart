@@ -7,6 +7,8 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:raft_client/system_proxy.dart';
 
 import 'attachment_player_log.dart';
+import 'media_failure.dart';
+import 'media_probe.dart';
 
 class AttachmentPlayback {
   const AttachmentPlayback({
@@ -18,6 +20,7 @@ class AttachmentPlayback {
     this.hasFrame = false,
     this.buffering = false,
     this.videoSize,
+    this.failure,
   });
 
   /// [hasFrame]: the video surface has drawn its first decoded frame (the
@@ -28,6 +31,10 @@ class AttachmentPlayback {
 
   /// The video's own pixel size once mpv knows it.
   final Size? videoSize;
+
+  /// Why playback failed, once [error] is set (null: not classified, which
+  /// reads as [MediaFailureKind.unknown]).
+  final MediaFailure? failure;
   final Duration position, duration;
   final double volume;
 }
@@ -161,34 +168,107 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     // hardware decoder that is absent, no sound card) while the video plays.
     // Failure comes from classified log lines only; every warn+ line is kept
     // in the journal, redacted, so a failure can be diagnosed afterwards.
+    // The same lines (and the error stream's text) are what the failure is
+    // classified from, see [onFailure].
+    subscriptions.add(
+      player.stream.error.listen((text) => _remember(text)),
+    );
     subscriptions.add(
       player.stream.log.listen((event) {
         final line = limiter.admit(
           formatMediaLog(event.level, event.prefix, event.text),
         );
         if (line != null) _writeLog(line);
+        if (_evidence(event.prefix)) _remember(event.text);
         if (isPlaybackFailure(
           event.level,
           event.prefix,
           event.text,
           video: controller != null,
         )) {
-          // mpv's default log level does not carry the HTTP status ("Failed to
-          // open <url>"), so like video_player the first failure of a streamed
-          // source signs again once before it is reported.
-          if (source?.refresh != null && !refreshed && !failed) {
-            unawaited(
-              refreshExpired().then((done) {
-                if (!done) publish(error: true);
-              }),
-            );
-          } else {
-            publish(error: true);
-          }
+          unawaited(onFailure());
         }
       }),
     );
   }
+
+  /// The libmpv text since the last open (warn and above), the evidence a
+  /// failure is classified from. Bounded; never logged raw.
+  final recent = <String>[];
+
+  /// Only the lines about opening the input: decoder, audio and video output
+  /// lines are about the machine and would colour the class.
+  static bool _evidence(String prefix) =>
+      prefix == 'ffmpeg' ||
+      prefix == 'stream' ||
+      prefix == 'file' ||
+      prefix == 'demux' ||
+      prefix == 'cplayer' ||
+      prefix.startsWith('lavf');
+
+  void _remember(String text) {
+    if (recent.length >= 24) recent.removeAt(0);
+    recent.add(text);
+  }
+
+  bool diagnosing = false;
+
+  /// Counts opens, so a failure line is attributed to the attempt it belongs
+  /// to (the re-sign reopens while the first failure is still being handled).
+  int attempt = 0;
+  int? queuedAttempt;
+
+  /// What the user is told: the failure of the last attempt.
+  MediaFailure? failure;
+
+  /// libmpv reported that the input cannot be played. Classifies why (the
+  /// log text first; when it names no cause, one probe request through the
+  /// same proxy decision), signs the URL again once when that can help, and
+  /// otherwise publishes the failure.
+  @visibleForTesting
+  Future<void> onFailure() async {
+    if (failed || closed) return;
+    if (diagnosing) {
+      queuedAttempt = attempt;
+      return;
+    }
+    diagnosing = true;
+    final handled = attempt;
+    try {
+      // The log is asynchronous: the cause line can land just after the
+      // `Failed to open` that triggered this.
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      if (closed) return;
+      final current = source;
+      final network = current != null && current.isNetwork;
+      final found = await MediaDiagnosis.diagnose(
+        text: recent.join('\n'),
+        url: network ? current.url : null,
+        headers: network ? current.headers : const {},
+        playerFollowsApp: true,
+        started: player.state.position > Duration.zero,
+      );
+      if (closed) return;
+      _writeLog('raft.media: playback failed ${found.logLine}');
+      // mpv's log does not carry the HTTP status, so like video_player the
+      // first failure of a streamed source signs again once before it is
+      // reported (when signing again can help at all).
+      if (found.worthResigning && current?.refresh != null && !refreshed) {
+        if (await refreshExpired()) return;
+      }
+      failure = found;
+      publish(error: true);
+    } finally {
+      diagnosing = false;
+      // A failure of the reopened attempt that arrived while the first was
+      // being handled.
+      if (queuedAttempt != null && queuedAttempt != handled && queuedAttempt == attempt && !failed && !closed) {
+        queuedAttempt = null;
+        unawaited(onFailure());
+      }
+    }
+  }
+
   final limiter = MediaLogLimiter();
   static void _writeLog(String line) {
     try {
@@ -302,6 +382,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         hasFrame: hasFrame,
         buffering: player.state.buffering,
         videoSize: _videoSize(),
+        failure: failed ? failure : null,
       ),
     );
   }
@@ -325,6 +406,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     hasFrame: hasFrame,
     buffering: player.state.buffering,
     videoSize: _videoSize(),
+    failure: failed ? failure : null,
   );
   @override
   bool get usesPlatformView => false;
@@ -344,6 +426,9 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
   Future<void> open(AttachmentSource source) async {
     this.source = source;
     refreshed = false;
+    failure = null;
+    attempt++;
+    recent.clear();
     final native = player.platform;
     final target = source.isNetwork ? source.url!.toString() : source.file!.path;
     if (native is NativePlayer) {
