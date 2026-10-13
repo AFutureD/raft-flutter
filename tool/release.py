@@ -367,8 +367,23 @@ def read_release(tag, *, missing_ok=False):
             error = json.loads(result.stdout)
         except ValueError:
             error = {}
-        if missing_ok and str(error.get('status')) == '404':
-            return None
+        if str(error.get('status')) == '404':
+            # The tag endpoint returns published releases only. An authenticated
+            # list includes drafts; paginate so older drafts are not missed.
+            lookup = ['gh', 'api', '--paginate', '--slurp',
+                      f'repos/{repository()}/releases?per_page=100']
+            listed = subprocess.run(lookup, text=True, capture_output=True)
+            if listed.returncode:
+                raise subprocess.CalledProcessError(listed.returncode, lookup,
+                                                    output=listed.stdout, stderr=listed.stderr)
+            matches = [remote for page in json.loads(listed.stdout) for remote in page
+                       if remote.get('tag_name') == tag]
+            if len(matches) > 1:
+                raise ValueError('Multiple releases use this tag; refusing ambiguous publication')
+            if matches:
+                return matches[0]
+            if missing_ok:
+                return None
         raise subprocess.CalledProcessError(result.returncode, command,
                                             output=result.stdout, stderr=result.stderr)
     return json.loads(result.stdout)
@@ -475,8 +490,9 @@ def publish(platform):
         auxiliary = Path(temporary)
         checksum = auxiliary / f'CHECKSUMS-{platform}-{arch}.txt'
         manifest = auxiliary / f'build-manifest-{platform}-{arch}.json'
-        checksum.write_text(checksums, encoding='utf-8')
-        manifest.write_text(json.dumps(receipts, indent=2) + '\n', encoding='utf-8')
+        # Publishers on different hosts must produce identical auxiliary bytes.
+        checksum.write_text(checksums, encoding='utf-8', newline='\n')
+        manifest.write_text(json.dumps(receipts, indent=2) + '\n', encoding='utf-8', newline='\n')
         assets = {asset['name']: asset for asset in remote.get('assets', [])}
         missing = []
         for path in [*artifacts, checksum, manifest]:

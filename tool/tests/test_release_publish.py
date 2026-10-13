@@ -12,6 +12,7 @@ from unittest.mock import patch
 SPEC = importlib.util.spec_from_file_location('release_publish', Path(__file__).resolve().parents[1] / 'release.py')
 release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release)
+READ_RELEASE = release.read_release
 
 
 class GitHub:
@@ -109,6 +110,29 @@ class IndependentPublishTests(unittest.TestCase):
         manifest = json.loads(self.github.payloads['build-manifest-windows-x64.json'])
         self.assertEqual(manifest[0]['commit'], 'abc')
         self.assertEqual(manifest[0]['buildNumber'], '47')
+
+    def test_real_lookup_reuses_draft_then_first_platform_publishes(self):
+        release.prepare()
+        draft = copy.deepcopy(self.github.remote)
+        responses = [subprocess.CompletedProcess([], 1, '{"status":"404"}', 'not found'),
+                     subprocess.CompletedProcess([], 0, json.dumps([[draft]]), '')]
+        with patch.object(release, 'read_release', side_effect=READ_RELEASE), \
+                patch.object(release.subprocess, 'run', side_effect=responses * 2):
+            release.prepare()
+            self.assertEqual(len(self.github.commands), 1, 'Do not create a duplicate draft')
+            self.publish()
+        self.assertFalse(self.github.remote['draft'])
+        self.assertEqual(len(self.github.payloads), 3)
+
+    def test_auxiliary_assets_have_canonical_lf_bytes_on_every_host(self):
+        release.prepare()
+        folder, artifact, receipt = self.fixture()
+        with patch.object(release, 'OUT', folder):
+            release.publish('windows')
+        self.assertEqual(self.github.payloads['CHECKSUMS-windows-x64.txt'],
+                         f'{receipt["sha256"]}  {artifact.name}\n'.encode('utf-8'))
+        self.assertEqual(self.github.payloads['build-manifest-windows-x64.json'],
+                         (json.dumps([receipt], indent=2) + '\n').encode('utf-8'))
 
     def test_partial_upload_stays_draft_and_retry_only_adds_missing_assets(self):
         release.prepare()
@@ -237,20 +261,64 @@ class IndependentPublishTests(unittest.TestCase):
 
 
 class ReleaseLookupTests(unittest.TestCase):
+    def test_draft_on_later_page_is_found_by_exact_tag(self):
+        draft = {'id': 42, 'tag_name': 'v0.1.0+1', 'draft': True, 'assets': []}
+        with patch.dict(release.os.environ, {'GITHUB_REPOSITORY': 'owner/raft'}), \
+                patch.object(release.subprocess, 'run', side_effect=[
+                    subprocess.CompletedProcess([], 1, '{"status":"404"}', 'not found'),
+                    subprocess.CompletedProcess([], 0, json.dumps([
+                        [{'tag_name': 'v0.1.0+10', 'draft': True}], [draft]]), '')
+                ]) as command:
+            self.assertEqual(release.read_release('v0.1.0+1'), draft)
+            self.assertIn('v0.1.0%2B1', command.call_args_list[0].args[0][-1])
+            self.assertEqual(command.call_args_list[1].args[0],
+                             ['gh', 'api', '--paginate', '--slurp',
+                              'repos/owner/raft/releases?per_page=100'])
+
+    def test_published_release_needs_no_list_fallback(self):
+        remote = {'tag_name': 'v0.1.0+1', 'draft': False}
+        with patch.dict(release.os.environ, {'GITHUB_REPOSITORY': 'owner/raft'}), \
+                patch.object(release.subprocess, 'run', return_value=
+                             subprocess.CompletedProcess([], 0, json.dumps(remote), '')) as command:
+            self.assertEqual(release.read_release('v0.1.0+1'), remote)
+            self.assertEqual(command.call_count, 1)
+
     def test_only_confirmed_404_is_absent_and_plus_tag_is_url_encoded(self):
         with patch.dict(release.os.environ, {'GITHUB_REPOSITORY': 'owner/raft'}):
             for status in [404, 403, 401, 500, None]:
                 result = subprocess.CompletedProcess([], 1, json.dumps({'status': status}), 'failure')
-                with patch.object(release.subprocess, 'run', return_value=result) as command:
+                results = [result, subprocess.CompletedProcess([], 0, '[[], []]', '')]
+                with patch.object(release.subprocess, 'run', side_effect=results) as command:
                     if status == 404:
                         self.assertIsNone(release.read_release('v0.1.0+1', missing_ok=True))
                     else:
                         with self.assertRaises(subprocess.CalledProcessError):
                             release.read_release('v0.1.0+1', missing_ok=True)
-                    self.assertIn('v0.1.0%2B1', command.call_args.args[0][-1])
+                    self.assertIn('v0.1.0%2B1', command.call_args_list[0].args[0][-1])
+                    self.assertEqual(command.call_count, 2 if status == 404 else 1)
             with patch.object(release.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, '', 'network')):
                 with self.assertRaises(subprocess.CalledProcessError):
                     release.read_release('v0.1.0+1', missing_ok=True)
+
+    def test_list_permission_or_network_failure_is_not_absence(self):
+        with patch.dict(release.os.environ, {'GITHUB_REPOSITORY': 'owner/raft'}):
+            for status in [403, 401, 500, None]:
+                with self.subTest(status=status), patch.object(release.subprocess, 'run', side_effect=[
+                    subprocess.CompletedProcess([], 1, '{"status":"404"}', 'not found'),
+                    subprocess.CompletedProcess([], 1, json.dumps({'status': status}), 'failure')
+                ]), self.assertRaises(subprocess.CalledProcessError):
+                    release.read_release('v0.1.0+1', missing_ok=True)
+
+    def test_missing_required_release_and_ambiguous_tag_fail_closed(self):
+        with patch.dict(release.os.environ, {'GITHUB_REPOSITORY': 'owner/raft'}):
+            for pages, error in [([[]], subprocess.CalledProcessError),
+                                  ([[{'tag_name': 'v0.1.0+1'}],
+                                    [{'tag_name': 'v0.1.0+1'}]], ValueError)]:
+                with self.subTest(pages=pages), patch.object(release.subprocess, 'run', side_effect=[
+                    subprocess.CompletedProcess([], 1, '{"status":"404"}', 'not found'),
+                    subprocess.CompletedProcess([], 0, json.dumps(pages), '')
+                ]), self.assertRaises(error):
+                    release.read_release('v0.1.0+1')
 
 
 if __name__ == '__main__':
