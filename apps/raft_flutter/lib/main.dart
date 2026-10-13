@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/attachment_disk_cache.dart';
 import 'data/avatar_image_store.dart';
+import 'data/cache_clear.dart';
 import 'data/device_preferences.dart';
 import 'data/workspace_controller.dart';
 import 'data/source_time_formatter.dart';
@@ -38,6 +39,7 @@ import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/auth_audit_log.dart';
 import 'platform/cache_hygiene.dart';
+import 'platform/cache_staging.dart';
 import 'platform/file_selection.dart' show configureAndroidPhotoPicker;
 import 'platform/memory_release.dart';
 import 'platform/session_store.dart';
@@ -95,6 +97,13 @@ Future<void> main([List<String> args = const []]) async {
   // Avatars and icons: stable-key bytes in that same cache, proxy-aware
   // fetch, hot decoded bitmaps (raft_ui avatar_image_cache.dart).
   installAvatarImageCache(AttachmentDiskCache.installed!);
+  // Settings > Storage > Clear cache: the disk cache, the staging folders and
+  // the framework image cache here; each workspace adds its memory layers.
+  CacheClear.instance.installAppLayers(
+    cache: AttachmentDiskCache.installed,
+    stagingDirectory: cacheStagingDirectory,
+    legacyTemporary: getTemporaryDirectory,
+  );
   // Release builds show the root fallback instead of a grey/red screen.
   RootErrors.instance.install();
   // The branded splash stays until startup is ready; a fatal startup error

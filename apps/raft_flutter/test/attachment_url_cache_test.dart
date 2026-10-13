@@ -44,6 +44,34 @@ void main() {
       expect(fetches, 2);
     });
 
+    test('dropping what is resolved forgets URLs but not a request on its way', () async {
+      var fetches = 0;
+      Future<dynamic> fetch() async {
+        fetches++;
+        return _body(
+          'a',
+          expiresAt: clock.now.add(const Duration(seconds: 300)).toIso8601String(),
+        );
+      }
+
+      await cache.resolve('a', scope: 's', fetch: fetch);
+      expect(cache.length, 1);
+      final gate = Completer<dynamic>();
+      final waiting = cache.resolve('b', scope: 's', fetch: () => gate.future);
+
+      cache.dropResolved();
+      expect(cache.length, 0);
+      expect(cache.peek('a', scope: 's'), isNull);
+      expect(cache.inFlightCount, 1);
+
+      // The request on its way still answers, and is stored.
+      gate.complete(_body('b', expiresAt: clock.now.add(const Duration(seconds: 300)).toIso8601String()));
+      expect(await waiting, contains('/b?'));
+      expect(cache.peek('b', scope: 's'), isNotNull);
+      await cache.resolve('a', scope: 's', fetch: fetch);
+      expect(fetches, 2, reason: 'signed again after the drop');
+    });
+
     test('never serves a URL within the safety margin of its expiry', () async {
       var fetches = 0;
       Future<dynamic> fetch() async {

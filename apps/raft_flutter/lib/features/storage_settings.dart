@@ -4,20 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/attachment_disk_cache.dart';
+import '../data/cache_clear.dart';
 import 'computer_detail_view.dart' show computerFileSize;
 
 /// Settings > Resources > Storage (native only; Web leaves caching to the
 /// browser).
 ///
-/// Shows how much attachment content this device keeps so that attachments
-/// open again without downloading, and offers "Clear cache". Clearing removes
-/// only the cache directory's entries: the sign-in, drafts, settings and files
-/// the user saved are stored elsewhere and are never touched.
+/// Shows how much this device keeps so that attachments, previews, profile
+/// pictures and icons open again without downloading (the total, then
+/// "Attachments and previews" and "Profile pictures and icons"), and offers
+/// "Clear cache". Clearing goes through [CacheClear]: the page knows none of
+/// the layers. Only rebuildable data goes; the sign-in, drafts, settings, the
+/// workspace database, files the user saved and files received from other apps
+/// are stored elsewhere and are never touched.
 class StorageSettingsPage extends StatefulWidget {
-  const StorageSettingsPage({super.key, this.cache});
+  const StorageSettingsPage({super.key, this.cache, this.coordinator});
 
-  /// The cache to show and clear; the app's installed cache by default.
+  /// The cache whose size is shown; the app's installed cache by default.
   final AttachmentDiskCache? cache;
+
+  /// What "Clear cache" runs; the app's coordinator by default.
+  final CacheClear? coordinator;
 
   @override
   State<StorageSettingsPage> createState() => _StorageSettingsPageState();
@@ -27,8 +34,14 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
   late final AttachmentDiskCache? cache =
       widget.cache ?? AttachmentDiskCache.installed;
 
-  /// Null while the size is being measured.
-  int? bytes;
+  late final CacheClear coordinator = widget.coordinator ?? CacheClear.instance;
+
+  /// Null while the sizes are being measured.
+  int? attachmentBytes, publicBytes;
+  int? get bytes => switch ((attachmentBytes, publicBytes)) {
+    (final a?, final b?) => a + b,
+    _ => null,
+  };
 
   @override
   void initState() {
@@ -39,8 +52,18 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
   /// The index is built and read with asynchronous file I/O, so a large cache
   /// never blocks a frame.
   Future<void> measure() async {
-    final value = await cache?.sizeBytes() ?? 0;
-    if (mounted) setState(() => bytes = value);
+    final attachments =
+        await cache?.sizeBytes(
+          namespace: AttachmentCacheNamespace.attachments,
+        ) ??
+        0;
+    final public =
+        await cache?.sizeBytes(namespace: AttachmentCacheNamespace.public) ?? 0;
+    if (!mounted) return;
+    setState(() {
+      attachmentBytes = attachments;
+      publicBytes = public;
+    });
   }
 
   Future<void> confirmClear() async {
@@ -52,11 +75,18 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
         title: raftText(context, 'Clear cache'),
         message: raftText(
           context,
-          'Attachments, profile pictures and icons will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.',
+          'Downloaded attachments and previews, profile pictures and icons, and temporary preview files are removed from this device. They are downloaded again the next time you open them. Files that are open right now are kept, and so are your sign-in, drafts, settings, files you saved and files shared to Raft.',
         ),
         confirmLabel: raftText(context, 'Clear cache'),
         loadingLabel: raftText(context, 'Clearing…'),
-        onConfirm: () async => cache?.clear(),
+        onConfirm: () async {
+          final result = await coordinator.run();
+          if (!result.ok) {
+            throw const RaftUserError(
+              'Some of the cache could not be cleared. Try again.',
+            );
+          }
+        },
       ),
     );
     if (cleared != true || !mounted) return;
@@ -68,6 +98,21 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
   Widget build(BuildContext context) {
     final text = RaftSettingsText(RaftTokens.of(context));
     final size = bytes;
+    Widget row(Key key, String label, int? value) => Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(raftText(context, label), style: text.description),
+          ),
+          Text(
+            key: key,
+            value == null ? '…' : computerFileSize(value),
+            style: text.description,
+          ),
+        ],
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -96,6 +141,17 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
                     style: text.description,
                   ),
                 ),
+              ),
+              const SizedBox(height: RaftSpace.x3),
+              row(
+                const Key('storage-attachments-size'),
+                'Attachments and previews',
+                attachmentBytes,
+              ),
+              row(
+                const Key('storage-public-size'),
+                'Profile pictures and icons',
+                publicBytes,
               ),
               const SizedBox(height: RaftSpace.x3),
               Align(

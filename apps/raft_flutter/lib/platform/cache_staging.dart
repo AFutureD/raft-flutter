@@ -25,6 +25,38 @@ Future<Directory> cacheStagingDirectory() async {
 /// Leftover staging older than this is deleted at start.
 const Duration stagingMaxAge = Duration(hours: 1);
 
+/// A folder written within this long is a transfer that may still be running:
+/// "Clear cache" leaves it (see [clearStaging]).
+const Duration stagingFreshWindow = Duration(minutes: 5);
+
+/// Staging folders something is using right now (path -> holders).
+final Map<String, int> _held = {};
+
+/// Marks [directory] in use until the returned callback is called (once). A
+/// live `SharedFileLease` holds its folder this way; [sweepStaging] callers
+/// that pass [isStagingHeld] as `inUse` then leave it alone.
+void Function() holdStaging(String directory) {
+  final path = p.normalize(directory);
+  _held[path] = (_held[path] ?? 0) + 1;
+  var released = false;
+  return () {
+    if (released) return;
+    released = true;
+    final left = (_held[path] ?? 0) - 1;
+    if (left > 0) {
+      _held[path] = left;
+    } else {
+      _held.remove(path);
+    }
+  };
+}
+
+/// Whether [path] is, or contains, a held staging folder.
+bool isStagingHeld(String path) {
+  final normal = p.normalize(path);
+  return _held.keys.any((held) => held == normal || p.isWithin(normal, held));
+}
+
 bool _isStagingName(String name) =>
     name == 'raft-previews' ||
     name == 'raft-share' ||
@@ -42,11 +74,15 @@ bool _isStagingName(String name) =>
 /// temporary and cache directories are the same directory, and received
 /// shares (`raft-incoming`, user data) live beside them. Returns the number of
 /// folders removed.
+///
+/// A folder for which [inUse] says true (a live lease's) is kept whatever its
+/// age.
 Future<int> sweepStaging({
   required Directory staging,
   Directory? legacyTemporary,
   Duration maxAge = stagingMaxAge,
   DateTime Function()? clock,
+  bool Function(String path)? inUse,
 }) async {
   final now = (clock ?? DateTime.now)();
   var removed = 0;
@@ -59,11 +95,14 @@ Future<int> sweepStaging({
         if (name == 'raft-previews' || name == 'raft-share') {
           // A shared parent: each lease folder ages on its own.
           await for (final child in entity.list(followLinks: false)) {
-            if (child is Directory && await _removeIfOld(child, now, maxAge)) {
+            if (child is Directory &&
+                !(inUse?.call(child.path) ?? false) &&
+                await _removeIfOld(child, now, maxAge)) {
               removed++;
             }
           }
-        } else if (await _removeIfOld(entity, now, maxAge)) {
+        } else if (!(inUse?.call(entity.path) ?? false) &&
+            await _removeIfOld(entity, now, maxAge)) {
           removed++;
         }
       }
@@ -92,3 +131,20 @@ Future<bool> _removeIfOld(
     return false;
   }
 }
+
+/// "Clear cache": the staging sweep with the short [grace] instead of an hour,
+/// leaving every folder a live lease holds ([isStagingHeld]). [staging] and
+/// [legacyTemporary] are where [cacheStagingDirectory] and the system
+/// temporary directory are.
+Future<int> clearStaging({
+  required Directory staging,
+  Directory? legacyTemporary,
+  Duration grace = stagingFreshWindow,
+  DateTime Function()? clock,
+}) => sweepStaging(
+  staging: staging,
+  legacyTemporary: legacyTemporary,
+  maxAge: grace,
+  clock: clock,
+  inUse: isStagingHeld,
+);

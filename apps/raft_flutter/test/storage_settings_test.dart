@@ -5,15 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
+import 'package:raft_flutter/data/cache_clear.dart';
 import 'package:raft_flutter/features/storage_settings.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 void main() {
   late Directory root;
   late AttachmentDiskCache cache;
+  late CacheClear coordinator;
   setUp(() async {
     root = await Directory.systemTemp.createTemp('raft-storage-settings');
     cache = AttachmentDiskCache(() async => root);
+    coordinator = CacheClear()..register('disk', cache.clear);
   });
   tearDown(() => root.delete(recursive: true));
 
@@ -32,7 +35,11 @@ void main() {
         home: RaftToastHost(
           child: Scaffold(
             body: SingleChildScrollView(
-              child: StorageSettingsPage(key: UniqueKey(), cache: with_),
+              child: StorageSettingsPage(
+                key: UniqueKey(),
+                cache: with_,
+                coordinator: coordinator,
+              ),
             ),
           ),
         ),
@@ -58,6 +65,13 @@ void main() {
     );
   }
 
+  Future<void> fillPublic(WidgetTester t, int bytes) => t.runAsync(
+    () => cache.writePublic('https://x.invalid/a$bytes.webp', Uint8List(bytes)),
+  );
+
+  String text(WidgetTester t, String key) =>
+      t.widget<Text>(find.byKey(Key(key))).data!;
+
   String size(WidgetTester t) => t
       .widget<Text>(
         find.descendant(
@@ -77,7 +91,11 @@ void main() {
       MaterialApp(
         theme: raftTheme(RaftFamily.elegant),
         home: Scaffold(
-          body: StorageSettingsPage(key: UniqueKey(), cache: cache),
+          body: StorageSettingsPage(
+            key: UniqueKey(),
+            cache: cache,
+            coordinator: coordinator,
+          ),
         ),
       ),
     );
@@ -97,29 +115,69 @@ void main() {
     expect(find.text('Cache'), findsOneWidget);
   });
 
+  testWidgets('breaks the total down by what is stored', (t) async {
+    await fill(t, 3 * 1024 * 1024);
+    await fillPublic(t, 512 * 1024);
+    await pumpPage(t, with_: cache);
+    expect(size(t), 'Cache size: 3.5 MB');
+    expect(text(t, 'storage-attachments-size'), '3.0 MB');
+    expect(text(t, 'storage-public-size'), '512.0 KB');
+    expect(find.text('Attachments and previews'), findsOneWidget);
+    expect(find.text('Profile pictures and icons'), findsOneWidget);
+  });
+
+  testWidgets('the breakdown reads in Chinese', (t) async {
+    await fill(t, 1024);
+    await fillPublic(t, 1024);
+    t.view.physicalSize = const Size(900, 1600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        locale: const Locale('zh', 'CN'),
+        supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: Scaffold(
+          body: StorageSettingsPage(cache: cache, coordinator: coordinator),
+        ),
+      ),
+    );
+    await settle(t, until: calculated);
+    expect(find.text('附件和预览'), findsOneWidget);
+    expect(find.text('头像和图标'), findsOneWidget);
+  });
+
   testWidgets('clearing asks first, then empties the cache and says so', (
     t,
   ) async {
     await fill(t, 2 * 1024 * 1024);
+    await fillPublic(t, 1024 * 1024);
     final session = File('${root.path}/session.json')
       ..writeAsStringSync('keep');
     await pumpPage(t, with_: cache);
-    expect(size(t), 'Cache size: 2.0 MB');
+    expect(size(t), 'Cache size: 3.0 MB');
 
     await t.tap(find.byKey(const Key('storage-clear')));
     await settle(t);
     expect(find.byKey(const ValueKey('storage-clear-dialog')), findsOneWidget);
     expect(
-      find.textContaining('Your sign-in, drafts, settings and files you saved'),
-      findsWidgets,
+      find.textContaining('They are downloaded again the next time you open'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+        'so are your sign-in, drafts, settings, files you saved and files shared to Raft',
+      ),
+      findsOneWidget,
     );
 
     // Cancel leaves everything as it was.
     await t.tap(find.text('Cancel'));
     await settle(t);
     expect(find.byKey(const ValueKey('storage-clear-dialog')), findsNothing);
-    expect(size(t), 'Cache size: 2.0 MB');
-    expect((await t.runAsync(cache.sizeBytes)), 2 * 1024 * 1024);
+    expect(size(t), 'Cache size: 3.0 MB');
+    expect((await t.runAsync(cache.sizeBytes)), 3 * 1024 * 1024);
 
     await t.tap(find.byKey(const Key('storage-clear')));
     await settle(t);
@@ -136,9 +194,48 @@ void main() {
     expect(find.byKey(const ValueKey('storage-clear-dialog')), findsNothing);
     expect(find.text('Cache cleared.'), findsOneWidget);
     expect(size(t), 'Cache size: 0 B');
+    expect(text(t, 'storage-attachments-size'), '0 B');
+    expect(text(t, 'storage-public-size'), '0 B');
     expect((await t.runAsync(cache.sizeBytes)), 0);
     expect(session.existsSync(), isTrue, reason: 'only the cache is cleared');
     await t.pump(const Duration(seconds: 6));
+  });
+
+  testWidgets('goes through the coordinator: a layer registered later is '
+      'cleared too, one that fails keeps the dialog open', (t) async {
+    await fill(t, 1024);
+    var memory = 0;
+    coordinator.register('memory', () => memory++);
+    coordinator.register('broken', () => throw const FileSystemException('x'));
+    final reported = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = reported.add;
+    addTearDown(() => FlutterError.onError = previous);
+    await pumpPage(t, with_: cache);
+    await t.tap(find.byKey(const Key('storage-clear')));
+    await settle(
+      t,
+      until: () => find
+          .byKey(const Key('storage-clear-confirm'))
+          .evaluate()
+          .isNotEmpty,
+    );
+    await t.tap(find.byKey(const Key('storage-clear-confirm')));
+    await settle(
+      t,
+      until: () => find
+          .text('Some of the cache could not be cleared. Try again.')
+          .evaluate()
+          .isNotEmpty,
+    );
+    expect(memory, 1);
+    expect((await t.runAsync(cache.sizeBytes)), 0);
+    expect(find.byKey(const ValueKey('storage-clear-dialog')), findsOneWidget);
+    expect(
+      find.text('Some of the cache could not be cleared. Try again.'),
+      findsOneWidget,
+    );
+    expect(reported, hasLength(1));
   });
 
   testWidgets('without a cache there is nothing to clear', (t) async {

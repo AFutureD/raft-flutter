@@ -74,10 +74,14 @@ class SharedFileLease {
   SharedFileLease(
     this.file, {
     Duration lifetime = const Duration(minutes: 15),
+    bool staged = true,
   }) {
     _timer = Timer(lifetime, () => unawaited(dispose()));
+    // While the lease lives its folder is in use: "Clear cache" leaves it.
+    if (staged) _release = holdStaging(file.parent.path);
   }
   final File file;
+  void Function()? _release;
   Timer? _timer;
   Future<void>? _disposal;
 
@@ -92,6 +96,8 @@ class SharedFileLease {
   Future<void> _dispose() async {
     _timer?.cancel();
     _timer = null;
+    _release?.call();
+    _release = null;
     if (await file.parent.exists()) await file.parent.delete(recursive: true);
   }
 }

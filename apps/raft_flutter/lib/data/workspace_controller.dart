@@ -28,6 +28,7 @@ import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
+import 'cache_clear.dart';
 import 'attachment_url_cache.dart';
 import '../platform/memory_budgets.dart';
 import '../platform/memory_release.dart';
@@ -310,6 +311,26 @@ class WorkspaceController extends ChangeNotifier {
     subscription = presentationSource == null
         ? client.events.listen(_event)
         : const Stream<RaftEvent>.empty().listen((_) {});
+    // A route-local presentation shares its source's layers, which register.
+    if (presentationSource == null) {
+      _removeCacheClear = CacheClear.instance.register(
+        'workspace-memory',
+        clearRebuildableMemory,
+      );
+    }
+  }
+
+  VoidCallback? _removeCacheClear;
+
+  /// "Clear cache": lets go of what this workspace keeps in memory and can
+  /// rebuild: decoded attachment pictures nobody shows, signed attachment URLs
+  /// already resolved, and the kept still pictures of videos. Pictures a
+  /// widget holds, requests in flight and playing or held players stay.
+  @visibleForTesting
+  void clearRebuildableMemory() {
+    _attachmentImages?.trimIdle();
+    _attachmentUrls.dropResolved();
+    _playerSessions.trimStills();
   }
 
   /// Borrowed editor controllers project messages but never own the session,
@@ -7008,6 +7029,8 @@ class WorkspaceController extends ChangeNotifier {
     _removeImageReporter = null;
     _removePlayerTrim?.call();
     _removePlayerTrim = null;
+    _removeCacheClear?.call();
+    _removeCacheClear = null;
     _attachmentImages?.dispose();
     _attachmentUrls.dispose();
     _playerSessions.dispose();

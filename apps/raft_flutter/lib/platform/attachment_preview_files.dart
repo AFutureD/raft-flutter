@@ -196,7 +196,7 @@ class AttachmentPreviewFiles {
 /// A [SharedFileLease] on a file the attachment cache owns: disposing it ends
 /// the hold (the cache may evict the file again), it never deletes anything.
 class CachedFileLease extends SharedFileLease {
-  CachedFileLease(this._cached) : super(_cached.file) {
+  CachedFileLease(this._cached) : super(_cached.file, staged: false) {
     cancelExpiry();
   }
   final AttachmentCachedFile _cached;

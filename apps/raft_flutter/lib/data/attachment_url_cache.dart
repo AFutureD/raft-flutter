@@ -299,6 +299,11 @@ class AttachmentUrlCache {
     _epoch++;
   }
 
+  /// Forgets the signed URLs already resolved ("Clear cache"); requests in
+  /// flight and callers waiting for a batch are untouched, so a preview that
+  /// is loading right now still gets its answer. The next use signs again.
+  void dropResolved() => _entries.clear();
+
   void clear() {
     _entries.clear();
     _dropUrgent((_) => true);
