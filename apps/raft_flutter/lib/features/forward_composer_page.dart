@@ -11,6 +11,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/source_time_formatter.dart';
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'channel_footer_states.dart' show jointChannelReadOnly;
@@ -181,7 +182,13 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
   late bool multi = widget.desktop;
   bool preview = false, loading = false, failed = false;
   bool busy = false;
-  String? error;
+  // The failed forward. Bound to the destination selection it failed for: Web
+  // resets the note composer (and its banner) when the destinations change,
+  // so a banner about other destinations must not stay. A new send clears it.
+  late final CauseNotice errorNotice = CauseNotice(
+    scope: () => selected.keys.join('\u0000'),
+  );
+  String? get error => errorNotice.message;
   ForwardAttempt? attempt;
   bool get current => mounted && authority == workspaceAuthority(w);
 
@@ -286,7 +293,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
     if (!current || busy || selected.isEmpty) return false;
     setState(() {
       busy = true;
-      error = null;
+      errorNotice.clear();
     });
     var resolving = true;
     try {
@@ -336,8 +343,9 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
       }
       // Web: some destinations did not take the forward; the toast and the
       // composer banner ask to retry the remaining ones.
-      const retry = 'Some destinations failed. Retry the remaining destinations.';
-      setState(() => error = retry);
+      const retry =
+          'Some destinations failed. Retry the remaining destinations.';
+      setState(() => errorNotice.raise(retry));
       showRaftToast(context, retry);
     } catch (e) {
       if (current) {
@@ -347,7 +355,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
             ? 'The selected destinations are no longer available. Review your selection and try again.'
             : forwardRequestFailureMessage(e);
         logUserError(e, where: 'forward messages');
-        setState(() => error = message);
+        setState(() => errorNotice.raise(message));
         showRaftToast(context, message);
       }
     } finally {
@@ -715,15 +723,11 @@ String forwardRequestFailureMessage(Object error) {
   final code = error is RaftApiException ? error.details['code'] : null;
   return switch (code) {
     'cross_source_bundle' => 'Select messages from one conversation or thread.',
-    'source_not_found' =>
-      'One or more selected messages are no longer available. Review the original conversation and try again.',
-    'forwarded_source_not_supported' =>
-      "Forwarded messages can't be forwarded again. Select the original messages instead.",
-    'unsupported_source_message' || 'unsupported_source' =>
-      "One or more selected items can't be forwarded. Select regular messages instead.",
+    'source_not_found' => 'One or more selected messages are no longer available. Review the original conversation and try again.',
+    'forwarded_source_not_supported' => "Forwarded messages can't be forwarded again. Select the original messages instead.",
+    'unsupported_source_message' || 'unsupported_source' => "One or more selected items can't be forwarded. Select regular messages instead.",
     'cross_server_source' =>
       "Messages from another server can't be forwarded here.",
-    _ =>
-      "We couldn't confirm whether the forward finished. It's safe to try again.",
+    _ => "We couldn't confirm whether the forward finished. It's safe to try again.",
   };
 }

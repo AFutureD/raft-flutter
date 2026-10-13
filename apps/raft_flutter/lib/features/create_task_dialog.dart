@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 
 import '../data/workspace_controller.dart';
@@ -43,7 +44,13 @@ class CreateTaskDialog extends StatefulWidget {
 class _CreateTaskDialogState extends State<CreateTaskDialog> {
   final titles = <TextEditingController>[TextEditingController()];
   bool submitting = false;
+
+  /// A failed submit (server text or lost channel access); the next submit
+  /// clears it.
   String? error;
+
+  /// "A title is required" holds only while every title is still empty.
+  final titleRequired = CauseNotice();
 
   @override
   void initState() {
@@ -81,14 +88,19 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
         if (c.text.trim().isNotEmpty) c.text.trim(),
     ];
     if (nonEmpty.isEmpty) {
-      setState(
-        () => error = raftText(context, 'At least one task title is required'),
-      );
+      setState(() {
+        error = null;
+        titleRequired.raise(
+          raftText(context, 'At least one task title is required'),
+          whileTrue: () => !titles.any((c) => c.text.trim().isNotEmpty),
+        );
+      });
       return;
     }
     setState(() {
       submitting = true;
       error = null;
+      titleRequired.clear();
     });
     try {
       await widget.controller.command(
@@ -126,7 +138,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
     titles: titles,
     filledCount: titles.where((c) => c.text.trim().isNotEmpty).length,
     submitting: submitting,
-    error: error,
+    error: error ?? titleRequired.message,
     onClose: () => Navigator.of(context).maybePop(),
     onSubmit: submit,
     onAddRow: () => setState(() {

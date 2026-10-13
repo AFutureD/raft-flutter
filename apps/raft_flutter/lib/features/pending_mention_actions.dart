@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'composer_attachments_view.dart';
@@ -24,14 +25,11 @@ String mentionActionStatusNotice(BuildContext context, Map? result) {
           ? 'Notification was not delivered because delivery is temporarily unavailable. Try again.'
           : 'That target was not notified right now. Try again.',
     'no_permission' => switch (reason) {
-      'sender_lacks_channel_access' =>
-        'You no longer have access to that channel, so this mention action was not applied.',
+      'sender_lacks_channel_access' => 'You no longer have access to that channel, so this mention action was not applied.',
       'target_lacks_read_access' =>
         'That person cannot read this conversation, so they were not notified.',
-      'add_not_allowed_for_surface' =>
-        'That person cannot be added from this mention action. Use the channel member controls instead.',
-      'add_requires_human_member_authority' =>
-        'Agents cannot add channel members from mention actions. Ask a human member to add them.',
+      'add_not_allowed_for_surface' => 'That person cannot be added from this mention action. Use the channel member controls instead.',
+      'add_requires_human_member_authority' => 'Agents cannot add channel members from mention actions. Ask a human member to add them.',
       'add_requires_member_management_authority' =>
         'Only channel admins can add members from this mention action.',
       _ =>
@@ -45,8 +43,7 @@ String mentionActionStatusNotice(BuildContext context, Map? result) {
     },
     'expired' => 'This mention action has expired.',
     'not_found' => 'This mention action is no longer available.',
-    'ambiguous' =>
-      'This mention action matched more than one target. Refresh and try again.',
+    'ambiguous' => 'This mention action matched more than one target. Refresh and try again.',
     _ => 'This mention action could not be applied.',
   };
   return raftText(context, text);
@@ -70,7 +67,13 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
   final executing = <String, RaftPendingMentionState>{};
   final removing = <String>{};
   final timers = <String, List<Timer>>{};
-  String? notice;
+  // Why the last action did not apply. Bound to the composer scope that
+  // raised it and to the failed row (Web clears it on a new send, a channel
+  // change and when a row is dismissed): a notice about a row that is gone, or
+  // about another channel's composer, must not stay.
+  late final CauseNotice notice = CauseNotice(
+    scope: () => w.draftScope(thread: widget.thread),
+  );
 
   @override
   void dispose() {
@@ -114,7 +117,7 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
   Future<void> mark(List<String> ids, RaftPendingMentionState outcome) async {
     w.setComposerError(null, thread: widget.thread);
     setState(() {
-      notice = null;
+      notice.clear();
       for (final id in ids) {
         executing[id] = outcome;
       }
@@ -139,12 +142,18 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
         final reason = mentionActionStatusNotice(context, results[failed]);
         // Web: a single row shows the reason alone; a batch add leads with
         // how many were added.
+        final text = single
+            ? reason
+            : ok.isNotEmpty
+            ? '${raftFormat(context, 'Added {succeeded} of {total}. ', {'succeeded': ok.length, 'total': ids.length})}$reason'
+            : '${raftText(context, 'No people were added. ')}$reason';
         setState(
-          () => notice = single
-              ? reason
-              : ok.isNotEmpty
-              ? '${raftFormat(context, 'Added {succeeded} of {total}. ', {'succeeded': ok.length, 'total': ids.length})}$reason'
-              : '${raftText(context, 'No people were added. ')}$reason',
+          () => notice.raise(
+            text,
+            whileTrue: () => w
+                .pendingMentionsFor(thread: widget.thread)
+                .any((row) => row['resolutionId'] == failed),
+          ),
         );
       }
     } catch (e) {
@@ -221,7 +230,7 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
           ),
       ];
       return RaftPendingMentionSlot(
-        notice: notice,
+        notice: notice.message,
         strip: RaftPendingMentionActionStrip(
           actions: actions,
           channelName: w.channel?.name ?? '',
@@ -230,7 +239,12 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
           removing: removing,
           onMark: (id, outcome) => mark([id], outcome),
           onAddAll: (ids) => mark(ids, RaftPendingMentionState.added),
-          onDismiss: (id) => setState(() => remove(id)),
+          onDismiss: (id) => setState(() {
+            // Web removePendingMentionAction: dismissing clears the feedback.
+            notice.clear();
+            w.setComposerError(null, thread: widget.thread);
+            remove(id);
+          }),
         ),
       );
     },

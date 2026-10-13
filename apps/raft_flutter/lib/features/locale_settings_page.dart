@@ -137,10 +137,15 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
     if (fields.isEmpty) return;
     final scope = authority;
     setState(() {
+      // Web handleSave*: the previous attempt's error and "saved" end here.
       if (language) {
         savingLanguage = true;
+        languageSaved = false;
+        languageError = null;
       } else {
         savingDateTime = true;
+        dateTimeSaved = false;
+        dateTimeError = null;
       }
     });
     try {

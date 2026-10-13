@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
-
 import '../data/workspace_controller.dart';
 import 'agent_detail_view.dart' show agentTimeFormatter;
 
@@ -24,7 +24,13 @@ class ArchivedChannelsSection extends StatefulWidget {
 
 class _ArchivedChannelsSectionState extends State<ArchivedChannelsSection> {
   WorkspaceController get w => widget.controller;
-  String? busyId, error;
+  String? busyId;
+
+  /// The unarchive failure of one channel: it describes that row, so it ends
+  /// when the channel is no longer listed as archived (restored elsewhere,
+  /// another server, or no archived channel left).
+  final _failure = CauseNotice();
+  String? get error => _failure.message;
 
   /// `isArchivedChannel`: archived and a channel, private channel or joint
   /// channel (direct messages never list).
@@ -41,7 +47,8 @@ class _ArchivedChannelsSectionState extends State<ArchivedChannelsSection> {
   void didUpdateWidget(covariant ArchivedChannelsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller)) {
-      busyId = error = null;
+      busyId = null;
+      _failure.clear();
     }
   }
 
@@ -53,7 +60,7 @@ class _ArchivedChannelsSectionState extends State<ArchivedChannelsSection> {
         serverId == w.server?.id &&
         generation == w.client.generation;
     setState(() {
-      error = null;
+      _failure.clear();
       busyId = channel.id;
     });
     try {
@@ -63,13 +70,16 @@ class _ArchivedChannelsSectionState extends State<ArchivedChannelsSection> {
     } catch (e) {
       if (current()) {
         setState(() {
-          error = raftText(
-            context,
-            userErrorText(
-              e,
-              fallback: 'Failed to unarchive channel',
-              where: 'archived channels',
+          _failure.raise(
+            raftText(
+              context,
+              userErrorText(
+                e,
+                fallback: 'Failed to unarchive channel',
+                where: 'archived channels',
+              ),
             ),
+            whileTrue: () => archived.any((c) => c.id == channel.id),
           );
         });
       }

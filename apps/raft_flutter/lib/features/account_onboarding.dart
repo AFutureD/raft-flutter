@@ -9,6 +9,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../platform/file_selection.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 import 'auth_view.dart' show authFailureText, authLinkToken;
 
@@ -131,7 +132,15 @@ class _OnboardingState extends State<AccountOnboardingView>
   StreamSubscription<RaftEvent>? events;
   bool busy = false, displayNameEdited = false;
   bool manualOpen = false, resending = false, verifying = false, resent = false;
-  String? error, notice, handleError, displayNameError;
+  String? notice, handleError, displayNameError;
+
+  /// The page's banner. Web keeps the verification step and the identity step
+  /// in two components, each with its own error, so a failure raised on one
+  /// (a rejected token, a failed resend) is dropped once the account moves to
+  /// the other.
+  late final CauseNotice _banner = CauseNotice(scope: () => emailVerified);
+  bool get emailVerified => client.user?.json['emailVerified'] == true;
+  String? get error => _banner.message;
   final usernameFocus = FocusNode();
   RaftClient get client => widget.client;
   @override
@@ -198,7 +207,7 @@ class _OnboardingState extends State<AccountOnboardingView>
     if (resending) return;
     setState(() {
       resending = true;
-      error = null;
+      _banner.clear();
       resent = false;
     });
     try {
@@ -207,10 +216,12 @@ class _OnboardingState extends State<AccountOnboardingView>
     } catch (e) {
       if (mounted) {
         setState(
-          () => error = userErrorText(
-            e,
-            fallback: 'Failed to resend verification email',
-            where: 'resend verification',
+          () => _banner.raise(
+            userErrorText(
+              e,
+              fallback: 'Failed to resend verification email',
+              where: 'resend verification',
+            ),
           ),
         );
       }
@@ -224,7 +235,7 @@ class _OnboardingState extends State<AccountOnboardingView>
     final generation = client.generation;
     setState(() {
       verifying = true;
-      error = null;
+      _banner.clear();
       resent = false;
     });
     try {
@@ -236,10 +247,12 @@ class _OnboardingState extends State<AccountOnboardingView>
     } catch (e) {
       if (mounted && client.generation == generation) {
         setState(
-          () => error = userErrorText(
-            e,
-            fallback: 'Verification failed. The link may be expired.',
-            where: 'verify email',
+          () => _banner.raise(
+            userErrorText(
+              e,
+              fallback: 'Verification failed. The link may be expired.',
+              where: 'verify email',
+            ),
           ),
         );
       }
@@ -267,7 +280,7 @@ class _OnboardingState extends State<AccountOnboardingView>
     final generation = client.generation;
     setState(() {
       busy = true;
-      error = null;
+      _banner.clear();
       notice = null;
     });
     try {
@@ -279,7 +292,8 @@ class _OnboardingState extends State<AccountOnboardingView>
     } catch (e) {
       if (mounted && client.generation == generation) {
         setState(
-          () => error = authFailureText(e, fallback, where: 'onboarding'),
+          () =>
+              _banner.raise(authFailureText(e, fallback, where: 'onboarding')),
         );
       }
     } finally {

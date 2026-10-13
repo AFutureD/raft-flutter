@@ -82,11 +82,12 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
   }
 
   Future<void> submit() async {
-    if (busy || !form.currentState!.validate()) return;
-    setState(() {
-      busy = true;
-      error = null;
-    });
+    if (busy) return;
+    // Web: every submit starts with `setError("")`, validation included, so a
+    // rejection of the previous values does not outlive them.
+    if (error != null) setState(() => error = null);
+    if (!form.currentState!.validate()) return;
+    setState(() => busy = true);
     try {
       await widget.onSubmit({
         for (final field in widget.fields)

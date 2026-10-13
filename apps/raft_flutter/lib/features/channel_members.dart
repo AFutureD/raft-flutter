@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 
 import '../data/workspace_controller.dart';
@@ -259,7 +260,13 @@ class _ChannelMembersState extends State<ChannelMembers> {
   bool rosterKnown = false, adding = false;
   bool get loading => !rosterKnown || (addView && !_feed.ready);
   late bool addView = widget.startInAdd;
+
+  /// A failed add / role change (cleared by the next attempt, by a change to
+  /// the selection and by leaving the add view).
   String? error;
+
+  /// A failed roster read: it ends with the next roster that loads.
+  final loadError = CauseNotice();
   final selected = <String>{};
   final search = TextEditingController();
 
@@ -348,13 +355,16 @@ class _ChannelMembersState extends State<ChannelMembers> {
             Map<String, dynamic>.from(e),
         ];
         rosterKnown = true;
+        loadError.clear();
       });
       rememberChannelRoster(w, readUnder, humans: humans, agents: agents);
     } catch (e) {
       if (mounted) {
         setState(() {
           rosterKnown = true;
-          error = raftText(context, userErrorText(e, where: 'channel members'));
+          loadError.raise(
+            raftText(context, userErrorText(e, where: 'channel members')),
+          );
         });
       }
     }
@@ -680,7 +690,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
       addView: addView,
       loading: loading,
       adding: adding,
-      error: error,
+      error: error ?? loadError.message,
       humans: [
         for (final h in humans) row('human', h),
         for (final e in externalMembers) externalRow(e),
@@ -689,6 +699,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
       onAdd: canAdd ? () => setState(() => addView = true) : null,
       onBack: () => setState(() {
         addView = false;
+        error = null;
         selected.clear();
         search.clear();
       }),
@@ -715,6 +726,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
       isChecked: selected.contains,
       onToggle: (key) => setState(() {
         if (!selected.remove(key)) selected.add(key);
+        // Web toggleCandidate: the add failure described the old selection.
+        error = null;
       }),
       canCreateAgent: w.can('createAgents'),
       onConfirm: confirmAdd,
@@ -749,6 +762,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
         if (addView) {
           setState(() {
             addView = false;
+            error = null;
             selected.clear();
             search.clear();
           });

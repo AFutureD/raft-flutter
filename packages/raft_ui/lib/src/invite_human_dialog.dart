@@ -75,6 +75,9 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
   final controllers = <int, TextEditingController>{};
   bool sending = false;
   String? error;
+
+  /// The last send had no email: the prompt holds only while no row has one.
+  bool emailRequired = false;
   String maxUses = 'unlimited', expiry = 'never';
   final _linkController = TextEditingController();
 
@@ -105,17 +108,16 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
         if (i.email.trim().isNotEmpty) (i.email.trim(), i.role),
     ];
     if (targets.isEmpty) {
-      setState(
-        () => error = raftText(
-          context,
-          'Enter at least one email, or copy the invite link above.',
-        ),
-      );
+      setState(() {
+        error = null;
+        emailRequired = true;
+      });
       return;
     }
     setState(() {
       sending = true;
       error = null;
+      emailRequired = false;
     });
     try {
       await widget.onSend(targets);
@@ -142,6 +144,14 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
         widget.seatLimitMessage != null &&
         tab == 'email' &&
         invitees.any((i) => i.email.trim().isNotEmpty && i.role != 'guest');
+    final shownError =
+        error ??
+        (emailRequired && invitees.every((i) => i.email.trim().isEmpty)
+            ? raftText(
+                context,
+                'Enter at least one email, or copy the invite link above.',
+              )
+            : null);
     // Web `Modal`: full-window backdrop, `p-4` frame, centred column.
     return RaftModalBackdrop(
       child: Material(
@@ -155,8 +165,8 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // `space-y-4`
-              if (error != null && !seatReached) ...[
-                RaftErrorBanner(error!, bold: true),
+              if (shownError != null && !seatReached) ...[
+                RaftErrorBanner(shownError, bold: true),
                 const SizedBox(height: 16),
               ],
               if (seatReached) ...[

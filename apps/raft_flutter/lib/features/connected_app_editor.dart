@@ -541,6 +541,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         ),
         onConfirm: () async {
           regenerating = true;
+          // A retry from the confirm dialog: the earlier failure is over.
+          error = null;
           try {
             final data = managementMap(
               await w.client.post('$base/regenerate-secret'),
@@ -586,6 +588,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         confirmGlyph: RaftGlyph.upload,
         confirmVariant: RaftButtonRecipeVariant.danger,
         onConfirm: () async {
+          error = null;
           try {
             final updated = await w.client.post('$base/request-unpublish');
             if (live) {

@@ -101,6 +101,10 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
     openedScope = _scope;
     token = tokenId = '';
     copied = false;
+    // Failures and a pending revoke prompt belong to the previous account's
+    // credentials.
+    error = revokeError = false;
+    confirmId = revokingId = null;
     _cachedCredentials = _readCredentials();
     credentials = _cachedCredentials ?? const [];
     loading = _cachedCredentials == null;

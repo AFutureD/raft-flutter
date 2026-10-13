@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/followed_threads_store.dart';
 import '../data/workspace_controller.dart';
 import 'private_route_guard.dart';
@@ -34,7 +35,14 @@ class _ThreadActionsState extends State<ThreadActions> {
   FollowedThreadsStore get store => w.followedThreads;
   late final int generation;
   late final StreamSubscription<RaftEvent> subscription;
-  String? error;
+  // The failed write. Bound to the thread it was for (this State can be
+  // reused for another parent) and to the membership it failed to change, so
+  // a refresh that shows a different membership retires it. Retry or a new
+  // toggle clears it.
+  late final CauseNotice errorNotice = CauseNotice(
+    scope: () => (widget.parentMessageId, workspaceAuthority(w)),
+  );
+  String? get error => errorNotice.message;
   late final String authority;
   OverlayEntry? menu;
   final menuGroup = Object();
@@ -96,7 +104,7 @@ class _ThreadActionsState extends State<ThreadActions> {
   }
 
   void retry() {
-    rebuild(() => error = null);
+    rebuild(errorNotice.clear);
     store.refresh();
   }
 
@@ -106,7 +114,7 @@ class _ThreadActionsState extends State<ThreadActions> {
     final threadId =
         store.threadChannelIdFor(widget.parentMessageId) ?? w.threadChannelId;
     if (wasFollowing && threadId == null) return;
-    rebuild(() => error = null);
+    rebuild(errorNotice.clear);
     try {
       // Optimistic in the shared store; it reverts if the write fails.
       wasFollowing
@@ -118,7 +126,10 @@ class _ThreadActionsState extends State<ThreadActions> {
     } catch (_) {
       if (current) {
         rebuild(
-          () => error = 'Thread notification settings could not be changed.',
+          () => errorNotice.raise(
+            'Thread notification settings could not be changed.',
+            whileTrue: () => following == wasFollowing,
+          ),
         );
       }
     }

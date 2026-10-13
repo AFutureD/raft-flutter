@@ -316,7 +316,11 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     required String fallback,
   }) async {
     final generation = w.client.generation, source = authority;
-    setState(() => savingId = id);
+    // Web: every connected-app action starts with `setError("")`.
+    setState(() {
+      savingId = id;
+      error = null;
+    });
     try {
       await body();
       if (accepts(generation) && source == authority) await reload();

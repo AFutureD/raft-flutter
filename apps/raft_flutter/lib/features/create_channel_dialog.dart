@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 
 import '../data/workspace_controller.dart';
@@ -211,13 +212,21 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
   late final ChannelCandidateFeed _feed = ChannelCandidateFeed(w);
   List<ChannelMemberCandidate> get candidates => _feed.value;
   bool submitting = false, unarchiving = false;
+
+  /// A failed create / unarchive (server text); the next submit clears it.
   String? error;
+
+  /// The name rule that rejected the last submit: it holds only while the
+  /// name still breaks it.
+  final nameInvalid = CauseNotice();
   Map<String, dynamic>? archivedCollision;
 
   @override
   void initState() {
     super.initState();
     search.addListener(() => setState(() {}));
+    // The name rule is re-read on every edit, so its message ends with it.
+    name.addListener(() => setState(() {}));
     _feed.addListener(() {
       if (mounted) setState(() {});
     });
@@ -275,7 +284,11 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
     final invalid = channelNameError(context, trimmed);
     if (invalid != null) {
       setState(() {
-        error = invalid;
+        error = null;
+        nameInvalid.raise(
+          invalid,
+          whileTrue: () => channelNameError(context, name.text.trim()) != null,
+        );
         archivedCollision = null;
       });
       return;
@@ -283,6 +296,7 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
     setState(() {
       submitting = true;
       error = null;
+      nameInvalid.clear();
       archivedCollision = null;
     });
     try {
@@ -366,7 +380,7 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
       }),
       onClose: close,
       onSubmit: submit,
-      error: error,
+      error: error ?? nameInvalid.message,
       notice: archivedCollision == null
           ? null
           : RaftArchivedNameBanner(

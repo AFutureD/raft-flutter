@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 
 import 'channel_form_fields.dart';
@@ -121,6 +122,10 @@ class _CreateJointChannelDialogState extends State<CreateJointChannelDialog> {
   int nextInvite = 2;
   final agentIds = <String>{}, humanIds = <String>{};
   String? error;
+
+  /// The name rule that rejected the last submit: it holds only while the
+  /// name still breaks it.
+  final nameInvalid = CauseNotice();
   bool billingError = false, submitting = false;
   Map<String, dynamic>? archivedCollision;
 
@@ -149,6 +154,8 @@ class _CreateJointChannelDialogState extends State<CreateJointChannelDialog> {
   void initState() {
     super.initState();
     search.addListener(() => setState(() {}));
+    // The name rule is re-read on every edit, so its message ends with it.
+    name.addListener(() => setState(() {}));
   }
 
   @override
@@ -200,12 +207,18 @@ class _CreateJointChannelDialogState extends State<CreateJointChannelDialog> {
     final trimmed = name.text.trim();
     setState(() {
       error = null;
+      nameInvalid.clear();
       billingError = false;
       archivedCollision = null;
     });
     final nameError = channelNameError(context, trimmed);
     if (nameError != null) {
-      setState(() => error = nameError);
+      setState(
+        () => nameInvalid.raise(
+          nameError,
+          whileTrue: () => channelNameError(context, name.text.trim()) != null,
+        ),
+      );
       return;
     }
     final invites = [
@@ -348,7 +361,7 @@ class _CreateJointChannelDialogState extends State<CreateJointChannelDialog> {
       }),
       onClose: () => Navigator.of(context).maybePop(),
       onSubmit: submit,
-      error: error,
+      error: error ?? nameInvalid.message,
       onViewBilling: billingError && widget.onViewBilling != null
           ? () {
               Navigator.of(context).pop();

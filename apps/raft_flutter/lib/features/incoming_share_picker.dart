@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/incoming_share_targets.dart';
 import '../platform/incoming_share_inbox.dart' show IncomingShareFailureReason;
 import '../platform/incoming_share_staging.dart';
@@ -69,7 +70,15 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
   List<IncomingShareTarget> targets = [];
   final search = TextEditingController();
   final searchFocus = FocusNode();
-  String? error, notice;
+  String? error;
+
+  /// Notices above the rows. "No longer available" describes a dropped
+  /// selection, so it ends when the user picks another destination; "could
+  /// not be loaded" describes a failed refresh and ends when one succeeds
+  /// (see [load]).
+  final CauseNotice notice = CauseNotice();
+  static const _lostNotice = 'The selected destination is no longer available.';
+  static const _refreshFailedNotice = 'Conversations could not be loaded.';
 
   /// [loading]: no row to show yet. Rows are a device seed (or stale after an
   /// authority event) while a check is pending; [revalidating] is that state.
@@ -167,16 +176,15 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
         final lost = current != null && selected != null;
         load(alternative);
         if (lost) {
-          setState(
-            () => notice = 'The selected destination is no longer available.',
-          );
+          setState(() => _raiseLost());
         }
       } else {
         request++;
         setState(() {
-          if (selected != null) {
-            notice = 'The selected destination is no longer available.';
-          }
+          if (selected != null) _raiseLost();
+          // Nothing to load: the read that just succeeded supersedes an
+          // earlier "could not be loaded" error.
+          error = null;
           server = null;
           selected = null;
           review = false;
@@ -195,6 +203,9 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     }
   });
 
+  void _raiseLost() =>
+      notice.raise(_lostNotice, whileTrue: () => selected == null);
+
   Future<void> load(RaftRecord next, {bool keepSelection = false}) {
     final ticket = ++request;
     final same = server?.id == next.id;
@@ -202,7 +213,6 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     // already lists the cached destinations.
     final seed = same ? null : widget.cachedTargets?.call(next);
     final seeded = seed is List<IncomingShareTarget> ? seed : null;
-    final keptNotice = notice;
     setState(() {
       server = next;
       if (!(same && keepSelection)) {
@@ -215,7 +225,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       }
       loading = targets.isEmpty;
       error = null;
-      notice = same && keepSelection ? keptNotice : null;
+      if (!(same && keepSelection)) notice.clear();
     });
     bool current() => mounted && request == ticket && widget.valid();
     return _check(() async {
@@ -238,14 +248,16 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
         setState(() {
           targets = rows;
           loading = false;
+          // The refresh worked: a failed-refresh notice is over.
+          if (notice.message == _refreshFailedNotice) notice.clear();
           final held = selected;
           if (held != null) {
             final fresh = rows.where((t) => t.key == held.key).firstOrNull;
-            if (fresh == null) {
-              notice = 'The selected destination is no longer available.';
-            }
             selected = fresh;
-            if (fresh == null) review = false;
+            if (fresh == null) {
+              review = false;
+              _raiseLost();
+            }
           }
         });
       } catch (e) {
@@ -261,7 +273,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
             review = false;
             error = 'Conversations could not be loaded.';
           } else {
-            notice = 'Conversations could not be loaded.';
+            notice.raise(_refreshFailedNotice);
           }
         });
       }
@@ -551,16 +563,18 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
           label: raftText(context, 'Recent'),
           itemCount: loading || error != null
               ? 1
-              : (rows.isEmpty ? 1 : rows.length) + (notice == null ? 0 : 1),
+              : (rows.isEmpty ? 1 : rows.length) +
+                    (notice.message == null ? 0 : 1),
           itemBuilder: (context, index) {
             if (loading) return const RaftForwardSearchStatus(loading: true);
-            if (notice != null && index == 0) {
+            final shown = notice.message;
+            if (shown != null && index == 0) {
               return RaftForwardSearchStatus(
                 key: const Key('incoming-share-notice'),
-                message: raftText(context, notice!),
+                message: raftText(context, shown),
               );
             }
-            if (notice != null) index--;
+            if (shown != null) index--;
             if (error != null) {
               return RaftForwardSearchStatus(
                 message: raftText(context, error!),

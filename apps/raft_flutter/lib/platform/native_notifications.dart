@@ -71,6 +71,11 @@ class NativeNotificationService extends ChangeNotifier {
   bool initialized = false;
   bool _wanted = false;
   String? error, backgroundError;
+
+  /// The device-level failure of [initialize]; every other [error] belongs to
+  /// the principal ([bind]) whose preference or permission it describes.
+  static const _unavailable =
+      'System notifications are unavailable on this device.';
   void setBackgroundError(String? value) {
     if (backgroundError == value) return;
     backgroundError = value;
@@ -188,7 +193,7 @@ class NativeNotificationService extends ChangeNotifier {
         }
       }
     } catch (_) {
-      error = 'System notifications are unavailable on this device.';
+      error = _unavailable;
     }
     initialized = true;
     // Drop previous-process OS alerts before restoring any principal. The
@@ -222,6 +227,9 @@ class NativeNotificationService extends ChangeNotifier {
     final revision = ++_preferenceRevision;
     enabled = false;
     _wanted = false;
+    // A failure to load or save the previous principal's preference is not
+    // the next one's.
+    if (error != _unavailable) error = null;
     _tail = _tail.then((_) async {
       await initialize();
       if (available) {

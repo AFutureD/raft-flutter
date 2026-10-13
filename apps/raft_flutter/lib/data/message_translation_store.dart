@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:raft_client/raft_client.dart';
 
+import 'cause_notice.dart';
 import 'user_error.dart';
 import 'workspace_controller.dart';
 
@@ -237,7 +238,16 @@ class MessageTranslationStore extends ChangeNotifier {
   final _timeouts = <int, Timer>{};
   final _queued = <String, RaftMessage>{};
   Timer? _flush;
-  String? settingsError;
+
+  /// The failed settings read of the server in view. Kept per server so a
+  /// read that failed for one server never shows under another, and cleared
+  /// with the account (see [_adopt]) or by the next read of that server.
+  final _settingsErrors = CauseNotices<String>();
+  String? get settingsError {
+    _adopt();
+    final id = _serverId;
+    return id == null ? null : _settingsErrors.messageFor(id);
+  }
 
   /// Web translationStore: the server's text or `settings.translation.loadFailed`.
   static String _settingsLoadFailed(Object failure) => userErrorText(
@@ -290,7 +300,7 @@ class MessageTranslationStore extends ChangeNotifier {
       timer.cancel();
     }
     _timeouts.clear();
-    settingsError = null;
+    _settingsErrors.clearAll();
   }
 
   String? get _serverId => w.server?.id;
@@ -371,7 +381,7 @@ class MessageTranslationStore extends ChangeNotifier {
     }
     _loading.add(id);
     _failedLoads.remove(id);
-    settingsError = null;
+    _settingsErrors.clear(id);
     final epoch = _epoch, generation = w.client.generation;
     if (force) notifyListeners();
     unawaited(() async {
@@ -388,13 +398,13 @@ class MessageTranslationStore extends ChangeNotifier {
           );
         } else if (generation == w.client.generation) {
           _failedLoads.add(id);
-          settingsError = _settingsLoadFailed(e);
+          _settingsErrors.raise(id, _settingsLoadFailed(e));
         }
       } catch (e) {
         if (epoch != _epoch) return;
         if (generation == w.client.generation) {
           _failedLoads.add(id);
-          settingsError = _settingsLoadFailed(e);
+          _settingsErrors.raise(id, _settingsLoadFailed(e));
         }
       } finally {
         if (epoch == _epoch) {

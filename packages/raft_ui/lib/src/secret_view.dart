@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'localization.dart';
@@ -22,13 +24,36 @@ class RaftSecretView extends StatefulWidget {
 class _RaftSecretViewState extends State<RaftSecretView> {
   bool visible = false, copying = false;
   String? notice;
+
+  /// The copy result is a momentary confirmation, not a standing state.
+  Timer? noticeTimer;
+
+  void showNotice(String text) {
+    noticeTimer?.cancel();
+    setState(() => notice = text);
+    noticeTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => notice = null);
+    });
+  }
+
+  void clearNotice() {
+    noticeTimer?.cancel();
+    notice = null;
+  }
+
   @override
   void didUpdateWidget(RaftSecretView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.value != widget.value) {
       visible = false;
-      notice = null;
+      clearNotice();
     }
+  }
+
+  @override
+  void dispose() {
+    noticeTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -70,14 +95,13 @@ class _RaftSecretViewState extends State<RaftSecretView> {
                 : () async {
                     setState(() {
                       copying = true;
-                      notice = null;
+                      clearNotice();
                     });
                     try {
                       await widget.onCopy(widget.value);
-                      if (mounted) setState(() => notice = 'Copied');
+                      if (mounted) showNotice('Copied');
                     } catch (_) {
-                      if (mounted)
-                        setState(() => notice = 'Could not copy. Try again.');
+                      if (mounted) showNotice('Could not copy. Try again.');
                     } finally {
                       if (mounted) setState(() => copying = false);
                     }

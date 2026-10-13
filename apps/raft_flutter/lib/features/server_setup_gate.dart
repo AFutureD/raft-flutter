@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/freshness.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
@@ -69,7 +70,14 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   Map<String, dynamic>? projection;
   String? createdAgentId, notice;
   List<Map<String, dynamic>>? setupMachines;
-  String? setupMachinesError;
+
+  /// The failed machine-list read. It describes a list the current step has
+  /// to show, so it ends with that need (the step moved on) or the next read.
+  final _machinesFailure = CauseNotice();
+  String? get setupMachinesError => _machinesFailure.message;
+  bool get _needsMachines =>
+      (projection?['surface'] == 'create_agent' && createdAgentId == null) ||
+      projection?['surface'] == 'computer_runtime';
   StreamSubscription<RaftEvent>? events;
   Timer? debounce;
   RaftForegroundPeriodic? poll;
@@ -229,7 +237,8 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   void clearData() {
     projection = null;
     setupMachines = null;
-    setupMachinesError = null;
+    _machinesFailure.clear();
+    _surveyFailure.clear();
     createdAgentId = null;
     notice = null;
   }
@@ -249,21 +258,23 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     if (!accepts(generation, request)) return;
     projection = managementMap(result);
     _reportAnnouncementGate(serverId);
-    if ((projection?['surface'] == 'create_agent' && createdAgentId == null) ||
-        projection?['surface'] == 'computer_runtime') {
+    if (_needsMachines) {
       try {
         final catalog = await w.client.get('$base/machines');
         if (!accepts(generation, request)) return;
         setupMachines = managementRows(
           catalog is List ? catalog : managementMap(catalog)['machines'],
         );
-        setupMachinesError = null;
+        _machinesFailure.clear();
       } catch (e) {
         if (!accepts(generation, request)) return;
-        setupMachinesError = userErrorText(
-          e,
-          fallback: 'Server setup could not be updated. Try again.',
-          where: 'setup machines',
+        _machinesFailure.raise(
+          userErrorText(
+            e,
+            fallback: 'Server setup could not be updated. Try again.',
+            where: 'setup machines',
+          ),
+          whileTrue: () => _needsMachines,
         );
         if (e is RaftApiException && [401, 403].contains(e.status)) {
           setupMachines = null;
@@ -381,7 +392,14 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     );
   }
 
-  String? surveyRole, surveySource, surveyError;
+  String? surveyRole, surveySource;
+
+  /// The failed survey save; it ends with the survey (answered, or another
+  /// server's setup took over: [clearData]) or the next submit.
+  final _surveyFailure = CauseNotice();
+  String? get surveyError => _surveyFailure.message;
+  bool get _surveyPending =>
+      managementMap(projection?['postSetup'])['surveyPending'] == true;
   final surveyOther = TextEditingController();
 
   /// ServerSetupSurveyStep.handleSubmit: one PATCH /auth/me carrying the role
@@ -389,7 +407,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   Future<void> submitSurvey() async {
     final role = surveyRole, source = surveySource;
     if (role == null || source == null || busy) return;
-    setState(() => surveyError = null);
+    setState(_surveyFailure.clear);
     await run(() async {
       try {
         await w.client.request(
@@ -406,7 +424,10 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
       } on RaftApiException {
         if (mounted) {
           setState(
-            () => surveyError = "Couldn't save your answers. Try again.",
+            () => _surveyFailure.raise(
+              "Couldn't save your answers. Try again.",
+              whileTrue: () => _surveyPending,
+            ),
           );
         }
         return;

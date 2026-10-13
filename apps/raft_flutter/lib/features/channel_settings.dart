@@ -128,6 +128,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       members = rosterRows(roster.humans, roster.agents);
       known.add('members');
     }
+    _draftName = name.text;
+    _draftDescription = description.text;
     name.addListener(draftChanged);
     description.addListener(draftChanged);
     final guest = cachedServerFlag(w, guestFlag);
@@ -183,8 +185,22 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     for (final row in agents) {...row, 'actorType': 'agent'},
   ];
 
+  String? _draftName, _draftDescription;
+
+  /// EditChannelDialog: typing in the name or description drops the error and
+  /// the "Changes saved" label, which both describe the text as it was.
   void draftChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final edited =
+        _draftName != name.text || _draftDescription != description.text;
+    _draftName = name.text;
+    _draftDescription = description.text;
+    setState(() {
+      if (edited) {
+        error = null;
+        clearSaved();
+      }
+    });
   }
 
   /// Fetch [parts] (all by default) and replace them in place. Older

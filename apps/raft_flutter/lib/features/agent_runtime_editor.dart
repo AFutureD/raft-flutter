@@ -348,8 +348,9 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
             draft.reasoning!);
 
   Future<void> submit() async {
-    if (v2Active) return submitV2();
+    // Web handleSaveRuntimeConfiguration clears the banner for both forms.
     setState(() => saveError = null);
+    if (v2Active) return submitV2();
     if (!changed) return widget.onClose();
     if (saveDisabled) return;
     final context = this.context;
@@ -632,6 +633,15 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
 
   @override
   Widget build(BuildContext context) {
+    // The Save button reads the form's change / loading / validity state, so
+    // the card follows the form controller, not only this State's setState.
+    final f = form;
+    return f == null
+        ? buildCard(context)
+        : ListenableBuilder(listenable: f, builder: (c, _) => buildCard(c));
+  }
+
+  Widget buildCard(BuildContext context) {
     final t = RaftTokens.of(context);
     String tr(String s) => raftText(context, s);
     final f = form;

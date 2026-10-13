@@ -126,6 +126,9 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
     detailLoaded = false;
     guestEnabled = false;
     guestFlagRequested = false;
+    // The role editor and its error belong to the member they were opened for.
+    roleError = null;
+    editingRole = rolePickerOpen = false;
   }
 
   @override
@@ -241,7 +244,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
   String? roleError;
 
   Future<void> saveRole() async {
-    final server = w.server!.id, id = widget.userId;
+    final server = w.server!.id, id = widget.userId, source = authority;
     setState(() {
       roleSaving = true;
       roleError = null;
@@ -255,7 +258,8 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
       await reload();
       if (mounted) setState(() => editingRole = false);
     } catch (e) {
-      if (mounted) {
+      // A failure for a member the page no longer shows is not this page's.
+      if (mounted && source == authority) {
         setState(
           () => roleError = raftText(
             context,

@@ -975,6 +975,9 @@ class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
     final current = revision;
     final content = widget.source;
     final dark = RaftTokens.of(context).dark;
+    // A new attempt answers the previous failure ("Could not copy code." or
+    // "Could not export diagram."); a success must not leave it showing.
+    if (copyError != null) setState(() => copyError = null);
     try {
       final Uint8List bytes;
       if (extension == 'mmd') {

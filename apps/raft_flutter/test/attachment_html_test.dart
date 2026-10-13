@@ -465,6 +465,39 @@ void main() {
     },
   );
   testWidgets(
+    'a link failure ends with the next successful link open or allowed navigation',
+    (tester) async {
+      var accept = false;
+      final (_, events, shown) = await pumpWebViewDialog(
+        tester,
+        openExternal: (uri) async => accept,
+      );
+      events.last.onLoaded();
+      await tester.pumpAndSettle();
+      const refused = 'The link could not be opened.';
+      // The system refuses to open the link: the failure shows.
+      expect(events.last.onNavigation('https://example.com/ref'), isFalse);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump();
+      expect(find.text(refused), findsOneWidget);
+      // A later link that does open replaces it.
+      accept = true;
+      expect(events.last.onNavigation('https://example.com/ok'), isFalse);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump();
+      expect(find.text(refused), findsNothing);
+      // A blocked link shows its own failure, and navigating inside the
+      // preview afterwards ends that one too.
+      expect(events.last.onNavigation('file:///etc/passwd'), isFalse);
+      await tester.pump();
+      const blocked = 'This link is unavailable in the HTML preview.';
+      expect(find.text(blocked), findsOneWidget);
+      expect(events.last.onNavigation(shown.last.toString()), isTrue);
+      await tester.pump();
+      expect(find.text(blocked), findsNothing);
+    },
+  );
+  testWidgets(
     'WebView preview shows the page-load percent in the transfer panel, then removes it',
     (tester) async {
       final (_, events, _) = await pumpWebViewDialog(tester);

@@ -387,6 +387,9 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
     super.didUpdateWidget(old);
     if (old.data.id != d.id) {
       editingName = editingDescription = selectionMode = false;
+      // Errors and the in-flight bulk action belong to the previous computer.
+      nameError = descriptionError = bulkError = '';
+      bulkAction = null;
       selected.clear();
       scanned = false;
       workspaces = const [];
@@ -416,15 +419,18 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       setState(() => editingName = false);
       return;
     }
+    final computerId = d.id;
     setState(() {
       nameError = '';
       savingName = true;
     });
     try {
       await widget.actions.rename(next);
-      if (mounted) setState(() => editingName = false);
+      if (mounted && d.id == computerId) setState(() => editingName = false);
     } catch (_) {
-      if (mounted) setState(() => nameError = 'Failed to rename computer');
+      if (mounted && d.id == computerId) {
+        setState(() => nameError = 'Failed to rename computer');
+      }
     } finally {
       if (mounted) setState(() => savingName = false);
     }
@@ -442,15 +448,18 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       setState(() => editingDescription = false);
       return;
     }
+    final computerId = d.id;
     setState(() {
       descriptionError = '';
       savingDescription = true;
     });
     try {
       await widget.actions.describe(next.isEmpty ? null : next);
-      if (mounted) setState(() => editingDescription = false);
+      if (mounted && d.id == computerId) {
+        setState(() => editingDescription = false);
+      }
     } catch (_) {
-      if (mounted) {
+      if (mounted && d.id == computerId) {
         setState(() => descriptionError = 'Failed to update description');
       }
     } finally {
@@ -582,6 +591,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
         ? chosen.where((a) => a.online).toList()
         : chosen;
     if (targets.isEmpty) return;
+    final computerId = d.id;
     setState(() {
       bulkAction = action;
       bulkError = '';
@@ -589,7 +599,8 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
     final failed = await widget.actions.bulk(action, [
       for (final a in targets) a.id,
     ]);
-    if (!mounted) return;
+    // The view moved to another computer: its selection and errors are its own.
+    if (!mounted || d.id != computerId) return;
     setState(() {
       bulkAction = null;
       if (failed > 0) {
@@ -886,6 +897,9 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
             controller: nameField,
             placeholder: 'Computer name',
             autofocus: true,
+            onChanged: (_) {
+              if (nameError.isNotEmpty) setState(() => nameError = '');
+            },
             onSubmitted: (_) => saveName(),
           ),
           Align(
@@ -932,7 +946,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
             minHeight: 80,
             maxLength: 500,
             autofocus: true,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() => descriptionError = ''),
           ),
           Row(
             children: [

@@ -281,6 +281,8 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     );
     switch (decision.action) {
       case AttachmentHtmlNavigationAction.allow:
+        // A page that loads again ends the previous link's failure.
+        if (error != null) setState(() => error = null);
         return true;
       case AttachmentHtmlNavigationAction.external:
         unawaited(link('${decision.link}'));
@@ -322,6 +324,9 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
 
   Future<void> link(String value) async {
     if (!current) return;
+    // A new attempt replaces the previous link's failure: it shows again only
+    // if this one fails too.
+    if (error != null) setState(() => error = null);
     final uri = attachmentHtmlExternalLink(
       value,
       widget.controller.client.origin,

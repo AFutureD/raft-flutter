@@ -586,10 +586,11 @@ class _MembersViewState extends State<MembersView> {
     try {
       final result = await w.query('/servers/${w.server!.id}/members');
       if (mounted && generation == w.client.generation) {
-        setState(
-          () =>
-              members = [for (final p in result) Map<String, dynamic>.from(p)],
-        );
+        setState(() {
+          members = [for (final p in result) Map<String, dynamic>.from(p)];
+          // A retry that succeeds ends the load error it was offered for.
+          error = null;
+        });
       }
     } catch (e) {
       if (mounted) {

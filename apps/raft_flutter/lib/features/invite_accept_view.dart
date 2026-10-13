@@ -249,6 +249,7 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
 
   Future<void> join() async {
     if (accepting) return;
+    final token = widget.token;
     setState(() {
       accepting = true;
       error = '';
@@ -264,7 +265,8 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
       });
       await widget.onEnter(result.serverId);
     } on RaftApiException catch (e) {
-      if (!mounted) return;
+      // An answer for an invite the page no longer shows says nothing here.
+      if (!mounted || token != widget.token) return;
       final fresh = e.details['agreement'];
       if ((serverErrorIs(e, 'agreement_required') ||
               serverErrorIs(e, 'agreement_changed')) &&
@@ -282,7 +284,7 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
         );
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && token == widget.token) {
         setState(() => error = raftText(context, 'Failed to accept invite'));
       }
     } finally {

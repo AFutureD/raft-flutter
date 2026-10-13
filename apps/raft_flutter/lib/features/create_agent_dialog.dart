@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'agent_metadata_catalog.dart';
@@ -138,6 +139,10 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
   String? error;
   int machineTicket = 0;
 
+  /// A failed runtime rescan: it describes the computer it ran on, so it ends
+  /// with a retry, a successful rescan or a switch to another computer.
+  late final rescanError = CauseNotice(scope: () => machineTicket);
+
   @override
   void initState() {
     super.initState();
@@ -260,7 +265,10 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
     final id = machineId;
     if (!currentAuthority || id == null || busy || runtimesRescanning) return;
     final ticket = machineTicket;
-    setState(() => runtimesRescanning = true);
+    setState(() {
+      runtimesRescanning = true;
+      rescanError.clear();
+    });
     try {
       await w.command(
         'POST',
@@ -288,10 +296,12 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
     } catch (e) {
       if (currentAuthority && ticket == machineTicket) {
         setState(
-          () => error = userErrorText(
-            e,
-            fallback: raftGenericErrorText,
-            where: 'rescan runtimes',
+          () => rescanError.raise(
+            userErrorText(
+              e,
+              fallback: raftGenericErrorText,
+              where: 'rescan runtimes',
+            ),
           ),
         );
       }
@@ -561,6 +571,7 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
         ? createAgentNameError(context, name.text)
         : null;
     final f = form;
+    final shownError = error ?? rescanError.message;
     final leading = <Widget>[
       if (capacity != null)
         RaftAgentBanner(
@@ -588,14 +599,14 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
             w.setSection('billing');
           },
         )
-      else if (error != null)
+      else if (shownError != null)
         RaftAgentBanner(
           status: RaftAgentBannerStatus.warning,
-          description: error!,
+          description: shownError,
           // Web isQuotaError: the server's "... limit reached" text gets an
           // inline View Plans link to Settings > Billing.
-          action: error!.contains('limit reached') ? 'View Plans' : null,
-          onAction: error!.contains('limit reached')
+          action: shownError.contains('limit reached') ? 'View Plans' : null,
+          onAction: shownError.contains('limit reached')
               ? () {
                   if (busy) return;
                   close();

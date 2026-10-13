@@ -253,6 +253,8 @@ class _PublicServerViewState extends State<PublicServerView> {
       loadingMessages = false;
       hasOlder = false;
       error = '';
+      // A join failure belongs to the server (and visitor) it was raised for.
+      joinError = '';
       threadChannelId = null;
       if (seen != null) applyServer(seen);
     });
@@ -313,9 +315,9 @@ class _PublicServerViewState extends State<PublicServerView> {
         await widget.client.get('$base/channels/$id/messages'),
       );
       if (!mounted || request != messageRequest) return;
-      final rows = managementRows(
-        data['messages'],
-      ).map(PublicServerMessage.fromJson).toList();
+      final rows = managementRows(data['messages'])
+          .map(PublicServerMessage.fromJson)
+          .toList();
       PublicServerMemory.rememberMessages(memoryKey, 'channel:$id', rows);
       setState(() {
         loadingMessages = false;
@@ -347,9 +349,9 @@ class _PublicServerViewState extends State<PublicServerView> {
         ),
       );
       if (!mounted || selectedId != id) return;
-      final rows = managementRows(
-        data['messages'],
-      ).map(PublicServerMessage.fromJson).toList();
+      final rows = managementRows(data['messages'])
+          .map(PublicServerMessage.fromJson)
+          .toList();
       setState(() {
         loadingMessages = false;
         messages = [...rows, ...messages];
@@ -399,9 +401,9 @@ class _PublicServerViewState extends State<PublicServerView> {
         ),
       );
       if (!mounted || request != threadRequest) return;
-      final rows = managementRows(
-        data['messages'],
-      ).map(PublicServerMessage.fromJson).toList();
+      final rows = managementRows(data['messages'])
+          .map(PublicServerMessage.fromJson)
+          .toList();
       PublicServerMemory.rememberMessages(memoryKey, 'thread:$id', rows);
       setState(() {
         threadMessages = rows;
@@ -440,9 +442,9 @@ class _PublicServerViewState extends State<PublicServerView> {
         ),
       );
       if (!mounted || request != threadRequest) return;
-      final rows = managementRows(
-        data['messages'],
-      ).map(PublicServerMessage.fromJson).toList();
+      final rows = managementRows(data['messages'])
+          .map(PublicServerMessage.fromJson)
+          .toList();
       setState(() {
         threadMessages = [...rows, ...threadMessages];
         threadHasOlder = rows.length == 50;
@@ -997,7 +999,8 @@ class _PublicServerViewState extends State<PublicServerView> {
         actions: actions,
       ),
       overlays: [
-        if (selectionNotice)
+        // The sign-in prompt is only true for a visitor who is not signed in.
+        if (selectionNotice && !authenticated)
           RaftPublicFloatingBanner(
             key: const ValueKey('public-server-selection-notice'),
             top: true,

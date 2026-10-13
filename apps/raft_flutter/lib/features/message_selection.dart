@@ -112,6 +112,8 @@ class MessageSelection extends ChangeNotifier {
     final group = [id];
     if (ids.contains(id)) {
       ids.removeAll(group);
+      // Dropping a row answers the "too many selected" notice.
+      error = null;
     } else if (ids.length + group.where((v) => !ids.contains(v)).length >
         limit) {
       error = 'Select up to 30 messages.';

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/cause_notice.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
@@ -61,7 +62,26 @@ class _MessageActionCardState extends State<MessageActionCard> {
   WorkspaceController get w => widget.controller;
   Map<String, dynamic>? responseMetadata;
   bool busy = false;
-  String? error, openingAuthority;
+  String? openingAuthority;
+  // Why the last confirm failed. Bound to the card state it failed in: once
+  // the card moves on (executed elsewhere, a new confirmation version, another
+  // workspace) the message no longer describes it. A new confirm clears it.
+  final CauseNotice errorNotice = CauseNotice();
+  String? get error => errorNotice.message;
+
+  /// Raises [message] for as long as the card is in the state it failed in.
+  void raiseError(String message, String authority) {
+    final state = metadata['state'], version = metadata['confirmationVersion'];
+    errorNotice.raise(
+      message,
+      whileTrue: () =>
+          mounted &&
+          authority == workspaceAuthority(w) &&
+          metadata['state'] == state &&
+          metadata['confirmationVersion'] == version,
+    );
+  }
+
   dynamic openingVersion;
   Route<dynamic>? ownedDialog;
   Map<String, dynamic> get metadata {
@@ -250,8 +270,10 @@ class _MessageActionCardState extends State<MessageActionCard> {
     } catch (_) {
       if (current(authority)) {
         setState(
-          () => error =
-              'The resource was created, but the action card could not be updated.',
+          () => raiseError(
+            'The resource was created, but the action card could not be updated.',
+            authority,
+          ),
         );
       }
       await event('action_card.execute_fail');
@@ -329,7 +351,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
     openingVersion = version;
     setState(() {
       busy = true;
-      error = null;
+      errorNotice.clear();
     });
     try {
       if (metadata['state'] == 'reconfirm_required') {
@@ -527,12 +549,15 @@ class _MessageActionCardState extends State<MessageActionCard> {
         // Web ActionCard: the server's text, else `actionCard.reconfirmationFailed`
         // / `actionCard.executeFailed`.
         setState(
-          () => error = userErrorText(
-            e,
-            fallback: reconfirming
-                ? 'Reconfirmation failed'
-                : 'Failed to execute action',
-            where: 'action card',
+          () => raiseError(
+            userErrorText(
+              e,
+              fallback: reconfirming
+                  ? 'Reconfirmation failed'
+                  : 'Failed to execute action',
+              where: 'action card',
+            ),
+            authority,
           ),
         );
       }

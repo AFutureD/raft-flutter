@@ -65,10 +65,7 @@ class SourceProfileLoadingPanel extends StatelessWidget {
           child: error == null
               ? RaftPanelMessage(raftText(context, 'Loading...'))
               // Web page-level load failure: message + outline Retry.
-              : RaftLoadError(
-                  'Profile could not be loaded.',
-                  onRetry: onRetry,
-                ),
+              : RaftLoadError('Profile could not be loaded.', onRetry: onRetry),
         ),
       ],
     ),
@@ -294,7 +291,11 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         oldWidget.agent['runtime'] != a['runtime'] ||
         oldWidget.agent['external'] != a['external']) {
       if (oldWidget.agent['id'] != a['id']) {
+        // The status, its failure and the in-flight read belong to the
+        // previous agent.
         externalStatus = null;
+        externalStatusError = null;
+        externalStatusFor = null;
         _adoptCachedExternalStatus();
       }
       unawaited(loadExternalStatus());
