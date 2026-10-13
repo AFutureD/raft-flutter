@@ -12,6 +12,7 @@ import 'recipes/checkbox_indicator.g.dart';
 import 'design_primitives.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/recipe_utilities.g.dart';
+import 'text_scaling.dart' show RaftChrome;
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -123,6 +124,8 @@ class _RaftBadgeState extends State<RaftBadge> {
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.clip,
+              // Badges are fixed chrome: text growth is bounded.
+              textScaler: RaftChrome.boundedScalerOf(context),
               style: widget.foreground == null && widget.fontFamily == null
                   ? null
                   : TextStyle(

@@ -159,9 +159,6 @@ class RaftTextScaling extends StatelessWidget {
   /// Fixed chrome grows at most to this factor.
   static const double chromeMaxScale = 1.35;
 
-  /// The font size the chrome clamp is evaluated at (a tab label).
-  static const double chromeReferenceSize = 13;
-
   /// The text scaler of the surrounding content (already on the Apple curve).
   static TextScaler contentOf(BuildContext context) =>
       MediaQuery.textScalerOf(context);
@@ -181,13 +178,26 @@ class RaftTextScaling extends StatelessWidget {
 }
 
 /// Bounds the text scale of fixed chrome (bottom tab bar, channel tabs,
-/// badges, counters) at [RaftTextScaling.chromeMaxScale]. Inside, `scale()`
-/// never exceeds 1.35x of the font size; [RaftChrome.engagedOf] tells the Large
-/// Content Viewer whether the bound is currently hiding any growth.
+/// badges, counters, icon buttons) at [RaftTextScaling.chromeMaxScale]. Inside,
+/// `scale()` never exceeds 1.35x of the font size; [RaftChrome.engagedOf] tells
+/// the Large Content Viewer whether the bound is currently hiding any growth.
+///
+/// While the bound hides nothing (normal text sizes) this widget is
+/// transparent: it adds no widget and depends only on the text scaler.
 class RaftChrome extends StatelessWidget {
   const RaftChrome({super.key, required this.child});
 
   final Widget child;
+
+  /// Font sizes the bound is evaluated at (caption, tab label, body).
+  static const _probeSizes = [11.0, 13.0, 17.0];
+
+  static bool _hides(TextScaler content, TextScaler bounded) {
+    for (final size in _probeSizes) {
+      if (content.scale(size) > bounded.scale(size) + 1e-6) return true;
+    }
+    return false;
+  }
 
   /// The content scaler outside the nearest [RaftChrome] (or the ambient one).
   static TextScaler contentScalerOf(BuildContext context) {
@@ -195,6 +205,12 @@ class RaftChrome extends StatelessWidget {
         .dependOnInheritedWidgetOfExactType<_RaftChromeScope>();
     return scope?.content ?? MediaQuery.textScalerOf(context);
   }
+
+  /// The ambient text scaler bounded for chrome. For a single `Text` in chrome
+  /// that is not worth a [RaftChrome] of its own: pass this as `textScaler`.
+  static TextScaler boundedScalerOf(BuildContext context) => contentScalerOf(
+    context,
+  ).clamp(maxScaleFactor: RaftTextScaling.chromeMaxScale);
 
   /// Whether the chrome bound is reducing the text scale here.
   static bool engagedOf(BuildContext context) {
@@ -205,20 +221,18 @@ class RaftChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
     // Nested chrome keeps the outermost content scaler.
     final outer = context.getInheritedWidgetOfExactType<_RaftChromeScope>();
-    final content = outer?.content ?? media.textScaler;
-    final clamped = content.clamp(
+    final content = outer?.content ?? MediaQuery.textScalerOf(context);
+    final bounded = content.clamp(
       maxScaleFactor: RaftTextScaling.chromeMaxScale,
     );
-    const ref = RaftTextScaling.chromeReferenceSize;
-    final engaged = content.scale(ref) > clamped.scale(ref) + 1e-6;
+    if (!_hides(content, bounded)) return child;
     return _RaftChromeScope(
       content: content,
-      engaged: engaged,
+      engaged: true,
       child: MediaQuery(
-        data: media.copyWith(textScaler: clamped),
+        data: MediaQuery.of(context).copyWith(textScaler: bounded),
         child: child,
       ),
     );

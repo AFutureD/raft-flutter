@@ -12,6 +12,8 @@ import 'primitive_tokens.dart';
 import 'recipe_surface.dart';
 import 'tokens/tokens.dart';
 import 'theme.dart';
+import 'text_scaling.dart';
+import 'large_content_viewer.dart';
 
 @immutable
 class RaftMobileNavItem {
@@ -254,162 +256,182 @@ class RaftMobileNav extends StatelessWidget {
     );
     final inset = bottomInset ?? MediaQuery.viewPaddingOf(context).bottom;
     final touch = RaftDensityScope.of(context) == RaftDensity.touch;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        final itemWidth = availableWidth / items.length;
-        // The count sits on the glyph's upper right corner and may overhang
-        // the cell: the capsule gap (Elegant) and the neighbour's rule
-        // (Brutal) leave room for "99+".
-        Widget badged(RaftMobileNavItem i, Widget glyph) => i.badgeCount <= 0
-            ? glyph
-            : Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  glyph,
-                  Positioned(
-                    top: t.brutal ? -3 : -8,
-                    left: 11,
-                    child: Semantics(
-                      key: ValueKey('mobile-nav-badge-${i.id}'),
-                      label: raftFormat(context, '{count} unread', {
-                        'count': i.badgeCount > 99 ? '99+' : i.badgeCount,
-                      }),
-                      child: ExcludeSemantics(
-                        child: RaftSidebarUnreadCount(count: i.badgeCount),
-                      ),
-                    ),
+    // Fixed chrome: label text is bounded (RaftChrome) and, once that hides
+    // growth, a long press shows the item large (Large Content Viewer).
+    return RaftChrome(
+      child: RaftLargeContentScope(
+        child: LayoutBuilder(
+          builder: (context, constraints) =>
+              _bar(context, constraints, t, recipe, inset, touch),
+        ),
+      ),
+    );
+  }
+
+  Widget _bar(
+    BuildContext context,
+    BoxConstraints constraints,
+    RaftTokens t,
+    RaftMobileNavRecipe recipe,
+    double inset,
+    bool touch,
+  ) {
+    final availableWidth = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : MediaQuery.sizeOf(context).width;
+    final itemWidth = availableWidth / items.length;
+    // The count sits on the glyph's upper right corner and may overhang
+    // the cell: the capsule gap (Elegant) and the neighbour's rule
+    // (Brutal) leave room for "99+".
+    Widget badged(RaftMobileNavItem i, Widget glyph) => i.badgeCount <= 0
+        ? glyph
+        : Stack(
+            clipBehavior: Clip.none,
+            children: [
+              glyph,
+              Positioned(
+                top: t.brutal ? -3 : -8,
+                left: 11,
+                child: Semantics(
+                  key: ValueKey('mobile-nav-badge-${i.id}'),
+                  label: raftFormat(context, '{count} unread', {
+                    'count': i.badgeCount > 99 ? '99+' : i.badgeCount,
+                  }),
+                  child: ExcludeSemantics(
+                    child: RaftSidebarUnreadCount(count: i.badgeCount),
                   ),
-                ],
-              );
-        Widget item(RaftMobileNavItem i, int index) {
-          final selected = i.id == selectedId;
-          final height = recipe.itemHeight;
-          final control = Semantics(
-            selected: selected,
-            child: RaftControl(
-              key: i.key,
-              onPressed: i.enabled ? () => onSelected(i.id) : null,
-              tooltip: t.brutal ? null : raftText(context, i.label),
-              semanticLabel: t.brutal ? null : raftText(context, i.label),
-              visualHeight: height,
-              visualWidth: t.brutal
-                  ? itemWidth - (index == items.length - 1 ? 0 : 2)
-                  : 44,
-              minimumTargetSize: touch ? math.max(48, height) : height,
-              recipe: _MobileItemRecipe(t, selected: selected),
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  if (t.brutal)
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (recipe.showGlyph) ...[
-                          badged(i, RaftIcon(i.glyph, size: 18)),
-                          const SizedBox(height: 2),
-                        ],
-                        Text(
-                          raftText(context, i.label),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    )
-                  else
-                    badged(i, RaftIcon(i.glyph, size: 18)),
-                  if (i.attention)
-                    Positioned(
-                      top: t.brutal ? 4 : -4,
-                      right: t.brutal ? 8 : -4,
-                      child: _AttentionDot(t),
-                    ),
-                ],
+                ),
               ),
+            ],
+          );
+    Widget item(RaftMobileNavItem i, int index) {
+      final selected = i.id == selectedId;
+      final height = recipe.itemHeight;
+      Widget control = Semantics(
+        selected: selected,
+        child: RaftControl(
+          key: i.key,
+          onPressed: i.enabled ? () => onSelected(i.id) : null,
+          tooltip: t.brutal ? null : raftText(context, i.label),
+          semanticLabel: t.brutal ? null : raftText(context, i.label),
+          visualHeight: height,
+          visualWidth: t.brutal
+              ? itemWidth - (index == items.length - 1 ? 0 : 2)
+              : 44,
+          minimumTargetSize: touch ? math.max(48, height) : height,
+          recipe: _MobileItemRecipe(t, selected: selected),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              if (t.brutal)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (recipe.showGlyph) ...[
+                      badged(i, RaftIcon(i.glyph, size: 18)),
+                      const SizedBox(height: 2),
+                    ],
+                    Text(
+                      raftText(context, i.label),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                )
+              else
+                badged(i, RaftIcon(i.glyph, size: 18)),
+              if (i.attention)
+                Positioned(
+                  top: t.brutal ? 4 : -4,
+                  right: t.brutal ? 8 : -4,
+                  child: _AttentionDot(t),
+                ),
+            ],
+          ),
+        ),
+      );
+      control = RaftLargeContentViewer(
+        label: raftText(context, i.label),
+        enabled: i.enabled,
+        onActivate: () => onSelected(i.id),
+        iconBuilder: (context, size) => RaftIcon(i.glyph, size: size),
+        child: control,
+      );
+      return t.brutal
+          ? Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: index == items.length - 1
+                      ? null
+                      // `border-r-2 border-line-strong` (MobileNavItem).
+                      : Border(
+                          right: BorderSide(
+                            color: t.semantic.lineStrong,
+                            width: 2,
+                          ),
+                        ),
+                ),
+                child: control,
+              ),
+            )
+          : control;
+    }
+
+    final bar = Container(
+      key: t.brutal ? null : const ValueKey('mobile-nav-source-capsule'),
+      width: t.brutal ? null : recipe.capsuleWidth(items.length),
+      height: t.brutal ? null : recipe.capsuleHeight,
+      padding: t.brutal
+          ? EdgeInsets.only(bottom: recipe.bottomSpace(inset))
+          : EdgeInsets.zero,
+      decoration: BoxDecoration(
+        color: recipe.background,
+        border: t.brutal
+            ? const Border(
+                top: BorderSide(color: Colors.black, width: 2),
+                bottom: BorderSide(color: Colors.black, width: 2),
+              )
+            : null,
+        borderRadius: t.brutal ? null : BorderRadius.circular(1000),
+        boxShadow: recipe.rootShadows,
+      ),
+      child: t.brutal
+          ? Row(
+              children: [
+                for (var index = 0; index < items.length; index++)
+                  item(items[index], index),
+              ],
+            )
+          : Stack(
+              // Expanded touch targets fit INSIDE the source capsule and its
+              // gaps. They never borrow pixels from the neighboring body.
+              children: [
+                for (var index = 0; index < items.length; index++)
+                  Positioned(
+                    left:
+                        recipe.capsuleInset +
+                        index * (44 + recipe.itemGap) -
+                        (touch ? 2 : 0),
+                    top: recipe.capsuleInset - (touch ? 2 : 0),
+                    width: touch ? 48 : 44,
+                    height: touch ? 48 : 44,
+                    child: item(items[index], index),
+                  ),
+              ],
+            ),
+    );
+    return t.brutal
+        ? bar
+        : Padding(
+            padding: EdgeInsets.only(top: 8, bottom: recipe.bottomSpace(inset)),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: bar,
             ),
           );
-          return t.brutal
-              ? Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: index == items.length - 1
-                          ? null
-                          // `border-r-2 border-line-strong` (MobileNavItem).
-                          : Border(
-                              right: BorderSide(
-                                color: t.semantic.lineStrong,
-                                width: 2,
-                              ),
-                            ),
-                    ),
-                    child: control,
-                  ),
-                )
-              : control;
-        }
-
-        final bar = Container(
-          key: t.brutal ? null : const ValueKey('mobile-nav-source-capsule'),
-          width: t.brutal ? null : recipe.capsuleWidth(items.length),
-          height: t.brutal ? null : recipe.capsuleHeight,
-          padding: t.brutal
-              ? EdgeInsets.only(bottom: recipe.bottomSpace(inset))
-              : EdgeInsets.zero,
-          decoration: BoxDecoration(
-            color: recipe.background,
-            border: t.brutal
-                ? const Border(
-                    top: BorderSide(color: Colors.black, width: 2),
-                    bottom: BorderSide(color: Colors.black, width: 2),
-                  )
-                : null,
-            borderRadius: t.brutal ? null : BorderRadius.circular(1000),
-            boxShadow: recipe.rootShadows,
-          ),
-          child: t.brutal
-              ? Row(
-                  children: [
-                    for (var index = 0; index < items.length; index++)
-                      item(items[index], index),
-                  ],
-                )
-              : Stack(
-                  // Expanded touch targets fit INSIDE the source capsule and its
-                  // gaps. They never borrow pixels from the neighboring body.
-                  children: [
-                    for (var index = 0; index < items.length; index++)
-                      Positioned(
-                        left:
-                            recipe.capsuleInset +
-                            index * (44 + recipe.itemGap) -
-                            (touch ? 2 : 0),
-                        top: recipe.capsuleInset - (touch ? 2 : 0),
-                        width: touch ? 48 : 44,
-                        height: touch ? 48 : 44,
-                        child: item(items[index], index),
-                      ),
-                  ],
-                ),
-        );
-        return t.brutal
-            ? bar
-            : Padding(
-                padding: EdgeInsets.only(
-                  top: 8,
-                  bottom: recipe.bottomSpace(inset),
-                ),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  widthFactor: 1,
-                  heightFactor: 1,
-                  child: bar,
-                ),
-              );
-      },
-    );
   }
 }
 

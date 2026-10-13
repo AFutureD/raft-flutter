@@ -1,11 +1,4 @@
 {
-  "real|brutal|activityMobileScopePreview|3.1x": [
-    "inkClipped: All",
-    "inkClipped: Done",
-    "inkClipped: Mentions",
-    "inkClipped: Saved",
-    "inkClipped: Unread"
-  ],
   "real|brutal|administrationAdminsPreview|2.0x": [
     "escapes: Remove Admin",
     "escapes: Update Role"
@@ -48,18 +41,6 @@
     "inkClipped: PDF",
     "overflow: A RenderFlex overflowed by 39 pixels on the bottom."
   ],
-  "real|brutal|bannerPreview|2.0x": [
-    "overflow: A RenderFlex overflowed by 26 pixels on the bottom."
-  ],
-  "real|brutal|bannerPreview|3.1x": [
-    "escapes: Profile saved.",
-    "escapes: Your draft is saved. Reconnect to send it.",
-    "overflow: A RenderFlex overflowed by 358 pixels on the bottom."
-  ],
-  "real|brutal|channelHeaderPreview|3.1x": [
-    "escapes: Ready",
-    "overflow: A RenderFlex overflowed by 34 pixels on the bottom."
-  ],
   "real|brutal|channelMembersPagePreview|2.0x": [
     "inkClipped: Add Member",
     "inkClipped: Humans",
@@ -93,52 +74,9 @@
   "real|brutal|composerEditableLineBoxPreview|3.1x": [
     "inkClipped: Review the Android composer crop before release."
   ],
-  "real|brutal|conversationTabsDesktopPreview|3.1x": [
-    "escapes: Chat",
-    "escapes: Files",
-    "escapes: Tasks",
-    "inkClipped: Chat",
-    "inkClipped: Files",
-    "inkClipped: Tasks"
-  ],
-  "real|brutal|conversationTabsTouchPreview|2.0x": [
-    "escapes: Fixture panel: chat; actions: 0",
-    "overflow: A RenderFlex overflowed by 4.0 pixels on the bottom."
-  ],
-  "real|brutal|conversationTabsTouchPreview|3.1x": [
-    "escapes: Chat",
-    "escapes: Files",
-    "escapes: Fixture panel: chat; actions: 0",
-    "escapes: Tasks",
-    "inkClipped: Chat",
-    "inkClipped: Files",
-    "inkClipped: Tasks",
-    "overflow: A RenderFlex overflowed by 76 pixels on the bottom."
-  ],
-  "real|brutal|designControlsPreview|3.1x": [
-    "escapes: Activated 0 · Diagram",
-    "overflow: A RenderFlex overflowed by 56 pixels on the bottom."
-  ],
-  "real|brutal|desktopPanelHeaderPreview|2.0x": [
-    "escapes: Ready",
-    "inkClipped: @designer",
-    "overflow: A RenderFlex overflowed by 8.4 pixels on the bottom."
-  ],
-  "real|brutal|desktopPanelHeaderPreview|3.1x": [
-    "escapes: @designer",
-    "escapes: Designer",
-    "escapes: Ready",
-    "inkClipped: @designer",
-    "overflow: A RenderFlex overflowed by 3.3 pixels on the bottom.",
-    "overflow: A RenderFlex overflowed by 76 pixels on the bottom."
-  ],
   "real|brutal|dmSettingsPagePreview|3.1x": [
     "escapes: Alice",
     "overflow: A RenderFlex overflowed by 3.0 pixels on the bottom."
-  ],
-  "real|brutal|inlineThreadSurfacePreview|3.1x": [
-    "escapes: Avatar assets and Elegant hover elevation are adapter slots; preview does not claim their visual parity.",
-    "overflow: A RenderFlex overflowed by 258 pixels on the bottom."
   ],
   "real|brutal|longApplicationCatalogPreview|1.3x": [
     "inkClipped: Search apps…"
@@ -153,12 +91,6 @@
     "inkClipped: AP",
     "inkClipped: Search apps…"
   ],
-  "real|brutal|messageAffordancePreview|3.1x": [
-    "escapes: 2",
-    "escapes: Controlled reaction glyph slot (source sprite registration pending)",
-    "escapes: Ready",
-    "overflow: A RenderFlex overflowed by 294 pixels on the bottom."
-  ],
   "real|brutal|messageRowPreview|1.3x": [
     "escapes: 14:31"
   ],
@@ -166,10 +98,7 @@
     "escapes: 14:31"
   ],
   "real|brutal|messageRowPreview|3.1x": [
-    "escapes: 14:31",
-    "escapes: Ready",
-    "escapes: Same sender continuation; the avatar and name are omitted.",
-    "overflow: A RenderFlex overflowed by 254 pixels on the bottom."
+    "escapes: 14:31"
   ],
   "real|brutal|messageTranslationPreview|2.0x": [
     "inkClipped: Retry",
@@ -184,10 +113,6 @@
     "inkClipped: Translating…",
     "inkClipped: Translation unavailable",
     "inkClipped: ·"
-  ],
-  "real|brutal|mobileDmSettingsPreview|3.1x": [
-    "escapes: Conversation settings",
-    "overflow: A RenderFlex overflowed by 3.3 pixels on the bottom."
   ],
   "real|brutal|mobileSettingsRootCurrentPreview|1.3x": [
     "inkClipped: Appearance",
@@ -243,16 +168,7 @@
   ],
   "real|brutal|profileTabsAndCardPreview|3.1x": [
     "inkClipped: Chat",
-    "inkClipped: Profile",
-    "overflow: A RenderFlex overflowed by 36 pixels on the bottom."
-  ],
-  "real|brutal|selectionCopyToastPreview-open|3.1x": [
-    "escapes: Hover feedback to pause its five-second timeout.",
-    "overflow: A RenderFlex overflowed by 128 pixels on the bottom."
-  ],
-  "real|brutal|selectionCopyToastPreview|3.1x": [
-    "escapes: Hover feedback to pause its five-second timeout.",
-    "overflow: A RenderFlex overflowed by 128 pixels on the bottom."
+    "inkClipped: Profile"
   ],
   "real|brutal|settingsControlsPreview|2.0x": [
     "escapes: Save",
@@ -261,21 +177,6 @@
   "real|brutal|settingsControlsPreview|3.1x": [
     "escapes: Save",
     "escapes: Saving"
-  ],
-  "real|brutal|sosConfirmPreview|2.0x": [
-    "escapes: All running agents in #release will stop immediately. You can provide new guidance before resuming them.",
-    "escapes: Cancel",
-    "escapes: Stop",
-    "overflow: A RenderFlex overflowed by 116 pixels on the bottom."
-  ],
-  "real|brutal|sosConfirmPreview|3.1x": [
-    "escapes: All running agents in #release will stop immediately. You can provide new guidance before resuming them.",
-    "escapes: Cancel",
-    "escapes: Stop",
-    "overflow: A RenderFlex overflowed by 626 pixels on the bottom."
-  ],
-  "real|brutal|workspaceSidebarHeadingPreview|3.1x": [
-    "inkClipped: Chat"
   ],
   "tall|brutal|activityMobileScopePreview|zh-2.0x": [
     "inkClipped: 全部",

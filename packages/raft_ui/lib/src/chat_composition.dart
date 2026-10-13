@@ -11,6 +11,8 @@ import 'panel_layout.dart' show RaftCssText;
 import 'sidebar_section.dart';
 import 'theme.dart';
 import 'status_bar.dart';
+import 'text_scaling.dart';
+import 'large_content_viewer.dart';
 
 enum RaftChatSidebarGroupKind { pinned, joint, channels, directMessages }
 
@@ -498,6 +500,15 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
           raftBreakpointWidth(context) < RaftLayoutMetrics.desktopBreakpoint,
       density: RaftDensityScope.of(context),
     );
+    // Fixed chrome: text is bounded (RaftChrome) and a long press shows the
+    // tab large (Large Content Viewer) once the bound hides growth.
+    return RaftChrome(
+      child: RaftLargeContentScope(child: _tabStrip(context, recipe)),
+    );
+  }
+
+  Widget _tabStrip(BuildContext context, RaftConversationTabsRecipe recipe) {
+    final grows = RaftScaled.grows(context);
     return RaftStatusBarSource(
       color: recipe.background,
       child: Container(
@@ -515,8 +526,12 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
                   ),
           ),
         ),
-        child: SizedBox(
-          height: recipe.effectiveListHeight,
+        child: ConstrainedBox(
+          // The strip is a minimum height: the tabs grow with their label.
+          constraints: BoxConstraints(
+            minHeight: recipe.effectiveListHeight,
+            maxHeight: grows ? double.infinity : recipe.effectiveListHeight,
+          ),
           child: Focus(
             canRequestFocus: false,
             onKeyEvent: navigation,
@@ -567,7 +582,8 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
   ) {
     final selected = tab.id == widget.value;
     final focus = node(tab.id);
-    final control = Semantics(
+    final grows = RaftScaled.grows(context);
+    Widget control = Semantics(
       role: SemanticsRole.tab,
       label: tab.label,
       selected: selected,
@@ -576,8 +592,11 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
       focused: focus.hasFocus,
       onTap: tab.enabled ? () => widget.onChanged(tab.id) : null,
       child: ExcludeSemantics(
-        child: SizedBox(
-          height: recipe.effectiveListHeight,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: recipe.effectiveListHeight,
+            maxHeight: grows ? double.infinity : recipe.effectiveListHeight,
+          ),
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -624,9 +643,12 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
                 Positioned(
                   key: ValueKey('conversation-tab-separator-${tab.id.name}'),
                   left: 0,
-                  top:
-                      (recipe.effectiveListHeight - recipe.sourceTabHeight) / 2,
-                  height: recipe.sourceTabHeight,
+                  top: grows
+                      ? 0
+                      : (recipe.effectiveListHeight - recipe.sourceTabHeight) /
+                            2,
+                  height: grows ? null : recipe.sourceTabHeight,
+                  bottom: grows ? 0 : null,
                   width: 2,
                   child: IgnorePointer(child: ColoredBox(color: Colors.black)),
                 ),
@@ -645,6 +667,28 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
         ),
       ),
     );
+    if (tab.enabled) {
+      control = RaftLargeContentViewer(
+        label: tab.label,
+        onActivate: () => widget.onChanged(tab.id),
+        iconBuilder: (context, size) => switch (tab.id) {
+          RaftConversationTabId.chat => RaftIcon(
+            RaftGlyph.messageSquare,
+            size: size,
+          ),
+          RaftConversationTabId.files => RaftIcon(
+            RaftGlyph.paperclip,
+            size: size,
+          ),
+          RaftConversationTabId.tasks => _ConversationTaskGlyph(
+            size: size,
+            stroke: recipe.glyphStroke,
+            color: IconTheme.of(context).color ?? recipe.tokens.ink,
+          ),
+        },
+        child: control,
+      );
+    }
     return widget.reorderWrapper?.call(control, tab, index) ?? control;
   }
 }

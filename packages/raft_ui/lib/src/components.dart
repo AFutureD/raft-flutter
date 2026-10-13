@@ -17,6 +17,7 @@ import 'raft_selection_area.dart';
 
 import 'error_presentation.dart' show RaftToastHost;
 import 'localization.dart';
+import 'text_scaling.dart' show RaftChrome;
 import 'toast.dart' show RaftToastController;
 
 import 'package:flutter/services.dart';
@@ -830,13 +831,25 @@ class RaftSidebarUnreadCount extends StatelessWidget {
       RaftTokens.of(context),
       kind: RaftConversationNavKind.directMessage,
     );
+    // A counter is fixed chrome: its text is bounded (RaftChrome) and the pill
+    // is a minimum height that grows with that bounded text.
+    final bounded = RaftChrome.boundedScalerOf(context);
+    final size = recipe.countTextStyle.fontSize ?? 11;
+    final grown = bounded.scale(size) > size + 1e-6;
     return Container(
-      height: recipe.countHeight,
-      constraints: BoxConstraints(minWidth: recipe.countMinimumWidth),
+      height: grown ? null : recipe.countHeight,
+      constraints: BoxConstraints(
+        minWidth: recipe.countMinimumWidth,
+        minHeight: grown ? recipe.countHeight : 0,
+      ),
       padding: recipe.countPadding,
       decoration: recipe.countDecoration,
       alignment: Alignment.center,
-      child: Text(count > 99 ? '99+' : '$count', style: recipe.countTextStyle),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: recipe.countTextStyle,
+        textScaler: bounded,
+      ),
     );
   }
 }

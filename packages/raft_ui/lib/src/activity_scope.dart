@@ -9,6 +9,7 @@ import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
 import 'select_field.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
 
@@ -414,8 +415,11 @@ class _ActivityButton extends StatelessWidget {
             : selected
             ? t.colors['primary-soft']!
             : t.panel;
+        // Larger text: the pinned height is a minimum.
+        final grows = height != null && RaftScaled.grows(context);
         return Container(
-          height: height,
+          height: grows ? null : height,
+          constraints: grows ? BoxConstraints(minHeight: height!) : null,
           foregroundDecoration: !border && state.focusVisible
               ? BoxDecoration(border: Border.all(color: t.ink, width: 2))
               : null,

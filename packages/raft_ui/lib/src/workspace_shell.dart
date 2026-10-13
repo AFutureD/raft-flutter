@@ -7,6 +7,7 @@ import 'recipe_surface.dart';
 import 'rail_attention.dart';
 import 'recipes/app_rail.g.dart';
 import 'recipes/recipe_runtime.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -30,8 +31,12 @@ class RaftChatSidebarHeading extends StatelessWidget {
       variant: RaftSidebarVariant.mountedProduct,
       workspaceEnabled: workspaceEnabled,
     );
+    final grows = RaftScaled.grows(context);
     return Container(
-      height: recipe.headerHeight,
+      height: grows ? null : recipe.headerHeight,
+      constraints: grows
+          ? BoxConstraints(minHeight: recipe.headerHeight)
+          : null,
       padding: recipe.headerInset,
       decoration: BoxDecoration(
         border: Border(

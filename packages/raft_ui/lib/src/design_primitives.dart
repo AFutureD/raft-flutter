@@ -2,7 +2,8 @@ import 'raft_underline.dart';
 import 'anchored_popup.dart';
 import 'dismiss_scope.dart';
 import 'tooltip.dart';
-import 'text_scaling.dart' show RaftScaled;
+import 'text_scaling.dart' show RaftChrome, RaftScaled;
+import 'large_content_viewer.dart';
 import 'search_result_surface.dart';
 import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
 
@@ -1283,20 +1284,35 @@ class RaftIconButton extends StatelessWidget {
   final RaftControlVariant variant;
   final bool busy, shadow;
   @override
-  Widget build(BuildContext context) => RaftControl(
-    shadow: shadow,
-    onPressed: onPressed,
-    tooltip: tooltip == null ? null : raftText(context, tooltip!),
-    visualHeight: visualSize,
-    visualWidth: visualSize,
-    minimumTargetSize: minimumTargetSize,
-    variant: variant,
-    busy: busy,
-    semanticLabel: busy ? raftText(context, tooltip ?? 'Loading') : null,
-    child: busy
-        ? RaftSpinner(size: glyphSize)
-        : RaftIcon(glyph, size: glyphSize ?? (visualSize <= 28 ? 14 : 16)),
-  );
+  Widget build(BuildContext context) {
+    final button = RaftControl(
+      shadow: shadow,
+      onPressed: onPressed,
+      tooltip: tooltip == null ? null : raftText(context, tooltip!),
+      visualHeight: visualSize,
+      visualWidth: visualSize,
+      minimumTargetSize: minimumTargetSize,
+      variant: variant,
+      busy: busy,
+      semanticLabel: busy ? raftText(context, tooltip ?? 'Loading') : null,
+      child: busy
+          ? RaftSpinner(size: glyphSize)
+          : RaftIcon(glyph, size: glyphSize ?? (visualSize <= 28 ? 14 : 16)),
+    );
+    final label = tooltip;
+    if (label == null) return button;
+    // An icon button is fixed chrome: at large text sizes a long press shows
+    // its icon and label large (Large Content Viewer).
+    return RaftChrome(
+      child: RaftLargeContentViewer(
+        label: raftText(context, label),
+        enabled: onPressed != null && !busy,
+        onActivate: onPressed,
+        iconBuilder: (context, size) => RaftIcon(glyph, size: size),
+        child: button,
+      ),
+    );
+  }
 }
 
 /// Canonical framed navigation action; product callers supply source size.

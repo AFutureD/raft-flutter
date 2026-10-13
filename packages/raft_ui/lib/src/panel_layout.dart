@@ -6,6 +6,8 @@
 // Geometry and colour come from the generated raft-ui recipes (panelHeader,
 // panelAction, tabs) and, for classes written directly in Web JSX, from the
 // Tailwind classes cited next to each value (packages/web/src paths).
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:flutter/rendering.dart';
@@ -23,6 +25,8 @@ import 'recipes/tabs.g.dart';
 import 'recipes/token_binding.dart';
 import 'recipe_surface.dart' show raftCssText;
 import 'status_bar.dart';
+import 'text_scaling.dart' show RaftChrome, RaftScaled;
+import 'large_content_viewer.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -396,9 +400,17 @@ class RaftPanelHeaderBar extends StatelessWidget {
     );
     final gap = s.header.columnGap ?? s.header.length('gap') ?? 12;
     final narrow = width < RaftLayoutMetrics.desktopBreakpoint;
+    // Larger text: the header is a minimum height and its title and meta wrap.
+    final grows = RaftScaled.grows(context);
+    final headerHeight = s.header.height;
     final header = Container(
-      height: s.header.height,
-      constraints: BoxConstraints(minHeight: s.header.minHeight ?? 0),
+      height: grows ? null : headerHeight,
+      constraints: BoxConstraints(
+        minHeight: math.max(
+          s.header.minHeight ?? 0,
+          grows ? headerHeight ?? 0 : 0,
+        ),
+      ),
       padding: leftPadding == null
           ? s.header.padding
           : s.header.padding.copyWith(left: leftPadding),
@@ -446,7 +458,7 @@ class RaftPanelHeaderBar extends StatelessWidget {
                           header: true,
                           child: RaftCssText(
                             title,
-                            maxLines: 1,
+                            maxLines: grows ? null : 1,
                             overflow: TextOverflow.ellipsis,
                             style: text(s.title),
                           ),
@@ -463,7 +475,7 @@ class RaftPanelHeaderBar extends StatelessWidget {
                                 header: true,
                                 child: RaftCssText(
                                   title,
-                                  maxLines: 1,
+                                  maxLines: grows ? null : 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: text(s.title),
                                 ),
@@ -476,7 +488,7 @@ class RaftPanelHeaderBar extends StatelessWidget {
                       ? null
                       : RaftCssText(
                           subtitle!,
-                          maxLines: 1,
+                          maxLines: grows ? null : 1,
                           overflow: TextOverflow.ellipsis,
                           style: text(s.meta),
                         ),
@@ -878,6 +890,22 @@ class RaftPanelIconButton extends StatelessWidget {
   final VoidCallback? onKeyboardActivate;
   @override
   Widget build(BuildContext context) {
+    // Fixed chrome: at large text sizes a long press shows the icon and label
+    // large (Large Content Viewer).
+    return RaftChrome(
+      child: RaftLargeContentViewer(
+        label: tooltip,
+        enabled: onPressed != null,
+        onActivate: onPressed,
+        iconBuilder: (context, size) => icon != null
+            ? icon!(size, RaftTokens.of(context).strong)
+            : RaftIcon(glyph, size: size),
+        child: _button(context),
+      ),
+    );
+  }
+
+  Widget _button(BuildContext context) {
     final t = RaftTokens.of(context);
     final rt = RaftRecipeTokens(t);
     return RaftInteractive(

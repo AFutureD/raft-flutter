@@ -27,6 +27,7 @@
 - tooltip 只补充看不到的信息（纯图标按钮、被截断的文字、头像状态等），不重复已可见的文字；列表滚动不得触发 tooltip；tooltip 与 hover card 只在指针静止时出现，任何滚动（滚轮、触控板、滚动条、键盘）立即关闭已打开的；应用 UI 一律用 RaftTooltip，不用原生 Tooltip 或 Material 的 tooltip: 参数。
 - 验收必须覆盖：切换频道、打开消息串、收到实时事件时，已显示的行逐帧不变（widget 测试）；性能改动用 tool/performance 的 profile 基准对比前后数据。
 - 用户打开内容就是要看：先想办法直接呈现（本地渲染、分段加载、交给系统应用打开），失败提示只是最后兜底，且要说明具体原因并给出能完成任务的动作。
+- 文字缩放（follow Apple Dynamic Type，Kevin 确认）：内容文字（消息、文档、列表、输入框、对话框）跟随系统字号、不设上限（iOS body 17pt 到 53pt，约 3.1x；Android 到 2x）；越大的样式涨得越少。只读 `MediaQuery.textScalerOf(context).scale(fontSize)`，禁止 `textScaleFactor`（`avoid_text_scale_factor` lint）；线性平台缩放器（iOS、桌面）由 raft_ui 的 `RaftTextScaling`（app 根 builder 里装一次）统一映射到 Apple 曲线，不在组件里各自处理。固定 chrome（底部 tab、频道 Chat/Tasks/Files tab、顶栏图标按钮、徽标/计数）用 `RaftChrome` 限制在 1.35x，字号大到被限制时长按弹出 Large Content Viewer（`RaftLargeContentViewer`，松手触发该项）。布局重排而不是裁切：文字所在盒子的高度是最小值（`RaftScaled.grows`），名称/时间折行，并排行改上下排；行高不写 px（`avoid_fixed_height_text`、`avoid_pixel_text_height`）。回归由 `text_scale_audit_test`（packages/raft_ui/test，1.0x/1.3x/2.0x/3.1x，基线只许下降）把关；1.0x 必须与现状逐像素一致。
 
 ## 并行开发与模型分工（2026-10-10，Kevin 确认；18:26Z 更新）
 

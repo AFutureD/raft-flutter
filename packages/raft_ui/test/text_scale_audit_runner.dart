@@ -13,6 +13,7 @@
 //                             per-surface JSON reports under dir
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Size;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -49,6 +50,15 @@ Map<String, List<String>> _readBaseline() {
     for (final e in raw.entries) e.key: [for (final v in e.value as List) '$v'],
   };
 }
+
+/// A preview frame under 500px tall (a component in a small test box, not a
+/// screen) grows with the text scale: it stands for a slot in a scrolling page,
+/// so only the component itself may fail, not the box around it. Screens keep
+/// their device size.
+Size _frame(Size size, AuditMode mode) =>
+    size.height < 500 && mode.textScale > 1
+    ? Size(size.width, size.height * mode.textScale)
+    : size;
 
 /// Stable identity of a failure: what broke, on which text.
 Set<String> signatures(AuditReport r) => {
@@ -96,7 +106,7 @@ void defineSurfaceAudits(
           build: s.build,
           theme: theme,
           mode: mode,
-          size: s.size,
+          size: _frame(s.size, mode),
           truncationBaseline: truncation,
           screenshotDir: out == null
               ? null
@@ -135,7 +145,7 @@ void defineSurfaceAudits(
             build: s.build,
             theme: theme,
             mode: mode,
-            size: s.size,
+            size: _frame(s.size, mode),
             truncationBaseline: truncation,
             screenshotDir: out == null
                 ? null
