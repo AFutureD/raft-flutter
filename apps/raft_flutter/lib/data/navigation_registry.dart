@@ -138,6 +138,12 @@ abstract final class NavigationRegistry {
           'Web uses the browser network stack.',
     ),
     NavigationSettingsTab(
+      'storage',
+      reason:
+          'Native-only (no Web counterpart): attachment cache size and '
+          'Clear cache. Web leaves caching to the browser.',
+    ),
+    NavigationSettingsTab(
       'documentation',
       page: false,
       reason: 'Settings row that opens docs.raft.build externally.',

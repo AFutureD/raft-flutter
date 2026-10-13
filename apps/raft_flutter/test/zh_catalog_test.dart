@@ -31,6 +31,17 @@ const _pendingKevinZh = <String>{
   'Saved {name}',
   'Download failed. Try again.',
   'No application can open this file.',
+  // Settings > Resources > Storage (native-only attachment cache; Web has no
+  // counterpart). Proposed zh, not final: 存储 / 附件缓存 / 清除缓存 /
+  // 缓存已清除。 / 正在清除… / 正在计算… / 缓存大小：{size}. Also shown from
+  // raft_ui widget parameters: 'Storage', 'Attachment cache' and the
+  // description under it.
+  'Clear cache',
+  'Attachments will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.',
+  'Clearing…',
+  'Cache cleared.',
+  'Calculating…',
+  'Cache size: {size}',
   // channel settings: a stale mounted action is refused (Web has no copy)
   'Channel editing is no longer available.',
   'Channel activity preference is no longer available.',

@@ -1688,6 +1688,10 @@ Full table and guard design: `docs/navigation-audit.md`. Intended differences re
   as dialogs / modals on wide layouts.
 * Settings > Resources > Network (system / manual HTTP proxy, test connection) is a native-only page with no Web
   counterpart (the browser owns proxying). Design and platform notes: `docs/system-proxy.md`.
+* Settings > Resources > Storage (attachment cache size, Clear cache) is a native-only page with no Web
+  counterpart (the browser owns its HTTP cache). The app keeps opened attachments in one on-disk cache under
+  the platform cache directory (1 GB, least recently used out; `AttachmentDiskCache`), so a second open makes
+  no request. Clearing it never touches the session, drafts, settings or files the user saved.
 * Unknown external routes still land on Home (Web catch-all); unknown internal targets now throw
   in debug and test.
 

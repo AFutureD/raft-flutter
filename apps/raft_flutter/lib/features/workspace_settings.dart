@@ -23,6 +23,7 @@ import 'management_support.dart'
     show pageIdentity, readPageSnapshot, writePageSnapshot;
 import 'mcp_views.dart';
 import 'network_settings.dart';
+import 'storage_settings.dart';
 import 'notification_settings_view.dart';
 import 'provider_views.dart';
 import 'server_views.dart';
@@ -317,6 +318,15 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
             'Network',
             RaftGlyph.network,
             (_) => NetworkSettingsPage(origin: w.client.origin),
+            group: WorkspaceSettings.resources,
+          ),
+        // Native-only (no Web counterpart): Web leaves caching to the browser.
+        if (!kIsWeb)
+          RaftSettingsDestination(
+            'storage',
+            'Storage',
+            RaftGlyph.hardDrive,
+            (_) => const StorageSettingsPage(),
             group: WorkspaceSettings.resources,
           ),
         RaftSettingsDestination.action(
