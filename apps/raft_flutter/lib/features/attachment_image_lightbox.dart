@@ -21,23 +21,27 @@ class AttachmentLightboxGallery {
 }
 
 /// The image lightbox route content: Web `ImageLightbox` frame (title bar
-/// with the gallery counter and download, stage, arrows and thumbnails).
+/// with the gallery counter and the header [actions], stage, arrows and
+/// thumbnails). Wide layouts carry Download in the header; phone layouts
+/// carry none (the stage's long-press menu saves and shares).
 class AttachmentImageLightbox extends StatelessWidget {
   const AttachmentImageLightbox({
     super.key,
     required this.title,
     required this.zoom,
     required this.onClose,
-    required this.onDownload,
     required this.child,
+    this.actions = const [],
+    this.shortcuts = const {},
     this.gallery,
     this.page = false,
   });
   final String title;
   final TransformationController zoom;
   final VoidCallback onClose;
-  final Future<void> Function()? onDownload;
   final Widget child;
+  final List<Widget> actions;
+  final Map<ShortcutActivator, VoidCallback> shortcuts;
   final AttachmentLightboxGallery? gallery;
   final bool page;
 
@@ -48,19 +52,13 @@ class AttachmentImageLightbox extends StatelessWidget {
       page: page,
       title: title,
       titleBold: true,
+      shortcuts: shortcuts,
       onResetZoom: () => zoom.value = Matrix4.identity(),
       onClose: onClose,
       meta: g == null
           ? null
           : RaftLightboxCounter(index: g.index, count: g.count),
-      actions: [
-        RaftLightboxIconAction(
-          key: const ValueKey('attachment-download'),
-          glyph: RaftGlyph.download,
-          label: 'Download',
-          onPressed: onDownload,
-        ),
-      ],
+      actions: actions,
       overlay: g == null
           ? null
           : Stack(
@@ -99,7 +97,12 @@ class AttachmentLightboxImage extends StatefulWidget {
     this.title = '',
     this.transferTotalHint,
     this.imageSize,
+    this.onReady,
   });
+
+  /// Called once the full-resolution original is on screen (or failed): the
+  /// viewer then preloads this page's neighbours.
+  final VoidCallback? onReady;
 
   /// File name of the failure card.
   final String title;
@@ -131,11 +134,22 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
   ImageProvider? full;
   bool failed = false;
 
+  /// Completes when the load under way ends (never errors); a save of this
+  /// page's original waits for it instead of fetching the bytes again.
+  Future<void> settled = Future<void>.value();
+
   @override
   void initState() {
     super.initState();
     full = widget.image;
-    if (widget.acquire != null) unawaited(load());
+    if (widget.acquire != null) {
+      settled = load();
+      unawaited(settled);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => widget.onReady?.call(),
+      );
+    }
   }
 
   Future<void> load() async {
@@ -155,6 +169,9 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     final ready = next.lease.value;
     if (ready != null) {
       full = ready;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onReady?.call();
+      });
       return;
     }
     try {
@@ -163,6 +180,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     } catch (_) {
       if (mounted && identical(lease, next)) setState(() => failed = true);
     }
+    if (mounted && identical(lease, next)) widget.onReady?.call();
   }
 
   /// Tap on the failed chip: fetch the original again.
@@ -171,7 +189,8 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     lease = null;
     transfer = null;
     setState(() => failed = false);
-    unawaited(load());
+    settled = load();
+    unawaited(settled);
   }
 
   @override
@@ -282,8 +301,15 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
             unawaited(Navigator.maybePop(context));
           }
         },
-        child: InteractiveViewer(
-          transformationController: widget.zoom,
+        // Pan only while zoomed in: at fit scale a horizontal drag belongs to
+        // the viewer's PageView (swipe to the next image).
+        child: ListenableBuilder(
+          listenable: widget.zoom,
+          builder: (context, child) => InteractiveViewer(
+            transformationController: widget.zoom,
+            panEnabled: widget.zoom.value.getMaxScaleOnAxis() > 1.001,
+            child: child!,
+          ),
           child: Image(
             image: provider,
             key: widget.imageKey,

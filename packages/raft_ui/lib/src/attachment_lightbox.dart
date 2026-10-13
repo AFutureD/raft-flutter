@@ -254,11 +254,15 @@ class RaftAttachmentLightbox extends StatelessWidget {
     this.asideOpen = false,
     this.overlay,
     this.page = false,
+    this.shortcuts = const {},
   });
   final String title, closeLabel;
   final Widget child;
   final VoidCallback onClose;
   final List<Widget> actions;
+
+  /// Extra key bindings of the stage (gallery ArrowLeft / ArrowRight).
+  final Map<ShortcutActivator, VoidCallback> shortcuts;
   final Widget? footer;
   final bool titleBold;
 
@@ -342,6 +346,7 @@ class RaftAttachmentLightbox extends StatelessWidget {
           const SingleActivator(LogicalKeyboardKey.digit0): onResetZoom!,
           const SingleActivator(LogicalKeyboardKey.numpad0): onResetZoom!,
         },
+        ...shortcuts,
       },
       child: Focus(
         autofocus: true,
@@ -356,7 +361,8 @@ class RaftAttachmentLightbox extends StatelessWidget {
                   title: title,
                   onBack: onClose,
                   backTooltip: closeLabel,
-                  actions: actions,
+                  // The gallery counter chip (Web header badge) leads the actions.
+                  actions: [if (meta != null) meta!, ...actions],
                 )
               else
                 RaftLightboxHeader(

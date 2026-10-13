@@ -25,6 +25,8 @@ const viewerSurfaces = <CloseSurface>[
     desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/attachment_view.dart',
+      'lib/features/attachment_image_viewer.dart',
+      'lib/features/attachment_transfers.dart',
       'lib/features/attachment_image_lightbox.dart',
       '../../packages/raft_ui/lib/src/attachment_lightbox.dart',
       '../../packages/raft_ui/lib/src/status_bar.dart',

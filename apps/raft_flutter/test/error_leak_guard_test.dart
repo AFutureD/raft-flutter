@@ -28,11 +28,12 @@ const _allow = <String, Map<String, String>>{
         'Matched against "407" / "proxy authentication" to classify the '
         'probe failure; the result shown is one of three fixed sentences.',
   },
-  'apps/raft_flutter/lib/features/attachment_view.dart': {
+  'apps/raft_flutter/lib/features/attachment_image_loader.dart': {
     'final status = error.response?.statusCode;':
         'Reads the HTTP status to decide whether to re-sign a lapsed '
-        'thumbnail; no text reaches the UI.',
+        'thumbnail or URL; no text reaches the UI.',
   },
+
 };
 
 /// Calls whose arguments are diagnostics, not UI.

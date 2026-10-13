@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'layout_hold.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -15,7 +15,9 @@ import '../platform/native_sharing.dart';
 import '../platform/system_bars.dart';
 import 'attachment_preview_dialog.dart';
 import 'attachment_html_preview.dart';
-import 'attachment_image_lightbox.dart';
+import 'attachment_image_viewer.dart';
+import 'attachment_image_loader.dart';
+import 'attachment_transfers.dart';
 import 'attachment_preview_gate.dart';
 import 'inline_attachment_media.dart';
 import 'private_route_guard.dart';
@@ -36,6 +38,26 @@ bool attachmentIsInlineImage(Map<String, dynamic> metadata) {
       (thumbnail.startsWith('https://') || thumbnail.startsWith('http://'));
 }
 
+/// The dialog of a picker download in progress (moved unchanged from the
+/// download flow); the file is complete only when the save finishes.
+DialogRoute<void> attachmentDownloadProgressRoute({
+  required BuildContext context,
+  required String name,
+  required ValueListenable<double?> progress,
+  required VoidCallback onCancel,
+}) => DialogRoute<void>(
+  context: context,
+  barrierDismissible: false,
+  builder: (context) => AlertDialog(
+    title: Text('Downloading $name'),
+    content: ValueListenableBuilder<double?>(
+      valueListenable: progress,
+      builder: (_, value, _) => LinearProgressIndicator(value: value),
+    ),
+    actions: [TextButton(onPressed: onCancel, child: const Text('Cancel'))],
+  ),
+);
+
 class AttachmentView extends StatefulWidget {
   const AttachmentView({
     super.key,
@@ -47,6 +69,8 @@ class AttachmentView extends StatefulWidget {
     this.onExportReady,
     this.imageExtent,
     this.imageFit = BoxFit.contain,
+    this.galleryItems,
+    this.sharing,
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
@@ -56,6 +80,13 @@ class AttachmentView extends StatefulWidget {
   final VoidCallback? onExportReady;
   final Size? imageExtent;
   final BoxFit imageFit;
+
+  /// The message's previewable images (Web `lightboxImages`): the viewer
+  /// pages through them. Null for an attachment shown on its own.
+  final List<Map<String, dynamic>>? galleryItems;
+
+  /// The platform share / photo-library bridge (tests inject one).
+  final NativeSharing? sharing;
   @override
   State<AttachmentView> createState() => _AttachmentViewState();
 }
@@ -64,9 +95,9 @@ class _AttachmentViewState extends State<AttachmentView> {
   late AttachmentFiles files;
   int bindingRevision = 0;
   late String metadataFingerprint;
-  final sharing = NativeSharing();
-  SharedFileLease? sharedLease;
-  CancelToken imageCancel = CancelToken(), downloadCancel = CancelToken();
+  late final NativeSharing sharing = widget.sharing ?? NativeSharing();
+  CancelToken imageCancel = CancelToken();
+  late AttachmentTransfers transfers;
 
   /// The list preview: thumbnail or original decoded at the reserved box.
   ImageProvider? imageProvider;
@@ -74,10 +105,11 @@ class _AttachmentViewState extends State<AttachmentView> {
   WorkspaceAttachmentImageLease? imageLease;
 
   String? error;
-  bool loading = false, saving = false, invalidated = false;
+  bool loading = false, invalidated = false;
+  bool get saving => transfers.saving;
 
   /// The last explicit download failed; the file card offers a retry.
-  bool downloadFailed = false;
+  bool get downloadFailed => transfers.downloadFailed;
 
   /// A cold network load fades in once; cached images appear directly.
   bool fadeIn = false;
@@ -85,7 +117,6 @@ class _AttachmentViewState extends State<AttachmentView> {
   double devicePixelRatio = 1;
   bool exportReadyReported = false, opening = false;
   ModalRoute<void>? previewRoute;
-  DialogRoute<void>? progressRoute;
   late int generation;
   Map<String, dynamic>? channelAuthority;
   late String? principal, server, sourceChannel, projectedServer, role;
@@ -125,8 +156,32 @@ class _AttachmentViewState extends State<AttachmentView> {
     files = widget.files ?? AttachmentFiles();
     metadataFingerprint = fingerprint();
     captureAuthority();
+    transfers = newTransfers();
     w.addListener(scopeChanged);
   }
+
+  /// Save / share of this attachment; one operation's authority is the
+  /// binding revision it started under.
+  AttachmentTransfers newTransfers() => AttachmentTransfers(
+    controller: w,
+    files: files,
+    sharing: sharing,
+    metadata: widget.metadata,
+    ownerChannel: ownerChannel,
+    isImage: isImage,
+    progressRoute: attachmentDownloadProgressRoute,
+    context: () => mounted ? context : null,
+    scope: () {
+      final revision = bindingRevision;
+      return (
+        alive: () => mounted && revision == bindingRevision,
+        current: () => revision == bindingRevision && authorized,
+      );
+    },
+    onChanged: () {
+      if (mounted) setState(() {});
+    },
+  );
 
   @override
   void didChangeDependencies() {
@@ -284,58 +339,13 @@ class _AttachmentViewState extends State<AttachmentView> {
   AttachmentImageKey get fullImageKey => keyFor(preview: false);
 
   /// Fetches the key's source bytes. Capability URLs live only in this call.
-  AttachmentImageLoader loaderFor(AttachmentImageKey key) {
-    final controller = w, transfer = files;
-    final id = widget.metadata['id'];
-    final thumbnail = key.rendition == 'thumbnail' ? thumbnailUrl : null;
-    return (cancel) async {
-      final channelId = key.channelId;
-      if (thumbnail != null) {
-        try {
-          return await transfer.image(
-            thumbnail,
-            cancel: cancel,
-            onProgress: cancel.progressSink,
-          );
-        } on DioException catch (error) {
-          // The thumbnail's signature came with the message and has lapsed:
-          // sign the original once (batched with the other tiles) rather than
-          // showing a broken card.
-          final status = error.response?.statusCode;
-          if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
-        }
-      }
-      final url = await controller.attachmentUrl(
-        '$id',
-        channelId: channelId,
-        coalesce: true,
+  AttachmentImageLoader loaderFor(AttachmentImageKey key) =>
+      attachmentImageLoader(
+        controller: w,
+        files: files,
+        metadata: widget.metadata,
+        key: key,
       );
-      if (cancel.isCancelled) throw const StaleAttachmentImage();
-      try {
-        return await transfer.image(
-          url,
-          cancel: cancel,
-          onProgress: cancel.progressSink,
-        );
-      } on DioException catch (error) {
-        // A reused URL can outlive the server's view of it (clock skew,
-        // early expiry): drop it and sign once more.
-        final status = _httpStatus(error);
-        if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
-        controller.invalidateAttachmentUrl('$id');
-        final fresh = await controller.attachmentUrl(
-          '$id',
-          channelId: channelId,
-        );
-        if (cancel.isCancelled) throw const StaleAttachmentImage();
-        return transfer.image(
-          fresh,
-          cancel: cancel,
-          onProgress: cancel.progressSink,
-        );
-      }
-    };
-  }
 
   /// A decoded image the controller still retains (channel revisit, row
   /// recycling) is adopted in the first frame; no loading state, no bytes GET.
@@ -397,28 +407,25 @@ class _AttachmentViewState extends State<AttachmentView> {
     oldWidget.controller.removeListener(scopeChanged);
     ++bindingRevision;
     imageCancel.cancel();
-    downloadCancel.cancel();
+    transfers.abort();
     imageLease?.release();
     imageLease = null;
-    if (sharedLease != null) unawaited(sharedLease!.dispose());
-    sharedLease = null;
-    for (final route in [previewRoute, progressRoute]) {
-      if (route?.isActive == true) route!.navigator?.removeRoute(route);
+    if (previewRoute?.isActive == true) {
+      previewRoute!.navigator?.removeRoute(previewRoute!);
     }
-    previewRoute = progressRoute = null;
+    previewRoute = null;
     imageCancel = CancelToken();
-    downloadCancel = CancelToken();
     files = widget.files ?? files;
     metadataFingerprint = nextFingerprint;
     imageProvider = null;
     error = null;
-    downloadFailed = false;
     memoryReleased = false;
     hiddenTimer?.cancel();
     hiddenTimer = null;
-    loading = saving = opening = invalidated = exportReadyReported = false;
+    loading = opening = invalidated = exportReadyReported = false;
     fadeIn = false;
     captureAuthority();
+    transfers = newTransfers();
     w.addListener(scopeChanged);
     beginImage();
   }
@@ -438,12 +445,10 @@ class _AttachmentViewState extends State<AttachmentView> {
   void scopeChanged() {
     if (!authorized) {
       invalidated = true;
-      if (sharedLease != null) unawaited(sharedLease!.dispose());
-      sharedLease = null;
       imageCancel.cancel();
-      downloadCancel.cancel();
-      for (final route in [previewRoute, progressRoute]) {
-        if (route?.isActive == true) route!.navigator?.removeRoute(route);
+      transfers.abort();
+      if (previewRoute?.isActive == true) {
+        previewRoute!.navigator?.removeRoute(previewRoute!);
       }
       imageLease?.release();
       imageLease = null;
@@ -459,13 +464,11 @@ class _AttachmentViewState extends State<AttachmentView> {
     hiddenTimer?.cancel();
     hiddenTimer = null;
     w.removeListener(scopeChanged);
-    if (sharedLease != null) unawaited(sharedLease!.dispose());
-    sharedLease = null;
     imageCancel.cancel();
-    downloadCancel.cancel();
+    transfers.abort();
     imageLease?.release();
     imageLease = null;
-    for (final route in [previewRoute, progressRoute]) {
+    for (final route in [previewRoute]) {
       if (route?.isActive == true) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (route!.isActive) route.navigator?.removeRoute(route);
@@ -475,14 +478,6 @@ class _AttachmentViewState extends State<AttachmentView> {
     imageProvider = null;
     imagePresentation.dispose();
     super.dispose();
-  }
-
-  Future<String> resolve(String disposition) async {
-    return w.attachmentUrl(
-      '${widget.metadata['id']}',
-      disposition: disposition,
-      channelId: ownerChannel,
-    );
   }
 
   Future<void> loadImage() async {
@@ -526,222 +521,9 @@ class _AttachmentViewState extends State<AttachmentView> {
     }
   }
 
-  Future<void> shareAttachment() async {
-    final revision = bindingRevision;
-    bool current() => revision == bindingRevision && authorized;
-    if (!current() || saving || !sharing.supported) return;
-    setState(() => saving = true);
-    final operationCancel = CancelToken();
-    downloadCancel = operationCancel;
-    try {
-      final copy = await storedCopy();
-      final SharedFileLease? prepared;
-      if (copy != null) {
-        // This device already holds the file: share a private copy of it.
-        if (sharedLease != null) await sharedLease!.dispose();
-        try {
-          prepared = copy.bytes != null
-              ? await sharing.prepareBytes(
-                  copy.bytes!,
-                  filename: name,
-                  authorized: current,
-                )
-              : await sharing.prepareFile(
-                  copy.file!.file,
-                  filename: name,
-                  authorized: current,
-                );
-        } finally {
-          copy.file?.release();
-        }
-      } else {
-        final url = await resolve('attachment');
-        if (!current()) return;
-        if (sharedLease != null) await sharedLease!.dispose();
-        prepared = await sharing.prepareAttachment(
-          url: url,
-          filename: name,
-          cancel: operationCancel,
-          authorized: current,
-          onProgress: (_, _) {
-            if (!current()) operationCancel.cancel();
-          },
-        );
-      }
-      if (prepared == null) return;
-      if (!current()) {
-        await prepared.dispose();
-        return;
-      }
-      sharedLease = prepared;
-      await sharing.shareFile(prepared, mime);
-    } catch (_) {
-      if (mounted && current() && !operationCancel.isCancelled) {
-        showRaftToast(context, 'The attachment could not be shared.');
-      }
-    } finally {
-      if (mounted && revision == bindingRevision) {
-        setState(() => saving = false);
-      }
-    }
-  }
+  Future<void> shareAttachment() => transfers.share();
 
-  /// The copy of this attachment the cache already holds: the original image
-  /// bytes, or the preview file (pinned: release it). Null when there is none.
-  /// Saving and sharing use it instead of downloading again; the user's own
-  /// saved file is always a separate copy.
-  Future<({Uint8List? bytes, AttachmentCachedFile? file})?>
-  storedCopy() async {
-    final disk = w.attachmentDiskCache;
-    if (disk == null) return null;
-    try {
-      if (isImage) {
-        if (isSvg) return null;
-        final bytes = await disk.read(fullImageKey.source.storeKey);
-        return bytes == null ? null : (bytes: bytes, file: null);
-      }
-      final cached = await disk.openFile(
-        w.attachmentCacheKey(widget.metadata, 'file', channelId: ownerChannel),
-        filename: name,
-        expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
-      );
-      return cached == null ? null : (bytes: null, file: cached);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// A way to save [storedCopy] through the picker, or null without one.
-  Future<Future<String?> Function()?> reusableCopy(
-    bool Function() current,
-  ) async {
-    final copy = await storedCopy();
-    if (copy == null) return null;
-    return () async {
-      try {
-        final bytes = copy.bytes;
-        if (bytes != null) {
-          return await files.saveBytes(
-            bytes: bytes,
-            filename: name,
-            mimeType: mime,
-            authorized: current,
-          );
-        }
-        return await files.saveFile(
-          source: copy.file!.file,
-          filename: name,
-          mimeType: mime,
-          authorized: current,
-        );
-      } finally {
-        copy.file?.release();
-      }
-    };
-  }
-
-  Future<void> download() async {
-    final revision = bindingRevision;
-    bool current() => revision == bindingRevision && authorized;
-    if (!current() || saving) return;
-    setState(() {
-      saving = true;
-      downloadFailed = false;
-    });
-    final operationCancel = CancelToken();
-    downloadCancel = operationCancel;
-    final progress = ValueNotifier<double?>(null);
-    var dialogVisible = true;
-    var progressOpened = false;
-    DialogRoute<void>? operationRoute;
-    // Use the platform save picker first; show progress only after it closes.
-    try {
-      // A copy this device already holds is saved without any request.
-      final reuse = await reusableCopy(current);
-      final String? outcome;
-      if (reuse != null) {
-        outcome = await reuse();
-      } else {
-        final url = await resolve('attachment');
-        if (!current()) return;
-        outcome = await files.save(
-          url: url,
-          filename: name,
-          mimeType: mime,
-          cancel: operationCancel,
-          authorized: current,
-          onProgress: (received, total) {
-            if (!current()) {
-              operationCancel.cancel();
-              return;
-            }
-            if (!progressOpened) {
-              progressOpened = true;
-              operationRoute = DialogRoute<void>(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => AlertDialog(
-                  title: Text('Downloading $name'),
-                  content: ValueListenableBuilder<double?>(
-                    valueListenable: progress,
-                    builder: (_, value, _) =>
-                        LinearProgressIndicator(value: value),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: operationCancel.cancel,
-                      child: const Text('Cancel'),
-                    ),
-                  ],
-                ),
-              );
-              progressRoute = operationRoute;
-              Navigator.of(
-                context,
-                rootNavigator: true,
-              ).push(operationRoute!).whenComplete(() => dialogVisible = false);
-            }
-            progress.value = total > 0 ? received / total : null;
-          },
-        );
-      }
-      if (progressOpened && mounted && dialogVisible) {
-        operationRoute?.navigator?.removeRoute(operationRoute!);
-        dialogVisible = false;
-      }
-      final saved = outcome;
-      if (saved != null && mounted && current()) {
-        showRaftToast(
-          context,
-          raftFormat(context, 'Saved {name}', {'name': name}),
-          tone: RaftToastRecipeTone.success,
-          actionLabel: 'Open',
-          onAction: () async {
-            try {
-              await files.open(saved, mime);
-            } catch (_) {
-              if (mounted) {
-                showRaftToast(context, 'No application can open this file.');
-              }
-            }
-          },
-        );
-      }
-    } catch (_) {
-      if (mounted && current() && !operationCancel.isCancelled) {
-        setState(() => downloadFailed = true);
-        showRaftToast(context, 'Download failed. Try again.');
-      }
-    } finally {
-      if (revision == bindingRevision) saving = false;
-      if (progressOpened && operationRoute?.isActive == true) {
-        operationRoute!.navigator?.removeRoute(operationRoute!);
-      }
-      if (identical(progressRoute, operationRoute)) progressRoute = null;
-      // The dialog builder may still be mounted for its closing animation.
-      Future<void>.delayed(const Duration(seconds: 1), progress.dispose);
-    }
-  }
+  Future<void> download() => transfers.download();
 
   Future<void> open() async {
     if (!authorized || opening || previewRoute?.isActive == true) return;
@@ -870,55 +652,53 @@ class _AttachmentViewState extends State<AttachmentView> {
     // Source opens the image lightbox at intent, independently of thumbnail
     // readiness. A pending thumbnail load must not consume the user's click.
     if (imageProvider == null && !loading) unawaited(loadImage());
-    final fullKey = fullImageKey;
+    // Web opens the lightbox with the message's previewable images and the
+    // clicked one selected; a lone image (files panel, forwarded) is its own
+    // gallery.
+    final siblings = widget.messageId != null &&
+            (widget.galleryItems?.length ?? 0) > 1
+        ? widget.galleryItems!
+        : [widget.metadata];
+    final start = siblings.indexWhere(
+      (m) => m['id'] == widget.metadata['id'],
+    );
     late final ModalRoute<void> operationRoute;
-    final zoom = TransformationController();
     operationRoute = createPreviewRoute(
       page,
-      (dialogContext) => AttachmentImageLightbox(
-        page: page,
-        title: name,
-        zoom: zoom,
-        onClose: () {
-          if (identical(previewRoute, operationRoute) &&
-              operationRoute.isCurrent) {
-            if (page) {
-              operationRoute.navigator?.pop();
-            } else {
-              operationRoute.navigator?.removeRoute(operationRoute);
-            }
-          }
+      (dialogContext) => ValueListenableBuilder<int>(
+        valueListenable: imagePresentation,
+        builder: (_, _, _) {
+          if (!current()) return const SizedBox.shrink();
+          return AttachmentImageViewer(
+            controller: w,
+            files: files,
+            sharing: sharing,
+            items: siblings,
+            initialIndex: start < 0 ? 0 : start,
+            messageId: widget.messageId,
+            authorized: current,
+            page: page,
+            openerPlaceholder: imageProvider,
+            openerPreviewFailed: error != null,
+            progressRoute: attachmentDownloadProgressRoute,
+            onClose: () {
+              if (identical(previewRoute, operationRoute) &&
+                  operationRoute.isCurrent) {
+                if (page) {
+                  operationRoute.navigator?.pop();
+                } else {
+                  operationRoute.navigator?.removeRoute(operationRoute);
+                }
+              }
+            },
+          );
         },
-        onDownload: current() ? download : null,
-        child: ValueListenableBuilder<int>(
-          valueListenable: imagePresentation,
-          builder: (_, _, _) {
-            if (!current()) return const SizedBox.shrink();
-            return AttachmentLightboxImage(
-              imageKey: ValueKey('attachment-image-${widget.metadata['id']}'),
-              zoom: zoom,
-              acquire: () => w.acquireAttachmentImage(
-                fullKey,
-                authorized: current,
-                load: loaderFor(fullKey),
-                foreground: true,
-              ),
-              placeholder: imageProvider,
-              previewFailed: error != null,
-              title: name,
-              transferTotalHint: (widget.metadata['sizeBytes'] as num?)
-                  ?.toInt(),
-              imageSize: imageSize,
-            );
-          },
-        ),
       ),
     );
     previewRoute = operationRoute;
     await Navigator.of(context, rootNavigator: true).push(operationRoute);
     // The image remains interactive while its page animates out.
     await operationRoute.completed;
-    zoom.dispose();
     if (identical(previewRoute, operationRoute)) previewRoute = null;
     retentionChanged();
   }
@@ -1041,6 +821,15 @@ class _AttachmentViewState extends State<AttachmentView> {
     return card(context);
   }
 
+  /// Phones: an image tile carries no Share / Download overlay (Web shows it
+  /// on hover only). The viewer's long-press menu saves to the photo library
+  /// and shares instead.
+  bool get phoneImageTile =>
+      isImage &&
+      !widget.exportMode &&
+      files.gallerySupported &&
+      RaftAdaptiveWorkspace.compactOf(context);
+
   Widget card(BuildContext context) => RaftAttachmentCard(
     summary: webChip.summary,
     metaLabel: webChip.meta,
@@ -1060,9 +849,9 @@ class _AttachmentViewState extends State<AttachmentView> {
     onRetry: loadImage,
     downloadFailed: downloadFailed,
     onOpen: open,
-    onDownload: download,
-    onShare: sharing.supported ? shareAttachment : null,
-    onCancel: saving ? downloadCancel.cancel : null,
+    onDownload: phoneImageTile ? null : download,
+    onShare: sharing.supported && !phoneImageTile ? shareAttachment : null,
+    onCancel: saving ? transfers.cancel.cancel : null,
     preview: imageProvider == null ? null : previewImage(imageProvider!),
   );
 
@@ -1087,5 +876,3 @@ class _AttachmentViewState extends State<AttachmentView> {
     );
   }
 }
-
-int? _httpStatus(DioException failure) => failure.response?.statusCode;

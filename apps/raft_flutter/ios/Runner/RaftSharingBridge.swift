@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import Photos
 import CFNetwork
 
 final class RaftSharingBridge: NSObject, FlutterPlugin {
@@ -8,6 +9,43 @@ final class RaftSharingBridge: NSObject, FlutterPlugin {
     let channel = FlutterMethodChannel(name: "app.raft/sharing", binaryMessenger: registrar.messenger())
     let bridge = RaftSharingBridge()
     registrar.addMethodCallDelegate(bridge, channel: channel)
+    // Attachment files: only the photo-library save is native on iOS (the other
+    // saves go through the document picker plugin).
+    let files = FlutterMethodChannel(name: "app.raft/attachment-files", binaryMessenger: registrar.messenger())
+    files.setMethodCallHandler { call, result in bridge.handleFiles(call, result: result) }
+  }
+
+  /// `saveToGallery`: adds an image to Photos (add-only access). The file is a
+  /// private copy staged by Dart under Library/Caches; it keeps its name.
+  func handleFiles(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "saveToGallery" else { result(FlutterMethodNotImplemented); return }
+    guard let arguments = call.arguments as? [String: Any],
+          let path = arguments["path"] as? String,
+          let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+          URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+            .hasPrefix(cache.resolvingSymlinksInPath().path + "/") else {
+      result(FlutterError(code: "invalid", message: "Invalid temporary image file.", details: nil)); return
+    }
+    let url = URL(fileURLWithPath: path)
+    let name = (arguments["filename"] as? String) ?? url.lastPathComponent
+    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+      guard status == .authorized || status == .limited else {
+        DispatchQueue.main.async {
+          result(FlutterError(code: "permission", message: "Photo library access was declined.", details: nil))
+        }
+        return
+      }
+      PHPhotoLibrary.shared().performChanges({
+        let options = PHAssetResourceCreationOptions()
+        options.originalFilename = name
+        PHAssetCreationRequest.forAsset().addResource(with: .photo, fileURL: url, options: options)
+      }) { saved, _ in
+        DispatchQueue.main.async {
+          if saved { result("photos") }
+          else { result(FlutterError(code: "save_failed", message: "The image could not be saved.", details: nil)) }
+        }
+      }
+    }
   }
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

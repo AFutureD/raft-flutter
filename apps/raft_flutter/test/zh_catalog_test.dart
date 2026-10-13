@@ -20,6 +20,14 @@ const _sameInEveryLocale = <String>{};
 /// Kevin decides the wording; each entry is listed in the error-presentation
 /// handoff. Never invent Chinese for these.
 const _pendingKevinZh = <String>{
+  // Image viewer on phones (native-only: Web has no photo-library save). The
+  // long-press menu items and their result copy; Web's closest string is
+  // "Save image" (message.selectShare.saveImage), a different action.
+  'Save to Photos',
+  'Save to Gallery',
+  'Saved to Photos.',
+  'Saved to Gallery.',
+  'The image could not be saved.',
   // Settings > Resources > Storage (native-only attachment cache; Web has no
   // counterpart). Proposed zh, not final: 存储 / 附件缓存 / 清除缓存 /
   // 缓存已清除。 / 正在清除… / 正在计算… / 缓存大小：{size}. Also shown from

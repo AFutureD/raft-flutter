@@ -1872,6 +1872,8 @@ class _RaftChatViewState extends State<RaftChatView>
                   messageId: messageId,
                   imageExtent: extent,
                   imageFit: fit,
+                  // Web lightboxImages: the message's images, no optimistic.
+                  galleryItems: pending ? null : images,
                 ),
               ),
             ),

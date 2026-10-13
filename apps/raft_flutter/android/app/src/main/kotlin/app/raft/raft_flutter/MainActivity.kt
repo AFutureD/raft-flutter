@@ -84,6 +84,8 @@ class MainActivity : FlutterActivity() {
     private var saveResult: MethodChannel.Result? = null
     private val saveRequest = 45071
     private val localNetworkRequest = 45072
+    private val galleryPermissionRequest = 45073
+    private var galleryPending: Pair<Map<String, String>, MethodChannel.Result>? = null
     private val localNetworkResults = mutableListOf<MethodChannel.Result>()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -175,6 +177,26 @@ class MainActivity : FlutterActivity() {
                             }.start()
                         }
                     }
+                    "saveToGallery" -> {
+                        val path = call.argument<String>("path")
+                        val filename = call.argument<String>("filename")
+                        val mimeType = call.argument<String>("mimeType") ?: "image/*"
+                        if (path == null || filename.isNullOrEmpty() ||
+                            !File(path).canonicalPath.startsWith(cacheDir.canonicalPath + File.separator)) {
+                            result.error("invalid", "Invalid temporary image file.", null)
+                        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                            checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                            // Before Android 10 a public Pictures folder needs the legacy permission.
+                            if (galleryPending != null) {
+                                result.error("busy", "A permission request is already open.", null)
+                            } else {
+                                galleryPending = Pair(mapOf("path" to path, "filename" to filename, "mimeType" to mimeType), result)
+                                requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), galleryPermissionRequest)
+                            }
+                        } else {
+                            writeToGallery(path, filename, mimeType, result)
+                        }
+                    }
                     "openSaved" -> {
                         try {
                             val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -244,8 +266,73 @@ class MainActivity : FlutterActivity() {
         systemFonts?.configurationChanged()
     }
 
+    /** Adds an image to the public gallery (MediaStore); off the UI thread. */
+    private fun writeToGallery(path: String, filename: String, mimeType: String, result: MethodChannel.Result) {
+        Thread {
+            try {
+                val source = File(path)
+                val uri: String
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val values = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                        put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                        put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/Raft")
+                        put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                    val target = requireNotNull(contentResolver.insert(
+                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
+                    try {
+                        contentResolver.openOutputStream(target, "wt").use { output ->
+                            requireNotNull(output)
+                            source.inputStream().use { input -> input.copyTo(output) }
+                        }
+                        val done = android.content.ContentValues().apply {
+                            put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                        }
+                        contentResolver.update(target, done, null, null)
+                    } catch (e: Exception) {
+                        contentResolver.delete(target, null, null)
+                        throw e
+                    }
+                    uri = target.toString()
+                } else {
+                    @Suppress("DEPRECATION")
+                    val folder = File(android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_PICTURES), "Raft")
+                    check(folder.isDirectory || folder.mkdirs())
+                    var destination = File(folder, filename)
+                    var n = 1
+                    while (destination.exists()) {
+                        val dot = filename.lastIndexOf('.')
+                        destination = File(folder, if (dot > 0) filename.substring(0, dot) + " ($n)" + filename.substring(dot) else "$filename ($n)")
+                        n++
+                    }
+                    source.copyTo(destination)
+                    android.media.MediaScannerConnection.scanFile(this, arrayOf(destination.path), arrayOf(mimeType), null)
+                    uri = Uri.fromFile(destination).toString()
+                }
+                runOnUiThread { result.success(uri) }
+            } catch (_: Exception) {
+                runOnUiThread { result.error("save_failed", "The image could not be saved.", null) }
+            }
+        }.start()
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == galleryPermissionRequest) {
+            val pending = galleryPending
+            galleryPending = null
+            if (pending != null) {
+                val (args, result) = pending
+                if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                    writeToGallery(args.getValue("path"), args.getValue("filename"), args.getValue("mimeType"), result)
+                } else {
+                    result.error("permission", "Photo library access was declined.", null)
+                }
+            }
+            return
+        }
         if (requestCode == localNetworkRequest) {
             val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
             val pending = localNetworkResults.toList()

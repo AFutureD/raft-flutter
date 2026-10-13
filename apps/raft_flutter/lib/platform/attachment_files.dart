@@ -16,10 +16,26 @@ class AttachmentFiles {
     Dio? dio,
     this.pickDestination,
     Future<Directory> Function()? temporaryDirectory,
-  }) : _dio = dio ?? AttachmentHttp.shared,
+    bool? gallerySupported,
+    this.writeToGallery,
+  }) : gallerySupported =
+           gallerySupported ?? (Platform.isAndroid || Platform.isIOS),
+       _dio = dio ?? AttachmentHttp.shared,
        _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
   final Dio _dio;
   final Future<String?> Function(String, String)? pickDestination;
+
+  /// Whether this device has a photo library to save an image into (the
+  /// Android gallery through MediaStore, iOS Photos). Phone layouts offer it
+  /// from the image viewer's long-press menu.
+  final bool gallerySupported;
+
+  /// Test hook: receives `(path, filename, mimeType)` instead of the host.
+  final Future<String?> Function(String, String, String)? writeToGallery;
+
+  /// Label of the long-press item that saves into [gallerySupported]'s library.
+  static String get galleryLabel =>
+      Platform.isIOS ? 'Save to Photos' : 'Save to Gallery';
   final Future<Directory> Function() _temporaryDirectory;
   static const channel = MethodChannel('app.raft/attachment-files');
 
@@ -199,6 +215,49 @@ class AttachmentFiles {
         await XFile(temporary.path).saveTo(destination);
       }
       return destination;
+    } finally {
+      if (await folder.exists()) await folder.delete(recursive: true);
+    }
+  }
+
+  /// Saves an image into the device photo library (Android: MediaStore
+  /// `Pictures/Raft`, no picker; iOS: Photos, add-only). The file keeps its
+  /// name and type. Returns the library location, or null when the user
+  /// declined (iOS permission) or the scope ended. The bytes are staged in
+  /// private temporary storage first.
+  Future<String?> saveToGallery({
+    required Uint8List bytes,
+    required String filename,
+    required String mimeType,
+    required bool Function() authorized,
+  }) async {
+    if (!authorized()) return null;
+    final name = safeFilename(filename);
+    final folder = await Directory(
+      p.join(
+        (await _temporaryDirectory()).path,
+        'raft-gallery-${DateTime.now().microsecondsSinceEpoch}',
+      ),
+    ).create();
+    try {
+      if (Platform.isLinux) {
+        if ((await Process.run('chmod', ['700', folder.path])).exitCode != 0) {
+          throw const FileSystemException(
+            'Private image storage is unavailable.',
+          );
+        }
+      }
+      final temporary = File(p.join(folder.path, name));
+      await temporary.writeAsBytes(bytes, flush: true);
+      if (!authorized()) return null;
+      if (writeToGallery != null) {
+        return await writeToGallery!(temporary.path, name, mimeType);
+      }
+      return await channel.invokeMethod<String>('saveToGallery', {
+        'path': temporary.path,
+        'filename': name,
+        'mimeType': mimeType,
+      });
     } finally {
       if (await folder.exists()) await folder.delete(recursive: true);
     }

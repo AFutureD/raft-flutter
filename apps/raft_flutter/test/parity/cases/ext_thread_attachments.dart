@@ -26,7 +26,8 @@ import 'package:raft_flutter/features/attachment_html_preview.dart';
 import 'package:raft_flutter/features/attachment_image_lightbox.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart';
 import 'package:raft_flutter/platform/attachment_html.dart';
-import 'package:raft_ui/raft_ui.dart' show RaftFamily;
+import 'package:raft_ui/raft_ui.dart'
+    show RaftFamily, RaftGlyph, RaftLightboxIconAction;
 
 import '../parity_harness.dart';
 import 'thread_composer/fake_workspace.dart';
@@ -203,7 +204,14 @@ Widget _surface(ParityContext ctx) {
           title: current['filename'] as String,
           zoom: TransformationController(),
           onClose: () {},
-          onDownload: () async {},
+          actions: [
+            RaftLightboxIconAction(
+              key: const ValueKey('attachment-download'),
+              glyph: RaftGlyph.download,
+              label: 'Download',
+              onPressed: () {},
+            ),
+          ],
           gallery: AttachmentLightboxGallery(
             index: index,
             thumbnails: [for (final image in images) _thumbnail(image)],
