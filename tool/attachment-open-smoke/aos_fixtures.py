@@ -194,6 +194,11 @@ def manifest(directory):
         preview={'kind': 'markdown', 'markdown': MARKDOWN})
     add('doc-md-cjk', 'cjk.md', 'report.md', 'text/markdown', 'document',
         preview={'kind': 'markdown', 'markdown': CJK_MD})
+    # Markdown files that exist on a real server (copied into <data>/storage by hand when wanted).
+    for n in (1, 2):
+        if have(f'real-{n}.md'):
+            add(f'doc-md-real-{n}', f'real-{n}.md', 'report.md', 'text/markdown', 'document',
+                preview={'kind': 'markdown', 'markdown': (directory / 'storage' / f'real-{n}.md').read_text().strip()})
     add('doc-csv', 'table.csv', 'table.csv', 'text/csv', 'document',
         preview={'kind': 'csv', 'headers': ['name', 'qty'], 'rows': [['apple', '3'], ['pear', '5']], 'rowCount': 2, 'columnCount': 2})
     add('doc-xlsx', 'table.xlsx', 'table.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'document',

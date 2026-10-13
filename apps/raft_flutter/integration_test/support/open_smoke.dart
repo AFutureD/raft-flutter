@@ -139,6 +139,9 @@ class SmokeFixture {
   final LabClient client;
 }
 
+/// The fixture built last (a failed launch still has its request counters).
+SmokeFixture? lastFixture;
+
 Future<void> prepareBindings() async {
   await NativeSystemFonts.instance.initialize();
   await initializeSourceTimeFormatting();
@@ -239,7 +242,7 @@ Future<SmokeFixture> buildSmokeFixture({
     MobileTabbarStore.preferenceKey: tabs.encode(),
   });
   final dir = await Directory.systemTemp.createTemp('raft-open-smoke-');
-  return SmokeFixture(
+  return lastFixture = SmokeFixture(
     app.RaftApp(
       sessionStore: client.sessionStore,
       createClient: (_, _, _) => client,

@@ -402,7 +402,7 @@ Future<Launch> launchList(WidgetTester tester, SmokeCase c, {bool mobile = true}
   return pump(tester, fixture, () => attachment(c), 'the channel with ${c.id}');
 }
 
-/// A search result: the app jumps to the message in the middle of a longer history (`?msg=`).
+/// A search result: the search page lists the message, tapping it jumps to it in a longer history.
 Future<Launch> launchSearch(WidgetTester tester, SmokeCase c, {bool mobile = true}) async {
   final rows = [
     for (var i = 0; i < 30; i++)
@@ -413,7 +413,7 @@ Future<Launch> launchSearch(WidgetTester tester, SmokeCase c, {bool mobile = tru
     all: manifest,
     channelId: 'oa',
     rows: rows,
-    location: '/s/lab/channel/oa?msg=oa-15',
+    location: '/s/lab/search',
     mobile: mobile,
     extra: (api) {
       api.routes['GET /messages/context/oa-15'] = (_) => {
@@ -422,9 +422,47 @@ Future<Launch> launchSearch(WidgetTester tester, SmokeCase c, {bool mobile = tru
         'hasOlder': false,
         'hasNewer': false,
       };
+      api.routes['GET /messages/search'] = (_) => {
+        'hasMore': false,
+        'results': [
+          {
+            'id': 'oa-15',
+            'channelId': 'oa',
+            'threadId': null,
+            'parentMessageId': null,
+            'parentMessageContent': null,
+            'parentChannelId': 'oa',
+            'parentChannelName': 'lab-oa',
+            'parentChannelType': 'channel',
+            'parentChannelArchivedAt': null,
+            'senderId': 'alice',
+            'senderType': 'user',
+            'senderName': 'Alice Zhang',
+            'channelName': 'lab-oa',
+            'channelType': 'channel',
+            'channelArchivedAt': null,
+            'content': 'Open ${c.id}',
+            'snippet': 'Open ${c.id}',
+            'createdAt': DateTime.utc(2026, 10, 1, 0, 45).toIso8601String(),
+          },
+        ],
+      };
     },
   );
-  return pump(tester, fixture, () => attachment(c), 'the searched message with ${c.id}');
+  await tester.pumpWidget(fixture.app);
+  final field = find.byType(TextField);
+  await waitFor(tester, () => field.evaluate().isNotEmpty, 'the search field');
+  await tester.enterText(field.first, 'Open ${c.id}');
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.testTextInput.receiveAction(TextInputAction.search);
+  final hit = find.textContaining('Open ${c.id}');
+  await waitFor(tester, () => hit.evaluate().length > 1 || (hit.evaluate().isNotEmpty && !shown(EditableText)), 'the search result');
+  await tester.pump(const Duration(milliseconds: 500));
+  // The field holds the same words: tap the result row, which is the last match on screen.
+  await tester.tapAt(tester.getCenter(hit.last));
+  await waitFor(tester, () => attachment(c).evaluate().isNotEmpty, 'the searched message with ${c.id}', timeout: const Duration(seconds: 40));
+  await tester.pump(const Duration(milliseconds: 500));
+  return Launch(fixture, () => attachment(c));
 }
 
 /// A reply in the thread panel.
@@ -453,8 +491,9 @@ Future<Launch> launchThread(WidgetTester tester, SmokeCase c, {bool mobile = tru
     all: manifest,
     channelId: 'oa',
     rows: [parent],
-    location: '/s/lab/channel/oa?thread=oa:oa-0',
+    location: '/s/lab/channel/oa',
     mobile: mobile,
+    listStart: mobile,
     extra: (api) {
       replyChannel.install(api);
       api.routes['GET /channels/$thread'] = (_) => {'id': thread, 'name': 'thread', 'type': 'thread', 'joined': true, 'parentChannelId': 'oa'};
@@ -467,7 +506,13 @@ Future<Launch> launchThread(WidgetTester tester, SmokeCase c, {bool mobile = tru
       api.routes['GET /messages/context/oa-0'] = (_) => {'messages': [parent], 'hasOlder': false, 'hasNewer': false};
     },
   );
-  return pump(tester, fixture, () => attachment(c), 'the thread reply with ${c.id}');
+  // Open the thread the way a person does: tap the reply count under the parent message.
+  final label = find.textContaining('repl');
+  final launch = await pump(tester, fixture, () => label, 'the thread label under the parent');
+  await tapCentre(tester, label);
+  await waitFor(tester, () => attachment(c).evaluate().isNotEmpty, 'the thread reply with ${c.id}', timeout: const Duration(seconds: 40));
+  await tester.pump(const Duration(milliseconds: 300));
+  return Launch(launch.fixture, () => attachment(c));
 }
 
 /// A forwarded message: the bundle carries a projected snapshot of the attachment (no channel id, no thumbnail).
@@ -665,6 +710,7 @@ void main() {
     Future<void> scenario(String entry, SmokeCase c, Future<Launch> Function(WidgetTester, SmokeCase) launch,
         Future<Outcome> Function(WidgetTester, SmokeCase, Launch) run) async {
       await tester.runAsync(() => serverGet(_base, '/__reset'));
+      lastFixture = null;
       Launch? launched;
       Outcome outcome;
       Object? failure;
@@ -677,7 +723,8 @@ void main() {
         outcome = Outcome(false, '$error'.split('\n').first);
       }
       if (failure != null) await hostShot(tester, '$entry-${c.id}');
-      final requests = launched == null ? <String, Object?>{} : await serverRequests(tester, launched.fixture);
+      final fixture = launched?.fixture ?? lastFixture;
+      final requests = fixture == null ? <String, Object?>{} : await serverRequests(tester, fixture);
       record(entry, c, outcome, requests);
       if (failure != null) failures.add('$entry/${c.id}: ${outcome.detail}');
       await tester.pumpWidget(const SizedBox());
