@@ -105,7 +105,9 @@ class LinuxUriSchemeRegistration extends ChangeNotifier {
     LinuxSchemeStore? store,
     String? executable,
     this.toolExists,
-  }) : _env = environment ?? Platform.environment,
+    bool? isolated,
+  }) : _isolated = isolated ?? linuxIsolatedBuild,
+       _env = environment ?? Platform.environment,
        _linux = linux ?? Platform.isLinux,
        _run = run ?? runHostProcess,
        _store = store ?? LinuxSchemeStore(),
@@ -119,6 +121,10 @@ class LinuxUriSchemeRegistration extends ChangeNotifier {
   final HostProcess _run;
   final LinuxSchemeStore _store;
   final String _executable;
+
+  /// An isolated test build never registers a handler (see
+  /// [linuxIsolatedBuild]).
+  final bool _isolated;
 
   /// Overrides the executable-file check used to find host tools (tests).
   final bool Function(String path)? toolExists;
@@ -138,7 +144,7 @@ class LinuxUriSchemeRegistration extends ChangeNotifier {
   String get appImage => _env['APPIMAGE'] ?? '';
   String? get _dataHome => linuxDataHome(_env);
   bool get supported =>
-      _linux && runningFromAppImage(_env) && _dataHome != null;
+      !_isolated && _linux && runningFromAppImage(_env) && _dataHome != null;
 
   String get applicationsDirectory => p.join(_dataHome!, 'applications');
   String get desktopFile =>

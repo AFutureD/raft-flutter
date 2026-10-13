@@ -260,6 +260,21 @@ import, migrate or delete an existing profile. Ubuntu 24.04's ABI baseline permi
 many newer desktop distributions, but does not establish compatibility with older
 systems, every GPU, or all desktop configurations.
 
+### Isolated test AppImage
+
+For a test on a machine that already runs the real app, build with
+`RAFT_APPLICATION_ID_SUFFIX=.isolated python tool/release.py build appimage`
+(with `GITHUB_RUN_NUMBER` set to the latest release's build number so the update
+check stays quiet). The suffix reaches CMake (`APPLICATION_ID`) and Dart
+(`RAFT_LINUX_APPLICATION_ID_SUFFIX`), so the GApplication/D-Bus name, the XDG
+data and cache directories `app.raft.raft_flutter.isolated`, the libsecret
+`account` attribute `app.raft.raft_flutter.isolated.secureStorage`, the desktop
+file and icon all differ from the real app, the desktop file carries no `MimeType`,
+and the build never registers `raft://` or edits mime defaults (OAuth uses the
+loopback). AppRun creates the id's data and cache directories first so
+path_provider_linux cannot fall back to a legacy `raft_flutter` directory. The shown
+version is `X.Y.Z-isolated`. Release CI never sets the variable.
+
 CI runs the actual release file directly and in extract-and-run mode at 2× scale.
 A Fedora 44 container without `/dev/fuse` additionally runs the downloaded artifact
 in X11 and under KDE's KWin native Wayland compositor. Source/OS/mode, startup logs,

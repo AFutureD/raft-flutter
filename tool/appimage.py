@@ -10,7 +10,12 @@ import subprocess
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_ID = 'app.raft.raft_flutter'
+BASE_APP_ID = 'app.raft.raft_flutter'
+# An isolated test build (RAFT_APPLICATION_ID_SUFFIX=.isolated, see
+# apps/raft_flutter/linux/CMakeLists.txt) uses its own id for the desktop file,
+# icon, AppStream id, data/cache directories and keyring attribute.
+APP_ID_SUFFIX = os.environ.get('RAFT_APPLICATION_ID_SUFFIX', '')
+APP_ID = BASE_APP_ID + APP_ID_SUFFIX
 HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
                          'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE',
                          'GDK_PIXBUF_MODULE_FILE')
@@ -59,6 +64,24 @@ def input_method_cache_setup(candidates=GTK3_IM_CACHES):
         '    fi',
         '  done',
         'fi',
+    ]) + '\n'
+
+
+def isolated_directory_setup(app_id, suffix):
+    """Create this id's XDG data and cache directories before the app starts.
+
+    path_provider_linux falls back to a directory named after the executable
+    (raft_flutter) when the id directory does not exist yet. That legacy name
+    may hold data of the real app, so an isolated build must never reach it.
+    The real build (no suffix) gets no extra lines.
+    """
+    if not suffix:
+        return ''
+    dollar = chr(36)
+    return '\n'.join([
+        'data_home="' + dollar + '{XDG_DATA_HOME:-' + dollar + 'HOME/.local/share}"',
+        'cache_home="' + dollar + '{XDG_CACHE_HOME:-' + dollar + 'HOME/.cache}"',
+        'mkdir -p "' + dollar + 'data_home/' + app_id + '" "' + dollar + 'cache_home/' + app_id + '"',
     ]) + '\n'
 
 
@@ -293,12 +316,16 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     (appdir / f'{APP_ID}.desktop').write_text(desktop)
     metadata = appdir / 'usr/share/metainfo'
     metadata.mkdir(parents=True)
-    shutil.copy2(root / 'packaging/appimage' / f'{APP_ID}.metainfo.xml', metadata)
+    base_metainfo = (root / 'packaging/appimage' / f'{BASE_APP_ID}.metainfo.xml').read_text()
+    (metadata / f'{APP_ID}.metainfo.xml').write_text(
+        base_metainfo.replace(BASE_APP_ID, APP_ID).replace(
+            '<name>Raft</name>', f'<name>Raft (isolated{APP_ID_SUFFIX})</name>')
+        if APP_ID_SUFFIX else base_metainfo)
     launcher = appdir / 'AppRun'
     launcher.write_text('''#!/bin/sh
 set -eu
 app_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-''' + host_environment_capture() + input_method_cache_setup() + host_libva_check() + '''export PATH="$app_dir/raft/bin:$PATH"
+''' + host_environment_capture() + input_method_cache_setup() + host_libva_check() + isolated_directory_setup(APP_ID, APP_ID_SUFFIX) + '''export PATH="$app_dir/raft/bin:$PATH"
 export LD_LIBRARY_PATH="$app_dir/raft/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 if [ "$host_libva" = 0 ]; then
   export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$app_dir/raft/lib-fallback"

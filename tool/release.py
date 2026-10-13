@@ -155,7 +155,7 @@ def windows_package(stage):
         encoding='utf-8')
 
 
-def linux_package(stage):
+def linux_package(stage, suffix=''):
     shutil.copytree(APP / 'build/linux/x64/release/bundle', stage, symlinks=True)
     for path in stage.rglob('*'):
         if path.is_symlink() and not path.resolve().is_relative_to(stage.resolve()):
@@ -197,7 +197,7 @@ def linux_package(stage):
         row['sha256'] = digest(stage / 'lib' / row['library'])
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
     (stage / 'linux-dependency-checks.json').write_text(json.dumps(checks, indent=2) + '\n')
-    desktop = stage / 'data/applications/app.raft.raft_flutter.desktop'
+    desktop = stage / f'data/applications/app.raft.raft_flutter{suffix}.desktop'
     desktop.write_text(re.sub(r'^Exec=.*$', 'Exec=raft_flutter %u', desktop.read_text(), flags=re.M))
     copy_docs(stage)
     (stage / 'RUN.txt').write_text(
@@ -249,15 +249,43 @@ def verify_android(apk, keystore, env, version, number):
             'abis': abis, 'certificateSHA256': expected}
 
 
+def isolation_suffix(platform, environ):
+    """The application-id suffix of an isolated Linux test build, or ''.
+
+    RAFT_APPLICATION_ID_SUFFIX=.isolated gives the build another application
+    id (apps/raft_flutter/linux/CMakeLists.txt, tool/appimage.py) so it shares
+    no data, keyring entry or single-instance name with the real app. Release
+    CI never sets it.
+    """
+    suffix = environ.get('RAFT_APPLICATION_ID_SUFFIX', '')
+    if not suffix:
+        return ''
+    if platform not in {'linux', 'appimage'}:
+        raise ValueError('RAFT_APPLICATION_ID_SUFFIX applies to the Linux builds only')
+    if not re.fullmatch(r'(?:\.[a-z][a-z0-9_]*)+', suffix):
+        raise ValueError('RAFT_APPLICATION_ID_SUFFIX must look like .isolated')
+    return suffix
+
+
+def isolated_version(version, suffix):
+    """Mark the shown version, e.g. 0.1.0 -> 0.1.0-isolated."""
+    if not suffix:
+        return version
+    label = suffix.strip('.').replace('.', '-').replace('_', '-')
+    return f'{version}{"." if "-" in version else "-"}{label}'
+
+
 def build(platform):
     identity = current_release()
     version, number = identity['version'], identity['build_number']
     if os.environ.get('RELEASE_VERSION', version) != version or os.environ.get('RELEASE_BUILD_NUMBER', number) != number:
         raise ValueError('Build version differs from the planned version')
+    suffix = isolation_suffix(platform, os.environ)
+    shown_version = isolated_version(version, suffix)
     OUT.mkdir(parents=True, exist_ok=True)
     config = json.loads((ROOT / 'tool/release-platforms.json').read_text())[platform]
     arch = config['arch']
-    name = f'raft-flutter-{identity["asset_version"]}-{platform}-{arch}'
+    name = f'raft-flutter-{isolated_version(identity["asset_version"], suffix)}-{platform}-{arch}'
     # No test entry points, inherited Dart defines or private local fixtures in hosted CI.
     # The only defines supplied here are the public release version shown in About
     # and the CI build number the update check compares.
@@ -271,10 +299,13 @@ def build(platform):
     # an updater key and the app falls back to opening the release page.
     public_key = appcast.read_public_key(env) if platform in {'macos', 'windows'} else ''
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else 'linux' if platform == 'appimage' else platform,
-               '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}',
-               f'--dart-define=RAFT_APP_VERSION={version}',
+               '--release', '--target=lib/main.dart', f'--build-name={shown_version}', f'--build-number={number}',
+               f'--dart-define=RAFT_APP_VERSION={shown_version}',
                # The update check compares this with the manifest's buildNumber.
                f'--dart-define=RAFT_BUILD_NUMBER={number}']
+    if suffix:
+        # Same value as the CMake environment variable: id, keyring, no raft:// handler.
+        command.append(f'--dart-define=RAFT_LINUX_APPLICATION_ID_SUFFIX={suffix}')
     if public_key:
         command.append('--dart-define=RAFT_AUTO_UPDATE=true')
         if platform == 'windows':  # macOS reads SUPublicEDKey from Info.plist, set while packaging
@@ -305,7 +336,7 @@ def build(platform):
             extra_artifacts.append(setup)
             update_archive = setup
         elif platform in {'linux', 'appimage'}:
-            linux_package(stage)
+            linux_package(stage, suffix)
             if platform == 'appimage':
                 import appimage
                 artifact = OUT / f'{name}.AppImage'
@@ -344,6 +375,9 @@ def build(platform):
                'artifact': artifact.name, 'sha256': digest(artifact), 'bytes': artifact.stat().st_size}
     if android is not None:
         receipt['android'] = android
+    if suffix:
+        receipt['applicationId'] = 'app.raft.raft_flutter' + suffix
+        receipt['shownVersion'] = shown_version
     if platform == 'appimage':
         receipt['appimage'] = appimage_checks
     if platform == 'macos':

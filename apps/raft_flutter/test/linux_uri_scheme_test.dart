@@ -85,7 +85,9 @@ void main() {
     bool linux = true,
     Map<String, String> extra = const {},
     bool tools = true,
+    bool? isolated,
   }) => LinuxUriSchemeRegistration(
+    isolated: isolated,
     environment: {
       'HOME': p.join(root.path, 'home'),
       'XDG_DATA_HOME': data,
@@ -116,6 +118,45 @@ void main() {
     }
     expect(desktop.calls, isEmpty);
     expect(Directory(data).existsSync(), isFalse);
+  });
+
+  test(
+    'an isolated build never touches the host handler or mime lists',
+    () async {
+      // Even inside an AppImage with no handler set (the case where a normal
+      // build would claim raft://), an isolated build must change nothing.
+      final scheme = make(
+        appImage: '/home/a/Apps/Raft.AppImage',
+        isolated: true,
+      );
+      await scheme.ensure();
+      await scheme.register();
+      await scheme.unregister();
+      expect(scheme.supported, isFalse);
+      expect(scheme.status, LinuxSchemeStatus.unsupported);
+      expect(desktop.calls, isEmpty);
+      expect(desktop.handler, isEmpty);
+      expect(store.stored, isNull);
+      expect(Directory(data).existsSync(), isFalse);
+      expect(Directory(config).existsSync(), isFalse);
+    },
+  );
+
+  test('a default build keeps the real application id', () {
+    expect(linuxIsolatedBuild, isFalse);
+    expect(linuxApplicationId, 'app.raft.raft_flutter');
+    expect(linuxAppImageDesktopId, 'app.raft.raft_flutter-appimage');
+  }, skip: linuxIsolatedBuild);
+
+  test('the application id follows the build suffix everywhere', () {
+    expect(
+      linuxApplicationId,
+      'app.raft.raft_flutter$linuxApplicationIdSuffix',
+    );
+    expect(linuxAppImageDesktopId, startsWith(linuxApplicationId));
+    expect(linuxIconRelative, contains('$linuxApplicationId.png'));
+    // Notifications name the launcher that exists for this build's id.
+    expect(linuxDesktopEntryId(environment: const {}), linuxApplicationId);
   });
 
   test('registers an unclaimed scheme with a clean host environment', () async {

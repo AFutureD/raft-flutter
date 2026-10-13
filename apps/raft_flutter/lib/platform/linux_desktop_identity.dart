@@ -7,8 +7,21 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_local_notifications_linux/src/model/hint.dart';
 import 'package:path/path.dart' as p;
 
+/// Suffix of an isolated test build, for example `.isolated`; empty for the
+/// real app. linux/CMakeLists.txt reads the same value from the environment
+/// variable `RAFT_APPLICATION_ID_SUFFIX` while tool/release.py passes it here,
+/// so the GApplication id, the XDG data/cache directories and the keyring
+/// attribute all move together.
+const linuxApplicationIdSuffix = String.fromEnvironment(
+  'RAFT_LINUX_APPLICATION_ID_SUFFIX',
+);
+
+/// True for an isolated test build, which must leave the host's `raft://`
+/// handler, mime defaults and desktop files alone.
+const linuxIsolatedBuild = linuxApplicationIdSuffix != '';
+
 /// GApplication / window app id of the Linux runner (linux/CMakeLists.txt).
-const linuxApplicationId = 'app.raft.raft_flutter';
+const linuxApplicationId = 'app.raft.raft_flutter$linuxApplicationIdSuffix';
 
 /// Desktop file the AppImage registers in the member's own applications
 /// directory. Its id differs from the packaged launcher so both can coexist.

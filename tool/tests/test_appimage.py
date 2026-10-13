@@ -137,6 +137,30 @@ class AppImageTests(unittest.TestCase):
             (host / appimage.LIBVA_LIBRARIES[-1]).touch()
             self.assertEqual(result(), '1')
 
+    def test_isolated_launcher_creates_its_own_directories_before_the_legacy_name(self):
+        # The real build is unchanged; an isolated one creates <id> directories
+        # so path_provider_linux never falls back to the executable-name directory.
+        self.assertEqual(appimage.isolated_directory_setup('app.raft.raft_flutter', ''), '')
+        app_id = 'app.raft.raft_flutter.isolated'
+        script = appimage.isolated_directory_setup(app_id, '.isolated')
+        with tempfile.TemporaryDirectory(prefix='raftiso') as temporary:
+            home = Path(temporary)
+            (home / '.local/share/raft_flutter').mkdir(parents=True)
+            env = {'PATH': os.defpath, 'HOME': str(home)}
+            subprocess.check_call(['sh', '-eu', '-c', script], env=env)
+            self.assertTrue((home / '.local/share' / app_id).is_dir())
+            self.assertTrue((home / '.cache' / app_id).is_dir())
+            self.assertFalse((home / '.cache/raft_flutter').exists())
+            data, cache = home / 'xdg-data', home / 'xdg-cache'
+            subprocess.check_call(['sh', '-eu', '-c', script],
+                                  env=dict(env, XDG_DATA_HOME=str(data), XDG_CACHE_HOME=str(cache)))
+            self.assertTrue((data / app_id).is_dir())
+            self.assertTrue((cache / app_id).is_dir())
+
+    def test_application_id_defaults_to_the_real_app(self):
+        if not os.environ.get('RAFT_APPLICATION_ID_SUFFIX'):
+            self.assertEqual(appimage.APP_ID, 'app.raft.raft_flutter')
+
 
 if __name__ == '__main__':
     unittest.main()

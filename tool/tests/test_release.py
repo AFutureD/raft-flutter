@@ -330,6 +330,19 @@ class ReleaseTests(unittest.TestCase):
                 with self.subTest(number=number, tag=tag), self.assertRaises(ValueError):
                     release.verify_artifacts(directory, matrix, '0.1.0', 'abc', number, tag)
 
+    def test_isolated_linux_build_gets_a_marked_version_and_a_valid_suffix(self):
+        self.assertEqual(release.isolation_suffix('appimage', {}), '')
+        self.assertEqual(release.isolation_suffix('appimage', {'RAFT_APPLICATION_ID_SUFFIX': '.isolated'}), '.isolated')
+        self.assertEqual(release.isolated_version('0.1.0', ''), '0.1.0')
+        self.assertEqual(release.isolated_version('0.1.0', '.isolated'), '0.1.0-isolated')
+        self.assertEqual(release.isolated_version('0.1.0-beta.1', '.link_perf'), '0.1.0-beta.1.link-perf')
+        for bad in ('isolated', '.', '.Bad', '..x', '.a b', '.1x', '/x'):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                release.isolation_suffix('appimage', {'RAFT_APPLICATION_ID_SUFFIX': bad})
+        for platform in ('windows', 'macos', 'android'):
+            with self.subTest(platform=platform), self.assertRaises(ValueError):
+                release.isolation_suffix(platform, {'RAFT_APPLICATION_ID_SUFFIX': '.isolated'})
+
 
 if __name__ == '__main__':
     unittest.main()
