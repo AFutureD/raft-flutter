@@ -16,6 +16,12 @@ BASE_APP_ID = 'app.raft.raft_flutter'
 # icon, AppStream id, data/cache directories and keyring attribute.
 APP_ID_SUFFIX = os.environ.get('RAFT_APPLICATION_ID_SUFFIX', '')
 APP_ID = BASE_APP_ID + APP_ID_SUFFIX
+# Several plugins key host-wide state by the executable's name (the notification
+# plugin keeps $XDG_RUNTIME_DIR/<name>/notification_plugin_cache.json, path_provider
+# falls back to a data directory of that name), so an isolated build ships its
+# binary under a different name.
+BASE_EXECUTABLE = 'raft_flutter'
+EXECUTABLE = 'raft_isolated' if APP_ID_SUFFIX else BASE_EXECUTABLE
 HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
                          'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE',
                          'GDK_PIXBUF_MODULE_FILE')
@@ -71,8 +77,8 @@ def isolated_directory_setup(app_id, suffix):
     """Create this id's XDG data and cache directories before the app starts.
 
     path_provider_linux falls back to a directory named after the executable
-    (raft_flutter) when the id directory does not exist yet. That legacy name
-    may hold data of the real app, so an isolated build must never reach it.
+    when the id directory does not exist yet. The isolated binary already has
+    its own name (EXECUTABLE); this keeps the id directory in place regardless.
     The real build (no suffix) gets no extra lines.
     """
     if not suffix:
@@ -248,6 +254,8 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     shutil.move(str(stage), appdir / 'raft')
     stage = appdir / 'raft'
     (stage / 'RUN.txt').unlink()
+    if EXECUTABLE != BASE_EXECUTABLE:
+        (stage / BASE_EXECUTABLE).rename(stage / EXECUTABLE)
     notices = stage / 'data/notices/raft-media'
     manifest_path = notices / 'manifest.json'
     manifest = json.loads(manifest_path.read_text())
@@ -311,7 +319,7 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     shutil.copy2(icon, appdir / f'{APP_ID}.png')
     (appdir / '.DirIcon').symlink_to(f'{APP_ID}.png')
     desktop = (stage / 'data/applications' / f'{APP_ID}.desktop').read_text()
-    desktop = re.sub(r'^Exec=.*$', 'Exec=raft_flutter %u', desktop, flags=re.M)
+    desktop = re.sub(r'^Exec=.*$', f'Exec={EXECUTABLE} %u', desktop, flags=re.M)
     desktop = re.sub(r'^Icon=.*$', f'Icon={APP_ID}', desktop, flags=re.M)
     (appdir / f'{APP_ID}.desktop').write_text(desktop)
     metadata = appdir / 'usr/share/metainfo'
@@ -334,7 +342,7 @@ export GIO_MODULE_DIR="$app_dir/raft/lib/gio/modules"
 export GSETTINGS_SCHEMA_DIR="$app_dir/usr/share/glib-2.0/schemas"
 export GIO_LAUNCH_DESKTOP="$app_dir/raft/bin/raft-gio-launch-desktop"
 export GDK_PIXBUF_MODULE_FILE="$app_dir/raft/lib/loaders.cache"
-exec "$app_dir/raft/raft_flutter" "$@"
+exec "$app_dir/raft/''' + EXECUTABLE + '''" "$@"
 ''')
     launcher.chmod(0o755)
     desktop_wrapper = helpers / 'raft-gio-launch-desktop'
@@ -343,7 +351,7 @@ exec "$app_dir/raft/raft_flutter" "$@"
     files = [path for path in stage.rglob('*') if path.is_file() and elf(path)]
     needed_glibc = (0, 0)
     for path in files:
-        rpath = '$ORIGIN/../lib' if path.parent == helpers else '$ORIGIN/lib' if path.name == 'raft_flutter' else '$ORIGIN'
+        rpath = '$ORIGIN/../lib' if path.parent == helpers else '$ORIGIN/lib' if path.name == EXECUTABLE else '$ORIGIN'
         run(['patchelf', '--force-rpath', '--set-rpath', rpath, path])
         needed_glibc = max(needed_glibc, glibc_requirement(capture_output(['readelf', '--version-info', path])))
         dependencies(path, env=env)

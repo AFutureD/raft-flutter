@@ -271,8 +271,10 @@ data and cache directories `app.raft.raft_flutter.isolated`, the libsecret
 `account` attribute `app.raft.raft_flutter.isolated.secureStorage`, the desktop
 file and icon all differ from the real app, the desktop file carries no `MimeType`,
 and the build never registers `raft://` or edits mime defaults (OAuth uses the
-loopback). AppRun creates the id's data and cache directories first so
-path_provider_linux cannot fall back to a legacy `raft_flutter` directory. The shown
+loopback). The binary is renamed `raft_isolated` because the notification plugin
+keeps `$XDG_RUNTIME_DIR/<executable>/notification_plugin_cache.json` and
+path_provider_linux has a legacy data directory of that name; AppRun also creates
+the id's data and cache directories first. The shown
 version is `X.Y.Z-isolated`. Release CI never sets the variable.
 
 CI runs the actual release file directly and in extract-and-run mode at 2× scale.
