@@ -78,6 +78,7 @@ import 'management_support.dart' show managementLaunch;
 import 'sender_avatar_projection.dart';
 import '../platform/app_update.dart';
 import '../platform/native_sharing.dart';
+import '../platform/shortcut_modifier.dart';
 import '../platform/native_notifications.dart';
 import '../platform/system_bars.dart';
 import '../platform/keyboard_inset_diagnostics.dart';
@@ -589,6 +590,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
     origin: w.client.origin,
   );
   bool get wide => !RaftAdaptiveWorkspace.compactOf(context);
+
+  /// Cmd/Ctrl+K while the Search page shows: a bump asks it to focus its field.
+  final searchFocusRequests = ValueNotifier<int>(0);
   double sidebarWidth = 240, threadWidth = 400;
   double masterWideWidth = 560, masterCompactWidth = 320;
   Timer? persistPanels;
@@ -916,6 +920,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncSidebarDisclosure);
     w.removeListener(syncSavedIds);
     HardwareKeyboard.instance.removeHandler(globalShortcut);
+    searchFocusRequests.dispose();
     quickSwitcher.dispose();
     sidebarDisclosure.dispose();
     liveActivities.removeListener(syncLiveActivityShown);
@@ -1463,6 +1468,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                   ? location.query('q')
                   : null,
               searchMemory: quickSwitcher.searchMemory,
+              searchFocusRequests: route == 'search'
+                  ? searchFocusRequests
+                  : null,
               restoreSearchState:
                   searchEntryRevision == 0 ||
                   restoreSavedSearchRevision == searchEntryRevision,
@@ -2296,9 +2304,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
       return false;
     }
     final keyboard = HardwareKeyboard.instance;
+    // Source isGlobalSearchShortcut: Cmd alone on macOS, Ctrl alone elsewhere.
     if (keyboard.isShiftPressed ||
         keyboard.isAltPressed ||
-        keyboard.isControlPressed == keyboard.isMetaPressed) {
+        !primaryShortcutModifierDown(keyboard)) {
       return false;
     }
     if (key == LogicalKeyboardKey.keyK) {
@@ -2313,6 +2322,12 @@ class _WorkspaceViewState extends State<WorkspaceView>
   /// page (Source SearchOverlay); a narrow window keeps the full Search page.
   void openSearchShortcut() {
     if (!w.canVisitSection('search')) return;
+    // Source routeGlobalSearchShortcut: the Search page is already showing, so
+    // focus its field (and select the query) instead of opening another one.
+    if (w.section == 'search') {
+      searchFocusRequests.value++;
+      return;
+    }
     if (!wide) {
       select('search');
       return;

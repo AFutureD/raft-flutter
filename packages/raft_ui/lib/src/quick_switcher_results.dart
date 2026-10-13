@@ -389,8 +389,12 @@ class RaftQuickSwitcherEmpty extends StatelessWidget {
     super.key,
     required this.title,
     required this.detail,
+    this.iconSize = 32,
   });
   final String title, detail;
+
+  /// The overlay's glyph is 32; the full results page uses 48.
+  final double iconSize;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -400,7 +404,7 @@ class RaftQuickSwitcherEmpty extends StatelessWidget {
         children: [
           RaftIcon(
             RaftGlyph.search,
-            size: 32,
+            size: iconSize,
             color: (t.brutal ? t.strong : t.muted).withValues(
               alpha: t.brutal ? .2 : .3,
             ),

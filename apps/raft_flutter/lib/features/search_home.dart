@@ -112,9 +112,14 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
         MediaQuery.sizeOf(context).width <
         RaftSearchHomeRecipe.touchHistoryBreakpoint;
     if (widget.history.isEmpty && widget.frequent.isEmpty) {
-      return const RaftEmptyState(
-        title: 'Search your workspace',
-        detail: 'Enter words to find messages.',
+      // Web `centeredEmptyState`: search.emptyTitle / search.emptyBody.
+      return RaftQuickSwitcherEmpty(
+        iconSize: 48,
+        title: raftText(context, 'Search everything'),
+        detail: raftText(
+          context,
+          'Search channels, DMs, people, agents, and message history.',
+        ),
       );
     }
     Widget heading(
@@ -341,7 +346,11 @@ class _SearchHistoryTagState extends State<_SearchHistoryTag> {
                         glyph: RaftGlyph.x,
                         glyphSize: 12,
                         visualSize: 20,
-                        tooltip: 'Remove history: ${widget.query}',
+                        tooltip: raftFormat(
+                          context,
+                          'Remove "{query}" from search history',
+                          {'query': widget.query},
+                        ),
                         onPressed: widget.onRemove,
                       ),
                     ),

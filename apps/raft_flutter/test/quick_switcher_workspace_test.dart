@@ -237,8 +237,8 @@ Future<void> chord(
 
 void main() {
   for (final modifier in [
-    ('Ctrl', LogicalKeyboardKey.controlLeft),
-    ('Cmd', LogicalKeyboardKey.metaLeft),
+    ('Ctrl', LogicalKeyboardKey.controlLeft, TargetPlatform.linux),
+    ('Cmd', LogicalKeyboardKey.metaLeft, TargetPlatform.macOS),
   ]) {
     testWidgets(
       '[N26] ${modifier.$1}+K floats the switcher over the current conversation with cached results in its first frame',
@@ -271,6 +271,7 @@ void main() {
         expect(find.byType(QuickSwitcher), findsNothing);
         expect(w.channel!.id, 'c-general');
       },
+      variant: TargetPlatformVariant.only(modifier.$3),
     );
   }
 
@@ -403,6 +404,71 @@ void main() {
     expect(w.section, 'search');
   });
 
+  // Source isGlobalSearchShortcut: Cmd alone on Apple platforms, Ctrl alone
+  // elsewhere. Ctrl+K on macOS is the text field's "delete to end of line".
+  for (final platform in [
+    (
+      TargetPlatform.macOS,
+      'Cmd',
+      LogicalKeyboardKey.metaLeft,
+      'Ctrl',
+      LogicalKeyboardKey.controlLeft,
+    ),
+    (
+      TargetPlatform.linux,
+      'Ctrl',
+      LogicalKeyboardKey.controlLeft,
+      'Cmd/Super',
+      LogicalKeyboardKey.metaLeft,
+    ),
+    (
+      TargetPlatform.windows,
+      'Ctrl',
+      LogicalKeyboardKey.controlLeft,
+      'Win',
+      LogicalKeyboardKey.metaLeft,
+    ),
+  ]) {
+    testWidgets(
+      '[shortcut] ${platform.$1.name}: ${platform.$2}+K opens search, ${platform.$4}+K does not',
+      (t) async {
+        await mount(t);
+        await chord(t, platform.$5, LogicalKeyboardKey.keyK);
+        await t.pump();
+        expect(find.byType(QuickSwitcher), findsNothing);
+        await chord(t, platform.$3, LogicalKeyboardKey.keyK);
+        await t.pump();
+        expect(find.byType(QuickSwitcher), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.only(platform.$1),
+    );
+
+    testWidgets(
+      '[shortcut] ${platform.$1.name}: ${platform.$2}+K on the Search page focuses and selects its field instead of floating the overlay',
+      (t) async {
+        final (_, w) = await mount(t, section: 'search');
+        expect(w.section, 'search');
+        final field = find.byType(TextField).first;
+        await t.enterText(field, 'ops');
+        await t.pump();
+        // Focus leaves the field (a click on the page background).
+        FocusManager.instance.primaryFocus?.unfocus();
+        await t.pump();
+        expect(t.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+        await chord(t, platform.$3, LogicalKeyboardKey.keyK);
+        await t.pump();
+        expect(find.byType(QuickSwitcher), findsNothing);
+        final input = t.widget<TextField>(field);
+        expect(input.focusNode!.hasFocus, isTrue);
+        expect(
+          input.controller!.selection,
+          const TextSelection(baseOffset: 0, extentOffset: 3),
+        );
+      },
+      variant: TargetPlatformVariant.only(platform.$1),
+    );
+  }
+
   testWidgets('Cmd+, still opens settings and Escape still dismisses panels', (
     t,
   ) async {
@@ -411,7 +477,7 @@ void main() {
     await t.pumpAndSettle();
     expect(w.section, 'settings');
     expect(find.byType(QuickSwitcher), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('[N26] the switcher closes when the workspace scope changes', (
     t,

@@ -131,7 +131,7 @@ void main() {
         t.getCenter(find.bySemanticsLabel('Search history: Other')),
       );
       await t.pumpAndSettle();
-      await t.tap(find.byTooltip('Remove history: Other'));
+      await t.tap(find.byTooltip('Remove "Other" from search history'));
       await mouse.removePointer();
       await t.pumpAndSettle();
       expect(memory.current(scope).history, ['Android']);
@@ -258,10 +258,10 @@ void main() {
       addTearDown(t.view.resetDevicePixelRatio);
       memory.rememberQuery(scope, 'Android');
       await mount(t, initialQuery: '');
-      expect(find.byTooltip('Remove history: Android'), findsNothing);
+      expect(find.byTooltip('Remove "Android" from search history'), findsNothing);
       await t.tap(find.text('Edit'));
       await t.pumpAndSettle();
-      await t.tap(find.byTooltip('Remove history: Android'));
+      await t.tap(find.byTooltip('Remove "Android" from search history'));
       await t.pumpAndSettle();
       expect(memory.current(scope).history, isEmpty);
       expect(find.text('Done'), findsNothing);

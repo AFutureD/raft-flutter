@@ -270,6 +270,42 @@ Widget searchHitSenderAvatar({
   );
 }
 
+/// Source `truncateThreadTitle` over the parent message: whitespace collapsed,
+/// clipped to 80 characters, "Thread discussion" when empty.
+String searchThreadTitle(BuildContext context, Object? parentContent) {
+  final title = '${parentContent ?? ''}'.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (title.isEmpty) return raftText(context, 'Thread discussion');
+  return title.length > 80 ? '${title.substring(0, 77)}...' : title;
+}
+
+/// Relative time of a thread group's latest hit (Source `latestCreatedAt`).
+String searchThreadTime(
+  BuildContext context,
+  List<Map<String, dynamic>> hits,
+  DateTime? now,
+) {
+  DateTime? latest;
+  for (final row in hits) {
+    final time = DateTime.tryParse('${row['createdAt']}');
+    if (time != null && (latest == null || time.isAfter(latest))) {
+      latest = time;
+    }
+  }
+  return latest == null
+      ? raftText(context, 'unknown time')
+      : resourceRelativeTime(
+          latest.toIso8601String(),
+          now: now,
+          chinese: Localizations.localeOf(context).languageCode == 'zh',
+        );
+}
+
+/// Web `search.resultsCount`: "1 result" / "# results"; Chinese has no plural.
+String searchResultCount(BuildContext context, int count) =>
+    count == 1 && Localizations.localeOf(context).languageCode != 'zh'
+    ? '1 result'
+    : '$count ${raftText(context, 'results')}';
+
 /// Page composition of source SearchResultsSection/EntityResult/MessageResult.
 /// Transport, keyboard selection and authority are owned by ResourceView.
 class ResourceSearchResults extends StatelessWidget {
@@ -388,11 +424,7 @@ class ResourceSearchResults extends StatelessWidget {
       );
     }
 
-    Widget section(
-      String title,
-      List<WidgetBuilder> children, {
-      bool gaps = true,
-    }) {
+    Widget section(String title, List<WidgetBuilder> children) {
       final decoration = slots.section.decoration(rt);
       return SliverPadding(
         padding: slots.section.margin,
@@ -414,11 +446,9 @@ class ResourceSearchResults extends StatelessWidget {
                 SliverList.separated(
                   itemCount: children.length,
                   itemBuilder: (context, index) => children[index](context),
-                  separatorBuilder: (_, _) => gaps
-                      ? SizedBox(
-                          height: slots.list.rowGap ?? RaftResourceMetrics.gap2,
-                        )
-                      : const SizedBox.shrink(),
+                  separatorBuilder: (_, _) => SizedBox(
+                    height: slots.list.rowGap ?? RaftResourceMetrics.gap2,
+                  ),
                 ),
               ],
             ),
@@ -441,123 +471,83 @@ class ResourceSearchResults extends StatelessWidget {
       );
     }
 
+    // Source groupMessageSearchResults: hits of one thread share a card, placed
+    // where its first hit appears; every other hit is its own card.
     final grouped = <String, List<Map<String, dynamic>>>{};
     for (final row in rows) {
-      final parent = row['channelType'] == 'thread'
-          ? row['parentMessageId']
-          : null;
-      final key = parent is String ? 'thread:$parent' : 'message:${row['id']}';
+      final thread = row['threadId'], parent = row['parentMessageId'];
+      final key = thread is String && thread.isNotEmpty && parent is String
+          ? 'thread:$thread'
+          : 'message:${row['id']}';
       (grouped[key] ??= []).add(row);
     }
     final messageGroups = grouped.values.toList(growable: false);
-    Widget message(Map<String, dynamic> row) {
+    Widget message(
+      Map<String, dynamic> row, {
+      bool nested = false,
+      bool first = false,
+    }) {
       final thread = row['channelType'] == 'thread';
       final name = thread ? row['parentChannelName'] : row['channelName'];
       final dm =
           (thread ? row['parentChannelType'] : row['channelType']) == 'dm';
       final sender = '${row['senderName'] ?? ''}';
-      final m = rui.RaftSearchMessageRecipe.resolve(
-        theme: t.brutal
-            ? rui.RaftRecipeTheme.brutal
-            : rui.RaftRecipeTheme.elegant,
-        states: rui.RaftRecipeStates({if (t.dark) rui.RaftRecipeStates.dark}),
-        tokens: rt,
-        selected: selectedKey == 'message:${row['id']}',
-      );
-      TextStyle meta(rui.RaftSlotStyle slot) {
-        final header = m.messageHeader.textStyle(rt);
-        final own = slot.textStyle(rt);
-        return header
-            .merge(own)
-            .copyWith(fontFamily: own.fontFamily ?? t.bodyFont);
-      }
-
-      return surface(
-        'message:${row['id']}',
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: m.messageHeader.padding.add(
-                EdgeInsets.only(bottom: m.messageHeader.margin.bottom),
-              ),
-              child: Wrap(
-                spacing: m.messageHeader.columnGap ?? RaftResourceMetrics.gap2,
-                runSpacing: m.messageHeader.rowGap ?? RaftResourceMetrics.gap2,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    '${dm ? '@' : '#'}${name ?? ''}',
-                    style: meta(m.messageMeta),
-                  ),
-                  if (thread)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: m.messageThreadMeta.columnGap ?? 0,
-                      children: [
-                        RaftThreadIcon(
-                          size:
-                              10, // MessageSearchPage ThreadIcon width/height.
-                          color: meta(m.messageThreadMeta).color,
-                        ),
-                        Text(
-                          raftText(context, 'Thread').toLowerCase(),
-                          style: meta(m.messageThreadMeta),
-                        ),
-                      ],
-                    ),
-                  if ((thread
-                          ? row['parentChannelArchivedAt']
-                          : row['channelArchivedAt']) !=
-                      null)
-                    _badge(context, 'Archived'),
-                  if (searchBeyondHistory(
-                    row['createdAt'] as String?,
-                    plan,
-                    now,
-                  ))
-                    _badge(context, 'Upgrade to view'),
-                  if (sender.isNotEmpty)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _senderAvatar(row, sender),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            sender,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: meta(m.messageSender),
-                          ),
-                        ),
-                      ],
-                    ),
-                  Text(
-                    resourceRelativeTime(
-                      row['createdAt'] as String?,
-                      now: now,
-                      chinese:
-                          Localizations.localeOf(context).languageCode == 'zh',
-                    ),
-                    style: meta(m.messageTimestamp),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: m.messageBody.padding,
-              child: SearchHighlight(
-                text: '${row['snippet'] ?? row['content'] ?? ''}',
-                query: query,
-                style: m.messageBody
-                    .textStyle(rt)
-                    .copyWith(fontFamily: t.bodyFont),
-              ),
-            ),
-          ],
+      final archived =
+          (thread
+              ? row['parentChannelArchivedAt']
+              : row['channelArchivedAt']) !=
+          null;
+      return RaftQuickSwitcherHit(
+        key: ValueKey('search-message:${row['id']}'),
+        where: '${dm ? '@' : '#'}${name ?? ''}',
+        threadLabel: thread ? raftText(context, 'Thread').toLowerCase() : null,
+        warnings: [
+          if (archived) raftText(context, 'Archived'),
+          if (searchBeyondHistory(row['createdAt'] as String?, plan, now))
+            raftText(context, 'Upgrade to view'),
+        ],
+        avatar: sender.isEmpty ? null : _senderAvatar(row, sender),
+        sender: sender,
+        time: resourceRelativeTime(
+          row['createdAt'] as String?,
+          now: now,
+          chinese: Localizations.localeOf(context).languageCode == 'zh',
         ),
-        () => onMessage(row),
+        snippet: SearchHighlight(
+          text: '${row['snippet'] ?? row['content'] ?? ''}',
+          query: query,
+          style: RaftQuickSwitcherHit.snippetStyle(t),
+        ),
+        selected: selectedKey == 'message:${row['id']}',
+        nested: nested,
+        first: first,
+        onPressed: () => onMessage(row),
+      );
+    }
+
+    Widget messageGroup(BuildContext context, List<Map<String, dynamic>> hits) {
+      final first = hits.first;
+      if (!(first['threadId'] is String &&
+          (first['threadId'] as String).isNotEmpty &&
+          first['parentMessageId'] is String)) {
+        return message(first);
+      }
+      return RaftQuickSwitcherThreadGroup(
+        badge: raftText(context, 'Thread'),
+        where:
+            '${first['parentChannelType'] == 'dm' ? '@' : '#'}${first['parentChannelName'] ?? ''}',
+        hits: raftFormat(
+          context,
+          hits.length == 1 ? '{count} hit' : '{count} hits',
+          {'count': hits.length},
+        ),
+        time: searchThreadTime(context, hits, now),
+        title: searchThreadTitle(context, first['parentMessageContent']),
+        selected: hits.any((r) => selectedKey == 'message:${r['id']}'),
+        children: [
+          for (final (i, row) in hits.indexed)
+            message(row, nested: true, first: i == 0),
+        ],
       );
     }
 
@@ -583,7 +573,10 @@ class ResourceSearchResults extends StatelessWidget {
                     child: slotText(
                       loading
                           ? raftText(context, 'Searching…')
-                          : '${entities.length + rows.length} ${raftText(context, 'results')}',
+                          : searchResultCount(
+                              context,
+                              entities.length + rows.length,
+                            ),
                       slots.summary,
                     ),
                   ),
@@ -665,48 +658,38 @@ class ResourceSearchResults extends StatelessWidget {
               // heading shows alone until the messages arrive.
               if (loading && failure == null && rows.isEmpty)
                 section('Messages', [
-                  if (entities.isEmpty) (_) => const RaftQuickSwitcherSkeleton(),
+                  if (entities.isEmpty)
+                    (_) => const RaftQuickSwitcherSkeleton(),
                 ])
               else if (failure != null && rows.isEmpty)
                 SliverToBoxAdapter(child: _failureCard(context)),
               if (rows.isNotEmpty)
                 section('Messages', [
-                  for (var i = 0; i < messageGroups.length; i++) ...[
-                    if (i > 0)
-                      (_) => SizedBox(
-                        height: slots.list.rowGap ?? RaftResourceMetrics.gap2,
-                      ),
-                    if (messageGroups[i].length > 1)
-                      (_) => Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: SearchHighlight(
-                          text:
-                              '${messageGroups[i].first['parentMessageContent'] ?? ''}',
-                          query: query,
-                          style: RaftTypography.body(
-                            t,
-                            size: 14,
-                            line: 20,
-                            weight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    for (final row in messageGroups[i]) (_) => message(row),
-                  ],
-                ], gaps: false),
+                  for (final group in messageGroups)
+                    (context) => messageGroup(context, group),
+                ]),
               if (rows.isEmpty &&
                   entities.isEmpty &&
                   !loading &&
                   failure == null)
+                // `py-20` centred glyph, title and hint (MessageSearchPage).
                 SliverToBoxAdapter(
-                  child: RaftEmptyState(
-                    title: query.isEmpty
-                        ? 'Search your workspace'
-                        : 'No results',
-                    detail: query.isEmpty
-                        ? 'Enter words to find messages.'
-                        : 'Try different keywords or filters.',
-                    glyph: RaftGlyph.search,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 80),
+                    child: RaftQuickSwitcherEmpty(
+                      iconSize: 48,
+                      title: query.trim().isEmpty
+                          ? raftText(context, 'No matching messages')
+                          : raftFormat(context, 'No results for "{query}"', {
+                              'query': query.trim(),
+                            }),
+                      detail: query.trim().isEmpty
+                          ? raftText(context, 'Try a different filter set.')
+                          : raftText(
+                              context,
+                              'Try different keywords or a shorter phrase.',
+                            ),
+                    ),
                   ),
                 ),
               if (hasMore)

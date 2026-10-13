@@ -53,6 +53,13 @@ class SearchFilterBar extends StatelessWidget {
   };
   static const sorts = {'relevance': 'Relevant', 'recent': 'Recent'};
 
+  /// Web `search.sortRecent` is 最新; the shared "Recent" catalog entry is the
+  /// other 最近.
+  static String choiceLabel(BuildContext context, String source) =>
+      source == 'Recent'
+      ? raftTextZh(context, source, '最新')
+      : raftText(context, source);
+
   @override
   Widget build(BuildContext context) {
     final senderOptions = {
@@ -108,8 +115,8 @@ class SearchFilterBar extends StatelessWidget {
       void Function(String) changed,
     ) => RaftDropdownMenu(
       key: ValueKey('$scope:$title'),
-      tooltip: title,
-      label: label,
+      tooltip: raftText(context, title),
+      label: choiceLabel(context, label),
       glyph: title == 'Search date range'
           ? RaftGlyph.calendarRange
           : RaftGlyph.arrowDownUp,
@@ -126,7 +133,7 @@ class SearchFilterBar extends StatelessWidget {
       entries: [
         for (final entry in choices.entries)
           RaftMenuEntry(
-            label: raftText(context, entry.value),
+            label: choiceLabel(context, entry.value),
             onPressed: () {
               if (valid()) {
                 changed(entry.key);

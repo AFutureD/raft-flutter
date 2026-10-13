@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, ValueListenable, defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/scheduler.dart';
@@ -51,6 +50,7 @@ import 'saved_sidebar_entry.dart';
 import 'reading_anchor.dart';
 import '../platform/content_links.dart';
 import '../platform/interaction_timing.dart';
+import '../platform/shortcut_modifier.dart';
 
 class ResourceView extends StatefulWidget {
   const ResourceView({
@@ -76,6 +76,7 @@ class ResourceView extends StatefulWidget {
     this.onActivityWindowAccepted,
     this.searchMemory,
     this.restoreSearchState = true,
+    this.searchFocusRequests,
     this.channelId,
     this.onTask,
   });
@@ -101,6 +102,10 @@ class ResourceView extends StatefulWidget {
 
   final SearchMemoryStore? searchMemory;
   final bool restoreSearchState;
+
+  /// Cmd/Ctrl+K while this Search page is showing (Source
+  /// `SEARCH_FOCUS_REQUEST_EVENT`): focus the field and select its text.
+  final Listenable? searchFocusRequests;
   final Future<void> Function(SearchEntity)? onSearchEntity;
 
   /// Typed Source search hits retain thread and parent identities for the
@@ -1735,6 +1740,18 @@ class _ResourceViewState extends State<ResourceView> {
     lastPublishedQuery = widget.initialQuery ?? '';
     lastSearchEditingValue = query.value;
     query.addListener(searchCompositionCommitted);
+    if (widget.section == 'search') {
+      widget.searchFocusRequests?.addListener(focusSearchField);
+      // Source MessageSearchPage focuses the field on mount (and selects a
+      // restored query). A phone keeps the keyboard down until a tap.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            MediaQuery.sizeOf(context).width >=
+                RaftLayoutMetrics.desktopBreakpoint) {
+          focusSearchField();
+        }
+      });
+    }
     if (widget.section == 'search' && widget.initialSearchChannelId != null) {
       final channel = [
         ...w.channels,
@@ -1901,6 +1918,7 @@ class _ResourceViewState extends State<ResourceView> {
     authorDirectory = null;
     searchDebounce?.cancel();
     clearActivityGesture();
+    widget.searchFocusRequests?.removeListener(focusSearchField);
     queryFocus.dispose();
     query.dispose();
     events?.cancel();
@@ -2465,6 +2483,18 @@ class _ResourceViewState extends State<ResourceView> {
 
   Widget buildBody(BuildContext context) {
     final scope = authority;
+    final body = buildBodyColumn(context, scope);
+    return widget.section == 'search'
+        ? Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: searchKeyEvent,
+            child: body,
+          )
+        : body;
+  }
+
+  Widget buildBodyColumn(BuildContext context, String scope) {
     return Column(
       children: [
         if (widget.channelId == null)
@@ -2685,9 +2715,8 @@ class _ResourceViewState extends State<ResourceView> {
     final results = resourceResultsPager(context);
     if (widget.section != 'search') return results;
     // SearchShellViewport: `bg-layer-panel` (transparent in dark, Brutal white).
-    final fill = searchSlots(
-      context,
-    ).viewport.decoration(rui.RaftRecipeTokens(RaftTokens.of(context)));
+    final fill = searchSlots(context).viewport
+        .decoration(rui.RaftRecipeTokens(RaftTokens.of(context)));
     return DecoratedBox(decoration: fill, child: results);
   }
 
@@ -2716,10 +2745,7 @@ class _ResourceViewState extends State<ResourceView> {
 
   Widget resourceResultsBody(BuildContext context) {
     final scope = authority;
-    final searchHomeNow =
-        widget.section == 'search' &&
-        query.text.trim().isEmpty &&
-        (!advanced.hasSearchFilter || widget.initialSearchDeferUntilQuery);
+    final searchHomeNow = atSearchHome;
     // Search keeps its summary, entity matches and a messages skeleton while
     // the first read is in flight (Source `showInitialSkeleton`).
     final searching = loading && visibleRows.isEmpty;
@@ -2747,8 +2773,7 @@ class _ResourceViewState extends State<ResourceView> {
             currentUser: w.client.user?.json,
             plan: w.server?.string('plan', 'free') ?? 'free',
             now: widget.clock?.call() ?? DateTime.now(),
-            selectedKey:
-                selectedSearchKey ?? currentSearchEntities.firstOrNull?.key,
+            selectedKey: selectedSearchKey ?? firstSearchKey,
             onMessage: (row) => openSearchMessage(row, scope),
             onEntity: (entity) => openSearchEntity(entity, scope),
             hasMore: hasMore,
@@ -3034,6 +3059,67 @@ class _ResourceViewState extends State<ResourceView> {
     });
   }
 
+  /// No query and no filter yet: history and frequent destinations.
+  bool get atSearchHome =>
+      widget.section == 'search' &&
+      query.text.trim().isEmpty &&
+      (!advanced.hasSearchFilter || widget.initialSearchDeferUntilQuery);
+
+  /// Selectable results in order: destinations, then messages (Source
+  /// `selectableResults`).
+  List<String> get searchKeys => [
+    ...(atSearchHome ? frequentEntities : currentSearchEntities).map(
+      (e) => e.key,
+    ),
+    ...rows.map((r) => 'message:${r['id']}'),
+  ];
+
+  /// The cursor before any arrow key: the first selectable result.
+  String? get firstSearchKey => searchKeys.firstOrNull;
+
+  /// Cmd/Ctrl+K on the Search page and its first frame (Source
+  /// `focusSearchInput`): focus the field and select what it holds.
+  void focusSearchField() {
+    if (!mounted) return;
+    queryFocus.requestFocus();
+    if (query.text.isNotEmpty) {
+      query.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: query.text.length,
+      );
+    }
+  }
+
+  /// Source `handleRailKeyDown`, scoped to the Search page subtree so it runs
+  /// wherever focus sits inside it (field, filter chips, a result), and never
+  /// once focus moves to a conversation beside it. Up/Down move the cursor
+  /// (repeating while held), Escape leaves Search. IME composition owns every
+  /// key it is using.
+  KeyEventResult searchKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    if (query.value.composing.isValid && !query.value.composing.isCollapsed) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape) {
+      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+      widget.onBack?.call();
+      return KeyEventResult.handled;
+    }
+    if (key != LogicalKeyboardKey.arrowDown &&
+        key != LogicalKeyboardKey.arrowUp) {
+      return KeyEventResult.ignored;
+    }
+    final keys = searchKeys;
+    if (keys.isEmpty) return KeyEventResult.ignored;
+    final index = keys.indexOf(selectedSearchKey ?? keys.first);
+    final step = key == LogicalKeyboardKey.arrowDown ? 1 : -1;
+    setState(
+      () => selectedSearchKey = keys[(index + step).clamp(0, keys.length - 1)],
+    );
+    return KeyEventResult.handled;
+  }
+
   Widget searchHeader(String scope) {
     final t = RaftTokens.of(context),
         mobile =
@@ -3058,78 +3144,39 @@ class _ResourceViewState extends State<ResourceView> {
         ),
         const SizedBox(width: RaftLayoutMetrics.panelGap),
         Expanded(
-          child: Focus(
-            onKeyEvent: (_, event) {
-              if (event is! KeyDownEvent) return KeyEventResult.ignored;
-              final keys = [
-                ...(query.text.trim().isEmpty
-                        ? frequentEntities
-                        : currentSearchEntities)
-                    .map((e) => e.key),
-                ...rows.map((r) => 'message:${r['id']}'),
-              ];
-              if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                  event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                if (keys.isEmpty) return KeyEventResult.ignored;
-                final index = keys.indexOf(selectedSearchKey ?? keys.first),
-                    step = event.logicalKey == LogicalKeyboardKey.arrowDown
-                        ? 1
-                        : -1;
-                setState(
-                  () => selectedSearchKey =
-                      keys[(index + step).clamp(0, keys.length - 1)],
-                );
-                return KeyEventResult.handled;
-              }
-              if (event.logicalKey == LogicalKeyboardKey.escape) {
-                widget.onBack?.call();
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
+          child: RaftSearchInput(
+            controller: query,
+            focusNode: queryFocus,
+            // search.placeholder: the shortcut hint follows on desktop.
+            hint: mobile
+                ? raftText(context, 'Search channels, DMs, messages…')
+                : '${raftText(context, 'Search channels, DMs, messages…')}   '
+                      '${usesCommandShortcuts() ? '⌘K' : 'Ctrl+K'}',
+            clearLabel: raftText(context, 'Clear search'),
+            showEscape: !mobile,
+            onClear: () {
+              query.clear();
+              searchChanged('');
             },
-            child: RaftSearchInput(
-              controller: query,
-              focusNode: queryFocus,
-              // search.placeholder: the shortcut hint follows on desktop.
-              hint: mobile
-                  ? raftText(context, 'Search channels, DMs, messages…')
-                  : '${raftText(context, 'Search channels, DMs, messages…')}   '
-                        '${defaultTargetPlatform == TargetPlatform.macOS ? '⌘K' : 'Ctrl+K'}',
-              clearLabel: raftText(context, 'Clear search'),
-              showEscape: !mobile,
-              onClear: () {
-                query.clear();
-                searchChanged('');
-              },
-              onChanged: searchChanged,
-              onSubmitted: (_) {
-                searchDebounce?.cancel();
-                final selected =
-                    selectedSearchKey ??
-                    (query.text.trim().isEmpty
-                            ? frequentEntities
-                            : currentSearchEntities)
-                        .firstOrNull
-                        ?.key ??
-                    (rows.isEmpty ? null : 'message:${rows.first['id']}');
-                final entity =
-                    (query.text.trim().isEmpty
-                            ? frequentEntities
-                            : currentSearchEntities)
-                        .where((e) => e.key == selected)
-                        .firstOrNull;
-                final row = rows
-                    .where((r) => 'message:${r['id']}' == selected)
-                    .firstOrNull;
-                if (entity != null) {
-                  openSearchEntity(entity, scope);
-                } else if (row != null) {
-                  openSearchMessage(row, scope);
-                } else {
-                  load();
-                }
-              },
-            ),
+            onChanged: searchChanged,
+            onSubmitted: (_) {
+              searchDebounce?.cancel();
+              final selected = selectedSearchKey ?? firstSearchKey;
+              final entity =
+                  (atSearchHome ? frequentEntities : currentSearchEntities)
+                      .where((e) => e.key == selected)
+                      .firstOrNull;
+              final row = rows
+                  .where((r) => 'message:${r['id']}' == selected)
+                  .firstOrNull;
+              if (entity != null) {
+                openSearchEntity(entity, scope);
+              } else if (row != null) {
+                openSearchMessage(row, scope);
+              } else {
+                load();
+              }
+            },
           ),
         ),
       ],
@@ -3492,8 +3539,7 @@ class _ResourceViewState extends State<ResourceView> {
     'done' => 'Items you mark done appear here and can be restored.',
     _ when advanced.channelId != null =>
       'Try another channel or clear the channel filter.',
-    'mentions' =>
-      'Channels, DMs, and threads where someone @mentions you will appear here.',
+    'mentions' => 'Channels, DMs, and threads where someone @mentions you will appear here.',
     _ => 'Channels, DMs, and followed threads stay here until they are done.',
   };
 
@@ -3885,9 +3931,8 @@ class _ResourceViewState extends State<ResourceView> {
     final controller = w;
     final identity = SourceReadAllIdentity.capture(controller.client);
     try {
-      final receipt = await SourceReadAllTransport.of(
-        controller.client,
-      ).readAll(scopeId, identity: identity);
+      final receipt = await SourceReadAllTransport.of(controller.client)
+          .readAll(scopeId, identity: identity);
       if (identity.current(controller.client)) {
         controller.acceptReadAllAck(
           scopeId,

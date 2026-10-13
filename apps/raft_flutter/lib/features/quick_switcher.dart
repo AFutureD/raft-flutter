@@ -7,6 +7,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/search_memory.dart';
+import '../platform/shortcut_modifier.dart';
 import 'quick_switcher_model.dart';
 import 'resource_cards.dart';
 import 'resource_filters.dart';
@@ -397,9 +398,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
   KeyEventResult keyEvent(List<_Row> rows, int selected, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    final modifier =
-        HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isMetaPressed;
+    final modifier = primaryShortcutModifierDown();
     // IME composition owns Return, Escape and the arrows.
     if (composing) return KeyEventResult.ignored;
     if (modifier && key == LogicalKeyboardKey.keyK) {
@@ -765,24 +764,6 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
     Widget Function(Map<String, dynamic>, {bool nested, bool first}) hit,
   ) {
     final first = hits.first;
-    DateTime? latest;
-    for (final row in hits) {
-      final time = DateTime.tryParse('${row['createdAt']}');
-      if (time != null && (latest == null || time.isAfter(latest))) {
-        latest = time;
-      }
-    }
-    final title = '${first['parentMessageContent'] ?? ''}'
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    final clipped = title.length > 80 ? '${title.substring(0, 77)}...' : title;
-    final time = latest == null
-        ? raftText(context, 'unknown time')
-        : resourceRelativeTime(
-            latest.toIso8601String(),
-            now: widget.clock?.call(),
-            chinese: Localizations.localeOf(context).languageCode == 'zh',
-          );
     return RaftQuickSwitcherThreadGroup(
       badge: raftText(context, 'Thread'),
       where: _sourceLabel(first, data),
@@ -791,8 +772,8 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
         hits.length == 1 ? '{count} hit' : '{count} hits',
         {'count': hits.length},
       ),
-      time: time,
-      title: clipped.isEmpty ? raftText(context, 'Thread discussion') : clipped,
+      time: searchThreadTime(context, hits, widget.clock?.call()),
+      title: searchThreadTitle(context, first['parentMessageContent']),
       selected: hits.any((r) => selectedRow?.key == 'message:${r['id']}'),
       children: [
         for (final (i, row) in hits.indexed)
