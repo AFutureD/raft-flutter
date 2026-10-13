@@ -126,7 +126,9 @@ class MobileTabbarFiveItems extends StatelessWidget {
       for (final id in const ['chat', 'tasks', 'activity', 'computers'])
         RaftMobileNavItem(
           id: id,
+          // ignore: raft_lints/avoid_render_where_without_or_else -- Preview-only widget with a fixed tab list and ids taken from it.
           label: _tabs.firstWhere((t) => t.id == id).label,
+          // ignore: raft_lints/avoid_render_where_without_or_else -- Preview-only widget with a fixed tab list and ids taken from it.
           glyph: _tabs.firstWhere((t) => t.id == id).glyph,
         ),
       RaftMobileNavItem(

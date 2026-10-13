@@ -218,6 +218,7 @@ class RaftReferenceChip extends StatelessWidget {
     switch (appearance.kind) {
       case RaftReferenceKind.task:
         final status = appearance.taskStatus ?? RaftMessageTaskStatus.todo;
+        // ignore: raft_lints/avoid_render_index_assertion -- The recipe evaluator always returns the 'root' node it was asked for.
         s = RaftTaskChipRecipe.resolveProps({
           'theme': _theme(t).name,
           'variant': 'inline',

@@ -397,6 +397,7 @@ class _RaftFeedbackFilterTabsState extends State<RaftFeedbackFilterTabs> {
         child: _line(
           text,
           Text(
+            // ignore: raft_lints/avoid_render_index_assertion -- `value` iterates the fixed filter tab ids that labels covers.
             raftText(context, RaftFeedbackFilterTabs.labels[value]!),
             maxLines: 1,
             softWrap: false,
@@ -691,6 +692,7 @@ class RaftFeedbackStatusBadge extends StatelessWidget {
       ),
     };
     return RaftBadge(
+      // ignore: raft_lints/avoid_render_index_assertion -- `labels` covers every RaftFeedbackStatus; status is that enum.
       label: raftText(context, labels[status]!),
       variant: variant,
       fontFamily: raftSystemUiFont,
@@ -780,6 +782,7 @@ class RaftFeedbackEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // ignore: raft_lints/avoid_render_index_assertion -- `copy` covers every empty-state kind; kind is a fixed enum.
     final (title, body) = copy[kind]!;
     final strong = t.colors['line-strong']!;
     final titleStyle = _system(

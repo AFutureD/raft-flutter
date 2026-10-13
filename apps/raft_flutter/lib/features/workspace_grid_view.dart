@@ -271,6 +271,7 @@ class WorkspaceGridViewState extends State<WorkspaceGridView> {
                           id.substring(6, 7).toUpperCase() + id.substring(7),
                         )
                       : sessions.threadRefs.containsKey(id)
+                      // ignore: raft_lints/avoid_render_index_assertion -- Guarded by `threadRefs.containsKey(id)` on the line above.
                       ? '${raftText(context, 'Thread')} ${sessions.threadRefs[id]!.messagePrefix}'
                       : sessions.controllers[id]?.channel?.name ??
                             sessions.channel(id)?.name ??
@@ -282,6 +283,7 @@ class WorkspaceGridViewState extends State<WorkspaceGridView> {
                       : sessions.threadRefs.containsKey(id)
                       ? _Thread(
                           key: ValueKey('grid-thread-$id'),
+                          // ignore: raft_lints/avoid_render_index_assertion -- Guarded by `sessions.controllers[id] == null ? SizedBox.shrink : ...` in the same expression.
                           controller: sessions.controllers[id]!,
                           onViewBilling: widget.onViewBilling,
                         )
@@ -289,11 +291,13 @@ class WorkspaceGridViewState extends State<WorkspaceGridView> {
                           key: ValueKey(
                             'grid-conversation-$id-${sessions.draftRevisions[id] ?? 0}',
                           ),
+                          // ignore: raft_lints/avoid_render_index_assertion -- Guarded by `sessions.controllers[id] == null ? SizedBox.shrink : ...` in the same expression.
                           controller: sessions.controllers[id]!,
                           onViewBilling: widget.onViewBilling,
                           onMessageTask: (task, _) {
                             // threadStore370–374 resolves from accepted channel
                             // summaries; the task DTO itself is not that cache.
+                            // ignore: raft_lints/avoid_render_index_assertion -- Same tab body as the guarded entries; read in a tap callback of a tab that exists only while the controller does.
                             final summary = sessions
                                 .controllers[id]!
                                 .threadSummaries[task['messageId']];

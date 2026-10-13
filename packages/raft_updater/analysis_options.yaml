@@ -3,4 +3,6 @@ analyzer:
     - build/**
     - macos/**
     - windows/**
-include: package:flutter_lints/flutter.yaml
+include:
+  - package:flutter_lints/flutter.yaml
+  - ../../analysis_options.yaml

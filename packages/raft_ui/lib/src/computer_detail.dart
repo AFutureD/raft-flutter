@@ -2079,6 +2079,7 @@ class _BulkResetDialogState extends State<_BulkResetDialog> {
             : t.colors['danger-soft']!,
       ),
     ];
+    // ignore: raft_lints/avoid_render_where_without_or_else -- `options` is a fixed list holding every mode the state can take.
     final current = options.firstWhere((o) => o.$1 == mode);
     return Center(
       child: Material(

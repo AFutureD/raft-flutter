@@ -16,7 +16,9 @@ analyzer:
     - ios/**
     - macos/**
     - windows/**
-include: package:flutter_lints/flutter.yaml
+include:
+  - package:flutter_lints/flutter.yaml
+  - ../../analysis_options.yaml
 
 linter:
   # The lint rules applied to this project can be customized in the

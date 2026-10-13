@@ -275,6 +275,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
             }),
             itemBuilder: (context, index) => ListTile(
               key: ValueKey('sidebar-section-${ids[index]}'),
+              // ignore: raft_lints/avoid_render_index_assertion -- `labels` and `ids` are built together from the same section list.
               title: Text(labels[ids[index]]!),
               trailing: const Icon(Icons.drag_handle),
             ),

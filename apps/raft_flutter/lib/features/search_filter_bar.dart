@@ -195,6 +195,7 @@ class SearchFilterBar extends StatelessWidget {
           ),
         dropdown(
           'Search date range',
+          // ignore: raft_lints/avoid_render_index_assertion -- timeRange is validated when restored (search_memory.dart) and only set from this dropdown.
           timeRanges[filters.timeRange]!,
           timeRanges,
           (value) => filters.timeRange = value,

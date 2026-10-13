@@ -815,6 +815,7 @@ class RaftForwardServerChips extends StatelessWidget {
           final id = names.keys.elementAt(index);
           return RaftForwardTextAction(
             key: ValueKey('forward-server-$id'),
+            // ignore: raft_lints/avoid_render_index_assertion -- `id` is taken from names.keys in the same builder.
             label: names[id]!,
             selected: id == selected,
             onPressed: onSelected == null ? null : () => onSelected!(id),

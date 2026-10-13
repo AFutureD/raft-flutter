@@ -551,6 +551,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
                 selected: server?.id ?? '',
                 onSelected: busy
                     ? null
+                    // ignore: raft_lints/avoid_render_where_without_or_else -- The id comes from the server chips built from the same `servers` list in this build.
                     : (id) => load(servers.firstWhere((s) => s.id == id)),
               ),
           ],

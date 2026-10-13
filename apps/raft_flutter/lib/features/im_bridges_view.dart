@@ -421,6 +421,7 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
           : [
               for (final id in const ['oauth', 'endpoint', 'scope', 'audience'])
                 (
+                  // ignore: raft_lints/avoid_render_index_assertion -- _checkLabels covers every check id the projection can emit (SlackBridgeProjection.parse fails closed).
                   label: _checkLabels[id]!,
                   state: ((p.snapshot['preflight']['checks'] as List)
                           .cast<Map<String, dynamic>>()
@@ -471,10 +472,12 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
         onRemovePair: (i) => setState(() => pairs = [...pairs]..removeAt(i)),
         pairInvalid: !(editingMappings && pairs.isEmpty
             ? true
+            // ignore: raft_lints/avoid_render_index_assertion -- Channel pair rows always carry both ids (the pair editor and parse fill them).
             : _pairsValid && pairs.every((pair) => _isMember(p, pair['slackChannelId']!))),
         finishLabel: editingMappings ? 'Apply mapping changes' : 'Save mappings and enable',
         finishEnabled: (editingMappings && pairs.isEmpty
                 ? true
+                // ignore: raft_lints/avoid_render_index_assertion -- Channel pair rows always carry both ids (the pair editor and parse fill them).
                 : _pairsValid && pairs.every((pair) => _isMember(p, pair['slackChannelId']!))) &&
             (!editingMappings || mappingBaseline != null),
         onFinish: finish,

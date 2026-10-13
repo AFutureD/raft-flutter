@@ -805,6 +805,7 @@ class _RaftMarkdownState extends State<MarkdownWidget>
   @override
   Widget build(BuildContext context) {
     final body = children!.length == 1
+        // ignore: raft_lints/avoid_render_single -- Inside the `children!.length == 1` branch; children is set in initState.
         ? children!.single
         : Column(
             mainAxisSize: MainAxisSize.min,

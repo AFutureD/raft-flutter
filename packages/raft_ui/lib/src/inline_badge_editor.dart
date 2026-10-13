@@ -474,6 +474,7 @@ class _RaftInlineBadgeMenuState extends State<RaftInlineBadgeMenu> {
                     key: ValueKey(option.id),
                     option: option,
                     selected: option.id == widget.selectedId,
+                    // ignore: raft_lints/avoid_render_index_assertion -- updateNodes() runs in initState and didUpdateWidget, before build, for every widget.options entry.
                     focusNode: nodes[option.id]!,
                     onPressed: () {
                       if (!mounted ||

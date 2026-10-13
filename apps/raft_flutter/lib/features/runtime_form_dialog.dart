@@ -371,6 +371,7 @@ class _RuntimeFormFieldsState extends State<RuntimeFormFields> {
     } else {
       control = RaftAgentTextInput(
         key: ValueKey('runtime-${f.key}'),
+        // ignore: raft_lints/avoid_render_index_assertion -- load() publishes definition and editors in one synchronous block (test/runtime_form_loading_test.dart); boolean and unsupported fields are branched out earlier.
         controller: c.editors[f.key]!,
         semanticLabel: raftText(context, f.label),
         placeholder: f.copy['placeholder'] as String?,
@@ -400,6 +401,7 @@ class _RuntimeFormFieldsState extends State<RuntimeFormFields> {
                   onPressed: widget.busy
                       ? null
                       : () {
+                          // ignore: raft_lints/avoid_render_index_assertion -- Tap handler of a rendered field; its editor exists for the same reason as the line above.
                           c.editors[f.key]!.text = o['value'];
                           c.change(f, o['value']);
                         },

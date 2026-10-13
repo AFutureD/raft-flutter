@@ -595,6 +595,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
     final visible = visibleMessages;
     final total = entities.length + messages.length;
     final empty = !loading && total == 0 && failure == null;
+    // ignore: raft_lints/avoid_render_where_without_or_else -- rows always includes the 'all' row (built with `const _Row(_allKey, all: true)` in the same method).
     final allRow = rows.firstWhere((r) => r.all);
     final trimmed = query;
     return RaftQuickSwitcherList(
@@ -748,8 +749,10 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
     return [
       for (final key in order)
         if (!key.startsWith('thread:'))
+          // ignore: raft_lints/avoid_render_index_assertion -- `order` and `groups` are built together from the same keys; each group holds at least one row.
           hit(groups[key]!.first)
         else
+          // ignore: raft_lints/avoid_render_index_assertion -- `order` and `groups` are built together from the same keys.
           _threadGroup(context, data, groups[key]!, selectedRow, hit),
     ];
   }

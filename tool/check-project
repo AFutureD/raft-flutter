@@ -603,6 +603,10 @@ def run_gate(check_env, emit, started):
     results['bindings-generator-pub-get.txt'] = run_logged(
         [*tool_command('flutter'), 'pub', 'get', '--enforce-lockfile'], root / 'apps/raft_flutter/tool/bindings_generator',
         local / 'bindings-generator-pub-get.txt', check_env) == 0
+    # The raft_lints plugin package is outside the workspace (it needs a newer analyzer) and has its own lockfile.
+    results['raft-lints-pub-get.txt'] = run_logged(
+        [*tool_command('flutter'), 'pub', 'get', '--enforce-lockfile'], root / 'tool/raft_lints',
+        local / 'raft-lints-pub-get.txt', check_env) == 0
 
     def host_tests():
         return run_logged([sys.executable, '-m', 'unittest', 'discover', '-s', str(root / 'tool/tests'), '-p', 'test_*.py', '-v'],
@@ -611,13 +615,22 @@ def run_gate(check_env, emit, started):
     def analyze():
         return run_logged([*tool_command('flutter'), 'analyze', '--no-pub'], root, local / 'analyze-all.txt', check_env) == 0
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(plan) + 2) as pool:
+    def raft_lints():
+        # Plugin rules (`flutter analyze` may drop plugin results, see tool/raft-lints) and the plugin's own tests.
+        if not results['raft-lints-pub-get.txt']:
+            return False
+        checked = run_logged([*tool_command('raft-lints')], root, local / 'raft-lints.txt', check_env) == 0
+        tested = run_logged([*tool_command('raft-lints'), '--test'], root, local / 'raft-lints-tests.txt', check_env) == 0
+        return checked and tested
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(plan) + 3) as pool:
         host_future = pool.submit(host_tests)
         analyze_future = pool.submit(analyze)
+        lints_future = pool.submit(raft_lints)
         shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout) for i, bucket in enumerate(plan)]
         watch = GateWatch([[repo_path(f) for f in bucket['files']] for bucket in plan], time.monotonic(), max_failures, stall_minutes, emit, to_repo_path)
         try:
-            stop = supervise([*shard_futures, host_future, analyze_future], [local / f'test-shard-{i}.txt' for i in range(len(plan))],
+            stop = supervise([*shard_futures, host_future, analyze_future, lints_future], [local / f'test-shard-{i}.txt' for i in range(len(plan))],
                              [local / f'test-shard-{i}.json' for i in range(len(plan))], watch, emit)
         except BaseException:
             kill_children()  # the pool waits for its threads on the way out
@@ -625,6 +638,7 @@ def run_gate(check_env, emit, started):
         shards = [future.result() for future in shard_futures]
         results['host-collector-tests.txt'] = host_future.result()
         results['analyze-all.txt'] = analyze_future.result()
+        results['raft-lints.txt'] = lints_future.result()
 
     all_results, failures, totals, durations = [], [], {'passed': 0, 'skipped': 0}, {}
     for shard in shards:
@@ -656,7 +670,7 @@ def run_gate(check_env, emit, started):
                          'error': watch.compile['lines'][0] if watch.compile['lines'] else 'failed to load'})
     tests_passed = all(s['passed'] for s in shards) and bool(shards)
     results['all-project-tests.txt'] = tests_passed
-    ordered = {key: results[key] for key in ['workspace-pub-get.txt', 'host-collector-tests.txt', 'bindings-generator-pub-get.txt', 'all-project-tests.txt', 'analyze-all.txt']}
+    ordered = {key: results[key] for key in ['workspace-pub-get.txt', 'host-collector-tests.txt', 'bindings-generator-pub-get.txt', 'raft-lints-pub-get.txt', 'all-project-tests.txt', 'analyze-all.txt', 'raft-lints.txt']}
     ordered.update({key: value for key, value in results.items() if key.startswith('test-shard-')})
     results = ordered
 

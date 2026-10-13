@@ -57,6 +57,7 @@ class RaftAttachmentGallery extends StatelessWidget {
           ? constraints.maxWidth
           : viewport;
       if (dimensions.length == 1) {
+        // ignore: raft_lints/avoid_render_single -- Inside the `dimensions.length == 1` branch.
         final d = dimensions.single;
         final size = recipe.imageSize(
           viewportWidth: viewport,

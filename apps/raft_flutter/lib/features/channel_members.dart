@@ -675,6 +675,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
         origin: origin,
         presence: c.kind == 'agent' && agentRows[c.id] != null
             ? channelMemberPresence(
+                // ignore: raft_lints/avoid_render_index_assertion -- Guarded by `agentRows[c.id] != null` on the line above.
                 agentRows[c.id]!,
                 directory: w.entityDirectory.agent(c.id),
               )

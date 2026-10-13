@@ -68,6 +68,7 @@ class WorkspaceActions {
           ),
         ],
         onSubmit: (values) async {
+          // ignore: raft_lints/avoid_render_index_assertion -- Submit values of the form dialog: every field id is present in the submitted map.
           final link = InviteLink.fromInput(values['token']!);
           if (link == null) {
             throw const RaftApiException(

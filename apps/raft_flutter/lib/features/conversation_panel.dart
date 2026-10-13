@@ -222,6 +222,7 @@ class _ConversationPanelState extends State<ConversationPanel> {
     }
     if (w.server != null) {
       final requested = w.location.chatTab ?? 'chat';
+      // ignore: raft_lints/avoid_render_where_without_or_else -- RaftLocation.chatTab only returns chat, tasks or files, all enum names.
       tab = RaftConversationTabId.values.firstWhere(
         (id) => id.name == requested,
       );

@@ -309,6 +309,7 @@ class _RaftEmojiPickerState extends State<RaftEmojiPicker> {
                           category: key,
                           active: key == active && !searching,
                           dark: dark,
+                          // ignore: raft_lints/avoid_render_index_assertion -- Static category-name map covering every category key of the generated emoji data.
                           label: _categoryNames[key]!,
                           onTap: () => jumpTo(key),
                         ),
@@ -329,6 +330,7 @@ class _RaftEmojiPickerState extends State<RaftEmojiPicker> {
                           SliverPersistentHeader(
                             pinned: true,
                             delegate: _LabelDelegate(
+                              // ignore: raft_lints/avoid_render_index_assertion -- Static category-name map covering every category key of the generated emoji data.
                               label: _categoryNames[key]!,
                               background: labelBg,
                               style: sans(16, text, weight: FontWeight.w700),

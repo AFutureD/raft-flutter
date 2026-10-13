@@ -868,6 +868,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
           : null,
       completedBy: metadata['executedByUserName'],
       completedResult: _resultText(context),
+      // ignore: raft_lints/avoid_render_index_assertion -- Only reached for known action types; `verbs` lists every type _knownCard renders.
       confirmLabel: verbs[type]!,
       blockedReason: blocked,
       error: error,
@@ -918,6 +919,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
         }
         if (action[key] is String) {
           details.add((
+            // ignore: raft_lints/avoid_render_index_assertion -- `key` iterates the same fixed list of five keys the literal map covers.
             label: const {
               'name': 'Name',
               'description': 'Description',

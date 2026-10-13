@@ -690,6 +690,7 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
             for (final o in runtimeOptions)
               RaftAgentSelectOption(
                 o['runtimeId'] as String,
+                // ignore: raft_lints/avoid_render_index_assertion -- runtimeOptions are filtered with createAgentRuntimeNames.containsKey when loaded.
                 createAgentRuntimeNames[o['runtimeId']]!,
               ),
           ],

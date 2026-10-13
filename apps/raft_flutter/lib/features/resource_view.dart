@@ -4226,6 +4226,7 @@ class _ResourceViewState extends State<ResourceView> {
     return Builder(
       builder: (cardContext) => ConstrainedBox(
         constraints: pin && activityGestureHeights[rowKey(row)] != null
+            // ignore: raft_lints/avoid_render_index_assertion -- Guarded by `activityGestureHeights[rowKey(row)] != null` on the line above.
             ? BoxConstraints(minHeight: activityGestureHeights[rowKey(row)]!)
             : const BoxConstraints(),
         child: RaftConversationCard(
@@ -4459,6 +4460,7 @@ class _ResourceViewState extends State<ResourceView> {
                 for (final status in raftTaskStatuses.where(
                   (s) => filter == 'all' || filter == s,
                 )) ...[
+                  // ignore: raft_lints/avoid_render_index_assertion -- `groups` is initialised with one list per raftTaskStatuses entry and `status` iterates raftTaskStatuses.
                   taskSection(status, groups[status]!, scope),
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
@@ -4764,6 +4766,7 @@ class _ResourceViewState extends State<ResourceView> {
               ),
             filterMenu(
               'Search date range',
+              // ignore: raft_lints/avoid_render_index_assertion -- timeRange is validated against the four known values when restored (search_memory.dart) and only set from the dropdown.
               const {
                 'any': 'Any time',
                 'today': 'Today',

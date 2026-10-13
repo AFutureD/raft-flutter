@@ -81,6 +81,7 @@ class _GroupPreviewState extends State<_GroupPreview> {
               RaftChatSidebarGroupKind.directMessages => 'Direct messages',
             },
             count: 0,
+            // ignore: raft_lints/avoid_render_index_assertion -- Preview-only widget; the map is built over every kind.
             expanded: expanded[kind]!,
             hideEmpty: hideEmpty,
             loading: loading,

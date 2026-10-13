@@ -394,7 +394,9 @@ class _ProviderConnectionsState
                               'probeRequestId': requestId,
                               'requestDigest': providerProbeRequestDigest(
                                 connectionId: connection['id'],
+                                // ignore: raft_lints/avoid_render_index_assertion -- Submit values of the form dialog: every field id is present in the submitted map.
                                 computerId: v['computerId']!,
+                                // ignore: raft_lints/avoid_render_index_assertion -- Submit values of the form dialog: every field id is present in the submitted map.
                                 model: v['model']!,
                               ),
                               'computerId': v['computerId'],

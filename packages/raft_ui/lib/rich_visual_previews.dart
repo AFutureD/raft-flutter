@@ -184,6 +184,7 @@ class _RichFixtureState extends State<_RichFixture> {
         else
           RaftMessageBody(
             content: ['code', 'markdown'].contains(widget.kind)
+                // ignore: raft_lints/avoid_render_index_assertion -- Preview-only widget; inputs has an entry for every kind.
                 ? inputs[widget.kind]!
                 : '```mermaid\n${inputs[widget.kind]}\n```',
             onCopyCode: (source) async =>

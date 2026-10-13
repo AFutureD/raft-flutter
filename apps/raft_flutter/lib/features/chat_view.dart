@@ -2726,6 +2726,7 @@ class _RaftChatViewState extends State<RaftChatView>
       ),
       failedReactionEmojis: reactionFailures[m.id] == null
           ? const {}
+          // ignore: raft_lints/avoid_render_index_assertion -- Guarded by `reactionFailures[m.id] == null ? const {} : ...` on the line above.
           : {reactionFailures[m.id]!},
       reactionViewerId: w.client.user?.id,
       onReaction: canReact
