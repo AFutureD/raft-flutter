@@ -7,6 +7,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart';
 import 'status_bar.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 
 /// Mounted Web ThreadPanel presentation, independent of the host OS.
@@ -157,6 +158,7 @@ class RaftThreadHeader extends StatelessWidget {
       viewportHeight: viewportHeight ?? viewport.height,
       presentation: presentation,
     );
+    final grows = RaftScaled.grows(context);
     Widget title() => Text.rich(
       TextSpan(
         text: threadLabel,
@@ -168,8 +170,9 @@ class RaftThreadHeader extends StatelessWidget {
             TextSpan(text: '— $parentLabel', style: recipe.titleSuffix),
         ],
       ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+      // Larger text wraps the title and grows the header.
+      maxLines: grows ? null : 1,
+      overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
     );
     final hasFollowers = followers != null && followersVisible;
     // CSS border-box: the bottom rule is inside the header height and the
@@ -177,15 +180,25 @@ class RaftThreadHeader extends StatelessWidget {
     return RaftStatusBarSource(
       color: recipe.headerBackground,
       child: Container(
-        height: recipe.headerHeight,
+        // The header height is a minimum once the text grows.
+        height: grows ? null : recipe.headerHeight,
+        constraints: grows
+            ? BoxConstraints(minHeight: recipe.headerHeight)
+            : null,
         decoration: BoxDecoration(
           color: recipe.headerBackground,
           border: Border(bottom: recipe.headerBorder),
         ),
         child: SizedBox(
-          height: recipe.headerHeight - recipe.headerBorder.width,
+          height: grows
+              ? null
+              : recipe.headerHeight - recipe.headerBorder.width,
           child: Padding(
-            padding: recipe.headerInset,
+            padding: grows
+                ? recipe.headerInset.add(
+                    const EdgeInsets.symmetric(vertical: 6),
+                  )
+                : recipe.headerInset,
             child: Row(
               children: [
                 if (recipe.showBack && onBack != null) ...[

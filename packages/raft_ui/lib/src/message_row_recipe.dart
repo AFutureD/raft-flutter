@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
@@ -12,6 +14,7 @@ import 'pointer_intent.dart';
 import 'viewport_breakpoints.dart';
 import 'tokens/tokens.dart';
 import 'css_border.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
@@ -200,7 +203,8 @@ class RaftMessageBodyMargin extends InheritedWidget {
 
   /// Top margin left to add for a child that has [margin] of its own.
   static double collapse(BuildContext context, double margin) {
-    final scope = context.getInheritedWidgetOfExactType<RaftMessageBodyMargin>();
+    final scope = context
+        .getInheritedWidgetOfExactType<RaftMessageBodyMargin>();
     return scope == null ? margin : (margin - scope.gap).clamp(0.0, margin);
   }
 
@@ -635,16 +639,23 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
       padding: EdgeInsets.zero,
       child: Text(
         widget.author,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        // An ellipsis implies a single line; wrapped text must not set one.
+        maxLines: RaftScaled.grows(context) ? null : 1,
+        overflow: RaftScaled.grows(context)
+            ? TextOverflow.clip
+            : TextOverflow.ellipsis,
         style: recipe.author,
       ),
     );
     // Compact rows announce author, metadata and time in their own label.
     final compact = widget.semanticsLabel != null;
+    final wrapHeader = RaftScaled.grows(context);
     final header = ClipRect(
       clipper: const _HeaderInlineClip(),
+      // Wrapped lines are never cut off; the clip only trims the 1.0x line.
+      clipBehavior: wrapHeader ? Clip.none : Clip.hardEdge,
       child: _MessageHeader(
+        wrap: wrapHeader,
         lineHeight: recipe.headerLine,
         reserve: recipe.headerReserve,
         gap: recipe.headerGap,
@@ -673,8 +684,10 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
               excludeFromSemantics: true,
               child: Text(
                 widget.subtitle!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: wrapHeader ? null : 1,
+                overflow: wrapHeader
+                    ? TextOverflow.clip
+                    : TextOverflow.ellipsis,
                 style: recipe.time,
               ),
             ),
@@ -778,8 +791,15 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
                             ],
                             SizedBox(
                               width: recipe.gutterWidth,
+                              // The hover time (10px, 4px down) grows with
+                              // the text size and stays inside its box.
                               height: widget.continuation
-                                  ? 14
+                                  ? math.max(
+                                      14,
+                                      4 +
+                                          MediaQuery.textScalerOf(context)
+                                              .scale(10),
+                                    )
                                   : recipe.avatarExtent + recipe.avatarTop,
                               child: widget.continuation
                                   ? Stack(
@@ -864,8 +884,17 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
                                   // box (20px, Elegant leading-5.25 = 21px); the
                                   // 11px inline-flex status sits on its baseline.
                                   if (widget.translation != null)
-                                    SizedBox(
-                                      height: recipe.translationLine,
+                                    Container(
+                                      // The status line is a minimum height
+                                      // above the default text size.
+                                      height: wrapHeader
+                                          ? null
+                                          : recipe.translationLine,
+                                      constraints: wrapHeader
+                                          ? BoxConstraints(
+                                              minHeight: recipe.translationLine,
+                                            )
+                                          : null,
                                       child: Align(
                                         alignment: Alignment.centerLeft,
                                         child: Padding(
@@ -1109,19 +1138,37 @@ class _MessageHeader extends MultiChildRenderObjectWidget {
     required this.gap,
     required this.baseline,
     required this.subtitleIndex,
+    required this.wrap,
   });
   final double lineHeight, reserve, gap;
   final bool baseline;
   final int? subtitleIndex;
+
+  /// Larger text: name, description and time flow onto further lines when they
+  /// do not fit one, instead of being clipped.
+  final bool wrap;
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderMessageHeader(lineHeight, reserve, gap, baseline, subtitleIndex);
+  RenderObject createRenderObject(BuildContext context) => _RenderMessageHeader(
+    lineHeight,
+    reserve,
+    gap,
+    baseline,
+    subtitleIndex,
+    wrap,
+  );
   @override
   void updateRenderObject(
     BuildContext context,
     covariant _RenderMessageHeader renderObject,
   ) {
-    renderObject.update(lineHeight, reserve, gap, baseline, subtitleIndex);
+    renderObject.update(
+      lineHeight,
+      reserve,
+      gap,
+      baseline,
+      subtitleIndex,
+      wrap,
+    );
   }
 }
 
@@ -1137,29 +1184,117 @@ class _RenderMessageHeader extends RenderBox
     this.gap,
     this.baseline,
     this.subtitleIndex,
+    this.wrap,
   );
   double lineHeight, reserve, gap;
   bool baseline;
   int? subtitleIndex;
+  bool wrap;
   void update(
     double height,
     double inset,
     double spacing,
     bool alignBaseline,
     int? subtitle,
+    bool wrapLines,
   ) {
     if (lineHeight == height &&
         reserve == inset &&
         gap == spacing &&
         baseline == alignBaseline &&
-        subtitleIndex == subtitle)
+        subtitleIndex == subtitle &&
+        wrap == wrapLines) {
       return;
+    }
     lineHeight = height;
     reserve = inset;
     gap = spacing;
     baseline = alignBaseline;
     subtitleIndex = subtitle;
+    wrap = wrapLines;
     markNeedsLayout();
+  }
+
+  /// Start index of each wrapped line for children of [widths] in [maxWidth].
+  List<int> _lineStarts(List<double> widths, double maxWidth) {
+    final starts = <int>[0];
+    var x = 0.0;
+    for (var i = 0; i < widths.length; i++) {
+      if (i > starts.last && x + widths[i] > maxWidth + 1e-6) {
+        starts.add(i);
+        x = 0;
+      }
+      x += widths[i] + gap;
+    }
+    return starts;
+  }
+
+  Size _wrapDryLayout(BoxConstraints constraints) {
+    final children = getChildrenAsList();
+    final loose = BoxConstraints(
+      maxWidth: constraints.hasBoundedWidth
+          ? constraints.maxWidth
+          : double.infinity,
+    );
+    final sizes = [for (final child in children) child.getDryLayout(loose)];
+    final width = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : sizes.fold(0.0, (v, s) => v + s.width) +
+              gap * (sizes.length - 1).clamp(0, sizes.length);
+    final starts = _lineStarts([for (final s in sizes) s.width], width);
+    var height = 0.0;
+    for (var l = 0; l < starts.length; l++) {
+      final end = l + 1 < starts.length ? starts[l + 1] : sizes.length;
+      height += sizes
+          .sublist(starts[l], end)
+          .fold(0.0, (v, s) => v > s.height ? v : s.height);
+    }
+    return constraints.constrain(Size(width, height));
+  }
+
+  void _wrapLayout() {
+    final children = getChildrenAsList();
+    final loose = BoxConstraints(
+      maxWidth: constraints.hasBoundedWidth
+          ? constraints.maxWidth
+          : double.infinity,
+    );
+    for (final child in children) {
+      child.layout(loose, parentUsesSize: true);
+    }
+    final natural =
+        children.fold(0.0, (v, c) => v + c.size.width) +
+        gap * (children.length - 1).clamp(0, children.length);
+    final width = constraints.hasBoundedWidth ? constraints.maxWidth : natural;
+    final starts = _lineStarts([for (final c in children) c.size.width], width);
+    var y = 0.0;
+    for (var l = 0; l < starts.length; l++) {
+      final end = l + 1 < starts.length ? starts[l + 1] : children.length;
+      final line = children.sublist(starts[l], end);
+      final height = line.fold(
+        0.0,
+        (v, c) => v > c.size.height ? v : c.size.height,
+      );
+      final baselines = [
+        for (final child in line)
+          child.getDistanceToBaseline(TextBaseline.alphabetic) ??
+              child.size.height,
+      ];
+      final topBaseline = baselines.fold(0.0, (a, b) => a > b ? a : b);
+      var x = 0.0;
+      for (var i = 0; i < line.length; i++) {
+        (line[i].parentData! as _HeaderParentData).offset = Offset(
+          x,
+          y +
+              (baseline
+                  ? topBaseline - baselines[i]
+                  : (height - line[i].size.height) / 2),
+        );
+        x += line[i].size.width + gap;
+      }
+      y += height;
+    }
+    size = constraints.constrain(Size(width, y));
   }
 
   @override
@@ -1170,6 +1305,7 @@ class _RenderMessageHeader extends RenderBox
 
   @override
   Size computeDryLayout(BoxConstraints constraints) {
+    if (wrap) return _wrapDryLayout(constraints);
     final sizes = [
       for (final child in getChildrenAsList())
         child.getDryLayout(const BoxConstraints()),
@@ -1184,11 +1320,18 @@ class _RenderMessageHeader extends RenderBox
   }
 
   @override
-  double computeMinIntrinsicHeight(double width) => lineHeight;
+  double computeMinIntrinsicHeight(double width) => wrap
+      ? _wrapDryLayout(BoxConstraints(maxWidth: width)).height
+      : lineHeight;
   @override
-  double computeMaxIntrinsicHeight(double width) => lineHeight;
+  double computeMaxIntrinsicHeight(double width) =>
+      computeMinIntrinsicHeight(width);
   @override
   void performLayout() {
+    if (wrap) {
+      _wrapLayout();
+      return;
+    }
     final children = getChildrenAsList();
     var fixed = gap * (children.length - 1).clamp(0, children.length);
     // CSS flex items can enlarge the line: the 10px departure badge inherits

@@ -41,6 +41,7 @@ import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
 import 'recipes/recipe_utilities.g.dart';
 import 'tooltip.dart' show RaftTooltip;
+import 'text_scaling.dart' show RaftScaled;
 import 'sized_image.dart';
 
 /// Surface styles of [RaftPanel].
@@ -2770,7 +2771,14 @@ class _RaftComposerState extends State<RaftComposer> {
                                 key: const ValueKey('composer-editor-slot'),
                                 constraints: BoxConstraints(
                                   minHeight: recipe.editorMinimum,
-                                  maxHeight: recipe.editorMaximum,
+                                  // Six lines at the default size; the cap
+                                  // grows with the text so scaled lines
+                                  // are not cut off.
+                                  maxHeight: RaftScaled.extent(
+                                    context,
+                                    recipe.editorMaximum,
+                                    fontSize: recipe.editorText.fontSize ?? 14,
+                                  ),
                                 ),
                                 child: Padding(
                                   padding: recipe.editorInset,

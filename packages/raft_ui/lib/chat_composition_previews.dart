@@ -45,8 +45,10 @@ Widget recipeGroupOpacityPreview() => Padding(
 );
 
 @RaftPreviews('Composer editable CSS line boxes', size: Size(390, 240))
-Widget composerEditableLineBoxPreview() => Align(
-  alignment: Alignment.bottomCenter,
+Widget composerEditableLineBoxPreview() => SingleChildScrollView(
+  // Anchored at the bottom like a composer; scrolls when larger text makes it
+  // taller than the preview.
+  reverse: true,
   child: RaftComposer(
     initialDraft: 'Review the Android composer crop before release.',
     onImagePick: () {},
