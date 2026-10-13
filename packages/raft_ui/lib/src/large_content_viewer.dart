@@ -9,6 +9,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import 'text_scaling.dart';
@@ -149,25 +150,64 @@ class _RaftLargeContentViewerState extends State<RaftLargeContentViewer> {
   @override
   Widget build(BuildContext context) {
     final active = widget.enabled && RaftChrome.engagedOf(context);
-    return RawGestureDetector(
-      behavior: HitTestBehavior.translucent,
-      gestures: active
-          ? <Type, GestureRecognizerFactory>{
-              LongPressGestureRecognizer:
-                  GestureRecognizerFactoryWithHandlers<
-                    LongPressGestureRecognizer
-                  >(
-                    () => LongPressGestureRecognizer(),
-                    (r) => r
-                      ..onLongPressStart = _start
-                      ..onLongPressMoveUpdate = _move
-                      ..onLongPressEnd = _end
-                      ..onLongPressCancel = _cancel,
-                  ),
-            }
-          : const <Type, GestureRecognizerFactory>{},
-      child: widget.child,
+    return _ForwardOutsideHits(
+      child: RawGestureDetector(
+        behavior: HitTestBehavior.translucent,
+        gestures: active
+            ? <Type, GestureRecognizerFactory>{
+                LongPressGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      LongPressGestureRecognizer
+                    >(
+                      () => LongPressGestureRecognizer(),
+                      (r) => r
+                        ..onLongPressStart = _start
+                        ..onLongPressMoveUpdate = _move
+                        ..onLongPressEnd = _end
+                        ..onLongPressCancel = _cancel,
+                    ),
+              }
+            : const <Type, GestureRecognizerFactory>{},
+        child: widget.child,
+      ),
     );
+  }
+}
+
+/// Lets a touch target that extends beyond the item's box (the 48dp expander
+/// inside Raft controls) keep working through the viewer's gesture detector:
+/// hits up to the touch-target size around the item are forwarded to the
+/// child at the nearest point inside it.
+class _ForwardOutsideHits extends SingleChildRenderObjectWidget {
+  const _ForwardOutsideHits({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderForwardOutsideHits();
+}
+
+class _RenderForwardOutsideHits extends RenderProxyBox {
+  static const _minTarget = 48.0;
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    final w = size.width < _minTarget ? _minTarget : size.width;
+    final h = size.height < _minTarget ? _minTarget : size.height;
+    final target = Rect.fromCenter(
+      center: size.center(Offset.zero),
+      width: w,
+      height: h,
+    );
+    if (!target.contains(position)) return false;
+    final clamped = Offset(
+      position.dx.clamp(0, size.width - 0.01).toDouble(),
+      position.dy.clamp(0, size.height - 0.01).toDouble(),
+    );
+    if (hitTestChildren(result, position: clamped) || hitTestSelf(clamped)) {
+      result.add(BoxHitTestEntry(this, position));
+      return true;
+    }
+    return false;
   }
 }
 

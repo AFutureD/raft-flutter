@@ -628,8 +628,14 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
     scroll.jumpTo(target.clamp(0, scroll.position.maxScrollExtent));
   }
 
+  // Fixed chrome: label text is bounded (RaftChrome) and a long press shows the
+  // tab large (Large Content Viewer) once the bound hides growth.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      RaftChrome(child: RaftLargeContentScope(child: _strip(context)));
+
+  Widget _strip(BuildContext context) {
+    final grows = RaftScaled.grows(context);
     final t = RaftTokens.of(context);
     final rt = RaftRecipeTokens(t);
     RaftTabsRecipeStyle style(bool active, bool hover) =>
@@ -672,7 +678,10 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
                 // Elegant `tabs-list`: `h-12 gap-1 px-4` with a hairline rule; the
                 // `h-7` tabs sit centred and the 2px indicator on the list floor.
                 : Container(
-                    height: 48,
+                    height: grows ? null : 48,
+                    constraints: grows
+                        ? const BoxConstraints(minHeight: 48)
+                        : null,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       border: Border(
@@ -704,6 +713,7 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
     RaftRecipeTokens rt,
     RaftTokens t,
   ) {
+    final grows = RaftScaled.grows(context);
     final active = tab.id == widget.value;
     final recipe = style(active, hovered == tab.id);
     final s = recipe.tab;
@@ -731,56 +741,77 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
         button: true,
         label: tab.label,
         excludeSemantics: true,
-        child: GestureDetector(
-          key: ValueKey(
-            'panel-tab-${tab.id is Enum ? (tab.id as Enum).name : tab.id}',
-          ),
-          behavior: HitTestBehavior.opaque,
-          onTap: () => widget.onChanged(tab.id),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 9.5),
-                child: Container(
-                  height: 28,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      tab.iconBuilder?.call(iconSize, iconColor, stroke) ??
-                          RaftIcon(
-                            tab.glyph!,
-                            size: iconSize,
-                            strokeWidth: stroke,
-                            color: iconColor,
-                          ),
-                      const SizedBox(width: 6),
-                      RaftCssText(
-                        tab.label,
-                        style: label,
-                        maxLines: 1,
-                        controlLabel: true,
-                      ),
-                    ],
+        child: _largeContent(
+          tab,
+          child: GestureDetector(
+            key: ValueKey(
+              'panel-tab-${tab.id is Enum ? (tab.id as Enum).name : tab.id}',
+            ),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => widget.onChanged(tab.id),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 9.5),
+                  child: Container(
+                    height: grows ? null : 28,
+                    constraints: grows
+                        ? const BoxConstraints(minHeight: 28)
+                        : null,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        tab.iconBuilder?.call(iconSize, iconColor, stroke) ??
+                            RaftIcon(
+                              tab.glyph!,
+                              size: iconSize,
+                              strokeWidth: stroke,
+                              color: iconColor,
+                            ),
+                        const SizedBox(width: 6),
+                        RaftCssText(
+                          tab.label,
+                          style: label,
+                          maxLines: 1,
+                          controlLabel: true,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (active)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 2,
-                  child: ColoredBox(
-                    color: recipe.indicator.backgroundColor?.resolve(rt) ?? fg,
+                if (active)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 2,
+                    child: ColoredBox(
+                      color:
+                          recipe.indicator.backgroundColor?.resolve(rt) ?? fg,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _largeContent(RaftPanelTab<T> tab, {required Widget child}) =>
+      RaftLargeContentViewer(
+        label: tab.label,
+        onActivate: () => widget.onChanged(tab.id),
+        iconBuilder: (context, size) =>
+            tab.iconBuilder?.call(
+              size,
+              IconTheme.of(context).color ?? RaftTokens.of(context).strong,
+              2,
+            ) ??
+            RaftIcon(tab.glyph!, size: size),
+        child: child,
+      );
 
   Widget _tab(
     RaftPanelTab<T> tab,
@@ -790,6 +821,7 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
     RaftRecipeTokens rt,
     RaftTokens t,
   ) {
+    final grows = RaftScaled.grows(context);
     final active = tab.id == widget.value;
     final s = style(active, hovered == tab.id).tab;
     final svg = s.target('& svg:not([class*=\'size-\'])') ?? s.target('& svg');
@@ -821,48 +853,52 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
         button: true,
         label: tab.label,
         excludeSemantics: true,
-        child: GestureDetector(
-          key: ValueKey(
-            'panel-tab-${tab.id is Enum ? (tab.id as Enum).name : tab.id}',
-          ),
-          behavior: HitTestBehavior.opaque,
-          onTap: () => widget.onChanged(tab.id),
-          child: Container(
-            // `h-7` on SortableTabsTab overrides the recipe height.
-            height: 28,
-            padding: EdgeInsets.only(
-              left: s.padding.left,
-              right: s.padding.right,
+        child: _largeContent(
+          tab,
+          child: GestureDetector(
+            key: ValueKey(
+              'panel-tab-${tab.id is Enum ? (tab.id as Enum).name : tab.id}',
             ),
-            color: s.backgroundColor?.resolve(rt),
-            foregroundDecoration: BoxDecoration(
-              border: divider
-                  ? Border(
-                      left: BorderSide(
-                        color: t.colors['line-strong']!,
-                        width: 2,
+            behavior: HitTestBehavior.opaque,
+            onTap: () => widget.onChanged(tab.id),
+            child: Container(
+              // `h-7` on SortableTabsTab overrides the recipe height.
+              height: grows ? null : 28,
+              constraints: grows ? const BoxConstraints(minHeight: 28) : null,
+              padding: EdgeInsets.only(
+                left: s.padding.left,
+                right: s.padding.right,
+              ),
+              color: s.backgroundColor?.resolve(rt),
+              foregroundDecoration: BoxDecoration(
+                border: divider
+                    ? Border(
+                        left: BorderSide(
+                          color: t.colors['line-strong']!,
+                          width: 2,
+                        ),
+                      )
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  tab.iconBuilder?.call(iconSize, iconColor, stroke) ??
+                      RaftIcon(
+                        tab.glyph!,
+                        size: iconSize,
+                        strokeWidth: stroke,
+                        color: iconColor,
                       ),
-                    )
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                tab.iconBuilder?.call(iconSize, iconColor, stroke) ??
-                    RaftIcon(
-                      tab.glyph!,
-                      size: iconSize,
-                      strokeWidth: stroke,
-                      color: iconColor,
-                    ),
-                SizedBox(width: s.columnGap ?? s.length('gap') ?? 6),
-                RaftCssText(
-                  tab.label,
-                  style: label,
-                  maxLines: 1,
-                  controlLabel: true,
-                ),
-              ],
+                  SizedBox(width: s.columnGap ?? s.length('gap') ?? 6),
+                  RaftCssText(
+                    tab.label,
+                    style: label,
+                    maxLines: 1,
+                    controlLabel: true,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

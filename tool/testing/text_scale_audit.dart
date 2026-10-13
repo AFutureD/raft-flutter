@@ -422,7 +422,12 @@ Future<void> inspectPumped(
         try {
           clip = a.describeApproximatePaintClip(child);
         } catch (_) {}
-        if (clip != null && a is! RenderEditable) {
+        // The long-message collapse ("Show more") hides content on purpose and
+        // offers the toggle; it is not text cut by accident.
+        if (clip != null &&
+            a is! RenderEditable &&
+            !(a is RenderClipRect &&
+                _where(a).contains('src/collapsible.dart'))) {
           clips.add((
             MatrixUtils.transformRect(a.getTransformTo(null), clip),
             a.runtimeType.toString(),
