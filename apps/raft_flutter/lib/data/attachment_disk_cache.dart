@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -12,6 +13,21 @@ import 'attachment_image_store.dart';
 /// The size cap of the attachment cache (all accounts and servers on this
 /// device). The one place the number is defined; eviction trims to 90 % of it.
 const int attachmentCacheMaxBytes = 1024 * 1024 * 1024;
+
+/// The two kinds of entry in the cache, which share one root, one index and one
+/// size figure but not their lifetime.
+enum AttachmentCacheNamespace {
+  /// Private content: keyed by account / server / channel, purged on sign-out
+  /// and channel revocation, evicted least recently used when the cache is over
+  /// its budget.
+  attachments,
+
+  /// Public pictures (avatars, icons): keyed by a caller-chosen string, shared
+  /// by every account, not purged on sign-out, kept inside their own cap with
+  /// their own least-recently-used order, and never evicted to make room for
+  /// attachments.
+  public,
+}
 
 /// A cached file handed to a caller. While it is open the cache never evicts
 /// or clears the file; [release] ends that. Never delete [file] yourself.
@@ -53,8 +69,10 @@ class AttachmentCacheUnavailable implements Exception {
 /// * files (PDF, audio and other preview inputs that native decoders open by
 ///   path): [openFile] / [fetchFile].
 ///
-/// Layout `<root>/v2/<account>/<server>/<channel>/<entry>[.f/<name>]`, every
-/// segment a hash except the file name. Writes go to a `.raft-part` sibling
+/// Layout `<root>/raft-attachments/v2/<account>/<server>/<channel>/<entry>[.f/<name>]`
+/// for [AttachmentCacheNamespace.attachments] and
+/// `<root>/raft-attachments/public/<hash of the key>` for
+/// [AttachmentCacheNamespace.public], every segment a hash except the file name. Writes go to a `.raft-part` sibling
 /// and are renamed into place, so a crash leaves only an ignorable partial
 /// that the next start deletes. Access order persists in file modification
 /// times. Reads are only issued by callers that already hold authority; the
@@ -64,7 +82,10 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     this._root, {
     this.maxBytes = attachmentCacheMaxBytes,
     this.maxEntryBytes = 64 * 1024 * 1024,
-  });
+    int? publicMaxBytes,
+    this.publicMaxEntryBytes = 4 * 1024 * 1024,
+  }) : publicMaxBytes =
+           publicMaxBytes ?? math.min(64 * 1024 * 1024, maxBytes ~/ 8);
 
   /// The process-wide cache installed by the app entry point. Controllers use
   /// it unless they are given another store; tests leave it unset.
@@ -72,9 +93,24 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
 
   static const _partSuffix = '.raft-part';
   static const _layout = 'v2';
+  static const _publicLayout = 'public';
 
   final Future<Directory> Function() _root;
   final int maxBytes, maxEntryBytes;
+
+  /// The public namespace's own cap (default the smaller of 64 MiB and an
+  /// eighth of [maxBytes]; it counts toward [maxBytes]) and entry size limit.
+  final int publicMaxBytes, publicMaxEntryBytes;
+  final _clearListeners = <void Function()>[];
+
+  /// Calls [listener] after [clear] emptied the public namespace (the
+  /// in-memory layers in front of it use this to forget what is no longer on
+  /// disk). Returns the callback that removes it.
+  void Function() addPublicClearListener(void Function() listener) {
+    _clearListeners.add(listener);
+    return () => _clearListeners.remove(listener);
+  }
+
   Future<_DiskIndex?>? _index;
   Future<void> _tail = Future.value();
   final Map<String, int> _pins = {};
@@ -114,6 +150,10 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
         p.join(base.path, 'raft-attachments', _layout),
       );
       await directory.create(recursive: true);
+      // Created by the first public write; read here only if it exists.
+      final publicDirectory = Directory(
+        p.join(base.path, 'raft-attachments', _publicLayout),
+      );
       // The first image-only layout: its entries were never reachable again.
       unawaited(
         _quietly(
@@ -122,19 +162,23 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
           ).delete(recursive: true),
         ),
       );
-      final index = _DiskIndex(directory);
-      await for (final entity in directory.list(recursive: true)) {
-        if (entity is! File) continue;
-        if (entity.path.endsWith(_partSuffix)) {
-          await _quietly(entity.delete);
-          continue;
-        }
-        try {
-          final stat = await entity.stat();
-          index.files[entity.path] = (stat.size, stat.modified);
-          index.total += stat.size;
-        } on FileSystemException {
-          // Raced with another eviction; nothing to index.
+      final index = _DiskIndex(directory, publicDirectory);
+      for (final root in [directory, publicDirectory]) {
+        if (identical(root, publicDirectory) && !await root.exists()) continue;
+        await for (final entity in root.list(recursive: true)) {
+          if (entity is! File) continue;
+          if (entity.path.endsWith(_partSuffix)) {
+            await _quietly(entity.delete);
+            continue;
+          }
+          try {
+            final stat = await entity.stat();
+            index.files[entity.path] = (stat.size, stat.modified);
+            index.total += stat.size;
+            if (index.isPublic(entity.path)) index.publicTotal += stat.size;
+          } on FileSystemException {
+            // Raced with another eviction; nothing to index.
+          }
         }
       }
       return index;
@@ -234,6 +278,59 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     final index = await _open();
     if (index == null) return;
     await _serial(() => _delete(index, _path(index, key)));
+  }
+
+  // ---- Public namespace ----------------------------------------------------
+
+  String _publicPath(_DiskIndex index, String key) =>
+      p.join(index.publicDirectory.path, _hash(key));
+
+  /// The public entry stored under [key], or null. Refreshes its recency.
+  Future<Uint8List?> readPublic(String key) async {
+    final index = await _open();
+    if (index == null) return null;
+    final path = _publicPath(index, key);
+    if (!index.files.containsKey(path)) return null;
+    try {
+      final bytes = await File(path).readAsBytes();
+      final now = DateTime.now();
+      index.files[path] = (bytes.length, now);
+      unawaited(_quietly(() => File(path).setLastModified(now)));
+      return bytes;
+    } on FileSystemException {
+      await _serial(() => _delete(index, path));
+      return null;
+    }
+  }
+
+  /// Stores [bytes] under [key] in the public namespace, then trims that
+  /// namespace to its cap and, if the whole cache is over budget, the
+  /// attachments.
+  Future<void> writePublic(String key, Uint8List bytes) async {
+    if (bytes.isEmpty || bytes.length > publicMaxEntryBytes) return;
+    final index = await _open();
+    if (index == null) return;
+    await _serial(() async {
+      final path = _publicPath(index, key);
+      final part = '$path.${_sequence++}$_partSuffix';
+      try {
+        await index.publicDirectory.create(recursive: true);
+        await File(part).writeAsBytes(bytes, flush: true);
+        await File(part).rename(path);
+      } on FileSystemException {
+        await _quietly(() => File(part).delete());
+        return;
+      }
+      _register(index, path, bytes.length);
+      await _trimPublic(index, keep: path);
+      await _trim(index, keep: path);
+    });
+  }
+
+  Future<void> removePublic(String key) async {
+    final index = await _open();
+    if (index == null) return;
+    await _serial(() => _delete(index, _publicPath(index, key)));
   }
 
   // ---- File entries --------------------------------------------------------
@@ -401,17 +498,21 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   // ---- Index, eviction, removal -------------------------------------------
 
   void _register(_DiskIndex index, String path, int length) {
-    index.total -= index.files[path]?.$1 ?? 0;
+    final before = index.files[path]?.$1 ?? 0;
+    index.total += length - before;
+    if (index.isPublic(path)) index.publicTotal += length - before;
     index.files[path] = (length, DateTime.now());
-    index.total += length;
   }
 
-  /// Trims the least recently used unpinned entries (never [keep]) down to
-  /// 90 % of [maxBytes] when over it. Inside [_serial].
+  /// Trims the least recently used unpinned attachment entries (never [keep])
+  /// down to 90 % of [maxBytes] when the cache is over it. The public
+  /// namespace has its own cap ([_trimPublic]) and is not evicted here.
+  /// Inside [_serial].
   Future<void> _trim(_DiskIndex index, {required String keep}) async {
     if (index.total <= maxBytes) return;
-    final oldest = index.files.entries.toList()
-      ..sort((a, b) => a.value.$2.compareTo(b.value.$2));
+    final oldest =
+        index.files.entries.where((e) => !index.isPublic(e.key)).toList()
+          ..sort((a, b) => a.value.$2.compareTo(b.value.$2));
     for (final entry in oldest) {
       if (index.total <= maxBytes * 9 ~/ 10) break;
       if (entry.key == keep || _pins.containsKey(entry.key)) continue;
@@ -419,25 +520,69 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     }
   }
 
-  /// Bytes stored (what Settings shows).
-  Future<int> sizeBytes() async => (await _open())?.total ?? 0;
+  /// Trims the least recently used public entries (never [keep]) down to 90 %
+  /// of [publicMaxBytes] when that namespace is over it. Inside [_serial].
+  Future<void> _trimPublic(_DiskIndex index, {required String keep}) async {
+    if (index.publicTotal <= publicMaxBytes) return;
+    final oldest =
+        index.files.entries.where((e) => index.isPublic(e.key)).toList()
+          ..sort((a, b) => a.value.$2.compareTo(b.value.$2));
+    for (final entry in oldest) {
+      if (index.publicTotal <= publicMaxBytes * 9 ~/ 10) break;
+      if (entry.key == keep) continue;
+      await _delete(index, entry.key);
+    }
+  }
 
-  /// Number of stored entries.
-  Future<int> entryCount() async => (await _open())?.files.length ?? 0;
+  /// Bytes stored (what Settings shows): both namespaces, or just [namespace].
+  Future<int> sizeBytes({AttachmentCacheNamespace? namespace}) async {
+    final index = await _open();
+    if (index == null) return 0;
+    return switch (namespace) {
+      null => index.total,
+      AttachmentCacheNamespace.public => index.publicTotal,
+      AttachmentCacheNamespace.attachments => index.total - index.publicTotal,
+    };
+  }
 
-  /// Removes every entry of every account and server on this device except
-  /// files an open preview still holds. Never touches anything outside the
-  /// cache directory (sessions, drafts, settings, files the user saved).
-  Future<void> clear() async {
+  /// Number of stored entries: both namespaces, or just [namespace].
+  Future<int> entryCount({AttachmentCacheNamespace? namespace}) async {
+    final index = await _open();
+    if (index == null) return 0;
+    if (namespace == null) return index.files.length;
+    return index.files.keys
+        .where(
+          (path) =>
+              index.isPublic(path) ==
+              (namespace == AttachmentCacheNamespace.public),
+        )
+        .length;
+  }
+
+  /// Removes every entry of every account and server on this device (both
+  /// namespaces, or just [namespace]) except files an open preview still
+  /// holds. Never touches anything outside the cache directory (sessions,
+  /// drafts, settings, files the user saved).
+  Future<void> clear({AttachmentCacheNamespace? namespace}) async {
     final index = await _open();
     if (index == null) return;
     await _serial(() async {
       for (final path in index.files.keys.toList()) {
         if (_pins.containsKey(path)) continue;
+        if (namespace != null &&
+            index.isPublic(path) !=
+                (namespace == AttachmentCacheNamespace.public)) {
+          continue;
+        }
         await _delete(index, path);
       }
       await _pruneEmpty(index.directory);
     });
+    if (namespace != AttachmentCacheNamespace.attachments) {
+      for (final listener in List.of(_clearListeners)) {
+        listener();
+      }
+    }
   }
 
   Future<void> _pruneEmpty(Directory root) async {
@@ -487,7 +632,9 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
       // own authority check closes it.
       for (final path in index.files.keys.toList()) {
         if (p.isWithin(directory, path)) {
-          index.total -= index.files.remove(path)!.$1;
+          final removed = index.files.remove(path)!.$1;
+          index.total -= removed;
+          if (index.isPublic(path)) index.publicTotal -= removed;
         }
       }
       await _quietly(() => Directory(directory).delete(recursive: true));
@@ -496,7 +643,10 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
 
   Future<void> _delete(_DiskIndex index, String path) async {
     final removed = index.files.remove(path);
-    if (removed != null) index.total -= removed.$1;
+    if (removed != null) {
+      index.total -= removed.$1;
+      if (index.isPublic(path)) index.publicTotal -= removed.$1;
+    }
     await _quietly(() => File(path).delete());
     if (path.contains('.f${p.separator}')) {
       // A file entry lives in its own directory.
@@ -514,10 +664,16 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
 }
 
 class _DiskIndex {
-  _DiskIndex(this.directory);
-  final Directory directory;
+  _DiskIndex(this.directory, this.publicDirectory);
+
+  /// The attachments namespace (`v2`) and the public one, side by side.
+  final Directory directory, publicDirectory;
   final Map<String, (int, DateTime)> files = {};
-  int total = 0;
+
+  /// Bytes of every entry, and of the public ones among them.
+  int total = 0, publicTotal = 0;
+
+  bool isPublic(String path) => p.isWithin(publicDirectory.path, path);
 }
 
 class _Waiter {

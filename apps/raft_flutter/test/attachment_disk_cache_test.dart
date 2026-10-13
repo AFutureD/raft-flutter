@@ -139,6 +139,183 @@ void main() {
     });
   });
 
+  group('public namespace', () {
+    AttachmentDiskCache openPublic({int maxBytes = 1 << 20, int? publicMax}) =>
+        AttachmentDiskCache(
+          () async => root,
+          maxBytes: maxBytes,
+          publicMaxBytes: publicMax,
+        );
+
+    test(
+      'its cap defaults to the smaller of 64 MiB and an eighth of the budget',
+      () {
+        expect(
+          AttachmentDiskCache(() async => root).publicMaxBytes,
+          64 * 1024 * 1024,
+        );
+        expect(openPublic(maxBytes: 8000).publicMaxBytes, 1000);
+      },
+    );
+
+    test('miss, hit and a restart; the key is hashed on disk', () async {
+      expect(await cache.readPublic('https://x.test/a.webp'), isNull);
+      await cache.writePublic('https://x.test/a.webp', bytes(6));
+      expect(await cache.readPublic('https://x.test/a.webp'), bytes(6));
+      expect(await open().readPublic('https://x.test/a.webp'), bytes(6));
+      final names = (await allFiles(root)).map((f) => f.path).join('\n');
+      expect(names, isNot(contains('x.test')));
+      expect(
+        names,
+        contains('${Platform.pathSeparator}public${Platform.pathSeparator}'),
+      );
+    });
+
+    test(
+      'one budget, one size figure, separate counts per namespace',
+      () async {
+        await cache.write(key('a'), bytes(30));
+        await cache.writePublic('p1', bytes(5));
+        await cache.writePublic('p2', bytes(7));
+        expect(await cache.sizeBytes(), 42);
+        expect(
+          await cache.sizeBytes(namespace: AttachmentCacheNamespace.public),
+          12,
+        );
+        expect(
+          await cache.sizeBytes(
+            namespace: AttachmentCacheNamespace.attachments,
+          ),
+          30,
+        );
+        expect(await cache.entryCount(), 3);
+        expect(
+          await cache.entryCount(namespace: AttachmentCacheNamespace.public),
+          2,
+        );
+        // The figures survive a restart (the index reads both directories).
+        final restarted = open();
+        expect(await restarted.sizeBytes(), 42);
+        expect(
+          await restarted.sizeBytes(namespace: AttachmentCacheNamespace.public),
+          12,
+        );
+      },
+    );
+
+    test('sign-out and channel purges leave public entries alone', () async {
+      final identity = AttachmentImageKey.identityOf(
+        'https://x.invalid',
+        'alice',
+        's1',
+      );
+      await cache.write(key('a'), bytes(3));
+      await cache.writePublic('p', bytes(3));
+      await cache.purgeAccount('https://x.invalid', 'alice');
+      await cache.purgeIdentity(identity);
+      await cache.purgeChannel(identity, 'c1');
+      expect(await cache.contains(key('a')), isFalse);
+      expect(await cache.readPublic('p'), bytes(3));
+      expect(await cache.sizeBytes(), 3);
+    });
+
+    test(
+      'the public namespace keeps to its own cap, least recently used first',
+      () async {
+        final c = openPublic(publicMax: 100);
+        await c.writePublic('a', bytes(40));
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        await c.writePublic('b', bytes(40));
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        expect(await c.readPublic('a'), isNotNull); // b is now the oldest
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        await c.writePublic('c', bytes(40));
+        expect(await c.readPublic('b'), isNull);
+        expect(await c.readPublic('a'), isNotNull);
+        expect(await c.readPublic('c'), isNotNull);
+        expect(
+          await c.sizeBytes(namespace: AttachmentCacheNamespace.public),
+          lessThanOrEqualTo(100),
+        );
+      },
+    );
+
+    test('attachment pressure does not evict public entries', () async {
+      final c = openPublic(maxBytes: 1000, publicMax: 200);
+      await c.writePublic('avatar', bytes(50));
+      for (var i = 0; i < 12; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 3));
+        await c.write(key('e$i'), bytes(200));
+      }
+      expect(await c.sizeBytes(), lessThanOrEqualTo(1000));
+      expect(await c.readPublic('avatar'), bytes(50));
+      expect(
+        await c.entryCount(namespace: AttachmentCacheNamespace.attachments),
+        lessThan(12),
+      );
+    });
+
+    test(
+      'public entries do not count against the attachments LRU order',
+      () async {
+        final c = openPublic(maxBytes: 100, publicMax: 50);
+        await c.writePublic('p', bytes(20));
+        await c.write(key('a'), bytes(40));
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        await c.write(key('b'), bytes(40)); // 100 total: not over
+        expect(await c.contains(key('a')), isTrue);
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        await c.write(key('c'), bytes(40)); // 140: attachments trim, not p
+        expect(await c.contains(key('a')), isFalse);
+        expect(await c.readPublic('p'), isNotNull);
+      },
+    );
+
+    test('oversized and empty public writes are ignored', () async {
+      final c = AttachmentDiskCache(() async => root, publicMaxEntryBytes: 4);
+      await c.writePublic('a', Uint8List(0));
+      await c.writePublic('b', bytes(5));
+      expect(await c.sizeBytes(), 0);
+    });
+
+    test('clear() empties both namespaces and tells the listeners', () async {
+      var cleared = 0;
+      cache.addPublicClearListener(() => cleared++);
+      await cache.write(key('a'), bytes(3));
+      await cache.writePublic('p', bytes(3));
+      await cache.clear();
+      expect(await cache.sizeBytes(), 0);
+      expect(await cache.readPublic('p'), isNull);
+      expect(cleared, 1);
+      expect((await allFiles(root)), isEmpty);
+    });
+
+    test('clear(namespace) empties only that namespace', () async {
+      var cleared = 0;
+      cache.addPublicClearListener(() => cleared++);
+      await cache.write(key('a'), bytes(3));
+      await cache.writePublic('p', bytes(4));
+      await cache.clear(namespace: AttachmentCacheNamespace.attachments);
+      expect(await cache.contains(key('a')), isFalse);
+      expect(await cache.readPublic('p'), bytes(4));
+      expect(cleared, 0);
+      await cache.write(key('a'), bytes(3));
+      await cache.clear(namespace: AttachmentCacheNamespace.public);
+      expect(await cache.contains(key('a')), isTrue);
+      expect(await cache.readPublic('p'), isNull);
+      expect(cleared, 1);
+    });
+
+    test('an unusable cache directory is a miss, never an error', () async {
+      final broken = AttachmentDiskCache(
+        () async => throw const FileSystemException(),
+      );
+      expect(await broken.readPublic('k'), isNull);
+      await broken.writePublic('k', bytes(3));
+      expect(await broken.sizeBytes(), 0);
+    });
+  });
+
   group('file entries', () {
     test('miss downloads once, hit makes no download', () async {
       final downloads = _Downloads();
