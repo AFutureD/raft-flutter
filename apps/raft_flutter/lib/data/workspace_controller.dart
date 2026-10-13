@@ -730,10 +730,12 @@ class WorkspaceController extends ChangeNotifier {
     // unleased ones under memory pressure and while the app is hidden.
     _removeImageTrimmer = RaftMemoryRelease.instance.addTrimmer(
       (reason) {
+        final before = repository.decodedByteCount;
         final dropped = repository.trimIdle();
         if (!kReleaseMode) {
           debugPrint(
-            '[raft-memory] ${reason.name}: dropped $dropped decoded images, '
+            '[raft-memory] ${reason.name}: dropped $dropped decoded images '
+            '(${before - repository.decodedByteCount} B), '
             '${repository.entryCount} held '
             '(${repository.decodedByteCount} B decoded)',
           );

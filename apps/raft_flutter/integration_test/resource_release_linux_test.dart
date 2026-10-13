@@ -113,12 +113,17 @@ void main() {
     await tapText('lab-img');
     await settle(8);
     record('img-reopen');
+    // No frames run while hidden: wait in real time without pumping.
+    Future<void> wait(int seconds) => tester.runAsync(
+      () => Future<void>.delayed(Duration(seconds: seconds)),
+    );
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-    await settle(10);
+    await wait(10);
     record('hidden-10s');
-    await settle(30);
+    await wait(30);
     record('hidden-40s');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await settle(6);
     record('resumed');
