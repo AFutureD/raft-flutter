@@ -21,8 +21,8 @@ class AttachmentLightboxGallery {
 }
 
 /// The image lightbox route content: Web `ImageLightbox` frame (title bar
-/// with the gallery counter and the header [actions], stage, arrows and
-/// thumbnails). Wide layouts carry Download in the header; phone layouts
+/// with the gallery counter and the header [actions], stage and thumbnails;
+/// no previous / next arrows, owner decision 2026-10-13). Wide layouts carry Download in the header; phone layouts
 /// carry none (the stage's long-press menu saves and shares).
 class AttachmentImageLightbox extends StatelessWidget {
   const AttachmentImageLightbox({
@@ -61,19 +61,10 @@ class AttachmentImageLightbox extends StatelessWidget {
       actions: actions,
       overlay: g == null
           ? null
-          : Stack(
-              children: [
-                RaftLightboxArrows(
-                  index: g.index,
-                  count: g.count,
-                  onSelect: g.onSelect,
-                ),
-                RaftLightboxThumbnails(
-                  thumbnails: g.thumbnails,
-                  index: g.index,
-                  onSelect: g.onSelect,
-                ),
-              ],
+          : RaftLightboxThumbnails(
+              thumbnails: g.thumbnails,
+              index: g.index,
+              onSelect: g.onSelect,
             ),
       child: child,
     );

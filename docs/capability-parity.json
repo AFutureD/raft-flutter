@@ -10956,12 +10956,12 @@
    "kind": "ui",
    "id": "ui:files.image-lightbox-navigation-zoom",
    "area": "files-attachments",
-   "capability": "Image lightbox: previous/next (arrows, keys), pinch/double-tap/wheel zoom and pan, 0 resets, thumbnails, retry",
+   "capability": "Image lightbox: previous/next (keys, swipe, thumbnails; no arrows by owner decision), pinch/double-tap/wheel zoom and pan, 0 resets, thumbnails, retry",
    "background": false,
    "status": "covered",
    "webEntry": "ImageLightbox + ImageZoom",
    "gate": "none",
-   "flutterEntry": "attachment_image_lightbox.dart RaftAttachmentLightbox (onResetZoom, RaftLightboxArrows)",
+   "flutterEntry": "attachment_image_lightbox.dart RaftAttachmentLightbox (onResetZoom, RaftLightboxThumbnails)",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/attachment_image_lightbox.dart",

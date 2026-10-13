@@ -30,6 +30,7 @@ type ParityExtAttProps = {
   images: number;
   index: number;
   doc: string;
+  hideArrows: boolean;
 };
 
 const PARITY_EXT_ATT_HTML_URL = "data:text/html;charset=utf-8,%3C!doctype%20html%3E%3Cbody%3E%3C!--";
@@ -45,6 +46,7 @@ function parityExtAttProps(): ParityExtAttProps | null {
     images: Number(params.get("images") ?? 1),
     index: Number(params.get("index") ?? 0),
     doc: params.get("doc") ?? "text",
+    hideArrows: params.get("hideArrows") === "1",
   };
 }
 
@@ -111,6 +113,11 @@ function ParityExtAttView({ p }: { p: ParityExtAttProps }) {
   }
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">
+      {p.host === "image" && p.hideArrows ? (
+        // Flutter's gallery has no previous/next arrows (owner decision 2026-10-13): hide Web's two
+        // absolute left-8 / right-8 buttons so the case compares counter, thumbnail strip and stage.
+        <style>{".absolute.left-8.z-10, .absolute.right-8.z-10 { display: none !important; }"}</style>
+      ) : null}
       {p.host === "image" ? <ParityExtAttImageLightbox /> : null}
       {p.host === "document" ? <ParityExtAttDocumentPreviewHost /> : null}
       {p.host === "html" ? <ParityExtAttMediaPreviewHost /> : null}

@@ -1770,3 +1770,20 @@ Every underline uses the hyperlink metrics (`underline decoration-2 underline-of
 guarded by raft_underline_guard_test). Web's auth-page links use a plain `underline` with no offset;
 Kevin asked to unify all underlines on the link style, so the `auth-ext` / `auth-pages` login and
 register cases differ from Web by that gap on purpose.
+
+## Image viewer: no gallery arrows (owner decision 2026-10-13)
+
+Web's `ImageLightbox` shows a previous / next `Button size="icon-lg"` (`ChevronLeft/Right size={24}`,
+`absolute left-8 / right-8`, disabled at the ends) on a multi-image gallery. Kevin: the thumbnail strip
+already shows every image, so Flutter has no arrows on any layout. Navigation is the thumbnail strip
+(tap), ArrowLeft / ArrowRight (not while zoomed, no wrap), a horizontal swipe on touch layouts, and the
+header counter chip (`2 / 3`) still shows the position. Everything else in the gallery (counter chip,
+thumbnail strip `size-12 border-2`, `bottom-4`, `gap-1.5`) matches Web.
+
+Parity cases `components.thread-ext.attachment.image.gallery[.mobile]` (index 1 of 3) and
+`image.gallery-first` (index 0 of 3) pass `hideArrows=1` to the React host, which injects a style hiding
+Web's two arrow wrappers, so the comparison covers counter, strip and stage without the arrows. Non-text
+similarity at 1280x800 (brutal / elegant / elegant-dark): index 1 of 3 99.71 / 99.64 / 99.62 %, index 0 of 3
+99.72 / 99.67 / 99.62 %. Before the arrows were removed (Web unmasked) the same two cases measured
+99.71 / 99.43 / 99.50 % and 99.72 / 99.44 / 99.51 %, so the arrows cost the elegant themes about 0.2 points (just under the 99.5 bar) and nothing visible in brutal; the
+phone-width gallery cases (~96 %, hairline bucket on the stage image) are unchanged by this.

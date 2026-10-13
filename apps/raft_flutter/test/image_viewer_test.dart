@@ -281,9 +281,6 @@ String _counter(WidgetTester tester) {
   return '${c.index + 1} / ${c.count}';
 }
 
-bool _arrowDisabled(WidgetTester tester, String key) =>
-    tester.widget<RaftRecipeButton>(find.byKey(ValueKey(key))).disabled;
-
 const _wide = Size(1280, 800);
 const _phone = Size(390, 844);
 
@@ -446,27 +443,25 @@ void main() {
   });
 
   group('multi-image navigation', () {
-    testWidgets('counter, arrows at the bounds, no wrap', (tester) async {
+    testWidgets('counter and thumbnail strip, no arrows, no wrap', (
+      tester,
+    ) async {
       await _mount(tester, size: _wide);
       await _open(tester, 0);
       expect(_counter(tester), '1 / 3');
-      expect(_arrowDisabled(tester, 'lightbox-previous'), isTrue);
-      expect(_arrowDisabled(tester, 'lightbox-next'), isFalse);
-      await tester.tap(find.byKey(const ValueKey('lightbox-previous')));
-      await _settle(tester, 3);
-      expect(_counter(tester), '1 / 3');
-      await tester.tap(find.byKey(const ValueKey('lightbox-next')));
+      expect(find.byKey(const ValueKey('lightbox-previous')), findsNothing);
+      expect(find.byKey(const ValueKey('lightbox-next')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('lightbox-thumbnail-1')));
       await _settle(tester, 3);
       expect(_counter(tester), '2 / 3');
       expect(find.text('photo-1.png'), findsWidgets);
-      await tester.tap(find.byKey(const ValueKey('lightbox-next')));
+      await tester.tap(find.byKey(const ValueKey('lightbox-thumbnail-2')));
       await _settle(tester, 3);
       expect(_counter(tester), '3 / 3');
-      expect(_arrowDisabled(tester, 'lightbox-next'), isTrue);
-      await tester.tap(find.byKey(const ValueKey('lightbox-next')));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await _settle(tester, 3);
       expect(_counter(tester), '3 / 3', reason: 'no wrap');
-      await tester.tap(find.byKey(const ValueKey('lightbox-previous')));
+      await tester.tap(find.byKey(const ValueKey('lightbox-thumbnail-1')));
       await _settle(tester, 3);
       expect(_counter(tester), '2 / 3');
     });
@@ -513,20 +508,18 @@ void main() {
       final viewer = _viewer(tester);
       viewer.zoomFor(0).value = Matrix4.identity()..scaleByDouble(3, 3, 1, 1);
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('lightbox-next')));
+      await tester.tap(find.byKey(const ValueKey('lightbox-thumbnail-1')));
       await _settle(tester, 3);
       expect(viewer.zoomed, isFalse);
       expect(viewer.zoomFor(0).value, Matrix4.identity());
       expect(viewer.zoomFor(1).value, Matrix4.identity());
     });
 
-    testWidgets('a single image has no counter, arrows or strip', (
-      tester,
-    ) async {
+    testWidgets('a single image has no counter or strip', (tester) async {
       await _mount(tester, size: _wide, count: 1);
       await _open(tester, 0);
       expect(find.byType(RaftLightboxCounter), findsNothing);
-      expect(find.byKey(const ValueKey('lightbox-next')), findsNothing);
+      expect(find.byKey(const ValueKey('lightbox-thumbnail-0')), findsNothing);
     });
   });
 
@@ -614,7 +607,7 @@ void main() {
       await _settle(tester, 12);
       // Image 0 plus its one neighbour, not the other three.
       expect(rig.client.inlineSigned.toSet(), {'img0', 'img1'});
-      await tester.tap(find.byKey(const ValueKey('lightbox-next')));
+      await tester.tap(find.byKey(const ValueKey('lightbox-thumbnail-1')));
       await _settle(tester, 12);
       expect(rig.client.inlineSigned.toSet(), {'img0', 'img1', 'img2'});
       expect(rig.client.attachmentSigned, isEmpty);

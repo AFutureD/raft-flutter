@@ -450,63 +450,6 @@ class RaftLightboxCounter extends StatelessWidget {
   );
 }
 
-/// Previous / next arrows of the gallery stage (`absolute left-8 / right-8`,
-/// `Button size="icon-lg"`, vertically centred in the stage).
-class RaftLightboxArrows extends StatelessWidget {
-  const RaftLightboxArrows({
-    super.key,
-    required this.index,
-    required this.count,
-    required this.onSelect,
-  });
-  final int index, count;
-  final ValueChanged<int> onSelect;
-  @override
-  Widget build(BuildContext context) {
-    Widget arrow(RaftGlyph glyph, String label, bool enabled, int target) =>
-        RaftRecipeButton(
-          key: ValueKey(
-            'lightbox-${glyph == RaftGlyph.chevronLeft ? 'previous' : 'next'}',
-          ),
-          size: RaftButtonRecipeSize.iconLg,
-          glyph: glyph,
-          tooltip: label,
-          disabled: !enabled,
-          onPressed: () => onSelect(target),
-        );
-    return Stack(
-      children: [
-        Positioned(
-          left: 32,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: arrow(
-              RaftGlyph.chevronLeft,
-              'Previous image',
-              index > 0,
-              index - 1,
-            ),
-          ),
-        ),
-        Positioned(
-          right: 32,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: arrow(
-              RaftGlyph.chevronRight,
-              'Next image',
-              index < count - 1,
-              index + 1,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// Thumbnail strip (`absolute bottom-4 flex gap-1.5`, `size-12 border-2`).
 class RaftLightboxThumbnails extends StatelessWidget {
   const RaftLightboxThumbnails({

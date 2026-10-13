@@ -306,6 +306,7 @@ final ParityCase _case = ParityCase(
 const _desktop = [
   'image.single',
   'image.gallery',
+  'image.gallery-first',
   'image.header',
   'image.loading',
   'image.error',
