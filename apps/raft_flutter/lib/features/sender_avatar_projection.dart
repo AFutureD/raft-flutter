@@ -39,6 +39,12 @@ SenderAvatarProjection projectSenderAvatar({
   // Message-carried `senderAvatarUrl`: the first-paint source when the
   // directory has no row for this sender yet (never overrides a directory row).
   String? carriedAvatarUrl,
+  // The open channel's roster (`GET /channels/:id/members`): the only place a
+  // joint-peer sender (another server's human or agent) is listed, since the
+  // server directory holds this server's people only. Web `ChatPanel` overlays
+  // it on the directory (`memberById` / `agentById`), so it is searched first.
+  List<Map<String, dynamic>> channelAgents = const [],
+  List<Map<String, dynamic>> channelMembers = const [],
 }) {
   if (senderType == 'external_projection') {
     return SenderAvatarProjection(
@@ -51,13 +57,16 @@ SenderAvatarProjection projectSenderAvatar({
     );
   }
   final isAgent = senderType == 'agent';
-  final rows = isAgent ? agents : members;
   Map<String, dynamic>? resolved;
-  for (final row in rows) {
-    if ((isAgent ? row['id'] : row['userId'] ?? row['id']) == senderId) {
-      resolved = row;
-      break;
+  for (final rows
+      in isAgent ? [channelAgents, agents] : [channelMembers, members]) {
+    for (final row in rows) {
+      if ((isAgent ? row['id'] : row['userId'] ?? row['id']) == senderId) {
+        resolved = row;
+        break;
+      }
     }
+    if (resolved != null) break;
   }
   final rawUrl = resolved == null ? carriedAvatarUrl : resolved['avatarUrl'];
   if (isAgent) {

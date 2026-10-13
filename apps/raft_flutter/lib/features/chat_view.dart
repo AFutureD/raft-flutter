@@ -2161,10 +2161,18 @@ class _RaftChatViewState extends State<RaftChatView>
     final local =
         message.json['sourceServerId'] == null ||
         message.json['sourceServerId'] == w.server?.id;
+    // Joint peers are not in the server directory; the channel roster read
+    // when the channel opened lists them (rows rebuild when it arrives, the
+    // composer directory notifies this view).
+    final roster = w.channel == null
+        ? null
+        : cachedChannelRoster(w, w.channel!.id);
     final source = projectSenderAvatar(
       origin: w.client.origin,
       senderId: message.string('senderId'),
       senderType: message.string('senderType'),
+      channelAgents: roster?.agents ?? const [],
+      channelMembers: roster?.humans ?? const [],
       agents: local ? referenceDirectory.agents : const [],
       members: local ? referenceDirectory.members : const [],
       currentUser: local ? w.client.user?.json : null,
