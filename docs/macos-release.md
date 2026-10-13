@@ -21,3 +21,13 @@ Open Anyway**. Managed Macs may disallow this exception. Instructions also ship 
 An existing provisioned development installation needs its original signing
 identity and Keychain configuration to retain its session. This CI does not replace
 that local update procedure; see [local macOS evidence](macos-evidence.md).
+
+## Auto-update
+
+The app embeds Sparkle 2 (`Sparkle.framework` with `Installer.xpc`, `Downloader.xpc`,
+`Updater.app`). Those nested bundles are the only ones packaging accepts, all
+signed ad-hoc inside out. The Release entitlements add the two Sparkle
+mach-lookup exceptions, and `SUPublicEDKey` is injected from the
+`SPARKLE_ED_PUBLIC_KEY` variable before signing. Do not enable Hardened Runtime.
+See [auto-update.md](auto-update.md) for ad-hoc/sandbox behaviour and the Mac
+verification checklist.

@@ -26,6 +26,12 @@ on:
       - 'apps/raft_flutter/macos/**'
       - 'tool/macos_release.py'
       - 'tool/tests/test_macos_release.py'
+      - 'tool/appcast.py'
+      - 'tool/windows_installer.py'
+      - 'tool/tests/test_appcast.py'
+      - 'tool/tests/test_windows_installer.py'
+      - 'packaging/windows/**'
+      - 'packages/raft_updater/**'
   workflow_dispatch:
     inputs:
       platforms:
@@ -57,6 +63,8 @@ jobs:
           python-version: '3.12'
       - run: |
           python -m unittest discover -s tool/tests -p 'test_release*.py' -v
+          python -m unittest discover -s tool/tests -p 'test_appcast.py' -v
+          python -m unittest discover -s tool/tests -p 'test_windows_installer.py' -v
       - id: plan
         env:
           RELEASE_PLATFORMS: ${{ inputs.platforms }}
@@ -106,3 +114,4 @@ jobs:
       RAFT_ANDROID_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.RAFT_ANDROID_STORE_PASSWORD || '' }}
       RAFT_ANDROID_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.RAFT_ANDROID_KEY_PASSWORD || '' }}
       RAFT_ANDROID_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.RAFT_ANDROID_KEY_ALIAS || '' }}
+      SPARKLE_ED_PRIVATE_KEY: ${{ github.event_name == 'push' && secrets.SPARKLE_ED_PRIVATE_KEY || '' }}

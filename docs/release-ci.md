@@ -121,11 +121,22 @@ requires adjusting the corresponding native build and packaging implementation.
 
 | Platform | Runner | Asset | Requirements / current limits |
 | --- | --- | --- | --- |
-| Windows x64 | `windows-2022` | Complete portable ZIP | No Authenticode signature or installer. Requires Windows App Runtime 1.7 x64. Keep all DLLs and `data/`; `RUN.txt` explains explicit notification registration. Fresh-machine and cold-click acceptance is still pending. |
+| Windows x64 | `windows-2022` | Complete portable ZIP plus a per-user Inno Setup installer (`-setup.exe`, the WinSparkle update vehicle) | No Authenticode signature. Requires Windows App Runtime 1.7 x64. Keep all DLLs and `data/`; `RUN.txt` explains explicit notification registration. Fresh-machine and cold-click acceptance is still pending. |
 | Android ARM64 | `ubuntu-24.04` | Signed split APK | SDK 37 / build tools 37.0.0, Java 17. Requires all signing secrets below; missing secrets fail instead of producing a debug-signed release. No Play Store/AAB upload. |
 | Linux x64 | `ubuntu-26.04` | Relocatable `.tar.gz` | Uses existing pinned Ubuntu Resolute media preparation; package/hash drift fails. Bundles library notices/provenance and verifies ELF lookup. Ubuntu 26.04 glibc/GTK/drivers required; other distributions are unverified. Review media GPL terms and supply matching source before enabling distribution. |
 | Linux x64 AppImage | `ubuntu-24.04` | `.AppImage` | Bundled GTK/media/PDF tools; latest reviewed static AppImage runtime, glibc ≤ 2.39, direct and no-FUSE startup checks, plus Fedora KDE Wayland compatibility checks. |
-| macOS ARM64 | `macos-15` | `.app` ZIP via `ditto` | Existing ad-hoc signing. No Developer ID/notarization; Gatekeeper distribution acceptance is pending. No Intel build. |
+| macOS ARM64 | `macos-15` | `.app` ZIP via `ditto` | Existing ad-hoc signing; embeds Sparkle 2. No Developer ID/notarization; Gatekeeper distribution acceptance is pending. No Intel build. |
+
+## In-app update feeds
+
+macOS and Windows also publish `appcast-macos.xml` / `appcast-windows.xml` (Sparkle /
+WinSparkle feeds, EdDSA-signed in the tag-only publish job). Actions **variable**
+`SPARKLE_ED_PUBLIC_KEY` is embedded into the builds (empty disables auto-update for
+that build) and Actions **secret** `SPARKLE_ED_PRIVATE_KEY` signs the enclosure.
+A build that embeds a key but finds no secret fails to publish. Receipts may list
+`extraArtifacts` (the Windows setup exe), which are checksummed and uploaded with
+the platform. Details, key rotation and verification checklists:
+[auto-update.md](auto-update.md).
 
 Android repository **Actions secrets**:
 

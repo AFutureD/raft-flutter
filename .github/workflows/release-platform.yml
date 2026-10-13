@@ -30,6 +30,8 @@ on:
         required: false
       RAFT_ANDROID_KEY_ALIAS:
         required: false
+      SPARKLE_ED_PRIVATE_KEY:
+        required: false
 
 permissions:
   contents: read
@@ -49,6 +51,8 @@ jobs:
     env:
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+      # Public by design (verifies update signatures). Empty disables auto-update.
+      SPARKLE_ED_PUBLIC_KEY: ${{ vars.SPARKLE_ED_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -101,6 +105,19 @@ jobs:
       - name: Test macOS packaging tools
         if: inputs.platform == 'macos'
         run: python -m unittest discover -s tool/tests -p test_macos_release.py -v
+      - name: Test update packaging tools
+        if: inputs.platform == 'windows'
+        run: |
+          python -m unittest discover -s tool/tests -p test_appcast.py -v
+          python -m unittest discover -s tool/tests -p test_windows_installer.py -v
+      - name: Ensure Inno Setup for the WinSparkle installer
+        if: inputs.platform == 'windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --version=6.4.3 -y --no-progress }
+          if (-not (Test-Path $iscc)) { throw 'Inno Setup 6 is unavailable' }
+          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Test Linux packaging tools
         if: inputs.platform == 'linux' || inputs.platform == 'appimage'
         run: |
@@ -221,4 +238,7 @@ jobs:
       - name: Verify and publish this platform independently
         env:
           GH_TOKEN: ${{ github.token }}
+          # Signs the macOS/Windows appcast enclosure; GitHub masks it in logs and
+          # tool/release.py never prints it. Only this tag-only publisher sees it.
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: python tool/release.py publish ${{ inputs.platform }}
