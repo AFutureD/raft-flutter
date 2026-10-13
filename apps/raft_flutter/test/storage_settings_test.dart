@@ -91,7 +91,7 @@ void main() {
     await settle(t);
     expect(size(t), 'Cache size: 3.5 MB');
     expect(find.byType(RaftSettingsSectionHeader), findsOneWidget);
-    expect(find.text('Attachment cache'), findsOneWidget);
+    expect(find.text('Cache'), findsOneWidget);
   });
 
   testWidgets('clearing asks first, then empties the cache and says so', (

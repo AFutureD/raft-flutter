@@ -52,7 +52,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
         title: raftText(context, 'Clear cache'),
         message: raftText(
           context,
-          'Attachments will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.',
+          'Attachments, profile pictures and icons will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.',
         ),
         confirmLabel: raftText(context, 'Clear cache'),
         loadingLabel: raftText(context, 'Clearing…'),
@@ -80,9 +80,9 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               RaftSettingsPreference(
-                title: 'Attachment cache',
+                title: 'Cache',
                 description:
-                    'Attachments you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
+                    'Attachments, previews, profile pictures and icons you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
                 child: Semantics(
                   key: const Key('storage-size'),
                   container: true,

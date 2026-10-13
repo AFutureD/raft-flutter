@@ -267,8 +267,8 @@ void main() {
     // see them: Settings > Resources > Storage.
     for (final key in const [
       'Storage',
-      'Attachment cache',
-      'Attachments you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
+      'Cache',
+      'Attachments, previews, profile pictures and icons you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
       'Clear cache',
     ]) {
       expect(raftChinese, contains(key));

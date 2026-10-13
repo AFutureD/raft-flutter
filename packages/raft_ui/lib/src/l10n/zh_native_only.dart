@@ -124,15 +124,15 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Saved to Photos.": "已保存到“照片”。",
   "Saved to Gallery.": "已保存到相册。",
   "The image could not be saved.": "无法保存图片。",
-  // Settings > Resources > Storage (native-only attachment cache; Web leaves
+  // Settings > Resources > Storage (native-only cache of attachments, previews, profile pictures and icons; Web leaves
   // caching to the browser).
   "Storage": "存储",
-  "Attachment cache": "附件缓存",
-  "Attachments you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.":
-      "你打开过的附件会保存在此设备上，再次打开时无需重新下载。登录信息、草稿、设置和你保存的文件不属于缓存。",
+  "Cache": "缓存",
+  "Attachments, previews, profile pictures and icons you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.":
+      "你打开过的附件、预览、头像和图标会保存在此设备上，再次打开时无需重新下载。登录信息、草稿、设置和你保存的文件不属于缓存。",
   "Clear cache": "清除缓存",
-  "Attachments will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.":
-      "下次打开附件时会重新下载。登录信息、草稿、设置和你保存的文件不受影响。",
+  "Attachments, profile pictures and icons will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.":
+      "下次打开时，附件、头像和图标会重新下载。登录信息、草稿、设置和你保存的文件不受影响。",
   "Clearing…": "正在清除…",
   "Cache cleared.": "缓存已清除。",
   "Calculating…": "正在计算…",
