@@ -29,7 +29,7 @@ import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'attachment_url_cache.dart';
 import '../platform/memory_release.dart';
-import '../platform/inline_media_files.dart';
+import '../platform/attachment_player_sessions.dart';
 import '../platform/attachment_http.dart';
 import 'upload_mime.dart';
 import 'feature_flag_client_facts.dart';
@@ -1826,7 +1826,7 @@ class WorkspaceController extends ChangeNotifier {
     _stateStamp++;
     _attachmentImages?.synchronize(attachmentImageScope);
     _attachmentUrls.synchronize(attachmentImageScope);
-    _inlineMedia.synchronize(attachmentImageScope);
+    _playerSessions.synchronize(attachmentImageScope);
     if (!_disposed) {
       _ensureSyncIdentity();
       super.notifyListeners();
@@ -3536,7 +3536,7 @@ class WorkspaceController extends ChangeNotifier {
         ?..synchronize(attachmentImageScope)
         ..invalidateChannel(scope);
       _attachmentUrls.invalidateChannel(scope);
-      _inlineMedia.invalidateChannel(scope);
+      _playerSessions.invalidateChannel(scope);
       // Stored images, preview files and documents of the channel go too,
       // also when no decoded image was ever held this session.
       _purgeStoredChannel(scope);
@@ -6064,12 +6064,12 @@ class WorkspaceController extends ChangeNotifier {
   // only; see [AttachmentUrlCache] for the lifetime rules.
   final AttachmentUrlCache _attachmentUrls;
 
-  /// Local copies of inline video/audio, kept while a clip scrolls out of view
-  /// and back (see [InlineMediaFiles]). A route-local presentation shares its
-  /// source's.
-  InlineMediaFiles get inlineMedia =>
-      presentationSource?.inlineMedia ?? _inlineMedia;
-  final InlineMediaFiles _inlineMedia = InlineMediaFiles();
+  /// The players of inline video/audio cards and their full-screen viewers
+  /// (one stream per attachment, shared; see [PlayerSessions]). A route-local
+  /// presentation shares its source's.
+  PlayerSessions get playerSessions =>
+      presentationSource?.playerSessions ?? _playerSessions;
+  final PlayerSessions _playerSessions = PlayerSessions();
 
   /// Opens the storage connection for a freshly prefetched URL (the app wires
   /// `AttachmentHttp.warmHost` by default); null disables warming.
@@ -6752,7 +6752,7 @@ class WorkspaceController extends ChangeNotifier {
     _removeImageTrimmer = null;
     _attachmentImages?.dispose();
     _attachmentUrls.dispose();
-    _inlineMedia.dispose();
+    _playerSessions.dispose();
     _channelFilesStores.clear();
     for (final drafts in _uploads.values) {
       for (final draft in drafts) {

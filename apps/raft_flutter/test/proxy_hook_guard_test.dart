@@ -116,13 +116,21 @@ void main() {
     expect(chatUi, contains('CachedNetworkImage'));
   });
 
-  test('the media player stays file-only (it opens no network connection)', () {
-    // media_kit/mpv does its own networking. While the whitelist is `file`, the
-    // downloaded attachment (fetched through the proxy-aware Dio) is all it
-    // opens. Widening it needs mpv's `http-proxy` property wired to SystemProxy.
+  test('the media player opens http(s) only with the proxy decision wired', () {
+    // media_kit/mpv does its own networking: it streams the attachment URL.
+    // The whitelist is the fixed set an http(s) stream needs, and mpv's
+    // `http-proxy` is set at run time (never through argv or logs) from the
+    // same decision every other path uses. video_player (ExoPlayer, AVPlayer)
+    // follows the OS proxy only; docs/system-proxy.md says so.
     final player = read(
       'apps/raft_flutter/lib/platform/attachment_player.dart',
     );
-    expect(player, contains("protocolWhitelist: ['file']"));
+    expect(
+      player,
+      contains("protocolWhitelist: ['file', 'http', 'https', 'tcp', 'tls', 'crypto']"),
+    );
+    expect(player, contains("setProperty('http-proxy', httpProxyFor("));
+    expect(player, contains('SystemProxy.instance.findProxyForClient'));
+    expect(player, isNot(contains("'rtsp'")));
   });
 }

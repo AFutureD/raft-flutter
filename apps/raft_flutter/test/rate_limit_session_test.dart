@@ -56,9 +56,9 @@ void main() {
       );
       final mediaDir = Directory.systemTemp.createTempSync('rate-session');
       final media = FakeMediaFiles(mediaDir);
-      debugInlinePreviewFiles = () => media;
+      InlineMediaTestHooks.playerFactory = media.player;
       addTearDown(() {
-        debugInlinePreviewFiles = null;
+        InlineMediaTestHooks.playerFactory = null;
         AttachmentHttp.debugReplace(null);
         if (mediaDir.existsSync()) mediaDir.deleteSync(recursive: true);
       });
@@ -323,7 +323,7 @@ void main() {
       expect(meter.rateLimited, 0);
       expect(extra, lessThanOrEqualTo(40), reason: 'duplicate requests: $dups');
 
-      w.inlineMedia.clear();
+      w.playerSessions.clear();
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 1));
     },

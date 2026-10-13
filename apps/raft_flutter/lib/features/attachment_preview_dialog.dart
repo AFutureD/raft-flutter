@@ -1,16 +1,21 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/attachment_image_store.dart';
 import '../data/workspace_controller.dart';
+import '../platform/attachment_files.dart';
+import '../platform/attachment_http.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_player_factory.dart';
+import '../platform/attachment_player_sessions.dart';
 import '../platform/attachment_preview_files.dart';
+import '../platform/attachment_stream.dart';
+import '../platform/mp4_hdr_probe.dart';
 import '../platform/native_sharing.dart';
 import '../data/attachment_transfer.dart';
 import 'attachment_comments_view.dart';
@@ -134,6 +139,21 @@ String? attachmentPreviewKind(Map<String, dynamic> metadata) {
   return null;
 }
 
+/// Whether a video is HDR (its own colour boxes, never the codec): decides if
+/// the viewer needs the native video view. Tests replace it.
+typedef HdrDetector = Future<bool> Function(Uri url);
+
+/// Measurements of the last card-to-native-view handoff of an HDR video
+/// (milliseconds from the decision to the first frame, and where it started).
+class HdrHandoff {
+  const HdrHandoff(this.milliseconds, this.start);
+  final int milliseconds;
+  final Duration start;
+}
+
+@visibleForTesting
+HdrHandoff? debugLastHdrHandoff;
+
 class AttachmentPreviewDialog extends StatefulWidget {
   const AttachmentPreviewDialog({
     super.key,
@@ -146,6 +166,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
     this.files,
     this.pdf,
     this.playerFactory,
+    this.hdrDetector,
     this.page = false,
   });
   final WorkspaceController controller;
@@ -157,6 +178,9 @@ class AttachmentPreviewDialog extends StatefulWidget {
   final AttachmentPreviewFiles? files;
   final NativePdfRenderer? pdf;
   final AttachmentPlayer Function()? playerFactory;
+
+  /// Replaces the HDR probe (tests).
+  final HdrDetector? hdrDetector;
   final bool page;
   @override
   State<AttachmentPreviewDialog> createState() =>
@@ -167,6 +191,14 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     with WidgetsBindingObserver {
   final cancel = CancelToken();
   SharedFileLease? lease;
+
+  /// The shared stream (the card's player when one exists) and, for an HDR
+  /// video, the viewer's own native-view player ([hdrHold]); [player] is the
+  /// one on screen.
+  PlayerHold? hold, hdrHold;
+
+  /// The audio viewer's own player (it plays the cached file).
+  AttachmentPlayer? ownPlayer;
   AttachmentPlayer? player;
   StreamSubscription<AttachmentPlayback>? playbackEvents;
   AttachmentPlayback playback = const AttachmentPlayback();
@@ -265,7 +297,32 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           truncated = value['truncated'] == true;
         });
         unawaited(storeDocument(document!, truncated));
-      } else if (['pdf', 'audio', 'video'].contains(kind)) {
+      } else if (kind == 'video') {
+        // Streamed, never downloaded first: the viewer takes the card's player
+        // over when there is one (same stream, same position), otherwise it
+        // opens the attachment's URL itself.
+        final owner =
+            widget.channelId ?? widget.metadata['channelId'] as String?;
+        final acquired = widget.controller.playerSessions.acquire(
+          attachmentMediaKey(widget.metadata),
+          scope: widget.controller.attachmentImageScope,
+          channelId: owner,
+          viewer: true,
+          create:
+              widget.playerFactory ??
+              () => createAttachmentPlayer(video: true),
+          source: () => attachmentStreamSource(
+            widget.controller,
+            '${widget.metadata['id']}',
+            channelId: owner,
+          ),
+        );
+        hold = acquired;
+        bindPlayer(acquired.player);
+        await acquired.ready;
+        if (!current || ticket != request) return;
+        unawaited(considerHdr(acquired));
+      } else if (kind == 'pdf' || kind == 'audio') {
         final owner =
             widget.channelId ?? widget.metadata['channelId'] as String?;
         Future<String> resolveUrl() => widget.controller.attachmentUrl(
@@ -276,34 +333,21 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         final filename = '${widget.metadata['filename'] ?? 'attachment'}';
         // PDF and audio come from the persistent cache when it holds them
         // (no request, not even for the signed URL) and are kept after the
-        // first download. Video keeps its own path.
-        final SharedFileLease? prepared;
-        if (kind == 'video') {
-          final url = await resolveUrl();
-          if (!current || ticket != request) return;
-          prepared = await files.load(
-            url,
-            filename,
-            cancel: cancel,
-            authorized: () => current,
-            onProgress: transfer.report,
-          );
-        } else {
-          prepared = await files.loadCached(
-            cache: widget.controller.attachmentDiskCache,
-            key: widget.controller.attachmentCacheKey(
-              widget.metadata,
-              'file',
-              channelId: owner ?? '',
-            ),
-            resolveUrl: resolveUrl,
-            filename: filename,
-            expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
-            cancel: cancel,
-            authorized: () => current,
-            onProgress: transfer.report,
-          );
-        }
+        // first download. Video is streamed (above).
+        final prepared = await files.loadCached(
+          cache: widget.controller.attachmentDiskCache,
+          key: widget.controller.attachmentCacheKey(
+            widget.metadata,
+            'file',
+            channelId: owner ?? '',
+          ),
+          resolveUrl: resolveUrl,
+          filename: filename,
+          expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
+          cancel: cancel,
+          authorized: () => current,
+          onProgress: transfer.report,
+        );
         if (!current || ticket != request || prepared == null) {
           await prepared?.dispose();
           return;
@@ -312,24 +356,12 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         if (kind == 'pdf') {
           await loadPage(0);
         } else {
-          player =
-              (widget.playerFactory ??
-              () => createAttachmentPlayer(
-                video: kind == 'video',
-                hdr: kind == 'video',
-              ))();
-          playbackEvents = player!.changes.listen((value) {
-            if (!current) return;
-            setState(() {
-              playback = value;
-              if (value.error) {
-                error =
-                    'The media could not be played. Download the original file.';
-                unawaited(player!.pause().catchError((_) {}));
-              }
-            });
-          });
-          await player!.open(lease!.file);
+          // The audio viewer plays the cached file with a player of its own.
+          final own =
+              (widget.playerFactory ?? () => createAttachmentPlayer(video: false))();
+          ownPlayer = own;
+          bindPlayer(own);
+          await own.open(AttachmentSource.file(prepared.file));
         }
       } else {
         throw const FormatException('The file cannot be previewed.');
@@ -340,7 +372,10 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           error = 'Preview unavailable. Download the original file.';
           // Nothing was prepared: the bytes never arrived (or the preview
           // service failed), so a retry can still help.
-          fetchFailed = lease == null && document == null;
+          fetchFailed =
+              (kind == 'pdf' || kind == 'audio') &&
+              lease == null &&
+              document == null;
         });
       }
     } finally {
@@ -393,6 +428,183 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         channelId:
             widget.channelId ?? widget.metadata['channelId'] as String? ?? '',
       );
+
+  /// Shows [next]: its events drive the controls from now on.
+  void bindPlayer(AttachmentPlayer next) {
+    final old = playbackEvents;
+    playbackEvents = null;
+    unawaited(old?.cancel());
+    player = next;
+    playback = next.playback;
+    playbackEvents = next.changes.listen((value) {
+      if (!current || !identical(player, next)) return;
+      setState(() {
+        playback = value;
+        if (value.error) {
+          error = 'The media could not be played. Download the original file.';
+          unawaited(next.pause().catchError((_) {}));
+        }
+      });
+    });
+    if (mounted) setState(() {});
+  }
+
+  // ---- HDR: the native view needs a player of its own ----------------------
+
+  bool get platformViewsAvailable =>
+      widget.hdrDetector != null ||
+      (widget.playerFactory == null &&
+          attachmentBackendFor(defaultTargetPlatform) ==
+              AttachmentBackend.system);
+
+  Future<bool> detectHdr() async {
+    final key = attachmentMediaKey(widget.metadata);
+    final verdicts = widget.controller.playerSessions.hdrVerdicts;
+    final known = verdicts[key];
+    if (known != null) return known;
+    final owner = widget.channelId ?? widget.metadata['channelId'] as String?;
+    final url = AttachmentFiles.attachmentUri(
+      await widget.controller.attachmentUrl(
+        '${widget.metadata['id']}',
+        channelId: owner,
+        coalesce: true,
+      ),
+    );
+    final detector = widget.hdrDetector;
+    final verdict = detector != null
+        ? await detector(url)
+        : (await probeMp4Color(AttachmentHttp.shared, url, cancel: cancel))?.hdr ??
+              false;
+    if (verdicts.length > 64) verdicts.remove(verdicts.keys.first);
+    return verdicts[key] = verdict;
+  }
+
+  /// An HDR video needs the native view (`SurfaceView`, `AVPlayerLayer`): a
+  /// controller's view type is fixed when it is created, so the viewer opens a
+  /// player of its own at the card's position (streaming reads only the rest),
+  /// pauses the shared one, and hands the position back on close. SDR videos
+  /// never get here: they keep the shared texture player, seamlessly.
+  Future<void> considerHdr(PlayerHold shared) async {
+    if (!platformViewsAvailable || hdrHold != null) return;
+    try {
+      if (!await detectHdr() || !current || hdrHold != null || exiting) return;
+      final started = Stopwatch()..start();
+      final base = shared.player.playback;
+      await shared.player.pause();
+      final owner = widget.channelId ?? widget.metadata['channelId'] as String?;
+      final native = widget.controller.playerSessions.acquire(
+        '${attachmentMediaKey(widget.metadata)}|hdr',
+        scope: widget.controller.attachmentImageScope,
+        channelId: owner,
+        viewer: true,
+        create:
+            widget.playerFactory ??
+            () => createAttachmentPlayer(video: true, hdr: true),
+        source: () => attachmentStreamSource(
+          widget.controller,
+          '${widget.metadata['id']}',
+          channelId: owner,
+          start: base.position,
+        ),
+      );
+      hdrHold = native;
+      await native.ready;
+      if (!current || exiting || !identical(hdrHold, native)) {
+        if (identical(hdrHold, native)) hdrHold = null;
+        native.release();
+        return;
+      }
+      if (base.playing) await native.player.toggle();
+      debugLastHdrHandoff = HdrHandoff(started.elapsedMilliseconds, base.position);
+      debugPrint(
+        'raft.media: hdr handoff ${started.elapsedMilliseconds} ms at ${base.position.inMilliseconds} ms',
+      );
+      bindPlayer(native.player);
+    } on Object {
+      // The shared texture player keeps playing; HDR is a refinement.
+      if (hdrHold != null && !identical(player, hdrHold!.player)) {
+        hdrHold?.release();
+        hdrHold = null;
+      }
+    }
+  }
+
+  /// While the shared player catches up with the native view's position the
+  /// stage stays black: its texture still shows an old frame until the seek
+  /// lands, and that frame flashed during the exit.
+  bool swappingBack = false;
+
+  /// Back from the native view to the shared player, at the position (and
+  /// play state) the native one reached: the card carries on from there.
+  Future<void> endHdr({bool rebind = true}) async {
+    final native = hdrHold, shared = hold;
+    if (native == null) return;
+    hdrHold = null;
+    final last = native.player.playback;
+    if (rebind && mounted) setState(() => swappingBack = true);
+    native.release();
+    if (shared != null && !shared.orphaned) {
+      try {
+        await shared.player.seek(last.position);
+        if (last.playing) await shared.player.toggle();
+      } on Object {
+        // best effort
+      }
+    }
+    if (rebind && shared != null && !shared.orphaned && mounted) {
+      bindPlayer(shared.player);
+      setState(() => swappingBack = false);
+    }
+  }
+
+  // ---- the route's transition vs the native view ---------------------------
+
+  ModalRoute<dynamic>? route;
+  bool entered = false, exiting = false;
+
+  void routeMoved() {
+    final r = route;
+    if (r == null) return;
+    final animation = r.animation;
+    final gesture = r.navigator?.userGestureInProgress ?? false;
+    final nowExiting =
+        animation?.status == AnimationStatus.reverse ||
+        gesture ||
+        !r.isActive;
+    final nowEntered = animation == null || animation.isCompleted;
+    if (nowExiting == exiting && nowEntered == entered) return;
+    setState(() {
+      exiting = nowExiting;
+      entered = nowEntered;
+    });
+    // The first moment of any pop (close button, system back, back gesture,
+    // Escape): the native view must be gone before the slide, or it lags the
+    // Flutter content. The shared texture player takes the picture over.
+    if (nowExiting && hdrHold != null) unawaited(endHdr());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = ModalRoute.of(context);
+    if (identical(next, route)) return;
+    route?.animation?.removeListener(routeMoved);
+    route?.navigator?.userGestureInProgressNotifier.removeListener(routeMoved);
+    route = next;
+    next?.animation?.addListener(routeMoved);
+    next?.navigator?.userGestureInProgressNotifier.addListener(routeMoved);
+    entered = next?.animation == null || next!.animation!.isCompleted;
+  }
+
+  /// The picture: a native view only while the route rests (it neither slides
+  /// in nor out with Flutter content), black stage otherwise.
+  Widget videoSurface(AttachmentPlayer p) {
+    if (!swappingBack && (!p.usesPlatformView || (entered && !exiting))) {
+      return p.video();
+    }
+    // ds-allow: video stage is black by design (Web VideoPreviewBody)
+    return const ColoredBox(color: Color(0xFF000000));
+  }
 
   Future<void> loadPage(int next) async {
     if (!current || lease == null) return;
@@ -452,12 +664,20 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   }
 
   Future<void> releaseInputs() => cleanup ??= () async {
-    final heldPlayer = player, heldLease = lease;
+    final heldLease = lease;
     try {
+      route?.animation?.removeListener(routeMoved);
+      route?.navigator?.userGestureInProgressNotifier.removeListener(routeMoved);
       await playbackEvents?.cancel();
-      await heldPlayer?.dispose();
+      // The native view's player is the viewer's own: it goes, and the shared
+      // player (the card's, when there is one) continues from its position.
+      await endHdr(rebind: false);
+      // Gives the shared player back: the card keeps it (playing or paused as
+      // it was); with no card it is freed (a reopen streams again).
+      hold?.release();
+      await ownPlayer?.dispose();
     } catch (_) {
-      // A failing native decoder must not retain its private file.
+      // A failing native player must not keep anything.
     } finally {
       await heldLease?.dispose();
     }
@@ -475,7 +695,11 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   }
 
   /// Initial fetch of the file or its preview data (not a PDF page turn).
-  bool get fetching => loading && lease == null && document == null;
+  bool get fetching =>
+      (kind == 'pdf' || kind == 'audio') &&
+      loading &&
+      lease == null &&
+      document == null;
 
   /// File head, bar and `1.7 / 2.8 MB · 62%` with Cancel (leaving the
   /// preview cancels the download), or the failed state with Retry.
@@ -552,9 +776,14 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
               : fetching || fetchFailed
               ? Center(child: transferPanel(context))
               : loading
-              ? const Center(child: RaftSpinner())
+              ? Center(
+                  child: RaftSpinner(
+                    inverse: kind == 'video',
+                    size: kind == 'video' ? 32 : null,
+                  ),
+                )
               : error != null
-              ? RaftLoadError(error!)
+              ? RaftLoadError(error!, onDark: kind == 'video')
               : document != null
               ? RaftDocumentPreview(data: document!, truncated: truncated)
               : kind == 'pdf' && pageBytes != null
@@ -570,9 +799,10 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
               : kind == 'video' && player != null
               ? RaftVideoViewer(
                   filename: '${widget.metadata['filename'] ?? ''}',
-                  video: player!.video(),
+                  video: videoSurface(player!),
                   videoSize: playback.videoSize,
                   playing: playback.playing,
+                  buffering: playback.buffering,
                   position: playback.position,
                   duration: playback.duration,
                   volume: playback.volume,

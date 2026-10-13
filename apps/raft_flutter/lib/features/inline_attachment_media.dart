@@ -1,39 +1,40 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_player_factory.dart';
-import '../platform/attachment_preview_files.dart';
-import '../platform/inline_media_files.dart';
-
-/// Tests replace the transfer of the local copy (the product downloads it to a
-/// private temporary folder).
-@visibleForTesting
-AttachmentPreviewFiles Function()? debugInlinePreviewFiles;
+import '../platform/attachment_player_sessions.dart';
+import '../platform/attachment_stream.dart';
 
 /// Seams for suites that mount the real message rows without a decoder (the
-/// parity extension suite): files and players handed to every inline card that
-/// has no explicit override. Null in the product.
+/// parity extension suite): the player handed to every inline card that has no
+/// explicit override. Null in the product.
 abstract final class InlineMediaTestHooks {
-  static AttachmentPreviewFiles? files;
   static AttachmentPlayer Function()? playerFactory;
 }
 
+/// Why a card gave its player back (see `InlineMediaLoader.releasePlayer`).
+enum PlayerRelease { ended, offscreen, hidden, background, evicted }
+
 /// Loads one attachment's inline media the way Web's inline cards do: the URL
-/// (`disposition=inline`) is read once the card is on screen, then the media is
-/// prepared (here: a private local copy opened by the native player) and the
-/// card plays it. Failures read as "Download to view".
+/// (`disposition=inline`) is signed once the card is on screen, then the
+/// player opens it and streams it (progressive range reads; nothing is saved
+/// or downloaded first) and the card plays it. Failures read as "Download to
+/// view".
+///
+/// The player belongs to a session shared with the full-screen viewer of the
+/// same attachment (see [PlayerSessions]): the card holds it, never owns it.
 mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   WorkspaceController get controller;
   Map<String, dynamic> get metadata;
   String? get channelId;
   bool get pending;
   bool Function() get authorized;
-  AttachmentPreviewFiles? get filesOverride;
   AttachmentPlayer Function()? get playerFactoryOverride;
   bool get wantsVideo;
 
@@ -50,8 +51,14 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   /// Every native playback event, after the state was updated.
   void playbackChanged(AttachmentPlayback value) {}
 
-  final cancel = CancelToken();
-  InlineMediaHold? hold;
+  PlayerHold? hold;
+  Duration resumeAt = Duration.zero;
+
+  /// A downscaled still of the last picture, shown while no player exists (after
+  /// playback ended, or the player was released to free its decoder).
+  ui.Image? still;
+  final stillKey = GlobalKey();
+
   AttachmentPlayer? player;
   StreamSubscription<AttachmentPlayback>? playbackEvents;
   AttachmentPlayback playback = const AttachmentPlayback();
@@ -59,19 +66,30 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   bool disposed = false;
 
   String get filename => '${metadata['filename'] ?? 'attachment'}';
-  bool get current =>
-      mounted && !disposed && !cancel.isCancelled && authorized();
+  bool get current => mounted && !disposed && authorized();
 
-  /// A card must stay built this long before it starts a download: a fast
-  /// scroll past a column of clips would otherwise start (and abandon) one
-  /// per clip.
+  /// A full-screen viewer holds this card's player: the card must not pause
+  /// or stop it (the viewer shows it).
+  bool get viewerHolds => hold?.session.viewerOpen ?? false;
+
+  /// A card must stay built this long before it prepares its player: a fast
+  /// scroll past a column of clips would otherwise open (and abandon) one per
+  /// clip.
   static const settle = Duration(milliseconds: 250);
   Timer? settleTimer;
+
+  String get mediaKey => attachmentMediaKey(metadata);
 
   @override
   void initState() {
     super.initState();
-    if (!pending && autoLoad) {
+    final sessions = controller.playerSessions;
+    // A card built again for an attachment prepared earlier shows its last
+    // picture and where it stopped, and prepares on a tap (see
+    // PlayerSessions.prepared), never by itself.
+    still = sessions.stillFor(mediaKey);
+    resumeAt = sessions.resumeAt[mediaKey] ?? Duration.zero;
+    if (!pending && autoLoad && !sessions.prepared.contains(mediaKey)) {
       // Web: an IntersectionObserver (160px margin) starts the load once the
       // card is near the viewport; the list only builds rows that are.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -108,6 +126,15 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
     return card.overlaps(view.inflate(margin));
   }
 
+  AttachmentPlayer createPlayer() =>
+      (playerFactoryOverride ??
+      InlineMediaTestHooks.playerFactory ??
+      () => createAttachmentPlayer(
+        video: wantsVideo,
+        maxVideoSize: maxVideoSize,
+        transparentVideo: transparentVideo,
+      ))();
+
   Future<void> loadMedia() async {
     if (mediaState == RaftInlineMediaState.loading ||
         mediaState == RaftInlineMediaState.ready) {
@@ -116,67 +143,164 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
     setState(() => mediaState = RaftInlineMediaState.loading);
     try {
       final owner = channelId ?? metadata['channelId'] as String?;
-      final files =
-          filesOverride ??
-          InlineMediaTestHooks.files ??
-          debugInlinePreviewFiles?.call() ??
-          AttachmentPreviewFiles();
-      // One copy per attachment for the session: a clip scrolled out of view
-      // and back is not downloaded (nor its URL signed) again.
-      final prepared = await controller.inlineMedia.acquire(
-        '${metadata['id']}|${metadata['contentVersion'] ?? metadata['contentHash'] ?? metadata['updatedAt'] ?? ''}',
+      // One player per attachment for the session, shared with the viewer: a
+      // clip scrolled out of view and back, or opened full screen, continues
+      // from its own stream.
+      final acquired = controller.playerSessions.acquire(
+        mediaKey,
         scope: controller.attachmentImageScope,
         channelId: owner,
-        load: (shared, wanted) async {
-          final url = await controller.attachmentUrl(
-            '${metadata['id']}',
-            channelId: owner,
-            coalesce: true,
-          );
-          if (!wanted()) return null;
-          return files.load(
-            url,
-            filename,
-            cancel: shared,
-            authorized: () => wanted() && authorized(),
-          );
-        },
+        create: createPlayer,
+        source: () => attachmentStreamSource(
+          controller,
+          '${metadata['id']}',
+          channelId: owner,
+          start: resumeAt,
+        ),
       );
-      if (!current) {
-        prepared?.release();
-        return;
-      }
-      if (prepared == null) {
-        // Too large for a private copy (or the download was refused).
-        setState(() => mediaState = RaftInlineMediaState.failed);
-        return;
-      }
-      hold = prepared;
-      player =
-          (playerFactoryOverride ??
-          InlineMediaTestHooks.playerFactory ??
-          () => createAttachmentPlayer(
-            video: wantsVideo,
-            maxVideoSize: maxVideoSize,
-            transparentVideo: transparentVideo,
-          ))();
-      playbackEvents = player!.changes.listen((value) {
+      controller.playerSessions.prepared.add(mediaKey);
+      hold = acquired;
+      acquired.onEvicted = () => unawaited(releasePlayer(PlayerRelease.evicted));
+      player = acquired.player;
+      playback = acquired.player.playback;
+      playbackEvents = acquired.player.changes.listen((value) {
         if (!current) return;
         setState(() {
           playback = value;
           if (value.error) mediaState = RaftInlineMediaState.failed;
         });
         playbackChanged(value);
+        if (value.hasFrame) keepFirstStill();
+        if (mediaState == RaftInlineMediaState.ready && playbackEnded(value)) {
+          scheduleEndedRelease();
+        }
       });
-      await player!.open(prepared.file);
-      if (current) {
-        setState(() => mediaState = RaftInlineMediaState.ready);
+      await acquired.ready;
+      if (current && !acquired.orphaned) {
+        setState(() {
+          playback = acquired.player.playback;
+          mediaState = RaftInlineMediaState.ready;
+        });
         mediaReady();
       }
     } catch (_) {
       if (current) setState(() => mediaState = RaftInlineMediaState.failed);
     }
   }
+
+  /// Playback reached the end and stopped.
+  static bool playbackEnded(AttachmentPlayback value) =>
+      !value.playing &&
+      !value.error &&
+      value.duration > Duration.zero &&
+      value.position >= value.duration - const Duration(milliseconds: 250);
+
+  bool endedReleaseQueued = false;
+  void scheduleEndedRelease() {
+    if (endedReleaseQueued || viewerHolds) return;
+    endedReleaseQueued = true;
+    // After this frame: the release changes the card's state.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      endedReleaseQueued = false;
+      if (!mounted || disposed || viewerHolds) return;
+      final value = playback;
+      if (playbackEnded(value)) unawaited(releasePlayer(PlayerRelease.ended));
+    });
+  }
+
+  /// How long a card that left the screen keeps its player.
+  static const releaseGrace = Duration(seconds: 3);
+  Timer? graceTimer;
+
+  /// The card is out of view (scrolled away, route covered, app in the
+  /// background): release its player after [releaseGrace], unless the viewer
+  /// holds it. [cancelRelease] undoes it when the card is seen again.
+  void armRelease(PlayerRelease reason) {
+    if (player == null || graceTimer != null || viewerHolds) return;
+    graceTimer = Timer(releaseGrace, () {
+      graceTimer = null;
+      if (!mounted || disposed || viewerHolds) return;
+      unawaited(releasePlayer(reason));
+    });
+  }
+
+  void cancelRelease() {
+    graceTimer?.cancel();
+    graceTimer = null;
+  }
+
+  bool stillQueued = false;
+
+  /// The first picture becomes the card's still in the session (once per
+  /// attachment): a card disposed with its player alive (a list drops rows far
+  /// from the viewport) still has a picture when it is built again.
+  void keepFirstStill() {
+    final sessions = controller.playerSessions;
+    if (stillQueued || sessions.hasStill(mediaKey)) return;
+    stillQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final image = mounted && !disposed ? await captureStill() : null;
+      if (image == null) return;
+      if (disposed) {
+        image.dispose();
+        return;
+      }
+      sessions.keepStill(mediaKey, image);
+      image.dispose();
+    });
+  }
+
+  /// A downscaled still of the picture on screen, or null.
+  Future<ui.Image?> captureStill() async {
+    final boundary = stillKey.currentContext?.findRenderObject();
+    if (boundary is! RenderRepaintBoundary || !playback.hasFrame) return null;
+    try {
+      return await boundary.toImage(pixelRatio: 1.5);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Frees the native player (decoder and frame buffers) and keeps a still of
+  /// the last picture; the card is idle again and a tap prepares a new player
+  /// (a stream: only the ranges needed). [PlayerRelease.ended] restarts at 0,
+  /// the others resume where the card was.
+  Future<void> releasePlayer(PlayerRelease reason) async {
+    final held = hold;
+    if (held == null || disposed) return;
+    cancelRelease();
+    final last = playback;
+    final captured = reason == PlayerRelease.evicted && held.orphaned
+        ? null
+        : await captureStill();
+    if (disposed || !mounted || !identical(hold, held)) {
+      captured?.dispose();
+      return;
+    }
+    resumeAt = reason == PlayerRelease.ended ? Duration.zero : last.position;
+    final sessions = controller.playerSessions;
+    sessions.resumeAt[mediaKey] = resumeAt;
+    if (captured != null) sessions.keepStill(mediaKey, captured);
+    final events = playbackEvents;
+    hold = null;
+    player = null;
+    playbackEvents = null;
+    unawaited(events?.cancel());
+    held.release();
+    final old = still;
+    setState(() {
+      if (captured != null) still = captured;
+      mediaState = RaftInlineMediaState.idle;
+      playback = AttachmentPlayback(duration: last.duration, videoSize: last.videoSize);
+    });
+    if (old != null && captured != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
+    mediaReleased(reason);
+  }
+
+  /// The player was released (see [releasePlayer]).
+  void mediaReleased(PlayerRelease reason) {}
 
   Future<void> guarded(Future<void> Function(AttachmentPlayer) run) async {
     final p = player;
@@ -192,20 +316,22 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   void dispose() {
     disposed = true;
     settleTimer?.cancel();
-    cancel.cancel();
-    final held = player, heldCopy = hold, events = playbackEvents;
+    graceTimer?.cancel();
+    if (hold != null && !pending) {
+      controller.playerSessions.resumeAt[mediaKey] = playbackEnded(playback)
+          ? Duration.zero
+          : playback.position;
+    }
+    final events = playbackEvents, held = hold, picture = still;
     hold = null;
-    unawaited(() async {
-      try {
-        unawaited(events?.cancel());
-        await held?.dispose();
-      } catch (_) {
-        // A failing native decoder must not retain its copy.
-      } finally {
-        // Gives the copy back; the session cache decides whether it stays.
-        heldCopy?.release();
-      }
-    }());
+    player = null;
+    playbackEvents = null;
+    still = null;
+    picture?.dispose();
+    unawaited(events?.cancel());
+    // Gives the player back; the session disposes it when nobody holds it
+    // (a viewer may still), or keeps it paused for a moment.
+    held?.release();
     super.dispose();
   }
 }
@@ -221,7 +347,6 @@ class InlineVideoAttachment extends StatefulWidget {
     required this.pending,
     this.onOpenPreview,
     this.onDownload,
-    this.files,
     this.playerFactory,
   });
   final WorkspaceController controller;
@@ -232,7 +357,6 @@ class InlineVideoAttachment extends StatefulWidget {
   /// An optimistic (still uploading) attachment: no URL yet, spinner shown.
   final bool pending;
   final VoidCallback? onOpenPreview, onDownload;
-  final AttachmentPreviewFiles? files;
   final AttachmentPlayer Function()? playerFactory;
 
   @override
@@ -240,7 +364,7 @@ class InlineVideoAttachment extends StatefulWidget {
 }
 
 class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
-    with InlineMediaLoader {
+    with InlineMediaLoader, WidgetsBindingObserver {
   /// One video plays at a time: the one that last started.
   static _InlineVideoAttachmentState? active;
 
@@ -265,8 +389,6 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   bool get pending => widget.pending;
   @override
   bool Function() get authorized => widget.authorized;
-  @override
-  AttachmentPreviewFiles? get filesOverride => widget.files;
   @override
   AttachmentPlayer Function()? get playerFactoryOverride =>
       widget.playerFactory;
@@ -299,20 +421,24 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
 
   @override
   void playbackChanged(AttachmentPlayback value) {
+    hold?.touch();
     if (value.playing) {
       if (active != this) {
         final other = active;
         active = this;
         other?.pauseForOther();
       }
-      watchViewport();
-    } else {
-      unwatchViewport();
-      if (active == this) active = null;
+    } else if (active == this) {
+      active = null;
     }
   }
 
-  void pauseForOther() => unawaited(guarded((p) => p.pause()));
+  /// Another card started, this one scrolled away or got covered: pause,
+  /// unless the viewer holds the player (it is playing there).
+  void pauseForOther() {
+    if (viewerHolds) return;
+    unawaited(guarded((p) => p.pause()));
+  }
 
   Future<void> play() async {
     final other = active;
@@ -326,9 +452,15 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   Future<void> togglePlay() async {
     if (widget.pending) return;
     if (mediaState == RaftInlineMediaState.idle) {
-      // A large video: the first play fetches it, then plays.
+      // A large video: the first play prepares the player, then plays.
       playRequested = true;
       await loadMedia();
+      return;
+    }
+    if (mediaState == RaftInlineMediaState.loading) {
+      // The player is still being prepared: the tap is kept and honoured the
+      // moment it is ready (mediaReady), never dropped.
+      playRequested = true;
       return;
     }
     if (mediaState != RaftInlineMediaState.ready) return;
@@ -359,7 +491,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   /// The scroll offset changed; the cards' paint offsets only follow with the
   /// frame, so measure after it (once per frame).
   void checkViewport() {
-    if (viewportCheckQueued || !mounted || !playback.playing) return;
+    if (viewportCheckQueued || !mounted) return;
     viewportCheckQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       viewportCheckQueued = false;
@@ -368,7 +500,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   }
 
   void measureViewport() {
-    if (!mounted || !playback.playing) return;
+    if (!mounted) return;
     final box = context.findRenderObject();
     final viewport = Scrollable.maybeOf(context)?.context.findRenderObject();
     if (box is! RenderBox ||
@@ -379,32 +511,59 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
     }
     final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
     final bottom = top + box.size.height;
-    if (bottom < -offscreenMargin ||
-        top > viewport.size.height + offscreenMargin) {
-      pauseForOther();
+    final outside =
+        bottom < -offscreenMargin ||
+        top > viewport.size.height + offscreenMargin;
+    if (outside) {
+      // A playing video pauses at once (Web); its player is released after a
+      // grace period so a quick scroll back finds it.
+      if (playback.playing) pauseForOther();
+      armRelease(PlayerRelease.offscreen);
+    } else {
+      cancelRelease();
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // A route or tab hidden behind another one stops its video.
-    if (!TickerMode.valuesOf(context).enabled && playback.playing) {
-      pauseForOther();
+    watchViewport();
+    // A route or tab hidden behind another one stops its video and, after a
+    // grace period, frees its player.
+    if (!TickerMode.valuesOf(context).enabled) {
+      if (playback.playing) pauseForOther();
+      armRelease(PlayerRelease.hidden);
+    } else {
+      cancelRelease();
     }
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
+      armRelease(PlayerRelease.background);
+    } else if (state == AppLifecycleState.resumed) {
+      cancelRelease();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unwatchViewport();
     if (active == this) active = null;
     super.dispose();
   }
 
-  void openPreview() {
-    pauseForOther();
-    widget.onOpenPreview?.call();
-  }
+  /// The viewer takes this card's player over (same stream, same position);
+  /// the card neither pauses nor releases it.
+  void openPreview() => widget.onOpenPreview?.call();
 
   @override
   Widget build(BuildContext context) {
@@ -414,8 +573,14 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
       child: RaftInlineVideo(
         state: widget.pending ? RaftInlineMediaState.loading : mediaState,
         filename: filename,
-        video: player?.video(),
-        poster: poster == null || playback.hasFrame
+        video: player == null
+            ? null
+            : RepaintBoundary(key: stillKey, child: player!.video()),
+        poster: playback.hasFrame
+            ? null
+            : still != null
+            ? RawImage(image: still, fit: BoxFit.contain)
+            : poster == null
             ? null
             : RaftSizedImage.network(
                 poster,
@@ -425,6 +590,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
         playing: playback.playing,
+        buffering: playback.buffering,
         position: playback.position,
         duration: playback.duration,
         volume: playback.volume,
@@ -450,7 +616,6 @@ class InlineAudioAttachment extends StatefulWidget {
     required this.authorized,
     required this.pending,
     this.onDownload,
-    this.files,
     this.playerFactory,
   });
   final WorkspaceController controller;
@@ -459,7 +624,6 @@ class InlineAudioAttachment extends StatefulWidget {
   final bool Function() authorized;
   final bool pending;
   final VoidCallback? onDownload;
-  final AttachmentPreviewFiles? files;
   final AttachmentPlayer Function()? playerFactory;
 
   @override
@@ -479,12 +643,33 @@ class _InlineAudioAttachmentState extends State<InlineAudioAttachment>
   @override
   bool Function() get authorized => widget.authorized;
   @override
-  AttachmentPreviewFiles? get filesOverride => widget.files;
-  @override
   AttachmentPlayer Function()? get playerFactoryOverride =>
       widget.playerFactory;
   @override
   bool get wantsVideo => false;
+
+  bool playRequested = false;
+
+  @override
+  void mediaReady() {
+    if (!playRequested) return;
+    playRequested = false;
+    unawaited(guarded((p) => p.toggle()));
+  }
+
+  /// A tap on an audio card whose player is released or still being prepared
+  /// prepares it and plays as soon as it is ready; it is never dropped.
+  Future<void> togglePlay() async {
+    if (widget.pending) return;
+    if (mediaState == RaftInlineMediaState.idle) {
+      playRequested = true;
+      await loadMedia();
+    } else if (mediaState == RaftInlineMediaState.loading) {
+      playRequested = true;
+    } else if (mediaState == RaftInlineMediaState.ready) {
+      await guarded((p) => p.toggle());
+    }
+  }
 
   @override
   Widget build(BuildContext context) => RaftInlineAudio(
@@ -495,7 +680,7 @@ class _InlineAudioAttachmentState extends State<InlineAudioAttachment>
     duration: playback.duration,
     volume: (playback.volume / 100).clamp(0.0, 1.0),
     onDownload: widget.pending ? null : widget.onDownload,
-    onTogglePlay: () => guarded((p) => p.toggle()),
+    onTogglePlay: () => unawaited(togglePlay()),
     onSeek: (v) => guarded((p) => p.seek(v)),
     onVolume: (v) => guarded((p) => p.volume(v * 100)),
   );

@@ -14,8 +14,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
 import 'package:raft_flutter/platform/attachment_http.dart';
-import 'package:raft_flutter/platform/attachment_preview_files.dart';
-import 'package:raft_flutter/platform/native_sharing.dart';
+import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -282,30 +281,48 @@ class MemoryImageStore implements AttachmentImageByteStore {
   Future<void> purgeIdentity(String identity) async {}
 }
 
-/// Stands in for the private-folder download of inline media: the transfer
-/// goes through the (metered) storage client, the copy is a temp file.
-class FakeMediaFiles extends AttachmentPreviewFiles {
+/// Stands in for the platform player of inline media: opening it reads the
+/// streamed URL once through the (metered) storage client, like the first
+/// ranged request of ExoPlayer or AVPlayer does.
+class FakeMediaFiles {
   FakeMediaFiles(this.dir);
   final Directory dir;
   var loads = 0;
+  AttachmentPlayer player() => _StreamPlayer(this);
+}
+
+class _StreamPlayer implements AttachmentPlayer {
+  _StreamPlayer(this.owner);
+  final FakeMediaFiles owner;
+  final _events = StreamController<AttachmentPlayback>.broadcast();
   @override
-  Future<SharedFileLease?> load(
-    String url,
-    String filename, {
-    required CancelToken cancel,
-    required bool Function() authorized,
-    void Function(int, int)? onProgress,
-  }) async {
-    loads++;
-    await AttachmentHttp.shared.get<List<int>>(
-      url,
+  Stream<AttachmentPlayback> get changes => _events.stream;
+  @override
+  AttachmentPlayback get playback => const AttachmentPlayback();
+  @override
+  bool get usesPlatformView => false;
+  @override
+  Widget video() => const SizedBox.shrink();
+  @override
+  Future<void> open(AttachmentSource source) async {
+    owner.loads++;
+    await AttachmentHttp.shared.getUri<List<int>>(
+      source.url!,
       options: Options(responseType: ResponseType.bytes),
-      cancelToken: cancel,
     );
-    if (!authorized() || cancel.isCancelled) return null;
-    final folder = dir.createTempSync('media-');
-    final file = File('${folder.path}/$filename')..writeAsBytesSync([1, 2, 3]);
-    return SharedFileLease(file, lifetime: const Duration(hours: 1));
+  }
+
+  @override
+  Future<void> toggle() async {}
+  @override
+  Future<void> pause() async {}
+  @override
+  Future<void> seek(Duration value) async {}
+  @override
+  Future<void> volume(double value) async {}
+  @override
+  Future<void> dispose() async {
+    await _events.close();
   }
 }
 
@@ -388,9 +405,9 @@ Future<void> withScrollSession(
   addTearDown(() => AttachmentHttp.debugReplace(null));
   final mediaDir = Directory.systemTemp.createTempSync('scroll-session');
   final media = FakeMediaFiles(mediaDir);
-  debugInlinePreviewFiles = () => media;
+  InlineMediaTestHooks.playerFactory = media.player;
   addTearDown(() {
-    debugInlinePreviewFiles = null;
+    InlineMediaTestHooks.playerFactory = null;
     if (mediaDir.existsSync()) mediaDir.deleteSync(recursive: true);
   });
   server.routes['POST /auth/login'] = (_) => {
@@ -448,9 +465,9 @@ Future<void> withScrollSession(
     await tester.pump(const Duration(seconds: 1));
   }
   try {
-    (w as dynamic).inlineMedia.clear();
+    (w as dynamic).playerSessions.clear();
   } on NoSuchMethodError {
-    // The baseline has no session cache.
+    // The baseline has no player sessions.
   }
   await tester.pump(const Duration(seconds: 1));
 }

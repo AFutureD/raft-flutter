@@ -1,49 +1,37 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
 import 'package:raft_flutter/platform/attachment_player.dart';
-import 'package:raft_flutter/platform/attachment_preview_files.dart';
-import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter, fixture;
 
-class _Files extends AttachmentPreviewFiles {
-  _Files(this.lease, {this.refuse = false});
-  final SharedFileLease lease;
-
-  /// The download is refused (too large / cancelled): no private copy.
-  final bool refuse;
-  @override
-  Future<SharedFileLease?> load(
-    String url,
-    String filename, {
-    required CancelToken cancel,
-    required bool Function() authorized,
-    void Function(int, int)? onProgress,
-  }) async => refuse ? null : lease;
-}
-
 class _Player implements AttachmentPlayer {
   final events = StreamController<AttachmentPlayback>.broadcast();
   final calls = <String>[];
+  final sources = <AttachmentSource>[];
   bool disposed = false;
   @override
   Stream<AttachmentPlayback> get changes => events.stream;
+  AttachmentPlayback last = const AttachmentPlayback();
+  @override
+  AttachmentPlayback get playback => last;
+  @override
+  bool get usesPlatformView => false;
   @override
   Widget video() =>
       const ColoredBox(key: Key('fake-video-surface'), color: Colors.red);
   @override
-  Future<void> open(File file) async {
+  Future<void> open(AttachmentSource source) async {
+    sources.add(source);
     calls.add('open');
-    events.add(const AttachmentPlayback(duration: Duration(seconds: 125)));
+    last = const AttachmentPlayback(duration: Duration(seconds: 125));
+    events.add(last);
   }
 
   @override
@@ -72,6 +60,8 @@ class _VideoPlayer extends _Player {
   bool frame;
   bool playing = false;
   Duration position = Duration.zero;
+  @override
+  AttachmentPlayback get playback => state;
   AttachmentPlayback get state => AttachmentPlayback(
     playing: playing,
     position: position,
@@ -79,7 +69,8 @@ class _VideoPlayer extends _Player {
     hasFrame: frame,
   );
   @override
-  Future<void> open(File file) async {
+  Future<void> open(AttachmentSource source) async {
+    sources.add(source);
     calls.add('open');
     events.add(state);
   }
@@ -111,14 +102,13 @@ class _VideoPlayer extends _Player {
   }
 }
 
-/// Unmount and let the asynchronous player / lease disposal finish (the lease
-/// cancels its expiry timer).
+/// Unmount and let the asynchronous player disposal finish.
 dynamic _mounted;
 
 Future<void> unmount(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
-  // The session cache owns the copy; its lease timer ends with the test.
-  _mounted?.inlineMedia.clear();
+  // The sessions own the players; clearing them ends every player.
+  _mounted?.playerSessions.clear();
   for (var i = 0; i < 4; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
@@ -135,9 +125,9 @@ void main() {
     expect(raftAudioTimestamp(const Duration(seconds: -3)), '0:00');
   });
 
-  Future<(MessageAdapter, _Player, SharedFileLease)> mount(
+  Future<(MessageAdapter, _Player)> mount(
     WidgetTester tester, {
-    required Widget Function(dynamic w, _Files files, _Player player) build,
+    required Widget Function(dynamic w, Object? files, _Player player) build,
     bool failUrl = false,
   }) async {
     tester.view.physicalSize = const Size(600, 500);
@@ -149,29 +139,22 @@ void main() {
     api.routes['GET /attachments/a1/url'] = (_) => failUrl
         ? throw StateError('no url')
         : {'url': 'https://media.invalid/a1'};
-    // Synchronous IO: the test body runs in a fake-async zone.
-    final dir = Directory.systemTemp.createTempSync('inline-media-test');
-    final file = File('${dir.path}/clip.bin')..writeAsBytesSync([1, 2, 3]);
-    final lease = SharedFileLease(file, lifetime: const Duration(hours: 1));
-    addTearDown(() {
-      if (dir.existsSync()) dir.deleteSync(recursive: true);
-    });
     final player = _Player();
     await tester.pumpWidget(
       MaterialApp(
         theme: raftTheme(RaftFamily.elegant),
-        home: Scaffold(body: build(w, _Files(lease), player)),
+        home: Scaffold(body: build(w, null, player)),
       ),
     );
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    return (api, player, lease);
+    return (api, player);
   }
 
   testWidgets('audio: loads, plays, seeks and sets the volume', (tester) async {
     var downloads = 0;
-    final (_, player, _) = await mount(
+    final (_, player) = await mount(
       tester,
       build: (w, files, player) => InlineAudioAttachment(
         controller: w,
@@ -183,7 +166,6 @@ void main() {
         authorized: () => true,
         pending: false,
         onDownload: () => downloads++,
-        files: files,
         playerFactory: () => player,
       ),
     );
@@ -227,7 +209,7 @@ void main() {
     tester,
   ) async {
     var downloads = 0;
-    final (_, _, lease) = await mount(
+    await mount(
       tester,
       failUrl: true,
       build: (w, files, player) => InlineAudioAttachment(
@@ -236,7 +218,6 @@ void main() {
         authorized: () => true,
         pending: false,
         onDownload: () => downloads++,
-        files: files,
         playerFactory: () => player,
       ),
     );
@@ -246,7 +227,6 @@ void main() {
     expect(find.byKey(const Key('audio-download')), findsNothing);
     await tester.tap(find.byKey(const Key('audio-placeholder')));
     expect(downloads, 1);
-    unawaited(lease.dispose());
     await unmount(tester);
   });
 
@@ -254,7 +234,7 @@ void main() {
     'video: the player fills the 16:9 box; the corner opens the preview',
     (tester) async {
       var opened = 0;
-      final (_, player, _) = await mount(
+      final (_, player) = await mount(
         tester,
         build: (w, files, player) => InlineVideoAttachment(
           controller: w,
@@ -266,7 +246,6 @@ void main() {
           authorized: () => true,
           pending: false,
           onOpenPreview: () => opened++,
-          files: files,
           playerFactory: () => player,
         ),
       );
@@ -285,7 +264,7 @@ void main() {
     tester,
   ) async {
     var downloads = 0;
-    final (_, _, lease) = await mount(
+    await mount(
       tester,
       failUrl: true,
       build: (w, files, player) => InlineVideoAttachment(
@@ -294,7 +273,6 @@ void main() {
         authorized: () => true,
         pending: false,
         onDownload: () => downloads++,
-        files: files,
         playerFactory: () => player,
       ),
     );
@@ -304,19 +282,17 @@ void main() {
     );
     await tester.tap(find.text('Download to view'));
     expect(downloads, 1);
-    unawaited(lease.dispose());
     await unmount(tester);
   });
 
   testWidgets('an optimistic attachment never reads its URL', (tester) async {
-    final (api, player, lease) = await mount(
+    final (api, player) = await mount(
       tester,
       build: (w, files, player) => InlineAudioAttachment(
         controller: w,
         metadata: const {'id': 'a1', 'filename': 'standup.mp3'},
         authorized: () => true,
         pending: true,
-        files: files,
         playerFactory: () => player,
       ),
     );
@@ -324,7 +300,6 @@ void main() {
     expect(find.text('Loading standup.mp3'), findsOneWidget);
     expect(find.byKey(const Key('audio-download')), findsNothing);
     expect(player.calls, isEmpty);
-    unawaited(lease.dispose());
     await unmount(tester);
   });
 
@@ -338,7 +313,7 @@ void main() {
 
     final linux = TargetPlatformVariant.only(TargetPlatform.linux);
 
-    Future<(_VideoPlayer, SharedFileLease)> mountVideo(
+    Future<_VideoPlayer> mountVideo(
       WidgetTester tester, {
       Map<String, dynamic> metadata = meta,
       VoidCallback? onOpenPreview,
@@ -350,15 +325,9 @@ void main() {
       addTearDown(tester.view.reset);
       final (w, api) = (await tester.runAsync(() => fixture('owner')))!;
       addTearDown(w.dispose);
-      api.routes['GET /attachments/a1/url'] = (_) => {
-        'url': 'https://media.invalid/a1',
-      };
-      final dir = Directory.systemTemp.createTempSync('inline-video-test');
-      final file = File('${dir.path}/clip.bin')..writeAsBytesSync([1, 2, 3]);
-      final lease = SharedFileLease(file, lifetime: const Duration(hours: 1));
-      addTearDown(() {
-        if (dir.existsSync()) dir.deleteSync(recursive: true);
-      });
+      api.routes['GET /attachments/a1/url'] = (_) => refuse
+          ? throw StateError('no url')
+          : {'url': 'https://media.invalid/a1'};
       final player = _VideoPlayer(frame: frame);
       await tester.pumpWidget(
         MaterialApp(
@@ -370,7 +339,6 @@ void main() {
               authorized: () => true,
               pending: false,
               onOpenPreview: onOpenPreview,
-              files: _Files(lease, refuse: refuse),
               playerFactory: () => player,
             ),
           ),
@@ -379,13 +347,13 @@ void main() {
       for (var i = 0; i < 8; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
-      return (player, lease);
+      return player;
     }
 
     testWidgets(
       'idle poster: the first frame, the bar, a Play button on hover',
       (tester) async {
-        final (player, _) = await mountVideo(tester);
+        final player = await mountVideo(tester);
         expect(player.calls, ['open']);
         expect(find.byKey(const Key('fake-video-surface')), findsOneWidget);
         // Paused: the browser's control panel is showing, the big Play is not.
@@ -411,7 +379,7 @@ void main() {
     testWidgets('a click plays, hides the bar off hover and pauses again', (
       tester,
     ) async {
-      final (player, _) = await mountVideo(tester);
+      final player = await mountVideo(tester);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
@@ -454,7 +422,7 @@ void main() {
 
     testWidgets('playing under a resting mouse hides the bar after 3 s; a move '
         'shows it again', (tester) async {
-      final (player, _) = await mountVideo(tester);
+      final player = await mountVideo(tester);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
@@ -481,7 +449,7 @@ void main() {
 
     testWidgets('touch: Play stays visible; a tap on playback shows the bar '
         'for a few seconds', (tester) async {
-      final (player, _) = await mountVideo(tester);
+      final player = await mountVideo(tester);
       expect(find.byKey(const Key('inline-video-play')), findsOneWidget);
       expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
       await tester.tap(find.byKey(const Key('inline-video-surface')));
@@ -500,20 +468,19 @@ void main() {
     testWidgets('a failed decode shows the warning and downloads', (
       tester,
     ) async {
-      final (_, lease) = await mountVideo(tester, refuse: true);
+      await mountVideo(tester, refuse: true);
       expect(find.byKey(const Key('inline-video-surface')), findsNothing);
       expect(
         find.text('This video may use a codec this browser cannot preview.'),
         findsOneWidget,
       );
-      unawaited(lease.dispose());
       await unmount(tester);
     });
 
     testWidgets('a large video loads on the first play, then plays', (
       tester,
     ) async {
-      final (player, _) = await mountVideo(
+      final player = await mountVideo(
         tester,
         metadata: {...meta, 'sizeBytes': 60 * 1024 * 1024},
       );
@@ -530,7 +497,7 @@ void main() {
     testWidgets('the server thumbnail is the poster until the first frame', (
       tester,
     ) async {
-      final (player, _) = await mountVideo(
+      final player = await mountVideo(
         tester,
         frame: false,
         metadata: {...meta, 'thumbnailUrl': 'https://cdn.invalid/t.webp'},
@@ -544,9 +511,11 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('opening the viewer pauses the inline video', (tester) async {
+    testWidgets('opening the viewer leaves the shared player playing', (
+      tester,
+    ) async {
       var opened = 0;
-      final (player, _) = await mountVideo(
+      final player = await mountVideo(
         tester,
         onOpenPreview: () => opened++,
       );
@@ -556,7 +525,8 @@ void main() {
       await tester.tap(find.byKey(const Key('inline-video-expand')));
       await tester.pump(const Duration(milliseconds: 50));
       expect(opened, 1);
-      expect(player.playing, isFalse);
+      // The viewer takes the same player over; nothing pauses it.
+      expect(player.playing, isTrue);
       await unmount(tester);
     });
 
@@ -573,23 +543,14 @@ void main() {
           'url': 'https://media.invalid/$id',
         };
       }
-      final dir = Directory.systemTemp.createTempSync('inline-video-two');
-      addTearDown(() {
-        if (dir.existsSync()) dir.deleteSync(recursive: true);
-      });
       final players = {'v1': _VideoPlayer(), 'v2': _VideoPlayer()};
-      final leases = <SharedFileLease>[];
       Widget card(String id) {
-        final file = File('${dir.path}/$id.bin')..writeAsBytesSync([1]);
-        final lease = SharedFileLease(file, lifetime: const Duration(hours: 1));
-        leases.add(lease);
         return InlineVideoAttachment(
           key: ValueKey(id),
           controller: w,
           metadata: {...meta, 'id': id},
           authorized: () => true,
           pending: false,
-          files: _Files(lease),
           playerFactory: () => players[id]!,
         );
       }
@@ -632,6 +593,222 @@ void main() {
       await tester.tap(find.byKey(const Key('inline-video-surface')).first);
       await tester.pump(const Duration(milliseconds: 50));
       expect(players['v1']!.playing, isTrue);
+      await unmount(tester);
+    });
+  });
+
+  group('player lifetime (memory)', () {
+    const meta = {
+      'id': 'a1',
+      'filename': 'walkthrough.mp4',
+      'mimeType': 'video/mp4',
+      'sizeBytes': 1000000,
+    };
+
+    /// A card whose players are made one per request, so a release and a
+    /// replay can be told apart.
+    Future<(List<_VideoPlayer>, ValueNotifier<bool>)> mountCard(
+      WidgetTester tester, {
+      Map<String, dynamic> metadata = meta,
+      VoidCallback? onOpenPreview,
+    }) async {
+      tester.view.physicalSize = const Size(600, 500);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (w, api) = (await tester.runAsync(() => fixture('owner')))!;
+      addTearDown(w.dispose);
+      _mounted = w;
+      api.routes['GET /attachments/a1/url'] = (_) => {
+        'url': 'https://media.invalid/a1',
+      };
+      final made = <_VideoPlayer>[];
+      final shown = ValueNotifier(true);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: shown,
+              builder: (context, visible, _) => TickerMode(
+                enabled: visible,
+                child: InlineVideoAttachment(
+                  controller: w,
+                  metadata: metadata,
+                  authorized: () => true,
+                  pending: false,
+                  onOpenPreview: onOpenPreview,
+                  playerFactory: () {
+                    final player = _VideoPlayer();
+                    made.add(player);
+                    return player;
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      return (made, shown);
+    }
+
+    Future<void> settle(WidgetTester tester, [int ms = 200]) async {
+      await tester.pump(Duration(milliseconds: ms));
+      await tester.pump(Duration(milliseconds: ms));
+    }
+
+    testWidgets('playback that ends frees the player; a tap replays from the start', (
+      tester,
+    ) async {
+      final (made, _) = await mountCard(tester);
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(made.single.playing, isTrue);
+      // The clip reaches its end and stops.
+      made.single.playing = false;
+      made.single.position = const Duration(seconds: 125);
+      made.single.events.add(made.single.state);
+      await settle(tester);
+      expect(made.single.disposed, isTrue, reason: 'the decoder stayed after the end');
+      // The card is idle again, with a play affordance; no player, no bar.
+      expect(find.byKey(const Key('inline-video-bar')), findsNothing);
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(made, hasLength(2));
+      expect(made.last.playing, isTrue);
+      expect(made.last.calls, ['open', 'toggle']);
+      await unmount(tester);
+    });
+
+    testWidgets('a card whose page is hidden frees its player after a grace period', (
+      tester,
+    ) async {
+      final (made, shown) = await mountCard(tester);
+      expect(made.single.disposed, isFalse);
+      shown.value = false;
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(made.single.disposed, isFalse, reason: 'inside the grace period');
+      await tester.pump(const Duration(seconds: 2));
+      await settle(tester);
+      expect(made.single.disposed, isTrue);
+      // Visible again: the card waits for a tap (a new stream per scroll-back
+      // would spend requests), then prepares at the position it stopped at.
+      shown.value = true;
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(made, hasLength(1), reason: 'prepared again without a tap');
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(made, hasLength(2));
+      expect(made.last.calls, ['open', 'toggle']);
+      await unmount(tester);
+    });
+
+    testWidgets('a card built again for a prepared clip waits for a tap and '
+        'resumes where it stopped', (tester) async {
+      final (made, _) = await mountCard(tester);
+      final w = _mounted;
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      await tester.pump(const Duration(milliseconds: 50));
+      made.single.position = const Duration(seconds: 40);
+      made.single.events.add(made.single.state);
+      await tester.pump(const Duration(milliseconds: 50));
+      // The list drops the row far from the viewport, then builds it again.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(
+            body: InlineVideoAttachment(
+              controller: w,
+              metadata: meta,
+              authorized: () => true,
+              pending: false,
+              playerFactory: () {
+                final player = _VideoPlayer();
+                made.add(player);
+                return player;
+              },
+            ),
+          ),
+        ),
+      );
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(made, hasLength(1), reason: 'a new stream every time a clip scrolls back');
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(made, hasLength(2));
+      expect((made.last.sources.single.start), const Duration(seconds: 40));
+      expect(made.last.playing, isTrue);
+      await unmount(tester);
+    });
+
+    testWidgets('coming back inside the grace period keeps the player', (
+      tester,
+    ) async {
+      final (made, shown) = await mountCard(tester);
+      shown.value = false;
+      await tester.pump(const Duration(seconds: 2));
+      shown.value = true;
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      await settle(tester);
+      expect(made, hasLength(1));
+      expect(made.single.disposed, isFalse);
+      await unmount(tester);
+    });
+
+    testWidgets('a hidden page does not free a player the viewer holds', (
+      tester,
+    ) async {
+      final (made, shown) = await mountCard(tester, onOpenPreview: () {});
+      // The viewer takes a hold on the shared player.
+      final w = _mounted;
+      final viewer = w.playerSessions.acquire(
+        'a1|',
+        viewer: true,
+        scope: w.attachmentImageScope,
+        create: () => throw StateError('shares the card player'),
+        source: () async => throw StateError('already open'),
+      );
+      shown.value = false;
+      await tester.pump(const Duration(seconds: 5));
+      await settle(tester);
+      expect(made.single.disposed, isFalse);
+      viewer.release();
+      await unmount(tester);
+    });
+
+    testWidgets('a tap while released and preparing is kept (never dropped)', (
+      tester,
+    ) async {
+      final (made, shown) = await mountCard(tester);
+      shown.value = false;
+      await tester.pump(const Duration(seconds: 4));
+      await settle(tester);
+      shown.value = true;
+      await tester.pump(const Duration(milliseconds: 20));
+      // Card is idle or preparing: tap twice quickly.
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      await tester.pump(const Duration(milliseconds: 10));
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(made.last.playing, isTrue, reason: 'the tap during preparation was lost');
       await unmount(tester);
     });
   });

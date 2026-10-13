@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:raft_client/system_proxy.dart';
 
 import 'attachment_player_log.dart';
 
@@ -15,12 +16,15 @@ class AttachmentPlayback {
     this.volume = 100,
     this.error = false,
     this.hasFrame = false,
+    this.buffering = false,
     this.videoSize,
   });
 
   /// [hasFrame]: the video surface has drawn its first decoded frame (the
   /// poster), so a thumbnail beneath it can go.
-  final bool playing, error, hasFrame;
+  /// [buffering]: the player waits for data (the stream is behind the
+  /// position, or a seek is being served).
+  final bool playing, error, hasFrame, buffering;
 
   /// The video's own pixel size once mpv knows it.
   final Size? videoSize;
@@ -28,10 +32,46 @@ class AttachmentPlayback {
   final double volume;
 }
 
+/// What a player opens: a private local file, or the attachment's own URL
+/// (streamed: the player reads the byte ranges it needs, nothing is saved).
+class AttachmentSource {
+  const AttachmentSource.file(File this.file)
+    : url = null,
+      headers = const {},
+      refresh = null,
+      start = Duration.zero;
+
+  /// [url] is the signed attachment URL (it is the only credential: [headers]
+  /// stays empty for storage hosts). [refresh] returns a freshly signed URL;
+  /// the player calls it once when the host answers 401/403/410 (the
+  /// signature expired) and continues from where it was. [start] is where
+  /// playback begins (the viewer taking over from a card).
+  const AttachmentSource.network(
+    Uri this.url, {
+    this.headers = const {},
+    this.refresh,
+    this.start = Duration.zero,
+  }) : file = null;
+
+  final File? file;
+  final Uri? url;
+  final Map<String, String> headers;
+  final Future<Uri> Function()? refresh;
+  final Duration start;
+  bool get isNetwork => url != null;
+}
+
 abstract interface class AttachmentPlayer {
   Stream<AttachmentPlayback> get changes;
+
+  /// The last published state (a late listener starts from it).
+  AttachmentPlayback get playback;
+
+  /// The picture is a native view (`SurfaceView`, `AVPlayerLayer`) that does
+  /// not move, clip or animate with Flutter content.
+  bool get usesPlatformView;
   Widget video();
-  Future<void> open(File file);
+  Future<void> open(AttachmentSource source);
   Future<void> toggle();
   Future<void> pause();
   Future<void> seek(Duration value);
@@ -55,7 +95,9 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         parseLinuxHwdec(Platform.environment[linuxHwdecVariable]) ?? 'no';
     player = Player(
       configuration: const PlayerConfiguration(
-        protocolWhitelist: ['file'],
+        // The attachment's own http(s) URL is streamed (mpv does its own
+        // networking, through the proxy of `applyProxy`); nothing else.
+        protocolWhitelist: ['file', 'http', 'https', 'tcp', 'tls', 'crypto'],
         libass: false,
         // warn+ so the next failure carries its reason (see raft.media: lines).
         logLevel: MPVLogLevel.warn,
@@ -89,6 +131,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       player.stream.volume,
       player.stream.width,
       player.stream.height,
+      player.stream.buffering,
     ]) {
       subscriptions.add(stream.listen((_) => publish()));
     }
@@ -130,7 +173,18 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
           event.text,
           video: controller != null,
         )) {
-          publish(error: true);
+          // mpv's default log level does not carry the HTTP status ("Failed to
+          // open <url>"), so like video_player the first failure of a streamed
+          // source signs again once before it is reported.
+          if (source?.refresh != null && !refreshed && !failed) {
+            unawaited(
+              refreshExpired().then((done) {
+                if (!done) publish(error: true);
+              }),
+            );
+          } else {
+            publish(error: true);
+          }
         }
       }),
     );
@@ -246,6 +300,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         volume: player.state.volume,
         error: failed,
         hasFrame: hasFrame,
+        buffering: player.state.buffering,
         videoSize: _videoSize(),
       ),
     );
@@ -261,6 +316,19 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
   @override
   Stream<AttachmentPlayback> get changes => output.stream;
   @override
+  AttachmentPlayback get playback => AttachmentPlayback(
+    playing: player.state.playing,
+    position: player.state.position,
+    duration: player.state.duration,
+    volume: player.state.volume,
+    error: failed,
+    hasFrame: hasFrame,
+    buffering: player.state.buffering,
+    videoSize: _videoSize(),
+  );
+  @override
+  bool get usesPlatformView => false;
+  @override
   Widget video() => Video(
     controller: controller!,
     // ds-allow: native video surface backdrop, not themed UI
@@ -269,13 +337,18 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     pauseUponEnteringBackgroundMode: true,
     resumeUponEnteringForegroundMode: false,
   );
+  AttachmentSource? source;
+  bool refreshed = false;
+
   @override
-  Future<void> open(File file) async {
+  Future<void> open(AttachmentSource source) async {
+    this.source = source;
+    refreshed = false;
     final native = player.platform;
+    final target = source.isNetwork ? source.url!.toString() : source.file!.path;
     if (native is NativePlayer) {
       for (final property in const [
         'cache-on-disk',
-        'cache',
         'access-references',
         'load-scripts',
         'ytdl',
@@ -285,13 +358,78 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       ]) {
         await native.setProperty(property, 'no');
       }
+      // A file is read directly; a stream keeps a bounded read-ahead in
+      // memory (never on disk: only the Download action saves a file).
+      await native.setProperty('cache', source.isNetwork ? 'yes' : 'no');
+      if (source.isNetwork) {
+        await native.setProperty('demuxer-max-bytes', '${maxVideoSize.width > 1000 ? 64 : 32}MiB');
+        await native.setProperty('demuxer-max-back-bytes', '8MiB');
+        await native.setProperty('http-proxy', httpProxyFor(source.url!));
+        await native.setProperty(
+          'http-header-fields',
+          source.headers.entries.map((e) => '${e.key}: ${e.value}').join(','),
+        );
+      }
+      await native.setProperty(
+        'start',
+        source.start > Duration.zero ? '${source.start.inMilliseconds / 1000}' : 'none',
+      );
       // media_kit.open uses an intermediate playlist. Keep external references
-      // disabled and load the already-authorized local input directly instead.
+      // disabled and load the already-authorized input directly instead.
       await native.setProperty('pause', 'yes');
-      await native.command(['loadfile', file.path, 'replace']);
+      await native.command(['loadfile', target, 'replace']);
       return;
     }
-    await player.open(Media(file.uri.toString()), play: false);
+    await player.open(
+      Media(
+        source.isNetwork ? target : source.file!.uri.toString(),
+        httpHeaders: source.headers.isEmpty ? null : source.headers,
+        start: source.start > Duration.zero ? source.start : null,
+      ),
+      play: false,
+    );
+  }
+
+  /// mpv's `http-proxy` value for [url]: the app's proxy decision (Settings,
+  /// environment, OS), `` for DIRECT. Only host and port leave the decision;
+  /// credentials of a manual proxy are part of it and are set as a runtime
+  /// property, never through argv or logs.
+  @visibleForTesting
+  static String httpProxyFor(Uri url) {
+    final decision = SystemProxy.instance.findProxyForClient(url);
+    for (final part in decision.split(';')) {
+      final entry = part.trim();
+      if (entry.toUpperCase().startsWith('PROXY ')) {
+        return 'http://${entry.substring(6).trim()}';
+      }
+      if (entry.toUpperCase() == 'DIRECT') return '';
+    }
+    return '';
+  }
+
+  /// A streamed source that failed to open or play (typically a host that
+  /// answered 401/403/410 for an expired signature): sign again once and
+  /// continue from the current position.
+  Future<bool> refreshExpired() async {
+    final current = source;
+    final refresh = current?.refresh;
+    if (closed || current == null || !current.isNetwork || refresh == null || refreshed) {
+      return false;
+    }
+    refreshed = true;
+    try {
+      final url = await refresh();
+      if (closed) return false;
+      final at = player.state.position;
+      failed = false;
+      await open(
+        AttachmentSource.network(url, headers: current.headers, start: at),
+      );
+      refreshed = true;
+      return true;
+    } on Object {
+      return false;
+    }
   }
 
   @override

@@ -12,9 +12,7 @@
 // Data: tool/parity-ext/fixtures/conversation.json (fixtures['ext:conversation']):
 // `routes` + the case's `routeSet`.
 import 'dart:async';
-import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,8 +24,6 @@ import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/external_identity.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
 import 'package:raft_flutter/platform/attachment_player.dart';
-import 'package:raft_flutter/platform/attachment_preview_files.dart';
-import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_flutter/features/profile_preview.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -739,26 +735,10 @@ ParityCase _rowCase({
   },
 );
 
-/// The message video card without a decoder: the inline card's files and player
+/// The message video card without a decoder: the inline card's player
 /// come from [InlineMediaTestHooks]. The fake player draws the fixture clip's
 /// flat first frame (the Web case plays the same colour as a 360x640 WebM) with
 /// `object-contain`, so the pillarbox geometry is the real card's.
-class _ParityVideoFiles extends AttachmentPreviewFiles {
-  _ParityVideoFiles(this.dir);
-  final Directory dir;
-  @override
-  Future<SharedFileLease?> load(
-    String url,
-    String filename, {
-    required CancelToken cancel,
-    required bool Function() authorized,
-    void Function(int, int)? onProgress,
-  }) async => SharedFileLease(
-    File('${dir.path}/clip.bin')..writeAsBytesSync([1, 2, 3]),
-    lifetime: const Duration(hours: 1),
-  );
-}
-
 class _ParityVideoPlayer implements AttachmentPlayer {
   _ParityVideoPlayer({this.fail = false});
   final bool fail;
@@ -773,6 +753,10 @@ class _ParityVideoPlayer implements AttachmentPlayer {
   @override
   Stream<AttachmentPlayback> get changes => events.stream;
   @override
+  AttachmentPlayback get playback => state;
+  @override
+  bool get usesPlatformView => false;
+  @override
   Widget video() => Center(
     child: AspectRatio(
       aspectRatio: 360 / 640,
@@ -780,7 +764,7 @@ class _ParityVideoPlayer implements AttachmentPlayer {
     ),
   );
   @override
-  Future<void> open(File file) async {
+  Future<void> open(AttachmentSource source) async {
     if (fail) throw StateError('undecodable');
     events.add(state);
   }
@@ -829,9 +813,6 @@ ParityCase _videoCase({
     notes: base.notes,
     settle: base.settle,
     build: (ctx) {
-      InlineMediaTestHooks.files = _ParityVideoFiles(
-        Directory.systemTemp.createTempSync('parity-video'),
-      );
       InlineMediaTestHooks.playerFactory = () => _ParityVideoPlayer(fail: fail);
       return base.build(ctx);
     },
@@ -839,7 +820,6 @@ ParityCase _videoCase({
       try {
         await base.interact!(t, ctx);
       } finally {
-        InlineMediaTestHooks.files = null;
         InlineMediaTestHooks.playerFactory = null;
       }
     },

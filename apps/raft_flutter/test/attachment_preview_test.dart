@@ -52,9 +52,13 @@ class _Player implements AttachmentPlayer {
   @override
   Stream<AttachmentPlayback> get changes => events.stream;
   @override
+  AttachmentPlayback get playback => const AttachmentPlayback();
+  @override
+  bool get usesPlatformView => false;
+  @override
   Widget video() => const ColoredBox(color: Colors.red);
   @override
-  Future<void> open(File file) async {
+  Future<void> open(AttachmentSource source) async {
     events.add(const AttachmentPlayback(duration: Duration(seconds: 3)));
   }
 
@@ -238,7 +242,7 @@ void main() {
     },
   );
   testWidgets(
-    'playback pauses on background, revocation and cleans its lease',
+    'playback pauses on background, revocation and cleans its lease (audio plays the cached file)',
     (tester) async {
       final folder = (await tester.runAsync(
         () => Directory.systemTemp.createTemp('raft-player-test-'),

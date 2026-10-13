@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart';
@@ -13,8 +12,12 @@ import 'attachment_player_log.dart';
 /// support are the system's; Windows and Linux keep [NativeAttachmentPlayer]
 /// because their system codecs are optional or absent.
 ///
-/// The media is always a private local file (see `InlineMediaFiles`), so no
-/// network source, header or credential ever reaches the player.
+/// The player streams the attachment's own URL (`VideoPlayerController
+/// .networkUrl`): ExoPlayer and AVPlayer read the byte ranges they need and
+/// nothing is saved to disk by us (video_player_android has no cache option;
+/// AVPlayer buffers in memory). The signed URL is the only credential, so no
+/// header is sent unless the source carries one. A private local file is
+/// still a valid source (tests, the Download action's consumers).
 class VideoPlayerAttachmentPlayer
     with WidgetsBindingObserver
     implements AttachmentPlayer {
@@ -38,6 +41,17 @@ class VideoPlayerAttachmentPlayer
   /// frame; otherwise a black backdrop.
   final bool transparentVideo;
 
+  /// Players built and not yet disposed (the interaction suite asserts that a
+  /// closed viewer leaves none behind).
+  static int debugLive = 0;
+  bool _counted = false;
+
+  @override
+  bool get usesPlatformView => platformView;
+
+  AttachmentSource? _source;
+  bool _refreshed = false, _refreshing = false;
+
   final _controller = ValueNotifier<VideoPlayerController?>(null);
   final _output = StreamController<AttachmentPlayback>.broadcast();
   final _limiter = MediaLogLimiter(limit: 20);
@@ -51,6 +65,9 @@ class VideoPlayerAttachmentPlayer
   Stream<AttachmentPlayback> get changes => _output.stream;
 
   @override
+  AttachmentPlayback get playback => _last ?? const AttachmentPlayback();
+
+  @override
   Widget video() => _VideoSurface(
     player: this,
     // ds-allow: native video surface backdrop, not themed UI
@@ -58,24 +75,47 @@ class VideoPlayerAttachmentPlayer
   );
 
   @override
-  Future<void> open(File file) async {
+  Future<void> open(AttachmentSource source) async {
     if (_closed) return;
+    if (!_counted) {
+      _counted = true;
+      debugLive++;
+    }
+    _source = source;
+    _refreshed = false;
+    await _open(source);
+  }
+
+  VideoPlayerController _build(AttachmentSource source) {
+    final viewType = platformView
+        ? VideoViewType.platformView
+        : VideoViewType.textureView;
+    final options = VideoPlayerOptions(
+      // The lifecycle observer of video_player resumes playback when the app
+      // returns; a video that was paused by leaving must stay paused (see
+      // didChangeAppLifecycleState).
+      allowBackgroundPlayback: true,
+    );
+    return source.isNetwork
+        ? VideoPlayerController.networkUrl(
+            source.url!,
+            httpHeaders: source.headers,
+            viewType: viewType,
+            videoPlayerOptions: options,
+          )
+        : VideoPlayerController.file(
+            source.file!,
+            viewType: viewType,
+            videoPlayerOptions: options,
+          );
+  }
+
+  Future<void> _open(AttachmentSource source) async {
     await _release();
     _failed = false;
     _hasFrame = false;
     _last = null;
-    final controller = VideoPlayerController.file(
-      file,
-      viewType: platformView
-          ? VideoViewType.platformView
-          : VideoViewType.textureView,
-      videoPlayerOptions: VideoPlayerOptions(
-        // The lifecycle observer of video_player resumes playback when the app
-        // returns; a video that was paused by leaving must stay paused (see
-        // didChangeAppLifecycleState).
-        allowBackgroundPlayback: true,
-      ),
-    );
+    final controller = _build(source);
     controller.addListener(_publish);
     _controller.value = controller;
     if (!_observing) {
@@ -85,12 +125,43 @@ class VideoPlayerAttachmentPlayer
     try {
       // Opens paused at the first frame.
       await controller.initialize();
+      if (_closed || _active != controller) return;
+      if (source.start > Duration.zero) await controller.seekTo(source.start);
     } on Object catch (error) {
+      if (_closed || _active != controller) return;
+      // video_player reports "Source error" for a rejected request without the
+      // status, so an expired signature cannot be told from other failures:
+      // sign once more and try again before giving up.
+      if (await _retryWithFreshUrl(source, Duration.zero)) return;
       _log('open failed: ${_describe(error)}');
       _publish(error: true);
       rethrow;
     }
     _publish();
+  }
+
+  /// One re-sign per source: the first failure of a streamed source asks its
+  /// `refresh` for a new URL and reopens at [position].
+  Future<bool> _retryWithFreshUrl(AttachmentSource source, Duration position) async {
+    final refresh = source.refresh;
+    if (_closed || !source.isNetwork || refresh == null || _refreshed) {
+      return false;
+    }
+    _refreshed = true;
+    try {
+      final url = await refresh();
+      if (_closed) return false;
+      final next = AttachmentSource.network(
+        url,
+        headers: source.headers,
+        start: position,
+      );
+      _source = next;
+      await _open(next);
+      return true;
+    } on Object {
+      return false;
+    }
   }
 
   /// Called by the video surface once the picture was built after the player
@@ -107,6 +178,25 @@ class VideoPlayerAttachmentPlayer
     if (controller == null) return;
     final value = controller.value;
     if (value.hasError) {
+      final source = _source;
+      if (!_failed && !_refreshing && source != null && !_refreshed && source.refresh != null && value.isInitialized) {
+        // A streamed source failed after it started (a ranged request was
+        // refused, or the link dropped): once, sign again and carry on from
+        // where it stopped.
+        final wasPlaying = _last?.playing ?? false;
+        final at = value.position;
+        _refreshing = true;
+        unawaited(
+          _retryWithFreshUrl(source, at)
+              .then((done) async {
+                if (done && wasPlaying) await _active?.play();
+                if (!done) _publish(error: true);
+              })
+              .whenComplete(() => _refreshing = false),
+        );
+        return;
+      }
+      if (_refreshing) return;
       if (!_failed) _log('playback error: ${value.errorDescription}');
       error = true;
     }
@@ -122,6 +212,7 @@ class VideoPlayerAttachmentPlayer
       volume: (value.volume * 100).clamp(0.0, 100.0),
       error: _failed,
       hasFrame: _hasFrame,
+      buffering: value.isBuffering,
       videoSize: size.isEmpty ? null : size,
     );
     final last = _last;
@@ -132,6 +223,7 @@ class VideoPlayerAttachmentPlayer
         last.volume == next.volume &&
         last.error == next.error &&
         last.hasFrame == next.hasFrame &&
+        last.buffering == next.buffering &&
         last.videoSize == next.videoSize) {
       return;
     }
@@ -216,6 +308,10 @@ class VideoPlayerAttachmentPlayer
     if (_observing) {
       _observing = false;
       WidgetsBinding.instance.removeObserver(this);
+    }
+    if (_counted) {
+      _counted = false;
+      debugLive--;
     }
     await _release();
     _controller.dispose();

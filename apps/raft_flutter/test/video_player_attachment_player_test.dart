@@ -17,6 +17,9 @@ class _Platform extends VideoPlayerPlatform {
   final sources = <DataSource>[];
   final viewTypes = <VideoViewType>[];
   bool failOpen = false;
+
+  /// The next [failures] creations fail (a host that refuses the request).
+  int failures = 0;
   Size size = const Size(1280, 720);
   Duration duration = const Duration(seconds: 10);
 
@@ -29,7 +32,7 @@ class _Platform extends VideoPlayerPlatform {
     viewTypes.add(options.viewType);
     final stream = StreamController<VideoEvent>();
     streams[0] = stream;
-    if (failOpen) {
+    if (failOpen || failures-- > 0) {
       stream.addError(PlatformException(code: 'VideoError', message: 'bad'));
     } else {
       stream.add(
@@ -142,8 +145,8 @@ void main() {
     ]) {
       final card = createAttachmentPlayer(platform: p);
       final viewer = createAttachmentPlayer(platform: p, hdr: true);
-      await card.open(File('/tmp/raft-test/c.mp4'));
-      await viewer.open(File('/tmp/raft-test/c.mp4'));
+      await card.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
+      await viewer.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
       await card.dispose();
       await viewer.dispose();
     }
@@ -160,7 +163,7 @@ void main() {
       final player = VideoPlayerAttachmentPlayer();
       final seen = <AttachmentPlayback>[];
       player.changes.listen(seen.add);
-      await player.open(File('/tmp/raft-test/clip one.mp4'));
+      await player.open(AttachmentSource.file(File('/tmp/raft-test/clip one.mp4')));
       await Future<void>.delayed(Duration.zero);
       expect(fake.sources.single.sourceType, DataSourceType.file);
       expect(fake.sources.single.uri, startsWith('file:///'));
@@ -204,7 +207,7 @@ void main() {
       final player = VideoPlayerAttachmentPlayer();
       final seen = <AttachmentPlayback>[];
       player.changes.listen(seen.add);
-      await player.open(File('/tmp/raft-test/a.wav'));
+      await player.open(AttachmentSource.file(File('/tmp/raft-test/a.wav')));
       await player.toggle();
       await Future<void>.delayed(Duration.zero);
       expect(seen.last.videoSize, isNull);
@@ -217,7 +220,7 @@ void main() {
       final player = VideoPlayerAttachmentPlayer(transparentVideo: true);
       final seen = <AttachmentPlayback>[];
       player.changes.listen(seen.add);
-      await player.open(File('/tmp/raft-test/c.mp4'));
+      await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
       await Future<void>.delayed(Duration.zero);
       expect(seen.last.hasFrame, false);
     });
@@ -237,7 +240,7 @@ void main() {
         ),
       );
       expect(find.byKey(const Key('texture')), findsNothing);
-      await tester.runAsync(() => player.open(File('/tmp/raft-test/c.mp4')));
+      await tester.runAsync(() => player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4'))));
       await tester.pump();
       await tester.pump();
       expect(find.byKey(const Key('texture')), findsOneWidget);
@@ -254,7 +257,7 @@ void main() {
       final seen = <AttachmentPlayback>[];
       player.changes.listen(seen.add);
       await expectLater(
-        player.open(File('/tmp/raft-test/bad.mp4')),
+        player.open(AttachmentSource.file(File('/tmp/raft-test/bad.mp4'))),
         throwsA(anything),
       );
       await Future<void>.delayed(Duration.zero);
@@ -266,7 +269,7 @@ void main() {
       final player = VideoPlayerAttachmentPlayer();
       final seen = <AttachmentPlayback>[];
       player.changes.listen(seen.add);
-      await player.open(File('/tmp/raft-test/c.mp4'));
+      await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
       fake.streams[0]!.add(
         VideoEvent(eventType: VideoEventType.bufferingStart),
       );
@@ -285,7 +288,7 @@ void main() {
 
     test('toggle after the end restarts from the beginning', () async {
       final player = VideoPlayerAttachmentPlayer();
-      await player.open(File('/tmp/raft-test/c.mp4'));
+      await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
       fake.streams[0]!.add(VideoEvent(eventType: VideoEventType.completed));
       await Future<void>.delayed(Duration.zero);
       fake.calls.clear();
@@ -301,7 +304,7 @@ void main() {
         final player = VideoPlayerAttachmentPlayer();
         var done = false;
         player.changes.listen((_) {}, onDone: () => done = true);
-        await player.open(File('/tmp/raft-test/c.mp4'));
+        await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
         await player.dispose();
         await player.dispose();
         await Future<void>.delayed(Duration.zero);
@@ -319,7 +322,7 @@ void main() {
 
     test('leaving the app pauses and returning does not resume', () async {
       final player = VideoPlayerAttachmentPlayer();
-      await player.open(File('/tmp/raft-test/c.mp4'));
+      await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
       await player.toggle();
       fake.calls.clear();
       player.didChangeAppLifecycleState(AppLifecycleState.paused);
@@ -335,7 +338,7 @@ void main() {
       'a hidden window (macOS) pauses and showing it does not resume',
       () async {
         final player = VideoPlayerAttachmentPlayer();
-        await player.open(File('/tmp/raft-test/d.mp4'));
+        await player.open(AttachmentSource.file(File('/tmp/raft-test/d.mp4')));
         await player.toggle();
         fake.calls.clear();
         player.didChangeAppLifecycleState(AppLifecycleState.inactive);
@@ -351,6 +354,104 @@ void main() {
         await player.dispose();
       },
     );
+  });
+
+  group('streaming a network URL', () {
+    final url = Uri.parse('https://storage.invalid/a.mp4?sig=1');
+
+    test('opens the URL itself: no file, no header, never a download', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(AttachmentSource.network(url));
+      expect(fake.sources.single.sourceType, DataSourceType.network);
+      expect(fake.sources.single.uri, url.toString());
+      expect(fake.sources.single.httpHeaders, isEmpty);
+      await player.dispose();
+    });
+
+    test('a start position is seeked to once the stream is open', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(
+        AttachmentSource.network(url, start: const Duration(seconds: 7)),
+      );
+      expect(fake.seeks, [const Duration(seconds: 7)]);
+      await player.dispose();
+    });
+
+    test('an open that fails is retried once with a freshly signed URL', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      fake.failures = 1;
+      var signed = 0;
+      await player.open(
+        AttachmentSource.network(
+          url,
+          refresh: () async {
+            signed++;
+            return Uri.parse('https://storage.invalid/a.mp4?sig=2');
+          },
+        ),
+      );
+      expect(signed, 1);
+      expect(fake.sources.map((s) => s.uri), [
+        url.toString(),
+        'https://storage.invalid/a.mp4?sig=2',
+      ]);
+      expect(player.playback.error, isFalse);
+      await player.dispose();
+    });
+
+    test('a second failure is final: one re-sign per source', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      fake.failures = 2;
+      var signed = 0;
+      await expectLater(
+        player.open(
+          AttachmentSource.network(
+            url,
+            refresh: () async {
+              signed++;
+              return url;
+            },
+          ),
+        ),
+        throwsA(anything),
+      );
+      expect(signed, 1);
+      expect(player.playback.error, isTrue);
+      await player.dispose();
+    });
+
+    test('a file source has no re-sign and fails at once', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      fake.failures = 1;
+      await expectLater(
+        player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4'))),
+        throwsA(anything),
+      );
+      expect(fake.sources, hasLength(1));
+      await player.dispose();
+    });
+
+    test('live players are counted until disposed', () async {
+      final before = VideoPlayerAttachmentPlayer.debugLive;
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(AttachmentSource.network(url));
+      expect(VideoPlayerAttachmentPlayer.debugLive, before + 1);
+      await player.dispose();
+      expect(VideoPlayerAttachmentPlayer.debugLive, before);
+    });
+
+    test('buffering is published and the last state is readable', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(AttachmentSource.network(url));
+      expect(player.playback.duration, const Duration(seconds: 10));
+      fake.streams[0]!.add(VideoEvent(eventType: VideoEventType.bufferingStart));
+      await Future<void>.delayed(Duration.zero);
+      expect(player.playback.buffering, isTrue);
+      fake.streams[0]!.add(VideoEvent(eventType: VideoEventType.bufferingEnd));
+      await Future<void>.delayed(Duration.zero);
+      expect(player.playback.buffering, isFalse);
+      await player.dispose();
+    });
   });
 }
 
