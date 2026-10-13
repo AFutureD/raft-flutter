@@ -112,10 +112,21 @@ class _RaftResetAgentDialogState extends State<RaftResetAgentDialog> {
         ];
 
   @override
+  void didUpdateWidget(RaftResetAgentDialog old) {
+    super.didUpdateWidget(old);
+    // The chosen mode can leave the list (e.g. Full Reset once the viewer
+    // loses permission while the dialog is open): fall back to the default.
+    if (!options.any((o) => o.$1 == mode)) mode = 'restart';
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final choices = options;
-    final selected = choices.firstWhere((o) => o.$1 == mode);
+    final selected = choices.firstWhere(
+      (o) => o.$1 == mode,
+      orElse: () => choices.first,
+    );
     final strong = t.brutal ? Colors.black : t.strong;
     return RaftConfirmDialog(
       surfaceKey: const ValueKey('agent-dialog'),
