@@ -8,6 +8,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/task_selection_filter.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Client extends RaftClient {
   _Client()
@@ -98,6 +99,8 @@ class _Workspace extends WorkspaceController {
 }
 
 void main() {
+  // Leak debt (open task dialog): see docs/development.md, Leak tracking.
+  leakDebt(const ['TaskSurfaceController']);
   late _Client c;
   late _Workspace w;
   setUp(() {

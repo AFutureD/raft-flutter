@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/painting.dart' show imageCache;
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
 /// The binding every test in this directory runs on.
 ///
@@ -32,7 +34,42 @@ class RaftTestBinding extends AutomatedTestWidgetsFlutterBinding {
   bool get disableShadows => !_visibleShadows;
 }
 
+/// Leak tracking (`leak_tracker`) runs in every `testWidgets`: an object that
+/// reaches the garbage collector without `dispose()` fails its test file
+/// ("notDisposed"). `RAFT_LEAK_TRACKING=0` turns it off for a local run.
+void _enableLeakTracking() {
+  if (Platform.environment['RAFT_LEAK_TRACKING'] == '0') return;
+  LeakTesting.enable();
+  // The shared image cache keeps decoded images (and their handles) after a
+  // test ends; they are not leaks of the test, so empty it before the report.
+  tearDown(() {
+    imageCache
+      ..clear()
+      ..clearLiveImages();
+  });
+  // `RAFT_LEAK_STACKS=1` adds the creation stack to every report.
+  if (Platform.environment['RAFT_LEAK_STACKS'] == '1') {
+    LeakTesting.settings = LeakTesting.settings.withCreationStackTrace();
+  }
+  LeakTesting.settings = LeakTesting.settings.withIgnored(
+    classes: const [
+      // Process-wide singleton (`_RaftFocusVisible.shared`): never disposed.
+      '_RaftFocusVisible',
+    ],
+  );
+}
+
+/// A test file that still leaks calls this first thing in `main` with the
+/// classes it leaks (and a comment saying why). It is the per-file debt ledger:
+/// the file stays tracked for everything else, and deleting the line is how the
+/// debt is paid. New leaks in a clean file fail it.
+void leakDebt(List<String> classes) {
+  if (!LeakTesting.enabled) return;
+  LeakTesting.settings = LeakTesting.settings.withIgnored(classes: classes);
+}
+
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  _enableLeakTracking();
   final binding = RaftTestBinding();
   final seconds =
       int.tryParse(Platform.environment['RAFT_TEST_TIMEOUT_SECONDS'] ?? '') ??

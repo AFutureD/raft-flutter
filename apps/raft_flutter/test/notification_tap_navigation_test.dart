@@ -13,6 +13,7 @@ import 'package:raft_ui/test_themes.dart';
 import 'chat_focus_receipt_test.dart' show paintedMessage;
 import 'message_presentation_test.dart' show MessageAdapter;
 import 'workspace_activity_activation_test.dart' show message;
+import 'flutter_test_config.dart' show leakDebt;
 import 'workspace_source_location_contract_test.dart'
     show LocalNotifications, frames, mountPage, pageFixture;
 
@@ -93,6 +94,8 @@ Future<void> _settle(WidgetTester t, bool Function() done) async {
 }
 
 void main() {
+  // Leak debt (app root): see docs/development.md, Leak tracking.
+  leakDebt(const ['LocalNotifications']);
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

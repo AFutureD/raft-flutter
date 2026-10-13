@@ -17,6 +17,7 @@ import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 final _png = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8V7uCgRTARJLqUQ2jGoaUBgC7qgJDBU0aZAAAAABJRU5ErkJggg==',
@@ -285,6 +286,8 @@ const _wide = Size(1280, 800);
 const _phone = Size(390, 844);
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['Image', 'ImageInfo', 'ImageStreamCompleterHandle']);
   group('header actions per layout', () {
     testWidgets('wide: Download only (Web header), no Share, no menu', (
       tester,

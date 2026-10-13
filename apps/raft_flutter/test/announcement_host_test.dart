@@ -71,6 +71,7 @@ class Fixture {
   Fixture({this.projection = const {'phase': null}}) {
     client = FixtureClient(handle);
     w = WorkspaceController(client);
+    addTearDown(w.dispose);
     final server = RaftRecord({
       'id': 's1',
       'slug': 'visual',

@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/painting.dart' show imageCache;
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
 /// The binding every test in this directory runs on.
 ///
@@ -40,7 +42,58 @@ class RaftTestBinding extends AutomatedTestWidgetsFlutterBinding {
       semanticsBuilderFactory?.call() ?? super.createSemanticsUpdateBuilder();
 }
 
+/// Leak tracking (`leak_tracker`) runs in every `testWidgets`: an object that
+/// reaches the garbage collector without `dispose()` fails its test file
+/// ("notDisposed"). `RAFT_LEAK_TRACKING=0` turns it off for a local run.
+///
+/// Every ignored class below is created once for the life of the process or
+/// is held by an [Expando] on a controller/client and reclaimed by GC, so it
+/// has no dispose point. Do not add a class that has an owner: fix the owner.
+void _enableLeakTracking() {
+  if (Platform.environment['RAFT_LEAK_TRACKING'] == '0') return;
+  LeakTesting.enable();
+  // The shared image cache keeps decoded images (and their handles) after a
+  // test ends; they are not leaks of the test, so empty it before the report.
+  tearDown(() {
+    imageCache
+      ..clear()
+      ..clearLiveImages();
+  });
+  // `RAFT_LEAK_STACKS=1` adds the creation stack to every report.
+  if (Platform.environment['RAFT_LEAK_STACKS'] == '1') {
+    LeakTesting.settings = LeakTesting.settings.withCreationStackTrace();
+  }
+  LeakTesting.settings = LeakTesting.settings.withIgnored(
+    classes: const [
+      // Process-wide singletons (static `shared` / `instance`).
+      '_RaftFocusVisible',
+      'NativeSystemFonts',
+      'NativeAppIcon',
+      'AppUpdater',
+      'InviteRequests',
+      // Expando-attached caches: live exactly as long as their controller or
+      // client and are released with it by GC.
+      '_ComposerShared',
+      'SavedCountStore',
+      'MessageTaskCache',
+      '_SetupSignal',
+      // Process-wide notifier behind the full-bleed overlay hold.
+      '_HoldCount',
+    ],
+  );
+}
+
+/// A test file that still leaks calls this first thing in `main` with the
+/// classes it leaks (and a comment saying why). It is the per-file debt ledger:
+/// the file stays tracked for everything else, and deleting the line is how the
+/// debt is paid. New leaks in a clean file fail it.
+void leakDebt(List<String> classes) {
+  if (!LeakTesting.enabled) return;
+  LeakTesting.settings = LeakTesting.settings.withIgnored(classes: classes);
+}
+
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  _enableLeakTracking();
   final binding = RaftTestBinding();
   final seconds =
       int.tryParse(Platform.environment['RAFT_TEST_TIMEOUT_SECONDS'] ?? '') ??

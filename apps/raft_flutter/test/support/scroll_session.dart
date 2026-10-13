@@ -151,7 +151,9 @@ Future<Uint8List> tinyPng() async {
     const ui.Rect.fromLTWH(0, 0, 64, 48),
     ui.Paint()..color = const ui.Color(0xff3366cc),
   );
-  final image = await recorder.endRecording().toImage(64, 48);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(64, 48);
+  picture.dispose();
   final data = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
   return data!.buffer.asUint8List();

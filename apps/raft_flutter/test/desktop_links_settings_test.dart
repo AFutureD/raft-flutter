@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:raft_flutter/features/desktop_links_settings.dart';
 import 'package:raft_flutter/platform/linux_uri_scheme.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Store extends LinuxSchemeStore {
   String? stored;
@@ -22,6 +23,8 @@ class _Store extends LinuxSchemeStore {
 }
 
 void main() {
+  // Leak debt (app root): see docs/development.md, Leak tracking.
+  leakDebt(const ['LinuxUriSchemeRegistration']);
   late Directory root;
   late String handler;
   late _Store store;

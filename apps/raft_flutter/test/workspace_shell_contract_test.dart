@@ -13,6 +13,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
+import 'flutter_test_config.dart' show leakDebt;
 
 // Source 26f77ef LeftRail649–771 + Sidebar922–1019/3840–3848/4554–4561.
 // Every test mounts WorkspaceView and activates real product handlers.
@@ -56,6 +57,8 @@ Future<void> retire(WidgetTester t) async {
 }
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<bool>']);
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

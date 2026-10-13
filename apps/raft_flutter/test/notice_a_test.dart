@@ -19,6 +19,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show card, fixture, host;
+import 'flutter_test_config.dart' show leakDebt;
 
 /// Slice A of the transient-notice audit: every notice below must stop showing
 /// when its cause ends (docs: lib/data/cause_notice.dart).
@@ -49,6 +50,8 @@ class _FailingFollow extends WorkspaceController {
 }
 
 void main() {
+  // Leak debt (share flow): see docs/development.md, Leak tracking.
+  leakDebt(const ['IncomingShareStaging', 'ValueNotifier<RaftTransferProgress?>']);
   testWidgets(
     'thread follow failure notice does not follow the widget to another thread',
     (t) async {

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 const body = '''
 Intro paragraph with `inline code`, **bold** and a [link](https://raft.build).
@@ -47,6 +48,8 @@ Widget frame(
 );
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['TapGestureRecognizer']);
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

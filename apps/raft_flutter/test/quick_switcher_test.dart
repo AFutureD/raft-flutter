@@ -95,7 +95,7 @@ Widget host(
     body: Material(
       type: MaterialType.transparency,
       child: QuickSwitcher(
-        listenable: changes ?? ValueNotifier(0),
+        listenable: changes ?? _ownedNotifier(),
         data: read,
         onClose: () => log.closed++,
         onOpenEntity: (e, q) {
@@ -115,6 +115,12 @@ Widget host(
 Future<void> key(WidgetTester t, LogicalKeyboardKey k) async {
   await t.sendKeyEvent(k);
   await t.pump();
+}
+
+ValueNotifier<int> _ownedNotifier() {
+  final notifier = ValueNotifier(0);
+  addTearDown(notifier.dispose);
+  return notifier;
 }
 
 void main() {
@@ -481,6 +487,7 @@ void main() {
       size(t);
       final log = Opened();
       final changes = ValueNotifier(0);
+      addTearDown(changes.dispose);
       var channels = ['design'];
       await t.pumpWidget(
         host(

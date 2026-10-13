@@ -12,6 +12,7 @@ import 'package:raft_ui/test_themes.dart';
 
 import 'message_presentation_test.dart' show fixture;
 import 'task_surface_test.dart' show modernTask, taskRoutes;
+import 'flutter_test_config.dart' show leakDebt;
 
 /// Lets Dio and the controllers finish real async work, then paints.
 Future<void> settle(WidgetTester t) async {
@@ -54,6 +55,8 @@ const _themes = [
 ];
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['SourceChannelFilesStore']);
   for (final (family, dark) in raftThemeMatrix(_themes)) {
     testWidgets(
       '$family/$dark Files tab: revisit and thread open show cached rows at the first frame; refresh replaces in place; identity change drops them',

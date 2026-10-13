@@ -35,6 +35,7 @@ import 'edge_to_edge_audit_test.dart'
         settle;
 import 'incoming_share_review_test.dart' show PickerClient;
 import 'mobile_computer_navigation_test.dart' show loadComputerPageFonts;
+import 'flutter_test_config.dart' show leakDebt;
 
 const _dpr = 2.625;
 const _size = Size(1081, 2402);
@@ -598,6 +599,8 @@ void _wideTests() {
 }
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<bool>', '_NativePicture']);
   _wideTests();
   for (final theme in raftThemeMatrix(_themes, full: true)) {
     for (final p in pages) {

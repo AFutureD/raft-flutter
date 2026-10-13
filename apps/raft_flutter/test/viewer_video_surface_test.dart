@@ -20,6 +20,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'message_presentation_test.dart' show fixture;
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Platform extends VideoPlayerPlatform {
   final types = <VideoViewType>[];
@@ -107,6 +108,8 @@ class _Client extends RaftClient {
 }
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<VideoPlayerController?>', 'VideoPlayerController']);
   late _Platform fake;
   late VideoPlayerPlatform previous;
   setUp(() {

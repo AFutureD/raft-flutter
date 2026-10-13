@@ -68,6 +68,7 @@ void main() {
         final boundary =
             root.currentContext!.findRenderObject()! as RenderRepaintBoundary;
         final image = (await t.runAsync(boundary.toImage))!;
+        addTearDown(image.dispose);
         final bytes = (await t.runAsync(
           () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
         ))!;

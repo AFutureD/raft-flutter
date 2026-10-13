@@ -11,6 +11,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_ui/test_themes.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Adapter implements HttpClientAdapter {
   final calls = <RequestOptions>[];
@@ -143,6 +144,8 @@ void _taskRoutes(_Workspace w, _Adapter a) {
 }
 
 void main() {
+  // Leak debt (open task dialog): see docs/development.md, Leak tracking.
+  leakDebt(const ['TaskSurfaceController']);
   for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

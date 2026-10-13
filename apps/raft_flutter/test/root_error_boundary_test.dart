@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/root_error_boundary.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Bomb extends StatelessWidget {
   const _Bomb();
@@ -28,6 +29,8 @@ class _Counter extends StatelessWidget {
 }
 
 void main() {
+  // Leak debt (app root): see docs/development.md, Leak tracking.
+  leakDebt(const ['RootErrors']);
   test('which errors end the app on the fallback', () {
     expect(rootErrorIsFatal(StateError('x')), isTrue);
     expect(rootErrorIsFatal(StateError('x'), library: 'widgets library'), isTrue);

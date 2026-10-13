@@ -8,8 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../integration_test/perf_lab/fixtures.dart';
 import '../integration_test/perf_lab/navigation_activity.dart';
 import '../integration_test/perf_lab/navigation_host.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['_NativePicture']);
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(

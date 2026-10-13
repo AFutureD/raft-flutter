@@ -7,6 +7,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Client extends RaftClient {
   _Client()
@@ -54,6 +55,8 @@ class _Workspace extends WorkspaceController {
 }
 
 void main() {
+  // Leak debt (dialog notifier): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<Object?>']);
   late _Client c;
   late _Workspace w;
   setUp(() {

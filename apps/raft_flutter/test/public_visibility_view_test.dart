@@ -81,6 +81,7 @@ class _Client extends RaftClient {
     },
   });
   final w = WorkspaceController(client);
+  addTearDown(w.dispose);
   final server = RaftRecord({
     'id': 's1',
     'name': 'Fixture',

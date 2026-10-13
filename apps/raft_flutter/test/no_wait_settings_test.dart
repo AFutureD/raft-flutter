@@ -23,6 +23,7 @@ import 'notification_settings_view_test.dart' as notif;
 import 'support/close_support.dart' show frames;
 import 'support/memory_storage.dart';
 import 'workspace_source_location_contract_test.dart' show pageFixture;
+import 'flutter_test_config.dart' show leakDebt;
 
 /// Settings, account, integrations and public pages open from what the app
 /// already holds (a previous visit, the workspace directory, the sidebar the
@@ -67,6 +68,8 @@ Future<void> _revisit(
 }
 
 void main() {
+  // Leak debt (app root, dialog notifier): see docs/development.md, Leak tracking.
+  leakDebt(const ['Service', 'ValueNotifier<ConnectedAppSecret?>']);
   setUp(() {
     PublicServerMemory.clear();
     InviteInfoMemory.clear();

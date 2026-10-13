@@ -46,12 +46,13 @@ void main() {
                     as RenderRepaintBoundary)
                 .toImage(),
       );
+      addTearDown(image!.dispose);
       final bytes = (await tester.runAsync(
-        () => image!.toByteData(format: ui.ImageByteFormat.rawRgba),
+        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
       ))!;
       Color at(Offset p) {
         final x = (p.dx - origin.dx).round(), y = (p.dy - origin.dy).round();
-        final i = (y * image!.width + x) * 4;
+        final i = (y * image.width + x) * 4;
         return Color.fromARGB(
           bytes.getUint8(i + 3),
           bytes.getUint8(i),

@@ -77,7 +77,9 @@ Future<Uint8List> largePng() async {
     Paint()..color = const Color(0xff3366cc),
   );
   canvas.drawCircle(const Offset(2000, 1500), 900, Paint());
-  final image = await recorder.endRecording().toImage(4000, 3000);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(4000, 3000);
+  picture.dispose();
   final data = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
   return data!.buffer.asUint8List();

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/platform/desktop_title_bar.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 /// A runner stand-in on `app.raft/titlebar`: records what the app sends and
 /// can push `state` the way the macOS runner does on resize / fullscreen.
@@ -68,6 +69,8 @@ Widget _app(
 );
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<DesktopTitleBarState>']);
   testWidgets('macOS: strip at the reported height, content below it', (
     tester,
   ) async {

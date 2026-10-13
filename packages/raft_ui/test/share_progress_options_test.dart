@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/share_progress_previews.dart';
 import 'package:raft_ui/test_themes.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 const _rows = <(String, RaftShareWaitOption, RaftShareWaitScenario)>[
   ('A-continued', RaftShareWaitOption.button, RaftShareWaitScenario.continued),
@@ -24,6 +25,8 @@ const _rows = <(String, RaftShareWaitOption, RaftShareWaitScenario)>[
 ];
 
 void main() {
+  // Leak debt (share flow): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<RaftTransferProgress?>']);
   final out = Platform.environment['SHARE_PROGRESS_OUT'];
   setUpAll(() async {
     // Rendering the mock-up sheet needs the real faces (the test engine draws

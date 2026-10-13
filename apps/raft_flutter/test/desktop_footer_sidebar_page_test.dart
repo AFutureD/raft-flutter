@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'workspace_shell_contract_test.dart' show mountShell, openHelp, retire;
 import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
+import 'flutter_test_config.dart' show leakDebt;
 
 Future<void> shellFonts(WidgetTester t) => t.runAsync(() async {
   for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
@@ -24,6 +25,8 @@ Future<void> shellFonts(WidgetTester t) => t.runAsync(() async {
 });
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<bool>']);
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

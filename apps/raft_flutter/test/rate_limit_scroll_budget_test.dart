@@ -5,8 +5,11 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/scroll_session.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['Image']);
   const limit = 120;
   for (final local in [false, true]) {
     final storage = local ? 'server-streamed storage' : 'presigned storage';

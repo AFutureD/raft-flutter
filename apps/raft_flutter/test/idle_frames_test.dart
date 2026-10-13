@@ -12,6 +12,7 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 import '../integration_test/desktop_screens_test.dart'
     show DesktopFixtureClient;
@@ -25,6 +26,8 @@ import '../integration_test/desktop_screens_test.dart'
 /// A focused text field blinks its caret on purpose, so the search overlay and
 /// the thread composer are not part of this list.
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['PersonalPresentationStore']);
   final fixtureText = File(
     '../../tool/desktop-parity/desktop-fixture.json',
   ).readAsStringSync();
@@ -39,6 +42,7 @@ void main() {
       jsonDecode(fixtureText) as Map<String, dynamic>,
     );
     final w = WorkspaceController(client);
+    addTearDown(w.dispose);
     await t.pumpWidget(
       MaterialApp(
         debugShowCheckedModeBanner: false,

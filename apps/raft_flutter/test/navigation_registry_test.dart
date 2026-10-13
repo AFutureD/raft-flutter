@@ -24,6 +24,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter, fixture;
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Notifications extends NativeNotificationService {
   _Notifications() {
@@ -63,6 +64,8 @@ void noException(WidgetTester tester, String reason) {
 }
 
 void main() {
+  // Leak debt (app root, other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<bool>', '_Notifications']);
   group('registry', () {
     final lib = Directory('lib');
     final sources = [

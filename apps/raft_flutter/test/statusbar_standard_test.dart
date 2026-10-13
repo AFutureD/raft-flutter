@@ -28,6 +28,7 @@ import 'app_global_server_selector_test.dart' show RootFixture;
 import 'edge_to_edge_audit_test.dart' show richFixture, settle;
 import 'mobile_computer_navigation_test.dart' show loadComputerPageFonts;
 import 'statusbar_audit_test.dart' show Page, pages, withDirectory;
+import 'flutter_test_config.dart' show leakDebt;
 
 const _dpr = 2.625;
 const _topDp = 40.0;
@@ -260,6 +261,8 @@ const _wideCoverPages = <Page>[
 ];
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<bool>']);
   final shots = Platform.environment['RAFT_STATUSBAR_STANDARD_DIR'];
   final registry = _registryPages();
   for (final size in _sizes.entries) {

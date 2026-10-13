@@ -7,8 +7,11 @@ import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_ui/test_themes.dart';
 
 import 'message_presentation_test.dart' show fixture;
+import 'flutter_test_config.dart' show leakDebt;
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['SourceChannelFilesStore']);
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

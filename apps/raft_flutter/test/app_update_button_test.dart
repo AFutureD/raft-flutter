@@ -17,6 +17,7 @@ import 'package:raft_updater/raft_updater.dart';
 import '../../../packages/raft_ui/test/task_typography_test.dart'
     show loadTaskFonts;
 import 'workspace_source_location_contract_test.dart' show pageFixture;
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Memory implements SearchMemoryStorage {
   final values = <String, String>{};
@@ -29,7 +30,9 @@ class _Memory implements SearchMemoryStorage {
 /// An [AppUpdater] whose native side is replaced by a scripted outcome.
 class _FakeUpdater implements AppUpdater {
   _FakeUpdater({bool available = true, this.outcome = AppUpdateOutcome.started})
-    : _availability = ValueNotifier<bool>(available);
+    : _availability = ValueNotifier<bool>(available) {
+    addTearDown(_availability.dispose);
+  }
 
   final ValueNotifier<bool> _availability;
   AppUpdateOutcome outcome;
@@ -177,6 +180,8 @@ final _shotKey = GlobalKey();
 final _action = find.byKey(const ValueKey('settings-about-update-action'));
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<AppImageUpdateStatus>', 'ValueNotifier<bool>']);
   group('Linux AppImage in-place update', () {
     Future<(AppUpdateService, _FakeUpdater, _FakeAppImage, List<String>)> mount(
       WidgetTester t,

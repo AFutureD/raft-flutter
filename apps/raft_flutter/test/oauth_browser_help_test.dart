@@ -12,6 +12,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_flutter/platform/oauth_broker.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 const _authorizationUrl =
     'https://provider.example.invalid/authorize?state=secret-state-1234';
@@ -87,6 +88,8 @@ Future<void> _settle(WidgetTester t, int rounds) async {
 final _help = find.byKey(const ValueKey('auth-browser-help'));
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<Uri?>']);
   HttpOverrides.global = null;
   testWidgets('a browser that never opens: help appears after 3 s', (t) async {
     final opened = <Uri>[];

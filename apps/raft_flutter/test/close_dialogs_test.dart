@@ -35,6 +35,7 @@ import 'support/close_registry_dialogs.dart';
 import 'support/close_runner.dart';
 import 'support/close_support.dart';
 import 'support/close_surface.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 /// The test font is wider than the shipped one, so dense dialogs report
 /// RenderFlex overflows on a phone that the device does not have; the guard
@@ -340,6 +341,8 @@ Future<SurfaceProbe> fromProviders(
 }
 
 void main() {
+  // Leak debt (dialog notifier): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<RaftTranscriptRequestState?>']);
   final harness = <String, OpenSurface>{
     'confirm-dialog': confirmDialog,
     'role-permission-help': (t, size) async {
@@ -406,13 +409,15 @@ void main() {
       return openBulkReset(t, size);
     },
     'runtime-usage-sheet': (t, size) async {
+      final usageChanges = ValueNotifier(0);
+      addTearDown(usageChanges.dispose);
       await openFromButton(
         t,
         size,
         (context) => unawaited(
           showRaftRuntimeUsageSheet(
             context,
-            listenable: ValueNotifier(0),
+            listenable: usageChanges,
             data: (_) => const RaftRuntimeUsageData(
               provider: 'Claude',
               footer: 'Cached',

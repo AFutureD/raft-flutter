@@ -49,6 +49,12 @@ void main() {
         final blue = find.byKey(const ValueKey('app-icon-blue'));
         await t.ensureVisible(blue);
         await t.pumpAndSettle();
+        // `supportsAlternateIcons` answers on the real event loop; a tap before
+        // it has (slower with leak tracking on) is ignored as unsupported.
+        await t.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 200)),
+        );
+        await t.pump();
         expect(blue.hitTestable(), findsOneWidget);
         await t.tap(blue);
         await t.pumpAndSettle();

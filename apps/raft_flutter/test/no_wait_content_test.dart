@@ -31,6 +31,7 @@ import 'message_presentation_test.dart' show card, host;
 import 'task_snapshot_navigation_test.dart' show taskRow;
 import 'support/close_support.dart';
 import 'support/no_wait_support.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 final _png = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8V7uCgRTARJLqUQ2jGoaUBgC7qgJDBU0aZAAAAABJRU5ErkJggg==',
@@ -93,6 +94,8 @@ MessagePresentation _presentation(
 );
 
 void main() {
+  // Leak debt (dialog notifier): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<Map<String, dynamic>?>']);
   group('message links and references open from what is loaded', () {
     testWidgets('computer: opens the machine detail from the directory', (
       t,

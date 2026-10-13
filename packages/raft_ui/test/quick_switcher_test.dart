@@ -3,6 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
+/// Owned by the running test: disposed when it ends.
+T _own<T extends ChangeNotifier>(T value) {
+  addTearDown(value.dispose);
+  return value;
+}
+
 Widget frame(
   RaftFamily family,
   bool dark, {
@@ -20,14 +26,14 @@ Widget frame(
           selectLabel: 'Select',
           openLabel: 'Open',
           field: RaftQuickSwitcherField(
-            controller: TextEditingController(),
-            focusNode: FocusNode(),
+            controller: _own(TextEditingController()),
+            focusNode: _own(FocusNode()),
             hint: 'Channels, people, messages…',
             clearLabel: 'Clear search',
             onClear: () {},
           ),
           body: RaftQuickSwitcherList(
-            controller: ScrollController(),
+            controller: _own(ScrollController()),
             children: [
               RaftQuickSwitcherHead(
                 children: [

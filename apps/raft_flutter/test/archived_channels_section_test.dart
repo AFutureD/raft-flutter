@@ -49,6 +49,7 @@ class _Fixture {
     w = WorkspaceController(client)
       ..server = RaftRecord({'id': 's', 'name': 'S', 'slug': 's', 'role': role});
     w.channels = [for (final r in rows) RaftChannel(r)];
+    addTearDown(w.dispose);
   }
   final Locale locale;
   late final ScreenFixtureClient client;

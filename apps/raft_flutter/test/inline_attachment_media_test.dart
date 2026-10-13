@@ -10,6 +10,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter, fixture;
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Player implements AttachmentPlayer {
   final events = StreamController<AttachmentPlayback>.broadcast();
@@ -115,6 +116,8 @@ Future<void> unmount(WidgetTester tester) async {
 }
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<bool>']);
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 

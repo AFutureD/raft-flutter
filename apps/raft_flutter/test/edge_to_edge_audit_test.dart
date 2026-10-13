@@ -156,7 +156,9 @@ Future<Map<String, Object?>> shoot(
       Rect.fromLTWH(0, 0, w.toDouble(), 100),
       Paint()..color = const Color(0x3300AA00),
     );
-    final out = await recorder.endRecording().toImage(w, h);
+    final picture = recorder.endRecording();
+    final out = await picture.toImage(w, h);
+    picture.dispose();
     final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
     File(
       '${outDir().path}/$name.png',

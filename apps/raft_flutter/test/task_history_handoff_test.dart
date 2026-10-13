@@ -9,8 +9,11 @@ import 'package:raft_ui/test_themes.dart';
 import 'message_context_transition_test.dart' show row;
 import 'message_presentation_test.dart' show fixture;
 import 'task_surface_test.dart' show taskRoutes, modernTask, taskHost, flush;
+import 'flutter_test_config.dart' show leakDebt;
 
 void main() {
+  // Leak debt (open task dialog, other): see docs/development.md, Leak tracking.
+  leakDebt(const ['MessageTranslationStore', 'TaskSurfaceController', 'ThreadSearch', 'ValueNotifier<bool>', 'WorkspaceController']);
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

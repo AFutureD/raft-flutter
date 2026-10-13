@@ -17,6 +17,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'message_presentation_test.dart' show MessageAdapter;
 import 'support/close_support.dart';
 import 'support/no_wait_support.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 /// No-wait UI, group "agents, computers, profiles": every surface opens (and
 /// shows its final content) from what is already local while the network
@@ -83,6 +84,8 @@ Future<(WorkspaceController, MessageAdapter)> mount(WidgetTester t) async {
 }
 
 void main() {
+  // Leak debt (dialog notifier): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<(Object?)?>', 'ValueNotifier<Map<String, dynamic>>', 'ValueNotifier<Object?>', 'ValueNotifier<String?>']);
   testWidgets('agent detail opened with an id-only row renders the directory '
       'agent at the first frame', (t) async {
     final (w, api) = await mount(t);

@@ -16,6 +16,7 @@ import 'package:raft_flutter/platform/incoming_share_inbox.dart';
 import 'package:raft_flutter/platform/incoming_share_staging.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Client extends RaftClient {
   _Client()
@@ -150,6 +151,8 @@ Future<void> _advance(WidgetTester t, [int ms = 300]) =>
     t.pump(Duration(milliseconds: ms));
 
 void main() {
+  // Leak debt (share flow): see docs/development.md, Leak tracking.
+  leakDebt(const ['IncomingShareStaging', 'ValueNotifier<RaftTransferProgress?>']);
   for (final (name, family, dark) in [
     ('brutal', RaftFamily.brutal, false),
     ('elegant', RaftFamily.elegant, false),

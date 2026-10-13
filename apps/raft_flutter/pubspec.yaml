@@ -75,6 +75,7 @@ dev_dependencies:
     sdk: flutter
   vm_service: any
   flutter_lints: ^6.0.0
+  leak_tracker_flutter_testing: ^3.0.10
   file_selector_platform_interface: ^2.7.0
   video_player_platform_interface: ^6.9.0
   socket_io_client: any

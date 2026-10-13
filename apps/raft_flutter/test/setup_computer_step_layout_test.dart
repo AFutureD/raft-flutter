@@ -40,14 +40,20 @@ Widget _card({required bool recovering, bool online = false}) => Center(
   ),
 );
 
-Widget _survey() => Center(
+Widget _survey() {
+  final other = TextEditingController();
+  addTearDown(other.dispose);
+  return _surveyCard(other);
+}
+
+Widget _surveyCard(TextEditingController other) => Center(
   child: SingleChildScrollView(
     child: RaftSetupSurveyCard(
       roles: const {'design': 'Designer', 'founder': 'Founder'},
       sources: const {'search': 'Search', 'other': 'Other'},
       role: 'design',
       source: 'other',
-      otherController: TextEditingController(),
+      otherController: other,
       saving: false,
     ),
   ),

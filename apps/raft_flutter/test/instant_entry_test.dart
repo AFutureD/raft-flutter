@@ -15,6 +15,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import 'app_global_server_selector_test.dart' show RootCache, RootFixture;
 import 'workspace_source_location_contract_test.dart' show LocalNotifications;
+import 'flutter_test_config.dart' show leakDebt;
 
 // Time-to-first-meaningful-frame harness for the two entry points that must
 // feel instant: an incoming Android share and a notification tap. Every
@@ -381,6 +382,8 @@ List<String> raisedErrors(WorkspaceController w) {
 }
 
 void main() {
+  // Leak debt (app root, share flow): see docs/development.md, Leak tracking.
+  leakDebt(const ['IncomingShareStaging', 'LocalNotifications', 'ValueNotifier<RaftTransferProgress?>']);
   late Directory dir;
   setUp(() {
     dir = Directory.systemTemp.createTempSync('raft-instant-share-');

@@ -9,6 +9,7 @@ import 'package:raft_flutter/platform/app_update.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
+import 'flutter_test_config.dart' show leakDebt;
 
 class _Memory implements SearchMemoryStorage {
   final values = <String, String>{};
@@ -105,6 +106,8 @@ bool _tabAttention(WidgetTester t) => t
     .attention;
 
 void main() {
+  // Leak debt (other): see docs/development.md, Leak tracking.
+  leakDebt(const ['ValueNotifier<bool>']);
   testWidgets(
     'desktop: dot on Settings and About until About is opened',
     (t) async {
