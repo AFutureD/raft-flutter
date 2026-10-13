@@ -110,7 +110,7 @@ void main() {
                     viewPadding: EdgeInsets.zero,
                     viewInsets: EdgeInsets.zero,
                   ),
-                  child: RepaintBoundary(key: imageKey, child: child!),
+                  child: RepaintBoundary(key: imageKey, child: child),
                 ),
               ),
             ),

@@ -77,5 +77,6 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   file_selector_platform_interface: ^2.7.0
   video_player_platform_interface: ^6.9.0
+  socket_io_client: any
 flutter:
   uses-material-design: true

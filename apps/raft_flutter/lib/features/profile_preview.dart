@@ -553,7 +553,7 @@ class ExternalIdentityHoverCard extends StatelessWidget {
         notes: [
           if (workspaceName != null && workspaceName!.isNotEmpty)
             raftFormat(context, 'From {workspace}', {
-              'workspace': workspaceName!,
+              'workspace': workspaceName,
             }),
           raftText(context, 'External identity'),
         ],

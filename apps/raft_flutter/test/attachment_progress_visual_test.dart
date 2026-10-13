@@ -248,7 +248,7 @@ void main() {
                       child: Localizations.override(
                         context: context,
                         locale: const Locale('zh'),
-                        child: child!,
+                        child: child,
                       ),
                     ),
                     _statusBar(RaftTokens.of(context), onBlack: onBlack),
@@ -425,7 +425,7 @@ void main() {
                       child: Localizations.override(
                         context: context,
                         locale: const Locale('zh'),
-                        child: child!,
+                        child: child,
                       ),
                     ),
                     _statusBar(RaftTokens.of(context), onBlack: true),

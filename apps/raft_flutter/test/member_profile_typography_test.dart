@@ -127,7 +127,7 @@ void main() {
     await tester.tap(find.text('Copy'));
     await tester.pumpAndSettle();
     expect(copied, isNotEmpty);
-    expect('Turns product feedback into specs.', contains(copied!));
+    expect('Turns product feedback into specs.', contains(copied));
   });
 
   testWidgets('fractional section border keeps layout but snaps CSS paint', (

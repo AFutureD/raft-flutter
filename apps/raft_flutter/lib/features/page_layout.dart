@@ -205,7 +205,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
                 if (subtitle != null && subtitle!.isNotEmpty)
                   canonical
                       ? RaftCssText(
-                          subtitle!,
+                          subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: subtitleStyle,

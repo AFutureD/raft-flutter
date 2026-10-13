@@ -304,7 +304,7 @@ Future<Map<String, dynamic>> captureParityCase(
           key: rootKey,
           child: RaftTooltipProvider(
             delay: const Duration(milliseconds: 600),
-            child: ColoredBox(color: Colors.white, child: child!),
+            child: ColoredBox(color: Colors.white, child: child),
           ),
         ),
       ),

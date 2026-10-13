@@ -3288,7 +3288,7 @@ class _RaftChatViewState extends State<RaftChatView>
   /// the fixed task bar and composer stay outside this viewport.
   Widget taskLoadingBody(Widget body) => CustomScrollView(
     slivers: [
-      SliverToBoxAdapter(child: widget.threadParentSlot!),
+      SliverToBoxAdapter(child: widget.threadParentSlot),
       SliverFillRemaining(hasScrollBody: false, child: body),
     ],
   );

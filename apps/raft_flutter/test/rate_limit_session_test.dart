@@ -246,7 +246,7 @@ void main() {
       mark('hover sweep');
       final hoverSlice = meter.requests.sublist(
         marks['activity + search']!,
-        marks['hover sweep']!,
+        marks['hover sweep'],
       );
       expect(
         hoverSlice.where((r) => r.label.contains('/attachments/')),

@@ -360,8 +360,8 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
           key: const ValueKey('member-departure-status'),
           badge: RaftRecipeBadge(
             label,
-            background: t.colors['fill-muted']!,
-            foreground: t.colors['foreground-strong']!,
+            background: t.colors['fill-muted'],
+            foreground: t.colors['foreground-strong'],
           ),
           bodyLine: true,
         ),

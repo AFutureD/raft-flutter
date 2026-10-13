@@ -112,7 +112,7 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
       child: ExcludeSemantics(
         excluding: !active,
         child: RouteFrameDiagnostics.enabled
-            ? RouteFrameProbe(child: content!)
+            ? RouteFrameProbe(child: content)
             : content!,
       ),
     );

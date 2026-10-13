@@ -685,7 +685,7 @@ class _PublicServerViewState extends State<PublicServerView> {
         content: m.content,
         timestamp: m.createdAt == null
             ? ''
-            : formatter.messageTime(m.createdAt!),
+            : formatter.messageTime(m.createdAt),
       );
     }
     return RaftMessageTile(
@@ -703,7 +703,7 @@ class _PublicServerViewState extends State<PublicServerView> {
         references: channelReferences,
         onLink: openReference,
       ),
-      timestamp: m.createdAt == null ? '' : formatter.messageTime(m.createdAt!),
+      timestamp: m.createdAt == null ? '' : formatter.messageTime(m.createdAt),
       threadRepliesBadge:
           !parent && !thread && m.threadId != null && m.replyCount > 0
           ? RaftThreadRepliesBadge(

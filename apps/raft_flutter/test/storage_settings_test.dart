@@ -116,7 +116,7 @@ void main() {
     await settle(t);
     expect(find.byKey(const ValueKey('storage-clear-dialog')), findsNothing);
     expect(size(t), 'Cache size: 2.0 MB');
-    expect((await t.runAsync(cache.sizeBytes))!, 2 * 1024 * 1024);
+    expect((await t.runAsync(cache.sizeBytes)), 2 * 1024 * 1024);
 
     await t.tap(find.byKey(const Key('storage-clear')));
     await settle(t);
@@ -125,7 +125,7 @@ void main() {
     expect(find.byKey(const ValueKey('storage-clear-dialog')), findsNothing);
     expect(find.text('Cache cleared.'), findsOneWidget);
     expect(size(t), 'Cache size: 0 B');
-    expect((await t.runAsync(cache.sizeBytes))!, 0);
+    expect((await t.runAsync(cache.sizeBytes)), 0);
     expect(session.existsSync(), isTrue, reason: 'only the cache is cleared');
     await t.pump(const Duration(seconds: 6));
   });

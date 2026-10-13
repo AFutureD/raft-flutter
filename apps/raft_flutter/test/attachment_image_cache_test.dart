@@ -303,7 +303,7 @@ void main() {
       expect(
         (await tester.runAsync(
           () => resolvedSize(tester.widget<Image>(find.byType(Image)).image),
-        ))!,
+        )),
         (1152, 864),
       );
       await tester.pumpWidget(const SizedBox());
