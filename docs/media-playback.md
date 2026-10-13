@@ -32,13 +32,16 @@ sources and its Android plugin is a small Java class, and nothing initialises me
 * Source: `AttachmentSource.network(url, refresh:, start:)`, the signed `disposition=inline` URL
   (`VideoPlayerController.networkUrl`; media_kit `loadfile`). No header is sent: the signature in the URL is the only
   credential. A local `AttachmentSource.file` is still accepted (tests). On the first failure of a streamed source the
-  player signs the URL again once (`refresh`) and carries on from where it was; `video_player` reports a rejected
-  request as a bare "Source error", so any first failure triggers the one re-sign (mpv: the first reported failure).
+  player signs the URL again once (`refresh`) and carries on from where it was. `video_player` reports a rejected
+  request as a bare "Source error", so a first failure whose class is expired or unknown (see
+  [Failure classes](#failure-classes-and-messages)) triggers the one re-sign (mpv: the first reported failure); a
+  refused proxy, a missing network or an undecodable file would fail the same way again and show at once.
 * Opens paused at the first frame; `hasFrame` becomes true once the picture widget was built with a known size
   (the poster beneath goes then); until then the backdrop is transparent when `transparentVideo` is set.
-* Errors: a failed open publishes `error` and rethrows (the card shows "Download to view"); a runtime player error
-  (`VideoPlayerValue.hasError`) is a failure and stays one. Buffering is not. The reason is written with
-  `debugPrint` as a redacted `raft.media: [error] video_player: ...` line (logcat on Android).
+* Errors: a failed open publishes `error` with its class and throws `MediaPlaybackException`; a runtime player error
+  (`VideoPlayerValue.hasError`) is a failure and stays one. Buffering is not. The class and the sanitized cause are
+  written with `debugPrint` as a redacted `raft.media: [error] video_player: open failed class=... cause="..."` line
+  (logcat on Android).
 * Volume is 0-100 like media_kit (video_player takes 0-1). Toggling a finished clip restarts from 0.
 * Leaving the app pauses (`AppLifecycleState.paused`); returning does not resume. `video_player`'s own observer, which
   resumes, is disabled with `allowBackgroundPlayback`.
@@ -72,6 +75,41 @@ sources and its Android plugin is a small Java class, and nothing initialises me
 * Formats are the system's: AVPlayer does not play WebM or MKV, so those show the failure state on iOS and macOS with
   "Download to view" (media_kit played them). Ogg/Vorbis audio did play on macOS (CodexMac, 2026-10-13), so Ogg is not
   assumed unsupported; check per file.
+
+## Failure classes and messages
+
+A failed card or viewer says what failed and offers what helps; it never claims a codec problem for a network
+one (Kevin 2026-10-13: mpv could not reach the user's HTTP proxy and the card said "may use a codec this browser
+cannot preview"). `MediaFailure` (`platform/media_failure.dart`) is the class (`MediaFailureKind`), the proxy
+`host:port` it is attributed to (never credentials) and the sanitized cause. `AttachmentPlayback.failure` carries it
+with `error`; `MediaPlaybackException` carries it out of `open`.
+
+| Class | libmpv signal | ExoPlayer / AVPlayer signal | Message | Actions |
+| --- | --- | --- | --- | --- |
+| proxy unreachable | `tcp: Connection to tcp://<proxy> failed: ...` while a proxy is in use, or a failed TCP connect to the proxy | `Source error` / localized text, then a failed connect to the OS proxy | Cannot reach the proxy {proxy}. Check Network settings, then try again. | Retry, Network settings, Download |
+| proxy auth | `HTTP error 407`, or probe status 407 | probe status 407 | The proxy {proxy} needs a username and password. Check Network settings. | Retry, Network settings, Download |
+| network | `Connection refused`, `No route to host`, `Failed to resolve hostname`, timeouts, TLS, HTTP 5xx/429 | `UnknownHostException`, `ConnectException`, `ERROR_CODE_IO_NETWORK_*`; `NSURLErrorDomain` -1001/-1003/-1004/-1005/-1009, "Could not connect to the server." | Cannot reach the server. Check your connection and try again. | Retry, Network settings, Download |
+| expired / forbidden | `HTTP error 401/403/410` or probe status, after the one re-sign | `Response code: 403`, CoreMedia -12660 or probe status | This link has expired or access was denied. Try again. | Retry (signs again), Download |
+| not found | `HTTP error 404` or probe status | `Response code: 404`, `ERROR_CODE_IO_FILE_NOT_FOUND` or probe status | This file is no longer available. | Download |
+| unsupported / corrupt | `Failed to recognize file format.`, `Invalid data found...`, no decoder | `PARSING_CONTAINER_*`, `DECODING_FORMAT_*`, `UnrecognizedInputFormatException`, `format_supported=NO_*`; AVFoundation `Cannot Open` / `Cannot Decode` | video: Web's "This video may use a codec this browser cannot preview."; audio: This audio may use a codec this app cannot play. | Download |
+| unknown | nothing recognisable | nothing recognisable and the host answers | The media could not be played. | Retry, Download |
+
+Where the backend says nothing about the cause (libmpv at `warn` logs only `Failed to open <url>` for a 403, a 404,
+a DNS miss and a refused proxy; ExoPlayer says `Source error`; AVPlayer's text is localized), `MediaDiagnosis`
+(`platform/media_probe.dart`) settles it: when a proxy is in use, a plain TCP connect to the proxy (refused, no route
+or timeout means proxy unreachable); then one ranged `GET` (`bytes=0-1023`, body cancelled) through the same proxy
+decision (`SystemProxy`), classified by status or exception. A host that serves the bytes means the file is what the
+player rejected (unsupported), or, for a stream that had started, that the link dropped (network). The proxy is
+named only when the player really follows it: libmpv gets the app's decision (`http-proxy`), ExoPlayer and
+AVPlayer follow the OS proxy only, so a Settings > Network choice is not named for them. The probe is one request
+per failure (it passes the attachment rate-limit governor like every attachment request) and never sends the
+signed URL anywhere but the host that serves it.
+
+Actions: Retry drops the failed player (a failed session is never shared) and prepares a new one, which signs the
+link again, then plays; Network settings (`settingsPath: ['network']`; from the viewer it closes the viewer first)
+is offered for proxy and connection failures; Download is always there. The cause line is always written to the
+journal (`raft.media: playback failed class=... proxy=host:port cause="..."` for libmpv) through `sanitizeMediaLog`:
+host and port stay, paths, queries and credentials do not.
 
 ## Streaming and sessions
 
@@ -172,6 +210,11 @@ reopen. Now:
   `MediaCodecVideoRenderer error ... video/dolby-vision dvhe.08.07 3840x2160 BT2020 HLG 10bit
   format_supported=NO_EXCEEDS_CAPABILITIES` (the emulator's goldfish HEVC decoder has no 4K 10-bit profile); that needs a
   phone.
+* Linux, failure classes: `integration_test/media_failure_linux_test.dart` (bundled libmpv, local server on a LAN
+  address, local refusing proxy and 407 proxy): valid file, 403 (one re-sign), 401, 410, 404, 500, corrupt video and
+  audio, refused port, unresolvable name, manual proxy refused / 407 / unreachable address each land in their class.
+  `xvfb-run -a tool/flutter test integration_test/media_failure_linux_test.dart -d linux
+  --dart-define=MEDIA_FAILURE_HOST=<LAN address>`.
 * Linux: `tool/flutter build linux --debug` builds; `native_player_test` passes under Xvfb (`xvfb-run -a tool/flutter
   test integration_test/native_player_test.dart -d linux --dart-define=RAFT_TEST_REPORT=<dir>`), including a new streaming
   test: mpv reads a loopback `http` URL with ranges, and signs again after a 403 (the first failure of a streamed source).
