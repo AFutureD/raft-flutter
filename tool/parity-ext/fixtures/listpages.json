@@ -432,6 +432,93 @@
     ]
    }
   },
+  "search-threads": {
+   "GET /messages/search": {
+    "hasMore": false,
+    "results": [
+     {
+      "id": "msg-visual-thread-1",
+      "channelId": "thread-msg-agent-reply",
+      "threadId": "thread-msg-agent-reply",
+      "parentMessageId": "msg-agent-reply",
+      "parentMessageContent": "We have no update prompt on any client yet. Look for a ready-made release channel we can plug in and check for a newer release on GitHub, then show a red dot after the user opens the app.",
+      "parentChannelId": "channel-design",
+      "parentChannelName": "design",
+      "parentChannelType": "channel",
+      "parentChannelArchivedAt": null,
+      "senderId": "visual-user",
+      "senderType": "user",
+      "senderName": "Cindy",
+      "channelName": "design",
+      "channelType": "thread",
+      "channelArchivedAt": null,
+      "content": "a",
+      "snippet": "The appcast build is ready for the real-device check.",
+      "createdAt": "2026-06-19T10:00:00.000Z"
+     },
+     {
+      "id": "msg-visual-thread-2",
+      "channelId": "thread-msg-agent-reply",
+      "threadId": "thread-msg-agent-reply",
+      "parentMessageId": "msg-agent-reply",
+      "parentMessageContent": "We have no update prompt on any client yet. Look for a ready-made release channel we can plug in and check for a newer release on GitHub, then show a red dot after the user opens the app.",
+      "parentChannelId": "channel-design",
+      "parentChannelName": "design",
+      "parentChannelType": "channel",
+      "parentChannelArchivedAt": null,
+      "senderId": "visual-user",
+      "senderType": "user",
+      "senderName": "artin",
+      "channelName": "design",
+      "channelType": "thread",
+      "channelArchivedAt": null,
+      "content": "b",
+      "snippet": "The next release will carry the appcast files.",
+      "createdAt": "2026-06-19T09:30:00.000Z"
+     },
+     {
+      "id": "msg-visual-thread-3",
+      "channelId": "thread-msg-release-notes",
+      "threadId": "thread-msg-release-notes",
+      "parentMessageId": "msg-release-notes",
+      "parentMessageContent": "Can the release notes mention the update prompt?",
+      "parentChannelId": "channel-design",
+      "parentChannelName": "design",
+      "parentChannelType": "channel",
+      "parentChannelArchivedAt": null,
+      "senderId": "visual-user",
+      "senderType": "user",
+      "senderName": "Cindy",
+      "channelName": "design",
+      "channelType": "thread",
+      "channelArchivedAt": null,
+      "content": "c",
+      "snippet": "Appcast notes updated.",
+      "createdAt": "2026-06-19T08:00:00.000Z"
+     },
+     {
+      "id": "msg-visual-release-4",
+      "channelId": "channel-design",
+      "threadId": null,
+      "parentMessageId": null,
+      "parentMessageContent": null,
+      "parentChannelId": "channel-design",
+      "parentChannelName": "design",
+      "parentChannelType": "channel",
+      "parentChannelArchivedAt": null,
+      "senderId": "agent-cindy",
+      "senderType": "agent",
+      "senderName": "Cindy",
+      "channelName": "design",
+      "channelType": "channel",
+      "channelArchivedAt": null,
+      "content": "Tagged the appcast candidate.",
+      "snippet": "Tagged the appcast candidate.",
+      "createdAt": "2026-06-18T12:00:00.000Z"
+     }
+    ]
+   }
+  },
   "activity-empty": {
    "GET /channels/inbox": {
     "items": [],

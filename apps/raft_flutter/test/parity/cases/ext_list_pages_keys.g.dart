@@ -17,6 +17,8 @@ const extListPageKeys = [
   'search.desktop-too-broad',
   'search.desktop-load-more',
   'search.desktop-beyond-history',
+  'search.desktop-thread-group',
+  'search.desktop-thread-selected',
   'search.desktop-channel-filter',
   'activity.phone-empty',
   'activity.phone-loading',

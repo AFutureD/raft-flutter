@@ -347,7 +347,8 @@ class RaftQuickSwitcherThreadGroup extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         RaftBadge(
-                          label: badge,
+                          // The header div's `uppercase` reaches the badge text.
+                          label: badge.toUpperCase(),
                           uppercase: true,
                           appearance: RaftBadgeRecipeAppearance.outline,
                           leading: RaftThreadIcon(size: 11, color: t.muted),

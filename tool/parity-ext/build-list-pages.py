@@ -51,6 +51,30 @@ SEARCH_OLD = {**SEARCH, 'results': [{**r, 'createdAt': r['createdAt'].replace('2
                                     for r in SEARCH['results']]}
 SAVED_ALL = {**SAVED, 'hasMore': False, 'total': 3}
 
+
+def _thread_hit(base, hit_id, thread, content, snippet, sender, created):
+    """A reply hit inside a thread: threadId + parentMessageId make the Web page group it (searchGrouping.ts)."""
+    return {**base, 'id': hit_id, 'channelId': f'thread-{thread}', 'threadId': f'thread-{thread}',
+            'parentMessageId': thread, 'channelType': 'thread', 'content': content, 'snippet': snippet,
+            'senderName': sender, 'createdAt': created}
+
+
+_HIT = SEARCH['results'][1]
+_PARENT = ('We have no update prompt on any client yet. Look for a ready-made release channel we can plug in and '
+           'check for a newer release on GitHub, then show a red dot after the user opens the app.')
+# Query "appcast" matches no destination, so the first message hit is the selected result.
+SEARCH_THREADS = {'hasMore': False, 'results': [
+    _thread_hit({**_HIT, 'parentMessageContent': _PARENT}, 'msg-visual-thread-1', 'msg-agent-reply', 'a',
+                'The appcast build is ready for the real-device check.', 'Cindy', '2026-06-19T10:00:00.000Z'),
+    _thread_hit({**_HIT, 'parentMessageContent': _PARENT}, 'msg-visual-thread-2', 'msg-agent-reply', 'b',
+                'The next release will carry the appcast files.', 'artin', '2026-06-19T09:30:00.000Z'),
+    _thread_hit({**_HIT, 'parentMessageContent': 'Can the release notes mention the update prompt?'},
+                'msg-visual-thread-3', 'msg-release-notes', 'c', 'Appcast notes updated.', 'Cindy',
+                '2026-06-19T08:00:00.000Z'),
+    {**SEARCH['results'][0], 'id': 'msg-visual-release-4', 'content': 'Tagged the appcast candidate.',
+     'snippet': 'Tagged the appcast candidate.', 'createdAt': '2026-06-18T12:00:00.000Z'},
+]}
+
 NOTIFICATIONS = [
     {'id': 'visual-warning', 'kind': 'warning', 'title': 'Needs attention', 'body': 'Review this notification.'},
     {'id': 'visual-info', 'kind': 'info', 'title': 'All systems connected', 'body': 'No action is required.'},
@@ -97,6 +121,7 @@ FIXTURE = {
                                                                             'error': 'Query too broad'}}},
         'search-more': {'GET /messages/search': SEARCH_MORE},
         'search-old': {'GET /messages/search': SEARCH_OLD},
+        'search-threads': {'GET /messages/search': SEARCH_THREADS},
         'activity-empty': {'GET /channels/inbox': INBOX_EMPTY},
         'activity-loading': {'GET /channels/inbox': {'$pending': True}},
         'activity-error': {'GET /channels/inbox': {'$status': 500}},
@@ -174,6 +199,16 @@ for plat, box in (('phone', {'w': 390, 'h': 844}), ('desktop', {'w': 1208, 'h': 
     add(f'search.{plat}-beyond-history', f'Search page ({plat}): hits beyond plan history', 'panel',
         platform=platform, hint=SEARCH_HINT, props={**base, 'q': 'android'}, route_set='search-old',
         interactions=[{'type': 'wait', 'ms': 850}])
+add('search.desktop-thread-group', 'Search page (desktop): thread hits grouped under their parent message', 'panel',
+    platform='desktop', hint=SEARCH_HINT, route_set='search-threads',
+    props={'panel': 'search', 'route': '/search', 'w': 1208, 'h': 800, 'q': 'appcast'},
+    interactions=[{'type': 'wait', 'ms': 850}])
+add('search.desktop-thread-selected', 'Search page (desktop): ArrowDown moves the selection to the second hit', 'panel',
+    platform='desktop', hint=SEARCH_HINT, route_set='search-threads',
+    props={'panel': 'search', 'route': '/search', 'w': 1208, 'h': 800, 'q': 'appcast'},
+    interactions=[{'type': 'wait', 'ms': 850}, {'type': 'press', 'target': '[data-visual-case] input', 'key': 'ArrowDown'},
+                  {'type': 'wait', 'ms': 150}],
+    android_interactions=[{'type': 'key', 'key': 'arrowDown'}, {'type': 'wait', 'ms': 150}])
 add('search.desktop-channel-filter', 'Search page (desktop): channel filter dropdown', 'panel', platform='desktop',
     hint=SEARCH_HINT, props={'panel': 'search', 'route': '/search', 'w': 1208, 'h': 800, 'q': 'android'},
     interactions=[{'type': 'wait', 'ms': 850}, *click("button[aria-label='Open channel filter']", 250)])
