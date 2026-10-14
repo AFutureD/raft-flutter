@@ -90,6 +90,10 @@ abstract final class RaftPanelEdge {
   /// column is on the right, the column already draws the divider that faces
   /// the content, so this returns null. Painting [left] there puts a 1px line
   /// on the window's far edge.
+  ///
+  /// Settings, the task thread and the channel drawers stay on [left]. Their
+  /// line is a column divider or the drawer's own leading edge. It does not
+  /// sit on the window when the navigation column is on the right.
   static Border? besideNavigation(
     BuildContext context, [
     RaftPanelEdgeStyle style = RaftPanelEdgeStyle.activityInbox,
@@ -128,8 +132,16 @@ abstract final class RaftPanelEdge {
   }
 }
 
-/// Published by the desktop shell around the content column. False when the
-/// navigation column is on the left, and when no shell has published a side.
+/// Published by the desktop shell around the content column.
+///
+/// [onRight] is true when the navigation column sits on the physical right.
+/// It is false when that column is on the left, and when no shell has
+/// published a side. [RaftPanelEdge.besideNavigation] reads it.
+///
+/// [RaftRailEdgeScope] is the other "on the right" flag. That scope wraps
+/// the rail, and menus the rail opens read it so they open toward the
+/// content. This scope wraps the content column. The two subtrees do not
+/// overlap. Do not read one in place of the other.
 class RaftNavigationColumnScope extends InheritedWidget {
   const RaftNavigationColumnScope({
     super.key,

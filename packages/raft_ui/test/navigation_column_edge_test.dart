@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/task_surface_previews.dart';
 import 'package:raft_ui/test_themes.dart';
 
 /// A painted vertical border stroke, in global coordinates.
@@ -117,6 +118,8 @@ void main() {
       }
     }
   }
+
+  _otherSurfaces();
 }
 
 /// The navigation column's own facing divider, matching the desktop shell:
@@ -160,4 +163,156 @@ class _ActivityEdge extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Settings, the task thread and the two channel drawers keep [RaftPanelEdge.left].
+/// With the navigation column on the physical right, none of those lines is
+/// the window's far edge: settings divides its own nav from its page, the
+/// task line is inside the centered modal, and a drawer line is the drawer's
+/// leading edge.
+void _otherSurfaces() {
+  const window = Size(900, 900);
+
+  Future<void> pump(WidgetTester t, RaftFamily family, Widget body) async {
+    t.view.physicalSize = window;
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(family, dark: false),
+        home: Scaffold(
+          body: RaftNavigationColumnScope(onRight: true, child: body),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+  }
+
+  Widget shell(Widget content) => Row(
+    textDirection: TextDirection.ltr,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Expanded(child: content),
+      const _Nav(true),
+    ],
+  );
+
+  /// Drawers and the task modal cover the window. They are not the content
+  /// column, so the navigation column stays on the right underneath them.
+  Widget overWindow(Widget child) => Stack(
+    fit: StackFit.expand,
+    children: [
+      shell(const SizedBox.expand()),
+      child,
+    ],
+  );
+
+  List<_Rule> atWindow() =>
+      _rules().where((r) => r.x.abs() <= .6 && r.height >= 200).toList();
+
+  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
+    testWidgets(
+      '$family settings line stays beside the settings nav',
+      (t) async {
+        await pump(
+          t,
+          family,
+          shell(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(
+                  width: RaftSettingsLayoutRecipe.navigationWidth,
+                  child: RaftMountedSidebarFrame(
+                    trailingEdge: true,
+                    header: SizedBox(height: 56),
+                    body: SizedBox.expand(),
+                  ),
+                ),
+                const Expanded(
+                  child: RaftSettingsPanelFrame(
+                    header: SizedBox(height: 56),
+                    child: SizedBox.expand(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        expect(atWindow(), isEmpty);
+        final panel = t.getTopLeft(find.byType(RaftSettingsPanelFrame));
+        expect(panel.dx, RaftSettingsLayoutRecipe.navigationWidth);
+        final besideNav = _rules().where(
+          (r) =>
+              (r.x - RaftSettingsLayoutRecipe.navigationWidth).abs() <= .6 &&
+              r.height >= 200,
+        );
+        expect(besideNav, isNotEmpty);
+      },
+    );
+
+    testWidgets('$family task line stays inside the modal', (t) async {
+      await pump(t, family, overWindow(taskModalPreview()));
+      expect(atWindow(), isEmpty);
+      final frame = t.getTopLeft(find.byKey(const ValueKey('task-thread-modal')));
+      expect(frame.dx, greaterThan(8));
+    });
+
+    testWidgets('$family channel drawer line stays on the drawer', (t) async {
+      await pump(
+        t,
+        family,
+        overWindow(
+          RaftOverflowSheet(
+            title: '#general',
+            onClose: () {},
+            children: const [SizedBox(height: 40)],
+          ),
+        ),
+      );
+      expect(atWindow(), isEmpty);
+      final sheet = t.getTopLeft(
+        find.byKey(const ValueKey('channel-overflow-sheet')),
+      );
+      expect(sheet.dx, greaterThan(100));
+      if (family == RaftFamily.brutal) {
+        final leading = _rules().where(
+          (r) => (r.x - sheet.dx).abs() <= .6 && r.height >= 200,
+        );
+        expect(leading, isNotEmpty);
+      }
+    });
+
+    testWidgets(
+      '$family channel settings line stays on the drawer',
+      (t) async {
+        await pump(
+          t,
+          family,
+          overWindow(
+            RaftChannelSettingsSheet(
+              channelName: 'general',
+              onClose: () {},
+            ),
+          ),
+        );
+        expect(atWindow(), isEmpty);
+        final sheet = t.getRect(
+          find.descendant(
+            of: find.byType(RaftChannelSettingsSheet),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is SizedBox && widget.width == 544,
+            ),
+          ),
+        );
+        expect(sheet.left, greaterThan(100));
+        if (family == RaftFamily.brutal) {
+          final leading = _rules().where(
+            (r) => (r.x - sheet.left).abs() <= .6 && r.height >= 200,
+          );
+          expect(leading, isNotEmpty);
+        }
+      },
+    );
+  }
 }
