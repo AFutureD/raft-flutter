@@ -370,6 +370,11 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('media-caption')));
       await tester.pump();
+      expect(
+        tester.getSize(find.byKey(const ValueKey('media-caption'))).height,
+        greaterThan(raftMediaCaptionHeight),
+        reason: 'expanded: all the lines show (an ellipsis would cut it to one)',
+      );
       expect(caption().maxLines, isNull);
       await _pump(tester, _shell());
       expect(find.byKey(const ValueKey('media-caption')), findsNothing);

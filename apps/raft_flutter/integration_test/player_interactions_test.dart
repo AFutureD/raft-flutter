@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:raft_flutter/features/media_browser.dart';
+import 'package:raft_flutter/features/media_image_page.dart' show AttachmentLightboxImage, AttachmentLightboxImageState;
 import 'package:raft_flutter/features/media_video_page.dart';
 import 'package:raft_flutter/platform/attachment_player.dart' show AttachmentPlayback;
 import 'package:raft_flutter/platform/video_player_attachment_player.dart';
@@ -280,7 +281,9 @@ Future<void> closeViewer(WidgetTester tester, String how, String name) async {
 void report(String what, Map<String, Object?> data) => debugPrint('PS-REPORT $what ${jsonEncode(data)}');
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // The host runner's `adb input tap` reaches the app as device pointer events,
+  // which the test binding drops unless told otherwise.
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized().shouldPropagateDevicePointerEvents = _hostDriven;
   lab = PlayerLab(_base, hostDriven: _hostDriven);
 
   Future<void> playInline(WidgetTester tester, String name, {Duration past = const Duration(seconds: 2)}) async {
@@ -1223,6 +1226,257 @@ void main() {
       expect(playing, startsWith('started=1'), reason: 'the audio session was not visible while playing: $playing');
       expect(off, startsWith('started=0'), reason: 'audio still started after paging off: $off');
     }
+    await shutdown(tester);
+  });
+
+  // ---- phone browser: taps on the stage (viewer-bugs) ------------------------
+  // Real touches through Android's input stack (the host runner's `adb input`),
+  // not the binding's pointer injection, so the platform's own tap and
+  // double-tap handling is in the loop. Without a host runner they fall back to
+  // injected pointers.
+
+  /// A touch at [at] (logical pixels); [twice] makes it a double tap. Returns
+  /// after the single-tap window has passed.
+  Future<void> realTap(WidgetTester t, Offset at, {bool twice = false}) async {
+    final ratio = t.view.devicePixelRatio;
+    final command = '${twice ? 'double-tap' : 'tap'}:${(at.dx * ratio).round()},${(at.dy * ratio).round()}';
+    final done = await lab.host(t, command);
+    if (done == null) {
+      await t.tapAt(at);
+      if (twice) {
+        await t.pump(const Duration(milliseconds: 80));
+        await t.tapAt(at);
+      }
+    }
+    await t.pump(const Duration(milliseconds: 600));
+  }
+
+  Offset stagePoint(WidgetTester t, {double down = .45}) {
+    final rect = t.getRect(find.byKey(const ValueKey('viewer-stage')));
+    return Offset(rect.center.dx, rect.top + rect.height * down);
+  }
+
+  /// Top bar and bottom band opacities summed: 2 shown, 0 hidden.
+  double chromeShown(WidgetTester t) => t
+      .widgetList<AnimatedOpacity>(find.descendant(
+        of: find.byType(RaftMediaImmersiveShell),
+        matching: find.byType(AnimatedOpacity),
+      ))
+      .map((o) => o.opacity)
+      .fold(0.0, (a, b) => a + b);
+
+  Future<void> expectChrome(WidgetTester t, bool shown, String state) async {
+    await t.pump(const Duration(milliseconds: 300));
+    expect(browserOf(t).chrome.value, shown, reason: '$state: chrome state');
+    expect(chromeShown(t), shown ? 2 : 0, reason: '$state: top bar and bottom band');
+  }
+
+  scenario('browser V1: a real tap on a playing video page shows and hides its controls with the chrome; pause and seek work', (tester) async {
+    await browserLaunch(tester, [_bA, _bP1]);
+    await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+    await openBrowserFromCard(tester, 'a.mp4');
+    final bar = find.descendant(of: viewer, matching: find.byKey(const Key('inline-video-bar')));
+    final toggle = find.descendant(of: viewer, matching: find.byKey(const Key('inline-video-toggle')));
+    await until(tester, () => viewerOf(tester).playing && viewerOf(tester).position > const Duration(seconds: 1), 'the page to play');
+    await lab.host(tester, 'record-start:viewer-bugs-video');
+    await lab.host(tester, 'shot:viewer-bugs-video-1-playing');
+    expect(browserOf(tester).chrome.value, true);
+    expect(bar, findsOneWidget, reason: 'playing, chrome shown: the controls are there');
+    await realTap(tester, stagePoint(tester, down: .3));
+    await expectChrome(tester, false, 'tap 1');
+    expect(bar, findsNothing, reason: 'the controls go with the chrome');
+    await lab.host(tester, 'shot:viewer-bugs-video-2-hidden');
+    await realTap(tester, stagePoint(tester, down: .3));
+    await expectChrome(tester, true, 'tap 2');
+    expect(bar, findsOneWidget, reason: 'a tap brings the controls back');
+    await tester.pump(const Duration(seconds: 6));
+    expect(bar, findsOneWidget, reason: 'no auto-hide');
+    // Pause with a real touch on the bar's button.
+    await realTap(tester, tester.getCenter(toggle));
+    await until(tester, () => !viewerOf(tester).playing, 'the bar button to pause');
+    final frozen = viewerOf(tester).position;
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(viewerOf(tester).position, frozen, reason: 'paused: the position holds');
+    expect(bar, findsOneWidget, reason: 'paused never hides the controls');
+    await lab.host(tester, 'shot:viewer-bugs-video-3-paused');
+    // Seek with a real touch on the rail.
+    final rail = tester.getRect(find.descendant(of: viewer, matching: find.byKey(const Key('inline-video-seek'))));
+    final total = viewerOf(tester).duration;
+    await realTap(tester, Offset(rail.left + rail.width * .8, rail.center.dy));
+    await until(tester, () => viewerOf(tester).position > total * .6, 'the rail tap to seek');
+    final seeked = viewerOf(tester).position;
+    report('viewer-bugs-video', {'frozenMs': frozen.inMilliseconds, 'seekedMs': seeked.inMilliseconds, 'totalMs': total.inMilliseconds});
+    // Play again from the bar, then pause once more.
+    await realTap(tester, tester.getCenter(toggle));
+    await until(tester, () => viewerOf(tester).playing && viewerOf(tester).position > seeked + const Duration(milliseconds: 600), 'playing again');
+    await lab.host(tester, 'record-stop');
+    await shutdown(tester);
+  });
+
+  const slowPhoto = VideoClip('vp-slow', 'photo1.jpg', 's0.jpg', size: 55318, mime: 'image/jpeg', group: 'g', rate: 4500, width: 1600, height: 1067, text: 'A slow original with a caption under it');
+  const otherPhoto = VideoClip('vp-slow2', 'photo2.jpg', 's1.jpg', size: 48907, mime: 'image/jpeg', group: 'g');
+
+  scenario('browser I1: real tap, double tap and pinch on the thumbnail stand-in while the original downloads; the zoom carries over', (tester) async {
+    await browserLaunch(tester, [slowPhoto, otherPhoto]);
+    final card = find.byTooltip('Preview s0.jpg');
+    await until(tester, () => card.evaluate().isNotEmpty, 'the image card');
+    await tester.ensureVisible(card);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tapCentre(tester, card);
+    await until(tester, () => browser.evaluate().isNotEmpty && browserOf(tester).index == 0, 'the browser');
+    AttachmentLightboxImageState page() => tester.state<AttachmentLightboxImageState>(find.byType(AttachmentLightboxImage).first);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(page().full, isNull, reason: 'the original must still be downloading for this scenario');
+    await lab.host(tester, 'record-start:viewer-bugs-standin');
+    await lab.host(tester, 'shot:viewer-bugs-standin-1-open');
+    // Single tap toggles the chrome (top bar and bottom band together).
+    await realTap(tester, stagePoint(tester, down: .3));
+    await expectChrome(tester, false, 'stand-in tap 1');
+    await lab.host(tester, 'shot:viewer-bugs-standin-2-hidden');
+    await realTap(tester, stagePoint(tester, down: .3));
+    await expectChrome(tester, true, 'stand-in tap 2');
+    // Double tap zooms the stand-in.
+    await realTap(tester, stagePoint(tester), twice: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(page().full, isNull, reason: 'still the stand-in');
+    expect(browserOf(tester).zoomed, true, reason: 'double tap zoomed the stand-in');
+    await lab.host(tester, 'shot:viewer-bugs-standin-3-zoomed');
+    // Pinch (two injected pointers) zooms further.
+    final before = browserOf(tester).zoomFor(0).value.getMaxScaleOnAxis();
+    final centre = stagePoint(tester);
+    final a = await tester.startGesture(centre - const Offset(30, 0), pointer: 21);
+    final b = await tester.startGesture(centre + const Offset(30, 0), pointer: 22);
+    for (var i = 0; i < 8; i++) {
+      await a.moveBy(const Offset(-10, 0));
+      await b.moveBy(const Offset(10, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await a.up();
+    await b.up();
+    await tester.pump(const Duration(milliseconds: 300));
+    final zoomedStandIn = browserOf(tester).zoomFor(0).value.clone();
+    expect(zoomedStandIn.getMaxScaleOnAxis(), greaterThan(before), reason: 'pinch zoomed the stand-in further');
+    // The original arrives: the zoom stays.
+    await until(tester, () => page().full != null, 'the original to arrive', timeout: const Duration(seconds: 60));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(browserOf(tester).zoomFor(0).value, zoomedStandIn, reason: 'the zoom jumped when the original arrived');
+    await lab.host(tester, 'shot:viewer-bugs-standin-4-original');
+    await lab.host(tester, 'record-stop');
+    report('viewer-bugs-standin', {'scaleBefore': before, 'scaleStandIn': zoomedStandIn.getMaxScaleOnAxis()});
+    await shutdown(tester);
+  });
+
+  const bandA = VideoClip('vp-band-a', 'photo3.jpg', 'b0.jpg', size: 50000, mime: 'image/jpeg', group: 'g', text: 'Hall walkthrough, second floor, with a caption long enough to need more than two lines on a phone screen so that it can be expanded by a tap.');
+  const bandB = VideoClip('vp-band-b', 'photo4.jpg', 'b1.jpg', size: 50000, mime: 'image/jpeg', group: 'g');
+  const bandC = VideoClip('vp-band-c', 'photo5.jpg', 'b2.jpg', size: 50000, mime: 'image/jpeg', group: 'g');
+
+  Future<void> openBandBrowser(WidgetTester tester, List<VideoClip> clips, String tooltip) async {
+    await browserLaunch(tester, clips);
+    final card = find.byTooltip(tooltip);
+    await until(tester, () => card.evaluate().isNotEmpty, 'the image card');
+    await tester.ensureVisible(card);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tapCentre(tester, card);
+    await until(tester, () => browser.evaluate().isNotEmpty && browserOf(tester).index == 0, 'the browser');
+    await until(tester, () => tester.state<AttachmentLightboxImageState>(find.byType(AttachmentLightboxImage).first).full != null, 'the original');
+    await tester.pump(const Duration(milliseconds: 600));
+  }
+
+  /// A point in the bottom band's backdrop: just above its first content.
+  Offset bandBackdrop(WidgetTester t) {
+    final caption = find.byKey(const ValueKey('media-caption'));
+    final strip = find.byKey(const ValueKey('lightbox-thumbnails'));
+    if (caption.evaluate().isNotEmpty) return Offset(t.getCenter(caption).dx, t.getTopLeft(caption).dy - 6);
+    if (strip.evaluate().isNotEmpty) return Offset(t.getCenter(strip).dx, t.getTopLeft(strip).dy - 6);
+    final size = t.getSize(browser);
+    return Offset(size.width / 2, size.height - 4);
+  }
+
+  scenario('browser B1: every real tap on the stage hides and shows the top bar and the bottom band: picture, backdrop, caption expanded, after paging and zoom', (tester) async {
+    await openBandBrowser(tester, [bandA, bandB, bandC], 'Preview b0.jpg');
+    await lab.host(tester, 'record-start:viewer-bugs-band');
+    await lab.host(tester, 'shot:viewer-bugs-band-1-shown');
+    await expectChrome(tester, true, 'start');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, false, 'picture tap hides');
+    await lab.host(tester, 'shot:viewer-bugs-band-2-hidden');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, true, 'picture tap shows');
+    // The band's own backdrop (above the caption) is part of the stage.
+    await realTap(tester, bandBackdrop(tester));
+    await expectChrome(tester, false, 'backdrop tap hides');
+    await realTap(tester, stagePoint(tester, down: .2));
+    await expectChrome(tester, true, 'letterbox tap shows');
+    // The caption expands; the stage tap still hides the whole band.
+    final caption = find.byKey(const ValueKey('media-caption'));
+    final collapsed = tester.getSize(caption).height;
+    await realTap(tester, tester.getCenter(caption));
+    await tester.pump(const Duration(milliseconds: 300));
+    await lab.host(tester, 'shot:viewer-bugs-band-3-expanded');
+    report('viewer-bugs-caption', {'collapsed': collapsed, 'after': tester.getSize(caption).height});
+    expect(tester.getSize(caption).height, greaterThan(collapsed), reason: 'the caption expanded');
+    await expectChrome(tester, true, 'caption tap keeps the chrome');
+    await realTap(tester, stagePoint(tester, down: .2));
+    await expectChrome(tester, false, 'tap hides with the caption expanded');
+    await realTap(tester, stagePoint(tester, down: .2));
+    await expectChrome(tester, true, 'tap shows with the caption expanded');
+    // After paging.
+    await flick(tester);
+    await onPage(tester, 1);
+    await tester.pump(const Duration(seconds: 1));
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, false, 'after paging, tap hides');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, true, 'after paging, tap shows');
+    // Zoom (hides the chrome), come back from it.
+    await realTap(tester, stagePoint(tester), twice: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(browserOf(tester).zoomed, true);
+    await expectChrome(tester, false, 'zoomed: chrome out of the way');
+    await realTap(tester, stagePoint(tester, down: .2));
+    await expectChrome(tester, true, 'zoomed, tap brings the bars back');
+    await realTap(tester, bandBackdrop(tester));
+    await expectChrome(tester, false, 'zoomed, backdrop tap hides');
+    await realTap(tester, stagePoint(tester), twice: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(browserOf(tester).zoomed, false, reason: 'double tap returns to fit');
+    await lab.host(tester, 'record-stop');
+    await shutdown(tester);
+  });
+
+  scenario('browser B2: a single image has the same chrome toggle; so does landscape', (tester) async {
+    await openBandBrowser(tester, [const VideoClip('vp-band-one', 'photo6.jpg', 'one.jpg', size: 50000, mime: 'image/jpeg', group: 'g')], 'Preview one.jpg');
+    await lab.host(tester, 'record-start:viewer-bugs-band-single');
+    await expectChrome(tester, true, 'single start');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, false, 'single: picture tap hides');
+    await lab.host(tester, 'shot:viewer-bugs-band-single-hidden');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, true, 'single: picture tap shows');
+    await realTap(tester, bandBackdrop(tester));
+    await expectChrome(tester, false, 'single: backdrop tap hides');
+    await realTap(tester, stagePoint(tester, down: .2));
+    await expectChrome(tester, true, 'single: tap shows');
+    await lab.host(tester, 'record-stop');
+    await shutdown(tester);
+  });
+
+  scenario('browser B3: landscape', (tester) async {
+    addTearDown(() => lab.hostQuiet('rotate:0'));
+    await openBandBrowser(tester, [bandA, bandB, bandC], 'Preview b0.jpg');
+    if (await lab.hostQuiet('rotate:1') == null) return markTestSkipped('needs the host runner');
+    await tester.pump(const Duration(seconds: 2));
+    await lab.host(tester, 'record-start:viewer-bugs-band-landscape');
+    await expectChrome(tester, true, 'landscape start');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, false, 'landscape: picture tap hides');
+    await lab.host(tester, 'shot:viewer-bugs-band-landscape-hidden');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, true, 'landscape: picture tap shows');
+    await realTap(tester, Offset(tester.getSize(browser).width / 2, tester.getSize(browser).height - 4));
+    await expectChrome(tester, false, 'landscape: bottom edge tap hides');
+    await lab.host(tester, 'record-stop');
+    await lab.hostQuiet('rotate:0');
     await shutdown(tester);
   });
 

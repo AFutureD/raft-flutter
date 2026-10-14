@@ -86,6 +86,19 @@ class Host:
         self.adb('shell', 'input', 'swipe', '2', str(h // 2), str(int(w * .6)), str(h // 2), '350')
         return 'swiped'
 
+    def tap(self, x, y, count=1):
+        """A real touch tap through Android's input stack (physical pixels); count 2 is a double tap."""
+        one = f'input tap {x} {y}'
+        self.adb('shell', '; '.join([one] * count))
+        return f'tapped:{x},{y}x{count}'
+
+    def rotate(self, quarter):
+        """Locks the display to portrait (0) or landscape (1) like turning the phone."""
+        self.adb('shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0')
+        self.adb('shell', 'settings', 'put', 'system', 'user_rotation', str(quarter))
+        time.sleep(1.5)
+        return f'rotated:{quarter}'
+
     def save_dialog(self, name):
         """Taps Save in the system document picker, then reports the size of the saved file."""
         deadline = time.time() + 45
@@ -227,6 +240,12 @@ class Host:
                     result = self.record_stop()
                 elif command == 'back':
                     self.adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); result = 'back'
+                elif command.startswith('tap:') or command.startswith('double-tap:'):
+                    kind, at = command.split(':', 1)
+                    x, y = (int(float(v)) for v in at.split(','))
+                    result = self.tap(x, y, 2 if kind == 'double-tap' else 1)
+                elif command.startswith('rotate:'):
+                    result = self.rotate(int(command.split(':', 1)[1]))
                 elif command == 'swipe-back':
                     result = self.swipe_back()
                 elif command.startswith('shot:'):

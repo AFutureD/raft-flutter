@@ -29,6 +29,8 @@ class VideoClip {
     this.rate,
     this.text,
     this.group,
+    this.width,
+    this.height,
   });
 
   /// Attachment id (`vp-...`).
@@ -51,6 +53,9 @@ class VideoClip {
   /// Clips (and images: a `mime` of `image/...`) with the same group are the
   /// attachments of one message, in this order; null: a message of its own.
   final String? group;
+
+  /// Declared pixel size of an image (attachment `width` / `height`).
+  final int? width, height;
 }
 
 /// The clips of the manual parity harness (`video_parity_main.dart`).
@@ -133,6 +138,8 @@ Future<VideoFixture> buildVideoFixture({
             'filename': clip.filename,
             'mimeType': clip.mime,
             'sizeBytes': sizes[clip.id],
+            'width': ?clip.width,
+            'height': ?clip.height,
           },
       ]),
   ]);

@@ -1181,7 +1181,11 @@ class _MediaCaptionState extends State<_MediaCaption> {
                 child: Text(
                   widget.text,
                   maxLines: expanded ? null : 2,
-                  overflow: TextOverflow.ellipsis,
+                  // An ellipsis without a line limit lays out as ONE line
+                  // (the engine's rule): expanded text only clips (scrolls).
+                  overflow: expanded
+                      ? TextOverflow.clip
+                      : TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: t.bodyFont,
                     fontSize: 13,
