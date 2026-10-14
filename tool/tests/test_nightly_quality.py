@@ -214,6 +214,24 @@ class SummaryTests(unittest.TestCase):
         self.assertIn('Podfile.lock', text)
         self.assertIn('未运行：skipped: gate busy', text)
 
+    def test_aborted_run_says_what_did_not_run(self):
+        text = nq.render_summary(self.base(aborted='异常中止：SystemExit: 143'))
+        self.assertNotIn('未运行：无', text)
+        self.assertEqual(text.count('未运行：运行被中止'), 4)  # tests, coverage, PR diff coverage, osv
+        self.assertIn('SystemExit: 143', text)
+
+    def test_aborted_after_tests_still_reports_prs_not_run(self):
+        tests = [{'name': 'app', 'passed': 1, 'skipped': 0, 'seconds': 1, 'ok': True, 'timed_out': False, 'code': 0, 'log': 'l', 'limit': 5, 'failed': []}]
+        coverage = {'total': [1, 2], 'areas': {'a': [1, 2]}, 'least': []}
+        text = nq.render_summary(self.base(tests=tests, coverage=coverage, aborted='异常中止：KeyboardInterrupt: '))
+        self.assertIn('## 3. 开放 PR 的 diff 覆盖（改动行里没有任何测试执行过的）\n- 未运行：运行被中止', text)
+        self.assertNotIn('未运行：无', text)
+
+    def test_unfinished_run_without_reason_is_unknown_not_none(self):
+        text = nq.render_summary(self.base())
+        self.assertNotIn('未运行：无', text)
+        self.assertIn('状态未知', text)
+
     def test_failures_leaks_and_repro_line(self):
         tests = [{'name': 'app', 'passed': 10, 'skipped': 1, 'seconds': 120, 'ok': False, 'timed_out': False, 'code': 1, 'log': 'app.log', 'limit': 5400,
                   'failed': [{'file': 'apps/raft_flutter/test/a_test.dart', 'name': 'breaks', 'error': 'Expected: 1'},

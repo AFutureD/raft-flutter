@@ -220,6 +220,15 @@ def cache_key(pr, base):
     return f"{pr['number']}-{pr['headRefOid'][:12]}-{base[:12]}"
 
 
+def not_run_reason(data):
+    """Why a section has no data. Never "无": a missing section on a run that did not finish is unknown, not nothing."""
+    if data.get('skipped'):
+        return data['skipped']
+    if data.get('aborted'):
+        return f"运行被中止，这一项没有跑到或没有跑完（{data['aborted']}）"
+    return '原因未记录（运行可能未完成，状态未知）'
+
+
 def render_summary(data):
     """The Chinese morning summary (markdown) from the run's data dict."""
     out = []
@@ -256,7 +265,7 @@ def render_summary(data):
 
     add('## 1. 测试（随机顺序）')
     if not tests:
-        add(f"- 未运行：{data.get('skipped') or '无'}")
+        add(f'- 未运行：{not_run_reason(data)}')
     else:
         add('')
         add('| 套件 | 通过 | 失败 | 跳过 | 用时 | 结果 |')
@@ -290,7 +299,7 @@ def render_summary(data):
 
     add('## 2. 覆盖率')
     if not cov:
-        add(f"- 未运行：{data.get('skipped') or '无'}")
+        add(f'- 未运行：{not_run_reason(data)}')
     else:
         add(f"- lib 总行覆盖 **{pct(*cov['total'])}**（{cov['total'][0]}/{cov['total'][1]}；app + raft_ui/raft_client/raft_sync，`*.g.dart` 与测试不计）")
         add('')
@@ -308,6 +317,8 @@ def render_summary(data):
     add('## 3. 开放 PR 的 diff 覆盖（改动行里没有任何测试执行过的）')
     if data.get('prs_note'):
         add(f"- {data['prs_note']}")
+    if prs is None and not data.get('prs_note'):
+        add(f'- 未运行：{not_run_reason(data)}')
     for p in prs or []:
         add(f"- **#{p['number']}** {p['title']}（`{p['branch']}` @ `{p['head'][:9]}`）：{p['status']}")
         for line in p.get('lines', []):
@@ -316,7 +327,7 @@ def render_summary(data):
 
     add('## 4. 依赖漏洞（osv-scanner）')
     if not osv:
-        add('- 未运行')
+        add('- 未运行' + (f'：{not_run_reason(data)}' if data.get('skipped') or data.get('aborted') else ''))
     elif osv.get('error'):
         add(f"- 扫描失败：{osv['error']}")
     else:
@@ -732,7 +743,9 @@ def main(argv=None):
                 run_.note(data['skipped'])
             else:
                 run_.tests_job()
-                if not args.skip_prs:
+                if args.skip_prs:
+                    data['prs_note'] = '未运行：按参数跳过（--skip-prs）'
+                else:
                     run_.prs_job()
     except BaseException as error:  # the summary is still written
         run_.note(f'异常中止：{type(error).__name__}: {error}')
