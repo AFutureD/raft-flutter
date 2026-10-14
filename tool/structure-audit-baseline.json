@@ -639,5 +639,13 @@
       }
     }
   },
-  "exceptions": []
+  "exceptions": [
+    {"module": "workspace_view", "metric": "lines", "limit": 5095, "reason": "M1 standalone scope adapter and retained Settings consumer; retire legacy appUpdate adapter by 2026-10-28.", "reviewer": "Cindy", "expires": "2026-10-28"},
+    {"module": "workspace_view", "metric": "tokens", "limit": 26582, "reason": "M1 standalone scope adapter and retained Settings consumer; retire legacy appUpdate adapter by 2026-10-28.", "reviewer": "Cindy", "expires": "2026-10-28"},
+    {"module": "workspace_view", "metric": "field._WorkspaceBody.configuration", "limit": 1, "reason": "M1 compatibility wrapper configuration; retire with the legacy appUpdate adapter.", "reviewer": "Cindy", "expires": "2026-10-28"},
+    {"module": "main", "metric": "lines", "limit": 2256, "reason": "M1 root services wiring; move assembly into app_root.dart before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"},
+    {"module": "main", "metric": "tokens", "limit": 12108, "reason": "M1 root services wiring; move assembly into app_root.dart before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"},
+    {"module": "main", "metric": "field.RaftApp.services", "limit": 1, "reason": "M1 replaces root appUpdate with explicit services; move assembly out of main before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"},
+    {"module": "main", "metric": "field.RaftApp.ownsAppUpdate", "limit": 1, "reason": "M1 explicit service release responsibility; move assembly out of main before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"}
+  ]
 }
