@@ -537,6 +537,19 @@ def run_logged(args, cwd, log_path, env, timeout=None, outcome=None, after_start
                 log.write('\ncheck-project: stopped early (gate fail-fast).\n')
 
 
+def fresh_shard_outputs(count):
+    """Remove the last run's shard logs before any shard is queued.
+
+    A shard waiting for its StartupGate turn has not opened (truncated) its log yet, so the watcher
+    would otherwise read the previous run's failures and stop this run.
+    """
+    logs = [local / f'test-shard-{i}.txt' for i in range(count)]
+    events = [local / f'test-shard-{i}.json' for i in range(count)]
+    for path in [*logs, *events]:
+        path.unlink(missing_ok=True)
+    return logs, events
+
+
 def run_shard(index, files, jobs, env, timeout, gate=None):
     log = local / f'test-shard-{index}.txt'
     events = local / f'test-shard-{index}.json'
@@ -694,11 +707,11 @@ def run_gate(check_env, emit, started):
         analyze_future = pool.submit(analyze)
         lints_future = pool.submit(raft_lints)
         startup_gate = StartupGate()
+        shard_logs, shard_events = fresh_shard_outputs(len(plan))
         shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout, startup_gate) for i, bucket in enumerate(plan)]
         watch = GateWatch([[repo_path(f) for f in bucket['files']] for bucket in plan], time.monotonic(), max_failures, stall_minutes, emit, to_repo_path)
         try:
-            stop = supervise([*shard_futures, host_future, analyze_future, lints_future], [local / f'test-shard-{i}.txt' for i in range(len(plan))],
-                             [local / f'test-shard-{i}.json' for i in range(len(plan))], watch, emit)
+            stop = supervise([*shard_futures, host_future, analyze_future, lints_future], shard_logs, shard_events, watch, emit)
         except BaseException:
             kill_children()  # the pool waits for its threads on the way out
             raise

@@ -346,6 +346,17 @@ class StartupGateTests(unittest.TestCase):
             self.assertEqual(shard['startup'][0], 'started')
             self.assertEqual(shard['code'], 0)
 
+    def test_a_queued_shard_does_not_show_the_last_runs_log(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stale = Path(tmp) / 'test-shard-1.txt'
+            stale.write_text('00:01 +0 -1: test/old_test.dart: from the last run [E]\n')
+            (Path(tmp) / 'test-shard-1.json').write_text('{}')
+            with unittest.mock.patch.object(check, 'local', Path(tmp)):
+                logs, events = check.fresh_shard_outputs(2)
+            self.assertEqual([p.name for p in logs], ['test-shard-0.txt', 'test-shard-1.txt'])
+            self.assertEqual(check.LogTail(logs[1]).read(), '')  # still waiting for its startup turn
+            self.assertFalse(events[1].exists())
+
     def test_run_shard_gives_the_slot_back_when_the_child_cannot_start(self):
         with tempfile.TemporaryDirectory() as tmp:
             gate = check.StartupGate()
