@@ -5,7 +5,7 @@ import 'message_reference_chip.dart';
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
@@ -627,10 +627,21 @@ class RaftMessageBody extends StatelessWidget {
       // keeps the platform Copy / Select all toolbar.
       contextMenuBuilder: RaftSelectionArea.touchToolbarOnly,
       // The region is its child's box and the body is as wide as its widest
-      // line, so a drag starting in the blank space beside a short message
-      // (a lone link) began outside any selectable region. Fill the width
-      // like a Web block (`Align` only expands when the width is bounded).
-      child: Align(alignment: Alignment.topLeft, heightFactor: 1, child: body),
+      // line, so a mouse drag starting in the blank space beside a short
+      // message (a lone link) began outside any selectable region. On desktop
+      // fill the width like a Web block (`Align` only expands when the width
+      // is bounded). Phones keep the blank space for the row: a long press
+      // there opens the message menu, a long press on text selects.
+      child: switch (defaultTargetPlatform) {
+        TargetPlatform.macOS ||
+        TargetPlatform.windows ||
+        TargetPlatform.linux => Align(
+          alignment: Alignment.topLeft,
+          heightFactor: 1,
+          child: body,
+        ),
+        _ => body,
+      },
     );
   }
 }
