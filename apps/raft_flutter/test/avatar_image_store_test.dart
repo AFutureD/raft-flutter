@@ -343,6 +343,43 @@ void main() {
       expect((await store(cache).readEntry(key))!.bytes, _bytes(40, 1));
     });
 
+    test('Clear cache forgets the validators too: the next use is a plain '
+        'first fetch, not a conditional request with the old ETag', () async {
+      final url = server.url('/api/external-avatars/a.webp');
+      await seed(url);
+      final live = RaftImageBytes.instance;
+      addTearDown(() => RaftImageBytes.instance = live);
+      final p = RaftImageBytes.instance = process();
+      final remove = cache.addPublicClearListener(clearAvatarImages);
+      addTearDown(remove);
+      expect(await p.load(url), _bytes(40, 1));
+      await p.settled();
+      expect(p.memoryEntries, 1);
+      expect(await cache.entryCount(), 1);
+      server.requests.clear();
+      final revalidated = p.revalidationCount;
+
+      await cache.clear();
+
+      expect(p.memoryEntries, 0);
+      expect(await cache.entryCount(), 0);
+      expect(await p.load(url), _bytes(40, 1));
+      await p.settled();
+      expect(server.requests, hasLength(1));
+      expect(server.requests.single.ifNoneMatch, isNull);
+      expect(server.requests.single.status, 200);
+      expect(p.revalidationCount, revalidated);
+      expect(
+        await cache.entryCount(),
+        1,
+        reason: 'stored again, with its ETag',
+      );
+      expect(
+        (await store(cache).readEntry(raftStableImageKey(url)))!.etag,
+        '"v1"',
+      );
+    });
+
     test('a changed ETag replaces the picture and tells the screen', () async {
       final url = server.url('/api/external-avatars/a.webp');
       final key = raftStableImageKey(url);

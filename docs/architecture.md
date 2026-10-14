@@ -171,6 +171,7 @@ Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNo
 - 预览文档（`preview` JSON、`html` 静态页）通过 `readPreview` / `writePreview` 读写，条目头里带客户端预览格式版本（`attachmentPreviewFormatVersion`）和写入时间：版本不同、缺头、或写入超过 14 天都按未命中处理并删除；14 天从写入算起，打开不续期。
 - 孤儿账号：启动时 `runStartupCacheHygiene` 用 `SecureSessionStore.readAll()`（钥匙串里 `raft.session.<base64url(origin)>` 的全部会话）取得 `(origin, cachedUser.id)`，删除 `raft-attachments/v2/` 下不属于任何已保存会话的账号目录（目录名即 `hash(jsonEncode([origin, principal]))`）。读取失败、或任一会话没有 `cachedUser.id` 时什么都不删。
 - 临时 staging 清扫：启动时删除超过 1 小时的 `raft-previews/*`、`raft-share/*`、`raft-attachment-*`、`raft-export-*`、`raft-gallery-*`（按文件夹或其中文件的最新修改时间），只按这些名字匹配，**不碰 `raft-incoming`**（收到的分享是用户数据）。桌面平台的 staging 位于 `<应用缓存>/staging/`（Linux 的 `/tmp` 常是内存盘），并顺带清理旧版本留在系统临时目录里的同名目录；Android / iOS 的临时目录本来就是缓存目录，且原生桥（FileProvider、`ShareInboxWriter.exportFile`、`NativePdfPreviewBridge`）按 `cacheDir/raft-share`、`raft-previews` 放行，所以保持在缓存目录顶层。
+- 设置 > 存储 的“清除缓存”只经过 `CacheClear`（`lib/data/cache_clear.dart`，按注册顺序依次运行的具名 hook，后加的层自行注册，设置页不认识任何一层；某个 hook 抛错只记录，其余照常运行，对话框保持打开并提示重试）。当前的 hook：`disk`（两个命名空间，打开中的预览文件被固定，不删；头像内存层由 `public` 清除监听一并忘掉，包括重验证用的校验头和时间）、`staging`（`clearStaging`：与启动清扫同一份位置和名字匹配，但窗口为 5 分钟，并跳过仍被 `SharedFileLease` 持有的文件夹；永远不碰 `raft-incoming`）、`image-cache`（框架 `ImageCache`）、`workspace-memory`（每个 `WorkspaceController` 注册：没有 widget 持有的已解码附件图片、已解析的签名 URL（进行中的请求不动）、空闲的视频静帧（`PlayerSessions.trimStills`，正在播放或被查看器持有的不动））。登录、草稿、设置、`workspace.sqlite`、用户另存的文件和收到的分享都不在其中。
 - 索引总量在 OS 于运行期间删除文件时保持一致：读取、`contains` / `containsFile`、打开发现文件已不在时，从索引和总量中扣除，下一次访问即恢复正确。
 
 ## 头像与图标图片缓存（2026-10-14）

@@ -542,8 +542,14 @@ class RaftImageBytes {
   /// Forgets remembered failures (for example after the network changed).
   void forgetFailures() => _failures.clear();
 
-  /// Drops the in-memory copies; the [store] and the network still serve.
-  void clearMemory() => trimMemory(0);
+  /// Drops the in-memory copies and with them what was known about their
+  /// freshness (validators, when each was last revalidated); the [store] and
+  /// the network still serve. "Clear cache" calls this together with emptying
+  /// the store, so the next use is a plain first fetch.
+  void clearMemory() {
+    trimMemory(0);
+    _lastRevalidation.clear();
+  }
 
   /// Drops the oldest in-memory copies until at most [maxBytes] remain.
   void trimMemory(int maxBytes) {
