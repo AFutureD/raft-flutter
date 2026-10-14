@@ -584,7 +584,7 @@ class RaftWorkspaceRail extends StatelessWidget {
     final divider = thinDivider
         ? recipe.border.copyWith(width: 1)
         : recipe.border;
-    // On the window's right edge (phone rail, end side) the divider faces the
+    // On the window's right edge (rail on the end side) the divider faces the
     // content, which is now on the left.
     final onRight = RaftRailEdgeScope.onRightOf(context);
     final railBorder = t.brutal
