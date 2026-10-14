@@ -1,4 +1,5 @@
 import 'mermaid_toolbar_recipe.dart';
+import 'markdown_autolink.dart';
 import 'message_reference_chip.dart';
 
 import 'dart:async';
@@ -311,11 +312,13 @@ final _bodyChunkCache = RaftLruCache<_ReferencesKey, List<_BodyChunk>>(1024);
 @visibleForTesting
 final raftMarkdownAstCache = RaftLruCache<String, List<md.Node>?>(1024);
 
-List<md.Node> _parseMarkdownSource(String data) => md.Document(
-  inlineSyntaxes: [_ReferenceSentinelSyntax()],
-  extensionSet: md.ExtensionSet.gitHubFlavored,
-  encodeHtml: false,
-).parseLines(const LineSplitter().convert(data));
+List<md.Node> _parseMarkdownSource(String data) => raftFlattenNestedLinks(
+  md.Document(
+    inlineSyntaxes: [_ReferenceSentinelSyntax(), RaftBareUrlSyntax()],
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+    encodeHtml: false,
+  ).parseLines(const LineSplitter().convert(data)),
+);
 
 bool _hasEmptyListItem(List<md.Node>? nodes) =>
     nodes != null &&

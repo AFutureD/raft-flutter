@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import 'markdown_autolink.dart';
 import 'raft_underline.dart';
 import 'flex_shrink_row.dart';
 import 'icons.dart';
@@ -20,10 +21,13 @@ InlineSpan raftInlineMarkdownSpan(
   required Color linkColor,
   required TextStyle code,
 }) {
-  final nodes = md.Document(
-    extensionSet: md.ExtensionSet.gitHubFlavored,
-    encodeHtml: false,
-  ).parseLines(source.replaceAll('\r\n', '\n').split('\n'));
+  final nodes = raftFlattenNestedLinks(
+    md.Document(
+      inlineSyntaxes: [RaftBareUrlSyntax()],
+      extensionSet: md.ExtensionSet.gitHubFlavored,
+      encodeHtml: false,
+    ).parseLines(source.replaceAll('\r\n', '\n').split('\n')),
+  );
   List<InlineSpan> walk(List<md.Node> list, TextStyle style) => [
     for (final node in list)
       if (node is md.Text)
@@ -163,21 +167,22 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
       color: brutal ? black(.4) : t.muted,
       mono: true,
     ).copyWith(color: hint);
-    final stamp = style(
-      size: brutal ? 11 : 11,
-      line: 16,
-      weight: FontWeight.w400,
-      color: brutal ? black(.4) : placeholder,
-      mono: brutal,
-      tabular: !brutal,
-    ).copyWith(
-      fontSize: 10,
-      // `text-[10px]`: Brutal resolves 1.4286 (14.29px); Elegant inherits the
-      // content's `leading-5.25` (21px), which also sets the header height.
-      height: brutal ? 20 / 14 : 2.1,
-      color: hint,
-      fontFamily: t.monoFont,
-    );
+    final stamp =
+        style(
+          size: brutal ? 11 : 11,
+          line: 16,
+          weight: FontWeight.w400,
+          color: brutal ? black(.4) : placeholder,
+          mono: brutal,
+          tabular: !brutal,
+        ).copyWith(
+          fontSize: 10,
+          // `text-[10px]`: Brutal resolves 1.4286 (14.29px); Elegant inherits the
+          // content's `leading-5.25` (21px), which also sets the header height.
+          height: brutal ? 20 / 14 : 2.1,
+          color: hint,
+          fontFamily: t.monoFont,
+        );
     // TSX `text-xs leading-snug text-foreground-strong sm:text-[13px]`.
     final text = style(
       size: wide ? 13 : 12,

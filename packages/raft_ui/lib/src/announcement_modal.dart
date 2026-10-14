@@ -14,6 +14,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import 'markdown_autolink.dart';
 import 'raft_underline.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
@@ -446,10 +447,13 @@ class RaftAnnouncementMarkdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nodes = md.Document(
-      extensionSet: md.ExtensionSet.gitHubFlavored,
-      encodeHtml: false,
-    ).parse(data);
+    final nodes = raftFlattenNestedLinks(
+      md.Document(
+        inlineSyntaxes: [RaftBareUrlSyntax()],
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+        encodeHtml: false,
+      ).parse(data),
+    );
     final builder = _MarkdownBlocks(context, onLink);
     final blocks = [?leading, ...builder.blocks(nodes)];
     return _layoutBlocks(blocks, outer: true);

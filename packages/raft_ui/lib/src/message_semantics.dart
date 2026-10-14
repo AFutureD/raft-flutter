@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'localization.dart';
+import 'markdown_autolink.dart';
 
 /// Compact accessibility contract for one timeline message row.
 ///
@@ -159,7 +160,7 @@ final _authoredLink = RegExp(
   r'\[((?:\\.|[^\]\\])*)\]\(\s*<?([^)\s>]*)>?(?:\s+"[^"]*")?\s*\)',
 );
 final _angleLink = RegExp(r'<((?:https?|mailto):[^>\s]+)>');
-final _bareUrl = RegExp(r'(?<![(<\w/="])https?://[^\s<>()\[\]]+');
+final _urlHint = RegExp(r'://|www\.', caseSensitive: false);
 final _sentinel = RegExp(
   '\u{E000}([^\u{E001}]*)\u{E001}([^\u{E002}]*)\u{E002}',
 );
@@ -206,7 +207,7 @@ List<RaftMessageSemanticsLink> raftMessageSemanticsLinks(String markdown) {
   if (cached != null) return _linkCache[markdown] = cached;
   final found = <(int, RaftMessageSemanticsLink)>[];
   if (markdown.contains('](') ||
-      markdown.contains('://') ||
+      _urlHint.hasMatch(markdown) ||
       markdown.contains('\u{E000}')) {
     // Blank code spans (same length) so offsets stay comparable.
     final text = markdown.replaceAllMapped(
@@ -215,6 +216,10 @@ List<RaftMessageSemanticsLink> raftMessageSemanticsLinks(String markdown) {
     );
     final taken = <(int, int)>[];
     bool free(Match m) => !taken.any((r) => m.start < r.$2 && r.$1 < m.end);
+    // An image's source is not prose.
+    for (final m in _image.allMatches(text)) {
+      taken.add((m.start, m.end));
+    }
     for (final m in _authoredLink.allMatches(text)) {
       if (m.start > 0 && text[m.start - 1] == '!') continue;
       taken.add((m.start, m.end));
@@ -229,6 +234,7 @@ List<RaftMessageSemanticsLink> raftMessageSemanticsLinks(String markdown) {
     }
     for (final m in _sentinel.allMatches(text)) {
       if (!free(m)) continue;
+      taken.add((m.start, m.end));
       found.add((m.start, (label: m[2]!, href: m[1]!)));
     }
     for (final m in _angleLink.allMatches(text)) {
@@ -236,10 +242,12 @@ List<RaftMessageSemanticsLink> raftMessageSemanticsLinks(String markdown) {
       taken.add((m.start, m.end));
       found.add((m.start, (label: m[1]!, href: m[1]!)));
     }
-    for (final m in _bareUrl.allMatches(text)) {
-      if (!free(m)) continue;
-      final url = m[0]!.replaceFirst(RegExp(r'[.,:;!?]+$'), '');
-      found.add((m.start, (label: url, href: url)));
+    // The same scan the renderer's syntax runs, so a URL is a link here
+    // exactly when it is drawn as one.
+    for (final u in raftBareUrls(text)) {
+      if (!taken.any((r) => u.start < r.$2 && r.$1 < u.end)) {
+        found.add((u.start, (label: u.text, href: u.href)));
+      }
     }
   }
   found.sort((a, b) => a.$1.compareTo(b.$1));

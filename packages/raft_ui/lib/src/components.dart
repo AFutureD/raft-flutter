@@ -1,6 +1,7 @@
 import 'control_typography.dart';
 import 'composer_composing_text.dart';
 import 'composer_editing.dart';
+import 'markdown_autolink.dart';
 import 'message_semantics.dart';
 import 'message_row_recipe.dart';
 import 'message_content_tokens.dart';
@@ -1658,6 +1659,7 @@ class RaftMessageTile extends StatelessWidget {
               RaftSelectionArea(
                 child: MarkdownBody(
                   data: content,
+                  inlineSyntaxes: [RaftBareUrlSyntax()],
                   onTapLink: (_, href, _) {
                     if (href != null) onLink?.call(href);
                   },
