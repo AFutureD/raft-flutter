@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -10,9 +11,26 @@ import 'package:path/path.dart' as p;
 
 import 'attachment_image_store.dart';
 
-/// The size cap of the attachment cache (all accounts and servers on this
-/// device). The one place the number is defined; eviction trims to 90 % of it.
+/// The default size cap of the attachment cache (all accounts and servers on
+/// this device); Settings > Storage offers other tiers
+/// ([attachmentCacheBudgetTiers]). The one place the number is defined;
+/// eviction trims to 90 % of the cap in force.
 const int attachmentCacheMaxBytes = 1024 * 1024 * 1024;
+
+/// The caps Settings > Storage offers for the whole cache, smallest first;
+/// [attachmentCacheMaxBytes] is among them.
+const List<int> attachmentCacheBudgetTiers = [
+  256 * 1024 * 1024,
+  512 * 1024 * 1024,
+  1024 * 1024 * 1024,
+  2 * 1024 * 1024 * 1024,
+  5 * 1024 * 1024 * 1024,
+];
+
+/// The public namespace's cap (avatars, icons) in the app. It does not follow
+/// the chosen total budget: a profile picture is small however large the
+/// attachment cache is allowed to grow.
+const int attachmentPublicCacheMaxBytes = 64 * 1024 * 1024;
 
 /// A private entry nobody opened for this long is deleted (lazily when
 /// touched, and by the scan at start). Opening an entry restarts the clock.
@@ -114,7 +132,11 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   static const _publicLayout = 'public';
 
   final Future<Directory> Function() _root;
-  final int maxBytes, maxEntryBytes;
+  final int maxEntryBytes;
+
+  /// The cap of the whole cache (both namespaces). Change it with
+  /// [setMaxBytes], which also evicts down to a lower one.
+  int maxBytes;
 
   /// How long a private entry may go unopened, and how old a preview entry
   /// may be, and the preview format this client reads. [_clock] is injectable
@@ -188,25 +210,17 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
           ).delete(recursive: true),
         ),
       );
-      final index = _DiskIndex(directory, publicDirectory);
-      for (final root in [directory, publicDirectory]) {
-        if (identical(root, publicDirectory) && !await root.exists()) continue;
-        await for (final entity in root.list(recursive: true)) {
-          if (entity is! File) continue;
-          if (entity.path.endsWith(_partSuffix)) {
-            await _quietly(entity.delete);
-            continue;
-          }
-          try {
-            final stat = await entity.stat();
-            index.files[entity.path] = (stat.size, stat.modified);
-            index.total += stat.size;
-            if (index.isPublic(entity.path)) index.publicTotal += stat.size;
-          } on FileSystemException {
-            // Raced with another eviction; nothing to index.
-          }
-        }
-      }
+      // The walk (tens of thousands of stat calls on a large cache) runs on a
+      // helper isolate, which also builds the index: this isolate only adopts
+      // the finished map, so a frame never waits for the disk and a cold start
+      // costs it milliseconds. Every caller waits on this future, so none can
+      // see a half-built index.
+      final scan = await _scanOffIsolate(
+        directory.path,
+        publicDirectory.path,
+        _partSuffix,
+      );
+      final index = _DiskIndex(directory, publicDirectory, scan);
       await _expireIdle(index);
       return index;
     } catch (_) {
@@ -214,24 +228,44 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     }
   }();
 
+  /// Sets the cap of the whole cache and, when the cache is over it, evicts the
+  /// least recently used attachment entries down to 90 % of it right away
+  /// (never an entry an open preview holds, and never the public namespace,
+  /// which keeps its own cap [publicMaxBytes]). Later writes use the new cap
+  /// at once. Completes after the eviction; it waits for the index to be
+  /// built and runs behind the writes already queued.
+  Future<void> setMaxBytes(int bytes) async {
+    if (bytes <= 0) throw ArgumentError.value(bytes, 'bytes');
+    maxBytes = bytes;
+    final index = await _open();
+    if (index == null) return;
+    await _serial(() => _trim(index, keep: ''));
+  }
+
   /// Starts indexing now (app start), so the first lookups do not wait for it.
   Future<void> warm() => _open().then<void>((_) {}, onError: (Object _) {});
 
   /// True when the private entry at [path] was last opened [idleExpiry] ago
   /// or more and nothing holds it open. The public namespace follows its own
   /// rules and never expires here.
-  bool _expired(_DiskIndex index, String path, DateTime lastUsed) =>
+  bool _expired(
+    _DiskIndex index,
+    String path,
+    DateTime lastUsed, [
+    DateTime? now,
+  ]) =>
       !index.isPublic(path) &&
       !_pins.containsKey(path) &&
-      _clock().difference(lastUsed) >= idleExpiry;
+      (now ?? _clock()).difference(lastUsed) >= idleExpiry;
 
   /// The start-up pass: deletes every private entry unopened for
   /// [idleExpiry]. One walk over the in-memory index; the only disk work is
   /// deleting what expired.
   Future<void> _expireIdle(_DiskIndex index) async {
+    final now = _clock();
     final expired = [
       for (final entry in index.files.entries)
-        if (_expired(index, entry.key, entry.value.$2)) entry.key,
+        if (_expired(index, entry.key, entry.value.$2, now)) entry.key,
     ];
     if (expired.isEmpty) return;
     for (final path in expired) {
@@ -801,17 +835,78 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   }
 }
 
+/// What the start-up walk found: every file with its size and modification
+/// time, and the byte totals (all entries, and the public ones among them).
+class _Scan {
+  final files = <String, (int, DateTime)>{};
+  int total = 0, publicTotal = 0;
+}
+
+/// [_scanEntries] on a helper isolate. A top-level function so the closure
+/// sent to the isolate captures three strings and nothing of the cache.
+Future<_Scan> _scanOffIsolate(String a, String b, String partSuffix) =>
+    Isolate.run(() => _scanEntries(a, b, partSuffix));
+
+/// Walks both namespaces, deleting `.raft-part` leftovers of an interrupted
+/// write, and lists every other file. Runs on a helper isolate with
+/// synchronous I/O (one thread, no per-file event-loop round trip); a file
+/// that vanishes mid-walk (another eviction) is simply not listed.
+_Scan _scanEntries(String privatePath, String publicPath, String partSuffix) {
+  final scan = _Scan();
+  final publicPrefix = '$publicPath${Platform.pathSeparator}';
+  for (final root in [privatePath, publicPath]) {
+    final directory = Directory(root);
+    // The public folder is created by the first public write.
+    if (!directory.existsSync()) continue;
+    try {
+      for (final entity in directory.listSync(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File) continue;
+        try {
+          if (entity.path.endsWith(partSuffix)) {
+            entity.deleteSync();
+            continue;
+          }
+          final stat = entity.statSync();
+          if (stat.type != FileSystemEntityType.file) continue;
+          scan.files[entity.path] = (stat.size, stat.modified);
+          scan.total += stat.size;
+          if (entity.path.startsWith(publicPrefix)) {
+            scan.publicTotal += stat.size;
+          }
+        } on FileSystemException {
+          // Raced with another eviction; nothing to index.
+        }
+      }
+    } on FileSystemException {
+      // The folder went away mid-walk: index what was listed.
+    }
+  }
+  return scan;
+}
+
 class _DiskIndex {
-  _DiskIndex(this.directory, this.publicDirectory);
+  _DiskIndex(this.directory, this.publicDirectory, _Scan scan)
+    : _publicPrefix = '${publicDirectory.path}${p.separator}',
+      files = scan.files,
+      total = scan.total,
+      publicTotal = scan.publicTotal;
 
   /// The attachments namespace (`v2`) and the public one, side by side.
   final Directory directory, publicDirectory;
-  final Map<String, (int, DateTime)> files = {};
+  final Map<String, (int, DateTime)> files;
 
   /// Bytes of every entry, and of the public ones among them.
-  int total = 0, publicTotal = 0;
+  int total, publicTotal;
 
-  bool isPublic(String path) => p.isWithin(publicDirectory.path, path);
+  final String _publicPrefix;
+
+  /// Every indexed path is built from [directory] or [publicDirectory], so a
+  /// prefix test is exact (and, unlike `p.isWithin`, cheap enough to run for
+  /// every entry of a large cache).
+  bool isPublic(String path) => path.startsWith(_publicPrefix);
 }
 
 class _Waiter {

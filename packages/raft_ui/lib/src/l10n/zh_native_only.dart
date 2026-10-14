@@ -140,6 +140,9 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Cache cleared.": "缓存已清除。",
   "Calculating…": "正在计算…",
   "Cache size: {size}": "缓存大小：{size}",
+  "Cache limit": "缓存上限",
+  "The most space the cache may use on this device. When it is full, the attachments and previews you opened longest ago are removed first. Profile pictures and icons keep their own small limit.":
+      "缓存最多可占用此设备的空间。占满后，会先移除最久没打开过的附件和预览。头像和图标有各自的小额上限，不受此项影响。",
   // Channel settings: a stale mounted action is refused (Web has no copy).
   "Channel editing is no longer available.": "该频道已无法编辑。",
   "Channel activity preference is no longer available.": "该频道的动态偏好已不可用。",

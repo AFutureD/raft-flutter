@@ -65,6 +65,126 @@ void main() {
     );
   });
 
+  group('changing the cap', () {
+    Future<void> tick() =>
+        Future<void>.delayed(const Duration(milliseconds: 5));
+
+    test('the tiers are 256 MB to 5 GB and include the default', () {
+      expect(attachmentCacheBudgetTiers, [
+        256 * 1024 * 1024,
+        512 * 1024 * 1024,
+        1024 * 1024 * 1024,
+        2 * 1024 * 1024 * 1024,
+        5 * 1024 * 1024 * 1024,
+      ]);
+      expect(attachmentCacheBudgetTiers, contains(attachmentCacheMaxBytes));
+    });
+
+    test('a lower cap evicts least recently used entries at once, down to '
+        '90 % of it', () async {
+      final c = open(maxBytes: 1000);
+      for (final id in ['a', 'b', 'c', 'd', 'e']) {
+        await c.write(key(id), bytes(150));
+        await tick();
+      }
+      // Opening a makes b the oldest.
+      expect(await c.read(key('a')), isNotNull);
+      await tick();
+      expect(await c.sizeBytes(), 750);
+
+      await c.setMaxBytes(400);
+      expect(c.maxBytes, 400);
+      // 90 % of 400 is 360: two entries (300) are left, the newest two.
+      expect(await c.sizeBytes(), 300);
+      expect(await c.contains(key('b')), isFalse);
+      expect(await c.contains(key('c')), isFalse);
+      expect(await c.contains(key('d')), isFalse);
+      expect(await c.contains(key('a')), isTrue);
+      expect(await c.contains(key('e')), isTrue);
+      final onDisk = (await allFiles(
+        root,
+      )).fold<int>(0, (sum, f) => sum + f.lengthSync());
+      expect(onDisk, 300, reason: 'evicted from the disk, not only the index');
+    });
+
+    test('a cap the cache is already under evicts nothing; a higher one '
+        'lets it grow', () async {
+      final c = open(maxBytes: 300);
+      await c.write(key('a'), bytes(100));
+      await tick();
+      await c.setMaxBytes(1000);
+      await c.write(key('b'), bytes(400));
+      await c.write(key('c'), bytes(400));
+      expect(await c.entryCount(), 3, reason: '900 B is under the new cap');
+      await c.setMaxBytes(2000);
+      expect(await c.entryCount(), 3);
+    });
+
+    test('files an open preview holds survive a lower cap', () async {
+      final c = open(maxBytes: 1000);
+      final held = await c.fetchFile(
+        key('held'),
+        filename: 'a.bin',
+        download: _Downloads().call,
+        expectedBytes: 10,
+      );
+      await tick();
+      await c.write(key('x'), bytes(300));
+      await tick();
+      await c.write(key('y'), bytes(300));
+      await c.setMaxBytes(100);
+      expect(await c.containsFile(key('held'), filename: 'a.bin'), isTrue);
+      expect(held!.file.existsSync(), isTrue);
+      expect(await c.contains(key('x')), isFalse);
+      expect(await c.contains(key('y')), isFalse);
+      held.release();
+    });
+
+    test('the public namespace keeps its own cap whatever the total is set '
+        'to', () async {
+      final c = AttachmentDiskCache(
+        () async => root,
+        maxBytes: 100000,
+        publicMaxBytes: 500,
+      );
+      await c.writePublic('https://x.invalid/a.webp', bytes(400));
+      await c.write(key('a'), bytes(5000));
+      await c.setMaxBytes(1000);
+      expect(c.publicMaxBytes, 500);
+      expect(await c.readPublic('https://x.invalid/a.webp'), isNotNull);
+      expect(
+        await c.sizeBytes(namespace: AttachmentCacheNamespace.public),
+        400,
+        reason: 'lowering the total does not touch the avatars',
+      );
+      expect(await c.contains(key('a')), isFalse);
+      // And a raise does not grow the avatar cap.
+      await c.setMaxBytes(2 * 1024 * 1024 * 1024);
+      expect(c.publicMaxBytes, 500);
+    });
+
+    test('later writes obey the new cap', () async {
+      final c = open(maxBytes: 100000);
+      await c.setMaxBytes(100);
+      for (var i = 0; i < 10; i++) {
+        await c.write(key('e$i'), bytes(30));
+        expect(await c.sizeBytes(), lessThanOrEqualTo(100));
+      }
+    });
+
+    test('a cap that is not positive is refused', () async {
+      expect(() => cache.setMaxBytes(0), throwsArgumentError);
+    });
+
+    test('without a cache directory it does nothing', () async {
+      final broken = AttachmentDiskCache(
+        () async => throw const FileSystemException('none'),
+      );
+      await broken.setMaxBytes(10);
+      expect(await broken.sizeBytes(), 0);
+    });
+  });
+
   group('bytes entries', () {
     test('miss, then hit, and the same bytes after a restart', () async {
       expect(await cache.read(key('a')), isNull);

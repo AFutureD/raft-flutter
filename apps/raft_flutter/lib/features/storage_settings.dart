@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/attachment_disk_cache.dart';
+import '../data/cache_budget.dart';
 import '../data/cache_clear.dart';
 import 'computer_detail_view.dart' show computerFileSize;
 
@@ -13,7 +14,10 @@ import 'computer_detail_view.dart' show computerFileSize;
 /// Shows how much this device keeps so that attachments, previews, profile
 /// pictures and icons open again without downloading (the total, then
 /// "Attachments and previews" and "Profile pictures and icons"), and offers
-/// "Clear cache". Clearing goes through [CacheClear]: the page knows none of
+/// "Clear cache", and lets the user choose how large the cache may grow
+/// ([attachmentCacheBudgetTiers], remembered by [CacheBudget]; choosing a lower
+/// one evicts the least recently used attachments at once, the profile
+/// pictures keep their own small limit). Clearing goes through [CacheClear]: the page knows none of
 /// the layers. Only rebuildable data goes; the sign-in, drafts, settings, the
 /// workspace database, files the user saved and files received from other apps
 /// are stored elsewhere and are never touched.
@@ -35,6 +39,9 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
       widget.cache ?? AttachmentDiskCache.installed;
 
   late final CacheClear coordinator = widget.coordinator ?? CacheClear.instance;
+
+  /// The chosen cap of the whole cache.
+  late int budget = CacheBudget.stored();
 
   /// Null while the sizes are being measured.
   int? attachmentBytes, publicBytes;
@@ -64,6 +71,16 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
       attachmentBytes = attachments;
       publicBytes = public;
     });
+  }
+
+  /// Applies [value] to the cache at once (evicting down to it when lower),
+  /// remembers it for the next start, and shows the resulting size.
+  Future<void> chooseBudget(int? value) async {
+    if (value == null || value == budget) return;
+    setState(() => budget = value);
+    unawaited(CacheBudget.save(value));
+    await cache?.setMaxBytes(value);
+    if (mounted) await measure();
   }
 
   Future<void> confirmClear() async {
@@ -156,7 +173,30 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
                 'Profile pictures and icons',
                 publicBytes,
               ),
-              const SizedBox(height: RaftSpace.x3),
+              const SizedBox(height: RaftSpace.x4),
+              RaftSettingsPreference(
+                title: 'Cache limit',
+                description:
+                    'The most space the cache may use on this device. When it is full, the attachments and previews you opened longest ago are removed first. Profile pictures and icons keep their own small limit.',
+                child: RaftSelectField<int>(
+                  key: const Key('storage-budget'),
+                  label: 'Cache limit',
+                  value: budget,
+                  items: [
+                    for (final tier in attachmentCacheBudgetTiers)
+                      // ds-allow: RaftSelectField items are DropdownMenuItem
+                      DropdownMenuItem(
+                        value: tier,
+                        child: Text(
+                          CacheBudget.label(tier),
+                          key: Key('storage-budget-$tier'),
+                        ),
+                      ),
+                  ],
+                  onChanged: cache == null ? null : chooseBudget,
+                ),
+              ),
+              const SizedBox(height: RaftSpace.x4),
               Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: RaftSettingsRecipeButton(

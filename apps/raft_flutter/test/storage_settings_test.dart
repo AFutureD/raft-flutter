@@ -5,20 +5,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
+import 'package:raft_flutter/data/cache_budget.dart';
+import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/data/cache_clear.dart';
 import 'package:raft_flutter/features/storage_settings.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late Directory root;
   late AttachmentDiskCache cache;
   late CacheClear coordinator;
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    DevicePreferences.adopt(await SharedPreferences.getInstance());
     root = await Directory.systemTemp.createTemp('raft-storage-settings');
     cache = AttachmentDiskCache(() async => root);
     coordinator = CacheClear()..register('disk', cache.clear);
   });
-  tearDown(() => root.delete(recursive: true));
+  tearDown(() async {
+    DevicePreferences.reset();
+    await root.delete(recursive: true);
+  });
 
   // The size is read off the first frame, from the disk.
   bool calculated() => find.text('Calculating…').evaluate().isEmpty;
@@ -215,10 +223,8 @@ void main() {
     await t.tap(find.byKey(const Key('storage-clear')));
     await settle(
       t,
-      until: () => find
-          .byKey(const Key('storage-clear-confirm'))
-          .evaluate()
-          .isNotEmpty,
+      until: () =>
+          find.byKey(const Key('storage-clear-confirm')).evaluate().isNotEmpty,
     );
     await t.tap(find.byKey(const Key('storage-clear-confirm')));
     await settle(
@@ -236,6 +242,223 @@ void main() {
       findsOneWidget,
     );
     expect(reported, hasLength(1));
+  });
+
+  group('cache limit', () {
+    const mb = 1024 * 1024;
+    String v2() => '${root.path}/raft-attachments/v2/a/b/c';
+
+    /// [count] sparse 100 MB private entries, opened one day apart (entry 0
+    /// longest ago), and one 1 MB public entry. No real megabytes are written.
+    List<File> populate(int count) {
+      Directory(v2()).createSync(recursive: true);
+      Directory('${root.path}/raft-attachments/public').createSync();
+      final now = DateTime.now();
+      final files = [
+        for (var i = 0; i < count; i++) File('${v2()}/e$i')..createSync(),
+      ];
+      for (final f in files) {
+        f.openSync(mode: FileMode.append)
+          ..truncateSync(100 * mb)
+          ..closeSync();
+      }
+      // After the truncation, which touches the modification time.
+      for (var i = 0; i < count; i++) {
+        files[i].setLastModifiedSync(now.subtract(Duration(days: count - i)));
+      }
+      File(
+        '${root.path}/raft-attachments/public/p1',
+      ).writeAsBytesSync(Uint8List(mb));
+      return files;
+    }
+
+    Future<void> choose(WidgetTester t, int tier) async {
+      await t.ensureVisible(find.byKey(const Key('storage-budget')));
+      await t.tap(find.byKey(const Key('storage-budget')));
+      await settle(
+        t,
+        until: () =>
+            find.byKey(Key('storage-budget-$tier')).evaluate().isNotEmpty,
+      );
+      await t.tap(find.byKey(Key('storage-budget-$tier')));
+      await settle(t);
+    }
+
+    String shown(WidgetTester t) => t
+        .widget<Text>(
+          find.descendant(
+            of: find.byKey(const Key('storage-budget')),
+            matching: find.byType(Text),
+          ),
+        )
+        .data!;
+
+    for (final (name, width, height) in [
+      ('phone 390', 390.0, 844.0),
+      ('desktop 1280', 1280.0, 800.0),
+    ]) {
+      testWidgets('picking a lower tier evicts and is remembered ($name)', (
+        t,
+      ) async {
+        final files = populate(4);
+        // 400 MB private + 1 MB public, under the default 1 GB.
+        cache = AttachmentDiskCache(
+          () async => root,
+          maxBytes: CacheBudget.stored(),
+          publicMaxBytes: attachmentPublicCacheMaxBytes,
+        );
+        t.view.physicalSize = Size(width, height);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        Widget page() => MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: RaftToastHost(
+            child: Scaffold(
+              body: SingleChildScrollView(
+                child: StorageSettingsPage(
+                  key: UniqueKey(),
+                  cache: cache,
+                  coordinator: coordinator,
+                ),
+              ),
+            ),
+          ),
+        );
+        await t.pumpWidget(page());
+        await settle(t, until: calculated);
+
+        expect(shown(t), '1 GB', reason: 'the default tier');
+        expect(size(t), 'Cache size: 401.0 MB');
+        expect(find.text('Cache limit'), findsWidgets);
+        expect(t.takeException(), isNull, reason: 'no overflow at $name');
+
+        // A higher tier evicts nothing.
+        await choose(t, 2048 * mb);
+        expect(shown(t), '2 GB');
+        expect(size(t), 'Cache size: 401.0 MB');
+        expect(
+          DevicePreferences.current!.getInt('raft.cacheBudget'),
+          2048 * mb,
+        );
+
+        await choose(t, 256 * mb);
+        expect(shown(t), '256 MB');
+        // Over 256 MB: the oldest go until at most 90 % (230.4 MB) is left;
+        // two private entries (200 MB) and the 1 MB avatar remain.
+        expect(size(t), 'Cache size: 201.0 MB');
+        expect(text(t, 'storage-attachments-size'), '200.0 MB');
+        expect(text(t, 'storage-public-size'), '1.0 MB');
+        expect(
+          [for (final f in files) f.existsSync()],
+          [false, false, true, true],
+        );
+        expect(
+          File('${root.path}/raft-attachments/public/p1').existsSync(),
+          isTrue,
+          reason: 'the avatar cap does not follow the tier',
+        );
+        expect(DevicePreferences.current!.getInt('raft.cacheBudget'), 256 * mb);
+        expect(cache.maxBytes, 256 * mb);
+        expect(cache.publicMaxBytes, attachmentPublicCacheMaxBytes);
+
+        // A restart: a new cache and a new page start from the stored tier.
+        final restarted = AttachmentDiskCache(
+          () async => root,
+          maxBytes: CacheBudget.stored(),
+          publicMaxBytes: attachmentPublicCacheMaxBytes,
+        );
+        expect(restarted.maxBytes, 256 * mb);
+        cache = restarted;
+        await t.pumpWidget(page());
+        await settle(t, until: calculated);
+        expect(shown(t), '256 MB');
+
+        // Back to the default forgets the stored value.
+        await choose(t, 1024 * mb);
+        expect(shown(t), '1 GB');
+        expect(DevicePreferences.current!.getInt('raft.cacheBudget'), isNull);
+        await t.pump(const Duration(seconds: 1));
+      });
+    }
+
+    testWidgets('the tiers are offered smallest first and read in Chinese', (
+      t,
+    ) async {
+      t.view.physicalSize = const Size(390, 844);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: StorageSettingsPage(
+                cache: cache,
+                coordinator: coordinator,
+              ),
+            ),
+          ),
+        ),
+      );
+      await settle(t, until: calculated);
+      expect(find.text('缓存上限'), findsWidgets);
+      expect(find.textContaining('缓存最多可占用此设备的空间'), findsOneWidget);
+      await t.ensureVisible(find.byKey(const Key('storage-budget')));
+      await t.tap(find.byKey(const Key('storage-budget')));
+      await settle(t);
+      final offered = [
+        for (final tier in attachmentCacheBudgetTiers)
+          t.getTopLeft(find.byKey(Key('storage-budget-$tier')).last).dy,
+      ];
+      expect(offered, [...offered]..sort());
+      expect(
+        [
+          for (final tier in attachmentCacheBudgetTiers)
+            t.widget<Text>(find.byKey(Key('storage-budget-$tier')).last).data,
+        ],
+        ['256 MB', '512 MB', '1 GB', '2 GB', '5 GB'],
+      );
+    });
+
+    testWidgets('without a cache the picker is disabled', (t) async {
+      await pumpPage(t);
+      expect(
+        t
+            .widget<RaftSelectField<int>>(
+              find.byKey(const Key('storage-budget')),
+            )
+            .onChanged,
+        isNull,
+      );
+    });
+
+    test('an unknown or foreign stored value means the default', () async {
+      expect(CacheBudget.stored(), attachmentCacheMaxBytes);
+      SharedPreferences.setMockInitialValues({'raft.cacheBudget': 12345});
+      expect(
+        CacheBudget.stored(await SharedPreferences.getInstance()),
+        attachmentCacheMaxBytes,
+      );
+      SharedPreferences.setMockInitialValues({'raft.cacheBudget': 'big'});
+      expect(
+        CacheBudget.stored(await SharedPreferences.getInstance()),
+        attachmentCacheMaxBytes,
+      );
+      SharedPreferences.setMockInitialValues({
+        'raft.cacheBudget': 5 * 1024 * mb,
+      });
+      expect(
+        CacheBudget.stored(await SharedPreferences.getInstance()),
+        5 * 1024 * mb,
+      );
+      expect(CacheBudget.label(5 * 1024 * mb), '5 GB');
+      expect(CacheBudget.label(512 * mb), '512 MB');
+    });
   });
 
   testWidgets('without a cache there is nothing to clear', (t) async {

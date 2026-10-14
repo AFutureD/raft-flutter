@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/attachment_disk_cache.dart';
 import 'data/avatar_image_store.dart';
+import 'data/cache_budget.dart';
 import 'data/cache_clear.dart';
 import 'data/device_preferences.dart';
 import 'data/workspace_controller.dart';
@@ -87,8 +88,12 @@ Future<void> main([List<String> args = const []]) async {
   // Attachment content (image sources, preview files and documents) survives
   // restarts; reads stay authority-gated. Indexing starts now so the first
   // lookups of a channel do not wait for it.
+  // The cap is the Settings > Storage choice; the public namespace (avatars,
+  // icons) keeps its own small cap whatever it is.
   AttachmentDiskCache.installed ??= AttachmentDiskCache(
     getApplicationCacheDirectory,
+    maxBytes: CacheBudget.stored(),
+    publicMaxBytes: attachmentPublicCacheMaxBytes,
   );
   unawaited(AttachmentDiskCache.installed!.warm());
   // Once per start: old staging copies and the cache of accounts that are no
