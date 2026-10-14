@@ -4770,30 +4770,14 @@ class WorkspaceController extends ChangeNotifier {
       client.joinChannel(next.id);
       final fresh = await client.messagePage(next.id);
       if (!current()) return;
-      final rows = (fresh['messages'] as List)
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-      ledger.ingest(rows, expectedGeneration: generation);
-      _diskOnlyWindows.remove(next.id);
-      historyLimited = fresh['historyLimited'] == true;
-      visibleIds[next.id] = fresh['historyLimited'] == true
-          ? rows.map((e) => e['id'] as String).toSet()
-          : reconcileTailWindow(retained, rows);
-      final held = _summariesByChannel[next.id] ?? const {};
-      _summariesByChannel[next.id] = {
-        for (final row in retained)
-          if (held[row['id']] != null) row['id'] as String: held[row['id']],
-        ..._hydrateThreadSummaries(
-          fresh['threadSummariesByParentMessageId'],
-          next.id,
-          expectedToken: replyAuthority,
-        ),
-      };
-      hasMore =
-          fresh['historyLimited'] != true &&
-          (visibleIds[next.id]!.length > rows.length
-              ? retainedHasMore
-              : rows.length >= 50);
+      _acceptFreshTail(
+        next.id,
+        fresh,
+        retained: retained,
+        retainedHasMore: retainedHasMore,
+        generation: generation,
+        replyAuthority: replyAuthority,
+      );
       channelLoading = false;
       notifyListeners();
       await _saveWindow(next.id);
@@ -4819,6 +4803,140 @@ class WorkspaceController extends ChangeNotifier {
         unawaited(refreshUnread());
       }
     }
+  }
+
+  /// Reconciles a freshly read first page into the open channel's window: the
+  /// page is authoritative over its own range, older retained rows stay, and
+  /// nothing outside the page range is dropped. Shared by the open and by the
+  /// silent revalidation of a retained window.
+  void _acceptFreshTail(
+    String id,
+    Map<String, dynamic> fresh, {
+    required List<Map<String, dynamic>> retained,
+    required bool retainedHasMore,
+    required int generation,
+    required String replyAuthority,
+  }) {
+    final rows = (fresh['messages'] as List)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    ledger.ingest(rows, expectedGeneration: generation);
+    _diskOnlyWindows.remove(id);
+    historyLimited = fresh['historyLimited'] == true;
+    visibleIds[id] = fresh['historyLimited'] == true
+        ? rows.map((e) => e['id'] as String).toSet()
+        : reconcileTailWindow(retained, rows);
+    final held = _summariesByChannel[id] ?? const {};
+    _summariesByChannel[id] = {
+      for (final row in retained)
+        if (held[row['id']] != null) row['id'] as String: held[row['id']],
+      ..._hydrateThreadSummaries(
+        fresh['threadSummariesByParentMessageId'],
+        id,
+        expectedToken: replyAuthority,
+      ),
+    };
+    hasMore =
+        fresh['historyLimited'] != true &&
+        (visibleIds[id]!.length > rows.length
+            ? retainedHasMore
+            : rows.length >= 50);
+  }
+
+  final Set<String> _tailRevalidations = {};
+
+  /// Source ChatPanel shows a retained bucket at once and re-reads the tail
+  /// behind it. Used where a held window is shown without [selectChannel]
+  /// (a jump to a message the window holds, a live seq gap): the first page is
+  /// merged into the open window by [_acceptFreshTail], so rows already shown
+  /// keep their place and only the missing newer rows are added.
+  Future<void> _revalidateTail(String id) async {
+    final open = channel;
+    if (open == null || open.id != id || !_tailRevalidations.add(id)) return;
+    final window = channelGeneration,
+        generation = ledger.generation,
+        authority = _windowAuthority(),
+        replyAuthority = _replyToken(id);
+    bool current() =>
+        !_disposed &&
+        window == channelGeneration &&
+        generation == ledger.generation &&
+        channel?.id == id &&
+        !hasNewer &&
+        authority == _windowAuthority() &&
+        replyAuthority == _replyToken(id) &&
+        !_revokedChannels.contains(id) &&
+        can('viewChannel', resource: channel);
+    try {
+      final retained = messages.map((m) => m.json).toList();
+      final retainedHasMore = hasMore;
+      final fresh = await client.messagePage(id);
+      if (!current()) return;
+      _acceptFreshTail(
+        id,
+        fresh,
+        retained: retained,
+        retainedHasMore: retainedHasMore,
+        generation: generation,
+        replyAuthority: replyAuthority,
+      );
+      notifyListeners();
+      await _saveWindow(id);
+    } catch (e) {
+      if (current() &&
+          e is RaftApiException &&
+          (e.status == 403 || e.status == 404)) {
+        _revokeChannel(id);
+      }
+      // Any other failure leaves the shown window as it was.
+    } finally {
+      _tailRevalidations.remove(id);
+    }
+  }
+
+  /// A channel that is not open keeps its accepted in-memory tail current:
+  /// Source messageStore appends a live message to every cached bucket. A
+  /// window that is only on disk, a context window and one accepted under
+  /// other facts are not extended; they are revalidated when opened.
+  bool _retainsLiveTail(String id) {
+    final held = _windowState[id];
+    if (held == null ||
+        _contextWindows.contains(id) ||
+        _diskOnlyWindows.contains(id) ||
+        (visibleIds[id]?.isEmpty ?? true)) {
+      return false;
+    }
+    final row = [...channels, ...dms].where((c) => c.id == id).firstOrNull;
+    return row != null &&
+        held.$1 == messageWindowAuthority(server?.string('role'), row.json) &&
+        held.$3 == _replyToken(id);
+  }
+
+  /// Rows this channel's ledger holds beyond the window's newest row (they
+  /// arrived while the window was not following live events) join the window
+  /// ahead of the live row, and the tail is read to fill what no event
+  /// carried.
+  void _fillWindowGap(String id, String liveId) {
+    final visible = visibleIds[id];
+    if (visible == null || visible.isEmpty) return;
+    BigInt newest = BigInt.zero;
+    for (final held in visible) {
+      final seq = BigInt.tryParse('${ledger.message(id, held)?['seq']}');
+      if (seq != null && seq > newest) newest = seq;
+    }
+    if (newest == BigInt.zero) return;
+    var gap = false;
+    for (final row in ledger.messages(id)) {
+      final seq = BigInt.tryParse('${row['seq']}');
+      if (seq != null &&
+          seq > newest &&
+          row['id'] != liveId &&
+          !visible.contains(row['id'])) {
+        visible.add(row['id'] as String);
+        gap = true;
+      }
+    }
+    if (gap) unawaited(_revalidateTail(id));
   }
 
   Future<void> older({bool thread = false}) async {
@@ -5915,6 +6033,14 @@ class WorkspaceController extends ChangeNotifier {
       _pendingMessageContextChannelId = null;
       _pendingMessageContextWindow = null;
       notifyListeners();
+      // The held window is shown at once, but a window this channel left (or
+      // that came from disk) may be behind the server: read the tail quietly
+      // and merge it without moving the reading position.
+      if ((!sameChannel || _diskOnlyWindows.contains(channelId)) &&
+          !hasNewer &&
+          !_contextWindows.contains(channelId)) {
+        unawaited(_revalidateTail(channelId));
+      }
       return;
     }
     channelLoading = true;
@@ -6776,8 +6902,16 @@ class WorkspaceController extends ChangeNotifier {
       }
       final id = row['channelId'];
       if (id == channel?.id && !hasNewer || id == threadChannelId) {
+        if (event.name == 'message:new' && id == channel?.id) {
+          _fillWindowGap(id, row['id']);
+        }
         visibleIds.putIfAbsent(id, () => {}).add(row['id']);
         _saveWindow(id, thread: id == threadChannelId);
+      } else if (event.name == 'message:new' &&
+          id is String &&
+          row['id'] is String &&
+          _retainsLiveTail(id)) {
+        visibleIds[id]!.add(row['id']);
       }
       // Source messageStore: counts move per event; only a first delivery
       // counts, and an edit never does.
@@ -6794,6 +6928,8 @@ class WorkspaceController extends ChangeNotifier {
         final id = row['channelId'];
         if (id == channel?.id && !hasNewer || id == threadChannelId) {
           visibleIds.putIfAbsent(id, () => {}).add(row['id']);
+        } else if (id is String && row['id'] is String && _retainsLiveTail(id)) {
+          visibleIds[id]!.add(row['id']);
         }
       }
       if (channel != null && !hasNewer) markRead(channel!.id);
