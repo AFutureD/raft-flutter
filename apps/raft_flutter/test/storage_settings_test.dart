@@ -17,6 +17,9 @@ void main() {
   });
   tearDown(() => root.delete(recursive: true));
 
+  // The size is read off the first frame, from the disk.
+  bool calculated() => find.text('Calculating…').evaluate().isEmpty;
+
   Future<void> pumpPage(WidgetTester t, {AttachmentDiskCache? with_}) async {
     t.view.physicalSize = const Size(900, 1600);
     t.view.devicePixelRatio = 1;
@@ -35,7 +38,7 @@ void main() {
         ),
       ),
     );
-    await settle(t);
+    await settle(t, until: calculated);
   }
 
   Future<void> fill(WidgetTester t, int bytes) async {
@@ -88,7 +91,7 @@ void main() {
           .onPressed,
       isNull,
     );
-    await settle(t);
+    await settle(t, until: calculated);
     expect(size(t), 'Cache size: 3.5 MB');
     expect(find.byType(RaftSettingsSectionHeader), findsOneWidget);
     expect(find.text('Cache'), findsOneWidget);
@@ -121,7 +124,15 @@ void main() {
     await t.tap(find.byKey(const Key('storage-clear')));
     await settle(t);
     await t.tap(find.byKey(const Key('storage-clear-confirm')));
-    await settle(t);
+    await settle(
+      t,
+      until: () =>
+          find
+              .byKey(const ValueKey('storage-clear-dialog'))
+              .evaluate()
+              .isEmpty &&
+          find.text('Cache size: 0 B').evaluate().isNotEmpty,
+    );
     expect(find.byKey(const ValueKey('storage-clear-dialog')), findsNothing);
     expect(find.text('Cache cleared.'), findsOneWidget);
     expect(size(t), 'Cache size: 0 B');
@@ -144,12 +155,17 @@ void main() {
   });
 }
 
-/// Real file I/O needs real time between frames.
-Future<void> settle(WidgetTester t) async {
-  for (var i = 0; i < 12; i++) {
+/// Real file I/O needs real time between frames: at least 12 frames, and when
+/// [until] is given, more (up to ten seconds) until it holds, so a slow disk
+/// on a loaded machine is waited for instead of guessed at.
+Future<void> settle(WidgetTester t, {bool Function()? until}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  for (var i = 0; ; i++) {
     await t.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 15)),
     );
     await t.pump(const Duration(milliseconds: 50));
+    if (i >= 11 && (until == null || until())) return;
+    if (DateTime.now().isAfter(deadline)) return;
   }
 }
