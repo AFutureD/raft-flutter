@@ -236,8 +236,8 @@
         "field._ThreadWindow.threadChannelId": 1,
         "field._ThreadWindow.token": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 7539,
-        "tokens": 42172
+        "lines": 7538,
+        "tokens": 42165
       }
     },
     "workspace_view": {
@@ -474,8 +474,8 @@
         "field._ResourceViewState.viewWindows": 1,
         "field._TaskDrag.row": 1,
         "field._TaskDrag.scope": 1,
-        "lines": 5987,
-        "tokens": 35050
+        "lines": 5975,
+        "tokens": 35007
       }
     },
     "chat_view": {

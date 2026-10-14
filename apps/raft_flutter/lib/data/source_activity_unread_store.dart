@@ -61,6 +61,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
 
   final WorkspaceController workspace;
   late final StreamSubscription<RaftEvent> _subscription;
+  final _pageEvents = StreamController<RaftEvent>.broadcast(sync: true);
   late final Interceptor _readObserver;
   final _readScopes = Expando<({String scope, int authority})>();
   Timer? _boot, _debounce;
@@ -82,7 +83,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   List<Map<String, dynamic>> _rows = [];
   int? _total;
 
-  /// The newest-first first-page inbox window this store loaded itself, kept
+  /// The newest-first first-page inbox window accepted by this session, kept
   /// whole so a page opened later paints it at once (Web's single inboxStore
   /// feeds the badge and the list from the same `items`).
   Map<String, dynamic>? _window;
@@ -95,6 +96,29 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     '/channels/inbox',
     {'sort': 'desc', 'filter': 'all'},
   ]);
+
+  /// Only facts a mounted Activity page consumes. Extra page events never
+  /// activate session reads; the existing background policy stays unchanged.
+  Stream<RaftEvent> get pageEvents => _pageEvents.stream;
+
+  static bool reconcilesPage(String name) =>
+      name.startsWith('message:') ||
+      name.startsWith('read_state:') ||
+      name.startsWith('scope_read:') ||
+      name.startsWith('thread:') ||
+      name == 'sync:resume:response';
+
+  static bool _pageEvent(String name) =>
+      reconcilesPage(name) ||
+      changesAuthority(name) ||
+      const {'task:updated', 'task:created'}.contains(name);
+
+  static bool changesAuthority(String name) => const {
+        'channel:removed',
+        'channel:updated',
+        'channel:members-updated',
+        'channel:authority-updated',
+      }.contains(name);
 
   /// Process-wide monotonic id of the newest window this store accepted; 0
   /// before any. Pages record the id they last synchronised with.
@@ -151,6 +175,15 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _bind(activate: true);
   }
 
+  static void activateForRooms(WorkspaceController workspace) {
+    if (workspace.activityUnreadIfBound == null) {
+      // A restored session can join before a view or selection borrowed it.
+      unawaited(workspace.activityUnread.refresh());
+    } else {
+      workspace.activityUnread.start();
+    }
+  }
+
   void _bind({bool activate = false}) {
     if (_disposed) return;
     final next = scope;
@@ -200,13 +233,47 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   void _event(RaftEvent event) {
     if (_disposed) return;
     _workspaceChanged();
-    if (_scope == null || !_started) return;
     final payload = event.payload;
     if (payload is Map &&
         payload['serverId'] is String &&
         payload['serverId'] != workspace.client.serverId) {
       return;
     }
+    _handleEvent(event);
+    if (!_disposed && _pageEvent(event.name)) _pageEvents.add(event);
+  }
+
+  /// Whether the session already owns this event's default-window refresh.
+  /// Filtered and paged views still reconcile their own request shapes.
+  bool _refreshes(RaftEvent event) {
+    if (_disposed || !_started || _scope == null || _denied) return false;
+    final payload = event.payload;
+    return switch (event.name) {
+      'message:new' => payload is Map && _messageRelevant(payload),
+      'thread:updated' =>
+        payload is Map &&
+            payload['threadChannelId'] is String &&
+            (payload['latestReply'] is! Map ||
+                _messageRelevant(payload['latestReply'] as Map)),
+      'notification_prefs:updated' => true,
+      'dm:new' =>
+        payload is Map && ((payload['channelId'] ?? payload['id']) is String),
+      _ => false,
+    };
+  }
+
+  bool ownsPageRefresh(
+    RaftEvent event, {
+    required String? view,
+    required int loadedRows,
+  }) =>
+      view == defaultInboxView &&
+      loadedRows <= 30 &&
+      (_refreshes(event) || event.name == 'sync:resume:response' && isFresh);
+
+  void _handleEvent(RaftEvent event) {
+    if (_scope == null || !_started) return;
+    final payload = event.payload;
     if (event.name == 'session:ended' ||
         event.name == 'server:membership-removed' &&
             payload is Map &&
@@ -224,20 +291,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
       unawaited(refresh());
       return;
     }
-    if (_denied) return;
-    final relevant = switch (event.name) {
-      'message:new' => payload is Map && _messageRelevant(payload),
-      'thread:updated' =>
-        payload is Map &&
-            payload['threadChannelId'] is String &&
-            (payload['latestReply'] is! Map ||
-                _messageRelevant(payload['latestReply'] as Map)),
-      'notification_prefs:updated' => true,
-      'dm:new' =>
-        payload is Map && ((payload['channelId'] ?? payload['id']) is String),
-      _ => false,
-    };
-    if (!relevant) return;
+    if (!_refreshes(event)) return;
     _expect(event.name, payload);
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 150), () {
@@ -379,11 +433,17 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _revision++;
     _rows = rows;
     _total = count;
-    if (firstPage) {
-      _window = WorkspaceController.copyDecoded(window) as Map<String, dynamic>;
-      _windowSerial = ++_serials;
-    }
     _projectFullyReadRows();
+    if (firstPage) {
+      _window = WorkspaceController.copyDecoded({
+        ...window,
+        'items': _rows.take(30).toList(),
+        'totalUnreadCount': _total,
+        'hasMore': rows.length > 30 || window['hasMore'] == true,
+      }) as Map<String, dynamic>;
+      _windowSerial = ++_serials;
+      _acceptedAt = clock();
+    }
     _convergence.observe(rows);
     notifyListeners();
   }
@@ -494,7 +554,6 @@ class SourceActivityUnreadStore extends ChangeNotifier {
         return;
       }
       acceptWindow(value, scope: authority, firstPage: true);
-      _acceptedAt = clock();
     } catch (error) {
       if (!_disposed &&
           authority == scope &&
@@ -539,6 +598,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _debounce?.cancel();
     _finishTrailing();
     _subscription.cancel();
+    _pageEvents.close();
     workspace.removeListener(_workspaceChanged);
     workspace.client.http.interceptors.remove(_readObserver);
     super.dispose();

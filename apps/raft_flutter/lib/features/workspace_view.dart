@@ -1586,7 +1586,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
                   wide &&
                   activityFlag.masterDetail(MediaQuery.sizeOf(context).width),
               onActivityWindowAccepted: route == 'activity'
-                  ? (window) {
+                  ? (window, {firstPage = false}) {
                       if (!identical(attentionOwner, activityUnread)) return;
                       if (window == null) {
                         attentionOwner.deny(
@@ -1598,6 +1598,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
                           window,
                           scope: attentionScope,
                           authorityEpoch: attentionEpoch,
+                          firstPage: firstPage,
                         );
                       }
                     }

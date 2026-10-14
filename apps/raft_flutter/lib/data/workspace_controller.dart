@@ -1395,12 +1395,16 @@ class WorkspaceController extends ChangeNotifier {
   /// Server selection creates it before UI; standalone views can borrow a
   /// passive projection before selection. Neither path starts work by reading.
   SourceActivityUnreadStore get activityUnread =>
-      presentationSource?.activityUnread ??
-      (_activityUnread ??= SourceActivityUnreadStore(this));
+      _disposed
+      ? throw StateError('Workspace session is disposed.')
+      : presentationSource?.activityUnread ??
+            (_activityUnread ??= SourceActivityUnreadStore(this));
 
   /// The existing session projection; reading it never constructs or starts it.
   SourceActivityUnreadStore? get activityUnreadIfBound =>
-      presentationSource?.activityUnreadIfBound ?? _activityUnread;
+      _disposed
+      ? null
+      : presentationSource?.activityUnreadIfBound ?? _activityUnread;
 
   final foregroundChanges = ValueNotifier<bool>(true);
 
@@ -4224,12 +4228,7 @@ class WorkspaceController extends ChangeNotifier {
   /// Source socketBridge `roomsJoined`: the server joined this socket's
   /// rooms, so missed messages can be resumed and the lists re-read.
   void _roomsJoined() {
-    if (activityUnreadIfBound == null) {
-      // A restored session can join before a view or selection borrowed it.
-      unawaited(activityUnread.refresh());
-    } else {
-      activityUnread.start();
-    }
+    SourceActivityUnreadStore.activateForRooms(this);
     _roomsJoinedPending = false;
     if (ledger.watermark > BigInt.zero) client.resume(ledger.watermark);
     // A reconnect and a resume can both ask within a second; the tail read a

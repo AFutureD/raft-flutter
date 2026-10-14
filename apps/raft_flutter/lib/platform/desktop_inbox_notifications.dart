@@ -29,6 +29,28 @@ class DesktopInboxNotifications {
   Future<void> prepared = Future.value();
   Future<void>? delivering;
 
+  Object? activeIdentity(WorkspaceController? w) {
+    final activity = w?.activityUnreadIfBound;
+    if (w == null ||
+        activity?.scope == null ||
+        !notifications.enabled ||
+        notifications.deliveryAllowed?.call() == false ||
+        w.foreground ||
+        !w.client.signedIn ||
+        w.server?.id != w.client.serverId ||
+        w.client.serverId == null) {
+      return null;
+    }
+    return (
+      w,
+      w.client.generation,
+      notificationScope(w.client),
+      w.server?.string('role'),
+      activity!.scope,
+      activity.authorityEpoch,
+    );
+  }
+
   void bind(WorkspaceController? next) {
     if (!identical(next, workspace)) {
       workspace?.removeListener(sync);
@@ -50,29 +72,11 @@ class DesktopInboxNotifications {
       _activity?.removeListener(inboxChanged);
       _activity = activity?..addListener(inboxChanged);
     }
-    final active =
-        w != null &&
-        activity?.scope != null &&
-        notifications.enabled &&
-        notifications.deliveryAllowed?.call() != false &&
-        !w.foreground &&
-        w.client.signedIn &&
-        w.server?.id == w.client.serverId &&
-        w.client.serverId != null;
-    final next = active
-        ? (
-            w,
-            w.client.generation,
-            notificationScope(w.client),
-            w.server?.string('role'),
-            activity!.scope,
-            activity.authorityEpoch,
-          )
-        : null;
+    final next = activeIdentity(w);
     if (identity == next) return;
     identity = next;
     final revision = ++epoch;
-    if (!active) return;
+    if (next == null || w == null) return;
     final scope = notificationScope(w.client);
     prepared = () async {
       final old = await _store.state(scope);
@@ -90,20 +94,7 @@ class DesktopInboxNotifications {
       epoch == revision &&
       identity != null &&
       identical(workspace, w) &&
-      w.client.signedIn &&
-      w.server?.id == w.client.serverId &&
-      identity ==
-          (
-            w,
-            w.client.generation,
-            notificationScope(w.client),
-            w.server?.string('role'),
-            w.activityUnreadIfBound?.scope,
-            w.activityUnreadIfBound?.authorityEpoch,
-          ) &&
-      notifications.enabled &&
-      notifications.deliveryAllowed?.call() != false &&
-      !w.foreground;
+      identity == activeIdentity(w);
 
   void inboxChanged() {
     sync();

@@ -64,7 +64,7 @@ class _MountedDone {
             controller: w,
             section: 'activity',
             onMessage: (_, _) async {},
-            onActivityWindowAccepted: (window) {
+            onActivityWindowAccepted: (window, {firstPage = false}) {
               if (window != null) {
                 result.attention.acceptWindow(
                   window,

@@ -32,9 +32,13 @@ void main() {
               controller: w,
               section: 'activity',
               onMessage: (_, _) async {},
-              onActivityWindowAccepted: (window) {
+              onActivityWindowAccepted: (window, {firstPage = false}) {
                 if (window != null) {
-                  store.acceptWindow(window, scope: store.scope);
+                  store.acceptWindow(
+                    window,
+                    scope: store.scope,
+                    firstPage: firstPage,
+                  );
                 }
               },
             ),

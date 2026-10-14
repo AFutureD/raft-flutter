@@ -138,7 +138,7 @@ class ResourceView extends StatefulWidget {
 
   /// Accepted Activity response for an independent scoped unread data owner.
   /// Includes real row frontiers; null retires it after an authority denial.
-  final ValueChanged<Map?>? onActivityWindowAccepted;
+  final void Function(Map? window, {bool firstPage})? onActivityWindowAccepted;
   @override
   State<ResourceView> createState() => _ResourceViewState();
 }
@@ -519,14 +519,7 @@ class _ResourceViewState extends State<ResourceView> {
                 : null,
           );
     if (params == null) return null;
-    return jsonEncode([
-      path,
-      {
-        for (final entry in params.entries)
-          if (!['limit', 'offset', 'cursor'].contains(entry.key))
-            entry.key: entry.value,
-      },
-    ]);
+    return ResourceFilters.viewKey(path, params);
   }
 
   /// [listView] with the relative time window's clock-derived `after`/`before`
@@ -872,8 +865,10 @@ class _ResourceViewState extends State<ResourceView> {
   SourceActivityUnreadStore? sharedInbox;
 
   void bindSharedInbox() {
-    if (widget.section != 'activity') return;
-    sharedInbox = w.activityUnreadIfBound?..addListener(sharedInboxChanged);
+    sharedInbox?.removeListener(sharedInboxChanged);
+    sharedInbox = widget.section == 'activity'
+        ? (w.activityUnreadIfBound?..addListener(sharedInboxChanged))
+        : null;
   }
 
   void sharedInboxChanged() {
@@ -1299,14 +1294,10 @@ class _ResourceViewState extends State<ResourceView> {
 
   void subscribeEvents() {
     final client = w.client;
-    events = client.events.listen((event) {
+    final inbox = widget.section == 'activity' ? w.activityUnreadIfBound : null;
+    events = (inbox?.pageEvents ?? client.events).listen((event) {
       if (!mounted || !identical(client, w.client)) return;
-      if ([
-        'channel:removed',
-        'channel:updated',
-        'channel:members-updated',
-        'channel:authority-updated',
-      ].contains(event.name)) {
+      if (SourceActivityUnreadStore.changesAuthority(event.name)) {
         final payload = event.payload;
         final id = payload is Map
             ? payload['channelId'] ?? payload['id']
@@ -1348,12 +1339,7 @@ class _ResourceViewState extends State<ResourceView> {
         return;
       }
       final relevant = switch (widget.section) {
-        'activity' =>
-          event.name.startsWith('message:') ||
-              event.name.startsWith('read_state:') ||
-              event.name.startsWith('scope_read:') ||
-              event.name.startsWith('thread:') ||
-              event.name == 'sync:resume:response',
+        'activity' => SourceActivityUnreadStore.reconcilesPage(event.name),
         // Source catchUpServerTasksOnReconnect: events missed while the
         // socket was down are recovered by revalidating the loaded lanes.
         'tasks' => event.name.startsWith('task:') || event.name == 'connected',
@@ -1366,11 +1352,12 @@ class _ResourceViewState extends State<ResourceView> {
       if (relevant) {
         if (widget.section == 'activity') patchActivity(event);
         if (widget.section == 'tasks' && patchTasks(event)) return;
-        // The store read the inbox when the app came back, in parallel with
-        // the handshake this answers: no second read of the same window.
-        if (event.name == 'sync:resume:response' &&
-            widget.section == 'activity' &&
-            sharedInbox?.isFresh == true) {
+        if (inbox?.ownsPageRefresh(
+              event,
+              view: listView,
+              loadedRows: rows.length,
+            ) ==
+            true) {
           return;
         }
         final scope = authority;
@@ -1879,8 +1866,12 @@ class _ResourceViewState extends State<ResourceView> {
     }
     if (!identical(oldWidget.controller, w)) {
       oldWidget.controller.removeListener(authorityChanged);
-      events?.cancel();
       w.addListener(authorityChanged);
+    }
+    if (!identical(oldWidget.controller, w) ||
+        oldWidget.section != widget.section) {
+      events?.cancel();
+      bindSharedInbox();
       subscribeEvents();
     }
     authorityChanged();
@@ -2182,14 +2173,7 @@ class _ResourceViewState extends State<ResourceView> {
                 'cursor': cursor,
               if (widget.section != 'tasks') 'offset': append ? rows.length : 0,
             };
-      final view = jsonEncode([
-        path,
-        {
-          for (final entry in (params ?? const {}).entries)
-            if (!['limit', 'offset', 'cursor'].contains(entry.key))
-              entry.key: entry.value,
-        },
-      ]);
+      final view = ResourceFilters.viewKey(path, params ?? const {});
       final sharedSerial = w.activityUnreadIfBound?.windowSerial ?? 0;
       var value =
           seed ??
@@ -2351,7 +2335,11 @@ class _ResourceViewState extends State<ResourceView> {
             widget.section == 'activity' &&
             !['saved', 'done'].contains(filter) &&
             value is Map) {
-          acceptActivityWindow?.call(value);
+          acceptActivityWindow?.call(
+            value,
+            firstPage:
+                !append && view == SourceActivityUnreadStore.defaultInboxView,
+          );
         }
       }
     } catch (e) {
