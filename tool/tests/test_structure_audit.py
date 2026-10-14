@@ -78,6 +78,48 @@ class PolicyTest(unittest.TestCase):
         with self.assertRaisesRegex(audit.AuditError, 'cannot raise'):
             audit.lower_baseline(document, report({'lines': 9, 'tokens': 51}))
 
+    def test_module_update_preserves_unrelated_approved_growth(self):
+        document = baseline()
+        document['modules']['main'] = {
+            'root': 'apps/raft_flutter/lib/main.dart',
+            'metrics': {'lines': 10, 'tokens': 50},
+        }
+        approved = exception()
+        approved['module'] = 'main'
+        document['exceptions'] = [approved]
+        measured = report({'lines': 9, 'tokens': 49})
+        measured['modules']['main'] = {'metrics': {'lines': 10, 'tokens': 51}}
+        original = copy.deepcopy(document)
+        with self.assertRaisesRegex(audit.AuditError, 'cannot raise'):
+            audit.lower_baseline(copy.deepcopy(document), measured)
+        lowered = audit.lower_baseline(document, measured, ['workspace_controller'])
+        self.assertEqual(lowered['modules']['workspace_controller']['metrics'],
+                         {'lines': 9, 'tokens': 49, 'field.Root.old': 0})
+        self.assertEqual(lowered['modules']['main'], original['modules']['main'])
+        self.assertEqual(lowered['exceptions'], original['exceptions'])
+        with self.assertRaisesRegex(audit.AuditError, 'cannot raise'):
+            audit.lower_baseline(copy.deepcopy(original), measured, ['main'])
+
+    def test_module_update_rejects_unknown_scope_without_mutation(self):
+        document = baseline()
+        before = copy.deepcopy(document)
+        with self.assertRaisesRegex(audit.AuditError, 'existing baseline module'):
+            audit.lower_baseline(document, report({'lines': 9, 'tokens': 49}), ['typo'])
+        self.assertEqual(document, before)
+
+    def test_module_flag_only_updates_explicit_scope(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'baseline.json'
+            path.write_text(json.dumps(baseline()))
+            with mock.patch.object(audit, 'BASELINE', path), mock.patch.object(
+                    audit, 'run_scanner', return_value=report({'lines': 9, 'tokens': 49})), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(audit.main(['--update', '--module', 'workspace_controller'], today=TODAY), 0)
+            self.assertEqual(json.loads(path.read_text())['modules']['workspace_controller']['metrics']['lines'], 9)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+            audit.main(['--check', '--module', 'workspace_controller'], today=TODAY)
+        self.assertEqual(error.exception.code, 2)
+
     def test_check_exit_message_and_no_implicit_baseline_write(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'baseline.json'

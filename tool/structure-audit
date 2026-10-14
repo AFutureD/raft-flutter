@@ -3,6 +3,7 @@
 
   tool/structure-audit --check    fail on growth or invalid/expired exceptions
   tool/structure-audit --update   explicitly lower ceilings; never raise them
+  tool/structure-audit --update --module workspace_controller
   tool/structure-audit --json     print measured modules and their source files
 
 The initial ceilings describe existing code, not desirable architecture.
@@ -110,11 +111,18 @@ def compare(document, report, limits):
     return growth, lower, allowed
 
 
-def lower_baseline(document, report):
-    growth, _, _ = compare(document, report, {})
+def lower_baseline(document, report, modules=None):
+    selected = set(document['modules'] if modules is None else modules)
+    if not selected or selected - document['modules'].keys():
+        raise AuditError('--module must name an existing baseline module')
+    scoped_document = {'modules': {name: document['modules'][name] for name in selected}}
+    scoped_report = {'modules': {name: report['modules'][name] for name in selected}}
+    growth, _, _ = compare(scoped_document, scoped_report, {})
     if growth:
         raise AuditError('--update cannot raise any ceiling, including growth covered by exceptions')
     for name, module in document['modules'].items():
+        if name not in selected:
+            continue
         current = report['modules'][name]['metrics']
         module['metrics'] = {metric: min(limit, current.get(metric, 0))
                              for metric, limit in module['metrics'].items()}
@@ -127,7 +135,11 @@ def main(argv=None, *, today=None):
     mode.add_argument('--check', action='store_true')
     mode.add_argument('--update', action='store_true')
     mode.add_argument('--json', action='store_true')
+    parser.add_argument('--module', action='append', metavar='NAME',
+                        help='with --update, lower only this module (repeatable)')
     args = parser.parse_args(argv)
+    if args.module and not args.update:
+        parser.error('--module requires --update')
     try:
         document = json.loads(BASELINE.read_text(encoding='utf-8'))
         limits = validate(document, today or datetime.datetime.now(datetime.timezone.utc).date())
@@ -154,7 +166,7 @@ def main(argv=None, *, today=None):
                 print('Or obtain Cindy/Kevin review and add one bounded exception to tool/structure-audit-baseline.json:')
                 print(json.dumps(example))
         if args.update:
-            lower_baseline(document, report)
+            lower_baseline(document, report, args.module)
             BASELINE.write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
             print('Baseline explicitly lowered; no ceiling raised.')
         return 1 if args.check and growth else 0
