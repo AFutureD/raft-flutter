@@ -2460,13 +2460,14 @@ class _ResourceViewState extends State<ResourceView> {
     if (snapshotted) observeListUpdates();
     // ThreadsInbox mounts ActivityInboxPanel with `theme-brutal:!border-l`.
     final activityEdge = widget.section == 'activity';
-    // The shared left-edge rule (RaftPanelEdge): the Activity panel keeps its
-    // line beside the rail at every width but the full-width phone page
-    // (owner decisions 2026-10-11 / 2026-10-12).
+    // The shared edge rule (RaftPanelEdge): the Activity panel keeps its line
+    // beside the navigation column at every width but the full-width phone
+    // page (owner decisions 2026-10-11 / 2026-10-12). A column on the right
+    // already draws that line, so the panel does not paint one on the window.
     final BoxDecoration? surface = activityEdge
         ? BoxDecoration(
             color: t.brutal ? t.panel : t.sidebar,
-            border: RaftPanelEdge.left(
+            border: RaftPanelEdge.besideNavigation(
               context,
               RaftPanelEdgeStyle.activityInbox,
             ),
