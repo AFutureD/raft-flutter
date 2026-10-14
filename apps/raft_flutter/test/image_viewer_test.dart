@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/attachment_image_loader.dart';
 import 'package:raft_flutter/features/media_image_page.dart';
 import 'package:raft_flutter/features/media_items.dart';
 import 'package:raft_flutter/features/media_browser.dart';
@@ -219,6 +220,59 @@ Future<void> _settle(WidgetTester tester, [int rounds = 12]) async {
   }
 }
 
+/// Waits until image [index]'s original is on disk. The repository persists a
+/// fetched original without being awaited, so a Share or Download tapped as
+/// soon as the picture shows can run before the write lands and (correctly)
+/// fall back to the URL path. Waits on the wall clock, not a frame count: the
+/// write is real file I/O that a loaded machine delays.
+Future<void> _stored(
+  WidgetTester tester,
+  _Rig rig,
+  int index, {
+  Duration timeout = const Duration(seconds: 45),
+}) async {
+  final key = attachmentOriginalKey(
+    rig.w,
+    _images(index + 1)[index],
+    'channel',
+  ).source.storeKey;
+  final clock = Stopwatch()..start();
+  while (true) {
+    final bytes = await tester.runAsync(
+      () => rig.w.attachmentDiskCache!.read(key),
+    );
+    if (bytes != null) return;
+    if (clock.elapsed > timeout) {
+      fail('Timed out after ${timeout.inSeconds}s waiting for original $index');
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+  }
+}
+
+/// Pumps short frames until the Hero [shuttle] is in the tree, failing after
+/// [timeout] of wall-clock time. The flight starts when the route is built,
+/// which waits on real async work; fake time only advances by these frames, so
+/// the flight (hundreds of milliseconds) cannot end while this waits.
+Future<void> _untilInFlight(
+  WidgetTester tester,
+  Finder shuttle, {
+  Duration timeout = const Duration(seconds: 45),
+}) async {
+  final clock = Stopwatch()..start();
+  while (shuttle.evaluate().isEmpty) {
+    if (clock.elapsed > timeout) {
+      fail('Timed out after ${timeout.inSeconds}s waiting for the Hero flight');
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+}
+
 Future<_Rig> _mount(
   WidgetTester tester, {
   required Size size,
@@ -412,6 +466,7 @@ void main() {
       (tester) async {
         final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
         await _open(tester, 0);
+        await _stored(tester, rig, 0);
         await tester.longPressAt(
           tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
         );
@@ -435,6 +490,7 @@ void main() {
     ) async {
       final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
       await _open(tester, 0);
+      await _stored(tester, rig, 0);
       await tester.longPressAt(
         tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
       );
@@ -453,6 +509,7 @@ void main() {
     ) async {
       final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
       await _open(tester, 0);
+      await _stored(tester, rig, 0);
       rig.files.failSaves = true;
       await tester.longPressAt(
         tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
@@ -472,6 +529,7 @@ void main() {
     ) async {
       final rig = await _mount(tester, size: _wide, count: 1);
       await _open(tester, 0);
+      await _stored(tester, rig, 0);
       await tester.tap(find.byKey(const ValueKey('attachment-download')));
       await _settle(tester);
       final file = File('${rig.out.path}/photo-0.png');
@@ -509,6 +567,7 @@ void main() {
     ) async {
       final rig = await _mount(tester, size: _wide, count: 1);
       await _open(tester, 0);
+      await _stored(tester, rig, 0);
       rig.files.failSaves = true;
       await tester.tap(find.byKey(const ValueKey('attachment-download')));
       await _settle(tester);
@@ -1497,6 +1556,7 @@ void main() {
     testWidgets('Share hands the original to the system sheet', (tester) async {
       final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
       await _open(tester, 0);
+      await _stored(tester, rig, 0);
       await tester.tap(find.byKey(const ValueKey('viewer-share')));
       await _settle(tester);
       expect(rig.sharing.shared, ['bytes:photo-0.png:|img0']);
@@ -1508,6 +1568,7 @@ void main() {
     ) async {
       final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
       await _open(tester, 0);
+      await _stored(tester, rig, 0);
       await tester.tap(find.byKey(const ValueKey('viewer-more')));
       await _settle(tester, 4);
       expect(find.byKey(const ValueKey('viewer-menu-save')), findsOneWidget);
@@ -1724,7 +1785,7 @@ void main() {
         await _mount(tester, size: size, gallery: true, count: 3);
         await tester.tap(find.byTooltip('Preview photo-0.png'));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
+        await _untilInFlight(tester, shuttle);
         expect(shuttle, findsOneWidget, reason: 'in flight');
         await _settle(tester, 8);
         expect(shuttle, findsNothing);
@@ -1735,7 +1796,7 @@ void main() {
         );
         _viewer(tester).widget.onClose();
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 80));
+        await _untilInFlight(tester, shuttle);
         expect(shuttle, findsOneWidget, reason: 'back to the card');
         await _settle(tester, 12);
         expect(find.byType(MediaBrowser), findsNothing);
