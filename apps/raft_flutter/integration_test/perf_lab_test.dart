@@ -17,6 +17,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show MethodCall, StandardMethodCodec;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:raft_flutter/platform/app_services.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
 import 'package:raft_flutter/features/chat_view.dart';
@@ -913,6 +914,7 @@ void main() {
         final content = LabNavigationContent();
         await NativeSystemFonts.instance.initialize();
         await t.pumpWidget(app.RaftApp(
+          services: const AppServices.updatesDisabledForTestOrPreview(),
           sessionStore: nclient.sessionStore,
           createClient: (_, _, _) => nclient,
           initialLocation: Uri(path: '/s/lab'),

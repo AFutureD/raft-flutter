@@ -293,8 +293,8 @@ void main() {
     });
   }
   // The phone shell renders every page inside _MobileWorkspaceContent, a
-  // WorkspaceView built from the host's fields; the update service has to be
-  // carried across or About loses the Updates card and Release Notes loses its
+  // WorkspaceView sharing the root's AppServicesScope; the update service must
+  // reach it or About loses the Updates card and Release Notes loses its
   // source (v0.1.0+7 on Android showed neither).
   group('phone (actual RaftApp, 390 wide, Android)', () {
     AppUpdateService android() => AppUpdateService(

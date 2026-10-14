@@ -60,6 +60,7 @@ import 'platform/desktop_title_bar.dart';
 import 'platform/system_bars.dart';
 import 'platform/system_fonts.dart';
 import 'platform/app_update.dart';
+import 'platform/app_services.dart';
 import 'platform/app_update_smoke.dart';
 import 'platform/background_notifications.dart';
 import 'platform/android_performance_hint.dart';
@@ -144,7 +145,8 @@ Future<void> main([List<String> args = const []]) async {
         child: RaftApp(
           initialArguments: args,
           onStartupReady: allowFirstFrame,
-          appUpdate: appUpdate,
+          services: AppServices.withUpdates(appUpdate),
+          ownsAppUpdate: true,
         ),
       ),
     ),
@@ -191,11 +193,13 @@ class RaftApp extends StatefulWidget {
     this.nativeSharing,
     this.nativeSessionOwner,
     this.onStartupReady,
-    this.appUpdate,
+    required this.services,
+    this.ownsAppUpdate = false,
   });
 
-  /// Null in tests and previews: no update check, no red dot.
-  final AppUpdateService? appUpdate;
+  /// Explicit service capability; tests/previews must declare disabled updates.
+  final AppServices services;
+  final bool ownsAppUpdate;
   final List<String> initialArguments;
   final SessionStore? sessionStore;
   final Uri? initialLocation;
@@ -1967,7 +1971,6 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       onSwitchServer: switchServerFromMenu,
       notifications: content.notifications,
       sharing: sharing,
-      appUpdate: widget.appUpdate,
     );
   }
 
@@ -2128,7 +2131,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       // The network (and its proxy) often changed while the app was away.
       unawaited(SystemProxy.instance.refresh());
       // At most once per 6 h; a no-op for dev builds and in tests.
-      unawaited(widget.appUpdate?.checkIfDue());
+      unawaited(widget.services.appUpdate?.checkIfDue());
       unawaited(content.notifications.refreshPermission());
       final w = workspace;
       if (w == null) return;
@@ -2201,22 +2204,26 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      builder: (context, child) => RaftTextScaling(
-        child: RepaintBoundary(
-          key: raftScreenshotKey,
-          child: DesktopTitleBar(
-            child: RaftTooltipProvider(
-              delay: const Duration(milliseconds: 600),
-              child: RaftViewportBreakpointScope(
-                // Resolves the theme's font combinations once the app is idle.
-                child: RaftFontWarmUpScope(
-                  child: RaftSystemBars(
-                    child: RaftErrorScope(
-                      format: raftAppErrorFormatter,
-                      child: RaftToastHost(
-                        child: KeyboardInsetGuard(
-                          imeVisible: platformImeVisibility,
-                          child: child!,
+      builder: (context, child) => AppServicesHost(
+        services: widget.services,
+        ownsAppUpdate: widget.ownsAppUpdate,
+        child: RaftTextScaling(
+          child: RepaintBoundary(
+            key: raftScreenshotKey,
+            child: DesktopTitleBar(
+              child: RaftTooltipProvider(
+                delay: const Duration(milliseconds: 600),
+                child: RaftViewportBreakpointScope(
+                  // Resolves the theme's font combinations once the app is idle.
+                  child: RaftFontWarmUpScope(
+                    child: RaftSystemBars(
+                      child: RaftErrorScope(
+                        format: raftAppErrorFormatter,
+                        child: RaftToastHost(
+                          child: KeyboardInsetGuard(
+                            imeVisible: platformImeVisibility,
+                            child: child!,
+                          ),
                         ),
                       ),
                     ),

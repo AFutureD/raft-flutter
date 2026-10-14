@@ -79,7 +79,9 @@ void main() {
               ),
             );
             await flush(t);
-            final workspaceState = t.state(find.byType(WorkspaceView));
+            final workspaceState = t.state(
+              find.byKey(const ValueKey('workspace-content')),
+            );
             final adaptiveState = adaptiveStates(t).last;
             if (!tasksRoute) {
               final tabs = find.byKey(const Key('conversation-tabs'));
@@ -136,7 +138,10 @@ void main() {
                   .trailingExtent,
               docked ? 380 : 0,
             );
-            expect(t.state(find.byType(WorkspaceView)), same(workspaceState));
+            expect(
+              t.state(find.byKey(const ValueKey('workspace-content'))),
+              same(workspaceState),
+            );
             // The page that opened the task stays live (not rebuilt) beneath it.
             expect(adaptiveStates(t), contains(adaptiveState));
             if (width >= 768) expect(adaptiveStates(t), hasLength(1));
