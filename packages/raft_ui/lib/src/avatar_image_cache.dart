@@ -289,6 +289,7 @@ class RaftImageBytes {
   final _inFlight = <String, Future<Uint8List>>{};
   final _failures = <String, ({DateTime until, Object error})>{};
   final _revalidating = <String>{};
+  final _writes = <Future<void>>{};
   final _lastRevalidation = <String, DateTime>{};
   final _revisions = <String, int>{};
   final _changeListeners = <void Function(String key)>[];
@@ -302,10 +303,11 @@ class RaftImageBytes {
   int get memoryEntries => _memory.length;
   int get memoryBytes => _memoryBytes;
 
-  /// Completes when no revalidation is in flight (tests).
+  /// Completes when no revalidation is in flight and every write to the
+  /// [store] has finished (tests; nothing else needs to wait for them).
   @visibleForTesting
   Future<void> settled() async {
-    while (_revalidating.isNotEmpty) {
+    while (_revalidating.isNotEmpty || _writes.isNotEmpty) {
       await Future<void>.delayed(const Duration(milliseconds: 2));
     }
   }
@@ -414,17 +416,19 @@ class RaftImageBytes {
     final persisted = store;
     if (persisted == null || fetched.noStore) return;
     if (fetched.maxAge == Duration.zero && !fetched.canRevalidate) return;
-    unawaited(
-      persisted
-          .write(
-            key,
-            fetched.bytes,
-            maxAge: fetched.maxAge,
-            etag: fetched.etag,
-            lastModified: fetched.lastModified,
-          )
-          .catchError((Object _) {}),
-    );
+    // Fire and forget, and never an error: a store that fails only costs a
+    // later request. Tracked so tests can wait for it ([settled]).
+    late final Future<void> write;
+    write = Future<void>.sync(
+      () => persisted.write(
+        key,
+        fetched.bytes,
+        maxAge: fetched.maxAge,
+        etag: fetched.etag,
+        lastModified: fetched.lastModified,
+      ),
+    ).catchError((Object _) {}).whenComplete(() => _writes.remove(write));
+    _writes.add(write);
   }
 
   /// Stale-while-revalidate: when the in-memory entry for [key] ran out of

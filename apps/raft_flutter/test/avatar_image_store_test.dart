@@ -263,14 +263,19 @@ void main() {
       height: 36,
     ).obtainKey(ImageConfiguration.empty);
 
-    Future<void> diskIdle() =>
-        Future<void>.delayed(const Duration(milliseconds: 60));
+    // A first run of the app: the picture is downloaded and its disk entry is
+    // written (waited for, not slept for) before the "restart" under test.
+    Future<void> seed(String url) async {
+      final first = process();
+      await first.load(url);
+      await first.settled();
+    }
 
     test('a no-cache answer is stored with its ETag, not refetched', () async {
       final first = process();
       final url = server.url('/api/external-avatars/a.webp');
       expect(await first.load(url), _bytes(40, 1));
-      await diskIdle();
+      await first.settled();
       expect(server.requests, hasLength(1));
       expect(server.requests.single.ifNoneMatch, isNull);
 
@@ -292,8 +297,7 @@ void main() {
       'a fresh immutable entry is served from disk with 0 requests',
       () async {
         final url = server.url('/api/avatars/users/ab.webp');
-        await process().load(url);
-        await diskIdle();
+        await seed(url);
         expect(server.requests, hasLength(1));
         clock = clock.add(const Duration(days: 2));
         final restarted = process();
@@ -308,8 +312,7 @@ void main() {
         'transfer, decoded copy untouched', () async {
       final url = server.url('/api/external-avatars/a.webp');
       final key = raftStableImageKey(url);
-      await process().load(url);
-      await diskIdle();
+      await seed(url);
       server.requests.clear();
       server.bodyBytesSent = 0;
 
@@ -335,7 +338,7 @@ void main() {
       expect(await restarted.load(url), shown);
       expect(identical(await restarted.load(url), shown), isTrue);
       // Still one entry on disk, same bytes.
-      await diskIdle();
+      await restarted.settled();
       expect(await cache.entryCount(), 1);
       expect((await store(cache).readEntry(key))!.bytes, _bytes(40, 1));
     });
@@ -343,8 +346,7 @@ void main() {
     test('a changed ETag replaces the picture and tells the screen', () async {
       final url = server.url('/api/external-avatars/a.webp');
       final key = raftStableImageKey(url);
-      await process().load(url);
-      await diskIdle();
+      await seed(url);
       server
         ..etag = '"v2"'
         ..body = _bytes(55, 2);
@@ -369,7 +371,7 @@ void main() {
       expect(restarted.revisionOf(key), 1);
       expect(await restarted.load(url), _bytes(55, 2));
       expect(hot.length, 0, reason: 'old decoded copy released');
-      await diskIdle();
+      await restarted.settled();
       final stored = await store(cache).readEntry(key);
       expect(stored!.etag, '"v2"');
       expect(stored.bytes, _bytes(55, 2));
@@ -385,8 +387,7 @@ void main() {
     test('a new ETag over identical bytes is not a change', () async {
       final url = server.url('/api/external-avatars/a.webp');
       final key = raftStableImageKey(url);
-      await process().load(url);
-      await diskIdle();
+      await seed(url);
       server.etag = '"v2"';
       final restarted = process();
       final changed = <String>[];
@@ -396,15 +397,14 @@ void main() {
       expect(server.requests.last.status, 200);
       expect(changed, isEmpty);
       expect(restarted.revisionOf(key), 0);
-      await diskIdle();
+      await restarted.settled();
       expect((await store(cache).readEntry(key))!.etag, '"v2"');
     });
 
     test('a network error or an error answer keeps the stored bytes', () async {
       final url = server.url('/api/external-avatars/a.webp');
       final key = raftStableImageKey(url);
-      await process().load(url);
-      await diskIdle();
+      await seed(url);
 
       server.failWith = 503;
       final failing = process();
@@ -432,8 +432,7 @@ void main() {
       final a = server.url('/api/external-avatars/a.webp');
       final b = server.url('/api/external-avatars/b.webp');
       await process().load(a);
-      await process().load(b);
-      await diskIdle();
+      await seed(b);
       server.requests.clear();
 
       final restarted = process();
@@ -473,15 +472,13 @@ void main() {
         ..lastModified = 'Tue, 13 Oct 2026 10:00:00 GMT';
       final url = server.url('/x/g.webp');
       final key = raftStableImageKey(url);
-      await process().load(url);
-      await diskIdle();
+      await seed(url);
       clock = clock.add(const Duration(minutes: 6));
       expect(await store(cache).read(key), isNull, reason: 'expired');
 
       final restarted = process();
       expect(await restarted.load(url), _bytes(40, 1));
       await restarted.settled();
-      await diskIdle();
       expect(server.requests.last.status, 304);
       expect(server.requests.last.ifModifiedSince, server.lastModified);
       expect(server.requests.last.ifNoneMatch, '"v1"');
@@ -526,6 +523,76 @@ void main() {
       expect(answer.etag, '"p"');
       expect(proxied.single, contains('avatars.invalid'));
       await proxy.close(force: true);
+    });
+
+    test('a failing revalidation never escapes as an uncaught error', () async {
+      final url = server.url('/api/external-avatars/a.webp');
+      await seed(url);
+      final uncaught = <Object>[];
+      await runZonedGuarded(() async {
+        // Error answers, a store that throws, a client that throws at once,
+        // then a refused connection; each stale process shows the stored
+        // bytes and every failure is swallowed where it happens.
+        for (final status in [503, 404, 500, 429]) {
+          server.failWith = status;
+          clock = clock.add(const Duration(minutes: 11));
+          final p = process();
+          expect(await p.load(url), _bytes(40, 1));
+          await p.settled();
+          expect(p.revalidationCount, 1);
+        }
+        final throwing = RaftImageBytes(
+          store: store(cache),
+          now: () => clock,
+          fetcher: (_) => throw StateError('no network'),
+          revalidator: (_, {etag, lastModified}) =>
+              throw StateError('no network'),
+        );
+        clock = clock.add(const Duration(minutes: 11));
+        expect(await throwing.load(url), _bytes(40, 1));
+        await throwing.settled();
+        expect(throwing.revalidationCount, 1);
+
+        // A disk that fails on write and on touch: the 200 and the 304 are
+        // still handled, nothing escapes.
+        RaftImageBytes onBrokenDisk() => RaftImageBytes(
+          store: _ThrowingStore(store(cache)),
+          fetcher: (u) => fetchAvatarImage(u, proxy: direct),
+          revalidator: (u, {etag, lastModified}) => fetchAvatarImage(
+            u,
+            proxy: direct,
+            etag: etag,
+            lastModified: lastModified,
+          ),
+          now: () => clock,
+        );
+        server
+          ..failWith = null
+          ..etag = '"v9"'
+          ..body = _bytes(12, 9);
+        clock = clock.add(const Duration(minutes: 11));
+        final changed = onBrokenDisk();
+        expect(await changed.load(url), _bytes(40, 1));
+        await changed.settled();
+        expect(await changed.load(url), _bytes(12, 9));
+        server
+          ..etag = '"v1"'
+          ..body = _bytes(40, 1);
+        clock = clock.add(const Duration(minutes: 11));
+        final unchanged = onBrokenDisk();
+        expect(await unchanged.load(url), _bytes(40, 1));
+        await unchanged.settled();
+        expect(server.requests.last.status, 304);
+
+        await server.close();
+        clock = clock.add(const Duration(minutes: 11));
+        final offline = process();
+        expect(await offline.load(url), _bytes(40, 1));
+        await offline.settled();
+        // Let any stray error reach the zone.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }, (error, stack) => uncaught.add(error));
+      expect(uncaught, isEmpty);
     });
 
     test('entries from before validators existed still read', () async {
@@ -672,4 +739,27 @@ class _AvatarServer {
       ..add(body)
       ..close();
   }
+}
+
+/// A disk that reads but fails every write and touch.
+class _ThrowingStore implements RaftImageByteStore {
+  _ThrowingStore(this._inner);
+  final RaftImageByteStore _inner;
+  @override
+  Future<RaftStoredImage?> readEntry(String key) => _inner.readEntry(key);
+  @override
+  Future<void> write(
+    String key,
+    Uint8List bytes, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) => throw const FileSystemException('disk full');
+  @override
+  Future<void> touch(
+    String key, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) => Future<void>.error(const FileSystemException('disk full'));
 }
