@@ -46,6 +46,8 @@ SLOWEST_TESTS = 20
 DEFAULT_SHARD_TIMEOUT_MINUTES = 60
 DEFAULT_MAX_FAILURES = 3
 DEFAULT_STALL_MINUTES = 10
+STARTUP_TIMEOUT_SECONDS = 180  # longest one shard may hold the startup slot before the next one starts anyway
+STARTUP_POLL_SECONDS = 0.1
 POLL_SECONDS = 0.5
 COMPILE_GRACE_SECONDS = 3.0  # after the first compiler error: let the file name and more diagnostics arrive
 MAX_DIAGNOSTIC_LINES = 8
@@ -458,10 +460,54 @@ def kill_children():
             STOPPED.add(child.pid)
 
 
-def run_logged(args, cwd, log_path, env, timeout=None, outcome=None):
+class StartupGate:
+    """One `flutter test` process at a time passes through its startup.
+
+    Every `flutter test` empties build/native_assets/<os>/ (even with no native
+    assets), writes native_assets.json there, builds the asset bundle, and only
+    then copies the json to build/unit_test_assets/NativeAssetsManifest.json.
+    A second process that starts in between empties the directory and the first
+    fails with PathNotFoundException. The warm-up cannot prevent this: the tool
+    redoes the native-assets step on every invocation. So a shard takes the slot
+    before it starts and gives it back once its JSON event file has content
+    (the test runner writes it after the copy), it exits, or `timeout` passes.
+    """
+
+    def __init__(self, timeout=STARTUP_TIMEOUT_SECONDS, poll=STARTUP_POLL_SECONDS, clock=time.monotonic, sleep=time.sleep):
+        self.timeout, self.poll, self.clock, self.sleep = timeout, poll, clock, sleep
+        self._slot = threading.Lock()
+        self._held = threading.local()
+
+    def enter(self):
+        self._slot.acquire()
+        self._held.value = True
+
+    def leave(self):
+        """Give the slot back; safe to call when this thread no longer holds it."""
+        if getattr(self._held, 'value', False):
+            self._held.value = False
+            self._slot.release()
+
+    def wait_started(self, child, events, stopping=lambda: False):
+        """Hold the slot until the shard's startup is over; returns 'started', 'exited', 'stopped' or 'timeout'."""
+        began = self.clock()
+        while True:
+            if file_size(events) > 0:
+                return 'started'
+            if child.poll() is not None:
+                return 'exited'
+            if stopping():
+                return 'stopped'
+            if self.clock() - began >= self.timeout:
+                return 'timeout'
+            self.sleep(self.poll)
+
+
+def run_logged(args, cwd, log_path, env, timeout=None, outcome=None, after_start=None):
     """Run to completion with output in `log_path`; a timeout kills only this child's own group.
 
     `outcome['stopped']` is set when `kill_children` ended the child early.
+    `after_start(child)` runs right after the child is registered.
     """
     popen = {'start_new_session': True} if os.name != 'nt' else {}
     outcome = {} if outcome is None else outcome
@@ -475,6 +521,8 @@ def run_logged(args, cwd, log_path, env, timeout=None, outcome=None):
         if STOP.is_set():  # the stop arrived between the check above and registration
             kill_children()
         try:
+            if after_start:
+                after_start(child)
             return child.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             kill_group(child)
@@ -489,16 +537,34 @@ def run_logged(args, cwd, log_path, env, timeout=None, outcome=None):
                 log.write('\ncheck-project: stopped early (gate fail-fast).\n')
 
 
-def run_shard(index, files, jobs, env, timeout):
+def run_shard(index, files, jobs, env, timeout, gate=None):
     log = local / f'test-shard-{index}.txt'
     events = local / f'test-shard-{index}.json'
     events.unlink(missing_ok=True)
     args = [*tool_command('flutter'), 'test', *files, '--no-pub', '-j', str(jobs), '--reporter', 'expanded', '--file-reporter', f'json:{events}']
-    started = time.monotonic()
+    gate = gate or StartupGate()
     outcome = {}
-    code = run_logged(args, app_dir, log, env, timeout, outcome)
+    queued = time.monotonic()
+
+    def after_start(child):
+        began = time.monotonic()
+        try:
+            how = gate.wait_started(child, events, STOP.is_set)
+        finally:
+            gate.leave()
+        outcome['startup'] = (how, time.monotonic() - began)
+        print(f'check-project: shard {index} startup {how} after {time.monotonic() - began:.1f}s (waited {began - queued:.1f}s for its turn).', file=sys.stderr)
+        if how == 'timeout':
+            print(f'check-project: shard {index} had not finished starting after {gate.timeout:.0f}s; starting the next shard anyway.', file=sys.stderr)
+
+    gate.enter()  # one shard at a time through `flutter test` startup, see StartupGate
+    started = time.monotonic()
+    try:
+        code = run_logged(args, app_dir, log, env, timeout, outcome, after_start)
+    finally:
+        gate.leave()  # also when the child never started
     return {'index': index, 'files': files, 'code': code, 'seconds': time.monotonic() - started, 'log': log.name, 'events': events,
-            'stopped': bool(outcome.get('stopped'))}
+            'stopped': bool(outcome.get('stopped')), 'startup': outcome.get('startup')}
 
 
 def repo_path(app_relative):
@@ -591,9 +657,9 @@ def run_gate(check_env, emit, started):
         raise SystemExit('check-project: `flutter pub get --enforce-lockfile` failed; see .local/workspace-pub-get.txt.')
 
     clear_unit_test_assets(root)
-    # Rebuild the test assets once before the shards start: parallel
-    # `flutter test` runs racing to recreate build/unit_test_assets fail with
-    # "Flutter failed to copy file ... native_assets.json" (PathNotFound).
+    # Rebuild the test assets (shaders, asset bundle) once before the shards
+    # start so no shard has to. This does not stop the native_assets.json race:
+    # every `flutter test` redoes the native-assets step, see StartupGate.
     warm = smallest_app_test(files, sizes)
     if warm:
         run_logged([*tool_command('flutter'), 'test', '--no-pub', warm], app_dir,
@@ -627,7 +693,8 @@ def run_gate(check_env, emit, started):
         host_future = pool.submit(host_tests)
         analyze_future = pool.submit(analyze)
         lints_future = pool.submit(raft_lints)
-        shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout) for i, bucket in enumerate(plan)]
+        startup_gate = StartupGate()
+        shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout, startup_gate) for i, bucket in enumerate(plan)]
         watch = GateWatch([[repo_path(f) for f in bucket['files']] for bucket in plan], time.monotonic(), max_failures, stall_minutes, emit, to_repo_path)
         try:
             stop = supervise([*shard_futures, host_future, analyze_future, lints_future], [local / f'test-shard-{i}.txt' for i in range(len(plan))],
@@ -690,7 +757,8 @@ def run_gate(check_env, emit, started):
     ok = all(results.values()) and not changed and not stop
     (local / 'engineering-run.json').write_text(json.dumps({
         'sourceHash': source_hash, 'completed': ok, 'themes': themes_mode(check_env), 'checks': results,
-        'shards': [{'index': s['index'], 'passed': s['passed'], 'exitCode': s['code'], 'seconds': round(s['seconds'], 1), 'files': len(s['files']), 'log': s['log']} for s in shards],
+        'shards': [{'index': s['index'], 'passed': s['passed'], 'exitCode': s['code'], 'seconds': round(s['seconds'], 1), 'files': len(s['files']), 'log': s['log'],
+                    'startup': {'result': s['startup'][0], 'seconds': round(s['startup'][1], 1)} if s.get('startup') else None} for s in shards],
         'stoppedEarly': {'reason': stop['reason'], 'message': stop['message'], 'lines': stop['lines']} if stop else None,
         'failedTests': [{'shard': f['shard'], 'file': f['file'], 'name': f['name']} for f in failures]}, indent=2))
     print(json.dumps({'passed': ok, 'sourceChanged': changed, 'checks': results}))

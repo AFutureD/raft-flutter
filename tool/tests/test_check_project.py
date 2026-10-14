@@ -3,6 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 import unittest.mock
 
@@ -238,3 +239,122 @@ class WarmupTests(unittest.TestCase):
         files = list(sizes) + ['test/missing_test.dart']
         self.assertEqual(check.smallest_app_test(files, sizes), 'test/a_test.dart')
         self.assertIsNone(check.smallest_app_test(['../../packages/x/test/y_test.dart'], {}))
+
+
+class FakeChild:
+    def __init__(self, exits_at=None, clock=None):
+        self.exits_at, self.clock = exits_at, clock
+
+    def poll(self):
+        return 1 if self.exits_at is not None and self.clock.now >= self.exits_at else None
+
+
+class FakeClock:
+    """Time that only moves when the code under test sleeps."""
+
+    def __init__(self, on_sleep=lambda now: None):
+        self.now, self.on_sleep = 0.0, on_sleep
+
+    def __call__(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+        self.on_sleep(self.now)
+
+
+class StartupGateTests(unittest.TestCase):
+    def make_gate(self, tmp, timeout=30, on_sleep=lambda now: None):
+        clock = FakeClock(on_sleep)
+        return check.StartupGate(timeout=timeout, poll=1, clock=clock, sleep=clock.sleep), clock, Path(tmp) / 'events.json'
+
+    def test_slot_is_released_once_the_event_file_has_content(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            events = Path(tmp) / 'events.json'
+            gate, clock, _ = self.make_gate(tmp, on_sleep=lambda now: events.write_text('{"type":"start"}') if now >= 4 else None)
+            self.assertEqual(gate.wait_started(FakeChild(), events), 'started')
+            self.assertEqual(clock.now, 4)
+
+    def test_an_empty_event_file_does_not_count_as_started(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            events = Path(tmp) / 'events.json'
+            events.touch()
+            gate, clock, _ = self.make_gate(tmp, timeout=5)
+            self.assertEqual(gate.wait_started(FakeChild(), events), 'timeout')
+            self.assertEqual(clock.now, 5)
+
+    def test_a_shard_that_exits_during_startup_gives_the_slot_back(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gate, clock, events = self.make_gate(tmp)
+            self.assertEqual(gate.wait_started(FakeChild(exits_at=2, clock=clock), events), 'exited')
+            self.assertEqual(clock.now, 2)
+
+    def test_stop_request_ends_the_wait(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gate, clock, events = self.make_gate(tmp)
+            self.assertEqual(gate.wait_started(FakeChild(), events, stopping=lambda: clock.now >= 3), 'stopped')
+
+    def test_second_shard_waits_for_the_first_to_finish_starting(self):
+        gate = check.StartupGate()
+        order, first_in, second_tried = [], threading.Event(), threading.Event()
+
+        def second():
+            first_in.wait()
+            second_tried.set()
+            gate.enter()
+            order.append('second in')
+            gate.leave()
+
+        thread = threading.Thread(target=second)
+        thread.start()
+        gate.enter()
+        first_in.set()
+        second_tried.wait()
+        thread.join(0.2)  # the second shard stays blocked while the first holds the slot
+        self.assertTrue(thread.is_alive())
+        self.assertEqual(order, [])
+        gate.leave()
+        thread.join(5)
+        self.assertEqual(order, ['second in'])
+
+    def test_leave_is_idempotent_and_only_for_the_holder(self):
+        gate = check.StartupGate()
+        gate.leave()  # not held: no error
+        gate.enter()
+        gate.leave()
+        gate.leave()
+        gate.enter()  # the slot is free again
+        gate.leave()
+
+    def test_run_shard_holds_the_slot_until_startup_ends_but_not_while_tests_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gate = check.StartupGate(timeout=5, poll=0.01)
+            seen = {}
+
+            def fake_run_logged(args, cwd, log, env, timeout, outcome, after_start):
+                events = Path(args[args.index('--file-reporter') + 1].removeprefix('json:'))
+                threading.Timer(0.1, lambda: events.write_text('{}')).start()
+                after_start(FakeChild())
+                seen['free_after_start'] = gate._slot.acquire(blocking=False)
+                if seen['free_after_start']:
+                    gate._slot.release()
+                return 0
+
+            with unittest.mock.patch.object(check, 'local', Path(tmp)), unittest.mock.patch.object(check, 'run_logged', fake_run_logged):
+                shard = check.run_shard(3, ['test/a_test.dart'], 2, {}, 60, gate)
+            self.assertTrue(seen['free_after_start'])
+            self.assertEqual(shard['startup'][0], 'started')
+            self.assertEqual(shard['code'], 0)
+
+    def test_run_shard_gives_the_slot_back_when_the_child_cannot_start(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            gate = check.StartupGate()
+
+            def failing(*args, **kwargs):
+                raise OSError('no flutter')
+
+            with unittest.mock.patch.object(check, 'local', Path(tmp)), unittest.mock.patch.object(check, 'run_logged', failing):
+                with self.assertRaises(OSError):
+                    check.run_shard(0, [], 2, {}, 60, gate)
+            gate.enter()  # not deadlocked
+            gate.leave()
