@@ -33,6 +33,7 @@ import 'package:raft_ui/inline_badge_previews.dart';
 import 'package:raft_ui/inline_thread_surface_previews.dart';
 import 'package:raft_ui/legacy_input_previews.dart';
 import 'package:raft_ui/media_browser_previews.dart';
+import 'package:raft_ui/video_poster_card_previews.dart';
 import 'package:raft_ui/member_profile_previews.dart';
 import 'package:raft_ui/message_affordance_previews.dart';
 import 'package:raft_ui/message_row_previews.dart';
@@ -988,6 +989,37 @@ final auditSurfaces = <AuditSurface>[
     mediaBrowserPhoneNoCaptionPreview,
     Size(390, 844),
     representative: true,
+  ),
+  AuditSurface(
+    'videoPosterCardLandscapePreview',
+    'Video poster card (phone message)',
+    videoPosterCardLandscapePreview,
+    Size(390, 500),
+    representative: true,
+  ),
+  AuditSurface(
+    'videoPosterCardPortraitPreview',
+    'Video poster card, portrait',
+    videoPosterCardPortraitPreview,
+    Size(390, 900),
+  ),
+  AuditSurface(
+    'videoPosterCardTallPreview',
+    'Video poster card, very tall',
+    videoPosterCardTallPreview,
+    Size(390, 700),
+  ),
+  AuditSurface(
+    'videoPosterCardPlaceholderPreview',
+    'Video poster card, no poster',
+    videoPosterCardPlaceholderPreview,
+    Size(390, 400),
+  ),
+  AuditSurface(
+    'videoPosterCardUploadingPreview',
+    'Video poster card, uploading',
+    videoPosterCardUploadingPreview,
+    Size(390, 400),
   ),
   AuditSurface(
     'mediaBrowserDesktopPreview',

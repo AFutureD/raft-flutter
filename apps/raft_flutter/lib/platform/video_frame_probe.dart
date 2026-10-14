@@ -84,6 +84,7 @@ class VideoShape {
         width: width,
         height: height,
         rotation: rotation is int ? rotation : 0,
+        // ds-allow: the length of the video, not a motion duration
         duration: Duration(milliseconds: duration is int && duration > 0 ? duration : 0),
       );
     } on Object {
@@ -202,6 +203,7 @@ class ChannelVideoFrameProbe implements VideoFrameProbe {
         width: width,
         height: height,
         rotation: (result['rotation'] as num?)?.toInt() ?? 0,
+        // ds-allow: the length of the video, not a motion duration
         duration: Duration(
           milliseconds: (result['durationMs'] as num?)?.toInt() ?? 0,
         ),
@@ -212,7 +214,7 @@ class ChannelVideoFrameProbe implements VideoFrameProbe {
         'expired' => VideoFrameFailure.expired,
         'cancelled' => VideoFrameFailure.cancelled,
         _ => VideoFrameFailure.failed,
-      }, error.message);
+      }, error.code);
     } on MissingPluginException {
       throw const VideoFrameException(VideoFrameFailure.failed, 'unsupported');
     }
