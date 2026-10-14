@@ -96,6 +96,7 @@ class MainActivity : FlutterActivity() {
         NativeBatteryBridge(this, flutterEngine)
         LaunchTheme.register(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
+        NativeVideoFrameBridge(flutterEngine)
         // Uploaded HTML previews run in an Android WebView. The app has no
         // other WebView, so the process-wide cookie jar and web storage belong
         // to the preview alone: never send or keep cookies, drop storage.
