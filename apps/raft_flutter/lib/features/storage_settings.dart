@@ -98,20 +98,23 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
   Widget build(BuildContext context) {
     final text = RaftSettingsText(RaftTokens.of(context));
     final size = bytes;
-    Widget row(Key key, String label, int? value) => Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(raftText(context, label), style: text.description),
-          ),
-          Text(
-            key: key,
-            value == null ? '…' : computerFileSize(value),
-            style: text.description,
-          ),
-        ],
-      ),
+    Widget row(Key key, String label, int? value) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: RaftSpace.x1),
+        Row(
+          children: [
+            Expanded(
+              child: Text(raftText(context, label), style: text.description),
+            ),
+            Text(
+              key: key,
+              value == null ? '…' : computerFileSize(value),
+              style: text.description,
+            ),
+          ],
+        ),
+      ],
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
