@@ -118,27 +118,49 @@ class RaftActivityScopeToolbar extends StatelessWidget {
                   spacing: 8,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (search != null) Expanded(child: search!),
-                    SizedBox(
-                      width: 116,
-                      height: 32,
-                      child: RaftSelectField<String>(
-                        value: sort,
-                        label: raftText(context, 'Sort Activity'),
-                        visualHeight: 32,
-                        minimumTargetHeight: 32,
-                        items: [
-                          for (final entry in const {
-                            'desc': 'Newest',
-                            'asc': 'Oldest',
-                          }.entries)
-                            DropdownMenuItem(
-                              value: entry.key,
-                              child: Text(raftText(context, entry.value)),
-                            ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) onSort(value);
+                    // Keep the read action whole. The sort value yields width,
+                    // and the optional finder uses the space left after it.
+                    Flexible(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final gap =
+                              search != null && constraints.maxWidth > 124
+                              ? 8.0
+                              : 0.0;
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (search != null) Expanded(child: search!),
+                              if (gap > 0) SizedBox(width: gap),
+                              SizedBox(
+                                width: constraints.maxWidth.clamp(0, 116),
+                                height: RaftScaled.extent(context, 32),
+                                child: RaftSelectField<String>(
+                                  value: sort,
+                                  label: raftText(context, 'Sort Activity'),
+                                  visualHeight: 32,
+                                  minimumTargetHeight: 32,
+                                  items: [
+                                    for (final entry in const {
+                                      'desc': 'Newest',
+                                      'asc': 'Oldest',
+                                    }.entries)
+                                      DropdownMenuItem(
+                                        value: entry.key,
+                                        child: Text(
+                                          raftText(context, entry.value),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value != null) onSort(value);
+                                  },
+                                ),
+                              ),
+                            ],
+                          );
                         },
                       ),
                     ),
