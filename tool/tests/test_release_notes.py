@@ -107,6 +107,26 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(json.loads(raw)['items'][0]['tag'], 'v0.1.0+5')
 
 
+class MarkdownTests(unittest.TestCase):
+    def test_groups_entries_by_type_in_a_fixed_order_and_bolds_emphasis(self):
+        document = {'items': [
+            {'tag': 'v1.0.0+2', 'entries': [
+                {'type': 'fix', 'text': 'Fix one.', 'emphasis': False},
+                {'type': 'feature', 'text': 'New one.', 'emphasis': True},
+                {'type': 'improvement', 'text': 'Better one.', 'emphasis': False},
+                {'type': 'fix', 'text': 'Fix two.', 'emphasis': False}]},
+            {'tag': 'v1.0.0+1', 'entries': [{'type': 'fix', 'text': 'Old.', 'emphasis': False}]}]}
+        text = notes.markdown(document, 'v1.0.0+2')
+        self.assertEqual(text, "## What's new\n\n### New\n\n- **New one.**\n\n### Improved\n\n"
+                               "- Better one.\n\n### Fixed\n\n- Fix one.\n- Fix two.\n")
+        self.assertNotIn('Old.', text)
+
+    def test_every_checked_in_release_renders(self):
+        tags = sorted(path.stem for path in notes.NOTES_DIR.glob('v*.md'))
+        for tag in tags:
+            self.assertIn("## What's new", notes.markdown(notes.build(tag), tag))
+
+
 class RepositoryTests(unittest.TestCase):
     def test_checked_in_notes_all_parse(self):
         tags = sorted(path.stem for path in notes.NOTES_DIR.glob('v*.md'))

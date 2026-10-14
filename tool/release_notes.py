@@ -115,6 +115,24 @@ def build(tag, directory=NOTES_DIR):
     return {'items': items, 'nextCursor': None}
 
 
+HEADINGS = (('breaking', 'Breaking changes'), ('feature', 'New'), ('improvement', 'Improved'),
+            ('fix', 'Fixed'), ('deprecated', 'Deprecated'))
+
+
+def markdown(document, tag):
+    """The notes of release [tag] as Markdown for the GitHub release page."""
+    item = next(i for i in document['items'] if i['tag'] == tag)
+    lines = ["## What's new", '']
+    for kind, heading in HEADINGS:
+        entries = [e for e in item['entries'] if e['type'] == kind]
+        if not entries:
+            continue
+        lines += [f'### {heading}', '']
+        lines += [f"- **{e['text']}**" if e['emphasis'] else f"- {e['text']}" for e in entries]
+        lines.append('')
+    return '\n'.join(lines)
+
+
 def write(path, tag, directory=NOTES_DIR):
     """Writes the asset with canonical bytes (UTF-8, LF, stable key order)."""
     document = build(tag, directory)

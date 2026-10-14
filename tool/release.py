@@ -583,8 +583,15 @@ def prepare():
     OUT.mkdir(parents=True, exist_ok=True)
     version, number, tag = identity['version'], identity['build_number'], identity['tag']
     metadata = release_metadata(identity, commit, matrix)
+    # The client's own release notes: written once here (the only creator of the
+    # draft), so concurrent platform publishers never touch it. Fails before any
+    # platform build starts when docs/release-notes/<tag>.md is missing. The same
+    # notes head the GitHub release page.
+    client_notes = OUT / 'release-notes.json'
+    document = release_notes.write(client_notes, tag)
     notes = OUT / 'release-notes.md'
-    notes.write_text(f'Raft Flutter {tag}\n\nApp version: {version}. Build number: {number}.\n'
+    notes.write_text(f'Raft Flutter {tag}\n\n' + release_notes.markdown(document, tag) + '\n'
+                     f'App version: {version}. Build number: {number}.\n'
                      f'Source: `{commit}`. Flutter {json.loads((ROOT / ".fvmrc").read_text())["flutter"]}.\n\n'
                      'Each successful platform publishes independently. Assets arrive as its build '
                      'and platform checks finish; a missing platform may still be running or have failed.\n\n'
@@ -599,11 +606,6 @@ def prepare():
                      'AppImage has an Ubuntu 24.04 ABI baseline.\n\n'
                      '<!-- raft-release:' + json.dumps(metadata, sort_keys=True, separators=(',', ':')) + ' -->\n',
                      encoding='utf-8')
-    # The client's own release notes: written once here (the only creator of the
-    # draft), so concurrent platform publishers never touch it. Fails before any
-    # platform build starts when docs/release-notes/<tag>.md is missing.
-    client_notes = OUT / 'release-notes.json'
-    release_notes.write(client_notes, tag)
     command = ['gh', 'release', 'create', tag, client_notes, '--verify-tag', '--draft', '--target', commit,
                '--title', f'Raft Flutter {tag}', '--notes-file', notes, '--latest=false']
     if '-' in version:

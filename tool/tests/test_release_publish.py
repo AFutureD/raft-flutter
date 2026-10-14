@@ -82,7 +82,23 @@ class PublishCase(unittest.TestCase):
             self.addCleanup(context.stop)
 
     def write_notes(self, path, tag, directory=None):
-        Path(path).write_text('{"items": [], "nextCursor": null}\n')
+        document = {'items': [{'releaseId': tag, 'tag': tag, 'version': '0.1.0', 'date': '2026-10-14',
+                               'state': 'published', 'entries': [
+                                   {'type': 'fix', 'text': 'A fixed thing.', 'emphasis': False},
+                                   {'type': 'feature', 'text': 'A new thing.', 'emphasis': True}]}],
+                    'nextCursor': None}
+        Path(path).write_text(json.dumps(document) + '\n')
+        return document
+
+    def test_prepare_puts_the_release_notes_on_the_release_page(self):
+        release.prepare()
+        body = self.github.remote['body']
+        self.assertTrue(body.startswith(f'Raft Flutter {self.github.remote["tag_name"]}\n\n## What\'s new\n'))
+        self.assertLess(body.index('### New'), body.index('### Fixed'))
+        self.assertIn('- **A new thing.**', body)
+        self.assertIn('- A fixed thing.', body)
+        self.assertLess(body.index('A fixed thing.'), body.index('App version:'))
+        self.assertIn('<!-- raft-release:', body)
 
     def test_prepare_attaches_client_release_notes_to_the_draft_only_once(self):
         release.prepare()
