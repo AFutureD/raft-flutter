@@ -79,6 +79,6 @@ dev_dependencies:
   file_selector_platform_interface: ^2.7.0
   video_player_platform_interface: ^6.9.0
   socket_io_client: any
-  analyzer: any
+  analyzer: ^12.1.0
 flutter:
   uses-material-design: true
