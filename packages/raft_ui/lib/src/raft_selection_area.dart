@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'design_primitives.dart';
+
 /// [SelectionArea] whose touch selection ends with the next touch elsewhere.
 ///
 /// Flutter keeps a touch selection (highlight, handles) until the same text is
@@ -26,6 +28,22 @@ class RaftSelectionArea extends StatefulWidget {
   ) => AdaptiveTextSelectionToolbar.selectableRegion(
     selectableRegionState: state,
   );
+
+  /// The platform Copy / Select all toolbar for a touch selection, nothing
+  /// for a mouse or trackpad. For areas whose desktop right-click belongs to
+  /// the host (a message row's action menu) but whose phone selection still
+  /// needs its Copy / Select all toolbar: the host hides the platform
+  /// toolbar everywhere, so without this a long-press selection on a phone
+  /// has no way to copy.
+  static Widget touchToolbarOnly(
+    BuildContext context,
+    SelectableRegionState state,
+  ) {
+    // The density scope falls back to the platform (phones are touch).
+    return RaftDensityScope.of(context) == RaftDensity.touch
+        ? _platformToolbar(context, state)
+        : const SizedBox.shrink();
+  }
 
   @override
   State<RaftSelectionArea> createState() => _RaftSelectionAreaState();

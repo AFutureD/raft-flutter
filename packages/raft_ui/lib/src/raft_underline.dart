@@ -54,6 +54,45 @@ class RaftUnderlineSpan extends TextSpan {
   int get hashCode => Object.hash(super.hashCode, color, active);
 }
 
+/// An inline run with a background (inline code, the search `mark`).
+///
+/// [TextStyle.backgroundColor] is painted with the glyphs, which is after the
+/// paragraph's selection highlight, so a selected inline code run showed no
+/// highlight at all. [RaftUnderlines] paints [background] behind its child
+/// instead (below the selection highlight and the text), over the full text
+/// range of this span and its children, placeholders included. The run's own
+/// style must not carry a [TextStyle.backgroundColor].
+class RaftBackgroundSpan extends TextSpan {
+  const RaftBackgroundSpan({
+    super.text,
+    super.children,
+    super.style,
+    required this.background,
+  });
+
+  final Color background;
+
+  @override
+  RenderComparison compareTo(InlineSpan other) {
+    final base = super.compareTo(other);
+    if (other is RaftBackgroundSpan && other.background != background) {
+      return base.index < RenderComparison.paint.index
+          ? RenderComparison.paint
+          : base;
+    }
+    return base;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      super == other &&
+      other is RaftBackgroundSpan &&
+      other.background == background;
+
+  @override
+  int get hashCode => Object.hash(super.hashCode, background);
+}
+
 /// A standalone `Text` with the unified underline. [underline] false is the
 /// resting state of a hover-only underline; [underlineColor] defaults to the
 /// text colour.
@@ -159,6 +198,18 @@ class _RenderRaftUnderlines extends RenderProxyBox {
         ),
   ];
 
+  /// Background rects in their paragraph's coordinates with its global origin.
+  @visibleForTesting
+  List<({Rect rect, Color color, Offset origin})> get debugBackgrounds => [
+    for (final lines in _paragraphs ??= collectStrokes())
+      for (final shape in lines.backgrounds)
+        (
+          rect: shape.rect,
+          color: shape.paint.color,
+          origin: lines.owner.localToGlobal(Offset.zero),
+        ),
+  ];
+
   void invalidate() {
     _paragraphs = null;
     markNeedsPaint();
@@ -172,9 +223,33 @@ class _RenderRaftUnderlines extends RenderProxyBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    super.paint(context, offset);
     final paragraphs = _paragraphs ??= collectStrokes();
+    // Backgrounds sit below the child: the paragraph's selection highlight and
+    // glyphs paint over them.
+    paintShapes(
+      context,
+      offset,
+      paragraphs,
+      (lines) => [for (final b in lines.backgrounds) (b.rect, b.paint)],
+    );
+    super.paint(context, offset);
+    paintShapes(
+      context,
+      offset,
+      paragraphs,
+      (lines) => [for (final s in lines.strokes) (s.rect, s.paint)],
+    );
+  }
+
+  void paintShapes(
+    PaintingContext context,
+    Offset offset,
+    List<_ParagraphUnderlines> paragraphs,
+    List<(Rect, Paint)> Function(_ParagraphUnderlines) shapes,
+  ) {
     for (final lines in paragraphs) {
+      final list = shapes(lines);
+      if (list.isEmpty) continue;
       // Inner table scrolling changes paint transforms without text layout.
       // Keep cached geometry local to its paragraph and honor its viewport.
       final origin =
@@ -190,8 +265,8 @@ class _RenderRaftUnderlines extends RenderProxyBox {
           ).shift(offset),
         );
       }
-      for (final stroke in lines.strokes) {
-        context.canvas.drawRect(stroke.rect.shift(origin), stroke.paint);
+      for (final shape in list) {
+        context.canvas.drawRect(shape.$1.shift(origin), shape.$2);
       }
       if (lines.clips.isNotEmpty) context.canvas.restore();
     }
@@ -208,7 +283,8 @@ class _RenderRaftUnderlines extends RenderProxyBox {
       if (object is RenderParagraph) {
         final strokes = <({Rect rect, Paint paint, double baseline})>[];
         collectRuns(strokes, object);
-        if (strokes.isNotEmpty) {
+        final backgrounds = collectBackgrounds(object);
+        if (strokes.isNotEmpty || backgrounds.isNotEmpty) {
           final clips = <({RenderObject parent, RenderObject child})>[];
           RenderObject child = object;
           while (child.parent != null && child.parent != this) {
@@ -218,7 +294,9 @@ class _RenderRaftUnderlines extends RenderProxyBox {
             }
             child = parent;
           }
-          paragraphs.add(_ParagraphUnderlines(object, strokes, clips));
+          paragraphs.add(
+            _ParagraphUnderlines(object, strokes, backgrounds, clips),
+          );
         }
       }
       object.visitChildren(visit);
@@ -226,6 +304,51 @@ class _RenderRaftUnderlines extends RenderProxyBox {
 
     if (child != null) visit(child!);
     return paragraphs;
+  }
+
+  /// One rect per line for every [RaftBackgroundSpan], outer spans first so an
+  /// inner background paints over its parent's.
+  List<({Rect rect, Paint paint})> collectBackgrounds(
+    RenderParagraph paragraph,
+  ) {
+    final out = <({Rect rect, Paint paint})>[];
+    var position = 0;
+    void visit(InlineSpan span) {
+      final start = position;
+      final index = out.length;
+      if (span is TextSpan) {
+        position += span.text?.length ?? 0;
+        span.children?.forEach(visit);
+        if (span is RaftBackgroundSpan) {
+          final paint = Paint()..color = span.background;
+          final rects = <Rect>[];
+          if (position > start) {
+            for (final box in paragraph.getBoxesForSelection(
+              TextSelection(baseOffset: start, extentOffset: position),
+            )) {
+              final rect = box.toRect();
+              if (rect.width <= 0) continue;
+              final line = rects.indexWhere(
+                (r) => (r.center.dy - rect.center.dy).abs() < rect.height / 2,
+              );
+              if (line < 0) {
+                rects.add(rect);
+              } else {
+                rects[line] = rects[line].expandToInclude(rect);
+              }
+            }
+          }
+          out.insertAll(index, [
+            for (final r in rects) (rect: r, paint: paint),
+          ]);
+        }
+      } else if (span is PlaceholderSpan) {
+        position++; // WidgetSpan occupies one object-replacement code unit.
+      }
+    }
+
+    visit(paragraph.text);
+    return out;
   }
 
   void collectRuns(
@@ -319,8 +442,14 @@ class _RenderRaftUnderlines extends RenderProxyBox {
 }
 
 class _ParagraphUnderlines {
-  const _ParagraphUnderlines(this.owner, this.strokes, this.clips);
+  const _ParagraphUnderlines(
+    this.owner,
+    this.strokes,
+    this.backgrounds,
+    this.clips,
+  );
   final RenderParagraph owner;
   final List<({Rect rect, Paint paint, double baseline})> strokes;
+  final List<({Rect rect, Paint paint})> backgrounds;
   final List<({RenderObject parent, RenderObject child})> clips;
 }

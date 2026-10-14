@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -570,6 +571,7 @@ class RaftMessageBody extends StatelessWidget {
               data: chunk.text,
               styleSheet: resolveStyleSheets().$1,
               resolvedStyleSheet: resolveStyleSheets().$2,
+              joinSelection: proseSelection,
               searchHighlight: highlight,
               builderKey: permalinkKey,
               builders: builders,
@@ -577,46 +579,58 @@ class RaftMessageBody extends StatelessWidget {
               onTapLink: (_, href, _) {
                 if (href != null) onLink?.call(href);
               },
-              bulletBuilder: (parameters) => RaftMarkdownListMarker(
-                orderedIndex: parameters.style == BulletStyle.orderedList
-                    ? parameters.index
-                    : null,
-                indent: indent,
-                style: bulletStyle,
+              // Web copies a list without its markers.
+              bulletBuilder: (parameters) => SelectionContainer.disabled(
+                child: RaftMarkdownListMarker(
+                  orderedIndex: parameters.style == BulletStyle.orderedList
+                      ? parameters.index
+                      : null,
+                  indent: indent,
+                  style: bulletStyle,
+                ),
               ),
             ),
           )
         else
-          // Code and diagram blocks keep their own selection and controls;
-          // their labels never join the prose selection.
-          selectable(
-            chunk.mermaid
-                ? RaftMermaidBlock(
+          // A code block's text joins the message selection (Web selects
+          // through it); a diagram's labels never do. Both keep their copy
+          // and export controls out of the selection.
+          chunk.mermaid
+              ? selectable(
+                  RaftMermaidBlock(
                     source: chunk.text,
                     onCopy: onCopyCode,
                     onExport: onExportDiagram,
                     exportMode: exportMode,
-                  )
-                : RaftCodeBlock(
-                    code: chunk.text,
-                    language: chunk.language,
-                    onCopy: onCopyCode,
-                    exportMode: exportMode,
-                    fontSize: fontSize,
                   ),
-          ),
+                )
+              : RaftCodeBlock(
+                  code: chunk.text,
+                  language: chunk.language,
+                  onCopy: onCopyCode,
+                  exportMode: exportMode,
+                  fontSize: fontSize,
+                  joinsSelection: proseSelection,
+                ),
     ];
-    final body = Column(
+    final column = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: blocks,
     );
-    if (!proseSelection) return body;
+    if (!proseSelection) return column;
+    // A copy keeps the line break between the message's blocks.
+    final body = _JoinedSelection(separator: '\n', child: column);
     // One selection region per message: prose blocks before and after a
     // code block share it, and a row mounts one region instead of several.
     return RaftSelectionArea(
-      // Message context menus belong to the message host.
-      contextMenuBuilder: (_, _) => const SizedBox.shrink(),
-      child: body,
+      // Desktop context menus belong to the message host; a touch selection
+      // keeps the platform Copy / Select all toolbar.
+      contextMenuBuilder: RaftSelectionArea.touchToolbarOnly,
+      // The region is its child's box and the body is as wide as its widest
+      // line, so a drag starting in the blank space beside a short message
+      // (a lone link) began outside any selectable region. Fill the width
+      // like a Web block (`Align` only expands when the width is bounded).
+      child: Align(alignment: Alignment.topLeft, heightFactor: 1, child: body),
     );
   }
 }
@@ -683,6 +697,140 @@ Widget _tightenListItemGaps(Widget widget, double blockSpacing) {
   return widget;
 }
 
+/// Selection container whose children's copied text is joined by [separator].
+///
+/// A plain selection area concatenates what its selectables copy, so two
+/// paragraphs (or two list items) came out glued together ("Heading textPlain
+/// ..."); a browser copies a line break between blocks.
+class _JoinedSelection extends StatefulWidget {
+  const _JoinedSelection({required this.separator, required this.child});
+  final String separator;
+  final Widget child;
+
+  @override
+  State<_JoinedSelection> createState() => _JoinedSelectionState();
+}
+
+class _JoinedSelectionState extends State<_JoinedSelection> {
+  late _JoinedDelegate delegate = _JoinedDelegate(widget.separator);
+
+  @override
+  void didUpdateWidget(_JoinedSelection old) {
+    super.didUpdateWidget(old);
+    delegate.separator = widget.separator;
+  }
+
+  @override
+  void dispose() {
+    delegate.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      SelectionContainer(delegate: delegate, child: widget.child);
+}
+
+class _JoinedDelegate extends StaticSelectionContainerDelegate {
+  _JoinedDelegate(this.separator);
+  String separator;
+
+  /// A container with no selection reports null (the region treats that as
+  /// "nothing here"); one whose children report an empty selection reports an
+  /// empty one, so only non-empty parts take a separator.
+  @override
+  SelectedContent? getSelectedContent() {
+    final parts = [
+      for (final selectable in selectables)
+        if (selectable.getSelectedContent()?.plainText case final text?) text,
+    ];
+    return selectables.isEmpty || parts.isEmpty
+        ? null
+        : SelectedContent(
+            plainText: parts.where((p) => p.isNotEmpty).join(separator),
+          );
+  }
+}
+
+/// Wraps the paragraphs of a Markdown build so a copy keeps its line
+/// structure: each paragraph (heading, list item text, cell, quote line) is
+/// one flat '' container (its inline runs and reference chips copy side by
+/// side) inside the message's '\n' container. Flat on purpose: Flutter 3.47
+/// stops dispatching long-press word selection through three nested
+/// containers. Layout is untouched.
+Widget _joinBlock(Widget w) {
+  if (_isSpacer(w)) return w;
+  // Structure without text of its own: its blocks sit one level down.
+  if (w is Column || w is Row || w is Padding || w is DecoratedBox) {
+    return _joinBlocks(w);
+  }
+  // A paragraph: its inline runs and reference chips copy side by side.
+  if (w is Text || w is RichText || w is Wrap || w is SizedBox) {
+    return _JoinedSelection(separator: '', child: w);
+  }
+  // Tables and anything else: every cell on its own line.
+  return _JoinedSelection(separator: '\n', child: w);
+}
+
+/// A gap between blocks: no text, so no selection container (an empty
+/// container among the blocks breaks the selection edge dispatch).
+bool _isSpacer(Widget w) => w is SizedBox && w.child == null;
+
+Widget _joinBlocks(Widget widget) {
+  if (widget is Column) {
+    return Column(
+      key: widget.key,
+      mainAxisAlignment: widget.mainAxisAlignment,
+      mainAxisSize: widget.mainAxisSize,
+      crossAxisAlignment: widget.crossAxisAlignment,
+      textDirection: widget.textDirection,
+      verticalDirection: widget.verticalDirection,
+      textBaseline: widget.textBaseline,
+      children: [for (final child in widget.children) _joinBlock(child)],
+    );
+  }
+  if (widget is Row) {
+    // A list item: marker slot, then its content (blocks of its own).
+    return Row(
+      key: widget.key,
+      mainAxisAlignment: widget.mainAxisAlignment,
+      mainAxisSize: widget.mainAxisSize,
+      crossAxisAlignment: widget.crossAxisAlignment,
+      textDirection: widget.textDirection,
+      verticalDirection: widget.verticalDirection,
+      textBaseline: widget.textBaseline,
+      children: [
+        for (final child in widget.children)
+          if (child is Flexible)
+            Flexible(
+              key: child.key,
+              flex: child.flex,
+              fit: child.fit,
+              child: _joinBlock(child.child),
+            )
+          else
+            child,
+      ],
+    );
+  }
+  if (widget is Padding) {
+    return Padding(
+      key: widget.key,
+      padding: widget.padding,
+      child: widget.child == null ? null : _joinBlock(widget.child!),
+    );
+  }
+  if (widget is DecoratedBox) {
+    return DecoratedBox(
+      key: widget.key,
+      decoration: widget.decoration,
+      position: widget.position,
+      child: widget.child == null ? null : _joinBlock(widget.child!),
+    );
+  }
+  return widget;
+}
+
 /// MarkdownBody with the parse step memoised: same builder, style sheet,
 /// defaults and widget output; only [md.Document.parseLines] is shared.
 class _RaftMarkdown extends MarkdownBody {
@@ -696,7 +844,12 @@ class _RaftMarkdown extends MarkdownBody {
     required this.paddingBuilderFactory,
     required MarkdownTapLinkCallback super.onTapLink,
     required MarkdownBulletBuilder super.bulletBuilder,
+    this.joinSelection = false,
   }) : super(softLineBreak: true);
+
+  /// Inside a message selection area: wrap the blocks so a copy keeps its
+  /// lines ([_joinBlocks]).
+  final bool joinSelection;
 
   /// MarkdownBody's effective sheet: Material fallback merged with
   /// [styleSheet].
@@ -789,7 +942,12 @@ class _RaftMarkdownState extends State<MarkdownWidget>
                 ),
         );
     final gap = markdown.resolvedStyleSheet.blockSpacing ?? 0;
-    children = [for (final child in built) _tightenListItemGaps(child, gap)];
+    children = [
+      for (final child in built)
+        markdown.joinSelection
+            ? _joinBlock(_tightenListItemGaps(child, gap))
+            : _tightenListItemGaps(child, gap),
+    ];
   }
 
   @override
@@ -816,9 +974,16 @@ class _RaftMarkdownState extends State<MarkdownWidget>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: children!,
           );
+
     // Ordinary prose has no extra render object or paint work. Link geometry
     // is cached until layout or Markdown output changes, never on scrolling.
-    return recognizers.any((r) => r is MessageLinkRecognizer)
+    // Inline code and search marks paint their background in RaftUnderlines
+    // (below the selection highlight), so they need it too.
+    final paintsInline =
+        recognizers.any((r) => r is MessageLinkRecognizer) ||
+        markdown.data.contains('`') ||
+        markdown.searchHighlight.isNotEmpty;
+    return paintsInline
         ? NotificationListener<ScrollNotification>(
             // A table's horizontal viewport owns a repaint boundary. Its
             // scrolling changes link transforms, but never their text layout.
@@ -1370,28 +1535,28 @@ class _MessageInlineCodeBuilder extends MarkdownElementBuilder {
         child: Baseline(
           baseline: metrics.baseline,
           baselineType: TextBaseline.alphabetic,
-          child: SizedBox(
-            width: 4,
-            height: height,
-            child: ColoredBox(
-              color: style.backgroundColor ?? Colors.transparent,
-            ),
-          ),
+          // Transparent: the run background is a [RaftBackgroundSpan]
+          // (below the selection highlight).
+          child: SizedBox(width: 4, height: height),
         ),
       ),
     );
+    // The background is painted by RaftUnderlines below the paragraph's
+    // selection highlight; TextStyle.backgroundColor would cover it.
+    final code = style.copyWith(backgroundColor: Colors.transparent);
     return Text.rich(
-      TextSpan(
+      RaftBackgroundSpan(
+        background: style.backgroundColor ?? Colors.transparent,
         children: [
           padding(),
           highlight.isEmpty
-              ? TextSpan(text: element.textContent as String, style: style)
+              ? TextSpan(text: element.textContent as String, style: code)
               : TextSpan(
                   children: _searchSpans(
                     context,
                     element.textContent as String,
                     highlight,
-                    style,
+                    code,
                   ),
                 ),
           padding(),
@@ -1682,9 +1847,16 @@ class RaftCodeBlock extends StatefulWidget {
     this.onCopy,
     this.exportMode = false,
     this.fontSize = 14,
+    this.joinsSelection = false,
   });
   final String code;
   final String? language;
+
+  /// The block sits inside a message selection area: its text is a plain
+  /// selectable run of that selection (Web selects through a code block with
+  /// the rest of the message) instead of a [SelectableText] with a selection
+  /// of its own.
+  final bool joinsSelection;
   final Future<void> Function(String)? onCopy;
   final bool exportMode;
   final double fontSize;
@@ -1751,7 +1923,13 @@ class _RaftCodeBlockState extends State<RaftCodeBlock> {
       fontSize: widget.fontSize,
       color: recipe.foreground,
     );
-    final key = (widget.code, widget.language, textStyle, t);
+    final key = (
+      widget.code,
+      widget.language,
+      textStyle,
+      t,
+      widget.joinsSelection,
+    );
     if (codeBox != null && key == codeBoxKey) return codeBox!;
     codeBoxKey = key;
     final span = raftCodeSpan(
@@ -1771,11 +1949,13 @@ class _RaftCodeBlockState extends State<RaftCodeBlock> {
       padding: const EdgeInsets.fromLTRB(12, 12, 48, 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: SelectableText.rich(
-          span,
-          style: textStyle,
-          textAlign: TextAlign.left,
-        ),
+        child: widget.joinsSelection
+            ? Text.rich(span, style: textStyle, textAlign: TextAlign.left)
+            : SelectableText.rich(
+                span,
+                style: textStyle,
+                textAlign: TextAlign.left,
+              ),
       ),
     );
   }
@@ -1955,13 +2135,20 @@ List<(String, bool)>? _searchFragments(String text, String query) {
 
 /// Web `ThreadSearchFragmentHighlight`: `bg-primary-soft text-foreground-strong`,
 /// Brutal `bg-soft-signal/70 text-inherit`.
-TextStyle _searchMarkStyle(BuildContext context, TextStyle base) {
+///
+/// The fill is a [RaftBackgroundSpan] (painted below the selection highlight),
+/// never a [TextStyle.backgroundColor].
+InlineSpan _searchMarkSpan(BuildContext context, String text, TextStyle base) {
   final t = RaftTokens.of(context);
-  return base.copyWith(
-    backgroundColor: t.brutal
+  return RaftBackgroundSpan(
+    text: text,
+    background: (t.brutal
         ? t.product.softSignal.withValues(alpha: .7)
-        : t.colors['primary-soft'],
-    color: t.brutal ? base.color : t.strong,
+        : t.colors['primary-soft'])!,
+    style: base.copyWith(
+      backgroundColor: Colors.transparent,
+      color: t.brutal ? base.color : t.strong,
+    ),
   );
 }
 
@@ -1975,10 +2162,10 @@ List<InlineSpan> _searchSpans(
   if (parts == null) return [TextSpan(text: text, style: style)];
   return [
     for (final (part, marked) in parts)
-      TextSpan(
-        text: part,
-        style: marked ? _searchMarkStyle(context, style) : style,
-      ),
+      if (marked)
+        _searchMarkSpan(context, part, style)
+      else
+        TextSpan(text: part, style: style),
   ];
 }
 
@@ -2033,11 +2220,6 @@ class _SearchMarkBuilder extends MarkdownElementBuilder {
     final style = (parentStyle ?? DefaultTextStyle.of(context).style).merge(
       preferredStyle,
     );
-    return Text.rich(
-      TextSpan(
-        text: element.textContent,
-        style: _searchMarkStyle(context, style),
-      ),
-    );
+    return Text.rich(_searchMarkSpan(context, element.textContent, style));
   }
 }

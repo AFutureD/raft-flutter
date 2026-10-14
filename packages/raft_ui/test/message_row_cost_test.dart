@@ -26,8 +26,12 @@ void main() {
     await tester.pumpWidget(_host(const RaftMessageBody(content: _body)));
     expect(raftCodeSpanCache.misses, 1);
     expect(raftMarkdownAstCache.misses, 2);
-    final text = find.byType(SelectableText);
-    final span = tester.widget<SelectableText>(text).textSpan;
+    // The message's code text joins its selection area: a plain Text.
+    final text = find.descendant(
+      of: find.byKey(const ValueKey('code-container')),
+      matching: find.byType(Text),
+    );
+    final span = tester.widget<Text>(text).textSpan;
 
     // Hover and focus feedback rebuild the copy control, not the tokens.
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -37,7 +41,7 @@ void main() {
     await tester.pump();
     await mouse.moveTo(Offset.zero);
     await tester.pump();
-    expect(tester.widget<SelectableText>(text).textSpan, same(span));
+    expect(tester.widget<Text>(text).textSpan, same(span));
     expect(raftCodeSpanCache.misses + raftCodeSpanCache.hits, 1);
 
     // Remounting the same message (scrolled away and back) reuses both.
@@ -46,7 +50,7 @@ void main() {
     expect(raftCodeSpanCache.misses, 1);
     expect(raftMarkdownAstCache.misses, 2);
     expect(raftMarkdownAstCache.hits, 2);
-    expect(tester.widget<SelectableText>(text).textSpan, same(span));
+    expect(tester.widget<Text>(text).textSpan, same(span));
 
     // A different token theme is a different highlight input.
     await tester.pumpWidget(
