@@ -383,16 +383,16 @@ void main() {
         final brutal = family == RaftFamily.brutal;
         final solid = find.byWidgetPredicate(
           (w) =>
-              w is Container &&
-              w.decoration is BoxDecoration &&
-              (w.decoration! as BoxDecoration).color == Colors.black,
+              (w is Container || w is DecoratedBox) &&
+              _decorationOf(w) is BoxDecoration &&
+              (_decorationOf(w)! as BoxDecoration).color == Colors.black,
         );
         expect(solid.evaluate().isNotEmpty, brutal);
         final gradient = find.byWidgetPredicate(
           (w) =>
-              w is Container &&
-              w.decoration is BoxDecoration &&
-              (w.decoration! as BoxDecoration).gradient != null,
+              (w is Container || w is DecoratedBox) &&
+              _decorationOf(w) is BoxDecoration &&
+              (_decorationOf(w)! as BoxDecoration).gradient != null,
         );
         expect(gradient.evaluate().isNotEmpty, !brutal);
       });
@@ -729,3 +729,9 @@ void main() {
     }
   });
 }
+
+Decoration? _decorationOf(Widget w) => w is Container
+    ? w.decoration
+    : w is DecoratedBox
+    ? w.decoration
+    : null;

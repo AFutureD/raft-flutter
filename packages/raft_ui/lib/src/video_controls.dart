@@ -82,10 +82,17 @@ class RaftVideoOverlay extends StatefulWidget {
     this.onFullscreen,
     this.onSurfaceTap,
     this.controlsInset = 0,
+    this.controlsVisible,
   });
   final Widget child;
   final String filename;
   final List<Widget> extra;
+
+  /// The browser's phone page owns the controls' visibility with its chrome:
+  /// while playing, the bar shows exactly when this is true (a surface tap
+  /// toggles it through [onSurfaceTap]); paused, it always shows. Null keeps
+  /// the card behaviour (mouse hover / tap-to-reveal timer).
+  final bool? controlsVisible;
 
   /// Replaces the surface tap (play / pause, or the bar on a playing touch
   /// video): the media browser's phone page toggles its chrome with it and
@@ -234,7 +241,10 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
 
   bool get showBar =>
       widget.ready &&
-      (widget.playing ? (touch ? barTapped : hovered && !idleHidden) : true);
+      (!widget.playing
+          ? true
+          : widget.controlsVisible ??
+                (touch ? barTapped : hovered && !idleHidden));
   bool get showCenterPlay =>
       widget.ready &&
       !widget.playing &&
@@ -362,7 +372,12 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
                               widget.onVolume!(mutedFrom > 0 ? mutedFrom : 100);
                             }
                           },
-                    onInteract: touch && widget.playing ? showBarBriefly : null,
+                    onInteract:
+                        touch &&
+                            widget.playing &&
+                            widget.controlsVisible == null
+                        ? showBarBriefly
+                        : null,
                     onDragChanged: dragChanged,
                   ),
                 ),

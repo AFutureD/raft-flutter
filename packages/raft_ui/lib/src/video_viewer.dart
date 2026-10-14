@@ -27,6 +27,7 @@ class RaftVideoViewer extends StatefulWidget {
     this.immersive = false,
     this.onSurfaceTap,
     this.controlsInset = 0,
+    this.controlsVisible,
   });
 
   /// The media browser's phone page: the picture takes the whole stage (no
@@ -35,6 +36,9 @@ class RaftVideoViewer extends StatefulWidget {
   final bool immersive;
   final VoidCallback? onSurfaceTap;
   final double controlsInset;
+
+  /// See [RaftVideoOverlay.controlsVisible].
+  final bool? controlsVisible;
 
   /// The decoded video surface.
   final Widget video;
@@ -111,6 +115,7 @@ class _RaftVideoViewerState extends State<RaftVideoViewer> {
               : () => setState(() => _fullscreen = !_fullscreen),
           onSurfaceTap: widget.onSurfaceTap,
           controlsInset: widget.controlsInset,
+          controlsVisible: widget.controlsVisible,
           child: ColoredBox(color: Colors.black, child: widget.video),
         ),
       ),

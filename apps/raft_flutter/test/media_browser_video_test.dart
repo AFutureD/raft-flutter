@@ -524,6 +524,53 @@ void main() {
       expect(player.calls, ['open@0']);
     });
 
+    scenario('a playing video keeps its controls: a tap shows and hides them '
+        'with the chrome, pause and seek work', (tester) async {
+      final rig = await _mount(tester, kinds: 'vi', initial: 0);
+      await _rest(tester, 300);
+      final player = rig.made.single;
+      final bar = find.byKey(const Key('inline-video-bar'));
+      await tester.tap(find.byKey(const Key('inline-video-play')));
+      await _rest(tester, 50);
+      expect(player.playing, isTrue);
+      // Chrome is showing: the controls come with it.
+      expect(rig.browser.chrome.value, isTrue);
+      expect(bar, findsOneWidget, reason: 'playing, chrome shown: controls');
+
+      await tester.tapAt(const Offset(195, 300));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rig.browser.chrome.value, isFalse);
+      expect(bar, findsNothing, reason: 'hidden together with the chrome');
+
+      await tester.tapAt(const Offset(195, 300));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rig.browser.chrome.value, isTrue);
+      expect(bar, findsOneWidget, reason: 'a tap brings them back');
+      await tester.pump(const Duration(seconds: 10));
+      expect(bar, findsOneWidget, reason: 'no auto-hide timer');
+
+      final seek = find.byKey(const Key('inline-video-seek'));
+      await tester.tapAt(
+        tester.getTopLeft(seek) + Offset(tester.getSize(seek).width / 2, 6),
+      );
+      await _rest(tester, 50);
+      expect(
+        player.calls.where((c) => c.startsWith('seek:')),
+        isNotEmpty,
+        reason: 'the seek rail seeks',
+      );
+      expect(player.playing, isTrue);
+
+      await tester.tap(find.byKey(const Key('inline-video-toggle')));
+      await _rest(tester, 50);
+      expect(player.playing, isFalse, reason: 'the bar button pauses');
+      expect(bar, findsOneWidget, reason: 'paused never hides them');
+      rig.browser.toggleChrome();
+      await tester.pump();
+      expect(rig.browser.chrome.value, isFalse);
+      expect(bar, findsOneWidget, reason: 'paused: shown with chrome hidden');
+    });
+
     scenario('the control bar sits above the strip while the chrome shows', (
       tester,
     ) async {

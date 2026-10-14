@@ -359,49 +359,76 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
           width = natural.width;
           height = natural.height;
         }
-        return Center(
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                thumbnail == null
-                    ? const RaftTransferPlaceholder(onDark: true)
-                    : hero(
-                        // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
-                        Image(
-                          image: thumbnail,
-                          key: widget.imageKey,
-                          fit: BoxFit.contain,
-                          gaplessPlayback: true,
-                        ),
-                        thumbnail,
-                      ),
-                if (failed) ...[
-                  RaftImageTransferOverlay.failed(inset: 10, onRetry: retry),
-                  // The red chip alone is easy to miss: a plain Retry button.
-                  if (widget.acquire != null)
-                    Center(
-                      child: RaftTextButton(
-                        key: const ValueKey('lightbox-retry'),
-                        label: raftText(context, 'Retry'),
-                        glyph: RaftGlyph.refreshCw,
-                        onPressed: retry,
-                      ),
-                    ),
-                ] else if (transfer != null && progressShown)
-                  RaftImageTransferOverlay(
-                    progress: transfer!,
-                    fallbackTotal: widget.transferTotalHint,
-                    labelPrefix: thumbnail == null
-                        ? null
-                        : raftText(context, 'Original image'),
-                    inset: 10,
-                  ),
-              ],
+        final picture = thumbnail == null
+            ? const RaftTransferPlaceholder(onDark: true)
+            : hero(
+                // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
+                Image(
+                  image: thumbnail,
+                  key: widget.imageKey,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                ),
+                thumbnail,
+              );
+        // The stand-in is a stage member like the loaded original: the same
+        // zoom surface (tap, double tap, pinch) and the same controller, so a
+        // zoom made now carries over when the original replaces it. The
+        // transfer chip and Retry stay outside the transform.
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            ImageZoomSurface(
+              key: surfaceKey,
+              controller: widget.zoom,
+              natural: widget.imageSize,
+              verticalInset: inset,
+              onTapOutside: widget.closeOnTapOutside
+                  ? () => unawaited(Navigator.maybePop(context))
+                  : null,
+              onTap: widget.onTap,
+              onZoomGesture: widget.onZoomGesture,
+              child: Center(
+                child: SizedBox(width: width, height: height, child: picture),
+              ),
             ),
-          ),
+            Center(
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (failed) ...[
+                      RaftImageTransferOverlay.failed(
+                        inset: 10,
+                        onRetry: retry,
+                      ),
+                      // The red chip alone is easy to miss: a plain Retry
+                      // button.
+                      if (widget.acquire != null)
+                        Center(
+                          child: RaftTextButton(
+                            key: const ValueKey('lightbox-retry'),
+                            label: raftText(context, 'Retry'),
+                            glyph: RaftGlyph.refreshCw,
+                            onPressed: retry,
+                          ),
+                        ),
+                    ] else if (transfer != null && progressShown)
+                      RaftImageTransferOverlay(
+                        progress: transfer!,
+                        fallbackTotal: widget.transferTotalHint,
+                        labelPrefix: thumbnail == null
+                            ? null
+                            : raftText(context, 'Original image'),
+                        inset: 10,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

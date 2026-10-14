@@ -874,7 +874,7 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
           ? const Border(bottom: BorderSide(color: Colors.white, width: 2))
           : null;
       final barHeight = topBar + (t.brutal ? 2 : 0);
-      final bar = Container(
+      final row = Container(
         height: grows ? null : barHeight,
         constraints: grows ? BoxConstraints(minHeight: barHeight) : null,
         padding: EdgeInsets.fromLTRB(
@@ -883,18 +883,6 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
           4 + safe.right,
           0,
         ),
-        decoration: t.brutal
-            ? BoxDecoration(color: Colors.black, border: rule)
-            : BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: .8),
-                    Colors.black.withValues(alpha: 0),
-                  ],
-                ),
-              ),
         child: Row(
           children: [
             RaftMediaChromeButton(
@@ -951,6 +939,30 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
           ],
         ),
       );
+      // The backdrop never takes a tap (see the bottom band).
+      final bar = Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: t.brutal
+                    ? BoxDecoration(color: Colors.black, border: rule)
+                    : BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: .8),
+                            Colors.black.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          row,
+        ],
+      );
       return _ReportSize(
         onSize: (size) => _measured(bar: size.height),
         child: RaftChrome(child: RaftLargeContentScope(child: bar)),
@@ -966,32 +978,47 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
             SizedBox(height: raftMediaStripBand, child: widget.strip!),
         ],
       );
-      return Container(
-        padding: EdgeInsets.fromLTRB(
-          safe.left,
-          t.brutal ? 6 : 12,
-          safe.right,
-          safe.bottom + 8,
-        ),
-        decoration: t.brutal
-            ? const BoxDecoration(
-                color: Colors.black,
-                border: Border(top: BorderSide(color: Colors.white, width: 2)),
-              )
-            : BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0),
-                    Colors.black.withValues(alpha: .78),
-                  ],
-                ),
+      // The band's backdrop (gradient / rule) never takes a tap: a tap on the
+      // picture under it still toggles the chrome; only the caption and the
+      // strip answer to their own taps.
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: t.brutal
+                    ? const BoxDecoration(
+                        color: Colors.black,
+                        border: Border(
+                          top: BorderSide(color: Colors.white, width: 2),
+                        ),
+                      )
+                    : BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0),
+                            Colors.black.withValues(alpha: .78),
+                          ],
+                        ),
+                      ),
               ),
-        child: _ReportSize(
-          onSize: (size) => _measured(content: size.height),
-          child: content,
-        ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              safe.left,
+              t.brutal ? 6 : 12,
+              safe.right,
+              safe.bottom + 8,
+            ),
+            child: _ReportSize(
+              onSize: (size) => _measured(content: size.height),
+              child: content,
+            ),
+          ),
+        ],
       );
     });
 

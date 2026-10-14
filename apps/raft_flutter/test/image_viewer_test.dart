@@ -1350,6 +1350,213 @@ void main() {
       await _settle(tester, 4);
     });
 
+    testWidgets('while the original loads, the thumbnail stand-in takes '
+        'tap, double tap and pinch; the zoom carries over', (tester) async {
+      final gate = Completer<void>();
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: true,
+        message: _alice,
+        imageSize: const Size(1200, 800),
+        thumbnails: true,
+        hold: gate,
+      );
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      expect(find.byType(ImageZoomSurface), findsOneWidget);
+      final at = tester.getCenter(find.byKey(const ValueKey('viewer-stage')));
+
+      // Single tap toggles the chrome (after the double-tap window).
+      await tester.tapAt(at + const Offset(0, 250));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(viewer.chrome.value, isFalse);
+      await tester.tapAt(at + const Offset(0, 250));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(viewer.chrome.value, isTrue);
+
+      // Double tap zooms the stand-in around the finger.
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(at);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(viewer.zoomed, isTrue);
+      expect(viewer.chrome.value, isFalse);
+      final zoomed = viewer.zoomFor(0).value.clone();
+      expect(zoomed.getMaxScaleOnAxis(), closeTo(2, 0.01));
+
+      // The original arrives: same zoom, no jump.
+      gate.complete();
+      await _settle(tester, 20);
+      expect(find.byKey(const ValueKey('attachment-image-img0')), findsOneWidget);
+      expect(viewer.zoomFor(0).value, zoomed);
+      expect(viewer.zoomed, isTrue);
+
+      // A second double tap on the (still loading) page would fit again; here
+      // it is the loaded surface and does the same.
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(at);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(viewer.zoomed, isFalse);
+    });
+
+    testWidgets('a pinch on the thumbnail stand-in zooms it', (tester) async {
+      final gate = Completer<void>();
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: true,
+        message: _alice,
+        imageSize: const Size(1200, 800),
+        thumbnails: true,
+        hold: gate,
+      );
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final center = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
+      final a = await tester.startGesture(
+        center - const Offset(20, 0),
+        pointer: 1,
+      );
+      final b = await tester.startGesture(
+        center + const Offset(20, 0),
+        pointer: 2,
+      );
+      await a.moveBy(const Offset(-60, 0));
+      await b.moveBy(const Offset(60, 0));
+      await tester.pump();
+      expect(viewer.chrome.value, isFalse);
+      expect(viewer.zoomed, isTrue);
+      await a.up();
+      await b.up();
+      gate.complete();
+      await _settle(tester, 20);
+      expect(viewer.zoomed, isTrue, reason: 'the original keeps the zoom');
+    });
+
+    // A tap anywhere on the stage hides and shows the top bar AND the bottom
+    // band (caption + strip) together, whatever state the viewer is in: also
+    // where the band's backdrop lies over the picture.
+    Future<void> bandToggles(
+      WidgetTester tester,
+      Offset at, {
+      required String state,
+    }) async {
+      final viewer = _viewer(tester);
+      expect(viewer.chrome.value, isTrue, reason: '$state: starts shown');
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(viewer.chrome.value, isFalse, reason: '$state: tap hides');
+      expect(_chromeOpacity(tester), 0, reason: '$state: bars and band gone');
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(viewer.chrome.value, isTrue, reason: '$state: tap shows');
+      expect(_chromeOpacity(tester), 2, reason: '$state: bars and band back');
+    }
+
+    Offset bandPadding(WidgetTester tester) {
+      final caption = find.byKey(const ValueKey('media-caption'));
+      final strip = find.byKey(const ValueKey('lightbox-thumbnails'));
+      final top = caption.evaluate().isNotEmpty
+          ? tester.getTopLeft(caption).dy
+          : tester.getTopLeft(strip).dy;
+      return Offset(195, top - 6);
+    }
+
+    testWidgets('a tap on the bottom band\'s backdrop toggles the chrome '
+        '(caption + strip, strip only, single image, caption expanded)', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      await bandToggles(
+        tester,
+        bandPadding(tester),
+        state: 'caption + strip, above',
+      );
+      await bandToggles(tester, const Offset(195, 841), state: 'below strip');
+      // The caption itself expands; the stage tap still hides everything.
+      await tester.tap(find.byKey(const ValueKey('media-caption')));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(_viewer(tester).chrome.value, isTrue, reason: 'caption expands');
+      await bandToggles(
+        tester,
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))) +
+            const Offset(0, -250),
+        state: 'caption expanded, stage',
+      );
+    });
+
+    testWidgets('band backdrop: strip only', (tester) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      await bandToggles(tester, bandPadding(tester), state: 'strip only');
+    });
+
+    testWidgets('band backdrop: a single image', (tester) async {
+      await _mount(tester, size: _phone, count: 1);
+      await _open(tester, 0);
+      await bandToggles(tester, const Offset(195, 840), state: 'single image');
+    });
+
+    testWidgets('band backdrop: after paging, after a zoom', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final stage = tester.getCenter(find.byKey(const ValueKey('viewer-stage')));
+      await tester.dragFrom(stage, const Offset(-300, 0));
+      await _settle(tester, 8);
+      expect(_counter(tester), '2 / 3');
+      // A tap while the page is still settling only stops the scroll.
+      await tester.pump(const Duration(seconds: 1));
+      await bandToggles(tester, bandPadding(tester), state: 'after paging');
+      // Zoom in (hides the chrome), tap brings it back, then the band zone.
+      await tester.tapAt(stage);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(stage);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(_viewer(tester).zoomed, isTrue);
+      expect(_viewer(tester).chrome.value, isFalse);
+      await tester.tapAt(stage + const Offset(0, 300));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(_viewer(tester).chrome.value, isTrue);
+      await bandToggles(tester, const Offset(195, 841), state: 'after zoom');
+    });
+
+    testWidgets('band backdrop: landscape', (tester) async {
+      await _mount(tester, size: const Size(844, 390), gallery: true);
+      await _open(tester, 0);
+      await bandToggles(tester, const Offset(400, 388), state: 'landscape');
+    });
+
+    testWidgets('band backdrop: while the original loads (stand-in)', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: true,
+        message: _alice,
+        imageSize: const Size(1200, 800),
+        thumbnails: true,
+        hold: gate,
+      );
+      await _open(tester, 0);
+      await bandToggles(tester, bandPadding(tester), state: 'stand-in');
+      gate.complete();
+      await _settle(tester, 20);
+    });
+
     testWidgets('a tap on the empty stage does not close on a phone', (
       tester,
     ) async {

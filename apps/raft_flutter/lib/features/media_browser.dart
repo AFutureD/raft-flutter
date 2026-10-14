@@ -756,15 +756,19 @@ class MediaBrowserState extends State<MediaBrowser>
       // The picture fills the stage (the strip's room is for images).
       child: RaftLightboxStageInset(
         vertical: 0,
-        child: MediaVideoPage(
-          stage: stage,
-          filename: items[i].filename,
-          immersive: widget.page,
-          poster: _placeholder(i),
-          onSurfaceTap: widget.page ? toggleChrome : null,
-          controlsInset: widget.page ? (chromeInsets?.bottom ?? 0) : 0,
-          onDownload: () => transfersFor(i).download(),
-          onNetworkSettings: widget.onNetworkSettings,
+        child: ValueListenableBuilder<bool>(
+          valueListenable: chrome,
+          builder: (context, shown, _) => MediaVideoPage(
+            stage: stage,
+            filename: items[i].filename,
+            immersive: widget.page,
+            poster: _placeholder(i),
+            onSurfaceTap: widget.page ? toggleChrome : null,
+            controlsInset: widget.page ? (chromeInsets?.bottom ?? 0) : 0,
+            controlsVisible: widget.page ? shown : null,
+            onDownload: () => transfersFor(i).download(),
+            onNetworkSettings: widget.onNetworkSettings,
+          ),
         ),
       ),
     );

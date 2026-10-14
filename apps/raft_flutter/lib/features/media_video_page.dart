@@ -475,6 +475,7 @@ class MediaVideoPage extends StatefulWidget {
     this.poster,
     this.onSurfaceTap,
     this.controlsInset = 0,
+    this.controlsVisible,
     this.onDownload,
     this.onNetworkSettings,
   });
@@ -486,6 +487,9 @@ class MediaVideoPage extends StatefulWidget {
   final ImageProvider? poster;
   final VoidCallback? onSurfaceTap;
   final double controlsInset;
+
+  /// Phone page: the chrome state; the playing video's controls follow it.
+  final bool? controlsVisible;
   final Future<void> Function()? onDownload;
   final VoidCallback? onNetworkSettings;
 
@@ -602,6 +606,7 @@ class _MediaVideoPageState extends State<MediaVideoPage> {
         immersive: widget.immersive,
         onSurfaceTap: widget.immersive ? widget.onSurfaceTap : null,
         controlsInset: widget.controlsInset,
+        controlsVisible: widget.immersive ? widget.controlsVisible : null,
         onTogglePlay: () => unawaited(stage.togglePlay()),
         onSeek: (v) => unawaited(stage.seek(v)),
         onVolume: (v) => unawaited(stage.setVolume(v)),
