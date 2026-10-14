@@ -94,6 +94,17 @@ class PolicyTest(unittest.TestCase):
 
 
 class SyntaxTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        config = ROOT / '.dart_tool/package_config.json'
+        names = ({p['name'] for p in json.loads(config.read_text())['packages']}
+                 if config.is_file() else set())
+        if not {'analyzer', 'ds_audit'} <= names:
+            raise unittest.SkipTest(
+                'AST fixtures need resolved workspace dependencies; run '
+                '`TMPDIR=$HOME/.cache/tmp-cindy tool/flutter pub get --enforce-lockfile` '
+                'at the repository root. The project gate does this before these tests.')
+
     def test_parts_extensions_aliases_and_transitive_facades_stay_in_scope(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
