@@ -65,7 +65,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   final _readScopes = Expando<({String scope, int authority})>();
   Timer? _boot, _debounce;
   String? _scope;
-  bool _everBound = false, _disposed = false, _denied = false;
+  bool _started = false, _everBound = false, _disposed = false, _denied = false;
   int _revision = 0, _request = 0, _authorityEpoch = 0;
   late final _convergence = InboxConvergence(
     retry: () => unawaited(refresh()),
@@ -143,25 +143,35 @@ class SourceActivityUnreadStore extends ChangeNotifier {
       ? [for (final row in _rows) Map<String, dynamic>.from(row)]
       : const [];
 
-  void _bind() {
+  /// Start the session's socket-driven work. Construction and borrowing only
+  /// retain state; the session owner starts this at server selection or rooms.
+  void start() {
+    if (_disposed || _started) return;
+    _started = true;
+    _bind(activate: true);
+  }
+
+  void _bind({bool activate = false}) {
     if (_disposed) return;
     final next = scope;
-    if (next == _scope) return;
-    _revision++;
-    _request++;
-    _authorityEpoch++;
-    _scope = next;
-    _total = null;
-    _rows = [];
-    _window = null;
-    _denied = false;
-    _acceptedAt = null;
-    _convergence.reset();
-    _boot?.cancel();
-    _debounce?.cancel();
-    _inFlight = null;
-    _finishTrailing();
-    if (next == null) return;
+    if (next == _scope && !activate) return;
+    if (next != _scope) {
+      _revision++;
+      _request++;
+      _authorityEpoch++;
+      _scope = next;
+      _total = null;
+      _rows = [];
+      _window = null;
+      _denied = false;
+      _acceptedAt = null;
+      _convergence.reset();
+      _boot?.cancel();
+      _debounce?.cancel();
+      _inFlight = null;
+      _finishTrailing();
+    }
+    if (!_started || next == null) return;
     if (_everBound) {
       // Source Sidebar server-switch reset; this is not a connect-time fetch.
       unawaited(refresh());
@@ -190,7 +200,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   void _event(RaftEvent event) {
     if (_disposed) return;
     _workspaceChanged();
-    if (_scope == null) return;
+    if (_scope == null || !_started) return;
     final payload = event.payload;
     if (payload is Map &&
         payload['serverId'] is String &&
@@ -278,7 +288,9 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     Object? seq,
     required Duration timeout,
   }) {
-    if (_disposed || _scope == null || _denied) return Future.value(false);
+    if (_disposed || !_started || _scope == null || _denied) {
+      return Future.value(false);
+    }
     final want = _convergence.expect(channelId, messageId: messageId, seq: seq);
     // A conversation the window keeps not listing is not waited for.
     if (want == null) return Future.value(false);
@@ -307,7 +319,9 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   /// socket's resume handshake, unless it was read within [freshness]. Reads
   /// an event's retries still owe are not skipped: they are already due.
   Future<void> refreshOnResume() {
-    if (_disposed || _scope == null || _denied) return Future.value();
+    if (_disposed || !_started || _scope == null || _denied) {
+      return Future.value();
+    }
     if (_inFlight != null) return _inFlight!;
     if (hasAcceptedWindow && isFresh) return Future.value();
     return refresh();
@@ -443,8 +457,13 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   /// response of a request already in flight (Source inboxStore906–944).
   Future<void> refresh() {
     if (_disposed) return Future.value();
+    // An explicit read is also an activation. It covers the boot fallback.
+    _started = true;
     _bind();
+    _boot?.cancel();
+    _boot = null;
     if (_scope == null || _denied) return Future.value();
+    _everBound = true;
     if (_inFlight != null) {
       _trailingCompletion ??= Completer<void>();
       return _trailing ??= _trailingCompletion!.future;

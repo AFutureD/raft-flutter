@@ -24,7 +24,7 @@
         "field.WorkspaceAttachmentImageLease._released": 1,
         "field.WorkspaceAttachmentImageLease.lease": 1,
         "field.WorkspaceController._activityUnread": 1,
-        "field.WorkspaceController._activityUnreadOwners": 1,
+        "field.WorkspaceController._activityUnreadOwners": 0,
         "field.WorkspaceController._agentTabCache": 1,
         "field.WorkspaceController._announcementGate": 1,
         "field.WorkspaceController._announcements": 1,
@@ -236,8 +236,8 @@
         "field._ThreadWindow.threadChannelId": 1,
         "field._ThreadWindow.token": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 7555,
-        "tokens": 42258
+        "lines": 7539,
+        "tokens": 42172
       }
     },
     "workspace_view": {

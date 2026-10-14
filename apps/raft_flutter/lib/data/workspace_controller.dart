@@ -1390,36 +1390,17 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   SourceActivityUnreadStore? _activityUnread;
-  final _activityUnreadOwners = <Object>{};
 
-  /// One accepted inbox projection for badges, Activity and OS notifications.
+  /// This session owns one window; pages and platform adapters only borrow it.
+  /// Server selection creates it before UI; standalone views can borrow a
+  /// passive projection before selection. Neither path starts work by reading.
   SourceActivityUnreadStore get activityUnread =>
       presentationSource?.activityUnread ??
       (_activityUnread ??= SourceActivityUnreadStore(this));
 
-  /// The shared Activity store when something already owns it; never creates
-  /// one (and so never starts its boot request).
+  /// The existing session projection; reading it never constructs or starts it.
   SourceActivityUnreadStore? get activityUnreadIfBound =>
       presentationSource?.activityUnreadIfBound ?? _activityUnread;
-
-  SourceActivityUnreadStore acquireActivityUnread(Object owner) {
-    final source = presentationSource;
-    if (source != null) return source.acquireActivityUnread(owner);
-    _activityUnreadOwners.add(owner);
-    return activityUnread;
-  }
-
-  void releaseActivityUnread(Object owner) {
-    final source = presentationSource;
-    if (source != null) {
-      source.releaseActivityUnread(owner);
-      return;
-    }
-    if (_activityUnreadOwners.remove(owner) && _activityUnreadOwners.isEmpty) {
-      _activityUnread?.dispose();
-      _activityUnread = null;
-    }
-  }
 
   final foregroundChanges = ValueNotifier<bool>(true);
 
@@ -3132,6 +3113,7 @@ class WorkspaceController extends ChangeNotifier {
     if (!canVisitSection(section)) section = 'chat';
     sidebarOrder = {};
     client.selectServer(next.id);
+    activityUnread.start();
     entityDirectory.synchronize();
     // Agents, members and computers saved on this device paint with the
     // cached channels (first workspace frame); the preload revalidates them.
@@ -4242,6 +4224,12 @@ class WorkspaceController extends ChangeNotifier {
   /// Source socketBridge `roomsJoined`: the server joined this socket's
   /// rooms, so missed messages can be resumed and the lists re-read.
   void _roomsJoined() {
+    if (activityUnreadIfBound == null) {
+      // A restored session can join before a view or selection borrowed it.
+      unawaited(activityUnread.refresh());
+    } else {
+      activityUnread.start();
+    }
     _roomsJoinedPending = false;
     if (ledger.watermark > BigInt.zero) client.resume(ledger.watermark);
     // A reconnect and a resume can both ask within a second; the tail read a
@@ -7062,7 +7050,7 @@ class WorkspaceController extends ChangeNotifier {
     _uploads.clear();
     subscription.cancel();
     _activityUnread?.dispose();
-    _activityUnreadOwners.clear();
+    _activityUnread = null;
     foregroundChanges.dispose();
     resumes.dispose();
     if (ownsClient) client.dispose();

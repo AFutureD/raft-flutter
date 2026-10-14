@@ -21,7 +21,7 @@ Future<void> _dispatch(WidgetTester tester) async {
 
 class _MountedDone {
   _MountedDone(this.workspace, this.api)
-    : attention = SourceActivityUnreadStore(workspace);
+    : attention = workspace.activityUnread..start();
   final WorkspaceController workspace;
   final MessageAdapter api;
   final SourceActivityUnreadStore attention;

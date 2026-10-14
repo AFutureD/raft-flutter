@@ -725,8 +725,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
     HardwareKeyboard.instance.addHandler(globalShortcut);
     w.addListener(syncMobileAppBadge);
     syncMobileAppBadge();
-    activityUnread = w.acquireActivityUnread(this)
-      ..addListener(activityUnreadChanged);
+    activityUnread = w.activityUnread..addListener(activityUnreadChanged);
     serverUnread = mobileHost?.serverUnread ?? SourceServerUnreadStore(w);
     serverUnread.addListener(serverUnreadChanged);
     serverMenu.addListener(serverMenuChanged);
@@ -868,9 +867,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
       w.addListener(syncMobileAppBadge);
       syncMobileAppBadge();
       activityUnread.removeListener(activityUnreadChanged);
-      oldWidget.configuration.controller.releaseActivityUnread(this);
-      activityUnread = w.acquireActivityUnread(this)
-        ..addListener(activityUnreadChanged);
+      activityUnread = w.activityUnread..addListener(activityUnreadChanged);
       serverMenu.close();
       if (mobileHost == null) {
         oldWidget.configuration.controller.resumes.removeListener(appResumed);
@@ -1021,7 +1018,6 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
     _ownedMobileTabbar?.dispose();
     _ownedRailSide?.dispose();
     activityUnread.removeListener(activityUnreadChanged);
-    w.releaseActivityUnread(this);
     if (mobileHost == null) w.resumes.removeListener(appResumed);
     w.removeListener(syncServerMenu);
     serverMenu.removeListener(serverMenuChanged);

@@ -64,9 +64,7 @@ class NotificationReconciler {
     _attach();
   }
 
-  /// Follows the Activity store the workspace view already owns. It neither
-  /// creates one (and so never starts its boot request) nor keeps one alive:
-  /// until a view binds it there is nothing accepted to reconcile with.
+  /// Borrows the session's existing projection without creating or starting it.
   void _attach() {
     final w = _workspace;
     if (_closed || w == null) return;

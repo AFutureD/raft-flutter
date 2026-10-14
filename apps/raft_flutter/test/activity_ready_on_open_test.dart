@@ -52,6 +52,7 @@ void main() {
             addTearDown(tester.view.reset);
             await tester.runAsync(() => client.login('fixture', 'fixture'));
             client.selectServer('s1');
+            w.activityUnread.start();
             w.loading = false;
             w.section = 'chat';
             w.inbox = [for (var i = 0; i < 5; i++) channelRow(i)];
