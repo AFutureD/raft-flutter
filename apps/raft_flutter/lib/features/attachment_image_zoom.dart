@@ -31,9 +31,10 @@ const imageDoubleTapScale = 2.0;
 const imageZoomAnimation = Duration(milliseconds: 200);
 const imageZoomCurve = Cubic(0.33, 1, 0.68, 1);
 
-/// Web `DOUBLE_TAP_WINDOW_MS` / `DOUBLE_TAP_RADIUS_PX` (a mouse double-click
-/// follows the platform's slower interval).
-const imageDoubleTapWindow = Duration(milliseconds: 350);
+/// Web `DOUBLE_TAP_RADIUS_PX`; the touch window is the platform's
+/// [kDoubleTapTimeout] (300 ms; Web used 350) and a mouse double-click
+/// follows the slower desktop interval.
+const imageDoubleTapWindow = kDoubleTapTimeout;
 const imageDoubleClickWindow = Duration(milliseconds: 500);
 const imageDoubleTapRadius = 24.0;
 

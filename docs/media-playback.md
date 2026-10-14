@@ -219,7 +219,7 @@ without counter and strip.
   Gallery, Download file, Show in message). Bottom band: the message text as a two-line caption (tap expands; only when
   the message has text) and the 44 dp strip. Landscape drops the bottom band. The stage keeps symmetrical room for the
   bands (`RaftLightboxStageInset`), so toggling the chrome never moves the picture. A tap toggles the chrome once the
-  350 ms double-tap window has passed without a second tap (a double tap zooms); anywhere on the stage counts, also on
+  300 ms (`kDoubleTapTimeout`) double-tap window has passed without a second tap (a double tap zooms); anywhere on the stage counts, also on
   the thumbnail stand-in (same zoom surface and controller as the original, so a zoom carries over) and on the bands'
   gradient backdrop (only the caption, strip and buttons take their own taps); the first zoom gesture hides it, a screen
   reader keeps it on. A tap on the empty stage does not close (Web's empty-stage click is desktop only). Long press keeps
