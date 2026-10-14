@@ -326,6 +326,12 @@ Web recorded in `docs/parity.md` ("Video cards").
   The server thumbnail has its own rendition and is looked at first, so one added later wins. The shape is also kept in
   `PlayerSessions.shapes`, so a card built again in the session has its final box in the first frame; after a restart it is
   read from disk right after the first frame of the card (one box change at most, 16:9 -> real).
+* **Image cards use the same shape rule.** A picture whose message has no `width` / `height` is laid out at the reserved 4:3
+  box until its preview decodes; the decoded size (no extra download) is the shape: `AttachmentView` remembers it in
+  `PlayerSessions.shapes` and an `image-shape` entry of the private cache, `ShapedImageGallery` re-lays the message's single
+  image out once (Web's 416 x 288 reservation, so the card has the picture's shape and no letterbox), and the second view or a
+  restart has the final box in the first frame. Uploads send the file part's `Content-Type` (the browser type of the picked
+  file, as Web's `FormData` does); Web sends no width or height itself.
 * **Layout.** A message with `width` / `height` has its final box at once; without them the card is 16:9 until the read
   returns and then changes once (the timeline treats it like any row whose content settles).
 

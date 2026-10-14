@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:raft_flutter/features/attachment_view.dart' show AttachmentView;
 import 'package:raft_flutter/features/media_browser.dart';
 import 'package:raft_flutter/features/media_image_page.dart' show AttachmentLightboxImage, AttachmentLightboxImageState;
 import 'package:raft_flutter/features/media_video_page.dart';
@@ -520,6 +521,40 @@ void main() {
     expect(maxLive, 0, reason: 'scrolling a list of video cards creates no player session');
     expect(VideoPlayerAttachmentPlayer.debugLive, 0);
     expect(stats.dart('portrait.mp4'), 0);
+    await shutdown(tester);
+  });
+
+
+  // ---- image cards: no size in the message ----------------------------------
+
+  scenario('image cards I1: a portrait picture without a size takes its shape after the decode, no letterbox', (tester) async {
+    MediaBrowserFlags.phoneLayout = true;
+    const nodims = VideoClip('vp-c-img', 'tall.jpg', 'nodims.jpg', size: 152291, mime: 'image/jpeg');
+    const dims = VideoClip('vp-c-img2', 'photo1.jpg', 'dims.jpg', size: 55318, mime: 'image/jpeg', width: 1600, height: 1067);
+    await launch(tester, [dims, nodims]);
+    final card = find.ancestor(of: find.byTooltip('Preview nodims.jpg'), matching: find.byType(AttachmentView));
+    final sizes = <List<Object?>>[];
+    final watch = Stopwatch()..start();
+    Size? last;
+    while (watch.elapsed < const Duration(seconds: 6)) {
+      if (card.evaluate().isNotEmpty) {
+        final size = tester.getSize(card);
+        if (size != last) {
+          sizes.add([watch.elapsedMilliseconds, double.parse(size.width.toStringAsFixed(1)), double.parse(size.height.toStringAsFixed(1))]);
+          last = size;
+        }
+      }
+      await tester.pump(const Duration(milliseconds: 40));
+    }
+    await tester.ensureVisible(card);
+    await tester.pump(const Duration(milliseconds: 400));
+    final box = tester.getSize(card);
+    final picture = tester.getSize(find.descendant(of: card, matching: find.byType(Image)).first);
+    final withDims = tester.getSize(find.ancestor(of: find.byTooltip('Preview dims.jpg'), matching: find.byType(AttachmentView)));
+    report('image-cards-i1', {'cardSizes': sizes, 'box': [box.width, box.height], 'picture': [picture.width, picture.height], 'withDimsBox': [withDims.width, withDims.height]});
+    await lab.host(tester, 'shot:image-nodims-after');
+    expect(box.width / box.height, closeTo(1080 / 2400, .03), reason: 'the card has the picture\'s portrait shape');
+    expect((picture.width - box.width).abs() < 2 && (picture.height - box.height).abs() < 2, true, reason: 'the picture fills its card: no letterbox');
     await shutdown(tester);
   });
 

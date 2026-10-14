@@ -14,7 +14,39 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
+import 'package:raft_flutter/platform/video_frame_probe.dart';
+import 'package:raft_flutter/platform/video_frame_probe_mpv.dart';
 import 'package:raft_ui/raft_ui.dart';
+
+/// The real probe, with its calls printed.
+class _LoggingProbe implements VideoFrameProbe {
+  final inner = MpvVideoFrameProbe();
+  @override
+  Future<VideoFrameInfo> probe({
+    required String id,
+    required Uri url,
+    Map<String, String> headers = const {},
+    int maxEdge = 640,
+    Duration timeout = const Duration(seconds: 20),
+    int maxBytes = 16 * 1024 * 1024,
+  }) async {
+    // ignore: avoid_print
+    print('VIDEO-CARDS-LINUX probe ${url.path} maxEdge=$maxEdge');
+    try {
+      final info = await inner.probe(id: id, url: url, headers: headers, maxEdge: maxEdge, timeout: timeout, maxBytes: maxBytes);
+      // ignore: avoid_print
+      print('VIDEO-CARDS-LINUX probe ${url.path} -> ${info.width}x${info.height} jpeg=${info.jpeg?.length}');
+      return info;
+    } on Object catch (error) {
+      // ignore: avoid_print
+      print('VIDEO-CARDS-LINUX probe ${url.path} failed $error');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> cancel(String id) => inner.cancel(id);
+}
 
 class _Client extends RaftClient {
   _Client(this.base)
@@ -90,9 +122,30 @@ void main() {
     final client = _Client('http://127.0.0.1:${server.port}')..user = RaftRecord({'id': 'alice'});
     client.selectServer('server');
     final store = AttachmentDiskCache(() async => dir);
+    Map<String, dynamic> clip(String name) => {
+      'id': name,
+      'channelId': 'channel',
+      'filename': '$name.mp4',
+      'mimeType': 'video/mp4',
+      // Declared large: a card does not prepare its player by itself (the
+      // poster is then the only picture until the first Play).
+      'sizeBytes': 60 * 1024 * 1024,
+    };
     final w = WorkspaceController(client, attachmentImageStore: store)
       ..server = RaftRecord({'id': 'server', 'role': 'owner'})
       ..channel = RaftChannel({'id': 'channel', 'joined': true});
+    w.channels = [w.channel!];
+    w.ledger.switchServer('server');
+    w.ledger.ingest([
+      {
+        'id': 'host',
+        'channelId': 'channel',
+        'seq': '1',
+        'content': 'clips',
+        'attachments': [clip('portrait'), clip('landscape')],
+      },
+    ], expectedGeneration: w.ledger.generation);
+    w.visibleIds['channel'] = {'host'};
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox());
       w.dispose();
@@ -102,13 +155,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    Map<String, dynamic> clip(String name) => {
-      'id': name,
-      'channelId': 'channel',
-      'filename': '$name.mp4',
-      'mimeType': 'video/mp4',
-      'sizeBytes': File('${dir.path}/$name.mp4').lengthSync(),
-    };
+    final probe = _LoggingProbe();
     await tester.pumpWidget(
       MaterialApp(
         theme: raftTheme(RaftFamily.elegant),
@@ -125,6 +172,7 @@ void main() {
                   authorized: () => true,
                   pending: false,
                   onOpenPreview: () {},
+                  frameProbe: probe,
                 ),
             ],
           ),
@@ -141,6 +189,8 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
       await tester.pump(const Duration(milliseconds: 100));
     }
+    // ignore: avoid_print
+    print('VIDEO-CARDS-LINUX after ${clock.elapsedMilliseconds} ms: images=${find.byType(Image).evaluate().length} raw=${find.byType(RawImage).evaluate().length} cards=${find.byType(RaftInlineVideo).evaluate().length} sessions.failed=${w.playerSessions.frameFailed.length} shapes=${w.playerSessions.shapes.length} stored=${await tester.runAsync(() => store.entryCount(namespace: AttachmentCacheNamespace.attachments))}');
     expect(poster('portrait'), findsOneWidget, reason: 'the first frame of the portrait clip');
     expect(poster('landscape'), findsOneWidget);
     final bytes = {for (final e in sent.entries) e.key: e.value};
