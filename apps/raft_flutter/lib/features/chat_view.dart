@@ -3254,6 +3254,22 @@ class _RaftChatViewState extends State<RaftChatView>
         ),
       ];
     }
+    // The list depends on the pane's width only. The keyboard animation, the
+    // composer growing and a banner appearing change its height on every
+    // frame, and `LayoutBuilder` re-runs for any constraint change: handing
+    // back the same widget lets the framework skip the rebuild of the whole
+    // timeline and its visible rows (new widgets would re-create the sliver
+    // delegates). The cache lives for this call's captured state only.
+    Widget? timelineWidget;
+    double? timelineWidth;
+    Widget timelineFor(double width, Widget Function() create) {
+      if (timelineWidget != null && timelineWidth == width) {
+        return timelineWidget!;
+      }
+      timelineWidth = width;
+      return timelineWidget = create();
+    }
+
     return Chat(
       key: timelineKeys.putIfAbsent(listRevision, GlobalKey.new),
       currentUserId: w.client.user?.id ?? '',
@@ -3270,57 +3286,63 @@ class _RaftChatViewState extends State<RaftChatView>
             const SizedBox.shrink(),
         composerBuilder: (_) => const SizedBox.shrink(),
         chatAnimatedListBuilder: (context, _) => LayoutBuilder(
-          builder: (context, constraints) => RaftMessageTimeline(
-            key: ValueKey('chat-list-${widget.thread ? 'thread' : 'channel'}'),
-            controller: viewport,
-            canPrepareNearbyRows:
-                kDebugMode || defaultTargetPlatform != TargetPlatform.macOS
-                ? null
-                : () => presentationActive && RaftFontWarmUp.isIdle,
-            messages: messages,
-            centerIndex: centerIndex(),
-            epoch: centerEpoch,
-            indexOfId: windowIndexOf,
-            rowBuilder: (context, index) => datedTile(source(messages[index])),
-            estimateRow: (index) => estimateRow(
-              measuredRows,
-              messages,
-              index,
-              constraints.maxWidth,
-            ),
-            slivers: (history, forward) => recipe.centeredSlivers(
-              header: header,
-              history: history,
-              forward: forward,
-              footer: const RaftTimelineFooter(),
-            ),
-            hasOlder: widget.thread ? w.threadHasMore : w.hasMore,
-            loadingOlder: w.loadingOlder,
-            onLoadOlder: presentationActive
-                ? () => w.older(thread: widget.thread)
-                : null,
-            onRecenter: (index, alignment) =>
-                recenter(first: messages[index].id, alignment: alignment),
-            empty: widget.thread
-                ? null
-                : loading
-                ? Center(
-                    child: Text(
-                      raftText(context, 'Loading...'),
-                      style: RaftTypography.mono(
-                        RaftTokens.of(context),
-                        size: 14,
-                        line: 20,
+          builder: (context, constraints) => timelineFor(
+            constraints.maxWidth,
+            () => RaftMessageTimeline(
+              key: ValueKey(
+                'chat-list-${widget.thread ? 'thread' : 'channel'}',
+              ),
+              controller: viewport,
+              canPrepareNearbyRows:
+                  kDebugMode || defaultTargetPlatform != TargetPlatform.macOS
+                  ? null
+                  : () => presentationActive && RaftFontWarmUp.isIdle,
+              messages: messages,
+              centerIndex: centerIndex(),
+              epoch: centerEpoch,
+              indexOfId: windowIndexOf,
+              rowBuilder: (context, index) =>
+                  datedTile(source(messages[index])),
+              estimateRow: (index) => estimateRow(
+                measuredRows,
+                messages,
+                index,
+                constraints.maxWidth,
+              ),
+              slivers: (history, forward) => recipe.centeredSlivers(
+                header: header,
+                history: history,
+                forward: forward,
+                footer: const RaftTimelineFooter(),
+              ),
+              hasOlder: widget.thread ? w.threadHasMore : w.hasMore,
+              loadingOlder: w.loadingOlder,
+              onLoadOlder: presentationActive
+                  ? () => w.older(thread: widget.thread)
+                  : null,
+              onRecenter: (index, alignment) =>
+                  recenter(first: messages[index].id, alignment: alignment),
+              empty: widget.thread
+                  ? null
+                  : loading
+                  ? Center(
+                      child: Text(
+                        raftText(context, 'Loading...'),
+                        style: RaftTypography.mono(
+                          RaftTokens.of(context),
+                          size: 14,
+                          line: 20,
+                        ),
+                      ),
+                    )
+                  : RaftEmptyState(
+                      title: raftText(context, 'Start the conversation'),
+                      detail: raftText(
+                        context,
+                        'Send a message to this channel.',
                       ),
                     ),
-                  )
-                : RaftEmptyState(
-                    title: raftText(context, 'Start the conversation'),
-                    detail: raftText(
-                      context,
-                      'Send a message to this channel.',
-                    ),
-                  ),
+            ),
           ),
         ),
       ),

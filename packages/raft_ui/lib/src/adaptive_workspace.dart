@@ -100,15 +100,20 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
   ///
   /// [side] is the rail side to decide with (the hinge rule depends on it);
   /// without it the nearest [RaftRailSideScope] answers.
-  static bool phoneRailOf(BuildContext context, {RaftRailSide? side}) =>
-      compactOf(context) &&
-      RaftWindowClass.phoneNavigationFor(
-            MediaQuery.sizeOf(context),
-            displayFeatures: MediaQuery.displayFeaturesOf(context),
-            textDirection: Directionality.of(context),
-            railSide: side ?? RaftRailSideScope.of(context),
-          ) ==
-          RaftNavigationPlacement.rail;
+  static bool phoneRailOf(BuildContext context, {RaftRailSide? side}) {
+    if (!compactOf(context)) return false;
+    final size = MediaQuery.sizeOf(context);
+    // Folds only matter once the window is rail-sized: a portrait phone must
+    // not depend on `displayFeatures` at all (see RaftTextScaling).
+    if (!RaftWindowClass.isRailSized(size)) return false;
+    return RaftWindowClass.phoneNavigationFor(
+          size,
+          displayFeatures: MediaQuery.displayFeaturesOf(context),
+          textDirection: Directionality.of(context),
+          railSide: side ?? RaftRailSideScope.of(context),
+        ) ==
+        RaftNavigationPlacement.rail;
+  }
 
   @override
   State<RaftAdaptiveWorkspace> createState() => _RaftAdaptiveWorkspaceState();
@@ -260,7 +265,12 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         // Keep the content's parent chain stable when a detail hides the bar
         // or the theme switches between in-flow and floating navigation.
         final railed = widget.mobileRail != null;
-        final media = MediaQuery.of(context);
+        // Aspects, not `MediaQuery.of`: this builder re-creates the whole
+        // conversation, so it must not depend on `viewInsets`, which changes
+        // on every frame of the keyboard animation. The side padding equals
+        // the side viewPadding (the keyboard only insets the bottom).
+        final screenHeight = MediaQuery.sizeOf(context).height;
+        final sideInsets = MediaQuery.viewPaddingOf(context);
         final railOnRight = RaftRailSideScope.onRight(
           RaftRailSideScope.of(context),
           Directionality.of(context),
@@ -280,9 +290,9 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
           railWidth: railed
               ? RaftLayoutMetrics.railWidth(
                       RaftTokens.of(context),
-                      media.size.height,
+                      screenHeight,
                     ) +
-                    (railOnRight ? media.padding.right : media.padding.left)
+                    (railOnRight ? sideInsets.right : sideInsets.left)
               : 0,
           railOnRight: railOnRight,
           body: conversation(split: false),

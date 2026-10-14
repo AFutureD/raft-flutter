@@ -149,17 +149,20 @@ abstract final class RaftWindowClass {
       if (isSeparating(feature) && isVertical(feature)) feature,
   ];
 
+  /// Whether a window of [size] is wide enough for the rail (a fold can still
+  /// keep the bottom bar). Portrait phones never are.
+  static bool isRailSized(Size size) =>
+      size.width >= railMinWidth ||
+      size.width >= wideAspectMinWidth &&
+          size.height / size.width < wideAspectMaxHeightRatio;
+
   static RaftNavigationPlacement phoneNavigationFor(
     Size size, {
     Iterable<DisplayFeature> displayFeatures = const [],
     TextDirection textDirection = TextDirection.ltr,
     RaftRailSide railSide = RaftRailSide.start,
   }) {
-    final wide =
-        size.width >= railMinWidth ||
-        size.width >= wideAspectMinWidth &&
-            size.height / size.width < wideAspectMaxHeightRatio;
-    if (!wide) return RaftNavigationPlacement.bottom;
+    if (!isRailSized(size)) return RaftNavigationPlacement.bottom;
     // A separating fold inside the rail's edge strip would cut it in two:
     // keep the bottom bar there.
     final strip = RaftRailSideScope.onRight(railSide, textDirection)

@@ -11,7 +11,9 @@
 // Everything reads `MediaQuery.textScalerOf(context).scale(fontSize)`; this file
 // is the only place that decides what that returns.
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
 /// Dynamic Type sizes in points. Rows are the style's size at the default
@@ -151,7 +153,14 @@ bool raftIsAccessibilityTextSize(TextScaler content) {
 /// Installs the content text scaler for everything below it and publishes the
 /// chrome scaler and the clamping state. Place once above the app content
 /// (MaterialApp `builder`).
-class RaftTextScaling extends StatelessWidget {
+///
+/// It also keeps `MediaQueryData.displayFeatures` the same list object while
+/// its content is unchanged. The engine decodes a new list on every window
+/// metrics update, and `MediaQuery.displayFeaturesOf` (also used by
+/// `DisplayFeatureSubScreen` of every dialog and sheet) compares by identity,
+/// so each frame of a keyboard animation would otherwise rebuild every widget
+/// that reads it.
+class RaftTextScaling extends StatefulWidget {
   const RaftTextScaling({super.key, required this.child});
 
   final Widget child;
@@ -164,6 +173,19 @@ class RaftTextScaling extends StatelessWidget {
       MediaQuery.textScalerOf(context);
 
   @override
+  State<RaftTextScaling> createState() => _RaftTextScalingState();
+}
+
+class _RaftTextScalingState extends State<RaftTextScaling> {
+  List<ui.DisplayFeature>? _features;
+
+  List<ui.DisplayFeature> _stable(List<ui.DisplayFeature> next) {
+    final previous = _features;
+    if (previous != null && listEquals(previous, next)) return previous;
+    return _features = next;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final platform = media.textScaler;
@@ -171,8 +193,11 @@ class RaftTextScaling extends StatelessWidget {
         ? platform
         : RaftTextScaler(platform);
     return MediaQuery(
-      data: media.copyWith(textScaler: content),
-      child: child,
+      data: media.copyWith(
+        textScaler: content,
+        displayFeatures: _stable(media.displayFeatures),
+      ),
+      child: widget.child,
     );
   }
 }
