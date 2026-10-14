@@ -3,7 +3,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/task_surface_previews.dart';
-import 'package:raft_ui/test_themes.dart';
 
 /// A painted vertical border stroke, in global coordinates.
 class _Rule {
