@@ -4311,7 +4311,17 @@ class WorkspaceController extends ChangeNotifier {
     if (entityDirectory.started && _due('authors')) {
       entityDirectory.revalidateAuthors();
     }
+    // Another session of this account may have joined or created a server;
+    // the server tells only that server's room, so this is the one moment the
+    // directory is re-read. On a desktop the engine reports window focus as
+    // inactive/resumed, so this also runs when the window regains focus.
+    if (_due('membership', freshness: _membershipResumeFreshness)) {
+      unawaited(recoverMembership());
+    }
   }
+
+  /// Focus flickers and quick app switches must not re-read the server list.
+  static const _membershipResumeFreshness = Duration(seconds: 60);
 
   static const _gapPageLimit = 200;
   bool _gapSyncing = false;
