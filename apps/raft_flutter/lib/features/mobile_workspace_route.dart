@@ -105,6 +105,7 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
         mobileTabbar: host.mobileTabbar,
         onChooseServer: host.widget.onChooseServer,
         onSwitchServer: host.widget.onSwitchServer,
+        appUpdate: host.widget.appUpdate,
       );
     }
     return IgnorePointer(
@@ -132,6 +133,7 @@ class _MobileWorkspaceContent extends WorkspaceView {
     super.mobileTabbar,
     super.onChooseServer,
     super.onSwitchServer,
+    super.appUpdate,
   }) : super(mobileRoutePage: true);
 }
 

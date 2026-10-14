@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/search_memory.dart';
 import 'package:raft_flutter/features/mobile_workspace_navigation.dart';
+import 'package:raft_flutter/features/workspace_settings.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/app_update.dart';
+import 'package:raft_flutter/platform/client_release_notes.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import 'app_global_server_selector_test.dart' show RootFixture;
 import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
 import 'flutter_test_config.dart' show leakDebt;
 
@@ -283,4 +286,121 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
   }
+  // The phone shell renders every page inside _MobileWorkspaceContent, a
+  // WorkspaceView built from the host's fields; the update service has to be
+  // carried across or About loses the Updates card and Release Notes loses its
+  // source (v0.1.0+7 on Android showed neither).
+  group('phone (actual RaftApp, 390 wide, Android)', () {
+    ClientReleaseNotes notes() => ClientReleaseNotes(
+      storage: _Memory(),
+      fetch: (_) async => jsonEncode({
+        'items': [
+          {
+            'releaseId': 'v0.1.0+7',
+            'tag': 'v0.1.0+7',
+            'version': '0.1.0',
+            'date': '2026-10-14',
+            'state': 'published',
+            'entries': [
+              {
+                'type': 'feature',
+                'text': 'Phone notes arrive',
+                'emphasis': false,
+              },
+            ],
+          },
+        ],
+        'nextCursor': null,
+      }),
+    );
+
+    AppUpdateService android() => AppUpdateService(
+      currentVersion: '0.1.0',
+      currentBuild: 41,
+      platformKey: 'android-arm64',
+      target: TargetPlatform.android,
+      storage: _Memory(),
+      scheduleTimer: false,
+      releaseNotes: notes(),
+      fetch: (_) async => jsonEncode([
+        {
+          'platform': 'android',
+          'arch': 'arm64',
+          'version': '0.1.0',
+          'buildNumber': '42',
+          'releaseTag': 'v0.1.0+8',
+          'artifact': 'raft-flutter-0.1.0+8-android-arm64.apk',
+        },
+      ]),
+    );
+
+    Future<RootFixture> openSettings(WidgetTester t, AppUpdateService s) async {
+      final f = RootFixture();
+      await f.mount(
+        t,
+        'elegant-light',
+        390,
+        uri: Uri.parse('/s/alpha'),
+        appUpdate: s,
+      );
+      await t.runAsync(s.start);
+      await t.tap(find.byKey(const Key('mobile-tab-settings')));
+      await f.flush(t);
+      return f;
+    }
+
+    testWidgets('About shows the Updates card and the red dots', (t) async {
+      final update = android();
+      addTearDown(update.dispose);
+      final f = await openSettings(t, update);
+      expect(_tabAttention(t), isTrue);
+      await t.tap(find.byKey(const ValueKey('workspace-settings-nav-about')));
+      await f.flush(t);
+      for (var i = 0; i < 10; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      expect(
+        find.byKey(const ValueKey('settings-about-update')),
+        findsOneWidget,
+      );
+      expect(find.text('New version available: 0.1.0 (42)'), findsOneWidget);
+      expect(find.text('Download update'), findsOneWidget);
+      expect(find.text('Check for updates'), findsOneWidget);
+      await f.close(t);
+    });
+
+    testWidgets('Release Notes load from the update service source', (t) async {
+      final update = android();
+      addTearDown(update.dispose);
+      final f = await openSettings(t, update);
+      await t.tap(
+        find.byKey(const ValueKey('workspace-settings-nav-release-notes')),
+      );
+      await f.flush(t);
+      for (var i = 0; i < 10; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('Phone notes arrive'), findsOneWidget);
+      expect(
+        find.text('Release notes are unavailable right now.'),
+        findsNothing,
+      );
+      await f.close(t);
+    });
+  });
+
+  test('About shows the running version with its CI build number', () {
+    expect(
+      WorkspaceAboutSection.versionLabel(version: '0.1.0', build: '41'),
+      '0.1.0 (41)',
+    );
+    expect(
+      WorkspaceAboutSection.versionLabel(version: '0.1.0-dev.abc', build: ''),
+      '0.1.0-dev.abc',
+    );
+    expect(
+      WorkspaceAboutSection.versionLabel(version: 'development', build: '0'),
+      'development',
+    );
+  });
 }

@@ -14,6 +14,7 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/main.dart';
 import 'package:raft_flutter/platform/content_coordinator.dart';
 import 'package:raft_flutter/platform/background_notifications.dart';
+import 'package:raft_flutter/platform/app_update.dart' show AppUpdateService;
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
@@ -244,6 +245,7 @@ class RootFixture {
     String principal = 'alice',
     Map<String, Object> preferences = const {},
     bool settle = true,
+    AppUpdateService? appUpdate,
   }) async {
     SharedPreferences.setMockInitialValues({
       'raft.origin': 'https://fixture.invalid',
@@ -364,6 +366,7 @@ class RootFixture {
         nativeSharing: sharing ?? NativeSharing(supported: false),
         nativeSessionOwner: sessionOwner,
         onStartupReady: onStartupReady,
+        appUpdate: appUpdate,
         openWorkspaceCache: () async => cache,
         createClient: (origin, store, kind) =>
             client = RootClient(origin, store, kind, adapter),

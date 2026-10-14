@@ -441,6 +441,15 @@ class WorkspaceAboutSection extends StatefulWidget {
     'RAFT_APP_VERSION',
     defaultValue: 'development',
   );
+  static const _build = String.fromEnvironment('RAFT_BUILD_NUMBER');
+
+  /// What About shows as the running version: `0.1.0 (41)` for a CI build,
+  /// the bare version when this build has no CI build number. Same
+  /// `version (build)` shape as the Updates card's "New version available".
+  static String versionLabel({
+    String version = _version,
+    String build = _build,
+  }) => (int.tryParse(build) ?? 0) > 0 ? '$version ($build)' : version;
 
   @override
   State<WorkspaceAboutSection> createState() => _WorkspaceAboutSectionState();
@@ -716,7 +725,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
     final web = frontendOrigin ?? ContentLinks.originFor(api);
     final slug = server?.string('slug') ?? '';
     return RaftSettingsAbout(
-      version: appVersion ?? WorkspaceAboutSection._version,
+      version: appVersion ?? WorkspaceAboutSection.versionLabel(),
       update: update(context),
       mobileApp: showMobileApp ?? desktop
           ? RaftAboutMobileApp(
