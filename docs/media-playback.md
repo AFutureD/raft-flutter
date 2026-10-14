@@ -284,6 +284,51 @@ without counter and strip.
 * **Not here yet:** the desktop comments aside, Cmd/Ctrl+S, seek by double tap, the live-texture Hero from a playing card
   (the video card does not fly), double-tap zoom hints, the F full-screen key on video pages.
 
+## Video cards
+
+**Desktop (and a touch device with a short side of 600 dp or more)** keep Web's inline card: a 16:9 box with the player
+under it (`RaftInlineVideo`). **A phone** (touch density, short side under 600 dp, also held sideways) has no inline
+player: its card is `RaftVideoPosterCard` (`packages/raft_ui/lib/src/inline_media.dart`), an intentional difference from
+Web recorded in `docs/parity.md` ("Video cards").
+
+* **Phone card.** The poster at the video's own shape (the message's `width` / `height`, else the shape read from the file,
+  else 16:9) at the card width (at most 448 dp, screen width - 112), capped at 60 % of the screen height and cropped to
+  fill (cover) beyond it; a play button in the middle, the length in the bottom-right corner (when known), a neutral
+  placeholder (never black) while there is no poster. No `AttachmentPlayer`, no `PlayerSessions` entry, no stream, nothing
+  to release when the card scrolls away. A tap anywhere opens the media viewer (`media_browser.dart`), whose first video
+  page autoplays (`MediaBrowser.autoplay` -> `MediaVideoStage.enter(autoplay: true)`: prepares at once whatever the size
+  and plays when ready), with the card-to-viewer Hero flying the poster (`RaftMediaHero` on the card and on the video
+  page; the page's end is laid out at the video's shape so the flight lands on the picture). Videos page in the viewer on
+  a phone without `RAFT_MEDIA_BROWSER_VIDEO` (`MediaBrowserFlags.videoPages`); the flag still gates desktop.
+* **Poster source.** `VideoCardPoster` (`features/video_card_poster.dart`): the server `thumbnail` rendition first (a
+  message with a `thumbnailUrl`, or one already stored); a message with none (CLI uploads have neither a thumbnail nor
+  `width` / `height`) falls back to the first frame of the video, read through `VideoFrameProbe`
+  (`platform/video_frame_probe.dart`):
+  * Android: `NativeVideoFrameBridge.kt`, channel `app.raft/video-frame`. A `MediaDataSource` of 256 KB `Range` blocks over
+    `HttpURLConnection` (OS proxy respected) feeding `MediaMetadataRetriever`: frame 0 (`OPTION_CLOSEST_SYNC`, then 100 ms
+    when it is black), `METADATA_KEY_VIDEO_WIDTH/HEIGHT/ROTATION/DURATION`. The plain `setDataSource(url, headers)` was
+    measured and rejected: it sends range-less GETs and reads the whole file (twice with the moov at the end), cannot be
+    byte-capped or cancelled. A `maxBytes` cap, a timeout and `cancel` end the read; 401 / 403 / 410 report `expired`.
+  * iOS and macOS: `RaftVideoFrame` (same code in `ios/Runner/RaftSharingBridge.swift` and
+    `macos/Runner/MainFlutterWindow.swift`): `AVURLAsset` + `AVAssetImageGenerator` (`appliesPreferredTrackTransform`,
+    `maximumSize`), size = the track's natural size x preferred transform, rotation from the transform, duration. AVFoundation
+    does its own ranged reads; the budget there is the timeout (no byte cap).
+  * Windows and Linux: `MpvVideoFrameProbe` (`platform/video_frame_probe_mpv.dart`): a one-off, muted, paused libmpv player.
+  * The signed URL is the one the app already signs for playback (`attachmentStreamSource`, `disposition=inline`); an
+    `expired` answer signs once more and retries once.
+* **Budget.** Only a card that has been within 160 dp of the viewport for 250 ms starts a read; the read is cancelled when the
+  card leaves 480 dp of it. `VideoFrameScheduler.shared` runs two at a time app-wide, newest first. A failure puts the
+  attachment in `PlayerSessions.frameFailed` for the session (placeholder with the play button, no retry loop); Clear cache
+  forgets it. Nothing is read for a card whose poster (or a stored frame) is available.
+* **Cache.** The frame is the `poster-frame` rendition of the attachment (a JPEG, longest edge 960 px) and the shape a
+  `video-shape` entry (`{w, h, r, d}`), both in the private attachments namespace of `AttachmentDiskCache` (scoped
+  account / server / channel, counted in Settings > Storage, removed by Clear cache, sign-out and channel revocation).
+  The server thumbnail has its own rendition and is looked at first, so one added later wins. The shape is also kept in
+  `PlayerSessions.shapes`, so a card built again in the session has its final box in the first frame; after a restart it is
+  read from disk right after the first frame of the card (one box change at most, 16:9 -> real).
+* **Layout.** A message with `width` / `height` has its final box at once; without them the card is 16:9 until the read
+  returns and then changes once (the timeline treats it like any row whose content settles).
+
 ## Verification record
 
 * Viewer surface tests (`viewer_video_surface_test`, `video_player_attachment_player_test`, `player_sessions_test`,

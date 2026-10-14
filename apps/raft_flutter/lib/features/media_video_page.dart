@@ -28,6 +28,13 @@ abstract final class MediaBrowserFlags {
 
   static bool get video => override ?? _define;
 
+  /// Forces the phone layout on (true) or off (false) for a suite that mounts
+  /// the real cards (the parity suite compares the inline card with Web's, the
+  /// player suite exercises the inline player on a phone-sized device). Null in
+  /// the product.
+  @visibleForTesting
+  static bool? phoneLayout;
+
   /// Whether the browser pages through videos for the layout of [context]: a
   /// phone always does (its video card has no player of its own, the viewer is
   /// where a video plays), the other layouts follow the flag.
@@ -39,8 +46,9 @@ abstract final class MediaBrowserFlags {
 /// sideways). Its video cards show the poster only and open the viewer to play;
 /// a narrow desktop window is not a phone and keeps the inline player.
 bool phoneMediaLayout(BuildContext context) =>
-    RaftDensityScope.of(context) == RaftDensity.touch &&
-    MediaQuery.sizeOf(context).shortestSide < 600;
+    MediaBrowserFlags.phoneLayout ??
+    (RaftDensityScope.of(context) == RaftDensity.touch &&
+        MediaQuery.sizeOf(context).shortestSide < 600);
 
 /// A video up to this size prepares by itself once its page has rested; a
 /// larger one waits for the first Play (the cards' rule).

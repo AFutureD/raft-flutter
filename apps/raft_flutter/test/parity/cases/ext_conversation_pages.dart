@@ -23,6 +23,7 @@ import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/external_identity.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
+import 'package:raft_flutter/features/media_video_page.dart' show MediaBrowserFlags;
 import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_flutter/platform/media_failure.dart';
 import 'package:raft_flutter/features/profile_preview.dart';
@@ -822,6 +823,9 @@ ParityCase _videoCase({
     settle: base.settle,
     build: (ctx) {
       InlineMediaTestHooks.playerFactory = () => _ParityVideoPlayer(fail: fail);
+      // Web's inline card at every width: the phone card is an intentional
+      // difference (docs/parity.md, "Video cards").
+      MediaBrowserFlags.phoneLayout = false;
       return base.build(ctx);
     },
     interact: (t, ctx) async {
@@ -829,6 +833,7 @@ ParityCase _videoCase({
         await base.interact!(t, ctx);
       } finally {
         InlineMediaTestHooks.playerFactory = null;
+        MediaBrowserFlags.phoneLayout = null;
       }
     },
   );

@@ -16,6 +16,7 @@ import 'package:raft_flutter/features/media_browser.dart';
 import 'package:raft_flutter/features/media_image_page.dart' show AttachmentLightboxImage, AttachmentLightboxImageState;
 import 'package:raft_flutter/features/media_video_page.dart';
 import 'package:raft_flutter/platform/attachment_player.dart' show AttachmentPlayback;
+import 'package:raft_flutter/platform/video_frame_scheduler.dart';
 import 'package:raft_flutter/platform/video_player_attachment_player.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart' show debugLastHdrHandoff;
 import 'package:raft_ui/raft_ui.dart';
@@ -151,7 +152,6 @@ class PageDwell {
 const _tone = VideoClip('vp-tone', 'tone.wav', 'tone.wav', size: 264678, mime: 'audio/wav');
 
 late final PlayerLab lab;
-
 bool _mediaChecked = false;
 
 /// No scenario takes longer than this; a stuck one fails (and is cancelled, see
@@ -204,10 +204,15 @@ Future<void> startScenario(WidgetTester tester) async {
     VideoPlayerAttachmentPlayer.debugLive = 0;
   }
   MediaBrowserFlags.override = null;
+  // The inline-player scenarios below exercise the player card (tablets and
+  // desktop); the video-card scenarios switch the phone layout on themselves.
+  MediaBrowserFlags.phoneLayout = false;
 }
 
 Finder card(String filename) => find.byWidgetPredicate((w) => w is RaftInlineVideo && w.filename == filename);
 RaftInlineVideo cardOf(WidgetTester t, String filename) => t.widget<RaftInlineVideo>(card(filename));
+Finder posterCard(String filename) => find.byWidgetPredicate((w) => w is RaftVideoPosterCard && w.filename == filename);
+RaftVideoPosterCard posterOf(WidgetTester t, String filename) => t.widget<RaftVideoPosterCard>(posterCard(filename));
 Finder get viewer => find.byType(RaftVideoViewer);
 RaftVideoViewer viewerOf(WidgetTester t) => t.widget<RaftVideoViewer>(viewer);
 
@@ -233,6 +238,7 @@ Future<VideoFixture> launch(WidgetTester tester, List<VideoClip> clips,
       tester,
       () =>
           card(clips.first.filename).evaluate().isNotEmpty ||
+          posterCard(clips.first.filename).evaluate().isNotEmpty ||
           find.byTooltip('Preview ${clips.first.filename}').evaluate().isNotEmpty ||
           find.byKey(const Key('audio-play-toggle')).evaluate().isNotEmpty,
       'the channel with ${clips.first.filename}');
@@ -386,6 +392,132 @@ void main() {
     await tester.pump();
     await until(tester, () => cardOf(tester, name).playing && cardOf(tester, name).position > past, 'the inline position to pass $past');
   }
+
+
+  // ---- video cards (phone): the poster only, read from the file --------------
+
+  /// The box of a phone card as laid out.
+  Size boxOfCard(WidgetTester t, String filename) =>
+      t.getSize(find.descendant(of: posterCard(filename), matching: find.byKey(const Key('inline-video'))));
+
+  scenario('video cards V1: no thumbnail, no size: first frame at the real aspect from a few ranged bytes; a tap plays in the viewer', (tester) async {
+    MediaBrowserFlags.phoneLayout = true;
+    const portrait = VideoClip('vc-p', 'portrait.mp4', 'cp.mp4', size: 5416578);
+    const landscape = VideoClip('vc-l', 'landscape.mp4', 'cl.mp4', size: 4846435);
+    const big = VideoClip('vc-4k', 'hevc4k.mp4', 'c4k.mp4', size: 41607413);
+    await launch(tester, [portrait, landscape, big]);
+    expect(find.byType(RaftInlineVideo), findsNothing, reason: 'a phone card has no inline player');
+    final firstBoxes = {for (final name in ['cp.mp4', 'cl.mp4', 'c4k.mp4']) name: boxOfCard(tester, name)};
+    // The newest message sits at the bottom of the anchored timeline: when its
+    // card changes shape, its bottom edge must not move.
+    final bottomBefore = tester.getRect(posterCard('c4k.mp4')).bottom;
+    for (final name in ['cp.mp4', 'cl.mp4', 'c4k.mp4']) {
+      // 16:9 until the file says otherwise.
+      expect(firstBoxes[name]!.width / firstBoxes[name]!.height, closeTo(16 / 9, .05), reason: '$name before its frame');
+    }
+    final started = Stopwatch()..start();
+    final shown = <String, int>{};
+    await until(tester, () {
+      for (final name in ['cp.mp4', 'cl.mp4', 'c4k.mp4']) {
+        if (posterCard(name).evaluate().isNotEmpty && posterOf(tester, name).poster != null) {
+          shown.putIfAbsent(name, () => started.elapsedMilliseconds);
+        }
+      }
+      return shown.length == 3;
+    }, 'the three posters', timeout: const Duration(seconds: 40));
+    await tester.pump(const Duration(milliseconds: 300));
+    final bottomAfter = tester.getRect(posterCard('c4k.mp4')).bottom;
+    final aspects = {
+      for (final name in ['cp.mp4', 'cl.mp4', 'c4k.mp4']) name: boxOfCard(tester, name).width / boxOfCard(tester, name).height,
+    };
+    final stats = await lab.stats();
+    report('video-cards-v1', {
+      'shownAtMs': shown,
+      'aspect': aspects,
+      'bytes': {for (final f in ['portrait.mp4', 'landscape.mp4', 'hevc4k.mp4']) f: stats.bytes(f)},
+      'requests': {for (final f in ['portrait.mp4', 'landscape.mp4', 'hevc4k.mp4']) f: stats.requests(f)},
+      'players': VideoPlayerAttachmentPlayer.debugLive,
+      'newestCardBottom': [bottomBefore, bottomAfter],
+    });
+    expect(bottomAfter, closeTo(bottomBefore, 1.5), reason: 'the anchored timeline keeps the newest row in place');
+    expect(aspects['cp.mp4'], closeTo(720 / 1280, .02), reason: 'portrait');
+    expect(aspects['cl.mp4'], closeTo(1280 / 720, .02), reason: 'landscape');
+    expect(stats.bytes('hevc4k.mp4'), lessThan(41607413 ~/ 10), reason: 'ranged reads, never the file');
+    for (final (file, size) in [('portrait.mp4', 5416578), ('landscape.mp4', 4846435)]) {
+      expect(stats.bytes(file), lessThan(size ~/ 4), reason: '$file: only what the first frame needs');
+    }
+    expect(VideoPlayerAttachmentPlayer.debugLive, 0, reason: 'no player session for a card');
+    expect(stats.dart('portrait.mp4'), 0, reason: 'the platform probe reads it, not a Dart download');
+
+    // A real tap on the portrait card: the viewer opens and plays at once.
+    final shuttle = find.byKey(const ValueKey('media-hero-shuttle'));
+    var flew = false;
+    final at = tester.getCenter(posterCard('cp.mp4'));
+    final dpr = tester.view.devicePixelRatio;
+    // A touch through Android's input stack when the host runner is attached.
+    final touched = await lab.host(tester, 'tap:${(at.dx * dpr).round()},${(at.dy * dpr).round()}');
+    if (touched == null) await tester.tapAt(at);
+    for (var i = 0; i < 400 && !(viewer.evaluate().isNotEmpty && viewerOf(tester).playing && viewerOf(tester).position > const Duration(milliseconds: 800)); i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      if (shuttle.evaluate().isNotEmpty) flew = true;
+    }
+    expect(viewer.evaluate().isNotEmpty, true, reason: 'the viewer opened');
+    expect(viewerOf(tester).playing, true, reason: 'the viewer autoplays');
+    expect(viewerOf(tester).position, greaterThan(const Duration(milliseconds: 800)));
+    report('video-cards-v1-open', {'heroFlew': flew, 'players': VideoPlayerAttachmentPlayer.debugLive});
+    expect(flew, true, reason: 'the poster flew from the card');
+    expect(VideoPlayerAttachmentPlayer.debugLive, 1, reason: 'the viewer made the only player');
+    await closeViewer(tester, 'button', 'vc1-close');
+    await until(tester, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'the decoder to be freed with the viewer');
+    await shutdown(tester);
+  });
+
+  scenario('video cards V2: a list of 10 such videos scrolls with no player session and at most two reads at a time', (tester) async {
+    MediaBrowserFlags.phoneLayout = true;
+    const files = [('portrait.mp4', 5416578), ('landscape.mp4', 4846435), ('hevc1080.mp4', 3762953)];
+    final clips = [
+      for (var i = 0; i < 10; i++) VideoClip('vc-$i', files[i % 3].$1, 'list$i.mp4', size: files[i % 3].$2),
+    ];
+    await launch(tester, clips);
+    final timings = <int>[];
+    void onTimings(List<FrameTiming> frames) {
+      for (final f in frames) {
+        timings.add(f.totalSpan.inMicroseconds);
+      }
+    }
+    SchedulerBinding.instance.addTimingsCallback(onTimings);
+    final list = find.byType(Scrollable).first;
+    var maxLive = 0;
+    // Fling to the start of the history and back, a few screens each way.
+    for (var pass = 0; pass < 4; pass++) {
+      await tester.fling(list, Offset(0, pass.isEven ? 700 : -700), 1800);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (VideoPlayerAttachmentPlayer.debugLive > maxLive) maxLive = VideoPlayerAttachmentPlayer.debugLive;
+      }
+    }
+    await tester.pump(const Duration(seconds: 2));
+    SchedulerBinding.instance.removeTimingsCallback(onTimings);
+    final stats = await lab.stats();
+    timings.sort();
+    final p95 = timings.isEmpty ? 0 : timings[(timings.length * .95).floor().clamp(0, timings.length - 1)];
+    final peak = VideoFrameScheduler.shared.peak;
+    report('video-cards-v2', {
+      'maxLivePlayers': maxLive,
+      'frames': timings.length,
+      'frameTotalP95Us': p95,
+      'frameTotalMaxUs': timings.isEmpty ? 0 : timings.last,
+      'over32ms': timings.where((t) => t > 32000).length,
+      'bytes': {for (final f in ['portrait.mp4', 'landscape.mp4', 'hevc1080.mp4']) f: stats.bytes(f)},
+      'requestsByFile': {for (final f in ['portrait.mp4', 'landscape.mp4', 'hevc1080.mp4']) f: stats.requests(f)},
+      'maxSimultaneousFrameReads': peak,
+    });
+    expect(peak, lessThanOrEqualTo(2), reason: 'the scheduler never runs more than two frame reads');
+    expect(maxLive, 0, reason: 'scrolling a list of video cards creates no player session');
+    expect(VideoPlayerAttachmentPlayer.debugLive, 0);
+    expect(stats.dart('portrait.mp4'), 0);
+    await shutdown(tester);
+  });
 
   // ---- inline card: the centre play button ---------------------------------
 
