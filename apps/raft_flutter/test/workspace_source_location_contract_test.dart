@@ -838,6 +838,9 @@ void main() {
         );
         await frames(tester, () {});
         await tester.pumpWidget(const SizedBox());
+        // The fixture owns the session, which now outlives its last page.
+        // Retire it before the widget test checks for pending timers.
+        w.dispose();
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
       },
