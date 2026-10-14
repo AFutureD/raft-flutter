@@ -4,7 +4,7 @@
 // original; neighbours preload one image each side.
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' show Tristate;
+import 'dart:ui' show GestureSettings, Tristate;
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -1005,6 +1005,309 @@ void main() {
         expect(_counter(tester), '1 / 3');
       },
     );
+  });
+
+  // Two fingers on the picture are a pinch, whatever the timing: the zoom claims
+  // the gesture as soon as the second finger lands unless the page drag already
+  // won. Real fingers never land together and never move symmetrically; each
+  // case below lost to the page swipe (or the drag-down dismiss) before.
+  group('pinch beats the page swipe', () {
+    // An Android phone: the framework's slop is the system touch slop (8 dp), so
+    // a drag claims the gesture after 8 dp while the span of a pinch needs 18.
+    void androidSlop(WidgetTester tester) {
+      tester.view.gestureSettings = const GestureSettings(
+        physicalTouchSlop: 8,
+        physicalDoubleTapSlop: 100,
+      );
+    }
+
+    // Moves each finger by its total over [steps] events, 8 ms apart.
+    Future<void> glide(
+      WidgetTester tester,
+      Map<TestGesture, Offset> total, {
+      int steps = 10,
+    }) async {
+      for (var i = 0; i < steps; i++) {
+        for (final e in total.entries) {
+          await e.key.moveBy(e.value / steps.toDouble());
+        }
+        await tester.pump(const Duration(milliseconds: 8));
+      }
+    }
+
+    Offset stage(WidgetTester tester) =>
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage')));
+
+    void expectPinched(WidgetTester tester, {int page = 0, String? why}) {
+      final viewer = _viewer(tester);
+      expect(viewer.zoomed, isTrue, reason: '$why: the picture zoomed');
+      expect(_counter(tester), '${page + 1} / 3', reason: '$why: no paging');
+      expect(
+        viewer.pages.page,
+        page.toDouble(),
+        reason: '$why: the pager never moved',
+      );
+    }
+
+    for (final (label, size) in [('phone', _phone), ('desktop', _wide)]) {
+      group(label, () {
+        testWidgets('both fingers land together and spread', (tester) async {
+          androidSlop(tester);
+          await _mount(tester, size: size, gallery: true);
+          await _open(tester, 0);
+          final c = stage(tester);
+          final a = await tester.startGesture(
+            c - const Offset(20, 0),
+            pointer: 1,
+          );
+          final b = await tester.startGesture(
+            c + const Offset(20, 0),
+            pointer: 2,
+          );
+          await glide(tester, {
+            a: const Offset(-60, 0),
+            b: const Offset(60, 0),
+          });
+          await a.up();
+          await b.up();
+          await _settle(tester, 8);
+          expectPinched(tester, why: 'simultaneous');
+        });
+
+        testWidgets('the first finger drifted 6 dp and keeps leading', (
+          tester,
+        ) async {
+          androidSlop(tester);
+          await _mount(tester, size: size, gallery: true);
+          await _open(tester, 0);
+          final c = stage(tester);
+          final a = await tester.startGesture(
+            c - const Offset(20, 0),
+            pointer: 1,
+          );
+          await glide(tester, {a: const Offset(-6, 0)}, steps: 3);
+          await tester.pump(const Duration(milliseconds: 80));
+          final b = await tester.startGesture(
+            c + const Offset(20, 0),
+            pointer: 2,
+          );
+          // The pinch is uneven: the first finger does most of the work.
+          await glide(tester, {
+            a: const Offset(-40, 0),
+            b: const Offset(12, 0),
+          });
+          await a.up();
+          await b.up();
+          await _settle(tester, 8);
+          expectPinched(tester, why: 'drift then second finger');
+        });
+
+        testWidgets('asymmetric: one finger still, the other moves 40 dp out', (
+          tester,
+        ) async {
+          androidSlop(tester);
+          await _mount(tester, size: size, gallery: true);
+          await _open(tester, 0);
+          final c = stage(tester);
+          final a = await tester.startGesture(
+            c - const Offset(20, 0),
+            pointer: 1,
+          );
+          await tester.pump(const Duration(milliseconds: 60));
+          final b = await tester.startGesture(
+            c + const Offset(20, 0),
+            pointer: 2,
+          );
+          await glide(tester, {b: const Offset(40, 0)});
+          await a.up();
+          await b.up();
+          await _settle(tester, 8);
+          expectPinched(tester, why: 'one finger still');
+        });
+
+        testWidgets('a pinch in on the middle page never moves the pager', (
+          tester,
+        ) async {
+          androidSlop(tester);
+          await _mount(tester, size: size, gallery: true);
+          await _open(tester, 1);
+          final c = stage(tester);
+          final a = await tester.startGesture(
+            c + const Offset(60, 0),
+            pointer: 1,
+          );
+          await tester.pump(const Duration(milliseconds: 40));
+          final b = await tester.startGesture(
+            c - const Offset(60, 0),
+            pointer: 2,
+          );
+          // The picture is at fit, so it stays at fit, but the pager must not
+          // move.
+          await glide(tester, {
+            a: const Offset(-30, 0),
+            b: const Offset(30, 0),
+          });
+          await a.up();
+          await b.up();
+          await _settle(tester, 8);
+          expect(_counter(tester), '2 / 3');
+          expect(_viewer(tester).pages.page, 1.0);
+        });
+      });
+    }
+
+    testWidgets('a vertical pinch never starts the drag-down dismiss', (
+      tester,
+    ) async {
+      androidSlop(tester);
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final c = stage(tester);
+      // The dismiss moves the stage through the first Transform under it.
+      double dismissDy() => tester
+          .widget<Transform>(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('media-dismiss')),
+                  matching: find.byType(Transform),
+                )
+                .first,
+          )
+          .transform
+          .getTranslation()
+          .y;
+      final a = await tester.startGesture(c - const Offset(0, 20), pointer: 1);
+      await tester.pump(const Duration(milliseconds: 60));
+      final b = await tester.startGesture(c + const Offset(0, 20), pointer: 2);
+      await glide(tester, {b: const Offset(0, 60)});
+      expect(dismissDy(), 0, reason: 'the stage never follows the fingers');
+      await a.up();
+      await b.up();
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
+      expectPinched(tester, why: 'vertical pinch');
+      expect(dismissDy(), 0);
+    });
+
+    testWidgets('the thumbnail stand-in: drift and asymmetric pinches win', (
+      tester,
+    ) async {
+      androidSlop(tester);
+      final gate = Completer<void>();
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: true,
+        imageSize: const Size(1200, 800),
+        thumbnails: true,
+        hold: gate,
+      );
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final c = stage(tester);
+      for (final asymmetric in [false, true]) {
+        viewer.zoomFor(0).value = Matrix4.identity();
+        await tester.pump();
+        final a = await tester.startGesture(
+          c - const Offset(20, 0),
+          pointer: 1,
+        );
+        if (!asymmetric) {
+          await glide(tester, {a: const Offset(-6, 0)}, steps: 3);
+        }
+        await tester.pump(const Duration(milliseconds: 80));
+        final b = await tester.startGesture(
+          c + const Offset(20, 0),
+          pointer: 2,
+        );
+        await glide(tester, {
+          if (!asymmetric) a: const Offset(-40, 0),
+          b: Offset(asymmetric ? 40 : 12, 0),
+        });
+        await a.up();
+        await b.up();
+        await _settle(tester, 4);
+        expectPinched(tester, why: 'stand-in asymmetric=$asymmetric');
+      }
+      gate.complete();
+      await _settle(tester, 8);
+    });
+
+    testWidgets('a pinch lifted one finger at a time keeps its zoom and the '
+        'next one-finger drag does not page', (tester) async {
+      androidSlop(tester);
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final c = stage(tester);
+      final a = await tester.startGesture(c - const Offset(20, 0), pointer: 1);
+      final b = await tester.startGesture(c + const Offset(20, 0), pointer: 2);
+      await glide(tester, {a: const Offset(-20, 0), b: const Offset(60, 0)});
+      await a.up();
+      // The remaining finger keeps panning the picture, never the pages.
+      await glide(tester, {b: const Offset(-80, 0)});
+      await b.up();
+      await _settle(tester, 8);
+      expectPinched(tester, why: 'one finger lifted first');
+      // Zoomed, a one-finger drag is the picture's, never the pager's.
+      final pan = await tester.startGesture(c);
+      await glide(tester, {pan: const Offset(-100, 0)}, steps: 10);
+      await pan.up();
+      await _settle(tester, 8);
+      expectPinched(tester, why: 'one finger pans the zoomed picture');
+      expect(_counter(tester), '1 / 3');
+    });
+
+    testWidgets('a second finger landing mid-swipe does not stick the pager', (
+      tester,
+    ) async {
+      androidSlop(tester);
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final c = stage(tester) + const Offset(60, 0);
+      final a = await tester.startGesture(c, pointer: 1);
+      await glide(tester, {a: const Offset(-60, 0)}, steps: 6);
+      expect(viewer.pages.page, greaterThan(0), reason: 'the swipe committed');
+      final b = await tester.startGesture(c - const Offset(120, 0), pointer: 2);
+      await glide(tester, {b: const Offset(-30, 0)}, steps: 4);
+      await a.up();
+      await b.up();
+      await _settle(tester, 12);
+      final page = viewer.pages.page!;
+      expect(page, page.roundToDouble(), reason: 'settled on a page');
+      expect(viewer.zoomed, isFalse, reason: 'a committed swipe is not fought');
+      // The pager answers the next swipe.
+      await tester.dragFrom(c, const Offset(-250, 0));
+      await _settle(tester, 12);
+      expect(viewer.pages.page, page + 1);
+    });
+
+    testWidgets('one finger at fit still pages, however slowly', (
+      tester,
+    ) async {
+      androidSlop(tester);
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final c = stage(tester);
+      final a = await tester.startGesture(c + const Offset(100, 0));
+      await glide(tester, {a: const Offset(-220, 0)}, steps: 40);
+      await a.up();
+      await _settle(tester, 12);
+      expect(_counter(tester), '2 / 3');
+      expect(viewer.zoomed, isFalse);
+    });
+
+    testWidgets('one finger drag down at fit still dismisses', (tester) async {
+      androidSlop(tester);
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final a = await tester.startGesture(stage(tester));
+      await glide(tester, {a: const Offset(4, 160)}, steps: 20);
+      await a.up(timeStamp: const Duration(seconds: 3));
+      await _settle(tester, 10);
+      expect(find.byType(MediaBrowser), findsNothing);
+    });
   });
 
   group('preloading', () {

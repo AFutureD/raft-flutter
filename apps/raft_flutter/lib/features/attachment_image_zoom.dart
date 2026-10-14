@@ -152,8 +152,16 @@ ImageZoomState zoomImageAround(
 
 /// The scale recognizer of the surface. At fit scale a single pointer never
 /// claims the gesture (the PageView's drag takes it, however fast the flick);
-/// two pointers (pinch) or any pointer while zoomed in do. Trackpad pan-zoom
-/// is handled by the surface itself.
+/// two pointers (pinch) or any pointer while zoomed in do. Two fingers are a
+/// pinch from the moment the second one lands: the recognizer claims the
+/// gesture right then, without waiting for the span or focal slop, so the page
+/// swipe and the drag-down dismiss (which would otherwise win as soon as one
+/// finger drifts past the touch slop, 8 dp on Android, while a pinch needs an
+/// 18 dp span change) yield, like the system Photos app.
+/// A drag that already won (the first finger moved past its slop alone) keeps
+/// the gesture: this recognizer was rejected from that pointer, so it sees
+/// one pointer and never fights a committed swipe. Trackpad pan-zoom is
+/// handled by the surface itself.
 class ImageZoomScaleRecognizer extends ScaleGestureRecognizer {
   ImageZoomScaleRecognizer({
     required this.isZoomed,
@@ -164,6 +172,15 @@ class ImageZoomScaleRecognizer extends ScaleGestureRecognizer {
 
   @override
   bool isPointerPanZoomAllowed(PointerPanZoomStartEvent event) => false;
+
+  @override
+  void handleEvent(PointerEvent event) {
+    super.handleEvent(event);
+    // The second finger just landed on the picture: a pinch, claimed now.
+    if (event is PointerDownEvent && !isZoomed() && pointerCount >= 2) {
+      resolve(GestureDisposition.accepted);
+    }
+  }
 
   @override
   void resolve(GestureDisposition disposition) {
@@ -345,14 +362,25 @@ class ImageZoomSurfaceState extends State<ImageZoomSurface>
     _lastTapExpiry = null;
   }
 
+  /// The pinch claims the gesture the moment the second finger lands, so the
+  /// zoom is announced (phone: the chrome gets out of the way) once the span
+  /// actually changes, not for two fingers merely resting on the picture.
+  bool _zoomAnnounced = false;
+
   void _scaleStart(ScaleStartDetails details) {
     _stopAnimation();
-    if (details.pointerCount > 1) widget.onZoomGesture?.call();
+    _zoomAnnounced = false;
     _gestureStart = imageZoomStateOf(widget.controller.value);
     _gestureFocal = details.localFocalPoint;
   }
 
   void _scaleUpdate(ScaleUpdateDetails details) {
+    if (!_zoomAnnounced &&
+        details.pointerCount > 1 &&
+        (details.scale - 1).abs() > 0.02) {
+      _zoomAnnounced = true;
+      widget.onZoomGesture?.call();
+    }
     final scale = _gestureStart.scale * details.scale;
     final zoomedAround = zoomImageAround(
       _gestureStart,

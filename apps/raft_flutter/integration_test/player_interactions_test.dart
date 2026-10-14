@@ -6,6 +6,7 @@
 // test on the device cannot do itself: Android's back key and back swipe, the
 // screen recording of the close animation, the system save dialog.
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1406,6 +1407,181 @@ void main() {
     final size = t.getSize(browser);
     return Offset(size.width / 2, size.height - 4);
   }
+
+  // Two real fingers (kernel-level multi-touch injected by the host runner, MT
+  // protocol B), at fit scale on the first of three pictures: the pinch must zoom
+  // and the pager must stay on the page, whatever the timing of the fingers.
+  scenario(
+    'browser P1: a real two-finger pinch at fit scale zooms and never pages (simultaneous, late second finger with drift, asymmetric, vertical)',
+    (tester) async {
+      await openBandBrowser(tester, [bandA, bandB, bandC], 'Preview b0.jpg');
+      final results = <String, List<Map<String, Object?>>>{};
+      final failures = <String>[];
+      for (final variant in [
+        'simultaneous',
+        'late-drift',
+        'asymmetric',
+        'vertical',
+      ]) {
+        for (var trial = 0; trial < 3; trial++) {
+          final b = browserOf(tester);
+          b.zoomFor(0).value = Matrix4.identity();
+          if (b.index != 0) b.goTo(0);
+          await tester.pump(const Duration(milliseconds: 900));
+          final centre = tester.getCenter(
+            find.byKey(const ValueKey('viewer-stage')),
+          );
+          final ratio = tester.view.devicePixelRatio;
+          // The farthest the pager left the page while the fingers were down: a
+          // swipe that won shows here even when it springs back afterwards.
+          var peak = 0.0;
+          void watch() => peak = math.max(peak, (b.pages.page ?? 0).abs());
+          b.pages.position.addListener(watch);
+          await lab.host(
+            tester,
+            'pinch:$variant:${(centre.dx * ratio).round()},${(centre.dy * ratio).round()},$ratio',
+          );
+          await tester.pump(const Duration(milliseconds: 700));
+          b.pages.position.removeListener(watch);
+          final scale = b.zoomFor(0).value.getMaxScaleOnAxis();
+          final row = <String, Object?>{
+            'scale': scale,
+            'index': b.index,
+            'page': b.pages.page,
+            'peakPageOffset': double.parse(peak.toStringAsFixed(3)),
+            'zoomed': b.zoomed,
+          };
+          results.putIfAbsent(variant, () => []).add(row);
+          report('pinch-$variant-$trial', row);
+          if (!(b.zoomed && scale > 1.2 && b.pages.page == 0.0)) {
+            failures.add('$variant#$trial');
+          }
+          await lab.host(tester, 'shot:pinch-$variant-$trial');
+        }
+      }
+      // The committed swipe: the first finger moved past the touch slop alone, so
+      // the pager keeps the gesture. It must settle on a page and not stay stuck.
+      for (var trial = 0; trial < 2; trial++) {
+        final b = browserOf(tester);
+        b.zoomFor(0).value = Matrix4.identity();
+        if (b.index != 0) b.goTo(0);
+        await tester.pump(const Duration(milliseconds: 900));
+        final centre = tester.getCenter(
+          find.byKey(const ValueKey('viewer-stage')),
+        );
+        final ratio = tester.view.devicePixelRatio;
+        await lab.host(
+          tester,
+          'pinch:late-committed:${(centre.dx * ratio).round()},${(centre.dy * ratio).round()},$ratio',
+        );
+        await tester.pump(const Duration(milliseconds: 900));
+        final page = b.pages.page!;
+        report('pinch-late-committed-$trial', {
+          'scale': b.zoomFor(0).value.getMaxScaleOnAxis(),
+          'index': b.index,
+          'page': page,
+          'zoomed': b.zoomed,
+        });
+        expect(
+          page,
+          page.roundToDouble(),
+          reason: 'late-committed#$trial: the pager settled on a page',
+        );
+      }
+      final slop = tester.view.gestureSettings.physicalTouchSlop;
+      report('pinch-device-slop', {
+        'physicalTouchSlop': slop,
+        'dpr': tester.view.devicePixelRatio,
+      });
+
+      // Controls (one finger, real `input swipe`): unchanged by the fix.
+      Future<void> swipe(
+        double x1,
+        double y1,
+        double x2,
+        double y2,
+        int ms,
+      ) async {
+        final ratio = tester.view.devicePixelRatio;
+        String px(double v) => '${(v * ratio).round()}';
+        await lab.host(
+          tester,
+          'swipe:${px(x1)},${px(y1)},${px(x2)},${px(y2)},$ms',
+        );
+        await tester.pump(const Duration(milliseconds: 900));
+      }
+
+      final rect = tester.getRect(find.byKey(const ValueKey('viewer-stage')));
+      final b = browserOf(tester);
+      b.zoomFor(0).value = Matrix4.identity();
+      if (b.index != 0) b.goTo(0);
+      await tester.pump(const Duration(milliseconds: 900));
+      await swipe(
+        rect.width * .8,
+        rect.center.dy,
+        rect.width * .2,
+        rect.center.dy,
+        200,
+      );
+      report('control-swipe-at-fit', {'index': b.index, 'zoomed': b.zoomed});
+      expect(b.index, 1, reason: 'one finger at fit scale still pages');
+      b.goTo(0);
+      await tester.pump(const Duration(milliseconds: 900));
+      // Zoomed by a real pinch; then one finger pans the picture.
+      final pinchAt = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
+      final dpr = tester.view.devicePixelRatio;
+      await lab.host(
+        tester,
+        'pinch:simultaneous:${(pinchAt.dx * dpr).round()},${(pinchAt.dy * dpr).round()},$dpr',
+      );
+      await tester.pump(const Duration(milliseconds: 900));
+      final tx = b.zoomFor(0).value.storage[12];
+      await swipe(
+        rect.width * .8,
+        rect.center.dy,
+        rect.width * .4,
+        rect.center.dy,
+        300,
+      );
+      report('control-pan-zoomed', {
+        'index': b.index,
+        'zoomed': b.zoomed,
+        'scale': b.zoomFor(0).value.getMaxScaleOnAxis(),
+        'txBefore': tx,
+        'txAfter': b.zoomFor(0).value.storage[12],
+      });
+      expect(b.index, 0, reason: 'zoomed, one finger pans instead of paging');
+      expect(
+        b.zoomFor(0).value.storage[12],
+        isNot(tx),
+        reason: 'the picture panned',
+      );
+      b.zoomFor(0).value = Matrix4.identity();
+      await tester.pump(const Duration(milliseconds: 900));
+      await swipe(
+        rect.center.dx,
+        rect.top + rect.height * .3,
+        rect.center.dx + 10,
+        rect.top + rect.height * .8,
+        200,
+      );
+      report('control-dismiss', {'closed': browser.evaluate().isEmpty});
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(
+        browser.evaluate(),
+        isEmpty,
+        reason: 'one finger down closes the viewer',
+      );
+      expect(
+        failures,
+        isEmpty,
+        reason: 'pinches that did not zoom, or paged: $failures',
+      );
+      await shutdown(tester);
+    },
+  );
 
   scenario('browser B1: every real tap on the stage hides and shows the top bar and the bottom band: picture, backdrop, caption expanded, after paging and zoom', (tester) async {
     await openBandBrowser(tester, [bandA, bandB, bandC], 'Preview b0.jpg');
