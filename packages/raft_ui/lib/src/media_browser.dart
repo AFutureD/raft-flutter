@@ -6,7 +6,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'attachment_lightbox.dart' show RaftLightboxStageInset;
 import 'design_primitives.dart' show RaftInteractive;
 import 'icons.dart';
 import 'large_content_viewer.dart';
@@ -712,8 +711,10 @@ class _RaftMediaDismissibleState extends State<RaftMediaDismissible>
 /// system bars, with two chrome layers that fade together on a tap (the host
 /// owns [chrome]): the top bar (back, title and sub-line, counter, actions)
 /// and the bottom band (optional caption, then the strip). Landscape drops the
-/// bottom band. The stage keeps symmetrical room for both bands
-/// ([RaftLightboxStageInset]) so toggling the chrome never moves the picture.
+/// bottom band. The stage reports what the bars cover
+/// ([RaftMediaChromeInsets]): an image fits between the top bar and the bottom
+/// band while the chrome shows and fills the stage while it is hidden, gliding
+/// between the two.
 class RaftMediaImmersiveShell extends StatefulWidget {
   const RaftMediaImmersiveShell({
     super.key,
@@ -760,6 +761,25 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
   /// Drag-to-dismiss progress (0..1): fades the scrim and the chrome.
   final progress = ValueNotifier<double>(0);
 
+  /// The top bar's and the bottom band's rendered extents (the bar grows with
+  /// wrapped text at large sizes); null until laid out.
+  double? _barExtent, _contentExtent;
+
+  void _measured({double? bar, double? content}) {
+    if ((bar == null || bar == _barExtent) &&
+        (content == null || content == _contentExtent)) {
+      return;
+    }
+    // A layout change arrives during the frame: rebuild after it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _barExtent = bar ?? _barExtent;
+        _contentExtent = content ?? _contentExtent;
+      });
+    });
+  }
+
   @override
   void dispose() {
     progress.dispose();
@@ -774,11 +794,17 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     final topBar = raftMediaTopBarRow + safe.top;
     final hasStrip = widget.strip != null && !landscape;
     final hasCaption = widget.caption != null && !landscape;
-    final bottomBand =
-        safe.bottom +
-        (hasCaption ? _captionHeight(context) : 0) +
-        (hasStrip ? raftMediaStripBand + 8 : 0);
-    final inset = math.max(topBar, bottomBand);
+    // Where the visible part of the bottom band starts: the caption and the
+    // strip stack above 8 dp and the system bar (the gradient above them is
+    // only a fade, the picture may run under it). The caption is two lines at
+    // the current text size; the rendered band replaces this estimate once laid
+    // out (an expanded caption, a wrapped line).
+    final bottomBand = hasCaption || hasStrip
+        ? safe.bottom +
+              8 +
+              (hasCaption ? _captionHeight(context) : 0) +
+              (hasStrip ? raftMediaStripBand : 0)
+        : safe.bottom;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -801,7 +827,6 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
             context,
             safe: safe,
             topBar: topBar,
-            inset: inset,
             bottomBand: bottomBand,
             hasStrip: hasStrip,
             hasCaption: hasCaption,
@@ -815,7 +840,6 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     BuildContext context, {
     required EdgeInsets safe,
     required double topBar,
-    required double inset,
     required double bottomBand,
     required bool hasStrip,
     required bool hasCaption,
@@ -927,7 +951,10 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
           ],
         ),
       );
-      return RaftChrome(child: RaftLargeContentScope(child: bar));
+      return _ReportSize(
+        onSize: (size) => _measured(bar: size.height),
+        child: RaftChrome(child: RaftLargeContentScope(child: bar)),
+      );
     });
 
     final bottom = layer((context) {
@@ -961,7 +988,10 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
                   ],
                 ),
               ),
-        child: content,
+        child: _ReportSize(
+          onSize: (size) => _measured(content: size.height),
+          child: content,
+        ),
       );
     });
 
@@ -981,15 +1011,24 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
             onDragChanged: widget.onDismissDrag,
             child: ValueListenableBuilder<bool>(
               valueListenable: widget.chrome,
-              builder: (context, shown, child) => RaftMediaChromeInsets(
-                top: shown ? topBar : safe.top,
-                bottom: shown ? bottomBand : safe.bottom,
-                child: child!,
-              ),
-              child: RaftLightboxStageInset(
-                vertical: inset,
-                child: widget.child,
-              ),
+              builder: (context, shown, child) {
+                // A screen reader keeps the chrome on, and so the room for it.
+                final visible = shown || alwaysShown;
+                // Measured when it has been laid out, the estimate before.
+                final bar = _barExtent ?? topBar;
+                final band = _contentExtent == null
+                    ? bottomBand
+                    : (hasCaption || hasStrip)
+                    ? safe.bottom + 8 + _contentExtent!
+                    : safe.bottom;
+                return RaftMediaChromeInsets(
+                  visible: visible,
+                  top: visible ? bar : safe.top,
+                  bottom: visible ? band : safe.bottom,
+                  child: child!,
+                );
+              },
+              child: widget.child,
             ),
           ),
         ),
@@ -1000,24 +1039,67 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
   }
 }
 
+/// Reports the laid-out size of [child] (after the frame) whenever it changes.
+class _ReportSize extends StatefulWidget {
+  const _ReportSize({required this.onSize, required this.child});
+  final ValueChanged<Size> onSize;
+  final Widget child;
+  @override
+  State<_ReportSize> createState() => _ReportSizeState();
+}
+
+class _ReportSizeState extends State<_ReportSize> {
+  Size? _last;
+
+  void _report() {
+    if (!mounted) return;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || box.size == _last) return;
+    _last = box.size;
+    widget.onSize(box.size);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _report());
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _report());
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(child: widget.child),
+    );
+  }
+}
+
 /// What the phone chrome covers at the stage's top and bottom edge right now:
-/// the bars while they show, the system insets while they do not. A page that
-/// fills the whole stage (a video) keeps its own controls clear of it.
+/// the bars while they show ([visible]), the system insets while they do not.
+/// An image page fits (and pans) in the room between them ([imageRoom]); a page
+/// that fills the whole stage (a video) keeps its own controls clear of it.
 class RaftMediaChromeInsets extends InheritedWidget {
   const RaftMediaChromeInsets({
     super.key,
     required this.top,
     required this.bottom,
+    required this.visible,
     required super.child,
   });
   final double top, bottom;
+
+  /// The top bar and the bottom band are on screen.
+  final bool visible;
+
+  /// The edges an image keeps clear of: the bars while they show, nothing
+  /// (the full stage) while they are hidden.
+  EdgeInsets get imageRoom =>
+      visible ? EdgeInsets.only(top: top, bottom: bottom) : EdgeInsets.zero;
 
   static RaftMediaChromeInsets? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<RaftMediaChromeInsets>();
 
   @override
   bool updateShouldNotify(RaftMediaChromeInsets old) =>
-      top != old.top || bottom != old.bottom;
+      top != old.top || bottom != old.bottom || visible != old.visible;
 }
 
 /// Rebuilds from two listenables.

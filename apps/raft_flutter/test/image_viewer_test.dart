@@ -25,10 +25,17 @@ import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
+
 import 'flutter_test_config.dart' show leakDebt;
 
 final _png = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8V7uCgRTARJLqUQ2jGoaUBgC7qgJDBU0aZAAAAABJRU5ErkJggg==',
+);
+
+/// A 400x1600 PNG (a phone screenshot's proportions): taller than any phone
+/// stage, so it fits by height.
+final _tallPng = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAZAAAAZACAAAAAByTUuxAAAF+ElEQVR42u3cMQEAAAjDMPybBg39OBILvbcZAAAAAAAAAAAAAAAAAAAACJZXBBEEQQRBEEEQRBAEEQRBEEQQBBEEQQRBEEEQBEEEQRBBEEQQBBEEQRBEEAQRBEEEQRBBEARBvgcBAAAAAAAAAAAAAAAAAACAwlTfkwOCCIIggiCIIAgiCIIgiCAIIgiCCIIggiAIggiCIIIgiCAIIgiCIIggCCIIggiCIIIgCIIIQgkCAAAAAAAAAAAAAAAAAAAAham+JwcEEQRBBEEQQRBEEARBEEEQRBAEEQRBBEEQBBEEQQRBEEEQRBAEQRBBEEQQBBEEQQRBEAQRhBIEAAAAAAAAAAAAAAAAAAAAClN9Tw4IIgiCCIIggiCIIAiCIIIgiCAIIgiCCIIgCCIIggiCIIIgiCAIgiCCIIggCCIIggiCIAgiCCUIAAAAAAAAAAAAAAAAAAAAFKb6nhwQRBAEEQRBBEEQQRAEQQRBEEEQRBAEEQRBEEQQBBEEQQRBEEEQBEEEQRBBEEQQBBEEQRBEEEoQAAAAAAAAAAAAAAAAAAAAKEz1PTkgiCAIIgiCCIIggiAIggiCIIIgiCAIIgiCIIggCCIIggiCIIIgCIIIgiCCIIggCCIIgiCIIJQgAAAAAAAAAAAAAAAAAAAAUJjqe3JAEEEQRBAEEQRBBEEQBBEEQQRBEEEQRBAEQRBBEEQQBBEEQQRBEAQRBEEEQRBBEEQQBEEQQShBAAAAAAAAAAAAAAAAAAAAoDDV9+SAIIIgiCAIIgiCCIIgCCIIggiCIIIgiCAIgiCCIIggCCIIggiCIAgiCIIIgiCCIIggCIIgglCCAAAAAAAAAAAAAAAAAAAAQGGq78kBQQRBEEEQRBAEEQRBEEQQBBEEQQRBEEEQBEEEQRBBEEQQBBEEQRBEEAQRBEEEQRBBEARBBKEEAQAAAAAAAAAAAAAAAAAAgMJU35MDggiCIIIgiCAIIgiCIIggCCIIggiCIIIgCIIIgiCCIIggCCIIgiCIIAgiCIIIgiCCIAiCCEIJAgAAAAAAAAAAAAAAAAAAAIWpvicHBBEEQQRBEEEQRBAEQRBBEEQQBBEEQQRBEAQRBEEEQRBBEEQQBEEQQRBEEAQRBEEEQRAEEYQSBAAAAAAAAAAAAAAAAAAAAApTfU8OCCIIggiCIIIgiCAIgiCCIIggCCIIggiCIAgiCIIIgiCCIIggCIIggiCIIAgiCIIIgiAIIgglCAAAAAAAAAAAAAAAAAAAABSm+p4cEEQQBBEEQQRBEEEQBEEEQRBBEEQQBBEEQRBEEAQRBEEEQRBBEARBBEEQQRBEEAQRBEEQRBBKEAAAAAAAAAAAAAAAAAAAAChM9T05IIggCCIIggiCIIIgCIIIgiCCIIggCCIIgiCIIAgiCIIIgiCCIAiCCIIggiCIIAgiCIIgiCCUIAAAAAAAAAAAAAAAAAAAAFCY6ntyQBBBEEQQBBEEQQRBEAQRBEEEQRBBEEQQBEEQQRBEEAQRBEEEQRAEEQRBBEEQQRBEEARBEEEoQQAAAAAAAAAAAAAAAAAAAKAw1ffkgCCCIIggCCIIggiCIAgiCIIIgiCCIIggCIIggiCIIAgiCIIIgiAIIgiCCIIggiCIIAiCIIJQggAAAAAAAAAAAAAAAAAAAEBhqu/JAUEEQRBBEEQQBBEEQRBEEAQRBEEEQRBBEARBBEEQQRBEEAQRBEEQRBAEEQRBBEEQQRAEQQShBAEAAAAAAAAAAAAAAAAAAIDCVN+TA4IIgiCCIIggCCIIgiCIIAgiCIIIgiCCIAiCCIIggiCIIAgiCIIgiCAIIgiCCIIggiAIgghCCQIAAAAAAAAAAAAAAAAAAACFqb4nBwQRBEEEQRBBEEQQBEEQQRBEEAQRBEEEQRAEEQRBBEEQQRBEEARBEEEQRBAEEQRBBEEQBBGEEgQAAAAAAAAAAAAAAAAAAAAKU31PDggiCIIIgiCCIIggCIIggiCIIAgiCIIIgiAIIgiCCIIggiCIIAiCIIIgiCAIIgiCCIIgCCIIwQGfN2b0IGi/xgAAAABJRU5ErkJggg==',
 );
 
 /// A valid PNG whose bytes differ per [tag] (data after IEND is ignored by
@@ -70,6 +77,9 @@ class _Files extends AttachmentFiles {
   /// While set, originals and thumbnails report progress and wait for it.
   Completer<void>? hold;
 
+  /// Serves the tall screenshot instead of the 16x16 picture.
+  bool tall = false;
+
   /// Fails the full-size originals (not the thumbnails).
   bool failOriginals = false;
   final networkSaves = <String>[];
@@ -91,7 +101,10 @@ class _Files extends AttachmentFiles {
       onProgress?.call(10, 100);
       await gate.future;
     }
-    return pngFor(url.split('/').last);
+    final tag = url.split('/').last;
+    return tall
+        ? Uint8List.fromList([..._tallPng, ...utf8.encode('|$tag')])
+        : pngFor(tag);
   }
 
   @override
@@ -216,10 +229,16 @@ Future<_Rig> _mount(
   Size imageSize = const Size(16, 16),
   Completer<void>? hold,
   MediaMessageInfo? message,
+  bool tall = false,
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  if (textScale != 1) {
+    tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  }
   final root = Directory.systemTemp.createTempSync('raft-image-viewer');
   final out = Directory('${root.path}/out')..createSync();
   final cacheDir = Directory('${root.path}/cache')..createSync();
@@ -245,7 +264,9 @@ Future<_Rig> _mount(
     },
   ], expectedGeneration: w.ledger.generation);
   w.visibleIds['channel'] = {'m1'};
-  final files = _Files(out, gallery: gallery)..hold = hold;
+  final files = _Files(out, gallery: gallery)
+    ..hold = hold
+    ..tall = tall;
   final sharing = _Sharing(share);
   final toasts = RaftToastController();
   addTearDown(() async {
@@ -259,8 +280,10 @@ Future<_Rig> _mount(
   await tester.pumpWidget(
     MaterialApp(
       theme: raftTheme(RaftFamily.elegant),
-      builder: (context, child) =>
-          RaftToastHost(controller: toasts, child: child!),
+      builder: (context, child) => RaftToastHost(
+        controller: toasts,
+        child: textScale == 1 ? child! : RaftTextScaling(child: child!),
+      ),
       home: Scaffold(
         body: SingleChildScrollView(
           child: Column(
@@ -960,7 +983,7 @@ void main() {
         );
       }
       expect(
-        tester.getRect(find.byType(ImageZoomSurface)),
+        tester.getRect(find.byKey(const ValueKey('viewer-pages'))),
         const Rect.fromLTWH(0, 0, 390, 844),
         reason: 'the stage runs edge to edge under the bars',
       );
@@ -970,7 +993,9 @@ void main() {
     });
 
     testWidgets('a tap toggles the chrome once the double-tap window has '
-        'passed; the picture never moves', (tester) async {
+        'passed; the picture re-centres in the room the chrome leaves', (
+      tester,
+    ) async {
       await _mount(tester, size: _phone, gallery: true, message: _alice);
       await _open(tester, 0);
       final viewer = _viewer(tester);
@@ -989,10 +1014,12 @@ void main() {
       expect(viewer.chrome.value, isFalse);
       await tester.pump(const Duration(milliseconds: 200));
       expect(_chromeOpacity(tester), 0);
-      expect(
-        tester.getRect(find.byKey(const ValueKey('attachment-image-img0'))),
-        before,
+      // Hidden: centred in the whole stage; shown: centred between the bars.
+      final hidden = tester.getRect(
+        find.byKey(const ValueKey('attachment-image-img0')),
       );
+      expect(hidden.center.dy, closeTo(844 / 2, 1));
+      expect(before.center.dy, lessThan(hidden.center.dy));
       await tester.tapAt(at);
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 200));
@@ -1002,6 +1029,223 @@ void main() {
         tester.getRect(find.byKey(const ValueKey('attachment-image-img0'))),
         before,
       );
+    });
+
+    group('a tall image fits between the bars', () {
+      const tall = Size(600, 2400);
+      Rect picture(WidgetTester tester) =>
+          tester.getRect(find.byKey(const ValueKey('attachment-image-img0')));
+
+      Future<_Rig> open(
+        WidgetTester tester, {
+        Size size = _phone,
+        MediaMessageInfo? message = _alice,
+        int count = 3,
+        double textScale = 1,
+      }) async {
+        final rig = await _mount(
+          textScale: textScale,
+          tester,
+          size: size,
+          gallery: true,
+          count: count,
+          imageSize: tall,
+          message: message,
+          tall: true,
+        );
+        await _open(tester, 0);
+        await _settle(tester, 6);
+        return rig;
+      }
+
+      testWidgets('chrome visible: above the caption and the strip, below '
+          'the top bar; hidden: the whole stage', (tester) async {
+        await open(tester);
+        final viewer = _viewer(tester);
+        final band = tester
+            .getTopLeft(find.byKey(const ValueKey('media-caption')))
+            .dy;
+        final bar = tester
+            .getBottomLeft(find.text('Alice Chen · Oct 13, 2:02 PM'))
+            .dy;
+        final shown = picture(tester);
+        expect(
+          shown.bottom,
+          lessThanOrEqualTo(band),
+          reason: 'under the caption',
+        );
+        expect(
+          shown.top,
+          greaterThanOrEqualTo(bar),
+          reason: 'under the top bar',
+        );
+        expect(
+          shown.height,
+          greaterThan(500),
+          reason: 'still as large as it can be',
+        );
+        viewer.chrome.value = false;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        final hidden = picture(tester);
+        expect(hidden.top, closeTo(0, 1));
+        expect(hidden.bottom, closeTo(_phone.height, 1));
+        // And back.
+        viewer.chrome.value = true;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(picture(tester), shown);
+      });
+
+      testWidgets('the change between the two glides, never jumps', (
+        tester,
+      ) async {
+        await open(tester);
+        final viewer = _viewer(tester);
+        final before = picture(tester);
+        viewer.chrome.value = false;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        final mid = picture(tester);
+        expect(mid.height, greaterThan(before.height));
+        expect(mid.height, lessThan(_phone.height));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(picture(tester).height, closeTo(_phone.height, 1));
+      });
+
+      testWidgets('no caption: the strip alone bounds it; one image: only '
+          'the bars', (tester) async {
+        await open(tester, message: const MediaMessageInfo(sender: 'A'));
+        final strip = tester
+            .getTopLeft(find.byKey(const ValueKey('lightbox-thumbnails')))
+            .dy;
+        expect(picture(tester).bottom, lessThanOrEqualTo(strip));
+        await tester.pumpWidget(const SizedBox());
+        await open(tester, count: 1);
+        expect(find.byKey(const ValueKey('lightbox-thumbnails')), findsNothing);
+        final caption = tester
+            .getTopLeft(find.byKey(const ValueKey('media-caption')))
+            .dy;
+        expect(picture(tester).bottom, lessThanOrEqualTo(caption));
+        expect(picture(tester).bottom, greaterThan(caption - 80));
+      });
+
+      testWidgets('landscape: between the top bar and the gesture bar, no '
+          'strip', (tester) async {
+        await open(tester, size: const Size(844, 390));
+        expect(find.byKey(const ValueKey('lightbox-thumbnails')), findsNothing);
+        final bar = tester
+            .getBottomLeft(find.text('Alice Chen · Oct 13, 2:02 PM'))
+            .dy;
+        expect(picture(tester).top, greaterThanOrEqualTo(bar));
+        expect(picture(tester).bottom, lessThanOrEqualTo(390));
+      });
+
+      testWidgets('a screen reader keeps the chrome on, so the picture stays '
+          'between the bars', (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(accessibleNavigation: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        await open(tester);
+        _viewer(tester).chrome.value = false;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        final band = tester
+            .getTopLeft(find.byKey(const ValueKey('media-caption')))
+            .dy;
+        expect(picture(tester).bottom, lessThanOrEqualTo(band));
+      });
+
+      testWidgets('zoomed 2x with the chrome shown, every edge pans fully into '
+          'the room between the bars; hidden, into the whole stage', (
+        tester,
+      ) async {
+        await open(tester);
+        final viewer = _viewer(tester);
+        final surface = find.byType(ImageZoomSurface);
+        viewer.zoomStep(2);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        viewer.chrome.value = true; // the zoom hid it; a tap brings it back
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        final band = tester
+            .getTopLeft(find.byKey(const ValueKey('media-caption')))
+            .dy;
+        final bar =
+            raftMediaTopBarRow; // the top bar's row (no status bar here)
+        final centre = tester.getCenter(surface);
+        expect(viewer.zoomed, isTrue);
+        // Drag the picture up as far as it goes: its bottom edge meets the band.
+        await tester.dragFrom(centre, const Offset(0, -3000));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(picture(tester).bottom, closeTo(band, 1), reason: 'bottom edge');
+        // And down: its top edge meets the bar, none of it is stuck under it.
+        await tester.dragFrom(centre, const Offset(0, 6000));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(picture(tester).top, closeTo(bar, 1), reason: 'top edge');
+        // Chrome hidden: the whole stage.
+        viewer.chrome.value = false;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.dragFrom(centre, const Offset(0, -3000));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(picture(tester).bottom, closeTo(_phone.height, 1));
+        await tester.dragFrom(centre, const Offset(0, 6000));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(picture(tester).top, closeTo(0, 1));
+      });
+
+      testWidgets('large text (2.0x): the picture keeps clear of the grown top '
+          'bar and the grown caption band, zoomed edges too', (tester) async {
+        await open(tester, textScale: 2);
+        final viewer = _viewer(tester);
+        final caption = find.byKey(const ValueKey('media-caption'));
+        final band = tester.getTopLeft(caption).dy;
+        // The bar wraps its sender line: its rendered bottom, not 56 dp.
+        final bar =
+            tester.getRect(find.byType(RaftMediaImmersiveShell)).top +
+            tester.getBottomLeft(find.byType(RaftLargeContentScope).first).dy;
+        final shown = picture(tester);
+        expect(band, lessThan(_phone.height - 100), reason: 'the band grew');
+        expect(shown.bottom, lessThanOrEqualTo(band + .5));
+        expect(shown.top, greaterThanOrEqualTo(bar - .5));
+        // Zoomed, the edges meet the same lines.
+        viewer.zoomStep(2);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        viewer.chrome.value = true;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        final centre = tester.getCenter(find.byType(ImageZoomSurface));
+        await tester.dragFrom(centre, const Offset(0, -3000));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          picture(tester).bottom,
+          closeTo(band, 1.5),
+          reason: 'bottom edge',
+        );
+        await tester.dragFrom(centre, const Offset(0, 6000));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(picture(tester).top, closeTo(bar, 1.5), reason: 'top edge');
+      });
+
+      testWidgets('a zoomed image keeps its zoom when the chrome returns', (
+        tester,
+      ) async {
+        await open(tester);
+        final viewer = _viewer(tester);
+        viewer.zoomFor(0).value = Matrix4.identity()..scaleByDouble(2, 2, 1, 1);
+        await tester.pump();
+        viewer.chrome.value = false;
+        await tester.pump(const Duration(milliseconds: 400));
+        viewer.chrome.value = true;
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(viewer.zoomed, isTrue);
+        expect(viewer.zoomFor(0).value.getMaxScaleOnAxis(), closeTo(2, .01));
+      });
     });
 
     testWidgets('a double tap zooms and hides the chrome; the next tap '

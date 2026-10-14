@@ -681,33 +681,52 @@ class MediaBrowserState extends State<MediaBrowser>
         CustomSemanticsAction(label: raftText(context, 'Fit to screen')): () =>
             pageKeys[i]?.currentState?.surfaceKey.currentState?.resetZoom(),
       },
-      child: AttachmentLightboxImage(
-        key: key,
-        imageKey: ValueKey('attachment-image-${pageMeta['id']}'),
-        zoom: zoomFor(i),
-        acquire: () => w.acquireAttachmentImage(
-          original,
-          authorized: widget.authorized,
-          load: attachmentImageLoader(
-            controller: w,
-            files: widget.files,
-            metadata: pageMeta,
-            key: original,
+      child: _imageRoom(
+        context,
+        AttachmentLightboxImage(
+          key: key,
+          imageKey: ValueKey('attachment-image-${pageMeta['id']}'),
+          zoom: zoomFor(i),
+          acquire: () => w.acquireAttachmentImage(
+            original,
+            authorized: widget.authorized,
+            load: attachmentImageLoader(
+              controller: w,
+              files: widget.files,
+              metadata: pageMeta,
+              key: original,
+            ),
+            foreground: true,
           ),
-          foreground: true,
+          placeholder: _placeholder(i),
+          previewFailed: i == widget.initialIndex && widget.openerPreviewFailed,
+          title: pageItem.filename,
+          transferTotalHint: pageItem.sizeBytes,
+          imageSize: pageItem.pixelSize,
+          settledBefore: _settledPages.contains(i),
+          onReady: () => _pageReady(i),
+          heroTag: MediaBrowser.heroTagFor(pageItem.id),
+          closeOnTapOutside: !widget.page,
+          onTap: widget.page ? toggleChrome : null,
+          onZoomGesture: widget.page ? () => chrome.value = false : null,
         ),
-        placeholder: _placeholder(i),
-        previewFailed: i == widget.initialIndex && widget.openerPreviewFailed,
-        title: pageItem.filename,
-        transferTotalHint: pageItem.sizeBytes,
-        imageSize: pageItem.pixelSize,
-        settledBefore: _settledPages.contains(i),
-        onReady: () => _pageReady(i),
-        heroTag: MediaBrowser.heroTagFor(pageItem.id),
-        closeOnTapOutside: !widget.page,
-        onTap: widget.page ? toggleChrome : null,
-        onZoomGesture: widget.page ? () => chrome.value = false : null,
       ),
+    );
+  }
+
+  /// An image page on a phone fits, and pans when zoomed, in the room between
+  /// the top bar and the bottom band while the chrome shows (the whole stage
+  /// while it is hidden), gliding between the two like the chrome fades.
+  Widget _imageRoom(BuildContext context, Widget page) {
+    final insets = RaftMediaChromeInsets.maybeOf(context);
+    if (insets == null) return page;
+    return AnimatedPadding(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      padding: insets.imageRoom,
+      child: page,
     );
   }
 
