@@ -723,8 +723,8 @@ class MediaBrowserState extends State<MediaBrowser>
     return AnimatedPadding(
       duration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
-          : const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
+          : RaftScale.defaultTransitionDuration,
+      curve: RaftScale.defaultTransitionCurve,
       padding: insets.imageRoom,
       child: page,
     );
