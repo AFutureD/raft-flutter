@@ -1461,6 +1461,40 @@ void main() {
     await shutdown(tester);
   });
 
+  scenario('browser B4: a tall image fits between the bars; the whole stage once the chrome is hidden', (tester) async {
+    await openBandBrowser(
+      tester,
+      [
+        const VideoClip('vp-band-tall', 'tall.jpg', 'tall.jpg', size: 100000, mime: 'image/jpeg', group: 'g', width: 1080, height: 2400, text: 'A tall picture with a caption'),
+        bandB,
+      ],
+      'Preview tall.jpg',
+    );
+    final image = find.byKey(const ValueKey('attachment-image-vp-band-tall'));
+    final strip = find.byKey(const ValueKey('lightbox-thumbnails'));
+    await lab.host(tester, 'record-start:viewer-bugs-tall');
+    await tester.pump(const Duration(milliseconds: 400));
+    final shown = tester.getRect(image);
+    final stripTop = tester.getTopLeft(strip).dy;
+    await lab.host(tester, 'shot:viewer-bugs-tall-1-shown');
+    report('viewer-bugs-tall', {'shown': '$shown', 'stripTop': stripTop});
+    expect(shown.top, greaterThan(80), reason: 'the top bar covers the picture');
+    expect(shown.bottom, lessThanOrEqualTo(stripTop + 1), reason: 'the band covers the picture');
+    await realTap(tester, bandBackdrop(tester));
+    await expectChrome(tester, false, 'tall: backdrop tap hides');
+    await tester.pump(const Duration(milliseconds: 400));
+    final hidden = tester.getRect(image);
+    await lab.host(tester, 'shot:viewer-bugs-tall-2-hidden');
+    report('viewer-bugs-tall-hidden', {'hidden': '$hidden'});
+    expect(hidden.height, greaterThan(shown.height), reason: 'hidden chrome: the picture grows to the stage');
+    await realTap(tester, stagePoint(tester));
+    await expectChrome(tester, true, 'tall: tap shows');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.getRect(image).height, closeTo(shown.height, 1), reason: 'back between the bars');
+    await lab.host(tester, 'record-stop');
+    await shutdown(tester);
+  });
+
   scenario('browser B3: landscape', (tester) async {
     addTearDown(() => lab.hostQuiet('rotate:0'));
     await openBandBrowser(tester, [bandA, bandB, bandC], 'Preview b0.jpg');
