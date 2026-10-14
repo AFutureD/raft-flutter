@@ -15,6 +15,7 @@ import '../data/workspace_controller.dart';
 import '../data/attachment_image_repository.dart';
 import '../platform/attachment_files.dart';
 import '../platform/native_sharing.dart';
+import '../platform/video_frame_probe.dart';
 import '../platform/system_bars.dart';
 import 'attachment_preview_dialog.dart';
 import 'attachment_html_preview.dart';
@@ -24,7 +25,7 @@ import 'attachment_preview_gate.dart';
 import 'inline_attachment_media.dart';
 import 'media_browser.dart';
 import 'media_items.dart';
-import 'media_video_page.dart' show MediaBrowserFlags;
+import 'media_video_page.dart' show MediaBrowserFlags, phoneMediaLayout;
 import 'private_route_guard.dart';
 
 bool _isSvgMime(String mime) =>
@@ -77,6 +78,7 @@ class AttachmentView extends StatefulWidget {
     this.galleryItems,
     this.sharing,
     this.mediaMessage,
+    this.frameProbe,
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
@@ -97,6 +99,10 @@ class AttachmentView extends StatefulWidget {
   /// Who sent the message, when and what it says, read when the viewer opens
   /// (the browser's `sender · time` sub-line and phone caption).
   final MediaMessageInfo Function()? mediaMessage;
+
+  /// Reads the first frame of a video without a server thumbnail (the
+  /// platform's by default; tests inject one).
+  final VideoFrameProbe? frameProbe;
   @override
   State<AttachmentView> createState() => _AttachmentViewState();
 }
@@ -130,6 +136,10 @@ class _AttachmentViewState extends State<AttachmentView> {
   /// opened is on screen (a Hero only for the tapped card: the same message
   /// can appear twice in a route, e.g. in a thread's parent).
   bool heroActive = false;
+
+  /// The poster of this attachment's video card (a phone card), for the viewer
+  /// that opens from it.
+  final videoPoster = ValueNotifier<ImageProvider?>(null);
   double devicePixelRatio = 1;
   bool exportReadyReported = false, opening = false;
   ModalRoute<void>? previewRoute;
@@ -493,6 +503,7 @@ class _AttachmentViewState extends State<AttachmentView> {
     }
     imageProvider = null;
     imagePresentation.dispose();
+    videoPoster.dispose();
     super.dispose();
   }
 
@@ -622,7 +633,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         }
       }
       if (!mounted || !current()) return;
-      if (MediaBrowserFlags.video &&
+      if (MediaBrowserFlags.videoPages(context) &&
           attachmentPreviewKind(widget.metadata) == 'video') {
         await openBrowser(page: page, current: current);
         return;
@@ -716,7 +727,15 @@ class _AttachmentViewState extends State<AttachmentView> {
         (RaftDensityScope.of(context) == RaftDensity.touch &&
             MediaQuery.sizeOf(context).shortestSide < 600);
     final hero = !MediaQuery.disableAnimationsOf(context);
-    if (hero && imageProvider != null) setState(() => heroActive = true);
+    final opener = imageProvider ?? videoPoster.value;
+    if (hero && opener != null) setState(() => heroActive = true);
+    // A tap on a phone's video card is a tap on Play: the viewer starts it.
+    final autoplay =
+        phone &&
+        start >= 0 &&
+        siblings[start]['id'] == widget.metadata['id'] &&
+        attachmentPreviewKind(widget.metadata) == 'video' &&
+        !isImage;
     late final ModalRoute<void> operationRoute;
     void close() {
       if (identical(previewRoute, operationRoute) && operationRoute.isCurrent) {
@@ -747,8 +766,9 @@ class _AttachmentViewState extends State<AttachmentView> {
             message: info,
             authorized: current,
             page: phone,
-            openerPlaceholder: imageProvider,
+            openerPlaceholder: opener,
             openerPreviewFailed: error != null,
+            autoplay: autoplay,
             progressRoute: attachmentDownloadProgressRoute,
             onNetworkSettings: kIsWeb
                 ? null
@@ -895,6 +915,10 @@ class _AttachmentViewState extends State<AttachmentView> {
         onOpenPreview: open,
         onDownload: download,
         onNetworkSettings: kIsWeb ? null : openNetworkSettings,
+        phone: phoneMediaLayout(context),
+        frameProbe: widget.frameProbe,
+        heroActive: heroActive,
+        posterListenable: videoPoster,
       );
     }
     if (!widget.exportMode && !isImage && kind == 'audio') {

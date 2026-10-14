@@ -331,6 +331,7 @@ class WorkspaceController extends ChangeNotifier {
     _attachmentImages?.trimIdle();
     _attachmentUrls.dropResolved();
     _playerSessions.trimStills();
+    _playerSessions.forgetFrames();
   }
 
   /// Borrowed editor controllers project messages but never own the session,

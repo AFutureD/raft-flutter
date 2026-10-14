@@ -1858,7 +1858,8 @@ class _RaftChatViewState extends State<RaftChatView>
     final media = [
       for (final a in all)
         if (raster(a) ||
-            (MediaBrowserFlags.video && attachmentPreviewKind(a) == 'video'))
+            (MediaBrowserFlags.videoPages(context) &&
+                attachmentPreviewKind(a) == 'video'))
           a,
     ];
     // Web MessageItem: images, then videos, then audio (each `space-y-2`),
@@ -1886,7 +1887,9 @@ class _RaftChatViewState extends State<RaftChatView>
         metadata: a,
         messageId: messageId,
         mediaMessage: mediaMessage(message),
-        galleryItems: MediaBrowserFlags.video && !pending ? media : null,
+        galleryItems: MediaBrowserFlags.videoPages(context) && !pending
+            ? media
+            : null,
       ),
     );
     return RaftAttachmentStack(

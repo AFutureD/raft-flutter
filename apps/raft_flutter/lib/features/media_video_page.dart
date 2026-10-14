@@ -27,7 +27,20 @@ abstract final class MediaBrowserFlags {
   static bool? override;
 
   static bool get video => override ?? _define;
+
+  /// Whether the browser pages through videos for the layout of [context]: a
+  /// phone always does (its video card has no player of its own, the viewer is
+  /// where a video plays), the other layouts follow the flag.
+  static bool videoPages(BuildContext context) =>
+      video || phoneMediaLayout(context);
 }
+
+/// A phone: a touch device whose short side is under 600 dp (also a phone held
+/// sideways). Its video cards show the poster only and open the viewer to play;
+/// a narrow desktop window is not a phone and keeps the inline player.
+bool phoneMediaLayout(BuildContext context) =>
+    RaftDensityScope.of(context) == RaftDensity.touch &&
+    MediaQuery.sizeOf(context).shortestSide < 600;
 
 /// A video up to this size prepares by itself once its page has rested; a
 /// larger one waits for the first Play (the cards' rule).
@@ -109,20 +122,28 @@ class MediaVideoStage extends ChangeNotifier {
 
   /// The page became the current one: take the live player over at once, or
   /// prepare after it has rested.
-  void enter() {
+  ///
+  /// [autoplay]: the page was opened to play (a tap on a phone's video card):
+  /// the player is prepared at once whatever the size and plays as soon as it
+  /// is ready.
+  void enter({bool autoplay = false}) {
     if (_disposed) return;
     isCurrent = true;
     _graceTimer?.cancel();
     _graceTimer = null;
     // A failed page shows its failure again; only Retry opens another stream.
     if (failure != null) return;
+    if (autoplay) playRequested = true;
     final held = hold;
     if (held != null && !held.orphaned && failure == null) {
       _rest();
+      if (autoplay && !opening && !playback.playing) unawaited(_play());
       return;
     }
     if (held != null) _drop();
-    if (sessions.isLive(key)) {
+    if (autoplay) {
+      unawaited(prepare());
+    } else if (sessions.isLive(key)) {
       // A card (or the grace of a page left a moment ago) has the player: the
       // same stream, no request.
       unawaited(prepare());
@@ -473,6 +494,8 @@ class MediaVideoPage extends StatefulWidget {
     required this.filename,
     required this.immersive,
     this.poster,
+    this.heroTag,
+    this.declaredSize,
     this.onSurfaceTap,
     this.controlsInset = 0,
     this.controlsVisible,
@@ -485,6 +508,13 @@ class MediaVideoPage extends StatefulWidget {
   /// Phone page: the whole stage, a tap toggles the chrome.
   final bool immersive;
   final ImageProvider? poster;
+
+  /// The card-to-viewer Hero: the picture (the card's poster flies, then the
+  /// player's picture is there) is the destination of the card's flight.
+  /// [declaredSize] is the video's pixel size from the message or a stored
+  /// read, used until the player knows the real one.
+  final Object? heroTag;
+  final Size? declaredSize;
   final VoidCallback? onSurfaceTap;
   final double controlsInset;
 
@@ -536,7 +566,43 @@ class _MediaVideoPageState extends State<MediaVideoPage> {
     super.dispose();
   }
 
-  Widget picture(AttachmentPlayer? p) {
+  /// The picture inside the card-to-viewer Hero, laid out at the video's own
+  /// shape (contain) so the flight lands on the picture, not on the stage.
+  Widget heroed(Widget picture) {
+    final tag = widget.heroTag;
+    if (tag == null) return picture;
+    final natural = stage.playback.videoSize ?? widget.declaredSize;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bound = constraints.biggest;
+        var box = bound;
+        if (natural != null &&
+            !natural.isEmpty &&
+            bound.isFinite &&
+            !bound.isEmpty) {
+          final scale = bound.width / natural.width < bound.height / natural.height
+              ? bound.width / natural.width
+              : bound.height / natural.height;
+          box = Size(natural.width * scale, natural.height * scale);
+        }
+        return Center(
+          child: SizedBox.fromSize(
+            size: box,
+            child: RaftMediaHero(
+              tag: tag,
+              image: widget.poster,
+              fit: BoxFit.contain,
+              child: picture,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget picture(AttachmentPlayer? p) => heroed(_picture(p));
+
+  Widget _picture(AttachmentPlayer? p) {
     // ds-allow: video stage is black by design (Web VideoPreviewBody)
     const black = ColoredBox(color: Color(0xFF000000));
     final poster = widget.poster == null

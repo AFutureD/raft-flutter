@@ -1,12 +1,16 @@
 import Cocoa
 import FlutterMacOS
 import CFNetwork
+import AVFoundation
+import ImageIO
 
 class MainFlutterWindow: NSWindow {
   private var interactionChannel: FlutterMethodChannel?
   private var titleBar: RaftTitleBar?
   private var proxyChannel: FlutterMethodChannel?
   private var windowChannel: FlutterMethodChannel?
+  private var videoFrameChannel: FlutterMethodChannel?
+  private let videoFrame = RaftVideoFrame()
   override func awakeFromNib() {
     // Do not restore an old fullscreen/Space state during background launch.
     isRestorable = false
@@ -66,6 +70,14 @@ class MainFlutterWindow: NSWindow {
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+
+    // First picture and shape of a video behind an http(s) URL (AVFoundation).
+    videoFrameChannel = FlutterMethodChannel(
+      name: "app.raft/video-frame",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    videoFrameChannel?.setMethodCallHandler { [videoFrame] call, result in
+      videoFrame.handle(call, result)
     }
 
     // The app draws the title strip (rail colours, no text) under the
@@ -313,5 +325,169 @@ final class RaftSystemProxy {
       pending.finish([])
       retained.release()
     }
+  }
+}
+
+// MARK: - First video frame (shared by iOS and macOS; keep both copies identical)
+
+/// Channel `app.raft/video-frame` (see lib/platform/video_frame_probe.dart): the
+/// first picture and the real shape of a video behind an http(s) URL, read with
+/// AVFoundation's own ranged requests (the container header and one key frame),
+/// never the whole file. `AVAssetImageGenerator` applies the track's preferred
+/// transform, so the picture is upright and the size is the displayed one.
+final class RaftVideoFrame {
+  private final class Job {
+    var cancelled = false
+    var finished = false
+    var generator: AVAssetImageGenerator?
+    var asset: AVURLAsset?
+    var timeout: DispatchWorkItem?
+  }
+
+  private let lock = NSLock()
+  private var jobs: [String: Job] = [:]
+  private let queue = DispatchQueue(label: "app.raft.video-frame")
+
+  func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+    switch call.method {
+    case "probe":
+      guard let args = call.arguments as? [String: Any],
+        let id = args["id"] as? String,
+        let text = args["url"] as? String,
+        let url = URL(string: text),
+        let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http"
+      else {
+        result(FlutterError(code: "failed", message: "Invalid video address.", details: nil))
+        return
+      }
+      let headers = (args["headers"] as? [String: String]) ?? [:]
+      let maxEdge = max(32, (args["maxEdge"] as? NSNumber)?.intValue ?? 640)
+      let timeout = max(1.0, Double((args["timeoutMs"] as? NSNumber)?.intValue ?? 20000) / 1000)
+      probe(id: id, url: url, headers: headers, maxEdge: maxEdge, timeout: timeout, result: result)
+    case "cancel":
+      if let id = (call.arguments as? [String: Any])?["id"] as? String { cancel(id) }
+      result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func cancel(_ id: String) {
+    lock.lock()
+    let job = jobs[id]
+    job?.cancelled = true
+    lock.unlock()
+    job?.asset?.cancelLoading()
+    job?.generator?.cancelAllCGImageGeneration()
+  }
+
+  private func probe(
+    id: String, url: URL, headers: [String: String], maxEdge: Int, timeout: TimeInterval,
+    result: @escaping FlutterResult
+  ) {
+    let job = Job()
+    lock.lock()
+    // A second request under the same id replaces the first.
+    let previous = jobs[id]
+    jobs[id] = job
+    lock.unlock()
+    previous?.cancelled = true
+    previous?.asset?.cancelLoading()
+
+    func finish(_ value: Any?) {
+      lock.lock()
+      if job.finished { lock.unlock(); return }
+      job.finished = true
+      if jobs[id] === job { jobs[id] = nil }
+      lock.unlock()
+      job.timeout?.cancel()
+      job.generator?.cancelAllCGImageGeneration()
+      job.asset?.cancelLoading()
+      DispatchQueue.main.async { result(value) }
+    }
+    func fail(_ code: String, _ message: String) {
+      finish(FlutterError(code: code, message: message, details: nil))
+    }
+
+    let options: [String: Any] = headers.isEmpty ? [:] : ["AVURLAssetHTTPHeaderFieldsKey": headers]
+    let asset = AVURLAsset(url: url, options: options.isEmpty ? nil : options)
+    job.asset = asset
+    let watchdog = DispatchWorkItem { fail("failed", "Timed out.") }
+    job.timeout = watchdog
+    queue.asyncAfter(deadline: .now() + timeout, execute: watchdog)
+
+    asset.loadValuesAsynchronously(forKeys: ["tracks", "duration", "playable"]) { [weak self] in
+      guard let self = self else { return }
+      if job.cancelled { fail("cancelled", "Cancelled."); return }
+      var error: NSError?
+      for key in ["tracks", "duration"] {
+        if asset.statusOfValue(forKey: key, error: &error) == .failed {
+          fail(RaftVideoFrame.code(of: error), "The video could not be read.")
+          return
+        }
+      }
+      guard let track = asset.tracks(withMediaType: .video).first else {
+        fail("failed", "No video track.")
+        return
+      }
+      let natural = track.naturalSize.applying(track.preferredTransform)
+      let width = Int(abs(natural.width).rounded()), height = Int(abs(natural.height).rounded())
+      guard width > 0, height > 0 else { fail("failed", "No video size."); return }
+      let t = track.preferredTransform
+      var degrees = Int((atan2(Double(t.b), Double(t.a)) * 180 / .pi).rounded())
+      degrees = ((degrees % 360) + 360) % 360
+      let seconds = CMTimeGetSeconds(asset.duration)
+      let durationMs = seconds.isFinite && seconds > 0 ? Int(seconds * 1000) : 0
+
+      let generator = AVAssetImageGenerator(asset: asset)
+      generator.appliesPreferredTrackTransform = true
+      generator.maximumSize = CGSize(width: maxEdge, height: maxEdge)
+      // The first sync sample is enough: no decode of anything before it.
+      generator.requestedTimeToleranceBefore = .positiveInfinity
+      generator.requestedTimeToleranceAfter = .positiveInfinity
+      job.generator = generator
+      if job.cancelled { fail("cancelled", "Cancelled."); return }
+      generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: .zero)]) {
+        _, image, _, status, failure in
+        if job.cancelled || status == .cancelled { fail("cancelled", "Cancelled."); return }
+        guard status == .succeeded, let image = image,
+          let data = RaftVideoFrame.jpeg(image, quality: 0.8)
+        else {
+          fail(RaftVideoFrame.code(of: failure as NSError?), "No picture.")
+          return
+        }
+        finish([
+          "jpeg": FlutterStandardTypedData(bytes: data),
+          "width": width,
+          "height": height,
+          "rotation": degrees,
+          "durationMs": durationMs,
+        ])
+      }
+    }
+  }
+
+  /// `expired` for a host that refused the signature (HTTP 401, 403, 410), else `failed`.
+  private static func code(of error: NSError?) -> String {
+    var current = error
+    while let e = current {
+      if e.domain == "CoreMediaErrorDomain" && (e.code == -12660 || e.code == -12661) { return "expired" }
+      if e.domain == AVFoundationErrorDomain && e.code == AVError.contentIsNotAuthorized.rawValue {
+        return "expired"
+      }
+      if e.domain == NSURLErrorDomain && e.code == NSURLErrorUserAuthenticationRequired { return "expired" }
+      current = e.userInfo[NSUnderlyingErrorKey] as? NSError
+    }
+    return "failed"
+  }
+
+  private static func jpeg(_ image: CGImage, quality: Double) -> Data? {
+    let data = NSMutableData()
+    guard
+      let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil)
+    else { return nil }
+    CGImageDestinationAddImage(
+      destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+    return CGImageDestinationFinalize(destination) ? data as Data : nil
   }
 }

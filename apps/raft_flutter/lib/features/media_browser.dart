@@ -9,6 +9,7 @@ import '../data/attachment_image_repository.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_files.dart';
 import '../platform/attachment_player.dart';
+import '../platform/attachment_stream.dart' show attachmentMediaKey;
 import '../platform/native_sharing.dart';
 import 'attachment_image_loader.dart';
 import 'attachment_preview_dialog.dart' show HdrDetector;
@@ -47,6 +48,7 @@ class MediaBrowser extends StatefulWidget {
     this.page = false,
     this.openerPlaceholder,
     this.openerPreviewFailed = false,
+    this.autoplay = false,
     this.progressRoute,
     this.onShowInMessage,
     this.onNetworkSettings,
@@ -74,6 +76,10 @@ class MediaBrowser extends StatefulWidget {
   /// original is ready.
   final ImageProvider? openerPlaceholder;
   final bool openerPreviewFailed;
+
+  /// The opening page is a video that was opened to play (a tap on a phone's
+  /// video card): it starts as soon as its player is ready.
+  final bool autoplay;
 
   /// The dialog that shows a picker download's progress.
   final AttachmentProgressRouteBuilder? progressRoute;
@@ -154,7 +160,7 @@ class MediaBrowserState extends State<MediaBrowser>
     chrome.addListener(_chromeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadThumbnails();
-      if (items[index].isVideo) stageFor(index).enter();
+      if (items[index].isVideo) stageFor(index).enter(autoplay: widget.autoplay);
       _watchStage();
     });
   }
@@ -863,6 +869,15 @@ class MediaBrowserState extends State<MediaBrowser>
     ].join(', ');
   }
 
+  /// The size a video was read to have (its first-frame read), when the
+  /// message does not say.
+  Size? _rememberedSize(int i) {
+    final shape = w.playerSessions.shapes[attachmentMediaKey(item(i))];
+    return shape == null
+        ? null
+        : Size(shape.width.toDouble(), shape.height.toDouble());
+  }
+
   Widget _videoPage(BuildContext context, int i) {
     final stage = stageFor(i);
     final chromeInsets = RaftMediaChromeInsets.maybeOf(context);
@@ -879,6 +894,8 @@ class MediaBrowserState extends State<MediaBrowser>
             filename: items[i].filename,
             immersive: widget.page,
             poster: _placeholder(i),
+            heroTag: MediaBrowser.heroTagFor(items[i].id),
+            declaredSize: items[i].pixelSize ?? _rememberedSize(i),
             onSurfaceTap: widget.page ? toggleChrome : null,
             controlsInset: widget.page ? (chromeInsets?.bottom ?? 0) : 0,
             controlsVisible: widget.page ? shown || _accessible : null,

@@ -7,8 +7,10 @@ import 'design_primitives.dart';
 import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
 import 'localization.dart';
+import 'media_browser.dart' show RaftMediaHero, raftMediaDuration;
 import 'recipe_surface.dart';
 import 'recipes/message_video_preview.g.dart';
+import 'text_scaling.dart';
 import 'video_controls.dart';
 import 'theme.dart';
 import 'tooltip.dart';
@@ -316,6 +318,212 @@ class _CardBox extends StatelessWidget {
         child: child,
       );
     },
+  );
+}
+
+/// The video card on a phone (no inline player): the poster at the video's own
+/// shape with a play button in the middle and the length in a corner. A tap
+/// anywhere on it opens the media viewer, which plays the video.
+///
+/// The box takes [aspectRatio] (width over height of the displayed picture;
+/// 16:9 while the shape is unknown) at the card's width, capped at
+/// [maxHeightFraction] of the screen height; a taller picture is cropped to
+/// fill (cover), never squeezed. Without a [poster] (none yet, or it could not
+/// be read) the box is a neutral placeholder, not black, and keeps the play
+/// button.
+///
+/// [heroTag] / [heroEnabled] put the picture on the card-to-viewer flight (see
+/// [RaftMediaHero]); the flight shows [poster] only, never a player.
+class RaftVideoPosterCard extends StatelessWidget {
+  const RaftVideoPosterCard({
+    super.key,
+    required this.filename,
+    this.poster,
+    this.aspectRatio,
+    this.duration,
+    this.loading = false,
+    this.onOpen,
+    this.heroTag,
+    this.heroEnabled = false,
+    this.maxHeightFraction = .6,
+  });
+  final String filename;
+  final ImageProvider? poster;
+
+  /// Width over height of the displayed picture, when known.
+  final double? aspectRatio;
+  final Duration? duration;
+
+  /// The upload is still running: a spinner instead of the play button.
+  final bool loading;
+  final VoidCallback? onOpen;
+  final Object? heroTag;
+  final bool heroEnabled;
+  final double maxHeightFraction;
+
+  /// The shape used while the real one is unknown.
+  static const defaultAspect = 16 / 9;
+
+  /// The card never grows wider than this (Web `max-w-[448px]`).
+  static const maxCardWidth = 448.0;
+
+  /// The box for a card [width] wide: the picture's shape, capped in height.
+  static Size boxFor(
+    double width,
+    double? aspectRatio, {
+    required double screenHeight,
+    double maxHeightFraction = .6,
+  }) {
+    final aspect = aspectRatio != null && aspectRatio.isFinite && aspectRatio > 0
+        ? aspectRatio
+        : defaultAspect;
+    final height = (width / aspect).roundToDouble();
+    return Size(width, height.clamp(1.0, screenHeight * maxHeightFraction));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context), rt = t.recipeTokens;
+    final s = RaftMessageVideoPreviewRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    );
+    final screen = MediaQuery.sizeOf(context);
+    final maxWidth = (screen.width - 112).clamp(0, maxCardWidth).toDouble();
+    final label = raftFormat(context, 'Play video {filename}', {
+      'filename': filename,
+    });
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : maxCardWidth;
+            final box = boxFor(
+              width,
+              aspectRatio,
+              screenHeight: screen.height,
+              maxHeightFraction: maxHeightFraction,
+            );
+            return SizedBox(
+              width: box.width,
+              height: box.height,
+              child: RaftInteractive(
+                key: const Key('inline-video-poster-card'),
+                onPressed: onOpen,
+                semanticLabel: label,
+                builder: (_, _) => RaftRecipeBox(
+                  key: const Key('inline-video'),
+                  style: s.root,
+                  tokens: rt,
+                  clip: true,
+                  child: _picture(context, t),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _picture(BuildContext context, RaftTokens t) {
+    final image = poster;
+    final Widget picture = image == null
+        ? ColoredBox(
+            key: const Key('inline-video-placeholder'),
+            color: t.colors['layer-canvas-muted']!,
+          )
+        // ignore: raft_lints/avoid_raw_image_decode -- The provider comes from an AttachmentImageRepository lease: already decoded at the card's size and owned by the repository.
+        : Image(
+            image: image,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            excludeFromSemantics: true,
+            errorBuilder: (_, _, _) => ColoredBox(
+              color: t.colors['layer-canvas-muted']!,
+            ),
+          );
+    final Widget stage = heroTag == null
+        ? picture
+        : RaftMediaHero(
+            tag: heroTag!,
+            image: image,
+            radius: RaftShapes.attachment(t),
+            fit: BoxFit.cover,
+            enabled: heroEnabled && image != null,
+            child: picture,
+          );
+    final length = duration;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        stage,
+        Center(
+          child: loading
+              ? const RaftSpinner(size: 24, inverse: true)
+              : const _PlayDisc(),
+        ),
+        if (length != null && length > Duration.zero)
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: RaftChrome(
+              child: DecoratedBox(
+                key: const Key('inline-video-duration'),
+                // ds-allow: a scrim over the video picture, white on black like the player's own chrome
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .62),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text(
+                    raftMediaDuration(length),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      height: 16 / 12,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The round play button over a poster.
+class _PlayDisc extends StatelessWidget {
+  const _PlayDisc();
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    key: const Key('inline-video-play'),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: .55),
+      shape: BoxShape.circle,
+    ),
+    child: const SizedBox(
+      width: 48,
+      height: 48,
+      child: Center(
+        child: RaftIcon(
+          RaftGlyph.play,
+          size: 22,
+          color: Colors.white,
+          filled: true,
+        ),
+      ),
+    ),
   );
 }
 

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-import '../data/attachment_image_repository.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_files.dart';
 import '../platform/attachment_player.dart';
@@ -13,8 +12,11 @@ import '../platform/attachment_player_factory.dart';
 import '../platform/attachment_player_sessions.dart';
 import '../platform/attachment_stream.dart';
 import '../platform/media_failure.dart';
-import 'attachment_image_loader.dart';
+import '../platform/video_frame_probe.dart';
+import '../platform/video_frame_scheduler.dart';
 import 'media_failure_text.dart';
+import 'media_browser.dart' show MediaBrowser;
+import 'video_card_poster.dart';
 
 /// Seams for suites that mount the real message rows without a decoder (the
 /// parity extension suite): the player handed to every inline card that has no
@@ -430,6 +432,11 @@ class InlineVideoAttachment extends StatefulWidget {
     this.onNetworkSettings,
     this.playerFactory,
     this.files,
+    this.phone = false,
+    this.frameProbe,
+    this.frameScheduler,
+    this.heroActive = false,
+    this.posterListenable,
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
@@ -438,6 +445,25 @@ class InlineVideoAttachment extends StatefulWidget {
 
   /// Fetches the poster (the server thumbnail); the shared client by default.
   final AttachmentFiles? files;
+
+  /// A phone: no inline player. The card is the poster at the video's own
+  /// shape with a play button and the length; a tap opens the viewer
+  /// ([onOpenPreview]), which plays.
+  final bool phone;
+
+  /// Reads the first frame of a video that has no server thumbnail (the
+  /// platform's by default) and the scheduler that limits those reads (the
+  /// app-wide one by default). Tests inject both.
+  final VideoFrameProbe? frameProbe;
+  final VideoFrameScheduler? frameScheduler;
+
+  /// The poster wears the card-to-viewer Hero while the viewer it opened is on
+  /// screen (a phone card only).
+  final bool heroActive;
+
+  /// Receives the poster's image provider whenever it changes (the viewer
+  /// stands it in for the video's first frame and flies it).
+  final ValueNotifier<ImageProvider?>? posterListenable;
 
   /// An optimistic (still uploading) attachment: no URL yet, spinner shown.
   final bool pending;
@@ -484,6 +510,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   bool get wantsVideo => true;
   @override
   bool get autoLoad {
+    if (widget.phone) return false;
     final size = metadata['sizeBytes'];
     return size is! num || size <= autoLoadBytes;
   }
@@ -497,73 +524,68 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   AttachmentFiles get files =>
       widget.files ?? (_ownFiles ??= AttachmentFiles());
 
-  /// The poster is the attachment's `thumbnail` rendition, loaded like an image
-  /// card's: persisted per account and counted in Settings > Storage, decoded
-  /// at the card's size, kept across rebuilds. Without a server thumbnail the
-  /// first decoded frame is the poster.
-  WorkspaceAttachmentImageLease? posterLease;
-  ImageProvider? posterImage;
+  /// The poster: the attachment's `thumbnail` rendition, else the video's own
+  /// first frame (see [VideoCardPoster]); also the shape of the card.
+  late final VideoCardPoster poster = VideoCardPoster(
+    controller: widget.controller,
+    metadata: () => widget.metadata,
+    channelId: () => channelId ?? '${metadata['channelId'] ?? ''}',
+    files: files,
+    authorized: () => current,
+    nearViewport: nearViewport,
+    probeOverride: widget.frameProbe,
+    scheduler: widget.frameScheduler,
+    onChanged: posterChanged,
+  );
 
-  /// The card never grows past this logical box (16:9, `maxWidth` 448).
+  /// The card never grows past this logical box on desktop (16:9, `maxWidth`
+  /// 448); a phone card takes the video's own shape.
   static const posterBox = Size(448, 252);
 
-  /// Binds the poster to the current metadata. A message restored without its
-  /// `thumbnailUrl` still finds a poster already on disk (nothing to fetch it
-  /// from, and nothing fetched twice).
-  void syncPoster() {
-    final id = metadata['id'];
-    if (id is! String || pending) return;
-    final key = AttachmentImageKey.fromMetadata(
-      scope: controller.attachmentImageScope,
-      channelId: channelId ?? '${metadata['channelId'] ?? ''}',
-      metadata: metadata,
-      rendition: 'thumbnail',
-      target: AttachmentDecodeTarget.box(
-        posterBox.width,
-        posterBox.height,
-        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-      ),
-    );
-    if (posterLease?.lease.key == key) return;
-    releasePoster();
-    final url = attachmentThumbnailUrl(metadata);
-    try {
-      final lease = controller.acquireAttachmentImage(
-        key,
-        authorized: () => current,
-        bestAvailable: true,
-        // Only the thumbnail: never the (video) original, whatever the
-        // status; no poster is a normal outcome.
-        load: (cancel) async {
-          if (url == null) throw const StaleAttachmentImage();
-          return await files.image(url, cancel: cancel);
-        },
-      );
-      posterLease = lease;
-      posterImage = lease.lease.value;
-      if (posterImage == null) {
-        unawaited(
-          lease.lease.ready.then<void>((provider) {
-            if (mounted && identical(posterLease, lease)) {
-              setState(() => posterImage = provider);
-            }
-          }, onError: (Object _) {}),
-        );
-      }
-    } catch (_) {
-      posterLease = null;
-    }
+  ImageProvider? announced;
+
+  void posterChanged() {
+    if (!mounted) return;
+    setState(() {});
+    announcePoster();
   }
 
-  void releasePoster() {
-    posterLease?.release();
-    posterLease = null;
-    posterImage = null;
+  /// Hands the viewer the poster, after the frame (a build is not the place to
+  /// notify listeners).
+  void announcePoster() {
+    final listenable = widget.posterListenable;
+    final image = poster.image;
+    if (listenable == null || identical(announced, image)) return;
+    announced = image;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(announced, image)) listenable.value = image;
+    });
   }
+
+  void syncPoster() {
+    if (widget.pending) return;
+    final screen = MediaQuery.sizeOf(context);
+    poster.sync(
+      // A phone card is as tall as the picture's shape allows, capped like the
+      // card: decode for the largest box it can have.
+      box: widget.phone
+          ? Size(posterBox.width, screen.height * .6)
+          : posterBox,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
+    announcePoster();
+  }
+
+  void releasePoster() => poster.release();
 
   @override
   void didUpdateWidget(InlineVideoAttachment oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.phone && !oldWidget.phone) {
+      // Became a phone layout: the player goes, the poster stays.
+      settleTimer?.cancel();
+      if (hold != null) unawaited(releasePlayer(PlayerRelease.hidden));
+    }
     syncPoster();
   }
 
@@ -664,6 +686,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
         !viewport.attached) {
       return;
     }
+    poster.gate();
     final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
     final bottom = top + box.size.height;
     final outside =
@@ -712,7 +735,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    releasePoster();
+    poster.dispose();
     unwatchViewport();
     if (active == this) active = null;
     super.dispose();
@@ -724,7 +747,8 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
 
   @override
   Widget build(BuildContext context) {
-    final poster = posterImage;
+    final picture = poster.image;
+    if (widget.phone) return buildPhoneCard(context, picture);
     return RaftTooltip(
       message: filename,
       child: RaftInlineVideo(
@@ -738,11 +762,11 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
             : still != null
             // ignore: raft_lints/avoid_raw_image_decode -- Paints the released player's still: a ui.Image captured from the video RepaintBoundary at display size (toImage), not a decode.
             ? RawImage(image: still, fit: BoxFit.contain)
-            : poster == null
+            : picture == null
             ? null
             // ignore: raft_lints/avoid_raw_image_decode -- The provider comes from an AttachmentImageRepository lease: already decoded at the card's size and owned by the repository.
             : Image(
-                image: poster,
+                image: picture,
                 fit: BoxFit.contain,
                 gaplessPlayback: true,
                 excludeFromSemantics: true,
@@ -767,6 +791,28 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
         onNetworkSettings: failedActions.networkSettings
             ? widget.onNetworkSettings
             : null,
+      ),
+    );
+  }
+
+  /// The phone card: the poster at the video's own shape, no player.
+  Widget buildPhoneCard(BuildContext context, ImageProvider? picture) {
+    final shape = poster.shape;
+    return RaftTooltip(
+      message: filename,
+      child: RaftVideoPosterCard(
+        filename: filename,
+        poster: widget.pending ? null : picture,
+        aspectRatio: shape?.aspect,
+        duration: shape == null || shape.duration <= Duration.zero
+            ? null
+            : shape.duration,
+        loading: widget.pending,
+        onOpen: widget.pending || widget.onOpenPreview == null
+            ? null
+            : openPreview,
+        heroTag: MediaBrowser.heroTagFor('${metadata['id']}'),
+        heroEnabled: widget.heroActive,
       ),
     );
   }

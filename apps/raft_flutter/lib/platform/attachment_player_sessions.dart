@@ -5,6 +5,7 @@ import 'attachment_player.dart';
 import 'bounded_lru.dart';
 import 'memory_budgets.dart';
 import 'memory_release.dart';
+import 'video_frame_probe.dart' show VideoShape;
 
 /// Players that live outside the card or page that shows them.
 ///
@@ -55,6 +56,16 @@ class PlayerSessions {
   /// Bounded like [hdrVerdicts].
   final Map<String, Duration> resumeAt = BoundedLruMap(maxRemembered);
 
+  /// The real shape of a video per attachment, once a card knows it (the
+  /// message's own size, a stored one, or the one read from the file). A card
+  /// built again lays out with it in its first frame. Dropped with the sessions
+  /// on an identity change.
+  final Map<String, VideoShape> shapes = BoundedLruMap(maxRemembered);
+
+  /// Attachments whose first frame could not be read this session: not tried
+  /// again until the identity changes (or the cache is cleared).
+  final Set<String> frameFailed = BoundedLruSet(maxRemembered);
+
   /// Entries kept per remembered map ([hdrVerdicts], [prepared], [resumeAt]).
   static const maxRemembered = RaftMemoryBudgets.playerRememberedEntries;
   static const maxStills = RaftMemoryBudgets.playerStillEntries;
@@ -103,6 +114,13 @@ class PlayerSessions {
       removeTrimmer();
       removeReporter();
     };
+  }
+
+  /// Forgets the remembered video shapes and failed frame reads (Clear cache:
+  /// the stored posters are gone too, so a card reads them again).
+  void forgetFrames() {
+    shapes.clear();
+    frameFailed.clear();
   }
 
   bool hasStill(String key) => _stills.containsKey(key);
@@ -204,6 +222,8 @@ class PlayerSessions {
     hdrVerdicts.clear();
     prepared.clear();
     resumeAt.clear();
+    shapes.clear();
+    frameFailed.clear();
     for (final image in _stills.values) {
       image.dispose();
     }

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +30,76 @@ class VideoFrameInfo {
   final Uint8List? jpeg;
 
   bool get valid => width > 0 && height > 0;
+}
+
+/// The real shape of a video: what a card lays itself out with, and what is
+/// remembered (in memory and next to the poster on disk) so the second view
+/// of a card has its final box in the first frame.
+@immutable
+class VideoShape {
+  const VideoShape({
+    required this.width,
+    required this.height,
+    this.rotation = 0,
+    this.duration = Duration.zero,
+  });
+
+  factory VideoShape.of(VideoFrameInfo info) => VideoShape(
+    width: info.width,
+    height: info.height,
+    rotation: info.rotation,
+    duration: info.duration,
+  );
+
+  /// The displayed size in pixels (rotation applied).
+  final int width, height;
+  final int rotation;
+  final Duration duration;
+
+  double get aspect => width / height;
+  bool get valid => width > 0 && height > 0;
+
+  Uint8List toBytes() => Uint8List.fromList(
+    utf8.encode(
+      jsonEncode({
+        'w': width,
+        'h': height,
+        'r': rotation,
+        'd': duration.inMilliseconds,
+      }),
+    ),
+  );
+
+  /// Null for anything that is not a valid stored shape.
+  static VideoShape? fromBytes(Uint8List bytes) {
+    try {
+      final json = jsonDecode(utf8.decode(bytes));
+      if (json is! Map) return null;
+      final width = json['w'], height = json['h'];
+      if (width is! int || height is! int || width <= 0 || height <= 0) {
+        return null;
+      }
+      final rotation = json['r'], duration = json['d'];
+      return VideoShape(
+        width: width,
+        height: height,
+        rotation: rotation is int ? rotation : 0,
+        duration: Duration(milliseconds: duration is int && duration > 0 ? duration : 0),
+      );
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is VideoShape &&
+      width == other.width &&
+      height == other.height &&
+      rotation == other.rotation &&
+      duration == other.duration;
+  @override
+  int get hashCode => Object.hash(width, height, rotation, duration);
 }
 
 /// Why a probe produced nothing.
