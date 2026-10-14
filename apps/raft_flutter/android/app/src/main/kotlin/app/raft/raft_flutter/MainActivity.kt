@@ -117,6 +117,42 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // System back-gesture exclusion for a rail on the window's right edge.
+        // Rects are Flutter logical pixels in window coordinates; Android
+        // honours at most 200 dp of exclusion per edge, so clip to that here
+        // too. API 29+, a no-op below.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/gesture-exclusion")
+            .setMethodCallHandler { call, result ->
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    result.success(false)
+                    return@setMethodCallHandler
+                }
+                when (call.method) {
+                    "set" -> {
+                        val ratio = (call.argument<Double>("ratio") ?: 1.0).toFloat()
+                        val raw = call.argument<List<List<Double>>>("rects") ?: emptyList()
+                        var budget = (200 * resources.displayMetrics.density).toInt()
+                        val rects = ArrayList<android.graphics.Rect>()
+                        for (r in raw) {
+                            if (r.size != 4 || budget <= 0) continue
+                            val rect = android.graphics.Rect(
+                                (r[0] * ratio).toInt(), (r[1] * ratio).toInt(),
+                                (r[2] * ratio).toInt(), (r[3] * ratio).toInt(),
+                            )
+                            if (rect.height() > budget) rect.bottom = rect.top + budget
+                            budget -= rect.height()
+                            rects.add(rect)
+                        }
+                        window.decorView.systemGestureExclusionRects = rects
+                        result.success(true)
+                    }
+                    "clear" -> {
+                        window.decorView.systemGestureExclusionRects = emptyList()
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/ime")
             .setMethodCallHandler { call, result ->
                 if (call.method == "visible") result.success(imeVisible()) else result.notImplemented()

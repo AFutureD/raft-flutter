@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/personal_presentation.dart';
+import '../data/rail_side_preference.dart';
 import '../platform/app_icon.dart';
 import 'app_icon_settings_section.dart';
 
@@ -12,6 +13,7 @@ class RaftAppearanceSectionRecipe {
   final RaftTokens t;
   static const inset = EdgeInsets.all(16);
   static const gap = 16.0;
+  static const gapAbove = EdgeInsets.only(top: gap);
   BoxDecoration get card => RaftSettingsCard.decoration(t);
   TextStyle get heading =>
       RaftTypography.body(t, size: 14, line: 20, weight: FontWeight.w700);
@@ -32,10 +34,15 @@ class RaftAppearanceSection extends StatelessWidget {
     required this.appearance,
     required this.onAppearance,
     required this.presentation,
+    this.railSide,
   });
   final RaftAppearance appearance;
   final ValueChanged<RaftAppearance> onAppearance;
   final PersonalPresentationStore presentation;
+
+  /// The device's rail side choice. Offered only where the phone layout can
+  /// show the rail (a wide or short window); null hides the row.
+  final RailSideStore? railSide;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: presentation,
@@ -43,11 +50,12 @@ class RaftAppearanceSection extends StatelessWidget {
       final r = RaftAppearanceSectionRecipe(RaftTokens.of(context)),
           value = presentation.value,
           captured = presentation.key;
-      Widget card(List<Widget> children) => Container(
+      Widget card(List<Widget> children, {double spacing = 0}) => Container(
         padding: RaftAppearanceSectionRecipe.inset,
         decoration: r.card,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: spacing,
           children: children,
         ),
       );
@@ -202,8 +210,56 @@ class RaftAppearanceSection extends StatelessWidget {
             value.hideEmptySections,
             (hide) => presentation.update(captured, hideEmptySections: hide),
           ),
+          if (railSide != null && railChoiceAvailable(context))
+            Padding(
+              padding: RaftAppearanceSectionRecipe.gapAbove,
+              child: ListenableBuilder(
+                listenable: railSide!,
+                builder: (context, _) {
+                  final rtl = Directionality.of(context) == TextDirection.rtl;
+                  // The options name the side the user sees, in any direction.
+                  String visual(bool right) => right
+                      ? raftTextZh(context, 'Right', '右侧')
+                      : raftTextZh(context, 'Left', '左侧');
+                  return card([
+                    title(
+                      'Navigation rail',
+                      'Which side the navigation rail sits on when the window is wide or short, such as in landscape or on an unfolded screen.',
+                    ),
+                    RaftSegmentedControl<RaftRailSide>(
+                      key: const ValueKey('appearance-rail-side'),
+                      style: RaftSegmentedStyle.tabs,
+                      value: railSide!.side,
+                      label: raftText(context, 'Navigation rail'),
+                      items: [
+                        RaftSegmentedOption(
+                          value: RaftRailSide.start,
+                          label: visual(rtl),
+                        ),
+                        RaftSegmentedOption(
+                          value: RaftRailSide.end,
+                          label: visual(!rtl),
+                        ),
+                      ],
+                      onChanged: railSide!.update,
+                    ),
+                    Text(
+                      raftText(context, 'Saved on this device.'),
+                      style: r.annotation,
+                    ),
+                  ], spacing: RaftAppearanceSectionRecipe.gap);
+                },
+              ),
+            ),
         ],
       );
     },
   );
 }
+
+/// Whether this window can show the phone rail on either side. The window
+/// decides (size and shape), so a tall phone in portrait, and the desktop
+/// layout, do not get a setting that has no effect there.
+bool railChoiceAvailable(BuildContext context) =>
+    RaftAdaptiveWorkspace.phoneRailOf(context, side: RaftRailSide.start) ||
+    RaftAdaptiveWorkspace.phoneRailOf(context, side: RaftRailSide.end);

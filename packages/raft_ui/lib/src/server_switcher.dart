@@ -10,6 +10,7 @@ import 'agent_profile.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'viewport_breakpoints.dart';
 import 'mobile_navigation.dart';
 import 'recipe_surface.dart';
 import 'status_bar.dart';
@@ -165,6 +166,8 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final size = MediaQuery.sizeOf(context);
+    // A rail on the window's right opens its menu toward the content.
+    final onRight = RaftRailEdgeScope.onRightOf(context);
     return TapRegion(
       groupId: this,
       onTapOutside: (_) => widget.controller.close(),
@@ -182,8 +185,11 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
                 // AppRailHeader's positioned containing block excludes it.
                 widget.mobile
                     ? Offset(8, rect.bottom - (t.brutal ? 2 : 1) + 4)
+                    : onRight
+                    ? Offset(rect.left + (t.brutal ? 2 : 0) - 8, rect.top + 4)
                     : Offset(rect.right - (t.brutal ? 2 : 0) + 8, rect.top + 4),
                 mobileWidth: widget.mobile ? size.width - 16 : null,
+                leftOfAnchor: !widget.mobile && onRight,
               ),
               child: TapRegion(
                 groupId: this,
@@ -304,9 +310,16 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
 }
 
 class _ServerMenuPlacement extends SingleChildLayoutDelegate {
-  const _ServerMenuPlacement(this.anchored, {this.mobileWidth});
+  const _ServerMenuPlacement(
+    this.anchored, {
+    this.mobileWidth,
+    this.leftOfAnchor = false,
+  });
   final Offset anchored;
   final double? mobileWidth;
+
+  /// [anchored] is the menu's right edge, not its left.
+  final bool leftOfAnchor;
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
       BoxConstraints(
@@ -321,12 +334,17 @@ class _ServerMenuPlacement extends SingleChildLayoutDelegate {
     final shift = overflow > 0
         ? math.min(overflow, math.max(0, anchored.dy - 8))
         : 0.0;
-    return Offset(anchored.dx, anchored.dy - shift);
+    return Offset(
+      leftOfAnchor ? anchored.dx - childSize.width : anchored.dx,
+      anchored.dy - shift,
+    );
   }
 
   @override
   bool shouldRelayout(_ServerMenuPlacement old) =>
-      old.anchored != anchored || old.mobileWidth != mobileWidth;
+      old.anchored != anchored ||
+      old.mobileWidth != mobileWidth ||
+      old.leftOfAnchor != leftOfAnchor;
 }
 
 /// Public panel makes every server-menu state previewable without an API.

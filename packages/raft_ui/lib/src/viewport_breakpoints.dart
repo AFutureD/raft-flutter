@@ -54,6 +54,55 @@ enum RaftNavigationPlacement {
   rail,
 }
 
+/// Which side of the window the phone layout's rail takes, in leading /
+/// trailing terms so right-to-left locales mirror it.
+enum RaftRailSide { start, end }
+
+/// The device's rail side choice for everything below it. Defaults to
+/// [RaftRailSide.start] without a scope.
+class RaftRailSideScope extends InheritedWidget {
+  const RaftRailSideScope({
+    super.key,
+    required this.side,
+    required super.child,
+  });
+  final RaftRailSide side;
+
+  static RaftRailSide of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RaftRailSideScope>()?.side ??
+      RaftRailSide.start;
+
+  /// Whether the rail sits on the physical right under [direction].
+  static bool onRight(RaftRailSide side, TextDirection direction) =>
+      (side == RaftRailSide.end) != (direction == TextDirection.rtl);
+
+  @override
+  bool updateShouldNotify(RaftRailSideScope oldWidget) =>
+      side != oldWidget.side;
+}
+
+/// Set around a rail so what it opens (server menu, notification centre)
+/// goes to the side the window has room: toward the content.
+class RaftRailEdgeScope extends InheritedWidget {
+  const RaftRailEdgeScope({
+    super.key,
+    required this.onRight,
+    required super.child,
+  });
+  final bool onRight;
+
+  /// False without a scope: the desktop rail is always on the left.
+  static bool onRightOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<RaftRailEdgeScope>()
+          ?.onRight ??
+      false;
+
+  @override
+  bool updateShouldNotify(RaftRailEdgeScope oldWidget) =>
+      onRight != oldWidget.onRight;
+}
+
 /// Window-shape thresholds that choose [RaftNavigationPlacement]. Tune them
 /// here only: the layout, the host and the tests all read this one place.
 ///
@@ -75,7 +124,8 @@ abstract final class RaftWindowClass {
   static const double wideAspectMinWidth = 360;
 
   /// Widest the rail ever is (Brutal, regular height) plus its system inset
-  /// allowance; a separating fold inside this strip would cut the rail.
+  /// allowance; a separating fold inside this strip, on the rail's side of
+  /// the window, would cut the rail.
   static const double railStripWidth = 72;
 
   /// Hinges and half-opened folds split the window into two panes (Jetpack
@@ -103,15 +153,16 @@ abstract final class RaftWindowClass {
     Size size, {
     Iterable<DisplayFeature> displayFeatures = const [],
     TextDirection textDirection = TextDirection.ltr,
+    RaftRailSide railSide = RaftRailSide.start,
   }) {
     final wide =
         size.width >= railMinWidth ||
         size.width >= wideAspectMinWidth &&
             size.height / size.width < wideAspectMaxHeightRatio;
     if (!wide) return RaftNavigationPlacement.bottom;
-    // The rail sits on the leading edge. A separating fold inside that strip
-    // would cut it in two: keep the bottom bar there.
-    final strip = textDirection == TextDirection.rtl
+    // A separating fold inside the rail's edge strip would cut it in two:
+    // keep the bottom bar there.
+    final strip = RaftRailSideScope.onRight(railSide, textDirection)
         ? Rect.fromLTRB(size.width - railStripWidth, 0, size.width, size.height)
         : Rect.fromLTWH(0, 0, railStripWidth, size.height);
     for (final fold in separatingVerticalFolds(displayFeatures)) {
@@ -125,5 +176,6 @@ abstract final class RaftWindowClass {
         MediaQuery.sizeOf(context),
         displayFeatures: MediaQuery.displayFeaturesOf(context),
         textDirection: Directionality.of(context),
+        railSide: RaftRailSideScope.of(context),
       );
 }

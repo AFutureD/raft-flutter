@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -80,6 +81,58 @@ void main() {
         feature(const Rect.fromLTRB(0, 400, 760, 410)),
       ]),
       RaftNavigationPlacement.rail,
+    );
+  });
+
+  test('the fold rule follows the rail side, not the left edge', () {
+    final hinge = DisplayFeature(
+      bounds: const Rect.fromLTRB(410, 0, 420, 707),
+      type: DisplayFeatureType.hinge,
+      state: DisplayFeatureState.postureHalfOpened,
+    );
+    RaftNavigationPlacement place(RaftRailSide side, TextDirection direction) =>
+        RaftWindowClass.phoneNavigationFor(
+          const Size(440, 707),
+          displayFeatures: [hinge],
+          textDirection: direction,
+          railSide: side,
+        );
+    // The hinge sits in the right-hand strip.
+    expect(
+      place(RaftRailSide.start, TextDirection.ltr),
+      RaftNavigationPlacement.rail,
+    );
+    expect(
+      place(RaftRailSide.end, TextDirection.ltr),
+      RaftNavigationPlacement.bottom,
+    );
+    // RTL mirrors: start is the right edge.
+    expect(
+      place(RaftRailSide.start, TextDirection.rtl),
+      RaftNavigationPlacement.bottom,
+    );
+    expect(
+      place(RaftRailSide.end, TextDirection.rtl),
+      RaftNavigationPlacement.rail,
+    );
+  });
+
+  test('onRight: end is right in LTR, left in RTL', () {
+    expect(
+      RaftRailSideScope.onRight(RaftRailSide.start, TextDirection.ltr),
+      isFalse,
+    );
+    expect(
+      RaftRailSideScope.onRight(RaftRailSide.end, TextDirection.ltr),
+      isTrue,
+    );
+    expect(
+      RaftRailSideScope.onRight(RaftRailSide.start, TextDirection.rtl),
+      isTrue,
+    );
+    expect(
+      RaftRailSideScope.onRight(RaftRailSide.end, TextDirection.rtl),
+      isFalse,
     );
   });
 }

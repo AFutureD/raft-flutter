@@ -279,8 +279,12 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
     final maxLeft = math.max(minLeft, size.width - safe.right - width - 8);
     final minTop = safe.top + 8;
     final maxTop = math.max(minTop, size.height - bottom - height - 8);
+    // A rail on the window's right opens toward the content (to its left).
+    final railOnRight = !widget.mobile && RaftRailEdgeScope.onRightOf(context);
     final left = widget.mobile
         ? (anchorRect.right - width).clamp(minLeft, maxLeft)
+        : railOnRight
+        ? (anchorRect.left - 8 - width).clamp(minLeft, maxLeft)
         : (anchorRect.right + 8).clamp(minLeft, maxLeft);
     final top = widget.mobile
         ? (anchorRect.bottom + 8).clamp(minTop, maxTop)

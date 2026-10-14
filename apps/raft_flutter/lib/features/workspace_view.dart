@@ -28,11 +28,13 @@ import 'workspace_mode_settings_card.dart';
 import '../data/personal_presentation.dart';
 import '../data/device_preferences.dart';
 import '../data/mobile_tabbar_preferences.dart';
+import '../data/rail_side_preference.dart';
 import '../data/sidebar_disclosure.dart';
 import 'message_reference_directory.dart';
 import 'chat_agent_presentation.dart';
 import 'live_agent_activity_bar.dart';
 import 'chat_view.dart';
+import 'rail_gesture_exclusion.dart';
 import 'thread_actions.dart';
 import 'profile_side_panel.dart';
 import 'thread_agent_followers_view.dart';
@@ -98,6 +100,7 @@ class WorkspaceView extends StatefulWidget {
     this.sharing,
     this.presentation,
     this.mobileTabbar,
+    this.railSide,
     this.onChooseServer,
     this.onSwitchServer,
     this.mobileRoutePage = false,
@@ -116,6 +119,10 @@ class WorkspaceView extends StatefulWidget {
 
   /// The device-local bottom-bar choice; the workspace owns one by default.
   final MobileTabbarStore? mobileTabbar;
+
+  /// The device-local side of the phone layout's rail (left / right); the
+  /// workspace owns one by default.
+  final RailSideStore? railSide;
 
   /// App root owns the Source `/` server chooser outside a workspace URI.
   final VoidCallback? onChooseServer;
@@ -500,6 +507,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
   MobileTabbarStore get mobileTabbar =>
       widget.mobileTabbar ?? ownedMobileTabbar;
 
+  RailSideStore? _ownedRailSide;
+  RailSideStore get railSideStore =>
+      widget.railSide ?? (_ownedRailSide ??= RailSideStore());
+
   /// Ids of the tabs the bar shows for this account (Settings not included).
   ///
   /// With the left rail the bottom-bar choice does not apply: every
@@ -635,12 +646,18 @@ class _WorkspaceViewState extends State<WorkspaceView>
   /// bar (wide foldable, landscape phone, 600-767 dp; see [RaftWindowClass]).
   /// Held with the layout while a full-bleed overlay owns state in the tree.
   bool get railNavigation {
-    final live = RaftAdaptiveWorkspace.phoneRailOf(context);
+    final live = RaftAdaptiveWorkspace.phoneRailOf(
+      context,
+      side: railSideStore.side,
+    );
     if (!LayoutHold.held) return heldRail = live;
     return heldRail ?? live;
   }
 
   bool? heldRail;
+
+  /// The rail's scrolling destination list, measured for gesture exclusion.
+  final railItemArea = GlobalKey(debugLabel: 'rail-item-area');
 
   /// Cmd/Ctrl+K while the Search page shows: a bump asks it to focus its field.
   final searchFocusRequests = ValueNotifier<int>(0);
@@ -958,6 +975,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     mobileAppBadge.removeListener(chatSelectionChanged);
     mobileAppBadge.dispose();
     _ownedMobileTabbar?.dispose();
+    _ownedRailSide?.dispose();
     activityUnread.removeListener(activityUnreadChanged);
     w.releaseActivityUnread(this);
     if (mobileHost == null) w.resumes.removeListener(appResumed);
@@ -1255,14 +1273,30 @@ class _WorkspaceViewState extends State<WorkspaceView>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => widget.mobileRoutePage
+      ? buildHost(context)
+      // Settings and the rail layout read the side through the scope; the
+      // workspace itself reads the store.
+      : ListenableBuilder(
+          listenable: railSideStore,
+          builder: (context, _) => RaftRailSideScope(
+            side: railSideStore.side,
+            child: Builder(builder: buildHost),
+          ),
+        );
+
+  Widget buildHost(BuildContext context) {
     final live = RaftAdaptiveWorkspace.compactOf(context);
     final compact = LayoutHold.held ? heldCompact ?? live : live;
     if (!LayoutHold.held) heldCompact = live;
     final Widget body;
     if (!widget.mobileRoutePage && compact) {
       body = ListenableBuilder(
-        listenable: Listenable.merge([mobileNavigationSelection, mobileTabbar]),
+        listenable: Listenable.merge([
+          mobileNavigationSelection,
+          mobileTabbar,
+          railSideStore,
+        ]),
         builder: (context, _) {
           ensureLayoutLocation();
           updateChannelAuthority();
@@ -1307,6 +1341,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       w,
       presentation,
       mobileTabbar,
+      railSideStore,
       liveActivityShown,
       shellIdentities,
       sidebarDisclosure,
@@ -1379,7 +1414,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
       final rootTab = w.navigation.mobileRootTabOf(location);
       // The left rail stands in for the bottom bar on the same tab roots.
       final railShown = railNavigation && rootTab != null && w.server != null;
-      final rtl = Directionality.of(context) == TextDirection.rtl;
+      final railOnRight = RaftRailSideScope.onRight(
+        railSideStore.side,
+        Directionality.of(context),
+      );
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
           : tr(switch (route) {
@@ -1696,8 +1734,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
               child: SafeArea(
                 bottom: false,
                 // The rail paints under its own side's system inset.
-                left: !railShown || rtl,
-                right: !railShown || !rtl,
+                left: !railShown || railOnRight,
+                right: !railShown || !railOnRight,
                 child: Column(
                   children: [
                     if (!wide && rootTab == 'computers' && !thread)
@@ -1757,7 +1795,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           mobileNavigationClearance: raftTabBarClearance(
                             liveActivity: liveActivityVisible,
                           ),
-                          mobileRail: railShown ? workspaceRail() : null,
+                          mobileRail: railShown
+                              ? RailGestureExclusion(
+                                  itemArea: railItemArea,
+                                  // Back swipes start at both window edges;
+                                  // a rail on the right is kept clear of them.
+                                  enabled: railOnRight,
+                                  child: workspaceRail(),
+                                )
+                              : null,
                           mobileNavigation: railNavigation
                               // Only the live activity strip docks in the
                               // content region next to the rail.
@@ -2743,6 +2789,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final mobileAppScope = mobileAppBadge.key;
     return RaftWorkspaceRail(
       phone: !wide,
+      itemAreaKey: wide ? null : railItemArea,
       thinDivider: w.location.route == RaftRoute.activity,
       destinations: railDestinations,
       selected: DesktopNavigationPolicy.forSection(
@@ -4000,6 +4047,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       widget.onLogout,
       presentation,
       mobileTabbar.settings,
+      railSideStore.side,
       workspaceMode,
       providerEnabled,
       bridgeEnabled,
@@ -4027,6 +4075,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         mobileResetRevision:
             mobileSettingsRevision + (mobileHost?.mobileSettingsRevision ?? 0),
         mobileTabbar: mobileTabbar,
+        railSide: railSideStore,
         onMobileLocationChanged: (tab) {
           if (!mounted || scope != mobileAuthority) return;
           if (tab == null) {

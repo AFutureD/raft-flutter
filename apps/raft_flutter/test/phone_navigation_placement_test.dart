@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/data/rail_side_preference.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/platform/system_gesture_exclusion.dart';
 import 'package:raft_flutter/features/mobile_workspace_pages.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -163,7 +166,9 @@ class _Rig {
     required this.size,
     this.padding = const FakeViewPadding(top: 24, bottom: 24),
     this.displayFeatures = const [],
+    this.railSide,
   });
+  final RailSideStore? railSide;
   final List<DisplayFeature> displayFeatures;
   final WidgetTester tester;
   final RaftFamily family;
@@ -198,6 +203,7 @@ class _Rig {
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
     addTearDown(tester.view.reset);
     addTearDown(tester.platformDispatcher.clearAllTestValues);
+    if (railSide != null) addTearDown(railSide!.dispose);
     c = _Client()..selectServer('s');
     w = WorkspaceController(c, mobileNavigation: size.width < 768);
     await tester.runAsync(w.bootstrap);
@@ -214,6 +220,7 @@ class _Rig {
         ),
         home: WorkspaceView(
           controller: w,
+          railSide: railSide,
           appearance: RaftAppearance(mode: ThemeMode.light, light: family),
           onAppearance: (_) async {},
           onLogout: () async {},
@@ -614,5 +621,362 @@ void main() {
         expect(_rail('chat'), findsOneWidget);
       });
     }
+  });
+
+  group('rail side (left / right)', () {
+    const channel = MethodChannel('app.raft/gesture-exclusion');
+    late List<MethodCall> calls;
+    setUp(() {
+      calls = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return true;
+          });
+      SystemGestureExclusion.instance = SystemGestureExclusion(
+        channel: channel,
+        supported: true,
+      );
+    });
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+      SystemGestureExclusion.instance = SystemGestureExclusion();
+    });
+
+    Rect railRect(WidgetTester t) => t.getRect(find.byType(RaftWorkspaceRail));
+    Rect contentRect(WidgetTester t) =>
+        t.getRect(find.byKey(const Key('workspace-sidebar')));
+    List<MethodCall> sets() => [
+      for (final c in calls)
+        if (c.method == 'set') c,
+    ];
+
+    for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
+      for (final size in const [Size(440, 707), Size(707, 440)]) {
+        for (final rtl in [false, true]) {
+          for (final end in [false, true]) {
+            testWidgets('$family ${size.width.round()}x${size.height.round()} '
+                '${rtl ? 'RTL' : 'LTR'} ${end ? 'end' : 'start'}', (
+              tester,
+            ) async {
+              final store = RailSideStore();
+              if (end) store.update(RaftRailSide.end);
+              final r = _Rig(
+                tester,
+                family,
+                size: size,
+                rtl: rtl,
+                railSide: store,
+                padding: const FakeViewPadding(
+                  left: 30,
+                  right: 36,
+                  top: 24,
+                  bottom: 24,
+                ),
+              );
+              await r.start();
+              expect(tester.takeException(), isNull);
+              expect(_bar, findsNothing);
+              final onRight = end != rtl;
+              final rail = railRect(tester);
+              final content = contentRect(tester);
+              if (onRight) {
+                // On the right edge, painting under the trailing inset.
+                expect(rail.right, size.width);
+                expect(content.right, lessThanOrEqualTo(rail.left + .5));
+                expect(content.left, greaterThanOrEqualTo(30));
+              } else {
+                expect(rail.left, 0);
+                expect(content.left, greaterThanOrEqualTo(rail.right - .5));
+                expect(content.right, lessThanOrEqualTo(size.width - 36));
+              }
+              // Buttons stay clear of the system inset on their side.
+              final chat = tester.getRect(_rail('chat'));
+              if (onRight) {
+                expect(chat.right, lessThanOrEqualTo(size.width - 36 + .5));
+              } else {
+                expect(chat.left, greaterThanOrEqualTo(30 - .5));
+              }
+              expect(_hit(tester, _rail('chat')).shortestSide, 48);
+              // The gesture exclusion belongs to a rail on the right edge.
+              final excluded = sets();
+              if (onRight) {
+                expect(excluded, hasLength(1));
+                final raw = (excluded.single.arguments as Map)['rects'] as List;
+                final rect = raw.single as List;
+                expect(rect[2], size.width, reason: 'to the window edge');
+                expect(rect[3] - rect[1], lessThanOrEqualTo(200));
+                expect(rect[0], greaterThanOrEqualTo(size.width - 100));
+                // It covers the destination buttons it protects.
+                expect(rect[1], lessThanOrEqualTo(chat.top));
+              } else {
+                expect(excluded, isEmpty);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    testWidgets('exclusion follows side and visibility', (tester) async {
+      final store = RailSideStore()..update(RaftRailSide.end);
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: const Size(440, 707),
+        railSide: store,
+      );
+      await r.start();
+      expect(sets(), hasLength(1));
+      // Pushing a page covers the rail: the back gesture is free again.
+      await r.w.selectChannel(r.w.channels.first);
+      await r.settle();
+      expect(calls.last.method, 'clear');
+      // Back: excluded again. Then the left side: cleared for good.
+      await tester.binding.handlePopRoute();
+      await r.settle();
+      expect(calls.last.method, 'set');
+      store.update(RaftRailSide.start);
+      await r.settle();
+      expect(calls.last.method, 'clear');
+      // Resize keeps the rect inside the 200 dp cap.
+      store.update(RaftRailSide.end);
+      await r.resize(const Size(707, 440));
+      await r.settle();
+      final rect =
+          ((calls.last.arguments as Map)['rects'] as List).single as List;
+      expect(rect[3] - rect[1], lessThanOrEqualTo(200));
+      expect(rect[2], 707);
+    });
+
+    testWidgets('Appearance offers the choice only where the rail can appear', (
+      tester,
+    ) async {
+      Future<_Rig> open(Size size, {bool rtl = false}) async {
+        final r = _Rig(
+          tester,
+          RaftFamily.elegant,
+          size: size,
+          rtl: rtl,
+          railSide: RailSideStore(),
+        );
+        await r.start();
+        await tester.tap(
+          find.byKey(
+            size.width < 768 && size.height / size.width >= 1.75
+                ? const Key('mobile-tab-settings')
+                : _rail('settings').evaluate().isNotEmpty
+                ? const ValueKey('rail-settings')
+                : const Key('rail-settings'),
+          ),
+        );
+        await r.settle();
+        await tester.tap(
+          find.byKey(const ValueKey('workspace-settings-nav-appearance')),
+        );
+        await r.settle();
+        return r;
+      }
+
+      final choice = find.byKey(const ValueKey('appearance-rail-side'));
+      // Rail window: the row is there, Left / Right, and it moves the rail.
+      final r = await open(const Size(440, 707));
+      await tester.ensureVisible(choice);
+      await tester.pump();
+      expect(find.text('Left'), findsOneWidget);
+      expect(find.text('Right'), findsOneWidget);
+      await tester.tap(find.text('Right'));
+      await r.settle();
+      expect(r.railSide!.side, RaftRailSide.end);
+      // The detail page has no rail; back on the Settings root it is right.
+      await tester.binding.handlePopRoute();
+      await r.settle();
+      expect(railRect(tester).right, 440);
+      expect(railRect(tester).left, greaterThan(300));
+    });
+
+    testWidgets('no choice on a tall phone or the desktop layout', (
+      tester,
+    ) async {
+      final tall = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: const Size(390, 844),
+        railSide: RailSideStore(),
+      );
+      await tall.start();
+      await tester.tap(find.byKey(const Key('mobile-tab-settings')));
+      await tall.settle();
+      await tester.tap(
+        find.byKey(const ValueKey('workspace-settings-nav-appearance')),
+      );
+      await tall.settle();
+      expect(find.byKey(const ValueKey('appearance-rail-side')), findsNothing);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('appearance-hide-empty')),
+      );
+      expect(find.byKey(const ValueKey('appearance-rail-side')), findsNothing);
+    });
+
+    testWidgets('RTL shows the real visual side in the labels', (tester) async {
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: const Size(440, 707),
+        rtl: true,
+        railSide: RailSideStore(),
+      );
+      await r.start();
+      await tester.tap(_rail('settings'));
+      await r.settle();
+      await tester.tap(
+        find.byKey(const ValueKey('workspace-settings-nav-appearance')),
+      );
+      await r.settle();
+      final choice = find.byKey(const ValueKey('appearance-rail-side'));
+      await tester.ensureVisible(choice);
+      await tester.pump();
+      // Start in RTL is the right edge: the first (leading) option reads
+      // Right, drawn on the right.
+      final right = tester.getCenter(find.text('Right'));
+      final left = tester.getCenter(find.text('Left'));
+      expect(right.dx, greaterThan(left.dx));
+      await tester.tap(find.text('Left'));
+      await r.settle();
+      expect(r.railSide!.side, RaftRailSide.end);
+      await tester.binding.handlePopRoute();
+      await r.settle();
+      expect(railRect(tester).left, 0);
+    });
+
+    testWidgets('switching the side keeps the page, scroll and draft', (
+      tester,
+    ) async {
+      final store = RailSideStore();
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: const Size(440, 707),
+        railSide: store,
+      );
+      await r.start();
+      await r.w.selectChannel(r.w.channels.first);
+      await r.settle();
+      final composer = find.descendant(
+        of: find.byType(RaftComposer),
+        matching: find.byType(EditableText),
+      );
+      await tester.enterText(composer.first, 'half-written reply');
+      await tester.pump();
+      final editor = identityHashCode(tester.element(composer.first));
+      final page = identityHashCode(
+        tester.element(find.byType(RaftChatView).first),
+      );
+      final location = r.w.location.uri;
+      for (final side in [
+        RaftRailSide.end,
+        RaftRailSide.start,
+        RaftRailSide.end,
+      ]) {
+        store.update(side);
+        await r.settle();
+        expect(r.w.location.uri, location);
+        expect(identityHashCode(tester.element(composer.first)), editor);
+        expect(
+          identityHashCode(tester.element(find.byType(RaftChatView).first)),
+          page,
+        );
+        expect(
+          tester.widget<EditableText>(composer.first).controller.text,
+          'half-written reply',
+        );
+      }
+      // Home list: scroll offset survives the side change too.
+      await tester.binding.handlePopRoute();
+      await r.settle();
+      final list = find.byKey(const Key('workspace-sidebar'));
+      final element = identityHashCode(tester.element(list));
+      await tester.drag(list, const Offset(0, -400));
+      await r.settle();
+      double offset() => tester
+          .state<ScrollableState>(
+            find.descendant(of: list, matching: find.byType(Scrollable)),
+          )
+          .position
+          .pixels;
+      final before = offset();
+      for (final side in [RaftRailSide.start, RaftRailSide.end]) {
+        store.update(side);
+        await r.settle();
+        expect(identityHashCode(tester.element(list)), element);
+        expect(offset(), closeTo(before, .5));
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('menus open toward the content from a right rail', (
+      tester,
+    ) async {
+      final store = RailSideStore()..update(RaftRailSide.end);
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: const Size(440, 707),
+        railSide: store,
+      );
+      await r.start();
+      await tester.tap(_rail('workspace'));
+      await r.settle();
+      final menu = tester.getRect(find.byType(RaftServerMenuPanel).last);
+      expect(menu.right, lessThanOrEqualTo(railRect(tester).left + .5));
+      expect(menu.left, greaterThanOrEqualTo(0));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a fold in the trailing strip keeps the bottom bar, the '
+        'leading side does not care', (tester) async {
+      const hinge = Rect.fromLTRB(410, 0, 420, 707);
+      final features = [
+        DisplayFeature(
+          bounds: hinge,
+          type: DisplayFeatureType.hinge,
+          state: DisplayFeatureState.postureHalfOpened,
+        ),
+      ];
+      final end = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: const Size(440, 707),
+        displayFeatures: features,
+        railSide: RailSideStore()..update(RaftRailSide.end),
+      );
+      await end.start();
+      expect(_bar, findsOneWidget);
+      expect(_rail('chat'), findsNothing);
+      expect(sets(), isEmpty);
+    });
+
+    testWidgets('a fold at the other edge leaves the rail where it is', (
+      tester,
+    ) async {
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: const Size(440, 707),
+        displayFeatures: [
+          DisplayFeature(
+            bounds: const Rect.fromLTRB(410, 0, 420, 707),
+            type: DisplayFeatureType.hinge,
+            state: DisplayFeatureState.postureHalfOpened,
+          ),
+        ],
+        railSide: RailSideStore(),
+      );
+      await r.start();
+      expect(_bar, findsNothing);
+      expect(_rail('chat'), findsOneWidget);
+      expect(railRect(tester).left, 0);
+    });
   });
 }

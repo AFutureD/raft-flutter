@@ -7,6 +7,7 @@ import 'package:raft_updater/raft_updater.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/mobile_tabbar_preferences.dart';
+import '../data/rail_side_preference.dart';
 import '../data/personal_presentation.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
@@ -51,6 +52,7 @@ class WorkspaceSettings extends StatefulWidget {
     required this.presentation,
     this.notifications,
     this.mobileTabbar,
+    this.railSide,
     this.onLogout,
     this.initialTab = 'account',
     this.mobileRoot = true,
@@ -84,6 +86,9 @@ class WorkspaceSettings extends StatefulWidget {
   /// The device's bottom-bar choice; without it the mobile Bottom bar row is
   /// not offered.
   final MobileTabbarStore? mobileTabbar;
+
+  /// The device's rail side choice; without it Appearance does not offer one.
+  final RailSideStore? railSide;
   final Future<void> Function()? onLogout;
   final String initialTab;
   final bool mobileRoot;
@@ -205,6 +210,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
             appearance: widget.appearance,
             onAppearance: widget.onAppearance,
             presentation: widget.presentation,
+            railSide: widget.railSide,
           ),
         ),
         if (widget.mobileTabbar != null)
