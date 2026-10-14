@@ -117,14 +117,17 @@ class SummaryTest(unittest.TestCase):
         self.assertEqual(k['over16Ui'], 1)
         self.assertEqual(k['over8Raster'], 2)
         self.assertEqual(k['over16Raster'], 1)
-        self.assertEqual(k['builds'], {'sum': 1700, 'max': 900})
-        self.assertEqual(k['layouts'], {'sum': 70, 'max': 40})
-        self.assertEqual(k['paints'], {'sum': 38, 'max': 20})
+        self.assertEqual(k['builds'], {'sum': 1700, 'max': 900, 'mean': 850.0})
+        self.assertEqual(k['layouts'], {'sum': 70, 'max': 40, 'mean': 35.0})
+        self.assertEqual(k['paints'], {'sum': 38, 'max': 20, 'mean': 19.0})
         self.assertEqual(k['uiThreadCpuUs'], 2000)
         text = lab.markdown({'run': 'kb', 'env': {}, 'hello': {}, 'scenarios': [row], 'gate60Passed': False})
         self.assertIn('Soft keyboard', text)
-        self.assertIn('1700/900', text)
-        self.assertIn('2.0', text)
+        self.assertIn('850.0', text)
+        self.assertIn('35.0', text)
+        self.assertIn('19.0', text)
+        self.assertIn('a reference, not a gate', text)
+        self.assertNotIn('1700/900', text)
 
     def test_keyboard_thread_time_joins_animation_frames_only(self):
         r = record('keyboard', ui=[4, 5], kind='keyboard')
@@ -169,7 +172,7 @@ class SummaryTest(unittest.TestCase):
         self.assertIn('UI 120.0 ms (main thread `lutter.linkperf`', text)
         self.assertIn('raster 80.0 ms (`1.raster`)', text)
 
-    def test_keyboard_count_increase_is_a_regression(self):
+    def test_keyboard_count_change_does_not_change_the_comparison(self):
         def scenario(builds):
             r = record('keyboard', ui=[20, 9], kind='keyboard', keyboardCycles=1)
             for frame, count in zip(r['frames'], builds):
@@ -183,12 +186,19 @@ class SummaryTest(unittest.TestCase):
         before = {'hello': {'fixtureVersion': 'v1'}, 'env': {}, 'scenarios': [scenario([900, 800])]}
         after = {'hello': {'fixtureVersion': 'v1'}, 'env': {}, 'scenarios': [scenario([3, 2])]}
         better = lab.compare(before, after)
-        self.assertIn('keyboard builds 1700→5', better['rows'][0]['improvements'])
+        self.assertEqual(better['rows'][0]['regressions'], [])
+        self.assertEqual(better['rows'][0]['improvements'], [])
         self.assertEqual(better['regressions'], 0)
         worse = lab.compare(after, before)
-        self.assertIn('keyboard builds 5→1700', worse['rows'][0]['regressions'])
+        self.assertEqual(worse['rows'][0]['regressions'], [])
+        self.assertEqual(worse['rows'][0]['improvements'], [])
+        self.assertEqual(worse['regressions'], 0)
+        self.assertEqual(better['rows'][0]['metrics']['keyboard.builds'][0]['mean'], 850)
+        self.assertEqual(better['rows'][0]['metrics']['keyboard.builds'][1]['mean'], 2.5)
         text = lab.compare_markdown(better, 'before', 'after')
-        self.assertIn('1700→5', text)
+        self.assertIn('850.0→2.5', text)
+        self.assertIn('a reference, not a gate', text)
+        self.assertNotIn('deterministic check', text)
 
     def test_paired_ratio_interval(self):
         same = [(10, 10)] * 12

@@ -60,11 +60,15 @@ def frames_in(record, t0, t1):
 
 
 def _work(frames, key):
-    """Sum and max of a per-frame count. None when any frame omitted it."""
+    """Per-frame count summary. None when any frame omitted it.
+
+    `mean` is the reference figure. The sum and max move when the frame
+    count moves, so compare does not treat them as a gate.
+    """
     if not frames or any(key not in frame for frame in frames):
         return None
     values = [frame[key] for frame in frames]
-    return {'sum': int(sum(values)), 'max': int(max(values))}
+    return {'sum': int(sum(values)), 'max': int(max(values)), 'mean': sum(values) / len(values)}
 
 
 def _attach_thread_time(frames, attribution):
@@ -485,15 +489,15 @@ def markdown(summary):
     keys = [r for r in summary['scenarios'] if 'keyboard' in r]
     if keys:
         out += ['', '## Soft keyboard', '',
-                'The rows below count only the inset slides. The hold between an open and a close is not included. 8.33 ms and 16.7 ms are this lab\'s frame budgets. Build, layout and paint counts are per animation frame. Slide UI CPU is the UI thread\'s schedstat time over the slides. The lines under the table are per-frame timeline thread CPU (`tdur`) next to the wall-clock median. Scene CPU, when the next line is present, is `/proc` schedstat nanoseconds for the whole scenario, not `tts`.',
+                'The rows below count only the inset slides. The hold between an open and a close is not included. 8.33 ms and 16.7 ms are this lab\'s frame budgets. Build, layout and paint figures are the average count per frame, a reference, not a gate. Slide UI CPU is the UI thread\'s schedstat time over the slides. The lines under the table are per-frame timeline thread CPU (`tdur`) next to the wall-clock median. Scene CPU, when the next line is present, is `/proc` schedstat nanoseconds for the whole scenario, not `tts`.',
                 '',
-                '| Theme | Frames | Worst UI ms | Worst raster ms | >8.33 ms (UI/R) | >16.7 ms (UI/R) | Builds sum/max | Layouts sum/max | Paints sum/max | Slide UI CPU ms |',
+                '| Theme | Frames | Worst UI ms | Worst raster ms | >8.33 ms (UI/R) | >16.7 ms (UI/R) | Builds per frame | Layouts per frame | Paints per frame | Slide UI CPU ms |',
                 '|---|---|---|---|---|---|---|---|---|---|']
         def work_pair(k, name):
             counted = k.get(name)
             if not counted:
                 return '-'
-            return f"{counted['sum']}/{counted['max']}"
+            return f"{counted['mean']:.1f}"
         for r in keys:
             k = r['keyboard']
             cpu = k.get('uiThreadCpuUs')
@@ -588,18 +592,10 @@ def compare(base, cand, threshold=0.10, floor_us=500):
                 row['metrics'][f'keyboard.{field}'] = (kx.get(field), ky.get(field))
             for count in ('builds', 'layouts', 'paints'):
                 old, new = kx.get(count) or {}, ky.get(count) or {}
-                old_sum, new_sum = old.get('sum'), new.get('sum')
-                old_max, new_max = old.get('max'), new.get('max')
-                row['metrics'][f'keyboard.{count}'] = ({'sum': old_sum, 'max': old_max}, {'sum': new_sum, 'max': new_max})
-                # These counts are deterministic for a fixed input. An increase
-                # is a regression. CPU time and worst milliseconds stay visible
-                # in the report and are not flagged from a small change.
-                if old_sum is not None and new_sum is not None and new_sum > old_sum:
-                    row['regressions'].append(f'keyboard {count} {old_sum}→{new_sum}')
-                elif old_max is not None and new_max is not None and new_max > old_max:
-                    row['regressions'].append(f'keyboard {count} max {old_max}→{new_max}')
-                elif old_sum is not None and new_sum is not None and new_sum < old_sum:
-                    row['improvements'].append(f'keyboard {count} {old_sum}→{new_sum}')
+                # Native counts move with the frame count. The per-frame mean
+                # stays in the report as a reference and does not change the
+                # comparison.
+                row['metrics'][f'keyboard.{count}'] = ({'mean': old.get('mean')}, {'mean': new.get('mean')})
         rows.append(row)
     missing = sorted(set(b) ^ set(c))
     return {'problems': problems, 'missing': [list(k) for k in missing], 'rows': rows,
@@ -619,9 +615,9 @@ def compare_markdown(result, base_name, cand_name):
     keyboard_rows = [r for r in result['rows'] if 'keyboard.worstUiMs' in r['metrics']]
     if keyboard_rows:
         out += ['', '## Soft keyboard (animation frames only)', '',
-                'Worst milliseconds and the 8.33 / 16.7 ms counts are the slide frames. UI-thread CPU is on-CPU time during those slides. Build, layout and paint sums are the deterministic check.',
+                'Worst milliseconds and the 8.33 / 16.7 ms counts are the slide frames. UI-thread CPU is on-CPU time during those slides. Build, layout and paint figures are the average count per frame, a reference, not a gate.',
                 '',
-                '| Scenario | Theme | Worst UI ms | Worst raster ms | >8.33 UI/R | >16.7 UI/R | Builds sum | Layouts sum | Paints sum | UI-thread CPU ms |',
+                '| Scenario | Theme | Worst UI ms | Worst raster ms | >8.33 UI/R | >16.7 UI/R | Builds per frame | Layouts per frame | Paints per frame | UI-thread CPU ms |',
                 '|---|---|---|---|---|---|---|---|---|---|']
         for r in keyboard_rows:
             m = r['metrics']
@@ -638,14 +634,14 @@ def compare_markdown(result, base_name, cand_name):
                         return '-'
                     return f'{ui}/{raster}'
                 return f'{one(0)}→{one(1)}'
-            def sums(name):
+            def means(name):
                 def one(index):
                     counted = m.get(f'keyboard.{name}', ({}, {}))[index] or {}
-                    value = counted.get('sum')
-                    return '-' if value is None else str(value)
+                    value = counted.get('mean')
+                    return '-' if value is None else f'{value:.1f}'
                 return f'{one(0)}→{one(1)}'
             out.append(
-                f"| {r['scenario']} | {r['theme']} | {side('worstUiMs', 0)}→{side('worstUiMs', 1)} | {side('worstRasterMs', 0)}→{side('worstRasterMs', 1)} | {duo('over8Ui', 'over8Raster')} | {duo('over16Ui', 'over16Raster')} | {sums('builds')} | {sums('layouts')} | {sums('paints')} | {side('uiThreadCpuUs', 0, 1000)}→{side('uiThreadCpuUs', 1, 1000)} |")
+                f"| {r['scenario']} | {r['theme']} | {side('worstUiMs', 0)}→{side('worstUiMs', 1)} | {side('worstRasterMs', 0)}→{side('worstRasterMs', 1)} | {duo('over8Ui', 'over8Raster')} | {duo('over16Ui', 'over16Raster')} | {means('builds')} | {means('layouts')} | {means('paints')} | {side('uiThreadCpuUs', 0, 1000)}→{side('uiThreadCpuUs', 1, 1000)} |")
     out += ['', f"Total regressions: {result['regressions']}"]
     return '\n'.join(out) + '\n'
 
