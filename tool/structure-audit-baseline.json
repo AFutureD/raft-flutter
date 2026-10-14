@@ -243,7 +243,7 @@
     "workspace_view": {
       "root": "apps/raft_flutter/lib/features/workspace_view.dart",
       "metrics": {
-        "field.WorkspaceView.appUpdate": 1,
+        "field.WorkspaceView.appUpdate": 0,
         "field.WorkspaceView.appearance": 1,
         "field.WorkspaceView.controller": 1,
         "field.WorkspaceView.mobileHost": 1,
@@ -346,8 +346,8 @@
         "field._WorkspaceViewState.threadWidth": 1,
         "field._WorkspaceViewState.workspaceErrorScheduled": 1,
         "field._WorkspaceViewState.workspaceMode": 1,
-        "lines": 5066,
-        "tokens": 26412
+        "lines": 5061,
+        "tokens": 26405
       }
     },
     "resource_view": {
@@ -570,7 +570,77 @@
     "main": {
       "root": "apps/raft_flutter/lib/main.dart",
       "metrics": {
-        "field.RaftApp.appUpdate": 1,
+        "field.RaftApp.appUpdate": 0,
+        "field.RaftApp.createClient": 0,
+        "field.RaftApp.initialArguments": 0,
+        "field.RaftApp.initialLocation": 0,
+        "field.RaftApp.nativeContent": 0,
+        "field.RaftApp.nativeSessionOwner": 0,
+        "field.RaftApp.nativeSharing": 0,
+        "field.RaftApp.onStartupReady": 0,
+        "field.RaftApp.openWorkspaceCache": 0,
+        "field.RaftApp.sessionStore": 0,
+        "field._RaftAppState.anonymousClient": 0,
+        "field._RaftAppState.appRouter": 0,
+        "field._RaftAppState.appearance": 0,
+        "field._RaftAppState.authAttempt": 0,
+        "field._RaftAppState.authMode": 0,
+        "field._RaftAppState.bootError": 0,
+        "field._RaftAppState.cache": 0,
+        "field._RaftAppState.chooserReturn": 0,
+        "field._RaftAppState.client": 0,
+        "field._RaftAppState.communityAttempt": 0,
+        "field._RaftAppState.communityDialogOpen": 0,
+        "field._RaftAppState.content": 0,
+        "field._RaftAppState.deniedFallback": 0,
+        "field._RaftAppState.deniedSlug": 0,
+        "field._RaftAppState.deniedTimer": 0,
+        "field._RaftAppState.directoryLoading": 0,
+        "field._RaftAppState.invite": 0,
+        "field._RaftAppState.inviteClient": 0,
+        "field._RaftAppState.inviteOrigin": 0,
+        "field._RaftAppState.joiningCommunitySlug": 0,
+        "field._RaftAppState.origin": 0,
+        "field._RaftAppState.pendingShares": 0,
+        "field._RaftAppState.privateRoutes": 0,
+        "field._RaftAppState.publicDismissed": 0,
+        "field._RaftAppState.publicNonmember": 0,
+        "field._RaftAppState.publishedServerId": 0,
+        "field._RaftAppState.publishedWorkspaceIndex": 0,
+        "field._RaftAppState.removeShareReceiver": 0,
+        "field._RaftAppState.requestedLocation": 0,
+        "field._RaftAppState.restoreAttempt": 0,
+        "field._RaftAppState.restoreFailure": 0,
+        "field._RaftAppState.restoreRetry": 0,
+        "field._RaftAppState.restoreRetrying": 0,
+        "field._RaftAppState.restoring": 0,
+        "field._RaftAppState.rootRequest": 0,
+        "field._RaftAppState.routeInformation": 0,
+        "field._RaftAppState.selectingServer": 0,
+        "field._RaftAppState.selectorError": 0,
+        "field._RaftAppState.serverSurfaces": 0,
+        "field._RaftAppState.serverSwitchLocation": 0,
+        "field._RaftAppState.serverSwitchReturn": 0,
+        "field._RaftAppState.sessionEvents": 0,
+        "field._RaftAppState.sessionOwner": 0,
+        "field._RaftAppState.sessionPersistence": 0,
+        "field._RaftAppState.shareDrainScheduled": 0,
+        "field._RaftAppState.shareEpoch": 0,
+        "field._RaftAppState.sharePickerOpen": 0,
+        "field._RaftAppState.shareSession": 0,
+        "field._RaftAppState.sharing": 0,
+        "field._RaftAppState.showServerSelector": 0,
+        "field._RaftAppState.signInInstead": 0,
+        "field._RaftAppState.startupReady": 0,
+        "field._RaftAppState.workspace": 0,
+        "field._RaftAppState.workspaceRootInputs": 0,
+        "lines": 1,
+        "tokens": 3
+      }
+    },
+    "app_root": {
+      "root": "apps/raft_flutter/lib/app_root.dart",
+      "metrics": {
         "field.RaftApp.createClient": 1,
         "field.RaftApp.initialArguments": 1,
         "field.RaftApp.initialLocation": 1,
@@ -579,6 +649,8 @@
         "field.RaftApp.nativeSharing": 1,
         "field.RaftApp.onStartupReady": 1,
         "field.RaftApp.openWorkspaceCache": 1,
+        "field.RaftApp.ownsAppUpdate": 1,
+        "field.RaftApp.services": 1,
         "field.RaftApp.sessionStore": 1,
         "field._RaftAppState.anonymousClient": 1,
         "field._RaftAppState.appRouter": 1,
@@ -634,18 +706,10 @@
         "field._RaftAppState.startupReady": 1,
         "field._RaftAppState.workspace": 1,
         "field._RaftAppState.workspaceRootInputs": 1,
-        "lines": 2249,
-        "tokens": 12072
+        "lines": 2253,
+        "tokens": 12099
       }
     }
   },
-  "exceptions": [
-    {"module": "workspace_view", "metric": "lines", "limit": 5095, "reason": "M1 standalone scope adapter and retained Settings consumer; retire legacy appUpdate adapter by 2026-10-28.", "reviewer": "Cindy", "expires": "2026-10-28"},
-    {"module": "workspace_view", "metric": "tokens", "limit": 26582, "reason": "M1 standalone scope adapter and retained Settings consumer; retire legacy appUpdate adapter by 2026-10-28.", "reviewer": "Cindy", "expires": "2026-10-28"},
-    {"module": "workspace_view", "metric": "field._WorkspaceBody.configuration", "limit": 1, "reason": "M1 compatibility wrapper configuration; retire with the legacy appUpdate adapter.", "reviewer": "Cindy", "expires": "2026-10-28"},
-    {"module": "main", "metric": "lines", "limit": 2256, "reason": "M1 root services wiring; move assembly into app_root.dart before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"},
-    {"module": "main", "metric": "tokens", "limit": 12108, "reason": "M1 root services wiring; move assembly into app_root.dart before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"},
-    {"module": "main", "metric": "field.RaftApp.services", "limit": 1, "reason": "M1 replaces root appUpdate with explicit services; move assembly out of main before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"},
-    {"module": "main", "metric": "field.RaftApp.ownsAppUpdate", "limit": 1, "reason": "M1 explicit service release responsibility; move assembly out of main before expiry.", "reviewer": "Cindy", "expires": "2026-10-28"}
-  ]
+  "exceptions": []
 }

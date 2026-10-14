@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'activity_incremental_refresh_test.dart'
     show activityFixture, channelRow, shown, skeleton;
+import 'support/app_services_fixture.dart';
 
 void main() {
   testWidgets('a phone presentation borrows its source session store', (
@@ -132,11 +133,13 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: raftTheme(RaftFamily.brutal),
-            home: WorkspaceView(
-              controller: workspace,
-              appearance: const RaftAppearance(),
-              onAppearance: (_) async {},
-              onLogout: () async {},
+            home: withAppServices(
+              WorkspaceView(
+                controller: workspace,
+                appearance: const RaftAppearance(),
+                onAppearance: (_) async {},
+                onLogout: () async {},
+              ),
             ),
           ),
         );
@@ -204,11 +207,13 @@ void main() {
           ..inbox = [channelRow(9, unread: 3)];
         Widget page() => MaterialApp(
           theme: raftTheme(RaftFamily.brutal),
-          home: WorkspaceView(
-            controller: workspace,
-            appearance: const RaftAppearance(),
-            onAppearance: (_) async {},
-            onLogout: () async {},
+          home: withAppServices(
+            WorkspaceView(
+              controller: workspace,
+              appearance: const RaftAppearance(),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
           ),
         );
 

@@ -8,12 +8,10 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/main.dart';
 import 'package:raft_flutter/platform/app_services.dart';
 import 'package:raft_flutter/platform/app_update.dart';
-import 'package:raft_ui/raft_ui.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'flutter_test_config.dart' show leakDebt;
 import 'support/tracked_app_update.dart';
-import 'workspace_source_location_contract_test.dart' show pageFixture;
 
 Future<void> _replaceServices(
   WidgetTester t,
@@ -46,21 +44,12 @@ void _expectRootDependency(WidgetTester t, AppUpdateService update) {
     reason: 'workspace adapters must use the production root scope',
   );
   final bodies = find.byWidgetPredicate(
-    (w) => '${w.runtimeType}' == '_WorkspaceBody',
+    (w) => w is WorkspaceView,
     skipOffstage: false,
   );
   expect(bodies, findsWidgets);
   for (final element in bodies.evaluate()) {
     expect(AppServicesScope.of(element).appUpdate, same(update));
-  }
-  for (final view in t.widgetList<WorkspaceView>(
-    find.byWidgetPredicate((w) => w is WorkspaceView, skipOffstage: false),
-  )) {
-    expect(
-      view.appUpdate,
-      isNull,
-      reason: 'production routes must not forward the legacy parameter',
-    );
   }
 }
 
@@ -139,7 +128,6 @@ void main() {
         }
         for (final type in [
           'WorkspaceView',
-          '_WorkspaceBody',
           'RaftChatView',
           'RaftMessageTimeline',
           'RaftMessageTile',
@@ -168,38 +156,6 @@ void main() {
       },
     );
   }
-
-  testWidgets('outer scope rejects a second legacy service in WorkspaceView', (
-    t,
-  ) async {
-    final (w, _) = await pageFixture(t);
-    final a = TrackedAppUpdate('a', []), b = TrackedAppUpdate('b', []);
-    addTearDown(a.dispose);
-    addTearDown(b.dispose);
-    await t.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: AppServices.withUpdates(a),
-          child: WorkspaceView(
-            controller: w,
-            appearance: const RaftAppearance(light: RaftFamily.elegant),
-            onAppearance: (_) async {},
-            onLogout: () async {},
-            appUpdate: b,
-          ),
-        ),
-      ),
-    );
-    expect(
-      t.takeException(),
-      isA<AssertionError>().having(
-        (e) => '$e',
-        'message',
-        contains('standalone scope adapter'),
-      ),
-    );
-    await t.pumpWidget(const SizedBox());
-  });
 
   testWidgets(
     'resize, width class and separating fold still rebuild the shell',
@@ -232,7 +188,7 @@ void main() {
           t.view.physicalSize = size;
           await f.flush(t);
           expect(
-            counts['_WorkspaceBody'] ?? 0,
+            counts['WorkspaceView'] ?? 0,
             greaterThan(0),
             reason: 'required size layout did not rebuild: $size $counts',
           );
@@ -249,7 +205,7 @@ void main() {
         ];
         await f.flush(t);
         expect(
-          counts['_WorkspaceBody'] ?? 0,
+          counts['WorkspaceView'] ?? 0,
           greaterThan(0),
           reason: 'separating fold did not update navigation: $counts',
         );

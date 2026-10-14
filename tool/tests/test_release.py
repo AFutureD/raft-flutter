@@ -297,7 +297,7 @@ class ReleaseTests(unittest.TestCase):
     def test_release_origin_pair_matches_the_app_link_mapping(self):
         source = (release.APP / 'lib/platform/content_links.dart').read_text()
         self.assertIn(f"'{release.OFFICIAL_API_ORIGIN}': '{release.OFFICIAL_WEB_ORIGIN}'", source)
-        main = (release.APP / 'lib/main.dart').read_text()
+        main = (release.APP / 'lib/app_root.dart').read_text()
         self.assertIn(f"defaultValue: '{release.OFFICIAL_API_ORIGIN}'", main)
 
 

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'activity_incremental_refresh_test.dart'
     show activityFixture, channelRow, skeleton;
+import 'support/app_services_fixture.dart';
 
 void main() {
   for (final phone in [false, true]) {
@@ -33,11 +34,13 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: raftTheme(RaftFamily.brutal),
-          home: WorkspaceView(
-            controller: workspace,
-            appearance: const RaftAppearance(),
-            onAppearance: (_) async {},
-            onLogout: () async {},
+          home: withAppServices(
+            WorkspaceView(
+              controller: workspace,
+              appearance: const RaftAppearance(),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
           ),
         ),
       );

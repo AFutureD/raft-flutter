@@ -96,16 +96,16 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
       content = _MobileWorkspaceContent(
         controller: controller,
         mobileHost: host,
-        appearance: host.options.appearance,
-        onAppearance: host.options.onAppearance,
-        onLogout: host.options.onLogout,
-        notifications: host.options.notifications,
-        sharing: host.options.sharing,
+        appearance: host.widget.appearance,
+        onAppearance: host.widget.onAppearance,
+        onLogout: host.widget.onLogout,
+        notifications: host.widget.notifications,
+        sharing: host.widget.sharing,
         presentation: host.presentation,
         mobileTabbar: host.mobileTabbar,
         railSide: host.railSideStore,
-        onChooseServer: host.options.onChooseServer,
-        onSwitchServer: host.options.onSwitchServer,
+        onChooseServer: host.widget.onChooseServer,
+        onSwitchServer: host.widget.onSwitchServer,
       );
     }
     return IgnorePointer(

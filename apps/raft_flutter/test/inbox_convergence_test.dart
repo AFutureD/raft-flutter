@@ -19,6 +19,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter;
+import 'support/app_services_fixture.dart';
 
 class _Client extends RaftClient {
   _Client(MessageAdapter adapter)
@@ -474,11 +475,13 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: raftTheme(RaftFamily.elegant, dark: false),
-            home: WorkspaceView(
-              controller: w,
-              appearance: const RaftAppearance(light: RaftFamily.elegant),
-              onAppearance: (_) async {},
-              onLogout: () async {},
+            home: withAppServices(
+              WorkspaceView(
+                controller: w,
+                appearance: const RaftAppearance(light: RaftFamily.elegant),
+                onAppearance: (_) async {},
+                onLogout: () async {},
+              ),
             ),
           ),
         );

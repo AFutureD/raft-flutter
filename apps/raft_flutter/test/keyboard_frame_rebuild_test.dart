@@ -30,7 +30,6 @@ const _prose =
 const _mustStayQuiet = [
   'WorkspaceView',
   '_MobileWorkspaceContent',
-  '_WorkspaceBody',
   'RaftMessageTimeline',
   'RaftMessageTile',
   'RaftMessageRow',

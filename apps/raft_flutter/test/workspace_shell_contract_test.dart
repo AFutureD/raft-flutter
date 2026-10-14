@@ -14,6 +14,7 @@ import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
 import 'flutter_test_config.dart' show leakDebt;
+import 'support/app_services_fixture.dart';
 
 // Source 26f77ef LeftRail649–771 + Sidebar922–1019/3840–3848/4554–4561.
 // Every test mounts WorkspaceView and activates real product handlers.
@@ -31,12 +32,14 @@ Future<void> mountShell(
   await t.pumpWidget(
     MaterialApp(
       theme: raftTheme(family, dark: dark),
-      home: WorkspaceView(
-        controller: w,
-        appearance: RaftAppearance(light: family),
-        onAppearance: (_) async {},
-        onLogout: () async {},
-        presentation: presentation,
+      home: withAppServices(
+        WorkspaceView(
+          controller: w,
+          appearance: RaftAppearance(light: family),
+          onAppearance: (_) async {},
+          onLogout: () async {},
+          presentation: presentation,
+        ),
       ),
     ),
   );

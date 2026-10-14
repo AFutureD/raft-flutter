@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show fixture;
 import 'parity/parity_harness.dart' show loadParityFonts;
+import 'support/app_services_fixture.dart';
 
 Future<void> drain(WidgetTester t) async {
   await t.runAsync(
@@ -88,11 +89,13 @@ void main() {
           theme: raftTheme(RaftFamily.elegant),
           home: RepaintBoundary(
             key: proofRoot,
-            child: WorkspaceView(
-              controller: w,
-              appearance: const RaftAppearance(),
-              onAppearance: (_) async {},
-              onLogout: () async {},
+            child: withAppServices(
+              WorkspaceView(
+                controller: w,
+                appearance: const RaftAppearance(),
+                onAppearance: (_) async {},
+                onLogout: () async {},
+              ),
             ),
           ),
         ),

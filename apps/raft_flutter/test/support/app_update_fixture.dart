@@ -10,6 +10,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../workspace_source_location_contract_test.dart' show pageFixture, frames;
 import 'memory_storage.dart';
+import 'app_services_fixture.dart';
 
 // AppUpdate fixtures only. The existing workspace transport/settling helper is
 // reused as-is; this extraction does not change waiting or service ownership.
@@ -75,12 +76,14 @@ Future<WorkspaceController> mountAppUpdateWorkspace(
   await t.pumpWidget(
     MaterialApp(
       theme: raftTheme(family, dark: dark),
-      home: WorkspaceView(
-        controller: w,
-        appearance: const RaftAppearance(light: RaftFamily.elegant),
-        onAppearance: (_) async {},
-        onLogout: () async {},
-        appUpdate: update,
+      home: withAppServices(
+        WorkspaceView(
+          controller: w,
+          appearance: const RaftAppearance(light: RaftFamily.elegant),
+          onAppearance: (_) async {},
+          onLogout: () async {},
+        ),
+        update: update,
       ),
     ),
   );

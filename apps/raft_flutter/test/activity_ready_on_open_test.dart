@@ -14,6 +14,7 @@ import 'activity_incremental_refresh_test.dart'
         channelRow,
         shown,
         skeleton;
+import 'support/app_services_fixture.dart';
 
 /// The Activity badge and the Activity list read one accepted inbox window
 /// (Web's inboxStore): whatever lit the badge is already in the list when it
@@ -59,11 +60,13 @@ void main() {
             await tester.pumpWidget(
               MaterialApp(
                 theme: raftTheme(family, dark: dark),
-                home: WorkspaceView(
-                  controller: w,
-                  appearance: RaftAppearance(light: family),
-                  onAppearance: (_) async {},
-                  onLogout: () async {},
+                home: withAppServices(
+                  WorkspaceView(
+                    controller: w,
+                    appearance: RaftAppearance(light: family),
+                    onAppearance: (_) async {},
+                    onLogout: () async {},
+                  ),
                 ),
               ),
             );

@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/workspace_navigation.dart';
 import 'package:raft_flutter/features/mobile_workspace_pages.dart';
+import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -588,7 +589,7 @@ void main() {
       final w = f.workspace(t);
       await tapTab(f, t, 'computers');
       final state =
-          t.state(find.byKey(const ValueKey('workspace-content'))) as dynamic;
+          t.state(find.byType(WorkspaceView)) as dynamic;
       final store = state.mobileTabbar as MobileTabbarStore;
       store.update(MobileTabbarSettings.defaults);
       await f.flush(t);

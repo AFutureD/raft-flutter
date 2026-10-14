@@ -90,7 +90,7 @@ import 'public_avatar_url.dart';
 part 'workspace_view_sidebar_menus.dart';
 part 'mobile_workspace_route.dart';
 
-class WorkspaceView extends StatelessWidget {
+class WorkspaceView extends StatefulWidget {
   const WorkspaceView({
     super.key,
     required this.controller,
@@ -106,12 +106,9 @@ class WorkspaceView extends StatelessWidget {
     this.onSwitchServer,
     this.mobileRoutePage = false,
     this.mobileHost,
-    this.appUpdate,
   });
   final WorkspaceController controller;
 
-  /// Native update check: red dot on the Settings entry and About row.
-  final AppUpdateService? appUpdate;
   final bool mobileRoutePage;
   final Object? mobileHost;
   final NativeNotificationService? notifications;
@@ -136,39 +133,11 @@ class WorkspaceView extends StatelessWidget {
   final Future<void> Function(RaftAppearance) onAppearance;
   final Future<void> Function() onLogout;
   @override
-  Widget build(BuildContext context) {
-    final inherited = AppServicesScope.maybeOf(context);
-    assert(
-      inherited == null || appUpdate == null,
-      'WorkspaceView.appUpdate is only a standalone scope adapter; '
-      'an outer AppServicesScope already owns this dependency.',
-    );
-    final body = _WorkspaceBody(
-      key: ValueKey(
-        mobileRoutePage ? 'workspace-content-page' : 'workspace-content',
-      ),
-      configuration: this,
-    );
-    if (inherited != null) return body;
-    return AppServicesScope(
-      services: appUpdate == null
-          ? const AppServices.updatesDisabledForTestOrPreview()
-          : AppServices.withUpdates(appUpdate!),
-      child: body,
-    );
-  }
+  State<WorkspaceView> createState() => _WorkspaceViewState();
 }
 
-class _WorkspaceBody extends StatefulWidget {
-  const _WorkspaceBody({super.key, required this.configuration});
-  final WorkspaceView configuration;
-  @override
-  State<_WorkspaceBody> createState() => _WorkspaceViewState();
-}
-
-class _WorkspaceViewState extends State<_WorkspaceBody>
-    with WidgetsBindingObserver, KeyboardInsetLogger<_WorkspaceBody> {
-  WorkspaceView get options => widget.configuration;
+class _WorkspaceViewState extends State<WorkspaceView>
+    with WidgetsBindingObserver, KeyboardInsetLogger<WorkspaceView> {
   AppUpdateService? get appUpdate => AppServicesScope.of(context).appUpdate;
   /// Sidebar.tsx `joinedChannelsOnly` display preference of the Channels
   /// section (per workspace session here; Web persists it per server).
@@ -247,14 +216,14 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
   final scaffold = GlobalKey<ScaffoldState>();
   final mainSelection = ChatSelectionHandle(),
       threadSelection = ChatSelectionHandle();
-  WorkspaceController get w => options.controller;
+  WorkspaceController get w => widget.controller;
   PageStorageBucket mobilePageStorage = PageStorageBucket();
   String? mobileStorageAuthority;
   _MobileNavigationSelection? _mobileNavigationSelection;
   _MobileNavigationSelection get mobileNavigationSelection =>
       _mobileNavigationSelection ??= _MobileNavigationSelection(this);
 
-  _WorkspaceViewState? get mobileHost => options.mobileHost as _WorkspaceViewState?;
+  _WorkspaceViewState? get mobileHost => widget.mobileHost as _WorkspaceViewState?;
   TaskSurfaceSeed? taskSeed;
   void openTaskSurface(
     Map<String, dynamic> row,
@@ -383,7 +352,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
   /// that have no URL identity and keeps the dialogs. Silent: the build that
   /// follows reads the translated location; listeners catch up after it.
   void ensureLayoutLocation() {
-    if (options.mobileRoutePage || !mounted || LayoutHold.held) return;
+    if (widget.mobileRoutePage || !mounted || LayoutHold.held) return;
     final compact = !wide;
     final crossed = lastCompact != null && lastCompact != compact;
     lastCompact = compact;
@@ -526,7 +495,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
         ].contains(defaultTargetPlatform),
   );
   PersonalPresentationStore get presentation =>
-      options.presentation ?? ownedPresentation;
+      widget.presentation ?? ownedPresentation;
 
   /// Read synchronously from the preloaded device preferences, so the first
   /// frame already has the configured bar.
@@ -534,11 +503,11 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
   MobileTabbarStore get ownedMobileTabbar =>
       _ownedMobileTabbar ??= MobileTabbarStore();
   MobileTabbarStore get mobileTabbar =>
-      options.mobileTabbar ?? ownedMobileTabbar;
+      widget.mobileTabbar ?? ownedMobileTabbar;
 
   RailSideStore? _ownedRailSide;
   RailSideStore get railSideStore =>
-      options.railSide ?? (_ownedRailSide ??= RailSideStore());
+      widget.railSide ?? (_ownedRailSide ??= RailSideStore());
 
   /// Ids of the tabs the bar shows for this account (Settings not included).
   ///
@@ -857,23 +826,23 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
   }
 
   @override
-  void didUpdateWidget(covariant _WorkspaceBody oldWidget) {
+  void didUpdateWidget(covariant WorkspaceView oldWidget) {
     super.didUpdateWidget(oldWidget);
     adoptHostSearchEntry();
-    if (!identical(oldWidget.configuration.controller, w)) {
+    if (!identical(oldWidget.controller, w)) {
       _mobileNavigationSelection?.dispose();
       _mobileNavigationSelection = null;
-      oldWidget.configuration.controller.removeListener(syncMobileAppBadge);
+      oldWidget.controller.removeListener(syncMobileAppBadge);
       w.addListener(syncMobileAppBadge);
       syncMobileAppBadge();
       activityUnread.removeListener(activityUnreadChanged);
       activityUnread = w.activityUnread..addListener(activityUnreadChanged);
       serverMenu.close();
       if (mobileHost == null) {
-        oldWidget.configuration.controller.resumes.removeListener(appResumed);
+        oldWidget.controller.resumes.removeListener(appResumed);
         w.resumes.addListener(appResumed);
       }
-      oldWidget.configuration.controller.removeListener(syncServerMenu);
+      oldWidget.controller.removeListener(syncServerMenu);
       serverUnread.dispose();
       serverUnread = SourceServerUnreadStore(w)
         ..addListener(serverUnreadChanged);
@@ -883,13 +852,13 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
       _desktopNavigation = null;
       mobileRouteAuthority = null;
       w.mobileNavigation = !wide;
-      oldWidget.configuration.controller.releaseConversationPresentation(this);
-      oldWidget.configuration.controller.removeListener(syncChannelSearch);
+      oldWidget.controller.releaseConversationPresentation(this);
+      oldWidget.controller.removeListener(syncChannelSearch);
       channelSearchSeed = channelSearchAuthority = null;
       channelSearchRevoked = false;
       w.addListener(syncChannelSearch);
-      oldWidget.configuration.controller.removeListener(syncPresentation);
-      oldWidget.configuration.controller.removeListener(syncSidebarDisclosure);
+      oldWidget.controller.removeListener(syncPresentation);
+      oldWidget.controller.removeListener(syncSidebarDisclosure);
       quickSwitcher.rebind(w);
       liveActivities.dispose();
       activityDirectory.dispose();
@@ -908,12 +877,12 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
       syncPresentation();
       w.addListener(syncSidebarDisclosure);
       syncSidebarDisclosure();
-      oldWidget.configuration.controller.removeListener(syncSavedIds);
+      oldWidget.controller.removeListener(syncSavedIds);
       w.addListener(syncSavedIds);
       syncSavedIds();
-      oldWidget.configuration.controller.removeListener(syncSidebarAgents);
-      oldWidget.configuration.controller.removeListener(syncBridgeFlag);
-      oldWidget.configuration.controller.removeListener(syncWorkspaceError);
+      oldWidget.controller.removeListener(syncSidebarAgents);
+      oldWidget.controller.removeListener(syncBridgeFlag);
+      oldWidget.controller.removeListener(syncWorkspaceError);
       w.addListener(syncSidebarAgents);
       w.addListener(syncBridgeFlag);
       w.addListener(syncWorkspaceError);
@@ -1313,7 +1282,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
   }
 
   @override
-  Widget build(BuildContext context) => options.mobileRoutePage
+  Widget build(BuildContext context) => widget.mobileRoutePage
       ? buildHost(context)
       // Settings and the rail layout read the side through the scope; the
       // workspace itself reads the store.
@@ -1330,7 +1299,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
     final compact = LayoutHold.held ? heldCompact ?? live : live;
     if (!LayoutHold.held) heldCompact = live;
     final Widget body;
-    if (!options.mobileRoutePage && compact) {
+    if (!widget.mobileRoutePage && compact) {
       body = ListenableBuilder(
         listenable: Listenable.merge([
           mobileNavigationSelection,
@@ -1370,7 +1339,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
       store: presentation,
       // Account-level entry/resume work belongs to the workspace, not each
       // page in its retained mobile Navigator.
-      child: options.mobileRoutePage
+      child: widget.mobileRoutePage
           ? body
           : AnnouncementHost(controller: w, child: body),
     );
@@ -1674,7 +1643,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
             );
       if (['members', 'agents', 'computers'].contains(route)) {
         final detail = desktopContentDetail();
-        content = options.mobileRoutePage && detail != null
+        content = widget.mobileRoutePage && detail != null
             ? detail
             : DesktopMasterDetail(
                 master: content,
@@ -2101,11 +2070,11 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
                       : 0)
             : 0,
         childBuilder: (dockWidth, onEscape) =>
-            options.mobileRoutePage &&
+            widget.mobileRoutePage &&
                 (location.task != null || location.legacyTask != null)
             ? const SizedBox.expand()
             : channelPageHost(
-                options.mobileRoutePage && location.channelPage != null
+                widget.mobileRoutePage && location.channelPage != null
                     ? const SizedBox.expand()
                     : workspace(dockWidth, onEscape),
               ),
@@ -2477,8 +2446,8 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
   /// (composer, a field, nothing focused) while this workspace is the visible
   /// route, and never under an open dialog.
   bool globalShortcut(KeyEvent event) {
-    if (options.mobileRoutePage && !w.presentationActive ||
-        !options.mobileRoutePage && RaftAdaptiveWorkspace.compactOf(context)) {
+    if (widget.mobileRoutePage && !w.presentationActive ||
+        !widget.mobileRoutePage && RaftAdaptiveWorkspace.compactOf(context)) {
       return false;
     }
     final key = event.logicalKey;
@@ -2999,11 +2968,11 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
         RaftMenuEntry(
           label: tr('Switch or Create Server'),
           glyph: RaftGlyph.plus,
-          onPressed: options.onChooseServer == null
+          onPressed: widget.onChooseServer == null
               ? null
               : () {
                   if (mounted && scope == mobileAuthority) {
-                    options.onChooseServer!();
+                    widget.onChooseServer!();
                   }
                 },
         ),
@@ -3175,8 +3144,8 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
     if (!mounted || scope != mobileAuthority) return;
     final accepted = w.servers.where((s) => s.id == target.id).firstOrNull;
     if (accepted == null || accepted.id == w.server?.id) return;
-    if (options.onSwitchServer != null) {
-      await options.onSwitchServer!(accepted, mobile);
+    if (widget.onSwitchServer != null) {
+      await widget.onSwitchServer!(accepted, mobile);
     } else {
       await w.selectServer(accepted);
     }
@@ -3399,7 +3368,7 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
   // front. Handing the framework the very widget it last built for that page
   // lets it skip the hidden subtree, instead of rebuilding every cached row on
   // each navigation frame; the page's own listeners keep it current, and the
-  // next visit builds a fresh options. Authority changes drop the cache.
+  // next visit builds a fresh widget. Authority changes drop the cache.
   Widget? conversationInstance;
   Widget shownConversation(Widget Function() build) =>
       conversationInstance = build();
@@ -4090,11 +4059,11 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
       tab,
       w.location.settingsPath.isEmpty,
       mobileSettingsRevision,
-      options.appearance.mode,
-      options.appearance.light,
-      options.onAppearance,
-      options.notifications,
-      options.onLogout,
+      widget.appearance.mode,
+      widget.appearance.light,
+      widget.onAppearance,
+      widget.notifications,
+      widget.onLogout,
       presentation,
       mobileTabbar.settings,
       railSideStore.side,
@@ -4117,11 +4086,11 @@ class _WorkspaceViewState extends State<_WorkspaceBody>
           initialTab: tab,
           appUpdate: AppServicesScope.of(serviceContext).appUpdate,
           workspaceModeCard: modeCard(),
-          appearance: options.appearance,
-          onAppearance: (appearance) => options.onAppearance(appearance),
+          appearance: widget.appearance,
+          onAppearance: (appearance) => widget.onAppearance(appearance),
           presentation: presentation,
-          notifications: options.notifications,
-          onLogout: options.onLogout,
+          notifications: widget.notifications,
+          onLogout: widget.onLogout,
           mobileRoot: w.location.settingsPath.isEmpty,
           mobileResetRevision:
               mobileSettingsRevision + (mobileHost?.mobileSettingsRevision ?? 0),
