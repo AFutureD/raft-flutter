@@ -32,6 +32,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:raft_flutter/platform/android_performance_hint.dart';
 
 import 'perf_lab/fixtures.dart';
+import 'perf_lab/keyboard.dart';
 import 'perf_lab/navigation_activity.dart';
 import 'perf_lab/navigation_host.dart';
 import 'perf_lab/probe.dart';
@@ -43,6 +44,7 @@ const _defines = {
   'RAFT_LAB_SEMANTICS': String.fromEnvironment('RAFT_LAB_SEMANTICS'),
   'RAFT_LAB_PHASES': String.fromEnvironment('RAFT_LAB_PHASES'),
   'RAFT_LAB_IDLE_SECONDS': String.fromEnvironment('RAFT_LAB_IDLE_SECONDS'),
+  'RAFT_LAB_ROUNDS': String.fromEnvironment('RAFT_LAB_ROUNDS'),
 };
 String _cfg(String key) {
   final define = _defines[key] ?? '';
@@ -336,10 +338,10 @@ void main() {
         'viewportDimension': p.viewportDimension,
       };
 
-      Future<void> run(String scenario, Future<Map<String, Object?>?> Function() action, {String kind = 'continuous', Future<void> Function()? prepare}) async {
+      Future<void> run(String scenario, Future<Map<String, Object?>?> Function() action, {String kind = 'continuous', Future<void> Function()? prepare, bool warmup = false}) async {
         if (!wants(scenario)) return;
         await prepare?.call();
-        final record = await lab.measure(t, name, scenario, action, kind: kind);
+        final record = await lab.measure(t, name, scenario, action, kind: kind, warmup: warmup);
         await fontKeyReport?.call();
         if (record['failure'] != null) failures.add('$name/$scenario: ${record['failure']}');
         final exception = t.takeException();
@@ -1184,6 +1186,24 @@ void main() {
           await idle(Duration(seconds: idleSeconds));
           return {'idleSeconds': idleSeconds};
         }, kind: 'idle');
+      }
+
+      // Soft keyboard. An unfiltered Android run includes it. Any other host
+      // includes it only when it is named: it replaces this theme's tree with
+      // the production phone app. Measured windows are the inset slides.
+      if (wants('keyboard') && (only.isNotEmpty || Platform.isAndroid)) {
+        final closeKeyboard = await mountKeyboardChat(t, images: images, family: family, dark: dark);
+        final keyboardRounds = int.tryParse(_cfg('RAFT_LAB_ROUNDS')) ?? 1;
+        try {
+          // One recorded warmup. Later rounds share this process cache, so
+          // they are one batch, not independent samples.
+          await run('keyboard', () => keyboardOpenClose(t), kind: 'keyboard', warmup: true);
+          for (var i = 0; i < keyboardRounds; i++) {
+            await run('keyboard', () => keyboardOpenClose(t), kind: 'keyboard');
+          }
+        } finally {
+          await closeKeyboard();
+        }
       }
 
       if (only.any((o) => o.startsWith('nav-'))) {
