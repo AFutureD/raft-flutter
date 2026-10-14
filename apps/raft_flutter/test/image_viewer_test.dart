@@ -1365,6 +1365,10 @@ void main() {
       await _open(tester, 0);
       final viewer = _viewer(tester);
       expect(find.byType(ImageZoomSurface), findsOneWidget);
+      // The stand-in lives in the same room between the bars as the original.
+      final room = tester.getRect(find.byType(ImageZoomSurface));
+      expect(room.top, greaterThan(0));
+      expect(room.bottom, lessThan(844));
       final at = tester.getCenter(find.byKey(const ValueKey('viewer-stage')));
 
       // Single tap toggles the chrome (after the double-tap window).
@@ -1374,6 +1378,8 @@ void main() {
       await tester.tapAt(at + const Offset(0, 250));
       await tester.pump(const Duration(milliseconds: 400));
       expect(viewer.chrome.value, isTrue);
+      // The room between the bars glides back in (150 ms after the frame).
+      await tester.pump(const Duration(milliseconds: 250));
 
       // Double tap zooms the stand-in around the finger.
       await tester.tapAt(at);
@@ -1391,6 +1397,11 @@ void main() {
       await _settle(tester, 20);
       expect(find.byKey(const ValueKey('attachment-image-img0')), findsOneWidget);
       expect(viewer.zoomFor(0).value, zoomed);
+      expect(
+        tester.getRect(find.byType(ImageZoomSurface)).height,
+        greaterThanOrEqualTo(room.height),
+        reason: 'hidden chrome: the original has the whole stage, not less',
+      );
       expect(viewer.zoomed, isTrue);
 
       // A second double tap on the (still loading) page would fit again; here
@@ -1491,6 +1502,36 @@ void main() {
         tester.getCenter(find.byKey(const ValueKey('viewer-stage'))) +
             const Offset(0, -250),
         state: 'caption expanded, stage',
+      );
+    });
+
+    testWidgets('an expanded caption shows every line and its height feeds '
+        'the picture room', (tester) async {
+      final long = MediaMessageInfo(
+        sender: 'Alice Chen',
+        time: 'Oct 13, 2:02 PM',
+        text: List.filled(30, 'caption words').join(' '),
+      );
+      await _mount(tester, size: _phone, gallery: true, message: long);
+      await _open(tester, 0);
+      final caption = find.byKey(const ValueKey('media-caption'));
+      final before = tester.getSize(caption).height;
+      final roomBefore = tester.getRect(find.byType(ImageZoomSurface)).bottom;
+      await tester.tap(caption);
+      // Layout, the measured band, the rebuilt room, then its glide.
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.getSize(caption).height, greaterThan(before));
+      expect(
+        tester.getRect(find.byType(ImageZoomSurface)).bottom,
+        lessThan(roomBefore),
+        reason: 'the room ends where the taller band starts',
+      );
+      expect(
+        tester.getRect(find.byType(ImageZoomSurface)).bottom,
+        lessThanOrEqualTo(tester.getTopLeft(caption).dy + 1),
       );
     });
 

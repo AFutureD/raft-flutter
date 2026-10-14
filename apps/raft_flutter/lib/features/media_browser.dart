@@ -720,7 +720,7 @@ class MediaBrowserState extends State<MediaBrowser>
   Widget _imageRoom(BuildContext context, Widget page) {
     final insets = RaftMediaChromeInsets.maybeOf(context);
     if (insets == null) return page;
-    return AnimatedPadding(
+    final room = AnimatedPadding(
       duration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
           : RaftScale.defaultTransitionDuration,
@@ -728,6 +728,17 @@ class MediaBrowserState extends State<MediaBrowser>
       padding: insets.imageRoom,
       child: page,
     );
+    // The picture's own surface only covers the room; a tap on the rest of the
+    // stage (the bars' backdrops, the system insets) toggles the chrome too.
+    // Inside the room the surface's recognizer is deeper and wins the arena.
+    return widget.page
+        ? GestureDetector(
+            key: const ValueKey('viewer-stage-tap'),
+            behavior: HitTestBehavior.translucent,
+            onTap: toggleChrome,
+            child: room,
+          )
+        : room;
   }
 
   /// Semantics label of page [i] ("Video 2 of 9, name, sender, time").
