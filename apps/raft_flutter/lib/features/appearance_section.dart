@@ -40,8 +40,9 @@ class RaftAppearanceSection extends StatelessWidget {
   final ValueChanged<RaftAppearance> onAppearance;
   final PersonalPresentationStore presentation;
 
-  /// The device's rail side choice. Offered only where the phone layout can
-  /// show the rail (a wide or short window); null hides the row.
+  /// The device's rail side choice. Always offered on touch-first platforms
+  /// (phones and foldables take it in every layout); on computers only while
+  /// a narrow window shows the phone rail. Null hides the row.
   final RailSideStore? railSide;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -210,7 +211,8 @@ class RaftAppearanceSection extends StatelessWidget {
             value.hideEmptySections,
             (hide) => presentation.update(captured, hideEmptySections: hide),
           ),
-          if (railSide != null && railChoiceAvailable(context))
+          if (railSide != null &&
+              (railSideFollowsChoice() || railChoiceAvailable(context)))
             Padding(
               padding: RaftAppearanceSectionRecipe.gapAbove,
               child: ListenableBuilder(
@@ -224,7 +226,7 @@ class RaftAppearanceSection extends StatelessWidget {
                   return card([
                     title(
                       'Navigation rail',
-                      'Which side the navigation rail sits on when the window is wide or short, such as in landscape or on an unfolded screen.',
+                      'Applies when the screen is wide or in landscape',
                     ),
                     RaftSegmentedControl<RaftRailSide>(
                       key: const ValueKey('appearance-rail-side'),
@@ -257,9 +259,10 @@ class RaftAppearanceSection extends StatelessWidget {
   );
 }
 
-/// Whether this window can show the phone rail on either side. The window
-/// decides (size and shape), so a tall phone in portrait, and the desktop
-/// layout, do not get a setting that has no effect there.
+/// Whether this window can show the phone rail on either side. On computers
+/// the window decides (size and shape), so the desktop layout does not get a
+/// setting that has no effect there; touch-first platforms always get it
+/// (see [railSideFollowsChoice]).
 bool railChoiceAvailable(BuildContext context) =>
     RaftAdaptiveWorkspace.phoneRailOf(context, side: RaftRailSide.start) ||
     RaftAdaptiveWorkspace.phoneRailOf(context, side: RaftRailSide.end);

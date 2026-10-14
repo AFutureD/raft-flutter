@@ -174,6 +174,36 @@ abstract final class RaftWindowClass {
     return RaftNavigationPlacement.rail;
   }
 
+  /// Whether the desktop layout's navigation column (rail and sidebar, one
+  /// unit) sits on the physical right of a window of [size]. Only touch-first
+  /// devices follow the side choice ([followsSide]); computers keep it on the
+  /// left. A separating fold inside the column's strip ([columnWidth] wide)
+  /// would cut it, so the column stays on the left there.
+  static bool desktopNavigationOnRight(
+    Size size, {
+    required bool followsSide,
+    required RaftRailSide railSide,
+    required TextDirection textDirection,
+    required double columnWidth,
+    Iterable<DisplayFeature> Function()? displayFeatures,
+  }) {
+    if (!followsSide || !RaftRailSideScope.onRight(railSide, textDirection)) {
+      return false;
+    }
+    final strip = Rect.fromLTRB(
+      size.width - columnWidth,
+      0,
+      size.width,
+      size.height,
+    );
+    for (final fold in separatingVerticalFolds(
+      displayFeatures?.call() ?? const [],
+    )) {
+      if (fold.bounds.overlaps(strip)) return false;
+    }
+    return true;
+  }
+
   static RaftNavigationPlacement phoneNavigationOf(BuildContext context) =>
       phoneNavigationFor(
         MediaQuery.sizeOf(context),

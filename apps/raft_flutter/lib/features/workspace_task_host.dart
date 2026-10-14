@@ -54,6 +54,7 @@ class WorkspaceTaskHost extends StatefulWidget {
     required this.onTask,
     required this.onViewBilling,
     this.leadingExtent = 0,
+    this.leadingOnRight = false,
     this.seed,
     this.presented = true,
   });
@@ -66,6 +67,10 @@ class WorkspaceTaskHost extends StatefulWidget {
   final ChatTaskOpener? onTask;
   final VoidCallback? onViewBilling;
   final double leadingExtent;
+
+  /// The [leadingExtent] column (rail and sidebar) sits on the right edge: the
+  /// side surface keeps clear of it there.
+  final bool leadingOnRight;
   final TaskSurfaceSeed? seed;
 
   /// MainLayout1394 suppresses global task presentation in active workspace.
@@ -354,11 +359,15 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
           Positioned(
             top: 0,
             bottom: 0,
-            right: 0,
+            right: side && widget.leadingOnRight && viewport.width >= 768
+                ? widget.leadingExtent
+                : 0,
             left: side
                 ? docked
-                      ? viewport.width - legacyWidth
-                      : viewport.width >= 768
+                      ? viewport.width -
+                            legacyWidth -
+                            (widget.leadingOnRight ? widget.leadingExtent : 0)
+                      : viewport.width >= 768 && !widget.leadingOnRight
                       ? widget.leadingExtent
                       : 0
                 : 0,
@@ -380,7 +389,10 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
           ),
         if (docked)
           Positioned(
-            right: legacyWidth - RaftPanelResizeHandle.hitExtent / 2,
+            right:
+                legacyWidth -
+                RaftPanelResizeHandle.hitExtent / 2 +
+                (widget.leadingOnRight ? widget.leadingExtent : 0),
             top: 0,
             bottom: 0,
             width: RaftPanelResizeHandle.hitExtent,

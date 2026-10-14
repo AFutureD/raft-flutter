@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,7 @@ import 'package:raft_flutter/data/rail_side_preference.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/features/conversation_panel.dart';
 import 'package:raft_flutter/platform/system_gesture_exclusion.dart';
 import 'package:raft_flutter/features/mobile_workspace_pages.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
@@ -796,27 +798,111 @@ void main() {
       expect(railRect(tester).left, greaterThan(300));
     });
 
-    testWidgets('no choice on a tall phone or the desktop layout', (
-      tester,
-    ) async {
-      final tall = _Rig(
-        tester,
-        RaftFamily.elegant,
-        size: const Size(390, 844),
-        railSide: RailSideStore(),
+    Future<void> openAppearance(WidgetTester tester, _Rig r) async {
+      await tester.tap(
+        find.byKey(
+          r.size.width < 768 && r.size.height / r.size.width >= 1.75
+              ? const Key('mobile-tab-settings')
+              : const Key('rail-settings'),
+        ),
       );
-      await tall.start();
-      await tester.tap(find.byKey(const Key('mobile-tab-settings')));
-      await tall.settle();
+      await r.settle();
       await tester.tap(
         find.byKey(const ValueKey('workspace-settings-nav-appearance')),
       );
-      await tall.settle();
-      expect(find.byKey(const ValueKey('appearance-rail-side')), findsNothing);
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('appearance-hide-empty')),
-      );
-      expect(find.byKey(const ValueKey('appearance-rail-side')), findsNothing);
+      await r.settle();
+    }
+
+    final choice = find.byKey(const ValueKey('appearance-rail-side'));
+    const description = 'Applies when the screen is wide or in landscape';
+
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      for (final size in const [
+        Size(390, 844),
+        Size(440, 707),
+        Size(880, 1000),
+      ]) {
+        testWidgets('touch platform $platform always offers the choice at '
+            '${size.width.round()}x${size.height.round()}', (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          try {
+            final r = _Rig(
+              tester,
+              RaftFamily.elegant,
+              size: size,
+              railSide: RailSideStore(),
+            );
+            await r.start();
+            await openAppearance(tester, r);
+            await tester.ensureVisible(choice);
+            await tester.pump();
+            expect(choice, findsOneWidget);
+            expect(find.text('Navigation rail'), findsOneWidget);
+            expect(find.text(description), findsOneWidget);
+            expect(find.text('Left'), findsOneWidget);
+            expect(find.text('Right'), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+      }
+    }
+
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
+      testWidgets('computer $platform: no choice in the desktop layout', (
+        tester,
+      ) async {
+        debugDefaultTargetPlatformOverride = platform;
+        try {
+          final desktop = _Rig(
+            tester,
+            RaftFamily.elegant,
+            size: const Size(880, 1000),
+            railSide: RailSideStore(),
+          );
+          await desktop.start();
+          await openAppearance(tester, desktop);
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('appearance-hide-empty')),
+          );
+          expect(choice, findsNothing);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+
+    testWidgets('a computer offers the choice where a narrow window shows '
+        'the phone rail', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final r = _Rig(
+          tester,
+          RaftFamily.elegant,
+          size: const Size(440, 707),
+          railSide: RailSideStore(),
+        );
+        await r.start();
+        await openAppearance(tester, r);
+        await tester.ensureVisible(choice);
+        expect(choice, findsOneWidget);
+        // A tall narrow window has no rail: nothing to choose.
+        final tall = _Rig(
+          tester,
+          RaftFamily.elegant,
+          size: const Size(390, 844),
+          railSide: RailSideStore(),
+        );
+        await tall.start();
+        await openAppearance(tester, tall);
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('appearance-hide-empty')),
+        );
+        expect(choice, findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
 
     testWidgets('RTL shows the real visual side in the labels', (tester) async {
@@ -977,6 +1063,267 @@ void main() {
       expect(_bar, findsNothing);
       expect(_rail('chat'), findsOneWidget);
       expect(railRect(tester).left, 0);
+    });
+  });
+
+  group('rail side in the desktop layout', () {
+    const channel = MethodChannel('app.raft/gesture-exclusion');
+    late List<MethodCall> calls;
+    setUp(() {
+      calls = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return true;
+          });
+      SystemGestureExclusion.instance = SystemGestureExclusion(
+        channel: channel,
+        supported: true,
+      );
+    });
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+      SystemGestureExclusion.instance = SystemGestureExclusion();
+    });
+
+    const size = Size(880, 1000);
+    Rect railRect(WidgetTester t) => t.getRect(find.byType(RaftWorkspaceRail));
+    Rect sidebarRect(WidgetTester t) =>
+        t.getRect(find.byKey(const Key('workspace-sidebar-panel')));
+    Rect chatRect(WidgetTester t) =>
+        t.getRect(find.byType(ConversationPanel).first);
+    Border sidebarBorder(WidgetTester t) =>
+        (t
+                        .widget<Container>(
+                          find.byKey(const Key('workspace-sidebar-panel')),
+                        )
+                        .decoration!
+                    as BoxDecoration)
+                .border!
+            as Border;
+
+    for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
+      for (final rtl in [false, true]) {
+        for (final end in [false, true]) {
+          testWidgets('$family touch ${rtl ? 'RTL' : 'LTR'} '
+              '${end ? 'end' : 'start'}: the column sits on its side', (
+            tester,
+          ) async {
+            final store = RailSideStore();
+            if (end) store.update(RaftRailSide.end);
+            final r = _Rig(
+              tester,
+              family,
+              size: size,
+              rtl: rtl,
+              railSide: store,
+            );
+            await r.start();
+            expect(tester.takeException(), isNull);
+            final onRight = end != rtl;
+            final rail = railRect(tester);
+            final bar = sidebarRect(tester);
+            final content = chatRect(tester);
+            if (onRight) {
+              expect(rail.right, size.width);
+              expect(bar.right, closeTo(rail.left, .5));
+              expect(content.right, lessThanOrEqualTo(bar.left + .5));
+              expect(content.left, 0);
+              // The divider faces the content.
+              expect(sidebarBorder(tester).left.width, greaterThan(0));
+              expect(sidebarBorder(tester).right, BorderSide.none);
+            } else {
+              expect(rail.left, 0);
+              expect(bar.left, closeTo(rail.right, .5));
+              expect(content.left, greaterThanOrEqualTo(bar.right - .5));
+              expect(content.right, size.width);
+              expect(sidebarBorder(tester).right.width, greaterThan(0));
+              expect(sidebarBorder(tester).left, BorderSide.none);
+            }
+            // Rail and sidebar are one unit, full height, same width as ever.
+            expect(bar.width, 240);
+            expect(rail.top, bar.top);
+            expect(rail.height, bar.height);
+            // The rail menus open toward the content.
+            await tester.tap(_rail('workspace'));
+            await r.settle();
+            final menu = tester.getRect(find.byType(RaftServerMenuPanel).last);
+            if (onRight) {
+              expect(menu.right, lessThanOrEqualTo(rail.left + .5));
+            } else {
+              expect(menu.left, greaterThanOrEqualTo(rail.right - .5));
+            }
+          });
+        }
+      }
+    }
+
+    testWidgets('a computer keeps the column on the left whatever the side', (
+      tester,
+    ) async {
+      try {
+        for (final platform in [
+          TargetPlatform.macOS,
+          TargetPlatform.windows,
+          TargetPlatform.linux,
+        ]) {
+          debugDefaultTargetPlatformOverride = platform;
+          final r = _Rig(
+            tester,
+            RaftFamily.elegant,
+            size: size,
+            railSide: RailSideStore()..update(RaftRailSide.end),
+          );
+          await r.start();
+          expect(railRect(tester).left, 0, reason: '$platform');
+          expect(sidebarRect(tester).left, closeTo(railRect(tester).right, .5));
+          expect(chatRect(tester).right, size.width);
+          await tester.pumpWidget(const SizedBox());
+          calls.clear();
+        }
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('switching the setting moves the column live and keeps the '
+        'page and draft', (tester) async {
+      final store = RailSideStore();
+      final r = _Rig(tester, RaftFamily.elegant, size: size, railSide: store);
+      await r.start();
+      await r.w.selectChannel(r.w.channels.first);
+      await r.settle();
+      final composer = find.descendant(
+        of: find.byType(RaftComposer),
+        matching: find.byType(EditableText),
+      );
+      await tester.enterText(composer.first, 'half-written reply');
+      await tester.pump();
+      final editor = identityHashCode(tester.element(composer.first));
+      final sidebar = identityHashCode(
+        tester.element(find.byKey(const Key('workspace-sidebar'))),
+      );
+      expect(railRect(tester).left, 0);
+      for (final side in [
+        RaftRailSide.end,
+        RaftRailSide.start,
+        RaftRailSide.end,
+      ]) {
+        store.update(side);
+        await r.settle();
+        expect(
+          railRect(tester).left,
+          side == RaftRailSide.end ? size.width - railRect(tester).width : 0,
+        );
+        expect(identityHashCode(tester.element(composer.first)), editor);
+        expect(
+          identityHashCode(
+            tester.element(find.byKey(const Key('workspace-sidebar'))),
+          ),
+          sidebar,
+        );
+        expect(
+          tester.widget<EditableText>(composer.first).controller.text,
+          'half-written reply',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the sidebar handle is on the content side and drags toward '
+        'the content to grow', (tester) async {
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: size,
+        railSide: RailSideStore()..update(RaftRailSide.end),
+      );
+      await r.start();
+      final handle = find.byKey(const Key('sidebar-resize-handle'));
+      expect(
+        tester.getCenter(handle).dx,
+        closeTo(sidebarRect(tester).left, .5),
+      );
+      final before = sidebarRect(tester).width;
+      await tester.drag(handle, const Offset(-40, 0));
+      await r.settle();
+      expect(sidebarRect(tester).width, closeTo(before + 40, 1));
+      expect(sidebarRect(tester).right, closeTo(railRect(tester).left, .5));
+      // Left side: the handle is on the right edge of the sidebar.
+      final left = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: size,
+        railSide: RailSideStore(),
+      );
+      await left.start();
+      expect(
+        tester.getCenter(handle).dx,
+        closeTo(sidebarRect(tester).right, .5),
+      );
+    });
+
+    testWidgets('Android keeps the back swipe off a right column, capped', (
+      tester,
+    ) async {
+      final store = RailSideStore();
+      final r = _Rig(tester, RaftFamily.elegant, size: size, railSide: store);
+      await r.start();
+      expect(calls.where((c) => c.method == 'set'), isEmpty);
+      store.update(RaftRailSide.end);
+      await r.settle();
+      final sets = calls.where((c) => c.method == 'set').toList();
+      expect(sets, isNotEmpty);
+      final rect =
+          ((sets.last.arguments as Map)['rects'] as List).single as List;
+      expect(rect[2], size.width, reason: 'to the window edge');
+      expect(rect[3] - rect[1], lessThanOrEqualTo(200));
+      expect(rect[0], greaterThanOrEqualTo(size.width - 100));
+      store.update(RaftRailSide.start);
+      await r.settle();
+      expect(calls.last.method, 'clear');
+    });
+
+    testWidgets('a separating fold inside the column keeps it on the left', (
+      tester,
+    ) async {
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: size,
+        displayFeatures: [
+          DisplayFeature(
+            bounds: Rect.fromLTRB(size.width - 200, 0, size.width - 190, 1000),
+            type: DisplayFeatureType.hinge,
+            state: DisplayFeatureState.postureHalfOpened,
+          ),
+        ],
+        railSide: RailSideStore()..update(RaftRailSide.end),
+      );
+      await r.start();
+      expect(railRect(tester).left, 0);
+      expect(calls.where((c) => c.method == 'set'), isEmpty);
+    });
+
+    testWidgets('a fold in the middle of the window leaves the right column', (
+      tester,
+    ) async {
+      final r = _Rig(
+        tester,
+        RaftFamily.elegant,
+        size: size,
+        displayFeatures: [
+          DisplayFeature(
+            bounds: const Rect.fromLTRB(435, 0, 445, 1000),
+            type: DisplayFeatureType.hinge,
+            state: DisplayFeatureState.postureHalfOpened,
+          ),
+        ],
+        railSide: RailSideStore()..update(RaftRailSide.end),
+      );
+      await r.start();
+      expect(railRect(tester).right, size.width);
     });
   });
 }

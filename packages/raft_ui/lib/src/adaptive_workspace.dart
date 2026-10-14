@@ -42,8 +42,16 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
     this.sidebarResizeLabel = 'Resize sidebar',
     this.threadResizeLabel = 'Resize thread',
     this.trailingExtent = 0,
+    this.navigationOnRight = false,
   });
   final Widget content, sidebar, rail;
+
+  /// The desktop layout puts its navigation column (rail and sidebar, one
+  /// unit) on the physical right edge, and the resizable sidebar's handle,
+  /// dividers and the docked [trailingExtent] follow. The host decides (touch
+  /// devices follow the rail side choice, see
+  /// `RaftWindowClass.desktopNavigationOnRight`); computers keep the left.
+  final bool navigationOnRight;
 
   /// The host derives this from the mounted route, not panel width or theme.
   /// Tasks and content masters exclude conversation navigation from layout,
@@ -123,6 +131,9 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
   final mainSlot = GlobalKey();
   final threadSlot = GlobalKey();
   final profileSlot = GlobalKey();
+  // The navigation column keeps its state when it swaps sides.
+  final railSlot = GlobalKey();
+  final sidebarSlot = GlobalKey();
 
   /// Whether the thread and the profile share the right side (both columns)
   /// rather than the profile covering the thread.
@@ -256,6 +267,66 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
     widget.onPanelWidthsChanged?.call(sidebarWidth, threadWidth);
   }
 
+  /// The rail slot of the desktop layout. Menus it opens (server switcher,
+  /// notification centre) go toward the content, and a Brutal rail faces its
+  /// divider that way.
+  Widget navigationRail(RaftTokens t, double railWidth, bool onRight) {
+    final rail = RaftRailEdgeScope(onRight: onRight, child: widget.rail);
+    // Nothing sits between the rail and the content when the sidebar is away,
+    // and a Brutal rail draws its own divider; an Elegant rail on the right
+    // would have none facing the content (on the left the content panel's
+    // own edge is that line).
+    final divider = onRight && !t.brutal && !widget.sidebarVisible
+        ? Border(left: BorderSide(color: t.colors['line-muted']!))
+        : null;
+    return SizedBox(
+      key: railSlot,
+      width: railWidth,
+      // The same chain with or without the line, so the rail keeps its state.
+      child: RaftStatusBarSource(
+        color: Colors.transparent,
+        border: divider == null ? null : _opaqueOver(divider, t.canvas),
+        child: DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(border: divider),
+          child: rail,
+        ),
+      ),
+    );
+  }
+
+  /// The sidebar slot of the desktop layout: the visited sidebar keeps its
+  /// fixed panel width while another route owns the content. Offstage
+  /// consumes no width and excludes paint/hit tests/semantics; focus and
+  /// tickers are gated separately. Initial hidden routes remain lazy. Hidden
+  /// data widgets catch up atomically when shown, without rebuilding the
+  /// inactive list on unrelated owner notifications.
+  Widget navigationSidebar(RaftTokens t, Color color, Border border) =>
+      Offstage(
+        key: sidebarSlot,
+        offstage: !widget.sidebarVisible,
+        child: retainedSidebar == null
+            ? const SizedBox.shrink()
+            : TickerMode(
+                enabled: widget.sidebarVisible,
+                child: ExcludeFocus(
+                  excluding: !widget.sidebarVisible,
+                  child: RaftStatusBarSource(
+                    // The sidebar colour and its divider continue up under
+                    // the status bar.
+                    color: color,
+                    border: _opaqueOver(border, t.canvas),
+                    child: Container(
+                      key: const Key('workspace-sidebar-panel'),
+                      width: sidebarWidth,
+                      decoration: BoxDecoration(border: border),
+                      child: Material(color: color, child: retainedSidebar),
+                    ),
+                  ),
+                ),
+              ),
+      );
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -304,13 +375,16 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         t,
         MediaQuery.sizeOf(context).height,
       );
+      final onRight = widget.navigationOnRight;
       final sidebarColor = t.brutal ? t.colors['brutal-cream']! : t.sidebar;
-      final sidebarBorder = Border(
-        right: BorderSide(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
+      // The divider always faces the content.
+      final sidebarLine = BorderSide(
+        color: t.brutal ? Colors.black : t.colors['line-muted']!,
+        width: t.brutal ? 2 : 1,
       );
+      final sidebarBorder = onRight
+          ? Border(left: sidebarLine)
+          : Border(right: sidebarLine);
       final hasThread = widget.thread != null || widget.profile != null;
       final conversationWidth =
           width -
@@ -334,40 +408,12 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         fit: StackFit.expand,
         children: [
           Row(
+            // Physical order: the column sits on the left or the right edge
+            // whatever the text direction.
+            textDirection: TextDirection.ltr,
             children: [
-              SizedBox(width: railWidth, child: widget.rail),
-              // Keep the visited sidebar at its fixed panel width while
-              // another route owns the content. Offstage consumes no width
-              // and excludes paint/hit tests/semantics; focus and tickers are
-              // gated separately. Initial hidden routes remain lazy. Hidden
-              // data widgets catch up atomically when shown, without rebuilding
-              // the inactive list on unrelated owner notifications.
-              Offstage(
-                offstage: !widget.sidebarVisible,
-                child: retainedSidebar == null
-                    ? const SizedBox.shrink()
-                    : TickerMode(
-                        enabled: widget.sidebarVisible,
-                        child: ExcludeFocus(
-                          excluding: !widget.sidebarVisible,
-                          child: RaftStatusBarSource(
-                            // The sidebar colour and its divider continue up
-                            // under the status bar.
-                            color: sidebarColor,
-                            border: _opaqueOver(sidebarBorder, t.canvas),
-                            child: Container(
-                              key: const Key('workspace-sidebar-panel'),
-                              width: sidebarWidth,
-                              decoration: BoxDecoration(border: sidebarBorder),
-                              child: Material(
-                                color: sidebarColor,
-                                child: retainedSidebar,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-              ),
+              if (!onRight) navigationRail(t, railWidth, onRight),
+              if (!onRight) navigationSidebar(t, sidebarColor, sidebarBorder),
               Expanded(
                 child: conversation(
                   split: sideThread,
@@ -376,11 +422,14 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                 ),
               ),
               SizedBox(width: widget.trailingExtent),
+              if (onRight) navigationSidebar(t, sidebarColor, sidebarBorder),
+              if (onRight) navigationRail(t, railWidth, onRight),
             ],
           ),
           if (widget.sidebarVisible)
             Positioned(
-              left: railWidth + sidebarWidth - 4,
+              left: onRight ? null : railWidth + sidebarWidth - 4,
+              right: onRight ? railWidth + sidebarWidth - 4 : null,
               top: 0,
               bottom: 0,
               width: 8,
@@ -388,6 +437,8 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                 key: const Key('sidebar-resize-handle'),
                 label: widget.sidebarResizeLabel,
                 value: sidebarWidth,
+                // A sidebar on the right grows when dragged left.
+                reversed: onRight,
                 onChanged: resizeSidebar,
               ),
             ),
@@ -398,7 +449,10 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                       ? widget.profileWidth
                       : 0) +
                   actualThread -
-                  4,
+                  4 +
+                  (onRight
+                      ? railWidth + (widget.sidebarVisible ? sidebarWidth : 0)
+                      : 0),
               top: 0,
               bottom: 0,
               width: 8,

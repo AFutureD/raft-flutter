@@ -50,3 +50,12 @@ class RailSideStore extends ChangeNotifier {
     }
   }
 }
+
+/// Touch-first platforms (Android, iOS: phones, foldables, tablets) follow the
+/// rail side choice in every layout, the desktop layout of an unfolded inner
+/// screen included. Computers (macOS, Windows, Linux) keep the navigation on
+/// the left in the desktop layout and offer the choice only while a narrow
+/// window shows the phone rail. Decided by platform, never by window size.
+bool railSideFollowsChoice() =>
+    defaultTargetPlatform == TargetPlatform.android ||
+    defaultTargetPlatform == TargetPlatform.iOS;

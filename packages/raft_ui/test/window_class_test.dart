@@ -135,4 +135,58 @@ void main() {
       isFalse,
     );
   });
+
+  group('desktop navigation column side', () {
+    const size = Size(880, 1000);
+    bool onRight({
+      bool follows = true,
+      RaftRailSide side = RaftRailSide.end,
+      TextDirection direction = TextDirection.ltr,
+      List<DisplayFeature> features = const [],
+    }) => RaftWindowClass.desktopNavigationOnRight(
+      size,
+      followsSide: follows,
+      railSide: side,
+      textDirection: direction,
+      columnWidth: 312,
+      displayFeatures: () => features,
+    );
+    DisplayFeature hinge(double left) => DisplayFeature(
+      bounds: Rect.fromLTWH(left, 0, 10, 1000),
+      type: DisplayFeatureType.hinge,
+      state: DisplayFeatureState.postureHalfOpened,
+    );
+
+    test('only touch devices follow the side', () {
+      expect(onRight(), isTrue);
+      expect(onRight(follows: false), isFalse);
+      expect(onRight(side: RaftRailSide.start), isFalse);
+    });
+
+    test('RTL mirrors start and end', () {
+      expect(onRight(direction: TextDirection.rtl), isFalse);
+      expect(
+        onRight(side: RaftRailSide.start, direction: TextDirection.rtl),
+        isTrue,
+      );
+    });
+
+    test('a separating fold inside the column keeps it on the left', () {
+      expect(onRight(features: [hinge(440)]), isTrue);
+      expect(onRight(features: [hinge(600)]), isFalse);
+      expect(
+        onRight(
+          features: [
+            DisplayFeature(
+              bounds: const Rect.fromLTWH(600, 0, 10, 1000),
+              type: DisplayFeatureType.fold,
+              state: DisplayFeatureState.postureFlat,
+            ),
+          ],
+        ),
+        isTrue,
+        reason: 'a flat fold does not separate',
+      );
+    });
+  });
 }

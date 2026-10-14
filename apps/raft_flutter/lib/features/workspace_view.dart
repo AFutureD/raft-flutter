@@ -656,6 +656,21 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   bool? heldRail;
 
+  /// The desktop layout's navigation column sits on the right: a touch device
+  /// whose side choice is the end side, with no separating fold in the column
+  /// (see [RaftWindowClass.desktopNavigationOnRight]). Always false below the
+  /// desktop cut and on computers.
+  bool get desktopNavigationOnRight =>
+      wide &&
+      RaftWindowClass.desktopNavigationOnRight(
+        MediaQuery.sizeOf(context),
+        followsSide: railSideFollowsChoice(),
+        railSide: railSideStore.side,
+        textDirection: Directionality.of(context),
+        columnWidth: RaftWindowClass.railStripWidth + sidebarWidth,
+        displayFeatures: () => MediaQuery.displayFeaturesOf(context),
+      );
+
   /// The rail's scrolling destination list, measured for gesture exclusion.
   final railItemArea = GlobalKey(debugLabel: 'rail-item-area');
 
@@ -1418,6 +1433,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         railSideStore.side,
         Directionality.of(context),
       );
+      final navigationOnRight = desktopNavigationOnRight;
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
           : tr(switch (route) {
@@ -1788,8 +1804,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
                               ).usesConversationSidebar,
                           // Phones mount neither; only desktop widths consume them.
                           sidebar: wide ? sidebar() : const SizedBox.shrink(),
+                          navigationOnRight: navigationOnRight,
                           rail: wide
-                              ? workspaceRail()
+                              ? RailGestureExclusion(
+                                  itemArea: railItemArea,
+                                  // A rail on the right edge is kept clear of
+                                  // the back swipe, as the phone rail is.
+                                  enabled: navigationOnRight,
+                                  child: workspaceRail(),
+                                )
                               : const SizedBox.shrink(),
                           mobileNavigationFloating: !t.brutal,
                           mobileNavigationClearance: raftTabBarClearance(
@@ -2039,6 +2062,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         seed: taskSeed ?? mobileHost?.taskSeed,
         // RightPanel handles content routes before its workspace guard.
         presented: !gridActive || route == 'search' || route == 'activity',
+        leadingOnRight: navigationOnRight,
         leadingExtent: wide
             ? RaftLayoutMetrics.railWidth(
                     t,
@@ -2789,7 +2813,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final mobileAppScope = mobileAppBadge.key;
     return RaftWorkspaceRail(
       phone: !wide,
-      itemAreaKey: wide ? null : railItemArea,
+      itemAreaKey: railItemArea,
       thinDivider: w.location.route == RaftRoute.activity,
       destinations: railDestinations,
       selected: DesktopNavigationPolicy.forSection(
