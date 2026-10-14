@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:raft_flutter/features/media_browser.dart';
@@ -280,6 +281,97 @@ Future<void> closeViewer(WidgetTester tester, String how, String name) async {
 }
 
 void report(String what, Map<String, Object?> data) => debugPrint('PS-REPORT $what ${jsonEncode(data)}');
+
+/// A report too long for one logcat line: numbered parts, joined by the reader.
+void reportParts(String what, Map<String, Object?> data) {
+  final text = jsonEncode(data);
+  const size = 850;
+  final parts = (text.length / size).ceil();
+  for (var i = 0; i < parts; i++) {
+    debugPrint('PS-REPORT-PART $what $i/$parts ${text.substring(i * size, (i + 1) * size > text.length ? text.length : (i + 1) * size)}');
+  }
+}
+
+/// Logs the Hero flight frame by frame (the framework's own numbers, one row
+/// per rendered frame while something moves): the shuttle's clip rect and
+/// corner radius, the bitmap inside it, the scrim, the chrome and the stage
+/// picture. `PS-REPORT` lines carry them to the host (docs/media-playback.md).
+class HeroLog {
+  HeroLog(this.tester, {required this.stage, required this.chrome});
+  final WidgetTester tester;
+  final Finder stage;
+  final double Function() chrome;
+  final rows = <List<Object?>>[];
+  bool _on = false;
+  List<Object?>? _last;
+
+  // Inside a frame callback the guarded `tester.getRect` / `tester.widget` would clash with the
+  // test's own `pump`: read the elements and render objects directly.
+  Element? _one(Finder f) {
+    final found = f.evaluate();
+    return found.isEmpty ? null : found.first;
+  }
+
+  List<double>? _rect(Finder f) {
+    final box = _one(f)?.renderObject;
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final r = MatrixUtils.transformRect(box.getTransformTo(null), Offset.zero & box.size);
+    double v(double x) => double.parse(x.toStringAsFixed(1));
+    return [v(r.left), v(r.top), v(r.right), v(r.bottom)];
+  }
+
+  /// Per frame: [build ms, raster ms, total ms] from the engine's frame timings (jank check).
+  final timings = <List<double>>[];
+
+  void _timed(List<FrameTiming> frames) {
+    for (final t in frames) {
+      double ms(Duration d) => double.parse((d.inMicroseconds / 1000).toStringAsFixed(1));
+      timings.add([ms(t.buildDuration), ms(t.rasterDuration), ms(t.totalSpan)]);
+    }
+  }
+
+  void start() {
+    _on = true;
+    SchedulerBinding.instance.addTimingsCallback(_timed);
+    SchedulerBinding.instance.addPostFrameCallback(_tick);
+    SchedulerBinding.instance.scheduleFrame();
+  }
+
+  List<List<Object?>> stop() {
+    _on = false;
+    return rows;
+  }
+
+  /// Stops listening to the engine's frame timings (they arrive a little after the frames).
+  void dispose() => SchedulerBinding.instance.removeTimingsCallback(_timed);
+
+  void _tick(Duration stamp) {
+    if (!_on) return;
+    final binding = SchedulerBinding.instance;
+    final shuttle = find.byKey(const ValueKey('media-hero-shuttle'));
+    double? radius;
+    final clip = _one(shuttle)?.widget;
+    if (clip is ClipRRect) {
+      final r = clip.borderRadius;
+      radius = r is BorderRadius ? double.parse(r.topLeft.x.toStringAsFixed(1)) : null;
+    }
+    final scrim = _one(find.byKey(const ValueKey('media-scrim')))?.widget;
+    final row = <Object?>[
+      double.parse((stamp.inMicroseconds / 1000).toStringAsFixed(1)),
+      _rect(shuttle),
+      radius,
+      _rect(find.byKey(const ValueKey('media-hero-shuttle-picture'))),
+      scrim is ColoredBox ? double.parse(scrim.color.a.toStringAsFixed(3)) : null,
+      double.parse(chrome().toStringAsFixed(2)),
+      _rect(stage),
+    ];
+    final same = _last != null && '${_last!.sublist(1)}' == '${row.sublist(1)}';
+    if (!same) rows.add(row);
+    _last = row;
+    binding.addPostFrameCallback(_tick);
+    binding.scheduleFrame();
+  }
+}
 
 void main() {
   // The host runner's `adb input tap` reaches the app as device pointer events,
@@ -1965,5 +2057,110 @@ void main() {
     expect(p2.position, p1.position, reason: 'the position moved while paused');
     await shutdown(tester);
   });
+
+
+  // ---- E3: the open / close Hero flight, frame by frame ---------------------
+
+  /// Top bar and bottom band opacity AS DRAWN (the animated value, not the target), summed: 2 when both
+  /// are fully visible. Read without the guarded tester methods (it runs inside frame callbacks).
+  double heroChrome() {
+    var sum = 0.0;
+    for (final layer in find.descendant(of: find.byType(RaftMediaImmersiveShell), matching: find.byType(AnimatedOpacity)).evaluate()) {
+      FadeTransition? fade;
+      void visit(Element e) {
+        if (fade != null) return;
+        final w = e.widget;
+        if (w is FadeTransition) {
+          fade = w;
+          return;
+        }
+        e.visitChildren(visit);
+      }
+
+      layer.visitChildren(visit);
+      sum += fade?.opacity.value ?? 0;
+    }
+    return sum;
+  }
+
+  String box(Rect r) => '${r.left.toStringAsFixed(1)},${r.top.toStringAsFixed(1)},${r.right.toStringAsFixed(1)},${r.bottom.toStringAsFixed(1)}';
+
+  /// One flight round: a real tap on the card opens the browser, [close] closes it
+  /// ('key' Back key, 'button' the top-left Back, 'drag' a real swipe down, with
+  /// [zoom] a real double tap first). The framework's frame log of both flights
+  /// goes to the host as PS-REPORT hero-<label>-open / -close.
+  Future<void> heroRound(WidgetTester tester, String label, VideoClip clip, {String close = 'key', bool zoom = false}) async {
+    // The default frame policy ignores the engine's frame requests (a frame only when the test pumps: ~15 fps
+    // here); a flight needs the display's own cadence.
+    final binding = IntegrationTestWidgetsFlutterBinding.instance;
+    final policy = binding.framePolicy;
+    binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
+    addTearDown(() => binding.framePolicy = policy);
+    await browserLaunch(tester, [clip]);
+    final card = find.byTooltip('Preview ${clip.filename}');
+    await until(tester, () => card.evaluate().isNotEmpty, 'the image card');
+    await tester.ensureVisible(card);
+    await tester.pump(const Duration(milliseconds: 500));
+    final cardImages = find.descendant(of: card, matching: find.byType(Image));
+    await until(tester, () => cardImages.evaluate().isNotEmpty, 'the card picture', timeout: const Duration(seconds: 30));
+    final cardImage = cardImages.first;
+    final cardRect = tester.getRect(cardImage);
+    final stageImage = find.byKey(ValueKey('attachment-image-${clip.id}'));
+    final log = HeroLog(tester, stage: stageImage, chrome: () => heroChrome());
+    await lab.host(tester, 'record-start:hero-$label');
+    log.start();
+    await realTap(tester, tester.getCenter(card));
+    await until(tester, () => browser.evaluate().isNotEmpty && browserOf(tester).index == 0, 'the browser');
+    await until(tester, () => tester.state<AttachmentLightboxImageState>(find.byType(AttachmentLightboxImage).first).full != null, 'the original',
+        timeout: const Duration(seconds: 40));
+    await tester.pump(const Duration(milliseconds: 1200));
+    final open = log.stop();
+    await tester.pump(const Duration(milliseconds: 400));
+    log.dispose();
+    final settled = tester.getRect(stageImage);
+    reportParts('hero-$label-open', {'card': box(cardRect), 'settled': box(settled), 'dpr': tester.view.devicePixelRatio, 'timings': log.timings, 'rows': open});
+    // Close.
+    if (zoom) {
+      await realTap(tester, stagePoint(tester), twice: true);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(browserOf(tester).zoomed, true);
+    }
+    final before = tester.getRect(stageImage);
+    final closing = HeroLog(tester, stage: stageImage, chrome: () => heroChrome())..start();
+    switch (close) {
+      case 'key':
+        final host = await lab.host(tester, 'back');
+        if (host == null) await tester.binding.handlePopRoute();
+      case 'button':
+        await realTap(tester, tester.getCenter(find.byType(RaftMediaChromeButton).first));
+      case 'drag':
+        final ratio = tester.view.devicePixelRatio;
+        final from = stagePoint(tester);
+        final dy = tester.getSize(browser).height * .5;
+        await lab.host(tester, 'swipe:${(from.dx * ratio).round()},${(from.dy * ratio).round()},${(from.dx * ratio).round()},${((from.dy + dy) * ratio).round()},260');
+    }
+    await until(tester, () => browser.evaluate().isEmpty, 'the browser to close');
+    await tester.pump(const Duration(milliseconds: 900));
+    final rows = closing.stop();
+    await tester.pump(const Duration(milliseconds: 400));
+    closing.dispose();
+    await lab.host(tester, 'record-stop');
+    reportParts('hero-$label-close', {'before': box(before), 'cardAfter': box(tester.getRect(cardImage)), 'card': box(cardRect), 'timings': closing.timings, 'rows': rows});
+    await shutdown(tester);
+  }
+
+  const heroLandscape = VideoClip('vp-hero-l', 'photo1.jpg', 'hero-l.jpg', size: 55318, mime: 'image/jpeg', group: 'g', width: 1600, height: 1067);
+  const heroLandscapeNoMeta = VideoClip('vp-hero-n', 'photo1.jpg', 'hero-n.jpg', size: 55318, mime: 'image/jpeg', group: 'g', rate: 9000);
+  const heroLandscapeWrongMeta = VideoClip('vp-hero-w', 'photo1.jpg', 'hero-w.jpg', size: 55318, mime: 'image/jpeg', group: 'g', rate: 9000, width: 1067, height: 1600);
+  const heroTall = VideoClip('vp-hero-t', 'tall.jpg', 'hero-t.jpg', size: 152291, mime: 'image/jpeg', group: 'g', width: 1080, height: 2400);
+
+  scenario('hero H1: open by a real tap and close with the Back key (metadata right)', (tester) => heroRound(tester, 'h1-landscape', heroLandscape));
+  scenario('hero H2: metadata missing, the original arrives late', (tester) => heroRound(tester, 'h2-nometa-slow', heroLandscapeNoMeta));
+  scenario('hero H3: portrait metadata on a landscape picture, the original arrives late', (tester) => heroRound(tester, 'h3-wrongmeta-slow', heroLandscapeWrongMeta));
+  scenario('hero H4: a tall picture', (tester) => heroRound(tester, 'h4-tall', heroTall));
+  scenario('hero H5: close from a 2x zoom', (tester) => heroRound(tester, 'h5-zoom', heroLandscape, zoom: true));
+  scenario('hero H6: close with a real drag down', (tester) => heroRound(tester, 'h6-drag', heroLandscape, close: 'drag'));
+  scenario('hero H7: close with the top-left Back button', (tester) => heroRound(tester, 'h7-button', heroLandscape, close: 'button'));
+
 
 }

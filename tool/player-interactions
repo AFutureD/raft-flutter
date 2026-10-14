@@ -26,8 +26,11 @@ REQUIRED_MEDIA = (['portrait.mp4', 'landscape.mp4', 'hevc1080.mp4', 'hevc4k.mp4'
 
 
 class Host:
-    def __init__(self, serial, port, out):
+    def __init__(self, serial, port, out, record='on'):
         self.serial, self.port, self.out = serial, port, out
+        # 'on' records the screen; 'off' skips recordings (the encoder costs the emulator frames, so a run that measures
+        # frame by frame turns it off); 'WxH' records at that size (a cheaper encode).
+        self.record = record
         self.recorder = None
         self.recording = None
         self.stop = False
@@ -54,10 +57,13 @@ class Host:
         return int(m[1]), int(m[2])
 
     def record_start(self, name):
+        if self.record == 'off':
+            return 'recording-off'
         remote = f'/sdcard/pi-{name}.mp4'
         self.recording = (name, remote)
+        size = ['--size', self.record] if re.fullmatch(r'\d+x\d+', self.record) else []
         self.recorder = subprocess.Popen(['adb', '-s', self.serial, 'shell', 'screenrecord', '--time-limit', '25',
-                                          '--bit-rate', '8000000', remote], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                          '--bit-rate', '8000000', *size, remote], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(0.8)
         return 'recording'
 
@@ -400,6 +406,7 @@ def main():
     ap.add_argument('--build', action='store_true', help='build the profile APK first (isolated app id .linkperf)')
     ap.add_argument('--only', default='', help='run the scenarios whose name contains this text (baked into the build)')
     ap.add_argument('--define', action='append', default=[], help='extra --dart-define (NAME=value), e.g. VP_BACKGROUND=true')
+    ap.add_argument('--record', default='on', help="screen recordings: 'on' (default), 'off', or a size like 720x1600 (a cheaper encode)")
     ap.add_argument('--no-host', action='store_true', help='skip the host-driven steps (back key, recordings, save dialog)')
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -425,7 +432,7 @@ def main():
     child = None
     server = subprocess.Popen([sys.executable, str(ROOT / 'tool/video-parity-range-server'), str(args.media), str(args.port)],
                               stderr=(args.out / 'server.log').open('w'))
-    host = Host(args.serial, args.port, args.out)
+    host = Host(args.serial, args.port, args.out, args.record)
     thread = None
     try:
         time.sleep(1)

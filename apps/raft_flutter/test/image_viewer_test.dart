@@ -432,6 +432,34 @@ int _flyingHeroes(WidgetTester tester) => tester
     .where((hero) => hero.enabled)
     .length;
 
+/// The chrome layers' opacity as they are DRAWN right now (the animated value,
+/// not the target): 2 when top and bottom bars are fully visible.
+double _chromeDrawn(WidgetTester tester) {
+  var sum = 0.0;
+  for (final layer
+      in find
+          .descendant(
+            of: find.byType(RaftMediaImmersiveShell),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .evaluate()) {
+    FadeTransition? fade;
+    void visit(Element e) {
+      if (fade != null) return;
+      final w = e.widget;
+      if (w is FadeTransition) {
+        fade = w;
+        return;
+      }
+      e.visitChildren(visit);
+    }
+
+    layer.visitChildren(visit);
+    sum += fade?.opacity.value ?? 0;
+  }
+  return sum;
+}
+
 /// One recorded frame of a Hero flight.
 class _Frame {
   _Frame({
@@ -441,13 +469,14 @@ class _Frame {
     required this.radius,
     required this.scrim,
     required this.chrome,
+    required this.drawn,
   });
   final int ms;
 
   /// The flying clip, the bitmap inside it, its corner radius, the scrim's
   /// opacity (null without one) and the chrome's opacity (0..2).
   final Rect rect, picture;
-  final double radius, chrome;
+  final double radius, chrome, drawn;
   final double? scrim;
 }
 
@@ -2693,6 +2722,7 @@ void main() {
           ? null
           : tester.widget<ColoredBox>(scrim).color.a,
       chrome: _chromeOpacity(tester),
+      drawn: _chromeDrawn(tester),
     );
 
     /// Records the flight frame by frame (16 ms apart) until the shuttle is
@@ -2850,17 +2880,25 @@ void main() {
         final share = f.ms / open;
         if (share < RaftMediaMotionTokens.chromeRevealAt - 0.03) {
           expect(f.chrome, 0, reason: 'bars wait at ${f.ms} ms');
+          expect(f.drawn, 0, reason: 'bars not drawn at ${f.ms} ms');
         } else if (share > RaftMediaMotionTokens.chromeRevealAt + 0.03) {
           expect(f.chrome, 2, reason: 'bars fade in at ${f.ms} ms');
         }
       }
       await _settle(tester, 8);
       expect(_chromeOpacity(tester), 2);
+      expect(_chromeDrawn(tester), 2, reason: 'drawn once the open is over');
       _viewer(tester).widget.onClose();
       await tester.pump();
       final closing = await record(tester);
       for (final f in closing) {
         expect(f.chrome, 0, reason: 'bars gone from the first frame');
+        if (f.ms >= 96) {
+          expect(f.drawn, 0, reason: 'bars not drawn after 80 ms (${f.ms})');
+        }
+      }
+      for (var i = 1; i < closing.length; i++) {
+        expect(closing[i].drawn, lessThanOrEqualTo(closing[i - 1].drawn));
       }
       for (var i = 1; i < closing.length; i++) {
         expect(closing[i].scrim, lessThanOrEqualTo(closing[i - 1].scrim!));

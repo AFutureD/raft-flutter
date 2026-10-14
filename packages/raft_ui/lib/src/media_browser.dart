@@ -1063,6 +1063,10 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     final animation = _route?.animation;
     phase.value = animation == null
         ? _Flight.settled
+        // The route's first frame is built off stage while the Hero measures,
+        // and then reports a finished animation: that is the start, not the end.
+        : _route!.offstage
+        ? _Flight.entering
         : switch (animation.status) {
             AnimationStatus.reverse => _Flight.leaving,
             AnimationStatus.completed => _Flight.settled,

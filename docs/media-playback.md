@@ -209,10 +209,21 @@ without counter and strip.
   Material page of the old image viewer on every layout; reduced motion (`MediaQuery.disableAnimations`) shortens the
   fade to 80 ms and leaves the Hero out. The route's first frame is built off stage while the Hero measures its end
   (framework behaviour), so content shows one frame after the push.
-* **Hero.** The tapped card's picture flies to the stage and back (`RaftMediaHero`, tag `media-<attachmentId>`, the
-  shuttle paints the card's bitmap `cover`-cropped and rounds the card's corners off). Only the opening card wears the
-  Hero, for as long as the browser it opened is up (the same message can be on screen twice, e.g. a thread's parent, and
-  duplicate tags assert). Closing on another page than the opener fades instead of flying.
+* **Hero.** The tapped card's picture flies to the stage and back (`RaftMediaHero`, tag `media-<attachmentId>`). The
+  flight is a straight line (`createRectTween`, not Material's arc) on `RaftMediaMotionTokens`: open 300 ms with the
+  emphasized-decelerate curve, close 240 ms with the standard curve, reduced motion 80 ms and no Hero. The shuttle animates
+  the crop, never stretches: it starts as exactly what the card paints (the card's own fit, cover for a tile and contain
+  for a lone picture, and the bitmap size from the resolved image, never server dimensions), ends as the stage picture, the
+  corners round off on the same progress. The flight's end follows the destination's live bounds. The stage picture is ONE
+  Hero element from the thumbnail stand-in to the loaded original (same element, the image provider changes, the original
+  takes over once decoded), and its box comes from the thumbnail's shape when the attachment's width / height are missing
+  or disagree with it (4 % tolerance), so nothing moves after the landing. The card wears its Hero through `HeroMode`
+  (always mounted, switched on only for the tapped card while its browser is up: the same message can be on screen twice,
+  e.g. a thread's parent, and duplicate tags assert; the card's picture is not rebuilt for the flight). The phone shell
+  stages the rest: the scrim follows the picture on the same curve (`RaftMediaBrowserRoute.scrim`), the chrome fades in
+  after 70 % of the open and is gone as a close starts, the stage fades over the first 40 % when there is no card to fly
+  from. Closing from a zoom starts at the zoomed bounds and shrinks to the card in one move. Closing on another page than
+  the opener fades instead of flying.
 * **Phone (compact width, or a touch device with a short side under 600 dp: a phone held sideways).** A black stage under
   the status bar and the gesture bar; two chrome layers fade together in 160 ms. Top bar: Back, filename and the
   `sender · time` sub-line, the `n / N` counter, Share (when the platform has a share sheet) and More (Save to Photos /
