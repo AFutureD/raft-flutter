@@ -556,12 +556,17 @@ class _AttachmentViewState extends State<AttachmentView> {
   ModalRoute<void> createPreviewRoute(bool page, WidgetBuilder builder) =>
       _heldRoute(_previewRoute(page, builder));
 
-  /// The media browser's route: transparent and fading, the picture flies in
-  /// from the card; reduced motion cross-fades in 80 ms.
-  ModalRoute<void> createMediaRoute(WidgetBuilder builder) => _heldRoute(
+  /// The media browser's route: transparent, the picture flies in from the
+  /// card; the phone shell [staged] stages the scrim and chrome around the
+  /// flight itself; reduced motion cross-fades in 80 ms.
+  ModalRoute<void> createMediaRoute(
+    WidgetBuilder builder, {
+    bool staged = false,
+  }) => _heldRoute(
     RaftMediaBrowserRoute<void>(
       settings: const RouteSettings(name: '/attachment-preview'),
       reducedMotion: MediaQuery.disableAnimationsOf(context),
+      staged: staged,
       builder: builder,
     ),
   );
@@ -617,7 +622,8 @@ class _AttachmentViewState extends State<AttachmentView> {
         }
       }
       if (!mounted || !current()) return;
-      if (MediaBrowserFlags.video && attachmentPreviewKind(widget.metadata) == 'video') {
+      if (MediaBrowserFlags.video &&
+          attachmentPreviewKind(widget.metadata) == 'video') {
         await openBrowser(page: page, current: current);
         return;
       }
@@ -721,6 +727,7 @@ class _AttachmentViewState extends State<AttachmentView> {
     }
 
     operationRoute = createMediaRoute(
+      staged: phone,
       (dialogContext) => ValueListenableBuilder<int>(
         valueListenable: imagePresentation,
         builder: (_, _, _) {
@@ -951,21 +958,23 @@ class _AttachmentViewState extends State<AttachmentView> {
         expand: false,
       ),
     );
-    if (heroActive) {
-      return RaftMediaHero(
-        tag: MediaBrowser.heroTagFor('${widget.metadata['id']}'),
-        image: provider,
-        radius: RaftShapes.attachment(RaftTokens.of(context)),
-        child: image(),
-      );
-    }
-    if (!fadeIn) return image();
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: AttachmentPrimitive.previewFade,
-      // Image.opacity blends pixels directly and avoids an offscreen layer.
-      builder: (_, opacity, _) =>
-          image(opacity: AlwaysStoppedAnimation(opacity)),
+    // The Hero is always mounted and switched on with `heroActive`: the card's
+    // picture is not rebuilt (and never re-decoded) for the flight.
+    return RaftMediaHero(
+      tag: MediaBrowser.heroTagFor('${widget.metadata['id']}'),
+      image: provider,
+      radius: RaftShapes.attachment(RaftTokens.of(context)),
+      fit: widget.imageFit,
+      enabled: heroActive,
+      child: fadeIn
+          ? TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: AttachmentPrimitive.previewFade,
+              // Image.opacity blends pixels directly and avoids an offscreen layer.
+              builder: (_, opacity, _) =>
+                  image(opacity: AlwaysStoppedAnimation(opacity)),
+            )
+          : image(),
     );
   }
 }

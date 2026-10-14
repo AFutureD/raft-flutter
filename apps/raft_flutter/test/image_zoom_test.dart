@@ -128,6 +128,29 @@ void main() {
       expect(fittedImageSize(_stage, null), _stage);
     });
 
+    test('an unknown size takes the known shape and fills the room', () {
+      // 3:2 in a 400x600 stage: width limits; 1:3 limits by height.
+      expect(
+        fittedImageSize(_stage, null, fillAspect: 1.5),
+        const Size(400, 400 / 1.5),
+      );
+      final tall = fittedImageSize(
+        _stage,
+        null,
+        verticalInset: 100,
+        fillAspect: 1 / 3,
+      );
+      expect(tall.height, 400);
+      expect(tall.width, closeTo(400 / 3, 1e-9));
+      // A known size wins over the shape; nonsense shapes are ignored.
+      expect(
+        fittedImageSize(_stage, const Size(100, 50), fillAspect: 3),
+        const Size(100, 50),
+      );
+      expect(fittedImageSize(_stage, null, fillAspect: 0), _stage);
+      expect(fittedImageSize(_stage, null, fillAspect: double.nan), _stage);
+    });
+
     test('the pan keeps the fitted image box in view', () {
       const fitted = Size(400, 300);
       ImageZoomState clamp(ImageZoomState s, [double max = 4]) =>

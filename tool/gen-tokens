@@ -60,6 +60,7 @@ IMPORT_ORIGINS = {
 }
 ROLES = 'component-roles.css'  # authored in-repo, see its header
 CONTROL_TYPOGRAPHY = 'control-typography.json'  # authored in-repo, Flutter-only (no Web CSS counterpart)
+MEDIA_MOTION = 'media-motion.json'  # authored in-repo, Flutter-only (no Web CSS counterpart)
 ROOT_FONT_SIZE = 16.0  # rem -> px (Web root font-size is the UA default)
 
 THEMES = ('brutal', 'elegantLight', 'elegantDark')
@@ -1201,6 +1202,41 @@ def emit_typography():
     return '\n'.join(lines) + '\n'
 
 
+def emit_media_motion():
+    src = json.loads((SRC / MEDIA_MOTION).read_text())['media']
+
+    def cubic(name):
+        return 'Cubic(' + ', '.join(fmt_double(float(x)) for x in src[name]) + ')'
+    lines = ['// GENERATED — do not edit. Regenerate with `tool/gen-tokens`.',
+             f'// Source: {MEDIA_MOTION} (authored in-repo; Flutter-only policy, no Web CSS counterpart)',
+             '// dart format off', '',
+             "import 'package:flutter/animation.dart';", '',
+             '/// Motion of the media browser\'s open / close transition: the picture flies',
+             '/// from the card to the stage in [openDuration] (decelerating) and back in',
+             '/// [closeDuration]; the scrim follows the picture, the chrome waits for it.',
+             'abstract final class RaftMediaMotionTokens {',
+             '  /// `media.openMs`: the open flight.',
+             f"  static const Duration openDuration = Duration(milliseconds: {int(src['openMs'])});",
+             '  /// `media.closeMs`: the close flight (never longer than the open).',
+             f"  static const Duration closeDuration = Duration(milliseconds: {int(src['closeMs'])});",
+             '  /// `media.reducedMs`: the cross-fade of reduced motion (no flight).',
+             f"  static const Duration reducedDuration = Duration(milliseconds: {int(src['reducedMs'])});",
+             '  /// `media.openCurve`: the open flight and scrim (emphasized decelerate).',
+             f"  static const Cubic openCurve = {cubic('openCurve')};",
+             '  /// `media.closeCurve`: the close flight and scrim (standard).',
+             f"  static const Cubic closeCurve = {cubic('closeCurve')};",
+             '  /// `media.chromeRevealAt`: share of the open flight after which the bars fade in.',
+             f"  static const double chromeRevealAt = {fmt_double(float(src['chromeRevealAt']))};",
+             '  /// `media.chromeFadeInMs`: the bars fading in.',
+             f"  static const Duration chromeFadeIn = Duration(milliseconds: {int(src['chromeFadeInMs'])});",
+             '  /// `media.chromeFadeOutMs`: the bars gone when a close starts.',
+             f"  static const Duration chromeFadeOut = Duration(milliseconds: {int(src['chromeFadeOutMs'])});",
+             '  /// `media.stageFadeUntil`: share of the flight in which the stage fades (no card to fly from).',
+             f"  static const double stageFadeUntil = {fmt_double(float(src['stageFadeUntil']))};",
+             '}']
+    return '\n'.join(lines) + '\n'
+
+
 def emit_token_set():
     lines = [header(['foundation']).replace(SOURCES['foundation'], 'the generated tier files in this directory'),
              "import 'package:flutter/foundation.dart';", '',
@@ -1235,6 +1271,7 @@ def render():
         'shadows.g.dart': emit_shadows(m),
         'metrics.g.dart': emit_metrics(m),
         'typography.g.dart': emit_typography(),
+        'media_motion.g.dart': emit_media_motion(),
         'token_set.g.dart': emit_token_set(),
     }
 

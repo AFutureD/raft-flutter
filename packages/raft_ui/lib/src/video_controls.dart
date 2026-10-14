@@ -13,6 +13,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'inline_media.dart' show raftAudioTimestamp;
 import 'theme.dart';
+import 'tokens/media_motion.g.dart';
 
 const _videoFade = [
   0.0,
@@ -55,7 +56,7 @@ const raftVideoControlsIdle = Duration(seconds: 3);
 
 /// The phone chrome's fade (top bar, bottom band and the video controls leave
 /// and return together); reduced motion cuts.
-const raftMediaChromeFade = Duration(milliseconds: 160);
+const raftMediaChromeFade = RaftMediaMotionTokens.chromeFadeIn;
 
 /// Fades [child] in and out with [visible] over [raftMediaChromeFade]. It is
 /// built only while it shows or fades, takes no touch once it is leaving, and

@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
@@ -333,212 +333,288 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
   /// Wraps the picture in the card-to-stage Hero.
   Widget hero(Widget picture, ImageProvider? shuttle) => widget.heroTag == null
       ? picture
-      : RaftMediaHero(tag: widget.heroTag!, image: shuttle, child: picture);
+      : RaftMediaHero(
+          tag: widget.heroTag!,
+          image: shuttle,
+          fit: BoxFit.contain,
+          child: picture,
+        );
 
-  /// The stand-in stage: the thumbnail (or a neutral box) in the original's
-  /// aspect ratio, never larger than the original, with the bottom-edge bar.
+  /// The pixel size the stage lays the picture out for, decided without
+  /// waiting for anything: the decoded original once it is known, else the
+  /// attachment's size when it agrees with the thumbnail that is on screen
+  /// (server dimensions can be missing or wrong: an EXIF-rotated original, a
+  /// forwarded file), else none (the box then takes the thumbnail's shape and
+  /// fills the stage).
+  Size? get stageNatural {
+    final decodedSize = decoded;
+    if (decodedSize != null) return decodedSize;
+    final declared = widget.imageSize;
+    final thumb = placeholderSize;
+    if (declared == null) return null;
+    if (thumb == null) return declared;
+    return _sameShape(declared, thumb) ? declared : null;
+  }
+
+  /// Width over height of the box while [stageNatural] is unknown: the
+  /// thumbnail's own shape (the card it came from shows that), else 4:3.
+  double get stageAspect {
+    final thumb = placeholderSize;
+    return thumb == null ? 4 / 3 : thumb.width / thumb.height;
+  }
+
+  static bool _sameShape(Size a, Size b) =>
+      (a.width / a.height) / (b.width / b.height) - 1 < _shapeTolerance &&
+      (b.width / b.height) / (a.width / a.height) - 1 < _shapeTolerance;
+
+  /// Aspect ratios within 4 % are the same picture (thumbnails are rounded).
+  static const _shapeTolerance = 0.04;
+
+  /// The stage: the thumbnail (or a neutral box) standing in, and the loaded
+  /// original from the moment it is there, in ONE tree. The picture is a
+  /// single Hero element whose image provider changes (gapless), so the
+  /// flight never retargets when the original replaces the stand-in; the
+  /// zoom surface (tap, double tap, pinch) and the controller carry over too.
+  /// The transfer chip and Retry stay outside the transform.
   Widget stage(BuildContext context, ImageProvider? thumbnail) {
-    final natural = widget.imageSize;
-    final aspect = natural == null ? 4 / 3 : natural.width / natural.height;
+    // The original takes over once its bitmap is decoded (or cannot be): until
+    // then the stand-in stays, so the picture is never blank in between.
+    final original = full;
+    final provider = original != null && _decodedWatch.settled
+        ? original
+        : (thumbnail ?? original);
+    final natural = stageNatural;
+    final aspect = stageAspect;
     return LayoutBuilder(
       builder: (context, constraints) {
         // Keep clear of the thumbnail strip band, mirrored so the box stays
         // centred (and the size chip never lands under the strip).
         final inset = RaftLightboxStageInset.of(context);
-        final max = constraints.biggest;
-        var width = max.width.isFinite ? max.width : 320.0;
-        var height = max.height.isFinite
-            ? math.max(0.0, max.height - 2 * inset)
-            : width / aspect;
-        if (width / height > aspect) {
-          width = height * aspect;
-        } else {
-          height = width / aspect;
-        }
-        if (natural != null && natural.width < width) {
-          width = natural.width;
-          height = natural.height;
-        }
-        final picture = thumbnail == null
+        final fitted = fittedImageSize(
+          constraints.biggest,
+          natural,
+          verticalInset: inset,
+          fillAspect: aspect,
+        );
+        final picture = provider == null
             ? const RaftTransferPlaceholder(onDark: true)
             : hero(
                 // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
                 Image(
-                  image: thumbnail,
+                  image: provider,
                   key: widget.imageKey,
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
+                  errorBuilder: !identical(provider, full)
+                      ? null
+                      : (context, _, _) => RaftLightboxFailure(
+                          title: widget.title,
+                          message: 'Failed to load image',
+                        ),
                 ),
-                thumbnail,
+                thumbnail ?? provider,
               );
-        // The stand-in is a stage member like the loaded original: the same
-        // zoom surface (tap, double tap, pinch) and the same controller, so a
-        // zoom made now carries over when the original replaces it. The
-        // transfer chip and Retry stay outside the transform.
+        // Source ImageLightbox: "Empty-stage clicks close the lightbox. After
+        // zoom/pan ... also guard against stage-target clicks that land inside
+        // the transformed image." A tap (not a pan / pinch) outside the
+        // painted image closes the route; the tap recognizer loses the arena
+        // to a drag.
         return Stack(
           fit: StackFit.expand,
           children: [
             ImageZoomSurface(
               key: surfaceKey,
               controller: widget.zoom,
-              natural: widget.imageSize,
+              natural: natural,
+              fillAspect: aspect,
               verticalInset: inset,
               onTapOutside: widget.closeOnTapOutside
                   ? () => unawaited(Navigator.maybePop(context))
                   : null,
               onTap: widget.onTap,
               onZoomGesture: widget.onZoomGesture,
-              child: Center(
-                child: SizedBox(width: width, height: height, child: picture),
-              ),
+              child: picture,
             ),
-            Center(
-              child: SizedBox(
-                width: width,
-                height: height,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (failed) ...[
-                      RaftImageTransferOverlay.failed(
-                        inset: 10,
-                        onRetry: retry,
-                      ),
-                      // The red chip alone is easy to miss: a plain Retry
-                      // button.
-                      if (widget.acquire != null)
-                        Center(
-                          child: RaftTextButton(
-                            key: const ValueKey('lightbox-retry'),
-                            label: raftText(context, 'Retry'),
-                            glyph: RaftGlyph.refreshCw,
-                            onPressed: retry,
-                          ),
-                        ),
-                    ] else if (transfer != null && progressShown)
-                      RaftImageTransferOverlay(
-                        progress: transfer!,
-                        fallbackTotal: widget.transferTotalHint,
-                        labelPrefix: thumbnail == null
-                            ? null
-                            : raftText(context, 'Original image'),
-                        inset: 10,
-                      ),
-                  ],
+            if (full == null)
+              Center(
+                child: SizedBox(
+                  width: fitted.width,
+                  height: fitted.height,
+                  child: _transferOverlay(context, thumbnail),
                 ),
               ),
-            ),
           ],
         );
       },
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final provider = full;
-    if (provider == null) {
-      final thumbnail = widget.placeholder;
-      if (failed && thumbnail == null) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RaftLightboxFailure(
-                title: widget.title,
-                // Web ImageLightbox: `common.lightbox.failedToLoad`.
-                message: 'Failed to load image',
-              ),
-              if (widget.acquire != null)
-                RaftTextButton(
+  Widget _transferOverlay(BuildContext context, ImageProvider? thumbnail) =>
+      Stack(
+        fit: StackFit.expand,
+        children: [
+          if (failed) ...[
+            RaftImageTransferOverlay.failed(inset: 10, onRetry: retry),
+            // The red chip alone is easy to miss: a plain Retry button.
+            if (widget.acquire != null)
+              Center(
+                child: RaftTextButton(
+                  key: const ValueKey('lightbox-retry'),
                   label: raftText(context, 'Retry'),
                   glyph: RaftGlyph.refreshCw,
                   onPressed: retry,
                 ),
-            ],
-          ),
-        );
-      }
-      return stage(context, thumbnail);
+              ),
+          ] else if (transfer != null && progressShown)
+            RaftImageTransferOverlay(
+              progress: transfer!,
+              fallbackTotal: widget.transferTotalHint,
+              labelPrefix: thumbnail == null
+                  ? null
+                  : raftText(context, 'Original image'),
+              inset: 10,
+            ),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final thumbnail = widget.placeholder;
+    if (full == null && failed && thumbnail == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RaftLightboxFailure(
+              title: widget.title,
+              // Web ImageLightbox: `common.lightbox.failedToLoad`.
+              message: 'Failed to load image',
+            ),
+            if (widget.acquire != null)
+              RaftTextButton(
+                label: raftText(context, 'Retry'),
+                glyph: RaftGlyph.refreshCw,
+                onPressed: retry,
+              ),
+          ],
+        ),
+      );
     }
     _watchDecodedSize();
-    // `max-h-full max-w-full object-contain`: natural size, shrunk to fit
-    // the stage, never enlarged.
-    //
-    // Source ImageLightbox: "Empty-stage clicks close the lightbox. After
-    // zoom/pan ... also guard against stage-target clicks that land inside the
-    // transformed image." A tap (not a pan / pinch) outside the painted image
-    // closes the route; the tap recognizer loses the arena to a drag.
-    return ImageZoomSurface(
-      key: surfaceKey,
-      controller: widget.zoom,
-      natural: decoded ?? widget.imageSize,
-      verticalInset: RaftLightboxStageInset.of(context),
-      onTapOutside: widget.closeOnTapOutside
-          ? () => unawaited(Navigator.maybePop(context))
-          : null,
-      onTap: widget.onTap,
-      onZoomGesture: widget.onZoomGesture,
-      child: hero(
-        // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
-        Image(
-          image: provider,
-          key: widget.imageKey,
-          fit: (decoded ?? widget.imageSize) == null
-              ? BoxFit.scaleDown
-              : BoxFit.contain,
-          gaplessPlayback: true,
-          errorBuilder: (context, _, _) => RaftLightboxFailure(
-            title: widget.title,
-            message: 'Failed to load image',
-          ),
-        ),
-        widget.placeholder ?? provider,
-      ),
-    );
+    return stage(context, thumbnail);
   }
 
-  ImageStream? _sizeStream;
-  ImageStreamListener? _sizeListener;
-  Size? decoded;
+  final _decodedWatch = _BitmapSizeWatch();
+  final _placeholderWatch = _BitmapSizeWatch();
+
+  /// The decoded original's pixel size (null until it is decoded).
+  Size? get decoded => _decodedWatch.size;
+
+  /// The pixel size of the thumbnail standing in: the card's own bitmap, known
+  /// on the first build when the card shows it.
+  Size? get placeholderSize => _placeholderWatch.size;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _watchPlaceholderSize();
     _watchDecodedSize();
   }
 
   @override
   void didUpdateWidget(AttachmentLightboxImage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _watchPlaceholderSize();
     _watchDecodedSize();
   }
 
-  void _watchDecodedSize() {
-    final provider = full;
-    if (provider == null) return;
-    final stream = provider.resolve(createLocalImageConfiguration(context));
-    if (_sizeStream?.key == stream.key) return;
-    _unwatchDecodedSize();
-    final listener = ImageStreamListener((info, synchronous) {
-      final image = info.image;
-      final size = Size(image.width.toDouble(), image.height.toDouble());
-      // The stream hands every listener its own clone; only the size is kept.
-      info.dispose();
-      if (decoded == size) return;
-      decoded = size;
-      // A synchronous call happens while building; the build reads it next.
-      if (!synchronous && mounted) setState(() {});
-    });
-    stream.addListener(listener);
-    _sizeStream = stream;
-    _sizeListener = listener;
+  void _resized() {
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      // Learnt while building: rebuild after the frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(() {});
+    }
   }
 
+  void _watchDecodedSize() => _decodedWatch.watch(
+    full,
+    createLocalImageConfiguration(context),
+    _resized,
+  );
+
+  void _watchPlaceholderSize() => _placeholderWatch.watch(
+    widget.placeholder,
+    createLocalImageConfiguration(context),
+    _resized,
+  );
+
   void _unwatchDecodedSize() {
-    final listener = _sizeListener;
-    if (listener != null) _sizeStream?.removeListener(listener);
-    _sizeStream = null;
-    _sizeListener = null;
+    _decodedWatch.dispose();
+    _placeholderWatch.dispose();
+  }
+}
+
+/// The pixel size of an image provider's bitmap once it resolves: synchronously
+/// when the bitmap is already in the image cache (the card's thumbnail is), so
+/// the first build can use it.
+class _BitmapSizeWatch {
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  Size? size;
+
+  /// The bitmap decoded, or failed to: the provider can be shown (or its
+  /// error).
+  bool get settled => size != null || failed;
+  bool failed = false;
+
+  /// Follows [provider] (null stops); [changed] runs when the size is
+  /// learnt after the call that started watching.
+  void watch(
+    ImageProvider? provider,
+    ImageConfiguration configuration,
+    VoidCallback changed,
+  ) {
+    if (provider == null) {
+      dispose();
+      size = null;
+      failed = false;
+      return;
+    }
+    final stream = provider.resolve(configuration);
+    if (_stream?.key == stream.key) return;
+    dispose();
+    failed = false;
+    size = null;
+    final listener = ImageStreamListener(
+      (info, synchronous) {
+        final image = info.image;
+        final next = Size(image.width.toDouble(), image.height.toDouble());
+        // The stream hands every listener its own clone; only the size is kept.
+        info.dispose();
+        if (size == next) return;
+        size = next;
+        // A synchronous call happens while building; the build reads it next.
+        if (!synchronous) changed();
+      },
+      onError: (Object _, StackTrace? _) {
+        failed = true;
+        changed();
+      },
+    );
+    stream.addListener(listener);
+    _stream = stream;
+    _listener = listener;
+  }
+
+  void dispose() {
+    final listener = _listener;
+    if (listener != null) _stream?.removeListener(listener);
+    _stream = null;
+    _listener = null;
   }
 }

@@ -61,6 +61,13 @@ counterpart) -> `tokens/typography.g.dart` (`RaftControlTypographyTokens`): the 
 of single-line control labels on Android with a Chinese locale. Applied by
 `RaftControlTypography`; see docs/android-cjk-control-typography.md.
 
+## Media motion token
+
+`tool/design-source/media-motion.json` (authored, Flutter-only) ->
+`tokens/media_motion.g.dart` (`RaftMediaMotionTokens`): durations, curves and
+the chrome reveal point of the media browser's open / close Hero transition
+(`RaftMediaBrowserRoute`, `RaftMediaHero`, `RaftMediaImmersiveShell`).
+
 ## Regenerate
 
 ```

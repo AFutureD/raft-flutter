@@ -13,6 +13,7 @@ import 'localization.dart';
 import 'text_scaling.dart';
 import 'dialog_card.dart' show RaftShadowSet;
 import 'theme.dart';
+import 'tokens/media_motion.g.dart';
 import 'video_controls.dart' show raftMediaChromeFade;
 
 // Unified media browser visuals (phone immersive stage, strip, drag-to-dismiss,
@@ -73,15 +74,23 @@ String raftMediaDuration(Duration value) {
 
 // ---------------------------------------------------------------- route
 
-/// Route of the media browser: transparent and fading (the shell paints its
-/// own scrim, the Hero flies the picture), so the page below shows through
-/// while the scrim is not yet black and while a drag-to-dismiss fades it.
-/// Once the open transition ends it turns opaque (the page below stops
-/// painting); a drag makes it see-through again ([setTranslucent]).
+/// Route of the media browser: transparent (the shell paints its own scrim,
+/// the Hero flies the picture), so the page below shows through while the
+/// scrim is not yet black and while a drag-to-dismiss fades it. Once the open
+/// transition ends it turns opaque (the page below stops painting); a drag
+/// makes it see-through again ([setTranslucent]).
+///
+/// Timing comes from [RaftMediaMotionTokens]: [transitionDuration] open,
+/// [reverseTransitionDuration] close. [scrim] is the picture's own progress
+/// (the Hero flies on exactly this curve), so scrim and picture stay in step.
+/// A [staged] route (the phone shell) paints nothing itself: the shell reads
+/// [scrim] and [stage] and brings the chrome in after the flight. Otherwise
+/// the whole page fades with [scrim].
 class RaftMediaBrowserRoute<T> extends PageRoute<T> {
   RaftMediaBrowserRoute({
     required this.builder,
     this.reducedMotion = false,
+    this.staged = false,
     super.settings,
   });
   final WidgetBuilder builder;
@@ -89,19 +98,53 @@ class RaftMediaBrowserRoute<T> extends PageRoute<T> {
   /// Reduced motion: an 80 ms cross-fade, no Hero (the host leaves it out).
   final bool reducedMotion;
 
+  /// The shell stages the transition (scrim, stage and chrome) itself.
+  final bool staged;
+
+  /// Whether the shell stages this route's transition.
+  bool get stagedTransition => staged && !reducedMotion;
+
   /// The browser route enclosing [context], if there is one.
   static RaftMediaBrowserRoute<dynamic>? maybeOf(BuildContext context) {
     final route = ModalRoute.of(context);
     return route is RaftMediaBrowserRoute ? route : null;
   }
 
-  @override
-  Duration get transitionDuration =>
-      Duration(milliseconds: reducedMotion ? 80 : 300);
+  CurvedAnimation? _scrim, _stage;
+
+  /// 0 at the card, 1 at the stage: the picture's progress. The Hero of the
+  /// route flies on the same curves (see [RaftMediaHero]).
+  Animation<double> get scrim => _scrim ??= CurvedAnimation(
+    parent: animation!,
+    curve: RaftMediaMotionTokens.openCurve,
+    reverseCurve: RaftMediaMotionTokens.closeCurve.flipped,
+  );
+
+  /// The stage's own fade, over the first [RaftMediaMotionTokens.stageFadeUntil]
+  /// of the open and the last of the close. The picture flies over it; it shows
+  /// when there is no card to fly from.
+  Animation<double> get stage => _stage ??= CurvedAnimation(
+    parent: animation!,
+    curve: const Interval(0, RaftMediaMotionTokens.stageFadeUntil),
+    reverseCurve: const Interval(1 - RaftMediaMotionTokens.stageFadeUntil, 1),
+  );
 
   @override
-  Duration get reverseTransitionDuration =>
-      Duration(milliseconds: reducedMotion ? 80 : 220);
+  void dispose() {
+    _scrim?.dispose();
+    _stage?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Duration get transitionDuration => reducedMotion
+      ? RaftMediaMotionTokens.reducedDuration
+      : RaftMediaMotionTokens.openDuration;
+
+  @override
+  Duration get reverseTransitionDuration => reducedMotion
+      ? RaftMediaMotionTokens.reducedDuration
+      : RaftMediaMotionTokens.closeDuration;
 
   @override
   bool get opaque => true;
@@ -144,25 +187,63 @@ class RaftMediaBrowserRoute<T> extends PageRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) => FadeTransition(
-    opacity: animation.drive(CurveTween(curve: Curves.easeOutCubic)),
-    child: child,
-  );
+  ) {
+    if (stagedTransition) return child;
+    return FadeTransition(
+      opacity: reducedMotion ? animation : scrim,
+      child: child,
+    );
+  }
 }
 
 // ----------------------------------------------------------------- hero
 
-/// The picture that flies between a message card and the browser stage. The
-/// shuttle shows [image] cropped like the card (cover) in the interpolated
-/// rect and rounds from [radius] to square, so the card's bitmap never
-/// flashes or stretches.
-class RaftMediaHero extends StatelessWidget {
+/// A straight-line rect tween (Flutter's default under a `MaterialApp` is an
+/// arc) whose end follows the destination's live bounds: whatever the layout
+/// does during the flight (a bar measured after the first frame, the decoded
+/// size, a list that scrolls), the picture lands on the box that is there.
+class _StraightRectTween extends RectTween {
+  _StraightRectTween({super.begin, super.end, this.live});
+  final Rect? Function()? live;
+
+  @override
+  Rect? transform(double t) {
+    final from = begin;
+    final to = live?.call() ?? end;
+    if (from == null || to == null) return super.transform(t);
+    return Rect.fromLTRB(
+      _lerp(from.left, to.left, t),
+      _lerp(from.top, to.top, t),
+      _lerp(from.right, to.right, t),
+      _lerp(from.bottom, to.bottom, t),
+    );
+  }
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
+}
+
+/// The picture that flies between a message card and the browser stage.
+///
+/// The flight is a straight line on the curves of [RaftMediaMotionTokens]. The
+/// shuttle shows [image] in the interpolated rect and animates the CROP, not
+/// the picture's shape: it starts as exactly what the card paints (the card's
+/// [fit], bitmap size from the resolved image, never server metadata), ends
+/// as exactly what the stage paints, and the corners round from [radius] to
+/// square on the same progress. Telegram's clip animation, not a stretch.
+///
+/// Put it on both ends of the flight. The card end stays mounted and is
+/// switched on with [enabled] (a [HeroMode], so the card's picture is never
+/// rebuilt for the flight); the stage end is ONE element from the thumbnail
+/// stand-in to the loaded original.
+class RaftMediaHero extends StatefulWidget {
   const RaftMediaHero({
     super.key,
     required this.tag,
     required this.child,
     this.image,
     this.radius = BorderRadius.zero,
+    this.fit = BoxFit.cover,
+    this.enabled = true,
   });
   final Object tag;
   final Widget child;
@@ -174,40 +255,227 @@ class RaftMediaHero extends StatelessWidget {
   /// square).
   final BorderRadius radius;
 
-  static BorderRadius _radiusOf(BuildContext heroContext) =>
-      heroContext.findAncestorWidgetOfExactType<RaftMediaHero>()?.radius ??
-      BorderRadius.zero;
+  /// How this end paints [image] in its box: the card's fit (cover for a tile,
+  /// contain for a lone picture), contain on the stage.
+  final BoxFit fit;
+
+  /// Whether this end takes part in flights.
+  final bool enabled;
 
   @override
-  Widget build(BuildContext context) => Hero(
-    tag: tag,
-    flightShuttleBuilder: image == null
-        ? null
-        : (flight, animation, direction, from, to) {
-            // The card end rounds, the stage end is square.
-            final card = _radiusOf(from) == BorderRadius.zero
-                ? _radiusOf(to)
-                : _radiusOf(from);
-            return AnimatedBuilder(
-              animation: animation,
-              builder: (context, _) => ClipRRect(
-                key: const ValueKey('media-hero-shuttle'),
-                borderRadius: BorderRadius.lerp(
-                  card,
-                  BorderRadius.zero,
-                  animation.value,
-                )!,
-                // ignore: raft_lints/avoid_raw_image_decode -- The shuttle paints the host's already decoded card / stage bitmap.
-                child: Image(
-                  image: image!,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                ),
-              ),
+  State<RaftMediaHero> createState() => _RaftMediaHeroState();
+}
+
+class _RaftMediaHeroState extends State<RaftMediaHero> {
+  ModalRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  /// This end's bounds as Flutter measures a hero (in the route's space).
+  Rect? _liveBounds() {
+    if (!mounted) return null;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final rect = MatrixUtils.transformRect(
+      box.getTransformTo(_route?.subtreeContext?.findRenderObject()),
+      Offset.zero & box.size,
+    );
+    return rect.isFinite ? rect : null;
+  }
+
+  RectTween _rectTween(Rect? begin, Rect? end) =>
+      _StraightRectTween(begin: begin, end: end, live: _liveBounds);
+
+  Widget _shuttle(
+    BuildContext flight,
+    Animation<double> animation,
+    HeroFlightDirection direction,
+    BuildContext from,
+    BuildContext to,
+  ) {
+    final push = direction == HeroFlightDirection.push;
+    return _MediaHeroShuttle(
+      image: widget.image!,
+      animation: animation,
+      card: push ? from : to,
+      stage: push ? to : from,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => HeroMode(
+    enabled: widget.enabled,
+    child: Hero(
+      tag: widget.tag,
+      createRectTween: _rectTween,
+      curve: RaftMediaMotionTokens.openCurve,
+      // Closing runs `closeCurve` forward in time: Flutter plays the reverse
+      // of a route animation through the flipped curve.
+      reverseCurve: RaftMediaMotionTokens.closeCurve.flipped,
+      flightShuttleBuilder: widget.image == null ? null : _shuttle,
+      child: widget.child,
+    ),
+  );
+}
+
+/// The flying picture. [animation] is 0 at the card and 1 at the stage in
+/// both directions.
+class _MediaHeroShuttle extends StatefulWidget {
+  const _MediaHeroShuttle({
+    required this.image,
+    required this.animation,
+    required this.card,
+    required this.stage,
+  });
+  final ImageProvider image;
+  final Animation<double> animation;
+
+  /// The hero contexts of the card end and of the stage end.
+  final BuildContext card, stage;
+
+  @override
+  State<_MediaHeroShuttle> createState() => _MediaHeroShuttleState();
+}
+
+class _MediaHeroShuttleState extends State<_MediaHeroShuttle> {
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  Size? _bitmap;
+
+  /// The card's end settings, read once: the card can be rebuilt meanwhile.
+  late final RaftMediaHero? _cardEnd = widget.card.mounted
+      ? widget.card.findAncestorWidgetOfExactType<RaftMediaHero>()
+      : null;
+  late final RaftMediaHero? _stageEnd = widget.stage.mounted
+      ? widget.stage.findAncestorWidgetOfExactType<RaftMediaHero>()
+      : null;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final stream = widget.image.resolve(createLocalImageConfiguration(context));
+    if (_stream?.key == stream.key) return;
+    _unwatch();
+    final listener = ImageStreamListener((info, synchronous) {
+      final size = Size(
+        info.image.width.toDouble(),
+        info.image.height.toDouble(),
+      );
+      // The stream hands every listener its own clone; only the size is kept.
+      info.dispose();
+      if (_bitmap == size) return;
+      _bitmap = size;
+      if (!synchronous && mounted) setState(() {});
+    });
+    stream.addListener(listener);
+    _stream = stream;
+    _listener = listener;
+  }
+
+  void _unwatch() {
+    final listener = _listener;
+    if (listener != null) _stream?.removeListener(listener);
+    _stream = null;
+    _listener = null;
+  }
+
+  @override
+  void dispose() {
+    _unwatch();
+    super.dispose();
+  }
+
+  /// What an end paints its bitmap at inside [box].
+  static double _scale(Size bitmap, Size box, BoxFit fit) {
+    final w = box.width / bitmap.width, h = box.height / bitmap.height;
+    return fit == BoxFit.contain || fit == BoxFit.scaleDown
+        ? math.min(w, h)
+        : math.max(w, h);
+  }
+
+  /// The end's box as it looks on screen (the stage end may be zoomed or
+  /// dragged: its layout size is not what the finger sees).
+  static Size? _visibleSize(BuildContext hero) {
+    if (!hero.mounted) return null;
+    final box = hero.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final ancestor = Navigator.maybeOf(hero)?.context.findRenderObject();
+    final rect = MatrixUtils.transformRect(
+      box.getTransformTo(ancestor),
+      Offset.zero & box.size,
+    );
+    return rect.isFinite ? rect.size : null;
+  }
+
+  Size? _cardBox, _stageBox;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.animation,
+    builder: (context, _) {
+      final t = widget.animation.value;
+      // The card never changes size during a flight; the stage end can.
+      _cardBox ??= _visibleSize(widget.card);
+      _stageBox = _visibleSize(widget.stage) ?? _stageBox;
+      final cardBox = _cardBox, stageBox = _stageBox, bitmap = _bitmap;
+      final radius = _cardEnd?.radius ?? BorderRadius.zero;
+      return ClipRRect(
+        key: const ValueKey('media-hero-shuttle'),
+        borderRadius: BorderRadius.lerp(radius, BorderRadius.zero, t)!,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (bitmap == null ||
+                bitmap.isEmpty ||
+                cardBox == null ||
+                stageBox == null) {
+              // The bitmap or a box is not known yet: fill the flight rect.
+              return _picture(null, constraints.biggest);
+            }
+            final fromCard = _scale(
+              bitmap,
+              cardBox,
+              _cardEnd?.fit ?? BoxFit.cover,
+            );
+            final toStage = _scale(
+              bitmap,
+              stageBox,
+              _stageEnd?.fit ?? BoxFit.contain,
+            );
+            final scale = fromCard + (toStage - fromCard) * t;
+            return _picture(
+              Size(bitmap.width * scale, bitmap.height * scale),
+              constraints.biggest,
             );
           },
-    child: child,
+        ),
+      );
+    },
   );
+
+  /// The picture at [size] centred in the clip ([clip] when null: cover).
+  Widget _picture(Size? size, Size clip) {
+    // ignore: raft_lints/avoid_raw_image_decode -- The shuttle paints the host's already decoded card / stage bitmap.
+    final image = Image(
+      key: const ValueKey('media-hero-shuttle-picture'),
+      image: widget.image,
+      width: size?.width,
+      height: size?.height,
+      fit: size == null ? BoxFit.cover : BoxFit.fill,
+      gaplessPlayback: true,
+    );
+    if (size == null) return image;
+    return OverflowBox(
+      minWidth: 0,
+      minHeight: 0,
+      maxWidth: size.width,
+      maxHeight: size.height,
+      child: image,
+    );
+  }
 }
 
 // ---------------------------------------------------------------- strip
@@ -762,6 +1030,50 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
   /// Drag-to-dismiss progress (0..1): fades the scrim and the chrome.
   final progress = ValueNotifier<double>(0);
 
+  /// Where the route's open / close transition is: the chrome waits for the
+  /// picture to land and is gone when a close starts.
+  late final phase = ValueNotifier<_Flight>(_Flight.settled);
+
+  /// The route when it leaves the transition to this shell; null otherwise
+  /// (a shell mounted without one, reduced motion, a wide layout).
+  RaftMediaBrowserRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final found = RaftMediaBrowserRoute.maybeOf(context);
+    final next = found?.stagedTransition == true ? found : null;
+    if (!identical(next, _route)) {
+      _unwatchRoute();
+      _route = next;
+      next?.animation?.addListener(_syncPhase);
+      next?.animation?.addStatusListener(_syncPhaseStatus);
+    }
+    _syncPhase();
+  }
+
+  void _unwatchRoute() {
+    _route?.animation?.removeListener(_syncPhase);
+    _route?.animation?.removeStatusListener(_syncPhaseStatus);
+  }
+
+  void _syncPhaseStatus(AnimationStatus _) => _syncPhase();
+
+  void _syncPhase() {
+    final animation = _route?.animation;
+    phase.value = animation == null
+        ? _Flight.settled
+        : switch (animation.status) {
+            AnimationStatus.reverse => _Flight.leaving,
+            AnimationStatus.completed => _Flight.settled,
+            AnimationStatus.forward =>
+              animation.value >= RaftMediaMotionTokens.chromeRevealAt
+                  ? _Flight.settled
+                  : _Flight.entering,
+            AnimationStatus.dismissed => _Flight.entering,
+          };
+  }
+
   /// The top bar's and the bottom band's rendered extents (the bar grows with
   /// wrapped text at large sizes); null until laid out.
   double? _barExtent, _contentExtent;
@@ -783,7 +1095,9 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
 
   @override
   void dispose() {
+    _unwatchRoute();
     progress.dispose();
+    phase.dispose();
     super.dispose();
   }
 
@@ -848,12 +1162,18 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     final t = RaftTokens.of(context);
     final reduced = MediaQuery.disableAnimationsOf(context);
     final alwaysShown = MediaQuery.accessibleNavigationOf(context);
-    final fade = reduced ? Duration.zero : raftMediaChromeFade;
     Widget layer(Widget Function(BuildContext) build) => _ChromeBuilder(
-      first: widget.chrome,
-      second: progress,
-      builder: (context, shown, drag) {
-        final visible = shown || alwaysShown;
+      chrome: widget.chrome,
+      drag: progress,
+      phase: phase,
+      builder: (context, shown, drag, flight) {
+        // The bars wait for the picture to land and are gone as a close starts.
+        final visible = (shown || alwaysShown) && flight == _Flight.settled;
+        final fade = reduced
+            ? Duration.zero
+            : flight == _Flight.leaving
+            ? RaftMediaMotionTokens.chromeFadeOut
+            : raftMediaChromeFade;
         // The chrome is gone within the first 40 dp of a drag.
         final dragFade = 1 - (drag * raftMediaDismissDistance / 40).clamp(0, 1);
         return IgnorePointer(
@@ -1023,40 +1343,60 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
       );
     });
 
+    // The scrim follows the picture (the route's own progress) and the finger.
+    final scrim = _route?.scrim;
+    final stageFade = _route?.stage;
+    Widget stage(Widget child) => stageFade == null
+        ? child
+        : FadeTransition(opacity: stageFade, child: child);
     return Stack(
       fit: StackFit.expand,
       children: [
         ValueListenableBuilder<double>(
           valueListenable: progress,
-          builder: (_, drag, _) =>
-              ColoredBox(color: Colors.black.withValues(alpha: 1 - drag)),
+          builder: (_, drag, _) => scrim == null
+              ? ColoredBox(
+                  key: const ValueKey('media-scrim'),
+                  color: Colors.black.withValues(alpha: 1 - drag),
+                )
+              : AnimatedBuilder(
+                  animation: scrim,
+                  builder: (_, _) => ColoredBox(
+                    key: const ValueKey('media-scrim'),
+                    color: Colors.black.withValues(
+                      alpha: (1 - drag) * scrim.value,
+                    ),
+                  ),
+                ),
         ),
         Positioned.fill(
-          child: RaftMediaDismissible(
-            enabled: widget.dismissEnabled,
-            progress: progress,
-            onDismiss: widget.onClose,
-            onDragChanged: widget.onDismissDrag,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: widget.chrome,
-              builder: (context, shown, child) {
-                // A screen reader keeps the chrome on, and so the room for it.
-                final visible = shown || alwaysShown;
-                // Measured when it has been laid out, the estimate before.
-                final bar = _barExtent ?? topBar;
-                final band = _contentExtent == null
-                    ? bottomBand
-                    : (hasCaption || hasStrip)
-                    ? safe.bottom + 8 + _contentExtent!
-                    : safe.bottom;
-                return RaftMediaChromeInsets(
-                  visible: visible,
-                  top: visible ? bar : safe.top,
-                  bottom: visible ? band : safe.bottom,
-                  child: child!,
-                );
-              },
-              child: widget.child,
+          child: stage(
+            RaftMediaDismissible(
+              enabled: widget.dismissEnabled,
+              progress: progress,
+              onDismiss: widget.onClose,
+              onDragChanged: widget.onDismissDrag,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: widget.chrome,
+                builder: (context, shown, child) {
+                  // A screen reader keeps the chrome on, and so the room for it.
+                  final visible = shown || alwaysShown;
+                  // Measured when it has been laid out, the estimate before.
+                  final bar = _barExtent ?? topBar;
+                  final band = _contentExtent == null
+                      ? bottomBand
+                      : (hasCaption || hasStrip)
+                      ? safe.bottom + 8 + _contentExtent!
+                      : safe.bottom;
+                  return RaftMediaChromeInsets(
+                    visible: visible,
+                    top: visible ? bar : safe.top,
+                    bottom: visible ? band : safe.bottom,
+                    child: child!,
+                  );
+                },
+                child: widget.child,
+              ),
             ),
           ),
         ),
@@ -1129,20 +1469,36 @@ class RaftMediaChromeInsets extends InheritedWidget {
       top != old.top || bottom != old.bottom || visible != old.visible;
 }
 
-/// Rebuilds from two listenables.
+/// Where the route's open / close transition is, as far as the chrome cares.
+enum _Flight {
+  /// The picture is still leaving the card: the bars wait.
+  entering,
+
+  /// The picture has (almost) landed, or there is no transition: bars as the
+  /// chrome flag says.
+  settled,
+
+  /// A close started: the bars are gone at once.
+  leaving,
+}
+
+/// Rebuilds from the chrome flag, the drag progress and the flight phase.
 class _ChromeBuilder extends StatelessWidget {
   const _ChromeBuilder({
-    required this.first,
-    required this.second,
+    required this.chrome,
+    required this.drag,
+    required this.phase,
     required this.builder,
   });
-  final ValueListenable<bool> first;
-  final ValueListenable<double> second;
-  final Widget Function(BuildContext, bool, double) builder;
+  final ValueListenable<bool> chrome;
+  final ValueListenable<double> drag;
+  final ValueListenable<_Flight> phase;
+  final Widget Function(BuildContext, bool, double, _Flight) builder;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([first, second]),
-    builder: (context, _) => builder(context, first.value, second.value),
+    listenable: Listenable.merge([chrome, drag, phase]),
+    builder: (context, _) =>
+        builder(context, chrome.value, drag.value, phase.value),
   );
 }
 

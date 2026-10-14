@@ -74,15 +74,27 @@ double imageWheelZoomFactor(double deltaY, {bool accelerated = true}) {
 
 /// The box the image occupies at fit scale: its natural size, shrunk to fit
 /// [stage] minus [verticalInset] above and below (never enlarged). Without a
-/// known size the whole stage stands in.
-Size fittedImageSize(Size stage, Size? natural, {double verticalInset = 0}) {
-  if (natural == null || natural.width <= 0 || natural.height <= 0) {
-    return stage;
-  }
+/// known size the whole stage stands in, or, with a [fillAspect] (width over
+/// height of a bitmap that is known, e.g. the thumbnail), the largest box of
+/// that aspect the stage has room for.
+Size fittedImageSize(
+  Size stage,
+  Size? natural, {
+  double verticalInset = 0,
+  double? fillAspect,
+}) {
   final available = Size(
     stage.width,
     math.max(0, stage.height - 2 * verticalInset),
   );
+  if (natural == null || natural.width <= 0 || natural.height <= 0) {
+    if (fillAspect == null || !fillAspect.isFinite || fillAspect <= 0) {
+      return stage;
+    }
+    return available.width / fillAspect <= available.height
+        ? Size(available.width, available.width / fillAspect)
+        : Size(available.height * fillAspect, available.height);
+  }
   final scale = math.min(
     1.0,
     math.min(
@@ -205,6 +217,7 @@ class ImageZoomSurface extends StatefulWidget {
     required this.natural,
     required this.child,
     this.verticalInset = 0,
+    this.fillAspect,
     this.onTapOutside,
     this.onTap,
     this.onZoomGesture,
@@ -217,6 +230,10 @@ class ImageZoomSurface extends StatefulWidget {
   /// Space the fitted box keeps free above and below the stage centre line
   /// (the thumbnail strip's band).
   final double verticalInset;
+
+  /// Aspect (width over height) of the picture while [natural] is unknown: the
+  /// box is the largest of that shape instead of the whole stage.
+  final double? fillAspect;
   final VoidCallback? onTapOutside;
 
   /// A single tap, reported once the double-tap window has passed without a
@@ -253,6 +270,7 @@ class ImageZoomSurfaceState extends State<ImageZoomSurface>
     _stage,
     widget.natural,
     verticalInset: widget.verticalInset,
+    fillAspect: widget.fillAspect,
   );
   double get _maxScale =>
       imageMaxScale(natural: widget.natural, fitted: _fitted);
@@ -491,6 +509,7 @@ class ImageZoomSurfaceState extends State<ImageZoomSurface>
           stage,
           widget.natural,
           verticalInset: widget.verticalInset,
+          fillAspect: widget.fillAspect,
         );
         final layout = (stage, fitted);
         if (_laidOut != layout) {

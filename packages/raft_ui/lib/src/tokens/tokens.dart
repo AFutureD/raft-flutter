@@ -4,11 +4,13 @@
 /// blocks) / [RaftProductColors] (Tailwind aliases incl. Web product
 /// overrides) → [RaftComponentColors] (recipe roles). Shadows live in
 /// [RaftThemeShadows], metrics in [RaftThemeMetrics] and [RaftScale]. Control-label
-/// typography policy values live in [RaftControlTypographyTokens].
+/// typography policy values live in [RaftControlTypographyTokens], the media
+/// browser's open / close motion in [RaftMediaMotionTokens].
 /// See docs/design-tokens.md.
 library;
 
 export 'component_colors.g.dart';
+export 'media_motion.g.dart';
 export 'metrics.g.dart';
 export 'primitive_colors.g.dart';
 export 'product_colors.g.dart';

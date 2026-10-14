@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show GestureSettings, Tristate;
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -28,6 +29,7 @@ import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'flutter_test_config.dart' show leakDebt;
+import 'solid_png.dart';
 import 'system_ui_calls.dart';
 
 final _png = base64Decode(
@@ -84,6 +86,10 @@ class _Files extends AttachmentFiles {
 
   /// Fails the full-size originals (not the thumbnails).
   bool failOriginals = false;
+
+  /// Serve pictures of this pixel size instead of the 16x16 one: the original,
+  /// and the thumbnail (defaults to the original's shape, a quarter the size).
+  Size? bitmap, thumbBitmap;
   final networkSaves = <String>[];
   final gallerySaves = <({String name, String mime, Uint8List bytes})>[];
   bool failSaves = false;
@@ -104,6 +110,13 @@ class _Files extends AttachmentFiles {
       await gate.future;
     }
     final tag = url.split('/').last;
+    final original = bitmap;
+    if (original != null) {
+      final thumb = url.contains('/thumb/')
+          ? (thumbBitmap ?? Size(original.width / 4, original.height / 4))
+          : original;
+      return solidPng(thumb.width.round(), thumb.height.round());
+    }
     return tall
         ? Uint8List.fromList([..._tallPng, ...utf8.encode('|$tag')])
         : pngFor(tag);
@@ -196,7 +209,7 @@ class _Rig {
 List<Map<String, dynamic>> _images(
   int count, {
   bool thumbnails = false,
-  Size size = const Size(16, 16),
+  Size? size = const Size(16, 16),
 }) => [
   for (var i = 0; i < count; i++)
     {
@@ -204,8 +217,7 @@ List<Map<String, dynamic>> _images(
       'channelId': 'channel',
       'filename': 'photo-$i.png',
       'mimeType': 'image/png',
-      'width': size.width,
-      'height': size.height,
+      if (size != null) ...{'width': size.width, 'height': size.height},
       'sizeBytes': 100,
       if (thumbnails)
         'thumbnailUrl': 'https://storage.example.invalid/thumb/img$i',
@@ -281,11 +293,14 @@ Future<_Rig> _mount(
   bool thumbnails = false,
   bool gallery = false,
   bool share = true,
-  Size imageSize = const Size(16, 16),
+  Size? imageSize = const Size(16, 16),
   Completer<void>? hold,
   MediaMessageInfo? message,
   bool tall = false,
   double textScale = 1,
+  Size? bitmap,
+  Size? thumbBitmap,
+  BoxFit? fit,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -321,7 +336,9 @@ Future<_Rig> _mount(
   w.visibleIds['channel'] = {'m1'};
   final files = _Files(out, gallery: gallery)
     ..hold = hold
-    ..tall = tall;
+    ..tall = tall
+    ..bitmap = bitmap
+    ..thumbBitmap = thumbBitmap;
   final sharing = _Sharing(share);
   final toasts = RaftToastController();
   addTearDown(() async {
@@ -354,6 +371,7 @@ Future<_Rig> _mount(
                     messageId: 'm1',
                     galleryItems: items,
                     sharing: sharing,
+                    imageFit: fit ?? BoxFit.contain,
                     mediaMessage: message == null ? null : () => message,
                   ),
                 ),
@@ -406,6 +424,32 @@ double _chromeOpacity(WidgetTester tester) => tester
     )
     .map((o) => o.opacity)
     .reduce((a, b) => a + b);
+
+/// The Hero ends taking part in flights: cards wear one always, switched on
+/// only for the tapped one while its browser is up.
+int _flyingHeroes(WidgetTester tester) => tester
+    .widgetList<RaftMediaHero>(find.byType(RaftMediaHero, skipOffstage: false))
+    .where((hero) => hero.enabled)
+    .length;
+
+/// One recorded frame of a Hero flight.
+class _Frame {
+  _Frame({
+    required this.ms,
+    required this.rect,
+    required this.picture,
+    required this.radius,
+    required this.scrim,
+    required this.chrome,
+  });
+  final int ms;
+
+  /// The flying clip, the bitmap inside it, its corner radius, the scrim's
+  /// opacity (null without one) and the chrome's opacity (0..2).
+  final Rect rect, picture;
+  final double radius, chrome;
+  final double? scrim;
+}
 
 const _wide = Size(1280, 800);
 const _phone = Size(390, 844);
@@ -2567,21 +2611,14 @@ void main() {
         await _settle(tester, 8);
         expect(shuttle, findsNothing);
         // The tapped card wears the Hero for as long as the browser is up.
-        expect(
-          find.byType(RaftMediaHero, skipOffstage: false),
-          findsNWidgets(2),
-        );
+        expect(_flyingHeroes(tester), 2, reason: 'the card and the stage');
         _viewer(tester).widget.onClose();
         await tester.pump();
         await _untilInFlight(tester, shuttle);
         expect(shuttle, findsOneWidget, reason: 'back to the card');
         await _settle(tester, 12);
         expect(find.byType(MediaBrowser), findsNothing);
-        expect(
-          find.byType(RaftMediaHero),
-          findsNothing,
-          reason: 'card is plain',
-        );
+        expect(_flyingHeroes(tester), 0, reason: 'cards are switched off');
       });
     }
 
@@ -2611,10 +2648,588 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 40));
       expect(shuttle, findsNothing);
-      expect(find.byType(RaftMediaHero, skipOffstage: false), findsOneWidget);
+      expect(_flyingHeroes(tester), 1, reason: 'the stage end only');
       await tester.pump(const Duration(milliseconds: 60));
       await tester.pump();
       expect(find.byType(AttachmentView), findsNothing, reason: 'settled');
+    });
+  });
+
+  group('Hero flight geometry', () {
+    final shuttle = find.byKey(const ValueKey('media-hero-shuttle'));
+    final picture = find.byKey(const ValueKey('media-hero-shuttle-picture'));
+    final stagePicture = find.byKey(const ValueKey('attachment-image-img0'));
+    final scrim = find.byKey(const ValueKey('media-scrim'));
+    Finder cardHero([int i = 0]) => find.descendant(
+      of: find.byKey(ValueKey('attachment-img$i')),
+      matching: find.byType(RaftMediaHero),
+    );
+    final open = RaftMediaMotionTokens.openDuration.inMilliseconds;
+    final close = RaftMediaMotionTokens.closeDuration.inMilliseconds;
+
+    /// Waits (real async work, no fake time) until the flight has begun: the
+    /// first shuttle frame is the flight at progress 0.
+    Future<void> untilStart(WidgetTester tester) async {
+      final clock = Stopwatch()..start();
+      while (shuttle.evaluate().isEmpty) {
+        if (clock.elapsed > const Duration(seconds: 45)) {
+          fail('Timed out waiting for the Hero flight');
+        }
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+    }
+
+    _Frame frame(WidgetTester tester, int ms) => _Frame(
+      ms: ms,
+      rect: tester.getRect(shuttle),
+      picture: tester.getRect(picture),
+      radius: (tester.widget<ClipRRect>(shuttle).borderRadius as BorderRadius)
+          .topLeft
+          .x,
+      scrim: scrim.evaluate().isEmpty
+          ? null
+          : tester.widget<ColoredBox>(scrim).color.a,
+      chrome: _chromeOpacity(tester),
+    );
+
+    /// Records the flight frame by frame (16 ms apart) until the shuttle is
+    /// gone; [at] runs once the flight is [atMs] in.
+    Future<List<_Frame>> record(
+      WidgetTester tester, {
+      int? atMs,
+      Future<void> Function()? at,
+    }) async {
+      await untilStart(tester);
+      final frames = <_Frame>[];
+      var ms = 0;
+      while (shuttle.evaluate().isNotEmpty) {
+        frames.add(frame(tester, ms));
+        if (atMs != null && ms == atMs) await at!();
+        await tester.pump(const Duration(milliseconds: 16));
+        ms += 16;
+        if (ms > 1000) fail('the flight does not end');
+      }
+      return frames;
+    }
+
+    void near(Rect a, Rect b, String what, [double tol = 1]) {
+      for (final (name, x, y) in [
+        ('left', a.left, b.left),
+        ('top', a.top, b.top),
+        ('right', a.right, b.right),
+        ('bottom', a.bottom, b.bottom),
+      ]) {
+        expect(x, closeTo(y, tol), reason: '$what: $name of $a vs $b');
+      }
+    }
+
+    /// Every frame is where a straight flight from [from] to [to] on [curve]
+    /// over [ms] has got to (the first frame IS [from], the end IS [to]).
+    void flies(
+      List<_Frame> frames,
+      Rect from,
+      Rect to,
+      Curve curve,
+      int ms, {
+      double tol = 1,
+    }) {
+      for (final f in frames) {
+        final t = curve.transform((f.ms / ms).clamp(0, 1));
+        near(f.rect, Rect.lerp(from, to, t)!, 'at ${f.ms} ms', tol);
+      }
+      // Straight: the centres stay on the line between the end centres.
+      final line = to.center - from.center;
+      if (line.distance > 1) {
+        for (final f in frames) {
+          final p = f.rect.center - from.center;
+          final off = (line.dx * p.dy - line.dy * p.dx).abs() / line.distance;
+          expect(off, lessThan(1), reason: 'off the line at ${f.ms} ms');
+        }
+      }
+      expect(frames.last.ms, closeTo(ms, 17), reason: 'duration from tokens');
+    }
+
+    /// The picture a [fit]ted [bitmap] paints in [box].
+    Rect painted(Rect box, Size bitmap, BoxFit fit) {
+      final w = box.width / bitmap.width, h = box.height / bitmap.height;
+      final s = fit == BoxFit.cover ? math.max(w, h) : math.min(w, h);
+      return Rect.fromCenter(
+        center: box.center,
+        width: bitmap.width * s,
+        height: bitmap.height * s,
+      );
+    }
+
+    final cases = <(String, Size, Size?)>[
+      (
+        'landscape, metadata right',
+        const Size(1200, 800),
+        const Size(1200, 800),
+      ),
+      ('landscape, metadata missing', const Size(1200, 800), null),
+      (
+        'landscape bitmap, portrait metadata (rotated)',
+        const Size(1200, 800),
+        const Size(800, 1200),
+      ),
+      ('21:9 panorama, metadata missing', const Size(2100, 900), null),
+      (
+        '1:3 tall, metadata right',
+        const Size(400, 1200),
+        const Size(400, 1200),
+      ),
+      ('1:3 tall, metadata missing', const Size(400, 1200), null),
+    ];
+
+    for (final (name, bitmap, declared) in cases) {
+      testWidgets('open, $name: straight, card to the final rect, no jump', (
+        tester,
+      ) async {
+        final modes = recordSystemUiModes(tester);
+        await _mount(
+          tester,
+          size: _phone,
+          count: 1,
+          thumbnails: true,
+          bitmap: bitmap,
+          imageSize: declared,
+        );
+        final card = tester.getRect(cardHero());
+        await tester.tap(find.byTooltip('Preview photo-0.png'));
+        await tester.pump();
+        final frames = await record(tester);
+        // Right after the flight the stand-in sits where the original will.
+        final landed = tester.getRect(stagePicture);
+        await _settle(tester, 8);
+        final settled = tester.getRect(stagePicture);
+        near(landed, settled, 'right after the flight vs settled', 0.5);
+        flies(frames, card, settled, RaftMediaMotionTokens.openCurve, open);
+        near(frames.first.rect, card, 'first frame vs the card');
+        // The corners round off and the scrim follows the picture.
+        expect(frames.first.radius, greaterThan(0));
+        for (var i = 1; i < frames.length; i++) {
+          expect(frames[i].radius, lessThanOrEqualTo(frames[i - 1].radius));
+          expect(frames[i].scrim, greaterThanOrEqualTo(frames[i - 1].scrim!));
+        }
+        for (final f in frames) {
+          expect(
+            f.scrim,
+            closeTo(
+              RaftMediaMotionTokens.openCurve.transform(f.ms / open),
+              0.02,
+            ),
+            reason: 'scrim in step with the picture at ${f.ms} ms',
+          );
+        }
+        // Immersive mode never touches the system bars.
+        _viewer(tester).widget.onClose();
+        await tester.pump();
+        await _settle(tester, 12);
+        expect(modes, isEmpty);
+      });
+    }
+
+    testWidgets('the chrome waits for 70 % of the open and leaves at once', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        size: _phone,
+        count: 1,
+        thumbnails: true,
+        bitmap: const Size(1200, 800),
+        imageSize: const Size(1200, 800),
+      );
+      await tester.tap(find.byTooltip('Preview photo-0.png'));
+      await tester.pump();
+      final opening = await record(tester);
+      for (final f in opening) {
+        final share = f.ms / open;
+        if (share < RaftMediaMotionTokens.chromeRevealAt - 0.03) {
+          expect(f.chrome, 0, reason: 'bars wait at ${f.ms} ms');
+        } else if (share > RaftMediaMotionTokens.chromeRevealAt + 0.03) {
+          expect(f.chrome, 2, reason: 'bars fade in at ${f.ms} ms');
+        }
+      }
+      await _settle(tester, 8);
+      expect(_chromeOpacity(tester), 2);
+      _viewer(tester).widget.onClose();
+      await tester.pump();
+      final closing = await record(tester);
+      for (final f in closing) {
+        expect(f.chrome, 0, reason: 'bars gone from the first frame');
+      }
+      for (var i = 1; i < closing.length; i++) {
+        expect(closing[i].scrim, lessThanOrEqualTo(closing[i - 1].scrim!));
+      }
+      for (final f in closing) {
+        expect(
+          f.scrim,
+          closeTo(
+            1 - RaftMediaMotionTokens.closeCurve.transform(f.ms / close),
+            0.02,
+          ),
+          reason: 'scrim in step with the picture at ${f.ms} ms',
+        );
+      }
+    });
+
+    testWidgets('close: straight back to the card on the close curve', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        size: _phone,
+        count: 1,
+        thumbnails: true,
+        bitmap: const Size(1200, 800),
+        imageSize: const Size(1200, 800),
+      );
+      final card = tester.getRect(cardHero());
+      await _open(tester, 0);
+      await _settle(tester, 6);
+      final stage = tester.getRect(stagePicture);
+      _viewer(tester).widget.onClose();
+      await tester.pump();
+      final frames = await record(tester);
+      near(frames.first.rect, stage, 'first frame vs the stage picture');
+      flies(frames, stage, card, RaftMediaMotionTokens.closeCurve, close);
+      expect(frames.first.ms, 0);
+      // The close is shorter than the open and the radius comes back.
+      expect(close, lessThan(open));
+      expect(frames.last.radius, greaterThan(0));
+    });
+
+    testWidgets('close from a 2x zoom starts where the finger sees it', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        size: _phone,
+        count: 1,
+        thumbnails: true,
+        bitmap: const Size(1200, 800),
+        imageSize: const Size(1200, 800),
+      );
+      final card = tester.getRect(cardHero());
+      await _open(tester, 0);
+      await _settle(tester, 6);
+      final fit = tester.getRect(stagePicture);
+      tester
+          .state<ImageZoomSurfaceState>(find.byType(ImageZoomSurface))
+          .zoomStep(2);
+      await _settle(tester, 6);
+      final zoomed = tester.getRect(stagePicture);
+      expect(zoomed.width, closeTo(fit.width * 2, 1));
+      _viewer(tester).widget.onClose();
+      await tester.pump();
+      final frames = await record(tester);
+      near(frames.first.rect, zoomed, 'first frame vs the zoomed picture');
+      flies(frames, zoomed, card, RaftMediaMotionTokens.closeCurve, close);
+      // It shrinks to the card as one move: the picture settles to fit on the
+      // way and never grows past where it started.
+      for (var i = 1; i < frames.length; i++) {
+        expect(
+          frames[i].rect.width,
+          lessThanOrEqualTo(frames[i - 1].rect.width + 0.01),
+        );
+      }
+    });
+
+    testWidgets('drag release closes from where the finger left it', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        size: _phone,
+        count: 1,
+        thumbnails: true,
+        bitmap: const Size(1200, 800),
+        imageSize: const Size(1200, 800),
+      );
+      final card = tester.getRect(cardHero());
+      await _open(tester, 0);
+      await _settle(tester, 6);
+      final fit = tester.getRect(stagePicture);
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+      );
+      await drag.moveBy(const Offset(0, 30));
+      await drag.moveBy(const Offset(0, 140));
+      await tester.pump();
+      final dragged = tester.getRect(stagePicture);
+      expect(dragged.top, greaterThan(fit.top + 100), reason: 'it followed');
+      await drag.up(timeStamp: const Duration(seconds: 3));
+      await tester.pump();
+      final frames = await record(tester);
+      near(frames.first.rect, dragged, 'first frame vs the dragged picture');
+      near(
+        Rect.lerp(
+          frames.last.rect,
+          card,
+          1 -
+              RaftMediaMotionTokens.closeCurve.transform(
+                (frames.last.ms / close).clamp(0, 1),
+              ),
+        )!,
+        frames.last.rect,
+        'heading for the card',
+        2,
+      );
+      flies(frames, dragged, card, RaftMediaMotionTokens.closeCurve, close);
+    });
+
+    testWidgets('the list moves during the close: it still lands on the card', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        size: _phone,
+        count: 8,
+        thumbnails: true,
+        bitmap: const Size(1200, 800),
+        imageSize: const Size(1200, 800),
+      );
+      final scroll = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      final card = tester.getRect(cardHero(2));
+      await tester.tap(find.byTooltip('Preview photo-2.png'));
+      await _settle(tester, 12);
+      final stage = tester.getRect(
+        find.byKey(const ValueKey('attachment-image-img2')),
+      );
+      _viewer(tester).widget.onClose();
+      await tester.pump();
+      var moved = 0.0;
+      final frames = await record(
+        tester,
+        atMs: 96,
+        at: () async {
+          final before = scroll.pixels;
+          scroll.jumpTo(before + 100);
+          moved = scroll.pixels - before;
+        },
+      );
+      expect(moved, greaterThan(0));
+      final landing = card.shift(Offset(0, -moved));
+      // The last frames head for the card where it is NOW.
+      final last = frames.last;
+      final left =
+          1 -
+          RaftMediaMotionTokens.closeCurve.transform(
+            (last.ms / close).clamp(0, 1),
+          );
+      near(
+        last.rect,
+        Rect.lerp(landing, stage, left)!,
+        'last frame',
+        // The stage end of the path stays where it was.
+        2 + left * 100,
+      );
+    });
+
+    testWidgets('card end paints the card: the crop interpolates, no stretch', (
+      tester,
+    ) async {
+      for (final (fit, declared) in [
+        (BoxFit.cover, const Size(1200, 400)),
+        (BoxFit.contain, const Size(1200, 400)),
+      ]) {
+        await _mount(
+          tester,
+          size: _phone,
+          count: 1,
+          thumbnails: true,
+          // The card box is 3:1 (metadata), the picture 3:2: cover crops it,
+          // contain letterboxes it.
+          bitmap: const Size(1200, 800),
+          imageSize: declared,
+          fit: fit,
+        );
+        final box = tester.getRect(cardHero());
+        await tester.tap(find.byTooltip('Preview photo-0.png'));
+        await tester.pump();
+        final frames = await record(tester);
+        final first = frames.first;
+        near(
+          first.picture,
+          painted(box, const Size(3, 2), fit),
+          'first frame paints what the $fit card paints',
+        );
+        // At the end the picture IS the stage picture, filling its box.
+        await _settle(tester, 8);
+        final stage = tester.getRect(stagePicture);
+        near(
+          frames.last.picture,
+          Rect.lerp(
+            first.picture,
+            painted(stage, const Size(3, 2), BoxFit.contain),
+            RaftMediaMotionTokens.openCurve.transform(frames.last.ms / open),
+          )!,
+          'last frame is on the way to the stage picture',
+          2,
+        );
+        // The picture keeps its shape all the way (cropped, never stretched).
+        for (final f in frames) {
+          expect(
+            f.picture.width / f.picture.height,
+            closeTo(1.5, 0.01),
+            reason: 'aspect at ${f.ms} ms',
+          );
+          if (fit == BoxFit.cover) {
+            expect(f.picture.width, greaterThanOrEqualTo(f.rect.width - 0.5));
+            expect(f.picture.height, greaterThanOrEqualTo(f.rect.height - 0.5));
+          }
+        }
+        _viewer(tester).widget.onClose();
+        await tester.pump();
+        await _settle(tester, 12);
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+
+    for (final (name, release) in [
+      ('before the flight lifts off', 0),
+      ('mid flight', 96),
+      ('after the flight', -1),
+    ]) {
+      testWidgets(
+        'one destination Hero from stand-in to original ($name), metadata missing',
+        (tester) async {
+          await _mount(
+            tester,
+            size: _phone,
+            count: 1,
+            thumbnails: true,
+            bitmap: const Size(1200, 800),
+            imageSize: null,
+          );
+          final gate = Completer<void>();
+          final files =
+              tester.widget<AttachmentView>(find.byType(AttachmentView)).files
+                  as _Files;
+          files.hold = gate;
+          final card = tester.getRect(cardHero());
+          await tester.tap(find.byTooltip('Preview photo-0.png'));
+          await tester.pump();
+          late State heroBefore;
+          late ImageProvider providerBefore;
+          void remember() {
+            heroBefore = tester.state(
+              find.descendant(
+                of: find.byType(MediaBrowser, skipOffstage: false),
+                matching: find.byType(RaftMediaHero, skipOffstage: false),
+              ),
+            );
+            providerBefore = tester
+                .state<AttachmentLightboxImageState>(
+                  find.byType(AttachmentLightboxImage, skipOffstage: false),
+                )
+                .widget
+                .placeholder!;
+          }
+
+          late List<_Frame> frames;
+          if (release == 0) {
+            await untilStart(tester);
+            remember();
+            gate.complete();
+            frames = await record(tester);
+          } else if (release > 0) {
+            frames = await record(
+              tester,
+              atMs: release,
+              at: () async {
+                remember();
+                gate.complete();
+              },
+            );
+          } else {
+            frames = await record(tester);
+            remember();
+            gate.complete();
+          }
+          final landed = tester.getRect(stagePicture);
+          await _settle(tester, 10);
+          final settled = tester.getRect(stagePicture);
+          expect(
+            tester.widget<Image>(stagePicture).image,
+            isNot(providerBefore),
+            reason: 'the original replaced the stand-in',
+          );
+          expect(
+            identical(
+              heroBefore,
+              tester.state(
+                find.descendant(
+                  of: find.byType(MediaBrowser),
+                  matching: find.byType(RaftMediaHero),
+                ),
+              ),
+            ),
+            isTrue,
+            reason: 'one Hero state',
+          );
+          // Whenever the original lands, the flight ends on the final rect.
+          near(landed, settled, 'right after the flight vs settled', 0.5);
+          flies(
+            frames,
+            card,
+            settled,
+            RaftMediaMotionTokens.openCurve,
+            open,
+            tol: 1.5,
+          );
+        },
+      );
+    }
+
+    testWidgets('timings come from the tokens; reduced motion cuts', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, count: 1, thumbnails: true);
+      await _open(tester, 0);
+      final route =
+          ModalRoute.of(tester.element(find.byType(MediaBrowser)))!
+              as RaftMediaBrowserRoute<void>;
+      expect(route.transitionDuration, RaftMediaMotionTokens.openDuration);
+      expect(
+        route.reverseTransitionDuration,
+        RaftMediaMotionTokens.closeDuration,
+      );
+      expect(route.stagedTransition, isTrue);
+      expect(RaftMediaMotionTokens.openDuration.inMilliseconds, 300);
+      expect(RaftMediaMotionTokens.closeDuration.inMilliseconds, 240);
+    });
+
+    testWidgets('reduced motion: no shuttle at any frame, 80 ms route', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _mount(tester, size: _phone, count: 1, thumbnails: true);
+      await tester.tap(find.byTooltip('Preview photo-0.png'));
+      await tester.pump();
+      for (var i = 0; i < 12; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(shuttle, findsNothing, reason: 'frame $i');
+      }
+      final route =
+          ModalRoute.of(tester.element(find.byType(MediaBrowser)))!
+              as RaftMediaBrowserRoute<void>;
+      expect(route.transitionDuration, RaftMediaMotionTokens.reducedDuration);
+      expect(route.stagedTransition, isFalse, reason: 'a plain cross-fade');
+      expect(_flyingHeroes(tester), 1, reason: 'no card end');
     });
   });
 
