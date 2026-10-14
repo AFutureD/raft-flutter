@@ -167,7 +167,7 @@ void scenario(String name, Future<void> Function(WidgetTester) body) => testWidg
     await startScenario(tester);
     await body(tester);
   }),
-  skip: _only.isNotEmpty && !name.contains(_only),
+  skip: _only.isNotEmpty && !_only.split('|').any(name.contains),
   timeout: _scenarioTimeout,
 );
 
@@ -1262,6 +1262,8 @@ void main() {
         of: find.byType(RaftMediaImmersiveShell),
         matching: find.byType(AnimatedOpacity),
       ))
+      // The video controls fade too; the two bands are what is counted.
+      .where((o) => find.descendant(of: find.byType(RaftVideoViewer), matching: find.byWidget(o)).evaluate().isEmpty)
       .map((o) => o.opacity)
       .fold(0.0, (a, b) => a + b);
 
@@ -1280,6 +1282,11 @@ void main() {
     await until(tester, () => viewerOf(tester).playing && viewerOf(tester).position > const Duration(seconds: 1), 'the page to play');
     await lab.host(tester, 'record-start:viewer-bugs-video');
     await lab.host(tester, 'shot:viewer-bugs-video-1-playing');
+    if (!browserOf(tester).chrome.value) {
+      // The page played for 3 s while the test waited: it went immersive by itself.
+      await realTap(tester, stagePoint(tester, down: .3));
+      await expectChrome(tester, true, 're-shown after the auto-hide');
+    }
     expect(browserOf(tester).chrome.value, true);
     expect(bar, findsOneWidget, reason: 'playing, chrome shown: the controls are there');
     await realTap(tester, stagePoint(tester, down: .3));
@@ -1289,8 +1296,13 @@ void main() {
     await realTap(tester, stagePoint(tester, down: .3));
     await expectChrome(tester, true, 'tap 2');
     expect(bar, findsOneWidget, reason: 'a tap brings the controls back');
-    await tester.pump(const Duration(seconds: 6));
-    expect(bar, findsOneWidget, reason: 'no auto-hide');
+    // Playing under visible chrome: it leaves by itself after 3 s.
+    await tester.pump(const Duration(milliseconds: 4200));
+    expect(browserOf(tester).chrome.value, false, reason: 'auto-hide after 3 s');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(bar, findsNothing, reason: 'the controls went with the chrome');
+    await realTap(tester, stagePoint(tester, down: .3));
+    await expectChrome(tester, true, 'tap 3');
     // Pause with a real touch on the bar's button.
     await realTap(tester, tester.getCenter(toggle));
     await until(tester, () => !viewerOf(tester).playing, 'the bar button to pause');
@@ -1370,12 +1382,15 @@ void main() {
   const bandB = VideoClip('vp-band-b', 'photo4.jpg', 'b1.jpg', size: 50000, mime: 'image/jpeg', group: 'g');
   const bandC = VideoClip('vp-band-c', 'photo5.jpg', 'b2.jpg', size: 50000, mime: 'image/jpeg', group: 'g');
 
+  Rect? openedFrom;
+
   Future<void> openBandBrowser(WidgetTester tester, List<VideoClip> clips, String tooltip) async {
     await browserLaunch(tester, clips);
     final card = find.byTooltip(tooltip);
     await until(tester, () => card.evaluate().isNotEmpty, 'the image card');
     await tester.ensureVisible(card);
     await tester.pump(const Duration(milliseconds: 300));
+    openedFrom = tester.getRect(card);
     await tapCentre(tester, card);
     await until(tester, () => browser.evaluate().isNotEmpty && browserOf(tester).index == 0, 'the browser');
     await until(tester, () => tester.state<AttachmentLightboxImageState>(find.byType(AttachmentLightboxImage).first).full != null, 'the original');
@@ -1494,6 +1509,207 @@ void main() {
     await lab.host(tester, 'record-stop');
     await shutdown(tester);
   });
+
+  /// What the host runner reads from `dumpsys window displays`: the status and the
+  /// navigation bar. The viewer never touches them: they are visible at every step.
+  Future<void> expectBars(WidgetTester t, String state) async {
+    final got = await lab.host(t, 'bars');
+    report('bars', {'state': state, 'got': got});
+    if (got == null) return;
+    expect(got, 'bars:status=shown,nav=shown', reason: '$state: system bars stay');
+  }
+
+  double scaleOf(WidgetTester t) {
+    final state = browserOf(t);
+    return state.zoomFor(state.index).value.getMaxScaleOnAxis();
+  }
+
+  scenario(
+    'browser E2 immersive image: a real tap hides the chrome (system bars stay), the next brings it back; closing shifts nothing below',
+    (tester) async {
+      await openBandBrowser(tester, [bandA, bandB, bandC], 'Preview b0.jpg');
+      final below = openedFrom!;
+      await lab.host(tester, 'record-start:viewer-immersive-image');
+      await expectChrome(tester, true, 'start');
+      await expectBars(tester, 'start');
+      await lab.host(tester, 'shot:viewer-immersive-image-1-shown');
+      await realTap(tester, stagePoint(tester));
+      await expectChrome(tester, false, 'tap hides');
+      await expectBars(tester, 'tap hides');
+      await lab.host(tester, 'shot:viewer-immersive-image-2-immersive');
+      final hiddenPicture = tester.getRect(
+        find.byKey(const ValueKey('attachment-image-vp-band-a')),
+      );
+      report('viewer-immersive-image', {
+        'pictureTop': hiddenPicture.top,
+        'pictureHeight': hiddenPicture.height,
+        'screenHeight': tester.view.physicalSize.height / tester.view.devicePixelRatio,
+      });
+      await realTap(tester, stagePoint(tester));
+      await expectChrome(tester, true, 'tap shows');
+      await expectBars(tester, 'tap shows');
+      await lab.host(tester, 'shot:viewer-immersive-image-3-restored');
+      // A zoom enters immersive; the double tap target is a fixed 2x.
+      await realTap(tester, stagePoint(tester), twice: true);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(browserOf(tester).zoomed, true);
+      expect(scaleOf(tester), closeTo(2, .02), reason: 'fixed 2x');
+      await expectChrome(tester, false, 'double tap zoom enters immersive');
+      await expectBars(tester, 'double tap zoom');
+      await realTap(tester, stagePoint(tester), twice: true);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(
+        browserOf(tester).zoomed,
+        false,
+        reason: 'double tap returns to fit',
+      );
+      await expectChrome(tester, false, 'back to fit keeps immersive');
+      await expectBars(tester, 'back to fit keeps immersive');
+      await lab.host(
+        tester,
+        'shot:viewer-immersive-image-4-fit-still-immersive',
+      );
+      // Close from immersive with the back key.
+      await lab.host(tester, 'back');
+      await expectBars(tester, 'back key started the close');
+      await until(
+        tester,
+        () => browser.evaluate().isEmpty,
+        'the browser to close',
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await lab.host(tester, 'record-stop');
+      await expectBars(tester, 'closed');
+      final card = find.byTooltip('Preview b0.jpg');
+      String box(Rect r) => '${r.left.toStringAsFixed(1)},${r.top.toStringAsFixed(1)},${r.width.toStringAsFixed(1)}x${r.height.toStringAsFixed(1)}';
+      report('viewer-immersive-below', {'before': box(below), 'after': box(tester.getRect(card))});
+      expect(
+        (tester.getRect(card).topLeft - below.topLeft).distance,
+        lessThan(1),
+        reason: 'the page below did not shift',
+      );
+      await shutdown(tester);
+    },
+  );
+
+  scenario(
+    'browser E2 immersive image: the close button and a drag down close with the system bars untouched',
+    (tester) async {
+      await openBandBrowser(tester, [bandA, bandB, bandC], 'Preview b0.jpg');
+      await realTap(tester, stagePoint(tester));
+      await expectBars(tester, 'hidden');
+      await realTap(tester, stagePoint(tester));
+      await expectBars(tester, 'shown');
+      await tapCentre(tester, find.byType(RaftMediaChromeButton).first);
+      await until(
+        tester,
+        () => browser.evaluate().isEmpty,
+        'the Back button to close',
+      );
+      await expectBars(tester, 'closed with Back');
+      // Again, dismissed by dragging the picture down from immersive.
+      await tapCentre(tester, find.byTooltip('Preview b0.jpg'));
+      await until(
+        tester,
+        () => browser.evaluate().isNotEmpty && browserOf(tester).index == 0,
+        'the browser',
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await realTap(tester, stagePoint(tester));
+      await expectBars(tester, 'hidden again');
+      await tester.flingFrom(
+        stagePoint(tester, down: .3),
+        const Offset(0, 300),
+        1500,
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await expectBars(tester, 'drag released');
+      await until(
+        tester,
+        () => browser.evaluate().isEmpty,
+        'the drag to close',
+      );
+      await expectBars(tester, 'closed by dragging');
+      await shutdown(tester);
+    },
+  );
+
+  scenario(
+    'browser E2 immersive video: playing under visible chrome it hides by itself after 3 s; never while paused; a tap; the app returning',
+    (tester) async {
+      await browserLaunch(tester, [_bA, _bP1]);
+      await playInline(tester, 'a.mp4', past: const Duration(seconds: 1));
+      await openBrowserFromCard(tester, 'a.mp4');
+      final bar = find.descendant(
+        of: viewer,
+        matching: find.byKey(const Key('inline-video-bar')),
+      );
+      final toggle = find.descendant(
+        of: viewer,
+        matching: find.byKey(const Key('inline-video-toggle')),
+      );
+      await until(tester, () => viewerOf(tester).playing, 'the page to play');
+      final clock = Stopwatch()..start();
+      await lab.host(tester, 'record-start:viewer-immersive-video');
+      await expectBars(tester, 'playing, chrome shown');
+      await lab.host(tester, 'shot:viewer-immersive-video-1-playing');
+      expect(bar, findsOneWidget);
+      await until(
+        tester,
+        () => !browserOf(tester).chrome.value,
+        'the 3 s auto-hide',
+        timeout: const Duration(seconds: 8),
+      );
+      final hiddenAt = clock.elapsedMilliseconds;
+      report('viewer-immersive-video', {'autoHideAfterMs': hiddenAt});
+      expect(hiddenAt, inInclusiveRange(2500, 6500));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(bar, findsNothing);
+      await expectBars(tester, 'auto-hidden');
+      await lab.host(tester, 'shot:viewer-immersive-video-2-auto-hidden');
+      expect(viewerOf(tester).playing, true, reason: 'hiding never pauses');
+      // A real tap brings controls, chrome and bars back, 3 s later they go again.
+      await realTap(tester, stagePoint(tester, down: .3));
+      await expectChrome(tester, true, 'tap shows');
+      expect(bar, findsOneWidget);
+      await expectBars(tester, 'tap shows');
+      // Pausing from the bar: it stays for good.
+      await realTap(tester, tester.getCenter(toggle));
+      await until(
+        tester,
+        () => !viewerOf(tester).playing,
+        'the bar button to pause',
+      );
+      await tester.pump(const Duration(seconds: 5));
+      expect(
+        browserOf(tester).chrome.value,
+        true,
+        reason: 'paused never auto-hides',
+      );
+      expect(bar, findsOneWidget);
+      await expectBars(tester, 'paused');
+      // Paused, a tap still hides everything (controls included).
+      await realTap(tester, stagePoint(tester, down: .3));
+      await expectChrome(tester, false, 'paused tap hides');
+      expect(bar, findsNothing);
+      await expectBars(tester, 'paused tap hides');
+      await lab.host(tester, 'shot:viewer-immersive-video-3-paused-hidden');
+      // The app goes away and comes back: immersive again, not stuck, not lost.
+      await lab.hostQuiet('background:2');
+      await tester.pump(const Duration(seconds: 1));
+      await expectBars(tester, 'after the app returned');
+      await lab.host(tester, 'shot:viewer-immersive-video-4-returned');
+      await lab.host(tester, 'record-stop');
+      await lab.host(tester, 'back');
+      await until(
+        tester,
+        () => browser.evaluate().isEmpty,
+        'the browser to close',
+      );
+      await expectBars(tester, 'closed');
+      await shutdown(tester);
+    },
+  );
 
   scenario('browser B3: landscape', (tester) async {
     addTearDown(() => lab.hostQuiet('rotate:0'));

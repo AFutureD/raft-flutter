@@ -139,6 +139,21 @@ class Host:
         (self.out / f'{name}.png').write_bytes(data)
         return f'shot:{name}.png'
 
+    def bars(self):
+        """Whether the status and navigation bars are visible, read from `dumpsys window displays`.
+
+        The display's insets state follows what the focused app window asked for (the source `visible` flag is false while the
+        app hides a bar). The viewer never hides them: the scenarios assert both stay shown. The dump is kept next to the logs."""
+        text = self.adb('shell', 'dumpsys', 'window', 'displays', check=False).stdout
+        (self.out / 'bars-last.txt').write_text(text)
+        found = {}
+        for kind in ('statusBars', 'navigationBars'):
+            m = re.search(r'InsetsSource id=\S+ type=' + kind + r' frame=\S+ visible=(true|false)', text)
+            if not m:
+                return 'bars:unknown'
+            found[kind] = 'shown' if m[1] == 'true' else 'hidden'
+        return f'bars:status={found["statusBars"]},nav={found["navigationBars"]}'
+
     def meminfo(self, label):
         """Saves `dumpsys meminfo` of the isolated app and returns the numbers that matter (KB)."""
         text = self.adb('shell', 'dumpsys', 'meminfo', PACKAGE, check=False).stdout
@@ -250,6 +265,8 @@ class Host:
                     result = self.swipe_back()
                 elif command.startswith('shot:'):
                     result = self.shot(command.split(':', 1)[1])
+                elif command == 'bars':
+                    result = self.bars()
                 elif command.startswith('meminfo:'):
                     result = self.meminfo(command.split(':', 1)[1])
                 elif command == 'audio':

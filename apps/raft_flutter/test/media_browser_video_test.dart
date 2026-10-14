@@ -23,6 +23,7 @@ import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter, fixture;
+import 'system_ui_calls.dart';
 
 class _Player implements AttachmentPlayer {
   _Player({this.native = false});
@@ -300,7 +301,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 2800));
       expect(player.disposed, isFalse, reason: 'still held inside the grace');
       expect(rig.sessions.length, 1);
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 500));
       await _rest(tester, 50);
       expect(player.disposed, isTrue, reason: 'no card holds it: freed');
       expect(rig.sessions.length, 0);
@@ -538,16 +539,26 @@ void main() {
       expect(bar, findsOneWidget, reason: 'playing, chrome shown: controls');
 
       await tester.tapAt(const Offset(195, 300));
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
       expect(rig.browser.chrome.value, isFalse);
       expect(bar, findsNothing, reason: 'hidden together with the chrome');
 
       await tester.tapAt(const Offset(195, 300));
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
       expect(rig.browser.chrome.value, isTrue);
       expect(bar, findsOneWidget, reason: 'a tap brings them back');
-      await tester.pump(const Duration(seconds: 10));
-      expect(bar, findsOneWidget, reason: 'no auto-hide timer');
+      // Playing under visible chrome: it leaves by itself after 3 s.
+      await tester.pump(const Duration(milliseconds: 2900));
+      expect(bar, findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(rig.browser.chrome.value, isFalse, reason: 'auto-hide');
+      expect(bar, findsNothing);
+      await tester.tapAt(const Offset(195, 300));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(bar, findsOneWidget, reason: 'a tap brings them back');
 
       final seek = find.byKey(const Key('inline-video-seek'));
       await tester.tapAt(
@@ -565,10 +576,15 @@ void main() {
       await _rest(tester, 50);
       expect(player.playing, isFalse, reason: 'the bar button pauses');
       expect(bar, findsOneWidget, reason: 'paused never hides them');
+      await tester.pump(const Duration(seconds: 10));
+      expect(rig.browser.chrome.value, isTrue, reason: 'no auto-hide paused');
+      expect(bar, findsOneWidget);
       rig.browser.toggleChrome();
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(rig.browser.chrome.value, isFalse);
-      expect(bar, findsOneWidget, reason: 'paused: shown with chrome hidden');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(bar, findsNothing, reason: 'paused: hidden with the chrome');
+      expect(find.byKey(const Key('inline-video-play')), findsNothing);
     });
 
     scenario('the control bar sits above the strip while the chrome shows', (
@@ -598,6 +614,158 @@ void main() {
         tester.getRect(find.byKey(const Key('video-viewer'))),
         const Rect.fromLTWH(0, 0, 390, 844),
       );
+    });
+  });
+
+  group('immersive mode (video)', () {
+    final bar = find.byKey(const Key('inline-video-bar'));
+    final seek = find.byKey(const Key('inline-video-seek'));
+
+    Future<_Rig> playing(WidgetTester tester) async {
+      final rig = await _mount(tester, kinds: 'vi', initial: 0);
+      await _rest(tester, 300);
+      await tester.tap(find.byKey(const Key('inline-video-play')));
+      await _rest(tester, 50);
+      expect(rig.made.single.playing, isTrue);
+      return rig;
+    }
+
+    scenario('playing under visible chrome: after 3 s the chrome, the '
+        'controls and the system bars go together', (tester) async {
+      final modes = recordSystemUiModes(tester);
+      final rig = await playing(tester);
+      expect(modes, isEmpty);
+      await tester.pump(const Duration(milliseconds: 2800));
+      expect(rig.browser.chrome.value, isTrue);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(rig.browser.chrome.value, isFalse);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(bar, findsNothing);
+      // A tap brings everything back.
+      await tester.tapAt(const Offset(195, 300));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(rig.browser.chrome.value, isTrue);
+      expect(bar, findsOneWidget);
+      expect(modes, isEmpty, reason: 'the system bars are not touched');
+      expect(rig.made.single.playing, isTrue, reason: 'never pauses');
+    });
+
+    scenario('an interaction restarts the 3 s', (tester) async {
+      final rig = await playing(tester);
+      await tester.pump(const Duration(milliseconds: 2500));
+      await tester.tapAt(
+        tester.getTopLeft(seek) + Offset(tester.getSize(seek).width / 3, 6),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 2500));
+      expect(rig.browser.chrome.value, isTrue, reason: '2.5 s after the tap');
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(rig.browser.chrome.value, isFalse);
+    });
+
+    scenario('never while paused', (tester) async {
+      final modes = recordSystemUiModes(tester);
+      final rig = await _mount(tester, kinds: 'vi', initial: 0);
+      await _rest(tester, 300);
+      await tester.pump(const Duration(seconds: 10));
+      expect(rig.browser.chrome.value, isTrue);
+      expect(bar, findsOneWidget);
+      // Pausing a playing video stops the count too.
+      await tester.tap(find.byKey(const Key('inline-video-play')));
+      await _rest(tester, 50);
+      await tester.pump(const Duration(milliseconds: 2000));
+      await tester.tap(find.byKey(const Key('inline-video-toggle')));
+      await _rest(tester, 50);
+      expect(rig.made.single.playing, isFalse);
+      await tester.pump(const Duration(seconds: 10));
+      expect(rig.browser.chrome.value, isTrue);
+      expect(modes, isEmpty);
+    });
+
+    scenario('never while a finger is on the seek rail', (tester) async {
+      final modes = recordSystemUiModes(tester);
+      final rig = await playing(tester);
+      final at = tester.getTopLeft(seek) + Offset(40, 6);
+      final finger = await tester.startGesture(at);
+      await finger.moveBy(const Offset(60, 0));
+      await tester.pump(const Duration(seconds: 6));
+      expect(rig.browser.chrome.value, isTrue, reason: 'scrubbing');
+      expect(modes, isEmpty);
+      await finger.up();
+      await tester.pump(const Duration(milliseconds: 2800));
+      expect(rig.browser.chrome.value, isTrue);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(rig.browser.chrome.value, isFalse, reason: '3 s after the lift');
+      expect(modes, isEmpty);
+    });
+
+    scenario('never with a screen reader: the controls stay, a tap '
+        'toggles nothing', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final modes = recordSystemUiModes(tester);
+      final rig = await playing(tester);
+      await tester.pump(const Duration(seconds: 10));
+      expect(rig.browser.chrome.value, isTrue);
+      expect(bar, findsOneWidget);
+      await tester.tapAt(const Offset(195, 300));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(rig.browser.chrome.value, isTrue);
+      expect(bar, findsOneWidget);
+      expect(modes, isEmpty);
+    });
+
+    scenario('a hidden video stays hidden when it is paused, and the centre '
+        'Play goes with the chrome', (tester) async {
+      final rig = await _mount(tester, kinds: 'vi', initial: 0);
+      await _rest(tester, 300);
+      final play = find.byKey(const Key('inline-video-play'));
+      expect(play, findsOneWidget);
+      await tester.tapAt(const Offset(195, 300));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(rig.browser.chrome.value, isFalse);
+      expect(play, findsNothing);
+      expect(bar, findsNothing);
+      await tester.tapAt(const Offset(195, 300));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(play, findsOneWidget);
+      expect(bar, findsOneWidget);
+    });
+
+    scenario('reduced motion: the controls cut with the chrome', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final rig = await _mount(tester, kinds: 'vi', initial: 0);
+      await _rest(tester, 300);
+      await tester.tapAt(const Offset(195, 300));
+      // The tap confirms after the double-tap window; the next frame has no
+      // fade left.
+      await tester.pump(const Duration(milliseconds: 310));
+      await tester.pump();
+      expect(rig.browser.chrome.value, isFalse);
+      expect(bar, findsNothing);
+    });
+
+    scenario('the controls fade out rather than pop', (tester) async {
+      final rig = await _mount(tester, kinds: 'vi', initial: 0);
+      await _rest(tester, 300);
+      rig.browser.toggleChrome();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(bar, findsOneWidget, reason: 'mid-fade');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(bar, findsNothing);
     });
   });
 

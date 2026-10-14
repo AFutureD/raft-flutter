@@ -28,6 +28,7 @@ import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'flutter_test_config.dart' show leakDebt;
+import 'system_ui_calls.dart';
 
 final _png = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8V7uCgRTARJLqUQ2jGoaUBgC7qgJDBU0aZAAAAABJRU5ErkJggg==',
@@ -1395,7 +1396,10 @@ void main() {
       // The original arrives: same zoom, no jump.
       gate.complete();
       await _settle(tester, 20);
-      expect(find.byKey(const ValueKey('attachment-image-img0')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attachment-image-img0')),
+        findsOneWidget,
+      );
       expect(viewer.zoomFor(0).value, zoomed);
       expect(
         tester.getRect(find.byType(ImageZoomSurface)).height,
@@ -1547,12 +1551,12 @@ void main() {
       await bandToggles(tester, const Offset(195, 840), state: 'single image');
     });
 
-    testWidgets('band backdrop: after paging, after a zoom', (
-      tester,
-    ) async {
+    testWidgets('band backdrop: after paging, after a zoom', (tester) async {
       await _mount(tester, size: _phone, gallery: true, message: _alice);
       await _open(tester, 0);
-      final stage = tester.getCenter(find.byKey(const ValueKey('viewer-stage')));
+      final stage = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
       await tester.dragFrom(stage, const Offset(-300, 0));
       await _settle(tester, 8);
       expect(_counter(tester), '2 / 3');
@@ -1636,7 +1640,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(viewer.chrome.value, isFalse);
+      expect(viewer.chrome.value, isTrue, reason: 'a tap toggles nothing');
       expect(_chromeOpacity(tester), 2, reason: 'still on screen');
     });
 
@@ -1909,6 +1913,228 @@ void main() {
       expect(find.byKey(const ValueKey('viewer-menu-save')), findsOneWidget);
       expect(find.byKey(const ValueKey('viewer-menu-share')), findsOneWidget);
       expect(find.byKey(const ValueKey('viewer-menu-download')), findsNothing);
+    });
+  });
+
+  group('immersive mode', () {
+    Offset below(WidgetTester tester) =>
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))) +
+        const Offset(0, 250);
+
+    /// A single tap, confirmed after the double-tap window, and the fade.
+    Future<void> tapStage(WidgetTester tester) async {
+      await tester.tapAt(below(tester));
+      await tester.pump(const Duration(milliseconds: 310));
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    /// Opens on a phone. The viewer must never ask for another system UI
+    /// mode: the returned list stays empty in every test.
+    Future<List<String>> openPhone(
+      WidgetTester tester, {
+      bool tall = false,
+    }) async {
+      final modes = recordSystemUiModes(tester);
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: true,
+        message: _alice,
+        tall: tall,
+        imageSize: tall ? const Size(400, 1600) : const Size(16, 16),
+      );
+      await _open(tester, 0);
+      await _settle(tester, 4);
+      return modes;
+    }
+
+    testWidgets('a tap hides the app chrome, the next tap brings it back; '
+        'the system bars are never touched', (tester) async {
+      final modes = await openPhone(tester);
+      final viewer = _viewer(tester);
+      expect(_chromeOpacity(tester), 2);
+      await tapStage(tester);
+      expect(viewer.chrome.value, isFalse);
+      expect(_chromeOpacity(tester), 0);
+      await tapStage(tester);
+      expect(viewer.chrome.value, isTrue);
+      expect(_chromeOpacity(tester), 2);
+      expect(modes, isEmpty);
+    });
+
+    testWidgets('the picture re-fits to the room the chrome leaves', (
+      tester,
+    ) async {
+      await openPhone(tester, tall: true);
+      Rect picture() =>
+          tester.getRect(find.byKey(const ValueKey('attachment-image-img0')));
+      final between = picture();
+      await tapStage(tester);
+      final full = picture();
+      expect(full.height, closeTo(844, 1));
+      expect(full.height, greaterThan(between.height));
+      await tapStage(tester);
+      expect(picture(), between);
+    });
+
+    testWidgets('hidden, the picture fits between the system bars, not '
+        'under them', (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      final modes = await openPhone(tester, tall: true);
+      await tapStage(tester);
+      final rect = tester.getRect(
+        find.byKey(const ValueKey('attachment-image-img0')),
+      );
+      expect(rect.top, greaterThanOrEqualTo(24 - .5));
+      expect(rect.bottom, lessThanOrEqualTo(844 - 34 + .5));
+      expect(rect.height, closeTo(844 - 24 - 34, 1));
+      expect(modes, isEmpty);
+    });
+
+    testWidgets('the first pinch hides the chrome; zooming back to fit does '
+        'not bring it back', (tester) async {
+      final modes = await openPhone(tester);
+      final viewer = _viewer(tester);
+      final center = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
+      final a = await tester.startGesture(
+        center - const Offset(20, 0),
+        pointer: 1,
+      );
+      final b = await tester.startGesture(
+        center + const Offset(20, 0),
+        pointer: 2,
+      );
+      await a.moveBy(const Offset(-60, 0));
+      await b.moveBy(const Offset(60, 0));
+      await tester.pump();
+      expect(viewer.chrome.value, isFalse);
+      await a.up();
+      await b.up();
+      await _settle(tester, 4);
+      viewer.resetZoom();
+      await _settle(tester, 6);
+      expect(viewer.zoomed, isFalse);
+      expect(viewer.chrome.value, isFalse);
+      expect(modes, isEmpty);
+    });
+
+    testWidgets('a double tap zooms to a fixed 2x (not to fill), a second '
+        'one returns to fit, the chrome stays hidden', (tester) async {
+      await openPhone(tester, tall: true);
+      final viewer = _viewer(tester);
+      final at = tester.getCenter(find.byKey(const ValueKey('viewer-stage')));
+      Future<void> doubleTap() async {
+        await tester.tapAt(at);
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.tapAt(at);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+
+      await doubleTap();
+      // The tall picture fills 2.4x of the width between the bars: not that.
+      expect(viewer.zoomFor(0).value.getMaxScaleOnAxis(), closeTo(2, .01));
+      expect(viewer.chrome.value, isFalse);
+      await doubleTap();
+      expect(viewer.zoomFor(0).value, Matrix4.identity());
+      expect(viewer.chrome.value, isFalse, reason: 'fit does not restore it');
+    });
+
+    testWidgets('a screen reader: chrome always on, a tap does nothing', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final modes = await openPhone(tester);
+      final viewer = _viewer(tester);
+      await tapStage(tester);
+      expect(viewer.chrome.value, isTrue);
+      expect(_chromeOpacity(tester), 2);
+      // Zoom does not put the chrome away either.
+      viewer.zoomStep(2);
+      await _settle(tester, 6);
+      expect(viewer.chrome.value, isTrue);
+      expect(modes, isEmpty);
+    });
+
+    testWidgets('a screen reader switched on while the chrome is hidden '
+        'brings it back', (tester) async {
+      await openPhone(tester);
+      await tapStage(tester);
+      expect(_chromeOpacity(tester), 0);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(_chromeOpacity(tester), 2);
+    });
+
+    testWidgets('reduced motion: the switch is instant, no fade', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await openPhone(tester, tall: true);
+      final before = tester.getRect(
+        find.byKey(const ValueKey('attachment-image-img0')),
+      );
+      await tester.tapAt(below(tester));
+      await tester.pump(const Duration(milliseconds: 310));
+      await tester.pump();
+      expect(_chromeOpacity(tester), 0, reason: 'no fade');
+      final after = tester.getRect(
+        find.byKey(const ValueKey('attachment-image-img0')),
+      );
+      expect(after.height, closeTo(844, 1), reason: 'no glide');
+      expect(after.height, greaterThan(before.height));
+    });
+
+    testWidgets('wide windows keep the lightbox chrome', (tester) async {
+      final modes = recordSystemUiModes(tester);
+      await _mount(tester, size: _wide, gallery: true);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      viewer.zoomStep(2);
+      await _settle(tester, 6);
+      viewer.resetZoom();
+      await _settle(tester, 6);
+      expect(viewer.chrome.value, isTrue);
+      expect(modes, isEmpty);
+    });
+
+    testWidgets('opening, hiding, closing by the back key and by the app '
+        'leaving the foreground never change the system UI', (tester) async {
+      final modes = await openPhone(tester);
+      await tapStage(tester);
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await _settle(tester, 10);
+      expect(find.byType(MediaBrowser), findsNothing);
+      expect(modes, isEmpty);
     });
   });
 

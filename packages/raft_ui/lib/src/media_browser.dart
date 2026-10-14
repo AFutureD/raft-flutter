@@ -13,6 +13,7 @@ import 'localization.dart';
 import 'text_scaling.dart';
 import 'dialog_card.dart' show RaftShadowSet;
 import 'theme.dart';
+import 'video_controls.dart' show raftMediaChromeFade;
 
 // Unified media browser visuals (phone immersive stage, strip, drag-to-dismiss,
 // Hero route). Pure presentation: the host owns items, loading, sessions and
@@ -847,7 +848,7 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     final t = RaftTokens.of(context);
     final reduced = MediaQuery.disableAnimationsOf(context);
     final alwaysShown = MediaQuery.accessibleNavigationOf(context);
-    final fade = reduced ? Duration.zero : const Duration(milliseconds: 160);
+    final fade = reduced ? Duration.zero : raftMediaChromeFade;
     Widget layer(Widget Function(BuildContext) build) => _ChromeBuilder(
       first: widget.chrome,
       second: progress,
@@ -1116,10 +1117,9 @@ class RaftMediaChromeInsets extends InheritedWidget {
   /// The top bar and the bottom band are on screen.
   final bool visible;
 
-  /// The edges an image keeps clear of: the bars while they show, nothing
-  /// (the full stage) while they are hidden.
-  EdgeInsets get imageRoom =>
-      visible ? EdgeInsets.only(top: top, bottom: bottom) : EdgeInsets.zero;
+  /// The edges an image keeps clear of: the bars while they show, the system
+  /// bars alone (the room between them) while the chrome is hidden.
+  EdgeInsets get imageRoom => EdgeInsets.only(top: top, bottom: bottom);
 
   static RaftMediaChromeInsets? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<RaftMediaChromeInsets>();

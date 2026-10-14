@@ -221,8 +221,10 @@ without counter and strip.
   bands (`RaftLightboxStageInset`), so toggling the chrome never moves the picture. A tap toggles the chrome once the
   300 ms (`kDoubleTapTimeout`) double-tap window has passed without a second tap (a double tap zooms); anywhere on the stage counts, also on
   the thumbnail stand-in (same zoom surface and controller as the original, so a zoom carries over) and on the bands'
-  gradient backdrop (only the caption, strip and buttons take their own taps); the first zoom gesture hides it, a screen
-  reader keeps it on. A tap on the empty stage does not close (Web's empty-stage click is desktop only). Long press keeps
+  gradient backdrop (only the caption, strip and buttons take their own taps). Hiding the chrome is **immersive mode**: only the app's own chrome goes (the system status and navigation bars are
+  never touched) and the picture re-fits to the room between the system bars; the next tap restores everything. The
+  first zoom gesture (pinch, double tap to a fixed 2x) enters immersive and zooming back to fit does not leave it. A
+  screen reader keeps the chrome on and a tap toggles nothing. A tap on the empty stage does not close (Web's empty-stage click is desktop only). Long press keeps
   the Save / Share menu. System bar icons are light over the black stage, bars transparent (edge to edge).
 * **Drag down to dismiss** (touch, zoom at fit, one finger): `RaftMediaDismissible` follows the finger, scales to 0.82 and
   fades the scrim and the chrome (gone within 40 dp). Release past 120 dp or faster than 700 dp/s pops (Hero or fade from
@@ -261,8 +263,10 @@ without counter and strip.
   * **Failures** are the seven classes of [Failure classes and messages](#failure-classes-and-messages) with their actions
     (Retry signs again, Network settings closes the browser first, Download original). A failed page is not retried by
     paging: leaving and coming back shows the failure again with no request; only Retry opens (exactly one) new player.
-  * **Controls.** The phone page fills the stage; a tap toggles the chrome and the playing video's control bar together and never plays
-    (no auto-hide yet; paused always shows the bar); the Play button and the bar play and seek. The control bar keeps clear of the strip (`RaftMediaChromeInsets`). Keyboard: Space, Shift+Left/Right (5 s),
+  * **Controls.** The phone page fills the stage; a tap toggles the chrome, the control bar and the centre Play together (paused or playing) and never
+    plays; they fade with the chrome. A playing video under visible chrome enters immersive by itself after 3 s without an
+    interaction (any finger on the viewer postpones it); never while paused, scrubbing, with a menu open or with a screen
+    reader. The Play button and the bar play and seek. The control bar keeps clear of the strip (`RaftMediaChromeInsets`). Keyboard: Space, Shift+Left/Right (5 s),
     M. The app going to the background pauses and does not resume.
   The page code is new rather than a refactor of the dialog's (the dialog keeps its own video path while the flag is off);
   the two will share one stage when the flag is removed.

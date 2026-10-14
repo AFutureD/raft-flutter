@@ -53,6 +53,53 @@ const _videoFadeStops = [
 /// (mouse) or the last tap (touch).
 const raftVideoControlsIdle = Duration(seconds: 3);
 
+/// The phone chrome's fade (top bar, bottom band and the video controls leave
+/// and return together); reduced motion cuts.
+const raftMediaChromeFade = Duration(milliseconds: 160);
+
+/// Fades [child] in and out with [visible] over [raftMediaChromeFade]. It is
+/// built only while it shows or fades, takes no touch once it is leaving, and
+/// cuts under reduced motion.
+class RaftChromeFade extends StatefulWidget {
+  const RaftChromeFade({super.key, required this.visible, required this.child});
+  final bool visible;
+  final Widget child;
+
+  @override
+  State<RaftChromeFade> createState() => _RaftChromeFadeState();
+}
+
+class _RaftChromeFadeState extends State<RaftChromeFade> {
+  /// Built: visible, or fading out.
+  late bool present = widget.visible;
+
+  @override
+  void didUpdateWidget(RaftChromeFade old) {
+    super.didUpdateWidget(old);
+    if (widget.visible) present = true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (!widget.visible && (reduced || !present)) {
+      present = false;
+      return const SizedBox.shrink();
+    }
+    return IgnorePointer(
+      ignoring: !widget.visible,
+      child: AnimatedOpacity(
+        duration: reduced ? Duration.zero : raftMediaChromeFade,
+        opacity: widget.visible ? 1 : 0,
+        onEnd: () {
+          if (!widget.visible && mounted) setState(() => present = false);
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 /// The interactive layer over a video picture: click toggles playback, a
 /// centred Play while paused (on hover with a mouse, always on touch) and the
 /// [RaftVideoControlBar] (paused: always; playing: while the mouse moves over
@@ -89,9 +136,10 @@ class RaftVideoOverlay extends StatefulWidget {
   final List<Widget> extra;
 
   /// The browser's phone page owns the controls' visibility with its chrome:
-  /// while playing, the bar shows exactly when this is true (a surface tap
-  /// toggles it through [onSurfaceTap]); paused, it always shows. Null keeps
-  /// the card behaviour (mouse hover / tap-to-reveal timer).
+  /// the bar and the centre Play show exactly when this is true, paused or
+  /// playing (a surface tap toggles it through [onSurfaceTap]), and fade with
+  /// the chrome. Null keeps the card behaviour (paused: always; playing: mouse
+  /// hover / tap-to-reveal timer).
   final bool? controlsVisible;
 
   /// Replaces the surface tap (play / pause, or the bar on a playing touch
@@ -108,6 +156,7 @@ class RaftVideoOverlay extends StatefulWidget {
 
   /// The video is open: the bar and the Play button may show.
   final bool ready;
+
   /// The player waits for data: a spinner over the picture.
   final bool buffering;
   final bool playing, fullscreen;
@@ -241,15 +290,20 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
 
   bool get showBar =>
       widget.ready &&
-      (!widget.playing
-          ? true
-          : widget.controlsVisible ??
-                (touch ? barTapped : hovered && !idleHidden));
+      (widget.controlsVisible ??
+          (!widget.playing
+              ? true
+              : (touch ? barTapped : hovered && !idleHidden)));
   bool get showCenterPlay =>
       widget.ready &&
       !widget.playing &&
       !widget.buffering &&
-      (touch || hovered);
+      (widget.controlsVisible ?? (touch || hovered));
+
+  /// The browser's chrome fades its controls with it; a card cuts.
+  Widget fading(bool visible, Widget child) => widget.controlsVisible == null
+      ? child
+      : RaftChromeFade(visible: visible, child: child);
 
   @override
   Widget build(BuildContext context) {
@@ -290,32 +344,37 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
                   ),
                 ),
               ),
-            if (showCenterPlay)
+            if (showCenterPlay || widget.controlsVisible != null)
               Center(
                 // The browser's phone page has no tap-to-play surface: the
                 // Play button itself takes the tap.
-                child: IgnorePointer(
-                  ignoring: widget.onSurfaceTap == null,
-                  child: GestureDetector(
-                    onTap: widget.onTogglePlay,
-                    child: Container(
-                      key: const Key('inline-video-play'),
-                      width: 52,
-                      height: 52,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: .6),
-                        shape: t.brutal ? BoxShape.rectangle : BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: .9),
-                          width: t.brutal ? 2 : 1,
+                child: fading(
+                  showCenterPlay,
+                  IgnorePointer(
+                    ignoring: widget.onSurfaceTap == null,
+                    child: GestureDetector(
+                      onTap: widget.onTogglePlay,
+                      child: Container(
+                        key: const Key('inline-video-play'),
+                        width: 52,
+                        height: 52,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: .6),
+                          shape: t.brutal
+                              ? BoxShape.rectangle
+                              : BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: .9),
+                            width: t.brutal ? 2 : 1,
+                          ),
                         ),
-                      ),
-                      child: const RaftIcon(
-                        RaftGlyph.play,
-                        size: 22,
-                        color: Colors.white,
-                        filled: true,
+                        child: const RaftIcon(
+                          RaftGlyph.play,
+                          size: 22,
+                          color: Colors.white,
+                          filled: true,
+                        ),
                       ),
                     ),
                   ),
@@ -331,7 +390,7 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
                   ),
                 ),
               ),
-            if (showBar)
+            if (showBar || widget.controlsVisible != null)
               Positioned(
                 left: 0,
                 right: 0,
@@ -341,44 +400,49 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
                 // opaque region there swallowed taps (it has no recognizer) and
                 // the centre play button did nothing; the picture behind still
                 // gets the hit, the controls keep their own taps.
-                child: MouseRegion(
-                  hitTestBehavior: HitTestBehavior.translucent,
-                  onEnter: (_) => barHovered(true),
-                  onExit: (_) => barHovered(false),
-                  child: RaftVideoControlBar(
-                    key: const Key('inline-video-bar'),
-                    filename: widget.filename,
-                    playing: widget.playing,
-                    position: widget.position,
-                    duration: widget.duration,
-                    volume: widget.volume,
-                    touch: touch,
-                    hovered: hovered,
-                    fullscreen: widget.fullscreen,
-                    playLabel: playLabel,
-                    onTogglePlay: widget.onTogglePlay,
-                    onSeek: widget.onSeek,
-                    onVolume: widget.onVolume,
-                    onOpen: widget.onOpen,
-                    onDownload: widget.onDownload,
-                    onFullscreen: widget.onFullscreen,
-                    onMute: widget.onVolume == null
-                        ? null
-                        : () {
-                            if (widget.volume > 0) {
-                              mutedFrom = widget.volume;
-                              widget.onVolume!(0);
-                            } else {
-                              widget.onVolume!(mutedFrom > 0 ? mutedFrom : 100);
-                            }
-                          },
-                    onInteract:
-                        touch &&
-                            widget.playing &&
-                            widget.controlsVisible == null
-                        ? showBarBriefly
-                        : null,
-                    onDragChanged: dragChanged,
+                child: fading(
+                  showBar,
+                  MouseRegion(
+                    hitTestBehavior: HitTestBehavior.translucent,
+                    onEnter: (_) => barHovered(true),
+                    onExit: (_) => barHovered(false),
+                    child: RaftVideoControlBar(
+                      key: const Key('inline-video-bar'),
+                      filename: widget.filename,
+                      playing: widget.playing,
+                      position: widget.position,
+                      duration: widget.duration,
+                      volume: widget.volume,
+                      touch: touch,
+                      hovered: hovered,
+                      fullscreen: widget.fullscreen,
+                      playLabel: playLabel,
+                      onTogglePlay: widget.onTogglePlay,
+                      onSeek: widget.onSeek,
+                      onVolume: widget.onVolume,
+                      onOpen: widget.onOpen,
+                      onDownload: widget.onDownload,
+                      onFullscreen: widget.onFullscreen,
+                      onMute: widget.onVolume == null
+                          ? null
+                          : () {
+                              if (widget.volume > 0) {
+                                mutedFrom = widget.volume;
+                                widget.onVolume!(0);
+                              } else {
+                                widget.onVolume!(
+                                  mutedFrom > 0 ? mutedFrom : 100,
+                                );
+                              }
+                            },
+                      onInteract:
+                          touch &&
+                              widget.playing &&
+                              widget.controlsVisible == null
+                          ? showBarBriefly
+                          : null,
+                      onDragChanged: dragChanged,
+                    ),
                   ),
                 ),
               ),
@@ -686,11 +750,14 @@ class _RaftVideoControlBarState extends State<RaftVideoControlBar> {
                   semanticLabel: raftFormat(context, 'Seek video {filename}', {
                     'filename': widget.filename,
                   }),
-                  semanticValue:
-                      raftFormat(context, '{position} of {duration}', {
-                        'position': raftAudioTimestamp(bounded),
-                        'duration': raftAudioTimestamp(widget.duration),
-                      }),
+                  semanticValue: raftFormat(
+                    context,
+                    '{position} of {duration}',
+                    {
+                      'position': raftAudioTimestamp(bounded),
+                      'duration': raftAudioTimestamp(widget.duration),
+                    },
+                  ),
                   value: progress,
                   step: known
                       ? (5000 / widget.duration.inMilliseconds).clamp(0.0, 1.0)

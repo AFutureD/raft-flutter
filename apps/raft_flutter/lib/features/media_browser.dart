@@ -113,8 +113,24 @@ class MediaBrowserState extends State<MediaBrowser>
   bool zoomed = false;
   bool _disposed = false;
 
-  /// Phone chrome (top bar, caption, strip) visibility; a tap toggles it.
+  /// Phone chrome (top bar, caption, strip, video controls) visibility; a tap
+  /// toggles it. Hidden is the immersive mode (the app's own chrome only: the
+  /// system bars are never touched).
   final chrome = ValueNotifier<bool>(true);
+
+  /// A screen reader is on: the chrome stays, a tap does not toggle it,
+  /// nothing auto-hides.
+  bool _accessible = false;
+
+  /// The viewer is closing (or gone): nothing auto-hides any more.
+  bool _closing = false;
+
+  /// A playing video hides the chrome after [raftVideoControlsIdle] without an
+  /// interaction: no finger down, no menu open.
+  Timer? _autoHide;
+  int _pointers = 0;
+  bool _menuOpen = false;
+  MediaVideoStage? _watched;
 
   /// Pages whose original has been on screen: paging back to one does not
   /// show the progress chip again.
@@ -135,9 +151,11 @@ class MediaBrowserState extends State<MediaBrowser>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    chrome.addListener(_chromeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadThumbnails();
       if (items[index].isVideo) stageFor(index).enter();
+      _watchStage();
     });
   }
 
@@ -154,6 +172,65 @@ class MediaBrowserState extends State<MediaBrowser>
       hdrDetector: widget.hdrDetector,
     ),
   );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _accessible = MediaQuery.accessibleNavigationOf(context);
+    _syncAutoHide(restart: true);
+  }
+
+  void _chromeChanged() => _syncAutoHide(restart: true);
+
+  /// A tap on the stage, the chrome or a thumbnail; a screen reader has no
+  /// immersive mode.
+  void toggleChrome() {
+    if (_accessible) return;
+    chrome.value = !chrome.value;
+  }
+
+  /// The first zoom gesture puts the chrome away.
+  void _enterImmersive() {
+    if (_accessible) return;
+    chrome.value = false;
+  }
+
+  bool get _autoHideDue =>
+      widget.page &&
+      !_closing &&
+      !_accessible &&
+      !_menuOpen &&
+      _pointers == 0 &&
+      chrome.value &&
+      items[index].isVideo &&
+      (stages[index]?.playback.playing ?? false);
+
+  /// (Re)starts the 3 s count while a video plays under visible chrome; any
+  /// other state stops it. [restart]: an interaction just happened.
+  void _syncAutoHide({bool restart = false}) {
+    if (!_autoHideDue) {
+      _autoHide?.cancel();
+      _autoHide = null;
+      return;
+    }
+    if (_autoHide != null && !restart) return;
+    _autoHide?.cancel();
+    _autoHide = Timer(raftVideoControlsIdle, () {
+      _autoHide = null;
+      if (mounted && _autoHideDue) chrome.value = false;
+    });
+  }
+
+  /// Follows the playback of the current video page (play / pause arms and
+  /// stops the auto-hide).
+  void _watchStage() {
+    final next = widget.page && items[index].isVideo ? stageFor(index) : null;
+    if (identical(next, _watched)) return;
+    _watched?.removeListener(_syncAutoHide);
+    _watched = next;
+    next?.addListener(_syncAutoHide);
+    _syncAutoHide();
+  }
 
   /// Audio stops when the app goes to the background (and does not resume).
   @override
@@ -315,6 +392,8 @@ class MediaBrowserState extends State<MediaBrowser>
       zoomed = false;
     });
     if (items[next].isVideo) stageFor(next).enter();
+    _watchStage();
+    _syncAutoHide(restart: true);
     final page = _currentPage;
     if (page != null && (page.full != null || page.failed)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _preloadNeighbours());
@@ -350,8 +429,6 @@ class MediaBrowserState extends State<MediaBrowser>
     if (zoomed) return;
     goTo(index + delta);
   }
-
-  void toggleChrome() => chrome.value = !chrome.value;
 
   /// Shift + arrows seek the video page by [delta] (plain arrows page).
   void _seekBy(Duration delta) {
@@ -398,6 +475,9 @@ class MediaBrowserState extends State<MediaBrowser>
     if (!canSave && !canShare && !canDownload && !canShow) return;
     final transfers = transfersFor(index);
     String? choice;
+    // The chrome stays while a menu is up.
+    _menuOpen = true;
+    _syncAutoHide();
     await showRaftMessageContextMenu<void>(
       context: context,
       anchor: at,
@@ -447,7 +527,9 @@ class MediaBrowserState extends State<MediaBrowser>
         );
       },
     );
+    _menuOpen = false;
     if (!mounted) return;
+    _syncAutoHide(restart: true);
     switch (choice) {
       case 'save':
         await transfers.saveToGallery();
@@ -463,6 +545,10 @@ class MediaBrowserState extends State<MediaBrowser>
   @override
   void dispose() {
     _disposed = true;
+    _closing = true;
+    _autoHide?.cancel();
+    _watched?.removeListener(_syncAutoHide);
+    chrome.removeListener(_chromeChanged);
     for (final lease in _thumbLeases.values) {
       lease.release();
     }
@@ -603,7 +689,7 @@ class MediaBrowserState extends State<MediaBrowser>
                   : null,
             ),
           ];
-    return AttachmentImageLightbox(
+    final lightbox = AttachmentImageLightbox(
       page: widget.page,
       title: current.filename,
       subtitle: _subtitle(context, current),
@@ -656,6 +742,24 @@ class MediaBrowserState extends State<MediaBrowser>
         ),
       ),
     );
+    if (!widget.page) return lightbox;
+    // Any finger on the viewer (the stage, a bar, the seek rail) postpones the
+    // auto-hide of a playing video; it counts again once the fingers are up.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        _pointers++;
+        _syncAutoHide();
+      },
+      onPointerUp: (_) => _pointerUp(),
+      onPointerCancel: (_) => _pointerUp(),
+      child: lightbox,
+    );
+  }
+
+  void _pointerUp() {
+    _pointers = _pointers > 0 ? _pointers - 1 : 0;
+    _syncAutoHide(restart: true);
   }
 
   Widget _page(BuildContext context, int i) {
@@ -708,15 +812,16 @@ class MediaBrowserState extends State<MediaBrowser>
           heroTag: MediaBrowser.heroTagFor(pageItem.id),
           closeOnTapOutside: !widget.page,
           onTap: widget.page ? toggleChrome : null,
-          onZoomGesture: widget.page ? () => chrome.value = false : null,
+          onZoomGesture: widget.page ? _enterImmersive : null,
         ),
       ),
     );
   }
 
   /// An image page on a phone fits, and pans when zoomed, in the room between
-  /// the top bar and the bottom band while the chrome shows (the whole stage
-  /// while it is hidden), gliding between the two like the chrome fades.
+  /// the top bar and the bottom band while the chrome shows (the room between
+  /// the system bars while it is hidden), gliding between the two like the
+  /// chrome fades.
   Widget _imageRoom(BuildContext context, Widget page) {
     final insets = RaftMediaChromeInsets.maybeOf(context);
     if (insets == null) return page;
@@ -776,7 +881,7 @@ class MediaBrowserState extends State<MediaBrowser>
             poster: _placeholder(i),
             onSurfaceTap: widget.page ? toggleChrome : null,
             controlsInset: widget.page ? (chromeInsets?.bottom ?? 0) : 0,
-            controlsVisible: widget.page ? shown : null,
+            controlsVisible: widget.page ? shown || _accessible : null,
             onDownload: () => transfersFor(i).download(),
             onNetworkSettings: widget.onNetworkSettings,
           ),
