@@ -130,7 +130,8 @@ void main() {
         final url =
             'http://127.0.0.1:1/api/avatars/users/ab.webp?X-Amz-Signature=1';
         await RaftImageBytes.instance.load(url);
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // The disk write is fire and forget: wait for it, not for a time.
+        await RaftImageBytes.instance.settled();
         // Still cached in every layer: no new request.
         await RaftImageBytes.instance.load(url);
         expect(fetches, 1);
@@ -148,7 +149,7 @@ void main() {
         await RaftImageBytes.instance.load(url);
         await RaftImageBytes.instance.load(url);
         expect(fetches, 2, reason: 'one refetch, then served again');
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await RaftImageBytes.instance.settled();
         expect(await cache.entryCount(), 1);
       },
     );
