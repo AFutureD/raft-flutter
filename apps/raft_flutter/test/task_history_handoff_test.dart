@@ -9,11 +9,8 @@ import 'package:raft_ui/test_themes.dart';
 import 'message_context_transition_test.dart' show row;
 import 'message_presentation_test.dart' show fixture;
 import 'task_surface_test.dart' show taskRoutes, modernTask, taskHost, flush;
-import 'flutter_test_config.dart' show leakDebt;
 
 void main() {
-  // Leak debt (open task dialog, other): see docs/development.md, Leak tracking.
-  leakDebt(const ['MessageTranslationStore', 'TaskSurfaceController', 'ThreadSearch', 'ValueNotifier<bool>', 'WorkspaceController']);
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
@@ -79,6 +76,16 @@ void main() {
           expect(owner.discussion!.replies.single.id, 'first-reply');
           expect(w.client.user!.id, 'alice');
           expect(t.takeException(), isNull);
+          // Unmounting the page closes the task dialog, which releases the
+          // task surface and its discussion controller.
+          await t.pumpWidget(
+            MaterialApp(
+              theme: raftTheme(family, dark: dark),
+              home: const Scaffold(body: SizedBox()),
+            ),
+          );
+          await flush(t);
+          expect(owner.closed, isTrue, reason: 'the task surface was released');
         },
       );
     }
