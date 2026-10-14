@@ -4,7 +4,6 @@
 // private cache so the second view has its box in the first frame; a message
 // that carries a size has its box at once.
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
