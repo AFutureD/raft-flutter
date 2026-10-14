@@ -159,6 +159,7 @@ class InitializerIsolate {
         port.send(event.address);
         await completer.future;
       } else {
+        // ignore: raft_lints/avoid_unreviewed_idle_work -- Upstream: follows a blocking mpv_wait_event, so it yields once per wake-up and does not spin.
         await Future.delayed(Duration.zero);
       }
     }

@@ -11,9 +11,10 @@ media_kit 1.2.6 observes `audio-device-list` during `NativePlayer` initializatio
 ## Change
 
 - `lib/src/player/native/player/real.dart`: remove `audio-device-list` from the initialization observe map. The handler that parses the property stays, so a later explicit observe still works. `idle-active` stays, so initialization still completes. Playback and `audio-device` are unchanged.
+- `lib/src/player/native/core/initializer_isolate.dart`: one `ignore` comment above `Future.delayed(Duration.zero)`. That wait follows a blocking `mpv_wait_event` and yields once per wake-up. The comment does not change behavior. Vendoring places the file under `packages/*/lib`, so the repo lint sees the upstream line.
 
 ## Re-applying on upgrade
 
-Upstream has no switch for this observe list. After taking a newer `media_kit`, delete the same map entry again and keep this note. Confirm with a real `Player()` opened 150 times in an empty `XDG_RUNTIME_DIR` (0 hangs) and once with a PipeWire socket (open, play, sound).
+Upstream has no switch for this observe list. After taking a newer `media_kit`, delete the same map entry again, put the same `ignore` comment back above `Future.delayed(Duration.zero)`, and keep this note. Confirm with a real `Player()` opened 150 times in an empty `XDG_RUNTIME_DIR` (0 hangs) and once with a PipeWire socket (open, play, sound).
 
 `pubspec.yaml` also sets `publish_to: none`, `resolution: workspace`, and `sdk: ^3.13.5`, and aligns `lints` with the workspace. Those are packaging, not the behavior change.
