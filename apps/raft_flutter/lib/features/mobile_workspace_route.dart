@@ -146,6 +146,8 @@ class _MobilePageController extends WorkspaceController {
         presentationSource: source,
         ownsClient: false,
         mobileNavigation: true,
+        restoreSharedAttachment: source.restoreSharedAttachment,
+        discardSharedScope: source.discardSharedScope,
         entityDirectory: source.entityDirectory,
         followedThreads: source.followedThreads,
         attachmentImageStore: source.attachmentImageStore,
