@@ -19,6 +19,12 @@ int messageNotificationId(String scope, String messageId) {
       0x7fffffff;
 }
 
+/// One notification per conversation (Activity scope id: a thread's own
+/// channel for a thread), so a later message replaces it and reading the
+/// conversation removes it.
+int conversationNotificationId(String scope, String conversation) =>
+    messageNotificationId(scope, 'conversation:$conversation');
+
 /// Persist only scope, IDs and activation time; never message text or tokens.
 class BackgroundInboxStore {
   Future<void> _writes = Future.value();
@@ -104,9 +110,17 @@ class BackgroundInboxStore {
 }
 
 class BackgroundInboxAlert {
-  const BackgroundInboxAlert(this.target, this.title, this.body);
+  const BackgroundInboxAlert(
+    this.target,
+    this.title,
+    this.body, {
+    this.unread = 1,
+  });
   final ContentTarget target;
   final String title, body;
+
+  /// The conversation's Activity unread count when the alert was read.
+  final int unread;
   static BackgroundInboxAlert? fromRow(
     Map row,
     String serverId,
@@ -183,6 +197,7 @@ class BackgroundInboxAlert {
       ),
       bounded(title, 160),
       bounded(body, 512),
+      unread: (row['unreadCount'] as num).toInt(),
     );
   }
 }
@@ -203,6 +218,11 @@ class BackgroundInboxPoller {
   final Future<void> Function(ContentTarget target, bool Function() valid)
   authorize;
   final bool Function(ContentTarget target)? suppress;
+
+  /// The server's Activity unread total from the page this wake read (null
+  /// unless that page is the whole unread Activity: mentions-only wakes read a
+  /// narrower page). A delivery sets the iOS icon badge to it.
+  int? totalUnread;
   Future<bool> run() async {
     final scope = await store.scope();
     if (scope == null ||
@@ -241,6 +261,10 @@ class BackgroundInboxPoller {
       },
     );
     if (!await current() || page is! Map || page['items'] is! List) return true;
+    final total = page['totalUnreadCount'];
+    totalUnread = mode == 'all' && total is num && total >= 0
+        ? total.toInt()
+        : null;
     var count = 0;
     for (final row in (page['items'] as List).whereType<Map>()) {
       final alert = BackgroundInboxAlert.fromRow(

@@ -4,12 +4,19 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:app_badge_plus/app_badge_plus.dart';
 
+import '../data/activity_attention.dart';
 import '../data/source_activity_unread_store.dart';
 import '../data/source_server_unread.dart';
 import '../data/workspace_controller.dart';
 
-/// One app-wide Activity count. The selected server's shared inbox replaces
-/// its summary count; channel/thread counters are never added a second time.
+/// The app icon badge: the macOS Dock tile and the iOS home screen icon. One
+/// app-wide Activity count ([activityBadgeTotal]): the selected server's shared
+/// inbox replaces its summary count; channel/thread counters are never added a
+/// second time. It is the number the in-app Activity badge shows (summed over
+/// member servers, like the server's own push badge) and it follows that badge
+/// on every change: foreground, resume, socket events and reads anywhere.
+/// Android launchers derive their badge from the notifications instead
+/// (native_notifications.dart sets each one's number to its Activity count).
 class MacOSDockUnread {
   MacOSDockUnread({
     TargetPlatform? platform,
@@ -17,7 +24,10 @@ class MacOSDockUnread {
     this.refreshInterval = const Duration(seconds: 30),
   }) : supported =
            !kIsWeb &&
-           (platform ?? defaultTargetPlatform) == TargetPlatform.macOS,
+           const {
+             TargetPlatform.macOS,
+             TargetPlatform.iOS,
+           }.contains(platform ?? defaultTargetPlatform),
        _write = write ?? _writeNative;
 
   static Future<void> _writeNative(int count) =>
@@ -48,6 +58,7 @@ class MacOSDockUnread {
         _activity = next.acquireActivityUnread(this)..addListener(_publish);
         _servers = SourceServerUnreadStore(next)..addListener(_publish);
         next.addListener(_sync);
+        next.foregroundChanges.addListener(_foregroundChanged);
         _events = next.client.events.listen((event) {
           _sync();
           if (const {
@@ -68,8 +79,9 @@ class MacOSDockUnread {
           onResponse: (response, handler) {
             final request = response.requestOptions;
             if (request.method == 'POST' &&
-                (RegExp(r'^/channels/[^/]+/read(?:-all)?$')
-                        .hasMatch(request.path) ||
+                (RegExp(
+                      r'^/channels/[^/]+/read(?:-all)?$',
+                    ).hasMatch(request.path) ||
                     request.path == '/channels/inbox/read-all')) {
               _scheduleRefresh();
             }
@@ -85,6 +97,16 @@ class MacOSDockUnread {
       }
     }
     _sync();
+  }
+
+  /// Return to the foreground: the other servers' counts are read again (the
+  /// socket only reports the selected server), unless read a moment ago.
+  void _foregroundChanged() {
+    if (_closed || _scope == null || _workspace?.foreground != true) return;
+    final servers = _servers;
+    if (servers != null) {
+      unawaited(servers.refreshOnResume().then((_) => _sync()));
+    }
   }
 
   void _sync() {
@@ -108,12 +130,12 @@ class MacOSDockUnread {
         _scope != null) {
       // Membership directory bounds the receipt: revoked/unknown servers
       // cannot contribute. Push muting affects alerts, not unread state.
-      final ids = {for (final server in w.servers) server.id, w.server!.id};
-      for (final id in ids) {
-        total += id == w.server!.id && _activity!.totalUnreadCount != null
-            ? _activity!.totalUnreadCount!
-            : (_servers?[id]?.activityUnreadCount ?? 0);
-      }
+      total = activityBadgeTotal(
+        currentServerId: w.server!.id,
+        currentTotal: _activity!.totalUnreadCount,
+        memberServerIds: [for (final server in w.servers) server.id],
+        summaryCount: (id) => _servers?[id]?.activityUnreadCount,
+      );
     }
     _set(total);
   }
@@ -152,6 +174,7 @@ class MacOSDockUnread {
 
   void _detach() {
     _workspace?.removeListener(_sync);
+    _workspace?.foregroundChanges.removeListener(_foregroundChanged);
     if (_reads != null) _workspace?.client.http.interceptors.remove(_reads);
     _reads = null;
     unawaited(_events?.cancel());

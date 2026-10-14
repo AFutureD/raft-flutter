@@ -140,7 +140,8 @@ Future<bool> _runBackgroundInbox({
       return true;
     }
     client.selectServer(fields[2]);
-    return await BackgroundInboxPoller(
+    late final BackgroundInboxPoller poller;
+    poller = BackgroundInboxPoller(
       client: client,
       store: store,
       authorize: (target, valid) async {
@@ -161,15 +162,23 @@ Future<bool> _runBackgroundInbox({
           return false;
         }
         await plugin.show(
-          id: messageNotificationId(selected, alert.target.messageId!),
+          // One notification per conversation, like the foreground path.
+          id: conversationNotificationId(
+            selected,
+            alert.target.threadId ?? alert.target.channelId,
+          ),
           title: alert.title,
           body: alert.body,
           payload: notificationPayload(client!, alert.target),
-          notificationDetails: notificationDetails,
+          notificationDetails: iosBadgeDetails(
+            serverId: alert.target.serverId,
+            badge: poller.totalUnread,
+          ),
         );
         return true;
       },
-    ).run();
+    );
+    return await poller.run();
   } catch (_) {
     return false;
   } finally {
@@ -197,11 +206,23 @@ const notificationInitialization = InitializationSettings(
   ),
   linux: LinuxInitializationSettings(defaultActionName: 'Open Raft'),
 );
+const messageChannelId = 'raft_messages_v1';
+const messageChannelName = 'Raft messages';
+const messageChannelDescription =
+    'Direct messages, mentions and followed conversations.';
+
+/// Restored and refreshed notifications (unread backlog, a changed count):
+/// they never sound, vibrate or pop up, but they count toward the launcher's
+/// app icon badge exactly like an alert does.
+const quietChannelId = 'raft_unread_v1';
+const quietChannelName = 'Raft unread';
+const quietChannelDescription =
+    'Conversations that still have unread messages, shown without an alert.';
 const notificationDetails = NotificationDetails(
   android: AndroidNotificationDetails(
-    'raft_messages_v1',
-    'Raft messages',
-    channelDescription: 'Direct messages, mentions and followed conversations.',
+    messageChannelId,
+    messageChannelName,
+    channelDescription: messageChannelDescription,
     icon: 'ic_notification',
     importance: Importance.high,
     priority: Priority.high,
@@ -212,6 +233,22 @@ const notificationDetails = NotificationDetails(
   linux: LinuxNotificationDetails(),
   windows: WindowsNotificationDetails(),
 );
+
+/// [notificationDetails] for a delivery that also sets the iOS icon badge to
+/// the server's Activity unread total ([badge]; null leaves it unchanged) and
+/// groups the server's alerts in the notification centre.
+NotificationDetails iosBadgeDetails({String? serverId, int? badge}) =>
+    NotificationDetails(
+      android: notificationDetails.android,
+      iOS: DarwinNotificationDetails(
+        badgeNumber: badge,
+        threadIdentifier: serverId,
+      ),
+      macOS: notificationDetails.macOS,
+      linux: notificationDetails.linux,
+      windows: notificationDetails.windows,
+    );
+
 Future<bool> notificationPermission(
   FlutterLocalNotificationsPlugin plugin,
 ) async {

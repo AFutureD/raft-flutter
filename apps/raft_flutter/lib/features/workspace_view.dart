@@ -563,6 +563,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
       activityUnread.hasAttention,
       activityUnread.scope,
       activityUnread.authorityEpoch,
+      // The sidebar's Activity count follows the accepted window.
+      activityUnread.totalUnreadCount,
     ]);
     if (next == presentedAttention) return;
     presentedAttention = next;
@@ -577,6 +579,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
   }
 
   bool get hasActivityAttention => activityUnread.hasAttention;
+
+  /// The Activity count of [serverId]: for the open server the accepted
+  /// window's total (the number the app icon badge and the shade sum to, live
+  /// with every message and read), for the others the server's summary.
+  int? activityCountOf(String serverId) =>
+      serverId == w.server?.id && activityUnread.totalUnreadCount != null
+      ? activityUnread.totalUnreadCount
+      : serverUnread[serverId]?.activityUnreadCount;
   bool get hasChatAttention => [
     ...w.channels.where((c) => c.type != 'channel' || c.joined),
     ...w.dms,
@@ -2839,9 +2849,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     return RaftServerSwitcher(
       mobile: mobile,
       attention: w.servers.any(
-        (s) =>
-            s.id != w.server?.id &&
-            (serverUnread[s.id]?.activityUnreadCount ?? 0) > 0,
+        (s) => s.id != w.server?.id && (activityCountOf(s.id) ?? 0) > 0,
       ),
       headerActions: mobile
           ? [
@@ -2871,7 +2879,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
               server.json['avatarUrl'] as String?,
             ),
             current: server.id == w.server?.id,
-            activityUnreadCount: serverUnread[server.id]?.activityUnreadCount,
+            activityUnreadCount: activityCountOf(server.id),
             pushMuted: serverUnread[server.id]?.pushMuted ?? false,
             onSelected: () =>
                 unawaited(selectMenuServer(server, scope, mobile: mobile)),
@@ -3730,11 +3738,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                   selected: w.section == 'activity',
                                   // Sidebar.tsx: the server's own activityUnreadCount;
                                   // an absent value is unknown, never the
-                                  // broader per-conversation sum.
+                                  // broader per-conversation sum. The open
+                                  // server follows its accepted Activity
+                                  // window (activityCountOf).
                                   unread:
-                                      serverUnread[w.server?.id ?? '']
-                                          ?.activityUnreadCount ??
-                                      0,
+                                      activityCountOf(w.server?.id ?? '') ?? 0,
                                   onTap: () => select('activity'),
                                 ),
                               ),

@@ -156,6 +156,7 @@ class DesktopInboxNotifications {
             title: alert.title,
             body: alert.body,
             payload: notificationPayload(w.client, alert.target),
+            unread: alert.unread,
           );
           if (!valid(w, revision)) break;
           if (notifications.error == null) {

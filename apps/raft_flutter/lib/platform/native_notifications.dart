@@ -8,7 +8,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'background_inbox.dart';
 import 'background_notifications.dart'
-    show notificationInitialization, notificationDetails;
+    show
+        notificationInitialization,
+        messageChannelDescription,
+        messageChannelId,
+        messageChannelName,
+        quietChannelDescription,
+        quietChannelId,
+        quietChannelName;
 import 'content_target.dart';
 import 'linux_activation_token.dart';
 import 'linux_desktop_identity.dart';
@@ -65,6 +72,29 @@ class NativeNotificationService extends ChangeNotifier {
   Future<void> _tail = Future.value();
   String? _scope;
   int _epoch = 0, _id = 0;
+
+  /// The conversations that have a live system notification, by Activity
+  /// scope id (a thread's own channel for a thread). One notification per
+  /// conversation: a later message replaces it in place.
+  final Map<String, LiveNotice> _live = {};
+
+  /// Completes when every queued delivery and removal has reached the OS.
+  Future<void> get idle async {
+    Future<void> tail;
+    do {
+      tail = _tail;
+      await tail;
+    } while (!identical(tail, _tail));
+  }
+
+  /// Unread count shown on each live conversation notification.
+  Map<String, int> get liveUnread => {
+    for (final e in _live.entries) e.key: e.value.unread,
+  };
+
+  /// Localizes the few fixed words the system notifications carry (the
+  /// unread count). Identity until the app installs its display language.
+  String Function(String source) localize = (source) => source;
   bool enabled = false, permitted = false, available = false;
 
   /// Set once [initialize] has finished; before that [available] is unknown.
@@ -365,10 +395,19 @@ class NativeNotificationService extends ChangeNotifier {
     }
   }
 
+  /// Posts the system notification of one conversation (taken from [payload]
+  /// unless [conversation] names a pseudo-conversation). [unread] is the
+  /// server's Activity count for it (the number a launcher sums into the app
+  /// icon badge). A [quiet] post never alerts: it restores or refreshes a
+  /// notification (backlog, a changed count) and is allowed while the app is
+  /// in the foreground.
   Future<void> show({
     required String title,
     required String body,
     required String payload,
+    int? unread,
+    bool quiet = false,
+    String? conversation,
   }) async {
     final epoch = _epoch;
     _tail = _tail.then((_) async {
@@ -377,17 +416,39 @@ class NativeNotificationService extends ChangeNotifier {
           !enabled ||
           !permitted ||
           !available ||
-          deliveryAllowed?.call() == false) {
+          (!quiet && deliveryAllowed?.call() == false)) {
         return;
       }
       try {
         error = null;
+        final key = conversation ?? _conversationOf(payload);
+        final id = _notificationId(payload, key);
+        final previous = key == null ? null : _live[key];
+        final count = (unread ?? 0) > 0
+            ? unread!
+            : (previous?.unread ?? 0) + 1;
+        // A count refresh keeps the notification where it is (an alert that
+        // already popped up stays on the messages channel) and never alerts.
+        final asQuiet = quiet && (previous == null || previous.quiet);
         await _show(
-          id: _notificationId(payload),
+          id: id,
           title: title,
           body: body,
           payload: payload,
+          unread: count,
+          quiet: asQuiet,
+          update: previous != null && quiet,
         );
+        if (key != null) {
+          _live[key] = LiveNotice(
+            id: id,
+            unread: count,
+            quiet: asQuiet,
+            title: title,
+            body: body,
+          );
+          await _syncSummary();
+        }
       } catch (_) {
         error = 'The system notification could not be delivered.';
         notifyListeners();
@@ -396,27 +457,102 @@ class NativeNotificationService extends ChangeNotifier {
     await _tail;
   }
 
-  int _notificationId(String payload) {
+  /// Removes the notifications of [conversations] (each as soon as it is read,
+  /// here or elsewhere). Unknown ones are ignored.
+  Future<void> cancelConversations(Iterable<String> conversations) async {
+    final epoch = _epoch;
+    final wanted = conversations.where(_live.containsKey).toList();
+    if (wanted.isEmpty) return;
+    _tail = _tail.then((_) async {
+      if (epoch != _epoch || !available) return;
+      for (final conversation in wanted) {
+        final live = _live.remove(conversation);
+        if (live == null) continue;
+        try {
+          await _cancel(live.id);
+        } catch (_) {
+          /* The OS may be offline; the entry is already forgotten. */
+        }
+      }
+      try {
+        await _syncSummary();
+      } catch (_) {}
+    });
+    await _tail;
+  }
+
+  /// The scope id (Activity row identity) of a notification payload.
+  String? _conversationOf(String payload) {
+    try {
+      final p = jsonDecode(payload);
+      final target = ContentTarget.parse(
+        Uri.parse(p['uri'] as String),
+        origin: Uri(),
+      );
+      return target == null ? null : target.threadId ?? target.channelId;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _notificationId(String payload, String? conversation) {
+    if (conversation != null) {
+      return conversationNotificationId(_scope!, conversation);
+    }
     try {
       final p = jsonDecode(payload);
       final uri = Uri.parse(p['uri'] as String);
-      if (_platform == TargetPlatform.linux) {
-        // One live notification per conversation: the server replaces it in
-        // place (Notify replaces_id), so a busy channel never stacks banners.
-        final target = ContentTarget.parse(uri, origin: Uri());
-        if (target != null) {
-          return messageNotificationId(
-            _scope!,
-            'conversation:${target.threadId ?? target.channelId}',
-          );
-        }
-      }
       final message = uri.queryParameters['messageId'] ?? uri.pathSegments.last;
       return messageNotificationId(_scope!, message);
     } catch (_) {
       return ++_id;
     }
   }
+
+  /// Android: one summary per server, so the shade shows a group with a
+  /// count. Launchers do not count a group summary, so the badge is the sum of
+  /// the conversation notifications' numbers.
+  Future<void> _syncSummary() async {
+    if (_platform != TargetPlatform.android || _scope == null) return;
+    final id = conversationNotificationId(_scope!, 'summary');
+    if (_live.isEmpty) {
+      await _cancel(id);
+      return;
+    }
+    final total = _live.values.fold<int>(0, (sum, live) => sum + live.unread);
+    final label = localize('{count} unread').replaceAll('{count}', '$total');
+    await _plugin.show(
+      id: id,
+      title: 'Raft',
+      body: label,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          quietChannelId,
+          quietChannelName,
+          channelDescription: quietChannelDescription,
+          icon: 'ic_notification',
+          importance: Importance.low,
+          priority: Priority.low,
+          groupKey: _groupKey,
+          setAsGroupSummary: true,
+          groupAlertBehavior: GroupAlertBehavior.children,
+          onlyAlertOnce: true,
+          visibility: NotificationVisibility.private,
+          styleInformation: InboxStyleInformation(
+            [
+              for (final live in _live.values.take(7))
+                '${live.title}: ${live.body}',
+            ],
+            contentTitle: 'Raft',
+            summaryText: label,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // The Android group of the signed-in server's notifications.
+  String get _groupKey => 'raft.messages.${_scope!.split('\n').last}';
 
   /// Posts one test notification and reports whether the system accepted it.
   /// It does not depend on the member's opt-in: desktop notifications are owned
@@ -484,15 +620,26 @@ class NativeNotificationService extends ChangeNotifier {
     if (_platform == TargetPlatform.windows) await _windows.present();
   }
 
-  Future<void> _cancelAll() => _platform == TargetPlatform.windows
-      ? _windows.cancelAll()
-      : _plugin.cancelAll();
+  Future<void> _cancelAll() {
+    _live.clear();
+    return _platform == TargetPlatform.windows
+        ? _windows.cancelAll()
+        : _plugin.cancelAll();
+  }
+
+  /// Windows toasts are replaced by id but have no per-id removal yet.
+  Future<void> _cancel(int id) => _platform == TargetPlatform.windows
+      ? Future.value()
+      : _plugin.cancel(id: id);
 
   Future<void> _show({
     required int id,
     required String title,
     required String body,
     required String payload,
+    int? unread,
+    bool quiet = false,
+    bool update = false,
   }) => _platform == TargetPlatform.windows
       ? _windows.show(id: id, title: title, body: body, payload: payload)
       : _plugin.show(
@@ -506,8 +653,54 @@ class NativeNotificationService extends ChangeNotifier {
               ? NotificationDetails(
                   linux: (linuxDetails ?? _defaultLinuxDetails)(),
                 )
-              : notificationDetails,
+              : _platform == TargetPlatform.android
+              ? _androidDetails(
+                  unread: unread,
+                  quiet: quiet,
+                  update: update,
+                  group: _scope == null ? null : _groupKey,
+                )
+              : _darwinDetails(payload),
         );
+
+  NotificationDetails _androidDetails({
+    required int? unread,
+    required bool quiet,
+    required bool update,
+    required String? group,
+  }) => NotificationDetails(
+    android: AndroidNotificationDetails(
+      quiet ? quietChannelId : messageChannelId,
+      quiet ? quietChannelName : messageChannelName,
+      channelDescription: quiet
+          ? quietChannelDescription
+          : messageChannelDescription,
+      icon: 'ic_notification',
+      importance: quiet ? Importance.low : Importance.high,
+      priority: quiet ? Priority.low : Priority.high,
+      visibility: NotificationVisibility.private,
+      groupKey: group,
+      groupAlertBehavior: GroupAlertBehavior.children,
+      // A count that moved, or a restored notification, never alerts again.
+      onlyAlertOnce: update || quiet,
+      // Launchers sum these numbers into the app icon badge: the number is
+      // the conversation's Activity unread count, nothing else.
+      number: unread,
+      subText: unread != null && unread > 1
+          ? localize('{count} unread').replaceAll('{count}', '$unread')
+          : null,
+    ),
+  );
+
+  /// iOS and macOS group a server's alerts in the notification centre.
+  NotificationDetails _darwinDetails(String payload) {
+    String? thread;
+    try {
+      thread = (jsonDecode(payload) as Map)['serverId'] as String?;
+    } catch (_) {}
+    final details = DarwinNotificationDetails(threadIdentifier: thread);
+    return NotificationDetails(iOS: details, macOS: details);
+  }
 
   static LinuxNotificationDetails _defaultLinuxDetails() =>
       linuxMessageNotificationDetails(
@@ -517,6 +710,20 @@ class NativeNotificationService extends ChangeNotifier {
 
   bool receiveWindowsActivation(Uri uri) =>
       _platform == TargetPlatform.windows && _windows.receiveLink(uri);
+}
+
+/// One conversation's live system notification.
+class LiveNotice {
+  const LiveNotice({
+    required this.id,
+    required this.unread,
+    required this.quiet,
+    required this.title,
+    required this.body,
+  });
+  final int id, unread;
+  final bool quiet;
+  final String title, body;
 }
 
 /// Notification-spec body markup is a tiny HTML subset; message text must show

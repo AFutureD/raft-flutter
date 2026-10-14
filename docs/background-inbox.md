@@ -24,6 +24,15 @@ For mentions-only server preferences, a notification requires the projected firs
 
 iOS controls BGAppRefresh timing and may wake infrequently; the interval is not a promise of notification latency. (Earlier Android builds requested a 15-minute WorkManager interval with a network constraint.)
 
+## One count: app icon badge, notification shade, Activity badge
+
+All three follow the accepted Activity window (`SourceActivityUnreadStore`; the server's `totalUnreadCount`, the sum of each listed conversation's `unreadCount`: unread messages of channels, DMs and followed threads, muted and Done rows excluded; the server's own push badge is the same number summed over member servers). `activity_attention.dart` holds the rule.
+
+- **Shade:** one notification per conversation (Activity scope id; a thread is its own conversation), replaced in place by a later message. `NotificationReconciler` removes it as soon as the window shows the conversation read (here, on the Web or another device, mark all read) and removes everything when the total is 0. A conversation the bounded window does not list is left alone.
+- **Android launcher badge** is derived from the notifications: each carries `number` = its Activity unread count, and a group summary per server is not counted by launchers. While the app is in the background, unread conversations without a notification get a quiet one (channel `raft_unread_v1`, no sound or pop-up), and unread beyond the 30-row window is one more quiet notification, so the launcher sum is the Activity total. Mentions-only push mode, a muted server or disabled alerts leave those out; then the icon count is lower than the Activity badge by design.
+- **iOS and macOS icon badge** is set explicitly to the same total (`MacOSDockUnread`, via `app_badge_plus`; iOS needs the badge permission). Nothing can update it while the iOS process is suspended without APNs, which this client does not register for.
+- Not covered: Windows removes no toast on read (no per-id removal in the native host) and has no taskbar badge; Linux has no badge.
+
 ## iOS setup
 
 The checked-in iOS host was generated with Flutter 3.47.6. It targets iOS 14+, declares `fetch` and the exact permitted identifier, registers background plugins and restores launch handlers before app launch completes under UIScene. Keychain credentials use first-unlock, device-only accessibility; notifications request permission only after the user opts in. Use an HTTPS coordinator origin. Configure signing in Xcode on a Mac.

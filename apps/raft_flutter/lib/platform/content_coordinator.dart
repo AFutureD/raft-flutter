@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 import 'package:raft_client/raft_client.dart';
 
+import '../data/activity_attention.dart';
 import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
@@ -21,6 +22,7 @@ import 'background_inbox.dart';
 import 'background_notifications.dart';
 import 'desktop_inbox_notifications.dart';
 import 'macos_dock_unread.dart';
+import 'notification_reconciler.dart';
 import 'native_sharing.dart';
 
 /// Binds platform links and notification clicks to the currently signed-in
@@ -37,6 +39,10 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   final MacOSDockUnread? _providedDockUnread;
   late final dockUnread =
       _providedDockUnread ?? MacOSDockUnread(platform: notifications.platform);
+
+  /// Keeps the shade equal to the Activity unread state (cancel on read,
+  /// counts, Android backlog); see [NotificationReconciler].
+  late final reconciler = NotificationReconciler(notifications: notifications);
   final Stream<Uri>? links;
   void Function()? onIncomingShare;
   final background = BackgroundNotificationScheduler();
@@ -61,6 +67,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         : WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     dockUnread.bind(_workspace);
+    reconciler.bind(_workspace);
     notifications.onTap = _tap;
     notifications.deliveryAllowed = () =>
         !_closed && !(_appForeground ?? _workspace?.foreground ?? true);
@@ -139,6 +146,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _workspace = workspace;
     desktop?.bind(workspace);
     dockUnread.bind(workspace);
+    reconciler.bind(workspace);
     workspace?.addListener(_changed);
     _events = workspace?.client.events.listen(_event);
     _changed();
@@ -172,6 +180,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   }
 
   void _notificationSettingsChanged() {
+    reconciler.notificationsChanged();
     if (!_workspaceBindingResolved || _closed) return;
     unawaited(
       background
@@ -281,7 +290,10 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     if (notifications.platform == TargetPlatform.linux) {
       unawaited(_presentLinuxWindow());
     }
-    if (payload == 'raft-notification-test') return;
+    if (payload == 'raft-notification-test' ||
+        payload == NotificationReconciler.moreNotificationPayload) {
+      return;
+    }
     if (_workspace == null) {
       if (payload.length <= 4096) {
         _pendingTap = payload;
@@ -380,6 +392,12 @@ class NativeContentCoordinator with WidgetsBindingObserver {
       }
       _delivered.add(key);
       if (_delivered.length > 1000) _delivered.remove(_delivered.first);
+      // The conversation's Activity count after the window reached this
+      // message: the number the in-app badge and the launcher badge show.
+      final unread = activityRowUnread(
+        w.activityUnreadIfBound?.acceptedRows ?? const [],
+        p['channelId'] as String,
+      );
       await notifications.show(
         title: (p['title'] as String).substring(
           0,
@@ -395,6 +413,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
           'serverId': target.serverId,
           'uri': target.nativeUri(target.serverId!).toString(),
         }),
+        unread: unread,
       );
       if (backgroundRefreshSupported &&
           !_closed &&
@@ -662,6 +681,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _closed = true;
     WidgetsBinding.instance.removeObserver(this);
     desktop?.dispose();
+    reconciler.dispose();
     await dockUnread.dispose();
     _epoch++;
     _navigation++;

@@ -333,6 +333,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     NativeSystemFonts.instance.addListener(systemFontsChanged);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
     content.onIncomingShare = () => unawaited(sharing.resume());
+    // The few fixed words of a system notification (the unread count) follow
+    // the member's display language, like the rest of the app.
+    content.notifications.localize = (source) =>
+        displayLocale(client?.user?.string('displayLanguage')).languageCode ==
+            'zh'
+        ? raftChinese[source] ?? source
+        : source;
     unawaited(sharing.init());
     unawaited(content.init(initialArguments: widget.initialArguments));
     // An AppImage installs nothing, so xdg-open cannot find it: after the

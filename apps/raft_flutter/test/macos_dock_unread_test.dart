@@ -313,7 +313,7 @@ void main() {
     expect(writes.last, 0);
   });
 
-  test('macOS method channel receives zero and positive counts; other hosts untouched', () async {
+  test('macOS method channel receives zero and positive counts; hosts without an icon badge untouched', () async {
     final calls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel('app_badge_plus'), (
@@ -343,7 +343,8 @@ void main() {
     expect(calls.first.arguments, {'count': 0});
     expect(calls.last.method, 'updateBadge');
     expect(calls.last.arguments, {'count': 105});
-    final other = MacOSDockUnread(platform: TargetPlatform.iOS);
+    // Android launchers count notifications; Windows/Linux have no icon badge.
+    final other = MacOSDockUnread(platform: TargetPlatform.android);
     final length = calls.length;
     other.bind(w);
     await other.dispose();

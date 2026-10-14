@@ -138,6 +138,9 @@ class _Notifications extends NativeNotificationService {
     required String title,
     required String body,
     required String payload,
+    int? unread,
+    bool quiet = false,
+    String? conversation,
   }) async {
     sent.add(payload);
   }
