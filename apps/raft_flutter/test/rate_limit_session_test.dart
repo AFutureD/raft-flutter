@@ -17,6 +17,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/data/source_activity_unread_store.dart';
+import 'package:raft_flutter/data/source_server_unread.dart';
 import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
@@ -37,7 +39,13 @@ void main() {
       final meter = RequestMeter.instance
         ..reset()
         ..enable(clock: now);
+      // The freshness guards of the return-to-foreground reads follow the
+      // test's clock, as the 5 s guard would in a real session.
+      SourceActivityUnreadStore.clock = now;
+      SourceServerUnreadStore.clock = now;
       addTearDown(() {
+        SourceActivityUnreadStore.clock = DateTime.now;
+        SourceServerUnreadStore.clock = DateTime.now;
         meter
           ..disable()
           ..reset()
@@ -146,7 +154,11 @@ void main() {
 
       install();
       Future<void> pumpFor(Duration d, {int stepMs = 100}) async {
-        for (var e = Duration.zero; e < d; e += Duration(milliseconds: stepMs)) {
+        for (
+          var e = Duration.zero;
+          e < d;
+          e += Duration(milliseconds: stepMs)
+        ) {
           await t.runAsync(() => Future<void>.delayed(Duration.zero));
           await t.pump(Duration(milliseconds: stepMs));
         }
@@ -266,6 +278,34 @@ void main() {
         await pumpFor(const Duration(seconds: 1));
       }
       mark('background + alt-tab');
+      // Returning to the foreground reads the Activity window and the
+      // cross-server summary at once, but never twice inside the 5 s guard
+      // (10 alt-tabs 2 s apart made 10 of each without it).
+      final resumed = meter.requests.sublist(
+        marks['hover sweep']!,
+        marks['background + alt-tab'],
+      );
+      for (final route in ['/servers/unread-summary', '/channels/inbox']) {
+        final at = [
+          for (final r in resumed)
+            if (r.route == route) r.at,
+        ];
+        if (route == '/servers/unread-summary') {
+          expect(at, isNotEmpty, reason: 'the return reads the summary');
+          expect(at.length, lessThanOrEqualTo(6), reason: '$route: $at');
+        }
+      }
+      final summaryAt = [
+        for (final r in resumed)
+          if (r.route == '/servers/unread-summary') r.at,
+      ];
+      for (var i = 1; i < summaryAt.length; i++) {
+        expect(
+          summaryAt[i].difference(summaryAt[i - 1]),
+          greaterThanOrEqualTo(const Duration(seconds: 5)),
+          reason: 'summary reads inside the freshness guard',
+        );
+      }
 
       // 7. Network drop and reconnect; the socket flaps while it is back.
       down = true;
@@ -284,7 +324,81 @@ void main() {
       await pumpFor(const Duration(seconds: 10));
       mark('network drop + reconnect');
 
-      // 8. Logout while the server cannot be reached.
+      // The retries below ask the same question again on purpose; the
+      // duplicate budget covers everything before them.
+      final dupsBeforeLive = meter.duplicates(
+        within: const Duration(seconds: 5),
+      );
+
+      // 8. Live messages while the server's inbox lags them by a second:
+      // three conversations, ten messages, one a second. The window must
+      // converge on every conversation's last message, and the reads this
+      // costs stay a few per message (retries share reads and are budgeted).
+      final sentAt = <String, (String, DateTime)>{};
+      final lagStart = meter.requests.length;
+      f.adapter.routes['GET /channels/inbox'] = (o) {
+        final cutoff = now().subtract(const Duration(seconds: 1));
+        return {
+          'items': [
+            for (final e in sentAt.entries)
+              if (e.value.$2.isBefore(cutoff))
+                {
+                  'kind': 'channel',
+                  'channelId': e.key,
+                  'lastMessageId': e.value.$1,
+                  'latestActivitySeq': e.value.$1.split('-').last,
+                  'unreadCount': 1,
+                },
+          ],
+          'hasMore': false,
+          'totalUnreadCount': 3,
+        };
+      };
+      w.setSection('activity');
+      await pumpFor(const Duration(seconds: 2));
+      for (var i = 0; i < 10; i++) {
+        final channel = ['ca', 'cx1', 'cx2'][i % 3];
+        final id = 'live-$channel-${200 + i}';
+        sentAt[channel] = (id, now());
+        f.client.event('message:new', {
+          'id': id,
+          'channelId': channel,
+          'seq': 200 + i,
+          'senderId': 'bob',
+          'senderType': 'user',
+          'content': 'live $i',
+          'createdAt': '2026-10-10T00:00:00Z',
+        });
+        await pumpFor(const Duration(seconds: 1));
+      }
+      await pumpFor(const Duration(seconds: 6));
+      final lagReads = meter.requests
+          .sublist(lagStart)
+          .where((r) => r.route == '/channels/inbox')
+          .length;
+      // ignore: avoid_print
+      print('STEP live messages: $lagReads inbox reads for 10 messages');
+      final listed = {
+        for (final row in w.activityUnreadIfBound!.acceptedRows)
+          row['channelId']: row['lastMessageId'],
+      };
+      for (final entry in sentAt.entries) {
+        expect(
+          listed[entry.key],
+          entry.value.$1,
+          reason: 'Activity converged on the last message of ${entry.key}',
+        );
+      }
+      expect(
+        lagReads,
+        lessThanOrEqualTo(10 * 2 + 6),
+        reason: 'reads: $lagReads',
+      );
+      w.setSection('chat');
+      await pumpFor(const Duration(seconds: 1));
+      mark('live messages, lagging inbox');
+
+      // 9. Logout while the server cannot be reached.
       down = true;
       unawaited(f.client.logout().catchError((Object _) {}));
       await pumpFor(const Duration(seconds: 120));
@@ -307,7 +421,9 @@ void main() {
           out.writeln('  ${c.value.toString().padLeft(4)}  ${c.key}');
         }
       }
-      out.writeln('\nLimiter peaks (any sliding window of the limiter\'s own length):');
+      out.writeln(
+        '\nLimiter peaks (any sliding window of the limiter\'s own length):',
+      );
       for (final l in ServerRateLimits.all) {
         final peak = meter.peakInWindow(l.id);
         if (meter.countFor(l.id) == 0) continue;
@@ -316,15 +432,21 @@ void main() {
           'peak=${peak.toString().padLeft(4)} of ${l.max} per ${l.window.inSeconds}s',
         );
       }
-      final dups = meter.duplicates(within: const Duration(seconds: 5));
+      final dups = dupsBeforeLive;
       final extra = dups.values.fold<int>(0, (a, b) => a + b);
+      out.writeln(
+        '\nIdentical requests repeated within 5 s, live-message retries '
+        'included: ${meter.duplicates(within: const Duration(seconds: 5)).values.fold<int>(0, (a, b) => a + b)}',
+      );
       out.writeln('\nIdentical requests repeated within 5 s: $extra');
-      for (final d in (dups.entries.toList()
-            ..sort((a, b) => b.value.compareTo(a.value)))
-          .take(8)) {
+      for (final d
+          in (dups.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+              .take(8)) {
         out.writeln('  ${d.value.toString().padLeft(4)}  ${d.key}');
       }
-      out.writeln('Total requests: ${meter.requests.length}; 429s: ${meter.rateLimited}');
+      out.writeln(
+        'Total requests: ${meter.requests.length}; 429s: ${meter.rateLimited}',
+      );
       final report = Platform.environment['RATE_LIMIT_REPORT'];
       if (report != null) File(report).writeAsStringSync(out.toString());
       // ignore: avoid_print

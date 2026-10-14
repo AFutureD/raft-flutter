@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_sync/raft_sync.dart' show canonicalUint64;
 
+import 'inbox_convergence.dart';
 import 'workspace_controller.dart';
 import 'source_read_all_transport.dart';
 
@@ -14,6 +15,12 @@ import 'source_read_all_transport.dart';
 /// Source socketBridge owns boot at rooms:joined (with a two-second offline
 /// fallback) and debounces live Activity ingress for 150 ms. A canonical inbox
 /// response owns this total; Chat unread counters never substitute for it.
+///
+/// The server lists a new message in the inbox about a second after the socket
+/// announces it, so a window read 150 ms after `message:new` can predate it.
+/// An event therefore also records what the window must reach
+/// ([InboxConvergence]) and the store reads again at 0.7 s, 1.5 s and 3 s until
+/// it does.
 class SourceActivityUnreadStore extends ChangeNotifier {
   SourceActivityUnreadStore(this.workspace) {
     workspace.addListener(_workspaceChanged);
@@ -60,6 +67,16 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   String? _scope;
   bool _everBound = false, _disposed = false, _denied = false;
   int _revision = 0, _request = 0, _authorityEpoch = 0;
+  late final _convergence = InboxConvergence(
+    retry: () => unawaited(refresh()),
+    now: () => clock(),
+  );
+
+  /// The time source of the freshness guard and the retry budget; tests that
+  /// pump fake time replace it.
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
+  DateTime? _acceptedAt;
   Future<void>? _inFlight, _trailing;
   Completer<void>? _trailingCompletion;
   List<Map<String, dynamic>> _rows = [];
@@ -138,6 +155,8 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _rows = [];
     _window = null;
     _denied = false;
+    _acceptedAt = null;
+    _convergence.reset();
     _boot?.cancel();
     _debounce?.cancel();
     _inFlight = null;
@@ -209,11 +228,89 @@ class SourceActivityUnreadStore extends ChangeNotifier {
       _ => false,
     };
     if (!relevant) return;
+    _expect(event.name, payload);
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 150), () {
       _debounce = null;
       unawaited(refresh());
     });
+  }
+
+  /// Remember what the window read after this event has to contain.
+  void _expect(String name, Object? payload) {
+    if (payload is! Map) return;
+    switch (name) {
+      case 'message:new':
+        final channel = payload['channelId'], id = payload['id'];
+        if (channel is String && channel.isNotEmpty) {
+          _convergence.expect(
+            channel,
+            messageId: id is String ? id : null,
+            seq: payload['seq'],
+          );
+        }
+      case 'thread:updated':
+        final thread = payload['threadChannelId'],
+            reply = payload['latestReply'];
+        if (thread is String && thread.isNotEmpty && reply is Map) {
+          final id = reply['id'];
+          _convergence.expect(
+            thread,
+            messageId: id is String ? id : null,
+            seq: reply['seq'],
+          );
+        }
+      case 'dm:new':
+        final channel = payload['channelId'] ?? payload['id'];
+        if (channel is String && channel.isNotEmpty) {
+          _convergence.expect(channel);
+        }
+    }
+  }
+
+  /// Read the inbox until it lists [messageId] of [channelId] (an OS
+  /// notification waits for this, so that opening the app from it finds the
+  /// conversation already current). Completes true as soon as an accepted
+  /// window shows it, false after [timeout] or when this store cannot read.
+  Future<bool> reach({
+    required String channelId,
+    required String messageId,
+    Object? seq,
+    required Duration timeout,
+  }) {
+    if (_disposed || _scope == null || _denied) return Future.value(false);
+    final want = _convergence.expect(channelId, messageId: messageId, seq: seq);
+    // A conversation the window keeps not listing is not waited for.
+    if (want == null) return Future.value(false);
+    if (hasAcceptedWindow && want.satisfiedBy(_rows)) {
+      _convergence.observe(_rows);
+      return Future.value(true);
+    }
+    // The debounce of the announcing event reads soon enough by itself.
+    if (_debounce == null && _inFlight == null) unawaited(refresh());
+    return _convergence.whenReached(want, timeout);
+  }
+
+  /// How long a window this store accepted counts as current for the reads a
+  /// return to the foreground would otherwise repeat.
+  static const freshness = Duration(seconds: 5);
+
+  /// Whether this store is reading the inbox, or accepted a window of its own
+  /// within [freshness].
+  bool get isFresh {
+    if (_inFlight != null) return true;
+    final at = _acceptedAt;
+    return at != null && clock().difference(at) < freshness;
+  }
+
+  /// Return to the foreground: read the window now, in parallel with the
+  /// socket's resume handshake, unless it was read within [freshness]. Reads
+  /// an event's retries still owe are not skipped: they are already due.
+  Future<void> refreshOnResume() {
+    if (_disposed || _scope == null || _denied) return Future.value();
+    if (_inFlight != null) return _inFlight!;
+    if (hasAcceptedWindow && isFresh) return Future.value();
+    return refresh();
   }
 
   bool _messageRelevant(Map message) {
@@ -273,6 +370,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
       _windowSerial = ++_serials;
     }
     _projectFullyReadRows();
+    _convergence.observe(rows);
     notifyListeners();
   }
 
@@ -332,6 +430,8 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _total = null;
     _rows = [];
     _window = null;
+    _acceptedAt = null;
+    _convergence.reset();
     _boot?.cancel();
     _debounce?.cancel();
     _inFlight = null;
@@ -375,6 +475,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
         return;
       }
       acceptWindow(value, scope: authority, firstPage: true);
+      _acceptedAt = clock();
     } catch (error) {
       if (!_disposed &&
           authority == scope &&
@@ -413,6 +514,8 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _rows = [];
     _window = null;
     _total = null;
+    _acceptedAt = null;
+    _convergence.dispose();
     _boot?.cancel();
     _debounce?.cancel();
     _finishTrailing();

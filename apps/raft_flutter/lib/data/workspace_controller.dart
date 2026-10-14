@@ -1420,6 +1420,10 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   final foregroundChanges = ValueNotifier<bool>(true);
+
+  /// Counts returns to the foreground that reached [resumeLiveSession]; views
+  /// that own live summaries (the server menu's Activity count) refresh on it.
+  final resumes = ValueNotifier<int>(0);
   bool foreground = true;
   void setForeground(bool value) {
     foreground = value;
@@ -4281,6 +4285,10 @@ class WorkspaceController extends ChangeNotifier {
   /// resume and gap-sync on the live one; then refresh live counts.
   void resumeLiveSession() {
     if (_disposed || !ownsClient || client.serverId == null) return;
+    // The Activity window and the cross-server summary are read at once, in
+    // parallel with the resume handshake below (not after its reply).
+    unawaited(activityUnreadIfBound?.refreshOnResume());
+    resumes.value++;
     final now = DateTime.now();
     final heartbeat = _lastHeartbeat, inbound = _lastServerEvent;
     final silent =
@@ -7045,6 +7053,7 @@ class WorkspaceController extends ChangeNotifier {
     _activityUnread?.dispose();
     _activityUnreadOwners.clear();
     foregroundChanges.dispose();
+    resumes.dispose();
     if (ownsClient) client.dispose();
     super.dispose();
   }

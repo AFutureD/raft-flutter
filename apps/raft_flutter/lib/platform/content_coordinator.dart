@@ -312,6 +312,9 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     }
   }
 
+  /// The longest an alert waits for the Activity window to list its message.
+  static const freshCap = Duration(milliseconds: 1500);
+
   Future<void> _event(RaftEvent event) async {
     if (event.name != 'notification:push' ||
         !notifications.receivesMessages ||
@@ -345,6 +348,16 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     }
     _inFlight.add(key);
     try {
+      // The server lists a new message in the inbox about a second after it
+      // announces it. Read the Activity window now (in parallel with the
+      // checks below) so that opening the app from this alert finds the
+      // conversation current; the alert itself never waits past the cap.
+      final fresh = w.activityUnreadIfBound?.reach(
+        // A thread reply's row is the thread's own channel.
+        channelId: p['channelId'] as String,
+        messageId: p['messageId'] as String,
+        timeout: freshCap,
+      );
       // Socket room delivery is an eligibility decision, not lasting authority.
       final memberServer = await authorize(
         w,
@@ -353,6 +366,12 @@ class NativeContentCoordinator with WidgetsBindingObserver {
       );
       if (_closed || _workspace != w || _scope != scope || epoch != _epoch) {
         return;
+      }
+      if (fresh != null) {
+        await fresh;
+        if (_closed || _workspace != w || _scope != scope || epoch != _epoch) {
+          return;
+        }
       }
       if (memberServer.flag('serverPushMuted') ||
           w.foreground ||

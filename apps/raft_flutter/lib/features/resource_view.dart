@@ -865,6 +865,26 @@ class _ResourceViewState extends State<ResourceView> {
     return w.activityUnreadIfBound?.windowSince(inboxSerial);
   }
 
+  /// The Activity badge's store, whose own reads (the retries that wait for
+  /// the server's inbox to list a new message, and the immediate read on
+  /// return to the foreground) are presented here as they are accepted, rather
+  /// than read a second time.
+  SourceActivityUnreadStore? sharedInbox;
+
+  void bindSharedInbox() {
+    if (widget.section != 'activity') return;
+    sharedInbox = w.activityUnreadIfBound?..addListener(sharedInboxChanged);
+  }
+
+  void sharedInboxChanged() {
+    // A read of this page in flight is at least as new as the store's.
+    if (!mounted || activeLoad != null) return;
+    final seed = sharedInboxSeed();
+    if (seed != null) {
+      unawaited(load(keep: true, quietErrors: true, seed: seed));
+    }
+  }
+
   StreamSubscription<RaftEvent>? events;
   Timer? refreshTimer, catalogTimer;
   WorkspaceController get w => widget.controller;
@@ -1346,6 +1366,13 @@ class _ResourceViewState extends State<ResourceView> {
       if (relevant) {
         if (widget.section == 'activity') patchActivity(event);
         if (widget.section == 'tasks' && patchTasks(event)) return;
+        // The store read the inbox when the app came back, in parallel with
+        // the handshake this answers: no second read of the same window.
+        if (event.name == 'sync:resume:response' &&
+            widget.section == 'activity' &&
+            sharedInbox?.isFresh == true) {
+          return;
+        }
         final scope = authority;
         refreshTimer?.cancel();
         refreshTimer = Timer(const Duration(milliseconds: 150), () {
@@ -1776,6 +1803,7 @@ class _ResourceViewState extends State<ResourceView> {
     }
     w.addListener(authorityChanged);
     subscribeEvents();
+    bindSharedInbox();
     unawaited(
       activateSearchMemory(
         restore: widget.restoreSearchState,
@@ -1927,6 +1955,7 @@ class _ResourceViewState extends State<ResourceView> {
     queryFocus.dispose();
     query.dispose();
     events?.cancel();
+    sharedInbox?.removeListener(sharedInboxChanged);
     refreshTimer?.cancel();
     catalogTimer?.cancel();
     super.dispose();

@@ -465,7 +465,14 @@ void main() {
           'muteFromSeq': 10,
         }),
       ];
-      api.routes['GET /channels/inbox'] = (_) => _window(2);
+      // The window already lists c1 past every seq below: the server is not
+      // behind, so these events owe no convergence retries.
+      api.routes['GET /channels/inbox'] = (_) => {
+        ..._window(2),
+        'items': [
+          {'kind': 'channel', 'channelId': 'c1', 'latestActivitySeq': '99'},
+        ],
+      };
       final store = SourceActivityUnreadStore(w);
       addTearDown(store.dispose);
       client.ingress.add(
@@ -601,7 +608,8 @@ void main() {
       expect(
         api.inbox,
         hasLength(1),
-        reason: 'the old principal read acknowledgement has no new-scope side effects',
+        reason:
+            'the old principal read acknowledgement has no new-scope side effects',
       );
       expect(store.totalUnreadCount, 0);
       store.dispose();

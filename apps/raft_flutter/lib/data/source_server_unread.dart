@@ -35,9 +35,33 @@ class SourceServerUnreadStore extends ChangeNotifier {
     _accepted = {};
   }
 
+  DateTime? _startedAt;
+  int _reading = 0;
+
+  /// The time source of the freshness guard; tests that pump fake time
+  /// replace it.
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
+  static const freshness = Duration(seconds: 5);
+
+  /// Sidebar.tsx reloads the summary when the window gains focus or becomes
+  /// visible: the same on return to the foreground, unless it was read within
+  /// [freshness] (rapid app switches, or the resume handshake's own refresh).
+  Future<void> refreshOnResume() {
+    final at = _startedAt;
+    if (_disposed ||
+        _reading > 0 ||
+        at != null && clock().difference(at) < freshness) {
+      return Future.value();
+    }
+    return refresh();
+  }
+
   Future<void> refresh() async {
     synchronize();
     final authority = _scope, ticket = ++_request;
+    _startedAt = clock();
+    _reading++;
     try {
       final response = await workspace.query('/servers/unread-summary');
       if (_disposed || authority != scope || ticket != _request) return;
@@ -68,6 +92,8 @@ class SourceServerUnreadStore extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       // Source serverStore.ts699–720 retains accepted values on refresh error.
+    } finally {
+      _reading--;
     }
   }
 

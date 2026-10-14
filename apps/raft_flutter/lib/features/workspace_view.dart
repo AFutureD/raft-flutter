@@ -197,6 +197,12 @@ class _WorkspaceViewState extends State<WorkspaceView>
     if (mounted) setState(() {});
   }
 
+  /// Sidebar.tsx loads the summary again when the window regains focus: the
+  /// same on return to the foreground (the host view only; the store is shared).
+  void appResumed() {
+    if (mounted) unawaited(serverUnread.refreshOnResume());
+  }
+
   void serverMenuChanged() {
     if (serverMenu.isOpen) unawaited(serverUnread.refresh());
   }
@@ -653,6 +659,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     serverUnread = mobileHost?.serverUnread ?? SourceServerUnreadStore(w);
     serverUnread.addListener(serverUnreadChanged);
     serverMenu.addListener(serverMenuChanged);
+    if (mobileHost == null) w.resumes.addListener(appResumed);
     w.addListener(syncServerMenu);
     syncServerMenu();
     workspaceMode = mobileHost?.workspaceMode ?? WorkspaceModeStore(w);
@@ -794,6 +801,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
       activityUnread = w.acquireActivityUnread(this)
         ..addListener(activityUnreadChanged);
       serverMenu.close();
+      if (mobileHost == null) {
+        oldWidget.controller.resumes.removeListener(appResumed);
+        w.resumes.addListener(appResumed);
+      }
       oldWidget.controller.removeListener(syncServerMenu);
       serverUnread.dispose();
       serverUnread = SourceServerUnreadStore(w)
@@ -939,6 +950,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     _ownedMobileTabbar?.dispose();
     activityUnread.removeListener(activityUnreadChanged);
     w.releaseActivityUnread(this);
+    if (mobileHost == null) w.resumes.removeListener(appResumed);
     w.removeListener(syncServerMenu);
     serverMenu.removeListener(serverMenuChanged);
     serverMenu.dispose();
