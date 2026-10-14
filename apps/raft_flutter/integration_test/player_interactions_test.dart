@@ -217,7 +217,7 @@ Finder get viewer => find.byType(RaftVideoViewer);
 RaftVideoViewer viewerOf(WidgetTester t) => t.widget<RaftVideoViewer>(viewer);
 
 Future<VideoFixture> launch(WidgetTester tester, List<VideoClip> clips,
-    {String mode = 'light', String theme = 'brutal', Future<void> Function()? prepare}) async {
+    {String mode = 'light', String theme = 'brutal', Future<void> Function()? prepare, String? awaitFile}) async {
   await lab.requireFiles([for (final clip in clips) clip.file]);
   await lab.reset();
   await prepare?.call();
@@ -234,14 +234,15 @@ Future<VideoFixture> launch(WidgetTester tester, List<VideoClip> clips,
   // start from the workspace list and open the channel the way a user does.
   await until(tester, () => find.text('lab-vp').evaluate().isNotEmpty, 'the channel list');
   await tester.tap(find.text('lab-vp').first);
+  final first = awaitFile ?? clips.first.filename;
   await until(
       tester,
       () =>
-          card(clips.first.filename).evaluate().isNotEmpty ||
-          posterCard(clips.first.filename).evaluate().isNotEmpty ||
-          find.byTooltip('Preview ${clips.first.filename}').evaluate().isNotEmpty ||
+          card(first).evaluate().isNotEmpty ||
+          posterCard(first).evaluate().isNotEmpty ||
+          find.byTooltip('Preview $first').evaluate().isNotEmpty ||
           find.byKey(const Key('audio-play-toggle')).evaluate().isNotEmpty,
-      'the channel with ${clips.first.filename}');
+      'the channel with $first');
   return fixture;
 }
 
@@ -402,9 +403,9 @@ void main() {
 
   scenario('video cards V1: no thumbnail, no size: first frame at the real aspect from a few ranged bytes; a tap plays in the viewer', (tester) async {
     MediaBrowserFlags.phoneLayout = true;
-    const portrait = VideoClip('vc-p', 'portrait.mp4', 'cp.mp4', size: 5416578);
-    const landscape = VideoClip('vc-l', 'landscape.mp4', 'cl.mp4', size: 4846435);
-    const big = VideoClip('vc-4k', 'hevc4k.mp4', 'c4k.mp4', size: 41607413);
+    const portrait = VideoClip('vp-c-p', 'portrait.mp4', 'cp.mp4', size: 5416578);
+    const landscape = VideoClip('vp-c-l', 'landscape.mp4', 'cl.mp4', size: 4846435);
+    const big = VideoClip('vp-c-4k', 'hevc4k.mp4', 'c4k.mp4', size: 41607413);
     await launch(tester, [portrait, landscape, big]);
     expect(find.byType(RaftInlineVideo), findsNothing, reason: 'a phone card has no inline player');
     final firstBoxes = {for (final name in ['cp.mp4', 'cl.mp4', 'c4k.mp4']) name: boxOfCard(tester, name)};
@@ -452,6 +453,9 @@ void main() {
     // A real tap on the portrait card: the viewer opens and plays at once.
     final shuttle = find.byKey(const ValueKey('media-hero-shuttle'));
     var flew = false;
+    // The portrait card is the oldest message: bring it fully into view first.
+    await tester.ensureVisible(posterCard('cp.mp4'));
+    await tester.pump(const Duration(milliseconds: 300));
     final at = tester.getCenter(posterCard('cp.mp4'));
     final dpr = tester.view.devicePixelRatio;
     // A touch through Android's input stack when the host runner is attached.
@@ -467,7 +471,7 @@ void main() {
     report('video-cards-v1-open', {'heroFlew': flew, 'players': VideoPlayerAttachmentPlayer.debugLive});
     expect(flew, true, reason: 'the poster flew from the card');
     expect(VideoPlayerAttachmentPlayer.debugLive, 1, reason: 'the viewer made the only player');
-    await closeViewer(tester, 'button', 'vc1-close');
+    await closeViewer(tester, 'key', 'vc1-close');
     await until(tester, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'the decoder to be freed with the viewer');
     await shutdown(tester);
   });
@@ -476,9 +480,9 @@ void main() {
     MediaBrowserFlags.phoneLayout = true;
     const files = [('portrait.mp4', 5416578), ('landscape.mp4', 4846435), ('hevc1080.mp4', 3762953)];
     final clips = [
-      for (var i = 0; i < 10; i++) VideoClip('vc-$i', files[i % 3].$1, 'list$i.mp4', size: files[i % 3].$2),
+      for (var i = 0; i < 10; i++) VideoClip('vp-c-$i', files[i % 3].$1, 'list$i.mp4', size: files[i % 3].$2),
     ];
-    await launch(tester, clips);
+    await launch(tester, clips, awaitFile: 'list9.mp4');
     final timings = <int>[];
     void onTimings(List<FrameTiming> frames) {
       for (final f in frames) {
