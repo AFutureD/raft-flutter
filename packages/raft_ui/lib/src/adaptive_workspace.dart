@@ -14,6 +14,7 @@ import 'recipes/app_rail.g.dart';
 import 'rail_attention.dart';
 import 'status_bar.dart';
 import 'tooltip.dart' show RaftTooltip;
+import 'viewport_breakpoints.dart';
 
 /// A window-sized workspace layout. Panel sizes follow the Web panel contract.
 /// The host owns navigation, persistence, and the mobile application bar.
@@ -32,6 +33,7 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
     this.onPresentationChanged,
     this.sidebarVisible = true,
     this.mobileNavigation,
+    this.mobileRail,
     this.mobileNavigationFloating = false,
     this.mobileNavigationClearance = 0,
     this.sidebarWidth = 240,
@@ -48,6 +50,12 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
   /// interaction and semantics.
   final bool sidebarVisible;
   final Widget? thread, mobileNavigation;
+
+  /// The phone layout's navigation when [phoneRailOf] holds: the desktop rail
+  /// on the leading edge instead of the bottom bar. Null on pages without root
+  /// navigation. [mobileNavigation] then only carries what docks at the bottom
+  /// of the content (the live activity strip) and never floats.
+  final Widget? mobileRail;
 
   /// Web `ProfilePanel`: the profile side panel, a surface of its own beside
   /// the thread (both stay mounted); it overlays the thread when the
@@ -84,6 +92,15 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
   /// the same pages as a phone and never mixes the two models.
   static bool compactOf(BuildContext context) =>
       MediaQuery.sizeOf(context).width < desktopMinWidth;
+
+  /// Navigation placement inside the compact layout: true when the phone's
+  /// root navigation is the left rail (wide foldable, landscape phone,
+  /// 600-767 dp windows; see [RaftWindowClass]) rather than the bottom bar.
+  /// Presentation only: routes and dialogs keep using [compactOf].
+  static bool phoneRailOf(BuildContext context) =>
+      compactOf(context) &&
+      RaftWindowClass.phoneNavigationOf(context) ==
+          RaftNavigationPlacement.rail;
 
   @override
   State<RaftAdaptiveWorkspace> createState() => _RaftAdaptiveWorkspaceState();
@@ -234,10 +251,24 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         retainedSidebar = null;
         // Keep the content's parent chain stable when a detail hides the bar
         // or the theme switches between in-flow and floating navigation.
+        final railed = widget.mobileRail != null;
+        final media = MediaQuery.of(context);
+        final rtl = Directionality.of(context) == TextDirection.rtl;
         return _MobileKeyboardLayout(
-          floating: widget.mobileNavigationFloating,
+          floating: widget.mobileNavigationFloating && !railed,
           clearance: widget.mobileNavigationClearance,
           navigation: widget.mobileNavigation,
+          rail: widget.mobileRail,
+          // The rail paints under the leading system inset (cutout, side
+          // navigation bar); its own SafeArea keeps the buttons clear of it.
+          railWidth: railed
+              ? RaftLayoutMetrics.railWidth(
+                      RaftTokens.of(context),
+                      media.size.height,
+                    ) +
+                    (rtl ? media.padding.right : media.padding.left)
+              : 0,
+          textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
           body: conversation(split: false),
         );
       }
@@ -480,8 +511,13 @@ class RaftWorkspaceRail extends StatelessWidget {
     this.workspaceHeader,
     this.footer,
     this.thinDivider = false,
+    this.phone = false,
   });
   final List<RaftRailDestination> destinations;
+
+  /// The rail stands in for the phone's bottom bar: touch buttons keep their
+  /// full target (Elegant's compact visual density would shave 8 dp off).
+  final bool phone;
   final String selected, workspaceName, workspaceTooltip;
   final ValueChanged<String> onSelected;
   final VoidCallback onWorkspace;
@@ -520,6 +556,7 @@ class RaftWorkspaceRail extends StatelessWidget {
       MediaQuery.sizeOf(context).height,
     );
     final visualSize = recipe.itemSize;
+    final footerScrolls = phone && MediaQuery.sizeOf(context).height <= 600;
     // AppRailRoot is a CSS border box: Container reserves its border width
     // before centering children. Explicit zero padding keeps the same padding
     // wrapper in Elegant, preserving child state when the theme changes.
@@ -566,7 +603,12 @@ class RaftWorkspaceRail extends StatelessWidget {
                   ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: nav.padding,
+                  // A phone's 48 dp targets need the whole 56 dp column.
+                  padding: phone
+                      ? nav.padding
+                            .resolve(Directionality.of(context))
+                            .copyWith(left: 0, right: 0)
+                      : nav.padding,
                   child: Column(
                     spacing: nav.rowGap ?? 0,
                     children: [
@@ -585,6 +627,9 @@ class RaftWorkspaceRail extends StatelessWidget {
                                   height: bounds.layoutHeight,
                                 ),
                                 style: IconButton.styleFrom(
+                                  visualDensity: phone
+                                      ? VisualDensity.standard
+                                      : null,
                                   minimumSize: Size.square(bounds.layoutHeight),
                                   tapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
@@ -663,11 +708,15 @@ class RaftWorkspaceRail extends StatelessWidget {
                             ),
                           ),
                         ),
+                      // Short phone windows (landscape): the footer scrolls
+                      // with the list, so the list is never cut off above a
+                      // pinned footer with its tail unreachable-looking.
+                      if (footerScrolls && footer != null) footer!,
                     ],
                   ),
                 ),
               ),
-              if (footer != null) footer!,
+              if (!footerScrolls && footer != null) footer!,
               const SizedBox(height: 8),
             ],
           ),
@@ -722,17 +771,27 @@ class RaftRailUnreadCount extends StatelessWidget {
 /// Floating (elegant) bars overlay the content; in-flow (brutal) bars reserve
 /// their own height, so the content only shrinks by the part of the keyboard
 /// that rises above the bar.
+///
+/// With a [rail] (wide foldable, landscape phone) the rail takes the leading
+/// edge at full height and the content region is what remains; [navigation]
+/// then docks in flow at the bottom of that region. The content keeps its
+/// `LayoutId` slot in both placements, so switching never remounts the pages.
 class _MobileKeyboardLayout extends StatelessWidget {
   const _MobileKeyboardLayout({
     required this.floating,
     required this.clearance,
     required this.navigation,
+    required this.rail,
+    required this.railWidth,
+    required this.textDirection,
     required this.body,
   });
 
   final bool floating;
   final double clearance;
-  final Widget? navigation;
+  final Widget? navigation, rail;
+  final double railWidth;
+  final TextDirection textDirection;
   final Widget body;
 
   @override
@@ -740,6 +799,13 @@ class _MobileKeyboardLayout extends StatelessWidget {
     final media = MediaQuery.of(context);
     final keyboard = media.viewInsets.bottom;
     final inFlowBar = navigation != null && !floating;
+    final rtl = textDirection == TextDirection.rtl;
+    // The rail consumed the leading system inset.
+    EdgeInsets withoutRailInset(EdgeInsets insets) => rail == null
+        ? insets
+        : rtl
+        ? insets.copyWith(right: 0)
+        : insets.copyWith(left: 0);
     // The content region ends above the keyboard (and above an in-flow bar), so
     // it no longer overlaps the system bar: padding keeps the engine value
     // (nav height at rest, 0 once the keyboard covers it), viewInsets are spent.
@@ -753,9 +819,9 @@ class _MobileKeyboardLayout extends StatelessWidget {
     final content = MediaQuery(
       data: media.copyWith(
         viewInsets: media.viewInsets.copyWith(bottom: 0),
-        padding: media.padding.copyWith(bottom: padding),
+        padding: withoutRailInset(media.padding).copyWith(bottom: padding),
         // Stable system bar height at rest; spent once the keyboard covers it.
-        viewPadding: media.viewPadding.copyWith(
+        viewPadding: withoutRailInset(media.viewPadding).copyWith(
           bottom: inFlowBar
               ? 0
               : keyboard > 0
@@ -769,40 +835,64 @@ class _MobileKeyboardLayout extends StatelessWidget {
       delegate: _MobileKeyboardLayoutDelegate(
         floating: floating,
         keyboard: keyboard,
+        railWidth: rail == null ? 0 : railWidth,
+        rtl: rtl,
       ),
       children: [
         LayoutId(id: _MobileSlot.content, child: content),
         if (navigation != null)
           LayoutId(id: _MobileSlot.navigation, child: navigation!),
+        if (rail != null) LayoutId(id: _MobileSlot.rail, child: rail!),
       ],
     );
   }
 }
 
-enum _MobileSlot { content, navigation }
+enum _MobileSlot { content, navigation, rail }
 
 class _MobileKeyboardLayoutDelegate extends MultiChildLayoutDelegate {
   _MobileKeyboardLayoutDelegate({
     required this.floating,
     required this.keyboard,
+    required this.railWidth,
+    required this.rtl,
   });
 
   final bool floating;
   final double keyboard;
+  final double railWidth;
+  final bool rtl;
 
   @override
   void performLayout(Size size) {
+    var regionLeft = 0.0, regionWidth = size.width;
+    if (hasChild(_MobileSlot.rail)) {
+      final width = railWidth.clamp(0.0, size.width);
+      layoutChild(
+        _MobileSlot.rail,
+        BoxConstraints.tightFor(width: width, height: size.height),
+      );
+      positionChild(
+        _MobileSlot.rail,
+        Offset(rtl ? size.width - width : 0, 0),
+      );
+      regionWidth = size.width - width;
+      if (!rtl) regionLeft = width;
+    }
     var reserved = 0.0;
     if (hasChild(_MobileSlot.navigation)) {
       final bar = layoutChild(
         _MobileSlot.navigation,
         floating
-            ? BoxConstraints.tightFor(width: size.width)
-            : BoxConstraints(maxWidth: size.width),
+            ? BoxConstraints.tightFor(width: regionWidth)
+            : BoxConstraints(maxWidth: regionWidth),
       );
       positionChild(
         _MobileSlot.navigation,
-        Offset((size.width - bar.width) / 2, size.height - bar.height),
+        Offset(
+          regionLeft + (regionWidth - bar.width) / 2,
+          size.height - bar.height,
+        ),
       );
       if (!floating) reserved = bar.height;
     }
@@ -810,15 +900,18 @@ class _MobileKeyboardLayoutDelegate extends MultiChildLayoutDelegate {
     layoutChild(
       _MobileSlot.content,
       BoxConstraints.tight(
-        Size(size.width, (size.height - bottom).clamp(0.0, size.height)),
+        Size(regionWidth, (size.height - bottom).clamp(0.0, size.height)),
       ),
     );
-    positionChild(_MobileSlot.content, Offset.zero);
+    positionChild(_MobileSlot.content, Offset(regionLeft, 0));
   }
 
   @override
   bool shouldRelayout(_MobileKeyboardLayoutDelegate old) =>
-      old.floating != floating || old.keyboard != keyboard;
+      old.floating != floating ||
+      old.keyboard != keyboard ||
+      old.railWidth != railWidth ||
+      old.rtl != rtl;
 }
 
 /// [border] with its sides composited over [backdrop]: a divider drawn outside

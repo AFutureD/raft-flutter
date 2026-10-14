@@ -1,0 +1,85 @@
+import 'dart:ui';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_ui/raft_ui.dart';
+
+void main() {
+  RaftNavigationPlacement of(double w, double h) =>
+      RaftWindowClass.phoneNavigationFor(Size(w, h));
+
+  test('tall phones keep the bottom bar', () {
+    expect(of(390, 844), RaftNavigationPlacement.bottom);
+    expect(of(430, 932), RaftNavigationPlacement.bottom);
+    expect(of(360, 640), RaftNavigationPlacement.bottom);
+    expect(of(412, 915), RaftNavigationPlacement.bottom);
+  });
+
+  test('wide folds, landscape phones and 600-767 windows use the rail', () {
+    for (final (w, h) in [
+      (440.0, 707.0),
+      (528.0, 848.0),
+      (707.0, 440.0),
+      (600.0, 960.0),
+      (669.0, 951.0),
+      (704.0, 933.0),
+      (760.0, 840.0),
+      (767.0, 1000.0),
+      (568.0, 320.0),
+    ]) {
+      expect(of(w, h), RaftNavigationPlacement.rail, reason: '$w x $h');
+    }
+  });
+
+  test('thresholds are inclusive/exclusive where documented', () {
+    expect(of(599, 1200), RaftNavigationPlacement.bottom);
+    expect(of(600, 1200), RaftNavigationPlacement.rail);
+    // height / width exactly 1.75 is still a tall phone.
+    expect(of(400, 700), RaftNavigationPlacement.bottom);
+    expect(of(400, 699), RaftNavigationPlacement.rail);
+    // Too narrow for a rail whatever the shape.
+    expect(of(359, 400), RaftNavigationPlacement.bottom);
+    expect(of(360, 400), RaftNavigationPlacement.rail);
+  });
+
+  test('only a separating vertical fold in the rail strip moves it', () {
+    DisplayFeature feature(
+      Rect bounds, {
+      DisplayFeatureType type = DisplayFeatureType.hinge,
+      DisplayFeatureState state = DisplayFeatureState.postureHalfOpened,
+    }) => DisplayFeature(bounds: bounds, type: type, state: state);
+    RaftNavigationPlacement place(
+      Iterable<DisplayFeature> features, [
+      TextDirection direction = TextDirection.ltr,
+    ]) => RaftWindowClass.phoneNavigationFor(
+      const Size(760, 840),
+      displayFeatures: features,
+      textDirection: direction,
+    );
+    // Mid-window hinge: the rail stays on the leading side.
+    expect(
+      place([feature(const Rect.fromLTRB(375, 0, 385, 840))]),
+      RaftNavigationPlacement.rail,
+    );
+    // In the strip: leading edge only.
+    final left = feature(const Rect.fromLTRB(20, 0, 30, 840));
+    expect(place([left]), RaftNavigationPlacement.bottom);
+    expect(place([left], TextDirection.rtl), RaftNavigationPlacement.rail);
+    // Flat folds, cutouts and horizontal hinges never separate a rail.
+    expect(
+      place([
+        feature(
+          const Rect.fromLTRB(20, 0, 30, 840),
+          type: DisplayFeatureType.fold,
+          state: DisplayFeatureState.postureFlat,
+        ),
+        feature(
+          const Rect.fromLTRB(0, 0, 40, 40),
+          type: DisplayFeatureType.cutout,
+          state: DisplayFeatureState.unknown,
+        ),
+        feature(const Rect.fromLTRB(0, 400, 760, 410)),
+      ]),
+      RaftNavigationPlacement.rail,
+    );
+  });
+}

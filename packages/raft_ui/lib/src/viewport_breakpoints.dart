@@ -1,3 +1,5 @@
+import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
+
 import 'package:flutter/widgets.dart';
 
 /// Viewport width reduced to the reference Web breakpoints that recipes
@@ -41,3 +43,87 @@ class _RaftViewportBand extends InheritedWidget {
 double raftBreakpointWidth(BuildContext context) =>
     context.dependOnInheritedWidgetOfExactType<_RaftViewportBand>()?.width ??
     RaftViewportBreakpointScope.bandWidth(MediaQuery.sizeOf(context).width);
+
+/// Where the phone layout (below the 768 dp desktop cut) puts its root
+/// navigation.
+enum RaftNavigationPlacement {
+  /// The bottom tab bar (Elegant floating capsule, Brutal in-flow bar).
+  bottom,
+
+  /// The desktop left rail (`RaftWorkspaceRail`), on the leading edge.
+  rail,
+}
+
+/// Window-shape thresholds that choose [RaftNavigationPlacement]. Tune them
+/// here only: the layout, the host and the tests all read this one place.
+///
+/// The rail replaces the bottom bar when the window is wide enough for it to
+/// be useful ([railMinWidth]) or short and wide like a wide foldable inner
+/// screen (440x707) or any landscape phone: height / width below
+/// [wideAspectMaxHeightRatio] with at least [wideAspectMinWidth] of width.
+/// Ordinary tall phones (390x844, 430x932) keep the bottom bar. This decides
+/// navigation chrome only; routes, dialogs and the page stack still follow
+/// `RaftAdaptiveWorkspace.compactOf` (768).
+abstract final class RaftWindowClass {
+  /// Windows at least this wide (dp) use the rail whatever their height.
+  static const double railMinWidth = 600;
+
+  /// Narrower windows use the rail when height / width is below this ...
+  static const double wideAspectMaxHeightRatio = 1.75;
+
+  /// ... and the width is at least this (dp).
+  static const double wideAspectMinWidth = 360;
+
+  /// Widest the rail ever is (Brutal, regular height) plus its system inset
+  /// allowance; a separating fold inside this strip would cut the rail.
+  static const double railStripWidth = 72;
+
+  /// Hinges and half-opened folds split the window into two panes (Jetpack
+  /// WindowManager `FoldingFeature.isSeparating`). Flat folds and cutouts do
+  /// not. Reported by the platform in `MediaQuery.displayFeatures`; the
+  /// decision here stays size / aspect based, never device-model based.
+  static bool isSeparating(DisplayFeature feature) =>
+      feature.type == DisplayFeatureType.hinge ||
+      feature.type == DisplayFeatureType.fold &&
+          feature.state == DisplayFeatureState.postureHalfOpened;
+
+  /// A fold running top to bottom (the panes sit side by side).
+  static bool isVertical(DisplayFeature feature) =>
+      feature.bounds.height >= feature.bounds.width;
+
+  /// The separating vertical folds / hinges of the window.
+  static List<DisplayFeature> separatingVerticalFolds(
+    Iterable<DisplayFeature> features,
+  ) => [
+    for (final feature in features)
+      if (isSeparating(feature) && isVertical(feature)) feature,
+  ];
+
+  static RaftNavigationPlacement phoneNavigationFor(
+    Size size, {
+    Iterable<DisplayFeature> displayFeatures = const [],
+    TextDirection textDirection = TextDirection.ltr,
+  }) {
+    final wide =
+        size.width >= railMinWidth ||
+        size.width >= wideAspectMinWidth &&
+            size.height / size.width < wideAspectMaxHeightRatio;
+    if (!wide) return RaftNavigationPlacement.bottom;
+    // The rail sits on the leading edge. A separating fold inside that strip
+    // would cut it in two: keep the bottom bar there.
+    final strip = textDirection == TextDirection.rtl
+        ? Rect.fromLTRB(size.width - railStripWidth, 0, size.width, size.height)
+        : Rect.fromLTWH(0, 0, railStripWidth, size.height);
+    for (final fold in separatingVerticalFolds(displayFeatures)) {
+      if (fold.bounds.overlaps(strip)) return RaftNavigationPlacement.bottom;
+    }
+    return RaftNavigationPlacement.rail;
+  }
+
+  static RaftNavigationPlacement phoneNavigationOf(BuildContext context) =>
+      phoneNavigationFor(
+        MediaQuery.sizeOf(context),
+        displayFeatures: MediaQuery.displayFeaturesOf(context),
+        textDirection: Directionality.of(context),
+      );
+}

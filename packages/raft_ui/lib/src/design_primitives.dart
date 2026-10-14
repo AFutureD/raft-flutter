@@ -157,6 +157,10 @@ class RaftSidebarRecipe {
     bool headerInFlow = false,
     bool liveActivity = false,
     double bottomInset = 0,
+
+    /// False when the phone's navigation is the side rail: nothing floats at
+    /// the bottom, so the list reserves no capsule clearance.
+    bool bottomBar = true,
   }) => EdgeInsetsDirectional.only(
     start: product || tokens.brutal
         ? 8
@@ -175,7 +179,7 @@ class RaftSidebarRecipe {
         : headerHeight,
     bottom: product
         ? !desktop && !tokens.brutal
-              ? (liveActivity ? 116 : 68) + bottomInset
+              ? (bottomBar ? (liveActivity ? 116 : 68) : 12) + bottomInset
               : 12
         : liveActivity && desktop
         ? tokens.brutal
