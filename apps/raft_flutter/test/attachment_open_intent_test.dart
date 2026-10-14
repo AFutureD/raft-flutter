@@ -120,6 +120,27 @@ Future<void> decodeWithoutPainting(WidgetTester tester) async {
   expect(state.imageProvider, isA<ImageProvider>());
 }
 
+/// Pumps frames and yields to the real event loop until [finder] matches,
+/// failing after [timeout] of wall-clock time. The lightbox shows the zoom
+/// surface once the original has been read back and decoded, which is real
+/// file and codec work: a fixed delay or frame count fails on a loaded machine.
+Future<void> pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 45),
+}) async {
+  final clock = Stopwatch()..start();
+  while (finder.evaluate().isEmpty) {
+    if (clock.elapsed > timeout) {
+      fail('Timed out after ${timeout.inSeconds}s waiting for $finder');
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+  }
+}
+
 void main() {
   for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
@@ -264,10 +285,9 @@ void main() {
     await tester.tapAt(center);
     await tester.pump();
     await tester.pump();
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 50)),
-    );
-    await tester.pump();
+    // The card's picture lands on the stage before the stage's own takes over.
+    await tester.pump(const Duration(milliseconds: 400));
+    await pumpUntilFound(tester, find.byType(ImageZoomSurface));
     final zoom = tester
         .widget<ImageZoomSurface>(find.byType(ImageZoomSurface))
         .controller;
