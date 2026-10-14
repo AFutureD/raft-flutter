@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_sync/raft_sync.dart';
 
+import 'burst_reads.dart';
 import 'announcement_store.dart';
 import 'cause_notice.dart';
 import 'message_task_cache.dart';
@@ -2926,7 +2927,7 @@ class WorkspaceController extends ChangeNotifier {
   Future<bool> loadServerDirectory({
     bool cachedFirst = false,
     void Function()? onCacheMiss,
-  }) async {
+  }) => _burstAt.directoryRead(() async {
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot load the server directory.');
     }
@@ -2968,7 +2969,7 @@ class WorkspaceController extends ChangeNotifier {
     if (!current()) return false;
     notifyListeners();
     return true;
-  }
+  });
 
   /// Channel and DM rows saved on this device for [serverId], or null. A
   /// display seed (for example the share picker) and never an authorization
@@ -2996,7 +2997,7 @@ class WorkspaceController extends ChangeNotifier {
   /// closes); a changed role replaces the selected server's authority, which
   /// retires role-bound windows and revalidates the open channel. A failure
   /// keeps the accepted directory (offline).
-  Future<void> revalidateServerDirectory() async {
+  Future<void> revalidateServerDirectory() => _burstAt.directoryRead(() async {
     final principal = client.user?.id,
         request = ++_membershipRequest,
         revision = _membershipRevision;
@@ -3057,7 +3058,7 @@ class WorkspaceController extends ChangeNotifier {
       if (jsonEncode(fresh.json) != jsonEncode(held.json)) server = fresh;
     }
     notifyListeners();
-  }
+  });
 
   Future<void> bootstrap() async {
     final source = presentationSource;
@@ -4255,14 +4256,9 @@ class WorkspaceController extends ChangeNotifier {
   /// Server reads started by events and by returning to the foreground (not
   /// by the person asking) are skipped while the last one is this fresh.
   static const _burstFreshness = Duration(seconds: 15);
-  final Map<String, DateTime> _burstAt = {};
-  bool _due(String name, {Duration freshness = _burstFreshness}) {
-    final now = DateTime.now();
-    final last = _burstAt[name];
-    if (last != null && now.difference(last) < freshness) return false;
-    _burstAt[name] = now;
-    return true;
-  }
+  final _burstAt = BurstReads();
+  bool _due(String name, {Duration freshness = _burstFreshness}) =>
+      _burstAt.due(name, freshness);
 
   /// Source `recordHeartbeat`: a server seq past the ledger watermark means
   /// a push was missed; the visible scopes read their gap.
@@ -4319,7 +4315,7 @@ class WorkspaceController extends ChangeNotifier {
     // directory is re-read. On a desktop the engine reports window focus as
     // inactive/resumed, so this also runs when the window regains focus.
     if (_due('membership', freshness: _membershipResumeFreshness)) {
-      unawaited(recoverMembership());
+      unawaited(recoverMembership(coalesce: true));
     }
   }
 
@@ -4531,11 +4527,13 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> recoverMembership() async {
+  /// With [coalesce] (a refresh nobody asked for), a directory read already in
+  /// flight stands in for it: starting another would retire that read.
+  Future<void> recoverMembership({bool coalesce = false}) async {
     if (presentationSource != null) {
       return presentationSource!.recoverMembership();
     }
-    if (!ownsClient) return;
+    if (!ownsClient || coalesce && _burstAt.directoryReading) return;
     final generation = client.generation,
         request = ++_membershipRequest,
         revision = _membershipRevision;
@@ -6848,7 +6846,7 @@ class WorkspaceController extends ChangeNotifier {
       // not repeat the whole refresh burst each time: what was read less than
       // [_burstFreshness] ago is still fresh, and the resume sync below
       // brings messages up to date.
-      if (_due('membership')) recoverMembership();
+      if (_due('membership')) recoverMembership(coalesce: true);
       if (_due('syncFlag')) refreshMessageSyncFlag();
       if (_due('sidebar')) loadSidebar();
       // A reconnect refreshes agents and members in place; the first connect
