@@ -4561,7 +4561,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "activityUnreadCount: serverUnread"
+     "needle": "activityUnreadCount: activityCountOf(server.id)"
     }
    ],
    "justification": "",
