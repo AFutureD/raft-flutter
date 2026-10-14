@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/search_memory.dart';
+import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/mobile_workspace_navigation.dart';
 import 'package:raft_flutter/features/workspace_settings.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
@@ -22,26 +24,49 @@ class _Memory implements SearchMemoryStorage {
   Future<void> write(String key, String value) async => values[key] = value;
 }
 
-AppUpdateService _service({int build = 20, String platform = 'macos-arm64'}) =>
-    AppUpdateService(
-      currentVersion: '0.1.0',
-      currentBuild: build,
-      platformKey: platform,
-      storage: _Memory(),
-      scheduleTimer: false,
-      fetch: (_) async => jsonEncode([
-        {
-          'platform': platform.split('-').first,
-          'arch': platform.split('-').last,
-          'version': '0.1.0',
-          'buildNumber': '37',
-          'releaseTag': 'v0.1.0+5',
-          'artifact': 'raft-flutter-0.1.0+5-$platform.zip',
-        },
-      ]),
-    );
+ClientReleaseNotes _notes(String text) => ClientReleaseNotes(
+  storage: _Memory(),
+  fetch: (_) async => jsonEncode({
+    'items': [
+      {
+        'releaseId': 'v0.1.0+7',
+        'tag': 'v0.1.0+7',
+        'version': '0.1.0',
+        'date': '2026-10-14',
+        'state': 'published',
+        'entries': [
+          {'type': 'feature', 'text': text, 'emphasis': false},
+        ],
+      },
+    ],
+    'nextCursor': null,
+  }),
+);
 
-Future<void> _mount(
+AppUpdateService _service({
+  int build = 20,
+  String platform = 'macos-arm64',
+  bool withNotes = false,
+}) => AppUpdateService(
+  currentVersion: '0.1.0',
+  currentBuild: build,
+  platformKey: platform,
+  storage: _Memory(),
+  scheduleTimer: false,
+  releaseNotes: withNotes ? _notes('Fork guard notes') : null,
+  fetch: (_) async => jsonEncode([
+    {
+      'platform': platform.split('-').first,
+      'arch': platform.split('-').last,
+      'version': '0.1.0',
+      'buildNumber': '37',
+      'releaseTag': 'v0.1.0+5',
+      'artifact': 'raft-flutter-0.1.0+5-$platform.zip',
+    },
+  ]),
+);
+
+Future<WorkspaceController> _mount(
   WidgetTester t,
   AppUpdateService? update, {
   double width = 1280,
@@ -71,6 +96,44 @@ Future<void> _mount(
     ),
   );
   await frames(t, () {});
+  await t.pumpAndSettle();
+  return w;
+}
+
+/// Both layouts of the one real host: the desktop shell and the phone shell
+/// (a page stack of mirror controllers, see mobile_workspace_route.dart). A
+/// service the phone pages do not receive makes a feature vanish without any
+/// error, so every host-level test below runs on both.
+const _widths = [1280.0, 390.0];
+bool _phone(double width) => width < 768;
+String _on(double width) => _phone(width) ? 'phone' : 'desktop';
+
+/// Opens the Settings destination: the rail on desktop, the tab bar on phone.
+Future<void> _openSettings(
+  WidgetTester t,
+  WorkspaceController w,
+  double width,
+) async {
+  if (_phone(width)) {
+    // The tab bar only shows on a tab root; start from the Settings root.
+    w.navigation.navigate(RaftLocation.parse('/s/demo/settings'));
+    w.notifyListeners();
+  } else {
+    await t.tap(find.byKey(const Key('rail-settings')));
+  }
+  await t.pumpAndSettle();
+}
+
+/// The attention dot on the entry to Settings: the rail icon or the tab.
+bool _entryDot(WidgetTester t, double width) => _phone(width)
+    ? _tabAttention(t)
+    : _railDotIn(find.byKey(const Key('rail-settings'))).evaluate().isNotEmpty;
+
+Future<void> _openDestination(WidgetTester t, String id) async {
+  await t.tap(find.byKey(ValueKey('workspace-settings-nav-$id')));
+  for (var i = 0; i < 10; i++) {
+    await t.pump(const Duration(milliseconds: 100));
+  }
   await t.pumpAndSettle();
 }
 
@@ -111,133 +174,161 @@ bool _tabAttention(WidgetTester t) => t
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['ValueNotifier<bool>']);
-  testWidgets(
-    'desktop: dot on Settings and About until About is opened',
-    (t) async {
-      final update = _service();
-      addTearDown(update.dispose);
-      await t.runAsync(update.start);
-      await _mount(t, update);
-
-      final settings = find.byKey(const Key('rail-settings'));
-      expect(_railDotIn(settings), findsOneWidget);
-
-      await t.tap(settings);
-      await t.pumpAndSettle();
-      final about = find.byType(RaftSettingsSidebarList);
-      expect(find.text('About'), findsOneWidget);
-      expect(_dotIn(about), findsOneWidget);
-      _expectDanger(t, _dotIn(about));
-      // Opening Settings alone does not mark the release as seen.
-      expect(update.hasUnseen, isTrue);
-
-      await t.tap(find.text('About'));
-      await t.pumpAndSettle();
-      expect(find.text('New version available: 0.1.0 (37)'), findsOneWidget);
-      _expectDanger(
-        t,
-        _dotIn(find.byKey(const ValueKey('settings-about-update'))),
-      );
-      expect(
-        find.byKey(const ValueKey('settings-about-update-action')),
-        findsOneWidget,
-      );
-      expect(find.text('View release'), findsOneWidget);
-      expect(update.hasUnseen, isFalse);
-      expect(_railDotIn(settings), findsNothing);
-      expect(_dotIn(about), findsNothing);
-      // The row stays so the user can still act on it.
-      expect(find.text('New version available: 0.1.0 (37)'), findsOneWidget);
-      await t.pumpWidget(const SizedBox());
-    },
-    variant: TargetPlatformVariant({TargetPlatform.macOS}),
-  );
-
-  testWidgets(
-    'Android offers the APK download',
-    (t) async {
-      final update = _service(platform: 'android-arm64');
-      addTearDown(update.dispose);
-      await t.runAsync(update.start);
-      await _mount(t, update);
-      await t.tap(find.byKey(const Key('rail-settings')));
-      await t.pumpAndSettle();
-      await t.tap(find.text('About'));
-      await t.pumpAndSettle();
-      expect(find.text('Download update'), findsOneWidget);
-      expect(find.text('View release'), findsNothing);
-      await t.pumpWidget(const SizedBox());
-    },
-    variant: TargetPlatformVariant({TargetPlatform.android}),
-  );
-
-  testWidgets('a newer build brings the dot back after it was seen', (t) async {
-    final update = _service();
-    addTearDown(update.dispose);
-    await t.runAsync(update.start);
-    update.markSeen();
-    await _mount(t, update);
-    expect(_railDotIn(find.byKey(const Key('rail-settings'))), findsNothing);
-    await t.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('no dot and no row when up to date or without a service', (
-    t,
-  ) async {
-    final current = _service(build: 37);
-    addTearDown(current.dispose);
-    await t.runAsync(current.start);
-    await _mount(t, current);
-    expect(_railDotIn(find.byKey(const Key('rail-settings'))), findsNothing);
-    await t.tap(find.byKey(const Key('rail-settings')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('About'));
-    await t.pumpAndSettle();
-    expect(find.textContaining('New version available'), findsNothing);
-    // Up to date is still answered: the Updates card never goes away.
-    expect(find.text("You're on the latest version"), findsOneWidget);
-    expect(find.byKey(const ValueKey('settings-about-update-check')), findsOne);
-    await t.pumpWidget(const SizedBox());
-
-    await _mount(t, null);
-    expect(_railDotIn(find.byKey(const Key('rail-settings'))), findsNothing);
-    await t.tap(find.byKey(const Key('rail-settings')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('About'));
-    await t.pumpAndSettle();
-    expect(find.byKey(const ValueKey('settings-about-update')), findsNothing);
-    await t.pumpWidget(const SizedBox());
-  });
-
-  for (final (name, family, dark) in [
-    ('brutal light', RaftFamily.brutal, false),
-    ('elegant light', RaftFamily.elegant, false),
-    ('elegant dark', RaftFamily.elegant, true),
-  ]) {
+  for (final width in _widths) {
     testWidgets(
-      'About row dot is the danger token, the rail keeps its colour in $name',
+      '${_on(width)}: dot on Settings and About until About is opened',
       (t) async {
         final update = _service();
         addTearDown(update.dispose);
         await t.runAsync(update.start);
-        await _mount(t, update, family: family, dark: dark);
-        final settings = find.byKey(const Key('rail-settings'));
-        // The rail keeps the theme's own attention colour, not the red.
-        final rail = find.descendant(
-          of: settings,
-          matching: find.byKey(const ValueKey('rail-attention-indicator')),
+        final w = await _mount(t, update, width: width);
+        if (!_phone(width)) expect(_entryDot(t, width), isTrue);
+
+        await _openSettings(t, w, width);
+        expect(_entryDot(t, width), isTrue);
+        final about = find.byType(RaftSettingsSidebarList);
+        expect(find.text('About'), findsOneWidget);
+        expect(_dotIn(about), findsOneWidget);
+        _expectDanger(t, _dotIn(about));
+        // Opening Settings alone does not mark the release as seen.
+        expect(update.hasUnseen, isTrue);
+
+        await _openDestination(t, 'about');
+        expect(find.text('New version available: 0.1.0 (37)'), findsOneWidget);
+        _expectDanger(
+          t,
+          _dotIn(find.byKey(const ValueKey('settings-about-update'))),
         );
-        expect(rail, findsOneWidget);
         expect(
-          _fills(rail),
-          isNot(contains(RaftTokens.of(t.element(rail)).semantic.danger)),
+          find.byKey(const ValueKey('settings-about-update-action')),
+          findsOneWidget,
         );
-        await t.tap(settings);
-        await t.pumpAndSettle();
-        _expectDanger(t, _dotIn(find.byType(RaftSettingsSidebarList)));
+        expect(find.text('View release'), findsOneWidget);
+        expect(update.hasUnseen, isFalse);
+        if (_phone(width)) {
+          // The covered list rebuilds when it comes back to the front.
+          await t.pageBack();
+          await t.pumpAndSettle();
+        }
+        expect(_entryDot(t, width), isFalse);
+        expect(_dotIn(find.byType(RaftSettingsSidebarList)), findsNothing);
+        if (!_phone(width)) {
+          // The row stays so the user can still act on it.
+          expect(find.text('New version available: 0.1.0 (37)'), findsOne);
+        }
         await t.pumpWidget(const SizedBox());
       },
+      variant: TargetPlatformVariant({TargetPlatform.macOS}),
     );
+
+    testWidgets('${_on(width)}: Android offers the APK download', (t) async {
+      final update = _service(platform: 'android-arm64');
+      addTearDown(update.dispose);
+      await t.runAsync(update.start);
+      final w = await _mount(t, update, width: width);
+      await _openSettings(t, w, width);
+      await _openDestination(t, 'about');
+      expect(find.text('Download update'), findsOneWidget);
+      expect(find.text('View release'), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    }, variant: TargetPlatformVariant({TargetPlatform.android}));
+
+    testWidgets('${_on(width)}: a newer build brings the dot back after it '
+        'was seen', (t) async {
+      final update = _service();
+      addTearDown(update.dispose);
+      await t.runAsync(update.start);
+      update.markSeen();
+      final w = await _mount(t, update, width: width);
+      await _openSettings(t, w, width);
+      expect(_entryDot(t, width), isFalse);
+      expect(_dotIn(find.byType(RaftSettingsSidebarList)), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('${_on(width)}: no dot and no row when up to date or without '
+        'a service', (t) async {
+      final current = _service(build: 37);
+      addTearDown(current.dispose);
+      await t.runAsync(current.start);
+      var w = await _mount(t, current, width: width);
+      await _openSettings(t, w, width);
+      expect(_entryDot(t, width), isFalse);
+      await _openDestination(t, 'about');
+      expect(find.textContaining('New version available'), findsNothing);
+      // Up to date is still answered: the Updates card never goes away.
+      expect(find.text("You're on the latest version"), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('settings-about-update-check')),
+        findsOne,
+      );
+      await t.pumpWidget(const SizedBox());
+
+      w = await _mount(t, null, width: width);
+      await _openSettings(t, w, width);
+      expect(_entryDot(t, width), isFalse);
+      await _openDestination(t, 'about');
+      expect(find.byKey(const ValueKey('settings-about-update')), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('${_on(width)}: Release Notes load from the update service '
+        'source', (t) async {
+      final update = _service(withNotes: true);
+      addTearDown(update.dispose);
+      await t.runAsync(update.start);
+      final w = await _mount(t, update, width: width);
+      await _openSettings(t, w, width);
+      await _openDestination(t, 'release-notes');
+      expect(find.text('Fork guard notes'), findsOneWidget);
+      expect(
+        find.text('Release notes are unavailable right now.'),
+        findsNothing,
+      );
+      await t.pumpWidget(const SizedBox());
+    });
+  }
+
+  for (final width in _widths) {
+    for (final (name, family, dark) in [
+      ('brutal light', RaftFamily.brutal, false),
+      ('elegant light', RaftFamily.elegant, false),
+      ('elegant dark', RaftFamily.elegant, true),
+    ]) {
+      testWidgets(
+        '${_on(width)}: About row dot is the danger token, the entry keeps '
+        'its colour in $name',
+        (t) async {
+          final update = _service();
+          addTearDown(update.dispose);
+          await t.runAsync(update.start);
+          final w = await _mount(
+            t,
+            update,
+            width: width,
+            family: family,
+            dark: dark,
+          );
+          if (!_phone(width)) {
+            final settings = find.byKey(const Key('rail-settings'));
+            // The rail keeps the theme's own attention colour, not the red.
+            final rail = find.descendant(
+              of: settings,
+              matching: find.byKey(const ValueKey('rail-attention-indicator')),
+            );
+            expect(rail, findsOneWidget);
+            expect(
+              _fills(rail),
+              isNot(contains(RaftTokens.of(t.element(rail)).semantic.danger)),
+            );
+          }
+          await _openSettings(t, w, width);
+          expect(_entryDot(t, width), isTrue);
+          _expectDanger(t, _dotIn(find.byType(RaftSettingsSidebarList)));
+          await t.pumpWidget(const SizedBox());
+        },
+      );
+    }
   }
 
   for (final (name, family, dark) in [
@@ -291,29 +382,6 @@ void main() {
   // carried across or About loses the Updates card and Release Notes loses its
   // source (v0.1.0+7 on Android showed neither).
   group('phone (actual RaftApp, 390 wide, Android)', () {
-    ClientReleaseNotes notes() => ClientReleaseNotes(
-      storage: _Memory(),
-      fetch: (_) async => jsonEncode({
-        'items': [
-          {
-            'releaseId': 'v0.1.0+7',
-            'tag': 'v0.1.0+7',
-            'version': '0.1.0',
-            'date': '2026-10-14',
-            'state': 'published',
-            'entries': [
-              {
-                'type': 'feature',
-                'text': 'Phone notes arrive',
-                'emphasis': false,
-              },
-            ],
-          },
-        ],
-        'nextCursor': null,
-      }),
-    );
-
     AppUpdateService android() => AppUpdateService(
       currentVersion: '0.1.0',
       currentBuild: 41,
@@ -321,7 +389,7 @@ void main() {
       target: TargetPlatform.android,
       storage: _Memory(),
       scheduleTimer: false,
-      releaseNotes: notes(),
+      releaseNotes: _notes('Phone notes arrive'),
       fetch: (_) async => jsonEncode([
         {
           'platform': 'android',

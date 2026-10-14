@@ -186,6 +186,7 @@ class WorkspaceController extends ChangeNotifier {
     agentMigrationEnabled = source.agentMigrationEnabled;
     runtimeFormV2WebEnabled = source.runtimeFormV2WebEnabled;
     savedRevision = source.savedRevision;
+    planRevision = source.planRevision;
     syncCoreNotificationPrefsEnabled = source.syncCoreNotificationPrefsEnabled;
     _revokedChannels
       ..clear()

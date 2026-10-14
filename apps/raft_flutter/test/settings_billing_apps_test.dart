@@ -389,6 +389,39 @@ void main() {
       expect(t.getRect(plan), rect);
     });
 
+    testWidgets('a phone page (mirror controller) reloads after '
+        'server:plan-updated', (t) async {
+      final (w, a) = (await t.runAsync(() => _fixture('owner')))!;
+      addTearDown(w.dispose);
+      a.routes['GET /billing/subscription'] = (_) => _free();
+      a.routes['GET /servers/s1/usage'] = (_) => {'agents': 2};
+      // What the phone shell mounts per page: a borrowed controller that
+      // mirrors the source (mobile_workspace_route.dart).
+      final page = WorkspaceController(
+        w.client,
+        presentationSource: w,
+        ownsClient: false,
+        mobileNavigation: true,
+      );
+      addTearDown(page.dispose);
+      page.synchronizePagePresentation(w, active: true);
+      _surface(t, 600);
+      await t.pumpWidget(
+        _host(BillingView(controller: page, now: () => _now), width: 600),
+      );
+      await t.pumpAndSettle();
+      int reads() =>
+          a.calls.where((c) => c.path == '/billing/subscription').length;
+      final before = reads();
+      // _consumeServerPlanUpdated bumps the source; the route then mirrors it
+      // into the page and notifies the page.
+      w.planRevision++;
+      page.synchronizePagePresentation(w, active: true);
+      page.notifyListeners();
+      await t.pumpAndSettle();
+      expect(reads(), before + 1);
+    });
+
     testWidgets('mobile width stacks the features and the summary', (t) async {
       // 600 keeps the Ahem test font (1em glyphs) inside the 390px layout's
       // single-column rules without nowrap labels overflowing.
