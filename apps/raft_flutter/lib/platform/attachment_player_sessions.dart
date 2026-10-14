@@ -70,7 +70,7 @@ class PlayerSessions {
 
   /// Remembers [shape] for [key] and tells the listeners when it is new.
   void rememberShape(String key, VideoShape shape) {
-    if (shapes[key] == shape) return;
+    if (_disposed || shapes[key] == shape) return;
     shapes[key] = shape;
     shapeChanges.value++;
   }
@@ -132,7 +132,7 @@ class PlayerSessions {
   /// Forgets the remembered video shapes and failed frame reads (Clear cache:
   /// the stored posters are gone too, so a card reads them again).
   void forgetFrames() {
-    if (shapes.isNotEmpty) shapeChanges.value++;
+    if (shapes.isNotEmpty && !_disposed) shapeChanges.value++;
     shapes.clear();
     frameFailed.clear();
   }
@@ -247,7 +247,12 @@ class PlayerSessions {
     }
   }
 
+  bool _disposed = false;
+
+  /// Idempotent like [clear]: an owner and a test teardown may both call it.
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     clear();
     shapeChanges.dispose();
   }
