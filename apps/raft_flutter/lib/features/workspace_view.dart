@@ -463,6 +463,17 @@ class _WorkspaceViewState extends State<WorkspaceView>
     select(tab == 'chat' ? 'home' : tab);
   }
 
+  /// A rail destination on the phone layout: the same phone navigation the
+  /// bottom bar drives (Search is the Home list's own pushed page).
+  void selectRailDestination(String id) {
+    final scope = mobileAuthority;
+    if (id == 'search') {
+      if (mounted && scope == mobileAuthority) select('search');
+      return;
+    }
+    selectMobileTab(id, scope);
+  }
+
   late final ownedPresentation = PersonalPresentationStore(
     desktop:
         !kIsWeb &&
@@ -484,10 +495,22 @@ class _WorkspaceViewState extends State<WorkspaceView>
       widget.mobileTabbar ?? ownedMobileTabbar;
 
   /// Ids of the tabs the bar shows for this account (Settings not included).
-  List<String> get mobileTabIds => mobileTabbar.settings.effective(
-    guest: w.server?.string('role') == 'guest',
-    can: w.can,
-  );
+  ///
+  /// With the left rail the bottom-bar choice does not apply: every
+  /// destination the desktop rail lists is a root tab (Home, Activity, Tasks,
+  /// Members, Computers; Search and Settings are the rail's own entries).
+  List<String> get mobileTabIds => railNavigation
+      ? [
+          MobileTabs.home,
+          MobileTabs.activity,
+          MobileTabs.tasks,
+          if (w.can('viewMembers')) MobileTabs.members,
+          if (w.can('viewMachines')) MobileTabs.computers,
+        ]
+      : mobileTabbar.settings.effective(
+          guest: w.server?.string('role') == 'guest',
+          can: w.can,
+        );
   final sidebarDisclosure = SidebarDisclosureStore();
 
   /// Cmd/Ctrl+K quick switcher: visit history, shared search memory and the
@@ -591,6 +614,17 @@ class _WorkspaceViewState extends State<WorkspaceView>
     origin: w.client.origin,
   );
   bool get wide => !RaftAdaptiveWorkspace.compactOf(context);
+
+  /// The phone layout shows the desktop left rail instead of the bottom tab
+  /// bar (wide foldable, landscape phone, 600-767 dp; see [RaftWindowClass]).
+  /// Held with the layout while a full-bleed overlay owns state in the tree.
+  bool get railNavigation {
+    final live = RaftAdaptiveWorkspace.phoneRailOf(context);
+    if (!LayoutHold.held) return heldRail = live;
+    return heldRail ?? live;
+  }
+
+  bool? heldRail;
 
   /// Cmd/Ctrl+K while the Search page shows: a bump asks it to focus its field.
   final searchFocusRequests = ValueNotifier<int>(0);
@@ -1321,6 +1355,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
       );
       final thread = sidePanels.thread;
       final rootTab = w.navigation.mobileRootTabOf(location);
+      // The left rail stands in for the bottom bar on the same tab roots.
+      final railShown = railNavigation && rootTab != null && w.server != null;
+      final rtl = Directionality.of(context) == TextDirection.rtl;
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
           : tr(switch (route) {
@@ -1636,10 +1673,16 @@ class _WorkspaceViewState extends State<WorkspaceView>
               statusBarFallback: t.canvas,
               child: SafeArea(
                 bottom: false,
+                // The rail paints under its own side's system inset.
+                left: !railShown || rtl,
+                right: !railShown || !rtl,
                 child: Column(
                   children: [
                     if (!wide && rootTab == 'computers' && !thread)
-                      RaftMobileRootHeader(title: 'Computers')
+                      // With the rail the header sits beside it, in the content.
+                      ...[
+                        if (!railShown) RaftMobileRootHeader(title: 'Computers'),
+                      ]
                     else if (!wide &&
                         location.route != RaftRoute.computer &&
                         // A profile overlay brings its own header.
@@ -1692,9 +1735,23 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           mobileNavigationClearance: raftTabBarClearance(
                             liveActivity: liveActivityVisible,
                           ),
-                          mobileNavigation:
-                              w.navigation.mobileRootTabOf(location) == null ||
-                                  w.server == null
+                          mobileRail: railShown ? workspaceRail() : null,
+                          mobileNavigation: railNavigation
+                              // Only the live activity strip docks in the
+                              // content region next to the rail.
+                              ? railShown && liveActivityVisible
+                                    ? Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: raftSystemBottomInset(
+                                            context,
+                                          ),
+                                        ),
+                                        child: liveActivityBar(),
+                                      )
+                                    : null
+                              : w.navigation.mobileRootTabOf(location) ==
+                                        null ||
+                                    w.server == null
                               ? null
                               : Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -1714,6 +1771,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                     enabled: !gridActive,
                                     child: Column(
                                       children: [
+                                        // The Computers root header sits in the
+                                        // content region beside the rail.
+                                        if (railShown &&
+                                            rootTab == 'computers' &&
+                                            !thread)
+                                          RaftMobileRootHeader(
+                                            title: 'Computers',
+                                          ),
                                         // Settings composes its own sidebar and
                                         // content headers in the shared top row.
                                         if (wide &&
@@ -2655,15 +2720,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
   Widget workspaceRail() {
     final mobileAppScope = mobileAppBadge.key;
     return RaftWorkspaceRail(
+      phone: !wide,
       thinDivider: w.location.route == RaftRoute.activity,
       destinations: railDestinations,
-      selected: wide
-          ? DesktopNavigationPolicy.forSection(
-              w.location.route == RaftRoute.settings ? 'settings' : w.section,
-            ).railMode
-          : w.section,
-      onSelected: (id) =>
-          id == 'search' && wide ? openSearchFromRail() : select(id),
+      selected: DesktopNavigationPolicy.forSection(
+        w.location.route == RaftRoute.settings ? 'settings' : w.section,
+      ).railMode,
+      onSelected: (id) => wide
+          ? (id == 'search' ? openSearchFromRail() : select(id))
+          : selectRailDestination(id),
       workspaceName: w.server?.name ?? 'Raft',
       workspaceTooltip: tr('Switch workspace'),
       workspaceHeader: workspaceServerMenu(),
@@ -2743,7 +2808,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
       key: const Key('rail-settings'),
       label: tr('Settings'),
       selected: w.location.route == RaftRoute.settings,
-      onPressed: () => select('settings'),
+      onPressed: () =>
+          wide ? select('settings') : selectRailDestination('settings'),
       glyph: RaftGlyph.settings,
       attention: widget.appUpdate?.hasUnseen ?? false,
     );
@@ -3616,6 +3682,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         padding: recipe.contentInset(
                           headerInFlow: true,
                           liveActivity: mobileHome && liveActivityVisible,
+                          bottomBar: !railNavigation,
                           bottomInset: edgeToEdgeHome
                               ? raftSystemBottomInset(context)
                               : 0,

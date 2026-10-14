@@ -124,9 +124,12 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
     final t = RaftTokens.of(context);
     final mobile =
         MediaQuery.sizeOf(context).width < RaftLayoutMetrics.desktopBreakpoint;
+    // Phone-only rows configure or stand in for the bottom bar; the left rail
+    // (like the desktop layout) has neither, so they are hidden with it.
+    final bottomBar = mobile && !RaftAdaptiveWorkspace.phoneRailOf(context);
     final available = [
       for (final d in widget.destinations)
-        if (mobile || !d.mobileOnly) d,
+        if (bottomBar || !d.mobileOnly) d,
     ];
     final pages = available.where((d) => d.builder != null).toList();
     if (pages.isEmpty) return const SizedBox.shrink();
