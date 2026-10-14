@@ -90,6 +90,8 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   int _windowSerial = 0;
   static int _serials = 0;
 
+  static const _firstPageLimit = 30;
+
   /// Request shape of [windowSince], in the same form as the Activity page's
   /// list view key (path and filters, without the window).
   static final defaultInboxView = jsonEncode([
@@ -99,6 +101,8 @@ class SourceActivityUnreadStore extends ChangeNotifier {
 
   /// Only facts a mounted Activity page consumes. Extra page events never
   /// activate session reads; the existing background policy stays unchanged.
+  /// A page mounted without a bound store keeps its client event subscription
+  /// for that mount; creating a store later does not rebind that subscription.
   Stream<RaftEvent> get pageEvents => _pageEvents.stream;
 
   static bool reconcilesPage(String name) =>
@@ -268,7 +272,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     required int loadedRows,
   }) =>
       view == defaultInboxView &&
-      loadedRows <= 30 &&
+      loadedRows <= _firstPageLimit &&
       (_refreshes(event) || event.name == 'sync:resume:response' && isFresh);
 
   void _handleEvent(RaftEvent event) {
@@ -437,9 +441,9 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     if (firstPage) {
       _window = WorkspaceController.copyDecoded({
         ...window,
-        'items': _rows.take(30).toList(),
+        'items': _rows.take(_firstPageLimit).toList(),
         'totalUnreadCount': _total,
-        'hasMore': rows.length > 30 || window['hasMore'] == true,
+        'hasMore': rows.length > _firstPageLimit || window['hasMore'] == true,
       }) as Map<String, dynamic>;
       _windowSerial = ++_serials;
       _acceptedAt = clock();
@@ -542,7 +546,12 @@ class SourceActivityUnreadStore extends ChangeNotifier {
       // Shared with a mounted Activity page reconciling the same window.
       final value = await workspace.sharedQuery(
         '/channels/inbox',
-        query: {'filter': 'all', 'sort': 'desc', 'limit': 30, 'offset': 0},
+        query: {
+          'filter': 'all',
+          'sort': 'desc',
+          'limit': _firstPageLimit,
+          'offset': 0,
+        },
       );
       if (_disposed ||
           authority != scope ||
