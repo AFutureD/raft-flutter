@@ -6,6 +6,7 @@ import importlib.machinery
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -100,10 +101,13 @@ class SyntaxTest(unittest.TestCase):
         names = ({p['name'] for p in json.loads(config.read_text())['packages']}
                  if config.is_file() else set())
         if not {'analyzer', 'ds_audit'} <= names:
-            raise unittest.SkipTest(
+            message = (
                 'AST fixtures need resolved workspace dependencies; run '
                 '`TMPDIR=$HOME/.cache/tmp-cindy tool/flutter pub get --enforce-lockfile` '
-                'at the repository root. The project gate does this before these tests.')
+                'at the repository root. The project gate requires these fixtures.')
+            if os.environ.get('RAFT_PROJECT_GATE') == '1':
+                raise AssertionError(message)
+            raise unittest.SkipTest(message)
 
     def test_parts_extensions_aliases_and_transitive_facades_stay_in_scope(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -152,6 +156,22 @@ class SyntaxTest(unittest.TestCase):
                 (lib / 'root.dart').write_text(source)
                 with self.subTest(source=source), self.assertRaises(audit.AuditError):
                     audit.run_scanner(config, root)
+
+
+class DependencyPreflightTest(unittest.TestCase):
+    def test_manual_run_without_dependencies_explains_skip(self):
+        with tempfile.TemporaryDirectory() as temp, \
+                mock.patch.dict(os.environ, {'RAFT_PROJECT_GATE': '0'}), \
+                mock.patch(__name__ + '.ROOT', Path(temp)):
+            with self.assertRaisesRegex(unittest.SkipTest, 'pub get --enforce-lockfile'):
+                SyntaxTest.setUpClass()
+
+    def test_project_gate_without_dependencies_fails_instead_of_skipping(self):
+        with tempfile.TemporaryDirectory() as temp, \
+                mock.patch.dict(os.environ, {'RAFT_PROJECT_GATE': '1'}), \
+                mock.patch(__name__ + '.ROOT', Path(temp)):
+            with self.assertRaisesRegex(AssertionError, 'pub get --enforce-lockfile'):
+                SyntaxTest.setUpClass()
 
 
 if __name__ == '__main__':

@@ -854,7 +854,7 @@ def with_run_tmp(env, path):
 
 
 def main():
-    check_env = dict(os.environ, PYTHONUTF8='1')
+    check_env = dict(os.environ, PYTHONUTF8='1', RAFT_PROJECT_GATE='1')
     if '--all-themes' in sys.argv[1:]:
         check_env['RAFT_TEST_ALL_THEMES'] = '1'
     elif sys.argv[1:]:
