@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart' show imageCache;
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
+import 'package:raft_flutter/platform/video_frame_probe.dart' show VideoFrameProbe;
 import 'package:raft_ui/raft_ui.dart' show RaftHotImages, RaftImageBytes;
 
 /// Wraps the codecs `PaintingBinding.instantiateImageCodecWithSize` hands to
@@ -149,6 +150,9 @@ void leakDebt(List<String> classes) {
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   _enableLeakTracking();
+  // No test reaches a real platform probe (a native channel or libmpv); a test
+  // that wants one passes its own to the card.
+  VideoFrameProbe.debugOverride = () => null;
   final binding = RaftTestBinding();
   final seconds =
       int.tryParse(Platform.environment['RAFT_TEST_TIMEOUT_SECONDS'] ?? '') ??
