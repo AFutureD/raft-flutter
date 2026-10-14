@@ -654,6 +654,7 @@ class LibmpvFrameSession implements MpvFrameSession {
       width: width,
       height: int.tryParse(await _read('video-params/h')) ?? 0,
       rotation: int.tryParse(await _read('video-params/rotate')) ?? 0,
+      // ds-allow: the length of the video, not a motion duration
       duration: Duration(milliseconds: (seconds * 1000).round()),
       streamPosition: settled ? 0 : int.tryParse(await _read('stream-pos')) ?? 0,
     );

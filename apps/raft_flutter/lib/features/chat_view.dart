@@ -30,6 +30,7 @@ import 'attachment_preview_dialog.dart' show attachmentPreviewKind;
 import 'attachment_view.dart';
 import 'media_items.dart';
 import 'media_video_page.dart' show MediaBrowserFlags;
+import 'attachment_shape.dart';
 import 'message_presentation.dart';
 import 'message_preparation.dart';
 import 'pending_mention_actions.dart';
@@ -1895,30 +1896,24 @@ class _RaftChatViewState extends State<RaftChatView>
     return RaftAttachmentStack(
       gallery: images.isEmpty
           ? null
-          : RaftAttachmentGallery(
-              dimensions: [
-                for (final a in images)
-                  (
-                    width: a['width'] is num
-                        ? (a['width'] as num).toDouble()
-                        : null,
-                    height: a['height'] is num
-                        ? (a['height'] as num).toDouble()
-                        : null,
+          : ShapedImageGallery(
+              sessions: w.playerSessions,
+              images: images,
+              builder: (dimensions) => RaftAttachmentGallery(
+                dimensions: dimensions,
+                itemBuilder: (index, extent, fit) => sendStateAttachment(
+                  pending,
+                  AttachmentView(
+                    key: ValueKey('attachment-${images[index]['id']}'),
+                    controller: w,
+                    metadata: images[index],
+                    messageId: messageId,
+                    mediaMessage: mediaMessage(message),
+                    imageExtent: extent,
+                    imageFit: fit,
+                    // Web lightboxImages: the message's images, no optimistic.
+                    galleryItems: pending ? null : media,
                   ),
-              ],
-              itemBuilder: (index, extent, fit) => sendStateAttachment(
-                pending,
-                AttachmentView(
-                  key: ValueKey('attachment-${images[index]['id']}'),
-                  controller: w,
-                  metadata: images[index],
-                  messageId: messageId,
-                  mediaMessage: mediaMessage(message),
-                  imageExtent: extent,
-                  imageFit: fit,
-                  // Web lightboxImages: the message's images, no optimistic.
-                  galleryItems: pending ? null : media,
                 ),
               ),
             ),

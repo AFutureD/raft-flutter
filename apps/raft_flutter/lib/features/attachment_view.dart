@@ -22,6 +22,7 @@ import 'attachment_html_preview.dart';
 import 'attachment_image_loader.dart';
 import 'attachment_transfers.dart';
 import 'attachment_preview_gate.dart';
+import 'attachment_shape.dart';
 import 'inline_attachment_media.dart';
 import 'media_browser.dart';
 import 'media_items.dart';
@@ -184,6 +185,46 @@ class _AttachmentViewState extends State<AttachmentView> {
     captureAuthority();
     transfers = newTransfers();
     w.addListener(scopeChanged);
+    if (isImage && attachmentDeclaredShape(widget.metadata) == null) {
+      // No size in the message: the one learnt before (this session or on
+      // disk) gives the card its box in the first frames; else it is learnt
+      // from the preview's decode.
+      w.playerSessions.shapeChanges.addListener(shapeLearnt);
+      unawaited(
+        readStoredShape(
+          w,
+          widget.metadata,
+          kind: 'image-shape',
+          channelId: ownerChannel,
+          authorized: () => authorized,
+        ),
+      );
+    }
+  }
+
+  /// A shape was learnt somewhere: a card without a message size re-lays out.
+  void shapeLearnt() {
+    if (mounted) setState(() {});
+  }
+
+  /// Learns the picture's shape from the preview just decoded (no extra
+  /// download), for a message that did not carry one.
+  void learnImageShape(AttachmentImageLease lease) {
+    if (attachmentDeclaredShape(widget.metadata) != null) return;
+    final decoded = lease.decoded;
+    if (decoded == null || decoded.width <= 0 || decoded.height <= 0) return;
+    final shape = VideoShape(width: decoded.width, height: decoded.height);
+    // After this frame: the rows listening must not rebuild during a build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      learnShape(
+        w,
+        widget.metadata,
+        shape,
+        kind: 'image-shape',
+        channelId: ownerChannel,
+      );
+    });
   }
 
   /// Save / share of this attachment; one operation's authority is the
@@ -322,8 +363,9 @@ class _AttachmentViewState extends State<AttachmentView> {
   Size get previewBox {
     final extent = widget.imageExtent;
     if (extent != null && extent.width > 0 && extent.height > 0) return extent;
-    final width = (widget.metadata['width'] as num?)?.toDouble();
-    final height = (widget.metadata['height'] as num?)?.toDouble();
+    final shape = attachmentShape(w, widget.metadata);
+    final width = shape?.width.toDouble();
+    final height = shape?.height.toDouble();
     const maxWidth = AttachmentPrimitive.singleImageMaxWidth,
         maxHeight = AttachmentPrimitive.singleImageMaxHeight;
     if (width == null ||
@@ -393,6 +435,7 @@ class _AttachmentViewState extends State<AttachmentView> {
     imageLease = lease;
     imageProvider = provider;
     error = null;
+    learnImageShape(lease.lease);
     return true;
   }
 
@@ -490,6 +533,7 @@ class _AttachmentViewState extends State<AttachmentView> {
     hiddenTimer?.cancel();
     hiddenTimer = null;
     w.removeListener(scopeChanged);
+    w.playerSessions.shapeChanges.removeListener(shapeLearnt);
     imageCancel.cancel();
     transfers.abort();
     imageLease?.release();
@@ -527,6 +571,7 @@ class _AttachmentViewState extends State<AttachmentView> {
       imageLease = lease;
       final provider = await lease.lease.ready;
       if (current() && identical(imageLease, lease)) {
+        learnImageShape(lease.lease);
         setState(() {
           imageProvider = provider;
           fadeIn = !widget.exportMode && !lease.lease.fromStore;

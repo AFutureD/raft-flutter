@@ -33,6 +33,7 @@ class DraftClient extends RaftClient {
     String filename, {
     UploadCancellation? cancellation,
     void Function(int, int)? onProgress,
+    String? mimeType,
   }) async {
     expect(await openRead().expand((chunk) => chunk).toList(), [1, 2, 3]);
     uploads++;

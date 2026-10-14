@@ -2476,12 +2476,14 @@ class WorkspaceController extends ChangeNotifier {
               draft.filename,
               cancellation: draft.cancel,
               onProgress: progress,
+              mimeType: composerMimeType(draft.filename),
             )
           : await client.upload(
               id,
               draft.bytes,
               draft.filename,
               cancellation: draft.cancel,
+              mimeType: composerMimeType(draft.filename),
               onProgress: (sent, total) {
                 if (generation != ledger.generation ||
                     draft.cancel.cancelled ||

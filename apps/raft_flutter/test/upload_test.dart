@@ -26,6 +26,7 @@ class _Client extends RaftClient {
     String filename, {
     UploadCancellation? cancellation,
     void Function(int, int)? onProgress,
+    String? mimeType,
   }) {
     uploadedChannels.add(channelId);
     onProgress?.call(2, 4);

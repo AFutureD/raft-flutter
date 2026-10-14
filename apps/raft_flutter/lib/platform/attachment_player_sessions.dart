@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui' show Image, VoidCallback;
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
+
 import 'attachment_player.dart';
 import 'bounded_lru.dart';
 import 'memory_budgets.dart';
@@ -62,6 +64,17 @@ class PlayerSessions {
   /// on an identity change.
   final Map<String, VideoShape> shapes = BoundedLruMap(maxRemembered);
 
+  /// Bumped whenever a shape is learnt or forgotten: a row whose box depends on
+  /// a shape (an image or video message without `width` / `height`) listens.
+  final ValueNotifier<int> shapeChanges = ValueNotifier<int>(0);
+
+  /// Remembers [shape] for [key] and tells the listeners when it is new.
+  void rememberShape(String key, VideoShape shape) {
+    if (shapes[key] == shape) return;
+    shapes[key] = shape;
+    shapeChanges.value++;
+  }
+
   /// Attachments whose first frame could not be read this session: not tried
   /// again until the identity changes (or the cache is cleared).
   final Set<String> frameFailed = BoundedLruSet(maxRemembered);
@@ -119,6 +132,7 @@ class PlayerSessions {
   /// Forgets the remembered video shapes and failed frame reads (Clear cache:
   /// the stored posters are gone too, so a card reads them again).
   void forgetFrames() {
+    if (shapes.isNotEmpty) shapeChanges.value++;
     shapes.clear();
     frameFailed.clear();
   }
@@ -233,7 +247,10 @@ class PlayerSessions {
     }
   }
 
-  void dispose() => clear();
+  void dispose() {
+    clear();
+    shapeChanges.dispose();
+  }
 }
 
 class PlayerSession {

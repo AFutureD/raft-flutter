@@ -12,6 +12,7 @@ import '../platform/attachment_stream.dart';
 import '../platform/video_frame_probe.dart';
 import '../platform/video_frame_scheduler.dart';
 import 'attachment_image_loader.dart';
+import 'attachment_shape.dart';
 
 /// The picture and the shape of a video card.
 ///
@@ -96,19 +97,8 @@ class VideoCardPoster {
   String get _mediaKey => attachmentMediaKey(_meta);
 
   /// The message's own size (width and height), when valid.
-  static VideoShape? declaredShape(Map<String, dynamic> metadata) {
-    final width = (metadata['width'] as num?)?.toDouble();
-    final height = (metadata['height'] as num?)?.toDouble();
-    if (width == null ||
-        height == null ||
-        !width.isFinite ||
-        !height.isFinite ||
-        width <= 0 ||
-        height <= 0) {
-      return null;
-    }
-    return VideoShape(width: width.round(), height: height.round());
-  }
+  static VideoShape? declaredShape(Map<String, dynamic> metadata) =>
+      attachmentDeclaredShape(metadata);
 
   /// Binds to the current metadata and the logical [box] the poster is decoded
   /// for. Cheap when nothing changed.
@@ -248,7 +238,7 @@ class VideoCardPoster {
   /// has one, still decides the box: only the length and a missing size are
   /// taken from [learnt].
   void _remember(VideoShape learnt, {required bool persist}) {
-    _sessions.shapes[_mediaKey] = learnt;
+    _sessions.rememberShape(_mediaKey, learnt);
     final declared = declaredShape(_meta);
     final next = declared == null
         ? learnt

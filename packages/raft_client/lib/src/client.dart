@@ -1581,16 +1581,33 @@ class RaftClient {
     ),
   );
   String newRandomId() => const Uuid().v4();
+
+  /// The Content-Type of an upload's file part: what a browser sends for the
+  /// picked file (Web's `FormData` carries `File.type`); without it dio says
+  /// `application/octet-stream`, and the server cannot tell it is a picture.
+  static DioMediaType? _partType(String? mimeType) {
+    if (mimeType == null || mimeType.isEmpty) return null;
+    try {
+      return DioMediaType.parse(mimeType);
+    } on Object {
+      return null;
+    }
+  }
   Future<List<Map<String, dynamic>>> upload(
     String channelId,
     Uint8List bytes,
     String filename, {
     UploadCancellation? cancellation,
     void Function(int, int)? onProgress,
+    String? mimeType,
   }) async {
     final form = FormData.fromMap({
       'channelId': channelId,
-      'files': MultipartFile.fromBytes(bytes, filename: filename),
+      'files': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: _partType(mimeType),
+      ),
     });
     final result = await request(
       'POST',
@@ -1613,13 +1630,19 @@ class RaftClient {
     String filename, {
     UploadCancellation? cancellation,
     void Function(int, int)? onProgress,
+    String? mimeType,
   }) async {
     final result = await request(
       'POST',
       '/attachments/upload',
       data: FormData.fromMap({
         'channelId': channelId,
-        'files': MultipartFile.fromStream(openRead, length, filename: filename),
+        'files': MultipartFile.fromStream(
+          openRead,
+          length,
+          filename: filename,
+          contentType: _partType(mimeType),
+        ),
       }),
       cancellation: cancellation,
       onSendProgress: onProgress,
