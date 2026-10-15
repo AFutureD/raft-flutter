@@ -120,42 +120,44 @@ class _AgentTvAppState extends State<_AgentTvApp> {
           ];
           return Scaffold(
             backgroundColor: t.canvas,
-            body: LayoutBuilder(
-              builder: (context, size) {
-                // 10-foot type: scale with the display, keep a 6% bottom safe
-                // area for launchers that draw a taskbar over presentations.
-                final scale = (size.maxHeight / 540).clamp(1.0, 3.0);
-                return MediaQuery(
-                  data: MediaQuery.of(context)
-                      .copyWith(textScaler: TextScaler.linear(scale)),
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      size.maxWidth * .05,
-                      size.maxHeight * .04,
-                      size.maxWidth * .05,
-                      size.maxHeight * .06,
-                    ),
-                    child: layers.isEmpty
-                        ? Center(
-                            child: Text(
-                              'Raft · Agent 模式',
-                              style: t.heading(28),
+            body: AgentCanvas(
+              child: LayoutBuilder(
+                builder: (context, size) {
+                  // 10-foot type: scale with the display, keep a 6% bottom safe
+                  // area for launchers that draw a taskbar over presentations.
+                  final scale = (size.maxHeight / 540).clamp(1.0, 3.0);
+                  return MediaQuery(
+                    data: MediaQuery.of(context)
+                        .copyWith(textScaler: TextScaler.linear(scale)),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        size.maxWidth * .05,
+                        size.maxHeight * .04,
+                        size.maxWidth * .05,
+                        size.maxHeight * .06,
+                      ),
+                      child: layers.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Raft · Agent 模式',
+                                style: t.heading(28),
+                              ),
+                            )
+                          : ZLayerStack(
+                              padding: EdgeInsets.only(top: 34 * scale),
+                              layers: [
+                                for (final l in layers)
+                                  ZLayer(
+                                    key: ValueKey(l['id']),
+                                    peek: '${l['peek'] ?? ''}',
+                                    child: AgentFrameView(frame: l),
+                                  ),
+                              ],
                             ),
-                          )
-                        : ZLayerStack(
-                            padding: EdgeInsets.only(top: 34 * scale),
-                            layers: [
-                              for (final l in layers)
-                                ZLayer(
-                                  key: ValueKey(l['id']),
-                                  peek: '${l['peek'] ?? ''}',
-                                  child: AgentFrameView(frame: l),
-                                ),
-                            ],
-                          ),
-                  ),
-                );
-              },
+                    ),
+                  );
+                },
+              ),
             ),
           );
         },

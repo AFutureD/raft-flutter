@@ -341,61 +341,63 @@ class _AgentModePageState extends State<AgentModePage> {
       },
       child: Scaffold(
         backgroundColor: t.canvas,
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          key: const ValueKey('agent-mode-close'),
-                          tooltip: '关闭',
-                          icon: Icon(Icons.close, color: t.muted),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                        Text('Agent 模式', style: t.heading(15)),
-                        const Spacer(),
-                        if (_tvAttached)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: Icon(Icons.tv, size: 16, color: t.hint),
+        body: AgentCanvas(
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            key: const ValueKey('agent-mode-close'),
+                            tooltip: '关闭',
+                            icon: Icon(Icons.close, color: t.muted),
+                            onPressed: () => Navigator.of(context).maybePop(),
                           ),
-                        Text(
-                          '第 ${_stack.length} 层',
-                          style: t.body(12, color: t.hint),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ZLayerStack(
-                      padding: const EdgeInsets.fromLTRB(14, 76, 14, 12),
-                      onReveal: _revealTo,
-                      layers: [
-                        for (final l in _stack)
-                          ZLayer(
-                            key: ValueKey(l.id),
-                            peek: _peek(l),
-                            child: AgentFrameView(
-                              frame: _frame(l),
-                              onOpen: (id) {
-                                final c = _channelById(id);
-                                if (c != null) _openChannel(c);
-                              },
+                          Text('Agent 模式', style: t.heading(15)),
+                          const Spacer(),
+                          if (_tvAttached)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: Icon(Icons.tv, size: 16, color: t.hint),
                             ),
+                          Text(
+                            '第 ${_stack.length} 层',
+                            style: t.body(12, color: t.hint),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                    child: AgentVoiceDock(lines: _lines, onSubmit: _submit),
-                  ),
-                ],
+                    Expanded(
+                      child: ZLayerStack(
+                        padding: const EdgeInsets.fromLTRB(14, 76, 14, 12),
+                        onReveal: _revealTo,
+                        layers: [
+                          for (final l in _stack)
+                            ZLayer(
+                              key: ValueKey(l.id),
+                              peek: _peek(l),
+                              child: AgentFrameView(
+                                frame: _frame(l),
+                                onOpen: (id) {
+                                  final c = _channelById(id);
+                                  if (c != null) _openChannel(c);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                      child: AgentVoiceDock(lines: _lines, onSubmit: _submit),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

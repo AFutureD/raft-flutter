@@ -37,6 +37,14 @@ class RaftAgentTheme extends ThemeExtension<RaftAgentTheme> {
     required this.layerShadow,
     required this.topShadow,
     required this.cardShadow,
+    this.cardFills,
+    this.stickerLabels = false,
+    this.weightNumerals = false,
+    this.canvasDots,
+    this.messageFill,
+    this.titleSize = 22,
+    this.titleWeight = FontWeight.w700,
+    this.cardBorder,
     this.depthScale = .06,
     this.depthOffset = 34,
     this.depthFade = .28,
@@ -57,6 +65,29 @@ class RaftAgentTheme extends ThemeExtension<RaftAgentTheme> {
   /// Brutal draws a square orb with a hard shadow; the others a circle.
   final bool orbSquare;
   final List<BoxShadow> layerShadow, topShadow, cardShadow;
+
+  /// Full-color card backgrounds per priority (sticker board). Null keeps
+  /// [card] with only a colored bar.
+  final Map<AgentPriority, Color>? cardFills;
+
+  /// Priority labels drawn as tilted bordered stickers.
+  final bool stickerLabels;
+
+  /// Weight drawn as a large numeral instead of bars.
+  final bool weightNumerals;
+
+  /// Dot-grid color for the canvas; null draws a plain canvas.
+  final Color? canvasDots;
+
+  /// Background of message tiles; null uses [card].
+  final Color? messageFill;
+  final double titleSize;
+  final FontWeight titleWeight;
+
+  /// Border width of cards; null uses [border].
+  final double? cardBorder;
+
+  double get cardBorderWidth => cardBorder ?? border;
 
   /// Per step of depth behind the front layer.
   final double depthScale, depthOffset, depthFade;
@@ -97,7 +128,7 @@ class RaftAgentTheme extends ThemeExtension<RaftAgentTheme> {
     return RaftAgentTheme(
       canvas: t.canvas,
       layer: t.panel,
-      backLayer: t.brutal ? c.fillMuted : t.card,
+      backLayer: t.brutal ? const Color(0xffc9b8ff) : t.card,
       card: t.brutal ? t.panel : t.card,
       line: t.brutal ? c.lineStrong : t.line,
       foreground: t.ink,
@@ -120,18 +151,36 @@ class RaftAgentTheme extends ThemeExtension<RaftAgentTheme> {
       fontFallback: t.fontFallback,
       layerRadius: t.brutal ? 0 : t.radius + 12,
       cardRadius: t.brutal ? 0 : t.radius + 4,
-      border: t.border,
+      border: t.brutal ? 4 : t.border,
       orbSquare: t.brutal,
       layerShadow: t.brutal
-          ? [BoxShadow(color: c.lineStrong, offset: const Offset(4, 4))]
+          ? [BoxShadow(color: c.lineStrong, offset: const Offset(6, 6))]
           : sh.md.paintOrder,
       topShadow: t.brutal
-          ? [BoxShadow(color: c.lineStrong, offset: const Offset(6, 6))]
+          ? [BoxShadow(color: c.lineStrong, offset: const Offset(8, 8))]
           : sh.lg.paintOrder,
       cardShadow: t.brutal
-          ? [BoxShadow(color: c.lineStrong, offset: const Offset(2, 2))]
+          ? [BoxShadow(color: c.lineStrong, offset: const Offset(4, 4))]
           : const [],
       depthFade: t.dark ? .34 : .24,
+      // Neo-brutalist sticker board (Kevin's pick): saturated full-color
+      // cards, thick ink borders, hard shadows, tilted sticker labels,
+      // large weight numerals on dot-grid paper.
+      cardFills: t.brutal
+          ? const {
+              AgentPriority.decision: Color(0xffff5a69),
+              AgentPriority.blocked: Color(0xffff9a4d),
+              AgentPriority.mention: Color(0xffff8cc2),
+              AgentPriority.progress: Color(0xff7fe3a9),
+            }
+          : null,
+      stickerLabels: t.brutal,
+      weightNumerals: t.brutal,
+      canvasDots: t.brutal ? c.lineStrong.withValues(alpha: .35) : null,
+      messageFill: t.brutal ? c.primarySoft : null,
+      titleSize: t.brutal ? 32 : 22,
+      titleWeight: t.brutal ? FontWeight.w900 : FontWeight.w700,
+      cardBorder: t.brutal ? 3 : null,
     );
   }
 
@@ -174,6 +223,14 @@ class RaftAgentTheme extends ThemeExtension<RaftAgentTheme> {
     layerShadow: layerShadow,
     topShadow: topShadow,
     cardShadow: cardShadow,
+    cardFills: cardFills,
+    stickerLabels: stickerLabels,
+    weightNumerals: weightNumerals,
+    canvasDots: canvasDots,
+    messageFill: messageFill,
+    titleSize: titleSize,
+    titleWeight: titleWeight,
+    cardBorder: cardBorder,
     depthScale: depthScale ?? this.depthScale,
     depthOffset: depthOffset ?? this.depthOffset,
     depthFade: depthFade ?? this.depthFade,

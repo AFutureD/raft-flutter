@@ -39,8 +39,13 @@ class AgentLayerFrame extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: t.heading(22),
-                  maxLines: 1,
+                  style: t
+                      .heading(t.titleSize, weight: t.titleWeight)
+                      .copyWith(
+                        height: 1.1,
+                        letterSpacing: t.weightNumerals ? -.8 : 0,
+                      ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -118,10 +123,10 @@ class AgentMessageTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Material(
-        color: t.card,
+        color: t.messageFill ?? t.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(t.cardRadius),
-          side: BorderSide(color: t.line, width: t.border),
+          side: BorderSide(color: t.line, width: t.cardBorderWidth),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -178,12 +183,56 @@ class AgentChip extends StatelessWidget {
             ? t.priority(AgentPriority.decision).withValues(alpha: .14)
             : (square ? t.layer : t.chip),
         borderRadius: BorderRadius.circular(square ? 0 : 999),
-        border: square ? Border.all(color: t.line, width: 1) : null,
+        border: square ? Border.all(color: t.line, width: 2) : null,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Text(label, style: t.body(11, color: t.muted)),
+        child: Text(
+          label,
+          style: t.body(
+            11,
+            color: square ? t.foreground : t.muted,
+            weight: square ? FontWeight.w700 : null,
+          ),
+        ),
       ),
     );
   }
+}
+
+/// Canvas with an optional dot grid ([RaftAgentTheme.canvasDots]).
+class AgentCanvas extends StatelessWidget {
+  const AgentCanvas({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    final dots = t.canvasDots;
+    return ColoredBox(
+      color: t.canvas,
+      child: dots == null
+          ? child
+          : CustomPaint(painter: _DotGrid(dots), child: child),
+    );
+  }
+}
+
+class _DotGrid extends CustomPainter {
+  _DotGrid(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    const step = 18.0;
+    for (var y = step / 2; y < size.height; y += step) {
+      for (var x = step / 2; x < size.width; x += step) {
+        canvas.drawCircle(Offset(x, y), 1.1, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotGrid old) => old.color != color;
 }
