@@ -91,6 +91,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   int? _focusPointer;
   Offset? _focusDown;
   bool _focusMoved = false;
+  FocusNode? _focusAtDown;
   RaftMessageTimeline? listsOwner;
   Widget? historyList, forwardList;
   late final nearbyPreparation = MessagePreparation(
@@ -373,6 +374,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     _focusPointer = event.pointer;
     _focusDown = event.position;
     _focusMoved = false;
+    _focusAtDown = FocusManager.instance.primaryFocus;
   }
 
   void _trackTimelineMove(PointerMoveEvent event) {
@@ -384,24 +386,40 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   void _focusTimelineOnTap(PointerUpEvent event) {
     if (event.pointer != _focusPointer) return;
     final moved = _focusMoved;
-    _focusPointer = null;
-    _focusDown = null;
-    _focusMoved = false;
+    final focusAtDown = _focusAtDown;
+    _clearTimelinePointer();
     // Mobile Web blurs the composer on a timeline tap and does not
     // preventDefault there. Pointer down and a drag do not request this
-    // focus; the completed tap is what moves Page Up onto the timeline.
+    // focus. The request waits one frame, and only runs when this page is
+    // still current and the click did not move focus to another control.
     if (moved || _timelineFocus.hasFocus) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _timelineFocus.hasFocus) return;
+      if (ModalRoute.of(context)?.isCurrent != true) return;
+      // A desktop click outside the composer drops focus to the page scope.
+      // That is not another control taking focus. A button, menu, or route is.
+      if (!_pointerDownFocusRemains(focusAtDown)) return;
       _timelineFocus.requestFocus();
     });
   }
 
+  bool _pointerDownFocusRemains(FocusNode? recorded) {
+    final primary = FocusManager.instance.primaryFocus;
+    if (identical(primary, recorded)) return true;
+    if (recorded == null || primary == null) return false;
+    return recorded.ancestors.contains(primary);
+  }
+
   void _cancelTimelinePointer(PointerCancelEvent event) {
     if (event.pointer != _focusPointer) return;
+    _clearTimelinePointer();
+  }
+
+  void _clearTimelinePointer() {
     _focusPointer = null;
     _focusDown = null;
     _focusMoved = false;
+    _focusAtDown = null;
   }
 
   @override

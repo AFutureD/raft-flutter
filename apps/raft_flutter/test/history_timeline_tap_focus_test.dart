@@ -89,6 +89,41 @@ void main() {
     expect(older, hasLength(1), reason: 'Page Up stayed on h-25');
     await _landWithoutAnother(tester, older);
   });
+
+  testWidgets('a right-click menu keeps focus off the timeline', (
+    tester,
+  ) async {
+    await _openFirstPage(tester);
+    await _focusComposer(tester);
+    await tester.tap(
+      find.text('Row h-50'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Copy Link'), findsOneWidget);
+    expect(_timeline(tester).hasFocus, isFalse);
+    final menuRoute = ModalRoute.of(tester.element(find.text('Copy Link')));
+    expect(menuRoute?.isCurrent, isTrue);
+  });
+
+  testWidgets('a long-press message menu keeps focus off the timeline', (
+    tester,
+  ) async {
+    await _openFirstPage(tester);
+    await _focusComposer(tester);
+    final row = find.byKey(const ValueKey('message-h-40'));
+    final rect = tester.getRect(row);
+    await tester.longPressAt(Offset(rect.left + 2, rect.center.dy));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Copy Link'), findsOneWidget);
+    expect(_timeline(tester).hasFocus, isFalse);
+    expect(_timeline(tester).hasPrimaryFocus, isFalse);
+  });
 }
 
 Future<List<Completer<void>>> _openFirstPage(WidgetTester tester) async {
