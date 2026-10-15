@@ -1065,7 +1065,7 @@ class _RaftChatViewState extends State<RaftChatView>
   int? revealingWindow;
 
   void sync() {
-    if (!mounted || !presentationActive || MobileRouteGate.holds(context, w)) return;
+    if (!mounted || MobileRouteGate.holds(context, w)) return;
     if (reactionPicker != null && pickerAuthority != workspaceAuthority(w)) {
       closeReactionPicker();
     }
