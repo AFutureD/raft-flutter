@@ -61,6 +61,7 @@ import 'saved_sidebar_entry.dart';
 /// and agent chat do not wrap this.
 class MobileChatDirectRead extends InheritedWidget {
   const MobileChatDirectRead({
+    super.key,
     required this.channel,
     required this.thread,
     required super.child,

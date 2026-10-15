@@ -1,11 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/mobile_settings_owner.dart';
-import 'package:raft_flutter/features/workspace_view.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 
@@ -193,7 +190,7 @@ void main() {
     final dynamic coveredState = t.state(channelChat());
     expect(covered.controller.presentationActive, isFalse);
     expect(coveredState.presentationActive, isFalse);
-    expect(TickerMode.of(t.element(channelChat())), isFalse);
+    expect(TickerMode.valuesOf(t.element(channelChat())).enabled, isFalse);
     expect(
       t
           .widget<EditableText>(
@@ -227,7 +224,7 @@ void main() {
     expect(await t.binding.handlePopRoute(), isTrue);
     await f.flush(t);
     expect(find.text('Fresh while covered'), findsOneWidget);
-    expect(TickerMode.of(t.element(channelChat())), isTrue);
+    expect(TickerMode.valuesOf(t.element(channelChat())).enabled, isTrue);
     expect(t.takeException(), isNull);
     await f.close(t);
   });
