@@ -474,8 +474,8 @@
         "field._ResourceViewState.viewWindows": 1,
         "field._TaskDrag.row": 1,
         "field._TaskDrag.scope": 1,
-        "lines": 5932,
-        "tokens": 34522
+        "lines": 5928,
+        "tokens": 34373
       }
     },
     "server_task_window": {
@@ -507,6 +507,30 @@
       "metrics": {
         "lines": 49,
         "tokens": 239
+      }
+    },
+    "saved_page_scope": {
+      "root": "apps/raft_flutter/lib/features/saved_page_scope.dart",
+      "metrics": {
+        "lines": 267,
+        "tokens": 1487
+      }
+    },
+    "server_saved_window": {
+      "root": "apps/raft_flutter/lib/data/server_saved_window.dart",
+      "metrics": {
+        "field.ServerSavedWindow._disposed": 1,
+        "field.ServerSavedWindow._events": 1,
+        "field.ServerSavedWindow.attached": 1,
+        "field.ServerSavedWindow.client": 1,
+        "field.ServerSavedWindow.events": 1,
+        "field.ServerSavedWindow.identity": 1,
+        "field.ServerSavedWindow.lostChannels": 1,
+        "field.ServerSavedWindow.needsRevalidate": 1,
+        "field.ServerSavedWindow.serverId": 1,
+        "field.ServerSavedWindow.snapshot": 1,
+        "lines": 417,
+        "tokens": 2456
       }
     },
     "chat_view": {

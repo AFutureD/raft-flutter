@@ -73,6 +73,37 @@ class ResourceSnapshot extends PageSnapshot {
 
   /// Other recently accepted filter/query windows, by request shape.
   final Map<String, ResourceViewWindow> viewWindows;
+
+  /// Rows and view windows changed. Every other accepted field stays.
+  ResourceSnapshot replaceRows({
+    required List<Map<String, dynamic>> rows,
+    required int? totalCount,
+    required Map<String, ResourceViewWindow> viewWindows,
+  }) => ResourceSnapshot(
+    identity: identity,
+    enabledActivity: enabledActivity,
+    view: view,
+    rows: rows,
+    hasMore: hasMore,
+    filter: filter,
+    activeActivityFilter: activeActivityFilter,
+    query: query,
+    channelId: channelId,
+    direction: direction,
+    totalCount: totalCount,
+    totalUnreadCount: totalUnreadCount,
+    activityAllCount: activityAllCount,
+    savedActivityTotal: savedActivityTotal,
+    activityGroups: activityGroups,
+    acceptedActivityItems: acceptedActivityItems,
+    savedActivityItems: savedActivityItems,
+    doneActivityItems: doneActivityItems,
+    channelAccess: channelAccess,
+    scrollOffset: scrollOffset,
+    viewWindows: viewWindows,
+    sectionScrollOffsets: sectionScrollOffsets,
+    inboxSerial: inboxSerial,
+  );
 }
 
 /// Tasks page snapshot (Source taskStore serverTasks + serverTaskPages):
@@ -166,6 +197,24 @@ class ResourceSnapshotCache {
     release?.call();
   }
 
+  /// The workspace Saved window. Not the `saved` snapshot slot.
+  ServerSavedSlot? serverSaved;
+  void Function()? _releaseServerSaved;
+
+  /// [release] runs when this window is replaced or the cache is cleared.
+  void keepServerSaved(ServerSavedSlot window, void Function() release) {
+    if (!identical(serverSaved, window)) _releaseServerSaved?.call();
+    serverSaved = window;
+    _releaseServerSaved = release;
+  }
+
+  void dropServerSaved() {
+    final release = _releaseServerSaved;
+    _releaseServerSaved = null;
+    serverSaved = null;
+    release?.call();
+  }
+
   /// The [T] snapshot of [section] accepted under exactly [identity], if any.
   T? read<T extends PageSnapshot>(String section, String identity) {
     final snapshot = _snapshots[section];
@@ -183,8 +232,22 @@ class ResourceSnapshotCache {
   /// Server or account switch: no page snapshot survives.
   void clear() {
     dropServerTasks();
+    dropServerSaved();
     _snapshots.clear();
   }
+}
+
+/// Workspace Saved window stored on the session cache.
+///
+/// The concrete window lives in another library. This type is the part the
+/// cache and the page both use, so neither side stores it as [Object].
+abstract interface class ServerSavedSlot {
+  ResourceSnapshot get snapshot;
+  bool get needsRevalidate;
+  set needsRevalidate(bool value);
+  int get attached;
+  void attach();
+  void detach();
 }
 
 /// A management or settings page's accepted projection (the page's own data
