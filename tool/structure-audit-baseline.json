@@ -31,7 +31,7 @@
         "field.WorkspaceController._attachmentImages": 1,
         "field.WorkspaceController._attachmentUrlRequests": 1,
         "field.WorkspaceController._attachmentUrls": 1,
-        "field.WorkspaceController._attempts": 1,
+        "field.WorkspaceController._attempts": 0,
         "field.WorkspaceController._burstAt": 1,
         "field.WorkspaceController._cacheRetired": 1,
         "field.WorkspaceController._cacheWrites": 1,
@@ -55,9 +55,9 @@
         "field.WorkspaceController._creatingThreadWindow": 1,
         "field.WorkspaceController._diskOnlyWindows": 1,
         "field.WorkspaceController._disposed": 1,
-        "field.WorkspaceController._draftRevisions": 1,
-        "field.WorkspaceController._draftShareTokens": 1,
-        "field.WorkspaceController._drafts": 1,
+        "field.WorkspaceController._draftRevisions": 0,
+        "field.WorkspaceController._draftShareTokens": 0,
+        "field.WorkspaceController._drafts": 0,
         "field.WorkspaceController._externalProfiles": 1,
         "field.WorkspaceController._gapSyncedThrough": 1,
         "field.WorkspaceController._gapSyncing": 1,
@@ -156,6 +156,7 @@
         "field.WorkspaceController.channelLoading": 1,
         "field.WorkspaceController.channels": 1,
         "field.WorkspaceController.client": 1,
+        "field.WorkspaceController.composer": 1,
         "field.WorkspaceController.connected": 1,
         "field.WorkspaceController.discardSharedScope": 1,
         "field.WorkspaceController.dms": 1,
@@ -225,8 +226,8 @@
         "field._ResourcePagePreviewState.client": 1,
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
-        "field._SendAttempt.fingerprint": 1,
-        "field._SendAttempt.randomId": 1,
+        "field._SendAttempt.fingerprint": 0,
+        "field._SendAttempt.randomId": 0,
         "field._ThreadWindow.authority": 1,
         "field._ThreadWindow.generation": 1,
         "field._ThreadWindow.hasMore": 1,
@@ -236,8 +237,8 @@
         "field._ThreadWindow.threadChannelId": 1,
         "field._ThreadWindow.token": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 7538,
-        "tokens": 42165
+        "lines": 7482,
+        "tokens": 41903
       }
     },
     "workspace_view": {
@@ -283,9 +284,9 @@
         "field._WorkspaceViewState.channelSearchAuthority": 1,
         "field._WorkspaceViewState.channelSearchRevoked": 1,
         "field._WorkspaceViewState.channelSearchSeed": 1,
-        "field._WorkspaceViewState.classicDraftAtEntry": 1,
-        "field._WorkspaceViewState.classicDraftScope": 1,
-        "field._WorkspaceViewState.classicEditorRevision": 1,
+        "field._WorkspaceViewState.classicDraftAtEntry": 0,
+        "field._WorkspaceViewState.classicDraftScope": 0,
+        "field._WorkspaceViewState.classicEditorRevision": 0,
         "field._WorkspaceViewState.conversationInstance": 1,
         "field._WorkspaceViewState.gridEntered": 1,
         "field._WorkspaceViewState.gridKey": 1,
@@ -298,7 +299,7 @@
         "field._WorkspaceViewState.lastChannelAuthority": 1,
         "field._WorkspaceViewState.lastChannelId": 1,
         "field._WorkspaceViewState.lastCompact": 1,
-        "field._WorkspaceViewState.lastGridActive": 1,
+        "field._WorkspaceViewState.lastGridActive": 0,
         "field._WorkspaceViewState.liveActivities": 1,
         "field._WorkspaceViewState.liveActivityShown": 1,
         "field._WorkspaceViewState.mainSelection": 1,
@@ -346,8 +347,8 @@
         "field._WorkspaceViewState.threadWidth": 1,
         "field._WorkspaceViewState.workspaceErrorScheduled": 1,
         "field._WorkspaceViewState.workspaceMode": 1,
-        "lines": 5061,
-        "tokens": 26405
+        "lines": 5041,
+        "tokens": 26296
       }
     },
     "resource_view": {
@@ -766,5 +767,22 @@
       }
     }
   },
-  "exceptions": []
+  "exceptions": [
+    {
+      "module": "chat_view",
+      "metric": "lines",
+      "limit": 3677,
+      "reason": "Scope the composer listener to one conversation; remove this allowance with the M3 send extraction (slice 3).",
+      "reviewer": "Cindy",
+      "expires": "2026-10-28"
+    },
+    {
+      "module": "chat_view",
+      "metric": "tokens",
+      "limit": 20374,
+      "reason": "Scope the composer listener to one conversation; remove this allowance with the M3 send extraction (slice 3).",
+      "reviewer": "Cindy",
+      "expires": "2026-10-28"
+    }
+  ]
 }

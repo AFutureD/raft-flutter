@@ -738,11 +738,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   late WorkspaceModeStore workspaceMode;
   final gridKey = GlobalKey<WorkspaceGridViewState>();
-  int classicEditorRevision = 0;
-  bool lastGridActive = false;
   bool gridEntered = false;
   Size? retainedGridSize;
-  String? classicDraftScope, classicDraftAtEntry;
   bool get gridActive => workspaceMode.active(MediaQuery.sizeOf(context).width);
 
   void syncBridgeFlag() {
@@ -1366,20 +1363,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
       final attentionOwner = activityUnread;
       final attentionScope = attentionOwner.scope;
       final attentionEpoch = attentionOwner.authorityEpoch;
-      if (!lastGridActive && gridActive) {
-        classicDraftScope = w.draftScope();
-        classicDraftAtEntry = w.drafts[classicDraftScope] ?? '';
-      }
-      if (lastGridActive && !gridActive) {
-        gridKey.currentState?.flushDrafts();
-        // Hydrate only an editor whose own text changed in the grid. A draft
-        // in a different tab must not reset the retained classic cursor.
-        if (classicDraftScope == w.draftScope() &&
-            classicDraftAtEntry != (w.drafts[classicDraftScope] ?? '')) {
-          classicEditorRevision++;
-        }
-      }
-      lastGridActive = gridActive;
       if (gridActive) gridEntered = true;
       if (!workspaceMode.enabled || !workspaceMode.showCard) {
         gridEntered = false;
@@ -1944,9 +1927,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                                 ),
                                         Expanded(
                                           child: KeyedSubtree(
-                                            key: ValueKey(
-                                              'classic-editor-$classicEditorRevision',
-                                            ),
+                                            key: const ValueKey('classic-editor'),
                                             child: content,
                                           ),
                                         ),
@@ -4040,7 +4021,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
   Widget modeCard() => WorkspaceModeSettingsCard(
     controller: w,
     store: workspaceMode,
-    onBeforeChange: () => gridKey.currentState?.flushDrafts(),
   );
 
   Widget settings() {

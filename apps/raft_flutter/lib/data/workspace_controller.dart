@@ -17,6 +17,7 @@ import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
 import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
+import 'workspace_composer.dart';
 import 'resource_snapshot_cache.dart';
 import 'user_activity.dart';
 import 'user_error.dart';
@@ -95,11 +96,6 @@ class UploadDraft {
   /// The accepted upload record (`POST /attachments/upload`), so an
   /// optimistic row can present the attachment before the message exists.
   Map<String, dynamic>? metadata;
-}
-
-class _SendAttempt {
-  const _SendAttempt(this.fingerprint, this.randomId);
-  final String fingerprint, randomId;
 }
 
 /// Web MessageInput `addOptimisticMessage`: the row presented from the moment
@@ -276,10 +272,15 @@ class WorkspaceController extends ChangeNotifier {
     FollowedThreadsStore? followedThreads,
     AttachmentImageByteStore? attachmentImageStore,
     AttachmentUrlCache? attachmentUrls,
+    WorkspaceComposer? composer,
   }) : _attachmentUrls = attachmentUrls ?? AttachmentUrlCache(),
        _presentationAuthority = presentationSource?.navigationAuthority,
        attachmentImageStore =
            attachmentImageStore ?? AttachmentDiskCache.installed {
+    this.composer =
+        composer ??
+        presentationSource?.composer ??
+        WorkspaceComposer(owner: this, read: _cached, write: _save);
     if (presentationSource == null) {
       _removePlayerTrim = _playerSessions.installMemoryTrim();
     }
@@ -322,6 +323,7 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   VoidCallback? _removeCacheClear;
+  late final WorkspaceComposer composer;
 
   /// "Clear cache": lets go of what this workspace keeps in memory and can
   /// rebuild: decoded attachment pictures nobody shows, signed attachment URLs
@@ -1322,7 +1324,7 @@ class WorkspaceController extends ChangeNotifier {
   Future<void> flushCache() {
     if (_ownsEntityDirectory) entityDirectory.flushDevice();
     _translations?.flushDevice();
-    return _cacheWrites;
+    return Future.wait([_cacheWrites, composer.flushed]);
   }
 
   /// Stops all further device writes of this workspace and completes once
@@ -1330,11 +1332,13 @@ class WorkspaceController extends ChangeNotifier {
   /// account's device data.
   Future<void> retireCache() {
     _cacheRetired = true;
-    return _cacheWrites;
+    return Future.wait([_cacheWrites, composer.flushed]);
   }
 
-  final Map<String, String> _drafts = {};
-  Map<String, String> get drafts => presentationSource?.drafts ?? _drafts;
+  Map<String, String> get drafts =>
+      !composer.ownedBy(this) && (server == null || _disposed)
+      ? const {}
+      : composer.drafts;
   final Set<String> _revokedChannels = {};
   final Set<String> _revokedServers = {};
   Object? _presentationOwner;
@@ -1447,11 +1451,8 @@ class WorkspaceController extends ChangeNotifier {
         }
       }
       _uploads.clear();
-      _attempts.clear();
+      composer.clearOwnedBy(this);
       _pendingSends.clear();
-      drafts.clear();
-      _draftRevisions.clear();
-      _draftShareTokens.clear();
       _shareHolds.clear();
       visibleIds.clear();
       _windowState.clear();
@@ -1566,46 +1567,21 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   final _queuedSendTexts = <String, String>{};
-  final _draftShareTokens = <String, Set<String>>{};
+  Map<String, Set<String>> get _draftShareTokens => composer.shareTokens;
   Future<void> _saveDraftScope(String scope, {bool requiredSuccess = false}) {
     final pending = _pendingSends[scope] ?? <_PendingSend>[];
     final files = [
       ...?_uploads[scope],
       for (final attempt in pending) ...attempt.uploads,
     ].where((f) => f.local != null).toList();
-    final text = [
-      if (files.isNotEmpty)
-        for (final p in pending) p.draft,
-      _queuedSendTexts[scope] ?? '',
-      drafts[scope] ?? '',
-    ].where((s) => s.isNotEmpty).toSet().join('\n\n');
-    return _save(
-      'draft',
+    return composer.saveDraft(
       scope,
-      text.isEmpty && files.isEmpty
-          ? null
-          : {
-              'text': text,
-              'channelId': scope,
-              'shareTokens': _draftShareTokens[scope]?.toList(),
-              'files': [
-                for (final file in files)
-                  {
-                    'ref': file.local!.reference,
-                    'id': file.id,
-                    'metadata': {
-                      for (final key in [
-                        'id',
-                        'filename',
-                        'mimeType',
-                        'sizeBytes',
-                      ])
-                        if (file.metadata?.containsKey(key) == true)
-                          key: file.metadata![key],
-                    },
-                  },
-              ],
-            },
+      pendingText: pending.map((p) => p.draft),
+      queuedText: _queuedSendTexts[scope] ?? '',
+      files: [
+        for (final file in files)
+          (local: file.local!, id: file.id, metadata: file.metadata),
+      ],
       requiredSuccess: requiredSuccess,
     );
   }
@@ -1671,74 +1647,52 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
-  final _draftRevisions = <String, int>{};
+  Map<String, int> get _draftRevisions => composer.revisions;
   int draftRevision({bool thread = false}) =>
-      (presentationSource?._draftRevisions ?? _draftRevisions)[draftScope(
-        thread: thread,
-      )] ??
-      0;
+      _draftRevisions[draftScope(thread: thread)] ?? 0;
+  ValueListenable<int> draftChanges({bool thread = false}) =>
+      composer.changes(draftScope(thread: thread));
 
   Future<void> _restoreDraft(String scope) async {
     final generation = ledger.generation;
-    final value = await _cached('draft', scope);
-    if (generation != ledger.generation ||
-        _disposed ||
-        drafts.containsKey(scope)) {
-      return;
-    }
-    if (value is Map && value['text'] is String) {
-      drafts[scope] = value['text'];
-      if (value['shareTokens'] is List) {
-        _draftShareTokens[scope] = (value['shareTokens'] as List)
-            .whereType<String>()
-            .take(64)
-            .toSet();
-      }
-      final principal = client.user?.id;
-      final files = value['files'];
-      if (files is List &&
-          restoreSharedAttachment != null &&
-          client.user != null) {
-        for (final row in files.whereType<Map>()) {
-          if (row['ref'] is! Map) continue;
-          final file = await restoreSharedAttachment!(
-            Map<String, dynamic>.from(row['ref']),
-            client.origin,
-            principal!,
-          );
-          if (generation != ledger.generation || _disposed) return;
-          if (file == null) continue;
-          final list = _uploads[scope] ??= [];
-          if (list.any(
-            (u) =>
-                u.local != null &&
-                jsonEncode(u.local!.reference) == jsonEncode(file.reference),
-          )) {
-            continue;
-          }
-          final draft = UploadDraft.shared(file, key: _uploadKeys++);
-          if (row['id'] is String) {
-            draft.id = row['id'];
-            draft.queued = false;
-            draft.progress = 1;
-            if (row['metadata'] is Map) {
-              draft.metadata = Map<String, dynamic>.from(row['metadata']);
+    await composer.restore(
+      scope,
+      current: () => generation == ledger.generation && !_disposed,
+      restoreFiles: (files) async {
+        final principal = client.user?.id;
+        if (restoreSharedAttachment != null && client.user != null) {
+          for (final row in files) {
+            if (row['ref'] is! Map) continue;
+            final file = await restoreSharedAttachment!(
+              Map<String, dynamic>.from(row['ref']),
+              client.origin,
+              principal!,
+            );
+            if (generation != ledger.generation || _disposed) return;
+            if (file == null) continue;
+            final list = _uploads[scope] ??= [];
+            if (list.any(
+              (u) =>
+                  u.local != null &&
+                  jsonEncode(u.local!.reference) == jsonEncode(file.reference),
+            )) {
+              continue;
             }
+            final draft = UploadDraft.shared(file, key: _uploadKeys++);
+            if (row['id'] is String) {
+              draft.id = row['id'];
+              draft.queued = false;
+              draft.progress = 1;
+              if (row['metadata'] is Map) {
+                draft.metadata = Map<String, dynamic>.from(row['metadata']);
+              }
+            }
+            list.add(draft);
           }
-          list.add(draft);
         }
-      }
-      notifyListeners();
-    }
-    final attempt = await _cached('attempt', scope);
-    if (generation == ledger.generation &&
-        attempt is Map &&
-        !_attempts.containsKey(scope)) {
-      _attempts[scope] = _SendAttempt(
-        attempt['fingerprint'],
-        attempt['randomId'],
-      );
-    }
+      },
+      restored: notifyListeners,
+    );
   }
 
   String _windowAuthority() =>
@@ -1847,7 +1801,7 @@ class WorkspaceController extends ChangeNotifier {
   final Map<String, Future<void>> _reactionWrites = {};
   final Map<String, Future<void>> _viewerLoads = {};
   final Map<String, List<UploadDraft>> _uploads = {};
-  final Map<String, _SendAttempt> _attempts = {};
+  Map<String, ComposerSendAttempt> get _attempts => composer.attempts;
 
   /// Optimistic rows by draft scope, in send order.
   final Map<String, List<_PendingSend>> _pendingSends = {};
@@ -2127,7 +2081,7 @@ class WorkspaceController extends ChangeNotifier {
     if (wasOpen) channel = real;
     _putChannelRow(real);
     notifyListeners();
-    unawaited(_save('draft', pendingId, null));
+    unawaited(composer.removeStoredDraft(pendingId));
     unawaited(_saveDraftScope(real.id));
     if (wasOpen) {
       await selectChannel(
@@ -3142,12 +3096,9 @@ class WorkspaceController extends ChangeNotifier {
       }
     }
     _uploads.clear();
-    _attempts.clear();
+    composer.clearOwnedBy(this);
     _pendingSends.clear();
     _localRandomIds.clear();
-    drafts.clear();
-    _draftRevisions.clear();
-    _draftShareTokens.clear();
     _shareHolds.clear();
     visibleIds.clear();
     _windowState.clear();
@@ -5371,12 +5322,12 @@ class WorkspaceController extends ChangeNotifier {
     final freshAttempt =
         retained == null ||
         retained.fingerprint != fingerprint ||
-        (_pendingSends[scope]?.any((p) => p.randomId == retained.randomId) ??
-            false);
+        retained.inFlight;
     final attempt = freshAttempt
-        ? _SendAttempt(fingerprint, randomId ?? client.newRandomId())
+        ? ComposerSendAttempt(fingerprint, randomId ?? client.newRandomId())
         : retained;
     _attempts[scope] = attempt;
+    attempt.inFlight = true;
     final sentId = attempt.randomId;
     // Web MessageInput: the optimistic row appears and the composer's files
     // leave with it before any request; a failure gives both back.
@@ -5429,6 +5380,7 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
 
     void settle() {
+      attempt.inFlight = false;
       final list = _pendingSends[scope];
       list?.remove(pending);
       if (list != null && list.isEmpty) _pendingSends.remove(scope);
@@ -5478,11 +5430,7 @@ class WorkspaceController extends ChangeNotifier {
       final id = thread ? await ensureThread() : intendedChannel;
       if (id == null || !currentSend()) return fail();
       if (freshAttempt) {
-        await _save('attempt', scope, {
-          'fingerprint': fingerprint,
-          'randomId': sentId,
-          'channelId': channel?.id,
-        });
+        await composer.saveAttempt(scope, attempt, channelId: channel?.id);
       }
       if (!currentSend()) return fail();
       final sent = await client.sendWithReceipt(
@@ -5501,7 +5449,7 @@ class WorkspaceController extends ChangeNotifier {
       }
       if (_attempts[scope]?.randomId == sentId) {
         _attempts.remove(scope);
-        _save('attempt', scope, null);
+        composer.saveAttempt(scope, null);
       }
       if (!currentSend()) {
         notifyListeners();
@@ -5729,12 +5677,7 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
     Future<void> restoreCurrentDraft() async {
       final scope = 'thread:$parentMessageId';
-      final value = await _cached('draft', scope);
-      if (!current() || drafts.containsKey(scope)) return;
-      if (value is Map && value['text'] is String) {
-        drafts[scope] = value['text'];
-        notifyListeners();
-      }
+      if (await composer.restoreText(scope, current)) notifyListeners();
     }
 
     unawaited(restoreCurrentDraft());
@@ -7018,6 +6961,7 @@ class WorkspaceController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    composer.disposeOwnedBy(this);
     if (_ownsEntityDirectory) {
       removeListener(_entityAuthorityChanged);
       entityDirectory.dispose();

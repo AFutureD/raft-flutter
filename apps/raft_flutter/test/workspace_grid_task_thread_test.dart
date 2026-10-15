@@ -22,7 +22,7 @@ const tabId = 'thread:c1:task-parent';
 final threadTab = find.byKey(const ValueKey('editor-tab-$tabId'));
 final channelTab = find.byKey(const ValueKey('editor-tab-c1'));
 final badge = find.byKey(const ValueKey('message-task-task-parent'));
-final channelBody = find.byKey(const ValueKey('grid-conversation-c1-0'));
+final channelBody = find.byKey(const ValueKey('grid-conversation-c1'));
 final threadBody = find.byKey(const ValueKey('grid-thread-$tabId'));
 Finder editor(Finder host) => find.descendant(
   of: host,

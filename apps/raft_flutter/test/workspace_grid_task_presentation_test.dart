@@ -186,9 +186,9 @@ void main() {
         expect(owner.closed, isTrue);
         expect(
           t.state(classicEditor),
-          isNot(same(classicState)),
-        ); // changed grid draft intentionally hydrates classic
-        expect(classic.text, 'Retained actual channel draft');
+          same(classicState),
+        ); // The shared draft updates the retained editor without remounting.
+        expect(classic.text, 'Retained independent grid draft');
         expect(
           t.widget<TextField>(classicEditor).controller!.text,
           'Retained independent grid draft',
