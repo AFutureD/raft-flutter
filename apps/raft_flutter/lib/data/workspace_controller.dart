@@ -796,18 +796,12 @@ class WorkspaceController extends ChangeNotifier {
           '${repository.decodedByteCount}/${repository.maxDecodedBytes} B decoded '
           '${repository.encodedByteCount} B encoded',
     );
-    _removeImageTrimmer = RaftMemoryRelease.instance.addTrimmer((reason) {
-      final before = repository.decodedByteCount;
-      final dropped = repository.trimIdle(pressure: reason == RaftMemoryTrim.pressure);
-      if (!kReleaseMode) {
-        debugPrint(
-          '[raft-memory] ${reason.name}: dropped $dropped decoded images '
-          '(${before - repository.decodedByteCount} B), '
-          '${repository.entryCount} held '
-          '(${repository.decodedByteCount} B decoded)',
-        );
-      }
-    });
+    _removeImageTrimmer = RaftMemoryRelease.instance.addTrimmer(
+      (reason) => repository.trimIdle(
+        pressure: reason == RaftMemoryTrim.pressure,
+        reason: reason.name,
+      ),
+    );
     return repository;
   }
 

@@ -757,8 +757,9 @@ class AttachmentImageRepository {
 
   /// Drops every decoded image no lease holds (memory pressure, app in the
   /// background). Returns the number dropped. Held images stay: their widget
-  /// owns the decision to let go.
-  int trimIdle({bool pressure = false}) {
+  /// owns the decision to let go. [reason] labels optional debug diagnostics.
+  int trimIdle({bool pressure = false, String? reason}) {
+    final before = decodedByteCount;
     if (pressure) _pressureUntil = clock() + const Duration(seconds: 30);
     var dropped = 0;
     for (final e in _entries.values.toList()) {
@@ -766,6 +767,13 @@ class AttachmentImageRepository {
         _drop(e);
         dropped++;
       }
+    }
+    if (!kReleaseMode && reason != null) {
+      debugPrint(
+        '[raft-memory] $reason: dropped $dropped decoded images '
+        '(${before - decodedByteCount} B), '
+        '$entryCount held ($decodedByteCount B decoded)',
+      );
     }
     return dropped;
   }
