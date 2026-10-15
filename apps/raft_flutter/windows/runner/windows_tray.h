@@ -9,6 +9,8 @@
 #include <optional>
 #include <string>
 
+#include "windows_exit.h"
+
 // A shortcut launch restores the existing tray owner, including a hidden one.
 bool ForwardWindowsTrayLaunch();
 
@@ -18,6 +20,8 @@ class WindowsTray {
   WindowsTray(flutter::BinaryMessenger* messenger, HWND window);
   ~WindowsTray();
   std::optional<LRESULT> HandleMessage(UINT message, WPARAM wparam, LPARAM lparam);
+  void PrepareExit(int64_t request_id, const char* reason, WindowsExit::Reply reply);
+  void MarkQuitting() { quitting_ = true; }
 
  private:
   bool AddIcon();
@@ -34,11 +38,10 @@ class WindowsTray {
   HWND window_;
   UINT taskbar_created_;
   UINT present_message_;
-  UINT quit_message_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
   HICON icon_ = nullptr;
   bool initialized_ = false, available_ = false, close_to_tray_ = true;
-  bool quitting_ = false, session_ending_ = false, lab_ = false;
+  bool quitting_ = false, lab_ = false;
   int64_t unread_ = 0;
   std::wstring open_label_ = L"Open Raft", hide_label_ = L"Hide window";
   std::wstring quit_label_ = L"Quit Raft", unread_label_ = L"unread";

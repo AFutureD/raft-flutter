@@ -1,6 +1,7 @@
 #include "windows_tray.h"
 
 #include <flutter/standard_method_codec.h>
+#include <flutter/method_result_functions.h>
 #include <shellapi.h>
 #include <windowsx.h>
 #include <raft_updater/window_lifetime.h>
@@ -81,8 +82,7 @@ bool ForwardWindowsTrayLaunch() {
 
 WindowsTray::WindowsTray(flutter::BinaryMessenger* messenger, HWND window)
     : window_(window), taskbar_created_(RegisterWindowMessageW(L"TaskbarCreated")),
-      present_message_(RegisterWindowMessageW(kPresentMessage)),
-      quit_message_(RegisterWindowMessageW(kRaftExplicitQuitMessage)) {
+      present_message_(RegisterWindowMessageW(kPresentMessage)) {
   channel_ = std::make_unique<flutter::MethodChannel<EncodableValue>>(
       messenger, "app.raft/windows-tray",
       &flutter::StandardMethodCodec::GetInstance());
@@ -137,6 +137,29 @@ WindowsTray::WindowsTray(flutter::BinaryMessenger* messenger, HWND window)
 WindowsTray::~WindowsTray() {
   channel_->SetMethodCallHandler(nullptr);
   RemoveIcon();
+}
+
+void WindowsTray::PrepareExit(int64_t request_id, const char* reason,
+                              WindowsExit::Reply reply) {
+  auto result = std::make_unique<flutter::MethodResultFunctions<EncodableValue>>(
+      [reply](const EncodableValue* value) {
+        const auto map = value ? std::get_if<EncodableMap>(value) : nullptr;
+        if (!map) return;
+        const auto id = map->find(EncodableValue("requestId"));
+        const auto outcome = map->find(EncodableValue("outcome"));
+        if (id == map->end() || outcome == map->end()) return;
+        const auto text = std::get_if<std::string>(&outcome->second);
+        if (!text) return;
+        if (const auto number32 = std::get_if<int32_t>(&id->second)) reply(*number32, *text);
+        else if (const auto number64 = std::get_if<int64_t>(&id->second)) reply(*number64, *text);
+      },
+      [reply, request_id](const std::string&, const std::string&, const EncodableValue*) {
+        reply(request_id, "channelError");
+      },
+      [reply, request_id]() { reply(request_id, "unavailable"); });
+  channel_->InvokeMethod("prepareExit", std::make_unique<EncodableValue>(EncodableMap{
+      {EncodableValue("requestId"), EncodableValue(request_id)},
+      {EncodableValue("reason"), EncodableValue(reason)}}), std::move(result));
 }
 
 void WindowsTray::Configure(const EncodableMap& args) {
@@ -311,11 +334,6 @@ EncodableMap WindowsTray::State() const {
 }
 
 std::optional<LRESULT> WindowsTray::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam) {
-  if (quit_message_ && message == quit_message_) {
-    quitting_ = true;
-    PostMessageW(window_, WM_CLOSE, 0, 0);
-    return 0;
-  }
   if (present_message_ && message == present_message_ && initialized_ && !quitting_) {
     Present(); return 0;
   }
@@ -324,9 +342,7 @@ std::optional<LRESULT> WindowsTray::HandleMessage(UINT message, WPARAM wparam, L
     if (!AddIcon() && !IsWindowVisible(window_) && !quitting_) Present();
     return 0;
   }
-  if (message == WM_QUERYENDSESSION) session_ending_ = true;
-  if (message == WM_ENDSESSION && !wparam) session_ending_ = false;
-  if (message == WM_CLOSE && close_to_tray_ && available_ && !quitting_ && !session_ending_) {
+  if (message == WM_CLOSE && close_to_tray_ && available_ && !quitting_) {
     Hide(); return 0;
   }
   if (message == WM_DPICHANGED && available_) UpdateIcon();
