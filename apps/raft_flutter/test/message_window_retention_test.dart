@@ -163,6 +163,51 @@ class _ThreadClient extends _Client {
   }
 }
 
+class _HistoryThreadClient extends _ThreadClient {
+  final beforeReads = <BigInt?>[];
+  Set<int> removed = {};
+  int tailEnd = 100;
+  bool historyRestricted = false;
+  Completer<void>? repliesGate;
+  Object? repliesFailure;
+
+  @override
+  Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
+    if (path == '/messages/context/t-25') {
+      return {
+        'messages': [for (var i = 21; i <= 30; i++) row(i, channel: 't')],
+        'hasOlder': true,
+        'hasNewer': true,
+      };
+    }
+    return super.get(path, query: query);
+  }
+
+  @override
+  Future<Map<String, dynamic>> messagePage(
+    String id, {
+    int limit = 50,
+    BigInt? before,
+    BigInt? after,
+  }) async {
+    if (id != 't') {
+      return super.messagePage(id, limit: limit, before: before, after: after);
+    }
+    beforeReads.add(before);
+    await repliesGate?.future;
+    if (repliesFailure != null) throw repliesFailure!;
+    final end = before == null ? tailEnd : before.toInt() - 1;
+    final start = (end - 49).clamp(1, end < 1 ? 1 : end);
+    return {
+      'messages': [
+        for (var i = start; i <= end; i++)
+          if (!removed.contains(i)) row(i, channel: 't'),
+      ],
+      'historyLimited': historyRestricted,
+    };
+  }
+}
+
 Future<void> _until(bool Function() condition) async {
   for (var i = 0; i < 200 && !condition(); i++) {
     await Future<void>.delayed(const Duration(milliseconds: 5));
@@ -170,6 +215,159 @@ Future<void> _until(bool Function() condition) async {
 }
 
 void main() {
+  Future<void> historyCase(
+    Future<void> Function(
+      WorkspaceController,
+      _HistoryThreadClient,
+      DriftWorkspaceCache,
+    )
+    body,
+  ) async {
+    final db = DriftWorkspaceCache(NativeDatabase.memory());
+    final client = _HistoryThreadClient();
+    final w = _controller(client, db);
+    try {
+      await w.selectChannel(w.channels.last, autoRead: false);
+      await w.openThreadIdentity(
+        parentChannelId: 'b',
+        parentMessageId: 'b-100',
+        initialThreadChannelId: 't',
+        navigate: false,
+      );
+      await w.older(thread: true);
+      expect(w.replies.length, 100);
+      await body(w, client, db);
+    } finally {
+      await w.flushCache();
+      w.dispose();
+      await client.eventsController.close();
+      await db.close();
+    }
+  }
+
+  Future<void> reopen(WorkspaceController w, {String? focus}) async {
+    w.closeThread(navigate: false);
+    await w.openThreadIdentity(
+      parentChannelId: 'b',
+      parentMessageId: 'b-100',
+      initialThreadChannelId: 't',
+      focusedMessageId: focus,
+      navigate: false,
+    );
+  }
+
+  test(
+    'thread tail refresh retains accepted older history and its disk window',
+    () => historyCase((w, client, db) async {
+      await w.older(
+        thread: true,
+      ); // Empty page proves the beginning was reached.
+      expect(w.threadHasMore, isFalse);
+      await reopen(w);
+      expect(w.replies.length, 100);
+      expect(w.replies.first.id, 't-1');
+      expect(w.threadHasMore, isFalse);
+      await w.flushCache();
+      final disk = await db.read(
+        client.origin,
+        'alice',
+        'server',
+        'thread-window',
+        'b-100',
+      ) as Map;
+      expect((disk['messages'] as List).length, 100);
+      await w.older(thread: true);
+      expect(
+        client.beforeReads.where((seq) => seq == BigInt.from(51)).length,
+        1,
+      );
+    }),
+  );
+
+  test(
+    'thread refresh removes deleted tail rows without dropping older history',
+    () => historyCase((w, client, db) async {
+      client.tailEnd = 110;
+      client.removed = {95};
+      await reopen(w);
+      expect(w.replies.length, 109);
+      expect(w.replies.first.id, 't-1');
+      expect(w.replies.last.id, 't-110');
+      expect(w.replies.any((m) => m.id == 't-95'), isFalse);
+    }),
+  );
+
+  test(
+    'thread history restriction replaces retained older rows',
+    () => historyCase((w, client, db) async {
+      client.historyRestricted = true;
+      await reopen(w);
+      expect(w.replies.length, 50);
+      expect(w.replies.first.id, 't-51');
+      expect(w.threadHistoryLimited, isTrue);
+      expect(w.threadHasMore, isFalse);
+    }),
+  );
+
+  test(
+    'focused thread context is never merged into a later latest window',
+    () => historyCase((w, client, db) async {
+      client.tailEnd = 1000;
+      await reopen(w, focus: 't-25');
+      expect(w.replies.map((m) => m.id), [
+        for (var i = 21; i <= 30; i++) 't-$i',
+      ]);
+      await reopen(w);
+      expect(w.replies.length, 50);
+      expect(w.replies.first.id, 't-951');
+    }),
+  );
+
+  test('restart keeps all saved thread history when the network answers immediately', () async {
+    final dir = await Directory.systemTemp.createTemp('raft-thread-history-');
+    final file = File('${dir.path}/workspace.sqlite');
+    var db = DriftWorkspaceCache(NativeDatabase(file));
+    var client = _HistoryThreadClient();
+    var w = _controller(client, db);
+    await w.selectChannel(w.channels.last, autoRead: false);
+    await w.openThreadIdentity(
+      parentChannelId: 'b',
+      parentMessageId: 'b-100',
+      initialThreadChannelId: 't',
+      navigate: false,
+    );
+    await w.older(thread: true);
+    await w.flushCache();
+    expect(w.replies.length, 100);
+    w.dispose();
+    await client.eventsController.close();
+    await db.close();
+    db = DriftWorkspaceCache(NativeDatabase(file));
+    client = _HistoryThreadClient();
+    w = _controller(client, db);
+    await w.openThreadIdentity(
+      parentChannelId: 'b',
+      parentMessageId: 'b-100',
+      initialThreadChannelId: 't',
+      navigate: false,
+    );
+    expect(w.replies.length, 100);
+    expect(w.replies.first.id, 't-1');
+    w.dispose();
+    await client.eventsController.close();
+    await db.close();
+    await dir.delete(recursive: true);
+  });
+
+  test(
+    'offline thread refresh preserves its accepted history',
+    () => historyCase((w, client, db) async {
+      client.repliesFailure = const SocketException('synthetic offline');
+      await reopen(w);
+      expect(w.replies.length, 100);
+      expect(w.replies.first.id, 't-1');
+    }),
+  );
   test('restart paints a visited thread from disk before its lookup', () async {
     final db = DriftWorkspaceCache(NativeDatabase.memory());
     var client = _ThreadClient();

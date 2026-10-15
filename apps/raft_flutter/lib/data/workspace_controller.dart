@@ -37,6 +37,7 @@ import 'navigation_registry.dart';
 import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
+import 'thread_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'cache_clear.dart';
 import 'attachment_url_cache.dart';
@@ -4952,18 +4953,14 @@ class WorkspaceController extends ChangeNotifier {
                 query: {'channelId': threadChannelId},
               );
         if (!request.current) return;
-        final rows = acceptedWindowRows(page['messages'], threadChannelId!);
-        messageWindows.acceptRows(
-          request,
-          threadChannelId!,
-          rows,
-          replace: true,
+        final boundary = messageWindows.acceptThreadPage(
+          request, threadChannelId!, page,
+          focused: focusedMessageId != null,
+          retainOlder: cached?.contextWindow == false || messageWindows.isDiskOnly(threadChannelId),
+          retainedHasMore: threadHasMore,
         );
-        messageWindows.setDiskOnly(request, threadChannelId!, false);
-        threadHistoryLimited = page['historyLimited'] == true;
-        threadHasMore = focusedMessageId == null
-            ? !threadHistoryLimited && rows.length >= 50
-            : page['hasOlder'] == true;
+        threadHistoryLimited = boundary.limited;
+        threadHasMore = boundary.more;
         client.joinChannel(threadChannelId!);
         threadLoading = false;
         messageWindows.cacheThread(
@@ -4978,6 +4975,7 @@ class WorkspaceController extends ChangeNotifier {
             threadHasMore,
             threadHistoryLimited,
             threadParent ?? cached?.parent,
+            contextWindow: focusedMessageId != null,
           ),
         );
         notifyListeners();
@@ -5051,7 +5049,8 @@ class WorkspaceController extends ChangeNotifier {
       notifyListeners();
     }
 
-    unawaited(restoreDiskWindow());
+    await restoreDiskWindow();
+    if (!request.current) return;
     // Source threadStore opens an accepted inbox row's known channel directly,
     // without a lookup. Parent metadata and focused replies load independently.
     final replies = resolveReplies();
