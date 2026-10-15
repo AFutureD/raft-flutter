@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/attachment_image_repository.dart';
 import '../data/workspace_controller.dart';
 import 'attachment_image_zoom.dart';
 import 'attachment_transfer_view.dart';
@@ -231,7 +232,19 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
   WorkspaceAttachmentImageLease? lease;
   AttachmentTransferView? transfer;
   ImageProvider? full;
-  bool failed = false;
+  Object? failure;
+  bool get failed => failure != null;
+  bool get _canRetry =>
+      failure is! AttachmentImageBudgetExceeded &&
+      failure is! AttachmentImageDecodeFailed;
+
+  String get _failureMessage => switch (failure) {
+    AttachmentImageBudgetExceeded() =>
+      'Not enough memory to preview this image. Download it to open in another app.',
+    AttachmentImageDecodeFailed() =>
+      'Cannot decode this image. Download it to open in another app.',
+    _ => 'Failed to load image',
+  };
 
   /// The progress chip waits [progressDelay] after the load starts: a load
   /// that ends sooner (cache, neighbour, paging back) never flashes it.
@@ -261,8 +274,8 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     final WorkspaceAttachmentImageLease next;
     try {
       next = widget.acquire!();
-    } catch (_) {
-      failed = true;
+    } catch (error) {
+      failure = error;
       // A retry reaches here after the frame; initState must not setState.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() {});
@@ -284,9 +297,9 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
       final provider = await next.lease.ready;
       _stopProgressDelay();
       if (mounted && identical(lease, next)) setState(() => full = provider);
-    } catch (_) {
+    } catch (error) {
       _stopProgressDelay();
-      if (mounted && identical(lease, next)) setState(() => failed = true);
+      if (mounted && identical(lease, next)) setState(() => failure = error);
     }
     if (mounted && identical(lease, next)) widget.onReady?.call();
   }
@@ -311,7 +324,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     lease?.release(discard: true);
     lease = null;
     transfer = null;
-    setState(() => failed = false);
+    setState(() => failure = null);
     settled = load();
     unawaited(settled);
   }
@@ -454,9 +467,15 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
         fit: StackFit.expand,
         children: [
           if (failed) ...[
-            RaftImageTransferOverlay.failed(inset: 10, onRetry: retry),
+            if (_canRetry)
+              RaftImageTransferOverlay.failed(inset: 10, onRetry: retry)
+            else
+              ColoredBox(
+                color: raftLightboxBackdrop,
+                child: RaftLightboxFailure(title: widget.title, message: _failureMessage),
+              ),
             // The red chip alone is easy to miss: a plain Retry button.
-            if (widget.acquire != null)
+            if (widget.acquire != null && _canRetry)
               Center(
                 child: RaftTextButton(
                   key: const ValueKey('lightbox-retry'),
@@ -488,9 +507,9 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
             RaftLightboxFailure(
               title: widget.title,
               // Web ImageLightbox: `common.lightbox.failedToLoad`.
-              message: 'Failed to load image',
+              message: _failureMessage,
             ),
-            if (widget.acquire != null)
+            if (widget.acquire != null && _canRetry)
               RaftTextButton(
                 label: raftText(context, 'Retry'),
                 glyph: RaftGlyph.refreshCw,

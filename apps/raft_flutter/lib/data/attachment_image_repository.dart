@@ -216,6 +216,11 @@ class AttachmentImageBudgetExceeded implements Exception {
   const AttachmentImageBudgetExceeded();
 }
 
+/// The bytes arrived, but the image codec could not read them.
+class AttachmentImageDecodeFailed implements Exception {
+  const AttachmentImageDecodeFailed();
+}
+
 /// Keeps the actual decoded image alive across ordinary row recycling.
 /// A provider alone would avoid a bytes GET but could be re-decoded after the
 /// global ImageCache evicts its codec. This handle is disposed on our own LRU,
@@ -319,11 +324,15 @@ class AttachmentBitmapImage extends ImageProvider<AttachmentBitmapImage> {
   AttachmentDecodeTarget? target, {
   int maxDecodedBytes = 96 * 1024 * 1024,
 }) {
+  if (maxDecodedBytes < 4) throw const AttachmentImageBudgetExceeded();
   var (w, h) = target?.decodedSize(width, height) ?? (width, height);
   if (w * h * 4 > maxDecodedBytes) {
     final scale = math.sqrt(maxDecodedBytes / (w * h * 4));
     w = math.max(1, (w * scale).floor());
     h = math.max(1, (h * scale).floor());
+    // An extremely narrow image can round one dimension up to 1 pixel.
+    w = math.min(w, maxDecodedBytes ~/ 4);
+    h = math.min(h, maxDecodedBytes ~/ (w * 4));
   }
   return (w, h);
 }
@@ -335,6 +344,7 @@ Future<DecodedAttachmentImage> decodeAttachmentImage(
   Uint8List bytes, {
   AttachmentDecodeTarget? target,
   int maxDecodedBytes = 96 * 1024 * 1024,
+  void Function(int decodedBytes)? beforeDecode,
 }) async {
   final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
   ui.ImageDescriptor? descriptor;
@@ -349,6 +359,7 @@ Future<DecodedAttachmentImage> decodeAttachmentImage(
       target,
       maxDecodedBytes: maxDecodedBytes,
     );
+    beforeDecode?.call(width * height * 4);
     codec = await descriptor.instantiateCodec(
       targetWidth: width,
       targetHeight: height,
@@ -461,6 +472,7 @@ class AttachmentImageLease {
     if (_released) return;
     _released = true;
     _entry.leases.remove(this);
+    _owner._trimRetained();
     if (_entry.leases.isEmpty && _entry.value == null) {
       _owner._drop(_entry);
     } else if (_entry.leases.isEmpty) {
@@ -581,33 +593,40 @@ class AttachmentImageRepository {
     this.maxEntries = 64,
     this.maxEncodedBytes = 64 * 1024 * 1024,
     this.maxDecodedBytes = 96 * 1024 * 1024,
+    int? maxActiveDecodedBytes,
     this.maxConcurrentLoads = 4,
     this.foregroundExtra = 2,
     this.idleTtl = const Duration(minutes: 5),
     Duration Function()? clock,
-  }) : clock = clock ?? _monotonicClock(),
-       _decoder =
-           decoder ??
-           ((bytes, target) => decodeAttachmentImage(
-             bytes,
-             target: target,
-             maxDecodedBytes: maxDecodedBytes,
-           )) {
+  }) : maxActiveDecodedBytes = maxActiveDecodedBytes ?? maxDecodedBytes,
+       clock = clock ?? _monotonicClock(),
+       // ignore: prefer_initializing_formals -- Preserve the public decoder injection name and private ownership.
+       _decoder = decoder {
     if (maxEntries < 1 ||
         maxEncodedBytes < 1 ||
         maxDecodedBytes < 1 ||
+        this.maxActiveDecodedBytes < maxDecodedBytes ||
         maxConcurrentLoads < 1) {
       throw ArgumentError('Image budgets must be positive.');
     }
   }
   AttachmentImageScope _scope;
   final bool Function(AttachmentImageKey) _retainedAuthority;
-  final AttachmentImageDecoder _decoder;
+  final AttachmentImageDecoder? _decoder;
+
+  // Network transfers remain concurrent. Decode and publish one bitmap at a
+  // time so two codecs cannot both spend the same remaining decoded budget.
+  Future<void>? _decoding;
 
   /// Persistent bytes behind the decoded entries; read only for keys that
   /// pass [canRead] and an active lease, written only after a good decode.
   final AttachmentImageByteStore? store;
   final int maxEntries, maxEncodedBytes, maxDecodedBytes, maxConcurrentLoads;
+
+  /// Idle cache target versus temporary active-image capacity. The workspace
+  /// selects both from device RAM; generic callers can keep a strict bound.
+  final int maxActiveDecodedBytes;
+  Duration? _pressureUntil;
 
   /// Extra concurrent loads granted to foreground (explicitly opened) images.
   final int foregroundExtra;
@@ -693,9 +712,9 @@ class AttachmentImageRepository {
     } else {
       _entries[key] = e;
       // An explicit open outranks background list work still waiting.
-      if (foreground && !e.foreground && _queue.remove(e)) {
+      if (foreground && !e.foreground) {
         e.foreground = true;
-        _queue.addFirst(e);
+        if (_queue.remove(e)) _queue.addFirst(e);
       }
     }
     final lease = AttachmentImageLease._(this, e, authorized);
@@ -731,7 +750,8 @@ class AttachmentImageRepository {
   /// Drops every decoded image no lease holds (memory pressure, app in the
   /// background). Returns the number dropped. Held images stay: their widget
   /// owns the decision to let go.
-  int trimIdle() {
+  int trimIdle({bool pressure = false}) {
+    if (pressure) _pressureUntil = clock() + const Duration(seconds: 30);
     var dropped = 0;
     for (final e in _entries.values.toList()) {
       if (e.leases.isEmpty && e.value != null) {
@@ -767,7 +787,24 @@ class AttachmentImageRepository {
       final idle = _entries.values.where(
         (e) => e.leases.isEmpty && e.value != null,
       );
-      if (idle.isEmpty) throw const AttachmentImageBudgetExceeded();
+      if (idle.isEmpty) {
+        // In-use bitmaps can temporarily exceed the idle cache target. Their
+        // leases, not an LRU eviction, decide when they leave the screen.
+        if (_entries.length + entries <= maxEntries &&
+            _encoded + encoded <= maxEncodedBytes &&
+            _decoded + decoded <= maxActiveDecodedBytes) {
+          return;
+        }
+        throw const AttachmentImageBudgetExceeded();
+      }
+      _drop(idle.first);
+    }
+  }
+
+  void _trimRetained() {
+    while (_decoded > maxDecodedBytes) {
+      final idle = _entries.values.where((e) => e.leases.isEmpty && e.value != null);
+      if (idle.isEmpty) break;
       _drop(idle.first);
     }
   }
@@ -849,24 +886,70 @@ class AttachmentImageRepository {
       if (bytes.length > maxEncodedBytes) {
         throw const AttachmentImageBudgetExceeded();
       }
+      final previous = _decoding;
+      final turn = Completer<void>();
+      _decoding = turn.future;
       try {
-        decoded = await _decoder(bytes, e.key.target);
-      } catch (_) {
-        // Undecodable persisted bytes are not served again.
-        if (stored != null) unawaited(_quietly(store!.remove(stored)));
-        rethrow;
+        if (previous != null) await previous;
+        if (!_wanted(e)) throw const StaleAttachmentImage();
+        try {
+          final decoder = _decoder;
+          if (decoder != null) {
+            decoded = await decoder(bytes, e.key.target);
+          } else {
+            final pinned = _entries.values.fold<int>(
+              0,
+              (total, entry) => total +
+                  (entry.leases.isEmpty ? 0 : entry.value?.decodedBytes ?? 0),
+            );
+            final pressure = _pressureUntil;
+            final constrained = pressure != null && clock() < pressure;
+            // A user-opened original may borrow temporary capacity above the
+            // idle cache target. Rows/preloads stay display-sized. A recent
+            // OS warning tightens new decodes without blanking the current
+            // picture. No timer is needed to end the pressure interval.
+            final budget = math.min(
+              e.foreground && !constrained ? maxActiveDecodedBytes : maxDecodedBytes,
+              maxActiveDecodedBytes - pinned,
+            );
+            decoded = await decodeAttachmentImage(
+              bytes,
+              target: e.key.target,
+              maxDecodedBytes: budget,
+              // Evict idle bitmaps before allocating this one, not after it.
+              beforeDecode: (size) => _makeRoom(decoded: size),
+            );
+          }
+        } on AttachmentImageBudgetExceeded {
+          // A valid disk entry is still useful after other images close.
+          rethrow;
+        } on StaleAttachmentImage {
+          rethrow;
+        } catch (_) {
+          if (stored != null) unawaited(_quietly(store!.remove(stored)));
+          throw const AttachmentImageDecodeFailed();
+        }
+        if (!_wanted(e)) throw const StaleAttachmentImage();
+        if (store != null && fetch != null && !fetch.persisted) {
+          fetch.persisted = true;
+          unawaited(_quietly(store.write(e.key.storeKey, bytes)));
+        }
+        _makeRoom(encoded: decoded.encodedBytes, decoded: decoded.decodedBytes);
+        _encoded += decoded.encodedBytes;
+        _decoded += decoded.decodedBytes;
+        e.value = decoded;
+        decoded = null;
+        e.ready.complete(e.value!);
+      } finally {
+        // Disposal must finish before the next codec spends this memory.
+        try {
+          await decoded?.dispose();
+        } finally {
+          decoded = null;
+          if (identical(_decoding, turn.future)) _decoding = null;
+          turn.complete();
+        }
       }
-      if (!_wanted(e)) throw const StaleAttachmentImage();
-      if (store != null && fetch != null && !fetch.persisted) {
-        fetch.persisted = true;
-        unawaited(_quietly(store.write(e.key.storeKey, bytes)));
-      }
-      _makeRoom(encoded: decoded.encodedBytes, decoded: decoded.decodedBytes);
-      _encoded += decoded.encodedBytes;
-      _decoded += decoded.decodedBytes;
-      e.value = decoded;
-      decoded = null;
-      e.ready.complete(e.value!);
     } catch (error, trace) {
       if (!e.ready.isCompleted) e.ready.completeError(error, trace);
       _drop(e);

@@ -863,5 +863,30 @@
       }
     }
   },
-  "exceptions": []
+  "exceptions": [
+    {
+      "module": "workspace_controller",
+      "metric": "tokens",
+      "limit": 39462,
+      "reason": "Wire the approved device-RAM preview allowance and OS memory-pressure handling into the existing image repository; no new controller state.",
+      "reviewer": "Kevin",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "main",
+      "metric": "lines",
+      "limit": 58,
+      "reason": "Read device RAM once during bootstrap for the approved attachment preview memory tiers.",
+      "reviewer": "Kevin",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "main",
+      "metric": "tokens",
+      "limit": 232,
+      "reason": "Read device RAM once during bootstrap for the approved attachment preview memory tiers.",
+      "reviewer": "Kevin",
+      "expires": "2026-10-30"
+    }
+  ]
 }

@@ -17,6 +17,16 @@ import workmanager_apple
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "RaftDeviceMemory") {
+      FlutterMethodChannel(name: "app.raft/device-memory", binaryMessenger: registrar.messenger())
+        .setMethodCallHandler { call, result in
+          if call.method == "snapshot" {
+            result(["totalBytes": Int64(ProcessInfo.processInfo.physicalMemory)])
+          } else {
+            result(FlutterMethodNotImplemented)
+          }
+        }
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "RaftSharingBridge") {
       RaftSharingBridge.register(with: registrar)
     }

@@ -784,6 +784,7 @@ class WorkspaceController extends ChangeNotifier {
       store: attachmentImageStore,
       maxEntries: budgets.attachmentImageEntries,
       maxDecodedBytes: budgets.attachmentImageDecodedBytes,
+      maxActiveDecodedBytes: budgets.attachmentImageActiveDecodedBytes,
       maxEncodedBytes: budgets.attachmentImageEncodedBytes,
     );
     // Decoded bitmaps are rebuildable from the byte store: let go of the
@@ -797,7 +798,7 @@ class WorkspaceController extends ChangeNotifier {
     );
     _removeImageTrimmer = RaftMemoryRelease.instance.addTrimmer((reason) {
       final before = repository.decodedByteCount;
-      final dropped = repository.trimIdle();
+      final dropped = repository.trimIdle(pressure: reason == RaftMemoryTrim.pressure);
       if (!kReleaseMode) {
         debugPrint(
           '[raft-memory] ${reason.name}: dropped $dropped decoded images '

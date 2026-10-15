@@ -55,6 +55,28 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  memory_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "app.raft/device-memory",
+          &flutter::StandardMethodCodec::GetInstance());
+  memory_channel_->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() != "snapshot") {
+          result->NotImplemented();
+          return;
+        }
+        MEMORYSTATUSEX memory = {};
+        memory.dwLength = sizeof(memory);
+        if (!GlobalMemoryStatusEx(&memory)) {
+          result->Error("memory_unavailable", "Device memory could not be read.");
+          return;
+        }
+        flutter::EncodableMap values;
+        values[flutter::EncodableValue("totalBytes")] =
+            flutter::EncodableValue(static_cast<int64_t>(memory.ullTotalPhys));
+        result->Success(flutter::EncodableValue(values));
+      });
   notifications_channel_ = CreateWindowsNotificationsChannel(
       flutter_controller_->engine()->messenger(), GetHandle());
   tray_ = std::make_unique<WindowsTray>(
@@ -128,6 +150,7 @@ void FlutterWindow::OnDestroy() {
   tray_ = nullptr;
   notifications_channel_ = nullptr;
   titlebar_channel_ = nullptr;
+  memory_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
