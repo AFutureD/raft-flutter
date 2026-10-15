@@ -101,6 +101,23 @@ class AgentVoiceSettings extends ChangeNotifier {
     applyOutput();
   }
 
+  /// The Raft agent whose memory the voice shares; null keeps its own.
+  ({String id, String name})? get brain {
+    final id = _read('brainId');
+    if (id == null || id.isEmpty) return null;
+    return (id: id, name: _read('brainName') ?? id);
+  }
+
+  set brain(({String id, String name})? v) {
+    _values['brainName'] = v?.name ?? '';
+    _write('brainId', v?.id ?? '');
+    if (v != null) _write('brainName', v.name);
+  }
+
+  /// Send each voice session's summary to [brain] so it remembers it.
+  bool get writeBack => _read('writeBack') != 'off';
+  set writeBack(bool v) => _write('writeBack', v ? 'on' : 'off');
+
   /// Tells the native side where speech goes (a headset always wins).
   Future<void> applyOutput() async {
     try {
@@ -128,11 +145,15 @@ class AgentVoiceSettings extends ChangeNotifier {
 
 /// Settings page for the voice: voice (with preview), pace, output, warmth.
 class AgentVoiceSettingsPage extends StatelessWidget {
-  const AgentVoiceSettingsPage({super.key, this.onPreview});
+  const AgentVoiceSettingsPage({super.key, this.onPreview, this.agents});
 
   /// Plays a short greeting in the given voice; null where no session can
   /// run (the page still saves the choice).
   final ValueChanged<String>? onPreview;
+
+  /// Lists the Raft agents that can share memory; null hides the section
+  /// (e.g. the offline demo).
+  final Future<List<({String id, String name})>> Function()? agents;
 
   @override
   Widget build(BuildContext context) {
@@ -217,8 +238,82 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                 style: t.body(12, color: t.hint),
               ),
             ),
+            if (agents != null) ...[
+              section('记忆'),
+              _BrainPicker(load: agents!, settings: s),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BrainPicker extends StatefulWidget {
+  const _BrainPicker({required this.load, required this.settings});
+  final Future<List<({String id, String name})>> Function() load;
+  final AgentVoiceSettings settings;
+
+  @override
+  State<_BrainPicker> createState() => _BrainPickerState();
+}
+
+class _BrainPickerState extends State<_BrainPicker> {
+  late final _agents = widget.load();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    final s = widget.settings;
+    final current = s.brain?.id;
+    Widget option(String? id, String title, String? subtitle) => ListTile(
+      key: ValueKey('agent-brain-${id ?? 'none'}'),
+      leading: Icon(
+        id == current
+            ? Icons.radio_button_checked
+            : Icons.radio_button_unchecked,
+        color: t.foreground,
+      ),
+      title: Text(title, style: t.body(15)),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle, style: t.body(12, color: t.hint)),
+      onTap: () => s.brain = id == null ? null : (id: id, name: title),
+    );
+    return FutureBuilder(
+      future: _agents,
+      builder: (context, snapshot) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          option(null, '独立记忆', '语音助理只记得这次对话'),
+          if (snapshot.connectionState != ConnectionState.done)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (snapshot.hasError)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('读取 Agent 列表失败', style: t.body(13, color: t.hint)),
+            )
+          else
+            for (final a
+                in snapshot.data ?? const <({String id, String name})>[])
+              option(a.id, a.name, '和它共享记忆'),
+          SwitchListTile(
+            key: const ValueKey('agent-brain-write-back'),
+            value: s.writeBack,
+            onChanged: current == null ? null : (v) => s.writeBack = v,
+            title: Text('通话结束后把要点发给它', style: t.body(15)),
+            subtitle: Text(
+              '以私信发送，由它自己记进记忆。它的记忆会作为背景发给 Gemini。',
+              style: t.body(12, color: t.hint),
+            ),
+          ),
+        ],
       ),
     );
   }

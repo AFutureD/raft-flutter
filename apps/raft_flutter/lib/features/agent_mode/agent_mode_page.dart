@@ -10,6 +10,7 @@ import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 
 import '../../data/workspace_controller.dart';
 import 'agent_audio.dart';
+import 'agent_memory.dart';
 import 'agent_mode_data.dart';
 import 'agent_tools.dart';
 import 'agent_tv.dart';
@@ -77,7 +78,13 @@ class _AgentModePageState extends State<AgentModePage> {
     tools: agentToolDeclarations,
     onToolCall: _runTool,
     systemPrompt: _systemPrompt,
+    onSessionEnd: _sessionEnded,
   );
+
+  /// Memory shared with a Raft agent (real workspace only).
+  late final _brain = AgentBrain(widget.controller);
+  String? _brainContext;
+  String? _brainContextFor;
 
   /// The item the agent is talking about, lifted above the page.
   final _spotlight = AgentSpotlightController();
@@ -195,6 +202,8 @@ class _AgentModePageState extends State<AgentModePage> {
     final tv = AgentPresentation.instance;
     tv.onDisplaysChanged = () => unawaited(_attachTv());
     _voice.addListener(_voiceChanged);
+    AgentVoiceSettings.instance.addListener(_loadBrain);
+    _loadBrain();
     _voice.saying.addListener(_sayingChanged);
     _spotlight.addListener(() {
       // Annotations belong to what is being explained; a new focus or
@@ -221,6 +230,7 @@ class _AgentModePageState extends State<AgentModePage> {
   void dispose() {
     unawaited(AgentPresentation.instance.detach());
     _voice.removeListener(_voiceChanged);
+    AgentVoiceSettings.instance.removeListener(_loadBrain);
     _voice.saying.removeListener(_sayingChanged);
     _cueFallback?.cancel();
     _voice.dispose();
@@ -377,6 +387,7 @@ class _AgentModePageState extends State<AgentModePage> {
 
   String _systemPrompt() => agentSystemPrompt(
     style: AgentVoiceSettings.instance.styleNote,
+    memory: _brainContext,
     channels: widget.controller.channels
         .where((c) => c.name.isNotEmpty)
         .take(80)
@@ -600,6 +611,31 @@ class _AgentModePageState extends State<AgentModePage> {
     });
   }
 
+  /// Reads the chosen agent's memory for the next voice session.
+  Future<void> _loadBrain() async {
+    final brain = widget.data == null
+        ? AgentVoiceSettings.instance.brain
+        : null;
+    if (brain?.id == _brainContextFor) return;
+    _brainContextFor = brain?.id;
+    if (brain == null) {
+      _brainContext = null;
+      return;
+    }
+    final context = await _brain.context(brain);
+    if (mounted && _brainContextFor == brain.id) _brainContext = context;
+  }
+
+  /// Hands the session to the shared agent so it remembers what matters.
+  void _sessionEnded(List<(AgentSpeaker, String)> transcript) {
+    final settings = AgentVoiceSettings.instance;
+    final brain = settings.brain;
+    if (widget.data != null || brain == null || !settings.writeBack) return;
+    unawaited(
+      _brain.sendSummary(brain, transcript).catchError((Object _) => false),
+    );
+  }
+
   Future<void> _scanKey() async {
     try {
       final key = AgentVoiceKey.parse(await AgentAudio.instance.scanCode());
@@ -752,6 +788,9 @@ class _AgentModePageState extends State<AgentModePage> {
                               onPressed: () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => AgentVoiceSettingsPage(
+                                    agents: widget.data == null
+                                        ? _brain.agents
+                                        : null,
                                     onPreview: (v) =>
                                         unawaited(_voice.preview(v)),
                                   ),

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/workspace_controller.dart';
 import '../../data/device_preferences.dart';
 import 'agent_audio.dart';
+import 'agent_memory.dart';
 import 'agent_mode_page.dart';
 import 'agent_voice_settings.dart';
 
@@ -112,7 +113,9 @@ class AgentModeLabsCard extends StatelessWidget {
                   label: '声音设置',
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const AgentVoiceSettingsPage(),
+                      builder: (_) => AgentVoiceSettingsPage(
+                        agents: AgentBrain(controller).agents,
+                      ),
                     ),
                   ),
                 ),

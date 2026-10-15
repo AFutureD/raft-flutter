@@ -14,6 +14,7 @@ class AgentVoiceController extends ChangeNotifier {
     required this.tools,
     required this.onToolCall,
     required this.systemPrompt,
+    this.onSessionEnd,
     AgentAudio? audio,
     AgentVoiceKey? key,
   }) : audio = audio ?? AgentAudio.instance,
@@ -45,6 +46,7 @@ class AgentVoiceController extends ChangeNotifier {
 
   /// Ends the current session so the next one picks up changed settings.
   Future<void> restart() async {
+    _endSession();
     final old = _session;
     _session = null;
     _stopMic();
@@ -57,6 +59,25 @@ class AgentVoiceController extends ChangeNotifier {
   void _settingsChanged() {
     // Applies from the next turn; never cut a reply or an open microphone.
     if (state == AgentMicState.idle) unawaited(restart());
+  }
+
+  /// Receives what was said in a session when it ends (for memory).
+  final void Function(List<(AgentSpeaker, String)> transcript)? onSessionEnd;
+  final _log = <(AgentSpeaker, String)>[];
+
+  void _logAppend(AgentSpeaker speaker, String text) {
+    if (_log.isNotEmpty && _log.last.$1 == speaker) {
+      _log[_log.length - 1] = (speaker, _log.last.$2 + text);
+    } else {
+      _log.add((speaker, text));
+    }
+  }
+
+  void _endSession() {
+    if (_log.isEmpty) return;
+    final transcript = List.of(_log);
+    _log.clear();
+    onSessionEnd?.call(transcript);
   }
 
   /// What the agent has said so far in its current reply (from the live
@@ -162,10 +183,12 @@ class AgentVoiceController extends ChangeNotifier {
       onInputText: (text) {
         // The person speaking starts a new reply.
         if (saying.value.isNotEmpty) saying.value = '';
+        _logAppend(AgentSpeaker.you, text);
         _append(AgentSpeaker.you, text);
       },
       onOutputText: (text) {
         saying.value += text;
+        _logAppend(AgentSpeaker.agent, text);
         _append(AgentSpeaker.agent, text);
       },
       onTurnComplete: () {
@@ -177,6 +200,7 @@ class AgentVoiceController extends ChangeNotifier {
         unawaited(audio.stopPlayback());
       },
       onClosed: (reason) {
+        _endSession();
         _session = null;
         _stopMic();
         _live = _holding = false;
@@ -308,6 +332,7 @@ class AgentVoiceController extends ChangeNotifier {
     if (!await hasKey) return false;
     say(AgentSpeaker.you, text);
     saying.value = '';
+    _logAppend(AgentSpeaker.you, text);
     _set(AgentMicState.thinking);
     final session = await _ensureSession();
     if (session == null) return true;
@@ -322,6 +347,7 @@ class AgentVoiceController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _endSession();
     saying.dispose();
     AgentVoiceSettings.instance.removeListener(_settingsChanged);
     _stopMic();
