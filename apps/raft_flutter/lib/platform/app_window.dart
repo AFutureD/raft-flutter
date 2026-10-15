@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftPreviewRoute;
 
 /// Requests the runner's ordinary close action, preserving its close preference.
 ///
@@ -28,7 +29,8 @@ Future<void> closeAppWindow({
 /// Routes desktop window commands through the root navigator before the runner.
 ///
 /// Local preview shortcuts take precedence over the window fallback. Native
-/// macOS menu actions use the same route and respect dialogs that veto closing.
+/// macOS menu actions use the same policy: popups and marked previews close
+/// first, protected dialogs veto closing, and ordinary pages stay mounted.
 class AppWindowCommands extends StatefulWidget {
   const AppWindowCommands({
     super.key,
@@ -92,9 +94,19 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
     if (_closing) return;
     _closing = true;
     try {
-      final handled =
-          await widget.navigatorKey.currentState?.maybePop() ?? false;
-      if (mounted && !handled) await closeAppWindow();
+      final navigator = widget.navigatorKey.currentState;
+      Route<dynamic>? top;
+      // Inspect the top route without removing it. Ordinary pages stay mounted
+      // while the runner closes the window, ready for the next reopen.
+      navigator?.popUntil((route) {
+        top = route;
+        return true;
+      });
+      if (top is PopupRoute || top is RaftPreviewRoute) {
+        // maybePop also respects PopScope and its veto callback.
+        if (await navigator!.maybePop()) return;
+      }
+      if (mounted) await closeAppWindow();
     } finally {
       _closing = false;
     }

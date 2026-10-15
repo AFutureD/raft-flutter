@@ -188,6 +188,87 @@ void main() {
     }
   });
 
+  for (final (platform, modifier, channel) in const [
+    (TargetPlatform.macOS, LogicalKeyboardKey.metaLeft, 'app.raft/window'),
+    (
+      TargetPlatform.windows,
+      LogicalKeyboardKey.controlLeft,
+      'app.raft/windows-tray',
+    ),
+  ]) {
+    for (final kind in [
+      'page',
+      'page-with-old-preview-name',
+      'document-preview',
+      'media-preview',
+    ]) {
+      testWidgets('$platform close preserves an ordinary page; kind=$kind', (
+        t,
+      ) async {
+        debugDefaultTargetPlatformOverride = platform;
+        final calls = <String>[];
+        final bridge = MethodChannel(channel);
+        t.binding.defaultBinaryMessenger.setMockMethodCallHandler(bridge, (
+          call,
+        ) async {
+          calls.add(call.method);
+          return null;
+        });
+        final f = RootFixture();
+        final draft = TextEditingController(text: 'This page stays open');
+        try {
+          await _mount(t, f);
+          Widget builder(BuildContext _) =>
+              Scaffold(body: TextField(controller: draft));
+          final Route<void> route = switch (kind) {
+            'media-preview' => RaftMediaBrowserRoute<void>(
+              builder: builder,
+              reducedMotion: true,
+            ),
+            'document-preview' => RaftPreviewPageRoute<void>(builder: builder),
+            _ => MaterialPageRoute<void>(
+              builder: builder,
+              settings: RouteSettings(
+                name: kind == 'page' ? '/diagnostics' : '/attachment-preview',
+              ),
+            ),
+          };
+          unawaited(f.router(t).navigatorKey.currentState!.push(route));
+          await f.flush(t);
+          await t.tap(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is TextField && identical(widget.controller, draft),
+            ),
+          );
+          if (platform == TargetPlatform.macOS) {
+            _nativeCommand(t, 'closeRequested');
+          } else {
+            await _key(t, modifier);
+          }
+          await f.flush(t);
+          final preview = kind.endsWith('preview');
+          expect(route.isCurrent, !preview);
+          expect(
+            calls.where((method) => method == 'closeWindow'),
+            hasLength(preview ? 0 : 1),
+          );
+          expect(draft.text, 'This page stays open');
+          if (route.isActive) f.router(t).navigatorKey.currentState!.pop();
+          await f.flush(t);
+        } finally {
+          await f.close(t);
+          draft.dispose();
+          debugDefaultTargetPlatformOverride = null;
+          t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            bridge,
+            null,
+          );
+        }
+      });
+    }
+  }
+
   testWidgets(
     'native Close first dismisses the preview, then closes the window',
     (t) async {
