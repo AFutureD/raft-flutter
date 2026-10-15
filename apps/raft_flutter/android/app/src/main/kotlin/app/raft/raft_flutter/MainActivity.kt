@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
     private var shareReceiverReady = false
     private val earlyShares = ArrayDeque<Intent>()
     private var sharing: NativeSharingBridge? = null
+    private var agentPresentation: NativeAgentPresentationBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         prepareSharedUris(intent)
@@ -97,6 +98,7 @@ class MainActivity : FlutterActivity() {
         LaunchTheme.register(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
         NativeVideoFrameBridge(flutterEngine)
+        agentPresentation = NativeAgentPresentationBridge(this, flutterEngine)
         // Uploaded HTML previews run in an Android WebView. The app has no
         // other WebView, so the process-wide cookie jar and web storage belong
         // to the preview alone: never send or keep cookies, drop storage.
@@ -394,6 +396,7 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         earlyShares.clear()
         sharing?.dispose()
+        agentPresentation?.dispose()
         systemFonts?.dispose()
         systemProxy?.dispose()
         localNetworkResults.forEach { it.success(false) }

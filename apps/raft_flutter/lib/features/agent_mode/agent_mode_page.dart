@@ -1,9 +1,14 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 
 import '../../data/workspace_controller.dart';
 import 'agent_mode_data.dart';
+import 'agent_tv.dart';
 
 /// Opens agent mode above the workspace. A [PageRouteBuilder] (not a
 /// MaterialPageRoute) so a layout change adapts the page instead of closing it.
@@ -75,6 +80,47 @@ class _AgentModePageState extends State<AgentModePage> {
   void initState() {
     super.initState();
     _loadAttention();
+    final tv = AgentPresentation.instance;
+    tv.onDisplaysChanged = () => unawaited(_attachTv());
+    unawaited(_attachTv());
+  }
+
+  bool _tvAttached = false;
+  String? _sentFrame;
+
+  Future<void> _attachTv() async {
+    final attached = await AgentPresentation.instance.attach();
+    if (!mounted) return;
+    _tvAttached = attached;
+    _sentFrame = null;
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    unawaited(AgentPresentation.instance.detach());
+    super.dispose();
+  }
+
+  /// Sends the visible layers to the TV after a build that changed them.
+  void _syncTv(BuildContext context) {
+    if (!_tvAttached) return;
+    final t = RaftTokens.of(context);
+    final frame = {
+      'theme': t.brutal
+          ? 'brutal'
+          : t.dark
+          ? 'elegant-dark'
+          : 'elegant-light',
+      'layers': [
+        for (final l in _stack.skip(_stack.length > 3 ? _stack.length - 3 : 0))
+          {..._frame(l), 'id': l.id, 'peek': _peek(l)},
+      ],
+    };
+    final encoded = jsonEncode(frame);
+    if (encoded == _sentFrame) return;
+    _sentFrame = encoded;
+    unawaited(AgentPresentation.instance.send(frame));
   }
 
   Future<void> _loadAttention() async {
@@ -186,34 +232,6 @@ class _AgentModePageState extends State<AgentModePage> {
       ? null
       : widget.controller.channels.where((c) => c.id == id).firstOrNull;
 
-  Widget _attentionLayer() {
-    final items = _attention;
-    final top = items?.take(8).toList() ?? const <AgentAttentionItem>[];
-    return AgentLayerFrame(
-      title: '现在需要你',
-      meta: '按权重排序',
-      loading: items == null && _attentionError == null,
-      error: _attentionError == null ? null : '读取失败：$_attentionError',
-      summary: items == null ? null : TextSpan(text: _attentionSummary(items)),
-      children: [
-        for (final i in top)
-          AgentPriorityCard(
-            priority: i.priority,
-            weight: i.weight,
-            title: i.title,
-            detail: i.detail,
-            chips: [
-              for (final (n, c) in i.chips.indexed)
-                AgentChip(c, hot: i.hot && n == 0),
-            ],
-            onTap: _channelById(i.channelId) == null
-                ? null
-                : () => _openChannel(_channelById(i.channelId)!),
-          ),
-      ],
-    );
-  }
-
   String _hhmm(Object? iso) {
     final t = iso is String ? DateTime.tryParse(iso)?.toLocal() : null;
     if (t == null) return '';
@@ -221,81 +239,87 @@ class _AgentModePageState extends State<AgentModePage> {
     return '${two(t.hour)}:${two(t.minute)}';
   }
 
-  Widget _channelLayer(_Channel layer) {
-    final b = _briefs[layer.channel.id];
-    final error = _briefErrors[layer.channel.id];
-    return AgentLayerFrame(
-      title: '# ${layer.channel.name}',
-      meta: b == null ? null : '最近 ${b.windowHours} 小时',
-      loading: b == null && error == null,
-      error: error == null ? null : '读取失败：$error',
-      summary: b == null
+  Map<String, Object?> _taskItem(Map<String, dynamic> t, {bool where = false}) {
+    final review = t['status'] == 'in_review';
+    return {
+      'kind': 'priority',
+      'priority':
+          (review ? AgentPriority.decision : AgentPriority.progress).name,
+      'label': review ? '等验收' : '进行中',
+      'weight': review ? 4 : 2,
+      'title': '${t['title'] ?? ''}',
+      'detail': [
+        '#${t['taskNumber']}',
+        '${t['claimedByName'] ?? '未认领'}',
+        if (where) '#${t['channelName'] ?? ''}',
+      ].join(' · '),
+      'channelId': where ? t['channelId'] : null,
+    };
+  }
+
+  /// One layer as data: drawn on the phone and sent unchanged to the TV.
+  Map<String, Object?> _frame(_Layer l) => switch (l) {
+    _Attention() => {
+      'title': '现在需要你',
+      'meta': '按权重排序',
+      'loading': _attention == null && _attentionError == null,
+      'summary': _attentionError != null
+          ? '读取失败：$_attentionError'
+          : _attention == null
           ? null
-          : TextSpan(
-              children: [
-                const TextSpan(
-                  text: '要点：',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                TextSpan(text: _channelSummary(b)),
-              ],
-            ),
-      children: [
-        if (b != null && b.tasks.isNotEmpty) ...[
-          const AgentSectionLabel('进行中的任务'),
-          for (final t in b.tasks.take(4))
-            AgentPriorityCard(
-              priority: t['status'] == 'in_review'
-                  ? AgentPriority.decision
-                  : AgentPriority.progress,
-              label: t['status'] == 'in_review' ? '等验收' : '进行中',
-              weight: t['status'] == 'in_review' ? 4 : 2,
-              title: '${t['title'] ?? ''}',
-              detail: '#${t['taskNumber']} · ${t['claimedByName'] ?? '未认领'}',
-            ),
-        ],
-        if (b != null && b.messages.isNotEmpty) ...[
-          const AgentSectionLabel('最近的消息'),
-          for (final m in b.messages.reversed.take(8))
-            AgentMessageTile(
-              sender: '${m['senderName'] ?? ''}',
-              time: _hhmm(m['createdAt']),
-              text: '${m['content'] ?? ''}',
-            ),
-        ],
+          : _attentionSummary(_attention!),
+      'items': [
+        for (final i in _attention?.take(8) ?? const <AgentAttentionItem>[])
+          {
+            'kind': 'priority',
+            'priority': i.priority.name,
+            'weight': i.weight,
+            'title': i.title,
+            'detail': i.detail,
+            'chips': i.chips,
+            'channelId': i.channelId,
+          },
       ],
-    );
-  }
-
-  Widget _tasksLayer() {
-    final tasks = _tasks;
-    return AgentLayerFrame(
-      title: '进行中的任务',
-      loading: tasks == null && _tasksError == null,
-      error: _tasksError == null ? null : '读取失败：$_tasksError',
-      children: [
-        for (final t in tasks ?? const <Map<String, dynamic>>[])
-          AgentPriorityCard(
-            priority: t['status'] == 'in_review'
-                ? AgentPriority.decision
-                : AgentPriority.progress,
-            label: t['status'] == 'in_review' ? '等验收' : '进行中',
-            weight: t['status'] == 'in_review' ? 4 : 2,
-            title: '${t['title'] ?? ''}',
-            detail:
-                '#${t['taskNumber']} · ${t['claimedByName'] ?? '未认领'} · #${t['channelName'] ?? ''}',
-            onTap: _channelById(t['channelId'] as String?) == null
-                ? null
-                : () => _openChannel(_channelById(t['channelId'] as String?)!),
-          ),
+    },
+    _Channel(:final channel) => () {
+      final b = _briefs[channel.id];
+      final error = _briefErrors[channel.id];
+      return <String, Object?>{
+        'title': '# ${channel.name}',
+        'meta': b == null ? null : '最近 ${b.windowHours} 小时',
+        'loading': b == null && error == null,
+        'summary': error != null
+            ? '读取失败：$error'
+            : b == null
+            ? null
+            : '要点：${_channelSummary(b)}',
+        'items': [
+          if (b != null && b.tasks.isNotEmpty) ...[
+            {'kind': 'section', 'text': '进行中的任务'},
+            for (final t in b.tasks.take(4)) _taskItem(t),
+          ],
+          if (b != null && b.messages.isNotEmpty) ...[
+            {'kind': 'section', 'text': '最近的消息'},
+            for (final m in b.messages.reversed.take(8))
+              {
+                'kind': 'message',
+                'sender': '${m['senderName'] ?? ''}',
+                'time': _hhmm(m['createdAt']),
+                'text': '${m['content'] ?? ''}',
+              },
+          ],
+        ],
+      };
+    }(),
+    _Tasks() => {
+      'title': '进行中的任务',
+      'loading': _tasks == null && _tasksError == null,
+      'summary': _tasksError == null ? null : '读取失败：$_tasksError',
+      'items': [
+        for (final t in _tasks ?? const <Map<String, dynamic>>[])
+          _taskItem(t, where: true),
       ],
-    );
-  }
-
-  Widget _layerBody(_Layer l) => switch (l) {
-    _Attention() => _attentionLayer(),
-    _Channel() => _channelLayer(l),
-    _Tasks() => _tasksLayer(),
+    },
   };
 
   String _peek(_Layer l) => switch (l) {
@@ -307,6 +331,9 @@ class _AgentModePageState extends State<AgentModePage> {
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncTv(context);
+    });
     return PopScope(
       canPop: _stack.length == 1,
       onPopInvokedWithResult: (didPop, _) {
@@ -332,6 +359,11 @@ class _AgentModePageState extends State<AgentModePage> {
                         ),
                         Text('Agent 模式', style: t.heading(15)),
                         const Spacer(),
+                        if (_tvAttached)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: Icon(Icons.tv, size: 16, color: t.hint),
+                          ),
                         Text(
                           '第 ${_stack.length} 层',
                           style: t.body(12, color: t.hint),
@@ -348,7 +380,13 @@ class _AgentModePageState extends State<AgentModePage> {
                           ZLayer(
                             key: ValueKey(l.id),
                             peek: _peek(l),
-                            child: _layerBody(l),
+                            child: AgentFrameView(
+                              frame: _frame(l),
+                              onOpen: (id) {
+                                final c = _channelById(id);
+                                if (c != null) _openChannel(c);
+                              },
+                            ),
                           ),
                       ],
                     ),
