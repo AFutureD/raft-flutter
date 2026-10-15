@@ -41,7 +41,7 @@ void main() {
     messenger.setMockMethodCallHandler(channel, null);
   });
   test(
-    'localized configuration is deduplicated and failures are retryable',
+    'localized configuration is deduplicated and copy changes are applied',
     () async {
       await tray.initialize((s) => 'translated $s');
       await tray.configure((s) => 'translated $s');
@@ -62,6 +62,37 @@ void main() {
     await unsupported.dispose();
     expect(calls, isEmpty);
   });
+  for (final throws in [false, true]) {
+    test(
+      'unchanged labels do not retry an unavailable shell (throws=$throws)',
+      () async {
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          if (throws) throw MissingPluginException('No tray available');
+          return {'available': false};
+        });
+        await tray.initialize((s) => s);
+        await tray.configure((s) => s);
+        await tray.configure((s) => s);
+        expect(calls.where((c) => c.method == 'configure'), hasLength(1));
+        await tray.configure((s) => 'translated $s');
+        expect(calls.where((c) => c.method == 'configure'), hasLength(2));
+      },
+    );
+  }
+  test(
+    'pending native configuration is deduplicated before it completes',
+    () async {
+      pending = Completer<Map<String, dynamic>>();
+      final initialization = tray.initialize((s) => s);
+      final duplicate = tray.configure((s) => s);
+      await Future<void>.delayed(Duration.zero);
+      expect(calls.where((c) => c.method == 'configure'), hasLength(1));
+      pending!.complete({'available': true});
+      pending = null;
+      await Future.wait([initialization, duplicate]);
+    },
+  );
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

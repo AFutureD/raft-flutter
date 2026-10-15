@@ -320,6 +320,13 @@ void main() {
     expect(w.foreground, false);
     expect(n.deliveryAllowed!(), true);
     expect(w.jumps, isEmpty);
+    // ShowWindow + SetForegroundWindow restores Flutter's resumed lifecycle.
+    // The root reacts to onForegroundChanged and restores workspace visibility.
+    links.onForegroundChanged = () => w.setForeground(links.appForeground);
+    links.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    expect(links.appForeground, true);
+    expect(w.foreground, true);
+    expect(n.deliveryAllowed!(), false);
   });
 
   test('only eligible server notification event delivers, duplicates/foreground suppress', () async {

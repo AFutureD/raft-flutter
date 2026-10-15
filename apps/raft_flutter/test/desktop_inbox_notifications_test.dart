@@ -187,6 +187,8 @@ void main() {
           await coordinator.init();
           coordinator.desktop!.dispose();
           coordinator.desktop = desktop;
+          coordinator.onForegroundChanged = () =>
+              w.setForeground(coordinator.appForeground);
           coordinator.bindWorkspace(w);
           coordinator.didChangeAppLifecycleState(AppLifecycleState.resumed);
           expect(notifications.deliveryAllowed!(), false);
@@ -213,6 +215,17 @@ void main() {
           );
           expect(client.reads, ['/servers/s/notification-settings']);
           expect(w.activityUnread.totalUnreadCount, 1);
+          coordinator.didChangeAppLifecycleState(AppLifecycleState.resumed);
+          expect(coordinator.appForeground, true);
+          expect(w.foreground, true);
+          expect(notifications.deliveryAllowed!(), false);
+          w.activityUnread.acceptWindow({
+            'items': [_row('after-tray-restore')],
+          }, scope: w.activityUnread.scope);
+          await desktop.deliverPending();
+          expect(notifications.sent, hasLength(1));
+          expect(client.directoryReads, 0);
+          expect(client.inboxReads, 0);
           await coordinator.dispose();
         });
       }

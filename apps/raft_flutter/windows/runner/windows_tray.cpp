@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <vector>
 
 #include "resource.h"
 
@@ -204,7 +205,11 @@ HICON WindowsTray::MakeIcon() const {
     auto pixel = bytes + i * 4;
     if (!pixel[3] && (pixel[0] || pixel[1] || pixel[2])) pixel[3] = 255;
   }
-  HBITMAP mask = CreateBitmap(size, size, 1, 1, nullptr);
+  // A monochrome bitmap has WORD-aligned rows. Explicitly clear the mask;
+  // nullptr leaves its pixels uninitialized and can hide parts of the icon.
+  const size_t mask_stride = ((static_cast<size_t>(size) + 15) / 16) * 2;
+  const std::vector<BYTE> mask_bits(mask_stride * size, 0);
+  HBITMAP mask = CreateBitmap(size, size, 1, 1, mask_bits.data());
   ICONINFO icon_info{};
   icon_info.fIcon = TRUE;
   icon_info.hbmColor = bitmap;

@@ -137,7 +137,12 @@ class _Lab extends ChangeNotifier {
     workspace.activityUnread.start();
     await coordinator.init();
     coordinator.bindWorkspace(workspace);
-    coordinator.onForegroundChanged = () => unawaited(record());
+    coordinator.onForegroundChanged = () {
+      // Match the main root's visibility synchronization for this always-mounted
+      // synthetic workspace; the lab has no server picker or covered workspace.
+      workspace.setForeground(coordinator.appForeground);
+      unawaited(record());
+    };
     workspace.addListener(() => unawaited(record()));
     await service.bind(coordinator.currentScope);
     await record();

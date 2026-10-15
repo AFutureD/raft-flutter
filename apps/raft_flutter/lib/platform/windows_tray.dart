@@ -39,11 +39,14 @@ class WindowsTray {
     };
     final key = labels.toString();
     if (_labels == key) return;
+    // Remember the attempted copy before awaiting the optional shell service.
+    // Workspace changes must not retry failures or overlap pending calls; the
+    // runner independently restores the icon after TaskbarCreated.
+    _labels = key;
     try {
-      final result = await _channel
+      await _channel
           .invokeMapMethod<String, dynamic>('configure', labels)
           .timeout(const Duration(seconds: 2));
-      if (result?['available'] == true) _labels = key;
     } catch (_) {
       // Optional shell service: without a registered icon, Close still exits.
     }
