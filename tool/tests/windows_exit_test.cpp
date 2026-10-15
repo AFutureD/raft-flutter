@@ -136,6 +136,16 @@ void NativeTimeout() {
   w.reply(w.id, "completed");
   Check(w.Logged("nativeTimedOut"), "late successful close must not replace timeout");
 }
+void BusyQueueCannotExtendDeadline() {
+  Window w(25, 25);
+  w.Send(w.quit);
+  Sleep(45);  // Leave WM_TIMER unprocessed, as in a busy platform queue.
+  w.Send(WM_NULL);
+  Check(w.exit->ready_to_close() && w.Logged("nativeTimedOut"),
+        "deadline must not depend on low-priority timer dispatch");
+  w.Pump();
+  Check(w.closes == 1, "busy queue still queues close");
+}
 void CancelledSession() {
   Window w;
   const auto start = GetTickCount64();
@@ -195,10 +205,10 @@ void DestroyWhileWaiting() {
 int main() {
   try {
     ExplicitReply(); RepeatedAndLateReply(); BadReplies(); Outcomes();
-    SynchronousReply(); NativeTimeout(); CancelledSession();
+    SynchronousReply(); NativeTimeout(); BusyQueueCannotExtendDeadline(); CancelledSession();
     SessionPumpsPlatformReply(); SessionNativeTimeout(); SessionShortensExplicit();
     CancelDoesNotUndoExplicit(); DestroyWhileWaiting();
-    std::cout << "PASS: 12 native exit scenarios (including 4 outcome replies)\n";
+    std::cout << "PASS: 13 native exit scenarios (including 4 outcome replies)\n";
     return 0;
   } catch (const std::exception& e) {
     std::cerr << "FAIL: " << e.what() << '\n'; return 1;

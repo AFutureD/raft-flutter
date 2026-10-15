@@ -12,7 +12,7 @@ struct WindowsExit::State {
   ULONGLONG deadline = 0;
   int64_t request_id = 0;
   bool preparing = false, ready = false, destroyed = false;
-  bool query_pending = false, session_waiting = false;
+  bool query_pending = false, session_waiting = false, session_confirmed = false;
   const char* reason = "explicitQuit";
 };
 
@@ -44,7 +44,8 @@ void WindowsExit::Finish(const std::shared_ptr<State>& state,
   if (state->timer) KillTimer(state->window, state->timer);
   state->timer = 0;
   state->log("raft.windows_exit reason=" + std::string(state->reason) +
-      " requestId=" + std::to_string(state->request_id) + " outcome=" + outcome);
+      " requestId=" + std::to_string(state->request_id) +
+      (state->session_confirmed ? " confirmedSession=true" : "") + " outcome=" + outcome);
   // Never tear down the engine inside a platform-channel reply or the nested
   // ENDSESSION pump. Let this handler unwind before the ordinary WM_DESTROY.
   if (!state->session_waiting) PostMessageW(state->window, WM_CLOSE, 0, 0);
@@ -119,6 +120,10 @@ std::optional<LRESULT> WindowsExit::HandleMessage(UINT message, WPARAM wparam,
                                                  LPARAM /*lparam*/) {
   // Keep state alive even if a reentrant WM_DESTROY retires this owner.
   const auto state = state_;
+  // WM_TIMER has low priority. A busy platform queue must not extend quit.
+  if (state->preparing && !state->ready && GetTickCount64() >= state->deadline) {
+    Finish(state, "nativeTimedOut");
+  }
   if (quit_message_ && message == quit_message_) {
     const auto prepare = prepare_;
     Begin(state, prepare, false);
@@ -131,6 +136,7 @@ std::optional<LRESULT> WindowsExit::HandleMessage(UINT message, WPARAM wparam,
   if (message == WM_ENDSESSION) {
     state->query_pending = false;
     if (!wparam || state->session_waiting || state->destroyed) return 0;
+    state->session_confirmed = true;
     state->session_waiting = true;
     const auto prepare = prepare_;
     Begin(state, prepare, true);
