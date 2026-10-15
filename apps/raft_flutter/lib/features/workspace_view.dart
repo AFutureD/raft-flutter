@@ -292,7 +292,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final channel = w.channels
         .where((c) => c.id == channelSearchSeed)
         .firstOrNull;
-    if (channelSearchAuthority != workspaceAuthority(w) ||
+    if (channelSearchAuthority != channelSearchPageAuthority(w) ||
         channel == null ||
         !w.can('viewChannel', resource: channel)) {
       channelSearchSeed = channelSearchAuthority = null;
@@ -1164,7 +1164,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         channelSearchSeed = searchChannelId;
         channelSearchAuthority = searchChannelId == null
             ? null
-            : workspaceAuthority(w);
+            : channelSearchPageAuthority(w);
         channelSearchRevoked = false;
       });
     } else {
@@ -1393,7 +1393,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           !channelSearchRevoked &&
           location.query('channelId') != null) {
         channelSearchSeed = location.query('channelId');
-        channelSearchAuthority = workspaceAuthority(w);
+        channelSearchAuthority = channelSearchPageAuthority(w);
       }
       final t = RaftTokens.of(context);
       final sidePanels = DesktopNavigationPolicy.sidePanels(
