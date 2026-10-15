@@ -69,6 +69,15 @@ class _Client extends RaftClient {
 
 Future<void> _drain() => Future<void>.delayed(const Duration(milliseconds: 60));
 
+/// The resume read is not a clock. Poll until it has landed, and give up
+/// after two seconds so a dropped read still fails the assertion below.
+Future<void> _applied(bool Function() ready) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 2));
+  while (!ready() && DateTime.now().isBefore(deadline)) {
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+  }
+}
+
 Future<(WorkspaceController, _Directory)> _open() async {
   final dir = _Directory();
   final client = _Client(dir);
@@ -92,7 +101,7 @@ void main() {
         {'id': 'B', 'name': 'Public', 'role': 'member'},
       ];
       w.resumeLiveSession();
-      await _drain();
+      await _applied(() => w.servers.map((s) => s.id).join(',') == 'A,B');
       expect(w.servers.map((s) => s.id), ['A', 'B']);
       expect(w.server?.id, 'A');
       expect(w.client.serverId, 'A');
@@ -106,7 +115,7 @@ void main() {
       ];
       dir.calls.clear();
       w.resumeLiveSession();
-      await _drain();
+      await _applied(() => dir.directoryReads >= 1);
       // Nothing is read for B (a new row is only listed), and the open server
       // keeps its own loads to the usual resume reads.
       expect(dir.calls.where((c) => c.contains('/servers/B')), isEmpty);
@@ -115,10 +124,9 @@ void main() {
     test('two resumes inside the window make one directory read', () async {
       final (w, dir) = await _open();
       w.resumeLiveSession();
-      await _drain();
+      await _applied(() => dir.directoryReads == 1);
       w.resumeLiveSession();
       w.resumeLiveSession();
-      await _drain();
       expect(dir.directoryReads, 1);
     });
 
@@ -130,7 +138,7 @@ void main() {
         {'id': 'B', 'name': 'Beta', 'role': 'owner'},
       ];
       w.resumeLiveSession();
-      await _drain();
+      await _applied(() => w.servers.map((s) => s.id).join(',') == 'B');
       expect(w.servers.map((s) => s.id), ['B']);
       expect(w.server?.id, 'B');
       expect(w.error, isNull);
