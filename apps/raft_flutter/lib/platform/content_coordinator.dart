@@ -84,8 +84,12 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     dockUnread.bind(_workspace);
     reconciler.bind(_workspace);
     notifications.onTap = _tap;
+    // Desktop startup waits for native activation; unknown mobile lifecycle
+    // retains the workspace visibility fallback for incoming notifications.
     notifications.deliveryAllowed = () =>
-        !_closed && _appForeground != null && !appForeground;
+        !_closed &&
+        (!_isDesktop || _appForeground != null) &&
+        !(_appForeground ?? _workspace?.foreground ?? true);
     notifications.addListener(_notificationSettingsChanged);
     if (_isDesktop) {
       desktop = DesktopInboxNotifications(notifications: notifications);
