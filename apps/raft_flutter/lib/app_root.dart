@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -54,6 +55,7 @@ import 'platform/app_services.dart';
 import 'platform/app_window.dart';
 import 'platform/app_update_smoke.dart';
 import 'platform/background_notifications.dart';
+import 'platform/cache_exit.dart';
 
 final raftScreenshotKey = GlobalKey();
 
@@ -285,6 +287,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       widget.sessionStore ?? SecureSessionStore(),
     );
     WidgetsBinding.instance.addObserver(this);
+    AppUpdater.instance.beforeQuit = () => closeCacheForExit(cache?.close);
     RaftMemoryRelease.instance.install();
     NativeSystemFonts.instance.addListener(rebuildRoot);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
@@ -2100,6 +2103,14 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   @override
   void didChangeLocales(List<Locale>? locales) => rebuildRoot();
 
+  /// The engine waits for this before it tears the background isolate down.
+  /// Completion, timeout, and failure all allow the exit.
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    await closeCacheForExit(cache?.close);
+    return AppExitResponse.exit;
+  }
+
   @override
   void dispose() {
     restoreRetry?.cancel();
@@ -2115,6 +2126,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     unawaited(shareSession.dispose());
     RaftMemoryRelease.instance.uninstall();
     WidgetsBinding.instance.removeObserver(this);
+    AppUpdater.instance.beforeQuit = null;
     NativeSystemFonts.instance.removeListener(rebuildRoot);
     unawaited(content.dispose());
     AttachmentHttp.close();

@@ -156,4 +156,39 @@ void main() {
     final subject = updater(TargetPlatform.linux, opens: false);
     expect(await subject.checkAndInstall(), AppUpdateOutcome.failed);
   });
+
+  void recordRequiredExit(AppUpdater subject, List<String> order) {
+    subject.performRequiredExit = () async {
+      order.add('exit');
+    };
+  }
+
+  test('beforeQuit finishes before the required exit', () async {
+    final subject = updater(TargetPlatform.linux);
+    final order = <String>[];
+    subject.beforeQuit = () async {
+      order.add('close');
+    };
+    recordRequiredExit(subject, order);
+    await subject.quitAfterHook();
+    expect(order, ['close', 'exit']);
+  });
+
+  test('a missing beforeQuit still requests the required exit', () async {
+    final subject = updater(TargetPlatform.linux);
+    final order = <String>[];
+    expect(subject.beforeQuit, isNull);
+    recordRequiredExit(subject, order);
+    await subject.quitAfterHook();
+    expect(order, ['exit']);
+  });
+
+  test('a throwing beforeQuit still requests the required exit', () async {
+    final subject = updater(TargetPlatform.linux);
+    final order = <String>[];
+    subject.beforeQuit = () async => throw StateError('close failed');
+    recordRequiredExit(subject, order);
+    await subject.quitAfterHook();
+    expect(order, ['exit']);
+  });
 }
