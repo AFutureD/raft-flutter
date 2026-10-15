@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/auth_view.dart';
+import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/global_server_selector.dart';
+import 'package:raft_flutter/features/mobile_settings_owner.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/background_notifications.dart';
 import 'package:raft_client/raft_client.dart';
@@ -44,6 +46,7 @@ Future<RootFixture> _restart(
   String uri, {
   String principal = 'alice',
   String lastServer = 'alpha',
+  double width = 1280,
   void Function(RootFixture)? before,
 }) async {
   final f = RootFixture(cache: cache);
@@ -54,7 +57,7 @@ Future<RootFixture> _restart(
   await f.mount(
     t,
     'elegant-light',
-    1280,
+    width,
     cachedSession: true,
     principal: principal,
     preferences: {'$_memory.last': lastServer, '$_memory.a': uri},
@@ -126,15 +129,22 @@ Future<RootCache> _cachedBeta(WidgetTester t) async {
   return first.cache;
 }
 
+void _phoneDirect(bool direct) {
+  MobileSettingsPreference.instance.setEnabled(direct);
+  addTearDown(MobileSettingsPreference.instance.resetForTest);
+}
+
 void main() {
+  for (final direct in [false, true]) {
   for (final width in [390.0, 1280.0]) {
     for (final (route, server, channel, message) in [
       ('/s/alpha/channel/beta', 'a', 'beta', 'Message beta'),
       ('/s/beta/channel/cb', 'b', 'cb', 'Accepted b'),
     ]) {
-      testWidgets('late cold-start Alpha cannot replace $route at $width', (
-        t,
-      ) async {
+      testWidgets(
+        'late cold-start Alpha cannot replace $route at $width when direct is $direct',
+        (t) async {
+        _phoneDirect(direct);
         final cache = await _cachedBeta(t);
         final f = _twoChannelFixture(cache: cache);
         final alpha = Completer<dynamic>();
@@ -185,8 +195,9 @@ void main() {
     }
     for (final status in [403, 404]) {
       testWidgets(
-        'cold-start denied Alpha stays unavailable instead of cached Beta $width/$status',
+        'cold-start denied Alpha stays unavailable instead of cached Beta $width/$status when direct is $direct',
         (t) async {
+          _phoneDirect(direct);
           final cache = await _cachedBeta(t);
           final f = _twoChannelFixture(cache: cache);
           f.overrides['GET /messages/channel/alpha'] = (_) => {
@@ -221,11 +232,14 @@ void main() {
       );
     }
   }
+  }
+  for (final direct in [false, true]) {
   for (final width in [390.0, 1280.0]) {
     for (final cachedSession in [false, true]) {
       testWidgets(
-        'cold start routes Alpha over cached Beta $width/cached=$cachedSession',
+        'cold start routes Alpha over cached Beta $width/cached=$cachedSession when direct is $direct',
         (t) async {
+          _phoneDirect(direct);
           final first = _twoChannelFixture();
           await first.mount(t, 'elegant-light', 1280);
           await t.tap(find.byKey(const ValueKey('global-server-a')));
@@ -269,6 +283,7 @@ void main() {
         },
       );
     }
+  }
   }
 
   testWidgets(
@@ -430,11 +445,17 @@ void main() {
     },
   );
 
+  for (final direct in [false, true]) {
   testWidgets(
-    'restart paints cached sidebar and window at the first frame, then revalidates in place',
+    'restart paints cached sidebar and window at the first frame when direct is $direct, then revalidates in place',
     (t) async {
+      _phoneDirect(direct);
       final (cache, uri) = await _firstProcess(t);
-      final f = await _restart(t, cache, uri);
+      final f = await _restart(t, cache, uri, width: direct ? 390 : 1280);
+      expect(
+        find.byType(MobileChatDirectRead),
+        direct ? findsWidgets : findsNothing,
+      );
       // No startup response has arrived; every painted frame was already the
       // workspace with its cached sidebar row and message window.
       expect(f.surfaces, everyElement('workspace'));
@@ -492,6 +513,7 @@ void main() {
       await f.close(t);
     },
   );
+  }
 
   testWidgets('another account on the device never sees the cached window', (
     t,
