@@ -97,6 +97,14 @@ Future<Future<void> Function()> mountKeyboardChat(
     ),
   );
   await idle(const Duration(seconds: 2));
+  if (await waitUntil(() => find.text('lab-kb', findRichText: true).evaluate().isNotEmpty,
+      limit: const Duration(seconds: 15)) < 0) {
+    final root = t.element(find.byType(app.RaftApp));
+    final actualView = View.of(root);
+    final text = find.byType(RichText).evaluate().map((e) => (e.widget as RichText).text.toPlainText()).take(30).join(' | ');
+    throw StateError('keyboard channel not listed; appView=${actualView.physicalSize}; '
+        'testView=${t.view.physicalSize}; text=$text; requests=${api.hits}; misses=${api.misses}');
+  }
   await t.tap(find.text('lab-kb', findRichText: true));
   final opened = await waitUntil(
     () => find.byType(RaftComposer).evaluate().isNotEmpty,
