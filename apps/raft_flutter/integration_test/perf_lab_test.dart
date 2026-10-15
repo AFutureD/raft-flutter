@@ -107,6 +107,54 @@ class _HostState extends State<_Host> {
 
 class _HintLabBinding extends IntegrationTestWidgetsFlutterBinding with AndroidPerformanceHintBinding {}
 
+bool _activityRowShown() => find
+    .byKey(const ValueKey('activity-channel-open-a'))
+    .hitTestable()
+    .evaluate()
+    .isNotEmpty;
+
+void registerActivityArrivalTest() {
+  testWidgets('Activity arrival requires a visible target row', (t) async {
+    addTearDown(() async {
+      await t.pumpWidget(const SizedBox());
+      await t.pump();
+    });
+    await t.pumpWidget(const MaterialApp(home: Scaffold(body: Text('Saved'))));
+    expect(_activityRowShown(), false);
+    await t.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox())));
+    expect(
+      _activityRowShown(),
+      false,
+      reason: 'Home disappearing does not prove Activity arrived.',
+    );
+    await t.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Offstage(
+            child: Text(
+              'Activity item',
+              key: ValueKey('activity-channel-open-a'),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(
+      _activityRowShown(),
+      false,
+      reason: 'An offstage target is not visible.',
+    );
+    await t.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Text('Activity item', key: ValueKey('activity-channel-open-a')),
+        ),
+      ),
+    );
+    expect(_activityRowShown(), true);
+  });
+}
+
 void main() {
   final binding = _HintLabBinding();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
@@ -115,6 +163,12 @@ void main() {
     // Stop that loop so the UI hint session can expire while the APK remains.
     binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.benchmark;
   });
+  // Run the control in debug/widget tests. Do not prime framework caches
+  // with a separate widget test before a profile workload.
+  if (!kProfileMode) {
+    registerActivityArrivalTest();
+    return;
+  }
   final sampler = LabSampler();
   testWidgets('perf lab', (t) async {
     expect(kProfileMode, true, reason: 'Only profile-mode timings are meaningful.');
@@ -128,7 +182,8 @@ void main() {
     final view = binding.platformDispatcher.views.first;
     await sampler.hello({
       'pid': pid,
-      'fixtureVersion': fixtureVersion,
+      'fixtureVersion': '$fixtureVersion-m7',
+      'linuxApplicationIdSuffix': const String.fromEnvironment('RAFT_LINUX_APPLICATION_ID_SUFFIX'),
       'themes': themes,
       'scenarios': only.toList(),
       'seconds': seconds,
@@ -1119,7 +1174,7 @@ void main() {
         }, () async {
           final opens = <Map<String, Object?>>[];
           for (var i = 0; i < 3; i++) {
-            await step(opens, 'open-activity-$i', () => t.tap(find.text('Activity', findRichText: true).first), () => !homeListShown());
+            await step(opens, 'open-activity-$i', () => t.tap(find.text('Activity', findRichText: true).first), _activityRowShown);
             await step(opens, 'back-activity-$i', back, homeListShown);
           }
           return {'opens': opens};
@@ -1145,13 +1200,13 @@ void main() {
         await run('nav-activity-item', prepare: () async {
           await goRoot('home');
           await t.tap(find.text('Activity', findRichText: true).first);
-          if (await waitUntil(() => activityEntry().evaluate().isNotEmpty, limit: const Duration(seconds: 10)) < 0) failures.add('$name: activity entries never listed');
+          if (await waitUntil(_activityRowShown, limit: const Duration(seconds: 10)) < 0) failures.add('$name: activity entries never listed');
           await lab.settle(t, time: const Duration(seconds: 1));
         }, () async {
           final opens = <Map<String, Object?>>[];
           for (var i = 0; i < 3; i++) {
             await step(opens, 'open-activity-item-$i', () => t.tap(activityEntry()), () => channelShown(openA));
-            await step(opens, 'back-activity-item-$i', back, () => activityEntry().evaluate().isNotEmpty);
+            await step(opens, 'back-activity-item-$i', back, _activityRowShown);
           }
           return {'opens': opens};
         }, kind: 'transitions');

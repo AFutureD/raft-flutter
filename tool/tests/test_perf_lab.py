@@ -1,6 +1,7 @@
 import importlib.util
 import argparse
 import contextlib
+import copy
 import io
 import json
 from pathlib import Path
@@ -12,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('lab', ROOT / 'tool/performance/lab.py')
 lab = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(lab)
+TOOLCHAIN = {'frameworkRevision': 'framework-test', 'engineRevision': 'engine-test', 'dartSdkVersion': 'dart-test'}
 
 
 def frames(ui_ms, raster_ms=2.0, period=16667, start=1_000_000):
@@ -216,6 +218,299 @@ class SummaryTest(unittest.TestCase):
         self.assertEqual(cluster['pairs'], 8)
         self.assertEqual(lab.ratio_verdict(cluster, high_limit=1.03, low_limit=0.97), 'same')
         self.assertEqual(lab.cluster_ratio_ci([])['pairs'], 0)
+
+
+def calibration_run(side):
+    cpus = [0, 2] if side == 'old' else [1, 3]
+    pid = 100 if side == 'old' else 200
+    source = {'digest': 'a' * 64}
+    artifact = {'digest': ('b' if side == 'old' else 'c') * 64,
+                'path': f'/isolated/{side}', 'files': {'raft_flutter': 'd' * 64, 'lib/libflutter_linux_gtk.so': 'e' * 64}}
+    config = {'themes': 'brutal-light', 'scenarios': 'keyboard', 'seconds': 8,
+              'semantics': 'platform', 'phases': True, 'rounds': 3}
+    manifest = {'schema': 1, 'source': source, 'artifact': artifact,
+                'driverSha256': 'e' * 64, 'fixtureSha256': 'f' * 64,
+                'toolchain': TOOLCHAIN,
+                'buildReceipt': {'source': source, 'sourceAfter': source, 'artifact': artifact, 'exitCode': 0, 'toolchain': TOOLCHAIN,
+                                 'config': config, 'identitySuffix': f'.{side}'},
+                'config': config, 'pair': '01', 'order': side,
+                'invocation': ['python3', 'tool/performance/lab.py', 'run'],
+                'bootId': 'test-boot', 'cpus': cpus, 'topology': [
+                    {'cpu': i, 'core': i % 2, 'socket': 0, 'siblings': [i % 2, i % 2 + 2]}
+                    for i in range(4)]}
+    rows, frame_rows, barriers = [], [], []
+    for n in range(4):
+        start = 1_000_000_000 + n * 10_000_000_000
+        role = lambda tid: {'tid': tid, 'ns': 10_000, 'ms': .01,
+            'start': {'beforeNs': start, 'afterNs': start + 10, 'cpus': cpus, 'startTicks': tid},
+            'end': {'beforeNs': start + 1_000_000_000, 'afterNs': start + 1_000_000_010,
+                    'cpus': cpus, 'startTicks': tid}}
+        rows.append({'batch': side, 'pair': '01', 'order': side, 'round': n, 'warmup': n == 0,
+                     'collected': True, 'source': 'proc-schedstat', 'pid': pid, 'processStartTicks': pid,
+                     'executable': f'/isolated/{side}/raft_flutter', 'ui': role(pid + 1), 'raster': role(pid + 2),
+                     'mappedAot': [f'/isolated/{side}/lib/libapp.so'],
+                     'theme': 'brutal-light', 'scenario': 'keyboard', 'load': '21 18 16', 'loadEnd': '22 18 16'})
+        frame_rows.append({'batch': side, 'round': n, 'warmup': n == 0,
+                           'record': record('keyboard', kind='keyboard')})
+        barriers.append({'batch': side, 'peerBatch': 'new' if side == 'old' else 'old', 'round': n})
+    return {'manifest': manifest, 'env': {'exitCode': 0, 'hostActivity': {'intervalSeconds': 4, 'processes': []}},
+            'hello': {'fixtureVersion': 'test-m7', 'linuxApplicationIdSuffix': f'.{side}', 'themes': ['brutal-light'], 'scenarios': ['keyboard'],
+                      'seconds': 8, 'semantics': 'platform', 'phases': True},
+            'driverResult': {'result': 'true', 'failureDetails': []},
+            'done': {'failures': []}, 'samplerErrors': '', 'procRounds': rows,
+            'frameRounds': frame_rows, 'barrierRounds': barriers}
+
+
+class ConcurrentQualificationTest(unittest.TestCase):
+    def test_overlap_requires_both_positive_windows(self):
+        self.assertTrue(lab.window_overlap(0, 1000, 10, 1010)['ok'])
+        for values in ((0, 100, 0, 10), (0, 0, 0, 100), (0, 100, 0, float('nan'))):
+            self.assertFalse(lab.window_overlap(*values)['ok'])
+
+    def test_all_rounds_and_actual_roles_qualify_under_natural_high_load(self):
+        result = lab.qualify_pair(calibration_run('old'), calibration_run('new'))
+        self.assertTrue(result['qualified'], result['reasons'])
+        self.assertEqual(len(result['rounds']), 4)
+        self.assertEqual(result['independentPairs'], 1)
+        self.assertIn('Flutter', result['primaryMetrics'])
+
+    def test_invalid_warmup_or_one_measured_round_voids_the_whole_pair(self):
+        for index in (0, 2):
+            old, new = calibration_run('old'), calibration_run('new')
+            new['procRounds'][index]['raster']['start']['beforeNs'] += 900_000_000
+            new['procRounds'][index]['raster']['start']['afterNs'] += 900_000_000
+            result = lab.qualify_pair(old, new)
+            self.assertFalse(result['qualified'])
+            self.assertEqual(result['independentPairs'], 0)
+            self.assertTrue(any('overlap' in reason for reason in result['reasons']))
+
+    def test_missing_malformed_and_nonfinite_observations_are_not_filtered(self):
+        for bad in (None, 0, -1, float('nan'), float('inf'), True):
+            old, new = calibration_run('old'), calibration_run('new')
+            new['procRounds'][1]['ui']['ns'] = bad
+            result = lab.qualify_pair(old, new)
+            self.assertFalse(result['qualified'], bad)
+
+    def test_role_affinity_and_counter_identity_are_required(self):
+        for change in ('missing', 'different', 'thread-replaced'):
+            old, new = calibration_run('old'), calibration_run('new')
+            role = new['procRounds'][0]['ui']
+            if change == 'missing':
+                role['start'].pop('cpus')
+            elif change == 'different':
+                role['end']['cpus'] = [0, 2]
+            else:
+                role['end']['startTicks'] += 1
+            self.assertFalse(lab.qualify_pair(old, new)['qualified'], change)
+
+    def test_smt_overlap_and_reused_launch_are_rejected(self):
+        old, new = calibration_run('old'), calibration_run('new')
+        new['manifest']['cpus'] = [2]
+        self.assertFalse(lab.qualify_pair(old, new)['qualified'])
+        old, new = calibration_run('old'), calibration_run('new')
+        first = lab.qualify_pair(old, new)
+        self.assertFalse(lab.qualify_pair(old, new, seen_launches=set(first['launchKeys']))['qualified'])
+
+    def test_missing_round_sampler_error_or_false_success_is_rejected(self):
+        for field in ('procRounds', 'frameRounds', 'barrierRounds', 'samplerErrors', 'driverResult'):
+            old, new = calibration_run('old'), calibration_run('new')
+            if field.endswith('Rounds'):
+                new[field].pop(1)
+            elif field == 'samplerErrors':
+                new[field] = 'cpu: read failed'
+            else:
+                new[field] = {'result': 'false', 'failureDetails': []}
+            self.assertFalse(lab.qualify_pair(old, new)['qualified'], field)
+
+    def test_source_artifact_configuration_and_launch_match_receipts(self):
+        for field in ('source', 'artifact', 'config', 'identitySuffix'):
+            old, new = calibration_run('old'), calibration_run('new')
+            receipt = copy.deepcopy(new['manifest']['buildReceipt'])
+            receipt[field] = {} if field != 'identitySuffix' else ''
+            new['manifest']['buildReceipt'] = receipt
+            self.assertFalse(lab.qualify_pair(old, new)['qualified'], field)
+
+    def test_counter_read_uncertainty_cannot_manufacture_overlap(self):
+        old, new = calibration_run('old'), calibration_run('new')
+        # Nominal start stamps match, but the first counter read takes 10% of
+        # the window. Its guaranteed overlap is below 95% of the other side.
+        new['procRounds'][0]['ui']['start']['afterNs'] += 100_000_000
+        self.assertFalse(lab.qualify_pair(old, new)['qualified'])
+
+    def test_loaded_fixture_engine_and_toolchain_must_match(self):
+        for field in ('fixture', 'engine', 'toolchain'):
+            old, new = calibration_run('old'), calibration_run('new')
+            if field == 'fixture':
+                new['hello']['fixtureVersion'] = 'old-arrival-condition'
+            elif field == 'engine':
+                new['manifest']['artifact']['files']['lib/libflutter_linux_gtk.so'] = 'f' * 64
+            else:
+                new['manifest']['toolchain'] = {**TOOLCHAIN, 'engineRevision': 'different-engine'}
+            self.assertFalse(lab.qualify_pair(old, new)['qualified'], field)
+
+    def test_actual_loaded_artifact_and_units_must_match(self):
+        for field in ('executable', 'mappedAot', 'ms', 'peer', 'loaded-config'):
+            old, new = calibration_run('old'), calibration_run('new')
+            if field in ('executable', 'mappedAot'):
+                new['procRounds'][1][field] = '/another/bundle'
+            elif field == 'ms':
+                new['procRounds'][1]['ui']['ms'] = float('nan')
+            elif field == 'peer':
+                new['barrierRounds'][1]['peerBatch'] = 'stale'
+            else:
+                new['hello']['seconds'] = 2
+            self.assertFalse(lab.qualify_pair(old, new)['qualified'], field)
+
+    def test_qualify_command_preserves_original_inputs_and_rejects_reuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            names = {'manifest': 'run-manifest.json', 'env': 'env.json', 'hello': 'lab-hello.json',
+                     'driverResult': 'driver-result.json', 'done': 'lab-done.json'}
+            for side in ('old', 'new'):
+                folder = base / side
+                folder.mkdir()
+                run = calibration_run(side)
+                for key, filename in names.items():
+                    (folder / filename).write_text(json.dumps(run[key]))
+                for key, filename in (('procRounds', 'proc-rounds.jsonl'), ('frameRounds', 'frame-rounds.jsonl'), ('barrierRounds', 'barrier-rounds.jsonl')):
+                    (folder / filename).write_text(''.join(json.dumps(row) + '\n' for row in run[key]))
+            args = argparse.Namespace(old=base / 'old', new=base / 'new', out=base / 'first.json', previous=[])
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.qualify_cmd(args), 0)
+                args.previous = [args.out]
+                args.out = base / 'second.json'
+                self.assertEqual(lab.qualify_cmd(args), 1)
+            self.assertIn('launch already used', json.loads(args.out.read_text())['reasons'])
+            self.assertEqual(len((base / 'old/proc-rounds.jsonl').read_text().splitlines()), 4)
+
+
+class ReceiptAndNaturalLoadTest(unittest.TestCase):
+    def test_build_receipt_binds_source_configuration_and_copied_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = root / 'app'
+            source = {'digest': 'a' * 64, 'files': {'lib/main.dart': 'b' * 64}}
+            args = argparse.Namespace(out=root / 'evidence', identity_suffix='.m7old', themes='brutal-light',
+                                      scenarios='keyboard', seconds=8, rounds=3, semantics='platform', no_trace=False)
+
+            def compiler(argv, **kw):
+                self.assertIn('--profile', argv)
+                self.assertIn('--dart-define=RAFT_LINUX_APPLICATION_ID_SUFFIX=.m7old', argv)
+                self.assertEqual(kw['env']['RAFT_APPLICATION_ID_SUFFIX'], '.m7old')
+                bundle = app / 'build/linux/x64/profile/bundle'
+                (bundle / 'lib').mkdir(parents=True)
+                (bundle / 'raft_flutter').write_bytes(b'fixture executable')
+                (bundle / 'lib/libapp.so').write_bytes(b'fixture AOT')
+                return argparse.Namespace(returncode=0)
+
+            with patch.object(lab, 'ROOT', root), patch.object(lab, 'APP', app), \
+                 patch.object(lab.platform, 'system', return_value='Linux'), patch.object(lab, 'flutter_guard'), \
+                 patch.object(lab, 'source_snapshot', return_value=source), \
+                 patch.object(lab, 'linux_build_preflight'), patch.object(lab, 'flutter_toolchain', return_value=TOOLCHAIN), \
+                 patch.object(lab.subprocess, 'run', side_effect=compiler), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.build(args), 0)
+            receipt = json.loads((args.out / 'build-receipt.json').read_text())
+            self.assertEqual(receipt['source'], receipt['sourceAfter'])
+            self.assertEqual(receipt['artifact'], lab.artifact_snapshot(args.out / 'bundle'))
+            self.assertEqual(receipt['toolchain'], TOOLCHAIN)
+
+    def test_source_changes_during_build_are_recorded_as_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'failed'
+            args = argparse.Namespace(out=out, identity_suffix='.m7old', themes='brutal-light', scenarios='keyboard',
+                                      seconds=8, rounds=3, semantics='platform', no_trace=False)
+            with patch.object(lab.platform, 'system', return_value='Linux'), patch.object(lab, 'flutter_guard'), \
+                 patch.object(lab, 'source_snapshot', side_effect=[{'digest': 'a'}, {'digest': 'b'}]), \
+                 patch.object(lab, 'linux_build_preflight'), patch.object(lab, 'flutter_toolchain', return_value=TOOLCHAIN), \
+                 patch.object(lab.subprocess, 'run', return_value=argparse.Namespace(returncode=1)), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.build(args), 1)
+            receipt = json.loads((out / 'build-receipt.json').read_text())
+            self.assertEqual(receipt['error'], 'Source changed during the build.')
+            self.assertTrue((out / 'build.log').exists())
+
+    def test_poisoned_cmake_cache_is_rejected_before_any_compiler_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = root / 'app'
+            media = root / '.local/media-linux/bundle/libs/libmpv.so.2'
+            media.parent.mkdir(parents=True)
+            media.write_bytes(b'prepared fixture')
+            cache = app / 'build/linux/x64/profile/CMakeCache.txt'
+            cache.parent.mkdir(parents=True)
+            cache.write_text('CMAKE_INSTALL_PREFIX:PATH=/usr/local\n')
+            args = argparse.Namespace(out=root / 'failed', identity_suffix='.m7old', themes='brutal-light',
+                                      scenarios='keyboard', seconds=8, rounds=3, semantics='platform', no_trace=False)
+            with patch.object(lab, 'ROOT', root), patch.object(lab, 'APP', app), \
+                 patch.object(lab.platform, 'system', return_value='Linux'), patch.object(lab, 'flutter_guard'), \
+                 patch.object(lab, 'source_snapshot', return_value={'digest': 'a'}), \
+                 patch.object(lab, 'flutter_toolchain', return_value=TOOLCHAIN), \
+                 patch.object(lab.subprocess, 'run') as compiler, contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.build(args), 1)
+                compiler.assert_not_called()
+            receipt = json.loads((args.out / 'build-receipt.json').read_text())
+            self.assertIn('Unsafe CMake install prefix', receipt['error'])
+            self.assertEqual(cache.read_text(), 'CMAKE_INSTALL_PREFIX:PATH=/usr/local\n')
+            self.assertIn('reset this worktree cache', (args.out / 'build.log').read_text())
+
+    def test_missing_media_and_escaped_build_directory_fail_preflight(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = root / 'app'
+            with patch.object(lab, 'ROOT', root), patch.object(lab, 'APP', app):
+                with self.assertRaisesRegex(ValueError, 'media runtime is missing'):
+                    lab.linux_build_preflight()
+                media = root / '.local/media-linux/bundle/libs/libmpv.so.2'
+                media.parent.mkdir(parents=True)
+                media.write_bytes(b'fixture')
+                (app / 'build').mkdir(parents=True)
+                (app / 'build/linux').symlink_to(root / 'elsewhere', target_is_directory=True)
+                with self.assertRaisesRegex(ValueError, 'escapes this app directory'):
+                    lab.linux_build_preflight()
+
+    def test_explicit_zero_rounds_cannot_fall_back_to_environment(self):
+        args = argparse.Namespace(themes='brutal-light', scenarios='keyboard', seconds=8,
+                                  semantics='platform', no_trace=False, rounds=0)
+        with patch.dict(lab.os.environ, {'RAFT_LAB_ROUNDS': '3'}), self.assertRaises(SystemExit):
+            lab.workload_config(args)
+
+    def test_concurrent_run_never_waits_for_quiet_or_retries_a_failed_launch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'run'
+            args = argparse.Namespace(out=out, device='linux', flutter_args=['--use-application-binary=/test/raft_flutter'],
+                themes='brutal-light', scenarios='keyboard', seconds=8, rounds=3, semantics='platform',
+                no_trace=False, reference=None, max_load=None)
+            manifest = {'source': {'digest': 'a'}, 'artifact': {'path': '/test', 'digest': 'b'}}
+
+            def failed_start(argv, **kw):
+                kw['stdout'].write('Application failed to start\n')
+                return argparse.Namespace(returncode=1)
+
+            def summary(path):
+                (path / 'summary.md').write_text('No sample, failed launch.')
+
+            with patch.dict(lab.os.environ, {'DISPLAY': ':test'}), patch.object(lab, 'concurrent_run', return_value=True), \
+                 patch.object(lab, 'flutter_guard'), patch.object(lab, 'run_manifest', return_value=manifest), \
+                 patch.object(lab, 'wait_for_display'), patch.object(lab, 'wait_for_quiet_host') as quiet, \
+                 patch.object(lab.time, 'sleep') as sleep, patch.object(lab, 'environment', return_value={'loadavg': [21, 18, 16]}), \
+                 patch.object(lab.os, 'getloadavg', return_value=(20, 18, 16)), \
+                 patch.object(lab, 'host_cpu_snapshot', return_value={}), \
+                 patch.object(lab, 'host_cpu_delta', return_value={'intervalSeconds': 4, 'processes': []}), \
+                 patch.object(lab, 'source_snapshot', return_value=manifest['source']), \
+                 patch.object(lab, 'artifact_snapshot', return_value=manifest['artifact']), \
+                 patch.object(lab.subprocess, 'run', side_effect=failed_start) as launch, \
+                 patch.object(lab, 'summarize', side_effect=summary), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.run(args), 1)
+                quiet.assert_not_called()
+                sleep.assert_not_called()
+                self.assertEqual(launch.call_count, 1)
+            self.assertTrue((out / 'runner.log').exists())
+            self.assertEqual(json.loads((out / 'env.json').read_text())['exitCode'], 1)
+
+    def test_an_unpaired_concurrency_override_is_rejected(self):
+        with patch.dict(lab.os.environ, {'RAFT_LAB_ALLOW_CONCURRENT': '1'}, clear=True):
+            with self.assertRaises(SystemExit):
+                lab.concurrent_run('linux')
 
 
 class AndroidRunSafetyTest(unittest.TestCase):

@@ -11,6 +11,7 @@ See docs/performance-lab.md.
 """
 import argparse
 import datetime
+import hashlib
 import json
 import math
 import os
@@ -228,6 +229,149 @@ def ratio_verdict(ci, *, high_limit=1.05, low_limit=None):
     if low > high_limit:
         return 'regression'
     return 'uncertain'
+
+
+def qualify_pair(old, new, *, seen_launches=frozenset(), measured_rounds=3):
+    """Qualify one same-source calibration pair, never individual rounds.
+
+    CPU counters check concurrent fairness. Product conclusions use Flutter
+    frame time, visible latency and over-budget frames, not these counters.
+    This function does not change the legacy comparison or infer equivalence.
+    """
+    result = {'qualified': False, 'independentPairs': 0, 'reasons': [], 'rounds': [], 'launchKeys': [],
+              'primaryMetrics': 'Flutter UI/raster p90/p99, visible latency and over-budget frames'}
+
+    def require(value, reason):
+        if not value:
+            raise ValueError(reason)
+
+    def integer(value, label, minimum=0):
+        require(type(value) is int and value >= minimum, f'{label}: missing or invalid integer')
+        return value
+
+    def cpu_set(value):
+        require(isinstance(value, list) and value, 'role affinity missing')
+        require(all(type(v) is int and v >= 0 for v in value), 'invalid role affinity')
+        require(len(set(value)) == len(value), 'duplicate CPU in affinity')
+        return set(value)
+
+    try:
+        runs = {'old': old, 'new': new}
+        manifests = {side: run['manifest'] for side, run in runs.items()}
+        a, b = manifests.values()
+        require(a['source']['digest'] == b['source']['digest'], 'calibration product sources differ')
+        require(a['driverSha256'] == b['driverSha256'] and a['fixtureSha256'] == b['fixtureSha256'], 'observer or fixture sources differ')
+        require(a['config'] == b['config'], 'workload configurations differ')
+        require(a['toolchain'] == b['toolchain'], 'calibration toolchains differ')
+        require(a['artifact']['files']['lib/libflutter_linux_gtk.so'] == b['artifact']['files']['lib/libflutter_linux_gtk.so'], 'calibration Flutter engines differ')
+        require(old['hello']['fixtureVersion'] == new['hello']['fixtureVersion'] and old['hello']['fixtureVersion'], 'loaded fixture versions differ or are missing')
+        config = a['config']
+        require(config['rounds'] == measured_rounds, 'measured round count differs from protocol')
+        require(',' not in config['themes'] and ',' not in config['scenarios'], 'calibration requires one theme and one scenario')
+        require(a['pair'] == b['pair'] and a['pair'], 'pair identities differ')
+        require(a.get('bootId') == b.get('bootId') and a.get('bootId'), 'host monotonic clock identity missing or different')
+        require(a['buildReceipt']['identitySuffix'] != b['buildReceipt']['identitySuffix'], 'test application identities are not isolated')
+        groups, batches, identities = {}, {}, {}
+        expected_rounds = list(range(measured_rounds + 1))
+        for side, run in runs.items():
+            m = manifests[side]
+            require(m['schema'] == 1 and m['order'] == side and m['invocation'], f'{side}: invocation identity missing')
+            require(all(re.fullmatch(r'[0-9a-f]{64}', str(value)) for value in
+                        (m['source']['digest'], m['artifact']['digest'], m['driverSha256'], m['fixtureSha256'])), f'{side}: source/artifact hash missing')
+            receipt = m['buildReceipt']
+            require(receipt['exitCode'] == 0 and receipt['identitySuffix'], f'{side}: isolated build receipt missing')
+            require(receipt['sourceAfter'] == receipt['source'], f'{side}: source changed during build')
+            for field in ('source', 'artifact', 'config', 'toolchain'):
+                require(receipt[field] == m[field], f'{side}: {field} differs from build receipt')
+            require(all(isinstance(m['toolchain'][key], str) and m['toolchain'][key] for key in
+                        ('frameworkRevision', 'engineRevision', 'dartSdkVersion')), f'{side}: toolchain identity missing')
+            require(run['env']['exitCode'] == 0, f'{side}: run failed')
+            activity = run['env']['hostActivity']
+            require(activity['intervalSeconds'] > 0 and isinstance(activity['processes'], list), f'{side}: host load observation missing')
+            require(not run['samplerErrors'], f'{side}: sampler errors')
+            require(run['driverResult']['result'] in ('true', True) and not run['driverResult']['failureDetails'], f'{side}: driver failed')
+            require(not run['done']['failures'], f'{side}: scenario failed')
+            hello = run['hello']
+            require(hello['linuxApplicationIdSuffix'] == receipt['identitySuffix'], f'{side}: loaded fixture identity differs')
+            require(hello['themes'] == [config['themes']] and hello['scenarios'] == [config['scenarios']]
+                    and hello['seconds'] == config['seconds'] and hello['semantics'] == config['semantics']
+                    and hello['phases'] == config['phases'], f'{side}: loaded fixture configuration differs')
+            cpus = cpu_set(m['cpus'])
+            topology = {entry['cpu']: entry for entry in m['topology']}
+            require(cpus <= topology.keys(), f'{side}: CPU topology missing')
+            groups[side] = {(topology[cpu]['socket'], topology[cpu]['core']) for cpu in cpus}
+            require(all(set(topology[cpu]['siblings']) <= cpus for cpu in cpus), f'{side}: SMT sibling escaped the core group')
+            for field in ('procRounds', 'frameRounds', 'barrierRounds'):
+                require([row['round'] for row in run[field]] == expected_rounds, f'{side}: incomplete or duplicated {field}')
+            rows = run['procRounds']
+            batches[side] = rows[0]['batch']
+            identities[side] = (rows[0]['pid'], rows[0]['processStartTicks'])
+            result['launchKeys'] += [f"batch:{batches[side]}", f"process:{m['bootId']}:{identities[side][0]}:{identities[side][1]}"]
+            roles = {}
+            for row, frames, barrier in zip(rows, run['frameRounds'], run['barrierRounds']):
+                n = row['round']
+                require(row['batch'] == batches[side] and frames['batch'] == batches[side] and barrier['batch'] == batches[side], f'{side}/{n}: launch changed')
+                require((row['pid'], row['processStartTicks']) == identities[side], f'{side}/{n}: process changed')
+                integer(row['pid'], 'pid', 1)
+                integer(row['processStartTicks'], 'process start', 1)
+                require(row['executable'] == str(Path(m['artifact']['path']) / 'raft_flutter'), f'{side}/{n}: loaded executable differs')
+                require(row['mappedAot'] == [str(Path(m['artifact']['path']) / 'lib/libapp.so')], f'{side}/{n}: loaded AOT artifact differs')
+                require(row['pair'] == m['pair'] and row['order'] == side, f'{side}/{n}: pair side differs')
+                require(row['collected'] is True and row['source'] == 'proc-schedstat', f'{side}/{n}: counters missing')
+                require(row['warmup'] is (n == 0) and frames['warmup'] is (n == 0), f'{side}/{n}: warmup missing or duplicated')
+                require(row['theme'] == config['themes'] and row['scenario'] == config['scenarios'], f'{side}/{n}: workload changed')
+                for key in ('load', 'loadEnd'):
+                    load = [float(v) for v in row[key].split()]
+                    require(len(load) == 3 and all(math.isfinite(v) and v >= 0 for v in load), f'{side}/{n}: load observation missing')
+                for role in ('ui', 'raster'):
+                    counter = row[role]
+                    integer(counter['ns'], f'{side}/{n}/{role} CPU', 1)
+                    ms = counter['ms']
+                    require(type(ms) in (int, float) and math.isfinite(ms) and math.isclose(ms, counter['ns'] / 1e6, rel_tol=1e-12), f'{side}/{n}/{role}: CPU units differ')
+                    tid = integer(counter['tid'], f'{side}/{n}/{role} TID', 1)
+                    start, end = counter['start'], counter['end']
+                    require(start['startTicks'] == end['startTicks'], f'{side}/{n}/{role}: thread changed')
+                    integer(start['startTicks'], 'thread start', 1)
+                    identity = (tid, start['startTicks'])
+                    require(roles.setdefault(role, identity) == identity, f'{side}/{n}/{role}: role TID changed')
+                    require(cpu_set(start['cpus']) == cpus and cpu_set(end['cpus']) == cpus, f'{side}/{n}/{role}: actual thread affinity differs')
+                    times = [integer(point[key], f'{side}/{n}/{role} counter time') for point in (start, end) for key in ('beforeNs', 'afterNs')]
+                    require(times == sorted(times) and times[1] < times[2], f'{side}/{n}/{role}: invalid counter read bounds')
+                require(row['ui']['tid'] != row['raster']['tid'], f'{side}/{n}: UI and raster role alias')
+                record = frames['record']
+                require(record['theme'] == config['themes'] and record['scenario'] == config['scenarios'], f'{side}/{n}: Flutter workload differs')
+                require(record['frames'], f'{side}/{n}: Flutter frames missing')
+                for frame in record['frames']:
+                    require(all(type(frame[key]) in (int, float) and math.isfinite(frame[key]) and frame[key] >= 0 for key in ('ui', 'uit', 'r')), f'{side}/{n}: invalid Flutter frame data')
+        require(batches['old'] != batches['new'] and identities['old'] != identities['new'], 'launches are not independent')
+        require(not (set(result['launchKeys']) & seen_launches), 'launch already used')
+        require(not (groups['old'] & groups['new']) and len(groups['old']) == len(groups['new']), 'physical core groups overlap or differ in size')
+        for n in expected_rounds:
+            shares = {}
+            for side, peer in (('old', 'new'), ('new', 'old')):
+                require(runs[side]['barrierRounds'][n]['peerBatch'] == batches[peer], f'{side}/{n}: peer ready record differs')
+            for role in ('ui', 'raster'):
+                left, right = old['procRounds'][n][role], new['procRounds'][n][role]
+                # Use the guaranteed intersection and the maximum possible
+                # duration. Slow counter reads cannot manufacture overlap.
+                intersection = min(left['end']['beforeNs'], right['end']['beforeNs']) - max(left['start']['afterNs'], right['start']['afterNs'])
+                shares[role] = {side: max(0, intersection) / (row['end']['afterNs'] - row['start']['beforeNs']) for side, row in (('old', left), ('new', right))}
+                require(min(shares[role].values()) >= .95, f'round {n}/{role}: counter overlap below 95%')
+            result['rounds'].append({'round': n, 'warmup': n == 0, 'overlap': shares})
+        result.update(qualified=True, independentPairs=1)
+    except (KeyError, TypeError, ValueError, IndexError, ZeroDivisionError) as error:
+        result['reasons'].append(str(error))
+    return result
+
+
+def window_overlap(old_start, old_end, new_start, new_end, *, minimum=.95):
+    """Descriptive overlap; qualification also accounts for read uncertainty."""
+    values = (old_start, old_end, new_start, new_end)
+    if not all(type(v) in (int, float) and math.isfinite(v) for v in values) or old_end <= old_start or new_end <= new_start:
+        return {'ok': False, 'old': 0., 'new': 0., 'overlap': 0}
+    overlap = max(0, min(old_end, new_end) - max(old_start, new_start))
+    left, right = overlap / (old_end - old_start), overlap / (new_end - new_start)
+    return {'ok': min(left, right) >= minimum, 'old': left, 'new': right, 'overlap': overlap}
 
 
 def stutters(record):
@@ -682,6 +826,206 @@ def environment(device):
     return env
 
 
+def _digest(files):
+    return hashlib.sha256(json.dumps(files, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def _sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_snapshot():
+    names = subprocess.check_output(['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=ROOT).decode().split('\0')
+    files = {name: _sha(ROOT / name) for name in sorted(set(names)) if name and (ROOT / name).is_file()}
+    return {'digest': _digest(files), 'files': files, 'commit': capture(['git', 'rev-parse', 'HEAD'], cwd=ROOT)}
+
+
+def artifact_snapshot(directory):
+    directory = directory.resolve()
+    files = {str(path.relative_to(directory)): _sha(path) for path in sorted(directory.rglob('*')) if path.is_file()}
+    if not files or 'raft_flutter' not in files:
+        raise ValueError('Linux profile bundle has no raft_flutter executable')
+    return {'path': str(directory), 'digest': _digest(files), 'files': files}
+
+
+def same_source(left, right):
+    # A later commit with identical source bytes does not invalidate a build.
+    # Keep the build's original revision in the receipt instead of rewriting it.
+    return left.get('digest') == right.get('digest') and left.get('files') == right.get('files')
+
+
+def workload_config(args):
+    rounds = getattr(args, 'rounds', None)
+    config = {'themes': args.themes, 'scenarios': args.scenarios or '', 'seconds': args.seconds,
+            'semantics': args.semantics, 'phases': not args.no_trace,
+            'rounds': rounds if rounds is not None else int(os.environ.get('RAFT_LAB_ROUNDS', '1'))}
+    if config['seconds'] <= 0 or config['rounds'] <= 0:
+        sys.exit('Duration and measured round count must be positive.')
+    return config
+
+
+def workload_defines(config):
+    return {'RAFT_LAB_THEMES': config['themes'], 'RAFT_LAB_SCENARIOS': config['scenarios'],
+            'RAFT_LAB_SECONDS': str(config['seconds']), 'RAFT_LAB_SEMANTICS': config['semantics'],
+            'RAFT_LAB_PHASES': str(config['phases']).lower(), 'RAFT_LAB_ROUNDS': str(config['rounds'])}
+
+
+def flutter_toolchain():
+    version = json.loads(capture([str(ROOT / 'tool/flutter'), '--version', '--machine']))
+    result = {key: version.get(key) for key in ('frameworkRevision', 'engineRevision', 'dartSdkVersion')}
+    if not all(isinstance(value, str) and value for value in result.values()):
+        raise ValueError('Flutter toolchain identity is incomplete.')
+    return result
+
+
+def linux_build_preflight():
+    # A failed first configure can leave /usr/local cached as the install
+    # prefix. A retry must not install outside this worktree's bundle.
+    if not (ROOT / '.local/media-linux/bundle/libs/libmpv.so.2').is_file():
+        raise ValueError('Prepared Linux media runtime is missing. Run tool/prepare-media-linux before building.')
+    build_root = APP / 'build/linux'
+    if not build_root.resolve().is_relative_to(APP.resolve()):
+        raise ValueError(f'Linux build directory escapes this app directory: {build_root}')
+    for profile in build_root.glob('*/profile'):
+        bundle = profile / 'bundle'
+        if not bundle.resolve().is_relative_to(APP.resolve()):
+            raise ValueError(f'Linux bundle escapes this app directory: {bundle}')
+        cache = profile / 'CMakeCache.txt'
+        if cache.is_file():
+            prefix = re.search(r'^CMAKE_INSTALL_PREFIX:[^=]+=(.*)$', cache.read_text(), re.MULTILINE)
+            if not prefix or Path(prefix.group(1)).resolve() != bundle.resolve():
+                raise ValueError(f'Unsafe CMake install prefix in {cache}. Preserve this failed cache, then reset this worktree cache before retrying; expected {bundle}.')
+
+
+def build(args):
+    """Build an isolated Linux fixture and bind immutable source to its bundle.
+
+    No app is installed or launched. The copied bundle and receipt are kept
+    even on a source-change failure; callers must not relabel that failure.
+    """
+    if platform.system() != 'Linux':
+        sys.exit('This receipt builder supports Linux only; existing platform build paths are unchanged.')
+    if args.out.exists():
+        sys.exit('Build output already exists; use a new directory.')
+    if not re.fullmatch(r'(\.[a-z][a-z0-9_]*)+', args.identity_suffix):
+        sys.exit('An isolated identity suffix such as .m7old is required.')
+    config = workload_config(args)
+    defines = {**workload_defines(config), 'RAFT_LINUX_APPLICATION_ID_SUFFIX': args.identity_suffix}
+    argv = [str(ROOT / 'tool/flutter'), 'build', 'linux', '--profile', f'--target={TARGET}', '--no-pub',
+            *[f'--dart-define={key}={value}' for key, value in defines.items()]]
+    flutter_guard(argv[1:], cwd=APP)
+    before = source_snapshot()
+    args.out.mkdir(parents=True)
+    receipt = {'schema': 1, 'source': before, 'config': config, 'identitySuffix': args.identity_suffix,
+               'argv': argv, 'cwd': str(APP), 'startedAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    with (args.out / 'build.log').open('w') as log:
+        try:
+            linux_build_preflight()
+            receipt['toolchain'] = flutter_toolchain()
+            status = subprocess.run(argv, cwd=APP, env={**os.environ, 'RAFT_APPLICATION_ID_SUFFIX': args.identity_suffix},
+                                    stdout=log, stderr=subprocess.STDOUT).returncode
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            status = 1
+            receipt['error'] = str(error)
+            log.write(str(error) + '\n')
+    after = source_snapshot()
+    receipt['sourceAfter'] = after
+    receipt['exitCode'] = status
+    if status == 0:
+        bundles = list((APP / 'build/linux').glob('*/profile/bundle'))
+        if len(bundles) != 1:
+            receipt.update(exitCode=1, error='Expected exactly one Linux profile bundle.')
+        else:
+            shutil.copytree(bundles[0], args.out / 'bundle', symlinks=True)
+            receipt['artifact'] = artifact_snapshot(args.out / 'bundle')
+    if before != after:
+        receipt.update(exitCode=1, error='Source changed during the build.')
+    receipt['endedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    (args.out / 'build-receipt.json').write_text(json.dumps(receipt, indent=1) + '\n')
+    print(f"Build receipt: {args.out / 'build-receipt.json'}; exit={receipt['exitCode']}")
+    return 0 if receipt['exitCode'] == 0 else 1
+
+
+def _cpu_list(text):
+    result = set()
+    for part in text.strip().split(','):
+        limits = [int(value) for value in part.split('-')]
+        result.update(range(limits[0], limits[-1] + 1))
+    return sorted(result)
+
+
+def cpu_topology():
+    result = []
+    for cpu in _cpu_list(Path('/sys/devices/system/cpu/online').read_text()):
+        root = Path(f'/sys/devices/system/cpu/cpu{cpu}/topology')
+        result.append({'cpu': cpu, 'core': int((root / 'core_id').read_text()),
+                       'socket': int((root / 'physical_package_id').read_text()),
+                       'siblings': _cpu_list((root / 'thread_siblings_list').read_text())})
+    return result
+
+
+def host_cpu_snapshot():
+    """CPU occupancy without process arguments, environment or user data."""
+    processes = {}
+    for path in Path('/proc').glob('[0-9]*/stat'):
+        try:
+            text = path.read_text()
+            fields = text[text.rfind(')') + 2:].split()
+            processes[path.parent.name] = {'startTicks': int(fields[19]), 'cpuTicks': int(fields[11]) + int(fields[12]),
+                                            'name': text[text.index('(') + 1:text.rfind(')')]}
+        except (OSError, ValueError, IndexError):
+            continue  # unrelated processes can exit while the snapshot is read
+    return {'monotonicNs': time.monotonic_ns(), 'ticksPerSecond': os.sysconf('SC_CLK_TCK'), 'processes': processes}
+
+
+def host_cpu_delta(before, after):
+    seconds = (after['monotonicNs'] - before['monotonicNs']) / 1e9
+    rows = []
+    for pid, end in after['processes'].items():
+        start = before['processes'].get(pid)
+        if start and start['startTicks'] == end['startTicks'] and end['cpuTicks'] >= start['cpuTicks'] and seconds > 0:
+            rows.append({'pid': int(pid), 'name': end['name'], 'cpuPercent':
+                         100 * (end['cpuTicks'] - start['cpuTicks']) / after['ticksPerSecond'] / seconds})
+    return {'intervalSeconds': seconds, 'scope': 'entire drive, including startup; not individual frame windows',
+            'coverage': 'processes alive at both snapshots; newly started or exited processes are not estimated',
+            'startedCount': len(after['processes'].keys() - before['processes'].keys()),
+            'exitedCount': len(before['processes'].keys() - after['processes'].keys()),
+            'processes': sorted(rows, key=lambda row: -row['cpuPercent'])[:20]}
+
+
+def concurrent_run(device):
+    requested = os.environ.get('RAFT_LAB_ALLOW_CONCURRENT') == '1' or bool(os.environ.get('RAFT_LAB_SYNC_DIR'))
+    if requested and (platform.system() != 'Linux' or device != 'linux' or not os.environ.get('RAFT_LAB_SYNC_DIR')
+                      or not re.fullmatch(r'[A-Za-z0-9_-]+', os.environ.get('RAFT_LAB_PAIR', ''))
+                      or os.environ.get('RAFT_LAB_ORDER') not in ('old', 'new')):
+        sys.exit('Concurrent sampling requires Linux, a fresh sync directory, pair ID and old/new side.')
+    return requested
+
+
+def run_manifest(args, config):
+    if not getattr(args, 'build_receipt', None):
+        sys.exit('Concurrent runs require --build-receipt from the isolated build command.')
+    if len(args.flutter_args) != 1 or not args.flutter_args[0].startswith('--use-application-binary='):
+        sys.exit('Concurrent runs accept exactly one --use-application-binary=<verified bundle executable>.')
+    binary = Path(args.flutter_args[0].split('=', 1)[1]).resolve()
+    receipt = json.loads(args.build_receipt.read_text())
+    source, artifact = source_snapshot(), artifact_snapshot(binary.parent)
+    toolchain = flutter_toolchain()
+    if (binary.name != 'raft_flutter' or receipt.get('exitCode') != 0 or not receipt.get('identitySuffix')
+        or receipt.get('sourceAfter') != receipt.get('source') or not same_source(receipt.get('source', {}), source)
+        or any(receipt.get(key) != value for key, value in (('artifact', artifact), ('config', config), ('toolchain', toolchain)))):
+        sys.exit('Source, configuration, toolchain or artifact differs from the successful isolated build receipt.')
+    safe_keys = ('DISPLAY', 'GDK_BACKEND', 'VK_ICD_FILENAMES', '__EGL_VENDOR_LIBRARY_FILENAMES', 'LIBGL_ALWAYS_SOFTWARE',
+                 'RAFT_LAB_SYNC_DIR', 'RAFT_LAB_PAIR', 'RAFT_LAB_ORDER', 'RAFT_FLUTTER_BIN',
+                 'XDG_RUNTIME_DIR', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME')
+    return {'schema': 1, 'source': receipt['source'], 'observedSource': source, 'artifact': artifact, 'buildReceipt': receipt, 'config': config, 'toolchain': toolchain,
+            'driverSha256': _sha(APP / DRIVER), 'fixtureSha256': _sha(APP / TARGET),
+            'invocation': sys.argv, 'environment': {key: os.environ[key] for key in safe_keys if key in os.environ},
+            'pair': os.environ['RAFT_LAB_PAIR'], 'order': os.environ['RAFT_LAB_ORDER'],
+            'bootId': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+            'cpus': sorted(os.sched_getaffinity(0)), 'topology': cpu_topology()}
+
+
 def other_instance():
     if platform.system() != 'Linux':
         return []
@@ -690,6 +1034,8 @@ def other_instance():
 
 
 def wait_for_display(args):
+    if concurrent_run(args.device or 'linux'):
+        return
     waited = 0
     while other_instance():
         if not args.wait:
@@ -735,8 +1081,12 @@ def run(args):
         sys.exit(f'STOP: {error}')
     if device == 'linux' and not os.environ.get('DISPLAY'):
         sys.exit('DISPLAY must name the real X11 display (see docs/performance-lab.md)')
+    concurrent = concurrent_run(device)
+    config = workload_config(args)
+    manifest = run_manifest(args, config) if concurrent else None
     wait_for_display(args)
-    wait_for_quiet_host(args)
+    if not concurrent:
+        wait_for_quiet_host(args)
     out.mkdir(parents=True)
     if android:
         # Freeze the verified test artifact; a concurrent Gradle build must not
@@ -762,15 +1112,15 @@ def run(args):
     if android:
         env['protectedAppBefore'] = protected_before
     (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
-    defines = {'RAFT_LAB_THEMES': args.themes, 'RAFT_LAB_SCENARIOS': args.scenarios or '', 'RAFT_LAB_SECONDS': str(args.seconds),
-               'RAFT_LAB_SEMANTICS': args.semantics, 'RAFT_LAB_PHASES': str(not args.no_trace).lower()}
-    rounds = os.environ.get('RAFT_LAB_ROUNDS')
-    if rounds:
-        defines['RAFT_LAB_ROUNDS'] = rounds
+    defines = workload_defines(config)
     child = dict(os.environ, RAFT_PERF_OUT=str(out), RAFT_LAB_ROOT=str(ROOT), RAFT_LAB_DEVICE=device, **defines)
     if device == 'linux':
         child['GDK_BACKEND'] = os.environ.get('RAFT_LAB_GDK_BACKEND', 'x11')  # 'wayland' with WAYLAND_DISPLAY measures native Wayland
     argv += [f'--dart-define={k}={v}' for k, v in defines.items()]
+    if manifest:
+        manifest['driveArgv'] = argv
+        (out / 'run-manifest.json').write_text(json.dumps(manifest, indent=1) + '\n')
+    cpu_before = host_cpu_snapshot() if concurrent else None
     print('Running:', ' '.join(argv), flush=True)
     for attempt in range(1, 4):
         wait_for_display(args)
@@ -779,7 +1129,7 @@ def run(args):
         text = (out / 'runner.log').read_text(errors='replace')
         # The desktop app is single-instance: a launch racing another
         # worktree's run exits at once. Keep the failed log and retry.
-        if 'Application failed to start' not in text or (out / 'lab-hello.json').exists():
+        if concurrent or 'Application failed to start' not in text or (out / 'lab-hello.json').exists():
             break
         (out / 'runner.log').rename(out / f'runner-failed-start-{attempt}.log')
         time.sleep(20)
@@ -799,6 +1149,11 @@ def run(args):
     env['loadavgEnd'] = os.getloadavg()
     env['maxLoad'] = max_load(args)
     env['noisyHost'] = max(env['loadavg'][0], env['loadavgEnd'][0]) > env['maxLoad']
+    if concurrent:
+        env['hostActivity'] = host_cpu_delta(cpu_before, host_cpu_snapshot())
+        if not same_source(manifest['source'], source_snapshot()) or manifest['artifact'] != artifact_snapshot(Path(manifest['artifact']['path'])):
+            status = env['exitCode'] = 1
+            env['sourceOrArtifactChanged'] = True
     (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
     summary = summarize(out)
     print((out / 'summary.md').read_text())
@@ -821,6 +1176,38 @@ def compare_cmd(args):
     return 1 if result['regressions'] and not args.no_fail else 0
 
 
+def load_pair_run(directory):
+    def read(name):
+        return json.loads((directory / name).read_text())
+
+    def rows(name):
+        return [json.loads(line) for line in (directory / name).read_text().splitlines() if line.strip()]
+
+    errors = directory / 'lab-sampler-errors.txt'
+    return {'manifest': read('run-manifest.json'), 'env': read('env.json'),
+            'driverResult': read('driver-result.json'), 'done': read('lab-done.json'), 'hello': read('lab-hello.json'),
+            'samplerErrors': errors.read_text() if errors.exists() else '',
+            'procRounds': rows('proc-rounds.jsonl'), 'frameRounds': rows('frame-rounds.jsonl'),
+            'barrierRounds': rows('barrier-rounds.jsonl')}
+
+
+def qualify_cmd(args):
+    if args.out.exists():
+        sys.exit('Qualification output exists; keep earlier results unchanged.')
+    seen = set()
+    try:
+        for previous in args.previous:
+            seen.update(json.loads(previous.read_text())['launchKeys'])
+        result = qualify_pair(load_pair_run(args.old), load_pair_run(args.new), seen_launches=seen)
+    except (OSError, ValueError, KeyError) as error:
+        result = {'qualified': False, 'independentPairs': 0, 'launchKeys': [], 'reasons': [str(error)]}
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(result, indent=1, allow_nan=False) + '\n')
+    print(f"{'QUALIFIED PAIR' if result['qualified'] else 'VOID PAIR'}: " + '; '.join(result['reasons']))
+    print('CPU checks fairness only. Flutter frames determine product performance; this is not method acceptance.')
+    return 0 if result['qualified'] else 1
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -838,6 +1225,8 @@ def main(argv=None):
     r.add_argument('--wait-quiet', type=int, default=1800, help='seconds to wait for a quiet host before giving up')
     r.add_argument('--allow-noisy', action='store_true', help='run anyway on a loaded host (summary is marked noisy)')
     r.add_argument('--wait', type=int, default=0, help='seconds to wait for another raft_flutter instance to exit (Linux)')
+    r.add_argument('--rounds', type=int, help='measured rounds in one launch, in addition to the keyboard warmup')
+    r.add_argument('--build-receipt', type=Path, help='required for concurrent Linux runs; source/config/artifact must match')
     r.add_argument('flutter_args', nargs='*', help='extra flutter drive arguments after --, e.g. -- --no-enable-impeller')
     s = sub.add_parser('summarize', help='rebuild summary.json/summary.md for a run')
     s.add_argument('run', type=Path)
@@ -846,9 +1235,27 @@ def main(argv=None):
     c.add_argument('candidate', type=Path)
     c.add_argument('--out', type=Path)
     c.add_argument('--no-fail', action='store_true')
+    b = sub.add_parser('build', help='build and copy an isolated Linux profile fixture with its source/artifact receipt; does not launch')
+    b.add_argument('--out', type=Path, required=True, help='new output directory, normally under .local/performance')
+    b.add_argument('--identity-suffix', required=True, help='isolated native and Dart suffix, for example .m7old')
+    b.add_argument('--themes', default='brutal-light')
+    b.add_argument('--scenarios', default='keyboard')
+    b.add_argument('--seconds', type=int, default=8)
+    b.add_argument('--rounds', type=int, default=3)
+    b.add_argument('--semantics', choices=['platform', 'on', 'off'], default='platform')
+    b.add_argument('--no-trace', action='store_true')
+    q = sub.add_parser('qualify', help='qualify a whole same-source calibration pair, including warmup; no product verdict')
+    q.add_argument('--old', type=Path, required=True)
+    q.add_argument('--new', type=Path, required=True)
+    q.add_argument('--out', type=Path, required=True)
+    q.add_argument('--previous', type=Path, action='append', default=[], help='prior pair result; its launches cannot be reused')
     args = parser.parse_args(argv)
     if args.command == 'run':
         return run(args)
+    if args.command == 'build':
+        return build(args)
+    if args.command == 'qualify':
+        return qualify_cmd(args)
     if args.command == 'summarize':
         summarize(args.run)
         print((args.run / 'summary.md').read_text())
