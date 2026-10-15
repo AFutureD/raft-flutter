@@ -54,6 +54,9 @@ class GeminiLiveSession {
   bool get connected => _socket != null;
   String? get model => _model;
 
+  /// The model chosen for this key, once known.
+  static String? get pickedModel => _model;
+
   /// Picks the newest model that supports Live sessions for this key.
   static Future<String> _pickModel(String key) async {
     if (_model != null) return _model!;
@@ -140,6 +143,8 @@ class GeminiLiveSession {
         'model': model,
         'generationConfig': {
           'responseModalities': ['AUDIO'],
+          // Gemini 3 Live models require a level; low keeps replies quick.
+          'thinkingConfig': {'thinkingLevel': 'low'},
           'speechConfig': {
             'voiceConfig': {
               'prebuiltVoiceConfig': {'voiceName': voice},

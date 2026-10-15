@@ -125,6 +125,8 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
         if (communication) return
         communication = true
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
+        // Speech plays on the voice-call stream: let the volume keys adjust it.
+        activity.volumeControlStream = AudioManager.STREAM_VOICE_CALL
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val devices = audio.availableCommunicationDevices
             val external = devices.any {
@@ -151,6 +153,7 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
             audio.isSpeakerphoneOn = false
         }
         audio.mode = AudioManager.MODE_NORMAL
+        activity.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
     }
 
     private fun startCapture() {

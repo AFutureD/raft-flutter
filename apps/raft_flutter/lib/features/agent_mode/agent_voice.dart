@@ -145,7 +145,11 @@ class AgentVoiceController extends ChangeNotifier {
     try {
       await session.connect();
     } catch (e) {
-      _set(AgentMicState.idle, note: '连接失败：$e');
+      final model = GeminiLiveSession.pickedModel;
+      _set(
+        AgentMicState.idle,
+        note: '连接失败${model == null ? '' : '（${model.split('/').last}）'}：$e',
+      );
       return null;
     }
     if (_disposed) {
