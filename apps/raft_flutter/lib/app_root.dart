@@ -7,17 +7,12 @@ import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_client/system_proxy.dart' show SystemProxy;
 import 'package:raft_updater/raft_updater.dart' show AppUpdater;
-import 'package:path_provider/path_provider.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/attachment_disk_cache.dart';
-import 'data/avatar_image_store.dart';
-import 'data/cache_budget.dart';
-import 'data/cache_clear.dart';
 import 'data/device_preferences.dart';
 import 'data/workspace_controller.dart';
-import 'data/source_time_formatter.dart';
 import 'data/user_error.dart';
 import 'data/workspace_cache.dart';
 import 'data/raft_location.dart';
@@ -38,9 +33,6 @@ import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/auth_audit_log.dart';
-import 'platform/cache_hygiene.dart';
-import 'platform/cache_staging.dart';
-import 'platform/file_selection.dart' show configureAndroidPhotoPicker;
 import 'platform/memory_release.dart';
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
@@ -49,7 +41,6 @@ import 'platform/linux_uri_scheme.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/attachment_http.dart';
-import 'platform/system_proxy_bootstrap.dart';
 import 'platform/native_sharing.dart';
 import 'platform/ios_share_session.dart';
 import 'platform/incoming_share_staging.dart';
@@ -62,53 +53,11 @@ import 'platform/app_update.dart';
 import 'platform/app_services.dart';
 import 'platform/app_update_smoke.dart';
 import 'platform/background_notifications.dart';
-import 'platform/android_performance_hint.dart';
 
 final raftScreenshotKey = GlobalKey();
 
-Future<void> main([List<String> args = const []]) async {
-  RaftWidgetsFlutterBinding.ensureInitialized();
-  configureAndroidPhotoPicker();
-  await NativeSystemFonts.instance.initialize();
-  await initializeSourceTimeFormatting();
-  // First frames read saved layout choices synchronously from this.
-  await DevicePreferences.load();
-  // Every network path (API, realtime, attachments, avatars) asks one service
-  // for the OS / manual proxy decision; see docs/system-proxy.md.
-  await startSystemProxy(
-    preferences: DevicePreferences.current,
-    origins: [
-      DevicePreferences.current?.getString('raft.origin') ??
-          const String.fromEnvironment(
-            'RAFT_ORIGIN',
-            defaultValue: 'https://api.raft.build',
-          ),
-    ],
-  );
-  // Attachment content (image sources, preview files and documents) survives
-  // restarts; reads stay authority-gated. Indexing starts now so the first
-  // lookups of a channel do not wait for it.
-  // The cap is the Settings > Storage choice; the public namespace (avatars,
-  // icons) keeps its own small cap whatever it is.
-  AttachmentDiskCache.installed ??= AttachmentDiskCache(
-    getApplicationCacheDirectory,
-    maxBytes: CacheBudget.stored(),
-    publicMaxBytes: attachmentPublicCacheMaxBytes,
-  );
-  unawaited(AttachmentDiskCache.installed!.warm());
-  // Once per start: old staging copies and the cache of accounts that are no
-  // longer signed in. No timers.
-  unawaited(runStartupCacheHygiene(cache: AttachmentDiskCache.installed!));
-  // Avatars and icons: stable-key bytes in that same cache, proxy-aware
-  // fetch, hot decoded bitmaps (raft_ui avatar_image_cache.dart).
-  installAvatarImageCache(AttachmentDiskCache.installed!);
-  // Settings > Storage > Clear cache: the disk cache, the staging folders and
-  // the framework image cache here; each workspace adds its memory layers.
-  CacheClear.instance.installAppLayers(
-    cache: AttachmentDiskCache.installed,
-    stagingDirectory: cacheStagingDirectory,
-    legacyTemporary: getTemporaryDirectory,
-  );
+/// Creates the owned application services after native bootstrap is ready.
+void runRaftAppRoot(List<String> args) {
   // Release builds show the root fallback instead of a grey/red screen.
   RootErrors.instance.install();
   // The branded splash stays until startup is ready; a fatal startup error
@@ -336,7 +285,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     );
     WidgetsBinding.instance.addObserver(this);
     RaftMemoryRelease.instance.install();
-    NativeSystemFonts.instance.addListener(systemFontsChanged);
+    NativeSystemFonts.instance.addListener(rebuildRoot);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
     content.onIncomingShare = () => unawaited(sharing.resume());
     // The few fixed words of a system notification (the unread count) follow
@@ -943,8 +892,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       sessionEvents?.cancel();
       shareSession.bind(null);
       content.bindWorkspace(null);
-      oldWorkspace?.removeListener(workspaceChanged);
-      oldWorkspace?.dispose();
+      oldWorkspace
+        ?..removeListener(workspaceChanged)
+        ..dispose();
       if (oldWorkspace == null) await oldClient?.dispose();
       if (!current()) {
         await c.dispose();
@@ -964,7 +914,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       restoreFailure = null;
       signInInstead = false;
       watchSession(c);
-      if (mounted) setState(() {});
+      rebuildRoot();
       final prefs = await SharedPreferences.getInstance();
       if (!current() || !identical(client, c)) return;
       await prefs.setString('raft.origin', origin);
@@ -1021,9 +971,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
     final view = View.of(context);
     final logicalWidth = view.physicalSize.width / view.devicePixelRatio;
-    final next =
-        workspace ??
-        WorkspaceController(
+    (workspace ??= WorkspaceController(
           c,
           cache: cache,
           restoreSharedAttachment: sharing.inbox.restore,
@@ -1040,10 +988,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
             }
           },
           mobileNavigation: logicalWidth < RaftLayoutMetrics.desktopBreakpoint,
-        );
-    workspace = next;
-    next.setForeground(false);
-    next.addListener(workspaceChanged);
+        ))
+      ..setForeground(false)
+      ..addListener(workspaceChanged);
     setState(() {});
     await discoverServers();
   }
@@ -1273,7 +1220,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (invite == null && inviteOrigin == null) return;
     invite = null;
     inviteOrigin = null;
-    if (mounted) setState(() {});
+    rebuildRoot();
   }
 
   /// `takePendingInviteRedirectPath`: an invite left for sign-in resumes once
@@ -2030,8 +1977,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           AttachmentDiskCache.purgeInstalledAccount(c.origin, principal),
         );
         content.bindWorkspace(null);
-        workspace?.removeListener(workspaceChanged);
-        workspace?.dispose();
+        workspace
+          ?..removeListener(workspaceChanged)
+          ..dispose();
         workspace = null;
         publicNonmember = null;
         clearAccessDenied();
@@ -2083,7 +2031,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       revocationSession: clearSession,
       reason: reason,
     );
-    if (mounted) setState(() {});
+    rebuildRoot();
     // Late writes (debounced directory saves, socket-driven windows) must not
     // land after the account's device data is cleared.
     await oldWorkspace?.retireCache();
@@ -2136,14 +2084,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
-  void systemFontsChanged() {
+  void rebuildRoot() {
     if (mounted) setState(() {});
   }
 
   @override
-  void didChangeLocales(List<Locale>? locales) {
-    if (mounted) setState(() {});
-  }
+  void didChangeLocales(List<Locale>? locales) => rebuildRoot();
 
   @override
   void dispose() {
@@ -2160,16 +2106,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     unawaited(shareSession.dispose());
     RaftMemoryRelease.instance.uninstall();
     WidgetsBinding.instance.removeObserver(this);
-    NativeSystemFonts.instance.removeListener(systemFontsChanged);
+    NativeSystemFonts.instance.removeListener(rebuildRoot);
     unawaited(content.dispose());
     AttachmentHttp.close();
     sessionEvents?.cancel();
     final flushed = workspace?.flushCache() ?? Future<void>.value();
     final retiredClient = client;
-    if (workspace != null) {
-      workspace!.removeListener(workspaceChanged);
-      workspace!.dispose();
-    }
+    workspace
+      ?..removeListener(workspaceChanged)
+      ..dispose();
     final disposed = retiredClient?.dispose();
     flushed.whenComplete(() async {
       try {
@@ -2193,6 +2138,14 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     );
     final locale = displayLocale(client?.user?.string('displayLanguage'));
     final textLocale = WidgetsBinding.instance.platformDispatcher.locale;
+    ThemeData themed(RaftFamily family, {bool dark = false}) => raftTheme(
+      family,
+      dark: dark,
+      systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
+      systemFontFamilies: NativeSystemFonts.instance.value,
+      locale: locale,
+      textLocale: textLocale,
+    );
     return MaterialApp.router(
       title: 'Raft',
       routerDelegate: appRouter,
@@ -2232,21 +2185,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ),
       ),
       debugShowCheckedModeBanner: false,
-      theme: raftTheme(
-        appearance.light,
-        systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
-        systemFontFamilies: NativeSystemFonts.instance.value,
-        locale: locale,
-        textLocale: textLocale,
-      ),
-      darkTheme: raftTheme(
-        RaftFamily.elegant,
-        dark: true,
-        systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
-        systemFontFamilies: NativeSystemFonts.instance.value,
-        locale: locale,
-        textLocale: textLocale,
-      ),
+      theme: themed(appearance.light),
+      darkTheme: themed(RaftFamily.elegant, dark: true),
       themeMode: appearance.mode,
     );
   }

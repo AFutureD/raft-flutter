@@ -634,8 +634,8 @@
         "field._RaftAppState.startupReady": 0,
         "field._RaftAppState.workspace": 0,
         "field._RaftAppState.workspaceRootInputs": 0,
-        "lines": 1,
-        "tokens": 3
+        "lines": 56,
+        "tokens": 222
       }
     },
     "app_root": {
@@ -706,8 +706,8 @@
         "field._RaftAppState.startupReady": 1,
         "field._RaftAppState.workspace": 1,
         "field._RaftAppState.workspaceRootInputs": 1,
-        "lines": 2253,
-        "tokens": 12099
+        "lines": 2193,
+        "tokens": 11848
       }
     }
   },
