@@ -72,6 +72,9 @@ final semantics = semanticsMode == 'on';
 final phases = _cfg('RAFT_LAB_PHASES') != 'false';
 final detection = _cfg('RAFT_LAB_DETECT') == 'true';
 
+/// The Activity-entry scene uses bottom navigation, not the compact rail.
+const detectionPhoneSize = Size(390, 700);
+
 bool wants(String scenario) => only.isEmpty || only.contains(scenario) || only.any((o) => o.endsWith('*') && scenario.startsWith(o.substring(0, o.length - 1)));
 
 /// Desktop split host: channel timeline plus a thread pane when one is open.
@@ -469,8 +472,8 @@ void main() {
       if (!detection) return;
       // Keep the simulated phone surface inside the native 720px buffer.
       // Width drives the product breakpoint; this is not a physical phone.
-      t.view.physicalSize = Size(390 * t.view.devicePixelRatio, 640 * t.view.devicePixelRatio);
-      await binding.setSurfaceSize(const Size(390, 640));
+      t.view.physicalSize = detectionPhoneSize * t.view.devicePixelRatio;
+      await binding.setSurfaceSize(detectionPhoneSize);
       await nextFrame();
     }
     if (detection) {
@@ -1346,7 +1349,12 @@ void main() {
                 {
                   'navigation': (element.widget as RaftAdaptiveWorkspace).mobileNavigation?.runtimeType.toString(),
                   'rail': (element.widget as RaftAdaptiveWorkspace).mobileRail?.runtimeType.toString(),
-                  'constraints': (element.renderObject as RenderBox?)?.constraints.toString(),
+                  'constraints': [
+                    (element.renderObject as RenderBox?)?.constraints.minWidth,
+                    (element.renderObject as RenderBox?)?.constraints.maxWidth,
+                    (element.renderObject as RenderBox?)?.constraints.minHeight,
+                    (element.renderObject as RenderBox?)?.constraints.maxHeight,
+                  ],
                   'renderWidth': (element.renderObject as RenderBox?)?.size.width,
                 },
             ],
@@ -1359,7 +1367,12 @@ void main() {
                   'location': (element.widget as WorkspaceView).controller.location.uri.toString(),
                   'rootTab': (element.widget as WorkspaceView).controller.navigation.mobileRootTab,
                   'phoneRail': RaftAdaptiveWorkspace.phoneRailOf(element),
-                  'constraints': (element.renderObject as RenderBox?)?.constraints.toString(),
+                  'constraints': [
+                    (element.renderObject as RenderBox?)?.constraints.minWidth,
+                    (element.renderObject as RenderBox?)?.constraints.maxWidth,
+                    (element.renderObject as RenderBox?)?.constraints.minHeight,
+                    (element.renderObject as RenderBox?)?.constraints.maxHeight,
+                  ],
                   'mediaWidth': MediaQuery.sizeOf(element).width,
                   'mediaHeight': MediaQuery.sizeOf(element).height,
                   'compact': RaftAdaptiveWorkspace.compactOf(element),
@@ -1370,6 +1383,10 @@ void main() {
           }});
           expect(media.width, lessThan(RaftLayoutMetrics.desktopBreakpoint),
               reason: 'Phone navigation must actually receive the compact MediaQuery.');
+          expect(RaftAdaptiveWorkspace.phoneRailOf(t.element(find.byType(Scaffold).first)), isFalse,
+              reason: 'Activity-entry actions require bottom navigation; choose a taller phone viewport.');
+          expect(find.byKey(const Key('mobile-tab-home')), findsOneWidget,
+              reason: 'The phone Home entry must mount before navigation is measured.');
         }
         final navActivity = LabNavigationActivity(
           workspace: nw, client: nclient,

@@ -1,12 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/message_window_snapshot.dart';
 
 import '../integration_test/perf_lab/fixtures.dart';
 import '../integration_test/perf_lab_test.dart' as lab;
 
 void main() {
+  test('phone fixture selects the bottom navigation its entry actions require', () {
+    expect(RaftWindowClass.phoneNavigationFor(const Size(390, 640)),
+        RaftNavigationPlacement.rail);
+    expect(RaftWindowClass.phoneNavigationFor(lab.detectionPhoneSize),
+        RaftNavigationPlacement.bottom);
+    expect(lab.detectionPhoneSize.height, lessThanOrEqualTo(720));
+  });
   lab.registerActivityArrivalTest();
   lab.registerRebuildCounterControlTest();
   testWidgets(
