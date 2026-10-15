@@ -25,6 +25,7 @@ import 'desktop_inbox_notifications.dart';
 import 'macos_dock_unread.dart';
 import 'notification_reconciler.dart';
 import 'native_sharing.dart';
+import 'windows_tray.dart';
 
 /// Binds platform links and notification clicks to the currently signed-in
 /// principal. Every navigation rechecks server membership and visible context.
@@ -34,10 +35,15 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     this.links,
     this.onIncomingShare,
     MacOSDockUnread? dockUnread,
-  }) : _providedDockUnread = dockUnread,
+    WindowsTray? tray,
+  }) : _providedTray = tray,
+       _providedDockUnread = dockUnread,
        notifications = notifications ?? NativeNotificationService();
   final NativeNotificationService notifications;
   final MacOSDockUnread? _providedDockUnread;
+  final WindowsTray? _providedTray;
+  late final tray =
+      _providedTray ?? WindowsTray(platform: notifications.platform);
   late final dockUnread =
       _providedDockUnread ?? MacOSDockUnread(platform: notifications.platform);
 
@@ -81,6 +87,9 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         ? null
         : WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
+    tray.onHidden = () => _setAppForeground(false);
+    await tray.initialize(notifications.localize);
+    if (_closed) return;
     dockUnread.bind(_workspace);
     reconciler.bind(_workspace);
     notifications.onTap = _tap;
@@ -192,6 +201,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   }
 
   void _changed() {
+    unawaited(tray.configure(notifications.localize));
     final scope = currentScope;
     if (_scope == scope) return;
     _scope = scope;
@@ -715,6 +725,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     desktop?.dispose();
     reconciler.dispose();
     await dockUnread.dispose();
+    await tray.dispose();
     _epoch++;
     _navigation++;
     _workspace?.removeListener(_changed);

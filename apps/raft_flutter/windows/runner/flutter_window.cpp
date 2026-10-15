@@ -56,6 +56,8 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   notifications_channel_ = CreateWindowsNotificationsChannel(
       flutter_controller_->engine()->messenger(), GetHandle());
+  tray_ = std::make_unique<WindowsTray>(
+      flutter_controller_->engine()->messenger(), GetHandle());
   // The app tells the runner the nav rail's colours; the caption takes them
   // (Windows 11) and its title text is drawn in the caption colour so the bar
   // is empty. The caption's height, dragging and double-click stay the
@@ -116,6 +118,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  tray_ = nullptr;
   notifications_channel_ = nullptr;
   titlebar_channel_ = nullptr;
   if (flutter_controller_) {
@@ -129,6 +132,10 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (tray_) {
+    const auto result = tray_->HandleMessage(message, wparam, lparam);
+    if (result) return *result;
+  }
   if (HandleWindowsNotificationActivation(message, lparam,
       notifications_channel_.get(), hwnd)) return TRUE;
   // Give Flutter, including plugins, an opportunity to handle window messages.
