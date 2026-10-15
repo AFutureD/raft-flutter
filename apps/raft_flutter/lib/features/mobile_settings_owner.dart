@@ -377,7 +377,7 @@ class _MobileSettingsSwitchState extends State<MobileSettingsSwitch> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.only(left: RaftSpace.x4, top: RaftSpace.x2, right: RaftSpace.x4),
       child: Row(
         children: [
           Expanded(
