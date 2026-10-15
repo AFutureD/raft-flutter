@@ -764,8 +764,8 @@
         "field._RaftAppState.startupReady": 1,
         "field._RaftAppState.workspace": 1,
         "field._RaftAppState.workspaceRootInputs": 1,
-        "lines": 2201,
-        "tokens": 11868
+        "lines": 2206,
+        "tokens": 11889
       }
     },
     "workspace_composer": {

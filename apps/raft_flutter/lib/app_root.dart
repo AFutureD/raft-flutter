@@ -51,6 +51,7 @@ import 'platform/system_bars.dart';
 import 'platform/system_fonts.dart';
 import 'platform/app_update.dart';
 import 'platform/app_services.dart';
+import 'platform/app_window.dart';
 import 'platform/app_update_smoke.dart';
 import 'platform/background_notifications.dart';
 
@@ -2180,7 +2181,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
                         child: RaftToastHost(
                           child: KeyboardInsetGuard(
                             imeVisible: platformImeVisibility,
-                            child: child!,
+                            child: AppWindowCommands(
+                              navigatorKey: appRouter.navigatorKey,
+                              openSection: workspace?.setSection,
+                              child: child!,
+                            ),
                           ),
                         ),
                       ),
