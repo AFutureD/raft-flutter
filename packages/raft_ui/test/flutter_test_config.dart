@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart' show imageCache;
 import 'package:flutter/rendering.dart' show debugDisableShadows;
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftHotImages, RaftImageBytes;
@@ -81,6 +82,17 @@ class RaftTestBinding extends AutomatedTestWidgetsFlutterBinding {
   );
 }
 
+/// Draws the one frame [ImageCache] uses to drop completer handles.
+///
+/// [TestWidgetsFlutterBinding.pump] cannot run here: tearDown is after
+/// `postTest`, and the test clock is already gone.
+void _drainImageCacheDisposes() {
+  final binding = SchedulerBinding.instance;
+  if (binding.schedulerPhase != SchedulerPhase.idle) return;
+  binding.handleBeginFrame(Duration.zero);
+  binding.handleDrawFrame();
+}
+
 /// Leak tracking (`leak_tracker`) runs in every `testWidgets`: an object that
 /// reaches the garbage collector without `dispose()` fails its test file
 /// ("notDisposed"). `RAFT_LEAK_TRACKING=0` turns it off for a local run.
@@ -98,6 +110,12 @@ void _enableLeakTracking() {
     imageCache
       ..clear()
       ..clearLiveImages();
+    // ImageCache drops the completer handle on the next frame, and does not
+    // schedule that frame. This tearDown runs after the test clock is gone,
+    // so draw the frame here. Otherwise the handle, its ImageInfo, and its
+    // Image stay alive until a later test pumps, and a random order reports
+    // them as leaks of the test that decoded them.
+    _drainImageCacheDisposes();
   });
   // `RAFT_LEAK_STACKS=1` adds the creation stack to every report.
   if (Platform.environment['RAFT_LEAK_STACKS'] == '1') {
