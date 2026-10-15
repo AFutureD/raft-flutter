@@ -1506,7 +1506,10 @@ class _RaftChatViewState extends State<RaftChatView>
     final followed = followedThreads.isFollowing(message.id);
     final task = taskProjection.taskFor(message);
     final guest = w.server?.string('role') == 'guest';
-    final supportsTasks = w.channel?.type != 'thread';
+    // Web MessageItem: an external_projection has no convert, reopen, or done.
+    final supportsTasks =
+        w.channel?.type != 'thread' &&
+        message.string('senderType') != 'external_projection';
     final saved = SavedCountStore.of(w).isSaved(message.id);
     final translation = w.translations.present(message);
     String? result;

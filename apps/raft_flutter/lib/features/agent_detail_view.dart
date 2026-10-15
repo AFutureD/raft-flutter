@@ -19,6 +19,7 @@ import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_apps_view.dart';
+import 'agent_profile_rules.dart';
 import 'external_agent_setup.dart';
 import 'channel_form_fields.dart' show ChannelCandidateAvatar;
 import 'create_channel_dialog.dart' show ChannelMemberCandidate;
@@ -208,6 +209,15 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   String get activity => _display.activity;
   bool get online => activity != 'offline';
 
+  /// Another server's agent, or a channel_summary card, stays on the public
+  /// profile. Caller flags are the current server's capabilities; they do not
+  /// apply to that projection.
+  bool get _bounded => isBoundedPublicAgent(a, widget.controller.server?.id);
+  bool get _canManage => widget.canManage && !_bounded;
+  bool get _canViewPrivate => widget.canViewPrivate && !_bounded;
+  bool get _canControlRuntime => widget.canControlRuntime && !_bounded;
+  bool get _canMessage => !_bounded && widget.actions.onMessage != null;
+
   /// Web `CreatedAgentStatusDot` -> useAgentDisplayState(agentId): the live
   /// directory row, else the created-agent row's own status.
   AgentAmbientDisplay _createdAgentDisplay(Map c) {
@@ -232,14 +242,14 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   List<AgentDetailTab> get tabs {
     final visible = [
       AgentDetailTab.profile,
-      if (widget.canViewPrivate) ...[
+      if (_canViewPrivate) ...[
         AgentDetailTab.activity,
         AgentDetailTab.chat,
         AgentDetailTab.reminders,
         AgentDetailTab.workspace,
         AgentDetailTab.apps,
       ],
-      if (widget.canManage) AgentDetailTab.mcp,
+      if (_canManage) AgentDetailTab.mcp,
     ];
     final stored = widget.controller.sidebarOrder['agentPanelTabOrder'];
     final ordered = <AgentDetailTab>[];
@@ -307,7 +317,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
 
   Future<void> loadExternalStatus() async {
     final id = '${a['id']}';
-    if (!external || externalStatusFor == id) return;
+    if (!external || _bounded || externalStatusFor == id) return;
     externalStatusFor = id;
     try {
       final status = await widget.controller.client.get(
@@ -386,13 +396,13 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     final visible = tabs;
     final current = visible.contains(tab) ? tab : AgentDetailTab.profile;
     final menu = <RaftMenuEntry>[
-      if (widget.actions.onMessage != null)
+      if (_canMessage)
         RaftMenuEntry(
           label: raftText(context, 'Direct Message'),
           leading: const RaftDirectMessageIcon(size: 14),
           onPressed: widget.actions.onMessage,
         ),
-      if (widget.canControlRuntime && !external) ...[
+      if (_canControlRuntime && !external) ...[
         RaftMenuEntry(
           label: raftText(context, online ? 'Stop Agent' : 'Start Agent'),
           glyph: online ? RaftGlyph.square : RaftGlyph.play,
@@ -501,14 +511,14 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   }
 
   List<Widget> _inlineActions(BuildContext context) => [
-    if (widget.actions.onMessage != null)
+    if (_canMessage)
       RaftPanelIconButton(
         key: const Key('agent-profile-inline-message'),
         icon: (size, color) => RaftDirectMessageIcon(size: size, color: color),
         tooltip: raftText(context, 'Direct Message'),
         onPressed: widget.actions.onMessage,
       ),
-    if (widget.canControlRuntime && !external) ...[
+    if (_canControlRuntime && !external) ...[
       RaftPanelIconButton(
         key: const Key('agent-profile-inline-start-stop'),
         glyph: online ? RaftGlyph.square : RaftGlyph.play,
@@ -649,7 +659,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
       return null;
     }
     final setup = externalStatus?['setupState'];
-    final detail = widget.canViewPrivate;
+    final detail = _canViewPrivate;
     final color = online
         ? t.product.brutalLime
         : setup == 'waiting_for_login'
@@ -681,7 +691,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
 
   Widget _profile(BuildContext context) {
     final t = RaftTokens.of(context);
-    final canEdit = widget.canManage && a['deletedAt'] == null;
+    final canEdit = _canManage && a['deletedAt'] == null;
     final display = _display;
     // Web AgentDetailPanel: a known runtime error shows its catalog message
     // (`agent.runtimeError.*`); an unclassified one keeps the diagnostic text.
@@ -691,12 +701,12 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                   ? classifyRuntimeError(display.detail)
                   : null)
         : null;
-    final status = widget.canViewPrivate && runtimeKind != null
+    final status = _canViewPrivate && runtimeKind != null
         ? raftText(context, runtimeErrorText(runtimeKind))
         : agentActivityText(
             display.activity,
-            widget.canViewPrivate ? display.detail : '',
-            widget.canViewPrivate ? display.detailKind : null,
+            _canViewPrivate ? display.detail : '',
+            _canViewPrivate ? display.detailKind : null,
             translate: (source, values) => raftFormat(context, source, values),
           );
     final agentId = '${a['id']}';
@@ -731,7 +741,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             expand: true,
             onPressed: widget.busy ? null : widget.actions.onMigrate,
           ),
-        if (widget.canControlRuntime) ...[
+        if (_canControlRuntime) ...[
           RaftButton(
             label: raftText(context, online ? 'Stop Agent' : 'Start Agent'),
             glyph: online ? RaftGlyph.square : RaftGlyph.play,
@@ -789,6 +799,26 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
       key: const Key('fleet-detail'),
       padding: raftScrollPadding(context),
       children: [
+        if (agentSourceServerLabel(a, widget.controller.server?.id)
+            case final source?)
+          RaftPanelSection(
+            topBorder: false,
+            vertical: 12,
+            gap: 4,
+            children: [
+              RaftSectionEyebrow(raftTextZh(context, 'From', '来自')),
+              RaftCssText(
+                source,
+                style: raftCssText.merge(
+                  RaftTypography.heading(
+                    t,
+                    size: 14,
+                    line: 20,
+                  ).copyWith(color: t.colors['foreground-strong']),
+                ),
+              ),
+            ],
+          ),
         RaftProfileIdentity(
           name: displayName,
           handle: '${a['name'] ?? ''}',
@@ -820,7 +850,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
           ],
         ),
         // `showOperationalInfo && isExternalAgent && canManageAgent`
-        if (external && widget.canManage)
+        if (external && _canManage)
           ExternalAgentSetup(
             key: ValueKey('external-setup-$agentId'),
             controller: widget.controller,
@@ -830,9 +860,10 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                 externalStatus?['credentialLastUsedAt'] as String?,
             statusError: externalStatusError,
           ),
-        RaftPanelSection(
-          children: [
-            RaftSectionEyebrow(raftText(context, 'Info')),
+        if (!_bounded)
+          RaftPanelSection(
+            children: [
+              RaftSectionEyebrow(raftText(context, 'Info')),
             RaftInfoRow(
               label: raftText(context, 'Role'),
               actions: [
@@ -918,7 +949,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             ),
           ],
         ),
-        if (!external)
+        if (!_bounded && !external)
           RaftPanelSection(
             children: [
               RaftEditableEyebrow(
@@ -990,10 +1021,11 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
               if (env.isNotEmpty) RaftEnvVarsBlock(vars: env),
             ],
           ),
-        RaftPanelSection(
-          children: [
-            RaftSectionHeader(
-              label: raftText(context, 'Created Agents'),
+        if (!_bounded)
+          RaftPanelSection(
+            children: [
+              RaftSectionHeader(
+                label: raftText(context, 'Created Agents'),
               count: created.length,
             ),
             if (created.isNotEmpty)
@@ -1025,7 +1057,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         ),
         // Web AgentDetailPanel `{canViewPrivateAgentSurfaces && <AgentSkills
         // embedded />}`, between the profile info and Actions.
-        if (widget.canViewPrivate)
+        if (_canViewPrivate)
           AgentSkillsSection(
             controller: widget.controller,
             agentId: '${a['id']}',
