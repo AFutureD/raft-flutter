@@ -67,6 +67,7 @@ class WorkspaceSettings extends StatefulWidget {
     this.workspaceModeCard,
     this.now,
     this.appUpdate,
+    this.banner,
   });
   final WorkspaceController controller;
 
@@ -106,6 +107,9 @@ class WorkspaceSettings extends StatefulWidget {
   /// Web origin for the mobile download QR (defaults to the content-link
   /// origin of the signed-in coordinator).
   final Uri? frontendOrigin;
+
+  /// Phone-only row under the settings header. Not a destination.
+  final Widget? banner;
 
   static const documentationUrl = 'https://docs.raft.build';
   static const personal = 'Personal', workspace = 'Workspace';
@@ -185,6 +189,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
       mobileResetRevision: widget.mobileResetRevision,
       onMobileDetailChanged: widget.onMobileDetailChanged,
       onMobileLocationChanged: widget.onMobileLocationChanged,
+      banner: widget.banner,
       destinations: [
         RaftSettingsDestination(
           'account',

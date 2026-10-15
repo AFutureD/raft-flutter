@@ -24,7 +24,6 @@ import '../data/source_server_unread.dart';
 import 'workspace_menu_invite.dart';
 import '../data/workspace_mode_store.dart';
 import 'workspace_grid_view.dart';
-import 'workspace_mode_settings_card.dart';
 import '../data/personal_presentation.dart';
 import '../data/device_preferences.dart';
 import '../data/mobile_tabbar_preferences.dart';
@@ -52,6 +51,7 @@ import 'channel_members.dart';
 import 'create_channel_dialog.dart';
 import 'create_joint_channel_dialog.dart' show CreateJointChannelDialog;
 import 'workspace_settings.dart';
+import 'mobile_settings_owner.dart';
 import 'server_views.dart';
 import 'layout_hold.dart';
 import 'mobile_workspace_navigation.dart';
@@ -89,6 +89,7 @@ import 'public_avatar_url.dart';
 
 part 'workspace_view_sidebar_menus.dart';
 part 'mobile_workspace_route.dart';
+part 'mobile_settings_route.dart';
 
 class WorkspaceView extends StatefulWidget {
   const WorkspaceView({
@@ -146,8 +147,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
   // The most recently admitted Settings page survives a conversation visit.
   // Other destinations retire it; workspace authority retires both panes.
   Widget? retainedSettingsContent;
-  Widget? accountSettingsWidget;
-  Object? accountSettingsInputs;
 
   /// Sidebar.tsx `menuOpen`: the row whose context menu is open (`c:<id>` /
   /// `a:<id>`) keeps its muted fill.
@@ -977,6 +976,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   @override
   void dispose() {
+    clearWorkspaceSettingsCache(this);
     _mobileNavigationSelection?.dispose();
     w.removeListener(syncMobileAppBadge);
     mobileAppBadge.removeListener(chatSelectionChanged);
@@ -1266,8 +1266,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       }
       retainedSettingsContent = null;
       conversationInstance = null;
-      accountSettingsWidget = null;
-      accountSettingsInputs = null;
+      clearWorkspaceSettingsCache(this);
       lastAuthority = authority;
       final navigator = Navigator.of(context, rootNavigator: true);
       for (final observer
@@ -1658,10 +1657,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         final currentContent = content;
         if (!showingConversation) {
           retainedSettingsContent = route == 'settings' ? currentContent : null;
-          if (route != 'settings') {
-            accountSettingsWidget = null;
-            accountSettingsInputs = null;
-          }
+          if (route != 'settings') clearWorkspaceSettingsCache(this);
         }
         // Keep one admitted conversation, not an unbounded cache of routes.
         // The pager removes hidden content from layout, focus and semantics;
@@ -4018,89 +4014,43 @@ class _WorkspaceViewState extends State<WorkspaceView>
     onCreated: (channel) => chooseChannel(channel),
   );
 
-  Widget modeCard() => WorkspaceModeSettingsCard(
-    controller: w,
-    store: workspaceMode,
-  );
-
   Widget settings() {
-    final scope = mobileAuthority;
-    final tab = WorkspaceNavigation.settingsTab(
-      w.location.settingsPath.firstOrNull ?? 'account',
-    );
-    // Reuse the admitted Account subtree when its actual inputs are unchanged.
-    // Compare record contents, including profile updates within one session.
-    // Other settings pages continue receiving controller projection updates.
-    final inputs = (
-      lastAuthority,
-      scope,
-      jsonEncode(w.client.user?.json),
-      jsonEncode(w.server?.json),
-      tab,
-      w.location.settingsPath.isEmpty,
-      mobileSettingsRevision,
-      widget.appearance.mode,
-      widget.appearance.light,
-      widget.onAppearance,
-      widget.notifications,
-      widget.onLogout,
-      presentation,
-      mobileTabbar.settings,
-      railSideStore.side,
-      workspaceMode,
-      providerEnabled,
-      bridgeEnabled,
-      labsEnabled,
-    );
-    if (tab == 'account' && inputs == accountSettingsInputs) {
-      return accountSettingsWidget!;
+    final host = mobileHost;
+    if (host != null && mobileSettingsDirectHost[host] == true) {
+      final route = w.location;
+      return MobileSettingsDirectPage(
+        controller: host.w,
+        presentation: host.presentation,
+        workspaceMode: host.workspaceMode,
+        buildPage: host.settings,
+        active: () =>
+            mobilePageIdentity(route) ==
+            mobilePageIdentity(host.w.location),
+      );
     }
-    final content = KeyedSubtree(
-      key: const Key('workspace-account-settings'),
-      child: Builder(
-        builder: (serviceContext) => WorkspaceSettings(
-          key: ValueKey(
-            'workspace-account-settings-${w.client.generation}-${w.client.user?.id}-${w.server?.id}-${w.server?.string('role')}',
-          ),
-          controller: w,
-          initialTab: tab,
-          appUpdate: AppServicesScope.of(serviceContext).appUpdate,
-          workspaceModeCard: modeCard(),
-          appearance: widget.appearance,
-          onAppearance: (appearance) => widget.onAppearance(appearance),
-          presentation: presentation,
-          notifications: widget.notifications,
-          onLogout: widget.onLogout,
-          mobileRoot: w.location.settingsPath.isEmpty,
-          mobileResetRevision:
-              mobileSettingsRevision + (mobileHost?.mobileSettingsRevision ?? 0),
-          mobileTabbar: mobileTabbar,
-          railSide: railSideStore,
-          onMobileLocationChanged: (tab) {
-            if (!mounted || scope != mobileAuthority) return;
-            if (tab == null) {
-              dismissPanel();
-              return;
-            }
-            final current = w.location;
-            w.navigation.navigate(
-              RaftLocation.at(
-                serverSlug: current.serverSlug,
-                route: RaftRoute.settings,
-                settingsPath: [WorkspaceNavigation.settingsRouteSlug(tab)],
-              ),
-              kind: RaftNavigationKind.push,
-            );
-            w.notifyListeners();
-          },
-          providerEnabled: providerEnabled,
-          bridgeEnabled: bridgeEnabled,
-          labsEnabled: labsEnabled,
-        ),
-      ),
+    final scope = mobileAuthority;
+    return workspaceSettingsSurface(
+      cacheKey: this,
+      controller: w,
+      authority: lastAuthority,
+      scope: scope,
+      revision: mobileSettingsRevision,
+      hostRevision: mobileHost?.mobileSettingsRevision ?? 0,
+      appearance: widget.appearance,
+      onAppearance: widget.onAppearance,
+      notifications: widget.notifications,
+      onLogout: widget.onLogout,
+      presentation: presentation,
+      mobileTabbar: mobileTabbar,
+      railSide: railSideStore,
+      workspaceMode: workspaceMode,
+      providerEnabled: providerEnabled,
+      bridgeEnabled: bridgeEnabled,
+      labsEnabled: labsEnabled,
+      wide: wide,
+      allowed: () => mounted && scope == mobileAuthority,
+      dismiss: dismissPanel,
+      showSwitch: !wide,
     );
-    accountSettingsInputs = tab == 'account' ? inputs : null;
-    accountSettingsWidget = tab == 'account' ? content : null;
-    return content;
   }
 }

@@ -518,6 +518,27 @@
         "tokens": 1329
       }
     },
+    "mobile_settings_owner": {
+      "root": "apps/raft_flutter/lib/features/mobile_settings_owner.dart",
+      "metrics": {
+        "field.MobileSettingsDirectPage.active": 1,
+        "field.MobileSettingsDirectPage.buildPage": 1,
+        "field.MobileSettingsDirectPage.controller": 1,
+        "field.MobileSettingsDirectPage.presentation": 1,
+        "field.MobileSettingsDirectPage.workspaceMode": 1,
+        "field.MobileSettingsPreference._override": 1,
+        "field.MobileSettingsSelection._disposed": 1,
+        "field.MobileSettingsSelection._value": 1,
+        "field.MobileSettingsSelection.controller": 1,
+        "field._AccountSettingsCache.inputs": 1,
+        "field._AccountSettingsCache.widget": 1,
+        "field._MobileSettingsDirectPageState._leaf": 1,
+        "field._MobileSettingsDirectPageState.selection": 1,
+        "field._MobileSettingsSwitchState.preference": 1,
+        "lines": 402,
+        "tokens": 1724
+      }
+    },
     "chat_view": {
       "root": "apps/raft_flutter/lib/features/chat_view.dart",
       "metrics": {
