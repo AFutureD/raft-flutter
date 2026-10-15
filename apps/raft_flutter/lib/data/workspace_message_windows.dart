@@ -343,7 +343,10 @@ class WorkspaceMessageWindows {
       : sends.project(rows, scope).map((row) => presented(row.json)).toList();
 
   ConversationWindowSnapshot _read(ConversationWindowScope scope) {
-    final main = scope.parentMessageId == null, active = layout(scope).$1;
+    final main = scope.parentMessageId == null;
+    // The active presentation already reads rows and pending sends from this
+    // owner. Reuse that complete snapshot instead of copying its fields again.
+    if (layout(scope).$1) return presentation(!main);
     final facts = authority(scope);
     final held = matchingThread(
       scope.channelId,
@@ -351,43 +354,21 @@ class WorkspaceMessageWindows {
       facts?.$3,
       facts?.$4,
     );
-    final flags = active ? presentation(!main) : null;
-    final id = main
-        ? scope.channelId
-        : active
-        ? flags!.channelId
-        : held?.threadChannelId;
-    final pending =
-        main && active && pendingContextChannelId == scope.channelId;
+    final id = main ? scope.channelId : held?.threadChannelId;
     final acceptedRows = rows(id);
-    final newer = main && (active ? flags!.hasNewer : contextHasNewer(id));
+    final newer = main && contextHasNewer(id);
     return ConversationWindowSnapshot(
       channelId: id,
       rows: acceptedRows,
       timeline: project(
         acceptedRows,
         main ? scope.channelId : 'thread:${scope.parentMessageId}',
-        context: main && (newer || pending),
+        context: newer,
       ),
-      parent: main
-          ? null
-          : active
-          ? flags!.parent
-          : held?.parent,
-      loading: flags?.loading ?? false,
-      loadingOlder: flags?.loadingOlder ?? false,
-      parentLoading: flags?.parentLoading ?? false,
-      resolving: flags?.resolving ?? false,
-      error: flags?.error,
-      hasMore:
-          flags?.hasMore ??
-          (main ? _accepted[id]?.hasMore == true : held?.hasMore == true),
+      parent: main ? null : held?.parent,
+      hasMore: main ? _accepted[id]?.hasMore == true : held?.hasMore == true,
       hasNewer: newer,
-      historyLimited:
-          flags?.historyLimited ??
-          (main ? historyLimit(id) : held?.historyLimited == true),
-      highlightedMessageId: flags?.highlightedMessageId,
-      contextLoadError: flags?.contextLoadError,
+      historyLimited: main ? historyLimit(id) : held?.historyLimited == true,
     );
   }
 
