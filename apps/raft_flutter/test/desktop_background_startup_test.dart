@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,14 +25,15 @@ Future<void> _until(WidgetTester t, bool Function() ready) async {
 }
 
 (NativeContentCoordinator, NotificationPluginFixture) _coordinator(
-  WidgetTester t,
-) {
+  WidgetTester t, {
+  TargetPlatform platform = TargetPlatform.macOS,
+}) {
   final plugin = NotificationPluginFixture()
     ..mac = (MacPermissionFixture()..allowed = true);
-  plugin.initialized.complete(false);
+  plugin.initialized.complete(platform == TargetPlatform.android);
   final notifications = NativeNotificationService(
     plugin: plugin,
-    platform: TargetPlatform.macOS,
+    platform: platform,
   );
   final coordinator = NativeContentCoordinator(
     notifications: notifications,
@@ -350,4 +352,56 @@ void main() {
       expect(workspace.location.messageId, 'm2');
     },
   );
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '$platform unknown lifecycle keeps selected mobile channel foreground and read',
+      (t) async {
+        binding.resetInternalState();
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        var nativeQueries = 0;
+        const channel = MethodChannel('app.raft/window');
+        binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+          call,
+        ) async {
+          nativeQueries++;
+          return false;
+        });
+        addTearDown(
+          () => binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            null,
+          ),
+        );
+        final (coordinator, _) = _coordinator(t, platform: platform);
+        final fixture = RootFixture(contentOverride: coordinator);
+        addTearDown(fixture.content.dispose);
+        addTearDown(() => fixture.close(t));
+        await fixture.mount(t, 'brutal', 390);
+        await t.tap(find.byKey(const ValueKey('global-server-a')));
+        await fixture.flush(t);
+        await t.tap(find.text('general-a').last);
+        await fixture.flush(t);
+        final workspace = fixture.workspace(t);
+        expect(
+          fixture.adapter.calls.where(
+            (call) => call.method == 'POST' && call.path == '/channels/ca/read',
+          ),
+          isNotEmpty,
+          reason: 'The visible channel must write its read receipt without waiting for resumed.',
+        );
+        expect(workspace.foreground, isTrue);
+        expect(coordinator.appForeground, isTrue);
+        expect(binding.lifecycleState, isNull);
+        expect(nativeQueries, 0);
+        expect(
+          fixture.adapter.calls.where((call) => call.path == '/auth/me'),
+          hasLength(1),
+          reason: 'Startup does not manufacture a resume refresh.',
+        );
+        await fixture.close(t);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+  }
 }

@@ -50,10 +50,18 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   DesktopInboxNotifications? desktop;
   bool? _appForeground;
 
-  /// Whether the app is active, with unknown startup state treated as background.
+  bool get _isDesktop => const {
+    TargetPlatform.macOS,
+    TargetPlatform.windows,
+    TargetPlatform.linux,
+  }.contains(notifications.platform);
+
+  /// Whether the app is active.
   ///
+  /// Unknown mobile state preserves foreground read receipts. Desktop startup
+  /// resolves native activation, defaulting to background if unavailable.
   /// The root also checks workspace visibility, such as the server chooser.
-  bool get appForeground => _appForeground ?? false;
+  bool get appForeground => _appForeground ?? !_isDesktop;
   void Function()? onForegroundChanged;
   WorkspaceController? _workspace;
   StreamSubscription<Uri>? _linkSubscription;
@@ -79,9 +87,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     notifications.deliveryAllowed = () =>
         !_closed && _appForeground != null && !appForeground;
     notifications.addListener(_notificationSettingsChanged);
-    if (notifications.platform == TargetPlatform.macOS ||
-        notifications.platform == TargetPlatform.windows ||
-        notifications.platform == TargetPlatform.linux) {
+    if (_isDesktop) {
       desktop = DesktopInboxNotifications(notifications: notifications);
       desktop!.bind(_workspace);
     }
@@ -90,7 +96,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
       receiveLink,
       onError: (_) {},
     );
-    if (_appForeground == null) {
+    if (_appForeground == null && _isDesktop) {
       final active = await isAppWindowActive(platform: notifications.platform);
       if (_closed) return;
       // A lifecycle event received during the native read is newer evidence.
