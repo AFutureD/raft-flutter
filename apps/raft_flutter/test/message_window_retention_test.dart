@@ -364,6 +364,69 @@ void main() {
     },
   );
 
+  test('an accepted edit waiting for disk is not replaced by a later HTTP snapshot', () async {
+    final db = DriftWorkspaceCache(NativeDatabase.memory()), client = _Client();
+    final w = _controller(client, db), gate = Completer<void>();
+    try {
+      await w.selectChannel(w.channels.last, autoRead: false);
+      await w.older();
+      await w.flushCache();
+      unawaited(db.messageHistory.receiver.run(() => gate.future));
+      client.eventsController.add(
+        RaftEvent('message:updated', {
+          'id': 'b-25',
+          'channelId': 'b',
+          'content': 'accepted live edit awaiting disk',
+        }),
+      );
+      for (final (localFirst, focused) in [
+        (false, false),
+        (true, false),
+        (true, true),
+      ]) {
+        final request = w.messageWindows.request(allowed: () => true);
+        final page = await MessageHistoryPages.load(
+          cache: db,
+          scope: MessageHistoryPages.scope(w, 'b'),
+          current: () => request.current,
+          held: () => w.ledger.messages('b'),
+          before: focused ? null : BigInt.from(26),
+          limit: 25,
+          localFirst: localFirst,
+          focused: focused,
+          target: focused ? 'b-25' : null,
+          remote: () async => {
+            'messages': [for (var i = 1; i <= 25; i++) row(i)],
+            'historyLimited': false,
+          },
+        );
+        expect(
+          (page['messages'] as List)
+              .where((m) => m['id'] == 'b-25')
+              .single['content'],
+          'accepted live edit awaiting disk',
+          reason: 'local=$localFirst context=$focused',
+        );
+        w.messageWindows.acceptRows(
+          request,
+          'b',
+          (page['messages'] as List).cast<Map<String, dynamic>>(),
+        );
+        await MessageHistoryPages.record(w, request, page);
+        expect(
+          w.ledger.message('b', 'b-25')!['content'],
+          'accepted live edit awaiting disk',
+        );
+      }
+    } finally {
+      if (!gate.isCompleted) gate.complete();
+      await w.flushCache();
+      w.dispose();
+      await client.eventsController.close();
+      await db.close();
+    }
+  });
+
   test('authorized live rows persist without opening their channel', () async {
     final db = DriftWorkspaceCache(NativeDatabase.memory()), client = _Client();
     final w = _controller(client, db);

@@ -163,6 +163,13 @@ abstract interface class MessageHistoryStorage {
 class HistoryReceiverQueue {
   Future<void> _tail = Future<void>.value();
   final _rows = <(String, String, String, String, String), Object>{};
+  bool hasRow(MessageHistoryScope scope, String id) => _rows.containsKey((
+    scope.origin,
+    scope.principal,
+    scope.server,
+    scope.channel,
+    id,
+  ));
   HistoryRowReceipt beginRow(
     MessageHistoryScope scope,
     String channel,

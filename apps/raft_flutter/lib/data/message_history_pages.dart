@@ -131,13 +131,16 @@ class MessageHistoryPages {
       for (final row in merged['messages'] as List) {
         final key = row['id'] as String;
         ids.add(key);
-        if (identical(initial[key], current[key])) {
+        if (identical(initial[key], current[key]) &&
+            !device.receiver.hasRow(page.scope, key)) {
           accepted.add(Map<String, dynamic>.from(row as Map));
         }
       }
       for (final row in page['messages'] as List) {
         final key = row['id'] as String;
-        if (!ids.contains(key) && identical(initial[key], current[key])) {
+        if (!ids.contains(key) &&
+            identical(initial[key], current[key]) &&
+            !device.receiver.hasRow(page.scope, key)) {
           w.ledger.remove(id, key);
           w.visibleIds[id]?.remove(key);
         }
@@ -200,6 +203,7 @@ class MessageHistoryPages {
     final device = storage(cache);
     if (device == null || scope == null) return remote();
     final initial = {for (final row in held()) row['id']: row};
+    bool pending(String id) => device.receiver.hasRow(scope, id);
     var revision = 0;
     try {
       revision = await device.revision(scope);
@@ -207,7 +211,7 @@ class MessageHistoryPages {
         final local = await device.readContext(scope, target);
         if (local != null) {
           return MessageHistoryPage(
-            _live(local, initial, held(), focused: true),
+            _live(local, initial, held(), focused: true, pending: pending),
             scope: scope,
             revision: revision,
             before: null,
@@ -227,7 +231,14 @@ class MessageHistoryPages {
         if (!current()) return local?.page ?? const {'messages': <dynamic>[]};
         if (local != null) {
           return MessageHistoryPage(
-            _live(local.page, initial, held(), before: before, after: after),
+            _live(
+              local.page,
+              initial,
+              held(),
+              before: before,
+              after: after,
+              pending: pending,
+            ),
             scope: scope,
             revision: revision,
             before: before,
@@ -270,6 +281,7 @@ class MessageHistoryPages {
         before: before,
         after: after,
         focused: focused,
+        pending: pending,
       ),
       scope: scope,
       revision: revision,
@@ -289,6 +301,7 @@ class MessageHistoryPages {
     BigInt? before,
     BigInt? after,
     bool focused = false,
+    bool Function(String id)? pending,
   }) {
     final current = {for (final row in held) row['id']: row};
     final fresh = <String, Map<String, dynamic>>{
@@ -308,7 +321,10 @@ class MessageHistoryPages {
               : seqs.last
         : historyMaxSequence;
     for (final row in held) {
-      if (identical(initial[row['id']], row)) continue;
+      if (identical(initial[row['id']], row) &&
+          pending?.call(row['id'] as String) != true) {
+        continue;
+      }
       final seq = BigInt.tryParse('${row['seq']}');
       if (seq != null && seq >= lower && seq <= upper) {
         fresh[row['id'] as String] = row;
