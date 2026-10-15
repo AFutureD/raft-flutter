@@ -82,6 +82,7 @@ class RaftMessageTimeline extends StatefulWidget {
 class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     implements RaftTimelineThumbDriver {
   double nearbyCache = 250;
+  final _keyboardOlderScroll = _KeyboardOlderScrollAction();
   RaftMessageTimeline? listsOwner;
   Widget? historyList, forwardList;
   late final nearbyPreparation = MessagePreparation(
@@ -426,20 +427,27 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
       TargetPlatform.windows => true,
       _ => false,
     };
-    Widget list = NotificationListener<Notification>(
-      onNotification: onNotification,
-      child: _TimelineScrollView(
-        controller: widget.controller,
-        // The timeline's own scrollbar replaces the platform default.
-        scrollBehavior: scrollbar ? behavior.copyWith(scrollbars: false) : null,
-        center: forwardKey,
-        anchor: widget.controller.anchor,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        semanticChildCount: messages.length,
-        scrollCacheExtent: ScrollCacheExtent.pixels(
-          widget.cacheExtent ?? nearbyCache,
+    Widget list = Actions(
+      actions: <Type, Action<Intent>>{
+        ScrollIntent: _keyboardOlderScroll,
+      },
+      child: NotificationListener<Notification>(
+        onNotification: onNotification,
+        child: _TimelineScrollView(
+          controller: widget.controller,
+          // The timeline's own scrollbar replaces the platform default.
+          scrollBehavior: scrollbar
+              ? behavior.copyWith(scrollbars: false)
+              : null,
+          center: forwardKey,
+          anchor: widget.controller.anchor,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          semanticChildCount: messages.length,
+          scrollCacheExtent: ScrollCacheExtent.pixels(
+            widget.cacheExtent ?? nearbyCache,
+          ),
+          slivers: slivers,
         ),
-        slivers: slivers,
       ),
     );
     if (scrollbar) {
@@ -457,6 +465,32 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
         Positioned.fill(child: empty),
       ],
     );
+  }
+}
+
+/// Page Up, and Control or Command plus an arrow, on this timeline.
+///
+/// [ScrollAction] animates and leaves the user direction idle. A key that is
+/// already at the top does not move, so the existing gate is asked here too.
+class _KeyboardOlderScrollAction extends ScrollAction {
+  @override
+  void invoke(ScrollIntent intent, [BuildContext? context]) {
+    final current = context;
+    if (current != null) {
+      final scrollable = Scrollable.maybeOf(current);
+      final position = scrollable?.position;
+      final physics = scrollable?.resolvedPhysics;
+      if (scrollable != null &&
+          position is RaftTimelinePosition &&
+          (physics == null || physics.shouldAcceptUserOffset(position)) &&
+          ScrollAction.getDirectionalIncrement(scrollable, intent) < 0) {
+        position.noteKeyboardTowardOlder();
+        current
+            .findAncestorStateOfType<_RaftMessageTimelineState>()
+            ?.userMovedOlder();
+      }
+    }
+    super.invoke(intent, context);
   }
 }
 
@@ -628,6 +662,12 @@ class RaftTimelinePosition extends ScrollPositionWithSingleContext {
   @override
   void goBallistic(double velocity) =>
       super.goBallistic(activity is DrivenScrollActivity ? 0 : velocity);
+
+  /// Page Up and modified arrow keys animate without setting a direction.
+  /// The load gate reads this the same way it reads a finger moving older.
+  void noteKeyboardTowardOlder() {
+    updateUserScrollDirection(ScrollDirection.forward);
+  }
 
   /// Moves to [value] for a scrollbar thumb drag, as a user scroll (load
   /// triggers see the user's direction).
