@@ -287,7 +287,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       widget.sessionStore ?? SecureSessionStore(),
     );
     WidgetsBinding.instance.addObserver(this);
-    AppUpdater.instance.beforeQuit = () => closeCacheForExit(cache?.close);
+    AppUpdater.requiredExitHook = () => closeCacheForExit(cache?.close);
     RaftMemoryRelease.instance.install();
     NativeSystemFonts.instance.addListener(rebuildRoot);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
@@ -2126,7 +2126,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     unawaited(shareSession.dispose());
     RaftMemoryRelease.instance.uninstall();
     WidgetsBinding.instance.removeObserver(this);
-    AppUpdater.instance.beforeQuit = null;
+    AppUpdater.requiredExitHook = null;
     NativeSystemFonts.instance.removeListener(rebuildRoot);
     unawaited(content.dispose());
     AttachmentHttp.close();

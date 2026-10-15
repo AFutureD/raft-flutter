@@ -140,11 +140,18 @@ class AppUpdater {
   /// required exit as it is.
   Future<void> Function()? beforeQuit;
 
-  /// Runs [beforeQuit] when it is set, then requests a required exit.
+  /// Application hook read by [quitAfterHook] when [beforeQuit] is null.
   ///
-  /// A throw from [beforeQuit] does not cancel the exit.
+  /// Assigning it does not construct [instance]. The app sets it at startup so
+  /// a required exit can close the background database.
+  static Future<void> Function()? requiredExitHook;
+
+  /// Runs [beforeQuit], or else [requiredExitHook], then requests a required
+  /// exit.
+  ///
+  /// A throw from the hook does not cancel the exit.
   Future<void> quitAfterHook() async {
-    final hook = beforeQuit;
+    final hook = beforeQuit ?? requiredExitHook;
     if (hook != null) {
       try {
         await hook();

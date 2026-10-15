@@ -14,6 +14,7 @@ void main() {
   setUp(() {
     calls.clear();
     opened.clear();
+    AppUpdater.requiredExitHook = null;
     native = (call) => switch (call.method) {
       'configure' => <String, Object?>{'available': true},
       'checkForUpdates' => true,
@@ -27,6 +28,7 @@ void main() {
   });
 
   tearDown(() {
+    AppUpdater.requiredExitHook = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, null);
   });
@@ -190,5 +192,17 @@ void main() {
     recordRequiredExit(subject, order);
     await subject.quitAfterHook();
     expect(order, ['exit']);
+  });
+
+  test('requiredExitHook runs when beforeQuit is unset', () async {
+    final subject = updater(TargetPlatform.linux);
+    final order = <String>[];
+    AppUpdater.requiredExitHook = () async {
+      order.add('close');
+    };
+    recordRequiredExit(subject, order);
+    await subject.quitAfterHook();
+    expect(subject.beforeQuit, isNull);
+    expect(order, ['close', 'exit']);
   });
 }
