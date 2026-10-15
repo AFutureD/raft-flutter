@@ -81,7 +81,6 @@ class RaftSettingsPage extends StatefulWidget {
     this.mobileResetRevision = 0,
     this.onMobileDetailChanged,
     this.onMobileLocationChanged,
-    this.banner,
   });
   final List<RaftSettingsDestination> destinations;
   final String initialTab;
@@ -90,9 +89,6 @@ class RaftSettingsPage extends StatefulWidget {
   final int mobileResetRevision;
   final ValueChanged<bool>? onMobileDetailChanged;
   final ValueChanged<String?>? onMobileLocationChanged;
-
-  /// Phone-only row under the settings header. Not a destination.
-  final Widget? banner;
   @override
   State<RaftSettingsPage> createState() => _RaftSettingsPageState();
 }
@@ -190,7 +186,6 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const RaftMobileRootHeader(title: 'Settings'),
-                if (widget.banner != null) widget.banner!,
                 Expanded(child: list(null)),
               ],
             ),
@@ -210,37 +205,25 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
       backTooltip: 'Back',
       onMobileBack: showNavigation,
     );
-    Widget page() {
-      final body = active.scroll
-          ? ListView(
-              key: PageStorageKey('settings-page-${active.id}'),
-              primary: false,
-              padding: raftScrollPadding(
-                context,
-                RaftSettingsPanelFrame.contentInset,
+    Widget page() => active.scroll
+        ? ListView(
+            key: PageStorageKey('settings-page-${active.id}'),
+            primary: false,
+            padding: raftScrollPadding(
+              context,
+              RaftSettingsPanelFrame.contentInset,
+            ),
+            children: [
+              KeyedSubtree(
+                key: ValueKey(active.id),
+                child: active.builder!(context),
               ),
-              children: [
-                KeyedSubtree(
-                  key: ValueKey(active.id),
-                  child: active.builder!(context),
-                ),
-              ],
-            )
-          : KeyedSubtree(
-              key: ValueKey(active.id),
-              child: active.builder!(context),
-            );
-      final banner = widget.banner;
-      if (banner == null) return body;
-      // Below the panel header, so the header stays at the top of the page.
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          banner,
-          Expanded(child: body),
-        ],
-      );
-    }
+            ],
+          )
+        : KeyedSubtree(
+            key: ValueKey(active.id),
+            child: active.builder!(context),
+          );
     // ownHeader: the header sits inside the content surface, outside the
     // Panel's header slot (AboutFeedbackPanel), so no frame divider.
     Widget content() => RaftSettingsPanelFrame(

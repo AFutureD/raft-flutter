@@ -20,6 +20,7 @@ void main() {
     (t) async {
       final f = RootFixture();
       await f.mount(t, 'elegant-light', 390, uri: Uri.parse('/s/alpha/settings'));
+      expect(find.byKey(const Key('mobile-settings-direct-switch')), findsNothing);
       await t.tap(find.byKey(const ValueKey('workspace-settings-nav-account')));
       await f.flush(t);
       await settleRoute(t);
@@ -28,10 +29,12 @@ void main() {
       await t.enterText(name, 'Kept while open');
       await t.pump();
       expect(find.byType(MobileSettingsDirectPage), findsNothing);
-      await t.tap(find.byKey(const Key('mobile-settings-direct-switch')));
+      expect(find.byKey(const Key('mobile-settings-direct-switch')), findsNothing);
+      MobileSettingsPreference.instance.setEnabled(true);
       await t.pump();
       expect(find.text('Kept while open'), findsOneWidget);
       expect(find.byType(MobileSettingsDirectPage), findsNothing);
+      expect(find.byKey(const Key('mobile-settings-direct-switch')), findsNothing);
       expect(MobileSettingsPreference.instance.enabled, isTrue);
 
       await t.tap(find.byKey(const Key('mobile-settings-back')));

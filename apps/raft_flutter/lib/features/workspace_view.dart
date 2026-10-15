@@ -4050,7 +4050,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
       wide: wide,
       allowed: () => mounted && scope == mobileAuthority,
       dismiss: dismissPanel,
-      showSwitch: !wide,
     );
   }
 }

@@ -251,7 +251,6 @@ Widget workspaceSettingsSurface({
   required bool wide,
   required bool Function() allowed,
   required void Function() dismiss,
-  required bool showSwitch,
 }) {
   final tab = WorkspaceNavigation.settingsTab(
     controller.location.settingsPath.firstOrNull ?? 'account',
@@ -315,7 +314,6 @@ Widget workspaceSettingsSurface({
           providerEnabled: providerEnabled,
           bridgeEnabled: bridgeEnabled,
           labsEnabled: labsEnabled,
-          banner: showSwitch ? const MobileSettingsSwitch() : null,
         ),
       ),
     );
@@ -348,7 +346,8 @@ void _openSettingsTab({
   controller.notifyListeners();
 }
 
-/// The local Labs switch. Flipping it does not rebuild [child] pages.
+/// Device-local phone settings control. Labs shows it on a compact
+/// debug or profile build. The settings page does not.
 class MobileSettingsSwitch extends StatefulWidget {
   const MobileSettingsSwitch({super.key});
 
