@@ -47,6 +47,26 @@ const agentToolDeclarations = <Map<String, Object?>>[
     },
   },
   {'name': 'release_spotlight', 'description': '把聚焦的那一条放回原位。'},
+  {
+    'name': 'mark',
+    'description':
+        '像老师用马克笔一样，在屏幕第 N 条里标出重点：circle 圈出、underline 划线、'
+        'highlight 荧光笔涂亮、arrow 画箭头并写两三个字的批注。phrase 必须是那一条原文里的几个字。'
+        '讲到重点时调用，标记会和你说到那里同时出现；一屏最多两处。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'number': {'type': 'integer', 'description': '屏幕上的序号，从 1 开始'},
+        'phrase': {'type': 'string', 'description': '要标的原文，几个字到一句'},
+        'style': {
+          'type': 'string',
+          'enum': ['circle', 'underline', 'highlight', 'arrow'],
+        },
+        'note': {'type': 'string', 'description': 'arrow 时的批注，两三个字'},
+      },
+      'required': ['number', 'phrase', 'style'],
+    },
+  },
   {'name': 'show_tasks', 'description': '在屏幕上列出进行中和等验收的任务。立即生效。'},
   {'name': 'go_back', 'description': '返回上一层。立即生效。'},
   {'name': 'go_home', 'description': '回到第一层（首页）。立即生效。'},
@@ -85,7 +105,8 @@ String agentSystemPrompt({
     '【操作永远先行】要切换界面时，立刻调用界面工具（show_attention、open_channel、open_item、show_tasks、go_back、go_home），'
     '调用前什么都不说；界面工具会立即返回屏幕上现在的内容。需要讲内容时再调用 read_channel 或 read_tasks，'
     '拿到结果后用一句有温度的话说结论。“第二条”“这个任务”指的是屏幕状态里的序号。'
-    '讲到屏幕上某一条具体内容时，先调用 spotlight 把它聚焦出来再开口；换到下一条就聚焦下一条。\n'
+    '讲到屏幕上某一条具体内容时，先调用 spotlight 把它聚焦出来再开口；每换讲一条，都要先对新的那一条调用 spotlight。'
+    '讲到其中的关键词或关键句时，用 mark 把它圈出来或划出来，像讲课一样，但每条最多标一两处。\n'
     '你现在只能查看，不能发消息、改任务或做其他操作；被要求做这些时，轻松地说明这个 demo 还做不到，并给出能做的最接近的操作。\n'
     '\n'
     '${style.isEmpty ? '' : '【这次的偏好】$style\n\n'}'

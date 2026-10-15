@@ -87,6 +87,11 @@ class RaftAgentTheme extends ThemeExtension<RaftAgentTheme> {
   /// Border width of cards; null uses [border].
   final double? cardBorder;
 
+  /// Marker pen ink and highlighter colour for annotations.
+  Color get markInk =>
+      stickerLabels ? const Color(0xfffe2f8b) : priority(AgentPriority.mention);
+  Color get markHighlight => stickerLabels ? const Color(0xffffd441) : orb;
+
   double get cardBorderWidth => cardBorder ?? border;
 
   /// Per step of depth behind the front layer.
@@ -177,7 +182,7 @@ class RaftAgentTheme extends ThemeExtension<RaftAgentTheme> {
       stickerLabels: t.brutal,
       weightNumerals: t.brutal,
       canvasDots: t.brutal ? c.lineStrong.withValues(alpha: .35) : null,
-      messageFill: t.brutal ? c.primarySoft : null,
+      messageFill: null,
       titleSize: t.brutal ? 32 : 22,
       titleWeight: t.brutal ? FontWeight.w900 : FontWeight.w700,
       cardBorder: t.brutal ? 3 : null,

@@ -80,21 +80,39 @@ class _AgentTvAppState extends State<_AgentTvApp> {
   static const _channel = MethodChannel('app.raft/agent-presentation-tv');
   Map<String, Object?>? frame;
   final _spotlight = AgentSpotlightController();
+  final _marks = AgentMarkController();
+
+  /// Applies a frame from the phone, including what is lifted and marked.
+  void _show(Map<String, Object?> next) {
+    setState(() => frame = next);
+    _spotlight.sync(next['spotlight'] as String?);
+    final marks = [
+      for (final m in (next['marks'] as List?) ?? const [])
+        ?AgentMark.fromJson(m),
+    ];
+    final now = _marks.marks;
+    final same =
+        now.length == marks.length &&
+        [
+          for (var i = 0; i < now.length; i++)
+            now[i].itemId == marks[i].itemId &&
+                now[i].phrase == marks[i].phrase,
+        ].every((v) => v);
+    if (!same) _marks.sync(marks);
+  }
 
   @override
   void initState() {
     super.initState();
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'frame' && call.arguments is Map) {
-        setState(
-          () => frame = Map<String, Object?>.from(call.arguments as Map),
-        );
+        _show(Map<String, Object?>.from(call.arguments as Map));
       }
     });
     unawaited(
       _channel.invokeMethod<Object?>('ready').then((latest) {
         if (latest is Map && mounted) {
-          setState(() => frame = Map<String, Object?>.from(latest));
+          _show(Map<String, Object?>.from(latest));
         }
       }, onError: (_) {}),
     );
@@ -144,22 +162,24 @@ class _AgentTvAppState extends State<_AgentTvApp> {
                                 style: t.heading(28),
                               ),
                             )
-                          : AgentSpotlight(
-                              controller: _spotlight
-                                ..sync(f?['spotlight'] as String?),
-                              child: ZLayerStack(
-                                padding: EdgeInsets.only(top: 34 * scale),
-                                layers: [
-                                  for (final l in layers)
-                                    ZLayer(
-                                      key: ValueKey(l['id']),
-                                      peek: '${l['peek'] ?? ''}',
-                                      child: AgentFrameView(
-                                        frame: l,
-                                        focusPrefix: '${l['id']}',
+                          : AgentMarks(
+                              controller: _marks,
+                              child: AgentSpotlight(
+                                controller: _spotlight,
+                                child: ZLayerStack(
+                                  padding: EdgeInsets.only(top: 34 * scale),
+                                  layers: [
+                                    for (final l in layers)
+                                      ZLayer(
+                                        key: ValueKey(l['id']),
+                                        peek: '${l['peek'] ?? ''}',
+                                        child: AgentFrameView(
+                                          frame: l,
+                                          focusPrefix: '${l['id']}',
+                                        ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                     ),

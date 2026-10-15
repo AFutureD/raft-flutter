@@ -32,6 +32,18 @@ class AgentAudio {
 
   Future<void> play(Uint8List pcm) => _methods.invokeMethod('play', pcm);
 
+  /// How long until the speech already received has been heard; visuals
+  /// that belong after it wait this long.
+  Future<Duration> pending() async {
+    if (!supported) return Duration.zero;
+    try {
+      final ms = await _methods.invokeMethod<int>('pendingMs') ?? 0;
+      return Duration(milliseconds: ms);
+    } catch (_) {
+      return Duration.zero;
+    }
+  }
+
   Future<void> stopPlayback() async {
     if (supported) await _methods.invokeMethod('stopPlayback');
   }

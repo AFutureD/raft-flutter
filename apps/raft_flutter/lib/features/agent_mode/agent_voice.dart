@@ -59,6 +59,10 @@ class AgentVoiceController extends ChangeNotifier {
     if (state == AgentMicState.idle) unawaited(restart());
   }
 
+  /// What the agent has said so far in its current reply (from the live
+  /// transcript), for visuals that wait for their words.
+  final saying = ValueNotifier<String>('');
+
   final lines = <(AgentSpeaker, String)>[];
   AgentMicState state = AgentMicState.idle;
   String? notice;
@@ -155,8 +159,15 @@ class AgentVoiceController extends ChangeNotifier {
           _set(AgentMicState.speaking);
         }
       },
-      onInputText: (text) => _append(AgentSpeaker.you, text),
-      onOutputText: (text) => _append(AgentSpeaker.agent, text),
+      onInputText: (text) {
+        // The person speaking starts a new reply.
+        if (saying.value.isNotEmpty) saying.value = '';
+        _append(AgentSpeaker.you, text);
+      },
+      onOutputText: (text) {
+        saying.value += text;
+        _append(AgentSpeaker.agent, text);
+      },
       onTurnComplete: () {
         _youLine = _agentLine = null;
         if (state == AgentMicState.thinking) _set(AgentMicState.idle);
@@ -296,6 +307,7 @@ class AgentVoiceController extends ChangeNotifier {
   Future<bool> sendText(String text) async {
     if (!await hasKey) return false;
     say(AgentSpeaker.you, text);
+    saying.value = '';
     _set(AgentMicState.thinking);
     final session = await _ensureSession();
     if (session == null) return true;
@@ -310,6 +322,7 @@ class AgentVoiceController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    saying.dispose();
     AgentVoiceSettings.instance.removeListener(_settingsChanged);
     _stopMic();
     unawaited(_session?.close());

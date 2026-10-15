@@ -6,6 +6,7 @@ library;
 
 export 'src/agent_theme.dart';
 export 'src/layer_frame.dart';
+export 'src/marks.dart';
 export 'src/priority_card.dart';
 export 'src/spotlight.dart';
 export 'src/voice_dock.dart';

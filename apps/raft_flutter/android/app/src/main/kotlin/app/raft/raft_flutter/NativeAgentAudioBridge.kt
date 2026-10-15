@@ -21,6 +21,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Agent mode demo audio: 16 kHz PCM16 microphone chunks out, 24 kHz PCM16
@@ -52,6 +53,13 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
     private var playThread: Thread? = null
     private val playQueue = LinkedBlockingQueue<ByteArray>()
     @Volatile private var playGeneration = 0
+
+    // Speech still to be heard: bytes queued here plus frames handed to the
+    // track that its playback head has not reached. Lets the app time a
+    // visual to the moment the words before it have been spoken.
+    private val queuedBytes = AtomicLong()
+    @Volatile private var writtenFrames = 0L
+    @Volatile private var headBase = 0L
     private var communication = false
     private var speaker = false
 
@@ -62,9 +70,12 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
                 "play" -> {
                     enterCommunication()
                     ensureTrack()
-                    playQueue.put(call.arguments as ByteArray)
+                    val data = call.arguments as ByteArray
+                    queuedBytes.addAndGet(data.size.toLong())
+                    playQueue.put(data)
                     result.success(null)
                 }
+                "pendingMs" -> result.success(pendingMs())
                 "stopPlayback" -> {
                     stopPlayback()
                     result.success(null)
@@ -240,9 +251,10 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
         playThread = Thread {
             var speaking = false
             while (track === created) {
-                val data = playQueue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+                val data = playQueue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+                if (data != null) queuedBytes.addAndGet(-data.size.toLong())
                 if (data == null) {
-                    if (speaking) {
+                    if (speaking && pendingMs() <= 0) {
                         speaking = false
                         main.post { methods.invokeMethod("playbackIdle", null) }
                     }
@@ -255,6 +267,7 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
                     val n = created.write(data, offset, data.size - offset)
                     if (n <= 0) break
                     offset += n
+                    if (generation == playGeneration) writtenFrames += n / 2
                 }
             }
         }.also { it.start() }
@@ -263,11 +276,21 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
     private fun stopPlayback() {
         playGeneration++
         playQueue.clear()
+        queuedBytes.set(0)
         track?.let {
             it.pause()
             it.flush()
+            headBase = it.playbackHeadPosition.toLong() and 0xffffffffL
+            writtenFrames = 0
             it.play()
         }
+    }
+
+    private fun pendingMs(): Long {
+        val t = track ?: return 0
+        val played = (t.playbackHeadPosition.toLong() and 0xffffffffL) - headBase
+        val frames = queuedBytes.get() / 2 + maxOf(0L, writtenFrames - played)
+        return frames * 1000 / SPEAKER_RATE
     }
 
     private fun release() {

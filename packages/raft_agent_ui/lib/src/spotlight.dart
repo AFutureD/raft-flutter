@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'marks.dart';
 
 /// Which component the agent is talking about. [AgentFocusable] widgets with
 /// that id lift out of the page and float above it until [release].
@@ -148,8 +149,12 @@ class _AgentSpotlightState extends State<AgentSpotlight>
               child: LayoutBuilder(
                 builder: (context, box) {
                   final origin = _origin!;
+                  // Always lift visibly, never wider than the screen.
+                  final fit = box.maxWidth * .96 / origin.width;
                   final width = (box.maxWidth * .9).clamp(0, widget.maxWidth);
-                  final scale = (width / origin.width).clamp(1.0, 1.6);
+                  final scale = (width / origin.width)
+                      .clamp(1.08, 1.6)
+                      .clamp(1.0, fit < 1.0 ? 1.0 : fit);
                   final size = origin.size * scale;
                   final target = Rect.fromCenter(
                     center: box.biggest.center(Offset.zero),
@@ -175,16 +180,19 @@ class _AgentSpotlightState extends State<AgentSpotlight>
                           ),
                           Positioned.fromRect(
                             rect: rect,
-                            child: IgnorePointer(
-                              child: FittedBox(
-                                fit: BoxFit.contain,
-                                alignment: Alignment.topLeft,
-                                child: SizedBox(
-                                  width: origin.width,
-                                  height: origin.height,
-                                  child: builder == null
-                                      ? const SizedBox.shrink()
-                                      : Builder(builder: builder),
+                            child: Transform.rotate(
+                              angle: -.018 * v,
+                              child: IgnorePointer(
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  alignment: Alignment.topLeft,
+                                  child: SizedBox(
+                                    width: origin.width,
+                                    height: origin.height,
+                                    child: builder == null
+                                        ? const SizedBox.shrink()
+                                        : Builder(builder: builder),
+                                  ),
                                 ),
                               ),
                             ),
@@ -247,12 +255,15 @@ class _AgentFocusableState extends State<AgentFocusable> {
   @override
   Widget build(BuildContext context) {
     final host = _host;
-    if (host == null) return widget.child;
-    host._register(widget.id, _key, (_) => widget.child);
+    if (host == null) {
+      return AgentItemScope(id: widget.id, child: widget.child);
+    }
+    Widget scoped(Widget child) => AgentItemScope(id: widget.id, child: child);
+    host._register(widget.id, _key, (_) => scoped(widget.child));
     return Opacity(
       key: _key,
       opacity: host._isLifted(widget.id) ? 0 : 1,
-      child: widget.child,
+      child: scoped(widget.child),
     );
   }
 }

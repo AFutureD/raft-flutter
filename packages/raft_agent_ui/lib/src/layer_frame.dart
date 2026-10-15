@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'marks.dart';
 
 /// Content of one Z layer: a heading, a short spoken-style summary and a
 /// scrolling body.
@@ -152,11 +153,10 @@ class AgentMessageTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
+                AgentMarkText(
                   text,
                   maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.body(13.5, color: t.muted),
+                  style: t.body(14, color: t.foreground),
                 ),
               ],
             ),

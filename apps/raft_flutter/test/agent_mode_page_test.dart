@@ -262,6 +262,63 @@ void main() {
     expect(find.text('Item 1'), findsOneWidget);
   });
 
+  testWidgets('marks draw on the item text they name', (t) async {
+    final marks = AgentMarkController();
+    addTearDown(marks.dispose);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: Scaffold(
+          body: AgentMarks(
+            controller: marks,
+            child: Column(
+              children: [
+                for (var n = 1; n <= 2; n++)
+                  AgentFocusable(
+                    id: 'layer#$n',
+                    child: AgentPriorityCard(
+                      priority: AgentPriority.decision,
+                      title: 'Personal Agent 第一版选型',
+                      detail: '#94 · 已经等了 2 小时',
+                      weight: 5,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    Finder painted(String text) => find.ancestor(
+      of: find.text(text),
+      matching: find.byWidgetPredicate(
+        (w) =>
+            w is CustomPaint &&
+            '${w.foregroundPainter.runtimeType}' == '_MarkPainter',
+      ),
+    );
+    expect(painted('#94 · 已经等了 2 小时'), findsNothing);
+    marks.add(
+      const AgentMark(
+        itemId: 'layer#2',
+        phrase: '2 小时',
+        style: AgentMarkStyle.highlight,
+      ),
+    );
+    await t.pumpAndSettle();
+    // Only item 2's detail carries the mark; item 1 and the titles do not.
+    expect(painted('#94 · 已经等了 2 小时'), findsOneWidget);
+    expect(painted('Personal Agent 第一版选型'), findsNothing);
+    // At most two at a time; clearing removes them.
+    marks
+      ..add(const AgentMark(itemId: 'layer#1', phrase: '第一版'))
+      ..add(const AgentMark(itemId: 'layer#2', phrase: '选型'));
+    expect(marks.marks.map((m) => m.phrase), ['第一版', '选型']);
+    marks.clear();
+    await t.pumpAndSettle();
+    expect(painted('#94 · 已经等了 2 小时'), findsNothing);
+  });
+
   test('voice keys are found inside scanned text', () {
     const key = 'AIzaSyA1234567890abcdefghijklmnopqrstu';
     expect(AgentVoiceKey.parse(key), key);

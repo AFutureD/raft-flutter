@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -80,7 +81,105 @@ class _AgentModePageState extends State<AgentModePage> {
 
   /// The item the agent is talking about, lifted above the page.
   final _spotlight = AgentSpotlightController();
+  final _marks = AgentMarkController();
   AgentMicState _lastMic = AgentMicState.idle;
+
+  /// Bumped on every layer change so a visual timed to speech that belongs
+  /// to an old screen never fires.
+  int _screenEpoch = 0;
+
+  /// Visuals waiting for the agent to say their words, in call order.
+  final _cues = <({Set<String> words, VoidCallback effect, int epoch})>[];
+  int _heardFrom = 0;
+  Timer? _cueFallback;
+  Object? _fallbackFor;
+
+  /// Runs [effect] once the agent says [words] (fuzzy, from the live
+  /// transcript) and the speaker has reached them. Models often send every
+  /// tool call before speaking; this keeps each visual on its own phrase.
+  void _cue(String words, VoidCallback effect) {
+    _cues.add((words: _grams(words), effect: effect, epoch: _screenEpoch));
+    _checkCues();
+  }
+
+  void _sayingChanged() {
+    if (_voice.saying.value.isEmpty) {
+      // A new reply: leftovers from the last one no longer apply.
+      _cues.clear();
+      _heardFrom = 0;
+      _cueFallback?.cancel();
+      _fallbackFor = null;
+      return;
+    }
+    _checkCues();
+  }
+
+  void _checkCues() {
+    while (_cues.isNotEmpty) {
+      final cue = _cues.first;
+      if (cue.epoch != _screenEpoch) {
+        _cues.removeAt(0);
+        continue;
+      }
+      final said = _voice.saying.value;
+      final fresh = said.length >= _heardFrom ? said.substring(_heardFrom) : '';
+      if (!_heard(fresh, cue.words)) break;
+      _cues.removeAt(0);
+      _heardFrom = said.length;
+      unawaited(_atSpeech(cue.effect));
+    }
+    if (_cues.isEmpty) {
+      _cueFallback?.cancel();
+      _fallbackFor = null;
+      return;
+    }
+    // Words that never come (paraphrase, another language) still show, in
+    // order, a little after the cue reaches the front of the queue; more
+    // transcript arriving does not postpone it.
+    if (identical(_fallbackFor, _cues.first)) return;
+    _fallbackFor = _cues.first;
+    _cueFallback?.cancel();
+    _cueFallback = Timer(const Duration(milliseconds: 3500), () {
+      if (!mounted || _cues.isEmpty) return;
+      final cue = _cues.removeAt(0);
+      _fallbackFor = null;
+      _heardFrom = _voice.saying.value.length;
+      if (cue.epoch == _screenEpoch) cue.effect();
+      _checkCues();
+    });
+  }
+
+  static Set<String> _grams(String text) {
+    final t = text.toLowerCase().replaceAll(
+      RegExp(r'[\s\p{P}\p{S}]', unicode: true),
+      '',
+    );
+    final words = RegExp(r'[a-z0-9]+');
+    return {
+      for (final m in words.allMatches(t))
+        if (m[0]!.length >= 2) m[0]!,
+      for (final part in t.split(words))
+        for (var i = 0; i + 1 < part.length; i++) part.substring(i, i + 2),
+    };
+  }
+
+  static bool _heard(String said, Set<String> words) {
+    if (words.isEmpty) return true;
+    final heard = _grams(said);
+    final hits = words.where(heard.contains).length;
+    return hits >= math.max(1, math.min(3, (words.length * .25).ceil()));
+  }
+
+  /// Runs [effect] when the speaker reaches the words received so far, so
+  /// a spotlight or a mark lands with the phrase it belongs to.
+  Future<void> _atSpeech(VoidCallback effect) async {
+    final epoch = _screenEpoch;
+    final wait = await AgentAudio.instance.pending();
+    if (wait > const Duration(milliseconds: 60)) {
+      await Future<void>.delayed(wait - const Duration(milliseconds: 40));
+    }
+    if (mounted && epoch == _screenEpoch) effect();
+  }
 
   List<AgentAttentionItem>? _attention;
   Object? _attentionError;
@@ -96,7 +195,14 @@ class _AgentModePageState extends State<AgentModePage> {
     final tv = AgentPresentation.instance;
     tv.onDisplaysChanged = () => unawaited(_attachTv());
     _voice.addListener(_voiceChanged);
-    _spotlight.addListener(() => setState(() {}));
+    _voice.saying.addListener(_sayingChanged);
+    _spotlight.addListener(() {
+      // Annotations belong to what is being explained; a new focus or
+      // putting the item back wipes them.
+      _marks.clear();
+      setState(() {});
+    });
+    _marks.addListener(() => setState(() {}));
     unawaited(_attachTv());
   }
 
@@ -115,8 +221,11 @@ class _AgentModePageState extends State<AgentModePage> {
   void dispose() {
     unawaited(AgentPresentation.instance.detach());
     _voice.removeListener(_voiceChanged);
+    _voice.saying.removeListener(_sayingChanged);
+    _cueFallback?.cancel();
     _voice.dispose();
     _spotlight.dispose();
+    _marks.dispose();
     super.dispose();
   }
 
@@ -131,6 +240,7 @@ class _AgentModePageState extends State<AgentModePage> {
           ? 'elegant-dark'
           : 'elegant-light',
       'spotlight': _spotlight.focused,
+      'marks': [for (final m in _marks.marks) m.toJson()],
       'layers': [
         for (final l in _stack.skip(_stack.length > 3 ? _stack.length - 3 : 0))
           {..._frame(l), 'id': l.id, 'peek': _peek(l)},
@@ -172,6 +282,8 @@ class _AgentModePageState extends State<AgentModePage> {
 
   void _push(_Layer layer) {
     _spotlight.release();
+    _marks.clear();
+    _screenEpoch++;
     setState(() {
       _stack.removeWhere((l) => l.id == layer.id);
       _stack.add(layer);
@@ -180,11 +292,15 @@ class _AgentModePageState extends State<AgentModePage> {
 
   void _pop() {
     _spotlight.release();
+    _marks.clear();
+    _screenEpoch++;
     if (_stack.length > 1) setState(_stack.removeLast);
   }
 
   void _revealTo(int index) {
     _spotlight.release();
+    _marks.clear();
+    _screenEpoch++;
     setState(() => _stack.removeRange(index + 1, _stack.length));
   }
 
@@ -390,8 +506,49 @@ class _AgentModePageState extends State<AgentModePage> {
         if (n < 1 || n > items.length) {
           return {'error': '屏幕上没有第 $n 条', ..._screen()};
         }
-        _spotlight.focus('${_stack.last.id}#$n');
+        final id = '${_stack.last.id}#$n';
+        final item = items[n - 1];
+        _cue(
+          [
+            for (final k in const ['label', 'title', 'detail', 'from', 'text'])
+              '${item[k] ?? ''}',
+          ].join(' '),
+          () => _spotlight.focus(id),
+        );
         return {'ok': true, 'item': items[n - 1]};
+      case 'mark':
+        final n = (args['number'] as num?)?.toInt() ?? 0;
+        final phrase = '${args['phrase'] ?? ''}'.trim();
+        final items = _screenItems();
+        if (n < 1 || n > items.length) {
+          return {'error': '屏幕上没有第 $n 条', ..._screen()};
+        }
+        final item = items[n - 1];
+        final words = [
+          for (final k in const ['title', 'detail', 'text']) '${item[k] ?? ''}',
+        ];
+        if (phrase.isEmpty || !words.any((w) => w.contains(phrase))) {
+          return {'error': '第 $n 条里没有“$phrase”这几个字，请从原文里挑', 'item': item};
+        }
+        final style =
+            AgentMarkStyle.values
+                .where((v) => v.name == args['style'])
+                .firstOrNull ??
+            AgentMarkStyle.circle;
+        final mark = AgentMark(
+          itemId: '${_stack.last.id}#$n',
+          phrase: phrase,
+          style: style,
+          note: args['note'] as String?,
+        );
+        // Marking an item that is not lifted lifts it first.
+        _cue(phrase, () {
+          if (_spotlight.focused != mark.itemId) {
+            _spotlight.focus(mark.itemId);
+          }
+          _marks.add(mark);
+        });
+        return {'ok': true};
       case 'release_spotlight':
         _spotlight.release();
         return {'ok': true};
@@ -429,10 +586,15 @@ class _AgentModePageState extends State<AgentModePage> {
     _lastMic = now;
     if (!finished || _spotlight.focused == null) return;
     final shown = _spotlight.focused;
-    Future<void>.delayed(const Duration(milliseconds: 900), () {
+    final said = _voice.saying.value.length;
+    // A pause between sentences also goes idle; only put the item back once
+    // the reply has really stopped (no new words, nothing waiting to show).
+    Future<void>.delayed(const Duration(milliseconds: 1500), () {
       if (mounted &&
           _spotlight.focused == shown &&
-          _voice.state == AgentMicState.idle) {
+          _voice.state == AgentMicState.idle &&
+          _voice.saying.value.length == said &&
+          _cues.isEmpty) {
         _spotlight.release();
       }
     });
@@ -562,8 +724,8 @@ class _AgentModePageState extends State<AgentModePage> {
       },
       child: Scaffold(
         backgroundColor: t.canvas,
-        body: AgentSpotlight(
-          controller: _spotlight,
+        body: AgentMarks(
+          controller: _marks,
           child: AgentCanvas(
             child: SafeArea(
               child: Center(
@@ -620,24 +782,27 @@ class _AgentModePageState extends State<AgentModePage> {
                         ),
                       ),
                       Expanded(
-                        child: ZLayerStack(
-                          padding: const EdgeInsets.fromLTRB(14, 76, 14, 12),
-                          onReveal: _revealTo,
-                          layers: [
-                            for (final l in _stack)
-                              ZLayer(
-                                key: ValueKey(l.id),
-                                peek: _peek(l),
-                                child: AgentFrameView(
-                                  focusPrefix: l.id,
-                                  frame: _frame(l),
-                                  onOpen: (id) {
-                                    final c = _channelById(id);
-                                    if (c != null) _openChannel(c).ignore();
-                                  },
+                        child: AgentSpotlight(
+                          controller: _spotlight,
+                          child: ZLayerStack(
+                            padding: const EdgeInsets.fromLTRB(14, 76, 14, 12),
+                            onReveal: _revealTo,
+                            layers: [
+                              for (final l in _stack)
+                                ZLayer(
+                                  key: ValueKey(l.id),
+                                  peek: _peek(l),
+                                  child: AgentFrameView(
+                                    focusPrefix: l.id,
+                                    frame: _frame(l),
+                                    onOpen: (id) {
+                                      final c = _channelById(id);
+                                      if (c != null) _openChannel(c).ignore();
+                                    },
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       Padding(
