@@ -16,8 +16,8 @@ class MainFlutterWindow: NSWindow, RaftPreferencesWindow {
 
   override func performClose(_ sender: Any?) {
     if NSApp.currentEvent?.isARepeat == true { return }
-    // The native menu consumes Command-W before Flutter sees a key event.
-    // Let its root navigator dismiss a preview before closing the window.
+    // Menu actions share Flutter's close policy with the keyboard fallback.
+    // Route a menu Close through previews before closing the native window.
     guard sender is NSMenuItem, windowCommandsReady, let channel = windowChannel else {
       super.performClose(sender)
       return
