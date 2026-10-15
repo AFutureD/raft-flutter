@@ -4766,7 +4766,6 @@ class WorkspaceController extends ChangeNotifier {
       throw const RaftApiException('The thread changed. Please retry.');
     }
     threadChannelId = value['threadChannelId'];
-    messageWindows.reveal(request, threadChannelId!, const []);
     client.joinChannel(threadChannelId!);
     notifyListeners();
     return threadChannelId;
@@ -5077,15 +5076,12 @@ class WorkspaceController extends ChangeNotifier {
 
   /// Source ChatPanel.handleBackToBottom reloads latest when newer is unloaded.
   Future<void> returnToLatest({bool navigate = true}) async {
-    final source = presentationSource;
-    if (source != null) {
-      return source.returnToLatest(navigate: navigate);
-    }
-    final selected = channel;
+    final receiver = _windowReceiver;
+    final selected = receiver.channel;
     if (selected == null) return;
-    clearHighlightedMessage(highlightedMessageId);
-    if (hasNewer) {
-      await selectChannel(
+    receiver.clearHighlightedMessage(receiver.highlightedMessageId);
+    if (receiver.hasNewer) {
+      await receiver.selectChannel(
         selected,
         navigate: navigate,
         retainContextUntilAccepted: true,
