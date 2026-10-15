@@ -115,7 +115,10 @@ void main() {
       ];
       dir.calls.clear();
       w.resumeLiveSession();
-      await _applied(() => dir.directoryReads >= 1);
+      await _applied(() => w.servers.map((s) => s.id).join(',') == 'A,B');
+      // The directory request is counted before the list is written. A read
+      // of B started by that write happens on a later turn.
+      await _drain();
       // Nothing is read for B (a new row is only listed), and the open server
       // keeps its own loads to the usual resume reads.
       expect(dir.calls.where((c) => c.contains('/servers/B')), isEmpty);
@@ -127,6 +130,8 @@ void main() {
       await _applied(() => dir.directoryReads == 1);
       w.resumeLiveSession();
       w.resumeLiveSession();
+      // Those two resumes return before a second directory read is counted.
+      await _drain();
       expect(dir.directoryReads, 1);
     });
 
