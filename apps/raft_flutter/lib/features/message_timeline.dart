@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' as chat;
@@ -361,9 +362,10 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     if (position is RaftTimelinePosition) position.endThumb();
   }
 
-  /// A blank tap joins the gesture arena. An author, link, image, or button
-  /// wins that tap, and a drag wins a move, so this runs only when nothing
-  /// else accepted it. The page must still be the current route.
+  /// A blank tap joins the gesture arena inside the scroller. A child control
+  /// is registered first and wins that tap. This recognizer leaves on the
+  /// first move, before the scroller sees it, so a drag and its fling stay
+  /// with the list. The page must still be the current route.
   void _focusTimelineOnBlankTap() {
     if (!mounted || _timelineFocus.hasFocus) return;
     if (ModalRoute.of(context)?.isCurrent != true) return;
@@ -447,9 +449,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
       },
       child: NotificationListener<Notification>(
         onNotification: onNotification,
-        child: GestureDetector(
-          onTap: _focusTimelineOnBlankTap,
-          child: _TimelineScrollView(
+        child: _TimelineScrollView(
             controller: widget.controller,
             // The timeline's own scrollbar replaces the platform default.
             scrollBehavior: scrollbar
@@ -464,7 +464,6 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
             ),
             slivers: slivers,
           ),
-        ),
       ),
     );
     if (scrollbar) {
@@ -810,17 +809,88 @@ class _TimelineScrollView extends CustomScrollView {
       paintOrder: paintOrder,
       clipBehavior: clipBehavior,
     );
-    final focus = context
-        .findAncestorStateOfType<_RaftMessageTimelineState>()
-        ?._timelineFocus;
-    if (focus == null) return viewport;
-    return Focus(
-      key: const ValueKey('timeline-focus'),
-      focusNode: focus,
-      skipTraversal: true,
-      child: viewport,
+    final state = context.findAncestorStateOfType<_RaftMessageTimelineState>();
+    final focus = state?._timelineFocus;
+    if (focus == null || state == null) return viewport;
+    // Inside the scrollable, so a move rejects this tap before the drag
+    // recognizer handles that same event.
+    return RawGestureDetector(
+      gestures: <Type, GestureRecognizerFactory>{
+        _BlankTapRecognizer:
+            GestureRecognizerFactoryWithHandlers<_BlankTapRecognizer>(
+              () => _BlankTapRecognizer(),
+              (_BlankTapRecognizer instance) {
+                instance.onBlankTap = state._focusTimelineOnBlankTap;
+              },
+            ),
+      },
+      child: Focus(
+        key: const ValueKey('timeline-focus'),
+        focusNode: focus,
+        skipTraversal: true,
+        child: viewport,
+      ),
     );
   }
+}
+
+/// Tap recognizer that lives inside the timeline scroller.
+///
+/// Child controls are added to the pointer router first, so they win a tap.
+/// A move past the slop rejects this recognizer before the scroller's drag
+/// handles that event, which leaves the drag and the fling on the list.
+class _BlankTapRecognizer extends OneSequenceGestureRecognizer {
+  VoidCallback? onBlankTap;
+  Offset? _down;
+  bool _moved = false;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    if (event.buttons != kPrimaryButton) return;
+    super.addAllowedPointer(event);
+    _down = event.position;
+    _moved = false;
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerMoveEvent) {
+      final down = _down;
+      if (!_moved &&
+          down != null &&
+          (event.position - down).distance > kTouchSlop) {
+        _moved = true;
+        resolve(GestureDisposition.rejected);
+      }
+      return;
+    }
+    if (event is PointerUpEvent) {
+      // A child control wins the sweep when it was added first. Accepting
+      // here would take that tap. A drag already rejected this recognizer.
+      return;
+    }
+    if (event is PointerCancelEvent) {
+      resolve(GestureDisposition.rejected);
+      stopTrackingPointer(event.pointer);
+    }
+  }
+
+  @override
+  void acceptGesture(int pointer) {
+    if (!_moved) onBlankTap?.call();
+    stopTrackingPointer(pointer);
+  }
+
+  @override
+  void rejectGesture(int pointer) {
+    stopTrackingPointer(pointer);
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) {}
+
+  @override
+  String get debugDescription => 'timeline blank tap';
 }
 
 class _TimelineViewport extends Viewport {
