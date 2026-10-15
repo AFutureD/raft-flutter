@@ -139,7 +139,7 @@ class _Lab extends ChangeNotifier {
     links: const Stream.empty(),
   );
   final draft = TextEditingController(text: 'Synthetic retained draft 56');
-  bool queued = false, previewOpen = false;
+  bool queued = false, previewOpen = false, pageOpen = false;
   int serial = 0;
   Future<void> writes = Future.value();
 
@@ -175,6 +175,7 @@ class _Lab extends ChangeNotifier {
       'draft': draft.text,
       'queued': queued,
       'previewOpen': previewOpen,
+      'pageOpen': pageOpen,
       'notificationError': service.error,
     });
     writes = writes.then(
@@ -235,11 +236,12 @@ class _Lab extends ChangeNotifier {
 }
 
 class _Page extends StatelessWidget {
-  const _Page(this.lab);
+  const _Page(this.lab, {this.title = 'Raft tray lab — synthetic data only'});
   final _Lab lab;
+  final String title;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Raft tray lab — synthetic data only')),
+    appBar: AppBar(title: Text(title)),
     body: ListenableBuilder(
       listenable: lab,
       builder: (context, _) => SingleChildScrollView(
@@ -290,6 +292,30 @@ class _Page extends StatelessWidget {
             ElevatedButton(
               onPressed: lab.record,
               child: const Text('Refresh receipt'),
+            ),
+            ElevatedButton(
+              onPressed: lab.pageOpen
+                  ? null
+                  : () {
+                      lab.pageOpen = true;
+                      unawaited(lab.record());
+                      unawaited(
+                        Navigator.of(context)
+                            .push<void>(
+                              MaterialPageRoute(
+                                builder: (_) => _Page(
+                                  lab,
+                                  title: 'Synthetic retained page',
+                                ),
+                              ),
+                            )
+                            .whenComplete(() {
+                              lab.pageOpen = false;
+                              unawaited(lab.record());
+                            }),
+                      );
+                    },
+              child: const Text('Open synthetic full page'),
             ),
             ElevatedButton(
               onPressed: lab.quit,
