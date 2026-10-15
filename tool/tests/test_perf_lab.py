@@ -890,17 +890,19 @@ class DetectionLifetimeTest(unittest.TestCase):
         managed = """
 import json,os,signal,subprocess,sys,time
 child = subprocess.Popen([sys.executable, '-c',
-    'import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'])
+    'import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'],
+    start_new_session=sys.argv[2].startswith('detached'))
 time.sleep(.1)
 with open(sys.argv[1], 'w') as stream:
     json.dump({'leader': os.getpid(), 'child': child.pid, 'group': os.getpgrp()}, stream)
-if sys.argv[2] == 'interrupt': time.sleep(60)
+if sys.argv[2].endswith('interrupt'): time.sleep(60)
 """
         wrapper = """
-import importlib.util,subprocess,sys
+import importlib.util,os,subprocess,sys
 spec=importlib.util.spec_from_file_location('lab',sys.argv[1])
 lab=importlib.util.module_from_spec(spec);spec.loader.exec_module(lab)
 raise SystemExit(lab.run_owned_process([sys.executable,'-c',sys.argv[2],sys.argv[3],sys.argv[4]],
+    env={**os.environ,'RAFT_LAB_PROCESS_OWNER':sys.argv[3]},
     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
 """
 
@@ -911,7 +913,7 @@ raise SystemExit(lab.run_owned_process([sys.executable,'-c',sys.argv[2],sys.argv
             except FileNotFoundError:
                 return False
 
-        for mode in ('interrupt', 'normal'):
+        for mode in ('interrupt', 'normal', 'detached-interrupt', 'detached-normal'):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 state = Path(directory) / 'state.json'
                 sentinel = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
@@ -927,10 +929,10 @@ raise SystemExit(lab.run_owned_process([sys.executable,'-c',sys.argv[2],sys.argv
                                     if wrapper_process.poll() is not None else 'child did not become ready')
                     identity = json.loads(state.read_text())
                     self.assertEqual(identity['leader'], identity['group'])
-                    if mode == 'interrupt':
+                    if mode.endswith('interrupt'):
                         wrapper_process.send_signal(signal.SIGINT)
                     wrapper_process.communicate(timeout=8)
-                    self.assertEqual(wrapper_process.returncode == 0, mode == 'normal')
+                    self.assertEqual(wrapper_process.returncode == 0, mode.endswith('normal'))
                     self.assertIsNone(sentinel.poll())
                     self.assertFalse(running(identity['leader']))
                     self.assertFalse(running(identity['child']))
@@ -938,6 +940,8 @@ raise SystemExit(lab.run_owned_process([sys.executable,'-c',sys.argv[2],sys.argv
                     if identity:
                         with contextlib.suppress(ProcessLookupError):
                             os.killpg(identity['group'], signal.SIGKILL)
+                        with contextlib.suppress(ProcessLookupError):
+                            os.kill(identity['child'], signal.SIGKILL)
                     if wrapper_process.poll() is None:
                         os.killpg(wrapper_process.pid, signal.SIGKILL)
                     wrapper_process.communicate(timeout=3)

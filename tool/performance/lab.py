@@ -1259,6 +1259,40 @@ def process_group_active(group, *, proc_root=Path('/proc')):
     return False
 
 
+def owned_process_groups(owner):
+    """Groups containing only members of this uniquely marked private launch.
+
+    Weston starts clients in new sessions. Their inherited owner marker,
+    rather than a process name or the original group alone, proves ownership.
+    """
+    groups = {}
+    marker = f'RAFT_LAB_PROCESS_OWNER={owner}'.encode()
+    for path in Path('/proc').glob('[0-9]*/stat'):
+        try:
+            stat = path.read_text()
+            fields = stat[stat.rfind(')') + 2:].split()
+            if fields[0] in ('Z', 'X'):
+                continue
+            entry = groups.setdefault(int(fields[2]), {'owned': [], 'other': []})
+            identity = {'pid': int(path.parent.name), 'startTicks': int(fields[19])}
+            try:
+                environment = path.with_name('environ').read_bytes().split(b'\0')
+            except PermissionError:
+                entry['other'].append(identity)
+                continue
+            entry['owned' if marker in environment else 'other'].append(identity)
+        except (OSError, ValueError, IndexError):
+            continue
+    result = {}
+    for group, members in groups.items():
+        if not members['owned']:
+            continue
+        if members['other']:
+            raise RuntimeError('Refusing to signal a process group with a different owner.')
+        result[group] = members['owned']
+    return result
+
+
 def run_owned_process(command, *, process_groups=None, **kwargs):
     """Reap this launch and stop only the session/process group it created."""
     process = subprocess.Popen(command, start_new_session=True, **kwargs)
@@ -1269,29 +1303,46 @@ def run_owned_process(command, *, process_groups=None, **kwargs):
             process_groups.append(group)
         return process.wait()
     finally:
-        # Also stop descendants when the leader already exited. Killing just
-        # the leader does not stop Weston, drive or a still-running test app.
+        # The initial group belongs to this Popen. Marked descendants can
+        # have moved into new groups/sessions (Weston's client launcher does).
+        owner = (kwargs.get('env') or {}).get('RAFT_LAB_PROCESS_OWNER')
+        group['descendantGroups'] = []
+
+        def active_groups():
+            members = owned_process_groups(owner) if owner else {}
+            if process_group_active(process.pid):
+                members.setdefault(process.pid, [])
+            return members
+
         for stop_signal in (signal.SIGTERM, signal.SIGKILL):
-            try:
-                os.killpg(process.pid, stop_signal)
-                group['stopSignals'].append(stop_signal.name)
-            except ProcessLookupError:
-                break
-            # killpg only delivers a signal. The descendants may still be
-            # alive after wait() reaps the leader, including after SIGKILL.
+            signalled = set()
             deadline = time.monotonic() + 2
-            while time.monotonic() < deadline:
+            while True:
                 process.poll()
-                if not process_group_active(process.pid):
+                active = active_groups()
+                for target, members in active.items():
+                    if target in signalled:
+                        continue
+                    try:
+                        os.killpg(target, stop_signal)
+                    except ProcessLookupError:
+                        continue
+                    signalled.add(target)
+                    if target == process.pid:
+                        group['stopSignals'].append(stop_signal.name)
+                    else:
+                        group['descendantGroups'].append({'processGroup': target,
+                            'members': members, 'signal': stop_signal.name})
+                if not active_groups() or time.monotonic() >= deadline:
                     break
                 time.sleep(.05)
-            if not process_group_active(process.pid):
+            if not active_groups():
                 break
         process.wait(timeout=2)
         group['leaderExitCode'] = process.returncode
-        group['cleanupComplete'] = not process_group_active(process.pid)
+        group['cleanupComplete'] = not active_groups()
         if not group['cleanupComplete']:
-            raise RuntimeError('The launched process group still has active members after cleanup.')
+            raise RuntimeError('The launched process groups still have active members after cleanup.')
 
 
 def cleanup_private_runtime(directory):
@@ -1466,6 +1517,7 @@ def run(args):
                 directory = out / 'profile' / name
                 directory.mkdir(parents=True, mode=0o700)
                 child[key] = str(directory)
+            child['RAFT_LAB_PROCESS_OWNER'] = str(out)
             manifest['isolatedProfile'] = str(out / 'profile')
             manifest['headlessRequested'] = bool(getattr(args, 'headless', False))
             # A private compositor has no window, input device or connection to
