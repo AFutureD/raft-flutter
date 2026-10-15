@@ -1,0 +1,341 @@
+import 'package:raft_client/raft_client.dart';
+
+import 'message_history.dart';
+import 'message_window_snapshot.dart';
+import 'workspace_cache.dart';
+import 'workspace_controller.dart';
+import 'workspace_message_windows.dart';
+
+/// Transport and local paging use the same admitted projections. Request
+/// metadata is held in a Dart object and never added to the server protocol.
+class MessageHistoryPages {
+  static Future<Map<String, dynamic>> context(
+    WorkspaceController w,
+    MessageWindowRequest request,
+    String id,
+    String target, {
+    bool thread = false,
+  }) => load(
+    cache: w.cache,
+    scope: scope(
+      w,
+      id,
+      parent: thread ? w.threadParentChannelId : id,
+      parentMessage: thread ? w.threadIdentity?.parentMessageId : null,
+    ),
+    current: () => request.current && w.cacheWritable,
+    held: () => w.ledger.messages(id),
+    focused: true,
+    target: target,
+    remote: () async => Map<String, dynamic>.from(
+      await w.client.get('/messages/context/$target', query: {'channelId': id}),
+    ),
+  );
+  static Future<Map<String, dynamic>> read(
+    WorkspaceController w,
+    MessageWindowRequest request,
+    String id, {
+    bool thread = false,
+    BigInt? before,
+    BigInt? after,
+    int limit = 50,
+    bool localFirst = true,
+    Future<Map<String, dynamic>> Function()? remote,
+  }) {
+    return load(
+      cache: w.cache,
+      scope: scope(
+        w,
+        id,
+        parent: thread ? w.threadParentChannelId : id,
+        parentMessage: thread ? w.threadIdentity?.parentMessageId : null,
+      ),
+      current: () => request.current && w.cacheWritable,
+      held: () => w.ledger.messages(id),
+      remote:
+          remote ??
+          () => w.client.messagePage(
+            id,
+            before: before,
+            after: after,
+            limit: limit,
+          ),
+      before: before,
+      after: after,
+      limit: limit,
+      localFirst: localFirst,
+    );
+  }
+
+  static MessageHistoryScope? scope(
+    WorkspaceController w,
+    String id, {
+    String? parent,
+    String? parentMessage,
+    RaftChannel? resolved,
+  }) {
+    parent ??= id;
+    final resource = [
+      ?resolved,
+      if (w.channel != null) w.channel!,
+      ...w.channels,
+      ...w.dms,
+    ].where((c) => c.id == parent).firstOrNull;
+    return w.client.user == null ||
+            w.client.serverId == null ||
+            resource == null ||
+            !w.can('viewChannel', resource: resource)
+        ? null
+        : MessageHistoryScope(
+            origin: w.client.origin,
+            principal: w.client.user!.id,
+            server: w.client.serverId!,
+            channel: id,
+            parentChannel: parent,
+            parentMessage: parentMessage,
+            authority: messageWindowAuthority(
+              w.server?.string('role'),
+              resource.json,
+            ),
+          );
+  }
+
+  static Future<bool> record(
+    WorkspaceController w,
+    MessageWindowRequest request,
+    Map<String, dynamic> page,
+  ) async {
+    if (page is! MessageHistoryPage) return true;
+    if (!request.current) return false;
+    final device = storage(w.cache);
+    if (device == null) return true;
+    final id = page.scope.channel;
+    final initial = {for (final row in w.ledger.messages(id)) row['id']: row};
+    try {
+      if (!page.local) await device.acceptPage(page);
+      if (!request.current || !w.cacheWritable) return false;
+      // A stored edit can arrive after load reconciled but before admission.
+      // Publish that projection only while no later in-memory event owns it.
+      final merged = await device.reconcilePage(
+        page.scope,
+        page,
+        requestedRevision: page.revision,
+        before: page.before,
+        after: page.after,
+        focused: page.focused,
+      );
+      if (!request.current || !w.cacheWritable) return false;
+      final current = {for (final row in w.ledger.messages(id)) row['id']: row};
+      final accepted = <Map<String, dynamic>>[];
+      final ids = <String>{};
+      for (final row in merged['messages'] as List) {
+        final key = row['id'] as String;
+        ids.add(key);
+        if (identical(initial[key], current[key])) {
+          accepted.add(Map<String, dynamic>.from(row as Map));
+        }
+      }
+      for (final row in page['messages'] as List) {
+        final key = row['id'] as String;
+        if (!ids.contains(key) && identical(initial[key], current[key])) {
+          w.ledger.remove(id, key);
+          w.visibleIds[id]?.remove(key);
+        }
+      }
+      w.messageWindows.acceptRows(request, id, accepted);
+      if (!page.local &&
+          !page.focused &&
+          page.before == null &&
+          page.after == null) {
+        final seq = (page.remotePage?['messages'] as List? ?? const []).fold(
+          BigInt.zero,
+          (BigInt latest, dynamic row) {
+            final seq = BigInt.tryParse('${row['seq']}') ?? BigInt.zero;
+            return seq > latest ? seq : latest;
+          },
+        );
+        await device.checkpoint(page.scope, seq, initializeOnly: true);
+      }
+      return true;
+    } catch (_) {
+      if (request.current && w.cacheWritable) {
+        w.error ??= 'Local changes could not be saved on this device.';
+      }
+      return false;
+    }
+  }
+
+  static MessageHistoryStorage? storage(WorkspaceCache? cache) =>
+      cache is MessageHistoryProvider &&
+          (cache as MessageHistoryProvider).messageHistoryEnabled
+      ? (cache as MessageHistoryProvider).messageHistory
+      : null;
+
+  static List<Map<String, dynamic>> snapshotRows(
+    WorkspaceCache? cache,
+    List<RaftMessage> rows,
+  ) => [
+    for (final row
+        in storage(cache) != null
+            ? rows
+            : rows.skip(
+                (rows.length - messageWindowLimit).clamp(0, rows.length),
+              ))
+      row.json,
+  ];
+
+  static Future<Map<String, dynamic>> load({
+    required WorkspaceCache? cache,
+    required MessageHistoryScope? scope,
+    required bool Function() current,
+    required List<Map<String, dynamic>> Function() held,
+    required Future<Map<String, dynamic>> Function() remote,
+    BigInt? before,
+    BigInt? after,
+    int limit = 50,
+    bool localFirst = true,
+    bool focused = false,
+    String? target,
+  }) async {
+    final device = storage(cache);
+    if (device == null || scope == null) return remote();
+    final initial = {for (final row in held()) row['id']: row};
+    var revision = 0;
+    try {
+      revision = await device.revision(scope);
+      if (focused && target != null) {
+        final local = await device.readContext(scope, target);
+        if (local != null) {
+          return MessageHistoryPage(
+            _live(local, initial, held(), focused: true),
+            scope: scope,
+            revision: revision,
+            before: null,
+            after: null,
+            local: true,
+            focused: true,
+          );
+        }
+      }
+      if (localFirst && (before != null || after != null)) {
+        final local = await device.readPage(
+          scope,
+          before: before,
+          after: after,
+          limit: limit,
+        );
+        if (!current()) return local?.page ?? const {'messages': <dynamic>[]};
+        if (local != null) {
+          return MessageHistoryPage(
+            _live(local.page, initial, held(), before: before, after: after),
+            scope: scope,
+            revision: revision,
+            before: before,
+            after: after,
+            local: true,
+            limit: limit,
+          );
+        }
+      }
+    } catch (_) {
+      // A full/unavailable device never prevents a successful remote read.
+      return current() ? remote() : const {'messages': <dynamic>[]};
+    }
+    if (!current()) return const {'messages': <dynamic>[]};
+    final raw = await remote();
+    if (!current()) return raw;
+    final input = raw['messages'];
+    if (input is! List ||
+        acceptedWindowRows(input, scope.channel).length != input.length) {
+      return raw;
+    }
+    Map<String, dynamic> merged;
+    try {
+      merged = await device.reconcilePage(
+        scope,
+        raw,
+        requestedRevision: revision,
+        before: before,
+        after: after,
+        focused: focused,
+      );
+    } catch (_) {
+      merged = raw;
+    }
+    return MessageHistoryPage(
+      _live(
+        merged,
+        initial,
+        held(),
+        before: before,
+        after: after,
+        focused: focused,
+      ),
+      scope: scope,
+      revision: revision,
+      before: before,
+      after: after,
+      local: false,
+      remotePage: raw,
+      limit: limit,
+      focused: focused,
+    );
+  }
+
+  static Map<String, dynamic> _live(
+    Map<String, dynamic> page,
+    Map<dynamic, Map<String, dynamic>> initial,
+    List<Map<String, dynamic>> held, {
+    BigInt? before,
+    BigInt? after,
+    bool focused = false,
+  }) {
+    final current = {for (final row in held) row['id']: row};
+    final fresh = <String, Map<String, dynamic>>{
+      for (final row in page['messages'] as List)
+        row['id'] as String: Map<String, dynamic>.from(row as Map),
+    };
+    final seqs = fresh.values.map((m) => BigInt.parse('${m['seq']}')).toList()
+      ..sort();
+    final lower = after == null
+        ? (seqs.isEmpty ? BigInt.zero : seqs.first)
+        : after + BigInt.one;
+    final upper = before != null
+        ? before - BigInt.one
+        : focused
+        ? seqs.isEmpty
+              ? BigInt.zero
+              : seqs.last
+        : historyMaxSequence;
+    for (final row in held) {
+      if (identical(initial[row['id']], row)) continue;
+      final seq = BigInt.tryParse('${row['seq']}');
+      if (seq != null && seq >= lower && seq <= upper) {
+        fresh[row['id'] as String] = row;
+      }
+    }
+    for (final id in initial.keys) {
+      if (!current.containsKey(id)) fresh.remove(id);
+    }
+    final rows = fresh.values.toList()
+      ..sort(
+        (a, b) =>
+            BigInt.parse('${a['seq']}').compareTo(BigInt.parse('${b['seq']}')),
+      );
+    return {...page, 'messages': rows};
+  }
+
+  static Future<void> commit(
+    WorkspaceCache? cache,
+    Map<String, dynamic> page, {
+    required bool Function() current,
+    required void Function() failed,
+  }) async {
+    if (page is! MessageHistoryPage || page.local || !current()) return;
+    try {
+      await storage(cache)?.acceptPage(page);
+    } catch (_) {
+      if (current()) failed();
+    }
+  }
+}

@@ -6,15 +6,33 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../data/workspace_cache.dart';
+import '../data/message_history.dart';
+import 'message_history.dart';
 import '../data/workspace_cache_codec.dart';
 
 /// On-device workspace cache (see [WorkspaceCache] for the validity rule).
-class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
+class DriftWorkspaceCache extends GeneratedDatabase
+    implements WorkspaceCache, MessageHistoryProvider {
   DriftWorkspaceCache(
     super.executor, {
     this.windowRetention = 120,
     this.translationRetention = 2000,
+    this.messageHistoryEnabled = const bool.fromEnvironment(
+      'RAFT_LOCAL_MESSAGE_HISTORY',
+      defaultValue: true,
+    ),
   });
+
+  @override
+  final bool messageHistoryEnabled;
+
+  @override
+  late final SqliteMessageHistory messageHistory = SqliteMessageHistory(
+    this,
+    _ordered,
+    readLegacy: _read,
+    writeLegacy: _write,
+  );
 
   /// Message/thread windows kept per account and server. Every write moves a
   /// row to the newest rowid, so the oldest-written (least recently
@@ -65,6 +83,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
   Future<void> close() => _closing ??= _closeAfterOperations();
 
   Future<void> _closeAfterOperations() async {
+    messageHistory.stop();
     await _operations;
     await super.close();
   }
@@ -91,7 +110,9 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     String server,
     String kind,
     String id,
-  ) => _ordered(() => _read(origin, principal, server, kind, id));
+  ) => messageHistoryEnabled && _windowKinds.contains(kind)
+      ? messageHistory.readWindow(origin, principal, server, kind, id)
+      : _ordered(() => _read(origin, principal, server, kind, id));
 
   @override
   Future<void> write(
@@ -101,7 +122,9 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     String kind,
     String id,
     dynamic value,
-  ) => _ordered(() => _write(origin, principal, server, kind, id, value));
+  ) => messageHistoryEnabled && _windowKinds.contains(kind)
+      ? messageHistory.writeWindow(origin, principal, server, kind, id, value)
+      : _ordered(() => _write(origin, principal, server, kind, id, value));
 
   @override
   Future<void> revokeChannel(
@@ -280,6 +303,19 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     String principal,
     String server,
     String channel,
+  ) => messageHistory.revokeChannelNow(
+    origin,
+    principal,
+    server,
+    channel,
+    () => _purgeLegacyChannel(origin, principal, server, channel),
+  );
+
+  Future<void> _purgeLegacyChannel(
+    String origin,
+    String principal,
+    String server,
+    String channel,
   ) async {
     await customStatement(
       'DELETE FROM workspace_cache WHERE origin=? AND principal=? AND server=? AND (id=? OR id=? OR json_extract(payload,\'\$.channelId\')=? OR json_extract(payload,\'\$.parentChannelId\')=? OR json_extract(payload,\'\$.threadChannelId\')=?)',
@@ -301,6 +337,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
   }
 
   Future<void> _clearAccount(String origin, String principal) async {
+    messageHistory.cancelAccount(origin, principal);
     await customStatement(
       'DELETE FROM workspace_cache WHERE origin=? AND principal=?',
       [origin, principal],
