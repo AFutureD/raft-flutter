@@ -474,8 +474,8 @@
         "field._ResourceViewState.viewWindows": 1,
         "field._TaskDrag.row": 1,
         "field._TaskDrag.scope": 1,
-        "lines": 5942,
-        "tokens": 34596
+        "lines": 5932,
+        "tokens": 34522
       }
     },
     "server_task_window": {
@@ -498,8 +498,15 @@
         "field.TaskBoardSlice.rows": 1,
         "field.TaskBoardSlice.totalCount": 1,
         "field.TaskEventPatch.patches": 1,
-        "lines": 347,
-        "tokens": 1992
+        "lines": 309,
+        "tokens": 1765
+      }
+    },
+    "server_task_scope": {
+      "root": "apps/raft_flutter/lib/features/server_task_scope.dart",
+      "metrics": {
+        "lines": 49,
+        "tokens": 239
       }
     },
     "chat_view": {

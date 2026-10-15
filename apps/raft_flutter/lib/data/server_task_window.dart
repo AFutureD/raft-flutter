@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:raft_client/raft_client.dart';
-import 'package:raft_ui/raft_ui.dart';
 
 import 'resource_row_reconcile.dart';
 import 'resource_snapshot_cache.dart';
 import 'task_board_reconcile.dart';
-import 'workspace_controller.dart';
 
 /// What one task event does to an accepted board.
 sealed class TaskEventEffect {
@@ -29,46 +26,6 @@ class TaskEventPatch extends TaskEventEffect {
   const TaskEventPatch(this.patches);
   final Map<String, Map<String, dynamic>?> patches;
 }
-
-/// Whether [task] still belongs on the workspace Tasks board.
-bool serverTaskBelongs(
-  WorkspaceController controller,
-  Map<String, dynamic> task,
-) {
-  if (!raftTaskStatuses.contains(task['status'])) return false;
-  final type = task['channelType'];
-  if (type is String && !const {'channel', 'private', 'joint'}.contains(type)) {
-    return false;
-  }
-  final channel = [
-    ...controller.channels,
-    ...controller.dms,
-  ].where((item) => item.id == task['channelId']).firstOrNull;
-  return channel == null || controller.can('viewChannel', resource: channel);
-}
-
-String? serverTaskChannelName(
-  WorkspaceController controller,
-  Object? channelId,
-) {
-  if (channelId is! String) return null;
-  return [
-    ...controller.channels,
-    ...controller.dms,
-  ].where((item) => item.id == channelId).firstOrNull?.name;
-}
-
-/// Same identity the workspace Tasks page records in [identityAuthority].
-String serverTaskIdentity(WorkspaceController controller) => jsonEncode([
-  controller.client.origin,
-  controller.client.generation,
-  controller.client.user?.id,
-  controller.client.serverId,
-  controller.server?.id,
-  controller.server?.string('role'),
-  'tasks',
-  null,
-]);
 
 /// Mutable lanes or list that [patchTaskBoard] updates in place.
 class TaskBoardSlice {
@@ -216,7 +173,7 @@ bool patchTaskBoard(
 
 /// The one accepted workspace Tasks window. While a page is attached it only
 /// stores the board; while none is, it patches by id and never fetches.
-class ServerTaskWindow {
+class ServerTaskWindow implements ServerTaskSlot {
   ServerTaskWindow({
     required this.client,
     required this.events,
@@ -229,12 +186,15 @@ class ServerTaskWindow {
 
   final Object client;
   final Stream<RaftEvent> events;
+  @override
   TaskSnapshot snapshot;
   bool Function(Map<String, dynamic> task) belongs;
   String? Function(Object? channelId) channelName;
   String? Function() serverId;
   String Function() identity;
+  @override
   bool needsRevalidate = false;
+  @override
   int attached = 0;
   StreamSubscription<RaftEvent>? _events;
   var _disposed = false;
@@ -254,12 +214,14 @@ class ServerTaskWindow {
     needsRevalidate = false;
   }
 
+  @override
   void attach() {
     attached++;
     _events?.cancel();
     _events = null;
   }
 
+  @override
   void detach() {
     if (attached == 0) return;
     attached--;

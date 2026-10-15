@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
-import 'package:raft_flutter/data/server_task_window.dart';
+import 'package:raft_flutter/data/resource_snapshot_cache.dart';
 import 'package:raft_flutter/data/task_board_reconcile.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/resource_view.dart';
@@ -98,9 +98,7 @@ void main() {
   );
   List lane(dynamic state, String status) => state.lanes[status] as List;
   final spinner = find.byType(CircularProgressIndicator);
-  ServerTaskWindow? window() => w.resourceSnapshots.serverTasks is ServerTaskWindow
-      ? w.resourceSnapshots.serverTasks! as ServerTaskWindow
-      : null;
+  ServerTaskSlot? window() => w.resourceSnapshots.serverTasks;
 
   Future<dynamic> mountBoard(WidgetTester tester) async {
     await tester.pumpWidget(page());

@@ -28,6 +28,7 @@ import '../data/source_read_all_transport.dart';
 import '../data/resource_row_reconcile.dart';
 import '../data/resource_snapshot_cache.dart';
 import '../data/server_task_window.dart';
+import 'server_task_scope.dart';
 import '../data/task_board_reconcile.dart';
 import 'activity_find_scope.dart';
 import 'create_task_dialog.dart';
@@ -639,7 +640,7 @@ class _ResourceViewState extends State<ResourceView> {
       // The workspace page no longer reads the `tasks` slot.
       w.resourceSnapshots.remove(snapshotSection);
       final window = w.resourceSnapshots.serverTasks;
-      if (window is ServerTaskWindow &&
+      if (window != null &&
           window.snapshot.identity == identityAuthority &&
           acceptsTaskChannel) {
         window.attach();
@@ -1480,16 +1481,7 @@ class _ResourceViewState extends State<ResourceView> {
       return false;
     }
     if (widget.channelId != null) return task['channelId'] == widget.channelId;
-    // Source shouldIncludeInServerTasks.
-    final type = task['channelType'];
-    if (type is String && !['channel', 'private', 'joint'].contains(type)) {
-      return false;
-    }
-    final channel = [
-      ...w.channels,
-      ...w.dms,
-    ].where((c) => c.id == task['channelId']).firstOrNull;
-    return channel == null || w.can('viewChannel', resource: channel);
+    return serverTaskBelongs(w, task);
   }
 
   /// The accepted task with [id], wherever it is shown.
@@ -1826,9 +1818,7 @@ class _ResourceViewState extends State<ResourceView> {
     if (!identical(oldWidget.controller, w)) {
       if (oldWidget.section == 'tasks' && oldWidget.channelId == null) {
         final previous = oldWidget.controller.resourceSnapshots.serverTasks;
-        if (previous is ServerTaskWindow && previous.attached > 0) {
-          previous.detach();
-        }
+        if (previous != null && previous.attached > 0) previous.detach();
       }
       oldWidget.controller.removeListener(authorityChanged);
       w.addListener(authorityChanged);

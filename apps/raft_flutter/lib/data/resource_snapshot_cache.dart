@@ -132,15 +132,28 @@ class TaskSnapshot extends PageSnapshot {
       );
 }
 
+/// Workspace Tasks window stored on the session cache.
+///
+/// The concrete window lives in another library. This type is the part the
+/// cache and the page both use, so neither side stores it as [Object].
+abstract interface class ServerTaskSlot {
+  TaskSnapshot get snapshot;
+  bool get needsRevalidate;
+  set needsRevalidate(bool value);
+  int get attached;
+  void attach();
+  void detach();
+}
+
 class ResourceSnapshotCache {
   final _snapshots = <String, PageSnapshot>{};
 
   /// The workspace Tasks window. Not the `tasks` snapshot slot.
-  Object? serverTasks;
+  ServerTaskSlot? serverTasks;
   void Function()? _releaseServerTasks;
 
   /// [release] runs when this window is replaced or the cache is cleared.
-  void keepServerTasks(Object window, void Function() release) {
+  void keepServerTasks(ServerTaskSlot window, void Function() release) {
     if (!identical(serverTasks, window)) _releaseServerTasks?.call();
     serverTasks = window;
     _releaseServerTasks = release;
