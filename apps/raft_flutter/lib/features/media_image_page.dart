@@ -234,15 +234,19 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
   ImageProvider? full;
   Object? failure;
   bool get failed => failure != null;
-  bool get _canRetry =>
+  bool get _canRetry => failure is! AttachmentImageDecodeFailed;
+  bool get _downloadFailed =>
       failure is! AttachmentImageBudgetExceeded &&
-      failure is! AttachmentImageDecodeFailed;
+      failure is! AttachmentImageDecodeFailed &&
+      failure is! AttachmentImageDecodeUnavailable;
 
   String get _failureMessage => switch (failure) {
     AttachmentImageBudgetExceeded() =>
       'Not enough memory to preview this image. Download it to open in another app.',
     AttachmentImageDecodeFailed() =>
       'Cannot decode this image. Download it to open in another app.',
+    AttachmentImageDecodeUnavailable() =>
+      'Cannot prepare this image preview right now. Try again or download it to open in another app.',
     _ => 'Failed to load image',
   };
 
@@ -467,13 +471,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
         fit: StackFit.expand,
         children: [
           if (failed) ...[
-            if (_canRetry)
-              RaftImageTransferOverlay.failed(inset: 10, onRetry: retry)
-            else
-              ColoredBox(
-                color: raftLightboxBackdrop,
-                child: RaftLightboxFailure(title: widget.title, message: _failureMessage),
-              ),
+            RaftImageTransferOverlay.failed(inset: 10, onRetry: retry),
             // The red chip alone is easy to miss: a plain Retry button.
             if (widget.acquire != null && _canRetry)
               Center(
@@ -499,7 +497,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
   @override
   Widget build(BuildContext context) {
     final thumbnail = widget.placeholder;
-    if (full == null && failed && thumbnail == null) {
+    if (full == null && failed && (thumbnail == null || !_downloadFailed)) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -511,6 +509,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
             ),
             if (widget.acquire != null && _canRetry)
               RaftTextButton(
+                key: const ValueKey('lightbox-retry'),
                 label: raftText(context, 'Retry'),
                 glyph: RaftGlyph.refreshCw,
                 onPressed: retry,

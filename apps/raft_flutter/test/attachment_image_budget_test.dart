@@ -255,7 +255,7 @@ void main() {
     testWidgets('$kind failure has the right explanation and retry action', (
       tester,
     ) async {
-      final repository = _repository(decodedBytes: kind == 'memory' ? 4 : null);
+      final repository = _repository(decodedBytes: kind == 'memory' ? 8 : null);
       addTearDown(repository.dispose);
       final small = solidPng(16, 16);
       final thumb = repository.acquire(
@@ -264,6 +264,15 @@ void main() {
         load: (_) async => small,
       );
       await _until(tester, () => thumb.decoded != null);
+      AttachmentImageLease? blocker;
+      if (kind == 'memory') {
+        blocker = repository.acquire(
+          _key('other-visible-image'),
+          authorized: () => true,
+          load: (_) async => small,
+        );
+        await _until(tester, () => blocker!.decoded != null);
+      }
       final state = GlobalKey<AttachmentLightboxImageState>();
       final zoom = TransformationController();
       addTearDown(zoom.dispose);
@@ -301,8 +310,19 @@ void main() {
       );
       await _until(tester, () => state.currentState!.failed);
       final retry = find.byKey(const ValueKey('lightbox-retry'));
-      if (kind == 'network') {
-        expect(find.text('Download failed · tap to retry'), findsOneWidget);
+      if (kind == 'network' || kind == 'memory') {
+        if (kind == 'network') {
+          expect(find.text('Download failed · tap to retry'), findsOneWidget);
+        } else {
+          expect(
+            find.text(
+              'Not enough memory to preview this image. Download it to open in another app.',
+            ),
+            findsOneWidget,
+          );
+          blocker!.discard();
+        }
+        expect(retry, findsOneWidget);
         await tester.tap(retry);
         await _until(tester, () => state.currentState!.full != null);
         expect(downloads, 2);
@@ -322,7 +342,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(
         downloads,
-        kind == 'network' ? 2 : 1,
+        kind == 'decode' ? 1 : 2,
         reason: 'No automatic retry loop.',
       );
       await tester.pumpWidget(const SizedBox());

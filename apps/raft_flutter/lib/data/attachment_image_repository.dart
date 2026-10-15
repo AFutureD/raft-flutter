@@ -216,9 +216,16 @@ class AttachmentImageBudgetExceeded implements Exception {
   const AttachmentImageBudgetExceeded();
 }
 
-/// The bytes arrived, but the image codec could not read them.
+/// The codec explicitly rejected the image's format or encoded data.
 class AttachmentImageDecodeFailed implements Exception {
   const AttachmentImageDecodeFailed();
+}
+
+/// A decoder failure that does not establish that the source bytes are bad.
+/// Native allocation failures and unknown errors can recover on a later try.
+class AttachmentImageDecodeUnavailable implements Exception {
+  const AttachmentImageDecodeUnavailable(this.cause);
+  final Object cause;
 }
 
 /// Keeps the actual decoded image alive across ordinary row recycling.
@@ -619,7 +626,8 @@ class AttachmentImageRepository {
   Future<void>? _decoding;
 
   /// Persistent bytes behind the decoded entries; read only for keys that
-  /// pass [canRead] and an active lease, written only after a good decode.
+  /// pass [canRead] and an active lease. Known invalid data is not retained;
+  /// recoverable decoder failures keep the source for a later retry.
   final AttachmentImageByteStore? store;
   final int maxEntries, maxEncodedBytes, maxDecodedBytes, maxConcurrentLoads;
 
@@ -922,18 +930,27 @@ class AttachmentImageRepository {
           }
         } on AttachmentImageBudgetExceeded {
           // A valid disk entry is still useful after other images close.
+          if (_wanted(e)) _persistSource(e, fetch, bytes);
           rethrow;
         } on StaleAttachmentImage {
           rethrow;
-        } catch (_) {
-          if (stored != null) unawaited(_quietly(store!.remove(stored)));
-          throw const AttachmentImageDecodeFailed();
+        } catch (error) {
+          // The pinned engine emits this exact message when no compatible
+          // image generator exists. Allocation/registry/frame errors do not
+          // prove corruption and must not destroy an already fetched source.
+          if (error is AttachmentImageDecodeFailed ||
+              error is FormatException ||
+              error is Exception &&
+                  // ignore: raft_lints/avoid_caught_exception_text -- Classify only the exact pinned engine format rejection; the native text is never rendered or logged.
+                  error.toString() == 'Exception: Invalid image data') {
+            if (stored != null) unawaited(_quietly(store!.remove(stored)));
+            throw const AttachmentImageDecodeFailed();
+          }
+          if (_wanted(e)) _persistSource(e, fetch, bytes);
+          throw AttachmentImageDecodeUnavailable(error);
         }
         if (!_wanted(e)) throw const StaleAttachmentImage();
-        if (store != null && fetch != null && !fetch.persisted) {
-          fetch.persisted = true;
-          unawaited(_quietly(store.write(e.key.storeKey, bytes)));
-        }
+        _persistSource(e, fetch, bytes);
         _makeRoom(encoded: decoded.encodedBytes, decoded: decoded.decodedBytes);
         _encoded += decoded.encodedBytes;
         _decoded += decoded.decodedBytes;
@@ -980,6 +997,13 @@ class AttachmentImageRepository {
 
   static Future<void> _quietly(Future<void> work) =>
       work.catchError((Object _) {});
+
+  void _persistSource(_ImageEntry e, _SourceFetch? fetch, Uint8List bytes) {
+    final store = this.store;
+    if (store == null || fetch == null || fetch.persisted) return;
+    fetch.persisted = true;
+    unawaited(_quietly(store.write(e.key.storeKey, bytes)));
+  }
 
   /// Joins (or starts) the network fetch of [e]'s source bytes.
   _SourceFetch _join(_ImageEntry e) {
