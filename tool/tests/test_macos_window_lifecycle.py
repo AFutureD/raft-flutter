@@ -30,10 +30,16 @@ class MacOSWindowLifecycleTests(unittest.TestCase):
             directory = Path(temporary)
             library = directory / 'libRaftMacAppDelegate.dylib'
             binary = directory / 'window-tests'
+            # MainFlutterWindow's real event guard is compiled too. These
+            # offscreen contract tests never initialize the plugin registry.
+            registry = directory / 'GeneratedPluginRegistry.swift'
+            registry.write_text('import FlutterMacOS\nfunc RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {}\n')
             commands = [
                 ['xcrun', 'swiftc', '-parse-as-library', '-emit-library', '-emit-module',
                  '-enable-testing', '-module-name', 'RaftMacAppDelegate',
                  str(ROOT / 'apps/raft_flutter/macos/Runner/AppDelegate.swift'),
+                 str(ROOT / 'apps/raft_flutter/macos/Runner/MainFlutterWindow.swift'),
+                 str(registry),
                  '-emit-module-path', str(directory / 'RaftMacAppDelegate.swiftmodule'),
                  *common, '-o', str(library)],
                 ['xcrun', 'swiftc', '-I', str(directory), '-L', str(directory), '-lRaftMacAppDelegate',
@@ -48,7 +54,7 @@ class MacOSWindowLifecycleTests(unittest.TestCase):
                 result = subprocess.run(command, capture_output=True, text=True, timeout=120)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 if command == [str(binary)]:
-                    self.assertIn('9 cases, 0 failed assertions', result.stdout)
+                    self.assertIn('10 cases, 0 failed assertions', result.stdout)
 
 
 if __name__ == '__main__':

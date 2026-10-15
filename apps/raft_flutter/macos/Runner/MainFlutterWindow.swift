@@ -14,8 +14,16 @@ class MainFlutterWindow: NSWindow, RaftPreferencesWindow {
   private var videoFrameChannel: FlutterMethodChannel?
   private let videoFrame = RaftVideoFrame()
 
+  static func isRepeatedCloseKey(_ event: NSEvent?) -> Bool {
+    // AppKit can dispatch a menu action after Flutter's asynchronous key reply;
+    // currentEvent may then be a mouse or application event. Its isARepeat
+    // getter raises an Objective-C exception unless it is a keyboard event.
+    guard let event, event.type == .keyDown else { return false }
+    return event.isARepeat
+  }
+
   override func performClose(_ sender: Any?) {
-    if NSApp.currentEvent?.isARepeat == true { return }
+    if Self.isRepeatedCloseKey(NSApp.currentEvent) { return }
     // Menu actions share Flutter's close policy with the keyboard fallback.
     // Route a menu Close through previews before closing the native window.
     guard sender is NSMenuItem, windowCommandsReady, let channel = windowChannel else {

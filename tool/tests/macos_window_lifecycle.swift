@@ -109,6 +109,24 @@ final class WindowLifecycleTests {
     check(delegate.validateMenuItem(hide), "preferences validation must not disable other app commands")
   }
 
+  func testCloseRepeatGuardAcceptsOnlyRepeatedKeyDown() {
+    check(!MainFlutterWindow.isRepeatedCloseKey(nil), "menu action without an event must be accepted")
+    let application = NSEvent.otherEvent(with: .applicationDefined, location: .zero,
+      modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+      subtype: 0, data1: 0, data2: 0)!
+    check(!MainFlutterWindow.isRepeatedCloseKey(application), "an application event must not access isARepeat")
+    let mouse = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero,
+      modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+      eventNumber: 1, clickCount: 1, pressure: 1)!
+    check(!MainFlutterWindow.isRepeatedCloseKey(mouse), "mouse menu clicks must not access isARepeat")
+    for repeated in [false, true] {
+      let event = NSEvent.keyEvent(with: .keyDown, location: .zero,
+        modifierFlags: .command, timestamp: 0, windowNumber: 0, context: nil,
+        characters: "w", charactersIgnoringModifiers: "w", isARepeat: repeated, keyCode: 13)!
+      check(MainFlutterWindow.isRepeatedCloseKey(event) == repeated, "only repeated key-down must be ignored")
+    }
+  }
+
   func testMissingMainWindowLeavesDefaultReopenHandling() {
     let callback: NSApplicationDelegate = AppDelegate()
     check(callback.applicationShouldHandleReopen?(.shared, hasVisibleWindows: false) == true, "missing window must leave default handling")
@@ -126,6 +144,7 @@ tests.testMissingMainWindowLeavesDefaultReopenHandling()
 tests.testPreferencesAreDisabledUntilWorkspaceIsReady()
 tests.testPreferencesRestoreOriginalWindowBeforeNavigation()
 tests.testMissingWindowDisablesOnlyPreferences()
+tests.testCloseRepeatGuardAcceptsOnlyRepeatedKeyDown()
 for failure in failures { print("FAIL: \(failure)") }
-print("Native window lifecycle: 9 cases, \(failures.count) failed assertions")
+print("Native window lifecycle: 10 cases, \(failures.count) failed assertions")
 exit(failures.isEmpty ? 0 : 1)
