@@ -5,6 +5,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
+import 'agent_mode/agent_mode_preference.dart';
 import 'mobile_settings_owner.dart';
 
 /// Settings > Labs (SettingsPanel.tsx LabsSection, gated by
@@ -196,13 +197,16 @@ class _LabsViewState extends ManagementState<LabsView> {
     );
     // Release and desktop Labs stay the product page. Debug and profile
     // phone builds are the only place this device-local control appears.
-    if (kReleaseMode || !RaftAdaptiveWorkspace.compactOf(context)) {
-      return section;
-    }
+    if (kReleaseMode) return section;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [const MobileSettingsSwitch(), section],
+      children: [
+        AgentModeLabsCard(controller: w),
+        if (RaftAdaptiveWorkspace.compactOf(context))
+          const MobileSettingsSwitch(),
+        section,
+      ],
     );
   }
 }

@@ -126,6 +126,7 @@ void _enableLeakTracking() {
       'NativeSystemFonts',
       'NativeAppIcon',
       'MobileSettingsPreference',
+      'AgentModePreference',
       'AppUpdater',
       'InviteRequests',
       // Expando-attached caches: live exactly as long as their controller or

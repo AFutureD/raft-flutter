@@ -1,0 +1,14 @@
+name: raft_agent_ui
+description: Agent mode surfaces (Z-axis layer stack, priority cards, voice dock) built as an extension of raft_ui's theme tokens.
+publish_to: none
+version: 0.1.0
+environment:
+  sdk: ^3.13.5
+resolution: workspace
+dependencies:
+  flutter:
+    sdk: flutter
+  raft_ui: ^0.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

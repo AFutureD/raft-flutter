@@ -11,6 +11,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   raft_ui: ^0.1.0
+  raft_agent_ui: ^0.1.0
   raft_client: ^0.1.0
   raft_sync: ^0.1.0
   flutter_riverpod: ^3.4.3
