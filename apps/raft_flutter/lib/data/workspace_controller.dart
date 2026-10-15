@@ -1654,7 +1654,9 @@ class WorkspaceController extends ChangeNotifier {
       messageWindowAuthority(server?.string('role'), channel?.json ?? const {});
 
   Future<void> _saveWindow(String id, {bool thread = false}) async {
+    // A pending latest read still holds a context, not an accepted disk tail.
     if (_disposed ||
+        channelLoading && messageWindows.isContext(id) ||
         channel == null ||
         (thread ? id != threadChannelId : id != channel!.id) ||
         _revokedChannels.contains(id) ||
@@ -4158,7 +4160,9 @@ class WorkspaceController extends ChangeNotifier {
     }
     hasMore = compatible && priorWindow.hasMore;
     historyLimited = compatible && priorWindow.historyLimited;
-    if (messageWindows.setContextMode(liveWindowWrite, next.id, null) && !retainContextUntilAccepted) {
+    // Keep the accepted context kind until its replacement tail is accepted.
+    if (!retainContextUntilAccepted &&
+        messageWindows.setContextMode(liveWindowWrite, next.id, null)) {
       messageWindows.hideWindow(next.id);
     }
     if (navigate) section = 'chat';
