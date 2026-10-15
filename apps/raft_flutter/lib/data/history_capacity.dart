@@ -77,8 +77,26 @@ class HistoryCapacityExceeded implements Exception {
   const HistoryCapacityExceeded();
 }
 
-class HistoryStorageUnavailable implements Exception {
-  const HistoryStorageUnavailable();
+class HistoryCompactionPlan {
+  const HistoryCompactionPlan({
+    required this.fullVacuum,
+    this.requiredBytes = 0,
+    this.availableBytes,
+  });
+  final bool fullVacuum;
+  final int requiredBytes;
+  final int? availableBytes;
+  bool get enoughSpace =>
+      !fullVacuum || availableBytes != null && availableBytes! >= requiredBytes;
+}
+
+class HistoryCompactionNeedsConfirmation implements Exception {
+  const HistoryCompactionNeedsConfirmation();
+}
+
+class HistoryCompactionSpaceRequired implements Exception {
+  const HistoryCompactionSpaceRequired(this.plan);
+  final HistoryCompactionPlan plan;
 }
 
 abstract interface class HistoryCapacity {
@@ -93,8 +111,10 @@ abstract interface class HistoryCapacity {
   );
   void protect(Object owner, Iterable<HistoryProtectedRows> Function() current);
   void release(Object owner);
+  Future<HistoryCompactionPlan> compactionPlan(HistoryAccount account);
   Future<HistoryDiskUsage> maintain(
     HistoryAccount account, {
     bool compact = false,
+    bool allowFullVacuum = false,
   });
 }

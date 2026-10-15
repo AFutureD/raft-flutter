@@ -13,6 +13,8 @@ class _Capacity implements HistoryCapacity {
   int budget = 1 << 30;
   bool kept = false, full = false, pending = false, fail = false;
   int cleanups = 0;
+  bool fullAllowed = false;
+  HistoryCompactionPlan plan = const HistoryCompactionPlan(fullVacuum: false);
   Completer<void>? gate;
   @override
   Future<HistoryDiskUsage> usage(HistoryAccount account) async {
@@ -54,12 +56,20 @@ class _Capacity implements HistoryCapacity {
   Future<HistoryDiskUsage> maintain(
     HistoryAccount account, {
     bool compact = false,
+    bool allowFullVacuum = false,
   }) async {
     if (fail) throw StateError('synthetic');
-    if (compact) cleanups++;
+    if (compact) {
+      cleanups++;
+      fullAllowed = allowFullVacuum;
+    }
     pending = false;
     return usage(account);
   }
+
+  @override
+  Future<HistoryCompactionPlan> compactionPlan(HistoryAccount account) async =>
+      plan;
 
   @override
   void protect(
@@ -178,6 +188,9 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.text('512 MiB').last);
       await t.pumpAndSettle();
+      expect(cap.budget, 1 << 30);
+      await t.tap(find.byKey(const Key('history-lower-confirm')));
+      await t.pumpAndSettle();
       expect(cap.budget, 512 << 20);
       await t.ensureVisible(find.byKey(const Key('history-keep')));
       await t.tap(find.byKey(const Key('history-keep')));
@@ -189,6 +202,97 @@ void main() {
       expect(cap.cleanups, 1);
     },
   );
+
+  testWidgets(
+    'lowering the limit waits for confirmation and cancellation keeps it',
+    (t) async {
+      final cap = _Capacity();
+      await _pump(t, cap);
+      await t.pumpAndSettle();
+      await t.ensureVisible(find.byKey(const Key('history-budget')));
+      await t.tap(find.byKey(const Key('history-budget')));
+      await t.pumpAndSettle();
+      await t.tap(find.text('512 MiB').last);
+      await t.pumpAndSettle();
+      expect(cap.budget, 1 << 30);
+      expect(find.byKey(const Key('history-lower-dialog')), findsOneWidget);
+      await t.tap(find.text('Cancel'));
+      await t.pumpAndSettle();
+      expect(cap.budget, 1 << 30);
+    },
+  );
+
+  for (final theme in [
+    (RaftFamily.brutal, false),
+    (RaftFamily.elegant, false),
+    (RaftFamily.elegant, true),
+  ]) {
+    testWidgets(
+      'full cleanup warns and requires consent in $theme at large text',
+      (t) async {
+        final cap = _Capacity()
+          ..plan = const HistoryCompactionPlan(
+            fullVacuum: true,
+            requiredBytes: 200 << 20,
+            availableBytes: 1 << 30,
+          );
+        await _pump(t, cap, family: theme.$1, dark: theme.$2, scale: 3.1);
+        await t.pumpAndSettle();
+        await t.ensureVisible(find.byKey(const Key('history-clean')));
+        await t.tap(find.byKey(const Key('history-clean')));
+        await t.pumpAndSettle();
+        expect(
+          find.byKey(const Key('history-full-clean-dialog')),
+          findsOneWidget,
+        );
+        expect(cap.cleanups, 0);
+        expect(t.takeException(), isNull);
+        await t.tap(find.text('Cancel'));
+        await t.pumpAndSettle();
+        expect(cap.cleanups, 0);
+        await t.tap(find.byKey(const Key('history-clean')));
+        await t.pumpAndSettle();
+        await t.ensureVisible(
+          find.byKey(const Key('history-full-clean-confirm')),
+        );
+        await t.tap(find.byKey(const Key('history-full-clean-confirm')));
+        await t.pumpAndSettle();
+        expect(cap.cleanups, 1);
+        expect(cap.fullAllowed, isTrue);
+      },
+    );
+  }
+  for (final available in <int?>[0, null]) {
+    testWidgets(
+      'full cleanup stays untouched when free space is unavailable: $available',
+      (t) async {
+        final cap = _Capacity()
+          ..plan = HistoryCompactionPlan(
+            fullVacuum: true,
+            requiredBytes: 200 << 20,
+            availableBytes: available,
+          );
+        await _pump(t, cap);
+        await t.pumpAndSettle();
+        await t.ensureVisible(find.byKey(const Key('history-clean')));
+        await t.tap(find.byKey(const Key('history-clean')));
+        await t.pumpAndSettle();
+        expect(cap.cleanups, 0);
+        expect(
+          find.byKey(const Key('history-full-clean-dialog')),
+          findsNothing,
+        );
+        expect(
+          find.textContaining(
+            available == null
+                ? 'Available disk space could not'
+                : 'Full cleanup needs',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+  }
 
   testWidgets(
     'refresh reports its real result and leaves old usage visible while pending',

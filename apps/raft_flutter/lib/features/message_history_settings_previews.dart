@@ -72,7 +72,12 @@ class _Capacity implements HistoryCapacity {
   Future<HistoryDiskUsage> maintain(
     HistoryAccount account, {
     bool compact = false,
+    bool allowFullVacuum = false,
   }) => usage(account);
+  @override
+  Future<HistoryCompactionPlan> compactionPlan(HistoryAccount account) async =>
+      const HistoryCompactionPlan(fullVacuum: false);
+
   @override
   void protect(
     Object owner,

@@ -20,6 +20,7 @@ class DriftWorkspaceCache extends GeneratedDatabase
     this.translationRetention = 2000,
     this.historyClock,
     this.historyBudget,
+    this.historyAvailableSpace,
     this.automaticHistoryMaintenance = true,
     this.messageHistoryEnabled = const bool.fromEnvironment(
       'RAFT_LOCAL_MESSAGE_HISTORY',
@@ -30,6 +31,7 @@ class DriftWorkspaceCache extends GeneratedDatabase
   final DateTime Function()? historyClock;
   /// An explicit budget also permits small, real-file capacity fixtures.
   final int? historyBudget;
+  final Future<int?> Function(String)? historyAvailableSpace;
   @visibleForTesting
   final bool automaticHistoryMaintenance;
   @override
@@ -48,6 +50,7 @@ class DriftWorkspaceCache extends GeneratedDatabase
           _ => 2 << 30,
         }),
     automaticMaintenance: automaticHistoryMaintenance,
+    historyAvailableSpace: historyAvailableSpace,
   );
 
   /// Message/thread windows kept per account and server. Every write moves a
@@ -292,12 +295,18 @@ class DriftWorkspaceCache extends GeneratedDatabase
       );
     } else {
       final payload = await encodeWorkspaceCache(value);
-      // REPLACE (not an in-place update) gives the row a new rowid: rowid
-      // order is last-write order for eviction.
-      await customStatement(
-        'INSERT OR REPLACE INTO workspace_cache (origin,principal,server,kind,id,payload) VALUES (?,?,?,?,?,?)',
-        [origin, principal, server, kind, id, payload],
-      );
+      // Explicit deletion preserves the LRU rowid behavior and invokes the
+      // retention counters on SQLite connections with recursive triggers off.
+      await transaction(() async {
+        await customStatement(
+          'DELETE FROM workspace_cache WHERE origin=? AND principal=? AND server=? AND kind=? AND id=?',
+          [origin, principal, server, kind, id],
+        );
+        await customStatement(
+          'INSERT INTO workspace_cache (origin,principal,server,kind,id,payload) VALUES (?,?,?,?,?,?)',
+          [origin, principal, server, kind, id, payload],
+        );
+      });
       if (_windowKinds.contains(kind)) {
         await customStatement(
           'DELETE FROM workspace_cache WHERE origin=? AND principal=? AND server=? AND kind IN (\'window\',\'thread-window\') AND rowid NOT IN (SELECT rowid FROM workspace_cache WHERE origin=? AND principal=? AND server=? AND kind IN (\'window\',\'thread-window\') ORDER BY rowid DESC LIMIT ?)',

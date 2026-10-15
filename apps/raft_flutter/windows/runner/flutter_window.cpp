@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "flutter_window.h"
 
 #include <dwmapi.h>
@@ -62,6 +63,21 @@ bool FlutterWindow::OnCreate() {
   memory_channel_->SetMethodCallHandler(
       [](const flutter::MethodCall<flutter::EncodableValue>& call,
          std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "availableStorageBytes") {
+          const auto* args = std::get_if<flutter::EncodableMap>(call.arguments());
+          const auto entry = args ? args->find(flutter::EncodableValue("path"))
+                                  : flutter::EncodableMap::const_iterator{};
+          const auto* path = args && entry != args->end()
+              ? std::get_if<std::string>(&entry->second) : nullptr;
+          ULARGE_INTEGER available = {};
+          if (!path || path->empty() || !GetDiskFreeSpaceExW(
+                  std::filesystem::u8path(*path).c_str(), &available, nullptr, nullptr)) {
+            result->Error("storage_unavailable", "Available storage could not be read.");
+          } else {
+            result->Success(flutter::EncodableValue(static_cast<int64_t>(available.QuadPart)));
+          }
+          return;
+        }
         if (call.method_name() != "snapshot") {
           result->NotImplemented();
           return;

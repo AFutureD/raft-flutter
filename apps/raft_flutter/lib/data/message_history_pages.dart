@@ -14,8 +14,6 @@ import 'workspace_message_windows.dart';
 class MessageHistoryPages {
   static String saveError(Object cause) => cause is HistoryCapacityExceeded
       ? 'Device message storage is full. Increase the message history limit or stop keeping a conversation in Storage settings.'
-      : cause is HistoryStorageUnavailable
-      ? 'Device message storage could not be measured. Saved messages remain available. Retry cleanup in Storage settings.'
       : 'Local changes could not be saved on this device.';
   static void attach(WorkspaceController w) {
     final device = storage(w.cache);

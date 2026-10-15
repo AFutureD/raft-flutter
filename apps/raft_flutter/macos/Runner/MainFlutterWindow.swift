@@ -63,6 +63,14 @@ class MainFlutterWindow: NSWindow, RaftPreferencesWindow {
     memoryChannel?.setMethodCallHandler { call, result in
       if call.method == "snapshot" {
         result(["totalBytes": Int64(ProcessInfo.processInfo.physicalMemory)])
+      } else if call.method == "availableStorageBytes",
+        let args = call.arguments as? [String: Any], let path = args["path"] as? String {
+        do {
+          let values = try FileManager.default.attributesOfFileSystem(forPath: path)
+          result((values[.systemFreeSize] as? NSNumber)?.int64Value)
+        } catch {
+          result(FlutterError(code: "storage_unavailable", message: "Available storage could not be read.", details: nil))
+        }
       } else {
         result(FlutterMethodNotImplemented)
       }

@@ -9,6 +9,7 @@ import '../data/history_read_policy.dart';
 import '../data/history_capacity.dart';
 import '../data/workspace_cache_codec.dart';
 import 'history_capacity.dart';
+import 'device_storage.dart';
 
 typedef HistoryOperationOrder = Future<T> Function<T>(
   Future<T> Function() action,
@@ -24,6 +25,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     required this.writeLegacy,
     this.historyBudget = 2 << 30,
     this.automaticMaintenance = true,
+    this.historyAvailableSpace,
     DateTime Function()? now,
   }) : now = now ?? DateTime.now;
   final GeneratedDatabase db;
@@ -35,6 +37,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   final DateTime Function() now;
   final int historyBudget;
   final bool automaticMaintenance;
+  final Future<int?> Function(String)? historyAvailableSpace;
   @override
   late final HistoryReadPolicy reads = HistoryReadPolicy(now: now);
   @override
@@ -42,6 +45,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     db, order, ready: _ready, advance: (s) => _revision(s, advance: true),
     now: now, defaultBudget: historyBudget, automatic: automaticMaintenance,
     pending: () => receiver.protectedRows,
+    availableSpace: historyAvailableSpace ?? availableDeviceStorage,
   );
   @override
   final receiver = HistoryReceiverQueue();

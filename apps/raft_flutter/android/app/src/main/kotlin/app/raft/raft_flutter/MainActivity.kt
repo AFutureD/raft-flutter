@@ -93,7 +93,15 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/device-memory")
             .setMethodCallHandler { call, result ->
-                if (call.method != "snapshot") {
+                if (call.method == "availableStorageBytes") {
+                    val path = call.argument<String>("path")
+                    try {
+                        if (path.isNullOrBlank()) result.error("invalid_path", "A storage path is required.", null)
+                        else result.success(android.os.StatFs(path).availableBytes)
+                    } catch (_: Exception) {
+                        result.error("storage_unavailable", "Available storage could not be read.", null)
+                    }
+                } else if (call.method != "snapshot") {
                     result.notImplemented()
                 } else {
                     val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager

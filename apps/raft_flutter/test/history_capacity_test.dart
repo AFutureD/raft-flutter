@@ -376,42 +376,12 @@ void main() {
     expect((await db.capacity.maintain(account)).protectedFull, isTrue);
     expect((await db.capacity.usage(account)).rows, 100);
     w.dispose();
-    expect((await db.capacity.maintain(account, compact: true)).rows, 0);
+    final released = await db.capacity.maintain(account, compact: true);
+    expect(released.protectedFull, isFalse);
+    expect(released.rows, allOf(greaterThan(0), lessThan(100)));
+    expect(released.budgetCharge, lessThanOrEqualTo(128 << 10));
+    expect(await db.readContext(scope('chat'), 'chat-1', radius: 0), isNull);
   });
-
-  test(
-    'a failed physical measurement stops growth while existing bodies remain readable',
-    () async {
-      final dir = await Directory.systemTemp.createTemp(
-        'raft-history-unavailable-',
-      );
-      final file = File('${dir.path}/workspace.sqlite');
-      final cache = DriftWorkspaceCache(
-        NativeDatabase.createInBackground(file),
-        automaticHistoryMaintenance: false,
-      );
-      addTearDown(() async {
-        await cache.close();
-        await dir.delete(recursive: true);
-      });
-      final db = cache.messageHistory;
-      await store(cache, scope('chat'), rows('chat', 1, 20));
-      await db.capacity.usage(account);
-      // POSIX keeps an already-open inode readable, but the filesystem meter
-      // must report the now-missing path rather than disabling the limit.
-      await file.delete();
-      await expectLater(
-        db.capacity.maintain(account),
-        throwsA(isA<FileSystemException>()),
-      );
-      await expectLater(
-        db.acceptEvents(scope('chat'), rows('chat', 21, 21)),
-        throwsA(isA<HistoryStorageUnavailable>()),
-      );
-      expect((await db.readPage(scope('chat')))!.rows, hasLength(20));
-    },
-    skip: !Platform.isLinux ? 'Uses Linux open-file unlink semantics.' : false,
-  );
 
   test('automatic maintenance leaves subsequent message writes usable', () async {
     final cache = DriftWorkspaceCache(NativeDatabase.memory());
@@ -429,6 +399,189 @@ void main() {
       hasLength(21),
     );
   });
+
+  test('counter backfill yields to drafts and replacement snapshots do not accumulate size', () async {
+    final cache = DriftWorkspaceCache(
+      NativeDatabase.memory(),
+      automaticHistoryMaintenance: false,
+    );
+    addTearDown(cache.close);
+    await cache.messageHistory.acceptEvents(
+      scope('chat'),
+      rows('chat', 1, 1205, bytes: 512),
+    );
+    var done = false;
+    final measured = cache.messageHistory.capacity.usage(account).then((v) {
+      done = true;
+      return v;
+    });
+    await cache.write(
+      account.origin,
+      account.principal,
+      'one',
+      'draft',
+      'draft',
+      {'text': 'Preserved while accounting catches up'},
+    );
+    expect(
+      done,
+      isFalse,
+      reason:
+          'The accounting backfill must not hold the queue across its chunks.',
+    );
+    expect((await measured).rows, 1205);
+    expect(
+      await count(cache, 'SELECT sum(rows) FROM raft_history_sizes'),
+      1205,
+    );
+    final window = {
+      'version': 1,
+      'windowKind': 'tail',
+      'authority': 'member',
+      'parentChannelId': 'chat',
+      'messages': rows('chat', 1156, 1205, bytes: 512),
+      'hasMore': true,
+      'historyLimited': false,
+    };
+    await cache.write(
+      account.origin,
+      account.principal,
+      'one',
+      'window',
+      'chat',
+      window,
+    );
+    final first = (await cache.messageHistory.capacity.usage(account))
+        .accountBytes;
+    for (var n = 0; n < 5; n++) {
+      await cache.write(
+        account.origin,
+        account.principal,
+        'one',
+        'window',
+        'chat',
+        window,
+      );
+    }
+    expect(
+      (await cache.messageHistory.capacity.usage(account)).accountBytes,
+      first,
+    );
+    // Previous-version REPLACE bypasses its connection's DELETE triggers.
+    final shadow =
+        (await cache
+                .customSelect(
+                  "SELECT payload FROM workspace_cache WHERE kind='window' AND id='chat'",
+                )
+                .getSingle())
+            .read<String>('payload');
+    await cache.customStatement(
+      "INSERT OR REPLACE INTO workspace_cache VALUES(?,?,?,'window','chat',?)",
+      [account.origin, account.principal, 'one', shadow],
+    );
+    expect(
+      (await cache.messageHistory.capacity.usage(account)).accountBytes,
+      first,
+    );
+    await cache.clearAccount(account.origin, account.principal);
+    expect(await count(cache, 'SELECT count(*) FROM raft_history_sizes'), 0);
+    expect(
+      await count(cache, 'SELECT count(*) FROM raft_history_cache_sizes'),
+      0,
+    );
+  });
+
+  test(
+    'reclaimed middle rows leave an explicit cold-tail pagination miss',
+    () async {
+      final cache = DriftWorkspaceCache(
+        NativeDatabase.memory(),
+        historyBudget: 128 << 10,
+        automaticHistoryMaintenance: false,
+      );
+      addTearDown(cache.close);
+      final db = cache.messageHistory;
+      await store(cache, scope('chat'), rows('chat', 1, 100));
+      final owner = Object();
+      db.capacity.protect(
+        owner,
+        () => [
+          HistoryProtectedRows(account, 'one', 'chat', [
+            'chat-1',
+            'chat-2',
+            'chat-99',
+            'chat-100',
+          ]),
+        ],
+      );
+      await db.capacity.maintain(account);
+      final tail = await db.readPage(scope('chat'));
+      final kept = tail!.rows.map((m) => m['id']).toSet();
+      expect(kept, containsAll(['chat-1', 'chat-2', 'chat-99', 'chat-100']));
+      expect(kept.length, lessThan(100));
+      expect(tail.hasMore, isTrue);
+      final points = tail.rows.map((m) => BigInt.parse('${m['seq']}')).toList();
+      BigInt? boundary;
+      for (var i = 1; i < points.length; i++) {
+        if (points[i] - points[i - 1] > BigInt.one) {
+          boundary = points[i];
+          break;
+        }
+      }
+      expect(boundary, isNotNull);
+      expect(await db.readPage(scope('chat'), before: boundary), isNull);
+      expect(await db.wasEvicted(scope('chat'), before: boundary), isTrue);
+    },
+  );
+
+  for (final available in <int?>[0, null]) {
+    test(
+      'legacy full compaction requires consent and sufficient known space: $available',
+      () async {
+        final dir = await Directory.systemTemp.createTemp(
+          'raft-history-compaction-',
+        );
+        final file = File('${dir.path}/workspace.sqlite');
+        int? free = available;
+        final cache = DriftWorkspaceCache(
+          NativeDatabase(file),
+          automaticHistoryMaintenance: false,
+          historyAvailableSpace: (_) async => free,
+        );
+        addTearDown(() async {
+          await cache.close();
+          await dir.delete(recursive: true);
+        });
+        final db = cache.messageHistory;
+        await store(cache, scope('chat'), rows('chat', 1, 20));
+        await cache.customStatement('PRAGMA auto_vacuum=NONE');
+        await cache.customStatement('VACUUM');
+        final plan = await db.capacity.compactionPlan(account);
+        expect(plan.fullVacuum, isTrue);
+        expect(plan.enoughSpace, isFalse);
+        expect(plan.requiredBytes, greaterThan(2 * file.lengthSync()));
+        await expectLater(
+          db.capacity.maintain(account, compact: true),
+          throwsA(isA<HistoryCompactionNeedsConfirmation>()),
+        );
+        await expectLater(
+          db.capacity.maintain(account, compact: true, allowFullVacuum: true),
+          throwsA(isA<HistoryCompactionSpaceRequired>()),
+        );
+        expect(await count(cache, 'PRAGMA auto_vacuum'), 0);
+        await db.acceptEvents(scope('chat'), rows('chat', 21, 21));
+        expect((await db.readPage(scope('chat')))!.rows, hasLength(21));
+        free = 1 << 40;
+        await db.capacity.maintain(
+          account,
+          compact: true,
+          allowFullVacuum: true,
+        );
+        expect(await count(cache, 'PRAGMA auto_vacuum'), 2);
+        expect((await db.readPage(scope('chat')))!.rows, hasLength(21));
+      },
+    );
+  }
 
   test(
     'logout retires queued maintenance before a new account session writes',

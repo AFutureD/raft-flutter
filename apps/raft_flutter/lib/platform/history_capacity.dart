@@ -9,9 +9,11 @@ import '../data/history_capacity.dart';
 import '../data/message_history.dart';
 import '../data/workspace_cache_codec.dart';
 import 'message_history.dart' show HistoryOperationOrder;
+import 'history_size_counters.dart';
+import 'device_storage.dart';
 
 /// Retention shares the message connection, permission purges and revision
-/// fence. Shared B-tree pages are apportioned by encoded row/key weight;
+/// fence. Encoded row/key weights include a conservative allocation reserve;
 /// [HistoryDiskUsage.databaseBytes] and WAL bytes are actual file sizes.
 class SqliteHistoryCapacity implements HistoryCapacity {
   SqliteHistoryCapacity(
@@ -23,6 +25,7 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     required this.defaultBudget,
     this.automatic = true,
     this.pending,
+    this.availableSpace = availableDeviceStorage,
   });
   final GeneratedDatabase db;
   final HistoryOperationOrder order;
@@ -31,6 +34,11 @@ class SqliteHistoryCapacity implements HistoryCapacity {
   final DateTime Function() now;
   final int defaultBudget;
   final bool automatic;
+  final Future<int?> Function(String path) availableSpace;
+  late final _counters = HistorySizeCounters(db);
+  Future<void>? _initializing;
+  final _retries = <HistoryAccount, int>{};
+  final _retryTimers = <HistoryAccount, RaftIdleTimer>{};
   final Iterable<HistoryProtectedRows> Function()? pending;
   final _owners = <Object, Iterable<HistoryProtectedRows> Function()>{};
   final _pending = <HistoryAccount>{};
@@ -54,46 +62,12 @@ class SqliteHistoryCapacity implements HistoryCapacity {
   ];
   Future<List<QueryRow>> _query(String sql, Iterable<Object> args) =>
       db.customSelect(sql, variables: _vars(args)).get();
-  static String _weight(String p) =>
-      '$p.byte_size+96+3*(length(cast($p.origin as blob))+'
-      'length(cast($p.principal as blob))+length(cast($p.server as blob))+'
-      'length(cast($p.channel as blob)))+2*length(cast($p.message_id as blob))+'
-      '2*length($p.seq_key)';
 
-  /// Cheap setup; the first indexed page is not held behind an old-row scan.
+  /// Constant-time connection setup; old counters backfill in bounded chunks.
   Future<void> openNow() async {
     await db.customStatement('PRAGMA wal_autocheckpoint=256');
     await db.customStatement('PRAGMA journal_size_limit=$walLimit');
-    await db.customStatement('''CREATE TABLE IF NOT EXISTS raft_history_sizes (
-      origin TEXT NOT NULL, principal TEXT NOT NULL, payload INTEGER NOT NULL,
-      weight INTEGER NOT NULL, rows INTEGER NOT NULL,
-      PRIMARY KEY(origin,principal))''');
-    await db.customStatement(
-      '''CREATE TABLE IF NOT EXISTS raft_history_size_state (
-      id INTEGER PRIMARY KEY, initialized INTEGER NOT NULL)''',
-    );
-    await db.customStatement('''INSERT OR IGNORE INTO raft_history_size_state
-      VALUES(1,0)''');
-    for (final op in ['insert', 'update', 'delete']) {
-      final add = op != 'delete', subtract = op != 'insert';
-      await db.customStatement(
-        '''CREATE TRIGGER IF NOT EXISTS raft_history_size_$op
-        AFTER ${op.toUpperCase()} ON raft_history_rows
-        WHEN (SELECT initialized FROM raft_history_size_state WHERE id=1)=1
-        BEGIN
-        ${subtract ? '''UPDATE raft_history_sizes SET payload=payload-OLD.byte_size,
-          weight=weight-(${_weight('OLD')}),rows=rows-(OLD.tombstone=0)
-          WHERE origin=OLD.origin AND principal=OLD.principal;''' : ''}
-        ${add ? '''INSERT INTO raft_history_sizes VALUES
-          (NEW.origin,NEW.principal,NEW.byte_size,${_weight('NEW')},(NEW.tombstone=0))
-          ON CONFLICT(origin,principal) DO UPDATE SET
-          payload=payload+excluded.payload,weight=weight+excluded.weight,
-          rows=rows+excluded.rows;''' : ''}
-        ${subtract ? '''DELETE FROM raft_history_sizes WHERE origin=OLD.origin
-          AND principal=OLD.principal AND weight<=0;''' : ''}
-        END''',
-      );
-    }
+    await _counters.openNow();
     await db.customStatement(
       '''CREATE TEMP TABLE IF NOT EXISTS history_protected (
       server TEXT NOT NULL, channel TEXT NOT NULL, id TEXT NOT NULL,
@@ -105,24 +79,18 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     );
   }
 
-  Future<void> _sizesNow() async {
-    final state = await _query(
-      'SELECT initialized FROM raft_history_size_state WHERE id=1',
-      [],
-    );
-    if (state.single.read<int>('initialized') == 1) return;
-    await db.transaction(() async {
-      await db.customStatement('DELETE FROM raft_history_sizes');
-      await db.customStatement(
-        '''INSERT INTO raft_history_sizes
-        SELECT r.origin,r.principal,sum(r.byte_size),sum(${_weight('r')}),
-          sum(r.tombstone=0) FROM raft_history_rows r GROUP BY r.origin,r.principal''',
-      );
-      await db.customStatement(
-        'UPDATE raft_history_size_state SET initialized=1 WHERE id=1',
-      );
-    });
-  }
+  Future<void> _initialize() => _initializing ??= () async {
+    while (!_closed) {
+      final done = await order(() async {
+        await ready();
+        return _counters.backfillNow();
+      });
+      if (done) return;
+      // The queue is free here: pages, drafts and permission purges can pass.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    throw StateError('History maintenance retired.');
+  }().whenComplete(() => _initializing = null);
 
   @override
   void protect(
@@ -130,7 +98,13 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     Iterable<HistoryProtectedRows> Function() current,
   ) => _owners[owner] = current;
   @override
-  void release(Object owner) => _owners.remove(owner);
+  void release(Object owner) {
+    _owners.remove(owner);
+    for (final account in {..._blocked, ..._unavailable}) {
+      _retryLater(account, immediate: true);
+    }
+  }
+
   void close() {
     _closed = true;
     _timer.cancel();
@@ -139,6 +113,11 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     _blocked.clear();
     _unavailable.clear();
     _maintenance.clear();
+    _retries.clear();
+    for (final timer in _retryTimers.values) {
+      timer.cancel();
+    }
+    _retryTimers.clear();
     _owners.clear();
   }
 
@@ -148,21 +127,20 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     _blocked.remove(account);
     _unavailable.remove(account);
     _maintenance.remove(account);
+    _retries.remove(account);
+    _retryTimers.remove(account)?.cancel();
     if (_pending.isEmpty) _timer.cancel();
   }
 
   void admitNow(MessageHistoryScope scope, int addedBytes) {
     if (addedBytes > 0 &&
-        _unavailable.contains(HistoryAccount(scope.origin, scope.principal))) {
-      throw const HistoryStorageUnavailable();
-    }
-    if (addedBytes > 0 &&
         _blocked.contains(HistoryAccount(scope.origin, scope.principal))) {
+      _retryLater(HistoryAccount(scope.origin, scope.principal));
       throw const HistoryCapacityExceeded();
     }
   }
 
-  /// A bounded amount of new body data schedules measurement; no polling.
+  /// New body data schedules accounting. Failures use bounded retry backoff.
   void changed(MessageHistoryScope scope, int bytes) {
     if (_closed) return;
     final account = HistoryAccount(scope.origin, scope.principal);
@@ -174,9 +152,31 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     }
   }
 
-  void _schedule() => _backgroundZone.run(
-    () => _timer.start(const Duration(seconds: 1), _next),
-  );
+  void _schedule([Duration delay = const Duration(seconds: 1)]) =>
+      _backgroundZone.run(() => _timer.start(delay, _next));
+
+  void _retryLater(HistoryAccount account, {bool immediate = false}) {
+    if (_closed || !automatic) return;
+    final timer = _retryTimers.putIfAbsent(
+      account,
+      () => RaftIdleTimer(yieldToAnimation: false),
+    );
+    if (!immediate && timer.isActive) return;
+    final attempt = immediate ? 0 : (_retries[account] ?? 0);
+    _retries[account] = math.min(5, attempt + 1);
+    final delay = Duration(seconds: immediate ? 1 : math.min(60, 2 << attempt));
+    _backgroundZone.run(
+      () => timer.start(delay, () async {
+        if (_closed) return;
+        try {
+          await maintain(account);
+        } catch (_) {
+          // maintain schedules the next bounded retry. Other accounts retain
+          // their own write-driven timer and do not wait for this backoff.
+        }
+      }),
+    );
+  }
 
   void _next() async {
     if (_closed || _pending.isEmpty) return;
@@ -185,10 +185,10 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     try {
       await maintain(account);
     } catch (_) {
-      // The accepted rows and drafts stay. A read/settings action can retry.
+      // Accepted rows and drafts stay; failed maintenance schedules a retry.
     }
     if (!_closed && _pending.isNotEmpty) {
-      _timer.start(const Duration(seconds: 1), _next);
+      if (!_timer.isActive) _schedule();
     }
   }
 
@@ -252,125 +252,129 @@ class SqliteHistoryCapacity implements HistoryCapacity {
   });
 
   @override
-  Future<HistoryDiskUsage> usage(HistoryAccount a) => order(() async {
-    await ready();
-    return _usageNow(a);
-  });
+  Future<HistoryDiskUsage> usage(HistoryAccount a) async {
+    await _initialize();
+    return order(() => _usageNow(a));
+  }
 
   Future<HistoryDiskUsage> _usageNow(
     HistoryAccount a, {
+    bool physical = true,
     bool protectedFull = false,
   }) async {
-    await _sizesNow();
-    final sizes = await _query('SELECT * FROM raft_history_sizes', []);
-    var weight = 0, ownWeight = 0, rows = 0;
-    for (final row in sizes) {
-      weight += row.read<int>('weight');
-      if (row.read<String>('origin') == a.origin &&
-          row.read<String>('principal') == a.principal) {
-        ownWeight = row.read<int>('weight');
-        rows = row.read<int>('rows');
-      }
-    }
-    final snapshots = await _query('''SELECT origin,principal,
-      sum(length(cast(payload as blob))) AS bytes FROM workspace_cache
-      WHERE kind IN ('window','thread-window','message-history','message-history-denied','history-anchor')
-      GROUP BY origin,principal''', []);
-    var snapshotWeight = 0, ownSnapshots = 0;
-    for (final row in snapshots) {
-      snapshotWeight += row.read<int>('bytes');
-      if (row.read<String>('origin') == a.origin &&
-          row.read<String>('principal') == a.principal) {
-        ownSnapshots += row.read<int>('bytes');
-      }
-    }
-    var allocated = 0, indexes = 0, workspace = 0, unused = 0;
-    final allocation = await _query(
-      'SELECT name,sum(pgsize) AS bytes,sum(unused) AS unused FROM dbstat GROUP BY name',
-      [],
+    final sizes = await _query(
+      'SELECT * FROM raft_history_sizes WHERE origin=? AND principal=?',
+      [a.origin, a.principal],
     );
-    for (final row in allocation) {
-      final name = row.read<String>('name'), bytes = row.read<int>('bytes');
-      if (name.startsWith('raft_history_') ||
-          name.startsWith('sqlite_autoindex_raft_history_')) {
-        allocated += bytes;
-        unused += row.read<int>('unused');
-        if (name == 'raft_history_sequence' ||
-            name == 'raft_history_lru' ||
-            name.startsWith('sqlite_autoindex_')) {
-          indexes += bytes;
-        }
-      } else if (name == 'workspace_cache' ||
-          name == 'sqlite_autoindex_workspace_cache_1') {
-        workspace += bytes;
-      }
-    }
-    final allWorkspace = await _query(
-      'SELECT coalesce(sum(length(cast(payload as blob))),0) AS n FROM workspace_cache',
-      [],
+    final shadows = await _query(
+      'SELECT weight FROM raft_history_cache_sizes WHERE origin=? AND principal=?',
+      [a.origin, a.principal],
     );
-    final workspaceHistory =
-        (workspace *
-                snapshotWeight /
-                math.max(1, allWorkspace.single.read<int>('n')))
-            .ceil();
-    allocated += workspaceHistory;
-    final own = ownWeight + ownSnapshots, total = weight + snapshotWeight;
-    int share(int value) => total == 0 ? 0 : (value * own / total).ceil();
-    Future<int> pragma(String name) async =>
-        (await _query('PRAGMA $name', [])).single.data.values.single as int;
-    final free = await pragma('freelist_count') * await pragma('page_size');
-    final databases = await _query('PRAGMA database_list', []);
-    final path = databases
-        .where((r) => r.read<String>('name') == 'main')
-        .single
-        .read<String>('file');
-    var physical = await pragma('page_count') * await pragma('page_size'),
-        wal = 0;
-    if (path.isNotEmpty) {
-      final file = File(path), log = File('$path-wal');
-      physical = await file.length();
-      if (await log.exists()) wal = await log.length();
-    }
-    final budget = await _budgetNow(a), walShare = share(wal);
-    final reserve = own == 0
+    final weight = sizes.isEmpty ? 0 : sizes.single.read<int>('weight');
+    final payload = sizes.isEmpty ? 0 : sizes.single.read<int>('payload');
+    final shadow = shadows.isEmpty ? 0 : shadows.single.read<int>('weight');
+    // A conservative allocation reserve covers B-tree/index overhead without
+    // scanning the entire shared file. This is an estimate, not exact account
+    // ownership of shared pages. Main-file/WAL sizes are displayed separately.
+    final estimate = math.max(0, (3 * (weight + shadow) + 1) ~/ 2);
+    final budget = await _budgetNow(a);
+    final reserve = estimate == 0
         ? 0
         : math.min(walLimit, budget == 0 ? walLimit : budget ~/ 64);
+    Future<int> pragma(String name) async =>
+        (await _query('PRAGMA $name', [])).single.data.values.single as int;
+    final pageSize = await pragma('page_size');
+    final free = await pragma('freelist_count') * pageSize;
+    var database = 0, wal = 0;
+    if (physical) {
+      database = await pragma('page_count') * pageSize;
+      final path = await _pathNow();
+      if (path.isNotEmpty) {
+        database = await File(path).length();
+        final log = File('$path-wal');
+        if (await log.exists()) wal = await log.length();
+      }
+    }
     return HistoryDiskUsage(
       budget: budget,
-      accountBytes: share(allocated + free) + walShare,
-      reservedWalBytes: math.max(0, reserve - walShare),
-      databaseBytes: physical,
+      accountBytes: estimate,
+      reservedWalBytes: reserve,
+      databaseBytes: database,
       walBytes: wal,
-      indexBytes: share(indexes),
+      indexBytes: math.max(0, (3 * (weight - payload) + 1) ~/ 2),
       freeBytes: free,
-      rows: rows,
-      reclaimableAccountBytes: share(free + unused),
-      pendingCompaction: free > 0 || unused > allocated ~/ 5,
+      rows: sizes.isEmpty ? 0 : sizes.single.read<int>('rows'),
+      pendingCompaction: free > 0,
       protectedFull: protectedFull || _blocked.contains(a),
     );
   }
 
+  Future<String> _pathNow() async => (await _query('PRAGMA database_list', []))
+      .where((row) => row.read<String>('name') == 'main')
+      .single
+      .read<String>('file');
+
   @override
-  Future<HistoryDiskUsage> maintain(HistoryAccount a, {bool compact = false}) {
+  Future<HistoryCompactionPlan> compactionPlan(HistoryAccount a) async {
+    await _initialize();
+    final facts = await order(() async {
+      final path = await _pathNow();
+      final mode =
+          (await _query('PRAGMA auto_vacuum', [])).single.data.values.single
+              as int;
+      final size = await _usageNow(a);
+      return (path, mode, size.databaseBytes, size.walBytes);
+    });
+    final full = facts.$1.isNotEmpty && facts.$2 == 0;
+    return HistoryCompactionPlan(
+      fullVacuum: full,
+      requiredBytes: full ? 2 * facts.$3 + facts.$4 + (64 << 20) : 0,
+      availableBytes: full ? await availableSpace(facts.$1) : null,
+    );
+  }
+
+  @override
+  Future<HistoryDiskUsage> maintain(
+    HistoryAccount a, {
+    bool compact = false,
+    bool allowFullVacuum = false,
+  }) {
     final running = _maintenance[a];
     if (running != null) {
       return compact
-          ? running.then((_) => maintain(a, compact: true))
+          ? running.then(
+              (_) =>
+                  maintain(a, compact: true, allowFullVacuum: allowFullVacuum),
+            )
           : running;
     }
     late final Future<HistoryDiskUsage> result;
     bool current() => !_closed && identical(_maintenance[a], result);
-    result = _maintain(a, compact: compact, current: current).then(
-      (value) {
-        if (current()) _unavailable.remove(a);
-        return value;
-      },
-      onError: (Object error, StackTrace stack) {
-        if (current()) _unavailable.add(a);
-        Error.throwWithStackTrace(error, stack);
-      },
-    );
+    result =
+        _maintain(
+          a,
+          compact: compact,
+          allowFullVacuum: allowFullVacuum,
+          current: current,
+        ).then(
+          (value) {
+            if (current()) {
+              _unavailable.remove(a);
+              if (!value.protectedFull) {
+                _retries.remove(a);
+                _retryTimers.remove(a)?.cancel();
+              }
+            }
+            return value;
+          },
+          onError: (Object error, StackTrace stack) {
+            if (current()) {
+              _unavailable.add(a);
+              _retryLater(a);
+            }
+            Error.throwWithStackTrace(error, stack);
+          },
+        );
     _maintenance[a] = result;
     return result.whenComplete(() {
       if (identical(_maintenance[a], result)) _maintenance.remove(a);
@@ -380,18 +384,34 @@ class SqliteHistoryCapacity implements HistoryCapacity {
   Future<HistoryDiskUsage> _maintain(
     HistoryAccount a, {
     required bool compact,
+    required bool allowFullVacuum,
     required bool Function() current,
   }) async {
     void live() {
       if (!current()) throw StateError('History maintenance retired.');
     }
 
+    await _initialize();
+    if (compact) {
+      final plan = await compactionPlan(a);
+      live();
+      if (plan.fullVacuum && !allowFullVacuum) {
+        throw const HistoryCompactionNeedsConfirmation();
+      }
+      if (!plan.enoughSpace) throw HistoryCompactionSpaceRequired(plan);
+    }
     var measured = await order(() async {
       await ready();
       live();
-      await db.customSelect('PRAGMA wal_checkpoint(TRUNCATE)').get();
-      return _usageNow(a);
+      try {
+        await db.customSelect('PRAGMA wal_checkpoint(TRUNCATE)').get();
+      } catch (_) {
+        // A busy/failed checkpoint must not disable the counter-based limit.
+        _retryLater(a);
+      }
+      return _usageNow(a, physical: false);
     });
+    final budgetAtStart = measured.budget;
     final target =
         measured.budget != 0 && measured.retainedCharge > measured.budget
         ? measured.budget * 8 ~/ 10
@@ -406,35 +426,16 @@ class SqliteHistoryCapacity implements HistoryCapacity {
       final dropped = await order(() async {
         await ready();
         live();
-        return _evictNow(a);
+        return _evictNow(a, measured.retainedCharge - target, budgetAtStart);
       });
+      if (dropped < 0) break; // A newer setting retires this eviction goal.
       if (dropped == 0) {
         blocked = true;
         break;
       }
-      measured = await usage(a);
+      measured = await order(() => _usageNow(a, physical: false));
     }
-    if (compact || target > 0 || measured.freeBytes > 0) {
-      await order(() async {
-        await ready();
-        live();
-        final mode = (await _query(
-          'PRAGMA auto_vacuum',
-          [],
-        )).single.data.values.single;
-        if (compact &&
-            (mode == 0 ||
-                measured.reclaimableAccountBytes >
-                    measured.accountBytes ~/ 5)) {
-          await db.customStatement('PRAGMA auto_vacuum=INCREMENTAL');
-          await db.customStatement('VACUUM');
-        } else if (mode != 0) {
-          await db.customStatement('PRAGMA incremental_vacuum(4096)');
-        }
-        await db.customSelect('PRAGMA wal_checkpoint(TRUNCATE)').get();
-      });
-    }
-    measured = await order(() => _usageNow(a));
+    measured = await order(() => _usageNow(a, physical: false));
     live();
     _dirty[a] = 0;
     // The 80% goal yields to protected records. Only an inability to stay
@@ -445,26 +446,98 @@ class SqliteHistoryCapacity implements HistoryCapacity {
         measured.retainedCharge > measured.budget;
     if (blocked) {
       _blocked.add(a);
+      _retryLater(a);
     } else {
       _blocked.remove(a);
     }
     measured = measured.withProtectedFull(blocked);
+    // Admission depends on body counters, so even a failed compaction cannot
+    // leave a no-longer-full account stuck behind its previous block.
+    var reclaimPending = false;
+    if (compact || target > 0 || measured.freeBytes > 0) {
+      reclaimPending = await _reclaim(
+        a,
+        compact: compact,
+        allowFullVacuum: allowFullVacuum,
+        live: live,
+      );
+      await order(() async {
+        live();
+        await db.customSelect('PRAGMA wal_checkpoint(TRUNCATE)').get();
+      });
+    }
     if (!blocked &&
-        measured.budget != 0 &&
-        measured.retainedCharge > measured.budget &&
+        (reclaimPending ||
+            measured.budget != 0 &&
+                measured.retainedCharge > measured.budget) &&
         !_closed) {
       _pending.add(a);
       if (!_timer.isActive) _schedule();
     }
-    return measured;
+    // Publish admission state before optional filesystem measurements. A
+    // failed file meter cannot prevent the logical quota from being enforced.
+    return order(() async {
+      live();
+      return _usageNow(a, protectedFull: blocked);
+    });
   }
 
-  Future<int> _evictNow(HistoryAccount a) async {
+  Future<bool> _reclaim(
+    HistoryAccount a, {
+    required bool compact,
+    required bool allowFullVacuum,
+    required void Function() live,
+  }) async {
+    final mode = await order(() async {
+      live();
+      return (await _query('PRAGMA auto_vacuum', [])).single.data.values.single;
+    });
+    if (mode == 0) {
+      if (!compact || !allowFullVacuum) return false;
+      final plan = await compactionPlan(a);
+      live();
+      if (!plan.enoughSpace) throw HistoryCompactionSpaceRequired(plan);
+      await order(() async {
+        live();
+        if ((await _pathNow()).isEmpty) return;
+        await db.customStatement('PRAGMA auto_vacuum=INCREMENTAL');
+        await db.customStatement('VACUUM');
+      });
+      return false;
+    }
+    for (var round = 0; round < 32; round++) {
+      final counts = await order(() async {
+        live();
+        Future<int> free() async =>
+            (await _query(
+                  'PRAGMA freelist_count',
+                  [],
+                )).single.data.values.single
+                as int;
+        final before = await free();
+        if (before == 0) return (0, 0);
+        await db.customStatement('PRAGMA incremental_vacuum(128)');
+        return (before, await free());
+      });
+      if (counts.$2 == 0 || counts.$2 >= counts.$1) return false;
+      if (round < 31) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+    return true; // Continue later without holding up pages or draft writes.
+  }
+
+  Future<int> _evictNow(
+    HistoryAccount a,
+    int neededBytes,
+    int expectedBudget,
+  ) async {
     await db.customStatement(
       '''CREATE INDEX IF NOT EXISTS raft_history_lru
       ON raft_history_rows(origin,principal,touched,server,channel,message_id)''',
     );
     return db.transaction(() async {
+      if (await _budgetNow(a) != expectedBudget) return -1;
       await db.customStatement('DELETE FROM history_protected');
       await db.customStatement('DELETE FROM history_protected_scopes');
       final held = <(String, String, String)>{};
@@ -493,8 +566,8 @@ class SqliteHistoryCapacity implements HistoryCapacity {
           );
         }
       });
-      final candidates = await _query(
-        '''SELECT r.server,r.channel,r.message_id,r.seq_key FROM raft_history_rows r
+      final available = await _query(
+        '''SELECT r.server,r.channel,r.message_id,r.seq_key,r.byte_size FROM raft_history_rows r
         WHERE r.origin=? AND r.principal=? AND r.tombstone=0
         AND NOT EXISTS (SELECT 1 FROM history_protected p WHERE p.server=r.server
           AND p.channel=r.channel AND p.id=r.message_id)
@@ -509,6 +582,13 @@ class SqliteHistoryCapacity implements HistoryCapacity {
         ORDER BY r.touched,r.server,r.channel,r.message_id LIMIT 200''',
         [a.origin, a.principal],
       );
+      final candidates = <QueryRow>[];
+      var freed = 0;
+      for (final row in available) {
+        candidates.add(row);
+        freed += (3 * row.read<int>('byte_size') + 1) ~/ 2;
+        if (freed >= neededBytes) break;
+      }
       final groups = <(String, String), List<QueryRow>>{};
       for (final row in candidates) {
         groups

@@ -8,10 +8,38 @@
    "webEntry": "Native Windows shell only",
    "flutterEntry": "apps/raft_flutter/lib/features/windows_tray_settings.dart",
    "states": [
-    {"state": "loading", "web": "no", "flutter": "yes", "parityCase": [], "status": "intentional", "justification": "Native device preference is read once; switch is disabled until the runner replies. Widget tests cover pending state."},
-    {"state": "empty", "web": "no", "flutter": "yes", "parityCase": [], "status": "na", "justification": "A boolean device preference has no empty state; absent native preference defaults to enabled."},
-    {"state": "error", "web": "no", "flutter": "yes", "parityCase": [], "status": "intentional", "justification": "Native-only panel shows unavailable/save failure with retry; widget tests exercise readback and retry."},
-    {"state": "partial", "web": "no", "flutter": "yes", "parityCase": [], "status": "na", "justification": "One atomic native preference with no partial data."}
+    {
+     "state": "loading",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "intentional",
+     "justification": "Native device preference is read once; switch is disabled until the runner replies. Widget tests cover pending state."
+    },
+    {
+     "state": "empty",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "A boolean device preference has no empty state; absent native preference defaults to enabled."
+    },
+    {
+     "state": "error",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "intentional",
+     "justification": "Native-only panel shows unavailable/save failure with retry; widget tests exercise readback and retry."
+    },
+    {
+     "state": "partial",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "One atomic native preference with no partial data."
+    }
    ]
   },
   {
@@ -2665,6 +2693,33 @@
      "parityCase": [],
      "status": "na",
      "justification": "Native-only account-wide device history; message_history_settings_test.dart checks this state."
+    },
+    {
+     "state": "partial",
+     "variant": "lower message limit confirmation",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "Native-only history retention controls; message_history_settings_test.dart verifies confirmation and blocked cleanup."
+    },
+    {
+     "state": "partial",
+     "variant": "legacy full database cleanup confirmation",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "Native-only history retention controls; message_history_settings_test.dart verifies confirmation and blocked cleanup."
+    },
+    {
+     "state": "error",
+     "variant": "full cleanup blocked by unknown or insufficient device space",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "Native-only history retention controls; message_history_settings_test.dart verifies confirmation and blocked cleanup."
     }
    ]
   },

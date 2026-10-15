@@ -131,12 +131,15 @@ class _MessageHistorySettingsState extends State<MessageHistorySettings> {
     try {
       await action();
       if (current()) await measure();
-    } catch (_) {
+    } catch (cause) {
       if (current()) {
         setState(
           () => raise(
             _action,
-            'Message storage could not be updated. Existing messages and drafts are kept. Try again.',
+            raftDefaultErrorText(
+              cause,
+              fallback: 'Message storage could not be updated. Existing messages and drafts are kept. Try again.',
+            ),
           ),
         );
       }
@@ -144,6 +147,104 @@ class _MessageHistorySettingsState extends State<MessageHistorySettings> {
       if (current()) setState(() => busy = false);
     }
   }
+
+  Future<void> chooseBudget(int tier) => run(() async {
+    final identity = _identity, operation = _operation;
+    final capacity = widget.capacity, account = widget.account;
+    bool current() =>
+        mounted && identity == _identity && operation == _operation;
+    Future<void> apply() async {
+      if (!current()) {
+        throw const RaftUserError(
+          'The account changed. Close this dialog and try again.',
+        );
+      }
+      await capacity.setBudget(account, tier);
+    }
+
+    final previous = usage!.budget;
+    if (tier != 0 && (previous == 0 || tier < previous)) {
+      await RaftConfirmDialog.show(
+        context,
+        RaftConfirmDialog(
+          surfaceKey: const ValueKey('history-lower-dialog'),
+          confirmKey: const Key('history-lower-confirm'),
+          title: raftText(context, 'Lower message history limit?'),
+          message: raftText(
+            context,
+            'Older unused messages may be removed immediately and will need an internet connection to open again. Messages in use, draft references and conversations you keep are protected.',
+          ),
+          confirmLabel: raftText(context, 'Lower limit'),
+          loadingLabel: raftText(context, 'Updating…'),
+          onConfirm: apply,
+        ),
+      );
+    } else {
+      await apply();
+    }
+  });
+
+  String spaceError(HistoryCompactionPlan plan) => plan.availableBytes == null
+      ? 'Available disk space could not be checked. No full cleanup was run. Try again.'
+      : raftFormat(
+          context,
+          'Full cleanup needs {needed} of free disk space; {available} is available. Free up device space and try again.',
+          {
+            'needed': computerFileSize(plan.requiredBytes),
+            'available': computerFileSize(plan.availableBytes!),
+          },
+        );
+
+  Future<void> clean() => run(() async {
+    final identity = _identity, operation = _operation;
+    final capacity = widget.capacity, account = widget.account;
+    bool current() =>
+        mounted && identity == _identity && operation == _operation;
+    final plan = await capacity.compactionPlan(account);
+    if (!mounted || !current()) return;
+    if (!plan.enoughSpace) throw RaftUserError(spaceError(plan));
+    Future<void> apply() async {
+      if (!current()) {
+        throw const RaftUserError(
+          'The account changed. Close this dialog and try again.',
+        );
+      }
+      try {
+        await capacity.maintain(
+          account,
+          compact: true,
+          allowFullVacuum: plan.fullVacuum,
+        );
+      } on HistoryCompactionSpaceRequired catch (cause) {
+        if (!mounted || !current()) return;
+        throw RaftUserError(spaceError(cause.plan));
+      }
+    }
+
+    if (plan.fullVacuum) {
+      await RaftConfirmDialog.show(
+        context,
+        RaftConfirmDialog(
+          surfaceKey: const ValueKey('history-full-clean-dialog'),
+          confirmKey: const Key('history-full-clean-confirm'),
+          title: raftText(context, 'Rebuild message storage?'),
+          message: raftFormat(
+            context,
+            'This older database needs a full rebuild to release space. It may take a while and pause local message reads and saves. At least {needed} of free disk space is required; {available} is available. Drafts and saved files are kept.',
+            {
+              'needed': computerFileSize(plan.requiredBytes),
+              'available': computerFileSize(plan.availableBytes!),
+            },
+          ),
+          confirmLabel: raftText(context, 'Rebuild storage'),
+          loadingLabel: raftText(context, 'Rebuilding…'),
+          onConfirm: apply,
+        ),
+      );
+    } else {
+      await apply();
+    }
+  });
 
   Future<void> refresh() => run(() async {
     final operation = _operation, identity = _identity;
@@ -276,12 +377,7 @@ class _MessageHistorySettingsState extends State<MessageHistorySettings> {
                       ? null
                       : (tier) {
                           if (tier != null) {
-                            run(
-                              () => widget.capacity.setBudget(
-                                widget.account,
-                                tier,
-                              ),
-                            );
+                            chooseBudget(tier);
                           }
                         },
                 ),
@@ -326,14 +422,7 @@ class _MessageHistorySettingsState extends State<MessageHistorySettings> {
                     button(
                       'history-clean',
                       busy ? 'Working…' : 'Clean up',
-                      disabled
-                          ? null
-                          : () => run(() async {
-                              await widget.capacity.maintain(
-                                widget.account,
-                                compact: true,
-                              );
-                            }),
+                      disabled ? null : clean,
                     ),
                     button(
                       'history-measure',
