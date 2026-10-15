@@ -455,7 +455,6 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
         gap: RaftSpace.x3,
         children: [
           card,
-          const WindowsTraySettings(),
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: RaftButton(
@@ -467,6 +466,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
                   : () => nativeAction(service.openSettings),
             ),
           ),
+          const WindowsTraySettings(),
         ],
       );
     }
