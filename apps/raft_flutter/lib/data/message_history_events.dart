@@ -270,11 +270,9 @@ class MessageHistoryEvents {
       }
     }
     // Empty resume responses can still advance an existing receiver checkpoint.
-    checkpointScope ??= w.channel == null
-        ? null
-        : MessageHistoryPages.scope(w, w.channel!.id);
+    checkpointScope ??= _probe(w);
     written();
-    if (!updateOnly && checkpointScope != null && current()) {
+    if (!updateOnly && current()) {
       await db.checkpoint(checkpointScope, through ?? highest);
     }
     return current();
@@ -292,9 +290,13 @@ class MessageHistoryEvents {
     try {
       await db.receiver.settled;
       if (!current()) return;
-      final scope = MessageHistoryPages.scope(w, w.channel?.id ?? '');
-      if (scope == null) return;
-      final seq = await db.resumeSequence(scope);
+      final scope = _probe(w);
+      final committed = await db.resumeSequence(scope);
+      // First-upgrade sessions can already hold accepted legacy rows without
+      // a durable cursor. Keep that reconnect path, bounded by pending writes.
+      final seq = committed > BigInt.zero
+          ? committed
+          : db.receiver.checkpointLimit(scope, w.ledger.watermark);
       if (current() && seq > BigInt.zero) w.client.resume(seq);
     } catch (_) {
       if (current()) {

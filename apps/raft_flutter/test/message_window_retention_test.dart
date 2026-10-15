@@ -482,7 +482,7 @@ void main() {
       expect(
         (await db.messageHistory.readContext(
           scope,
-          'a-102',
+          'a-102', radius: 0,
         ))!['targetMessageId'],
         'a-102',
       );
@@ -531,7 +531,7 @@ void main() {
         expect(
           (await db.messageHistory.readContext(
             scope,
-            'unvisited-thread-101',
+            'unvisited-thread-101', radius: 0,
           ))!['targetMessageId'],
           'unvisited-thread-101',
         );

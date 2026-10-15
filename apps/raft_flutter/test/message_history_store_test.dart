@@ -275,7 +275,13 @@ void main() {
       expect(await db.knownScope(_scope.origin, 'alice', 'one', id), isNotNull);
     }
     // Migration preserves the rollback copies and does not invent coverage.
-    expect(await db.readPage(scope(channel: 'one')), isNull);
+    expect(
+      await db.readPage(scope(channel: 'one'), before: BigInt.two),
+      isNull,
+    );
+    final retained = await db.readPage(scope(channel: 'one'));
+    expect(retained!.rows.single['id'], 'one-1');
+    expect(retained.hasMore, isTrue);
     expect(
       await cache.read(_scope.origin, 'alice', 'one', 'window', 'one'),
       isNotNull,

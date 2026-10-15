@@ -5,6 +5,7 @@ import 'package:raft_sync/raft_sync.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftIdleTimer;
 
 import '../data/message_history.dart';
+import '../data/history_read_policy.dart';
 import '../data/workspace_cache_codec.dart';
 
 typedef HistoryOperationOrder = Future<T> Function<T>(
@@ -29,6 +30,8 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   writeLegacy;
   final DateTime Function() now;
   @override
+  late final HistoryReadPolicy reads = HistoryReadPolicy(now: now);
+  @override
   final receiver = HistoryReceiverQueue();
   Future<void>? _opening;
   // Database IO and batch codecs already run on workers. Delay migration
@@ -39,12 +42,14 @@ class SqliteMessageHistory implements MessageHistoryStorage {
 
   void stop() {
     _closed = true;
+    reads.close();
     _migrationTimer.cancel();
     _migrations.clear();
   }
 
   void cancelAccount(String origin, String principal) {
     receiver.clearAccount(origin, principal);
+    reads.forgetAccount(origin, principal);
     _migrations.remove((origin, principal));
     if (_migrations.isEmpty) _migrationTimer.cancel();
   }
@@ -113,6 +118,18 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       origin TEXT NOT NULL, principal TEXT NOT NULL, server TEXT NOT NULL,
       PRIMARY KEY(origin,principal,server))''',
     );
+    await db.customStatement('''CREATE TABLE IF NOT EXISTS raft_history_checks (
+      origin TEXT NOT NULL, principal TEXT NOT NULL, server TEXT NOT NULL,
+      channel TEXT NOT NULL, request TEXT NOT NULL, verified INTEGER NOT NULL,
+      PRIMARY KEY(origin,principal,server,channel,request))''');
+    await db.customStatement(
+      '''CREATE TRIGGER IF NOT EXISTS raft_history_checks_purge
+      AFTER DELETE ON workspace_cache WHEN OLD.kind='message-history'
+      BEGIN
+        DELETE FROM raft_history_checks WHERE origin=OLD.origin AND principal=OLD.principal
+          AND server=OLD.server AND channel=OLD.id;
+      END''',
+    );
     // Previous versions refuse a cached thread by deleting its JSON window.
     // Cascade that explicit old-version deletion to the additive history too.
     // New-version shadow LRU writes use a transaction-local guard, so the old
@@ -161,6 +178,58 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       END""",
     );
   }
+
+  @override
+  Future<DateTime?> lastVerified(
+    MessageHistoryScope scope,
+    String queryKey,
+  ) => order(() async {
+    await _ready();
+    final marker = await _marker(scope);
+    if (marker == null ||
+        marker['authority'] != scope.authority ||
+        await _denial(scope) >= 0) {
+      return null;
+    }
+    final rows = await _query(
+      'SELECT verified FROM raft_history_checks WHERE $_where AND request=?',
+      [...scope.key, queryKey],
+    );
+    return rows.isEmpty
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(
+            rows.single.read<int>('verified'),
+          );
+  });
+
+  @override
+  Future<Map<String, Map<String, dynamic>?>> projections(
+    MessageHistoryScope scope,
+    Iterable<String> ids,
+  ) => order(() async {
+    await _ready();
+    final marker = await _marker(scope);
+    if (marker == null ||
+        marker['authority'] != scope.authority ||
+        await _denial(scope) >= 0) {
+      return {};
+    }
+    final rows = await _existing(scope, ids);
+    final live = rows.values
+        .where((row) => row.read<int>('tombstone') == 0)
+        .toList();
+    final payloads = await decodeWorkspaceTranslations([
+      for (final row in live) row.read<String>('payload'),
+    ]);
+    return {
+      for (final row in rows.values.where(
+        (row) => row.read<int>('tombstone') != 0,
+      ))
+        row.read<String>('message_id'): null,
+      for (var i = 0; i < live.length; i++)
+        live[i].read<String>('message_id'): payloads[i],
+    };
+  });
 
   @override
   Future<int> migrateLegacy(MessageHistoryScope scope, {int limit = 4}) =>
@@ -259,9 +328,12 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     await _ready();
     sequence = receiver.checkpointLimit(scope, sequence);
     final pending = receiver.hasPending(scope);
-    if (sequence <= BigInt.zero || await _denial(scope) >= 0) return;
-    final marker = await _marker(scope);
-    if (marker == null || marker['authority'] != scope.authority) return;
+    if (sequence <= BigInt.zero) return;
+    if (scope.channel.isNotEmpty) {
+      if (await _denial(scope) >= 0) return;
+      final marker = await _marker(scope);
+      if (marker == null || marker['authority'] != scope.authority) return;
+    }
     await db.customStatement(
       'INSERT INTO raft_history_resume(origin,principal,server,sequence) VALUES(?,?,?,?) '
       '${initializeOnly && !pending ? 'ON CONFLICT DO NOTHING' : 'ON CONFLICT(origin,principal,server) DO UPDATE SET sequence=${pending ? 'min' : 'max'}(sequence,excluded.sequence)'}',
@@ -601,6 +673,8 @@ class SqliteMessageHistory implements MessageHistoryStorage {
           ...marker,
           'knownEmpty': false,
           'windowKind': 'tail',
+          if (marker['windowKind'] == 'context')
+            'tailFloor': historySequenceKey(highest),
           'tailSequence': '${highest > tail ? highest : tail}',
         });
       }
@@ -669,7 +743,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       scope,
       before: sequence + BigInt.one,
       limit: radius + 1,
-      fragments: true,
+      fragments: radius == 0,
     );
     final newer = radius == 0
         ? null
@@ -677,22 +751,33 @@ class SqliteMessageHistory implements MessageHistoryStorage {
             scope,
             after: sequence,
             limit: radius,
-            fragments: true,
+            fragments: false,
           );
+    if (radius > 0 && (older == null || newer == null)) return null;
     final targetRow = (await decodeWorkspaceTranslations([
       row.read<String>('payload'),
     ])).single;
-    return {
-      'messages': [
-        if (older == null) targetRow else ...older.rows,
-        ...?newer?.rows,
-      ],
-      'targetMessageId': messageId,
-      'channelId': scope.channel,
-      'hasOlder': older?.hasMore ?? true,
-      'hasNewer': newer?.hasMore ?? true,
-      'historyLimited': marker['historyLimited'] == true,
-    };
+    return MessageHistoryPage(
+      {
+        'messages': [
+          if (older == null) targetRow else ...older.rows,
+          ...?newer?.rows,
+        ],
+        'targetMessageId': messageId,
+        'channelId': scope.channel,
+        'hasOlder': older?.hasMore ?? true,
+        'hasNewer': newer?.hasMore ?? true,
+        'historyLimited': marker['historyLimited'] == true,
+      },
+      scope: scope,
+      revision: row.read<int>('revision'),
+      before: null,
+      after: null,
+      local: true,
+      focused: true,
+      target: messageId,
+      verifiedAt: older?.verifiedAt ?? newer?.verifiedAt,
+    );
   });
 
   @override
@@ -756,6 +841,42 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         verifiedAt: DateTime.fromMillisecondsSinceEpoch(
           (marker['verified'] as int?) ?? 0,
         ),
+      );
+    }
+    if (before == null && after == null) {
+      if (marker['windowKind'] == 'context') return null;
+      final rows = await _query(
+        'SELECT payload,seq_key FROM raft_history_rows WHERE $_where AND tombstone=0 AND seq_key>=? AND seq_key<=? ORDER BY seq_key DESC,message_id DESC LIMIT ?',
+        [
+          ...scope.key,
+          marker['tailFloor'] as String? ?? historySequenceKey(BigInt.zero),
+          target,
+          limit + 1,
+        ],
+      );
+      final ranges = await _query(
+        'SELECT lower_key,upper_key,verified FROM raft_history_ranges WHERE $_where AND lower_key<=? AND upper_key>=?',
+        [...scope.key, historySequenceKey(BigInt.zero), target],
+      );
+      // Socket events prove individual rows, not continuity across sparse
+      // sequence numbers. Present all retained tail rows without converting
+      // those gaps into a successful cached pagination read.
+      final complete = ranges.isNotEmpty;
+      final stamp = complete ? ranges.single.read<int>('verified') : 0;
+      return LocalMessageHistoryPage(
+        await decodeWorkspaceTranslations(
+          rows
+              .take(limit)
+              .map((r) => r.read<String>('payload'))
+              .toList()
+              .reversed
+              .toList(),
+        ),
+        hasMore:
+            marker['historyLimited'] != true &&
+            (rows.length > limit || !complete),
+        historyLimited: marker['historyLimited'] == true,
+        verifiedAt: DateTime.fromMillisecondsSinceEpoch(stamp),
       );
     }
     final ranges = await _query(
@@ -1016,6 +1137,8 @@ class SqliteMessageHistory implements MessageHistoryStorage {
           'tailSequence': sequences.isEmpty ? '0' : '${sequences.last}',
         if (!page.focused && page.before == null && page.after == null)
           'windowKind': 'tail',
+        if (!page.focused && page.before == null && page.after == null)
+          'tailFloor': null,
         if (page.focused && marker?['tailSequence'] == null)
           'windowKind': 'context',
         'knownEmpty':
@@ -1025,6 +1148,12 @@ class SqliteMessageHistory implements MessageHistoryStorage {
             page.after == null,
         'verified': now().millisecondsSinceEpoch,
       });
+      await db.customStatement(
+        '''INSERT INTO raft_history_checks ($_columns,request,verified)
+        VALUES(?,?,?,?,?,?) ON CONFLICT(origin,principal,server,channel,request)
+        DO UPDATE SET verified=excluded.verified''',
+        [...scope.key, page.queryKey, now().millisecondsSinceEpoch],
+      );
     });
   });
 
@@ -1181,7 +1310,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         "SELECT payload FROM workspace_cache WHERE origin=? AND principal=? AND server=? AND kind=? AND ${kind == 'window' ? 'id=?' : "json_extract(payload,'\$.parentMessageId')=?"}",
         [origin, principal, server, markerKind, id],
       );
-      if (records.isEmpty) return null;
+      if (records.length != 1) return null;
       final marker = Map<String, dynamic>.from(
         await decodeWorkspaceCache(records.single.read<String>('payload'))
             as Map,

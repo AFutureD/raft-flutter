@@ -1,4 +1,7 @@
 import 'dart:collection';
+import 'dart:convert';
+
+import 'history_read_policy.dart';
 
 /// Receiver authority for persisted rows. A saved role never grants access.
 class MessageHistoryScope {
@@ -64,6 +67,8 @@ class MessageHistoryPage extends MapBase<String, dynamic> {
     this.limit = 50,
     this.remotePage,
     this.focused = false,
+    this.target,
+    this.verifiedAt,
   }) : _page = Map.of(page);
   final Map<String, dynamic> _page;
   final Map<String, dynamic>? remotePage;
@@ -72,6 +77,14 @@ class MessageHistoryPage extends MapBase<String, dynamic> {
   final BigInt? before, after;
   final bool local;
   final bool focused;
+  final String? target;
+  final DateTime? verifiedAt;
+  String get queryKey => historyQueryKey(
+    before: before,
+    after: after,
+    limit: limit,
+    target: target,
+  );
   @override
   dynamic operator [](Object? key) => _page[key];
   @override
@@ -84,6 +97,27 @@ class MessageHistoryPage extends MapBase<String, dynamic> {
   dynamic remove(Object? key) => _page.remove(key);
 }
 
+String historyQueryKey({
+  BigInt? before,
+  BigInt? after,
+  int limit = 50,
+  String? target,
+}) => jsonEncode(['$before', '$after', limit, target]);
+
+HistoryReadKey historyReadKey(
+  MessageHistoryScope scope,
+  Object ticket,
+  String queryKey,
+) => (
+  scope.origin,
+  scope.principal,
+  scope.server,
+  scope.channel,
+  scope.authority,
+  '$ticket',
+  queryKey,
+);
+
 /// Optional device capability. Existing in-memory cache doubles keep working.
 abstract interface class MessageHistoryProvider {
   bool get messageHistoryEnabled;
@@ -92,6 +126,12 @@ abstract interface class MessageHistoryProvider {
 
 /// Persistent accepted projections and proven page ranges, independent of UI.
 abstract interface class MessageHistoryStorage {
+  HistoryReadPolicy get reads;
+  Future<DateTime?> lastVerified(MessageHistoryScope scope, String queryKey);
+  Future<Map<String, Map<String, dynamic>?>> projections(
+    MessageHistoryScope scope,
+    Iterable<String> ids,
+  );
   Future<int> migrateLegacy(MessageHistoryScope scope, {int limit = 4});
 
   /// Orders receiver events, including asynchronous parent-scope resolution.

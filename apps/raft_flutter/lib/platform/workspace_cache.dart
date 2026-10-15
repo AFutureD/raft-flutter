@@ -17,12 +17,14 @@ class DriftWorkspaceCache extends GeneratedDatabase
     super.executor, {
     this.windowRetention = 120,
     this.translationRetention = 2000,
+    this.historyClock,
     this.messageHistoryEnabled = const bool.fromEnvironment(
       'RAFT_LOCAL_MESSAGE_HISTORY',
       defaultValue: true,
     ),
   });
 
+  final DateTime Function()? historyClock;
   @override
   final bool messageHistoryEnabled;
 
@@ -32,6 +34,7 @@ class DriftWorkspaceCache extends GeneratedDatabase
     _ordered,
     readLegacy: _read,
     writeLegacy: _write,
+    now: historyClock,
   );
 
   /// Message/thread windows kept per account and server. Every write moves a

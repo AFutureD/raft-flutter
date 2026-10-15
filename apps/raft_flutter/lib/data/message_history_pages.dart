@@ -1,6 +1,8 @@
 import 'package:raft_client/raft_client.dart';
 
 import 'message_history.dart';
+import 'history_read_policy.dart';
+import 'message_history_verification.dart';
 import 'message_window_snapshot.dart';
 import 'workspace_cache.dart';
 import 'workspace_controller.dart';
@@ -9,6 +11,13 @@ import 'workspace_message_windows.dart';
 /// Transport and local paging use the same admitted projections. Request
 /// metadata is held in a Dart object and never added to the server protocol.
 class MessageHistoryPages {
+  static void recheckContext(
+    WorkspaceController w,
+    MessageWindowRequest request,
+    String id,
+    String target,
+  ) => MessageHistoryVerification.recheckContext(w, request, id, target);
+
   static Future<Map<String, dynamic>> context(
     WorkspaceController w,
     MessageWindowRequest request,
@@ -25,6 +34,7 @@ class MessageHistoryPages {
     ),
     current: () => request.current && w.cacheWritable,
     held: () => w.ledger.messages(id),
+    ticket: w.messageHistoryTicket(thread ? w.threadParentChannelId ?? id : id),
     focused: true,
     target: target,
     remote: () async => Map<String, dynamic>.from(
@@ -64,6 +74,10 @@ class MessageHistoryPages {
       after: after,
       limit: limit,
       localFirst: localFirst,
+      ticket: w.messageHistoryTicket(
+        thread ? w.threadParentChannelId ?? id : id,
+      ),
+      reason: remote == null ? null : HistoryReadReason.gap,
     );
   }
 
@@ -158,7 +172,9 @@ class MessageHistoryPages {
           },
         );
         await device.checkpoint(page.scope, seq, initializeOnly: true);
+        MessageHistoryVerification.retained(w, request, page);
       }
+      if (page.local) MessageHistoryVerification.schedule(w, request, page);
       return true;
     } catch (_) {
       if (request.current && w.cacheWritable) {
@@ -199,17 +215,42 @@ class MessageHistoryPages {
     bool localFirst = true,
     bool focused = false,
     String? target,
+    Object? ticket,
+    HistoryReadReason? reason,
   }) async {
     final device = storage(cache);
     if (device == null || scope == null) return remote();
+    final queryKey = historyQueryKey(
+      before: before,
+      after: after,
+      limit: limit,
+      target: target,
+    );
+    Future<Map<String, dynamic>> wire() => device.reads.fetch(
+      historyReadKey(scope, ticket ?? scope.authority, queryKey),
+      reason ??
+          (before != null || after != null || focused
+              ? HistoryReadReason.missing
+              : HistoryReadReason.tail),
+      remote,
+    );
+    Future<DateTime?> verified(DateTime? fallback) async {
+      try {
+        return await device.lastVerified(scope, queryKey) ?? fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
     final initial = {for (final row in held()) row['id']: row};
     bool pending(String id) => device.receiver.hasRow(scope, id);
     var revision = 0;
     try {
       revision = await device.revision(scope);
-      if (focused && target != null) {
+      if (localFirst && focused && target != null) {
         final local = await device.readContext(scope, target);
         if (local != null) {
+          device.reads.count(HistoryReadReason.local);
           return MessageHistoryPage(
             _live(local, initial, held(), focused: true, pending: pending),
             scope: scope,
@@ -218,6 +259,10 @@ class MessageHistoryPages {
             after: null,
             local: true,
             focused: true,
+            target: target,
+            verifiedAt: await verified(
+              local is MessageHistoryPage ? local.verifiedAt : null,
+            ),
           );
         }
       }
@@ -230,6 +275,7 @@ class MessageHistoryPages {
         );
         if (!current()) return local?.page ?? const {'messages': <dynamic>[]};
         if (local != null) {
+          device.reads.count(HistoryReadReason.local);
           return MessageHistoryPage(
             _live(
               local.page,
@@ -245,15 +291,16 @@ class MessageHistoryPages {
             after: after,
             local: true,
             limit: limit,
+            verifiedAt: await verified(local.verifiedAt),
           );
         }
       }
     } catch (_) {
       // A full/unavailable device never prevents a successful remote read.
-      return current() ? remote() : const {'messages': <dynamic>[]};
+      return current() ? wire() : const {'messages': <dynamic>[]};
     }
     if (!current()) return const {'messages': <dynamic>[]};
-    final raw = await remote();
+    final raw = await wire();
     if (!current()) return raw;
     final input = raw['messages'];
     if (input is! List ||
@@ -291,6 +338,7 @@ class MessageHistoryPages {
       remotePage: raw,
       limit: limit,
       focused: focused,
+      target: target,
     );
   }
 

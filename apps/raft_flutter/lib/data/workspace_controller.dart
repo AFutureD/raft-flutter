@@ -1677,6 +1677,9 @@ class WorkspaceController extends ChangeNotifier {
   /// Device writes stop before logout purges are queued.
   bool get cacheWritable => !_cacheRetired && !_disposed;
   Object messageHistoryTicket(String id) => _replyToken(id);
+  void rejectHistoryRead(String id) => _windowReceiver._revokeChannel(id);
+  Future<void> saveHistoryWindow(String id, {bool thread = false}) =>
+      _windowReceiver._saveWindow(id, thread: thread);
 
   Future<void> _saveWindow(String id, {bool thread = false}) =>
       MessageHistorySnapshots.save(
@@ -5169,6 +5172,7 @@ class WorkspaceController extends ChangeNotifier {
     error = null;
     highlightedMessageId = messageId;
     if (cachedTarget) {
+      MessageHistoryPages.recheckContext(this, request, channelId, messageId);
       hasMore = sameChannel ? hasMore : knownWindow!.hasMore;
       hasNewer = sameChannel
           ? hasNewer
@@ -6107,6 +6111,7 @@ class WorkspaceController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    MessageHistoryPages.storage(cache)?.reads.forget(this);
     if (presentationSource == null) messageWindows.dispose();
     composer.sends.detach(this);
     composer.disposeOwnedBy(this);
