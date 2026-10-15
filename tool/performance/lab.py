@@ -1246,6 +1246,19 @@ def host_cpu_delta(before, after):
             'processes': sorted(rows, key=lambda row: -row['cpuPercent'])[:20]}
 
 
+def process_group_active(group, *, proc_root=Path('/proc')):
+    """A launched Linux group's live members, excluding unreaped zombies."""
+    for path in proc_root.glob('[0-9]*/stat'):
+        try:
+            stat = path.read_text()
+            fields = stat[stat.rfind(')') + 2:].split()
+            if fields[0] not in ('Z', 'X') and int(fields[2]) == group:
+                return True
+        except (OSError, ValueError, IndexError):
+            continue
+    return False
+
+
 def run_owned_process(command, *, process_groups=None, **kwargs):
     """Reap this launch and stop only the session/process group it created."""
     process = subprocess.Popen(command, start_new_session=True, **kwargs)
@@ -1264,18 +1277,21 @@ def run_owned_process(command, *, process_groups=None, **kwargs):
                 group['stopSignals'].append(stop_signal.name)
             except ProcessLookupError:
                 break
-            if stop_signal == signal.SIGTERM:
-                deadline = time.monotonic() + 2
-                while time.monotonic() < deadline:
-                    process.poll()
-                    try:
-                        os.killpg(process.pid, 0)
-                    except ProcessLookupError:
-                        break
-                    time.sleep(.05)
+            # killpg only delivers a signal. The descendants may still be
+            # alive after wait() reaps the leader, including after SIGKILL.
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                process.poll()
+                if not process_group_active(process.pid):
+                    break
+                time.sleep(.05)
+            if not process_group_active(process.pid):
+                break
         process.wait(timeout=2)
         group['leaderExitCode'] = process.returncode
-        group['cleanupComplete'] = True
+        group['cleanupComplete'] = not process_group_active(process.pid)
+        if not group['cleanupComplete']:
+            raise RuntimeError('The launched process group still has active members after cleanup.')
 
 
 def cleanup_private_runtime(directory):

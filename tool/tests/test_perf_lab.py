@@ -865,6 +865,25 @@ class DetectionLifetimeTest(unittest.TestCase):
                     if path.exists():
                         lab.cleanup_private_runtime(path)
 
+    def test_process_group_cleanup_ignores_zombies_but_waits_for_active_members(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def member(pid, state, group):
+                path = root / str(pid)
+                path.mkdir(exist_ok=True)
+                # Fields after comm: state, ppid, pgrp, session. The process
+                # name can contain spaces and a closing parenthesis.
+                (path / 'stat').write_text(f'{pid} (fixture ) process) {state} 1 {group} {group} 0 0')
+
+            member(101, 'Z', 41)
+            member(102, 'S', 88)
+            self.assertFalse(lab.process_group_active(41, proc_root=root))
+            member(103, 'R', 41)
+            self.assertTrue(lab.process_group_active(41, proc_root=root))
+            member(103, 'Z', 41)
+            self.assertFalse(lab.process_group_active(41, proc_root=root))
+
     def test_owned_group_cleanup_on_interrupt_and_normal_parent_exit(self):
         # A descendant ignores TERM. Cleanup must escalate for that same group
         # while leaving a separately launched sentinel alive.
