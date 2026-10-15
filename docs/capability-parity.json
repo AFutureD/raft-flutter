@@ -136,11 +136,11 @@
    "status": "partial",
    "webEntry": "MessageItem handleOpenPermalink / handleOpenMessageRef / handleOpenForwardedSource / QuotedMessagePermalinkPreview onOpen | MainLayout loadContext | ThreadPanel jump | useRefNavigation",
    "gate": "read access to the target channel",
-   "flutterEntry": "workspace_controller.dart jumpToMessage / thread context loads; quoted_message_preview.dart; content_coordinator.dart permalink open",
+   "flutterEntry": "workspace_controller.dart jumpToMessage / thread context loads via message_history_pages.dart; quoted_message_preview.dart; content_coordinator.dart permalink open",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
-     "needle": "'/messages/context/$messageId'"
+     "file": "apps/raft_flutter/lib/data/message_history_pages.dart",
+     "needle": "'/messages/context/$target'"
     },
     {
      "file": "apps/raft_flutter/lib/features/quoted_message_preview.dart",

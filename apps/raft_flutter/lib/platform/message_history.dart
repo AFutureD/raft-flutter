@@ -1170,7 +1170,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     await _importWindow(origin, principal, server, kind, id, snapshot);
   });
 
-  Future<void> _importWindow(
+  Future<bool> _importWindow(
     String origin,
     String principal,
     String server,
@@ -1190,7 +1190,17 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         snapshot['windowKind'] != 'tail' ||
         snapshot['version'] != 1 ||
         kind == 'window' && parent != channel) {
-      return;
+      return false;
+    }
+    // Generic workspace-cache values do not carry the message-window
+    // contract. Keep their original codec/size semantics on the legacy path.
+    if (raw.any(
+      (row) =>
+          row is! Map ||
+          row.keys.any((key) => key is! String) ||
+          _valid(Map<String, dynamic>.from(row), channel) == null,
+    )) {
+      return false;
     }
     final scope = MessageHistoryScope(
       origin: origin,
@@ -1204,7 +1214,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     final existing = await _marker(scope);
     if (await _denial(scope) >= 0 ||
         existing != null && (migration || existing['authority'] != authority)) {
-      return;
+      return false;
     }
     await db.transaction(() async {
       final marker = await _scope(scope, create: true);
@@ -1226,6 +1236,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         if (kind == 'thread-window') 'parentMessageId': id,
       });
     });
+    return true;
   }
 
   /// The new client supplies all accepted rows; the rollback snapshot keeps
@@ -1260,9 +1271,16 @@ class SqliteMessageHistory implements MessageHistoryStorage {
           return;
         }
       }
-      await _importWindow(origin, principal, server, kind, id, snapshot);
+      final indexed = await _importWindow(
+        origin,
+        principal,
+        server,
+        kind,
+        id,
+        snapshot,
+      );
       final rows = snapshot['messages'];
-      if (rows is List && rows.length > 500) {
+      if (indexed && rows is List && rows.length > 500) {
         value = {
           ...snapshot,
           'messages': rows.skip(rows.length - 500).toList(),
