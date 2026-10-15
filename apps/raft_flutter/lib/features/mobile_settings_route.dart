@@ -13,6 +13,14 @@ class _MobileWorkspaceRoute extends StatefulWidget {
 class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
   _MobilePageController? controller;
   Widget? content;
+
+  /// Latched for this visit. A field, so the structure guard can see it.
+  bool pageDirect = false;
+
+  /// Active on the previous build. A covered tasks or saved list uses it
+  /// to drop the outer list.
+  bool routeWasActive = false;
+
   WorkspaceController get source => widget.host.w;
   bool get active =>
       mobilePageIdentity(source.location) ==
@@ -79,17 +87,15 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
   @override
   Widget build(BuildContext context) {
     final host = widget.host;
-    final page = controller;
-    if (page != null) mobilePageDirect[page] = resolveDirect();
-    if (active) mobileSettingsDirectHost[host] = resolveDirect();
+    pageDirect = resolveDirect();
+    if (active) mobileSettingsDirectHost[host] = pageDirect;
     final now = active;
-    final was = mobileRouteWasActive[this] ?? false;
-    mobileRouteWasActive[this] = now;
+    final was = routeWasActive;
+    routeWasActive = now;
     final detach =
         !now &&
         was &&
-        page != null &&
-        mobilePageDirect[page] == true &&
+        pageDirect &&
         (widget.location.route == RaftRoute.tasks ||
             widget.location.route == RaftRoute.saved);
     if (content == null || now || detach) {

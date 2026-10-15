@@ -3,38 +3,51 @@ import 'package:flutter/widgets.dart';
 import '../data/workspace_controller.dart';
 import 'mobile_workspace_pages.dart';
 
-/// Whether this phone route's body reads the outer workspace.
-/// Each route has its own controller, so one page cannot overwrite another.
-final mobilePageDirect = Expando<bool>();
-
-/// Previous active bit for a phone route, without a new State field.
-final mobileRouteWasActive = Expando<bool>();
-
-/// Principal and page. Messages and presence are not inputs.
-Object mobileResourceInputs(WorkspaceController controller, String section) =>
+/// Principal, page, and every value that changes how the list is built.
+/// Messages and presence are not inputs.
+Object mobileResourceInputs(
+  WorkspaceController controller,
+  String section, {
+  required bool wide,
+  required String? rootTab,
+  required bool activityMasterDetail,
+}) =>
     (
       controller.client.generation,
       controller.client.user?.id,
       controller.server?.id,
       controller.server?.string('role'),
       section,
+      wide,
+      rootTab,
+      activityMasterDetail,
     );
 
-/// Phone tasks and saved. Off builds [buildList] on the shadow controller.
-/// On keeps one list for the active page, and only while its inputs change.
+/// Phone tasks and saved. Off builds [buildList] on the page controller.
+/// On keeps one list for the active page, and rebuilds it when [inputs] change.
 Widget mobileResourceBody({
   required String route,
   required WorkspaceController page,
   required WorkspaceController? outer,
+  required bool direct,
+  required bool wide,
+  required String? rootTab,
+  required bool activityMasterDetail,
   required Widget Function(WorkspaceController owner) buildList,
 }) {
-  final direct =
-      (route == 'tasks' || route == 'saved') && mobilePageDirect[page] == true;
-  if (!direct || outer == null) return buildList(page);
+  final useOuter = direct && (route == 'tasks' || route == 'saved');
+  if (!useOuter || outer == null) return buildList(page);
   return MobileResourceDirectPage(
-    inputs: mobileResourceInputs(outer, route),
+    inputs: mobileResourceInputs(
+      outer,
+      route,
+      wide: wide,
+      rootTab: rootTab,
+      activityMasterDetail: activityMasterDetail,
+    ),
     active: () =>
-        mobilePageIdentity(page.location) == mobilePageIdentity(outer.location),
+        mobilePageIdentity(page.location) ==
+        mobilePageIdentity(outer.location),
     buildList: () => buildList(outer),
   );
 }
@@ -52,7 +65,6 @@ class MobileResourceDirectPage extends StatefulWidget {
   final Object? inputs;
   final bool Function() active;
   final Widget Function() buildList;
-  static int builds = 0;
 
   @override
   State<MobileResourceDirectPage> createState() =>
@@ -73,7 +85,6 @@ class _MobileResourceDirectPageState extends State<MobileResourceDirectPage> {
     if (_leaf != null && widget.inputs == _inputs) return _leaf!;
     _inputs = widget.inputs;
     _leaf = widget.buildList();
-    MobileResourceDirectPage.builds++;
     return _leaf!;
   }
 }

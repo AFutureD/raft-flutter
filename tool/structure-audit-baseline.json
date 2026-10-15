@@ -267,6 +267,8 @@
         "field._MobileWorkspaceRoute.location": 1,
         "field._MobileWorkspaceRouteState.content": 1,
         "field._MobileWorkspaceRouteState.controller": 1,
+        "field._MobileWorkspaceRouteState.pageDirect": 1,
+        "field._MobileWorkspaceRouteState.routeWasActive": 1,
         "field._WorkspaceViewState._desktopNavigation": 1,
         "field._WorkspaceViewState._mobileNavigationSelection": 1,
         "field._WorkspaceViewState._ownedMobileTabbar": 1,
@@ -347,8 +349,8 @@
         "field._WorkspaceViewState.threadWidth": 1,
         "field._WorkspaceViewState.workspaceErrorScheduled": 1,
         "field._WorkspaceViewState.workspaceMode": 1,
-        "lines": 5042,
-        "tokens": 26302
+        "lines": 5063,
+        "tokens": 26361
       }
     },
     "resource_view": {

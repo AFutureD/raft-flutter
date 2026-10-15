@@ -1527,13 +1527,33 @@ class _WorkspaceViewState extends State<WorkspaceView>
               route: route,
               page: w,
               outer: mobileHost?.w,
+              direct:
+                  context
+                      .findAncestorStateOfType<_MobileWorkspaceRouteState>()
+                      ?.pageDirect ==
+                  true,
+              wide: wide,
+              rootTab: rootTab,
+              activityMasterDetail: activityFlag.masterDetail(
+                MediaQuery.sizeOf(context).width,
+              ),
               buildList: (owner) => ResourceView(
               key: ValueKey(
-                '${w.server?.id}:$route:${route == 'search' ? '$searchEntryRevision:$channelSearchSeed:$channelSearchAuthority' : 0}',
+                '${owner.server?.id}:$route:${route == 'search' ? '$searchEntryRevision:$channelSearchSeed:$channelSearchAuthority' : (wide ? 'wide' : 'narrow')}',
               ),
               controller: owner,
               section: route,
-              onTask: openTaskSurface,
+              // Phone tasks open on the outer workspace. That controller is
+              // the direct list's owner. Desktop has no outer host, so this
+              // page's controller is the owner.
+              onTask: (row, reload) {
+                final host = mobileHost;
+                if (host != null) {
+                  host.openTaskSurface(row, reload);
+                  return;
+                }
+                openTaskSurface(row, reload);
+              },
               mobileRoot: !wide && rootTab == 'activity',
               activitySidebarEnabled:
                   route == 'activity' && activityFlag.enabled,
@@ -1577,17 +1597,19 @@ class _WorkspaceViewState extends State<WorkspaceView>
                   ? channelSearchSeed
                   : null,
               onBack: dismissPanel,
+              // Search and activity are not direct. [owner] is this page's
+              // controller, and these openers use that same controller.
               onSearchEntity: wide ? openDesktopEntity : null,
               onSearchMessage: openSearchMessage,
               onSearchQueryCommitted: route == 'search'
                   ? (query) {
                       if (!mounted ||
                           navigationScope != mobileAuthority ||
-                          !w.canVisitSection('search')) {
+                          !owner.canVisitSection('search')) {
                         return;
                       }
-                      if (w.navigation.replaceSearchQuery(query)) {
-                        w.notifyListeners();
+                      if (owner.navigation.replaceSearchQuery(query)) {
+                        owner.notifyListeners();
                       }
                     }
                   : null,
@@ -1624,7 +1646,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                   await openDesktopConversation(channelId, messageId);
                 } else {
                   desktopNavigation.clear();
-                  await w.jumpToMessage(channelId, messageId);
+                  await owner.jumpToMessage(channelId, messageId);
                 }
               },
             ),
