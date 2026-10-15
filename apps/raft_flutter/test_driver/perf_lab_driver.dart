@@ -67,7 +67,9 @@ Future<void> main() async {
     if (gcActive && e.isolate?.id == isolateId) gcCount++;
   });
 
-  Future<void> ack(String token) => service.callServiceExtension('ext.raft.lab.ack', isolateId: isolateId, args: {'token': token});
+  bool? cpuProfiling;
+  Future<void> ack(String token) => service.callServiceExtension('ext.raft.lab.ack', isolateId: isolateId,
+    args: {'token': token, if (cpuProfiling != null) 'cpuProfiling': '$cpuProfiling'});
 
   Map<int, ({String comm, int ns})>? procAtStart;
   int? procPid;
@@ -138,10 +140,17 @@ Future<void> main() async {
         // Microtask streams would overflow the ring buffer within seconds.
         final recorded = trace ? ['Embedder', 'GC'] : <String>[];
         await service.setVMTimelineFlags(recorded);
+        if (Platform.environment['RAFT_LAB_DETECT'] == 'true') {
+          await service.setFlag('profiler', '$trace');
+          final observed = (await service.getFlagList()).flags!.firstWhere((flag) => flag.name == 'profiler').valueAsString;
+          if (observed != '$trace') throw StateError('CPU profiler state could not be verified.');
+          cpuProfiling = observed == 'true';
+        }
         File('${out.path}/lab-hello.json').writeAsStringSync(_encoder.convert({
           ...data,
           'timelineStreamsBefore': streams,
           'timelineStreams': recorded,
+          'cpuProfiling': cpuProfiling,
           'vmFlags': {
             for (final f in flags)
               if (const {'profile_period', 'max_profile_depth', 'profiler', 'timeline_recorder', 'timeline_streams'}.contains(f.name)) f.name: f.valueAsString,
@@ -153,7 +162,7 @@ Future<void> main() async {
         openWarmup = data['warmup'] == true;
         loadAtStart = _loadAvg();
         loadAtEnd = null;
-        await service.clearCpuSamples(isolateId);
+        if (cpuProfiling != false) await service.clearCpuSamples(isolateId);
         if (trace) await service.clearVMTimeline();
         gcCount = 0;
         gcActive = true;
@@ -182,7 +191,8 @@ Future<void> main() async {
         loadAtEnd = _loadAvg();
       case 'end':
         gcActive = false;
-        final attribution = await attribute(service, isolateId, data, root: root, trace: trace);
+        final attribution = await attribute(service, isolateId, data, root: root, trace: trace,
+          tracePath: Platform.environment['RAFT_LAB_DETECT'] == 'true' && trace ? '${out.path}/$label.trace.json' : null);
         attribution['gcCount'] = gcCount;
         final endRead = procAtEnd ?? await _readProcThreads(service);
         attribution['procThreadCpu'] = _procSceneCpu(
@@ -217,6 +227,12 @@ Future<void> main() async {
       case 'result':
         final record = jsonDecode(data['record'] as String) as Map<String, dynamic>;
         File('${out.path}/${record['theme']}-${record['scenario']}.json').writeAsStringSync(jsonEncode(record));
+        if (record['detection'] != null && record['frameworkBlocks'] is List) {
+          File('${out.path}/${record['theme']}-${record['scenario']}.framework-trace.json').writeAsStringSync(jsonEncode({
+            'traceEvents': [for (final raw in record['frameworkBlocks'] as List) {...raw as Map, 'pid': 1, 'tid': 1}],
+            'displayTimeUnit': 'ms', 'instrumented': true,
+          }));
+        }
         // Keep every round's Flutter frames. The legacy per-scenario file is
         // still written for summarize/compare, which keep their old meaning.
         File('${out.path}/frame-rounds.jsonl').writeAsStringSync('${jsonEncode({
@@ -262,14 +278,20 @@ List<Map<String, Object>> _top(Map<String, num> m, int n) => (m.entries.toList()
     .map((e) => {'name': e.key, 'value': e.value is double ? (e.value as double).round() : e.value})
     .toList();
 
-Future<Map<String, Object?>> attribute(VmService service, String isolateId, Map<String, dynamic> data, {required String root, required bool trace}) async {
+Future<Map<String, Object?>> attribute(VmService service, String isolateId, Map<String, dynamic> data, {required String root, required bool trace, String? tracePath}) async {
   final start = data['startUs'] as int, end = data['endUs'] as int;
   final uiWindows = [for (final w in data['uiWindows'] as List) [(w as List)[0] as int, w[1] as int]];
   final rasterWindows = [for (final w in data['rasterWindows'] as List) [(w as List)[0] as int, w[1] as int]];
   final result = <String, Object?>{'theme': data['theme'], 'scenario': data['scenario'], 'startUs': start, 'endUs': end};
+  if (!trace && Platform.environment['RAFT_LAB_DETECT'] == 'true') {
+    return {...result, 'cpuSamplesCollected': false, 'timelineCollected': false};
+  }
 
   // UI thread: Dart CPU samples of the main isolate.
   final cpu = await service.getCpuSamples(isolateId, start, end - start);
+  if (tracePath != null) {
+    File(tracePath.replaceFirst('.trace.json', '.cpu-samples.json')).writeAsStringSync(jsonEncode(cpu.toJson()));
+  }
   final functions = cpu.functions ?? const <ProfileFunction>[];
   final names = List<String?>.filled(functions.length, null);
   String name(int i) => names[i] ??= () {
@@ -380,6 +402,9 @@ Future<Map<String, Object?>> attribute(VmService service, String isolateId, Map<
   // Raster thread and GC: VM timeline (engine Embedder + GC streams).
   final timeline = await service.getVMTimeline(timeOriginMicros: start, timeExtentMicros: end - start);
   final events = [for (final e in timeline.traceEvents ?? const <TimelineEvent>[]) e.json!];
+  if (tracePath != null) {
+    File(tracePath).writeAsStringSync(jsonEncode({'traceEvents': events, 'displayTimeUnit': 'ms', 'instrumented': true}));
+  }
   final threads = <Object, String>{};
   for (final e in events) {
     if (e['ph'] == 'M' && e['name'] == 'thread_name') threads[e['tid']] = '${(e['args'] as Map?)?['name']}';

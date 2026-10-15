@@ -27,6 +27,235 @@ def record(scenario='steady-scroll', ui=(2, 3, 4), **extra):
             'viewWidth': 1000, 'viewHeight': 700, 'frames': frames(ui), **extra}
 
 
+class DetectionTest(unittest.TestCase):
+    def observed(self, scene='steady-scroll', ui=(2, 3, 4), **extra):
+        value = record(scene, ui=ui, profile=True, phasesCollected=False,
+                       detection={'arrival': {'arrived': True, 'visibleKeys': ['message-fixture']},
+                                  'framePolicy': 'benchmarkLive', 'testerPumpsDuringAction': 0,
+                                  'bindingAutoFramesSuppressed': True,
+                                  'cpuSamplingEnabled': False, 'phaseProfilingEnabled': False,
+                                  'rebuilds': {'instancesCollected': False, 'timelineRowBuilds': 0}})
+        value.update(extra)
+        for index, frame in enumerate(value['frames']):
+            frame['n'] = index + 1
+        return value
+
+    def test_actual_refresh_rate_and_separate_pipeline_budgets(self):
+        r = self.observed(ui=(9,), displayRefreshRate=120)
+        result = lab.detect_record(r)
+        self.assertEqual(result['status'], 'REVIEW')
+        self.assertEqual(result['findings'][0]['frameId'], 1)
+        self.assertAlmostEqual(result['checks']['frame-budget']['budgetUs'], 1e6 / 120)
+        r = self.observed(ui=(12,))
+        r['frames'][0]['r'] = 12000  # 12+12 is not a 24 ms pipeline budget.
+        self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'PASS')
+
+    def test_uit_does_not_replace_the_raw_ui_duration(self):
+        r = self.observed(ui=(2,))
+        r['frames'][0]['uit'] = 200000
+        self.assertFalse(lab.detect_record(r)['findings'])
+
+    def test_all_slow_frames_including_cold_first_are_retained(self):
+        r = self.observed('open-cold', ui=(60, 20, 20, 3))
+        r['detection']['actions'] = [{'name': 'open-alpha', 'startUs': 1_000_000, 'endUs': 2_000_000}]
+        out = lab.detect_record(r, evidence=['raw.json'])
+        self.assertEqual([f['frameId'] for f in out['findings']], [1, 2, 3])
+        self.assertEqual(out['findings'][0]['observed']['action'], 'open-alpha')
+        self.assertEqual(out['findings'][2]['observed']['priority'], 'high')
+        self.assertIsNone(out['findings'][0]['cause'])  # First-use delay is not shader proof.
+        self.assertEqual(out['findings'][0]['evidence'], ['raw.json'])
+
+    def test_missing_arrival_cannot_pass_even_with_fast_frames(self):
+        r = self.observed()
+        r['detection'].pop('arrival')
+        self.assertEqual(lab.detect_record(r)['status'], 'NOT_RUN')
+
+    def test_a_started_failure_is_an_issue(self):
+        self.assertEqual(lab.detect_record(self.observed(failure='Target never appeared'))['status'], 'ISSUE')
+
+    def test_visible_target_does_not_hide_rejected_live_operation(self):
+        r = self.observed('nav-activity-item')
+        r['detection']['operationFailures'] = ['agentRevalidation was not accepted']
+        self.assertEqual(lab.detect_record(r)['status'], 'ISSUE')
+
+    def test_invalid_refresh_rate_or_raw_frame_is_not_defaulted(self):
+        for hz in (None, 0, float('nan'), True):
+            with self.subTest(hz=hz):
+                r = self.observed(displayRefreshRate=hz)
+                self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'NOT_RUN')
+                self.assertEqual(lab.detect_record(r)['status'], 'NOT_RUN')
+        r = self.observed()
+        del r['frames'][0]['ui']
+        self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'NOT_RUN')
+
+    def test_detailed_trace_has_no_timing_pass(self):
+        r = self.observed(ui=(25,), phasesCollected=True)
+        out = lab.detect_record(r)
+        self.assertEqual(out['checks']['frame-budget']['status'], 'REVIEW')
+        self.assertFalse(out['findings'][0]['observed']['timingVerdictAllowed'])
+        self.assertEqual(out['findings'][0]['signal'], 'instrumented-frame')
+
+    def test_cpu_sampling_and_hidden_phase_profiling_disable_timing_verdict(self):
+        for signal in ('cpuSamplingEnabled', 'phaseProfilingEnabled'):
+            r = self.observed(ui=(25,))
+            r['detection'][signal] = True
+            out = lab.detect_record(r)
+            self.assertEqual(out['checks']['frame-budget']['status'], 'REVIEW')
+            self.assertFalse(out['findings'][0]['observed']['timingVerdictAllowed'])
+            del r['detection'][signal]
+            self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'REVIEW')
+
+    def idle_record(self, **extra):
+        r = self.observed('idle-final', ui=(2, 2, 2), kind='idle', idleSeconds=10, **extra)
+        r['frames'] = frames((2, 2, 2), period=600000)
+        return r
+
+    def test_healthy_natural_idle_without_frames_is_observed(self):
+        r = self.idle_record()
+        r['frames'] = []
+        out = lab.detect_record(r)
+        self.assertEqual(out['checks']['idle-work']['status'], 'PASS')
+        self.assertEqual(out['checks']['frame-budget']['frames'], 0)
+        self.assertEqual(out['checks']['unrelated-rebuild']['status'], 'NOT_RUN')
+
+    def test_fully_live_and_benchmark_are_not_idle_proof(self):
+        for policy in ('fullyLive', 'benchmark'):
+            r = self.idle_record()
+            r['detection']['framePolicy'] = policy
+            self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'NOT_RUN')
+        r['detection'].update(framePolicy='benchmarkLive', testerPumpsDuringAction=1)
+        self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'NOT_RUN')
+        r['detection'].update(testerPumpsDuringAction=0, bindingAutoFramesSuppressed=False)
+        self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'NOT_RUN')
+
+    def test_continuous_idle_frames_need_replay_until_fixture_cause_known(self):
+        r = self.idle_record()
+        out = lab.detect_record(r)
+        self.assertEqual(out['checks']['idle-work']['status'], 'REVIEW')
+        self.assertIsNone(out['findings'][0]['component'])
+        r['detection']['control'] = 'unexpected-ticker'
+        out = lab.detect_record(r)
+        self.assertEqual(out['status'], 'ISSUE')
+        self.assertEqual(out['findings'][0]['component'], '_DetectionTicker')
+
+    def test_allowed_animation_is_not_an_idle_paint_storm(self):
+        r = self.idle_record()
+        r['detection']['allowedActivity'] = ['fixture animation']
+        self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'PASS')
+        self.assertFalse(lab.detect_record(r)['findings'])
+
+    def test_aggregate_build_count_is_never_instance_proof(self):
+        r = self.idle_record()
+        r['frames'] = []
+        r['detection']['rebuilds']['timelineRowBuilds'] = 7
+        out = lab.detect_record(r)
+        self.assertEqual(out['status'], 'REVIEW')
+        self.assertEqual(out['checks']['unrelated-rebuild']['status'], 'NOT_RUN')
+        self.assertEqual(out['findings'][0]['signal'], 'idle-row-builds')
+
+    def test_reused_debug_instance_counter_requires_specific_scope_evidence(self):
+        r = self.observed()
+        r['detection']['rebuilds'] = {'instancesCollected': True, 'instances': [
+            {'component': 'message-unchanged@12', 'unexpected': True, 'rebuilds': 3}]}
+        out = lab.detect_record(r)
+        self.assertEqual(out['status'], 'ISSUE')
+        self.assertEqual(out['findings'][0]['occurrences'], 3)
+
+    def test_report_preserves_missing_scenes_and_writes_full_findings(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-open-cold.json').write_text(json.dumps(self.observed('open-cold', ui=(30,))))
+            out = lab.detection_report(root, ['open-cold', 'keyboard'], ['brutal-light'])
+            self.assertEqual(out['scenarios'][0]['status'], 'REVIEW')
+            self.assertEqual(out['scenarios'][1]['status'], 'NOT_RUN')
+            self.assertFalse(out['comparison'])
+            self.assertIn('video-play-pause', (root / 'detection.md').read_text())
+            self.assertEqual(json.loads((root / 'detection.json').read_text())['scenarios'][0]['findings'][0]['frameId'], 1)
+
+    def test_detection_runs_one_launch_without_quiet_wait_comparison_or_qualification(self):
+        with tempfile.TemporaryDirectory() as d:
+            args = argparse.Namespace(out=Path(d) / 'new', scenarios='keyboard', themes='brutal-light',
+                seconds=8, semantics='platform', details=False, headless=True, records=None)
+            with patch.object(lab, 'build', return_value=0) as build, patch.object(lab, 'run', return_value=0) as run, \
+                 patch.object(lab, 'compare_cmd') as compare, patch.object(lab, 'qualify_cmd') as qualify, \
+                 patch.object(lab.platform, 'system', return_value='Linux'), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.detect_cmd(args), 0)
+            self.assertEqual(build.call_count, 1)
+            self.assertEqual(run.call_count, 1)
+            invocation = run.call_args.args[0]
+            self.assertEqual(invocation.wait_quiet, 0)
+            self.assertIsNone(invocation.reference)
+            self.assertTrue(invocation.no_trace)
+            self.assertTrue(invocation.detection)
+            self.assertEqual(lab.workload_defines(lab.workload_config(invocation))['RAFT_LAB_IDLE_SECONDS'], '10')
+            compare.assert_not_called()
+            qualify.assert_not_called()
+
+    def test_unreadable_raw_record_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-keyboard.json').write_text('{unfinished')
+            out = lab.detection_report(root, ['keyboard'], ['brutal-light'])
+            self.assertEqual(out['scenarios'][0]['status'], 'NOT_RUN')
+
+    def test_valid_json_with_wrong_record_shape_is_not_a_pass(self):
+        for record in ([], {'detection': []}):
+            with self.subTest(record=record), tempfile.TemporaryDirectory() as d:
+                root = Path(d)
+                (root / 'brutal-light-keyboard.json').write_text(json.dumps(record))
+                out = lab.detection_report(root, ['keyboard'], ['brutal-light'])
+                self.assertEqual(out['scenarios'][0]['status'], 'NOT_RUN')
+
+    def test_suite_failure_and_sampler_error_survive_fast_scene_results(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-open-cold.json').write_text(json.dumps(self.observed('open-cold')))
+            (root / 'lab-done.json').write_text(json.dumps({'failures': ['Initial target did not appear']}))
+            (root / 'lab-sampler-errors.txt').write_text('start: failed\n')
+            out = lab.detection_report(root, ['open-cold'], ['brutal-light'])
+            issue = next(row for row in out['scenarios'] if row['scene'] == 'collection')
+            self.assertEqual(issue['status'], 'ISSUE')
+            self.assertIn('Initial target', issue['reason'])
+            self.assertIn('Sampler failed', issue['reason'])
+
+    def test_runtime_cleanup_only_unmounts_the_owned_session(self):
+        with tempfile.TemporaryDirectory(prefix='raft-detect-', dir='/tmp') as d:
+            root = Path(d)
+            (root / 'gvfs').mkdir()
+            mountinfo = f'1 0 0:1 / {root}/gvfs rw - fuse.gvfsd-fuse gvfsd-fuse rw\n'
+            mountinfo += '2 0 0:2 / /run/user/1000/gvfs rw - fuse.gvfsd-fuse gvfsd-fuse rw\n'
+            with patch.object(lab.Path, 'read_text', return_value=mountinfo), \
+                 patch.object(lab.subprocess, 'run', return_value=argparse.Namespace(returncode=0, stderr='')) as unmount:
+                result = lab.cleanup_private_runtime(root)
+            self.assertTrue(result['removed'])
+            self.assertEqual(unmount.call_args.args[0], ['fusermount3', '-u', '-z', '--', str(root / 'gvfs')])
+            self.assertEqual(unmount.call_count, 1)
+
+    def test_runtime_cleanup_rejects_unowned_paths_and_symlinks(self):
+        with self.assertRaises(ValueError):
+            lab.cleanup_private_runtime('/run/user/1000')
+        with tempfile.TemporaryDirectory(prefix='raft-detect-', dir='/tmp') as d:
+            link = Path(d + '-link')
+            try:
+                link.symlink_to(d)
+                with self.assertRaises(ValueError):
+                    lab.cleanup_private_runtime(link)
+                self.assertTrue(Path(d).is_dir())
+            finally:
+                link.unlink()
+
+    def test_engine_errors_are_reported_even_when_frame_checks_pass(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-open-cold.json').write_text(json.dumps(self.observed('open-cold')))
+            (root / 'runner.log').write_text('[ERROR:flutter/text.cc(200)] atlas failure\n' * 2)
+            out = lab.detection_report(root, ['open-cold'], ['brutal-light'])
+            row = next(row for row in out['scenarios'] if row['scene'] == 'collection-renderer')
+            self.assertEqual(row['status'], 'ISSUE')
+            self.assertEqual(row['findings'][0]['occurrences'], 2)
+            self.assertIsNone(row['findings'][0]['cause'])
+
+
 class SummaryTest(unittest.TestCase):
     def test_budgets_and_gate(self):
         row = lab.summarize_record(record(ui=[2, 9, 20]))

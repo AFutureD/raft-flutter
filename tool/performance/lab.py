@@ -6,6 +6,7 @@ compare two runs.
   python3 tool/performance/lab.py run --out .local/performance/lab/<name>
   python3 tool/performance/lab.py summarize <run-dir>
   python3 tool/performance/lab.py compare <base-dir> <candidate-dir>
+  python3 tool/performance/lab.py detect --out .local/performance/<new-name> --scenarios all
 
 See docs/performance-lab.md.
 """
@@ -22,6 +23,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,6 +37,229 @@ BUDGET_60 = 1e6 / 60    # 16667 us
 SCENARIO_ORDER = ['steady-scroll', 'fling', 'image-scroll', 'older-drag', 'scrollbar-drag', 'scrollbar-sweep', 'arrival-scrolled-up', 'resize', 'keyboard', 'idle-final',
                   'open-cold', 'open-warm', 'channel-switch', 'thread-open', 'section-drag', 'section-back-drag', 'section-cycle']
 ROW_KINDS = ['plain', 'markdown', 'code', 'image', 'attachments', 'reactions', 'thread-summary', 'task']
+DETECTION_SCENARIOS = ['open-cold', 'open-warm', 'steady-scroll', 'image-scroll', 'older-drag',
+                       'channel-switch', 'thread-open', 'section-cycle', 'nav-activity-item',
+                       'keyboard', 'idle-final']
+DETECTION_CONTROLS = ['control-idle', 'control-ticker', 'control-animation']
+DETECTION_GAPS = {
+    'server-switch': 'Server switching has no arrival-verified lab scene yet.',
+    'send-recovery': 'Use the functional send acceptance entry; profile send/recovery is not implemented.',
+    'image-preview': 'Image scrolling is measured; preview open/return is not implemented.',
+    'video-play-pause': 'No arrival-verified playback/pause scene in this slice.',
+    'resource-release': 'Repeated release, post-GC object differences and retaining paths are not collected.',
+}
+
+
+def detect_record(record, *, evidence=None):
+    """Inspect one launch's raw observations. Never compare revisions or use uit.
+
+    A slow frame is a review item until there is causal evidence. Missing
+    instance/paint geometry/GC evidence is explicit, rather than a zero count.
+    """
+    evidence = evidence or []
+    scene = record.get('scenario', 'unknown')
+    diagnostic = record.get('detection') or {}
+    findings, checks = [], {}
+
+    def check(name, status, reason, **observed):
+        checks[name] = {'status': status, 'reason': reason, **observed}
+
+    def finding(signal, status, observed, *, frame=None, component=None, cause=None, occurrences=1):
+        findings.append({'scene': scene, 'theme': record.get('theme'), 'action': observed.get('action', scene),
+                         'status': status, 'signal': signal, 'frameId': frame, 'observed': observed,
+                         'component': component, 'cause': cause, 'occurrences': occurrences, 'evidence': evidence})
+
+    arrival = diagnostic.get('arrival') or {}
+    operation_failure = record.get('failure') or diagnostic.get('operationFailures')
+    if operation_failure:
+        check('arrival', 'ISSUE', 'The recorded operation failed; its timings cannot establish a functional pass.')
+        finding('operation-failure', 'ISSUE', {'failure': operation_failure})
+    elif arrival.get('arrived') is not True:
+        check('arrival', 'NOT_RUN', 'No positive target/operation arrival proof.', proof=arrival)
+    else:
+        check('arrival', 'PASS', 'The scene recorded its visible target and required operation.', proof=arrival)
+
+    hz = record.get('displayRefreshRate')
+    valid_hz = isinstance(hz, (int, float)) and not isinstance(hz, bool) and math.isfinite(hz) and 1 <= hz <= 1000
+    raw = record.get('frames')
+    valid_frames = isinstance(raw, list) and all(
+        isinstance(f, dict) and all(isinstance(f.get(k), (int, float)) and not isinstance(f[k], bool)
+                                   and math.isfinite(f[k]) and f[k] >= 0 for k in ('b', 'ui', 'r')) for f in raw)
+    idle_scene = record.get('kind') == 'idle'
+    timing_allowed = (record.get('profile') is True and record.get('phasesCollected') is False
+                      and diagnostic.get('cpuSamplingEnabled') is False
+                      and diagnostic.get('phaseProfilingEnabled') is False)
+    budget = 1e6 / hz if valid_hz else None
+    actions = diagnostic.get('actions') or []
+
+    def action_for(frame):
+        at = frame.get('b', -1)
+        for item in actions:
+            if item.get('startUs', math.inf) <= at <= item.get('endUs', -1):
+                return item.get('name', scene)
+        return scene
+
+    if not valid_hz or not valid_frames or not raw and not idle_scene:
+        check('frame-budget', 'NOT_RUN', 'Actual refresh rate and complete raw UI/raster frame samples are required.')
+    elif not timing_allowed:
+        check('frame-budget', 'REVIEW', 'Requires profile mode with CPU sampling and phase tracing verified off; other durations are diagnostic only.',
+              budgetUs=budget, frames=len(raw))
+    else:
+        over = [f for f in raw if f['ui'] > budget or f['r'] > budget]
+        check('frame-budget', 'REVIEW' if over else 'PASS',
+              'Raw UI and raster durations checked separately against the actual refresh rate.',
+              budgetUs=budget, frames=len(raw), overBudget=len(over))
+    if valid_hz and valid_frames:
+        streak, run_frames = 0, []
+        for f in raw:
+            over = f['ui'] > budget or f['r'] > budget
+            streak = streak + 1 if over else 0
+            if over:
+                run_frames.append((f, streak))
+        # Keep every over-budget frame, including the first cold frame.
+        for f, consecutive in run_frames:
+            observed = {'uiMs': ms(f['ui']), 'rasterMs': ms(f['r']), 'budgetMs': ms(budget),
+                        'startUs': f['b'], 'action': action_for(f),
+                        'priority': 'high' if max(f['ui'], f['r']) > 2 * budget or consecutive >= 3 else 'normal',
+                        'timingVerdictAllowed': timing_allowed}
+            finding('slow-frame' if timing_allowed else 'instrumented-frame', 'REVIEW', observed, frame=f.get('n'))
+
+    counters = diagnostic.get('rebuilds') or {}
+    if counters.get('instancesCollected') is True:
+        unexpected = [c for c in counters.get('instances', []) if c.get('unexpected') and c.get('rebuilds', 0) > 0]
+        check('unrelated-rebuild', 'ISSUE' if unexpected else 'PASS', 'Existing debug rebuild callback, separate from profile timing.',
+              instances=counters.get('instances', []))
+        for item in unexpected:
+            finding('unrelated-rebuild', 'ISSUE', item, component=item.get('component'),
+                    cause='The same instance rebuilt during an operation that declared it unchanged.', occurrences=item['rebuilds'])
+    else:
+        check('unrelated-rebuild', 'NOT_RUN', counters.get('reason', 'No per-instance rebuild evidence.'),
+              timelineRowBuilds=counters.get('timelineRowBuilds'))
+        if idle_scene and (counters.get('timelineRowBuilds') or 0) > 0:
+            finding('idle-row-builds', 'REVIEW', {'count': counters['timelineRowBuilds']},
+                    cause='Existing aggregate row-build counter changed; instance and trigger are unconfirmed.')
+
+    natural_idle = (idle_scene and diagnostic.get('framePolicy') == 'benchmarkLive'
+                    and diagnostic.get('bindingAutoFramesSuppressed') is True
+                    and diagnostic.get('testerPumpsDuringAction') == 0
+                    and record.get('idleSeconds', 0) >= 10)
+    if not idle_scene:
+        check('idle-work', 'NOT_RUN', 'This scene includes active input or transitions.')
+    elif not natural_idle or not valid_frames:
+        check('idle-work', 'NOT_RUN', 'Requires a natural 10-second window without tester requests or live-binding automatic frames.')
+    else:
+        allowed = diagnostic.get('allowedActivity') or []
+        span = (raw[-1]['b'] - raw[0]['b']) if len(raw) > 1 else 0
+        repeated = len(raw) >= 3 and span >= 1e6
+        if repeated and not allowed:
+            control = diagnostic.get('control') == 'unexpected-ticker'
+            status = 'ISSUE' if control else 'REVIEW'
+            check('idle-work', status, 'Application-requested frames continued for at least one second.', frames=len(raw), spanUs=span)
+            finding('idle-frames', status, {'frames': len(raw), 'spanUs': span},
+                    component='_DetectionTicker' if control else None,
+                    cause='Deliberate ticker control fixture.' if control else 'Paint objects and frame requester need a detail replay.',
+                    occurrences=len(raw))
+        else:
+            check('idle-work', 'PASS', 'Observed natural idle window; any declared animation is excluded.',
+                  frames=len(raw), allowedActivity=allowed)
+
+    check('paint-area', 'NOT_RUN', 'No per-object paint bounds; frame presence alone does not prove a large repaint.')
+    check('layout-jitter', 'NOT_RUN', 'No stable-target per-frame rectangle series in this slice.')
+    check('shader-decode-cause', 'NOT_RUN', 'A cold/warm difference cannot identify shader or decode work; inspect a detail trace.')
+    check('memory-release', 'NOT_RUN', 'No three comparable post-GC checkpoints and retaining paths; RSS is recorded only.')
+    if any(c['status'] == 'ISSUE' for c in checks.values()):
+        status = 'ISSUE'
+    elif checks['arrival']['status'] == 'NOT_RUN' or checks['frame-budget']['status'] == 'NOT_RUN':
+        status = 'NOT_RUN'
+    elif any(c['status'] == 'REVIEW' for c in checks.values()) or any(f['status'] == 'REVIEW' for f in findings):
+        status = 'REVIEW'
+    else:
+        status = 'PASS'
+    return {'scene': scene, 'theme': record.get('theme'), 'status': status, 'control': diagnostic.get('control'),
+            'refreshRate': hz, 'profile': record.get('profile'), 'checks': checks, 'findings': findings,
+            'actions': actions, 'evidence': evidence}
+
+
+def detection_report(run_dir, expected, themes):
+    """Write a coverage report even when launch/collection failed."""
+    run_dir = Path(run_dir)
+    results = []
+    for theme in themes:
+        for scene in expected:
+            path = run_dir / f'{theme}-{scene}.json'
+            if not path.is_file():
+                results.append({'theme': theme, 'scene': scene, 'status': 'NOT_RUN', 'findings': [],
+                                'reason': DETECTION_GAPS.get(scene, 'No completed scene record; check runner.log and lab-done.json.')})
+                continue
+            try:
+                record = json.loads(path.read_text())
+                if not isinstance(record, dict) or not isinstance(record.get('detection', {}), dict):
+                    raise ValueError('Expected a scene record object with detection observations.')
+            except (ValueError, OSError) as error:
+                results.append({'theme': theme, 'scene': scene, 'status': 'NOT_RUN', 'findings': [],
+                                'reason': f'Raw record could not be read: {error}'})
+                continue
+            links = [path.name]
+            links += [p.name for p in sorted(run_dir.glob(f'{theme}-{scene}.*.json'))]
+            results.append(detect_record(record, evidence=links))
+    covered = {row['scene'] for row in results}
+    for scene, reason in DETECTION_GAPS.items():
+        if scene not in covered:
+            results.append({'scene': scene, 'status': 'NOT_RUN', 'reason': reason, 'findings': []})
+    metadata = {}
+    for name in ('env.json', 'lab-hello.json', 'lab-done.json', 'driver-result.json', 'run-manifest.json'):
+        path = run_dir / name
+        if path.is_file():
+            try:
+                value = json.loads(path.read_text())
+                if not isinstance(value, dict):
+                    raise ValueError('Metadata must be an object.')
+                metadata[name.removesuffix('.json')] = value
+            except (ValueError, OSError) as error:
+                results.append({'scene': 'collection', 'status': 'NOT_RUN', 'findings': [],
+                                'reason': f'{name} could not be read: {error}'})
+    failures = list(metadata.get('lab-done', {}).get('failures', []))
+    driver = metadata.get('driver-result', {})
+    if driver and driver.get('result') != 'true':
+        failures.append('Flutter driver reported a failed test; inspect driver-result.json.')
+    if metadata.get('env', {}).get('privateRuntimeRemoved') is False:
+        failures.append('Private display runtime cleanup failed; inspect env.json.')
+    sampler_errors = run_dir / 'lab-sampler-errors.txt'
+    if sampler_errors.is_file() and sampler_errors.read_text().strip():
+        failures.append('Sampler failed; inspect lab-sampler-errors.txt.')
+    if failures:
+        results.append({'scene': 'collection', 'status': 'ISSUE', 'findings': [],
+                        'reason': '; '.join(str(f) for f in failures)})
+    runner = run_dir / 'runner.log'
+    renderer_errors = re.findall(r'^\[ERROR:[^\n]+', runner.read_text(errors='replace'), re.MULTILINE) if runner.is_file() else []
+    if renderer_errors:
+        results.append({'scene': 'collection-renderer', 'status': 'ISSUE',
+            'reason': 'Engine error log; the affected frame and visible impact require replay.', 'findings': [{
+                'scene': 'collection-renderer', 'theme': None, 'action': 'whole launch',
+                'status': 'ISSUE', 'signal': 'engine-error', 'frameId': None,
+                'observed': {'examples': list(dict.fromkeys(renderer_errors))[:5]},
+                'component': 'Flutter engine', 'cause': None, 'occurrences': len(renderer_errors), 'evidence': ['runner.log'],
+            }], 'evidence': ['runner.log']})
+    summary = {'schema': 1, 'mode': 'problem-detection', 'comparison': False, 'scenarios': results,
+               'counts': {s: sum(row['status'] == s for row in results) for s in ('PASS', 'ISSUE', 'REVIEW', 'NOT_RUN')}, **metadata}
+    (run_dir / 'detection.json').write_text(json.dumps(summary, indent=2) + '\n')
+    lines = ['# Profile problem detection', '', 'Statuses cover the recorded checks only. Missing signals remain NOT_RUN.', '',
+             '| Scene | Theme | Status | Findings | Uncollected signals |', '| --- | --- | --- | --- | --- |']
+    for row in results:
+        missing = ', '.join(k for k, v in row.get('checks', {}).items() if v['status'] == 'NOT_RUN') or row.get('reason', '')
+        missing = missing.replace('\n', ' ').replace('|', '\\|')
+        lines.append(f"| {row['scene']} | {row.get('theme', '-')} | {row['status']} | {len(row['findings'])} | {missing} |")
+    for row in results:
+        if not row['findings']:
+            continue
+        lines += ['', f"## {row.get('theme', '')} / {row['scene']} — {row['status']}", '']
+        for item in row['findings'][:12]:
+            lines.append(f"- {item['status']} {item['signal']}, frame {item['frameId']}: {json.dumps(item['observed'], ensure_ascii=False)}; component={item['component']}; cause={item['cause']}.")
+        if len(row['findings']) > 12:
+            lines.append(f"- All {len(row['findings'])} findings are retained in detection.json.")
+        lines += ['', 'Evidence: ' + ', '.join(f'[{p}]({p})' for p in row.get('evidence', []))]
+    (run_dir / 'detection.md').write_text('\n'.join(lines) + '\n')
+    return summary
 
 
 # ---------------------------------------------------------------- statistics
@@ -861,13 +1086,18 @@ def workload_config(args):
             'rounds': rounds if rounds is not None else int(os.environ.get('RAFT_LAB_ROUNDS', '1'))}
     if config['seconds'] <= 0 or config['rounds'] <= 0:
         sys.exit('Duration and measured round count must be positive.')
+    if getattr(args, 'detection', False):
+        config.update(problemDetection=True, idleSeconds=10)
     return config
 
 
 def workload_defines(config):
-    return {'RAFT_LAB_THEMES': config['themes'], 'RAFT_LAB_SCENARIOS': config['scenarios'],
+    defines = {'RAFT_LAB_THEMES': config['themes'], 'RAFT_LAB_SCENARIOS': config['scenarios'],
             'RAFT_LAB_SECONDS': str(config['seconds']), 'RAFT_LAB_SEMANTICS': config['semantics'],
             'RAFT_LAB_PHASES': str(config['phases']).lower(), 'RAFT_LAB_ROUNDS': str(config['rounds'])}
+    if config.get('problemDetection'):
+        defines.update(RAFT_LAB_DETECT='true', RAFT_LAB_IDLE_SECONDS=str(config['idleSeconds']))
+    return defines
 
 
 def flutter_toolchain():
@@ -993,6 +1223,28 @@ def host_cpu_delta(before, after):
             'processes': sorted(rows, key=lambda row: -row['cpuPercent'])[:20]}
 
 
+def cleanup_private_runtime(directory):
+    """Unmount only this owned session's FUSE helpers before deleting it."""
+    root = Path(directory)
+    if root.parent != Path('/tmp') or not root.name.startswith('raft-detect-') or root.is_symlink():
+        raise ValueError('Refusing cleanup outside the owned private runtime.')
+    mounts = [Path(line.split()[4].replace('\\040', ' '))
+              for line in Path('/proc/self/mountinfo').read_text().splitlines()]
+    actions = []
+    for mount in sorted((m for m in mounts if m.is_relative_to(root)), key=lambda p: -len(p.parts)):
+        try:
+            result = subprocess.run(['fusermount3', '-u', '-z', '--', str(mount)], capture_output=True, text=True)
+            actions.append({'mount': str(mount), 'exitCode': result.returncode, 'stderr': result.stderr.strip()})
+        except OSError as failure:
+            actions.append({'mount': str(mount), 'exitCode': None, 'stderr': str(failure)})
+    error = None
+    try:
+        shutil.rmtree(root)
+    except OSError as failure:
+        error = str(failure)
+    return {'path': str(root), 'unmounts': actions, 'removed': not root.exists(), 'error': error}
+
+
 def concurrent_run(device):
     requested = os.environ.get('RAFT_LAB_ALLOW_CONCURRENT') == '1' or bool(os.environ.get('RAFT_LAB_SYNC_DIR'))
     if requested and (platform.system() != 'Linux' or device != 'linux' or not os.environ.get('RAFT_LAB_SYNC_DIR')
@@ -1018,12 +1270,16 @@ def run_manifest(args, config):
     safe_keys = ('DISPLAY', 'GDK_BACKEND', 'VK_ICD_FILENAMES', '__EGL_VENDOR_LIBRARY_FILENAMES', 'LIBGL_ALWAYS_SOFTWARE',
                  'RAFT_LAB_SYNC_DIR', 'RAFT_LAB_PAIR', 'RAFT_LAB_ORDER', 'RAFT_FLUTTER_BIN',
                  'XDG_RUNTIME_DIR', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME')
-    return {'schema': 1, 'source': receipt['source'], 'observedSource': source, 'artifact': artifact, 'buildReceipt': receipt, 'config': config, 'toolchain': toolchain,
+    manifest = {'schema': 1, 'source': receipt['source'], 'observedSource': source, 'artifact': artifact, 'buildReceipt': receipt, 'config': config, 'toolchain': toolchain,
             'driverSha256': _sha(APP / DRIVER), 'fixtureSha256': _sha(APP / TARGET),
             'invocation': sys.argv, 'environment': {key: os.environ[key] for key in safe_keys if key in os.environ},
-            'pair': os.environ['RAFT_LAB_PAIR'], 'order': os.environ['RAFT_LAB_ORDER'],
             'bootId': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
             'cpus': sorted(os.sched_getaffinity(0)), 'topology': cpu_topology()}
+    if getattr(args, 'detection', False):
+        manifest.update(mode='problem-detection', naturalHostLoad=True)
+    else:
+        manifest.update(pair=os.environ['RAFT_LAB_PAIR'], order=os.environ['RAFT_LAB_ORDER'])
+    return manifest
 
 
 def other_instance():
@@ -1034,6 +1290,10 @@ def other_instance():
 
 
 def wait_for_display(args):
+    if getattr(args, 'detection', False):
+        # The caller already verified its isolated build receipt and uses a
+        # private HOME/DBus session. It never waits for unrelated apps to exit.
+        return
     if concurrent_run(args.device or 'linux'):
         return
     waited = 0
@@ -1079,13 +1339,14 @@ def run(args):
         protected_before = protected_state(device) if android else None
     except SafetyError as error:
         sys.exit(f'STOP: {error}')
-    if device == 'linux' and not os.environ.get('DISPLAY'):
+    detection = getattr(args, 'detection', False)
+    if device == 'linux' and not os.environ.get('DISPLAY') and not getattr(args, 'headless', False):
         sys.exit('DISPLAY must name the real X11 display (see docs/performance-lab.md)')
-    concurrent = concurrent_run(device)
+    concurrent = False if detection else concurrent_run(device)
     config = workload_config(args)
-    manifest = run_manifest(args, config) if concurrent else None
+    manifest = run_manifest(args, config) if concurrent or detection else None
     wait_for_display(args)
-    if not concurrent:
+    if not concurrent and not detection:
         wait_for_quiet_host(args)
     out.mkdir(parents=True)
     if android:
@@ -1114,22 +1375,75 @@ def run(args):
     (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
     defines = workload_defines(config)
     child = dict(os.environ, RAFT_PERF_OUT=str(out), RAFT_LAB_ROOT=str(ROOT), RAFT_LAB_DEVICE=device, **defines)
-    if device == 'linux':
-        child['GDK_BACKEND'] = os.environ.get('RAFT_LAB_GDK_BACKEND', 'x11')  # 'wayland' with WAYLAND_DISPLAY measures native Wayland
+    runtime_directory = None
+    if detection:
+        for key in list(child):
+            if key.startswith('RAFT_LAB_') and key not in {*defines, 'RAFT_LAB_ROOT', 'RAFT_LAB_DEVICE'}:
+                child.pop(key)
+        # Keep toolchain/package locations while giving the app a fresh profile.
+        version = json.loads((ROOT / '.fvmrc').read_text())['flutter']
+        candidates = [Path(os.environ['RAFT_FLUTTER_BIN'])] if os.environ.get('RAFT_FLUTTER_BIN') else [
+            ROOT / '.fvm/flutter_sdk/bin/flutter', Path.home() / 'flutter-sdks/versions' / version / 'bin/flutter',
+            Path.home() / 'fvm/versions' / version / 'bin/flutter']
+        child['RAFT_FLUTTER_BIN'] = str(next(p for p in candidates if p.is_file()).resolve())
+        child['PUB_CACHE'] = os.environ.get('PUB_CACHE', str(Path.home() / '.pub-cache'))
+        child['DASH__SUPPRESS_ANALYTICS'] = 'true'
+        for key, name in [('HOME', 'home'), ('XDG_DATA_HOME', 'data'), ('XDG_CONFIG_HOME', 'config'),
+                          ('XDG_CACHE_HOME', 'cache'), ('XDG_STATE_HOME', 'state'), ('XDG_RUNTIME_DIR', 'runtime')]:
+            directory = out / 'profile' / name
+            directory.mkdir(parents=True, mode=0o700)
+            child[key] = str(directory)
+        manifest['isolatedProfile'] = str(out / 'profile')
+        manifest['headlessRequested'] = bool(getattr(args, 'headless', False))
+        # A private compositor has no window, input device or connection to
+        # the user's desktop. A short path is required by AF_UNIX sockets.
+        runtime_directory = tempfile.mkdtemp(prefix='raft-detect-', dir='/tmp')
+        child.update(XDG_RUNTIME_DIR=runtime_directory, WAYLAND_DISPLAY='raft-detect', GDK_BACKEND='wayland')
+        for key in ('DISPLAY', 'XAUTHORITY', 'WAYLAND_SOCKET'):
+            child.pop(key, None)
+        mesa_vendor = Path('/usr/share/glvnd/egl_vendor.d/50_mesa.json')
+        if mesa_vendor.is_file():
+            child.setdefault('__EGL_VENDOR_LIBRARY_FILENAMES', str(mesa_vendor))
+        manifest['displaySession'] = {'backend': 'Weston headless GL', 'runtimeDirectory': runtime_directory,
+            'virtualRefreshRateHz': 60, 'physicalDisplay': False,
+            'eglVendorSelection': child.get('__EGL_VENDOR_LIBRARY_FILENAMES', 'system default')}
+        suffix = manifest['buildReceipt']['identitySuffix']
+        if f'app.raft.raft_flutter{suffix}'.encode() not in Path(manifest['artifact']['path'], 'raft_flutter').read_bytes():
+            sys.exit('Isolated native application identity is absent from the verified executable.')
+    if device == 'linux' and not detection:
+        child['GDK_BACKEND'] = os.environ.get('RAFT_LAB_GDK_BACKEND', 'x11')
     argv += [f'--dart-define={k}={v}' for k, v in defines.items()]
     if manifest:
         manifest['driveArgv'] = argv
         (out / 'run-manifest.json').write_text(json.dumps(manifest, indent=1) + '\n')
-    cpu_before = host_cpu_snapshot() if concurrent else None
+    if detection:
+        # Initialize only this new profile's CLI settings. The first-run
+        # analytics notice would otherwise corrupt the pinned-SDK JSON check.
+        with (out / 'sdk-init.log').open('w') as log:
+            initialized = subprocess.run([child['RAFT_FLUTTER_BIN'], '--disable-analytics'],
+                cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT).returncode
+        if initialized:
+            env.update(exitCode=initialized, preparationError='Isolated Flutter settings initialization failed; see sdk-init.log.')
+            env['runtimeCleanup'] = cleanup_private_runtime(runtime_directory)
+            env['privateRuntimeRemoved'] = env['runtimeCleanup']['removed']
+            (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
+            return 1
+    cpu_before = host_cpu_snapshot() if concurrent or detection else None
     print('Running:', ' '.join(argv), flush=True)
-    for attempt in range(1, 4):
+    for attempt in range(1, 2 if detection else 4):
         wait_for_display(args)
         with (out / 'runner.log').open('w') as log:
-            status = subprocess.run(argv, cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT).returncode
+            launch = ['dbus-run-session', '--', 'weston', '--backend=headless', '--renderer=gl',
+                '--width=1280', '--height=900', '--refresh-rate=60000', '--socket=raft-detect',
+                '--no-config', '--idle-time=0', f'--log={out / "compositor.log"}', '--', *argv] if detection else argv
+            if manifest:
+                manifest['launchArgv'] = launch
+                (out / 'run-manifest.json').write_text(json.dumps(manifest, indent=1) + '\n')
+            status = subprocess.run(launch, cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT).returncode
         text = (out / 'runner.log').read_text(errors='replace')
         # The desktop app is single-instance: a launch racing another
         # worktree's run exits at once. Keep the failed log and retry.
-        if concurrent or 'Application failed to start' not in text or (out / 'lab-hello.json').exists():
+        if detection or concurrent or 'Application failed to start' not in text or (out / 'lab-hello.json').exists():
             break
         (out / 'runner.log').rename(out / f'runner-failed-start-{attempt}.log')
         time.sleep(20)
@@ -1144,23 +1458,93 @@ def run(args):
             env['protectedAppError'] = str(error)
             print(f'STOP: {error} No reinstall/restore attempt will be made.', flush=True)
     env['renderer'] = f'Impeller ({impeller.group(1)})' if impeller else 'unknown (derived from raster events in summarize)'
+    if detection:
+        compositor_log = out / 'compositor.log'
+        if compositor_log.exists():
+            renderer = re.search(r'GL renderer: (.+)', compositor_log.read_text())
+            env['compositorRenderer'] = renderer.group(1) if renderer else 'unknown'
+        env['runtimeCleanup'] = cleanup_private_runtime(runtime_directory)
+        env['displaySession'] = manifest['displaySession']
+        env['privateRuntimeRemoved'] = env['runtimeCleanup']['removed']
+        if not env['privateRuntimeRemoved']:
+            status = 1
+        # Weston terminates with its launched program but may not propagate
+        # that program's exit status. Require the driver's explicit receipt.
+        try:
+            driver = json.loads((out / 'driver-result.json').read_text())
+            if driver.get('result') != 'true':
+                status = 1
+        except (OSError, ValueError, AttributeError):
+            status = 1
     env['exitCode'] = status
     env['endedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     env['loadavgEnd'] = os.getloadavg()
     env['maxLoad'] = max_load(args)
     env['noisyHost'] = max(env['loadavg'][0], env['loadavgEnd'][0]) > env['maxLoad']
-    if concurrent:
+    if concurrent or detection:
         env['hostActivity'] = host_cpu_delta(cpu_before, host_cpu_snapshot())
         if not same_source(manifest['source'], source_snapshot()) or manifest['artifact'] != artifact_snapshot(Path(manifest['artifact']['path'])):
             status = env['exitCode'] = 1
             env['sourceOrArtifactChanged'] = True
     (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
+    if detection:
+        return 0 if status == 0 else 1
     summary = summarize(out)
     print((out / 'summary.md').read_text())
     if args.reference:
         comparison_status = compare_cmd(argparse.Namespace(base=args.reference, candidate=out, out=None, no_fail=False))
         return 1 if status else comparison_status
     return 0 if status == 0 else 1
+
+
+def detect_cmd(args):
+    """One isolated launch under natural load, or inspect existing observations."""
+    out = args.out.resolve()
+    if out.exists():
+        sys.exit('Detection output exists; use a new directory to preserve earlier findings.')
+    expected = DETECTION_SCENARIOS if args.scenarios == 'all' else args.scenarios.split(',')
+    known = set(DETECTION_SCENARIOS + DETECTION_CONTROLS) | DETECTION_GAPS.keys()
+    if not expected or any(s not in known for s in expected):
+        sys.exit('Unknown scene. Choose all or: ' + ','.join(sorted(known)))
+    themes = args.themes.split(',')
+    if any(t not in {'brutal-light', 'elegant-light', 'elegant-dark'} for t in themes):
+        sys.exit('Use a supported product theme: brutal-light,elegant-light,elegant-dark.')
+    if args.details and len(expected) != 1:
+        sys.exit('Detail replay accepts one scene. Its instrumented durations cannot establish a timing verdict.')
+    out.mkdir(parents=True)
+    if args.records:
+        raw = out / 'run'
+        raw.mkdir()
+        for path in args.records.iterdir():
+            if path.is_file() and path.suffix in {'.json', '.jsonl', '.log', '.txt'}:
+                shutil.copyfile(path, raw / path.name)
+        status = 0
+    else:
+        if platform.system() != 'Linux':
+            sys.exit('This first detection runner supports Linux. Other platforms remain NOT_RUN.')
+        runnable = [s for s in expected if s not in DETECTION_GAPS]
+        raw = out / 'run'
+        if runnable:
+            build_args = argparse.Namespace(out=out / 'build', identity_suffix='.profile_detect', themes=args.themes,
+                scenarios=','.join(runnable), seconds=args.seconds, rounds=1, semantics=args.semantics,
+                no_trace=not args.details, detection=True)
+            status = build(build_args)
+            if status == 0:
+                receipt = build_args.out / 'build-receipt.json'
+                run_args = argparse.Namespace(**{**vars(build_args), 'out': raw, 'device': 'linux', 'reference': None,
+                    'max_load': None, 'wait_quiet': 0, 'allow_noisy': True, 'wait': 0, 'build_receipt': receipt,
+                    'headless': True,
+                    'flutter_args': [f'--use-application-binary={build_args.out / "bundle/raft_flutter"}']})
+                status = run(run_args)
+        else:
+            status = 0
+        raw.mkdir(exist_ok=True)
+    summary = detection_report(raw, expected, themes)
+    summary['collectionExitCode'] = status
+    (raw / 'detection.json').write_text(json.dumps(summary, indent=2) + '\n')
+    print(f"Detection: {raw / 'detection.md'}; {summary['counts']}; collection exit={status}")
+    print('Exit status describes collection, not a performance pass. Read the scene and signal statuses.')
+    return status
 
 
 def compare_cmd(args):
@@ -1211,6 +1595,15 @@ def qualify_cmd(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
+    d = sub.add_parser('detect', help='one-command profile problem detection; no calibration, quiet-host wait or revision comparison')
+    d.add_argument('--out', type=Path, required=True)
+    d.add_argument('--scenarios', default='all', help='all, one scene, or a comma list; gaps remain NOT_RUN')
+    d.add_argument('--themes', default='brutal-light')
+    d.add_argument('--seconds', type=int, default=8)
+    d.add_argument('--semantics', choices=['platform', 'on', 'off'], default='platform')
+    d.add_argument('--details', action='store_true', help='diagnostic replay of one scene; timing verdict disabled')
+    d.add_argument('--headless', action='store_true', default=True, help=argparse.SUPPRESS)
+    d.add_argument('--records', type=Path, help='inspect existing scene JSON files without launching an app')
     r = sub.add_parser('run', help='run the suite in profile mode')
     r.add_argument('--out', type=Path, required=True)
     r.add_argument('--themes', default='brutal-light,elegant-light', help='comma list: brutal-light, brutal-dark, elegant-light, elegant-dark')
@@ -1250,6 +1643,8 @@ def main(argv=None):
     q.add_argument('--out', type=Path, required=True)
     q.add_argument('--previous', type=Path, action='append', default=[], help='prior pair result; its launches cannot be reused')
     args = parser.parse_args(argv)
+    if args.command == 'detect':
+        return detect_cmd(args)
     if args.command == 'run':
         return run(args)
     if args.command == 'build':

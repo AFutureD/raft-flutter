@@ -86,6 +86,7 @@ Future<Future<void> Function()> mountKeyboardChat(
   await NativeSystemFonts.instance.initialize();
   await t.pumpWidget(
     app.RaftApp(
+      key: const ValueKey('lab-keyboard'),
       services: const AppServices.updatesDisabledForTestOrPreview(),
       sessionStore: client.sessionStore,
       createClient: (_, _, _) => client,
@@ -119,15 +120,15 @@ Future<Future<void> Function()> mountKeyboardChat(
 /// animation windows. Each window carries the UI thread's on-CPU time.
 /// Profile switches record one timeline event per build, layout and paint
 /// so the summary can count them; they are restored before returning.
-Future<Map<String, Object?>> keyboardOpenClose(WidgetTester t) async {
+Future<Map<String, Object?>> keyboardOpenClose(WidgetTester t, {bool profilePhases = true}) async {
   final builds = debugProfileBuildsEnabled;
   final layouts = debugProfileLayoutsEnabled;
   final paints = debugProfilePaintsEnabled;
-  debugProfileBuildsEnabled = true;
-  debugProfileLayoutsEnabled = true;
-  debugProfilePaintsEnabled = true;
+  debugProfileBuildsEnabled = profilePhases;
+  debugProfileLayoutsEnabled = profilePhases;
+  debugProfilePaintsEnabled = profilePhases;
   try {
-    return await _keyboardOpenClose(t);
+    return {...await _keyboardOpenClose(t), 'phaseProfiling': profilePhases};
   } finally {
     debugProfileBuildsEnabled = builds;
     debugProfileLayoutsEnabled = layouts;
