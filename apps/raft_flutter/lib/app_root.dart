@@ -288,6 +288,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     NativeSystemFonts.instance.addListener(rebuildRoot);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
     content.onIncomingShare = () => unawaited(sharing.resume());
+    content.onForegroundChanged = syncWorkspaceForeground;
     // The few fixed words of a system notification (the unread count) follow
     // the member's display language, like the rest of the app.
     content.notifications.localize = (source) =>
@@ -964,7 +965,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
             identical(c, client) &&
             !showServerSelector &&
             serverSwitchLocation == null) {
-          workspace?.setForeground(true);
+          syncWorkspaceForeground();
         }
       });
       return;
@@ -1686,9 +1687,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       workspaceChanged();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (current() && !showServerSelector && w.server?.id == selected.id) {
-          w.setForeground(
-            WidgetsBinding.instance.lifecycleState != AppLifecycleState.paused,
-          );
+          syncWorkspaceForeground();
         }
       });
       final prefs = await SharedPreferences.getInstance();
@@ -2054,6 +2053,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     await p.setString('raft.light', value.light.name);
     // The next cold start's native splash needs the new canvas.
     await NativeLaunchTheme.instance.set(value);
+  }
+
+  void syncWorkspaceForeground() {
+    if (!mounted) return;
+    workspace?.setForeground(
+      content.appForeground &&
+          !showServerSelector &&
+          serverSwitchLocation == null,
+    );
   }
 
   @override

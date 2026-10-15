@@ -15,6 +15,7 @@ import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
 import '../features/invite_accept_view.dart';
+import 'app_window.dart';
 import 'content_target.dart';
 import 'content_links.dart';
 import 'native_notifications.dart';
@@ -48,6 +49,12 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   final background = BackgroundNotificationScheduler();
   DesktopInboxNotifications? desktop;
   bool? _appForeground;
+
+  /// Whether the app is active, with unknown startup state treated as background.
+  ///
+  /// The root also checks workspace visibility, such as the server chooser.
+  bool get appForeground => _appForeground ?? false;
+  void Function()? onForegroundChanged;
   WorkspaceController? _workspace;
   StreamSubscription<Uri>? _linkSubscription;
   StreamSubscription<RaftEvent>? _events;
@@ -70,7 +77,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     reconciler.bind(_workspace);
     notifications.onTap = _tap;
     notifications.deliveryAllowed = () =>
-        !_closed && !(_appForeground ?? _workspace?.foreground ?? true);
+        !_closed && _appForeground != null && !appForeground;
     notifications.addListener(_notificationSettingsChanged);
     if (notifications.platform == TargetPlatform.macOS ||
         notifications.platform == TargetPlatform.windows ||
@@ -83,6 +90,12 @@ class NativeContentCoordinator with WidgetsBindingObserver {
       receiveLink,
       onError: (_) {},
     );
+    if (_appForeground == null) {
+      final active = await isAppWindowActive(platform: notifications.platform);
+      if (_closed) return;
+      // A lifecycle event received during the native read is newer evidence.
+      if (_appForeground == null) _setAppForeground(active);
+    }
     await notifications.initialize();
     for (final argument in initialArguments) {
       final uri = Uri.tryParse(argument);
@@ -144,6 +157,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _workspace?.removeListener(_changed);
     _events?.cancel();
     _workspace = workspace;
+    if (!appForeground) workspace?.setForeground(false);
     desktop?.bind(workspace);
     dockUnread.bind(workspace);
     reconciler.bind(workspace);
@@ -667,10 +681,16 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     return (server, RaftChannel(Map<String, dynamic>.from(channel)));
   }
 
+  void _setAppForeground(bool active) {
+    _appForeground = active;
+    if (!active) _workspace?.setForeground(false);
+    onForegroundChanged?.call();
+    desktop?.sync();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appForeground = state == AppLifecycleState.resumed;
-    desktop?.sync();
+    _setAppForeground(state == AppLifecycleState.resumed);
     if (_linuxProbe) {
       stderr.writeln('raft-probe lifecycle=$state');
       unawaited(_linuxProbeSend());
@@ -678,7 +698,9 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   }
 
   Future<void> dispose() async {
+    if (_closed) return;
     _closed = true;
+    onForegroundChanged = null;
     WidgetsBinding.instance.removeObserver(this);
     desktop?.dispose();
     reconciler.dispose();

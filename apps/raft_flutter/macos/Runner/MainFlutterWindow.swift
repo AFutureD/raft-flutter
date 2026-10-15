@@ -42,7 +42,9 @@ class MainFlutterWindow: NSWindow {
       name: "app.raft/window",
       binaryMessenger: flutterViewController.engine.binaryMessenger)
     windowChannel?.setMethodCallHandler { [weak self] call, result in
-      if call.method == "present" {
+      if call.method == "isActive" {
+        result(NSApp.isActive)
+      } else if call.method == "present" {
         if let window = self {
           if window.isMiniaturized { window.deminiaturize(nil) }
           NSApp.activate(ignoringOtherApps: true)
