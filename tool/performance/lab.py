@@ -1302,9 +1302,10 @@ def run_owned_process(command, *, process_groups=None, **kwargs):
             stopped = subprocess.run(['systemctl', '--user', 'stop', unit],
                 capture_output=True, text=True, timeout=8)
             group['scopeStopExitCode'] = stopped.returncode
-            if stopped.returncode:
-                raise RuntimeError('Could not stop the private systemd scope.')
         after = state()
+        # --collect can unload the now-empty scope between show and stop.
+        # Its fresh state and cgroup emptiness decide cleanup, not that race's
+        # "unit not loaded" exit status.
         cgroup = before.get('ControlGroup')
         populated = None
         if cgroup:

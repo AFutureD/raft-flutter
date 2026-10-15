@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('lab', ROOT / 'tool/performance/lab.py')
@@ -828,6 +828,23 @@ class AndroidRunSafetyTest(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux private display sessions')
 class DetectionLifetimeTest(unittest.TestCase):
+    def test_collected_scope_disappearing_before_stop_is_checked_as_empty(self):
+        process = Mock(pid=123456, returncode=0)
+        process.wait.return_value = 0
+        process.poll.return_value = 0
+        shown = subprocess.CompletedProcess([], 0,
+            'LoadState=loaded\nActiveState=active\nControlGroup=/raft-detect-unit-test-absent\n')
+        gone = subprocess.CompletedProcess([], 1,
+            'LoadState=not-found\nActiveState=inactive\nControlGroup=\n')
+        receipts = []
+        with patch.object(lab.subprocess, 'Popen', return_value=process), \
+             patch.object(lab.subprocess, 'run', side_effect=[shown,
+                 subprocess.CompletedProcess([], 5, ''), gone]):
+            self.assertEqual(lab.run_owned_process(['true'], process_groups=receipts), 0)
+        self.assertEqual(receipts[0]['scopeStopExitCode'], 5)
+        self.assertTrue(receipts[0]['cleanupComplete'])
+        self.assertEqual(receipts[0]['cgroupPopulatedAfter'], '0')
+
     def test_system_exit_after_runtime_creation_still_removes_it(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
