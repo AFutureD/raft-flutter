@@ -1601,14 +1601,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         rootRequest == request &&
         identical(client, c) &&
         identical(workspace, w) &&
-        c.user?.id == principal;
+        c.user?.id == principal &&
+        w.servers.any((s) => s.id == selected.id);
     setState(() {
       selectingServer = true;
       selectorError = null;
     });
     try {
       await w.flushCache();
-      if (!current() || !w.servers.any((s) => s.id == selected.id)) return;
+      if (!current()) return;
       if (w.server?.id != selected.id) {
         // A server with an on-device workspace opens as soon as that cache
         // is painted; its fresh channels and page revalidate in place.
@@ -1623,11 +1624,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
             if (!hydrated.isCompleted) hydrated.complete();
           },
         );
-        final settled = await Future.any([
+        if (!await Future.any([
           hydrated.future.then((_) => false),
           selecting.then((_) => true),
-        ]);
-        if (!settled) {
+        ])) {
           unawaited(
             selecting.then<void>(
               (_) {},
@@ -1647,40 +1647,40 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           );
         }
       }
-      if (!current() ||
-          w.server?.id != selected.id ||
-          !w.servers.any((s) => s.id == selected.id)) {
-        return;
-      }
+      if (!current() || w.server?.id != selected.id) return;
       var uri = location ?? serverSurfaces[selected.id];
       // MainLayout DefaultRoute914–947 redirects a desktop server root to the
       // first actual channel with REPLACE. Mobile deliberately stays Home.
       if (resolveDesktopRoot && w.channels.isNotEmpty) {
-        final channel = w.channels.first;
         uri = RaftLocation.at(
           serverSlug: selected.string('slug'),
           route: RaftRoute.channel,
-          entityId: channel.id,
+          entityId: w.channels.first.id,
         ).uri;
-        if (w.channel?.id != channel.id) {
-          await w.selectChannel(channel, navigate: false);
-        }
-        if (!current()) return;
         appRouter.publish(uri, replace: true);
       }
       if (uri != null &&
-          uri.pathSegments.length >= 2 &&
-          uri.pathSegments[1] == selected.string('slug')) {
-        w.bindNavigation();
+          uri.pathSegments.elementAtOrNull(1) == selected.string('slug')) {
         // MainLayout useRailLegacyRedirect: legacy shapes REPLACE in place.
-        w.navigation.navigate(
-          RaftLocation.fromUri(RaftLocation.canonicalLegacy(uri)),
-          kind: RaftNavigationKind.replace,
-        );
+        final target = RaftLocation.fromUri(RaftLocation.canonicalLegacy(uri));
+        final routeChanged = w.location.uri != target.uri;
+        if (routeChanged) {
+          w.navigation.navigate(target, kind: RaftNavigationKind.replace);
+        }
+        // The accepted route wins over a different cached selection. Resolve
+        // without blocking the cached first frame or rewriting that route.
+        if ({RaftRoute.channel, RaftRoute.dm}.contains(target.route) &&
+            (routeChanged || w.channel?.id != target.entityId)) {
+          unawaited(
+            w.resolveConversationChannel(
+              target.entityId!,
+              preserveThread: target.thread != null,
+            ),
+          );
+        }
       }
       showServerSelector = false;
-      serverSwitchLocation = serverSwitchReturn = null;
-      chooserReturn = null;
+      chooserReturn = serverSwitchLocation = serverSwitchReturn = null;
       directoryLoading = false;
       content.bindWorkspace(w);
       workspaceChanged();

@@ -3561,27 +3561,18 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   void _revokeChannel(String id) {
-    final sharedPrincipal = client.user?.id, sharedServer = client.serverId;
+    final origin = client.origin,
+        principal = client.user?.id,
+        serverId = client.serverId;
     // Content just handed over from a share is kept when its destination is
     // refused: the composer says so and Send stays off, nothing is discarded.
     final keepShared = _shareHolds.containsKey(id);
     if (keepShared) {
-      _shareHolds[id] =
-          'This conversation is no longer available. Your draft and files are kept.';
+      _shareHolds[id] = 'This conversation is no longer available. Your draft and files are kept.';
     }
-    if (!keepShared && sharedPrincipal != null && sharedServer != null) {
-      unawaited(
-        discardSharedScope?.call(
-          client.origin,
-          sharedPrincipal,
-          sharedServer,
-          id,
-        ),
-      );
+    if (!keepShared && principal != null && serverId != null) {
+      unawaited(discardSharedScope?.call(origin, principal, serverId, id));
     }
-    final origin = client.origin,
-        principal = client.user?.id,
-        serverId = client.serverId;
     final messageIds = <dynamic>{
       ...ledger.messages(id).map((m) => m['id']),
       ...threadRepliesSync.parentMessageIdsForChannel(id),
@@ -3657,6 +3648,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (channel?.id == id && !keepShared) {
       channel = null;
+      _missingConversationChannelId = id;
       channelGeneration++;
     }
     if (threadParent?.channelId == id ||
