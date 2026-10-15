@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/windows_tray_settings.dart';
+import 'package:raft_flutter/platform/app_window.dart';
 import 'package:raft_flutter/platform/content_coordinator.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_flutter/platform/windows_notifications.dart';
@@ -26,7 +27,15 @@ Future<void> main() async {
   SharedPreferences.setMockInitialValues({});
   final lab = _Lab();
   await lab.start();
-  runApp(MaterialApp(theme: raftTheme(RaftFamily.elegant), home: _Page(lab)));
+  runApp(
+    MaterialApp(
+      theme: raftTheme(RaftFamily.elegant),
+      navigatorKey: lab.navigator,
+      builder: (_, child) =>
+          AppWindowCommands(navigatorKey: lab.navigator, child: child!),
+      home: _Page(lab),
+    ),
+  );
 }
 
 class _Client extends RaftClient {
@@ -111,6 +120,7 @@ class _Windows extends WindowsNotifications {
 }
 
 class _Lab extends ChangeNotifier {
+  final navigator = GlobalKey<NavigatorState>();
   final client = _Client();
   late final workspace = _Workspace(client)
     ..server = RaftRecord({'id': 'tray-lab', 'role': 'owner'})
@@ -129,7 +139,7 @@ class _Lab extends ChangeNotifier {
     links: const Stream.empty(),
   );
   final draft = TextEditingController(text: 'Synthetic retained draft 56');
-  bool queued = false;
+  bool queued = false, previewOpen = false;
   int serial = 0;
   Future<void> writes = Future.value();
 
@@ -164,6 +174,7 @@ class _Lab extends ChangeNotifier {
       'opened': workspace.opened,
       'draft': draft.text,
       'queued': queued,
+      'previewOpen': previewOpen,
       'notificationError': service.error,
     });
     writes = writes.then(
@@ -255,6 +266,26 @@ class _Page extends StatelessWidget {
             ElevatedButton(
               onPressed: lab.clear,
               child: const Text('Clear unread'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                lab.previewOpen = true;
+                unawaited(lab.record());
+                unawaited(
+                  showDialog<void>(
+                    context: context,
+                    builder: (context) => RaftAttachmentPreviewShell(
+                      filename: 'synthetic-tray-preview.md',
+                      onClose: () => Navigator.of(context).pop(),
+                      child: const Text('Ctrl+W closes this preview first.'),
+                    ),
+                  ).whenComplete(() {
+                    lab.previewOpen = false;
+                    unawaited(lab.record());
+                  }),
+                );
+              },
+              child: const Text('Open synthetic preview'),
             ),
             ElevatedButton(
               onPressed: lab.record,
