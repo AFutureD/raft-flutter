@@ -137,7 +137,10 @@ Future<void> main() async {
   api.routes['GET /channels/public'] = (_) => <dynamic>[];
   api.routes['GET /servers/unread-summary'] = (_) => <dynamic>[];
   for (final channel in channels) {
-    api.routes['GET /channels/${channel.id}'] = (_) => channel.record.json;
+    api.routes['GET /channels/${channel.id}'] = (_) => {
+      ...channel.record.json,
+      'serverId': 's1',
+    };
     api.routes['POST /channels/${channel.id}/read-all'] = (_) => {
       'maxReadSeq': 2,
       'readStateVersion': 1,
