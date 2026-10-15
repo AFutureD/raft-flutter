@@ -1341,11 +1341,25 @@ void main() {
             'layoutHeld': LayoutHold.held,
             'mobilePages': find.byType(MobileWorkspacePages).evaluate().length,
             'mobileBars': find.byKey(const Key('workspace-mobile-navigation')).evaluate().length,
+            'adaptiveLayouts': [
+              for (final element in find.byType(RaftAdaptiveWorkspace).evaluate())
+                {
+                  'navigation': (element.widget as RaftAdaptiveWorkspace).mobileNavigation?.runtimeType.toString(),
+                  'rail': (element.widget as RaftAdaptiveWorkspace).mobileRail?.runtimeType.toString(),
+                  'constraints': (element.renderObject as RenderBox?)?.constraints.toString(),
+                  'renderWidth': (element.renderObject as RenderBox?)?.size.width,
+                },
+            ],
             'workspaces': [
               for (final element in find.byWidgetPredicate((widget) => widget is WorkspaceView).evaluate())
                 {
                   'widget': element.widget.runtimeType.toString(),
                   'routePage': (element.widget as WorkspaceView).mobileRoutePage,
+                  'server': (element.widget as WorkspaceView).controller.server?.id,
+                  'location': (element.widget as WorkspaceView).controller.location.uri.toString(),
+                  'rootTab': (element.widget as WorkspaceView).controller.navigation.mobileRootTab,
+                  'phoneRail': RaftAdaptiveWorkspace.phoneRailOf(element),
+                  'constraints': (element.renderObject as RenderBox?)?.constraints.toString(),
                   'mediaWidth': MediaQuery.sizeOf(element).width,
                   'mediaHeight': MediaQuery.sizeOf(element).height,
                   'compact': RaftAdaptiveWorkspace.compactOf(element),
