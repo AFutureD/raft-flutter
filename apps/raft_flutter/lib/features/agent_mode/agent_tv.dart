@@ -79,6 +79,7 @@ class _AgentTvApp extends StatefulWidget {
 class _AgentTvAppState extends State<_AgentTvApp> {
   static const _channel = MethodChannel('app.raft/agent-presentation-tv');
   Map<String, Object?>? frame;
+  final _spotlight = AgentSpotlightController();
 
   @override
   void initState() {
@@ -143,16 +144,23 @@ class _AgentTvAppState extends State<_AgentTvApp> {
                                 style: t.heading(28),
                               ),
                             )
-                          : ZLayerStack(
-                              padding: EdgeInsets.only(top: 34 * scale),
-                              layers: [
-                                for (final l in layers)
-                                  ZLayer(
-                                    key: ValueKey(l['id']),
-                                    peek: '${l['peek'] ?? ''}',
-                                    child: AgentFrameView(frame: l),
-                                  ),
-                              ],
+                          : AgentSpotlight(
+                              controller: _spotlight
+                                ..sync(f?['spotlight'] as String?),
+                              child: ZLayerStack(
+                                padding: EdgeInsets.only(top: 34 * scale),
+                                layers: [
+                                  for (final l in layers)
+                                    ZLayer(
+                                      key: ValueKey(l['id']),
+                                      peek: '${l['peek'] ?? ''}',
+                                      child: AgentFrameView(
+                                        frame: l,
+                                        focusPrefix: '${l['id']}',
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                     ),
                   );
@@ -168,8 +176,17 @@ class _AgentTvAppState extends State<_AgentTvApp> {
 
 /// Renders one serialized layer (see [agentLayerFrame]).
 class AgentFrameView extends StatelessWidget {
-  const AgentFrameView({super.key, required this.frame, this.onOpen});
+  const AgentFrameView({
+    super.key,
+    required this.frame,
+    this.onOpen,
+    this.focusPrefix,
+  });
   final Map<String, Object?> frame;
+
+  /// When set, every item is an [AgentFocusable] with id `prefix#n`, n
+  /// counting items (not section labels) from 1 as the agent sees them.
+  final String? focusPrefix;
 
   /// Phone only: opens the item's channel as a new layer.
   final void Function(String channelId)? onOpen;
@@ -185,6 +202,15 @@ class AgentFrameView extends StatelessWidget {
       for (final i in (frame['items'] as List?) ?? const [])
         if (i is Map) Map<String, Object?>.from(i),
     ];
+    var n = 0;
+    Widget focusable(Widget child) {
+      n++;
+      final prefix = focusPrefix;
+      return prefix == null
+          ? child
+          : AgentFocusable(id: '$prefix#$n', child: child);
+    }
+
     return AgentLayerFrame(
       title: '${frame['title'] ?? ''}',
       meta: frame['meta'] as String?,
@@ -196,24 +222,28 @@ class AgentFrameView extends StatelessWidget {
         for (final i in items)
           switch (i['kind']) {
             'section' => AgentSectionLabel('${i['text'] ?? ''}'),
-            'message' => AgentMessageTile(
-              sender: '${i['sender'] ?? ''}',
-              time: i['time'] as String?,
-              text: '${i['text'] ?? ''}',
+            'message' => focusable(
+              AgentMessageTile(
+                sender: '${i['sender'] ?? ''}',
+                time: i['time'] as String?,
+                text: '${i['text'] ?? ''}',
+              ),
             ),
-            _ => AgentPriorityCard(
-              onTap: onOpen == null || i['channelId'] is! String
-                  ? null
-                  : () => onOpen!(i['channelId'] as String),
-              priority: _priority(i['priority']),
-              label: i['label'] as String?,
-              weight: (i['weight'] as int?) ?? 0,
-              title: '${i['title'] ?? ''}',
-              detail: i['detail'] as String?,
-              chips: [
-                for (final c in (i['chips'] as List?) ?? const [])
-                  AgentChip('$c'),
-              ],
+            _ => focusable(
+              AgentPriorityCard(
+                onTap: onOpen == null || i['channelId'] is! String
+                    ? null
+                    : () => onOpen!(i['channelId'] as String),
+                priority: _priority(i['priority']),
+                label: i['label'] as String?,
+                weight: (i['weight'] as int?) ?? 0,
+                title: '${i['title'] ?? ''}',
+                detail: i['detail'] as String?,
+                chips: [
+                  for (final c in (i['chips'] as List?) ?? const [])
+                    AgentChip('$c'),
+                ],
+              ),
             ),
           },
       ],

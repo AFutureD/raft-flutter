@@ -217,6 +217,51 @@ void main() {
     expect(s.styleNote, allOf(contains('语速放慢'), contains('克制')));
   });
 
+  testWidgets('a spotlit item lifts above the page and goes back', (t) async {
+    final spotlight = AgentSpotlightController();
+    addTearDown(spotlight.dispose);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: Scaffold(
+          body: AgentSpotlight(
+            controller: spotlight,
+            child: ListView(
+              children: [
+                for (var n = 1; n <= 3; n++)
+                  AgentFocusable(
+                    id: 'layer#$n',
+                    child: AgentPriorityCard(
+                      priority: AgentPriority.decision,
+                      title: 'Item $n',
+                      weight: n,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Item 2'), findsOneWidget);
+    spotlight.focus('layer#2');
+    await t.pumpAndSettle();
+    // The lifted copy floats above the page; its place stays reserved.
+    expect(find.text('Item 2'), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('agent-spotlight-scrim')), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('agent-spotlight-scrim')));
+    await t.pumpAndSettle();
+    expect(spotlight.focused, isNull);
+    expect(find.text('Item 2'), findsOneWidget);
+    // Switching items flies the first back before lifting the next.
+    spotlight.focus('layer#1');
+    await t.pumpAndSettle();
+    spotlight.focus('layer#3');
+    await t.pumpAndSettle();
+    expect(find.text('Item 3'), findsNWidgets(2));
+    expect(find.text('Item 1'), findsOneWidget);
+  });
+
   test('voice keys are found inside scanned text', () {
     const key = 'AIzaSyA1234567890abcdefghijklmnopqrstu';
     expect(AgentVoiceKey.parse(key), key);

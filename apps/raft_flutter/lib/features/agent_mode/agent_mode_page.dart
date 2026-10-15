@@ -78,6 +78,10 @@ class _AgentModePageState extends State<AgentModePage> {
     systemPrompt: _systemPrompt,
   );
 
+  /// The item the agent is talking about, lifted above the page.
+  final _spotlight = AgentSpotlightController();
+  AgentMicState _lastMic = AgentMicState.idle;
+
   List<AgentAttentionItem>? _attention;
   Object? _attentionError;
   final _briefs = <String, AgentChannelBrief>{};
@@ -91,6 +95,8 @@ class _AgentModePageState extends State<AgentModePage> {
     _loadAttention();
     final tv = AgentPresentation.instance;
     tv.onDisplaysChanged = () => unawaited(_attachTv());
+    _voice.addListener(_voiceChanged);
+    _spotlight.addListener(() => setState(() {}));
     unawaited(_attachTv());
   }
 
@@ -108,7 +114,9 @@ class _AgentModePageState extends State<AgentModePage> {
   @override
   void dispose() {
     unawaited(AgentPresentation.instance.detach());
+    _voice.removeListener(_voiceChanged);
     _voice.dispose();
+    _spotlight.dispose();
     super.dispose();
   }
 
@@ -122,6 +130,7 @@ class _AgentModePageState extends State<AgentModePage> {
           : t.dark
           ? 'elegant-dark'
           : 'elegant-light',
+      'spotlight': _spotlight.focused,
       'layers': [
         for (final l in _stack.skip(_stack.length > 3 ? _stack.length - 3 : 0))
           {..._frame(l), 'id': l.id, 'peek': _peek(l)},
@@ -162,6 +171,7 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   void _push(_Layer layer) {
+    _spotlight.release();
     setState(() {
       _stack.removeWhere((l) => l.id == layer.id);
       _stack.add(layer);
@@ -169,10 +179,12 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   void _pop() {
+    _spotlight.release();
     if (_stack.length > 1) setState(_stack.removeLast);
   }
 
   void _revealTo(int index) {
+    _spotlight.release();
     setState(() => _stack.removeRange(index + 1, _stack.length));
   }
 
@@ -372,6 +384,17 @@ class _AgentModePageState extends State<AgentModePage> {
         if (c == null) return {'error': '第 $n 条没有可以打开的详情', ..._screen()};
         _openChannel(c, announce: false).ignore();
         return _screen();
+      case 'spotlight':
+        final n = (args['number'] as num?)?.toInt() ?? 0;
+        final items = _screenItems();
+        if (n < 1 || n > items.length) {
+          return {'error': '屏幕上没有第 $n 条', ..._screen()};
+        }
+        _spotlight.focus('${_stack.last.id}#$n');
+        return {'ok': true, 'item': items[n - 1]};
+      case 'release_spotlight':
+        _spotlight.release();
+        return {'ok': true};
       case 'show_tasks':
         if (_stack.last is! _Tasks) _showTasks(announce: false).ignore();
         return _screen();
@@ -396,6 +419,23 @@ class _AgentModePageState extends State<AgentModePage> {
         };
     }
     return {'error': 'unknown tool $name'};
+  }
+
+  /// The lifted item goes back once the agent has finished speaking.
+  void _voiceChanged() {
+    final now = _voice.state;
+    final finished =
+        _lastMic == AgentMicState.speaking && now == AgentMicState.idle;
+    _lastMic = now;
+    if (!finished || _spotlight.focused == null) return;
+    final shown = _spotlight.focused;
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (mounted &&
+          _spotlight.focused == shown &&
+          _voice.state == AgentMicState.idle) {
+        _spotlight.release();
+      }
+    });
   }
 
   Future<void> _scanKey() async {
@@ -522,96 +562,100 @@ class _AgentModePageState extends State<AgentModePage> {
       },
       child: Scaffold(
         backgroundColor: t.canvas,
-        body: AgentCanvas(
-          child: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            key: const ValueKey('agent-mode-close'),
-                            tooltip: '关闭',
-                            icon: Icon(Icons.close, color: t.muted),
-                            onPressed: () => Navigator.of(context).maybePop(),
-                          ),
-                          Text('Agent 模式', style: t.heading(15)),
-                          const Spacer(),
-                          IconButton(
-                            key: const ValueKey('agent-voice-settings'),
-                            tooltip: '声音设置',
-                            icon: Icon(Icons.tune, size: 20, color: t.muted),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => AgentVoiceSettingsPage(
-                                  onPreview: (v) =>
-                                      unawaited(_voice.preview(v)),
+        body: AgentSpotlight(
+          controller: _spotlight,
+          child: AgentCanvas(
+            child: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              key: const ValueKey('agent-mode-close'),
+                              tooltip: '关闭',
+                              icon: Icon(Icons.close, color: t.muted),
+                              onPressed: () => Navigator.of(context).maybePop(),
+                            ),
+                            Text('Agent 模式', style: t.heading(15)),
+                            const Spacer(),
+                            IconButton(
+                              key: const ValueKey('agent-voice-settings'),
+                              tooltip: '声音设置',
+                              icon: Icon(Icons.tune, size: 20, color: t.muted),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => AgentVoiceSettingsPage(
+                                    onPreview: (v) =>
+                                        unawaited(_voice.preview(v)),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          if (AgentAudio.instance.supported)
-                            IconButton(
-                              key: const ValueKey('agent-voice-key-scan'),
-                              tooltip: '扫码填入 Gemini Key',
-                              icon: Icon(
-                                Icons.qr_code_scanner,
-                                size: 20,
-                                color: t.muted,
+                            if (AgentAudio.instance.supported)
+                              IconButton(
+                                key: const ValueKey('agent-voice-key-scan'),
+                                tooltip: '扫码填入 Gemini Key',
+                                icon: Icon(
+                                  Icons.qr_code_scanner,
+                                  size: 20,
+                                  color: t.muted,
+                                ),
+                                onPressed: _scanKey,
                               ),
-                              onPressed: _scanKey,
-                            ),
-                          if (_tvAttached)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: Icon(Icons.tv, size: 16, color: t.hint),
-                            ),
-                          Text(
-                            '第 ${_stack.length} 层',
-                            style: t.body(12, color: t.hint),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ZLayerStack(
-                        padding: const EdgeInsets.fromLTRB(14, 76, 14, 12),
-                        onReveal: _revealTo,
-                        layers: [
-                          for (final l in _stack)
-                            ZLayer(
-                              key: ValueKey(l.id),
-                              peek: _peek(l),
-                              child: AgentFrameView(
-                                frame: _frame(l),
-                                onOpen: (id) {
-                                  final c = _channelById(id);
-                                  if (c != null) _openChannel(c).ignore();
-                                },
+                            if (_tvAttached)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: Icon(Icons.tv, size: 16, color: t.hint),
                               ),
+                            Text(
+                              '第 ${_stack.length} 层',
+                              style: t.body(12, color: t.hint),
                             ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                      child: ListenableBuilder(
-                        listenable: _voice,
-                        builder: (context, _) => AgentVoiceDock(
-                          lines: _voice.lines,
-                          state: _voice.state,
-                          notice: _voice.notice,
-                          onSubmit: _submit,
-                          onMicDown: () => unawaited(_voice.micDown()),
-                          onMicUp: _voice.micUp,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: ZLayerStack(
+                          padding: const EdgeInsets.fromLTRB(14, 76, 14, 12),
+                          onReveal: _revealTo,
+                          layers: [
+                            for (final l in _stack)
+                              ZLayer(
+                                key: ValueKey(l.id),
+                                peek: _peek(l),
+                                child: AgentFrameView(
+                                  focusPrefix: l.id,
+                                  frame: _frame(l),
+                                  onOpen: (id) {
+                                    final c = _channelById(id);
+                                    if (c != null) _openChannel(c).ignore();
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                        child: ListenableBuilder(
+                          listenable: _voice,
+                          builder: (context, _) => AgentVoiceDock(
+                            lines: _voice.lines,
+                            state: _voice.state,
+                            notice: _voice.notice,
+                            onSubmit: _submit,
+                            onMicDown: () => unawaited(_voice.micDown()),
+                            onMicUp: _voice.micUp,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
