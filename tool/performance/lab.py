@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / 'apps/raft_flutter'
@@ -1246,103 +1247,78 @@ def host_cpu_delta(before, after):
             'processes': sorted(rows, key=lambda row: -row['cpuPercent'])[:20]}
 
 
-def process_group_active(group, *, proc_root=Path('/proc')):
-    """A launched Linux group's live members, excluding unreaped zombies."""
-    for path in proc_root.glob('[0-9]*/stat'):
-        try:
-            stat = path.read_text()
-            fields = stat[stat.rfind(')') + 2:].split()
-            if fields[0] not in ('Z', 'X') and int(fields[2]) == group:
-                return True
-        except (OSError, ValueError, IndexError):
-            continue
-    return False
-
-
-def owned_process_groups(owner):
-    """Groups containing only members of this uniquely marked private launch.
-
-    Weston starts clients in new sessions. Their inherited owner marker,
-    rather than a process name or the original group alone, proves ownership.
-    """
-    groups = {}
-    marker = f'RAFT_LAB_PROCESS_OWNER={owner}'.encode()
-    for path in Path('/proc').glob('[0-9]*/stat'):
-        try:
-            stat = path.read_text()
-            fields = stat[stat.rfind(')') + 2:].split()
-            if fields[0] in ('Z', 'X'):
-                continue
-            entry = groups.setdefault(int(fields[2]), {'owned': [], 'other': []})
-            identity = {'pid': int(path.parent.name), 'startTicks': int(fields[19])}
-            try:
-                environment = path.with_name('environ').read_bytes().split(b'\0')
-            except PermissionError:
-                entry['other'].append(identity)
-                continue
-            entry['owned' if marker in environment else 'other'].append(identity)
-        except (OSError, ValueError, IndexError):
-            continue
-    result = {}
-    for group, members in groups.items():
-        if not members['owned']:
-            continue
-        if members['other']:
-            raise RuntimeError('Refusing to signal a process group with a different owner.')
-        result[group] = members['owned']
-    return result
-
-
 def run_owned_process(command, *, process_groups=None, **kwargs):
-    """Reap this launch and stop only the session/process group it created."""
-    process = subprocess.Popen(command, start_new_session=True, **kwargs)
+    """Keep detached and sandboxed descendants in one private user scope.
+
+    A process can change its session or hide its environment; neither moves it
+    out of the scope's cgroup. Never discover cleanup targets by process name.
+    """
+    unit = f'raft-detect-{uuid.uuid4().hex}.scope'
+    child = dict(kwargs.pop('env', os.environ))
+    private_runtime = child.get('XDG_RUNTIME_DIR')
+    # systemd-run must contact the real user manager. Only its launched
+    # command receives the private compositor runtime directory.
+    child['XDG_RUNTIME_DIR'] = os.environ.get('XDG_RUNTIME_DIR', f'/run/user/{os.getuid()}')
+    launch = ['systemd-run', '--user', '--scope', '--quiet', '--collect', '--no-ask-password',
+              f'--unit={unit}', '--property=TimeoutStopSec=2s']
+    if private_runtime:
+        launch.append(f'--setenv=XDG_RUNTIME_DIR={private_runtime}')
+    launch += ['--', *command]
+    process = subprocess.Popen(launch, start_new_session=True, env=child, **kwargs)
     group = {'leaderPid': process.pid, 'processGroup': process.pid,
-             'command': Path(command[0]).name, 'stopSignals': []}
+             'command': Path(command[0]).name, 'unit': unit, 'stopSignals': []}
+
+    def state():
+        result = subprocess.run(['systemctl', '--user', 'show', '--no-pager',
+            '--property=LoadState,ActiveState,ControlGroup', unit], capture_output=True, text=True, timeout=5)
+        values = dict(line.split('=', 1) for line in result.stdout.splitlines() if '=' in line)
+        if not values or values.get('LoadState') not in ('loaded', 'not-found'):
+            raise RuntimeError('Could not verify the private systemd scope state.')
+        return values
+
     try:
         if process_groups is not None:
             process_groups.append(group)
         return process.wait()
     finally:
-        # The initial group belongs to this Popen. Marked descendants can
-        # have moved into new groups/sessions (Weston's client launcher does).
-        owner = (kwargs.get('env') or {}).get('RAFT_LAB_PROCESS_OWNER')
-        group['descendantGroups'] = []
-
-        def active_groups():
-            members = owned_process_groups(owner) if owner else {}
-            if process_group_active(process.pid):
-                members.setdefault(process.pid, [])
-            return members
-
+        # Reap the starter first: it must not create a scope after we stop it.
         for stop_signal in (signal.SIGTERM, signal.SIGKILL):
-            signalled = set()
-            deadline = time.monotonic() + 2
-            while True:
-                process.poll()
-                active = active_groups()
-                for target, members in active.items():
-                    if target in signalled:
-                        continue
-                    try:
-                        os.killpg(target, stop_signal)
-                    except ProcessLookupError:
-                        continue
-                    signalled.add(target)
-                    if target == process.pid:
-                        group['stopSignals'].append(stop_signal.name)
-                    else:
-                        group['descendantGroups'].append({'processGroup': target,
-                            'members': members, 'signal': stop_signal.name})
-                if not active_groups() or time.monotonic() >= deadline:
-                    break
-                time.sleep(.05)
-            if not active_groups():
+            if process.poll() is not None:
                 break
+            try:
+                os.killpg(process.pid, stop_signal)
+                group['stopSignals'].append(stop_signal.name)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                continue
         process.wait(timeout=2)
         group['leaderExitCode'] = process.returncode
-        group['cleanupComplete'] = not active_groups()
+        before = state()
+        group['controlGroup'] = before.get('ControlGroup')
+        if before['LoadState'] == 'loaded':
+            stopped = subprocess.run(['systemctl', '--user', 'stop', unit],
+                capture_output=True, text=True, timeout=8)
+            group['scopeStopExitCode'] = stopped.returncode
+            if stopped.returncode:
+                raise RuntimeError('Could not stop the private systemd scope.')
+        after = state()
+        cgroup = before.get('ControlGroup')
+        populated = None
+        if cgroup:
+            events = Path('/sys/fs/cgroup') / cgroup.lstrip('/') / 'cgroup.events'
+            try:
+                populated = dict(line.split() for line in events.read_text().splitlines()).get('populated')
+            except FileNotFoundError:
+                populated = '0'  # An unloaded, removed cgroup has no members.
+        group['scopeAfter'] = after
+        group['cgroupPopulatedAfter'] = populated
+        group['cleanupComplete'] = (after.get('LoadState') == 'not-found' or
+            after.get('ActiveState') in ('inactive', 'failed')) and populated in (None, '0')
         if not group['cleanupComplete']:
-            raise RuntimeError('The launched process groups still have active members after cleanup.')
+            raise RuntimeError('The private systemd scope still has active members after cleanup.')
 
 
 def cleanup_private_runtime(directory):
@@ -1517,7 +1493,6 @@ def run(args):
                 directory = out / 'profile' / name
                 directory.mkdir(parents=True, mode=0o700)
                 child[key] = str(directory)
-            child['RAFT_LAB_PROCESS_OWNER'] = str(out)
             manifest['isolatedProfile'] = str(out / 'profile')
             manifest['headlessRequested'] = bool(getattr(args, 'headless', False))
             # A private compositor has no window, input device or connection to

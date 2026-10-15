@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -865,33 +866,22 @@ class DetectionLifetimeTest(unittest.TestCase):
                     if path.exists():
                         lab.cleanup_private_runtime(path)
 
-    def test_process_group_cleanup_ignores_zombies_but_waits_for_active_members(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-
-            def member(pid, state, group):
-                path = root / str(pid)
-                path.mkdir(exist_ok=True)
-                # Fields after comm: state, ppid, pgrp, session. The process
-                # name can contain spaces and a closing parenthesis.
-                (path / 'stat').write_text(f'{pid} (fixture ) process) {state} 1 {group} {group} 0 0')
-
-            member(101, 'Z', 41)
-            member(102, 'S', 88)
-            self.assertFalse(lab.process_group_active(41, proc_root=root))
-            member(103, 'R', 41)
-            self.assertTrue(lab.process_group_active(41, proc_root=root))
-            member(103, 'Z', 41)
-            self.assertFalse(lab.process_group_active(41, proc_root=root))
-
     def test_owned_group_cleanup_on_interrupt_and_normal_parent_exit(self):
+        if not shutil.which('systemd-run'):
+            self.skipTest('Linux user systemd is required for the native detection lifecycle test.')
+        manager = subprocess.run(['systemctl', '--user', 'show', '--property=Version'],
+            capture_output=True, timeout=5)
+        if manager.returncode:
+            self.skipTest('No reachable user systemd manager; native scope cleanup was not run.')
         # A descendant ignores TERM. Cleanup must escalate for that same group
         # while leaving a separately launched sentinel alive.
         managed = """
 import json,os,signal,subprocess,sys,time
 child = subprocess.Popen([sys.executable, '-c',
     'import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'],
-    start_new_session=sys.argv[2].startswith('detached'))
+    start_new_session=sys.argv[2].startswith('detached'),
+    env={k:v for k,v in os.environ.items() if k != 'RAFT_LAB_PROCESS_OWNER'}
+        if sys.argv[2].startswith('sanitized') else None)
 time.sleep(.1)
 with open(sys.argv[1], 'w') as stream:
     json.dump({'leader': os.getpid(), 'child': child.pid, 'group': os.getpgrp()}, stream)
@@ -913,7 +903,8 @@ raise SystemExit(lab.run_owned_process([sys.executable,'-c',sys.argv[2],sys.argv
             except FileNotFoundError:
                 return False
 
-        for mode in ('interrupt', 'normal', 'detached-interrupt', 'detached-normal'):
+        for mode in ('interrupt', 'normal', 'detached-interrupt', 'detached-normal',
+                     'sanitized-interrupt', 'sanitized-normal'):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 state = Path(directory) / 'state.json'
                 sentinel = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
