@@ -20,8 +20,11 @@ import 'workspace_cache.dart';
 import 'workspace_composer.dart';
 import 'workspace_uploads.dart';
 import 'workspace_sends.dart';
+import 'conversation_window.dart';
+import 'workspace_message_windows.dart';
 
 export 'workspace_uploads.dart' show UploadDraft;
+export 'conversation_window.dart' show MessageContextLoadError;
 import 'resource_snapshot_cache.dart';
 import 'user_activity.dart';
 import 'user_error.dart';
@@ -79,9 +82,6 @@ bool isThreadAbsentLookupError(Object? error) {
   }
   return error.message == 'No thread found for this message';
 }
-
-/// Why a jump target's message context could not be shown.
-enum MessageContextLoadError { notFound, beyondHistory }
 
 /// A message row and the distance of its top below the timeline's top edge.
 class ReadingAnchor {
@@ -282,6 +282,130 @@ class WorkspaceController extends ChangeNotifier {
 
   VoidCallback? _removeCacheClear;
   late final WorkspaceComposer composer;
+  late final WorkspaceMessageWindows messageWindows =
+      presentationSource?.messageWindows ??
+      WorkspaceMessageWindows(
+        authority: _messageWindowAuthority,
+        read: _readMessageWindow,
+        visible: _messageWindowVisible,
+      );
+
+  ConversationWindow? get messageWindow => messageWindows.channel(channel?.id);
+  ConversationWindow? get threadWindow =>
+      messageWindows.thread(threadParentChannelId, threadParentMessageId);
+
+  Object? _messageWindowAuthority(ConversationWindowScope scope) {
+    final resource = _threadChannelResource(scope.channelId);
+    if (_disposed ||
+        client.user == null ||
+        server == null ||
+        server!.id != client.serverId ||
+        _revokedServers.contains(server!.id) ||
+        _revokedChannels.contains(scope.channelId) ||
+        resource == null ||
+        !can('viewChannel', resource: resource)) {
+      return null;
+    }
+    final accepted = _windowState[scope.channelId];
+    final authority = messageWindowAuthority(
+      server!.string('role'),
+      resource.json,
+    );
+    if (accepted != null &&
+        (accepted.$1 != authority ||
+            accepted.$3 != _replyToken(scope.channelId))) {
+      return null;
+    }
+    return (
+      navigationAuthority,
+      ledger.generation,
+      _replyToken(scope.channelId),
+      authority,
+      jsonEncode(server!.json['permissions']),
+    );
+  }
+
+  bool _messageWindowSelected(ConversationWindowScope scope) =>
+      scope.parentMessageId == null
+      ? channel?.id == scope.channelId
+      : threadParentChannelId == scope.channelId &&
+            threadParentMessageId == scope.parentMessageId;
+
+  bool _messageWindowVisible(ConversationWindowScope scope) =>
+      _messageWindowSelected(scope) &&
+      foreground &&
+      _chatTabPresented &&
+      (scope.parentMessageId == null ? _mainPresented : _threadPresented);
+
+  ConversationWindowSnapshot _readMessageWindow(ConversationWindowScope scope) {
+    final main = scope.parentMessageId == null;
+    final selected = _messageWindowSelected(scope);
+    final cached = _threadWindows[scope.parentMessageId];
+    final held =
+        cached != null &&
+            cached.parentChannelId == scope.channelId &&
+            cached.token == _replyToken(scope.channelId) &&
+            cached.authority == _threadResourceAuthority(scope.channelId) &&
+            cached.generation == ledger.generation &&
+            !_revokedChannels.contains(cached.threadChannelId)
+        ? cached
+        : null;
+    final id = main
+        ? scope.channelId
+        : selected
+        ? threadChannelId
+        : held?.threadChannelId;
+    final rows = selected
+        ? (main ? messages : replies)
+        : id == null
+        ? <RaftMessage>[]
+        : ledger
+              .messages(id)
+              .where((row) => visibleIds[id]?.contains(row['id']) ?? false)
+              .map(_presented)
+              .toList();
+    final newer =
+        main && (selected ? hasNewer : _contextWindowHasNewer[id] == true);
+    final pendingContext =
+        main && selected && pendingMessageContextChannelId == id;
+    final timeline = main && (newer || pendingContext)
+        ? rows
+        : composer.sends
+              .project(
+                rows,
+                main ? scope.channelId : 'thread:${scope.parentMessageId}',
+              )
+              .map((row) => _presented(row.json))
+              .toList();
+    return ConversationWindowSnapshot(
+      channelId: id,
+      rows: rows,
+      timeline: timeline,
+      parent: main
+          ? null
+          : selected
+          ? presentedThreadParent
+          : held?.parent,
+      loading: selected && (main ? channelLoading : threadLoading),
+      loadingOlder: selected && loadingOlder,
+      parentLoading: !main && selected && threadParentLoading,
+      resolving: !main && selected && threadResolutionLoading,
+      error: selected ? (!main ? threadResolutionError : error) : null,
+      hasMore: selected
+          ? (main ? hasMore : threadHasMore)
+          : main
+          ? _windowState[id]?.$2 == true
+          : held?.hasMore == true,
+      hasNewer: newer,
+      historyLimited: selected
+          ? (main ? historyLimited : threadHistoryLimited)
+          : main
+          ? _windowHistoryLimited[id] == true
+          : held?.historyLimited == true,
+      highlightedMessageId: selected ? highlightedMessageId : null,
+      contextLoadError: main && selected ? contextLoadError : null,
+    );
+  }
 
   /// "Clear cache": lets go of what this workspace keeps in memory and can
   /// rebuild: decoded attachment pictures nobody shows, signed attachment URLs
@@ -1689,6 +1813,7 @@ class WorkspaceController extends ChangeNotifier {
     if (!_disposed) {
       _syncScopeVisits();
       _ensureSyncIdentity();
+      if (presentationSource == null) messageWindows.synchronize();
       super.notifyListeners();
     }
   }
@@ -6382,6 +6507,7 @@ class WorkspaceController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    if (presentationSource == null) messageWindows.dispose();
     composer.sends.detach(this);
     composer.disposeOwnedBy(this);
     if (_ownsEntityDirectory) {

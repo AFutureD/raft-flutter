@@ -5,6 +5,21 @@
     "workspace_controller": {
       "root": "apps/raft_flutter/lib/data/workspace_controller.dart",
       "metrics": {
+        "field.ConversationWindowSnapshot.channelId": 1,
+        "field.ConversationWindowSnapshot.contextLoadError": 1,
+        "field.ConversationWindowSnapshot.error": 1,
+        "field.ConversationWindowSnapshot.hasMore": 1,
+        "field.ConversationWindowSnapshot.hasNewer": 1,
+        "field.ConversationWindowSnapshot.highlightedMessageId": 1,
+        "field.ConversationWindowSnapshot.historyLimited": 1,
+        "field.ConversationWindowSnapshot.loading": 1,
+        "field.ConversationWindowSnapshot.loadingOlder": 1,
+        "field.ConversationWindowSnapshot.parent": 1,
+        "field.ConversationWindowSnapshot.parentLoading": 1,
+        "field.ConversationWindowSnapshot.resolving": 1,
+        "field.ConversationWindowSnapshot.retired": 1,
+        "field.ConversationWindowSnapshot.rows": 1,
+        "field.ConversationWindowSnapshot.timeline": 1,
         "field.ReadingAnchor._saved": 1,
         "field.ReadingAnchor.messageKey": 1,
         "field.ReadingAnchor.top": 1,
@@ -173,6 +188,7 @@
         "field.WorkspaceController.loadingOlder": 1,
         "field.WorkspaceController.mentions": 1,
         "field.WorkspaceController.messageSync": 1,
+        "field.WorkspaceController.messageWindows": 1,
         "field.WorkspaceController.mobileNavigation": 1,
         "field.WorkspaceController.navigation": 1,
         "field.WorkspaceController.newFlags": 1,
@@ -202,6 +218,11 @@
         "field.WorkspaceController.threadParent": 1,
         "field.WorkspaceController.threadRepliesSync": 1,
         "field.WorkspaceController.unread": 1,
+        "field.WorkspaceMessageWindows._disposed": 1,
+        "field.WorkspaceMessageWindows._windows": 1,
+        "field.WorkspaceMessageWindows.authority": 1,
+        "field.WorkspaceMessageWindows.read": 1,
+        "field.WorkspaceMessageWindows.visible": 1,
         "field.WorkspaceThreadIdentity.focusedMessageId": 1,
         "field.WorkspaceThreadIdentity.parentChannelId": 1,
         "field.WorkspaceThreadIdentity.parentMessageId": 1,
@@ -222,6 +243,13 @@
         "field._PendingSend.randomId": 0,
         "field._PendingSend.row": 0,
         "field._PendingSend.uploads": 0,
+        "field._ProjectedConversationWindow._changes": 1,
+        "field._ProjectedConversationWindow._current": 1,
+        "field._ProjectedConversationWindow._retired": 1,
+        "field._ProjectedConversationWindow._snapshot": 1,
+        "field._ProjectedConversationWindow._visible": 1,
+        "field._ProjectedConversationWindow.scope": 1,
+        "field._ProjectedConversationWindow.token": 1,
         "field._ResourcePagePreview.section": 1,
         "field._ResourcePagePreviewState.client": 1,
         "field._ResourcePagePreviewState.receipt": 1,
@@ -237,9 +265,13 @@
         "field._ThreadWindow.threadChannelId": 1,
         "field._ThreadWindow.token": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 6816,
-        "tokens": 38025
-      }
+        "lines": 7156,
+        "tokens": 39785
+      },
+      "companions": [
+        "apps/raft_flutter/lib/data/conversation_window.dart",
+        "apps/raft_flutter/lib/data/workspace_message_windows.dart"
+      ]
     },
     "workspace_view": {
       "root": "apps/raft_flutter/lib/features/workspace_view.dart",
