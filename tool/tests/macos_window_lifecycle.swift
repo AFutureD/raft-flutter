@@ -4,7 +4,9 @@ import FlutterMacOS
 
 // No real window is shown: the tests exercise the production delegate, while
 // recording the native window operations it requests.
-private final class WindowSpy: NSWindow {
+private final class WindowSpy: NSWindow, RaftPreferencesWindow {
+  var canOpenPreferences = false
+  func openPreferences() { operations.append("preferences") }
   var minimized = false
   var operations: [String] = []
 
@@ -73,6 +75,40 @@ final class WindowLifecycleTests {
     reopen(visible: true, minimized: true)
   }
 
+  func testPreferencesAreDisabledUntilWorkspaceIsReady() {
+    let delegate = AppDelegate()
+    let window = WindowSpy(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+    window.isReleasedWhenClosed = false
+    delegate.mainFlutterWindow = window
+    let item = NSMenuItem(title: "Preferences", action: #selector(AppDelegate.showPreferences(_:)), keyEquivalent: ",")
+    check(!delegate.validateMenuItem(item), "preferences must be disabled before a workspace exists")
+    delegate.showPreferences(nil)
+    check(window.operations.isEmpty, "an unavailable workspace must not be opened")
+  }
+
+  func testPreferencesRestoreOriginalWindowBeforeNavigation() {
+    let delegate = AppDelegate()
+    let window = WindowSpy(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
+    window.isReleasedWhenClosed = false
+    window.canOpenPreferences = true
+    window.minimized = true
+    delegate.mainFlutterWindow = window
+    let item = NSMenuItem(title: "Preferences", action: #selector(AppDelegate.showPreferences(_:)), keyEquivalent: ",")
+    check(delegate.validateMenuItem(item), "preferences must become available with the workspace")
+    delegate.showPreferences(nil)
+    check(window.operations == ["restore", "show", "preferences"], "preferences must restore the same window before navigation")
+    check(delegate.mainFlutterWindow === window, "preferences must not create a replacement window")
+  }
+
+  func testMissingWindowDisablesOnlyPreferences() {
+    let delegate = AppDelegate()
+    let item = NSMenuItem(title: "Preferences", action: #selector(AppDelegate.showPreferences(_:)), keyEquivalent: ",")
+    check(!delegate.validateMenuItem(item), "missing window must disable preferences")
+    delegate.showPreferences(nil)
+    let hide = NSMenuItem(title: "Hide", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+    check(delegate.validateMenuItem(hide), "preferences validation must not disable other app commands")
+  }
+
   func testMissingMainWindowLeavesDefaultReopenHandling() {
     let callback: NSApplicationDelegate = AppDelegate()
     check(callback.applicationShouldHandleReopen?(.shared, hasVisibleWindows: false) == true, "missing window must leave default handling")
@@ -87,6 +123,9 @@ tests.testDockReopenRestoresOriginalClosedWindow()
 tests.testDockReopenRaisesExistingWindow()
 tests.testDockReopenDeminiaturizesBeforeShowingWindow()
 tests.testMissingMainWindowLeavesDefaultReopenHandling()
+tests.testPreferencesAreDisabledUntilWorkspaceIsReady()
+tests.testPreferencesRestoreOriginalWindowBeforeNavigation()
+tests.testMissingWindowDisablesOnlyPreferences()
 for failure in failures { print("FAIL: \(failure)") }
-print("Native window lifecycle: 6 cases, \(failures.count) failed assertions")
+print("Native window lifecycle: 9 cases, \(failures.count) failed assertions")
 exit(failures.isEmpty ? 0 : 1)

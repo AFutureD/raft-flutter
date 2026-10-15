@@ -4,13 +4,37 @@ import CFNetwork
 import AVFoundation
 import ImageIO
 
-class MainFlutterWindow: NSWindow {
+class MainFlutterWindow: NSWindow, RaftPreferencesWindow {
   private var interactionChannel: FlutterMethodChannel?
   private var titleBar: RaftTitleBar?
   private var proxyChannel: FlutterMethodChannel?
   private var windowChannel: FlutterMethodChannel?
+  private var windowCommandsReady = false
+  private(set) var canOpenPreferences = false
   private var videoFrameChannel: FlutterMethodChannel?
   private let videoFrame = RaftVideoFrame()
+
+  override func performClose(_ sender: Any?) {
+    if NSApp.currentEvent?.isARepeat == true { return }
+    // The native menu consumes Command-W before Flutter sees a key event.
+    // Let its root navigator dismiss a preview before closing the window.
+    guard sender is NSMenuItem, windowCommandsReady, let channel = windowChannel else {
+      super.performClose(sender)
+      return
+    }
+    channel.invokeMethod("closeRequested", arguments: nil) { [weak self] response in
+      if (response as? Bool) != true { self?.closeWindowFromCommand() }
+    }
+  }
+
+  private func closeWindowFromCommand() {
+    super.performClose(nil)
+  }
+
+  func openPreferences() {
+    windowChannel?.invokeMethod("openPreferences", arguments: nil)
+  }
+
   override func awakeFromNib() {
     // Do not restore an old fullscreen/Space state during background launch.
     isRestorable = false
@@ -44,6 +68,15 @@ class MainFlutterWindow: NSWindow {
     windowChannel?.setMethodCallHandler { [weak self] call, result in
       if call.method == "isActive" {
         result(NSApp.isActive)
+      } else if call.method == "setWindowCommandsState" {
+        let state = call.arguments as? [String: Any]
+        self?.windowCommandsReady = state?["ready"] as? Bool == true
+        self?.canOpenPreferences = self?.windowCommandsReady == true
+          && state?["preferences"] as? Bool == true
+        result(nil)
+      } else if call.method == "closeWindow" {
+        self?.closeWindowFromCommand()
+        result(nil)
       } else if call.method == "present" {
         if let window = self {
           if window.isMiniaturized { window.deminiaturize(nil) }
