@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' as chat;
@@ -83,6 +84,13 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     implements RaftTimelineThumbDriver {
   double nearbyCache = 250;
   final _keyboardOlderScroll = _KeyboardOlderScrollAction();
+
+  /// Inside the timeline scrollable, so a key here resolves to this list.
+  /// Traversal skips it; a tap requests it. Inner controls stay descendants.
+  final _timelineFocus = FocusNode(debugLabel: 'timeline', skipTraversal: true);
+  int? _focusPointer;
+  Offset? _focusDown;
+  bool _focusMoved = false;
   RaftMessageTimeline? listsOwner;
   Widget? historyList, forwardList;
   late final nearbyPreparation = MessagePreparation(
@@ -126,6 +134,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
 
   @override
   void dispose() {
+    _timelineFocus.dispose();
     nearbyPreparation.dispose();
     super.dispose();
   }
@@ -356,6 +365,45 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     if (position is RaftTimelinePosition) position.endThumb();
   }
 
+  void _trackTimelinePointer(PointerDownEvent event) {
+    if (_focusPointer != null) {
+      _focusMoved = true;
+      return;
+    }
+    _focusPointer = event.pointer;
+    _focusDown = event.position;
+    _focusMoved = false;
+  }
+
+  void _trackTimelineMove(PointerMoveEvent event) {
+    final down = _focusDown;
+    if (event.pointer != _focusPointer || down == null || _focusMoved) return;
+    if ((event.position - down).distance > kTouchSlop) _focusMoved = true;
+  }
+
+  void _focusTimelineOnTap(PointerUpEvent event) {
+    if (event.pointer != _focusPointer) return;
+    final moved = _focusMoved;
+    _focusPointer = null;
+    _focusDown = null;
+    _focusMoved = false;
+    // Mobile Web blurs the composer on a timeline tap and does not
+    // preventDefault there. Pointer down and a drag do not request this
+    // focus; the completed tap is what moves Page Up onto the timeline.
+    if (moved || _timelineFocus.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _timelineFocus.hasFocus) return;
+      _timelineFocus.requestFocus();
+    });
+  }
+
+  void _cancelTimelinePointer(PointerCancelEvent event) {
+    if (event.pointer != _focusPointer) return;
+    _focusPointer = null;
+    _focusDown = null;
+    _focusMoved = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     widget.controller.olderPending = widget.hasOlder;
@@ -433,20 +481,26 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
       },
       child: NotificationListener<Notification>(
         onNotification: onNotification,
-        child: _TimelineScrollView(
-          controller: widget.controller,
-          // The timeline's own scrollbar replaces the platform default.
-          scrollBehavior: scrollbar
-              ? behavior.copyWith(scrollbars: false)
-              : null,
-          center: forwardKey,
-          anchor: widget.controller.anchor,
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          semanticChildCount: messages.length,
-          scrollCacheExtent: ScrollCacheExtent.pixels(
-            widget.cacheExtent ?? nearbyCache,
+        child: Listener(
+          onPointerDown: _trackTimelinePointer,
+          onPointerMove: _trackTimelineMove,
+          onPointerUp: _focusTimelineOnTap,
+          onPointerCancel: _cancelTimelinePointer,
+          child: _TimelineScrollView(
+            controller: widget.controller,
+            // The timeline's own scrollbar replaces the platform default.
+            scrollBehavior: scrollbar
+                ? behavior.copyWith(scrollbars: false)
+                : null,
+            center: forwardKey,
+            anchor: widget.controller.anchor,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            semanticChildCount: messages.length,
+            scrollCacheExtent: ScrollCacheExtent.pixels(
+              widget.cacheExtent ?? nearbyCache,
+            ),
+            slivers: slivers,
           ),
-          slivers: slivers,
         ),
       ),
     );
@@ -782,16 +836,28 @@ class _TimelineScrollView extends CustomScrollView {
     ViewportOffset offset,
     AxisDirection axisDirection,
     List<Widget> slivers,
-  ) => _TimelineViewport(
-    axisDirection: axisDirection,
-    offset: offset,
-    slivers: slivers,
-    center: center,
-    anchor: anchor,
-    scrollCacheExtent: scrollCacheExtent,
-    paintOrder: paintOrder,
-    clipBehavior: clipBehavior,
-  );
+  ) {
+    final viewport = _TimelineViewport(
+      axisDirection: axisDirection,
+      offset: offset,
+      slivers: slivers,
+      center: center,
+      anchor: anchor,
+      scrollCacheExtent: scrollCacheExtent,
+      paintOrder: paintOrder,
+      clipBehavior: clipBehavior,
+    );
+    final focus = context
+        .findAncestorStateOfType<_RaftMessageTimelineState>()
+        ?._timelineFocus;
+    if (focus == null) return viewport;
+    return Focus(
+      key: const ValueKey('timeline-focus'),
+      focusNode: focus,
+      skipTraversal: true,
+      child: viewport,
+    );
+  }
 }
 
 class _TimelineViewport extends Viewport {
