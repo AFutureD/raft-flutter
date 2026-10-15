@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -69,6 +71,8 @@ void main() {
   late ActivityClient client;
   late WorkspaceController w;
   setUp(() {
+    // No voice key: typed requests use the local intents.
+    FlutterSecureStorage.setMockInitialValues({});
     client = ActivityClient()..user = RaftRecord({'id': 'kevin'});
     client.selectServer('s1');
     w = WorkspaceController(client)
@@ -106,6 +110,11 @@ void main() {
         expect(find.text('第 1 层'), findsOneWidget);
         expect(find.text('Personal Agent 第一版选型'), findsOneWidget);
 
+        // Voice first: typing is behind the keyboard button.
+        expect(find.byKey(const ValueKey('agent-input')), findsNothing);
+        expect(find.byKey(const ValueKey('agent-orb')), findsOneWidget);
+        await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+        await t.pumpAndSettle();
         await t.enterText(
           find.byKey(const ValueKey('agent-input')),
           'raft-flutter 现在什么情况？',
@@ -147,11 +156,40 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+    await t.pumpAndSettle();
     await t.enterText(find.byKey(const ValueKey('agent-input')), '帮我订机票');
     await t.testTextInput.receiveAction(TextInputAction.send);
     await t.pumpAndSettle();
     expect(find.textContaining('这句我还不会'), findsOneWidget);
     expect(find.text('第 1 层'), findsOneWidget);
+  });
+
+  testWidgets('the mic explains when voice is unavailable here', (t) async {
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: AgentModePage(controller: w, data: _Data(w)),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('按住说话 · 点一下实时对话'), findsOneWidget);
+    final mic = await t.startGesture(
+      t.getCenter(find.byKey(const ValueKey('agent-orb'))),
+    );
+    await t.pump(const Duration(milliseconds: 100));
+    await mic.up();
+    await t.pumpAndSettle();
+    expect(find.textContaining('还不支持语音'), findsOneWidget);
+    expect(find.text('第 1 层'), findsOneWidget);
+  });
+
+  test('voice keys are found inside scanned text', () {
+    const key = 'AIzaSyA1234567890abcdefghijklmnopqrstu';
+    expect(AgentVoiceKey.parse(key), key);
+    expect(AgentVoiceKey.parse('GEMINI_API_KEY=$key\n'), key);
+    expect(AgentVoiceKey.parse('https://example.com/a b'), isNull);
+    expect(AgentVoiceKey.parse(null), isNull);
   });
 
   test('intents match the longest channel name and the back words', () {

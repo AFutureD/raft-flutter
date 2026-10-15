@@ -25,6 +25,7 @@ class MainActivity : FlutterActivity() {
     private val earlyShares = ArrayDeque<Intent>()
     private var sharing: NativeSharingBridge? = null
     private var agentPresentation: NativeAgentPresentationBridge? = null
+    private var agentAudio: NativeAgentAudioBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         prepareSharedUris(intent)
@@ -99,6 +100,7 @@ class MainActivity : FlutterActivity() {
         NativePdfPreviewBridge(this, flutterEngine)
         NativeVideoFrameBridge(flutterEngine)
         agentPresentation = NativeAgentPresentationBridge(this, flutterEngine)
+        agentAudio = NativeAgentAudioBridge(this, flutterEngine)
         // Uploaded HTML previews run in an Android WebView. The app has no
         // other WebView, so the process-wide cookie jar and web storage belong
         // to the preview alone: never send or keep cookies, drop storage.
@@ -372,6 +374,10 @@ class MainActivity : FlutterActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == NativeAgentAudioBridge.PERMISSION_REQUEST) {
+            agentAudio?.onPermissionResult(grantResults)
+            return
+        }
         if (requestCode == galleryPermissionRequest) {
             val pending = galleryPending
             galleryPending = null
@@ -397,6 +403,7 @@ class MainActivity : FlutterActivity() {
         earlyShares.clear()
         sharing?.dispose()
         agentPresentation?.dispose()
+        agentAudio?.dispose()
         systemFonts?.dispose()
         systemProxy?.dispose()
         localNetworkResults.forEach { it.success(false) }
@@ -406,6 +413,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (sharing?.onActivityResult(requestCode) == true) return
+        if (agentAudio?.onActivityResult(requestCode, resultCode, data) == true) return
         if (requestCode == saveRequest) {
             val pending = saveResult
             saveResult = null

@@ -2,13 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 
 import '../../data/workspace_controller.dart';
+import 'agent_audio.dart';
 import 'agent_mode_data.dart';
 import 'agent_tv.dart';
+import 'agent_voice.dart';
 
 /// Opens agent mode above the workspace. A [PageRouteBuilder] (not a
 /// MaterialPageRoute) so a layout change adapts the page instead of closing it.
@@ -67,7 +70,11 @@ class _Tasks extends _Layer {
 class _AgentModePageState extends State<AgentModePage> {
   late final data = widget.data ?? AgentModeData(widget.controller);
   final _stack = <_Layer>[const _Attention()];
-  final _lines = <(AgentSpeaker, String)>[];
+  late final _voice = AgentVoiceController(
+    tools: _toolDeclarations,
+    onToolCall: _runTool,
+    systemPrompt: _systemPrompt,
+  );
 
   List<AgentAttentionItem>? _attention;
   Object? _attentionError;
@@ -99,6 +106,7 @@ class _AgentModePageState extends State<AgentModePage> {
   @override
   void dispose() {
     unawaited(AgentPresentation.instance.detach());
+    _voice.dispose();
     super.dispose();
   }
 
@@ -130,7 +138,7 @@ class _AgentModePageState extends State<AgentModePage> {
       setState(() {
         _attention = items;
         _attentionError = null;
-        _lines.add((AgentSpeaker.agent, _attentionSummary(items)));
+        _voice.say(AgentSpeaker.agent, _attentionSummary(items));
       });
     } catch (e) {
       if (mounted) setState(() => _attentionError = e);
@@ -166,19 +174,24 @@ class _AgentModePageState extends State<AgentModePage> {
     setState(() => _stack.removeRange(index + 1, _stack.length));
   }
 
-  Future<void> _openChannel(RaftChannel c) async {
+  Future<AgentChannelBrief?> _openChannel(
+    RaftChannel c, {
+    bool announce = true,
+  }) async {
     final layer = _Channel(c);
     _push(layer);
     try {
       final brief = await data.channel(c);
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() {
         _briefs[c.id] = brief;
         _briefErrors.remove(c.id);
-        _lines.add((AgentSpeaker.agent, _channelSummary(brief)));
       });
+      if (announce) _voice.say(AgentSpeaker.agent, _channelSummary(brief));
+      return brief;
     } catch (e) {
       if (mounted) setState(() => _briefErrors[c.id] = e);
+      rethrow;
     }
   }
 
@@ -191,40 +204,171 @@ class _AgentModePageState extends State<AgentModePage> {
     return '${parts.join('，')}。细节在屏幕上。';
   }
 
-  Future<void> _showTasks() async {
+  Future<List<Map<String, dynamic>>?> _showTasks({bool announce = true}) async {
     _push(const _Tasks());
     try {
       final tasks = await data.openTasks();
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() {
         _tasks = tasks;
         _tasksError = null;
-        final review = tasks.where((t) => t['status'] == 'in_review').length;
-        _lines.add((
+      });
+      final review = tasks.where((t) => t['status'] == 'in_review').length;
+      if (announce) {
+        _voice.say(
           AgentSpeaker.agent,
           '进行中的任务有 ${tasks.length - review} 个，等验收的 $review 个。',
-        ));
-      });
+        );
+      }
+      return tasks;
     } catch (e) {
       if (mounted) setState(() => _tasksError = e);
+      rethrow;
     }
   }
 
-  void _submit(String text) {
-    setState(() => _lines.add((AgentSpeaker.you, text)));
+  Future<void> _submit(String text) async {
+    if (await _voice.sendText(text)) return;
+    if (!mounted) return;
+    _voice.say(AgentSpeaker.you, text);
     switch (parseAgentIntent(text, widget.controller.channels)) {
       case AgentBack():
         _pop();
       case AgentHome():
         setState(() => _stack.removeRange(1, _stack.length));
       case AgentTasks():
-        _showTasks();
+        _showTasks().ignore();
       case AgentOpenChannel(:final channel):
-        _openChannel(channel);
+        _openChannel(channel).ignore();
       case AgentUnknown():
-        setState(
-          () => _lines.add((AgentSpeaker.agent, '这句我还不会。可以说一个频道名、“任务”或者“返回”。')),
-        );
+        _voice.say(AgentSpeaker.agent, '这句我还不会。可以说一个频道名、“任务”或者“返回”。');
+    }
+  }
+
+  static const _toolDeclarations = <Map<String, Object?>>[
+    {
+      'name': 'show_attention',
+      'description':
+          '回到首页并列出现在需要用户处理的事（等决定、卡住、提到他、进展），按权重排序。问“现在怎么样”“有什么要我处理”时用。',
+    },
+    {
+      'name': 'open_channel',
+      'description': '在屏幕上打开一个频道，返回它最近的消息和进行中的任务。',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'name': {'type': 'string', 'description': '频道名，不带 #'},
+        },
+        'required': ['name'],
+      },
+    },
+    {'name': 'show_tasks', 'description': '在屏幕上列出所有进行中和等验收的任务。'},
+    {'name': 'go_back', 'description': '返回上一层。'},
+  ];
+
+  String _systemPrompt() {
+    final channels = widget.controller.channels
+        .where((c) => c.name.isNotEmpty)
+        .take(80)
+        .map((c) => c.name)
+        .join('、');
+    final attention = _attention == null
+        ? ''
+        : '\n当前首页：${_attentionSummary(_attention!)}';
+    return '你是用户在 Raft 里的个人语音助理。Raft 是一个人和 AI agent 一起协作的消息平台。\n'
+        '用简短、口语化的中文回答，一般一两句话；不要用列表、编号或 Markdown。\n'
+        '屏幕会显示细节，你只说重点和结论，不要逐条朗读。\n'
+        '需要信息时先调用工具再回答：整体情况用 show_attention，某个频道用 open_channel，'
+        '任务用 show_tasks，用户说“返回”用 go_back。\n'
+        '你现在只能查看，不能发消息、改任务或做其他操作；被要求做这些时，说明 demo 还不支持。\n'
+        '可以打开的频道：$channels$attention';
+  }
+
+  static String _clip(Object? v, [int max = 240]) {
+    final text = '${v ?? ''}'.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text.length <= max ? text : '${text.substring(0, max)}…';
+  }
+
+  RaftChannel? _channelNamed(String raw) {
+    String norm(String v) =>
+        v.toLowerCase().replaceAll(RegExp(r'[#\s_\-]'), '');
+    final want = norm(raw);
+    if (want.isEmpty) return null;
+    final channels = widget.controller.channels;
+    return channels.where((c) => norm(c.name) == want).firstOrNull ??
+        channels.where((c) => norm(c.name).contains(want)).firstOrNull ??
+        channels
+            .where((c) => c.name.isNotEmpty && want.contains(norm(c.name)))
+            .firstOrNull;
+  }
+
+  Map<String, Object?> _taskFacts(Map<String, dynamic> t) => {
+    'number': t['taskNumber'],
+    'title': _clip(t['title'], 120),
+    'status': t['status'],
+    'owner': t['claimedByName'],
+    'channel': t['channelName'],
+  };
+
+  /// Voice tools: each one changes the screen and returns what is on it.
+  Future<Map<String, Object?>> _runTool(
+    String name,
+    Map<String, Object?> args,
+  ) async {
+    if (!mounted) return {'error': 'closed'};
+    switch (name) {
+      case 'show_attention':
+        setState(() => _stack.removeRange(1, _stack.length));
+        final items = _attention ?? await data.attention();
+        return {
+          'items': [
+            for (final i in items.take(10))
+              {
+                'kind': agentPriorityLabels[i.priority],
+                'weight': i.weight,
+                'title': _clip(i.title, 120),
+                'detail': _clip(i.detail, 120),
+              },
+          ],
+        };
+      case 'open_channel':
+        final c = _channelNamed('${args['name'] ?? ''}');
+        if (c == null) return {'error': '没有叫 ${args['name']} 的频道'};
+        final b = await _openChannel(c, announce: false);
+        if (b == null) return {'error': 'closed'};
+        return {
+          'channel': c.name,
+          'hours': b.windowHours,
+          'tasks': [for (final t in b.tasks.take(8)) _taskFacts(t)],
+          'messages': [
+            for (final m in b.messages.reversed.take(15))
+              {
+                'from': m['senderName'],
+                'time': _hhmm(m['createdAt']),
+                'text': _clip(m['content']),
+              },
+          ],
+        };
+      case 'show_tasks':
+        final tasks = await _showTasks(announce: false) ?? const [];
+        return {
+          'tasks': [for (final t in tasks.take(20)) _taskFacts(t)],
+        };
+      case 'go_back':
+        _pop();
+        return {'ok': true, 'layers': _stack.length};
+    }
+    return {'error': 'unknown tool $name'};
+  }
+
+  Future<void> _scanKey() async {
+    try {
+      final key = AgentVoiceKey.parse(await AgentAudio.instance.scanCode());
+      if (key == null) return;
+      await AgentVoiceKey.instance.save(key);
+      _voice.say(AgentSpeaker.agent, 'Key 已保存。按住下面的按钮说话吧。');
+    } on PlatformException catch (e) {
+      _voice.say(AgentSpeaker.agent, '扫码失败：${e.message ?? e.code}');
     }
   }
 
@@ -360,6 +504,17 @@ class _AgentModePageState extends State<AgentModePage> {
                           ),
                           Text('Agent 模式', style: t.heading(15)),
                           const Spacer(),
+                          if (AgentAudio.instance.supported)
+                            IconButton(
+                              key: const ValueKey('agent-voice-key-scan'),
+                              tooltip: '扫码填入 Gemini Key',
+                              icon: Icon(
+                                Icons.qr_code_scanner,
+                                size: 20,
+                                color: t.muted,
+                              ),
+                              onPressed: _scanKey,
+                            ),
                           if (_tvAttached)
                             Padding(
                               padding: const EdgeInsets.only(right: 10),
@@ -385,7 +540,7 @@ class _AgentModePageState extends State<AgentModePage> {
                                 frame: _frame(l),
                                 onOpen: (id) {
                                   final c = _channelById(id);
-                                  if (c != null) _openChannel(c);
+                                  if (c != null) _openChannel(c).ignore();
                                 },
                               ),
                             ),
@@ -394,7 +549,17 @@ class _AgentModePageState extends State<AgentModePage> {
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                      child: AgentVoiceDock(lines: _lines, onSubmit: _submit),
+                      child: ListenableBuilder(
+                        listenable: _voice,
+                        builder: (context, _) => AgentVoiceDock(
+                          lines: _voice.lines,
+                          state: _voice.state,
+                          notice: _voice.notice,
+                          onSubmit: _submit,
+                          onMicDown: () => unawaited(_voice.micDown()),
+                          onMicUp: _voice.micUp,
+                        ),
+                      ),
                     ),
                   ],
                 ),

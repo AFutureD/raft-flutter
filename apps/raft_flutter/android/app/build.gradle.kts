@@ -71,5 +71,10 @@ flutter {
 
 dependencies {
     implementation("androidx.core:core-splashscreen:1.2.0")
+    // Agent mode demo: on-device QR entry of the voice provider key.
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
+    implementation("com.google.zxing:core:3.5.3")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
