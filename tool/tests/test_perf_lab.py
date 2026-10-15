@@ -4,8 +4,13 @@ import contextlib
 import copy
 import io
 import json
+import os
 from pathlib import Path
+import signal
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -71,6 +76,20 @@ class DetectionTest(unittest.TestCase):
         r = self.observed()
         r['detection'].pop('arrival')
         self.assertEqual(lab.detect_record(r)['status'], 'NOT_RUN')
+
+    def test_missing_arrival_keeps_slow_frame_in_table_and_heading(self):
+        r = self.observed(ui=(25,))
+        r['detection'].pop('arrival')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'brutal-light-steady-scroll.json').write_text(json.dumps(r))
+            out = lab.detection_report(root, ['steady-scroll'], ['brutal-light'])
+            row = out['scenarios'][0]
+            self.assertEqual(row['status'], 'NOT_RUN')
+            self.assertEqual(row['statuses'], ['NOT_RUN', 'REVIEW'])
+            text = (root / 'detection.md').read_text()
+            self.assertIn('| steady-scroll | brutal-light | NOT_RUN + REVIEW |', text)
+            self.assertIn('## brutal-light / steady-scroll — NOT_RUN + REVIEW', text)
 
     def test_a_started_failure_is_an_issue(self):
         self.assertEqual(lab.detect_record(self.observed(failure='Target never appeared'))['status'], 'ISSUE')
@@ -804,6 +823,107 @@ class AndroidRunSafetyTest(unittest.TestCase):
             env = json.loads((output / 'env.json').read_text())
             self.assertEqual(env['exitCode'], 1)
             self.assertIn('protectedAppError', env)
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Linux private display sessions')
+class DetectionLifetimeTest(unittest.TestCase):
+    def test_system_exit_after_runtime_creation_still_removes_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / '.fvmrc').write_text('{"flutter":"test"}')
+            bundle = root / 'bundle'
+            bundle.mkdir()
+            (bundle / 'raft_flutter').write_bytes(b'wrong application identity')
+            out = root / 'out'
+            args = argparse.Namespace(out=out, device='linux', flutter_args=[],
+                detection=True, headless=True, themes='brutal-light', scenarios='steady-scroll',
+                seconds=8, rounds=1, semantics='platform', no_trace=True)
+            manifest = {'buildReceipt': {'identitySuffix': '.unit_owned'}, 'artifact': {'path': str(bundle)}}
+            created = []
+            real_mkdtemp = tempfile.mkdtemp
+
+            def create(**kwargs):
+                value = real_mkdtemp(**kwargs)
+                created.append(Path(value))
+                return value
+
+            try:
+                with patch.object(lab, 'ROOT', root), patch.object(lab, 'flutter_guard'), \
+                     patch.object(lab, 'run_manifest', return_value=manifest), \
+                     patch.object(lab, 'environment', return_value={'loadavg': [0, 0, 0]}), \
+                     patch.dict(os.environ, {'RAFT_FLUTTER_BIN': sys.executable}), \
+                     patch.object(lab.tempfile, 'mkdtemp', side_effect=create):
+                    with self.assertRaisesRegex(SystemExit, 'native application identity'):
+                        lab.run(args)
+                self.assertEqual(len(created), 1)
+                self.assertFalse(created[0].exists())
+                receipt = json.loads((out / 'env.json').read_text())
+                self.assertTrue(receipt['privateRuntimeRemoved'])
+                self.assertNotEqual(receipt['exitCode'], 0)
+            finally:
+                for path in created:
+                    if path.exists():
+                        lab.cleanup_private_runtime(path)
+
+    def test_owned_group_cleanup_on_interrupt_and_normal_parent_exit(self):
+        # A descendant ignores TERM. Cleanup must escalate for that same group
+        # while leaving a separately launched sentinel alive.
+        managed = """
+import json,os,signal,subprocess,sys,time
+child = subprocess.Popen([sys.executable, '-c',
+    'import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'])
+time.sleep(.1)
+with open(sys.argv[1], 'w') as stream:
+    json.dump({'leader': os.getpid(), 'child': child.pid, 'group': os.getpgrp()}, stream)
+if sys.argv[2] == 'interrupt': time.sleep(60)
+"""
+        wrapper = """
+import importlib.util,subprocess,sys
+spec=importlib.util.spec_from_file_location('lab',sys.argv[1])
+lab=importlib.util.module_from_spec(spec);spec.loader.exec_module(lab)
+raise SystemExit(lab.run_owned_process([sys.executable,'-c',sys.argv[2],sys.argv[3],sys.argv[4]],
+    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
+"""
+
+        def running(pid):
+            try:
+                stat = Path(f'/proc/{pid}/stat').read_text()
+                return stat[stat.rfind(')') + 2:].split()[0] != 'Z'
+            except FileNotFoundError:
+                return False
+
+        for mode in ('interrupt', 'normal'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                state = Path(directory) / 'state.json'
+                sentinel = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+                wrapper_process = subprocess.Popen([sys.executable, '-c', wrapper,
+                    str(ROOT / 'tool/performance/lab.py'), managed, str(state), mode],
+                    start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                identity = None
+                try:
+                    deadline = time.monotonic() + 5
+                    while not state.exists() and wrapper_process.poll() is None and time.monotonic() < deadline:
+                        time.sleep(.02)
+                    self.assertTrue(state.exists(), wrapper_process.communicate(timeout=1)[1].decode()
+                                    if wrapper_process.poll() is not None else 'child did not become ready')
+                    identity = json.loads(state.read_text())
+                    self.assertEqual(identity['leader'], identity['group'])
+                    if mode == 'interrupt':
+                        wrapper_process.send_signal(signal.SIGINT)
+                    wrapper_process.communicate(timeout=8)
+                    self.assertEqual(wrapper_process.returncode == 0, mode == 'normal')
+                    self.assertIsNone(sentinel.poll())
+                    self.assertFalse(running(identity['leader']))
+                    self.assertFalse(running(identity['child']))
+                finally:
+                    if identity:
+                        with contextlib.suppress(ProcessLookupError):
+                            os.killpg(identity['group'], signal.SIGKILL)
+                    if wrapper_process.poll() is None:
+                        os.killpg(wrapper_process.pid, signal.SIGKILL)
+                    wrapper_process.communicate(timeout=3)
+                    sentinel.terminate()
+                    sentinel.wait(timeout=3)
 
 
 if __name__ == '__main__':

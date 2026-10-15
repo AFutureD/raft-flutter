@@ -21,6 +21,7 @@ import platform
 import random
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -48,6 +49,9 @@ DETECTION_GAPS = {
     'video-play-pause': 'No arrival-verified playback/pause scene in this slice.',
     'resource-release': 'Repeated release, post-GC object differences and retaining paths are not collected.',
 }
+PAGINATION_NOTE = ('Fixture pagination honors the requested limit (normally 50 rows). '
+                   'Before PR #117, mix, img and mount-* preloaded the full batch. '
+                   'Those older baselines have a different workload; do not attribute the difference to a product change.')
 
 
 def detect_record(record, *, evidence=None):
@@ -185,7 +189,12 @@ def detect_record(record, *, evidence=None):
         status = 'REVIEW'
     else:
         status = 'PASS'
-    return {'scene': scene, 'theme': record.get('theme'), 'status': status, 'control': diagnostic.get('control'),
+    statuses = [status]
+    for severity in ('ISSUE', 'REVIEW'):
+        if severity != status and any(f['status'] == severity for f in findings):
+            statuses.append(severity)
+    return {'scene': scene, 'theme': record.get('theme'), 'status': status, 'statuses': statuses,
+            'statusLabel': ' + '.join(statuses), 'control': diagnostic.get('control'),
             'refreshRate': hz, 'profile': record.get('profile'), 'checks': checks, 'findings': findings,
             'actions': actions, 'evidence': evidence}
 
@@ -255,14 +264,16 @@ def detection_report(run_dir, expected, themes):
     (run_dir / 'detection.json').write_text(json.dumps(summary, indent=2) + '\n')
     lines = ['# Profile problem detection', '', 'Statuses cover the recorded checks only. Missing signals remain NOT_RUN.', '',
              '| Scene | Theme | Status | Findings | Uncollected signals |', '| --- | --- | --- | --- | --- |']
+    if metadata.get('lab-hello', {}).get('fixturePagination') == 'requested-limit-v1':
+        lines[4:4] = [PAGINATION_NOTE, '']
     for row in results:
         missing = ', '.join(k for k, v in row.get('checks', {}).items() if v['status'] == 'NOT_RUN') or row.get('reason', '')
         missing = missing.replace('\n', ' ').replace('|', '\\|')
-        lines.append(f"| {row['scene']} | {row.get('theme', '-')} | {row['status']} | {len(row['findings'])} | {missing} |")
+        lines.append(f"| {row['scene']} | {row.get('theme', '-')} | {row.get('statusLabel', row['status'])} | {len(row['findings'])} | {missing} |")
     for row in results:
         if not row['findings']:
             continue
-        lines += ['', f"## {row.get('theme', '')} / {row['scene']} — {row['status']}", '']
+        lines += ['', f"## {row.get('theme', '')} / {row['scene']} — {row.get('statusLabel', row['status'])}", '']
         for item in row['findings'][:12]:
             lines.append(f"- {item['status']} {item['signal']}, frame {item['frameId']}: {json.dumps(item['observed'], ensure_ascii=False)}; component={item['component']}; cause={item['cause']}.")
         if len(row['findings']) > 12:
@@ -833,6 +844,8 @@ def markdown(summary):
     env, hello = summary.get('env', {}), summary.get('hello', {})
     out = [f"# Perf lab run `{summary['run']}`", '']
     out.append(f"- Commit: `{env.get('commit', '?')}`{' (dirty)' if env.get('dirty') else ''}; fixture `{hello.get('fixtureVersion', '?')}`")
+    if hello.get('fixturePagination') == 'requested-limit-v1':
+        out.append(f'- Pagination: {PAGINATION_NOTE}')
     out.append(f"- Engine: Flutter {env.get('flutter', {}).get('frameworkVersion', '?')} (engine `{str(env.get('flutter', {}).get('engineRevision', '?'))[:10]}`), renderer: {env.get('renderer', '?')}")
     out.append(f"- Host: {env.get('os', '?')}; CPU: {env.get('cpu', '?')}; GPU: {env.get('gpu', '?')}")
     load = lambda key: ', '.join(f'{v:.1f}' for v in env.get(key) or []) or '?'
@@ -1233,6 +1246,38 @@ def host_cpu_delta(before, after):
             'processes': sorted(rows, key=lambda row: -row['cpuPercent'])[:20]}
 
 
+def run_owned_process(command, *, process_groups=None, **kwargs):
+    """Reap this launch and stop only the session/process group it created."""
+    process = subprocess.Popen(command, start_new_session=True, **kwargs)
+    group = {'leaderPid': process.pid, 'processGroup': process.pid,
+             'command': Path(command[0]).name, 'stopSignals': []}
+    try:
+        if process_groups is not None:
+            process_groups.append(group)
+        return process.wait()
+    finally:
+        # Also stop descendants when the leader already exited. Killing just
+        # the leader does not stop Weston, drive or a still-running test app.
+        for stop_signal in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(process.pid, stop_signal)
+                group['stopSignals'].append(stop_signal.name)
+            except ProcessLookupError:
+                break
+            if stop_signal == signal.SIGTERM:
+                deadline = time.monotonic() + 2
+                while time.monotonic() < deadline:
+                    process.poll()
+                    try:
+                        os.killpg(process.pid, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(.05)
+        process.wait(timeout=2)
+        group['leaderExitCode'] = process.returncode
+        group['cleanupComplete'] = True
+
+
 def cleanup_private_runtime(directory):
     """Unmount only this owned session's FUSE helpers before deleting it."""
     root = Path(directory)
@@ -1386,106 +1431,119 @@ def run(args):
     defines = workload_defines(config)
     child = dict(os.environ, RAFT_PERF_OUT=str(out), RAFT_LAB_ROOT=str(ROOT), RAFT_LAB_DEVICE=device, **defines)
     runtime_directory = None
-    if detection:
-        for key in list(child):
-            if key.startswith('RAFT_LAB_') and key not in {*defines, 'RAFT_LAB_ROOT', 'RAFT_LAB_DEVICE'}:
-                child.pop(key)
-        # Keep toolchain/package locations while giving the app a fresh profile.
-        version = json.loads((ROOT / '.fvmrc').read_text())['flutter']
-        candidates = [Path(os.environ['RAFT_FLUTTER_BIN'])] if os.environ.get('RAFT_FLUTTER_BIN') else [
-            ROOT / '.fvm/flutter_sdk/bin/flutter', Path.home() / 'flutter-sdks/versions' / version / 'bin/flutter',
-            Path.home() / 'fvm/versions' / version / 'bin/flutter']
-        child['RAFT_FLUTTER_BIN'] = str(next(p for p in candidates if p.is_file()).resolve())
-        child['PUB_CACHE'] = os.environ.get('PUB_CACHE', str(Path.home() / '.pub-cache'))
-        child['DASH__SUPPRESS_ANALYTICS'] = 'true'
-        for key, name in [('HOME', 'home'), ('XDG_DATA_HOME', 'data'), ('XDG_CONFIG_HOME', 'config'),
-                          ('XDG_CACHE_HOME', 'cache'), ('XDG_STATE_HOME', 'state'), ('XDG_RUNTIME_DIR', 'runtime')]:
-            directory = out / 'profile' / name
-            directory.mkdir(parents=True, mode=0o700)
-            child[key] = str(directory)
-        manifest['isolatedProfile'] = str(out / 'profile')
-        manifest['headlessRequested'] = bool(getattr(args, 'headless', False))
-        # A private compositor has no window, input device or connection to
-        # the user's desktop. A short path is required by AF_UNIX sockets.
-        runtime_directory = tempfile.mkdtemp(prefix='raft-detect-', dir='/tmp')
-        child.update(XDG_RUNTIME_DIR=runtime_directory, WAYLAND_DISPLAY='raft-detect', GDK_BACKEND='wayland')
-        for key in ('DISPLAY', 'XAUTHORITY', 'WAYLAND_SOCKET'):
-            child.pop(key, None)
-        mesa_vendor = Path('/usr/share/glvnd/egl_vendor.d/50_mesa.json')
-        if mesa_vendor.is_file():
-            child.setdefault('__EGL_VENDOR_LIBRARY_FILENAMES', str(mesa_vendor))
-        manifest['displaySession'] = {'backend': 'Weston headless GL', 'runtimeDirectory': runtime_directory,
-            'virtualRefreshRateHz': 60, 'physicalDisplay': False,
-            'eglVendorSelection': child.get('__EGL_VENDOR_LIBRARY_FILENAMES', 'system default')}
-        suffix = manifest['buildReceipt']['identitySuffix']
-        if f'app.raft.raft_flutter{suffix}'.encode() not in Path(manifest['artifact']['path'], 'raft_flutter').read_bytes():
-            sys.exit('Isolated native application identity is absent from the verified executable.')
-    if device == 'linux' and not detection:
-        child['GDK_BACKEND'] = os.environ.get('RAFT_LAB_GDK_BACKEND', 'x11')
-    argv += [f'--dart-define={k}={v}' for k, v in defines.items()]
-    if manifest:
-        manifest['driveArgv'] = argv
-        (out / 'run-manifest.json').write_text(json.dumps(manifest, indent=1) + '\n')
-    if detection:
-        # Initialize only this new profile's CLI settings. The first-run
-        # analytics notice would otherwise corrupt the pinned-SDK JSON check.
-        with (out / 'sdk-init.log').open('w') as log:
-            initialized = subprocess.run([child['RAFT_FLUTTER_BIN'], '--disable-analytics'],
-                cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT).returncode
-        if initialized:
-            env.update(exitCode=initialized, preparationError='Isolated Flutter settings initialization failed; see sdk-init.log.')
+    status = 1
+    try:
+        if detection:
+            for key in list(child):
+                if key.startswith('RAFT_LAB_') and key not in {*defines, 'RAFT_LAB_ROOT', 'RAFT_LAB_DEVICE'}:
+                    child.pop(key)
+            # Keep toolchain/package locations while giving the app a fresh profile.
+            version = json.loads((ROOT / '.fvmrc').read_text())['flutter']
+            candidates = [Path(os.environ['RAFT_FLUTTER_BIN'])] if os.environ.get('RAFT_FLUTTER_BIN') else [
+                ROOT / '.fvm/flutter_sdk/bin/flutter', Path.home() / 'flutter-sdks/versions' / version / 'bin/flutter',
+                Path.home() / 'fvm/versions' / version / 'bin/flutter']
+            child['RAFT_FLUTTER_BIN'] = str(next(p for p in candidates if p.is_file()).resolve())
+            child['PUB_CACHE'] = os.environ.get('PUB_CACHE', str(Path.home() / '.pub-cache'))
+            child['DASH__SUPPRESS_ANALYTICS'] = 'true'
+            for key, name in [('HOME', 'home'), ('XDG_DATA_HOME', 'data'), ('XDG_CONFIG_HOME', 'config'),
+                              ('XDG_CACHE_HOME', 'cache'), ('XDG_STATE_HOME', 'state'), ('XDG_RUNTIME_DIR', 'runtime')]:
+                directory = out / 'profile' / name
+                directory.mkdir(parents=True, mode=0o700)
+                child[key] = str(directory)
+            manifest['isolatedProfile'] = str(out / 'profile')
+            manifest['headlessRequested'] = bool(getattr(args, 'headless', False))
+            # A private compositor has no window, input device or connection to
+            # the user's desktop. A short path is required by AF_UNIX sockets.
+            runtime_directory = tempfile.mkdtemp(prefix='raft-detect-', dir='/tmp')
+            child.update(XDG_RUNTIME_DIR=runtime_directory, WAYLAND_DISPLAY='raft-detect', GDK_BACKEND='wayland')
+            for key in ('DISPLAY', 'XAUTHORITY', 'WAYLAND_SOCKET'):
+                child.pop(key, None)
+            mesa_vendor = Path('/usr/share/glvnd/egl_vendor.d/50_mesa.json')
+            if mesa_vendor.is_file():
+                child.setdefault('__EGL_VENDOR_LIBRARY_FILENAMES', str(mesa_vendor))
+            manifest['displaySession'] = {'backend': 'Weston headless GL', 'runtimeDirectory': runtime_directory,
+                'virtualRefreshRateHz': 60, 'physicalDisplay': False,
+                'eglVendorSelection': child.get('__EGL_VENDOR_LIBRARY_FILENAMES', 'system default')}
+            suffix = manifest['buildReceipt']['identitySuffix']
+            if f'app.raft.raft_flutter{suffix}'.encode() not in Path(manifest['artifact']['path'], 'raft_flutter').read_bytes():
+                sys.exit('Isolated native application identity is absent from the verified executable.')
+        if device == 'linux' and not detection:
+            child['GDK_BACKEND'] = os.environ.get('RAFT_LAB_GDK_BACKEND', 'x11')
+        argv += [f'--dart-define={k}={v}' for k, v in defines.items()]
+        if manifest:
+            manifest['driveArgv'] = argv
+            (out / 'run-manifest.json').write_text(json.dumps(manifest, indent=1) + '\n')
+        if detection:
+            # Initialize only this new profile's CLI settings. The first-run
+            # analytics notice would otherwise corrupt the pinned-SDK JSON check.
+            with (out / 'sdk-init.log').open('w') as log:
+                initialized = run_owned_process([child['RAFT_FLUTTER_BIN'], '--disable-analytics'],
+                    process_groups=env.setdefault('processGroups', []),
+                    cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT)
+            if initialized:
+                env.update(exitCode=initialized, preparationError='Isolated Flutter settings initialization failed; see sdk-init.log.')
+                (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
+                return 1
+        cpu_before = host_cpu_snapshot() if concurrent or detection else None
+        print('Running:', ' '.join(argv), flush=True)
+        for attempt in range(1, 2 if detection else 4):
+            wait_for_display(args)
+            with (out / 'runner.log').open('w') as log:
+                launch = ['dbus-run-session', '--', 'weston', '--backend=headless', '--renderer=gl',
+                    '--width=1280', '--height=900', '--refresh-rate=60000', '--socket=raft-detect',
+                    '--no-config', '--idle-time=0', f'--log={out / "compositor.log"}', '--', *argv] if detection else argv
+                if manifest:
+                    manifest['launchArgv'] = launch
+                    (out / 'run-manifest.json').write_text(json.dumps(manifest, indent=1) + '\n')
+                status = (run_owned_process(launch, process_groups=env.setdefault('processGroups', []),
+                          cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT) if detection else
+                          subprocess.run(launch, cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT).returncode)
+            text = (out / 'runner.log').read_text(errors='replace')
+            # The desktop app is single-instance: a launch racing another
+            # worktree's run exits at once. Keep the failed log and retry.
+            if detection or concurrent or 'Application failed to start' not in text or (out / 'lab-hello.json').exists():
+                break
+            (out / 'runner.log').rename(out / f'runner-failed-start-{attempt}.log')
+            time.sleep(20)
+        impeller = re.search(r'Using the Impeller rendering backend \(([^)]+)\)', text)
+        if android:
+            try:
+                env['protectedAppAfter'] = protected_state(device)
+                if env['protectedAppAfter'] != protected_before:
+                    raise SafetyError('Official App identity changed during the benchmark.')
+            except SafetyError as error:
+                status = 1
+                env['protectedAppError'] = str(error)
+                print(f'STOP: {error} No reinstall/restore attempt will be made.', flush=True)
+        env['renderer'] = f'Impeller ({impeller.group(1)})' if impeller else 'unknown (derived from raster events in summarize)'
+        if detection:
+            compositor_log = out / 'compositor.log'
+            if compositor_log.exists():
+                renderer = re.search(r'GL renderer: (.+)', compositor_log.read_text())
+                env['compositorRenderer'] = renderer.group(1) if renderer else 'unknown'
+            env['displaySession'] = manifest['displaySession']
+            # Weston terminates with its launched program but may not propagate
+            # that program's exit status. Require the driver's explicit receipt.
+            try:
+                driver = json.loads((out / 'driver-result.json').read_text())
+                if driver.get('result') != 'true':
+                    status = 1
+            except (OSError, ValueError, AttributeError):
+                status = 1
+    except BaseException as failure:
+        status = 130 if isinstance(failure, KeyboardInterrupt) else 1
+        if detection:
+            env['interruptedBy'] = type(failure).__name__
+        raise
+    finally:
+        if runtime_directory is not None:
             env['runtimeCleanup'] = cleanup_private_runtime(runtime_directory)
             env['privateRuntimeRemoved'] = env['runtimeCleanup']['removed']
-            (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
-            return 1
-    cpu_before = host_cpu_snapshot() if concurrent or detection else None
-    print('Running:', ' '.join(argv), flush=True)
-    for attempt in range(1, 2 if detection else 4):
-        wait_for_display(args)
-        with (out / 'runner.log').open('w') as log:
-            launch = ['dbus-run-session', '--', 'weston', '--backend=headless', '--renderer=gl',
-                '--width=1280', '--height=900', '--refresh-rate=60000', '--socket=raft-detect',
-                '--no-config', '--idle-time=0', f'--log={out / "compositor.log"}', '--', *argv] if detection else argv
-            if manifest:
-                manifest['launchArgv'] = launch
-                (out / 'run-manifest.json').write_text(json.dumps(manifest, indent=1) + '\n')
-            status = subprocess.run(launch, cwd=APP, env=child, stdout=log, stderr=subprocess.STDOUT).returncode
-        text = (out / 'runner.log').read_text(errors='replace')
-        # The desktop app is single-instance: a launch racing another
-        # worktree's run exits at once. Keep the failed log and retry.
-        if detection or concurrent or 'Application failed to start' not in text or (out / 'lab-hello.json').exists():
-            break
-        (out / 'runner.log').rename(out / f'runner-failed-start-{attempt}.log')
-        time.sleep(20)
-    impeller = re.search(r'Using the Impeller rendering backend \(([^)]+)\)', text)
-    if android:
-        try:
-            env['protectedAppAfter'] = protected_state(device)
-            if env['protectedAppAfter'] != protected_before:
-                raise SafetyError('Official App identity changed during the benchmark.')
-        except SafetyError as error:
-            status = 1
-            env['protectedAppError'] = str(error)
-            print(f'STOP: {error} No reinstall/restore attempt will be made.', flush=True)
-    env['renderer'] = f'Impeller ({impeller.group(1)})' if impeller else 'unknown (derived from raster events in summarize)'
-    if detection:
-        compositor_log = out / 'compositor.log'
-        if compositor_log.exists():
-            renderer = re.search(r'GL renderer: (.+)', compositor_log.read_text())
-            env['compositorRenderer'] = renderer.group(1) if renderer else 'unknown'
-        env['runtimeCleanup'] = cleanup_private_runtime(runtime_directory)
-        env['displaySession'] = manifest['displaySession']
-        env['privateRuntimeRemoved'] = env['runtimeCleanup']['removed']
-        if not env['privateRuntimeRemoved']:
-            status = 1
-        # Weston terminates with its launched program but may not propagate
-        # that program's exit status. Require the driver's explicit receipt.
-        try:
-            driver = json.loads((out / 'driver-result.json').read_text())
-            if driver.get('result') != 'true':
+            if not env['privateRuntimeRemoved']:
                 status = 1
-        except (OSError, ValueError, AttributeError):
-            status = 1
+            env['exitCode'] = status
+            env['endedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
     env['exitCode'] = status
     env['endedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     env['loadavgEnd'] = os.getloadavg()

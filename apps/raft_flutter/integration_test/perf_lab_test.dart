@@ -23,6 +23,9 @@ import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/conversation_panel.dart';
 import 'package:raft_flutter/features/source_channel_files_view.dart';
+import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_flutter/features/mobile_workspace_pages.dart';
+import 'package:raft_flutter/features/layout_hold.dart';
 import 'package:raft_flutter/main.dart' as app;
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_flutter/platform/system_fonts.dart';
@@ -427,6 +430,7 @@ void main() {
     await sampler.hello({
       'pid': pid,
       'fixtureVersion': '$fixtureVersion-m7',
+      'fixturePagination': 'requested-limit-v1',
       'linuxApplicationIdSuffix': const String.fromEnvironment('RAFT_LINUX_APPLICATION_ID_SUFFIX'),
       'themes': themes,
       'scenarios': only.toList(),
@@ -1334,6 +1338,21 @@ void main() {
             'testWidth': t.view.physicalSize.width, 'testHeight': t.view.physicalSize.height,
             'mobileNavigation': nw.mobileNavigation, 'rootTab': nw.navigation.mobileRootTab,
             'mediaWidth': media.width, 'mediaHeight': media.height,
+            'layoutHeld': LayoutHold.held,
+            'mobilePages': find.byType(MobileWorkspacePages).evaluate().length,
+            'mobileBars': find.byKey(const Key('workspace-mobile-navigation')).evaluate().length,
+            'workspaces': [
+              for (final element in find.byWidgetPredicate((widget) => widget is WorkspaceView).evaluate())
+                {
+                  'widget': element.widget.runtimeType.toString(),
+                  'routePage': (element.widget as WorkspaceView).mobileRoutePage,
+                  'mediaWidth': MediaQuery.sizeOf(element).width,
+                  'mediaHeight': MediaQuery.sizeOf(element).height,
+                  'compact': RaftAdaptiveWorkspace.compactOf(element),
+                  'renderWidth': (element.renderObject as RenderBox?)?.size.width,
+                  'renderHeight': (element.renderObject as RenderBox?)?.size.height,
+                },
+            ],
           }});
           expect(media.width, lessThan(RaftLayoutMetrics.desktopBreakpoint),
               reason: 'Phone navigation must actually receive the compact MediaQuery.');
