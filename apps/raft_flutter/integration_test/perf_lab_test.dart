@@ -1311,14 +1311,16 @@ void main() {
         });
         final content = LabNavigationContent();
         await NativeSystemFonts.instance.initialize();
-        await t.pumpWidget(app.RaftApp(
+        final navigationApp = app.RaftApp(
           services: const AppServices.updatesDisabledForTestOrPreview(),
           sessionStore: nclient.sessionStore,
           createClient: (_, _, _) => nclient,
           initialLocation: Uri(path: '/s/lab'),
           nativeContent: content, nativeSharing: NativeSharing(supported: false),
           openWorkspaceCache: () async => navCache,
-        ));
+        );
+        await t.pumpWidget(detection
+            ? MediaQuery.fromView(view: t.view, child: navigationApp) : navigationApp);
         await lab.settle(t, time: const Duration(seconds: 2));
         if (await waitUntil(() => content.workspace?.server != null, limit: const Duration(seconds: 10)) < 0) {
           throw StateError('Production app root did not restore the lab workspace; requests=${napi.hits}; misses=${napi.misses}');
@@ -1326,11 +1328,15 @@ void main() {
         final nw = content.workspace!;
         if (detection) {
           final appView = View.of(t.element(find.byType(app.RaftApp)));
+          final media = MediaQuery.sizeOf(t.element(find.byType(Scaffold).first));
           await sampler.send('note', {'theme': name, 'navigationView': {
             'appWidth': appView.physicalSize.width, 'appHeight': appView.physicalSize.height,
             'testWidth': t.view.physicalSize.width, 'testHeight': t.view.physicalSize.height,
             'mobileNavigation': nw.mobileNavigation, 'rootTab': nw.navigation.mobileRootTab,
+            'mediaWidth': media.width, 'mediaHeight': media.height,
           }});
+          expect(media.width, lessThan(RaftLayoutMetrics.desktopBreakpoint),
+              reason: 'Phone navigation must actually receive the compact MediaQuery.');
         }
         final navActivity = LabNavigationActivity(
           workspace: nw, client: nclient,
@@ -1607,7 +1613,8 @@ void main() {
       if (wants('keyboard') && (only.isNotEmpty || Platform.isAndroid)) {
         await independentGroup('$name/keyboard', () async {
         await phoneViewport();
-        final closeKeyboard = await mountKeyboardChat(t, images: images, family: family, dark: dark);
+        final closeKeyboard = await mountKeyboardChat(t, images: images, family: family, dark: dark,
+            useTestViewport: detection);
         final keyboardRounds = int.tryParse(_cfg('RAFT_LAB_ROUNDS')) ?? 1;
         try {
           // One recorded warmup. Later rounds share this process cache, so
