@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/data/shared_draft_attachment.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_grid_sessions.dart';
 import 'package:raft_flutter/features/workspace_grid_view.dart';
@@ -440,17 +441,36 @@ void main() {
     () async {
       final client = _Client(), cache = _HeldDraftCache();
       final w = _workspace(client, cache: cache);
+      final signal = w.draftChanges();
+      var observedFiles = <String>[];
+      void observeFiles() {
+        observedFiles = w.uploads().map((file) => file.filename).toList();
+      }
+
+      signal.addListener(observeFiles);
       Future<Object?>? staging;
       try {
         w.drafts['c1'] = 'Original';
         staging = w
-            .stageSharedDraft('Incoming caption', [], sourceToken: 'share')
+            .stageSharedDraft('Incoming caption', [
+              SharedDraftAttachment(
+                reference: const {'token': 'share', 'file': 'incoming.txt'},
+                filename: 'incoming.txt',
+                mimeType: 'text/plain',
+                sizeBytes: 1,
+                openRead: () => Stream.value([1]),
+                release: () async {},
+              ),
+            ], sourceToken: 'share')
             .then<Object?>((_) => null, onError: (Object e) => e);
         await cache.entered.future;
         w.saveDraft('User edited the text while saving');
+        expect(observedFiles, ['incoming.txt']);
         cache.result.completeError(StateError('Synthetic disk failure'));
         expect(await staging, isStateError);
         expect(w.drafts['c1'], 'User edited the text while saving');
+        expect(w.uploads(), isEmpty);
+        expect(observedFiles, isEmpty);
         await w.flushCache();
         expect(
           (await cache.read(
@@ -463,6 +483,7 @@ void main() {
           w.drafts['c1'],
         );
       } finally {
+        signal.removeListener(observeFiles);
         if (!cache.result.isCompleted) cache.result.complete();
         await staging;
         await w.flushCache();

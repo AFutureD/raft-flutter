@@ -271,6 +271,7 @@ class WorkspaceComposer {
           drafts[scope] = previous;
         }
         shareTokens[scope]?.remove(sourceToken);
+        _changed(scope);
       }
       rethrow;
     }
