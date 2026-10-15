@@ -2,8 +2,8 @@ package app.raft.raft_flutter
 
 import android.Manifest
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
+import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -37,9 +37,9 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
     }
 
     private val main = Handler(Looper.getMainLooper())
+    private val audio = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val methods = MethodChannel(engine.dartExecutor.binaryMessenger, "app.raft/agent-audio")
     private val micEvents = EventChannel(engine.dartExecutor.binaryMessenger, "app.raft/agent-audio/mic")
-    private val audio = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private var sink: EventChannel.EventSink? = null
     private var permissionResult: MethodChannel.Result? = null
@@ -119,39 +119,32 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
         return true
     }
 
-    // Echo cancellation works on the communication path; keep the speech on
-    // the loudspeaker unless a headset or other output is connected.
+    // Echo cancellation works on the communication path. During testing the
+    // speech goes to the earpiece (quiet, and the canceller has a clean
+    // reference); a headset or other output takes over when connected.
     private fun enterCommunication() {
         if (communication) return
         communication = true
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
-        // Speech plays on the voice-call stream: let the volume keys adjust it.
-        activity.volumeControlStream = AudioManager.STREAM_VOICE_CALL
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val devices = audio.availableCommunicationDevices
-            val external = devices.any {
+            val external = devices.firstOrNull {
                 it.type != AudioDeviceInfo.TYPE_BUILTIN_EARPIECE &&
                     it.type != AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
             }
-            if (!external) {
-                devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
-                    ?.let { audio.setCommunicationDevice(it) }
-            }
+            (external ?: devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE })
+                ?.let { audio.setCommunicationDevice(it) }
         } else {
             @Suppress("DEPRECATION")
-            audio.isSpeakerphoneOn = true
+            audio.isSpeakerphoneOn = false
         }
+        activity.volumeControlStream = AudioManager.STREAM_VOICE_CALL
     }
 
     private fun leaveCommunication() {
         if (!communication) return
         communication = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            audio.clearCommunicationDevice()
-        } else {
-            @Suppress("DEPRECATION")
-            audio.isSpeakerphoneOn = false
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audio.clearCommunicationDevice()
         audio.mode = AudioManager.MODE_NORMAL
         activity.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
     }
