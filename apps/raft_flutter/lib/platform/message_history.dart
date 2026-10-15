@@ -6,7 +6,9 @@ import 'package:raft_ui/raft_ui.dart' show RaftIdleTimer;
 
 import '../data/message_history.dart';
 import '../data/history_read_policy.dart';
+import '../data/history_capacity.dart';
 import '../data/workspace_cache_codec.dart';
+import 'history_capacity.dart';
 
 typedef HistoryOperationOrder = Future<T> Function<T>(
   Future<T> Function() action,
@@ -20,6 +22,8 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     this.order, {
     required this.readLegacy,
     required this.writeLegacy,
+    this.historyBudget = 2 << 30,
+    this.automaticMaintenance = true,
     DateTime Function()? now,
   }) : now = now ?? DateTime.now;
   final GeneratedDatabase db;
@@ -29,8 +33,16 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   final Future<void> Function(String, String, String, String, String, dynamic)
   writeLegacy;
   final DateTime Function() now;
+  final int historyBudget;
+  final bool automaticMaintenance;
   @override
   late final HistoryReadPolicy reads = HistoryReadPolicy(now: now);
+  @override
+  late final SqliteHistoryCapacity capacity = SqliteHistoryCapacity(
+    db, order, ready: _ready, advance: (s) => _revision(s, advance: true),
+    now: now, defaultBudget: historyBudget, automatic: automaticMaintenance,
+    pending: () => receiver.protectedRows,
+  );
   @override
   final receiver = HistoryReceiverQueue();
   Future<void>? _opening;
@@ -43,6 +55,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   void stop() {
     _closed = true;
     reads.close();
+    capacity.close();
     _migrationTimer.cancel();
     _migrations.clear();
   }
@@ -50,6 +63,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   void cancelAccount(String origin, String principal) {
     receiver.clearAccount(origin, principal);
     reads.forgetAccount(origin, principal);
+    capacity.cancel(HistoryAccount(origin, principal));
     _migrations.remove((origin, principal));
     if (_migrations.isEmpty) _migrationTimer.cancel();
   }
@@ -177,7 +191,24 @@ class SqliteMessageHistory implements MessageHistoryStorage {
               AND server=OLD.server AND kind IN ('message-history','message-history-denied'));
       END""",
     );
+    await capacity.openNow();
   }
+
+  @override
+  Future<bool> wasEvicted(MessageHistoryScope scope, {BigInt? before, BigInt? after, String? target}) => order(() async {
+    await _ready();
+    final marker = await _marker(scope);
+    if (marker == null || marker['authority'] != scope.authority || await _denial(scope) >= 0) return false;
+    if (target != null) {
+      return (await _existing(scope, [target]))[target]?.read<int>('tombstone') == 2;
+    }
+    if (before == null && after == null) return false;
+    final rows = await _query(
+      'SELECT tombstone FROM raft_history_rows WHERE $_where AND seq_key${before != null ? '<' : '>'}? ORDER BY seq_key ${before != null ? 'DESC' : 'ASC'} LIMIT 1',
+      [...scope.key, historySequenceKey(before ?? after!)],
+    );
+    return rows.isNotEmpty && rows.single.read<int>('tombstone') == 2;
+  });
 
   @override
   Future<DateTime?> lastVerified(
@@ -594,6 +625,12 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       accepted.add(mergeMessageProjection(previous[row['id']], row));
     }
     final payloads = await encodeWorkspaceTranslations(accepted);
+    final sizes = [for (final payload in payloads) utf8.encode(payload).length];
+    var added = 0;
+    for (var i = 0; i < accepted.length; i++) {
+      added += sizes[i] - (existing[accepted[i]['id']]?.read<int>('byte_size') ?? 0);
+    }
+    capacity.admitNow(scope, added);
     final touched = now().millisecondsSinceEpoch;
     await db.batch((batch) {
       for (var i = 0; i < accepted.length; i++) {
@@ -611,12 +648,13 @@ class SqliteMessageHistory implements MessageHistoryStorage {
             historySequenceKey(row['seq']),
             payload,
             revision,
-            utf8.encode(payload).length,
+            sizes[i],
             touched,
           ],
         );
       }
     });
+    capacity.changed(scope, added);
   }
 
   @override
@@ -687,22 +725,28 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     String lower,
     String upper,
   ) async {
-    final neighbours = await _query(
-      'SELECT lower_key,upper_key,verified FROM raft_history_ranges WHERE $_where AND lower_key<=? AND upper_key>=?',
-      [
-        ...scope.key,
-        historySequenceKey(
-          BigInt.parse(upper) == historyMaxSequence
-              ? historyMaxSequence
-              : BigInt.parse(upper) + BigInt.one,
-        ),
-        historySequenceKey(
-          BigInt.parse(lower) == BigInt.zero
-              ? BigInt.zero
-              : BigInt.parse(lower) - BigInt.one,
-        ),
-      ],
+    final before = await _query(
+      'SELECT lower_key,upper_key,verified FROM raft_history_ranges WHERE $_where AND lower_key<=? ORDER BY lower_key DESC LIMIT 1',
+      [...scope.key, lower],
     );
+    final neighbours = <QueryRow>[
+      if (before.isNotEmpty &&
+          BigInt.parse(before.single.read<String>('upper_key')) >=
+              BigInt.parse(lower) - BigInt.one)
+        before.single,
+      ...await _query(
+        'SELECT lower_key,upper_key,verified FROM raft_history_ranges WHERE $_where AND lower_key>? AND lower_key<=? ORDER BY lower_key',
+        [
+          ...scope.key,
+          lower,
+          historySequenceKey(
+            BigInt.parse(upper) == historyMaxSequence
+                ? historyMaxSequence
+                : BigInt.parse(upper) + BigInt.one,
+          ),
+        ],
+      ),
+    ];
     var verified = now().millisecondsSinceEpoch;
     for (final row in neighbours) {
       final lo = row.read<String>('lower_key'),
@@ -863,15 +907,12 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       // those gaps into a successful cached pagination read.
       final complete = ranges.isNotEmpty;
       final stamp = complete ? ranges.single.read<int>('verified') : 0;
+      final decoded = await decodeWorkspaceTranslations(
+        rows.take(limit).map((r) => r.read<String>('payload')).toList().reversed.toList(),
+      );
+      await _touchRows(scope, decoded);
       return LocalMessageHistoryPage(
-        await decodeWorkspaceTranslations(
-          rows
-              .take(limit)
-              .map((r) => r.read<String>('payload'))
-              .toList()
-              .reversed
-              .toList(),
-        ),
+        decoded,
         hasMore:
             marker['historyLimited'] != true &&
             (rows.length > limit || !complete),
@@ -879,39 +920,19 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         verifiedAt: DateTime.fromMillisecondsSinceEpoch(stamp),
       );
     }
+    // Stored intervals are disjoint and non-adjacent. The nearest preceding
+    // lower bound is the only interval that can cover this cursor; do not
+    // load every sparse event interval into the UI isolate.
     final ranges = await _query(
-      'SELECT lower_key,upper_key,verified FROM raft_history_ranges WHERE $_where ORDER BY lower_key',
-      scope.key,
+      'SELECT lower_key,upper_key,verified FROM raft_history_ranges WHERE $_where AND lower_key<=? ORDER BY lower_key DESC LIMIT 1',
+      [...scope.key, target],
     );
-    String? lower, high;
-    var verified = now().millisecondsSinceEpoch;
-    for (final range in ranges) {
-      final lo = range.read<String>('lower_key'),
-          hi = range.read<String>('upper_key');
-      if (lower != null &&
-          high != null &&
-          BigInt.parse(lo) <= BigInt.parse(high) + BigInt.one) {
-        if (hi.compareTo(high) > 0) high = hi;
-        final stamp = range.read<int>('verified');
-        if (stamp < verified) verified = stamp;
-      } else {
-        if (lower != null &&
-            high != null &&
-            lower.compareTo(target) <= 0 &&
-            high.compareTo(target) >= 0) {
-          break;
-        }
-        lower = lo;
-        high = hi;
-        verified = range.read<int>('verified');
-      }
-    }
-    if (lower == null ||
-        high == null ||
-        lower.compareTo(target) > 0 ||
-        high.compareTo(target) < 0) {
-      return null;
-    }
+    if (ranges.isEmpty) return null;
+    final range = ranges.single;
+    final lower = range.read<String>('lower_key'),
+        high = range.read<String>('upper_key');
+    if (high.compareTo(target) < 0) return null;
+    final verified = range.read<int>('verified');
     final forward = after != null;
     final rows = await _query(
       'SELECT payload FROM raft_history_rows WHERE $_where AND tombstone=0 AND seq_key>=? AND seq_key<=? ORDER BY seq_key ${forward ? 'ASC' : 'DESC'},message_id ${forward ? 'ASC' : 'DESC'} LIMIT ?',
@@ -940,13 +961,26 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         .take(limit)
         .map((r) => r.read<String>('payload'))
         .toList();
+    final decoded = await decodeWorkspaceTranslations(
+      forward ? payloads : payloads.reversed.toList(),
+    );
+    await _touchRows(scope, decoded);
     return LocalMessageHistoryPage(
-      await decodeWorkspaceTranslations(
-        forward ? payloads : payloads.reversed.toList(),
-      ),
+      decoded,
       hasMore: hasMore,
       historyLimited: marker['historyLimited'] == true,
       verifiedAt: DateTime.fromMillisecondsSinceEpoch(verified),
+    );
+  }
+
+  Future<void> _touchRows(MessageHistoryScope scope, List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return;
+    final stamp = now().millisecondsSinceEpoch;
+    // Repeated paints/reads do not cause a write for every cache hit.
+    await db.customStatement(
+      'UPDATE raft_history_rows SET touched=? WHERE $_where AND touched<? AND message_id IN (${List.filled(rows.length, '?').join(',')})',
+      [stamp, ...scope.key, stamp - const Duration(minutes: 1).inMilliseconds,
+        for (final row in rows) row['id']],
     );
   }
 

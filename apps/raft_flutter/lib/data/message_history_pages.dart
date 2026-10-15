@@ -1,6 +1,7 @@
 import 'package:raft_client/raft_client.dart';
 
 import 'message_history.dart';
+import 'history_capacity.dart';
 import 'history_read_policy.dart';
 import 'message_history_verification.dart';
 import 'message_window_snapshot.dart';
@@ -11,6 +12,37 @@ import 'workspace_message_windows.dart';
 /// Transport and local paging use the same admitted projections. Request
 /// metadata is held in a Dart object and never added to the server protocol.
 class MessageHistoryPages {
+  static String saveError(Object cause) => cause is HistoryCapacityExceeded
+      ? 'Device message storage is full. Increase the message history limit or stop keeping a conversation in Storage settings.'
+      : cause is HistoryStorageUnavailable
+      ? 'Device message storage could not be measured. Saved messages remain available. Retry cleanup in Storage settings.'
+      : 'Local changes could not be saved on this device.';
+  static void attach(WorkspaceController w) {
+    final device = storage(w.cache);
+    if (device == null || w.presentationSource != null) return;
+    device.capacity.protect(w, () sync* {
+      final user = w.client.user?.id, server = w.client.serverId;
+      if (user == null || server == null || !w.cacheWritable) return;
+      final account = HistoryAccount(w.client.origin, user);
+      for (final id in {w.channel?.id, w.threadChannelId}.nonNulls) {
+        yield HistoryProtectedRows(account, server, id,
+          w.visibleIds[id] ?? const <String>{},
+          wholeChannel: w.loadingOlder || (id == w.channel?.id ? w.channelLoading : w.threadLoading));
+      }
+      for (final sends in w.composer.sends.pending.values) {
+        for (final send in sends) {
+          final id = send.channelId ?? send.row.channelId;
+          yield HistoryProtectedRows(account, server, id, [send.row.id]);
+        }
+      }
+    });
+  }
+
+  static void detach(WorkspaceController w) {
+    final device = storage(w.cache);
+    device?.reads.forget(w);
+    device?.capacity.release(w);
+  }
   static void recheckContext(
     WorkspaceController w,
     MessageWindowRequest request,
@@ -176,9 +208,9 @@ class MessageHistoryPages {
       }
       if (page.local) MessageHistoryVerification.schedule(w, request, page);
       return true;
-    } catch (_) {
+    } catch (cause) {
       if (request.current && w.cacheWritable) {
-        w.error ??= 'Local changes could not be saved on this device.';
+        w.error ??= saveError(cause);
       }
       return false;
     }
@@ -294,6 +326,10 @@ class MessageHistoryPages {
             verifiedAt: await verified(local.verifiedAt),
           );
         }
+      }
+      if (localFirst && reason == null &&
+          await device.wasEvicted(scope, before: before, after: after, target: target)) {
+        reason = HistoryReadReason.evicted;
       }
     } catch (_) {
       // A full/unavailable device never prevents a successful remote read.

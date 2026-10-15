@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 /// Local reads and each reason for a wire read are counted separately.
-enum HistoryReadReason { local, missing, tail, gap, aged, manual, failed }
+enum HistoryReadReason { local, missing, evicted, incremental, tail, gap, aged, manual, failed }
 
 typedef HistoryReadKey = (
   String,

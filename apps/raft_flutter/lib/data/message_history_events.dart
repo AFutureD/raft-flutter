@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:raft_client/raft_client.dart';
 
 import 'message_history.dart';
+import 'history_read_policy.dart';
 import 'message_history_pages.dart';
 import 'workspace_controller.dart';
 import 'workspace_message_windows.dart';
@@ -10,9 +11,9 @@ import 'workspace_message_windows.dart';
 /// The receiver queue preserves socket order while a previously unseen thread
 /// resolves its parent through existing, authorized read routes.
 class MessageHistoryEvents {
-  static void _saveFailed(WorkspaceController w) {
+  static void _saveFailed(WorkspaceController w, Object cause) {
     if (w.error != null) return;
-    w.error = 'Local changes could not be saved on this device.';
+    w.error = MessageHistoryPages.saveError(cause);
     w.notifyListeners();
   }
 
@@ -129,9 +130,9 @@ class MessageHistoryEvents {
               rowReceipt.finish();
             }
           })
-          .catchError((Object _) {
+          .catchError((Object cause) {
             if (current()) {
-              _saveFailed(w);
+              _saveFailed(w, cause);
             }
           }),
     );
@@ -275,6 +276,7 @@ class MessageHistoryEvents {
     if (!updateOnly && current()) {
       await db.checkpoint(checkpointScope, through ?? highest);
     }
+    if (current() && grouped.isNotEmpty) db.reads.count(HistoryReadReason.incremental);
     return current();
   }
 
@@ -298,9 +300,9 @@ class MessageHistoryEvents {
           ? committed
           : db.receiver.checkpointLimit(scope, w.ledger.watermark);
       if (current() && seq > BigInt.zero) w.client.resume(seq);
-    } catch (_) {
+    } catch (cause) {
       if (current()) {
-        _saveFailed(w);
+        _saveFailed(w, cause);
       }
     }
   }
@@ -354,9 +356,9 @@ class MessageHistoryEvents {
             },
           );
         }
-      } catch (_) {
+      } catch (cause) {
         if (current()) {
-          _saveFailed(w);
+          _saveFailed(w, cause);
         }
       } finally {
         receipt?.finish(!current() || committed);

@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'history_read_policy.dart';
+import 'history_capacity.dart';
 
 /// Receiver authority for persisted rows. A saved role never grants access.
 class MessageHistoryScope {
@@ -127,7 +128,9 @@ abstract interface class MessageHistoryProvider {
 /// Persistent accepted projections and proven page ranges, independent of UI.
 abstract interface class MessageHistoryStorage {
   HistoryReadPolicy get reads;
+  HistoryCapacity get capacity;
   Future<DateTime?> lastVerified(MessageHistoryScope scope, String queryKey);
+  Future<bool> wasEvicted(MessageHistoryScope scope, {BigInt? before, BigInt? after, String? target});
   Future<Map<String, Map<String, dynamic>?>> projections(
     MessageHistoryScope scope,
     Iterable<String> ids,
@@ -203,6 +206,16 @@ abstract interface class MessageHistoryStorage {
 class HistoryReceiverQueue {
   Future<void> _tail = Future<void>.value();
   final _rows = <(String, String, String, String, String), Object>{};
+  Iterable<HistoryProtectedRows> get protectedRows sync* {
+    final grouped = <(String, String, String, String), List<String>>{};
+    for (final key in _rows.keys) {
+      grouped.putIfAbsent((key.$1, key.$2, key.$3, key.$4), () => []).add(key.$5);
+    }
+    for (final entry in grouped.entries) {
+      final key = entry.key;
+      yield HistoryProtectedRows(HistoryAccount(key.$1, key.$2), key.$3, key.$4, entry.value);
+    }
+  }
   bool hasRow(MessageHistoryScope scope, String id) => _rows.containsKey((
     scope.origin,
     scope.principal,

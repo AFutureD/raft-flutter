@@ -223,6 +223,7 @@ class WorkspaceController extends ChangeNotifier {
     if (presentationSource == null) {
       _removePlayerTrim = _playerSessions.installMemoryTrim();
     }
+    MessageHistoryPages.attach(this);
     _ownsFollowedThreads = followedThreads == null;
     this.followedThreads =
         followedThreads ??
@@ -1568,9 +1569,9 @@ class WorkspaceController extends ChangeNotifier {
       }
       try {
         await cache!.write(origin, user, serverId, kind, id, value);
-      } catch (_) {
+      } catch (cause) {
         if (!_disposed) {
-          error ??= 'Local changes could not be saved on this device.';
+          error ??= MessageHistoryPages.saveError(cause);
           notifyListeners();
         }
         if (requiredSuccess) rethrow;
@@ -6111,7 +6112,7 @@ class WorkspaceController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    MessageHistoryPages.storage(cache)?.reads.forget(this);
+    MessageHistoryPages.detach(this);
     if (presentationSource == null) messageWindows.dispose();
     composer.sends.detach(this);
     composer.disposeOwnedBy(this);

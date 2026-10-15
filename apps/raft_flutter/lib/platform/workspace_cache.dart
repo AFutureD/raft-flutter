@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -18,6 +19,8 @@ class DriftWorkspaceCache extends GeneratedDatabase
     this.windowRetention = 120,
     this.translationRetention = 2000,
     this.historyClock,
+    this.historyBudget,
+    this.automaticHistoryMaintenance = true,
     this.messageHistoryEnabled = const bool.fromEnvironment(
       'RAFT_LOCAL_MESSAGE_HISTORY',
       defaultValue: true,
@@ -25,6 +28,10 @@ class DriftWorkspaceCache extends GeneratedDatabase
   });
 
   final DateTime Function()? historyClock;
+  /// An explicit budget also permits small, real-file capacity fixtures.
+  final int? historyBudget;
+  @visibleForTesting
+  final bool automaticHistoryMaintenance;
   @override
   final bool messageHistoryEnabled;
 
@@ -35,6 +42,12 @@ class DriftWorkspaceCache extends GeneratedDatabase
     readLegacy: _read,
     writeLegacy: _write,
     now: historyClock,
+    historyBudget: historyBudget ??
+        (switch (defaultTargetPlatform) {
+          TargetPlatform.android || TargetPlatform.iOS => 1 << 30,
+          _ => 2 << 30,
+        }),
+    automaticMaintenance: automaticHistoryMaintenance,
   );
 
   /// Message/thread windows kept per account and server. Every write moves a
@@ -156,6 +169,7 @@ class DriftWorkspaceCache extends GeneratedDatabase
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (_) async {
+      await customStatement('PRAGMA auto_vacuum=INCREMENTAL');
       await customStatement('''CREATE TABLE workspace_cache (
       origin TEXT NOT NULL, principal TEXT NOT NULL, server TEXT NOT NULL,
       kind TEXT NOT NULL, id TEXT NOT NULL, payload TEXT NOT NULL,
