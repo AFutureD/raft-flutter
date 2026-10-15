@@ -26,10 +26,14 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
       mobilePageIdentity(source.location) ==
       mobilePageIdentity(widget.location);
   bool get settingsRoute => widget.location.route == RaftRoute.settings;
+  bool get chatRoute =>
+      widget.location.route == RaftRoute.channel ||
+      widget.location.route == RaftRoute.dm;
   bool get directRoute =>
       settingsRoute ||
       widget.location.route == RaftRoute.tasks ||
-      widget.location.route == RaftRoute.saved;
+      widget.location.route == RaftRoute.saved ||
+      chatRoute;
 
   bool resolveDirect() =>
       directRoute &&
@@ -66,6 +70,12 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
 
   void sourceChanged() {
     if (directRoute && !active) MobileSettingsVisit.noteHidden(this);
+    // A covered chat page does not copy the outer workspace. The foreground
+    // page reads it again on the next entry.
+    if (chatRoute && pageDirect && !active) {
+      controller?.presentationActive = false;
+      return;
+    }
     synchronize();
     if (active) controller?.notifyListeners();
   }
@@ -88,7 +98,8 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
   Widget build(BuildContext context) {
     final host = widget.host;
     pageDirect = resolveDirect();
-    if (active) mobileSettingsDirectHost[host] = pageDirect;
+    // Chat does not publish the settings/tasks/saved host flag.
+    if (active && !chatRoute) mobileSettingsDirectHost[host] = pageDirect;
     final now = active;
     final was = routeWasActive;
     routeWasActive = now;
@@ -114,13 +125,21 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
         onSwitchServer: host.widget.onSwitchServer,
       );
     }
+    // Keep the chat state so the scroll offset survives. Stop its tickers
+    // and focus while another page covers it.
+    final Widget shown = chatRoute && pageDirect
+        ? ExcludeFocus(
+            excluding: !now,
+            child: TickerMode(enabled: now, child: content!),
+          )
+        : content!;
     return IgnorePointer(
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
         child: RouteFrameDiagnostics.enabled
-            ? RouteFrameProbe(child: content)
-            : content!,
+            ? RouteFrameProbe(child: shown)
+            : shown,
       ),
     );
   }

@@ -1403,6 +1403,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
         target: desktopNavigation.target?.kind,
       );
       final thread = sidePanels.thread;
+      final phoneChatDirect =
+          widget.mobileRoutePage &&
+          !gridActive &&
+          (location.route == RaftRoute.channel ||
+              location.route == RaftRoute.dm) &&
+          context
+                  .findAncestorStateOfType<_MobileWorkspaceRouteState>()
+                  ?.pageDirect ==
+              true;
       final rootTab = w.navigation.mobileRootTabOf(location);
       // The left rail stands in for the bottom bar on the same tab roots.
       final railShown = railNavigation && rootTab != null && w.server != null;
@@ -1418,18 +1427,27 @@ class _WorkspaceViewState extends State<WorkspaceView>
               'settings' => 'Settings',
               _ => route[0].toUpperCase() + route.substring(1),
             });
-      Widget conversation() => ServerSetupGate(
-        controller: w,
-        onSwitchServer: showWorkspaceSwitcher,
-        child: ConversationPanel(
+      Widget conversation() {
+        final panel = ConversationPanel(
           controller: w,
           selectionHandle: mainSelection,
           onTask: openTaskSurface,
           onMessageTask: openMessageTaskSurface,
           onViewBilling: () => select('billing'),
           onOpenChannelSettings: channelSettings,
-        ),
-      );
+        );
+        return ServerSetupGate(
+          controller: w,
+          onSwitchServer: showWorkspaceSwitcher,
+          child: phoneChatDirect
+              ? MobileChatDirectRead(
+                  channel: true,
+                  thread: false,
+                  child: panel,
+                )
+              : panel,
+        );
+      }
       // Mobile home keeps the sidebar mounted while the lists load and shows
       // SidebarRowsSkeleton rows (Sidebar.tsx channelsLoading), not a spinner.
       Widget content = w.loading && w.server == null
@@ -2026,15 +2044,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                         child: ServerSetupGate(
                                           controller: w,
                                           onSwitchServer: showWorkspaceSwitcher,
-                                          child: RaftChatView(
-                                            controller: w,
-                                            thread: true,
-                                            viewportHandle: threadViewport,
-                                            selectionHandle: threadSelection,
-                                            onTask: openMessageTaskSurface,
-                                            onViewBilling: () =>
-                                                select('billing'),
-                                          ),
+                                          child: phoneChatDirect
+                                              ? MobileChatDirectRead(
+                                                  channel: false,
+                                                  thread: true,
+                                                  child: _phoneThreadChat(),
+                                                )
+                                              : _phoneThreadChat(),
                                         ),
                                       ),
                                     ],
@@ -2112,6 +2128,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
   }
 
   final profilePanelKey = GlobalKey();
+
+  Widget _phoneThreadChat() => RaftChatView(
+    controller: w,
+    thread: true,
+    viewportHandle: threadViewport,
+    selectionHandle: threadSelection,
+    onTask: openMessageTaskSurface,
+    onViewBilling: () => select('billing'),
+  );
 
   Widget profileSidePanel(RaftProfileLocation profile, {bool page = false}) =>
       ProfileSidePanel(

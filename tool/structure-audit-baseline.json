@@ -381,8 +381,8 @@
         "field._WorkspaceViewState.threadWidth": 1,
         "field._WorkspaceViewState.workspaceErrorScheduled": 1,
         "field._WorkspaceViewState.workspaceMode": 1,
-        "lines": 5063,
-        "tokens": 26361
+        "lines": 5107,
+        "tokens": 26537
       }
     },
     "resource_view": {
@@ -578,6 +578,8 @@
       "metrics": {
         "field.ChatViewportHandle._jump": 1,
         "field.ChatViewportHandle._owner": 1,
+        "field.MobileChatDirectRead.channel": 1,
+        "field.MobileChatDirectRead.thread": 1,
         "field.RaftChatView.controller": 1,
         "field.RaftChatView.hideThreadParent": 1,
         "field.RaftChatView.onOpenChannelSettings": 1,
@@ -605,6 +607,7 @@
         "field._RaftChatViewState.composerHandle": 1,
         "field._RaftChatViewState.copiedSelectionMarkdown": 1,
         "field._RaftChatViewState.copiedSelectionTimer": 1,
+        "field._RaftChatViewState._directLatched": 1,
         "field._RaftChatViewState.expandedSystemGroups": 1,
         "field._RaftChatViewState.focusAnchors": 1,
         "field._RaftChatViewState.highlightTimer": 1,
@@ -658,8 +661,8 @@
         "field._RaftChatViewState.viewport": 1,
         "field._RaftChatViewState.windowIndex": 1,
         "field._RaftChatViewState.windowRevision": 1,
-        "lines": 3674,
-        "tokens": 20317
+        "lines": 3736,
+        "tokens": 20551
       }
     },
     "main": {
