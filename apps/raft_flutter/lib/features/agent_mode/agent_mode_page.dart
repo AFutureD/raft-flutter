@@ -10,6 +10,7 @@ import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 import '../../data/workspace_controller.dart';
 import 'agent_audio.dart';
 import 'agent_mode_data.dart';
+import 'agent_tools.dart';
 import 'agent_tv.dart';
 import 'agent_voice.dart';
 
@@ -71,7 +72,7 @@ class _AgentModePageState extends State<AgentModePage> {
   late final data = widget.data ?? AgentModeData(widget.controller);
   final _stack = <_Layer>[const _Attention()];
   late final _voice = AgentVoiceController(
-    tools: _toolDeclarations,
+    tools: agentToolDeclarations,
     onToolCall: _runTool,
     systemPrompt: _systemPrompt,
   );
@@ -245,44 +246,14 @@ class _AgentModePageState extends State<AgentModePage> {
     }
   }
 
-  static const _toolDeclarations = <Map<String, Object?>>[
-    {
-      'name': 'show_attention',
-      'description':
-          '回到首页并列出现在需要用户处理的事（等决定、卡住、提到他、进展），按权重排序。问“现在怎么样”“有什么要我处理”时用。',
-    },
-    {
-      'name': 'open_channel',
-      'description': '在屏幕上打开一个频道，返回它最近的消息和进行中的任务。',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'name': {'type': 'string', 'description': '频道名，不带 #'},
-        },
-        'required': ['name'],
-      },
-    },
-    {'name': 'show_tasks', 'description': '在屏幕上列出所有进行中和等验收的任务。'},
-    {'name': 'go_back', 'description': '返回上一层。'},
-  ];
-
-  String _systemPrompt() {
-    final channels = widget.controller.channels
+  String _systemPrompt() => agentSystemPrompt(
+    channels: widget.controller.channels
         .where((c) => c.name.isNotEmpty)
         .take(80)
         .map((c) => c.name)
-        .join('、');
-    final attention = _attention == null
-        ? ''
-        : '\n当前首页：${_attentionSummary(_attention!)}';
-    return '你是用户在 Raft 里的个人语音助理。Raft 是一个人和 AI agent 一起协作的消息平台。\n'
-        '用简短、口语化的中文回答，一般一两句话；不要用列表、编号或 Markdown。\n'
-        '屏幕会显示细节，你只说重点和结论，不要逐条朗读。\n'
-        '需要信息时先调用工具再回答：整体情况用 show_attention，某个频道用 open_channel，'
-        '任务用 show_tasks，用户说“返回”用 go_back。\n'
-        '你现在只能查看，不能发消息、改任务或做其他操作；被要求做这些时，说明 demo 还不支持。\n'
-        '可以打开的频道：$channels$attention';
-  }
+        .join('、'),
+    home: _attention == null ? null : _attentionSummary(_attention!),
+  );
 
   static String _clip(Object? v, [int max = 240]) {
     final text = '${v ?? ''}'.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -310,53 +281,117 @@ class _AgentModePageState extends State<AgentModePage> {
     'channel': t['channelName'],
   };
 
-  /// Voice tools: each one changes the screen and returns what is on it.
+  /// The items of the front layer, numbered as the person sees them.
+  List<Map<String, Object?>> _screenItems() {
+    final items = (_frame(_stack.last)['items'] as List?) ?? const [];
+    var n = 0;
+    return [
+      for (final i in items.cast<Map<String, Object?>>())
+        if (i['kind'] != 'section')
+          {
+            'n': ++n,
+            if (i['kind'] == 'message') ...{
+              'from': i['sender'],
+              'time': i['time'],
+              'text': _clip(i['text'], 160),
+            } else ...{
+              'label':
+                  i['label'] ??
+                  agentPriorityLabels[AgentPriority.values
+                      .where((p) => p.name == i['priority'])
+                      .firstOrNull],
+              'title': _clip(i['title'], 120),
+              'detail': _clip(i['detail'], 80),
+            },
+          },
+    ];
+  }
+
+  /// What the screen shows now; every screen tool returns this.
+  Map<String, Object?> _screen() {
+    final frame = _frame(_stack.last);
+    return {
+      'layer': _stack.length,
+      'title': _peek(_stack.last),
+      if (frame['loading'] == true) 'loading': true,
+      'items': _screenItems().take(12).toList(),
+    };
+  }
+
+  Future<Map<String, Object?>> _channelFacts(RaftChannel c) async {
+    final b = _briefs[c.id] ?? await data.channel(c);
+    if (mounted && !_briefs.containsKey(c.id)) {
+      setState(() => _briefs[c.id] = b);
+    }
+    return {
+      'channel': c.name,
+      'hours': b.windowHours,
+      'tasks': [for (final t in b.tasks.take(8)) _taskFacts(t)],
+      'messages': [
+        for (final m in b.messages.reversed.take(15))
+          {
+            'from': m['senderName'],
+            'time': _hhmm(m['createdAt']),
+            'text': _clip(m['content']),
+          },
+      ],
+    };
+  }
+
+  /// Voice tools. Screen tools act before returning and never wait for data;
+  /// read tools fetch what the model needs to answer.
   Future<Map<String, Object?>> _runTool(
     String name,
     Map<String, Object?> args,
   ) async {
     if (!mounted) return {'error': 'closed'};
     switch (name) {
-      case 'show_attention':
+      case 'show_attention' || 'go_home':
         setState(() => _stack.removeRange(1, _stack.length));
-        final items = _attention ?? await data.attention();
-        return {
-          'items': [
-            for (final i in items.take(10))
-              {
-                'kind': agentPriorityLabels[i.priority],
-                'weight': i.weight,
-                'title': _clip(i.title, 120),
-                'detail': _clip(i.detail, 120),
-              },
-          ],
-        };
+        return _screen();
       case 'open_channel':
         final c = _channelNamed('${args['name'] ?? ''}');
         if (c == null) return {'error': '没有叫 ${args['name']} 的频道'};
-        final b = await _openChannel(c, announce: false);
-        if (b == null) return {'error': 'closed'};
-        return {
-          'channel': c.name,
-          'hours': b.windowHours,
-          'tasks': [for (final t in b.tasks.take(8)) _taskFacts(t)],
-          'messages': [
-            for (final m in b.messages.reversed.take(15))
-              {
-                'from': m['senderName'],
-                'time': _hhmm(m['createdAt']),
-                'text': _clip(m['content']),
-              },
-          ],
-        };
+        final top = _stack.last;
+        if (top is! _Channel || top.channel.id != c.id) {
+          _openChannel(c, announce: false).ignore();
+        }
+        return _screen();
+      case 'open_item':
+        final n = (args['number'] as num?)?.toInt() ?? 0;
+        final items = (_frame(_stack.last)['items'] as List? ?? const [])
+            .cast<Map<String, Object?>>()
+            .where((i) => i['kind'] != 'section')
+            .toList();
+        if (n < 1 || n > items.length) {
+          return {'error': '屏幕上没有第 $n 条', ..._screen()};
+        }
+        final c = _channelById(items[n - 1]['channelId'] as String?);
+        if (c == null) return {'error': '第 $n 条没有可以打开的详情', ..._screen()};
+        _openChannel(c, announce: false).ignore();
+        return _screen();
       case 'show_tasks':
-        final tasks = await _showTasks(announce: false) ?? const [];
+        if (_stack.last is! _Tasks) _showTasks(announce: false).ignore();
+        return _screen();
+      case 'go_back':
+        _pop();
+        return _screen();
+      case 'read_channel':
+        final named = '${args['name'] ?? ''}';
+        final top = _stack.last;
+        final c = named.isEmpty
+            ? (top is _Channel ? top.channel : null)
+            : _channelNamed(named);
+        if (c == null) {
+          return {'error': named.isEmpty ? '屏幕上没有打开频道' : '没有叫 $named 的频道'};
+        }
+        return _channelFacts(c);
+      case 'read_tasks':
+        final tasks = _tasks ?? await data.openTasks();
+        if (mounted && _tasks == null) setState(() => _tasks = tasks);
         return {
           'tasks': [for (final t in tasks.take(20)) _taskFacts(t)],
         };
-      case 'go_back':
-        _pop();
-        return {'ok': true, 'layers': _stack.length};
     }
     return {'error': 'unknown tool $name'};
   }
@@ -504,6 +539,34 @@ class _AgentModePageState extends State<AgentModePage> {
                           ),
                           Text('Agent 模式', style: t.heading(15)),
                           const Spacer(),
+                          ListenableBuilder(
+                            listenable: _voice,
+                            builder: (context, _) => PopupMenuButton<String>(
+                              key: const ValueKey('agent-voice-menu'),
+                              tooltip: '换声音',
+                              initialValue: _voice.voice,
+                              onSelected: (v) => unawaited(_voice.setVoice(v)),
+                              itemBuilder: (_) => [
+                                for (final e
+                                    in AgentVoiceController.voices.entries)
+                                  PopupMenuItem(
+                                    value: e.key,
+                                    child: Text('${e.key} · ${e.value}'),
+                                  ),
+                              ],
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 10,
+                                ),
+                                child: Text(
+                                  AgentVoiceController.voices[_voice.voice] ??
+                                      _voice.voice,
+                                  style: t.body(12, color: t.muted),
+                                ),
+                              ),
+                            ),
+                          ),
                           if (AgentAudio.instance.supported)
                             IconButton(
                               key: const ValueKey('agent-voice-key-scan'),

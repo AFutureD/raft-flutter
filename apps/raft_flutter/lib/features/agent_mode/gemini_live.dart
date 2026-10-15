@@ -20,7 +20,7 @@ class GeminiLiveSession {
     required this.systemPrompt,
     required this.tools,
     required this.onToolCall,
-    this.voice = 'Kore',
+    this.voice = 'Sulafat',
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -30,8 +30,12 @@ class GeminiLiveSession {
   });
 
   static const _host = 'generativelanguage.googleapis.com';
-  static const _path =
-      '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+  static String _path(String version) =>
+      '/ws/google.ai.generativelanguage.$version.GenerativeService.BidiGenerateContent';
+
+  /// Affective dialog (tone follows the person's tone) needs the v1alpha
+  /// endpoint and a model that supports it; dropped after one refusal.
+  static bool _affective = true;
 
   final String apiKey;
   final String systemPrompt;
@@ -104,9 +108,23 @@ class GeminiLiveSession {
 
   Future<void> connect() async {
     if (_socket != null) return;
+    if (!_affective) return _connect(affective: false);
+    try {
+      await _connect(affective: true);
+    } catch (_) {
+      _affective = false;
+      await _connect(affective: false);
+    }
+  }
+
+  Future<void> _connect({required bool affective}) async {
     final model = await _pickModel(apiKey);
     final socket = await WebSocket.connect(
-      Uri(scheme: 'wss', host: _host, path: _path).toString(),
+      Uri(
+        scheme: 'wss',
+        host: _host,
+        path: _path(affective ? 'v1alpha' : 'v1beta'),
+      ).toString(),
       headers: {'x-goog-api-key': apiKey},
     ).timeout(const Duration(seconds: 15));
     final ready = Completer<void>();
@@ -121,7 +139,9 @@ class GeminiLiveSession {
         _handle(message);
       },
       onDone: () {
-        // A socket we replaced or closed ourselves ends quietly.
+        // A socket we replaced or closed ourselves, or one refused during
+        // setup (reported to connect), ends quietly.
+        final established = ready.isCompleted;
         final remote = _socket == socket;
         if (remote) _socket = null;
         final reason = (socket.closeReason?.isNotEmpty ?? false)
@@ -130,7 +150,7 @@ class GeminiLiveSession {
         if (!ready.isCompleted) {
           ready.completeError(GeminiLiveException(reason));
         }
-        if (remote) onClosed?.call(reason);
+        if (remote && established) onClosed?.call(reason);
       },
       onError: (Object e) {
         if (!ready.isCompleted) ready.completeError(e);
@@ -159,9 +179,17 @@ class GeminiLiveSession {
         'tools': [
           {'functionDeclarations': tools},
         ],
+        // End the turn soon after the person stops talking.
+        'realtimeInputConfig': {
+          'automaticActivityDetection': {
+            'endOfSpeechSensitivity': 'END_SENSITIVITY_HIGH',
+            'silenceDurationMs': 500,
+          },
+        },
         'inputAudioTranscription': <String, Object?>{},
         'outputAudioTranscription': <String, Object?>{},
         'contextWindowCompression': {'slidingWindow': <String, Object?>{}},
+        if (affective) 'enableAffectiveDialog': true,
         'sessionResumption': {'handle': ?_resumeHandle},
       },
     });
