@@ -1071,7 +1071,9 @@ class _RaftChatViewState extends State<RaftChatView>
   bool applyWindow(List<chat.Message> projected) {
     final current = adapter.messages;
     final wanted = {for (final m in projected) m.id};
-    final next = ordered(current, projected, wanted);
+    // The window owns ordering, including an optimistic row's confirmed
+    // server sequence. Keep row identity and reading anchors, not stale order.
+    final next = projected;
     var same = current.length == next.length;
     for (var i = 0; same && i < next.length; i++) {
       final a = current[i], b = next[i];
@@ -1102,39 +1104,6 @@ class _RaftChatViewState extends State<RaftChatView>
     }
     if (mounted) setState(() {});
     return true;
-  }
-
-  /// [projected], except that rows already shown keep their order: a row
-  /// whose position changes (e.g. a confirmed send sorting by its server seq)
-  /// stays where the reader saw it; new rows enter at their projected index.
-  static List<chat.Message> ordered(
-    List<chat.Message> current,
-    List<chat.Message> projected,
-    Set<String> wanted,
-  ) {
-    final shown = {for (final m in current) m.id};
-    final keptOrder = [
-      for (final m in current)
-        if (wanted.contains(m.id)) m.id,
-    ];
-    var k = 0, inOrder = true;
-    for (final m in projected) {
-      if (!shown.contains(m.id)) continue;
-      if (k >= keptOrder.length || keptOrder[k] != m.id) {
-        inOrder = false;
-        break;
-      }
-      k++;
-    }
-    if (inOrder) return projected;
-    final next = {for (final m in projected) m.id: m};
-    final list = [for (final id in keptOrder) next[id]!];
-    for (var i = 0; i < projected.length; i++) {
-      if (!shown.contains(projected[i].id)) {
-        list.insert(i.clamp(0, list.length), projected[i]);
-      }
-    }
-    return list;
   }
 
   int windowRevision = 0;
