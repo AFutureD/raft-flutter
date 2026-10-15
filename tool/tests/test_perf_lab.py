@@ -34,6 +34,8 @@ class DetectionTest(unittest.TestCase):
                                   'framePolicy': 'benchmarkLive', 'testerPumpsDuringAction': 0,
                                   'bindingAutoFramesSuppressed': True,
                                   'cpuSamplingEnabled': False, 'phaseProfilingEnabled': False,
+                                  'renderSurfaceWidth': 1000, 'renderSurfaceHeight': 700,
+                                  'nativeWindowWidth': 1000, 'nativeWindowHeight': 700,
                                   'rebuilds': {'instancesCollected': False, 'timelineRowBuilds': 0}})
         value.update(extra)
         for index, frame in enumerate(value['frames']):
@@ -104,6 +106,23 @@ class DetectionTest(unittest.TestCase):
             self.assertFalse(out['findings'][0]['observed']['timingVerdictAllowed'])
             del r['detection'][signal]
             self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'REVIEW')
+
+    def test_simulated_phone_size_cannot_certify_native_frame_budget(self):
+        for ui in ((2,), (25,)):
+            r = self.observed(ui=ui)
+            r['detection'].update(renderSurfaceWidth=390, renderSurfaceHeight=640)
+            out = lab.detect_record(r)
+            self.assertEqual(out['checks']['render-surface']['status'], 'REVIEW')
+            self.assertEqual(out['checks']['frame-budget']['status'], 'REVIEW')
+            self.assertFalse(any(f['observed'].get('timingVerdictAllowed') for f in out['findings']))
+
+    def test_unknown_or_invalid_native_size_cannot_pass(self):
+        for size in (None, 0, True, float('nan'), float('inf')):
+            r = self.observed()
+            r['detection']['nativeWindowWidth'] = size
+            out = lab.detect_record(r)
+            self.assertEqual(out['checks']['render-surface']['status'], 'REVIEW')
+            self.assertEqual(out['status'], 'REVIEW')
 
     def idle_record(self, **extra):
         r = self.observed('idle-final', ui=(2, 2, 2), kind='idle', idleSeconds=10, **extra)

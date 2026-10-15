@@ -86,9 +86,19 @@ def detect_record(record, *, evidence=None):
         isinstance(f, dict) and all(isinstance(f.get(k), (int, float)) and not isinstance(f[k], bool)
                                    and math.isfinite(f[k]) and f[k] >= 0 for k in ('b', 'ui', 'r')) for f in raw)
     idle_scene = record.get('kind') == 'idle'
+    surface = {key: diagnostic.get(key) for key in (
+        'renderSurfaceWidth', 'renderSurfaceHeight', 'nativeWindowWidth', 'nativeWindowHeight')}
+    surface_known = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                        and math.isfinite(v) and v > 0 for v in surface.values())
+    surface_matches = surface_known and all(
+        abs(surface[f'renderSurface{axis}'] - surface[f'nativeWindow{axis}']) <= 1
+        for axis in ('Width', 'Height'))
+    check('render-surface', 'PASS' if surface_matches else 'REVIEW',
+          'Native window and render surface match within one physical pixel.' if surface_matches else
+          'Native/render surface sizes are missing or differ; frame durations are diagnostic only.', **surface)
     timing_allowed = (record.get('profile') is True and record.get('phasesCollected') is False
                       and diagnostic.get('cpuSamplingEnabled') is False
-                      and diagnostic.get('phaseProfilingEnabled') is False)
+                      and diagnostic.get('phaseProfilingEnabled') is False and surface_matches)
     budget = 1e6 / hz if valid_hz else None
     actions = diagnostic.get('actions') or []
 
@@ -102,7 +112,7 @@ def detect_record(record, *, evidence=None):
     if not valid_hz or not valid_frames or not raw and not idle_scene:
         check('frame-budget', 'NOT_RUN', 'Actual refresh rate and complete raw UI/raster frame samples are required.')
     elif not timing_allowed:
-        check('frame-budget', 'REVIEW', 'Requires profile mode with CPU sampling and phase tracing verified off; other durations are diagnostic only.',
+        check('frame-budget', 'REVIEW', 'Requires matching native/render surfaces and profile mode with CPU sampling and phase tracing verified off; other durations are diagnostic only.',
               budgetUs=budget, frames=len(raw))
     else:
         over = [f for f in raw if f['ui'] > budget or f['r'] > budget]
