@@ -237,8 +237,8 @@
         "field._ThreadWindow.threadChannelId": 1,
         "field._ThreadWindow.token": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 7482,
-        "tokens": 41903
+        "lines": 7490,
+        "tokens": 41951
       }
     },
     "workspace_view": {
@@ -347,8 +347,8 @@
         "field._WorkspaceViewState.threadWidth": 1,
         "field._WorkspaceViewState.workspaceErrorScheduled": 1,
         "field._WorkspaceViewState.workspaceMode": 1,
-        "lines": 5041,
-        "tokens": 26296
+        "lines": 5042,
+        "tokens": 26302
       }
     },
     "resource_view": {

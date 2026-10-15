@@ -227,6 +227,12 @@ void main() {
       '[K08c] $family/$dark actual available workspace toggle is lg gated and retains location/draft',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
+        // Entering the grid reads this available channel. An unconfigured
+        // fixture returns 404, which correctly revokes shared private drafts.
+        api.routes['GET /messages/channel/c1'] = (_) => {
+          'messages': <dynamic>[],
+          'hasMore': false,
+        };
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
         w.drafts['c1'] = 'Keep this editor';

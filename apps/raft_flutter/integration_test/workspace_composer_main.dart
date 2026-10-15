@@ -40,14 +40,38 @@ Future<void> main() async {
     {'id': 's1', 'name': 'Composer Lab', 'slug': 'lab', 'role': 'owner'},
   ];
   api.routes['GET /channels/public'] = (_) => <dynamic>[];
+  api.routes['GET /servers/unread-summary'] = (_) => <dynamic>[];
   for (final channel in channels) {
     api.routes['GET /channels/${channel.id}'] = (_) => channel.record.json;
+    api.routes['POST /channels/${channel.id}/read-all'] = (_) => {
+      'maxReadSeq': 2, 'readStateVersion': 1,
+    };
   }
   api.routes['GET /channels/inbox'] = (_) => {
     'hasMore': false,
-    'totalCount': 0,
+    'totalCount': channels.length,
     'totalUnreadCount': 0,
-    'items': <dynamic>[],
+    'items': [
+      for (final channel in channels) {
+        'kind': 'channel',
+        'channelId': channel.id,
+        'channelName': channel.id,
+        'lastMessageId': '${channel.id}-1',
+        'lastMessagePreview': 'Composer acceptance ${channel.id}',
+        'lastMessageSenderType': 'user',
+        'lastMessageSenderId': 'alice',
+        'lastMessageSenderName': 'Alice Zhang',
+        'lastMessageAt': '2026-10-01T00:03:00Z',
+        'latestActivitySeq': '2',
+        'readState': {
+          'kind': 'present', 'maxReadSeq': '2', 'readStateVersion': 1,
+          'latestActivity': {'messageId': '${channel.id}-1', 'seq': '2'},
+        },
+        'unreadCount': 0,
+        'firstUnreadMessageId': null,
+        'hasMention': false,
+      },
+    ],
   };
   api.routes['GET /announcements/active'] = (_) => {
     'announcements': <dynamic>[],

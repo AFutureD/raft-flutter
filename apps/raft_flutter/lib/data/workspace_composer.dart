@@ -87,41 +87,58 @@ class WorkspaceComposer {
     required String queuedText,
     required List<ComposerStoredFile> files,
     bool requiredSuccess = false,
+  }) => _save(
+    'draft',
+    scope,
+    draftRecord(
+      scope,
+      pendingText: pendingText,
+      queuedText: queuedText,
+      files: files,
+    ),
+    requiredSuccess: requiredSuccess,
+  );
+
+  /// Encodes the existing disk format. Omitting files and share tokens gives
+  /// revocation a snapshot containing only the user's unsent text.
+  Map<String, dynamic>? draftRecord(
+    String scope, {
+    Iterable<String> pendingText = const [],
+    String queuedText = '',
+    List<ComposerStoredFile> files = const [],
+    bool includeShareTokens = true,
   }) {
     final text = [
       if (files.isNotEmpty) ...pendingText,
       queuedText,
       drafts[scope] ?? '',
     ].where((s) => s.isNotEmpty).toSet().join('\n\n');
-    return _save(
-      'draft',
-      scope,
-      text.isEmpty && files.isEmpty
-          ? null
-          : {
-              'text': text,
-              'channelId': scope,
-              'shareTokens': shareTokens[scope]?.toList(),
-              'files': [
-                for (final file in files)
-                  {
-                    'ref': file.local.reference,
-                    'id': file.id,
-                    'metadata': {
-                      for (final key in [
-                        'id',
-                        'filename',
-                        'mimeType',
-                        'sizeBytes',
-                      ])
-                        if (file.metadata?.containsKey(key) == true)
-                          key: file.metadata![key],
-                    },
+    return text.isEmpty && files.isEmpty
+        ? null
+        : {
+            'text': text,
+            'channelId': scope,
+            'shareTokens': includeShareTokens
+                ? shareTokens[scope]?.toList()
+                : null,
+            'files': [
+              for (final file in files)
+                {
+                  'ref': file.local.reference,
+                  'id': file.id,
+                  'metadata': {
+                    for (final key in [
+                      'id',
+                      'filename',
+                      'mimeType',
+                      'sizeBytes',
+                    ])
+                      if (file.metadata?.containsKey(key) == true)
+                        key: file.metadata![key],
                   },
-              ],
-            },
-      requiredSuccess: requiredSuccess,
-    );
+                },
+            ],
+          };
   }
 
   Future<void> saveAttempt(

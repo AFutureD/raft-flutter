@@ -151,6 +151,7 @@ class _MobilePageController extends WorkspaceController {
         entityDirectory: source.entityDirectory,
         followedThreads: source.followedThreads,
         attachmentImageStore: source.attachmentImageStore,
+        composer: source.composer,
       );
   final _MobilePageNavigation pageNavigation;
   @override

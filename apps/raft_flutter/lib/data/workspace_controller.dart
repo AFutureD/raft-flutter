@@ -3635,8 +3635,6 @@ class WorkspaceController extends ChangeNotifier {
         readState.revoke(serverId, principal, scope);
       }
       if (keepShared && scope == id) continue;
-      drafts.remove(scope);
-      _draftRevisions.remove(scope);
       for (final draft in _uploads.remove(scope) ?? <UploadDraft>[]) {
         draft.cancel.cancel();
         if (draft.local != null) unawaited(_releaseSharedUploads([draft]));
@@ -3646,8 +3644,6 @@ class WorkspaceController extends ChangeNotifier {
     }
     for (final messageId in messageIds) {
       final scope = 'thread:$messageId';
-      drafts.remove(scope);
-      _draftRevisions.remove(scope);
       _attempts.remove(scope);
       _pendingSends.remove(scope);
       for (final draft in _uploads.remove(scope) ?? <UploadDraft>[]) {
@@ -3670,21 +3666,32 @@ class WorkspaceController extends ChangeNotifier {
     }
     _persistReadState();
     if (principal != null && serverId != null) {
+      // Web keeps authored text on channel removal or a refused message read.
+      // Snapshot it before the private-cache purge; never restore server files.
+      final keptDrafts = {
+        for (final scope in {
+          id,
+          ...threadIds,
+          for (final messageId in messageIds) 'thread:$messageId',
+        })
+          scope: composer.draftRecord(scope, includeShareTokens: false),
+      };
       _cacheWrites = _cacheWrites.then((_) async {
         try {
+          final sharedDraft = keepShared
+              ? await cache?.read(origin, principal, serverId, 'draft', id)
+              : null;
           for (final scope in {id, ...threadIds}) {
             await cache?.revokeChannel(origin, principal, serverId, scope);
           }
-          // The purge above removed the saved draft too: write the kept one back.
-          if (keepShared) await _saveDraftScope(id);
-          for (final messageId in messageIds) {
+          for (final entry in keptDrafts.entries) {
             await cache?.write(
               origin,
               principal,
               serverId,
               'draft',
-              'thread:$messageId',
-              null,
+              entry.key,
+              entry.key == id && keepShared ? sharedDraft : entry.value,
             );
           }
         } catch (_) {
