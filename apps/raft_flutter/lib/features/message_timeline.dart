@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' as chat;
@@ -88,10 +87,6 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   /// Inside the timeline scrollable, so a key here resolves to this list.
   /// Traversal skips it; a tap requests it. Inner controls stay descendants.
   final _timelineFocus = FocusNode(debugLabel: 'timeline', skipTraversal: true);
-  int? _focusPointer;
-  Offset? _focusDown;
-  bool _focusMoved = false;
-  FocusNode? _focusAtDown;
   RaftMessageTimeline? listsOwner;
   Widget? historyList, forwardList;
   late final nearbyPreparation = MessagePreparation(
@@ -366,60 +361,13 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     if (position is RaftTimelinePosition) position.endThumb();
   }
 
-  void _trackTimelinePointer(PointerDownEvent event) {
-    if (_focusPointer != null) {
-      _focusMoved = true;
-      return;
-    }
-    _focusPointer = event.pointer;
-    _focusDown = event.position;
-    _focusMoved = false;
-    _focusAtDown = FocusManager.instance.primaryFocus;
-  }
-
-  void _trackTimelineMove(PointerMoveEvent event) {
-    final down = _focusDown;
-    if (event.pointer != _focusPointer || down == null || _focusMoved) return;
-    if ((event.position - down).distance > kTouchSlop) _focusMoved = true;
-  }
-
-  void _focusTimelineOnTap(PointerUpEvent event) {
-    if (event.pointer != _focusPointer) return;
-    final moved = _focusMoved;
-    final focusAtDown = _focusAtDown;
-    _clearTimelinePointer();
-    // Mobile Web blurs the composer on a timeline tap and does not
-    // preventDefault there. Pointer down and a drag do not request this
-    // focus. The request waits one frame, and only runs when this page is
-    // still current and the click did not move focus to another control.
-    if (moved || _timelineFocus.hasFocus) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _timelineFocus.hasFocus) return;
-      if (ModalRoute.of(context)?.isCurrent != true) return;
-      // A desktop click outside the composer drops focus to the page scope.
-      // That is not another control taking focus. A button, menu, or route is.
-      if (!_pointerDownFocusRemains(focusAtDown)) return;
-      _timelineFocus.requestFocus();
-    });
-  }
-
-  bool _pointerDownFocusRemains(FocusNode? recorded) {
-    final primary = FocusManager.instance.primaryFocus;
-    if (identical(primary, recorded)) return true;
-    if (recorded == null || primary == null) return false;
-    return recorded.ancestors.contains(primary);
-  }
-
-  void _cancelTimelinePointer(PointerCancelEvent event) {
-    if (event.pointer != _focusPointer) return;
-    _clearTimelinePointer();
-  }
-
-  void _clearTimelinePointer() {
-    _focusPointer = null;
-    _focusDown = null;
-    _focusMoved = false;
-    _focusAtDown = null;
+  /// A blank tap joins the gesture arena. An author, link, image, or button
+  /// wins that tap, and a drag wins a move, so this runs only when nothing
+  /// else accepted it. The page must still be the current route.
+  void _focusTimelineOnBlankTap() {
+    if (!mounted || _timelineFocus.hasFocus) return;
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    _timelineFocus.requestFocus();
   }
 
   @override
@@ -499,11 +447,8 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
       },
       child: NotificationListener<Notification>(
         onNotification: onNotification,
-        child: Listener(
-          onPointerDown: _trackTimelinePointer,
-          onPointerMove: _trackTimelineMove,
-          onPointerUp: _focusTimelineOnTap,
-          onPointerCancel: _cancelTimelinePointer,
+        child: GestureDetector(
+          onTap: _focusTimelineOnBlankTap,
           child: _TimelineScrollView(
             controller: widget.controller,
             // The timeline's own scrollbar replaces the platform default.
