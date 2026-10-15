@@ -18,9 +18,13 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
       mobilePageIdentity(source.location) ==
       mobilePageIdentity(widget.location);
   bool get settingsRoute => widget.location.route == RaftRoute.settings;
+  bool get directRoute =>
+      settingsRoute ||
+      widget.location.route == RaftRoute.tasks ||
+      widget.location.route == RaftRoute.saved;
 
   bool resolveDirect() =>
-      settingsRoute &&
+      directRoute &&
       MobileSettingsVisit.choose(
         this,
         active: active,
@@ -53,7 +57,7 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
   }
 
   void sourceChanged() {
-    if (settingsRoute && !active) MobileSettingsVisit.noteHidden(this);
+    if (directRoute && !active) MobileSettingsVisit.noteHidden(this);
     synchronize();
     if (active) controller?.notifyListeners();
   }
@@ -75,8 +79,20 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
   @override
   Widget build(BuildContext context) {
     final host = widget.host;
+    final page = controller;
+    if (page != null) mobilePageDirect[page] = resolveDirect();
     if (active) mobileSettingsDirectHost[host] = resolveDirect();
-    if (content == null || active) {
+    final now = active;
+    final was = mobileRouteWasActive[this] ?? false;
+    mobileRouteWasActive[this] = now;
+    final detach =
+        !now &&
+        was &&
+        page != null &&
+        mobilePageDirect[page] == true &&
+        (widget.location.route == RaftRoute.tasks ||
+            widget.location.route == RaftRoute.saved);
+    if (content == null || now || detach) {
       content = _MobileWorkspaceContent(
         controller: controller!,
         mobileHost: host,

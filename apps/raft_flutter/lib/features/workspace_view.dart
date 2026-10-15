@@ -51,6 +51,7 @@ import 'channel_members.dart';
 import 'create_channel_dialog.dart';
 import 'create_joint_channel_dialog.dart' show CreateJointChannelDialog;
 import 'workspace_settings.dart';
+import 'mobile_resource_direct.dart';
 import 'mobile_settings_owner.dart';
 import 'server_views.dart';
 import 'layout_hold.dart';
@@ -1522,11 +1523,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
           ? shownConversation(conversation)
           : route == 'search' && channelSearchRevoked
           ? Center(child: Text(tr('Channel is no longer available')))
-          : ResourceView(
+          : mobileResourceBody(
+              route: route,
+              page: w,
+              outer: mobileHost?.w,
+              buildList: (owner) => ResourceView(
               key: ValueKey(
                 '${w.server?.id}:$route:${route == 'search' ? '$searchEntryRevision:$channelSearchSeed:$channelSearchAuthority' : 0}',
               ),
-              controller: w,
+              controller: owner,
               section: route,
               onTask: openTaskSurface,
               mobileRoot: !wide && rootTab == 'activity',
@@ -1622,6 +1627,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                   await w.jumpToMessage(channelId, messageId);
                 }
               },
+            ),
             );
       if (['members', 'agents', 'computers'].contains(route)) {
         final detail = desktopContentDetail();

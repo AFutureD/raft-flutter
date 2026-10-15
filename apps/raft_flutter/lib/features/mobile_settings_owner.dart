@@ -18,8 +18,8 @@ import '../platform/native_notifications.dart';
 import 'workspace_mode_settings_card.dart';
 import 'workspace_settings.dart';
 
-/// Device-local choice for the phone settings page. Off keeps today's page
-/// copy. On reads and writes the workspace controller. Default is off.
+/// Device-local choice for migrated phone pages. Off keeps today's pages.
+/// On, those pages read the workspace. Default is off. The key stays put.
 class MobileSettingsPreference extends ChangeNotifier {
   MobileSettingsPreference._();
   static final instance = MobileSettingsPreference._();
@@ -72,7 +72,7 @@ class MobileSettingsPreference extends ChangeNotifier {
   }
 }
 
-/// One visit to a phone settings route. The preference is read when the route
+/// One visit to a migrated phone route. The preference is read when the route
 /// becomes active and stays until it is inactive, so a switch flipped on the
 /// open page waits for the next entry.
 /// The phone shell reads this. Only the active settings route writes it.
@@ -384,7 +384,7 @@ class _MobileSettingsSwitchState extends State<MobileSettingsSwitch> {
             child: Text(
               raftText(
                 context,
-                'Labs. Phone settings use the workspace directly. Applies the next time you open Settings.',
+                'Labs. Phone pages use the workspace directly. Applies the next time you open the page.',
               ),
             ),
           ),
