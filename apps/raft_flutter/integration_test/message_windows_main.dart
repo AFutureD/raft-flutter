@@ -93,6 +93,20 @@ Future<void> main() async {
       'serverId': 's1',
     };
   }
+  api.routes['GET /messages/search'] = (_) => {
+    'hasMore': false,
+    'results': [
+      {
+        ...alpha.rows[5],
+        'snippet': alpha.rows[5]['content'],
+        'channelName': 'lab-alpha',
+        'channelType': 'channel',
+        'parentChannelId': 'alpha',
+        'parentChannelName': 'lab-alpha',
+        'parentChannelType': 'channel',
+      },
+    ],
+  };
   api.routes['GET /channels/alpha/threads/alpha-74'] = (_) => {
     'threadChannelId': thread.id,
   };
@@ -121,10 +135,7 @@ Future<void> main() async {
       services: const AppServices.updatesDisabledForTestOrPreview(),
       sessionStore: client.sessionStore,
       createClient: (_, _, _) => client,
-      initialLocation: Uri(
-        path: '/s/lab/channel/alpha',
-        queryParameters: {'msg': 'alpha-5'},
-      ),
+      initialLocation: Uri(path: '/s/lab/channel/alpha'),
       nativeContent: LabNavigationContent(),
       nativeSharing: NativeSharing(),
       openWorkspaceCache: () async =>

@@ -26,33 +26,41 @@ void main() {
   tearDown(() => workspace.dispose());
 
   void attempt(MessageWindowRequest ticket) {
-    windows.acceptRows('alpha', [row('late')], replace: true, request: ticket);
+    windows.acceptRows(ticket, 'alpha', [row('late')], replace: true);
     windows.rememberWindow(
+      ticket,
       'alpha',
       'late-authority',
       false,
       'late-token',
       historyLimited: true,
-      request: ticket,
     );
-    windows.cacheThread('parent', (
-      parentChannelId: 'alpha',
-      threadChannelId: 'late-thread',
-      token: 'late-token',
-      authority: 'late-authority',
-      generation: windows.ledger.generation,
-      hasMore: true,
-      historyLimited: true,
-      parent: null,
-    ), request: ticket);
+    windows.cacheThread(
+      ticket,
+      'parent',
+      CachedMessageThread(
+        'alpha',
+        'late-thread',
+        'late-token',
+        'late-authority',
+        windows.ledger.generation,
+        true,
+        true,
+        null,
+      ),
+    );
     windows.cacheThreadParent(
+      ticket,
       'parent',
       RaftMessage(row('late-parent')),
-      request: ticket,
     );
-    windows.markContext('alpha', true, request: ticket);
-    windows.markDiskOnly('alpha', request: ticket);
-    windows.beginContextVisit('alpha', ticket, retainRows: false);
+    windows.setContextMode(ticket, 'alpha', true);
+    windows.setDiskOnly(ticket, 'alpha', true);
+    windows.beginContextVisit((
+      channelId: 'alpha',
+      request: ticket,
+      retainRows: false,
+    ));
   }
 
   void expectRejected() {
@@ -68,8 +76,9 @@ void main() {
   }
 
   void seed() {
-    windows.acceptRows('alpha', [row('original')]);
+    windows.acceptRows(liveWindowWrite, 'alpha', [row('original')]);
     windows.rememberWindow(
+      liveWindowWrite,
       'alpha',
       'authority',
       true,
@@ -133,15 +142,27 @@ void main() {
     'an earlier visit cannot start over or finish the next pending context',
     () {
       final first = windows.request(thread: false, allowed: () => true);
-      windows.beginContextVisit('alpha', first, retainRows: false);
+      windows.beginContextVisit((
+        channelId: 'alpha',
+        request: first,
+        retainRows: false,
+      ));
       windows.channelGeneration++;
       final next = windows.request(thread: false, allowed: () => true);
-      windows.beginContextVisit('beta', next, retainRows: true);
-      windows.beginContextVisit('alpha', first, retainRows: false);
-      windows.finishContextVisit(request: first);
+      windows.beginContextVisit((
+        channelId: 'beta',
+        request: next,
+        retainRows: true,
+      ));
+      windows.beginContextVisit((
+        channelId: 'alpha',
+        request: first,
+        retainRows: false,
+      ));
+      windows.finishContextVisit(first);
       expect(windows.pendingContextChannelId, 'beta');
       expect(windows.contextRetainsRows, isTrue);
-      windows.finishContextVisit(request: next);
+      windows.finishContextVisit(next);
       expect(windows.pendingContextChannelId, isNull);
     },
   );
@@ -150,8 +171,9 @@ void main() {
     'a context with no newer rows remains a context when boundaries update',
     () {
       seed();
-      windows.markContext('alpha', false);
+      windows.setContextMode(liveWindowWrite, 'alpha', false);
       windows.rememberWindow(
+        liveWindowWrite,
         'alpha',
         'authority',
         false,
@@ -161,11 +183,38 @@ void main() {
       expect(windows.isContext('alpha'), isTrue);
       expect(windows.contextHasNewer('alpha'), isFalse);
       expect(windows.historyLimit('alpha'), isTrue);
-      expect(windows.leaveContext('alpha'), isTrue);
+      expect(windows.setContextMode(liveWindowWrite, 'alpha', null), isTrue);
       expect(windows.isContext('alpha'), isFalse);
       expect(windows.historyLimit('alpha'), isTrue);
       expect(() => windows.accepted.clear(), throwsUnsupportedError);
       expect(() => windows.threads.clear(), throwsUnsupportedError);
+    },
+  );
+
+  test(
+    'omitted and null write origins are rejected before changing storage',
+    () {
+      seed();
+      final dynamic unchecked = windows;
+      expect(
+        () => unchecked.acceptRows('alpha', [row('late')]),
+        throwsNoSuchMethodError,
+      );
+      expect(
+        () => unchecked.acceptRows(null, 'alpha', [row('late')]),
+        throwsA(isA<TypeError>()),
+      );
+      expect(
+        () => unchecked.rememberWindow(
+          'alpha',
+          'late',
+          false,
+          'late',
+          historyLimited: true,
+        ),
+        throwsNoSuchMethodError,
+      );
+      expectRejected();
     },
   );
 
