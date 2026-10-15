@@ -13,6 +13,10 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'message_timeline.dart';
+import 'history_reading_anchor.dart';
+import 'message_history_gaps.dart';
+import '../data/message_history_memory.dart';
+import '../data/message_history_positions.dart';
 import 'row_extents.dart';
 
 import '../data/plan_history.dart';
@@ -854,6 +858,10 @@ class _RaftChatViewState extends State<RaftChatView>
     if (!mounted || viewport.positions.length != 1) return;
     final position = viewport.position;
     if (!position.hasContentDimensions) return;
+    final sampledId = widget.thread ? w.threadChannelId : w.channel?.id;
+    MessageHistoryMemory.sample(w, this, () {
+      if (mounted && sampledId == scope) saveReadingAnchor();
+    });
     // MessageTimeline.tsx AT_BOTTOM_THRESHOLD.
     final next = distanceFromLatest(position) <= 100;
     if (next != atBottom || (next && newMessageCount != 0)) {
@@ -879,10 +887,8 @@ class _RaftChatViewState extends State<RaftChatView>
 
   Future<void> returnToBottom() async {
     newMessageCount = 0;
-    // A thread has no history window; its button only scrolls to the end and
-    // must never reload the outer channel.
-    returningLatest = !widget.thread && w.hasNewer;
-    if (!widget.thread) await w.returnToLatest(navigate: w.section == 'chat');
+    returningLatest = widget.thread ? w.threadWindow?.hasNewer == true : w.hasNewer;
+    await w.returnToLatest(thread: widget.thread, navigate: w.section == 'chat');
     if (!mounted || returningLatest) return;
     showLatest();
     timelineScrolled();
@@ -915,7 +921,6 @@ class _RaftChatViewState extends State<RaftChatView>
   }
 
   @override
-  @override
   void didChangeMetrics() {
     if (reactionPicker != null) closeReactionPicker();
     saveReadingAnchor();
@@ -926,49 +931,23 @@ class _RaftChatViewState extends State<RaftChatView>
   /// resumes there. Only readers above the latest end need it.
   void saveReadingAnchor() {
     final id = widget.thread ? w.threadChannelId : w.channel?.id;
-    if (id == null ||
-        !mounted ||
-        atBottom ||
-        !viewport.hasClients ||
+    if (!mounted || id == null || scope != id ||
+        adapterWindow != (widget.thread ? w.threadGeneration : w.channelGeneration) || !viewport.hasClients ||
         viewport.positions.length != 1) {
       return;
     }
-    ReadingAnchor? best;
-    double bestTop = double.infinity;
-    void visit(Element element) {
-      final key = element.widget.key;
-      if (key is ValueKey<String> && key.value.startsWith('message-wrapper-')) {
-        final row = element.renderObject;
-        final Object? clip = row == null
-            ? null
-            : RenderAbstractViewport.maybeOf(row);
-        if (row is RenderBox &&
-            clip is RenderBox &&
-            row.attached &&
-            row.hasSize &&
-            clip.hasSize) {
-          final top =
-              row.localToGlobal(Offset.zero).dy -
-              clip.localToGlobal(Offset.zero).dy;
-          if (top + row.size.height > 1 && top < bestTop) {
-            bestTop = top;
-            best = ReadingAnchor(
-              key.value.substring('message-wrapper-'.length),
-              top,
-            );
-          }
-        }
-        return;
-      }
-      element.visitChildren(visit);
+    if (atBottom) {
+      w.messageWindows.clearReadingAnchor(id);
+      MessageHistoryPositions.save(w, id, null);
+    } else if (captureTimelineReadingAnchor(context) case final anchor?) {
+      w.saveReadingAnchor(id, anchor);
     }
-
-    (context as Element).visitChildren(visit);
-    if (best != null) w.saveReadingAnchor(id, best!);
   }
 
   @override
   void dispose() {
+    saveReadingAnchor();
+    MessageHistoryMemory.cancelSample(w, this);
     if (reportedBottomId case final id?) w.setTimelineAtBottom(id, true);
     WidgetsBinding.instance.removeObserver(this);
     widget.viewportHandle?.release(this);
@@ -1083,6 +1062,16 @@ class _RaftChatViewState extends State<RaftChatView>
     }
     if (same) return false;
     final previousLast = current.lastOrNull?.id;
+    if (!atBottom && insertsBetweenRetainedRows(current.map((m) => m.id), next.map((m) => m.id)) ||
+        centerFirst != null && !wanted.contains(centerFirst) ||
+        centerAfter != null && !wanted.contains(centerAfter)) {
+      saveReadingAnchor();
+      final resume = w.messageWindows.readingAnchor(scope ?? '');
+      if (resume != null && wanted.contains(resume.messageKey)) {
+        replaceContext(next, resume: resume);
+        return true;
+      }
+    }
     retainCenter(current, wanted);
     adapter.setMessages(next, animated: false);
     ++windowRevision;
@@ -1232,11 +1221,11 @@ class _RaftChatViewState extends State<RaftChatView>
           projected,
           focus: pendingAcceptedMount ? null : target,
           resume:
-              enteringScope &&
+              (enteringScope || adapter.messages.isEmpty || adapterWindow != window) &&
                   target == null &&
                   !pendingAcceptedMount &&
                   id != null
-              ? w.takeReadingAnchor(id)
+              ? w.takeReadingAnchor(id) ?? w.messageWindows.readingAnchor(id)
               : null,
         );
         replaced = true;
@@ -3353,6 +3342,8 @@ class _RaftChatViewState extends State<RaftChatView>
               onLoadOlder: presentationActive
                   ? () => w.older(thread: widget.thread)
                   : null,
+              hasNewer: widget.thread ? w.threadWindow?.hasNewer == true : w.hasNewer,
+              onLoadNewer: presentationActive ? () => w.newer(thread: widget.thread) : null,
               onRecenter: (index, alignment) =>
                   recenter(first: messages[index].id, alignment: alignment),
               empty: widget.thread
@@ -3449,7 +3440,7 @@ class _RaftChatViewState extends State<RaftChatView>
               ? loadingBody
               : taskLoadingBody(loadingBody)
         : buildTimeline();
-    final historyWindow = !widget.thread && w.hasNewer;
+    final historyWindow = widget.thread ? w.threadWindow?.hasNewer == true : w.hasNewer;
     final bottomCount = historyWindow
         ? (w.unread[w.channel?.id] ?? 0)
         : newMessageCount;
@@ -3538,6 +3529,7 @@ class _RaftChatViewState extends State<RaftChatView>
                   key: const ValueKey('current-timeline'),
                   child: currentTimeline,
                 ),
+                MessageHistoryGapBanner(controller: w, thread: widget.thread),
                 if (historyWindow || !atBottom || newMessageCount > 0)
                   RaftTimelineBottomButton(
                     label: bottomCount > 0

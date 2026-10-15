@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'history_read_policy.dart';
 import 'history_capacity.dart';
+import 'history_memory.dart';
+import 'reading_positions.dart';
+import 'history_gaps.dart';
 
 /// Receiver authority for persisted rows. A saved role never grants access.
 class MessageHistoryScope {
@@ -129,6 +132,11 @@ abstract interface class MessageHistoryProvider {
 abstract interface class MessageHistoryStorage {
   HistoryReadPolicy get reads;
   HistoryCapacity get capacity;
+  HistoryMemoryPool get memory;
+  HistoryGapQueries get gaps;
+  Future<SavedReadingPosition?> readPosition(MessageHistoryScope scope);
+  Future<void> savePosition(MessageHistoryScope scope, SavedReadingPosition? position);
+  Future<void> get positionsSettled;
   Future<DateTime?> lastVerified(MessageHistoryScope scope, String queryKey);
   Future<bool> wasEvicted(MessageHistoryScope scope, {BigInt? before, BigInt? after, String? target});
   Future<Map<String, Map<String, dynamic>?>> projections(

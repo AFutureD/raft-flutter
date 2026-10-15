@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:drift/drift.dart';
 import 'package:raft_sync/raft_sync.dart';
@@ -7,8 +8,12 @@ import 'package:raft_ui/raft_ui.dart' show RaftIdleTimer;
 import '../data/message_history.dart';
 import '../data/history_read_policy.dart';
 import '../data/history_capacity.dart';
+import '../data/history_memory.dart';
+import '../data/reading_positions.dart';
 import '../data/workspace_cache_codec.dart';
 import 'history_capacity.dart';
+import 'history_positions.dart';
+import 'history_gaps.dart';
 import 'device_storage.dart';
 
 typedef HistoryOperationOrder = Future<T> Function<T>(
@@ -38,14 +43,54 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   final int historyBudget;
   final bool automaticMaintenance;
   final Future<int?> Function(String)? historyAvailableSpace;
+  final _memoryZone = Zone.current;
+  late final _positions = SqliteHistoryPositions(db, order, ready: _ready,
+    readLegacy: readLegacy, writeLegacy: writeLegacy, allowed: (scope) async =>
+      (await _marker(scope))?['authority'] == scope.authority && await _denial(scope) < 0);
+  @override
+  Future<void> get positionsSettled => _positions.settled;
+  @override
+  Future<SavedReadingPosition?> readPosition(MessageHistoryScope scope) => _positions.read(scope);
+  @override
+  Future<void> savePosition(MessageHistoryScope scope, SavedReadingPosition? position) => _positions.save(scope, position);
+  @override
+  late final SqliteHistoryGaps gaps = SqliteHistoryGaps(db, order, ready: _ready, allowed: _positions.allowed);
   @override
   late final HistoryReadPolicy reads = HistoryReadPolicy(now: now);
+  @override
+  late final HistoryMemoryPool memory = HistoryMemoryPool(_inspectMemory,
+    backgroundZone: _memoryZone,
+    hold: (windows) => capacity.protect(memory, () => [for (final window in windows)
+      if (window.current()) HistoryProtectedRows(
+        HistoryAccount(window.scope.origin, window.scope.principal),
+        window.scope.server, window.scope.channel, window.versions.keys,
+      )]),
+    releaseHold: () => capacity.release(memory),
+  );
+
+  Future<List<HistoryBodyProof>> _inspectMemory(
+    MessageHistoryScope scope,
+    Map<String, List<Map<String, dynamic>>> versions,
+  ) async {
+    final saved = await order(() async {
+      await _ready();
+      final marker = await _marker(scope);
+      if (marker == null || marker['authority'] != scope.authority ||
+          await _denial(scope) >= 0) { return <String, String>{}; }
+      final stored = await _existing(scope, versions.keys);
+      return {for (final entry in stored.entries)
+        if (entry.value.read<int>('tombstone') == 0)
+          entry.key: entry.value.read<String>('payload')};
+    });
+    return inspectHistoryBodies(versions, saved);
+  }
   @override
   late final SqliteHistoryCapacity capacity = SqliteHistoryCapacity(
     db, order, ready: _ready, advance: (s) => _revision(s, advance: true),
     now: now, defaultBudget: historyBudget, automatic: automaticMaintenance,
     pending: () => receiver.protectedRows,
     availableSpace: historyAvailableSpace ?? availableDeviceStorage,
+    coverageChanged: () => gaps.changed(null),
   );
   @override
   final receiver = HistoryReceiverQueue();
@@ -60,6 +105,8 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     _closed = true;
     reads.close();
     capacity.close();
+    memory.close();
+    gaps.dispose();
     _migrationTimer.cancel();
     _migrations.clear();
   }
@@ -68,6 +115,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     receiver.clearAccount(origin, principal);
     reads.forgetAccount(origin, principal);
     capacity.cancel(HistoryAccount(origin, principal));
+    _memoryZone.run(() => gaps.forgetAccount(origin, principal));
     _migrations.remove((origin, principal));
     if (_migrations.isEmpty) _migrationTimer.cancel();
   }
@@ -140,6 +188,12 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       origin TEXT NOT NULL, principal TEXT NOT NULL, server TEXT NOT NULL,
       channel TEXT NOT NULL, request TEXT NOT NULL, verified INTEGER NOT NULL,
       PRIMARY KEY(origin,principal,server,channel,request))''');
+    await db.customStatement('''CREATE TRIGGER IF NOT EXISTS raft_history_position_purge
+      AFTER DELETE ON workspace_cache WHEN OLD.kind='message-history'
+      BEGIN
+        DELETE FROM workspace_cache WHERE origin=OLD.origin AND principal=OLD.principal
+          AND server=OLD.server AND kind='history-anchor' AND id=OLD.id;
+      END''');
     await db.customStatement(
       '''CREATE TRIGGER IF NOT EXISTS raft_history_checks_purge
       AFTER DELETE ON workspace_cache WHEN OLD.kind='message-history'
@@ -659,6 +713,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       }
     });
     capacity.changed(scope, added);
+    memory.changed();
   }
 
   @override
@@ -771,6 +826,11 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       DO UPDATE SET verified=excluded.verified''',
       [...scope.key, lower, upper, verified],
     );
+    final unchanged = neighbours.length == 1 &&
+      neighbours.single.read<String>('lower_key') == lower &&
+      neighbours.single.read<String>('upper_key') == upper;
+    if (!unchanged) _memoryZone.run(() => gaps.changed(scope));
+
   }
 
   @override

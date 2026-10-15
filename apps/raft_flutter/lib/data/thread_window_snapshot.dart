@@ -48,6 +48,10 @@ class CachedMessageThread {
     value,
     contextWindow: contextWindow,
   );
+
+  CachedMessageThread withBoundary({required bool more, required bool context}) =>
+    CachedMessageThread(parentChannelId, threadChannelId, token, authority,
+      generation, more, historyLimited, parent, contextWindow: context);
 }
 
 /// Tail refreshes retain only history before the refreshed page. A focused

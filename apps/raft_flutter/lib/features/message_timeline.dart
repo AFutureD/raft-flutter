@@ -34,6 +34,8 @@ class RaftMessageTimeline extends StatefulWidget {
     this.hasOlder = false,
     this.loadingOlder = false,
     this.onLoadOlder,
+    this.hasNewer = false,
+    this.onLoadNewer,
     this.onRecenter,
     this.cacheExtent,
     this.canPrepareNearbyRows,
@@ -56,6 +58,8 @@ class RaftMessageTimeline extends StatefulWidget {
   final Widget? empty;
   final bool hasOlder, loadingOlder;
   final VoidCallback? onLoadOlder;
+  final bool hasNewer;
+  final VoidCallback? onLoadNewer;
 
   /// Re-centers the timeline on row [index] and positions the next layout at
   /// [alignment] (the host owns the center). A scrollbar drag to a distant
@@ -146,6 +150,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   /// intersection). A page landing, a layout or a metrics change never
   /// requests one by itself.
   bool spent = false;
+  bool newerSpent = false;
 
   @override
   void didUpdateWidget(RaftMessageTimeline oldWidget) {
@@ -159,11 +164,15 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     }
     if (!identical(oldWidget.controller, widget.controller)) {
       spent = false;
+      newerSpent = false;
       userDirection = ScrollDirection.idle;
       thumb = null;
     }
     // Landed (or failed): the next user move toward older may request again.
-    if (oldWidget.loadingOlder && !widget.loadingOlder) spent = false;
+    if (oldWidget.loadingOlder && !widget.loadingOlder) {
+      spent = false;
+      newerSpent = false;
+    }
   }
 
   ScrollPosition? get singlePosition {
@@ -207,6 +216,23 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     }
   }
 
+  void userMovedNewer() {
+    final position = singlePosition, load = widget.onLoadNewer;
+    if (position == null) return;
+    final near = position.extentAfter <= math.max(200.0,
+      position.viewportDimension * RaftMessageTimeline.prefetchViewports);
+    if (!near) {
+      newerSpent = false;
+      return;
+    }
+    if (newerSpent || load == null || !widget.hasNewer ||
+        widget.loadingOlder || widget.controller.pending != null) {
+      return;
+    }
+    newerSpent = true;
+    load();
+  }
+
   bool onNotification(Notification notification) {
     // Only the timeline itself, not scrollables inside rows.
     if (notification is ScrollNotification && notification.depth != 0) {
@@ -230,12 +256,20 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
         userMovedOlder();
       } else {
         rearmOutsideTop();
+        if ((notification.scrollDelta ?? 0) > 0 &&
+            userDirection == ScrollDirection.reverse) {
+          userMovedNewer();
+        }
       }
     } else if (notification is OverscrollNotification) {
       // Pulling at the temporary top (e.g. after a failed page).
       if (notification.overscroll < 0 &&
           userDirection == ScrollDirection.forward) {
         userMovedOlder();
+      }
+      if (notification.overscroll > 0 &&
+          userDirection == ScrollDirection.reverse) {
+        userMovedNewer();
       }
     } else if (notification is ScrollMetricsNotification) {
       rearmOutsideTop();

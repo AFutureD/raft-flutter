@@ -8,6 +8,12 @@ import 'workspace_message_windows.dart';
 
 /// Rechecks only a displayed saved range. No timer scans hidden history.
 class MessageHistoryVerification {
+  static void tail(WorkspaceController w, MessageWindowRequest request, MessageHistoryScope scope) {
+    final storage = MessageHistoryPages.storage(w.cache);
+    if (storage == null) return;
+    final ticket = w.messageHistoryTicket(scope.parentChannel);
+    storage.reads.background(() => _verify(w,request,scope,ticket,reason:HistoryReadReason.tail));
+  }
   static void schedule(
     WorkspaceController w,
     MessageWindowRequest request,

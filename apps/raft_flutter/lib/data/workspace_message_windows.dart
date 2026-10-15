@@ -8,6 +8,8 @@ import 'conversation_window.dart';
 import 'thread_window_snapshot.dart';
 import 'message_window_snapshot.dart';
 import 'workspace_sends.dart';
+import 'reading_positions.dart';
+export 'reading_positions.dart' show ReadingAnchor;
 
 /// Explicit synchronous event/local write. Delayed responses use an issued ticket.
 const liveWindowWrite = MessageWindowRequest._(null, null);
@@ -102,9 +104,13 @@ class WorkspaceMessageWindows {
     _accepted.clear();
     _diskOnly.clear();
     _threads.clear();
+    _anchors.clear();
   }
 
-  void revokeChannel(String id) => ledger.revokeChannel(id);
+  void revokeChannel(String id) {
+    ledger.revokeChannel(id);
+    clearReadingAnchor(id);
+  }
   void reveal(
     MessageWindowRequest request,
     String id,
@@ -156,7 +162,7 @@ class WorkspaceMessageWindows {
   final _accepted = <String, AcceptedMessageWindow>{};
   final _threads = <String, CachedMessageThread>{};
   final _diskOnly = <String>{};
-  final _anchors = <String, ReadingAnchor>{};
+  final _anchors = ConversationReadingPositions();
   final _presentedRows = Expando<RaftMessage>('presented rows');
   final _requests = <Object, Future<String?>?>{};
   int channelGeneration = 0, threadGeneration = 0;
@@ -164,6 +170,10 @@ class WorkspaceMessageWindows {
   Map<String, AcceptedMessageWindow> get accepted =>
       UnmodifiableMapView(_accepted);
   Map<String, CachedMessageThread> get threads => UnmodifiableMapView(_threads);
+  ReadingAnchor? readingAnchor(String id) => _anchors.read(id);
+  void clearReadingAnchor(String id) => _anchors.clear(id);
+  Iterable<ConversationWindowSnapshot> get retainedSnapshots =>
+      _windows.values.map((window) => window.snapshot);
   // Canonical row versions are replaced, never mutated. Each keeps one wrapper.
   RaftMessage presented(Map<String, dynamic> row) =>
       _presentedRows[row] ??= RaftMessage(row);
@@ -258,7 +268,12 @@ class WorkspaceMessageWindows {
     String parentId,
     CachedMessageThread value,
   ) {
-    if (_writable(request)) _threads[parentId] = value;
+    if (_writable(request)) {
+      _threads[parentId] = value;
+      _accepted.putIfAbsent(value.threadChannelId, () => AcceptedMessageWindow(
+        value.authority ?? '', value.hasMore, value.token,
+        value.historyLimited, value.contextWindow ? true : null));
+    }
   }
 
   void cacheThreadParent(
@@ -280,12 +295,8 @@ class WorkspaceMessageWindows {
     (_, thread) => thread.parentChannelId == id || thread.threadChannelId == id,
   );
 
-  void saveReadingAnchor(String id, ReadingAnchor anchor) =>
-      _anchors[id] = anchor;
-  ReadingAnchor? takeReadingAnchor(String id) {
-    final anchor = _anchors.remove(id);
-    return anchor != null && anchor.fresh ? anchor : null;
-  }
+  void saveReadingAnchor(String id, ReadingAnchor anchor) => _anchors.save(id, anchor);
+  ReadingAnchor? takeReadingAnchor(String id) => _anchors.take(id);
 
   bool beginTailRevalidation(String id) {
     final key = ('tail', id);
@@ -379,7 +390,7 @@ class WorkspaceMessageWindows {
     );
     final id = main ? scope.channelId : held?.threadChannelId;
     final acceptedRows = rows(id);
-    final newer = main && contextHasNewer(id);
+    final newer = contextHasNewer(id);
     return ConversationWindowSnapshot(
       channelId: id,
       rows: acceptedRows,
@@ -440,16 +451,6 @@ class _ProjectedConversationWindow extends ConversationWindow
     if (notify) notifyListeners();
     dispose();
   }
-}
-
-/// A message row and the distance of its top below the timeline's top edge.
-class ReadingAnchor {
-  ReadingAnchor(this.messageKey, this.top) : _saved = Stopwatch()..start();
-  final String messageKey;
-  final double top;
-  final Stopwatch _saved;
-  static const lifetime = Duration(seconds: 3);
-  bool get fresh => _saved.elapsed <= lifetime;
 }
 
 /// One immutable pending visit binds its receiver-issued request to its rows.

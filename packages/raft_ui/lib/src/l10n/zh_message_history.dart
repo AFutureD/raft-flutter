@@ -1,5 +1,8 @@
 // Native account-wide message history settings.
 const Map<String, String> zhCatalogMessageHistory = <String, String>{
+  "Couldn't check saved history.": "无法检查已保存的历史消息。",
+  "There may be more messages between saved sections.": "已保存的消息片段之间可能还有消息。",
+  "Load this gap": "补载这段消息",
   "Clean up": "清理",
   "Refresh messages": "刷新消息",
   // Native, account-wide device message history.

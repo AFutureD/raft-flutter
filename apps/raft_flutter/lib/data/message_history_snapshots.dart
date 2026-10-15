@@ -6,6 +6,48 @@ import 'workspace_message_windows.dart';
 /// Compatibility snapshot adapter. Durable rows/ranges are owned separately;
 /// this keeps the previous version's rollback format and window boundaries.
 class MessageHistorySnapshots {
+  static bool restore(
+    WorkspaceController w,
+    String id,
+    dynamic page,
+    MessageWindowRequest request, {
+    required bool replace,
+    required bool Function() allowed,
+  }) {
+    final authority = messageWindowAuthority(
+      w.server?.string('role'),
+      w.channel?.json ?? const {},
+    );
+    if (!request.current ||
+        page is! Map ||
+        page['version'] != 1 ||
+        page['windowKind'] != 'tail' ||
+        page['hasNewer'] == true ||
+        page['authority'] != authority ||
+        !w.can('viewChannel', resource: w.channel) ||
+        !w.messageWindows.notRevoked(id) ||
+        !allowed() ||
+        page['parentChannelId'] != w.channel?.id) {
+      return false;
+    }
+    w.hasMore = page['hasMore'] == true;
+    w.historyLimited = page['historyLimited'] == true;
+    if (replace) w.hasNewer = page['hasNewer'] == true;
+    w.messageWindows.rememberWindow(
+      request,
+      id,
+      authority,
+      w.hasMore,
+      w.messageHistoryTicket(id) as String,
+      historyLimited: w.historyLimited,
+      rows: acceptedWindowRows(page['messages'], id),
+      replace: replace,
+    );
+    w.messageWindows.setDiskOnly(request, id, true);
+    w.messageWindows.setContextMode(request, id, null);
+    return true;
+  }
+
   static Future<void> save(
     WorkspaceController w,
     String id, {
@@ -19,7 +61,7 @@ class MessageHistorySnapshots {
         !thread && w.channel == null ||
         (thread ? id != w.threadChannelId : id != w.channel!.id) ||
         !w.messageWindows.notRevoked(id) ||
-        w.hasNewer ||
+        (thread ? w.messageWindows.contextHasNewer(id) : w.hasNewer) ||
         w.highlightedMessageId != null) {
       return;
     }

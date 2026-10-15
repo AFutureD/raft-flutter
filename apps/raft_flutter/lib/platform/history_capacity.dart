@@ -26,6 +26,7 @@ class SqliteHistoryCapacity implements HistoryCapacity {
     this.automatic = true,
     this.pending,
     this.availableSpace = availableDeviceStorage,
+    this.coverageChanged,
   });
   final GeneratedDatabase db;
   final HistoryOperationOrder order;
@@ -35,6 +36,7 @@ class SqliteHistoryCapacity implements HistoryCapacity {
   final int defaultBudget;
   final bool automatic;
   final Future<int?> Function(String path) availableSpace;
+  final void Function()? coverageChanged;
   late final _counters = HistorySizeCounters(db);
   Future<void>? _initializing;
   final _retries = <HistoryAccount, int>{};
@@ -433,6 +435,7 @@ class SqliteHistoryCapacity implements HistoryCapacity {
         blocked = true;
         break;
       }
+      _backgroundZone.run(() => coverageChanged?.call());
       measured = await order(() => _usageNow(a, physical: false));
     }
     measured = await order(() => _usageNow(a, physical: false));
@@ -579,6 +582,9 @@ class SqliteHistoryCapacity implements HistoryCapacity {
         AND NOT EXISTS (SELECT 1 FROM workspace_cache d WHERE d.origin=r.origin
           AND d.principal=r.principal AND d.kind='draft'
           AND instr(d.payload,r.message_id)>0)
+        AND NOT EXISTS (SELECT 1 FROM workspace_cache p WHERE p.origin=r.origin
+          AND p.principal=r.principal AND p.server=r.server AND p.kind='history-anchor'
+          AND p.id=r.channel AND json_extract(p.payload,'\$.messageId')=r.message_id)
         ORDER BY r.touched,r.server,r.channel,r.message_id LIMIT 200''',
         [a.origin, a.principal],
       );

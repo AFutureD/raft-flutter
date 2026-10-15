@@ -376,7 +376,7 @@ class MessageHistoryEvents {
       for (final row in accepted) {
         final id = row['channelId'];
         if (id == w.channel?.id && !w.hasNewer ||
-            id == w.threadChannelId ||
+            id == w.threadChannelId && !w.messageWindows.contextHasNewer(id as String) ||
             id is String && w.messageWindows.retainsLiveTail(id)) {
           w.messageWindows.reveal(liveWindowWrite, id, [row['id']]);
         }

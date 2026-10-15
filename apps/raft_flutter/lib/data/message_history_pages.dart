@@ -4,6 +4,7 @@ import 'message_history.dart';
 import 'history_capacity.dart';
 import 'history_read_policy.dart';
 import 'message_history_verification.dart';
+import 'message_history_memory.dart';
 import 'message_window_snapshot.dart';
 import 'workspace_cache.dart';
 import 'workspace_controller.dart';
@@ -12,12 +13,25 @@ import 'workspace_message_windows.dart';
 /// Transport and local paging use the same admitted projections. Request
 /// metadata is held in a Dart object and never added to the server protocol.
 class MessageHistoryPages {
+  static MessageHistoryPage savedContext(
+    WorkspaceController w, MessageHistoryScope scope, Map<String, dynamic> local,
+    Map<String, Map<String, dynamic>> initial,
+  ) => MessageHistoryPage(
+    _live(local, initial, w.ledger.messages(scope.channel), focused: true,
+      pending: (id) => storage(w.cache)!.receiver.hasRow(scope,id)),
+    scope: scope,
+    revision: local is MessageHistoryPage ? local.revision : 0,
+    before: null, after: null, local: true, focused: true,
+    target: local['targetMessageId'] as String?,
+    verifiedAt: local is MessageHistoryPage ? local.verifiedAt : null,
+  );
   static String saveError(Object cause) => cause is HistoryCapacityExceeded
       ? 'Device message storage is full. Increase the message history limit or stop keeping a conversation in Storage settings.'
       : 'Local changes could not be saved on this device.';
   static void attach(WorkspaceController w) {
     final device = storage(w.cache);
     if (device == null || w.presentationSource != null) return;
+    MessageHistoryMemory.attach(w, device);
     device.capacity.protect(w, () sync* {
       final user = w.client.user?.id, server = w.client.serverId;
       if (user == null || server == null || !w.cacheWritable) return;
@@ -40,6 +54,7 @@ class MessageHistoryPages {
     final device = storage(w.cache);
     device?.reads.forget(w);
     device?.capacity.release(w);
+    device?.memory.unregister(w);
   }
   static void recheckContext(
     WorkspaceController w,
@@ -80,6 +95,7 @@ class MessageHistoryPages {
     BigInt? after,
     int limit = 50,
     bool localFirst = true,
+    bool gap = false,
     Future<Map<String, dynamic>> Function()? remote,
   }) {
     return load(
@@ -107,7 +123,7 @@ class MessageHistoryPages {
       ticket: w.messageHistoryTicket(
         thread ? w.threadParentChannelId ?? id : id,
       ),
-      reason: remote == null ? null : HistoryReadReason.gap,
+      reason: gap || remote != null ? HistoryReadReason.gap : null,
     );
   }
 

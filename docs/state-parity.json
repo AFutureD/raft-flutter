@@ -2788,6 +2788,50 @@
      "status": "covered"
     }
    ]
+  },
+  {
+   "id": "chat.saved-history-gap",
+   "title": "Chat: saved history gaps",
+   "webEntry": "packages/web/src (no device history counterpart)",
+   "flutterEntry": "apps/raft_flutter/lib/features/message_history_gaps.dart",
+   "states": [
+    {
+     "state": "loading",
+     "variant": "loading an unverified interval",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+    },
+    {
+     "state": "empty",
+     "variant": "all visible rows belong to proved saved ranges",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+    },
+    {
+     "state": "error",
+     "variant": "saved range metadata could not be checked; retry",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+    },
+    {
+     "state": "partial",
+     "variant": "saved islands have an unverified interval",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "na",
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+    }
+   ]
   }
  ],
  "navigationCoverage": {

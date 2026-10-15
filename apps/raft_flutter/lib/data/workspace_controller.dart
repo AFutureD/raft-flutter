@@ -40,6 +40,8 @@ import 'message_window_snapshot.dart';
 import 'message_history_pages.dart';
 import 'message_history_events.dart';
 import 'message_history_snapshots.dart';
+import 'message_history_navigation.dart';
+import 'message_history_positions.dart';
 import 'thread_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'cache_clear.dart';
@@ -343,7 +345,7 @@ class WorkspaceController extends ChangeNotifier {
       resolving: thread && threadResolutionLoading,
       error: thread ? threadResolutionError : error,
       hasMore: thread ? threadHasMore : hasMore,
-      hasNewer: !thread && hasNewer,
+      hasNewer: thread ? messageWindows.contextHasNewer(threadChannelId) : hasNewer,
       historyLimited: thread ? threadHistoryLimited : historyLimited,
       highlightedMessageId: highlightedMessageId,
       contextLoadError: thread ? null : contextLoadError,
@@ -1356,6 +1358,7 @@ class WorkspaceController extends ChangeNotifier {
   /// device writes have landed.
   Future<void> flushCache() async {
     await MessageHistoryPages.storage(cache)?.receiver.settled;
+    await MessageHistoryPages.storage(cache)?.positionsSettled;
     if (_ownsEntityDirectory) entityDirectory.flushDevice();
     _translations?.flushDevice();
     await Future.wait([_cacheWrites, composer.flushed]);
@@ -1697,32 +1700,10 @@ class WorkspaceController extends ChangeNotifier {
     String? replyAuthority,
     bool replace = false,
   }) {
-    if (!request.current ||
-        page is! Map ||
-        page['version'] != 1 ||
-        page['windowKind'] != 'tail' ||
-        page['hasNewer'] == true ||
-        page['authority'] != _windowAuthority() ||
-        !can('viewChannel', resource: channel) ||
-        _revokedChannels.contains(id) ||
-        _revokedServers.contains(server?.id) ||
-        page['parentChannelId'] != channel?.id) {
+    if (!MessageHistorySnapshots.restore(this, id, page, request, replace: replace,
+        allowed: () => !_revokedServers.contains(server?.id))) {
       return false;
     }
-    hasMore = page['hasMore'] == true;
-    historyLimited = page['historyLimited'] == true;
-    if (replace) hasNewer = page['hasNewer'] == true;
-    messageWindows.rememberWindow(
-      request,
-      id,
-      _windowAuthority(),
-      hasMore,
-      _replyToken(id),
-      historyLimited: historyLimited,
-      rows: acceptedWindowRows(page['messages'], id),
-      replace: replace,
-    );
-    messageWindows.setDiskOnly(request, id, true);
     _summariesByChannel[id] = {
       ..._hydrateThreadSummaries(
         page['threadSummaries'],
@@ -3787,7 +3768,7 @@ class WorkspaceController extends ChangeNotifier {
 
     final thread = threadChannelId, main = channel?.id;
     final targets = [
-      if (thread != null && !threadLoading) thread,
+      if (thread != null && !threadLoading && !messageWindows.contextHasNewer(thread)) thread,
       if (main != null &&
           main != thread &&
           !hasNewer &&
@@ -3820,7 +3801,7 @@ class WorkspaceController extends ChangeNotifier {
       id,
       thread: thread,
       allowed: () =>
-          thread ? threadChannelId == id : channel?.id == id && !hasNewer,
+          thread ? threadChannelId == id && !messageWindows.contextHasNewer(id) : channel?.id == id && !hasNewer,
     );
     try {
       while (true) {
@@ -4207,11 +4188,15 @@ class WorkspaceController extends ChangeNotifier {
     onDraftRestored?.call();
     if (!request.current) return;
     try {
-      final page = retainContextUntilAccepted
+      final page = retainContextUntilAccepted && MessageHistoryPages.storage(cache) == null
           ? null
           : await _cached('window', next.id);
       if (!request.current) return;
-      if (_restoreCachedTail(next.id, page, request)) {
+      if (!retainContextUntilAccepted && await MessageHistoryPositions.restoreMain(this, request, next.id)) {
+        if (request.current) await _save('selection', '', next.id);
+        return;
+      }
+      if (_restoreCachedTail(next.id, page, request, replace: retainContextUntilAccepted)) {
         notifyListeners();
       }
       final retained = retainContextUntilAccepted
@@ -4344,50 +4329,16 @@ class WorkspaceController extends ChangeNotifier {
 
   Future<void> older({bool thread = false}) => _windowReceiver._older(thread);
 
-  Future<void> _older(bool thread) async {
-    final current = thread ? replies : messages;
-    if (loadingOlder ||
-        (thread ? !threadHasMore : !hasMore) ||
-        current.isEmpty) {
-      return;
-    }
-    loadingOlder = true;
-    final id = thread ? threadChannelId! : channel!.id;
-    final request = _windowRequest(id, thread: thread);
-    notifyListeners();
-    try {
-      final page = await MessageHistoryPages.read(
-        this, request, id, thread: thread, before: current.first.seq,
-      );
-      if (!request.current) {
-        return;
-      }
-      final rows = acceptedWindowRows(page['messages'], id);
-      messageWindows.acceptRows(request, id, rows);
-      await MessageHistoryPages.record(this, request, page);
-      if (!request.current) return;
-      if (thread) {
-        threadHistoryLimited = page['historyLimited'] == true;
-        threadHasMore = !threadHistoryLimited && (page['hasMore'] is bool ? page['hasMore'] as bool : rows.length >= 50);
-      } else {
-        historyLimited = page['historyLimited'] == true;
-        hasMore = !historyLimited && (page['hasMore'] is bool ? page['hasMore'] as bool : rows.length >= 50);
-      }
-      if (!thread) {
-        _mergeThreadSummaries(id, page['threadSummariesByParentMessageId']);
-      }
-      await _saveWindow(id, thread: thread);
-    } catch (e) {
-      if (request.current) {
-        error = userErrorText(e, where: 'load older messages');
-      }
-    } finally {
-      if (request.current) {
-        loadingOlder = false;
-        notifyListeners();
-      }
-    }
-  }
+  Future<void> newer({bool thread = false}) =>
+      _windowReceiver._pageHistory(thread, newer: true);
+  Future<void> loadHistoryGap(BigInt before, {bool thread = false}) =>
+      _windowReceiver._pageHistory(thread, gapBefore: before);
+  Future<void> _older(bool thread) => _pageHistory(thread);
+  Future<void> _pageHistory(bool thread, {bool newer = false, BigInt? gapBefore}) =>
+      MessageHistoryNavigation.page(this, thread: thread, newer: newer,
+        gapBefore: gapBefore,
+        requestFor: (id) => _windowRequest(id, thread: thread),
+        summaries: _mergeThreadSummaries);
 
   bool _mayMarkRead(String id) {
     if (!foreground ||
@@ -4441,8 +4392,10 @@ class WorkspaceController extends ChangeNotifier {
   /// rebuilt for another layout (fold / unfold). The next timeline that
   /// mounts for [conversationId] shortly after resumes there; an anchor that
   /// is not claimed promptly is a stale position and is ignored.
-  void saveReadingAnchor(String conversationId, ReadingAnchor anchor) =>
-      messageWindows.saveReadingAnchor(conversationId, anchor);
+  void saveReadingAnchor(String conversationId, ReadingAnchor anchor) {
+    messageWindows.saveReadingAnchor(conversationId, anchor);
+    MessageHistoryPositions.save(this, conversationId, anchor);
+  }
   ReadingAnchor? takeReadingAnchor(String conversationId) =>
       messageWindows.takeReadingAnchor(conversationId);
 
@@ -4903,6 +4856,7 @@ class WorkspaceController extends ChangeNotifier {
       }
     }
 
+    Map<String, dynamic>? readingPage;
     Future<void> resolveReplies() async {
       try {
         if (threadChannelId == null) {
@@ -4923,14 +4877,16 @@ class WorkspaceController extends ChangeNotifier {
           if (!request.current) return;
           notifyListeners();
         }
-        final page = focusedMessageId == null
+        readingPage ??= focusedMessageId == null ? await MessageHistoryPositions.restore(this, request, threadChannelId!, thread: true) : null;
+        final focused = focusedMessageId != null || readingPage != null;
+        final page = readingPage ?? (focusedMessageId == null
             ? await MessageHistoryPages.read(this, request, threadChannelId!, thread: true)
-            : await MessageHistoryPages.context(this, request, threadChannelId!, focusedMessageId, thread: true);
+            : await MessageHistoryPages.context(this, request, threadChannelId!, focusedMessageId, thread: true));
         if (!request.current) return;
         final boundary = messageWindows.acceptThreadPage(
           request, threadChannelId!, page,
-          focused: focusedMessageId != null,
-          retainOlder: cached?.contextWindow == false || messageWindows.isDiskOnly(threadChannelId),
+          focused: focused,
+          retainOlder: cached?.contextWindow == false || cached == null && messageWindows.isDiskOnly(threadChannelId),
           retainedHasMore: threadHasMore,
         );
         await MessageHistoryPages.record(this, request, page);
@@ -4951,9 +4907,11 @@ class WorkspaceController extends ChangeNotifier {
             threadHasMore,
             threadHistoryLimited,
             threadParent ?? cached?.parent,
-            contextWindow: focusedMessageId != null,
+            contextWindow: focused,
           ),
         );
+        messageWindows.setContextMode(request, threadChannelId!,
+          focused ? page['hasNewer'] == true : null);
         notifyListeners();
         await markRead(threadChannelId!);
         if (request.current) _saveWindow(threadChannelId!, thread: true);
@@ -4988,9 +4946,9 @@ class WorkspaceController extends ChangeNotifier {
     /// A tail thread with no window in memory paints its on-device window
     /// (previous visit or previous process) while the lookup revalidates.
     Future<void> restoreDiskWindow() async {
-      if (cached != null || focusedMessageId != null) return;
+      if (cached != null && !cached.contextWindow || focusedMessageId != null) return;
       final page = await _cached('thread-window', parentMessageId);
-      if (!request.current || !threadLoading || page is! Map) return;
+      if (!request.current || !threadLoading && cached?.contextWindow != true || page is! Map) return;
       final threadId = page['threadChannelId'];
       if (page['version'] != 1 ||
           page['windowKind'] != 'tail' ||
@@ -5002,10 +4960,13 @@ class WorkspaceController extends ChangeNotifier {
           _revokedChannels.contains(threadId)) {
         return;
       }
+      readingPage = await MessageHistoryPositions.restoreThread(this, request, threadId, page);
+      if (readingPage != null) { _threadResolutionLoading = false; _threadParentLoading = threadParent == null; return; }
       final rows = acceptedWindowRows(page['messages'], threadId);
       if (rows.isEmpty) return;
       messageWindows.acceptRows(request, threadId, rows, replace: true);
       messageWindows.setDiskOnly(request, threadId, true);
+      messageWindows.setContextMode(request, threadId, null);
       threadChannelId = threadId;
       final parent = page['parent'];
       if (threadParent == null &&
@@ -5069,19 +5030,8 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   /// Source ChatPanel.handleBackToBottom reloads latest when newer is unloaded.
-  Future<void> returnToLatest({bool navigate = true}) async {
-    final receiver = _windowReceiver;
-    final selected = receiver.channel;
-    if (selected == null) return;
-    receiver.clearHighlightedMessage(receiver.highlightedMessageId);
-    if (receiver.hasNewer) {
-      await receiver.selectChannel(
-        selected,
-        navigate: navigate,
-        retainContextUntilAccepted: true,
-      );
-    }
-  }
+  Future<void> returnToLatest({bool navigate = true, bool thread = false}) =>
+      MessageHistoryNavigation.latest(_windowReceiver, thread: thread, navigate: navigate);
 
   /// [replaceEntry] makes the destination take over the current history
   /// entry instead of pushing (Web openThreadParentMessageRoute, mobile).
@@ -6042,7 +5992,8 @@ class WorkspaceController extends ChangeNotifier {
         ledger.ingest([projection], expectedGeneration: ledger.generation);
       }
       final id = row['channelId'];
-      if (id == channel?.id && !hasNewer || id == threadChannelId) {
+      if (id == channel?.id && !hasNewer ||
+          id == threadChannelId && !messageWindows.contextHasNewer(id)) {
         if (event.name == 'message:new' && id == channel?.id) {
           if (messageWindows.fillWindowGap(id, row['id'])) {
             unawaited(_revalidateTail(id));
