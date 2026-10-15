@@ -27,6 +27,7 @@ import '../data/activity_done_state.dart';
 import '../data/source_read_all_transport.dart';
 import '../data/resource_row_reconcile.dart';
 import '../data/resource_snapshot_cache.dart';
+import '../data/server_task_window.dart';
 import '../data/task_board_reconcile.dart';
 import 'activity_find_scope.dart';
 import 'create_task_dialog.dart';
@@ -620,6 +621,11 @@ class _ResourceViewState extends State<ResourceView> {
   /// list across navigation (Source's task store is per server and channel).
   bool get taskSnapshotted => widget.section == 'tasks';
 
+  /// Workspace Tasks only. Its accepted board is the session window, not the
+  /// `tasks` snapshot slot. A channel tab keeps `tasks:<channelId>`.
+  bool get serverTaskPage =>
+      widget.section == 'tasks' && widget.channelId == null;
+
   /// Snapshot slot of this page; the identity binding includes the channel.
   String get snapshotSection => widget.channelId == null
       ? widget.section
@@ -628,14 +634,30 @@ class _ResourceViewState extends State<ResourceView> {
   double taskListOffset = 0, taskBoardOffset = 0;
 
   bool restoreTaskSnapshot() {
-    var snapshot = w.resourceSnapshots.read<TaskSnapshot>(
-      snapshotSection,
-      identityAuthority,
-    );
-    if (snapshot != null && !acceptsTaskChannel) {
-      // A channel lost while the tab was away never shows its cached tasks.
+    TaskSnapshot? snapshot;
+    if (serverTaskPage) {
+      // The workspace page no longer reads the `tasks` slot.
       w.resourceSnapshots.remove(snapshotSection);
-      snapshot = null;
+      final window = w.resourceSnapshots.serverTasks;
+      if (window is ServerTaskWindow &&
+          window.snapshot.identity == identityAuthority &&
+          acceptsTaskChannel) {
+        window.attach();
+        window.needsRevalidate = false;
+        snapshot = window.snapshot;
+      } else if (window != null) {
+        w.resourceSnapshots.dropServerTasks();
+      }
+    } else {
+      snapshot = w.resourceSnapshots.read<TaskSnapshot>(
+        snapshotSection,
+        identityAuthority,
+      );
+      if (snapshot != null && !acceptsTaskChannel) {
+        // A channel lost while the tab was away never shows its cached tasks.
+        w.resourceSnapshots.remove(snapshotSection);
+        snapshot = null;
+      }
     }
     taskListOffset = snapshot?.listOffset ?? 0;
     taskBoardOffset = snapshot?.boardOffset ?? 0;
@@ -690,11 +712,10 @@ class _ResourceViewState extends State<ResourceView> {
         error != null ||
         rowsView == null) {
       w.resourceSnapshots.remove(snapshotSection);
+      if (serverTaskPage) w.resourceSnapshots.dropServerTasks();
       return;
     }
-    w.resourceSnapshots.write(
-      snapshotSection,
-      TaskSnapshot(
+    final snapshot = TaskSnapshot(
         identity: acceptedIdentity!,
         layout: taskLayout,
         view: rowsView,
@@ -712,8 +733,24 @@ class _ResourceViewState extends State<ResourceView> {
         channelAccess: acceptedAccess,
         listOffset: taskListOffset,
         boardOffset: taskBoardOffset,
-      ),
+      );
+    if (!serverTaskPage) {
+      w.resourceSnapshots.write(snapshotSection, snapshot);
+      return;
+    }
+    w.resourceSnapshots.remove(snapshotSection);
+    final controller = w;
+    final window = holdServerTaskWindow(
+      controller.resourceSnapshots,
+      client: controller.client,
+      events: controller.client.events,
+      snapshot: snapshot,
+      belongs: (task) => serverTaskBelongs(controller, task),
+      channelName: (id) => serverTaskChannelName(controller, id),
+      serverId: () => controller.client.serverId,
+      identity: () => serverTaskIdentity(controller),
     );
+    if (window.attached > 0) window.detach();
   }
 
   /// Search keeps the results of its recently used queries across visits.
@@ -1173,6 +1210,7 @@ class _ResourceViewState extends State<ResourceView> {
       unawaited(load(keep: true, quietErrors: rows.isNotEmpty));
       return;
     }
+    if (serverTaskPage) w.resourceSnapshots.dropServerTasks();
     setState(() {
       clearRows();
       resetAdvanced();
@@ -1420,47 +1458,19 @@ class _ResourceViewState extends State<ResourceView> {
   /// remove the single task by id. False when the payload does not identify
   /// a task, so the caller revalidates the loaded windows instead.
   bool patchTasks(RaftEvent event) {
-    final payload = event.payload;
-    if (payload is! Map) return false;
-    if (payload['serverId'] is String &&
-        payload['serverId'] != w.client.serverId) {
-      return true;
-    }
-    Map<String, dynamic>? task(Object? raw) => raw is Map && raw['id'] is String
-        ? Map<String, dynamic>.from(raw)
-        : null;
-    final patches = <String, Map<String, dynamic>?>{};
-    switch (event.name) {
-      case 'task:created':
-        final list = payload['tasks'] is List
-            ? payload['tasks'] as List
-            : [payload['task']];
-        for (final raw in list) {
-          final next = task(raw);
-          if (next == null) return false;
-          patches[next['id'] as String] = next;
-        }
-      case 'task:updated':
-        final next =
-            task(payload['task']) ??
-            (payload['status'] is String ? task(payload) : null);
-        if (next == null) return false;
-        patches[next['id'] as String] = next;
-      case 'task:deleted':
-        final id =
-            payload['taskId'] ?? task(payload['task'])?['id'] ?? payload['id'];
-        if (id is! String) return false;
-        patches[id] = null;
-      default:
+    switch (classifyTaskEvent(event, serverId: w.client.serverId)) {
+      case TaskEventIgnored():
+        return true;
+      case TaskEventUnrecognized():
         return false;
+      case TaskEventPatch(:final patches):
+        // A window in flight predates these facts; they are applied over it.
+        taskTouched.addAll(patches);
+        final before = rows;
+        applyTaskPatches(patches);
+        if (!identical(before, rows)) setState(() {});
+        return true;
     }
-    if (patches.isEmpty) return false;
-    // A window in flight predates these facts; they are applied over it.
-    taskTouched.addAll(patches);
-    final before = rows;
-    applyTaskPatches(patches);
-    if (!identical(before, rows)) setState(() {});
-    return true;
   }
 
   /// Whether [task] belongs to this page and its current view.
@@ -1487,76 +1497,25 @@ class _ResourceViewState extends State<ResourceView> {
       id is! String ? null : rows.where((row) => row['id'] == id).firstOrNull;
 
   /// Apply live task facts (null = deleted) to the board lanes or the list
-  /// in place. Unchanged rows keep their objects; [rows] is replaced only
-  /// when something changed. Callers rebuild.
+  /// in place. Unchanged rows keep their objects. Callers rebuild.
   void applyTaskPatches(Map<String, Map<String, dynamic>?> patches) {
-    if (patches.isEmpty) return;
-    final board = lanePaged;
-    var changed = false;
-    for (final MapEntry(key: id, value: incoming) in patches.entries) {
-      String? from;
-      var index = -1;
-      Map<String, dynamic>? existing;
-      if (board) {
-        for (final MapEntry(key: status, value: lane) in lanes.entries) {
-          index = lane.indexWhere((row) => row['id'] == id);
-          if (index >= 0) {
-            from = status;
-            existing = lane[index];
-            break;
-          }
-        }
-      } else {
-        index = rows.indexWhere((row) => row['id'] == id);
-        if (index >= 0) existing = rows[index];
-      }
-      var next = incoming == null
-          ? null
-          : existing == null
-          ? incoming
-          : mergeTaskFields(existing, incoming);
-      if (next != null && next['channelName'] == null) {
-        final name = [
-          ...w.channels,
-          ...w.dms,
-        ].where((c) => c.id == next!['channelId']).firstOrNull?.name;
-        if (name != null) next = {...next, 'channelName': name};
-      }
-      if (next != null && !taskBelongs(next)) next = null;
-      if (existing != null && next != null && rowDeepEquals(existing, next)) {
-        continue;
-      }
-      if (board) {
-        final to = next?['status'] as String?;
-        if (from != null && from == to) {
-          lanes[from] = [...lanes[from]!]..[index] = next!;
-        } else {
-          if (from != null) lanes[from] = [...lanes[from]!]..removeAt(index);
-          if (to != null) {
-            final placed = insertTask(
-              lanes[to] ?? const [],
-              next!,
-              more: laneCursors[to] != null,
-            );
-            if (placed != null) lanes[to] = placed;
-          }
-        }
-        changed = true;
-      } else if (existing != null) {
-        rows = next == null
-            ? ([...rows]..removeAt(index))
-            : ([...rows]..[index] = next);
-        if (next == null && totalCount != null) totalCount = totalCount! - 1;
-        changed = true;
-      } else if (next != null) {
-        // The list presents rows in Source sort order (visibleRows).
-        rows = [next, ...rows];
-        if (totalCount != null) totalCount = totalCount! + 1;
-        changed = true;
-      }
+    final slice = TaskBoardSlice(
+      lanes: lanes,
+      laneCursors: laneCursors,
+      rows: rows,
+      totalCount: totalCount,
+      board: lanePaged,
+    );
+    if (!patchTaskBoard(
+      patches,
+      slice,
+      belongs: taskBelongs,
+      channelName: (id) => serverTaskChannelName(w, id),
+    )) {
+      return;
     }
-    if (!changed) return;
-    if (board) rows = lanes.values.expand((r) => r).toList();
+    rows = slice.rows;
+    totalCount = slice.totalCount;
     dragFeedbackRevision.value++;
   }
 
@@ -1865,6 +1824,12 @@ class _ResourceViewState extends State<ResourceView> {
       bindAuthors();
     }
     if (!identical(oldWidget.controller, w)) {
+      if (oldWidget.section == 'tasks' && oldWidget.channelId == null) {
+        final previous = oldWidget.controller.resourceSnapshots.serverTasks;
+        if (previous is ServerTaskWindow && previous.attached > 0) {
+          previous.detach();
+        }
+      }
       oldWidget.controller.removeListener(authorityChanged);
       w.addListener(authorityChanged);
     }
@@ -1913,6 +1878,8 @@ class _ResourceViewState extends State<ResourceView> {
   @override
   void dispose() {
     sectionActivity?.removeListener(sectionActivityChanged);
+    events?.cancel();
+    events = null;
     saveSnapshot();
     if (widget.section == 'activity') {
       for (final scroll in activityScrolls.values) {

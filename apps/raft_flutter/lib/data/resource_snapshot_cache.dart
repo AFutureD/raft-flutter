@@ -109,10 +109,49 @@ class TaskSnapshot extends PageSnapshot {
   final Set<String> channels, creators, assignees, collapsed;
   final Map<String, Map<String, dynamic>> channelAccess;
   final double listOffset, boardOffset;
+
+  TaskSnapshot withRows(List<Map<String, dynamic>> rows, int? totalCount) =>
+      TaskSnapshot(
+        identity: identity,
+        layout: layout,
+        view: view,
+        filter: filter,
+        rows: rows,
+        cursor: cursor,
+        hasMore: hasMore,
+        totalCount: totalCount,
+        lanes: lanes,
+        laneCursors: laneCursors,
+        channels: channels,
+        creators: creators,
+        assignees: assignees,
+        collapsed: collapsed,
+        channelAccess: channelAccess,
+        listOffset: listOffset,
+        boardOffset: boardOffset,
+      );
 }
 
 class ResourceSnapshotCache {
   final _snapshots = <String, PageSnapshot>{};
+
+  /// The workspace Tasks window. Not the `tasks` snapshot slot.
+  Object? serverTasks;
+  void Function()? _releaseServerTasks;
+
+  /// [release] runs when this window is replaced or the cache is cleared.
+  void keepServerTasks(Object window, void Function() release) {
+    if (!identical(serverTasks, window)) _releaseServerTasks?.call();
+    serverTasks = window;
+    _releaseServerTasks = release;
+  }
+
+  void dropServerTasks() {
+    final release = _releaseServerTasks;
+    _releaseServerTasks = null;
+    serverTasks = null;
+    release?.call();
+  }
 
   /// The [T] snapshot of [section] accepted under exactly [identity], if any.
   T? read<T extends PageSnapshot>(String section, String identity) {
@@ -129,7 +168,10 @@ class ResourceSnapshotCache {
   void remove(String section) => _snapshots.remove(section);
 
   /// Server or account switch: no page snapshot survives.
-  void clear() => _snapshots.clear();
+  void clear() {
+    dropServerTasks();
+    _snapshots.clear();
+  }
 }
 
 /// A management or settings page's accepted projection (the page's own data
