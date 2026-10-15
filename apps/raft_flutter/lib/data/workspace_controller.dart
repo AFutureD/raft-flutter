@@ -18,6 +18,9 @@ import 'source_activity_unread_store.dart';
 import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
 import 'workspace_composer.dart';
+import 'workspace_uploads.dart';
+
+export 'workspace_uploads.dart' show UploadDraft;
 import 'resource_snapshot_cache.dart';
 import 'user_activity.dart';
 import 'user_error.dart';
@@ -61,41 +64,6 @@ class WorkspaceThreadIdentity {
   });
   final String parentChannelId, parentMessageId;
   final String? focusedMessageId;
-}
-
-class UploadDraft {
-  UploadDraft(this.filename, this.bytes, {required this.key}) : local = null;
-  UploadDraft.shared(SharedDraftAttachment file, {required this.key})
-    : filename = file.filename,
-      bytes = Uint8List(0),
-      local = file,
-      queued = true;
-
-  /// Per-controller identity for presentation (rows, hover, tests).
-  final int key;
-  final String filename;
-  final Uint8List bytes;
-  final SharedDraftAttachment? local;
-  int get sizeBytes => local?.sizeBytes ?? bytes.length;
-  bool queued = false;
-  var cancel = UploadCancellation();
-  double progress = 0;
-  // ignore: raft_lints/avoid_imperative_notice_state -- Per-upload failure on its draft chip; composer upload state owned by the lead (cleared on retry, removal or send).
-  String? id, error;
-
-  /// Web `uploadStatus: "validating"`: shown, but the selection check (size
-  /// ceiling, count, empty file) has not decided yet and nothing is sent.
-  bool checking = false;
-
-  /// Web `uploadCanRetry`: false once the selection check was interrupted.
-  bool canRetry = true;
-
-  /// Browser `File.type` of the picked name (file card meta, image preview).
-  String get mimeType => local?.mimeType ?? composerMimeType(filename);
-
-  /// The accepted upload record (`POST /attachments/upload`), so an
-  /// optimistic row can present the attachment before the message exists.
-  Map<String, dynamic>? metadata;
 }
 
 /// Web MessageInput `addOptimisticMessage`: the row presented from the moment
@@ -280,7 +248,17 @@ class WorkspaceController extends ChangeNotifier {
     this.composer =
         composer ??
         presentationSource?.composer ??
-        WorkspaceComposer(owner: this, read: _cached, write: _save);
+        WorkspaceComposer(
+          owner: this,
+          read: _cached,
+          write: _save,
+          authority: () => (
+            client.origin,
+            client.generation,
+            client.user?.id,
+            client.serverId,
+          ),
+        );
     if (presentationSource == null) {
       _removePlayerTrim = _playerSessions.installMemoryTrim();
     }
@@ -1445,15 +1423,8 @@ class WorkspaceController extends ChangeNotifier {
       );
     }
     if (client.serverId == id) {
-      for (final list in _uploads.values) {
-        for (final draft in list) {
-          draft.cancel.cancel();
-        }
-      }
-      _uploads.clear();
       composer.clearOwnedBy(this);
       _pendingSends.clear();
-      _shareHolds.clear();
       visibleIds.clear();
       _windowState.clear();
       _diskOnlyWindows.clear();
@@ -1586,57 +1557,20 @@ class WorkspaceController extends ChangeNotifier {
     );
   }
 
-  /// Stage local queued files without uploading or replacing the user's draft.
   Future<void> stageSharedDraft(
     String text,
     List<SharedDraftAttachment> files, {
     String? sourceToken,
-  }) async {
+  }) {
     final scope = draftScope();
     if (scope == null) throw const RaftApiException('Choose a conversation.');
-    if (sourceToken != null &&
-        (_draftShareTokens[scope]?.contains(sourceToken) ?? false)) {
-      return;
-    }
-    final list = _uploads[scope] ??= [];
-    final additions = files
-        .where(
-          (f) => !list.any(
-            (u) =>
-                u.local != null &&
-                jsonEncode(u.local!.reference) == jsonEncode(f.reference),
-          ),
-        )
-        .toList();
-    if (list.length + additions.length > 10) {
-      throw const RaftApiException('Attach up to 10 files per message.');
-    }
-    final previous = drafts[scope] ?? '', generation = client.generation;
-    final staged = additions
-        .map((file) => UploadDraft.shared(file, key: _uploadKeys++))
-        .toList();
-    list.addAll(staged);
-    final next = text.trim();
-    if (next.isNotEmpty && previous.trim() != next) {
-      drafts[scope] = previous.isEmpty ? next : '$previous\n\n$next';
-    }
-    if (sourceToken != null) {
-      final tokens = _draftShareTokens[scope] ??= {};
-      tokens.add(sourceToken);
-      if (tokens.length > 64) tokens.remove(tokens.first);
-    }
-    try {
-      await _saveDraftScope(scope, requiredSuccess: true);
-    } catch (_) {
-      if (!_disposed && generation == client.generation) {
-        list.removeWhere(staged.contains);
-        drafts[scope] = previous;
-        _draftShareTokens[scope]?.remove(sourceToken);
-      }
-      rethrow;
-    }
-    _draftRevisions[scope] = (_draftRevisions[scope] ?? 0) + 1;
-    if (!_disposed) notifyListeners();
+    return composer.stageSharedDraft(
+      scope,
+      text,
+      files,
+      sourceToken: sourceToken,
+      persist: _saveDraftScope,
+    );
   }
 
   void updateDraftFromShare(String text) {
@@ -1659,37 +1593,14 @@ class WorkspaceController extends ChangeNotifier {
       scope,
       current: () => generation == ledger.generation && !_disposed,
       restoreFiles: (files) async {
-        final principal = client.user?.id;
-        if (restoreSharedAttachment != null && client.user != null) {
-          for (final row in files) {
-            if (row['ref'] is! Map) continue;
-            final file = await restoreSharedAttachment!(
-              Map<String, dynamic>.from(row['ref']),
-              client.origin,
-              principal!,
-            );
-            if (generation != ledger.generation || _disposed) return;
-            if (file == null) continue;
-            final list = _uploads[scope] ??= [];
-            if (list.any(
-              (u) =>
-                  u.local != null &&
-                  jsonEncode(u.local!.reference) == jsonEncode(file.reference),
-            )) {
-              continue;
-            }
-            final draft = UploadDraft.shared(file, key: _uploadKeys++);
-            if (row['id'] is String) {
-              draft.id = row['id'];
-              draft.queued = false;
-              draft.progress = 1;
-              if (row['metadata'] is Map) {
-                draft.metadata = Map<String, dynamic>.from(row['metadata']);
-              }
-            }
-            list.add(draft);
-          }
-        }
+        final principal = client.user?.id, origin = client.origin;
+        if (restoreSharedAttachment == null || principal == null) return;
+        await composer.uploads.restore(
+          scope,
+          files,
+          read: (reference) =>
+              restoreSharedAttachment!(reference, origin, principal),
+        );
       },
       restored: notifyListeners,
     );
@@ -1800,7 +1711,7 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.reactionViewer ?? _reactionViewer;
   final Map<String, Future<void>> _reactionWrites = {};
   final Map<String, Future<void>> _viewerLoads = {};
-  final Map<String, List<UploadDraft>> _uploads = {};
+  Map<String, List<UploadDraft>> get _uploads => composer.uploads.byScope;
   Map<String, ComposerSendAttempt> get _attempts => composer.attempts;
 
   /// Optimistic rows by draft scope, in send order.
@@ -2003,7 +1914,7 @@ class WorkspaceController extends ChangeNotifier {
   /// is held, Send is off: `null` = still checking, a string = the check
   /// refused it and this notice (an English key) shows on the composer. The
   /// draft and the staged files stay either way.
-  final Map<String, String?> _shareHolds = {};
+  Map<String, String?> get _shareHolds => composer.uploads.holds;
   Map<String, String?> get shareHolds =>
       presentationSource?.shareHolds ?? _shareHolds;
   bool sharedBlocked({bool thread = false}) =>
@@ -2133,17 +2044,6 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  /// Selections are decided in the order they were made (Web
-  /// `attachmentSelectionQueueRef`): a later batch counts the files an earlier
-  /// one accepted.
-  Future<void> _selectionQueue = Future.value();
-  int _uploadKeys = 0;
-
-  /// Web `addFiles` + `decideMessageAttachmentSelection` + upload. Every file
-  /// shows at once as a checking chip (Web `validating`); then an unknown
-  /// ceiling refuses the whole batch, and empty, oversize and over-count
-  /// files are dropped with the Web messages. Accepted files transfer
-  /// in turn. [text] localizes a message key.
   Future<void> attachSelection(
     List<({String name, Uint8List bytes})> files, {
     bool thread = false,
@@ -2153,30 +2053,10 @@ class WorkspaceController extends ChangeNotifier {
     if (source != null) {
       return source.attachSelection(files, thread: thread, text: text);
     }
-    final scope = draftScope(thread: thread);
-    if (scope == null || files.isEmpty) return Future.value();
-    final generation = ledger.generation;
-    final authority = _uploadAuthority();
-    bool current() =>
-        generation == ledger.generation &&
-        scope == draftScope(thread: thread) &&
-        authority == _uploadAuthority();
-    final batch = [
-      for (final file in files)
-        UploadDraft(file.name, file.bytes, key: _uploadKeys++)..checking = true,
-    ];
-    (_uploads[scope] ??= []).addAll(batch);
-    notifyListeners();
-    Future<void> decide() => _decideSelection(
-      scope,
-      batch,
-      thread: thread,
-      current: current,
-      text: text,
-    );
-    final run = _selectionQueue.then((_) => decide(), onError: (_) => decide());
-    _selectionQueue = run.catchError((Object _) {});
-    return run;
+    if (draftScope(thread: thread) == null || _disposed) {
+      return Future<void>.value();
+    }
+    return composer.uploads.select(files, _uploadVisit(thread), text: text);
   }
 
   String _uploadAuthority() => jsonEncode([
@@ -2190,119 +2070,9 @@ class WorkspaceController extends ChangeNotifier {
     channel?.json['channelCapabilities'],
   ]);
 
-  Future<void> _decideSelection(
-    String scope,
-    List<UploadDraft> batch, {
-    required bool thread,
-    required bool Function() current,
-    required String Function(String key, Map<String, Object> args) text,
-  }) async {
-    final limit = await uploadLimitBytes();
-    if (_disposed) return;
-    final list = _uploads[scope];
-    if (!current()) {
-      // Web markInterruptedUploads: the check never finished for this draft.
-      for (final draft in batch) {
-        if (!draft.checking) continue;
-        draft.checking = false;
-        draft.canRetry = false;
-        draft.error =
-            'File checking was interrupted. Remove it and attach again.';
-      }
-      notifyListeners();
-      return;
-    }
-    // Rows the user removed meanwhile release their slot.
-    final alive = [
-      for (final d in batch)
-        if (list?.contains(d) ?? false) d,
-    ];
-    if (alive.isEmpty) return;
-    final accepted = <UploadDraft>[];
-    var count = 0, empty = 0;
-    final oversize = <int>[];
-    var slots = (10 - list!.where((d) => !d.checking).length).clamp(0, 10);
-    if (limit != null) {
-      for (final draft in alive) {
-        if (draft.bytes.isEmpty) {
-          empty++;
-        } else if (draft.bytes.length > limit) {
-          oversize.add(draft.bytes.length);
-        } else if (slots <= 0) {
-          count++;
-        } else {
-          accepted.add(draft);
-          slots--;
-        }
-      }
-    }
-    for (final draft in alive) {
-      draft.checking = false;
-      if (!accepted.contains(draft)) list.remove(draft);
-    }
-    final parts = <String>[
-      if (limit == null)
-        text(
-          'The upload size limit could not be checked. Try again in a moment.',
-          const {},
-        ),
-      // Web ICU plurals (`one` / `other`).
-      if (count > 0)
-        text(
-          count == 1
-              ? 'Only {max} attachments per message. {extra} extra file skipped.'
-              : 'Only {max} attachments per message. {extra} extra files skipped.',
-          {'max': 10, 'extra': count},
-        ),
-      if (empty > 0)
-        text(
-          empty == 1
-              ? '{count} empty file skipped.'
-              : '{count} empty files skipped.',
-          {'count': empty},
-        ),
-      if (oversize.isNotEmpty)
-        text('Max {maxSize} per file. Current largest file is {largest}.', {
-          'maxSize': _limitLabel(limit!),
-          'largest': _bytesLabel(oversize.reduce((a, b) => a > b ? a : b)),
-        }),
-    ];
-    _raiseComposerNotice(scope, parts.isEmpty ? null : parts.join(' '));
-    if (list.isEmpty) _uploads.remove(scope);
-    notifyListeners();
-    // One transfer at a time, each fenced by the authority the selection was
-    // made under: after a conversation, role or account change the files that
-    // have not started are dropped rather than sent under the new authority.
-    for (final draft in accepted) {
-      if (!current()) {
-        _uploads[scope]?.remove(draft);
-        if (_uploads[scope]?.isEmpty ?? false) _uploads.remove(scope);
-        notifyListeners();
-        continue;
-      }
-      await _transferUpload(draft, thread: thread);
-    }
-  }
-
-  /// Web `utils/attachmentUploadErrorPresentation.ts`: the server's `UPLOAD_*`
-  /// code or text, the "storage timed out" mapping, else `uploadRetryHint`.
   @visibleForTesting
-  static String uploadErrorText(Object failure) => _isStorageTimeout(failure)
-      ? _storageTimedOut
-      : userErrorText(
-          failure,
-          fallback: 'File no longer available or upload failed. Tap to retry.',
-          codeText: _uploadCodeText,
-          where: 'upload attachment',
-        );
-
-  static const _storageTimedOut =
-      'The file reached Raft, but saving it timed out.';
-
-  /// Web `SERVER_UPLOAD_ERROR_MESSAGE_ID`.
-  static bool _isStorageTimeout(Object failure) =>
-      failure is RaftApiException &&
-      failure.message == 'Attachment storage timed out';
+  static String uploadErrorText(Object failure) =>
+      WorkspaceUploads.uploadErrorText(failure);
 
   /// A 403 whose reason is membership revocation (not a transient failure).
   static bool _isNotServerMember(Object failure) =>
@@ -2310,106 +2080,22 @@ class WorkspaceController extends ChangeNotifier {
       failure.status == 403 &&
       failure.message == 'Not a member of this server';
 
-  static const _uploadCodeText = {
-    'UPLOAD_COMPLETE_FAILED': 'The upload could not be completed.',
-    'UPLOAD_SESSION_EXPIRED': 'Upload session expired.',
-    'UPLOAD_SESSION_CANCELED': 'Upload session was canceled.',
-    'UPLOAD_OBJECT_MISMATCH': 'Uploaded object failed verification.',
-    'UPLOAD_SESSION_STATUS_FAILED': 'The upload session could not be checked.',
-    'UPLOAD_SESSION_CREATE_FAILED': 'The upload session could not be created.',
-    'UPLOAD_CAPABILITY_FAILED': 'Upload capability could not be checked.',
-    'UPLOAD_INVALID_REQUEST': 'The attachment is empty.',
-    'UPLOAD_TOO_LARGE': 'The attachment exceeds the plan limit.',
-    'UPLOAD_OBJECT_PUT_UNCERTAIN':
-        'The upload response was lost. Retry to safely resume this upload.',
-    'UPLOAD_STALLED':
-        'The upload stopped making progress. Check your connection and try again.',
-  };
-
-  static String _limitLabel(int bytes) => bytes % (1024 * 1024) == 0
-      ? '${bytes ~/ (1024 * 1024)}MB'
-      : _bytesLabel(bytes);
-
-  static String _bytesLabel(int bytes) {
-    if (bytes <= 0) return '0B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    var value = bytes.toDouble();
-    var unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
-      unit++;
-    }
-    return '${unit == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1)}${units[unit]}';
-  }
-
-  Future<void> attachUpload(
-    String name,
-    Uint8List bytes, {
-    bool thread = false,
-  }) async {
-    final source = presentationSource;
-    if (source != null) {
-      return source.attachUpload(name, bytes, thread: thread);
-    }
-    final scope = draftScope(thread: thread);
-    if (scope == null) return;
-    if (bytes.isEmpty) {
-      throw const RaftApiException('Empty files cannot be uploaded.');
-    }
-    if (uploads(thread: thread).length >= 10) {
-      throw const RaftApiException('Attach up to 10 files per message.');
-    }
-    final draft = UploadDraft(name, bytes, key: _uploadKeys++);
-    (_uploads[scope] ??= []).add(draft);
-    await _transferUpload(draft, thread: thread);
-  }
-
-  Future<void> retryUpload(UploadDraft draft, {bool thread = false}) async {
-    final source = presentationSource;
-    if (source != null) {
-      return source.retryUpload(draft, thread: thread);
-    }
-    if (!uploads(thread: thread).contains(draft) ||
-        draft.error == null ||
-        !draft.canRetry) {
-      return;
-    }
-    draft.cancel = UploadCancellation();
-    draft.error = null;
-    draft.progress = 0;
-    await _transferUpload(draft, thread: thread);
-  }
-
-  Future<void> _transferUpload(
-    UploadDraft draft, {
-    required bool thread,
-  }) async {
-    final generation = ledger.generation;
-    final idBefore = channel?.id;
-    final scope = draftScope(thread: thread);
-    draft.queued = false;
-    notifyListeners();
-    try {
-      final id = thread ? await ensureThread() : idBefore;
-      if (id == null ||
-          generation != ledger.generation ||
-          _disposed ||
-          draft.cancel.cancelled ||
-          !(_uploads[scope]?.contains(draft) ?? false)) {
-        return;
-      }
-      void progress(int sent, int total) {
-        if (generation != ledger.generation ||
-            draft.cancel.cancelled ||
-            _disposed) {
-          return;
-        }
-        draft.progress = total > 0 ? sent / total : 0;
-        notifyListeners();
-      }
-
-      final files = draft.local != null
-          ? await client.uploadStream(
+  ComposerUploadVisit _uploadVisit(bool thread) {
+    final scope = draftScope(thread: thread)!;
+    final generation = ledger.generation, authority = _uploadAuthority();
+    return ComposerUploadVisit(
+      scope: scope,
+      channelId: channel?.id,
+      thread: thread,
+      selectionCurrent: () =>
+          !_disposed &&
+          generation == ledger.generation &&
+          scope == draftScope(thread: thread) &&
+          authority == _uploadAuthority(),
+      resolveThread: ensureThread,
+      limit: uploadLimitBytes,
+      upload: (id, draft, progress) => draft.local != null
+          ? client.uploadStream(
               id,
               draft.local!.openRead,
               draft.sizeBytes,
@@ -2418,69 +2104,52 @@ class WorkspaceController extends ChangeNotifier {
               onProgress: progress,
               mimeType: composerMimeType(draft.filename),
             )
-          : await client.upload(
+          : client.upload(
               id,
               draft.bytes,
               draft.filename,
               cancellation: draft.cancel,
+              onProgress: progress,
               mimeType: composerMimeType(draft.filename),
-              onProgress: (sent, total) {
-                if (generation != ledger.generation ||
-                    draft.cancel.cancelled ||
-                    _disposed) {
-                  return;
-                }
-                draft.progress = total > 0 ? sent / total : 0;
-                notifyListeners();
-              },
-            );
-      if (generation != ledger.generation ||
-          draft.cancel.cancelled ||
-          _disposed ||
-          !(_uploads[scope]?.contains(draft) ?? false)) {
-        return;
-      }
-      draft.id = files.single['id'];
-      draft.metadata = files.single;
-      draft.progress = 1;
-      if (draft.local != null && scope != null) await _saveDraftScope(scope);
-    } catch (e) {
-      if (!draft.cancel.cancelled &&
-          generation == ledger.generation &&
-          !_disposed) {
-        draft.error = uploadErrorText(e);
-      }
-    } finally {
-      notifyListeners();
-    }
+            ),
+      persist: _saveDraftScope,
+      notice: (message) => _raiseComposerNotice(scope, message),
+    );
   }
 
-  Future<void> _releaseSharedUploads(Iterable<UploadDraft> files) async {
-    for (final file in files) {
-      try {
-        await file.local?.release();
-      } catch (_) {
-        // Local cleanup failure cannot turn an accepted message into a failed
-        // send. Account/scope cleanup also retires these private inbox files.
-      }
-    }
+  Future<void> attachUpload(
+    String name,
+    Uint8List bytes, {
+    bool thread = false,
+  }) async {
+    final source = presentationSource;
+    if (source != null) return source.attachUpload(name, bytes, thread: thread);
+    if (draftScope(thread: thread) == null || _disposed) return;
+    await composer.uploads.attach(name, bytes, _uploadVisit(thread));
   }
+
+  Future<void> retryUpload(UploadDraft draft, {bool thread = false}) async {
+    final source = presentationSource;
+    if (source != null) return source.retryUpload(draft, thread: thread);
+    if (draftScope(thread: thread) == null || _disposed) return;
+    await composer.uploads.retry(draft, _uploadVisit(thread));
+  }
+
+  Future<void> _transferUpload(
+    UploadDraft draft, {
+    required bool thread,
+  }) async {
+    if (draftScope(thread: thread) == null || _disposed) return;
+    await composer.uploads.transfer(draft, _uploadVisit(thread));
+  }
+
+  Future<void> _releaseSharedUploads(Iterable<UploadDraft> files) =>
+      WorkspaceUploads.release(files);
 
   void removeUpload(UploadDraft draft, {bool thread = false}) {
     final source = presentationSource;
-    if (source != null) {
-      source.removeUpload(draft, thread: thread);
-      return;
-    }
-    draft.cancel.cancel();
-    // The caller may be disposing a view after selection changed.
-    for (final entry in _uploads.entries) {
-      if (entry.value.remove(draft) && draft.local != null) {
-        unawaited(_saveDraftScope(entry.key));
-      }
-    }
-    if (draft.local != null) unawaited(_releaseSharedUploads([draft]));
-    notifyListeners();
+    if (source != null) return source.removeUpload(draft, thread: thread);
+    composer.uploads.remove(draft, _saveDraftScope);
   }
 
   final _readState = ReadStateLedger();
@@ -3090,16 +2759,9 @@ class WorkspaceController extends ChangeNotifier {
     syncCoreMessagesEnabled = false;
     refreshMessageSyncFlag();
     loadSidebar();
-    for (final drafts in _uploads.values) {
-      for (final d in drafts) {
-        d.cancel.cancel();
-      }
-    }
-    _uploads.clear();
     composer.clearOwnedBy(this);
     _pendingSends.clear();
     _localRandomIds.clear();
-    _shareHolds.clear();
     visibleIds.clear();
     _windowState.clear();
     _windowHistoryLimited.clear();
@@ -3625,11 +3287,8 @@ class WorkspaceController extends ChangeNotifier {
       if (serverId != null && principal != null) {
         readState.revoke(serverId, principal, scope);
       }
+      composer.retireScope(scope, keepFiles: keepShared && scope == id);
       if (keepShared && scope == id) continue;
-      for (final draft in _uploads.remove(scope) ?? <UploadDraft>[]) {
-        draft.cancel.cancel();
-        if (draft.local != null) unawaited(_releaseSharedUploads([draft]));
-      }
       _attempts.remove(scope);
       _pendingSends.remove(scope);
     }
@@ -3637,10 +3296,7 @@ class WorkspaceController extends ChangeNotifier {
       final scope = 'thread:$messageId';
       _attempts.remove(scope);
       _pendingSends.remove(scope);
-      for (final draft in _uploads.remove(scope) ?? <UploadDraft>[]) {
-        draft.cancel.cancel();
-        if (draft.local != null) unawaited(_releaseSharedUploads([draft]));
-      }
+      composer.retireScope(scope);
       reactionViewer.remove(messageId);
       for (final bucket in _summariesByChannel.values) {
         bucket.remove(messageId);
@@ -6984,12 +6640,6 @@ class WorkspaceController extends ChangeNotifier {
     _attachmentUrls.dispose();
     _playerSessions.dispose();
     _channelFilesStores.clear();
-    for (final drafts in _uploads.values) {
-      for (final draft in drafts) {
-        draft.cancel.cancel();
-      }
-    }
-    _uploads.clear();
     subscription.cancel();
     _activityUnread?.dispose();
     _activityUnread = null;

@@ -1,8 +1,12 @@
 import 'dart:collection';
+import 'dart:convert';
+
+import 'package:raft_client/raft_client.dart';
 
 import 'package:flutter/foundation.dart';
 
 import 'shared_draft_attachment.dart';
+import 'workspace_uploads.dart';
 
 typedef ComposerRecordRead = Future<dynamic> Function(
   String kind,
@@ -36,9 +40,16 @@ class WorkspaceComposer {
     required this._owner,
     required this._read,
     required this._write,
-  });
+    Object Function()? authority,
+  }) {
+    uploads = WorkspaceUploads(
+      changed: _changed,
+      authority: () => (_epoch, authority?.call()),
+    );
+  }
 
   final Object _owner;
+  late final WorkspaceUploads uploads;
   final ComposerRecordRead _read;
   final ComposerRecordWrite _write;
   final _text = <String, String>{};
@@ -56,6 +67,11 @@ class WorkspaceComposer {
 
   ValueListenable<int> changes(String? scope) =>
       _signals.putIfAbsent(scope, () => ValueNotifier<int>(0));
+
+  void _textChanged(String scope) {
+    revisions[scope] = (revisions[scope] ?? 0) + 1;
+    _changed(scope);
+  }
 
   void _changed(String scope) {
     final signal = _signals[scope];
@@ -205,10 +221,82 @@ class WorkspaceComposer {
     return true;
   }
 
+  /// Stage local queued files without uploading or replacing the user's draft.
+  Future<void> stageSharedDraft(
+    String scope,
+    String text,
+    List<SharedDraftAttachment> files, {
+    required ComposerUploadPersist persist,
+    String? sourceToken,
+  }) async {
+    if (_closed) return;
+    if (sourceToken != null &&
+        (shareTokens[scope]?.contains(sourceToken) ?? false)) {
+      return;
+    }
+    final list = uploads.byScope[scope] ??= [];
+    final additions = files
+        .where(
+          (f) => !list.any(
+            (u) =>
+                u.local != null &&
+                jsonEncode(u.local!.reference) == jsonEncode(f.reference),
+          ),
+        )
+        .toList();
+    if (list.length + additions.length > 10) {
+      throw const RaftApiException('Attach up to 10 files per message.');
+    }
+    final previous = drafts[scope] ?? '', current = uploads.captureScope(scope);
+    final staged = additions
+        .map((file) => UploadDraft.shared(file, key: uploads.nextKey++))
+        .toList();
+    list.addAll(staged);
+    final next = text.trim();
+    if (next.isNotEmpty && previous.trim() != next) {
+      drafts[scope] = previous.isEmpty ? next : '$previous\n\n$next';
+    }
+    final stagedText = drafts[scope] ?? '';
+    if (sourceToken != null) {
+      final tokens = shareTokens[scope] ??= {};
+      tokens.add(sourceToken);
+      if (tokens.length > 64) tokens.remove(tokens.first);
+    }
+    try {
+      await persist(scope, requiredSuccess: true);
+    } catch (_) {
+      if (current()) {
+        list.removeWhere(staged.contains);
+        if ((drafts[scope] ?? '') == stagedText) {
+          drafts[scope] = previous;
+        }
+        shareTokens[scope]?.remove(sourceToken);
+      }
+      rethrow;
+    }
+    if (!current()) return;
+    revisions[scope] = (revisions[scope] ?? 0) + 1;
+    _changed(scope);
+  }
+
+  void retireScope(String scope, {bool keepFiles = false}) {
+    uploads.revokeScope(scope, keepFiles: keepFiles);
+    _signals.remove(scope)?.dispose();
+  }
+
+  void _clearSignals() {
+    for (final signal in _signals.values) {
+      signal.dispose();
+    }
+    _signals.clear();
+  }
+
   void clearOwnedBy(Object owner) {
     if (!ownedBy(owner) || _closed) return;
     _epoch++;
     drafts.clear();
+    uploads.clear();
+    _clearSignals();
     attempts.clear();
     revisions.clear();
     shareTokens.clear();
@@ -219,13 +307,11 @@ class WorkspaceComposer {
     _closed = true;
     _epoch++;
     _text.clear();
+    uploads.dispose();
     attempts.clear();
     revisions.clear();
     shareTokens.clear();
-    for (final signal in _signals.values) {
-      signal.dispose();
-    }
-    _signals.clear();
+    _clearSignals();
   }
 }
 
@@ -240,13 +326,13 @@ class _DraftMap extends MapBase<String, String> {
   void operator []=(String key, String value) {
     if (owner._closed || owner._text[key] == value) return;
     owner._text[key] = value;
-    owner._changed(key);
+    owner._textChanged(key);
   }
 
   @override
   String? remove(Object? key) {
     final previous = owner._text.remove(key);
-    if (previous != null && key is String) owner._changed(key);
+    if (previous != null && key is String) owner._textChanged(key);
     return previous;
   }
 

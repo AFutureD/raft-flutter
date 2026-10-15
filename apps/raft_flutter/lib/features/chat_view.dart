@@ -3571,7 +3571,7 @@ class _RaftChatViewState extends State<RaftChatView>
                     w.can('viewChannel', resource: w.channel),
                 handle: composerHandle,
                 initialDraft: w.drafts[w.draftScope(thread: widget.thread)] ?? '',
-                draftRevision: revision + w.draftRevision(thread: widget.thread),
+                draftRevision: w.draftRevision(thread: widget.thread),
                 onDraftChanged: (text) {
                   if (currentComposer()) w.saveDraft(text, thread: widget.thread);
                 },
