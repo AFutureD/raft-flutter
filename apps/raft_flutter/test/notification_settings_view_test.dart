@@ -206,8 +206,8 @@ void main() {
       final before = reads();
       for (var i = 0; i < 3; i++) {
         w.channel = RaftChannel({'id': 'c$i', 'name': 'c$i', 'joined': true});
-        w.channelGeneration++;
-        w.threadGeneration++;
+        w.messageWindows.channelGeneration++;
+        w.messageWindows.threadGeneration++;
         w.notifyListeners();
         await t.pump();
         expect(card(t).muted, true, reason: 'switch $i');

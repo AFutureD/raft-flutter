@@ -1472,8 +1472,8 @@ class WorkspaceController extends ChangeNotifier {
     threadChannelId = null;
     _summariesByChannel.clear();
     highlightedMessageId = null;
-    channelGeneration++;
-    threadGeneration++;
+    messageWindows.channelGeneration++;
+    messageWindows.threadGeneration++;
     messageWindows.switchServer(id);
     readState.reset();
     resourceSnapshots.clear();
@@ -2381,9 +2381,7 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   int get channelGeneration => messageWindows.channelGeneration;
-  set channelGeneration(int value) => messageWindows.channelGeneration = value;
   int get threadGeneration => messageWindows.threadGeneration;
-  set threadGeneration(int value) => messageWindows.threadGeneration = value;
 
   /// Accepted thread summaries ("N replies" rows) per parent channel, keyed
   /// by parent message. Like the channel's message window they outlive a
@@ -3202,7 +3200,7 @@ class WorkspaceController extends ChangeNotifier {
     if (channel?.id == id && !keepShared) {
       channel = null;
       _missingConversationChannelId = id;
-      channelGeneration++;
+      messageWindows.channelGeneration++;
     }
     if (threadParent?.channelId == id ||
         _threadIdentity?.parentChannelId == id ||
@@ -3525,7 +3523,7 @@ class WorkspaceController extends ChangeNotifier {
           messageWindows.revokeChannel(threadChannelId!);
         }
         closeThread();
-        channelGeneration++;
+        messageWindows.channelGeneration++;
       }
     }
     notifyListeners();
@@ -4190,7 +4188,7 @@ class WorkspaceController extends ChangeNotifier {
     if (!retainThread) {
       threadParent = null;
       threadChannelId = null;
-      threadGeneration++;
+      messageWindows.threadGeneration++;
     }
     loadingOlder = false;
     channelLoading = true;
@@ -4211,7 +4209,7 @@ class WorkspaceController extends ChangeNotifier {
       _clearMention(next.id);
       _persistUnread();
     }
-    channelGeneration++;
+    messageWindows.channelGeneration++;
     final request = _windowRequest(
       next.id,
       checkNavigation: true,
@@ -4838,7 +4836,7 @@ class WorkspaceController extends ChangeNotifier {
         requestAuthority = _replyToken(parentChannelId),
         messageAuthority = _threadResourceAuthority(parentChannelId),
         generation = ledger.generation;
-    threadGeneration++;
+    messageWindows.threadGeneration++;
     final request = messageWindows.request(
       thread: true,
       allowed: () =>
@@ -5135,7 +5133,7 @@ class WorkspaceController extends ChangeNotifier {
     var navigationWindow = navigationRevision;
     var authority = _windowAuthority();
     final replyAuthority = _replyToken(channelId);
-    channelGeneration++;
+    messageWindows.channelGeneration++;
     final request = messageWindows.request(
       thread: false,
       allowed: () =>
@@ -5198,7 +5196,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     threadParent = null;
     threadChannelId = null;
-    threadGeneration++;
+    messageWindows.threadGeneration++;
     loadingOlder = false;
     error = null;
     highlightedMessageId = messageId;
@@ -5472,7 +5470,7 @@ class WorkspaceController extends ChangeNotifier {
       final next = location.withQuery({'thread': null});
       navigation.navigate(next, kind: location.panelNavigationKindTo(next));
     }
-    threadGeneration++;
+    messageWindows.threadGeneration++;
     _threadIdentity = null;
     _threadVisit = null;
     _threadResolutionLoading = _threadParentLoading = false;
