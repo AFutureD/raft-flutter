@@ -39,35 +39,22 @@ class ConversationWindowSnapshot {
 
   /// Ledger and pending rows have stable wrappers for each row version. No
   /// payload encoding or deep comparison is needed on unrelated notifications.
+  Object get _metadata => (
+    channelId,
+    highlightedMessageId,
+    error,
+    loading,
+    loadingOlder,
+    parentLoading,
+    resolving,
+    hasMore,
+    hasNewer,
+    historyLimited,
+    contextLoadError,
+    retired,
+  );
   bool samePresentation(ConversationWindowSnapshot other) =>
-      (
-            channelId,
-            highlightedMessageId,
-            error,
-            loading,
-            loadingOlder,
-            parentLoading,
-            resolving,
-            hasMore,
-            hasNewer,
-            historyLimited,
-            contextLoadError,
-            retired,
-          ) ==
-          (
-            other.channelId,
-            other.highlightedMessageId,
-            other.error,
-            other.loading,
-            other.loadingOlder,
-            other.parentLoading,
-            other.resolving,
-            other.hasMore,
-            other.hasNewer,
-            other.historyLimited,
-            other.contextLoadError,
-            other.retired,
-          ) &&
+      _metadata == other._metadata &&
       identical(parent, other.parent) &&
       listEquals(rows, other.rows) &&
       listEquals(timeline, other.timeline);
