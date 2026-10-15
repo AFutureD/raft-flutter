@@ -49,6 +49,8 @@ class AppWindowCommands extends StatefulWidget {
 
 class _AppWindowCommandsState extends State<AppWindowCommands> {
   static const _channel = MethodChannel('app.raft/window');
+  // A replacement can mount before its predecessor is disposed.
+  static Object? _handlerOwner;
   late final _mac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
   bool _closing = false;
 
@@ -56,6 +58,7 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
   void initState() {
     super.initState();
     if (_mac) {
+      _handlerOwner = this;
       _channel.setMethodCallHandler((call) async {
         if (call.method == 'closeRequested') {
           await _close();
@@ -80,6 +83,7 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
   }
 
   Future<void> _publishState(bool ready) async {
+    if (!identical(_handlerOwner, this)) return;
     try {
       await _channel.invokeMethod<void>('setWindowCommandsState', {
         'ready': ready,
@@ -124,9 +128,10 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
 
   @override
   void dispose() {
-    if (_mac) {
-      _channel.setMethodCallHandler(null);
+    if (_mac && identical(_handlerOwner, this)) {
       unawaited(_publishState(false));
+      _channel.setMethodCallHandler(null);
+      _handlerOwner = null;
     }
     super.dispose();
   }

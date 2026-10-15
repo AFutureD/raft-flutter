@@ -2163,27 +2163,27 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      builder: (context, child) => AppServicesHost(
-        services: widget.services,
-        ownsAppUpdate: widget.ownsAppUpdate,
-        child: RaftTextScaling(
-          child: RepaintBoundary(
-            key: raftScreenshotKey,
-            child: DesktopTitleBar(
-              child: RaftTooltipProvider(
-                delay: const Duration(milliseconds: 600),
-                child: RaftViewportBreakpointScope(
-                  // Resolves the theme's font combinations once the app is idle.
-                  child: RaftFontWarmUpScope(
-                    child: RaftSystemBars(
-                      child: RaftErrorScope(
-                        format: raftAppErrorFormatter,
-                        child: RaftToastHost(
-                          child: KeyboardInsetGuard(
-                            imeVisible: platformImeVisibility,
-                            child: AppWindowCommands(
-                              navigatorKey: appRouter.navigatorKey,
-                              openSection: workspace?.setSection,
+      builder: (context, child) => AppWindowCommands(
+        navigatorKey: appRouter.navigatorKey,
+        openSection: workspace?.setSection,
+        child: AppServicesHost(
+          services: widget.services,
+          ownsAppUpdate: widget.ownsAppUpdate,
+          child: RaftTextScaling(
+            child: RepaintBoundary(
+              key: raftScreenshotKey,
+              child: DesktopTitleBar(
+                child: RaftTooltipProvider(
+                  delay: const Duration(milliseconds: 600),
+                  child: RaftViewportBreakpointScope(
+                    // Resolves the theme's font combinations once the app is idle.
+                    child: RaftFontWarmUpScope(
+                      child: RaftSystemBars(
+                        child: RaftErrorScope(
+                          format: raftAppErrorFormatter,
+                          child: RaftToastHost(
+                            child: KeyboardInsetGuard(
+                              imeVisible: platformImeVisibility,
                               child: child!,
                             ),
                           ),

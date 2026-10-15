@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/raft_location.dart';
+import 'package:raft_flutter/platform/app_window.dart';
 import 'package:raft_flutter/platform/desktop_title_bar.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -52,6 +53,96 @@ Future<void> _preview(WidgetTester t, RootFixture f) async {
 
 void main() {
   tearDownAll(() => DesktopTitleBarController.platform.state.dispose());
+  testWidgets('replacing a command owner preserves the new native handler', (
+    t,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    final bridge = const MethodChannel('app.raft/window');
+    var ready = false;
+    final sections = <String>[];
+    t.binding.defaultBinaryMessenger.setMockMethodCallHandler(bridge, (
+      call,
+    ) async {
+      if (call.method == 'setWindowCommandsState') {
+        ready = (call.arguments as Map)['ready'] == true;
+      }
+      return null;
+    });
+    Widget commands(String owner) => MaterialApp(
+      home: AppWindowCommands(
+        key: ValueKey(owner),
+        navigatorKey: GlobalKey<NavigatorState>(),
+        openSection: (section) => sections.add('$owner:$section'),
+        child: const SizedBox(),
+      ),
+    );
+    try {
+      await t.pumpWidget(commands('old'));
+      await t.pumpWidget(commands('new'));
+      expect(ready, isTrue);
+      _nativeCommand(t, 'openPreferences');
+      await t.pump();
+      expect(sections, ['new:settings']);
+    } finally {
+      await t.pumpWidget(const SizedBox());
+      debugDefaultTargetPlatformOverride = null;
+      t.binding.defaultBinaryMessenger.setMockMethodCallHandler(bridge, null);
+    }
+  });
+
+  testWidgets('native commands survive title bar and fullscreen transitions', (
+    t,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    final bridge = const MethodChannel('app.raft/window');
+    var ready = false;
+    var closes = 0;
+    t.binding.defaultBinaryMessenger.setMockMethodCallHandler(bridge, (
+      call,
+    ) async {
+      if (call.method == 'setWindowCommandsState') {
+        ready = (call.arguments as Map)['ready'] == true;
+      } else if (call.method == 'closeWindow') {
+        closes++;
+      }
+      return null;
+    });
+    final f = RootFixture();
+    final titleBar = DesktopTitleBarController.platform.state;
+    final previous = titleBar.value;
+    try {
+      await _mount(t, f);
+      for (final fullscreen in [false, true, false]) {
+        titleBar.value = DesktopTitleBarState(
+          height: 32,
+          fullscreen: fullscreen,
+        );
+        await f.flush(t);
+        expect(
+          ready,
+          isTrue,
+          reason: 'Native readiness survives fullscreen=$fullscreen',
+        );
+        await _preview(t, f);
+        _nativeCommand(t, 'closeRequested');
+        await f.flush(t);
+        expect(find.byType(RaftAttachmentPreviewShell), findsNothing);
+        expect(closes, 0);
+        _nativeCommand(t, 'openPreferences');
+        await f.flush(t);
+        expect(f.workspace(t).location.route, RaftRoute.settings);
+      }
+      _nativeCommand(t, 'closeRequested');
+      await f.flush(t);
+      expect(closes, 1);
+    } finally {
+      await f.close(t);
+      titleBar.value = previous;
+      debugDefaultTargetPlatformOverride = null;
+      t.binding.defaultBinaryMessenger.setMockMethodCallHandler(bridge, null);
+    }
+  });
+
   for (final (platform, modifier, channel) in const [
     (TargetPlatform.macOS, LogicalKeyboardKey.metaLeft, 'app.raft/window'),
     (
