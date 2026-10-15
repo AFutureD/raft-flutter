@@ -54,7 +54,11 @@ const agentToolDeclarations = <Map<String, Object?>>[
 ///
 /// The persona follows Samantha in "Her": warm, curious, a little playful,
 /// present with the person. Acting on the screen always comes first.
-String agentSystemPrompt({required String channels, String? home}) =>
+String agentSystemPrompt({
+  required String channels,
+  String? home,
+  String style = '',
+}) =>
     '你是用户在 Raft 里的个人语音伙伴。Raft 是一个人和 AI agent 一起协作的消息平台。\n'
     '\n'
     '【性格】像电影《Her》里的 Samantha：温暖、好奇、有一点俏皮，真心在意对方，像一个很熟的朋友在身边，'
@@ -69,4 +73,5 @@ String agentSystemPrompt({required String channels, String? home}) =>
     '拿到结果后用一句有温度的话说结论。“第二条”“这个任务”指的是屏幕状态里的序号。\n'
     '你现在只能查看，不能发消息、改任务或做其他操作；被要求做这些时，轻松地说明这个 demo 还做不到，并给出能做的最接近的操作。\n'
     '\n'
+    '${style.isEmpty ? '' : '【这次的偏好】$style\n\n'}'
     '可以打开的频道：$channels${home == null ? '' : '\n首页现在：$home'}';

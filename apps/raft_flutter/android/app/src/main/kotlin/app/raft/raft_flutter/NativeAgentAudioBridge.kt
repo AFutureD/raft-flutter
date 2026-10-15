@@ -53,6 +53,7 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
     private val playQueue = LinkedBlockingQueue<ByteArray>()
     @Volatile private var playGeneration = 0
     private var communication = false
+    private var speaker = false
 
     init {
         methods.setMethodCallHandler { call, result ->
@@ -69,6 +70,11 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
                     result.success(null)
                 }
                 "scanCode" -> scanCode(result)
+                "setOutput" -> {
+                    speaker = call.arguments == "speaker"
+                    if (communication) routeOutput()
+                    result.success(null)
+                }
                 "release" -> {
                     release()
                     result.success(null)
@@ -119,26 +125,30 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
         return true
     }
 
-    // Echo cancellation works on the communication path. During testing the
-    // speech goes to the earpiece (quiet, and the canceller has a clean
-    // reference); a headset or other output takes over when connected.
+    // Echo cancellation works on the communication path. Speech goes to the
+    // chosen earpiece or loudspeaker; a headset or other output always wins.
     private fun enterCommunication() {
         if (communication) return
         communication = true
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
+        routeOutput()
+        activity.volumeControlStream = AudioManager.STREAM_VOICE_CALL
+    }
+
+    private fun routeOutput() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val devices = audio.availableCommunicationDevices
             val external = devices.firstOrNull {
                 it.type != AudioDeviceInfo.TYPE_BUILTIN_EARPIECE &&
                     it.type != AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
             }
-            (external ?: devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE })
+            val builtIn = if (speaker) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+            (external ?: devices.firstOrNull { it.type == builtIn })
                 ?.let { audio.setCommunicationDevice(it) }
         } else {
             @Suppress("DEPRECATION")
-            audio.isSpeakerphoneOn = false
+            audio.isSpeakerphoneOn = speaker
         }
-        activity.volumeControlStream = AudioManager.STREAM_VOICE_CALL
     }
 
     private fun leaveCommunication() {

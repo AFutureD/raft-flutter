@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
-import '../../data/device_preferences.dart';
 import 'agent_audio.dart';
+import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
 
 /// The conversation of agent mode: captions, the mic state and the realtime
@@ -19,6 +19,8 @@ class AgentVoiceController extends ChangeNotifier {
   }) : audio = audio ?? AgentAudio.instance,
        key = key ?? AgentVoiceKey.instance {
     this.audio.onPlaybackIdle = _playbackIdle;
+    AgentVoiceSettings.instance.addListener(_settingsChanged);
+    unawaited(AgentVoiceSettings.instance.applyOutput());
   }
 
   static const tapLimit = Duration(milliseconds: 300);
@@ -31,46 +33,30 @@ class AgentVoiceController extends ChangeNotifier {
   final AgentAudio audio;
   final AgentVoiceKey key;
 
-  /// Gemini prebuilt voices that suit the persona, with how they sound.
-  static const voices = {
-    'Sulafat': '温暖',
-    'Achernar': '柔和',
-    'Vindemiatrix': '温柔',
-    'Aoede': '轻快',
-    'Despina': '顺滑',
-    'Kore': '坚定',
-  };
-  static const _voicePreference = 'raft.agentDemo.voice';
-
-  String get voice {
-    try {
-      final v = DevicePreferences.current?.getString(_voicePreference);
-      if (v != null && voices.containsKey(v)) return v;
-    } catch (_) {
-      /* optional local storage */
-    }
-    return voices.keys.first;
+  /// Plays a short greeting in [voice] so it can be heard at once; the
+  /// voice is already saved in [AgentVoiceSettings].
+  Future<void> preview(String voice) async {
+    await restart();
+    if (!await hasKey) return;
+    _set(AgentMicState.thinking);
+    final session = await _ensureSession();
+    session?.sendText('（用户正在试听你的声音。用一句自然、简短的话跟他打个招呼。）');
   }
 
-  /// Switches the voice: the next session uses it, and the agent greets in
-  /// the new voice so it can be heard at once.
-  Future<void> setVoice(String next) async {
-    try {
-      await DevicePreferences.current?.setString(_voicePreference, next);
-    } catch (_) {
-      /* optional local storage */
-    }
+  /// Ends the current session so the next one picks up changed settings.
+  Future<void> restart() async {
     final old = _session;
     _session = null;
     _stopMic();
     _live = _holding = false;
     await old?.close();
     unawaited(audio.stopPlayback());
-    notifyListeners();
-    if (!await hasKey) return;
-    _set(AgentMicState.thinking);
-    final session = await _ensureSession();
-    session?.sendText('（用户刚把你的声音换成了 $next。用一句自然的话跟他打个招呼，不要提“声音”这个词以外的设置细节。）');
+    _set(AgentMicState.idle);
+  }
+
+  void _settingsChanged() {
+    // Applies from the next turn; never cut a reply or an open microphone.
+    if (state == AgentMicState.idle) unawaited(restart());
   }
 
   final lines = <(AgentSpeaker, String)>[];
@@ -155,7 +141,7 @@ class AgentVoiceController extends ChangeNotifier {
     }
     final session = GeminiLiveSession(
       apiKey: apiKey,
-      voice: voice,
+      voice: AgentVoiceSettings.instance.voice,
       systemPrompt: systemPrompt(),
       tools: tools,
       onToolCall: (name, args) async {
@@ -324,6 +310,7 @@ class AgentVoiceController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    AgentVoiceSettings.instance.removeListener(_settingsChanged);
     _stopMic();
     unawaited(_session?.close());
     _session = null;

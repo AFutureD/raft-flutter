@@ -7,6 +7,9 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
+import 'package:raft_flutter/features/agent_mode/agent_voice_settings.dart';
+import 'package:raft_flutter/data/device_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'activity_incremental_refresh_test.dart' show ActivityClient;
@@ -182,6 +185,36 @@ void main() {
     await t.pumpAndSettle();
     expect(find.textContaining('还不支持语音'), findsOneWidget);
     expect(find.text('第 1 层'), findsOneWidget);
+  });
+
+  testWidgets('voice settings are adjustable and kept', (t) async {
+    SharedPreferences.setMockInitialValues({});
+    await DevicePreferences.load();
+    t.view.physicalSize = const Size(420, 1400);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    String? previewed;
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: AgentVoiceSettingsPage(onPreview: (v) => previewed = v),
+      ),
+    );
+    final s = AgentVoiceSettings.instance;
+    expect(s.voice, 'Sulafat');
+    await t.tap(find.text('柔和'));
+    await t.pump();
+    expect(s.voice, 'Achernar');
+    await t.tap(find.byTooltip('试听').at(2));
+    await t.pump();
+    expect((previewed, s.voice), ('Vindemiatrix', 'Vindemiatrix'));
+    await t.tap(find.byKey(ValueKey('agent-setting-${AgentPace.slow}')));
+    await t.tap(
+      find.byKey(ValueKey('agent-setting-${AgentWarmth.restrained}')),
+    );
+    await t.pump();
+    expect(s.pace, AgentPace.slow);
+    expect(s.styleNote, allOf(contains('语速放慢'), contains('克制')));
   });
 
   test('voice keys are found inside scanned text', () {

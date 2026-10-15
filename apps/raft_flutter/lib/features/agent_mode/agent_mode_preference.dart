@@ -8,6 +8,7 @@ import '../../data/workspace_controller.dart';
 import '../../data/device_preferences.dart';
 import 'agent_audio.dart';
 import 'agent_mode_page.dart';
+import 'agent_voice_settings.dart';
 
 /// Device-local opt-in for the agent mode demo. Default off.
 class AgentModePreference extends ChangeNotifier {
@@ -105,6 +106,16 @@ class AgentModeLabsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: RaftSpace.x3),
                 const _VoiceKeyRow(),
+                const SizedBox(height: RaftSpace.x2),
+                RaftButton(
+                  key: const ValueKey('agent-voice-settings-open'),
+                  label: '声音设置',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AgentVoiceSettingsPage(),
+                    ),
+                  ),
+                ),
               ],
             ],
           ),

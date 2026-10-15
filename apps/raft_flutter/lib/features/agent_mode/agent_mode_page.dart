@@ -13,6 +13,7 @@ import 'agent_mode_data.dart';
 import 'agent_tools.dart';
 import 'agent_tv.dart';
 import 'agent_voice.dart';
+import 'agent_voice_settings.dart';
 
 /// Opens agent mode above the workspace. A [PageRouteBuilder] (not a
 /// MaterialPageRoute) so a layout change adapts the page instead of closing it.
@@ -247,6 +248,7 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   String _systemPrompt() => agentSystemPrompt(
+    style: AgentVoiceSettings.instance.styleNote,
     channels: widget.controller.channels
         .where((c) => c.name.isNotEmpty)
         .take(80)
@@ -539,30 +541,15 @@ class _AgentModePageState extends State<AgentModePage> {
                           ),
                           Text('Agent 模式', style: t.heading(15)),
                           const Spacer(),
-                          ListenableBuilder(
-                            listenable: _voice,
-                            builder: (context, _) => PopupMenuButton<String>(
-                              key: const ValueKey('agent-voice-menu'),
-                              tooltip: '换声音',
-                              initialValue: _voice.voice,
-                              onSelected: (v) => unawaited(_voice.setVoice(v)),
-                              itemBuilder: (_) => [
-                                for (final e
-                                    in AgentVoiceController.voices.entries)
-                                  PopupMenuItem(
-                                    value: e.key,
-                                    child: Text('${e.key} · ${e.value}'),
-                                  ),
-                              ],
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 10,
-                                ),
-                                child: Text(
-                                  AgentVoiceController.voices[_voice.voice] ??
-                                      _voice.voice,
-                                  style: t.body(12, color: t.muted),
+                          IconButton(
+                            key: const ValueKey('agent-voice-settings'),
+                            tooltip: '声音设置',
+                            icon: Icon(Icons.tune, size: 20, color: t.muted),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => AgentVoiceSettingsPage(
+                                  onPreview: (v) =>
+                                      unawaited(_voice.preview(v)),
                                 ),
                               ),
                             ),
