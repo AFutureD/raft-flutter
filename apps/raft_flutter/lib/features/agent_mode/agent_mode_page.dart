@@ -1672,7 +1672,7 @@ class _AgentModePageState extends State<AgentModePage> {
                   if (p is HfMessagePart)
                     '消息 id ${p.message.id}（频道 #${layer.channel.name}，id ${layer.readId}）',
                 ],
-                view: p is HfMessagePart ? views?[p.n] : null,
+                view: p is HfMessagePart ? (views?[p.n]) : null,
               ),
           ],
           loading: convo.loading && convo.messages.isEmpty,
