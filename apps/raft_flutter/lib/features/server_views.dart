@@ -120,7 +120,7 @@ class WorkspaceActions {
         destructive: delete,
         onSubmit: (_) async {
           await w.client.exitServer(server.id, delete: delete);
-          w.revokeServer(server.id);
+          w.sessionScope.revokeServer(server.id);
           await w.recoverMembership();
         },
       ),
@@ -304,7 +304,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
     final server = w.server;
     if (server == null) return;
     await w.client.exitServer(server.id, delete: delete);
-    w.revokeServer(server.id);
+    w.sessionScope.revokeServer(server.id);
     await w.recoverMembership();
   }
 
