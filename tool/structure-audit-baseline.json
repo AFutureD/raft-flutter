@@ -49,8 +49,8 @@
         "field.WorkspaceController._attachmentUrlRequests": 0,
         "field.WorkspaceController._attachmentUrls": 0,
         "field.WorkspaceController._burstAt": 1,
-        "field.WorkspaceController._cacheRetired": 1,
-        "field.WorkspaceController._cacheWrites": 1,
+        "field.WorkspaceController._cacheRetired": 0,
+        "field.WorkspaceController._cacheWrites": 0,
         "field.WorkspaceController._channelFilesStores": 1,
         "field.WorkspaceController._channelListSeq": 1,
         "field.WorkspaceController._channelReadSeq": 1,
@@ -135,7 +135,7 @@
         "field.WorkspaceController._visitedThreadScope": 1,
         "field.WorkspaceController.agentMigrationEnabled": 1,
         "field.WorkspaceController.attachmentImageStore": 0,
-        "field.WorkspaceController.cache": 1,
+        "field.WorkspaceController.cache": 0,
         "field.WorkspaceController.channel": 1,
         "field.WorkspaceController.channelLoading": 1,
         "field.WorkspaceController.channels": 1,
@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 6573,
-        "tokens": 37233
+        "lines": 6442,
+        "tokens": 36583
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
@@ -885,6 +885,14 @@
       "metric": "field.WorkspaceController.attachmentMedia",
       "limit": 1,
       "reason": "task #136 first AttachmentMedia slice requested by Cindy: replace twelve media fields with one owner shared by borrowed presentations; no new media state in the controller. Review this ownership seam with Kevin before further slices.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController.deviceStore",
+      "limit": 1,
+      "reason": "task #136 second slice requested by Cindy after Kevin approved the extraction method: replace cache, write-queue and retired fields with one WorkspaceDeviceStore owner; UI notices and authorization stay in the controller.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }

@@ -17,7 +17,7 @@ import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
 import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
-import 'workspace_cache_reads.dart';
+import 'workspace_device_store.dart';
 import 'workspace_composer.dart';
 import 'workspace_uploads.dart';
 import 'workspace_sends.dart';
@@ -91,7 +91,7 @@ class WorkspaceController extends ChangeNotifier {
 
   WorkspaceController(
     this.client, {
-    this.cache,
+    WorkspaceCache? cache,
     this.presentationSource,
     this.mobileNavigation = false,
     this.ownsClient = true,
@@ -103,6 +103,31 @@ class WorkspaceController extends ChangeNotifier {
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
   }) : _presentationAuthority = presentationSource?.navigationAuthority {
+    deviceStore = WorkspaceDeviceStore(
+      client,
+      cache: cache,
+      isDisposed: () => _disposed,
+      isChannelRevoked: (id) => _revokedChannels.contains(id),
+      isServerRevoked: (id) => _revokedServers.contains(id),
+      historyTicket: messageHistoryTicket,
+      readFailed: () {
+        if (!_disposed) error ??= 'Local workspace history is unavailable.';
+      },
+      writeFailed: (cause) {
+        if (!_disposed) {
+          error ??= MessageHistoryPages.saveError(cause);
+          notifyListeners();
+        }
+      },
+      purgeFailed: () {
+        if (!_disposed) {
+          // ignore: raft_lints/avoid_imperative_notice_state -- Cache-purge device failures raise the existing one-shot notice; the device service reports failure without owning UI state.
+          setError(
+            'Revoked workspace data could not be removed from this device.',
+          );
+        }
+      },
+    );
     this.composer =
         composer ??
         presentationSource?.composer ??
@@ -273,7 +298,8 @@ class WorkspaceController extends ChangeNotifier {
   /// membership recovery, server selection, socket resume, or client teardown.
   final bool ownsClient;
   final RaftClient client;
-  final WorkspaceCache? cache;
+  late final WorkspaceDeviceStore deviceStore;
+  WorkspaceCache? get cache => deviceStore.cache;
 
   /// Route-local presentation borrows the session and accepted stores. Only
   /// the source reduces socket events and owns server/bootstrap lifecycle.
@@ -354,118 +380,30 @@ class WorkspaceController extends ChangeNotifier {
     );
   }
 
-  /// Device records of the server-scoped entity directory: kind `entities`,
-  /// id = [WorkspaceEntityKind.name], under the scope's origin, principal and
-  /// server (so logout, account and server revocation clear them with the
-  /// rest of the account/server data). The directory checks role and
-  /// capabilities before painting one.
   Future<dynamic> _readEntities(
     WorkspaceEntityScope scope,
     WorkspaceEntityKind kind,
-  ) async {
-    final store = cache;
-    if (store == null || _disposed || _cacheRetired) return null;
-    await _cacheWrites;
-    if (_disposed || _cacheRetired) return null;
-    return store.read(
-      scope.origin,
-      scope.principal,
-      scope.serverId,
-      'entities',
-      kind.name,
-    );
-  }
+  ) => deviceStore.readEntities(scope, kind);
 
   void _writeEntities(
     WorkspaceEntityScope scope,
     WorkspaceEntityKind kind,
     Map<String, dynamic>? record,
-  ) {
-    final store = cache;
-    if (store == null ||
-        _cacheRetired ||
-        (record != null && _revokedServers.contains(scope.serverId))) {
-      return;
-    }
-    _cacheWrites = _cacheWrites.then((_) async {
-      try {
-        await store.write(
-          scope.origin,
-          scope.principal,
-          scope.serverId,
-          'entities',
-          kind.name,
-          record,
-        );
-      } catch (_) {
-        // Best effort: the directory is revalidated on every start anyway.
-      }
-    });
-  }
+  ) => deviceStore.writeEntities(scope, kind, record);
 
-  /// Saved message translations of [serverId] under the current account
-  /// (see [MessageTranslationStore.restore]); empty without a device cache.
-  Future<List<Map<String, dynamic>>> readDeviceTranslations(
-    String serverId,
-  ) async {
-    final store = cache, principal = client.user?.id;
-    if (store == null || principal == null || _disposed || _cacheRetired) {
-      return const [];
-    }
-    final origin = client.origin;
-    await _cacheWrites;
-    if (_disposed || _cacheRetired) return const [];
-    try {
-      return await store.readTranslations(origin, principal, serverId);
-    } catch (_) {
-      // Best effort: missing entries are requested again.
-      return const [];
-    }
-  }
+  Future<List<Map<String, dynamic>>> readDeviceTranslations(String serverId) =>
+      deviceStore.readDeviceTranslations(serverId);
 
-  /// Queues a device write of translation [entries] of [serverId] under the
-  /// current account. Nothing is written once the cache is retired, for a
-  /// revoked server, or for a channel revoked since the entry was made.
   void writeDeviceTranslations(
     String serverId,
     List<Map<String, dynamic>> entries,
-  ) {
-    final store = cache, principal = client.user?.id;
-    if (store == null ||
-        principal == null ||
-        _cacheRetired ||
-        _revokedServers.contains(serverId)) {
-      return;
-    }
-    final rows = [
-      for (final entry in entries)
-        if (client.serverId != serverId ||
-            !_revokedChannels.contains(entry['channelId']))
-          entry,
-    ];
-    if (rows.isEmpty) return;
-    final origin = client.origin;
-    _cacheWrites = _cacheWrites.then((_) async {
-      if (_cacheRetired) return;
-      try {
-        await store.writeTranslations(origin, principal, serverId, rows);
-      } catch (_) {
-        // Best effort: unsaved translations are requested again.
-      }
-    });
-  }
+  ) => deviceStore.writeDeviceTranslations(serverId, entries);
 
-  /// The server translation gate saved for [serverId] (kind
-  /// `translation-settings`), or null.
-  Future<dynamic> readTranslationGate(String serverId) => _cacheRetired
-      ? Future.value()
-      : _cached('translation-settings', '', server: serverId);
+  Future<dynamic> readTranslationGate(String serverId) =>
+      deviceStore.readTranslationGate(serverId);
 
-  /// Saves (or with null deletes) the translation gate of [serverId].
-  void saveTranslationGate(String serverId, Map<String, dynamic>? gate) {
-    if (gate != null && _revokedServers.contains(serverId)) return;
-    unawaited(_save('translation-settings', '', gate, server: serverId));
-  }
+  void saveTranslationGate(String serverId, Map<String, dynamic>? gate) =>
+      deviceStore.saveTranslationGate(serverId, gate);
 
   void _entityAuthorityChanged() {
     if (_disposed || !_ownsEntityDirectory) return;
@@ -1136,12 +1074,6 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  Future<void> _cacheWrites = Future<void>.value();
-
-  /// Set when the account's device data is being cleared (logout): nothing
-  /// more is written for it, so a late write cannot resurrect cleared rows.
-  bool _cacheRetired = false;
-
   /// Writes every pending (debounced) change and completes once all queued
   /// device writes have landed.
   Future<void> flushCache() async {
@@ -1150,15 +1082,14 @@ class WorkspaceController extends ChangeNotifier {
     await MessageHistoryPages.storage(cache)?.positionsSettled;
     if (_ownsEntityDirectory) entityDirectory.flushDevice();
     _translations?.flushDevice();
-    await Future.wait([_cacheWrites, composer.flushed]);
+    await Future.wait([deviceStore.settled, composer.flushed]);
   }
 
   /// Stops all further device writes of this workspace and completes once
   /// the writes already queued have landed. The caller then clears the
   /// account's device data.
   Future<void> retireCache() {
-    _cacheRetired = true;
-    return Future.wait([_cacheWrites, composer.flushed]);
+    return Future.wait([deviceStore.retire(), composer.flushed]);
   }
 
   Map<String, String> get drafts =>
@@ -1299,32 +1230,13 @@ class WorkspaceController extends ChangeNotifier {
       channelLoading = false;
       threadLoading = false;
     }
-    _cacheWrites = _cacheWrites.then((_) async {
-      try {
-        await cache?.revokeServer(origin, principal, id);
-      } catch (_) {
-        if (!_disposed) {
-          // ignore: raft_lints/avoid_imperative_notice_state -- Cache-purge device failures and background refresh failures raise a one-shot toast; stale-scope and rate-limited failures are suppressed (_quietFailure) and the error is cleared on server switch or revoke.
-          setError(
-            'Revoked workspace data could not be removed from this device.',
-          );
-        }
-      }
-    });
+    deviceStore.revokeServer(origin, principal, id);
     _save('servers', '', servers.map((s) => s.json).toList(), server: '');
     notifyListeners();
   }
 
-  Future<dynamic> _cached(String kind, String id, {String? server}) async {
-    try {
-      return await WorkspaceCacheReads.read(cache, client, _cacheWrites, kind, id,
-        server: server, active: () => cacheWritable, authority: messageHistoryTicket,
-        visible: (id) => !_revokedChannels.contains(id));
-    } catch (_) {
-      if (!_disposed) error ??= 'Local workspace history is unavailable.';
-      return null;
-    }
-  }
+  Future<dynamic> _cached(String kind, String id, {String? server}) =>
+      deviceStore.read(kind, id, server: server);
 
   Future<void> _save(
     String kind,
@@ -1332,38 +1244,13 @@ class WorkspaceController extends ChangeNotifier {
     dynamic value, {
     String? server,
     bool requiredSuccess = false,
-  }) async {
-    final user = client.user?.id;
-    if (cache == null || user == null || _cacheRetired) return;
-    if (_revokedChannels.contains(id) ||
-        value is Map && _revokedChannels.contains(value['channelId'])) {
-      return;
-    }
-    final origin = client.origin, serverId = server ?? client.serverId ?? '';
-    final windowScope = value is Map && const {'window', 'thread-window'}.contains(kind)
-        ? '${value['parentChannelId'] ?? id}'
-        : null;
-    final windowTicket = windowScope == null
-        ? null
-        : messageHistoryTicket(windowScope);
-    final writing = _cacheWrites.then((_) async {
-      if (windowScope != null &&
-          (!cacheWritable || windowTicket != messageHistoryTicket(windowScope))) {
-        return;
-      }
-      try {
-        await cache!.write(origin, user, serverId, kind, id, value);
-      } catch (cause) {
-        if (!_disposed) {
-          error ??= MessageHistoryPages.saveError(cause);
-          notifyListeners();
-        }
-        if (requiredSuccess) rethrow;
-      }
-    });
-    _cacheWrites = writing.then<void>((_) {}, onError: (Object _) {});
-    await writing;
-  }
+  }) => deviceStore.write(
+    kind,
+    id,
+    value,
+    server: server,
+    requiredSuccess: requiredSuccess,
+  );
 
   void saveDraft(String text, {bool thread = false}) {
     final source = presentationSource;
@@ -1460,7 +1347,7 @@ class WorkspaceController extends ChangeNotifier {
       messageWindowAuthority(server?.string('role'), channel?.json ?? const {});
 
   /// Device writes stop before logout purges are queued.
-  bool get cacheWritable => !_cacheRetired && !_disposed;
+  bool get cacheWritable => deviceStore.writable;
   Object messageHistoryTicket(String id) => _replyToken(id);
   void rejectHistoryRead(String id) => _windowReceiver._revokeChannel(id);
   Future<void> saveHistoryWindow(String id, {bool thread = false}) =>
@@ -2936,33 +2823,15 @@ class WorkspaceController extends ChangeNotifier {
         })
           scope: composer.draftRecord(scope, includeShareTokens: false),
       };
-      _cacheWrites = _cacheWrites.then((_) async {
-        try {
-          final sharedDraft = keepShared
-              ? await cache?.read(origin, principal, serverId, 'draft', id)
-              : null;
-          for (final scope in {id, ...threadIds}) {
-            await cache?.revokeChannel(origin, principal, serverId, scope);
-          }
-          for (final entry in keptDrafts.entries) {
-            await cache?.write(
-              origin,
-              principal,
-              serverId,
-              'draft',
-              entry.key,
-              entry.key == id && keepShared ? sharedDraft : entry.value,
-            );
-          }
-        } catch (_) {
-          if (!_disposed) {
-            // ignore: raft_lints/avoid_imperative_notice_state -- Cache-purge device failures and background refresh failures raise a one-shot toast; stale-scope and rate-limited failures are suppressed (_quietFailure) and the error is cleared on server switch or revoke.
-            setError(
-              'Revoked workspace data could not be removed from this device.',
-            );
-          }
-        }
-      });
+      deviceStore.revokeChannel(
+        origin: origin,
+        principal: principal,
+        serverId: serverId,
+        channelId: id,
+        scopes: {id, ...threadIds},
+        keptDrafts: keptDrafts,
+        keepShared: keepShared,
+      );
     }
   }
 
