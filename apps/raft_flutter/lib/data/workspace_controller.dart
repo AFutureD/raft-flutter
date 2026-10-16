@@ -463,8 +463,6 @@ class WorkspaceController extends ChangeNotifier
   late final AttachmentMedia attachmentMedia;
 
   /// Compatibility facade while attachment surfaces move to [attachmentMedia].
-  AttachmentImageByteStore? get attachmentImageStore =>
-      attachmentMedia.imageStore;
   int get retainedImageDecodedBytes =>
       attachmentMedia.retainedImageDecodedBytes;
   int get retainedImageCount => attachmentMedia.retainedImageCount;
@@ -575,9 +573,6 @@ class WorkspaceController extends ChangeNotifier
     String kind, {
     required String channelId,
   }) => attachmentMedia.cacheKey(metadata, kind, channelId: channelId);
-
-  Future<bool> attachmentStored(AttachmentImageKey key) =>
-      attachmentMedia.stored(key);
 
   /// Set by the host from its actual logical width before bootstrap. Home
   /// retains selection/drafts, but is not an open conversation/read surface.
@@ -4519,8 +4514,6 @@ class WorkspaceController extends ChangeNotifier
   PlayerSessions get playerSessions => attachmentMedia.playerSessions;
 
   @visibleForTesting
-  int get debugAttachmentUrlRequests => attachmentMedia.debugUrlRequests;
-  @visibleForTesting
   AttachmentUrlCache get debugAttachmentUrls => attachmentMedia.debugUrls;
 
   Future<String> attachmentUrl(
@@ -4536,8 +4529,6 @@ class WorkspaceController extends ChangeNotifier
     refresh: refresh,
     coalesce: coalesce,
   );
-
-  void invalidateAttachmentUrl(String id) => attachmentMedia.invalidateUrl(id);
 
   Future<bool> attachmentPreviewEnabled() => attachmentMedia.previewEnabled();
 

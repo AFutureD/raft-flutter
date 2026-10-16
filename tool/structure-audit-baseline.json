@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 5853,
-        "tokens": 32283
+        "lines": 5844,
+        "tokens": 32233
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
