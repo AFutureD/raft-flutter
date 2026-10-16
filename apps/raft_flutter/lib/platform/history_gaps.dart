@@ -18,6 +18,8 @@ class SqliteHistoryGaps extends HistoryGapQueries {
   final Future<bool> Function(MessageHistoryScope) allowed;
   final _versions = <(String, String, String, String), int>{};
   int _epoch = 0;
+  @override
+  int get retirement => _epoch;
   bool _closed = false;
   (String, String, String, String) key(MessageHistoryScope scope) =>
       (scope.origin, scope.principal, scope.server, scope.channel);

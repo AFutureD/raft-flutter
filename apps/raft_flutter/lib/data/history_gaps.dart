@@ -11,6 +11,8 @@ class HistoryGap {
 }
 
 abstract class HistoryGapQueries extends ChangeNotifier {
+  /// Destructive coverage changes retire all in-memory acceptance proofs.
+  int get retirement;
   Object revision(MessageHistoryScope scope);
   Future<List<HistoryGap>> readSaved(MessageHistoryScope scope);
   Future<List<HistoryGap>> read(

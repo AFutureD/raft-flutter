@@ -5,7 +5,9 @@ import 'package:raft_ui/raft_ui.dart' show RaftIdleTimer;
 
 import 'history_gaps.dart';
 import 'message_history.dart';
-import 'message_history_navigation.dart';
+import 'history_read_policy.dart';
+import 'history_range_reads.dart';
+import 'message_history_verification.dart';
 import 'message_history_pages.dart';
 import 'workspace_controller.dart';
 
@@ -34,10 +36,6 @@ class HistoryGapRecovery extends ChangeNotifier {
   final _views = <Object>{};
   final _attempted = <Object>{}, _failed = <String>{};
   final _gaps = <String, HistoryGap>{};
-  // Accepted wire coverage remains useful for the current online window even
-  // when the hard admission guard deliberately declines new disk bodies.
-  final _proofs = <(BigInt, BigInt)>[];
-  final _wireEdges = <BigInt, String>{};
   HistoryGapQueries? _source;
   bool _running = false, _again = false, _closed = false;
   Object? _identity;
@@ -59,6 +57,7 @@ class HistoryGapRecovery extends ChangeNotifier {
     _views.remove(view);
     if (_views.isNotEmpty) return;
     _closed = true;
+    HistoryRangeReads.of(w).restart();
     _retry.cancel();
     w.removeListener(refresh);
     _source?.removeListener(refresh);
@@ -105,6 +104,7 @@ class HistoryGapRecovery extends ChangeNotifier {
     );
     if (scope == null) return;
     final ticket = w.messageHistoryTicket(scope.parentChannel);
+    final range = MessageHistoryVerification.ranges(w, scope);
     final identity = (
       scope.origin,
       scope.principal,
@@ -113,12 +113,11 @@ class HistoryGapRecovery extends ChangeNotifier {
       scope.authority,
       ticket,
       w.navigationRevision,
+      range,
       thread ? w.threadGeneration : w.channelGeneration,
     );
     if (_identity != identity) {
       _identity = identity;
-      _proofs.clear();
-      _wireEdges.clear();
       _attempted.clear();
       _failed.clear();
       _retry.cancel();
@@ -131,13 +130,10 @@ class HistoryGapRecovery extends ChangeNotifier {
           ticket == w.messageHistoryTicket(scope.parentChannel) &&
           id == (thread ? w.threadChannelId : w.channel?.id),
     );
-    bool current() => !_closed && request.current && identity == _identity;
+    bool current() =>
+        !_closed && request.current && range.current && identity == _identity;
     final savedGaps = await db.gaps.readSaved(scope);
-    if (savedGaps.isEmpty) {
-      _proofs.clear();
-      _wireEdges.clear();
-    }
-    final gaps = _remaining(savedGaps);
+    final gaps = range.remaining(savedGaps);
     if (!current()) return;
     final changed = !setEquals(
       _gaps.keys.toSet(),
@@ -156,16 +152,30 @@ class HistoryGapRecovery extends ChangeNotifier {
     _attempted.add((identity, next.before));
     _failed.remove(next.newerId);
     notifyListeners();
-    final success = await MessageHistoryNavigation.page(
-      w,
-      thread: thread,
-      newer: false,
-      gapBefore: next.before,
-      silent: true,
-      requestFor: (_) => request,
-      summaries: w.mergeThreadSummaries,
-      proved: _proved,
-    );
+    var success = false;
+    w.loadingOlder = true;
+    w.notifyListeners();
+    try {
+      final proof = await MessageHistoryVerification.readRange(
+        w,
+        request,
+        scope,
+        before: next.before,
+        reason: HistoryReadReason.gap,
+      );
+      success = proof != null;
+      if (proof != null && !proof.limited && proof.lower <= proof.upper) {
+        // Merged coverage now prevents repeats; retain attempts only for an
+        // unproven boundary, not one entry for every successful history page.
+        _attempted.remove((identity, next.before));
+      }
+      if (success && current()) db.memory.direction(w, id, older: true);
+    } finally {
+      if (request.current) {
+        w.loadingOlder = false;
+        w.notifyListeners();
+      }
+    }
     if (!current()) return;
     if (!success) {
       _failed.add(next.newerId);
@@ -188,66 +198,5 @@ class HistoryGapRecovery extends ChangeNotifier {
     // Accepted coverage may leave a smaller interval. Verify its new boundary
     // rather than retrying the same failed request.
     _again = true;
-  }
-
-  void _proved(List<Map<String, dynamic>> rows, BigInt before) {
-    final ordered = [...rows]
-      ..sort(
-        (a, b) =>
-            BigInt.parse('${a['seq']}').compareTo(BigInt.parse('${b['seq']}')),
-      );
-    final first = ordered.isEmpty
-        ? BigInt.zero
-        : BigInt.parse('${ordered.first['seq']}');
-    final lower = ordered.length < 50 ? BigInt.zero : first;
-    _proofs.add((lower, before - BigInt.one));
-    if (ordered.isNotEmpty) _wireEdges[first] = ordered.first['id'] as String;
-    _proofs.sort((a, b) => a.$1.compareTo(b.$1));
-    final merged = <(BigInt, BigInt)>[];
-    for (final proof in _proofs) {
-      if (merged.isEmpty || merged.last.$2 + BigInt.one < proof.$1) {
-        merged.add(proof);
-      } else {
-        final previous = merged.removeLast();
-        merged.add((
-          previous.$1,
-          previous.$2 > proof.$2 ? previous.$2 : proof.$2,
-        ));
-      }
-    }
-    _proofs
-      ..clear()
-      ..addAll(merged);
-    _wireEdges.removeWhere(
-      (seq, _) => !_proofs.any((proof) => proof.$1 == seq),
-    );
-  }
-
-  List<HistoryGap> _remaining(List<HistoryGap> gaps) {
-    final result = <HistoryGap>[];
-    for (final gap in gaps) {
-      var intervals = [
-        ((gap.older ?? BigInt.zero) + BigInt.one, gap.before - BigInt.one),
-      ];
-      for (final proof in _proofs) {
-        intervals = [
-          for (final span in intervals)
-            if (proof.$2 < span.$1 || proof.$1 > span.$2)
-              span
-            else ...[
-              if (span.$1 < proof.$1) (span.$1, proof.$1 - BigInt.one),
-              if (span.$2 > proof.$2) (proof.$2 + BigInt.one, span.$2),
-            ],
-        ];
-      }
-      for (final span in intervals) {
-        final before = span.$2 + BigInt.one;
-        final id = before == gap.before ? gap.newerId : _wireEdges[before];
-        if (id != null) {
-          result.add(HistoryGap(id, before, older: span.$1 - BigInt.one));
-        }
-      }
-    }
-    return result;
   }
 }

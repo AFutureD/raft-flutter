@@ -1,5 +1,4 @@
 import 'message_history_pages.dart';
-import 'message_history.dart';
 import 'message_history_positions.dart';
 import 'message_window_snapshot.dart';
 import 'workspace_controller.dart';
@@ -14,7 +13,6 @@ class MessageHistoryNavigation {
     required bool newer,
     BigInt? gapBefore,
     bool silent = false,
-    void Function(List<Map<String, dynamic>> rows, BigInt before)? proved,
     required MessageWindowRequest Function(String) requestFor,
     required void Function(String, dynamic) summaries,
   }) async {
@@ -69,14 +67,6 @@ class MessageHistoryNavigation {
       } else {
         w.historyLimited = limited;
         w.hasMore = hasMore;
-      }
-      if (gapBefore != null && !limited) {
-        final wire =
-            (page is MessageHistoryPage ? page.remotePage ?? page : page)['messages'];
-        final proof = acceptedWindowRows(wire, id);
-        if (wire is List && proof.length == wire.length) {
-          proved?.call(proof, gapBefore);
-        }
       }
       if (!thread) summaries(id, page['threadSummariesByParentMessageId']);
       MessageHistoryPages.storage(w.cache)?.memory
