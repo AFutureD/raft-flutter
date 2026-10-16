@@ -35,3 +35,15 @@ bool lowerThreadSummaryUnread(
   }
   return changed;
 }
+
+/// Applies the optional `unreadCount` of an accepted `read_state:updated`
+/// scope [fact] (unread left after the read) to the thread summaries.
+void applyReadStateUnreadHint(
+  Map<String, Map<String, dynamic>> summariesByChannel,
+  Map fact,
+) {
+  final left = fact['unreadCount'], scope = fact['scopeId'];
+  if (left is int && left >= 0 && scope is String) {
+    lowerThreadSummaryUnread(summariesByChannel, scope, left);
+  }
+}

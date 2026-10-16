@@ -42,3 +42,30 @@ class RaftUserActivity {
     return last != null && clock().difference(last) <= window;
   }
 }
+
+/// Open conversations whose timeline is scrolled above the latest end
+/// (reported by the chat view on the edge only, never per frame).
+class RaftTimelineBottoms {
+  final _away = <String>{};
+
+  void set(String id, bool atBottom) {
+    if (atBottom) {
+      _away.remove(id);
+    } else {
+      _away.add(id);
+    }
+  }
+
+  void reset(String id) => _away.remove(id);
+
+  bool away(String id) => _away.contains(id);
+
+  /// Source `addMessage` / `syncGap`: whether a live arrival in [id] is read
+  /// as it lands. Only while the timeline sits at the latest end
+  /// (`isNearBottom`; a reader scrolled above it keeps the arrival unread),
+  /// and only on recent activity (the 1 s gate). Phone (owner decision
+  /// 2026-10-12, docs/parity.md): a foreground page at the latest end reads
+  /// it with no tap.
+  bool readsLiveArrival(String id, bool phone) =>
+      !away(id) && (RaftUserActivity.recent || phone);
+}

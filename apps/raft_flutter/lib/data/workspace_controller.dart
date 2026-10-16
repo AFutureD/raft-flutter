@@ -2391,17 +2391,9 @@ class WorkspaceController extends ChangeNotifier
     if (seq != null && seq > (_latestActivity[id] ?? BigInt.zero)) {
       _latestActivity[id] = seq;
     }
-    // Source canAutoMarkLiveAppendRead: a live arrival in the open
-    // conversation is read only if the user was just interacting; while the
-    // user is idle it stays unread (Activity keeps its indicator). Phone
-    // (owner decision 2026-10-12, docs/parity.md): a foreground page whose
-    // timeline sits at the latest end reads it with no tap.
-    // Web addMessage: only while the timeline sits at the latest end
-    // (`isNearBottom`); a reader scrolled above it keeps the arrival unread.
     if ((id == channel?.id || id == threadChannelId) &&
         _mayMarkRead(id) &&
-        !_scrolledAway.contains(id) &&
-        (RaftUserActivity.recent || mobileNavigation)) {
+        _scrolledAway.readsLiveArrival(id, mobileNavigation)) {
       unawaited(markRead(id));
       return;
     }
@@ -2940,8 +2932,7 @@ class WorkspaceController extends ChangeNotifier
           final seq = RaftMessage(row).seq;
           if (seq > next) next = seq;
         }
-        // Web syncGap: a filled gap is read only at the latest end.
-        if (_mayMarkRead(id) && !_scrolledAway.contains(id)) {
+        if (_mayMarkRead(id) && !_scrolledAway.away(id)) {
           unawaited(markRead(id));
         } else {
           arrived.forEach(_receiveUnread);
@@ -3260,7 +3251,7 @@ class WorkspaceController extends ChangeNotifier
         !retainContextUntilAccepted &&
         ((unread[next.id] ?? 0) != 0 || mentions.contains(next.id));
     final readPostsBefore = _readPosts[next.id] ?? 0;
-    _scrolledAway.remove(next.id);
+    _scrolledAway.reset(next.id);
     if (optimisticRead) {
       // Web `clearUnread`: the count and the mention flag clear together.
       if ((unread[next.id] ?? 0) != 0) unread = {...unread, next.id: 0};
@@ -3476,15 +3467,10 @@ class WorkspaceController extends ChangeNotifier
 
   /// Open conversations whose timeline is scrolled above the latest end
   /// (reported by the chat view on the edge only, never per frame).
-  final Set<String> _scrolledAway = {};
+  final _scrolledAway = RaftTimelineBottoms();
 
-  void setTimelineAtBottom(String id, bool atBottom) {
-    if (atBottom) {
-      _scrolledAway.remove(id);
-    } else {
-      _scrolledAway.add(id);
-    }
-  }
+  void setTimelineAtBottom(String id, bool atBottom) =>
+      _scrolledAway.set(id, atBottom);
 
   /// Where the reader was in a conversation when its timeline is about to be
   /// rebuilt for another layout (fold / unfold). The next timeline that
@@ -4984,15 +4970,7 @@ class WorkspaceController extends ChangeNotifier
             );
             if (outcome == 'accepted' && fact['scopeId'] is String) {
               _projectReadState(fact['scopeId'] as String);
-              // Optional server hint: unread left after the read.
-              final left = fact['unreadCount'];
-              if (left is int && left >= 0) {
-                lowerThreadSummaryUnread(
-                  _summariesByChannel,
-                  fact['scopeId'] as String,
-                  left,
-                );
-              }
+              applyReadStateUnreadHint(_summariesByChannel, fact);
             }
           }
         }
