@@ -41,14 +41,46 @@ abstract final class AgentEntityComponents {
 /// or [AgentEntityComponents.toggle]. The app turns it into the `confirm`
 /// tool (or a message to the model); the components only report it.
 sealed class AgentInteraction {
-  const AgentInteraction(this.nodeId);
+  const AgentInteraction(this.nodeId, {this.slot});
 
   /// The `id` the model gave the component, if any.
   final String? nodeId;
+
+  /// Names the component on its screen ([agentInteractionKey]): what the
+  /// owner keeps the answer under, so it can draw (and tell the model) what
+  /// the person chose.
+  final String? slot;
+}
+
+/// Names a component for what the person did on it: its id, else its words.
+String agentInteractionKey(SurfaceNode n) =>
+    n.id ??
+    '${n.component}|${n.string('prompt') ?? n.string('label') ?? n.string('title') ?? ''}';
+
+/// What the person did on a component, kept under [agentInteractionKey]: the
+/// index of the option, whether the switch is on, `confirmed` or `cancelled`.
+SurfaceNode agentWithInteraction(SurfaceNode n, Map<String, Object?> done) {
+  final v = done[agentInteractionKey(n)];
+  if (v == null) return n;
+  return switch (n.component) {
+    AgentEntityComponents.choice => n.copyWith(
+      props: {...n.props, '_picked': v},
+    ),
+    AgentEntityComponents.toggle => n.copyWith(props: {...n.props, 'value': v}),
+    AgentEntityComponents.confirm => n.copyWith(
+      props: {...n.props, '_result': v},
+    ),
+    _ => n,
+  };
 }
 
 class AgentConfirmed extends AgentInteraction {
-  const AgentConfirmed(super.nodeId, {required this.title, required this.yes});
+  const AgentConfirmed(
+    super.nodeId, {
+    required this.title,
+    required this.yes,
+    super.slot,
+  });
   final String title;
 
   /// True for 确认, false for 取消.
@@ -61,6 +93,7 @@ class AgentChose extends AgentInteraction {
     required this.index,
     required this.label,
     this.prompt,
+    super.slot,
   });
   final int index;
   final String label;
@@ -68,7 +101,12 @@ class AgentChose extends AgentInteraction {
 }
 
 class AgentToggled extends AgentInteraction {
-  const AgentToggled(super.nodeId, {required this.label, required this.on});
+  const AgentToggled(
+    super.nodeId, {
+    required this.label,
+    required this.on,
+    super.slot,
+  });
   final String label;
   final bool on;
 }
@@ -1236,16 +1274,29 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
           '$path.changes[$i] 要写成 "字段: 原值 → 新值"，现在是 "$line"',
     ],
     build: (context, n, _) {
-      final scope = AgentInteractionScope.maybeOf(context);
+      final scope = context == null
+          ? null
+          : AgentInteractionScope.maybeOf(context);
       final title = n.string('title') ?? '';
-      void report(bool yes) =>
-          scope?.onInteraction(AgentConfirmed(n.id, title: title, yes: yes));
+      void report(bool yes) => scope?.onInteraction(
+        AgentConfirmed(
+          n.id,
+          title: title,
+          yes: yes,
+          slot: agentInteractionKey(n),
+        ),
+      );
       return HfConfirm(
         message: title,
         changes: [for (final c in n.list('changes')) '$c'],
         risk: n.string('risk') == 'sensitive'
             ? AgentConfirmRisk.sensitive
             : AgentConfirmRisk.change,
+        result: switch (n.string('_result')) {
+          'confirmed' => AgentConfirmResult.confirmed,
+          'cancelled' => AgentConfirmResult.cancelled,
+          _ => null,
+        },
         display: _spec(n),
         onConfirm: () => report(true),
         onCancel: () => report(false),
@@ -1283,16 +1334,20 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
       ];
     },
     build: (context, n, _) {
-      final scope = AgentInteractionScope.maybeOf(context);
+      final scope = context == null
+          ? null
+          : AgentInteractionScope.maybeOf(context);
       return HfChoice(
         prompt: n.string('prompt'),
         options: [for (final o in n.list('options')) '$o'],
+        selected: n.integer('_picked'),
         onChoose: (index, label) => scope?.onInteraction(
           AgentChose(
             n.id,
             index: index,
             label: label,
             prompt: n.string('prompt'),
+            slot: agentInteractionKey(n),
           ),
         ),
       );
@@ -1313,13 +1368,21 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
     example: {'component': 'Toggle', 'label': '完成后通知我', 'value': false},
     line: (n) => n.string('label') ?? '',
     build: (context, n, _) {
-      final scope = AgentInteractionScope.maybeOf(context);
+      final scope = context == null
+          ? null
+          : AgentInteractionScope.maybeOf(context);
       final label = n.string('label') ?? '';
       return HfToggle(
         label: label,
         value: n.flag('value') ?? false,
-        onChanged: (on) =>
-            scope?.onInteraction(AgentToggled(n.id, label: label, on: on)),
+        onChanged: (on) => scope?.onInteraction(
+          AgentToggled(
+            n.id,
+            label: label,
+            on: on,
+            slot: agentInteractionKey(n),
+          ),
+        ),
       );
     },
   ),

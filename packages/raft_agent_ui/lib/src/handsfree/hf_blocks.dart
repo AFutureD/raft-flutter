@@ -7,6 +7,7 @@ import '../display_spec.dart';
 import '../enter.dart';
 import '../entity_blocks.dart';
 import '../entity_model.dart';
+import 'hf_describe.dart';
 import 'hf_entity.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
@@ -67,7 +68,7 @@ class HfCard extends StatelessWidget {
 ///
 /// [display] says whether the `header`, the `borders` between rows and the
 /// `zebra` fill are drawn; `lines` clamps a cell's text.
-class HfTable extends StatelessWidget {
+class HfTable extends StatelessWidget implements HfDescribed {
   const HfTable({
     super.key,
     required this.columns,
@@ -77,6 +78,27 @@ class HfTable extends StatelessWidget {
   final List<String> columns;
   final List<List<AgentTableCell>> rows;
   final DisplaySpec? display;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve('Table');
+    final cols = math.max(columns.length, 1);
+    return HfDescription([
+      if (x.has('header')) columns.join(' | '),
+      for (final row in rows)
+        [
+          for (var i = 0; i < cols; i++)
+            if (i < row.length) _cellText(row[i], env.resolver) else '',
+        ].join(' | '),
+    ], block: true);
+  }
+
+  static String _cellText(AgentTableCell cell, AgentEntityResolver? resolver) {
+    final entity = cell.entity;
+    return entity != null
+        ? HfEntityInline.lineOf(entity, cell.handle, resolver)
+        : cell.text ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,10 +181,27 @@ class HfTable extends StatelessWidget {
 /// Things in the order they happened: when, what, and optionally the entity
 /// it concerns. [display] says which parts are drawn: the `time`, the `icon`
 /// (dot and line), the `title` and the `entity`.
-class HfTimeline extends StatelessWidget {
+class HfTimeline extends StatelessWidget implements HfDescribed {
   const HfTimeline({super.key, required this.items, this.display});
   final List<AgentTimelineItem> items;
   final DisplaySpec? display;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve('Timeline');
+    final showTime = x.has('time');
+    final showEntity = x.has('entity');
+    final showTitle = x.has('title') || (!showTime && !showEntity);
+    return HfDescription([
+      for (final item in items)
+        hfKept([
+          if (showTime) item.time,
+          if (showTitle) item.title,
+          if (showEntity && item.entity != null)
+            HfEntityInline.lineOf(item.entity!, item.handle, env.resolver),
+        ]).join(' '),
+    ], block: true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +311,7 @@ class HfTimeline extends StatelessWidget {
 ///
 /// [display] says which parts are drawn: the `title` above the code, the
 /// `line_numbers` and the "还有 N 行" note (`more`).
-class HfCodeBlock extends StatelessWidget {
+class HfCodeBlock extends StatelessWidget implements HfDescribed {
   const HfCodeBlock({
     super.key,
     required this.code,
@@ -287,15 +326,35 @@ class HfCodeBlock extends StatelessWidget {
   final String? title;
   final DisplaySpec? display;
 
+  /// The lines drawn, and how many more there are.
+  (List<String>, int) get _lines {
+    final all = code.replaceAll('\r\n', '\n').split('\n');
+    if (all.isNotEmpty && all.last.isEmpty) all.removeLast();
+    final lines = all.take(AgentBlockLimits.codeLines).toList();
+    return (lines, all.length - lines.length);
+  }
+
+  /// The note under a cut-off block.
+  static String moreNote(int more) => '… 还有 $more 行';
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve('CodeBlock');
+    final (lines, more) = _lines;
+    return HfDescription([
+      if (x.has('title') && title != null && title!.isNotEmpty) title!,
+      for (final (i, line) in lines.indexed)
+        x.has('line_numbers') ? '${i + 1}  $line' : line,
+      if (more > 0 && x.has('more')) moreNote(more),
+    ], block: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final x = (display ?? DisplaySpec.none).resolve('CodeBlock');
     final mono = RaftTokens.of(context).monoFont;
-    final all = code.replaceAll('\r\n', '\n').split('\n');
-    if (all.isNotEmpty && all.last.isEmpty) all.removeLast();
-    final lines = all.take(AgentBlockLimits.codeLines).toList();
-    final more = all.length - lines.length;
+    final (lines, more) = _lines;
     final style = TextStyle(
       fontFamily: mono,
       fontFamilyFallback: hf.theme.fontFallback,
@@ -389,7 +448,7 @@ class HfCodeBlock extends StatelessWidget {
                 hf.sp(6),
               ),
               child: Text(
-                '… 还有 $more 行',
+                HfCodeBlock.moreNote(more),
                 style: hf.type(HfType.meta, color: HfColors.inkSoft),
               ),
             ),
@@ -402,7 +461,7 @@ class HfCodeBlock extends StatelessWidget {
 /// One sentence that matters: good news (green), a warning (orange), or just
 /// a note. [display] says whether the `icon` and the `text` are drawn; `lines`
 /// clamps the sentence.
-class HfCallout extends StatelessWidget {
+class HfCallout extends StatelessWidget implements HfDescribed {
   const HfCallout({
     super.key,
     required this.text,
@@ -412,6 +471,13 @@ class HfCallout extends StatelessWidget {
   final String text;
   final AgentTone tone;
   final DisplaySpec? display;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve('Callout');
+    final showText = x.has('text') || !x.has('icon');
+    return HfDescription([if (showText) text], block: true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -474,7 +540,7 @@ class HfCallout extends StatelessWidget {
 
 /// Pick one of a few options (at most five). Reports the pick; the app
 /// decides what it means. On a TV the options are shown, not pressed.
-class HfChoice extends StatefulWidget {
+class HfChoice extends StatefulWidget implements HfDescribed {
   const HfChoice({
     super.key,
     required this.options,
@@ -488,6 +554,20 @@ class HfChoice extends StatefulWidget {
   /// Index already chosen (the owner knows), else none.
   final int? selected;
   final void Function(int index, String label)? onChoose;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final shown = options.take(AgentBlockLimits.choiceOptions).toList();
+    return HfDescription(
+      [
+        if (prompt != null && prompt!.isNotEmpty) prompt!,
+        for (final (i, label) in shown.indexed)
+          '${i + 1}  $label${selected == i ? '（已选）' : ''}',
+      ],
+      actions: selected == null ? shown : const [],
+      block: true,
+    );
+  }
 
   @override
   State<HfChoice> createState() => _HfChoiceState();
@@ -605,7 +685,7 @@ class _Option extends StatelessWidget {
 }
 
 /// An on / off switch with a label. Reports the new value.
-class HfToggle extends StatefulWidget {
+class HfToggle extends StatefulWidget implements HfDescribed {
   const HfToggle({
     super.key,
     required this.label,
@@ -615,6 +695,10 @@ class HfToggle extends StatefulWidget {
   final String label;
   final bool value;
   final ValueChanged<bool>? onChanged;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) =>
+      HfDescription([label, value ? '开' : '关'], block: true);
 
   @override
   State<HfToggle> createState() => _HfToggleState();

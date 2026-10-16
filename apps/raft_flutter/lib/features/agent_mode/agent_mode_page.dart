@@ -20,6 +20,7 @@ import 'agent_headlines.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
 import 'agent_mood.dart';
+import 'agent_screen_snapshot.dart';
 import 'agent_scripted_model.dart';
 import 'agent_surface.dart';
 import 'agent_surface_stream.dart';
@@ -131,6 +132,10 @@ class _Surface extends _Layer {
 
   /// Folded containers the person opened (paths, see `foldedPaths`).
   final expanded = <String>{};
+
+  /// What the person did on the choices, switches and confirm cards of the
+  /// screen (see `agentWithInteraction`).
+  final interacted = <String, Object?>{};
 }
 
 class _AgentModePageState extends State<AgentModePage> {
@@ -187,9 +192,9 @@ class _AgentModePageState extends State<AgentModePage> {
     compact: () => _compact,
     pointed: _pointed,
     screenTool: _dispatchScreenTool,
-    screenSummary: () => '第 ${_stack.length} 层「${_peek(_stack.last)}」',
+    screenSummary: () => _snapshot().text(),
     decorate: (name, result) =>
-        name == 'end_surface' ? _withRefs(result) : result,
+        _withSnapshot(name == 'end_surface' ? _withRefs(result) : result),
     around: _aroundTool,
     onLeave: () {
       if (mounted) Navigator.of(context).maybePop();
@@ -300,6 +305,17 @@ class _AgentModePageState extends State<AgentModePage> {
   /// for an `act` preview is decided by the ledger itself (see
   /// [AgentConsentTray]); anything else is only news for the model.
   void _interaction(AgentInteraction i) {
+    // What the person did stays on the screen, and in what the model reads
+    // of it.
+    final front = _stack.last;
+    final slot = i.slot;
+    if (front is _Surface && slot != null) {
+      front.interacted[slot] = switch (i) {
+        AgentConfirmed(:final yes) => yes ? 'confirmed' : 'cancelled',
+        AgentChose(:final index) => index,
+        AgentToggled(:final on) => on,
+      };
+    }
     final note = switch (i) {
       AgentConfirmed(:final title, :final yes) =>
         '（屏幕提示，不是用户说的）用户点了你放的确认卡“$title”的“${yes ? '确认' : '取消'}”。'
@@ -417,6 +433,9 @@ class _AgentModePageState extends State<AgentModePage> {
   /// so the first frame is already final; a refresh replaces it in place.
   late AgentAttention? _attention = AgentModeData.cached(widget.controller);
   bool _announced = false;
+
+  /// The team's rows are open under the "团队在推进" row.
+  bool _teamOpen = false;
   Object? _attentionError;
   final _briefs = <String, AgentChannelBrief>{};
   final _briefErrors = <String, Object>{};
@@ -675,6 +694,19 @@ class _AgentModePageState extends State<AgentModePage> {
     final prefix = '${_stack.last.id}#';
     return id != null && id.startsWith(prefix)
         ? int.tryParse(id.substring(prefix.length))
+        : null;
+  }
+
+  /// The current item as the screen is about to show it: a layer that was just
+  /// put back finds its item again after the next frame, and a wide window
+  /// marks its first row; the words about the screen say so at once.
+  int? get _currentNow {
+    final c = _current ?? _currentOf[_stack.last.id];
+    if (c != null) return c;
+    return _split &&
+            _stack.last is _Attention &&
+            (_visible?.items.isNotEmpty ?? false)
+        ? 1
         : null;
   }
 
@@ -1127,6 +1159,13 @@ class _AgentModePageState extends State<AgentModePage> {
       '${item[k] ?? ''}',
   ].join(' ');
 
+  /// A read that drew its answer on the screen says so (`screen`, a few
+  /// words); the whole screen as it is now rides on that answer too.
+  Map<String, Object?> _withSnapshot(Map<String, Object?> result) =>
+      result['screen'] is String && !result.containsKey('snapshot')
+      ? {...result, 'snapshot': _snapshot().text()}
+      : result;
+
   /// [result] of a tool that changed the screen, with the handles of what is
   /// on it now: a spoken "这个" or "③" has no 【屏幕引用】 line in front of
   /// it, so the tool results carry it.
@@ -1138,19 +1177,236 @@ class _AgentModePageState extends State<AgentModePage> {
         : {...result, 'refs': refs.contextText(pointed: _pointed())};
   }
 
-  /// What the screen shows now; every screen tool returns this.
+  /// What the screen shows now; every screen tool returns this. `screen` is
+  /// the whole layer in words (see [_snapshot]); `items` are the numbers and
+  /// what they point at.
   Map<String, Object?> _screen() {
-    final frame = _frame(_stack.last);
-    final refs = AgentReferenceTable.fromFrame(_stack.last.id, frame);
+    final snap = _snapshot();
+    final refs = AgentReferenceTable.fromFrame(
+      _stack.last.id,
+      _frame(_stack.last),
+    );
     return {
       'layer': _stack.length,
       'title': _peek(_stack.last),
-      if (frame['loading'] == true) 'loading': true,
-      if (_current != null) 'current': _current,
-      'items': _screenItems().take(12).toList(),
+      if (snap.loading) 'loading': true,
+      if (snap.current != null) 'current': snap.current,
+      'snapshot': snap.text(),
+      'items': snap.itemsJson(),
       if (!refs.isEmpty) 'refs': refs.contextText(pointed: _pointed()),
     };
   }
+
+  /// What the words of a component need that the widget gets from its place:
+  /// where the entities it points at are read, the window.
+  HfDescribeEnv get _describeEnv =>
+      HfDescribeEnv(resolver: _entities, phone: _compact);
+
+  /// The front layer in words: every component describes itself, from the
+  /// values it draws (see [HfDescribed]); this only adds what is not drawn
+  /// (ids, which items are in view, the buttons an item has) and puts it
+  /// together.
+  AgentScreenSnapshot _snapshot() {
+    final layer = _stack.last;
+    final env = _describeEnv;
+    final current = _stageAllowed ? _currentNow : _current;
+    final views = agentItemViews(layer.id);
+    final tray = [
+      for (final e in AgentConsentTray.entriesOf(
+        ledger: _consent,
+        board: _actions,
+        now: DateTime.now(),
+      ))
+        e.card.describe(env),
+    ];
+    final notes = [
+      if (widget.controller.servers.length > 1)
+        '工作区：${widget.controller.server?.name ?? ''}',
+    ];
+    AgentScreenSnapshot make(
+      String kind,
+      HfDescription head,
+      List<AgentScreenPart> parts, {
+      bool loading = false,
+      AgentScreenPart? detail,
+      List<String> more = const [],
+    }) => AgentScreenSnapshot(
+      layer: _stack.length,
+      kind: kind,
+      title: _peek(layer),
+      head: head,
+      parts: parts,
+      loading: loading,
+      current: current,
+      detail: detail,
+      tray: tray,
+      views: views,
+      notes: [...notes, ...more],
+    );
+    switch (layer) {
+      case _Attention():
+        final a = _visible;
+        final table = _references();
+        final parts = <AgentScreenPart>[];
+        if (a != null && !a.isEmpty) {
+          for (final part in AgentAttentionView.partsOf(
+            a,
+            split: _split,
+            interactive: true,
+            teamOpen: _teamOpen,
+            selected: current,
+          )) {
+            switch (part) {
+              case AgentAttentionSection(:final label):
+                parts.add(AgentScreenPart(label.describe(env), heading: true));
+              case AgentAttentionCard(:final n, :final item, :final row):
+                parts.add(
+                  AgentScreenPart(
+                    row.describe(env),
+                    n: n,
+                    facts: _attentionFacts(item),
+                    actions: _attentionDetail(item, n).describe(env).actions,
+                    view: views?[n],
+                    entity: table.byIndex(n),
+                  ),
+                );
+              case AgentAttentionTeamRow(:final row):
+                parts.add(
+                  AgentScreenPart(
+                    row.describe(env),
+                    actions: [_teamOpen ? '收起' : '展开'],
+                  ),
+                );
+              case AgentAttentionTeamItem(:final row):
+                parts.add(AgentScreenPart(row.describe(env)));
+            }
+          }
+        }
+        return make(
+          '首页',
+          AgentAttentionView.describeLayer(a, _attentionError, env: env),
+          parts,
+          loading: a == null && _attentionError == null,
+          detail: _detailPart(current, env),
+        );
+      case _Surface():
+        final frame = _frame(layer);
+        final table = AgentReferenceTable.fromFrame(layer.id, frame);
+        final entries = AgentFrameView.entriesOf(frame);
+        return make(
+          layer.item == null ? '屏幕' : '详情页',
+          AgentSurfaceView.frameOf(layer.spec).describe(env),
+          [
+            for (final p in describeSurface(
+              layer.spec,
+              compact: _compact,
+              expanded: layer.expanded,
+              interacted: layer.interacted,
+              env: env,
+            ))
+              AgentScreenPart(
+                p.description,
+                n: p.number,
+                heading: p.heading,
+                entity: p.number == null ? null : table.byIndex(p.number!),
+                facts: p.number == null
+                    ? const []
+                    : _channelOfItem(entries, p.number!),
+                actions: p.number == null
+                    ? const []
+                    : _stageActions(entries, p.number!),
+                view: p.number == null ? null : views?[p.number],
+              ),
+          ],
+          detail: _detailPart(current, env),
+        );
+      case _Channel() || _Tasks():
+        final frame = _frame(layer);
+        final table = AgentReferenceTable.fromFrame(layer.id, frame);
+        final entries = AgentFrameView.entriesOf(frame);
+        final channel = layer is _Channel ? layer.channel : null;
+        return make(
+          layer is _Channel ? '频道' : '任务',
+          AgentFrameView.frameOf(frame).describe(env),
+          [
+            for (final e in entries)
+              AgentScreenPart(
+                AgentFrameView.rowOf(e).describe(env),
+                n: e.n,
+                entity: table.byIndex(e.n),
+                facts: _channelOfItem(entries, e.n),
+                actions: _stageActions(entries, e.n),
+                view: views?[e.n],
+              ),
+          ],
+          loading: frame['loading'] == true && entries.isEmpty,
+          detail: _detailPart(current, env),
+          more: [
+            if (channel != null) '这一层是频道 #${channel.name}（id ${channel.id}）',
+          ],
+        );
+    }
+  }
+
+  /// The detail of item [n] of the front layer, as its stage draws it (the
+  /// pane beside the list, or under the row on a phone); null when the item
+  /// has none or the layer shows no stage.
+  AgentScreenPart? _detailPart(int? n, HfDescribeEnv env) {
+    final layer = _stack.last;
+    if (n == null || n < 1 || !_stageAllowed) return null;
+    if (layer is _Attention) {
+      final items = _visible?.items ?? const <AgentAttentionItem>[];
+      if (n > items.length) return null;
+      return AgentScreenPart(
+        _attentionDetail(items[n - 1], n).describe(env),
+        n: n,
+      );
+    }
+    final entries = AgentFrameView.entriesOf(_frame(layer));
+    if (n > entries.length) return null;
+    return AgentScreenPart(_frameStage(entries[n - 1], n).describe(env), n: n);
+  }
+
+  /// The detail of the attention card [n], as its stage draws it.
+  HfDetail _attentionDetail(AgentAttentionItem item, int n) =>
+      AgentAttentionDetail(
+        item: item,
+        number: n,
+        onApprove: (_) {},
+        onOpen: (_) {},
+        onLater: (_) {},
+      ).view();
+
+  /// The stage of item [e] of a frame, as the screen draws it.
+  HfDetail _frameStage(AgentFrameEntry e, int n) => AgentFrameStage(
+    item: e.item,
+    number: n,
+    onOpen: _channelById(e.item['channelId'] as String?) == null ? null : () {},
+  ).view();
+
+  List<String> _stageActions(List<AgentFrameEntry> entries, int n) => [
+    for (final a in _frameStage(entries[n - 1], n).actions) a.label,
+  ];
+
+  /// The channel an item of a frame belongs to, by name and id.
+  List<String> _channelOfItem(List<AgentFrameEntry> entries, int n) {
+    final c = _channelById(entries[n - 1].item['channelId'] as String?);
+    return [if (c != null) '频道 #${c.name}（id ${c.id}）'];
+  }
+
+  /// What the card says without printing: the ids behind the names, who is
+  /// involved, the thread.
+  static List<String> _attentionFacts(AgentAttentionItem i) => [
+    if (i.channelName != null)
+      '频道 #${i.channelName}${i.channelId == null ? '' : '（id ${i.channelId}）'}',
+    if (i.taskNumber != null)
+      '任务 #${i.taskNumber}${i.taskId == null ? '' : '（id ${i.taskId}）'}'
+    else
+      '来源 id ${i.id}',
+    if (i.doer != null) '负责人/发言人 ${i.doer}',
+    if (i.waiters.isNotEmpty) '在等的人 ${i.waiters.join('、')}',
+    if (i.threadTitle != null) '讨论「${i.threadTitle}」',
+  ];
 
   Future<Map<String, Object?>> _channelFacts(RaftChannel c) async {
     final b = _briefs[c.id] ?? await data.channel(c);
@@ -1237,12 +1493,24 @@ class _AgentModePageState extends State<AgentModePage> {
           _openChannel(c, announce: false).ignore();
         }
         return _screen();
+      case 'read_screen':
+        return _screen();
       case 'next_batch':
-        return _withRefs(_nextBatch());
+        final moved = _nextBatch();
+        // The page scrolls for a moment; what is in view is told after it.
+        if (moved['ok'] == true) {
+          await Future<void>.delayed(const Duration(milliseconds: 450));
+          if (mounted) moved['snapshot'] = _snapshot().text();
+        }
+        return _withRefs(moved);
       case 'expand_item':
-        return _withRefs(
-          _expandNumber(((args['index'] ?? args['number']) as num?)?.toInt()),
+        final expanded = _expandNumber(
+          ((args['index'] ?? args['number']) as num?)?.toInt(),
         );
+        return _withRefs({
+          ...expanded,
+          if (expanded['error'] == null) 'snapshot': _snapshot().text(),
+        });
       case 'open_item':
         final n = (args['number'] as num?)?.toInt() ?? 0;
         final items = (_frame(_stack.last)['items'] as List? ?? const [])
@@ -1265,7 +1533,24 @@ class _AgentModePageState extends State<AgentModePage> {
         final id = '${_stack.last.id}#$n';
         final item = items[n - 1];
         _choreo.spotlightItem(id, _itemWords(item));
-        return {'ok': true, 'item': items[n - 1]};
+        // What it says in full, and the detail that opens for it.
+        final snap = _snapshot();
+        final part = snap.items.where((p) => p.n == n).firstOrNull;
+        final detail = _detailPart(n, _describeEnv);
+        return {
+          'ok': true,
+          'item': {
+            'n': n,
+            ..._handleOf(item['entity'], n),
+            if (part != null) 'text': part.text(),
+            if (detail != null)
+              'detail': [
+                ...detail.description.lines,
+                if (detail.description.actions.isNotEmpty)
+                  '可做：${detail.description.actions.join(' / ')}',
+              ],
+          },
+        };
       case 'mark':
         final n = (args['number'] as num?)?.toInt() ?? 0;
         final phrase = '${args['phrase'] ?? ''}'.trim();
@@ -1548,6 +1833,7 @@ class _AgentModePageState extends State<AgentModePage> {
       compact: compact,
       expanded: l.expanded,
       onExpand: (path) => _expandNode(l, path),
+      interacted: l.interacted,
     );
     // Only a detail layer carries actions.
     final body = l.item == null
@@ -1736,6 +2022,8 @@ class _AgentModePageState extends State<AgentModePage> {
         onLater: _later,
         current: identical(l, _stack.last) ? _current : _currentOf[l.id],
         onCurrent: _tapCurrent,
+        teamOpen: _teamOpen,
+        onTeam: () => setState(() => _teamOpen = !_teamOpen),
       );
     }
     return AgentFrameView(

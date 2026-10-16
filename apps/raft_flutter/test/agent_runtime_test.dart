@@ -649,6 +649,56 @@ void main() {
     });
   });
 
+  group('the screen in the context', () {
+    const snapshot = '【屏幕】第 1 层「现在需要你」(首页)\n① #general · 你派的任务 ｜ 验收「选型」';
+    late AgentRuntime seen;
+    setUp(() {
+      seen = AgentRuntime(
+        workspace: w,
+        data: AgentModeData(w, now: () => worldNow),
+        surfaces: screen.host,
+        references: () => AgentReferenceTable.empty,
+        screenSummary: () => snapshot,
+        screenTool: (name, args) async => {'ok': true, 'snapshot': snapshot},
+        now: () => clock,
+      );
+    });
+    tearDown(() => seen.dispose());
+
+    test('a turn starts with the whole screen, on lines of its own', () {
+      seen.submitText('这个任务在哪个频道');
+      final line = seen.contextLine();
+      expect(line, startsWith('【回合】这是 t1。'));
+      expect(line, endsWith('\n$snapshot'));
+      expect(line, contains('#general'));
+    });
+
+    test('the first call carries it once; an answer that shows the screen '
+        'does not say it twice', () async {
+      seen.submitText('现在有什么');
+      final shown = await seen.runTool('go_home', {});
+      expect(shown['snapshot'], snapshot);
+      expect(
+        shown['ctx'],
+        isNot(contains('#general')),
+        reason: 'the answer already has the screen',
+      );
+      seen.modelTurnComplete();
+      seen.submitText('看所有频道');
+      final read = await seen.runTool('show_list', {'kind': 'channels'});
+      expect(read['ctx'], contains(snapshot));
+      expect(
+        (await seen.runTool('show_list', {'kind': 'tasks'})).containsKey('ctx'),
+        isFalse,
+      );
+    });
+
+    test('without a screen the line is what it was', () {
+      rt.submitText('看所有频道');
+      expect(rt.contextLine(), '');
+    });
+  });
+
   test('dispose cancels what is open', () {
     final turn = rt.submitText('搜一下上线')!;
     final other = AgentRuntime(

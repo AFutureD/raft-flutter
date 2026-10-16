@@ -106,7 +106,71 @@ class AgentFocusable extends StatefulWidget {
   State<AgentFocusable> createState() => _AgentFocusableState();
 }
 
+/// Where an item is in the page it scrolls with.
+enum AgentItemView {
+  /// All of it can be seen.
+  whole,
+
+  /// Part of it can be seen.
+  partly,
+
+  /// It is above the part of the page in view (scrolled past).
+  above,
+
+  /// It is below the part of the page in view.
+  below,
+}
+
+/// Where the numbered items of the layer [layerId] are in the page right now,
+/// by number: what is in view, what was scrolled past, what is still below.
+/// Null when the layer is not drawn (nothing can be said yet).
+Map<int, AgentItemView>? agentItemViews(String layerId) {
+  final out = <int, AgentItemView>{};
+  for (final state in _focusables) {
+    final id = state.widget.id;
+    final at = id.lastIndexOf('#');
+    if (at < 0 || id.substring(0, at) != layerId) continue;
+    final n = int.tryParse(id.substring(at + 1));
+    final view = state.view();
+    if (n != null && view != null) out[n] = view;
+  }
+  return out.isEmpty ? null : out;
+}
+
+final _focusables = <_AgentFocusableState>{};
+
 class _AgentFocusableState extends State<AgentFocusable> {
+  @override
+  void initState() {
+    super.initState();
+    _focusables.add(this);
+  }
+
+  @override
+  void dispose() {
+    _focusables.remove(this);
+    super.dispose();
+  }
+
+  /// Where this item sits in the page it scrolls with; null when it cannot
+  /// be told (not laid out, no page around it).
+  AgentItemView? view() {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final found = RenderAbstractViewport.maybeOf(box);
+    if (found is! RenderBox) return null;
+    final RenderBox viewport = found as RenderBox;
+    if (!viewport.hasSize) return null;
+    final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
+    final bottom = top + box.size.height;
+    final height = viewport.size.height;
+    if (bottom <= 0) return AgentItemView.above;
+    if (top >= height) return AgentItemView.below;
+    return top >= -1 && bottom <= height + 1
+        ? AgentItemView.whole
+        : AgentItemView.partly;
+  }
+
   /// Keeps the item's own state when its stage comes and goes around it.
   final _childKey = GlobalKey();
   final _stageKey = GlobalKey();

@@ -3,7 +3,8 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'references/agent_handle_tag.dart';
 
-typedef _Entry = ({String? section, Map<String, Object?> item, int n});
+/// One item of a frame: the section it comes under, its data, its number.
+typedef AgentFrameEntry = ({String? section, Map<String, Object?> item, int n});
 
 /// One serialized layer (see `agentSurfaceFrame` and the `_frame` of the
 /// page) drawn as hands-free rows: a channel's brief, the tasks, anything
@@ -38,9 +39,11 @@ class AgentFrameView extends StatelessWidget {
     orElse: () => AgentPriority.progress,
   );
 
-  List<_Entry> _entries() {
+  /// The items of [frame] with the section label they come under, numbered
+  /// from 1 as the agent numbers them (section labels do not count).
+  static List<AgentFrameEntry> entriesOf(Map<String, Object?> frame) {
     final title = '${frame['title'] ?? ''}';
-    final entries = <_Entry>[];
+    final entries = <AgentFrameEntry>[];
     String? section;
     var n = 0;
     for (final i in (frame['items'] as List?) ?? const []) {
@@ -58,11 +61,11 @@ class AgentFrameView extends StatelessWidget {
     return entries;
   }
 
-  HfRow _row(HfData hf, _Entry e) {
+  /// The row of one item. [onTap] makes it the current one.
+  static HfRow rowOf(AgentFrameEntry e, {VoidCallback? onTap}) {
     final i = e.item;
     final message = i['kind'] == 'message';
     final label = '${i['label'] ?? ''}';
-    final current = onCurrent;
     return HfRow(
       key: ValueKey('frame-row-${e.n}'),
       index: e.n,
@@ -74,34 +77,58 @@ class AgentFrameView extends StatelessWidget {
       ].where((s) => s.isNotEmpty).join(' · '),
       title: message ? '${i['text'] ?? ''}' : '${i['title'] ?? ''}',
       detail: message || i['detail'] == label ? null : '${i['detail'] ?? ''}',
-      onTap: current != null && hf.interactive ? () => current(e.n) : null,
+      onTap: onTap,
+    );
+  }
+
+  /// The frame of the layer: its header, the line under it, the spinner or
+  /// the error, with [children] as the body.
+  static HfLayerFrame frameOf(
+    Map<String, Object?> frame, {
+    List<Widget> children = const [],
+  }) {
+    final summary = frame['summary'] as String?;
+    final failed = summary != null && summary.startsWith('读取失败');
+    final empty = AgentFrameView.entriesOf(frame).isEmpty;
+    return HfLayerFrame(
+      title: '${frame['title'] ?? ''}',
+      meta: frame['meta'] as String?,
+      summary: summary == null || failed ? null : TextSpan(text: summary),
+      loading: frame['loading'] == true && empty,
+      error: failed ? summary : null,
+      children: children,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    final entries = _entries();
-    final summary = frame['summary'] as String?;
-    final failed = summary != null && summary.startsWith('读取失败');
+    final entries = entriesOf(frame);
     final prefix = focusPrefix;
-    return HfLayerFrame(
-      title: '${frame['title'] ?? ''}',
-      meta: frame['meta'] as String?,
-      summary: summary == null || failed ? null : TextSpan(text: summary),
-      loading: frame['loading'] == true && entries.isEmpty,
-      error: failed ? summary : null,
+    final current = onCurrent;
+    return frameOf(
+      frame,
       children: [
         for (final (r, e) in entries.indexed) ...[
           if (r > 0) SizedBox(height: hf.rowGap),
           if (prefix == null)
-            _row(hf, e)
+            rowOf(
+              e,
+              onTap: current != null && hf.interactive
+                  ? () => current(e.n)
+                  : null,
+            )
           else
             AgentFocusable(
               id: '$prefix#${e.n}',
               child: AgentHandleTag(
                 focusId: '$prefix#${e.n}',
-                child: _row(hf, e),
+                child: rowOf(
+                  e,
+                  onTap: current != null && hf.interactive
+                      ? () => current(e.n)
+                      : null,
+                ),
               ),
             ),
         ],
@@ -131,7 +158,11 @@ class AgentFrameStage extends StatelessWidget {
   final VoidCallback? onOpen;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => view();
+
+  /// The detail as the screen draws it; the description of the current item
+  /// is read from this same widget.
+  HfDetail view() {
     final message = item['kind'] == 'message';
     final detail = '${item['detail'] ?? ''}';
     final label = '${item['label'] ?? ''}';

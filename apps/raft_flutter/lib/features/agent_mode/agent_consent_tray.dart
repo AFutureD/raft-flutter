@@ -30,9 +30,108 @@ class AgentConsentTray extends StatefulWidget {
   final void Function(String id)? onUndo, onRetry;
   final DateTime Function()? now;
 
+  /// The things the operation is about, as the cards of the app's data.
+  static List<ui.AgentEntityRef> _things(List<AgentPreviewRef> refs) {
+    final kinds = {for (final k in AgentEntityKind.values) k.name: k};
+    return [
+      for (final r in refs)
+        if (kinds[r.entity] != null) ui.AgentEntityRef(kinds[r.entity]!, r.id),
+    ];
+  }
+
+  /// The cards of the tray, in the order they are drawn: the results of the
+  /// operations that ran, the previews that wait for an answer, and what the
+  /// person moved on from. A card with a tap is dismissed by it.
+  static List<AgentTrayEntry> entriesOf({
+    required AgentConsentLedger ledger,
+    AgentActionBoard? board,
+    required DateTime now,
+    void Function(String id)? onUndo,
+    void Function(String id)? onRetry,
+  }) {
+    final pending = ledger.active;
+    final cancelled = ledger.cancelledCards;
+    final records = board?.records ?? const <AgentActionRecord>[];
+    return [
+      for (final r in records)
+        (
+          card: HfConfirm(
+            // The card the confirmation was on: same key, same place.
+            key: ValueKey('agent-consent-${ledger.cardIdFor(r.id) ?? r.id}'),
+            message: r.preview.summary,
+            changes: r.preview.changes,
+            things: _things([
+              if (r.entity != null && !r.undone)
+                r.entity!
+              else
+                ...r.preview.refs,
+            ]),
+            outcome: AgentActionOutcome(
+              kind: switch (r.phase) {
+                AgentActionPhase.running => AgentOutcomeKind.running,
+                AgentActionPhase.done => AgentOutcomeKind.done,
+                AgentActionPhase.failed => AgentOutcomeKind.failed,
+              },
+              text: r.text ?? '执行中',
+              undoLabel: r.undoLabel,
+              onUndo: r.undoOpen(now) && onUndo != null
+                  ? () => onUndo(r.id)
+                  : null,
+              onRetry:
+                  r.phase == AgentActionPhase.failed &&
+                      r.canRetry &&
+                      onRetry != null
+                  ? () => onRetry(r.id)
+                  : null,
+              onDismiss: r.phase == AgentActionPhase.running
+                  ? null
+                  : () => board?.dismiss(r.id),
+            ),
+          ),
+          onTap: null,
+        ),
+      for (final p in pending)
+        if (!records.any((r) => r.id == p.request.token))
+          (
+            card: HfConfirm(
+              key: ValueKey('agent-consent-${p.cardId}'),
+              message: p.request.total > 1
+                  ? '${p.request.preview.summary}（第 ${p.request.step}/${p.request.total} 次确认）'
+                  : p.request.preview.summary,
+              changes: p.request.preview.changes,
+              things: _things(p.request.preview.refs),
+              risk: p.request.sensitive
+                  ? AgentConfirmRisk.sensitive
+                  : AgentConfirmRisk.change,
+              result: p.approved ? AgentConfirmResult.confirmed : null,
+              onConfirm: () => ledger.cardTapped(p.cardId, yes: true),
+              onCancel: () => ledger.cardTapped(p.cardId, yes: false),
+            ),
+            onTap: null,
+          ),
+      // What the person moved on from: the card says so for a moment.
+      for (final c in cancelled)
+        (
+          card: HfConfirm(
+            key: ValueKey('agent-consent-${c.cardId}'),
+            message: c.request.preview.summary,
+            changes: c.request.preview.changes,
+            risk: c.request.sensitive
+                ? AgentConfirmRisk.sensitive
+                : AgentConfirmRisk.change,
+            result: AgentConfirmResult.cancelled,
+          ),
+          onTap: () => ledger.dismissCancelled(c.cardId),
+        ),
+    ];
+  }
+
   @override
   State<AgentConsentTray> createState() => _AgentConsentTrayState();
 }
+
+/// One card of the tray, and what a tap on it does (nothing for most).
+typedef AgentTrayEntry = ({HfConfirm card, VoidCallback? onTap});
 
 class _AgentConsentTrayState extends State<AgentConsentTray> {
   Timer? _expiry;
@@ -92,127 +191,34 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
     });
   }
 
-  /// The things the operation is about, as cards the app draws from its data.
-  Widget? _refs(List<AgentPreviewRef> refs) {
-    final kinds = {for (final k in AgentEntityKind.values) k.name: k};
-    final shown = [
-      for (final r in refs)
-        if (kinds[r.entity] != null) ui.AgentEntityRef(kinds[r.entity]!, r.id),
-    ];
-    if (shown.isEmpty) return null;
-    final gap = HandsFree.of(context).rowGap;
-    return Padding(
-      padding: EdgeInsets.only(top: gap * .5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final e in shown)
-            Padding(
-              padding: EdgeInsets.only(bottom: gap),
-              child: HfEntityCard(entity: e),
-            ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final pending = widget.ledger.active;
-    final cancelled = widget.ledger.cancelledCards;
-    final records = widget.board?.records ?? const <AgentActionRecord>[];
-    if (pending.isEmpty && records.isEmpty && cancelled.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final entries = AgentConsentTray.entriesOf(
+      ledger: widget.ledger,
+      board: widget.board,
+      now: _now(),
+      onUndo: widget.onUndo,
+      onRetry: widget.onRetry,
+    );
+    if (entries.isEmpty) return const SizedBox.shrink();
     final hf = HandsFree.of(context);
-    final now = _now();
     // The tray is the end of the layer's page, whatever its height (a card
     // with the thing it is about is tall): it scrolls with the page, and the
     // page scrolls to a card that comes.
     return AgentReveal(
-      signature: pending.length + records.length + cancelled.length,
+      signature: entries.length,
       child: Padding(
         padding: EdgeInsets.only(bottom: hf.sp(10)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final r in records)
+            for (final e in entries)
               Padding(
                 padding: EdgeInsets.only(top: hf.sp(6)),
-                child: HfConfirm(
-                  // The card the confirmation was on: same key, same place.
-                  key: ValueKey(
-                    'agent-consent-${widget.ledger.cardIdFor(r.id) ?? r.id}',
-                  ),
-                  message: r.preview.summary,
-                  changes: r.preview.changes,
-                  attachment: _refs([
-                    if (r.entity != null && !r.undone)
-                      r.entity!
-                    else
-                      ...r.preview.refs,
-                  ]),
-                  outcome: AgentActionOutcome(
-                    kind: switch (r.phase) {
-                      AgentActionPhase.running => AgentOutcomeKind.running,
-                      AgentActionPhase.done => AgentOutcomeKind.done,
-                      AgentActionPhase.failed => AgentOutcomeKind.failed,
-                    },
-                    text: r.text ?? '执行中',
-                    undoLabel: r.undoLabel,
-                    onUndo: r.undoOpen(now) && widget.onUndo != null
-                        ? () => widget.onUndo!(r.id)
-                        : null,
-                    onRetry:
-                        r.phase == AgentActionPhase.failed &&
-                            r.canRetry &&
-                            widget.onRetry != null
-                        ? () => widget.onRetry!(r.id)
-                        : null,
-                    onDismiss: r.phase == AgentActionPhase.running
-                        ? null
-                        : () => widget.board?.dismiss(r.id),
-                  ),
-                ),
-              ),
-            for (final p in pending)
-              if (!records.any((r) => r.id == p.request.token))
-                Padding(
-                  padding: EdgeInsets.only(top: hf.sp(6)),
-                  child: HfConfirm(
-                    key: ValueKey('agent-consent-${p.cardId}'),
-                    message: p.request.total > 1
-                        ? '${p.request.preview.summary}（第 ${p.request.step}/${p.request.total} 次确认）'
-                        : p.request.preview.summary,
-                    changes: p.request.preview.changes,
-                    attachment: _refs(p.request.preview.refs),
-                    risk: p.request.sensitive
-                        ? AgentConfirmRisk.sensitive
-                        : AgentConfirmRisk.change,
-                    result: p.approved ? AgentConfirmResult.confirmed : null,
-                    onConfirm: () =>
-                        widget.ledger.cardTapped(p.cardId, yes: true),
-                    onCancel: () =>
-                        widget.ledger.cardTapped(p.cardId, yes: false),
-                  ),
-                ),
-            // What the person moved on from: the card says so for a moment.
-            for (final c in cancelled)
-              Padding(
-                padding: EdgeInsets.only(top: hf.sp(6)),
-                child: GestureDetector(
-                  onTap: () => widget.ledger.dismissCancelled(c.cardId),
-                  child: HfConfirm(
-                    key: ValueKey('agent-consent-${c.cardId}'),
-                    message: c.request.preview.summary,
-                    changes: c.request.preview.changes,
-                    risk: c.request.sensitive
-                        ? AgentConfirmRisk.sensitive
-                        : AgentConfirmRisk.change,
-                    result: AgentConfirmResult.cancelled,
-                  ),
-                ),
+                child: e.onTap == null
+                    ? e.card
+                    : GestureDetector(onTap: e.onTap, child: e.card),
               ),
           ],
         ),

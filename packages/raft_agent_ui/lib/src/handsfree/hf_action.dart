@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../display_spec.dart';
 import '../enter.dart';
 import '../entity_blocks.dart';
+import '../entity_model.dart';
 import '../spotlight.dart';
 import 'hf_blocks.dart';
+import 'hf_describe.dart';
+import 'hf_entity.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
@@ -243,10 +246,14 @@ class _DashedOutline extends CustomPainter {
 /// room (not on a phone), else the first on its own line above the rest. On
 /// a TV they are voice hints. [oneRow] keeps them side by side on a phone too
 /// (a stage under a row, which has little height to spare).
-class HfActions extends StatelessWidget {
+class HfActions extends StatelessWidget implements HfDescribed {
   const HfActions({super.key, required this.actions, this.oneRow = false});
   final List<HfAction> actions;
   final bool oneRow;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) =>
+      HfDescription(const [], actions: [for (final a in actions) a.label]);
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +302,7 @@ class HfActions extends StatelessWidget {
 /// `label` and the `field_names`; the changes, the outcome and the pills are
 /// never left out, a confirmation is only worth anything if the person sees
 /// what they confirm.
-class HfConfirm extends StatefulWidget {
+class HfConfirm extends StatefulWidget implements HfDescribed {
   const HfConfirm({
     super.key,
     required this.message,
@@ -303,6 +310,7 @@ class HfConfirm extends StatefulWidget {
     this.risk = AgentConfirmRisk.change,
     this.label = '将要修改',
     this.attachment,
+    this.things = const [],
     this.outcome,
     this.result,
     this.display,
@@ -328,6 +336,10 @@ class HfConfirm extends StatefulWidget {
   /// Under the changes: the things the operation is about, and after it ran,
   /// the thing it made (an entity card).
   final Widget? attachment;
+
+  /// The things the operation is about, drawn as cards from the app's data
+  /// (after [attachment]).
+  final List<AgentEntityRef> things;
   final AgentActionOutcome? outcome;
 
   /// Set by the owner once the decision was carried out (or refused).
@@ -342,6 +354,56 @@ class HfConfirm extends StatefulWidget {
   final String confirmVoice, cancelVoice;
   final VoidCallback? onConfirm, onCancel;
   final String? focusId;
+
+  /// The words of the tag above the message.
+  String get tag => switch (outcome?.kind) {
+    AgentOutcomeKind.running => '执行中',
+    AgentOutcomeKind.done => '已完成',
+    AgentOutcomeKind.failed => '没成功',
+    null => risk == AgentConfirmRisk.sensitive ? '敏感操作' : label,
+  };
+
+  /// The voice hint under the pills of a card that waits.
+  static const answerHint = '也可以直接说“对”或“取消”';
+
+  /// A change as it is drawn: the field, then "from → to" or the value.
+  static String changeLine(AgentChange c, {required bool showField}) {
+    final from = c.from, to = c.to;
+    final value = from != null && to != null
+        ? '${from.isEmpty ? '（空）' : from} → ${to.isEmpty ? '（空）' : to}'
+        : to;
+    final field = showField || (from == null && to == null) ? c.field : null;
+    return hfKept([field, value]).join('：');
+  }
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve('ConfirmCard');
+    final sensitive = risk == AgentConfirmRisk.sensitive;
+    final o = outcome;
+    final lines = <String>[
+      if (x.has('label') || sensitive || o != null) tag,
+      message,
+      for (final line in changes.take(AgentBlockLimits.confirmChanges))
+        changeLine(AgentChange.parse(line), showField: x.has('field_names')),
+      for (final t in things)
+        ...HfEntityCard(entity: t).describe(env.at(null)).lines,
+    ];
+    final actions = <String>[];
+    if (o != null) {
+      lines.add('${o.text}${_OutcomeRow.mark(o.kind)}');
+      actions.addAll(_OutcomeRow.labels(o));
+    } else if (result == null) {
+      actions.addAll([
+        confirmLabel ?? (sensitive ? '确认执行' : '确认'),
+        cancelLabel,
+      ]);
+      lines.add(answerHint);
+    } else {
+      lines.add(result == AgentConfirmResult.confirmed ? '已确认' : '已取消');
+    }
+    return HfDescription(lines, actions: actions, block: true);
+  }
 
   @override
   State<HfConfirm> createState() => _HfConfirmState();
@@ -358,6 +420,21 @@ class _HfConfirmState extends State<HfConfirm> {
     cb?.call();
   }
 
+  /// The things the operation is about, as cards the app draws from its data.
+  Widget _things(HfData hf) => Padding(
+    padding: EdgeInsets.only(top: hf.rowGap * .5),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final e in widget.things)
+          Padding(
+            padding: EdgeInsets.only(bottom: hf.rowGap),
+            child: HfEntityCard(entity: e),
+          ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
@@ -365,12 +442,7 @@ class _HfConfirmState extends State<HfConfirm> {
     final sensitive = widget.risk == AgentConfirmRisk.sensitive;
     final outcome = widget.outcome;
     final result = _result;
-    final tag = switch (outcome?.kind) {
-      AgentOutcomeKind.running => '执行中',
-      AgentOutcomeKind.done => '已完成',
-      AgentOutcomeKind.failed => '没成功',
-      null => sensitive ? '敏感操作' : widget.label,
-    };
+    final tag = widget.tag;
     final tagFill = switch (outcome?.kind) {
       AgentOutcomeKind.done => HfColors.progress,
       AgentOutcomeKind.failed => HfColors.decision,
@@ -432,6 +504,7 @@ class _HfConfirmState extends State<HfConfirm> {
                   showField: x.has('field_names'),
                 ),
               if (widget.attachment != null) widget.attachment!,
+              if (widget.things.isNotEmpty) _things(hf),
               SizedBox(height: hf.sp(14)),
               if (outcome != null)
                 _OutcomeRow(outcome: outcome)
@@ -476,7 +549,7 @@ class _HfConfirmState extends State<HfConfirm> {
                 if (hf.interactive) ...[
                   SizedBox(height: hf.sp(6)),
                   Text(
-                    '也可以直接说“对”或“取消”',
+                    HfConfirm.answerHint,
                     style: hf.type(HfType.meta, color: HfColors.inkMuted),
                   ),
                 ],
@@ -500,15 +573,24 @@ class _OutcomeRow extends StatelessWidget {
   const _OutcomeRow({required this.outcome});
   final AgentActionOutcome outcome;
 
+  static String mark(AgentOutcomeKind kind) => switch (kind) {
+    AgentOutcomeKind.done => ' ✅',
+    AgentOutcomeKind.failed => ' ⚠️',
+    AgentOutcomeKind.running => '…',
+  };
+
+  /// The pills of a result card, in the order they are drawn.
+  static List<String> labels(AgentActionOutcome o) => [
+    if (o.onRetry != null) '重试',
+    if (o.onUndo != null && o.undoLabel != null) '撤销（${o.undoLabel}）',
+    if (o.onDismiss != null) '知道了',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final o = outcome;
-    final mark = switch (o.kind) {
-      AgentOutcomeKind.done => ' ✅',
-      AgentOutcomeKind.failed => ' ⚠️',
-      AgentOutcomeKind.running => '…',
-    };
+    final mark = _OutcomeRow.mark(o.kind);
     final buttons = [
       if (o.onRetry != null)
         HfAction(

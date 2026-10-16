@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../enter.dart';
+import 'hf_describe.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
@@ -118,17 +119,24 @@ class HfCount {
 
 /// "② 件等你决定 · ① 件卡住了": the whole screen in one line. A group of
 /// zero is left out. On a phone it wraps.
-class HfCountLine extends StatelessWidget {
+class HfCountLine extends StatelessWidget implements HfDescribed {
   const HfCountLine({super.key, required this.counts});
   final List<HfCount> counts;
+
+  /// The groups drawn: a group of zero is left out.
+  List<HfCount> get shown => [
+    for (final c in counts)
+      if (c.count > 0) c,
+  ];
+
+  @override
+  HfDescription describe(HfDescribeEnv env) =>
+      HfDescription([for (final c in shown) '${c.count}${c.label}']);
 
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    final shown = [
-      for (final c in counts)
-        if (c.count > 0) c,
-    ];
+    final shown = this.shown;
     final style = hf.type(HfType.count);
     return Semantics(
       label: [for (final c in shown) '${c.count}${c.label}'].join('，'),
@@ -161,11 +169,17 @@ class HfCountLine extends StatelessWidget {
 }
 
 /// A group name with its count and a rule: "等你决定 ②".
-class HfSectionLabel extends StatelessWidget {
+class HfSectionLabel extends StatelessWidget implements HfDescribed {
   const HfSectionLabel(this.label, {super.key, this.count, required this.tone});
   final String label;
   final int? count;
   final HfTone tone;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final line = hfKept([label, count == null ? null : '$count']).join(' ');
+    return HfDescription(line.isEmpty ? const [] : [line]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +220,9 @@ class HfStatBlock extends StatelessWidget {
   });
   final String label, value;
   final String? unit;
+
+  /// What the block says in a line: "已等 3 小时".
+  String get text => hfKept([label, value, unit]).join(' ');
 
   @override
   Widget build(BuildContext context) {

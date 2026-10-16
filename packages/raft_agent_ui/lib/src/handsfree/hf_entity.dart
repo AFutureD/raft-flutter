@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../display_spec.dart';
 import '../entity_model.dart';
+import 'hf_describe.dart';
 import 'hf_detail.dart';
 import 'hf_row.dart';
 import 'hf_scope.dart';
@@ -354,7 +355,7 @@ _Parts _partsOf(AgentEntityData d, AgentDisplay x) {
 ///
 /// `minimum` is the title alone, `medium` meta, title and one line, `detail`
 /// a card with a row per fact. A card with no level of its own is `medium`.
-class HfEntityCard extends StatelessWidget {
+class HfEntityCard extends StatelessWidget implements HfDescribed {
   const HfEntityCard({
     super.key,
     required this.entity,
@@ -371,43 +372,72 @@ class HfEntityCard extends StatelessWidget {
   final DisplaySpec? display;
   final VoidCallback? onTap;
 
+  /// What the resolver says when the card has none (a screen not wired to the
+  /// app's data).
+  static const unwired = AgentEntityMissing('这个界面没有接入数据，无法读取');
+
+  /// The row or detail the card is for [resolution], with its number: the one
+  /// place that decides what the card prints.
+  Widget core(AgentEntityResolution resolution, int? number) =>
+      switch (resolution) {
+        AgentEntityFound(:final data) => _card(data, number).$1,
+        AgentEntityLoading() => _stub(number, '读取中…', missing: false),
+        AgentEntityMissing() => _stub(
+          number,
+          '找不到${agentEntityKindLabels[entity.kind]}',
+          missing: true,
+        ),
+      };
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final resolution = env.resolver?.resolve(entity) ?? unwired;
+    final part = core(resolution, env.index);
+    return part is HfDescribed
+        ? (part as HfDescribed).describe(env)
+        : const HfDescription([]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = HfItemScope.maybeOf(context);
     return AgentEntityBuilder(
       entity: entity,
       builder: (context, resolution) {
-        switch (resolution) {
-          case AgentEntityFound(:final data):
-            return _found(context, data, scope);
-          case AgentEntityLoading():
-            return _stub(scope, '读取中…', missing: false);
-          case AgentEntityMissing():
-            return _stub(
-              scope,
-              '找不到${agentEntityKindLabels[entity.kind]}',
-              missing: true,
-            );
+        if (resolution is! AgentEntityFound) {
+          return core(resolution, scope?.index);
         }
+        final (card, semantics) = _card(resolution.data, scope?.index);
+        final number = scope?.index;
+        // An element shown or hidden grows or shrinks the card smoothly.
+        return AnimatedSize(
+          key: ValueKey('entity-card-${resolution.data.kind.name}'),
+          duration: agentResizeDuration,
+          curve: agentResizeCurve,
+          alignment: Alignment.topCenter,
+          child: Semantics(
+            container: true,
+            label: number == null
+                ? semantics
+                : '${agentHandleGlyph('$number')} $semantics',
+            child: card,
+          ),
+        );
       },
     );
   }
 
-  Widget _stub(HfItemScope? scope, String text, {required bool missing}) =>
-      HfRow(
-        key: ValueKey('entity-stub-${entity.kind.name}-${entity.id}'),
-        index: scope?.index,
-        tone: missing ? HfTone.blocked : HfTone.info,
-        title: text,
-        detail: entity.id,
-        onTap: onTap,
-      );
+  Widget _stub(int? number, String text, {required bool missing}) => HfRow(
+    key: ValueKey('entity-stub-${entity.kind.name}-${entity.id}'),
+    index: number,
+    tone: missing ? HfTone.blocked : HfTone.info,
+    title: text,
+    detail: entity.id,
+    onTap: onTap,
+  );
 
-  Widget _found(
-    BuildContext context,
-    AgentEntityData data,
-    HfItemScope? scope,
-  ) {
+  /// The card of [data] and what a screen reader says of it.
+  (Widget, String) _card(AgentEntityData data, int? number) {
     final x = (display ?? DisplaySpec.none).resolve(
       data.kind.name,
       fallbackLevel: AgentLevel.medium,
@@ -417,8 +447,8 @@ class HfEntityCard extends StatelessWidget {
     final high = emphasis == AgentEmphasis.high;
     // The number is the handle: a card whose `handle` element is off still
     // can be pointed at, it just does not wear it.
-    final index = x.has('handle') ? scope?.index : null;
-    Widget card;
+    final index = x.has('handle') ? number : null;
+    final Widget card;
     if (x.level == AgentLevel.detail) {
       card = HfDetail(
         titleMode: HfDetailTitle.heading,
@@ -445,21 +475,7 @@ class HfEntityCard extends StatelessWidget {
         onTap: onTap,
       );
     }
-    final number = scope?.index;
-    // An element shown or hidden grows or shrinks the card smoothly.
-    return AnimatedSize(
-      key: ValueKey('entity-card-${data.kind.name}'),
-      duration: agentResizeDuration,
-      curve: agentResizeCurve,
-      alignment: Alignment.topCenter,
-      child: Semantics(
-        container: true,
-        label: number == null
-            ? p.semantics
-            : '${agentHandleGlyph('$number')} ${p.semantics}',
-        child: card,
-      ),
-    );
+    return (card, p.semantics);
   }
 }
 
@@ -478,20 +494,37 @@ class HfEntityInline extends StatelessWidget {
   /// In s-units.
   final double size;
 
+  /// The words of the line for [resolution].
+  static String textOf(
+    AgentEntityRef entity,
+    AgentEntityResolution resolution,
+  ) => switch (resolution) {
+    AgentEntityFound(:final data) => data.label,
+    AgentEntityLoading() => '读取中…',
+    AgentEntityMissing() =>
+      '找不到${agentEntityKindLabels[entity.kind]} ${entity.id}',
+  };
+
+  /// The line as described: the handle glyph, then the words.
+  static String lineOf(
+    AgentEntityRef entity,
+    String? handle,
+    AgentEntityResolver? resolver,
+  ) => hfKept([
+    if (handle != null) agentHandleGlyph(handle),
+    textOf(entity, resolver?.resolve(entity) ?? HfEntityCard.unwired),
+  ]).join(' ');
+
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     return AgentEntityBuilder(
       entity: entity,
       builder: (context, resolution) {
-        final (text, color) = switch (resolution) {
-          AgentEntityFound(:final data) => (data.label, HfColors.ink),
-          AgentEntityLoading() => ('读取中…', HfColors.inkMuted),
-          AgentEntityMissing() => (
-            '找不到${agentEntityKindLabels[entity.kind]} ${entity.id}',
-            HfColors.inkMuted,
-          ),
-        };
+        final text = textOf(entity, resolution);
+        final color = resolution is AgentEntityFound
+            ? HfColors.ink
+            : HfColors.inkMuted;
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [

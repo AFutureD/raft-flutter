@@ -351,7 +351,7 @@ AgentCatalog _standard() => AgentCatalog([
       'required': ['itemId'],
     },
     build: (context, n, _) {
-      final scope = AgentActionScope.maybeOf(context);
+      final scope = context == null ? null : AgentActionScope.maybeOf(context);
       void Function()? act(String a) =>
           scope == null ? null : () => scope.onAction(a);
       final id = n.string('itemId') ?? '';
@@ -406,6 +406,7 @@ class AgentSurfaceView extends StatefulWidget {
     this.compact,
     this.expanded = const {},
     this.onExpand,
+    this.interacted = const {},
     this.animate = false,
   });
   final AgentSurfaceSpec spec;
@@ -422,6 +423,24 @@ class AgentSurfaceView extends StatefulWidget {
   final bool? compact;
   final Set<String> expanded;
   final ValueChanged<String>? onExpand;
+
+  /// What the person did on the choices, switches and confirm cards of the
+  /// screen ([agentWithInteraction]); the owner keeps it, so the screen and
+  /// what the model is told about it agree.
+  final Map<String, Object?> interacted;
+
+  /// The frame of the layer: the title sticker and the summary line, with
+  /// [children] as its body.
+  static HfLayerFrame frameOf(
+    AgentSurfaceSpec spec, {
+    bool enterTitle = false,
+    List<Widget> children = const [],
+  }) => HfLayerFrame(
+    title: spec.title,
+    enterTitle: enterTitle,
+    summary: spec.summary == null ? null : TextSpan(text: spec.summary),
+    children: children,
+  );
 
   @override
   State<AgentSurfaceView> createState() => _AgentSurfaceViewState();
@@ -449,11 +468,11 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
     // [inherited] is what the lists above say every child looks like
     // (`childDisplay`): the nearest list that says something wins, and a
     // child's own `display` wins over all of it, element by element.
-    Widget draw(SurfaceNode node, String path, DisplaySpec? inherited) {
+    Widget draw(SurfaceNode raw, String path, DisplaySpec? inherited) {
+      final node = agentWithInteraction(raw, widget.interacted);
       final item = catalog.item(node.component);
       if (item == null) return const SizedBox.shrink();
-      final own = agentDisplayOf(node.props).over(inherited);
-      final below = agentDisplayOf(node.props, 'childDisplay').over(inherited);
+      final (own, below) = _displaysOf(node, inherited);
       final Widget drawn;
       if (folded.contains(path)) {
         final id = '${widget.focusPrefix}#${numbers[path]}';
@@ -525,10 +544,9 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
     final body = draw(spec.root, 'r', null);
     return AgentEnterPacing(
       pacer: _pacer,
-      child: HfLayerFrame(
-        title: spec.title,
+      child: AgentSurfaceView.frameOf(
+        spec,
         enterTitle: widget.animate,
-        summary: spec.summary == null ? null : TextSpan(text: spec.summary),
         children: [body],
       ),
     );
@@ -633,24 +651,48 @@ class _LiveSummaryRowState extends State<_LiveSummaryRow> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final node = widget.node;
-    final display = widget.display;
-    return HfSummaryRow(
-      title: node.string('title') ?? '',
-      count: node.children.length,
-      text: _foldedText(widget.catalog, node, labelOf: _label),
-      tone: node.string('state') == null
-          ? HfTone.progress
-          : hfWorkTone(_state(node.string('state'))),
-      display: display == null || display.isEmpty ? null : display,
-      displayKind: node.component == AgentComponents.section
-          ? 'Section'
-          : 'AgentStatusGroup',
-      onTap: widget.onTap,
-    );
-  }
+  Widget build(BuildContext context) => summaryRowOf(
+    widget.catalog,
+    widget.node,
+    display: widget.display,
+    onTap: widget.onTap,
+    labelOf: _label,
+  );
 }
+
+/// The folded row of a container: its title and count, its members in a run.
+/// The screen draws it and the description is read from it, so what the model
+/// is told a folded group says is what the row says.
+HfSummaryRow summaryRowOf(
+  AgentCatalog catalog,
+  SurfaceNode node, {
+  DisplaySpec? display,
+  VoidCallback? onTap,
+  String? Function(SurfaceNode card)? labelOf,
+}) => HfSummaryRow(
+  title: node.string('title') ?? '',
+  count: node.children.length,
+  text: _foldedText(catalog, node, labelOf: labelOf),
+  tone: node.string('state') == null
+      ? HfTone.progress
+      : hfWorkTone(_state(node.string('state'))),
+  display: display == null || display.isEmpty ? null : display,
+  displayKind: node.component == AgentComponents.section
+      ? 'Section'
+      : 'AgentStatusGroup',
+  onTap: onTap,
+);
+
+/// The display of [node] after the lists above it, and the one it hands to
+/// its children: the nearest list that says something wins, and a child's own
+/// `display` wins over all of it, element by element.
+(DisplaySpec, DisplaySpec) _displaysOf(
+  SurfaceNode node,
+  DisplaySpec? inherited,
+) => (
+  agentDisplayOf(node.props).over(inherited),
+  agentDisplayOf(node.props, 'childDisplay').over(inherited),
+);
 
 Widget _summaryRow(
   AgentCatalog catalog,
@@ -663,6 +705,116 @@ Widget _summaryRow(
   display: display,
   onTap: onTap,
 );
+
+/// One thing a surface shows, described: a numbered item, or a block or a
+/// group heading that has no number.
+class AgentSurfacePart {
+  const AgentSurfacePart({
+    required this.component,
+    required this.path,
+    required this.description,
+    this.number,
+    this.folded = false,
+    this.heading = false,
+  });
+  final String component, path;
+  final HfDescription description;
+
+  /// A group's title and count over the items in it.
+  final bool heading;
+
+  /// The number it wears on the screen (what the person says to point at it).
+  final int? number;
+
+  /// A group shown as its one summary row.
+  final bool folded;
+}
+
+/// What [spec] shows, part by part, in reading order: the same walk
+/// [AgentSurfaceView] makes (the same folded groups, the same numbers, the
+/// same inherited `display`), the same widgets built from the same nodes,
+/// described instead of drawn. [env] reads the entities the cards point at.
+List<AgentSurfacePart> describeSurface(
+  AgentSurfaceSpec spec, {
+  required bool compact,
+  Set<String> expanded = const {},
+  Map<String, Object?> interacted = const {},
+  AgentCatalog? catalog,
+  HfDescribeEnv env = const HfDescribeEnv(),
+}) {
+  final cat = catalog ?? agentStandardCatalog;
+  final folded = foldedPaths(
+    cat,
+    spec.root,
+    compact: compact,
+    expanded: expanded,
+  );
+  final numbers = focusNumbers(cat, spec.root, folded);
+  final parts = <AgentSurfacePart>[];
+  String? labelOf(SurfaceNode card) {
+    final kind = AgentEntityKind.values
+        .where((k) => k.name == card.string('entity'))
+        .firstOrNull;
+    final id = card.string('id');
+    if (kind == null || id == null) return null;
+    final r = env.resolver?.resolve(ui.AgentEntityRef(kind, id));
+    return r is AgentEntityFound ? r.data.label : null;
+  }
+
+  void visit(SurfaceNode raw, String path, DisplaySpec? inherited) {
+    final node = agentWithInteraction(raw, interacted);
+    final item = cat.item(node.component);
+    if (item == null) return;
+    final (own, below) = _displaysOf(node, inherited);
+    final number = numbers[path];
+    if (folded.contains(path)) {
+      final row = summaryRowOf(
+        cat,
+        node,
+        display: own,
+        onTap: () {},
+        labelOf: labelOf,
+      );
+      parts.add(
+        AgentSurfacePart(
+          component: node.component,
+          path: path,
+          number: number,
+          folded: true,
+          description: row.describe(env.at(number)),
+        ),
+      );
+      return;
+    }
+    final built = item.build(
+      null,
+      node.copyWith(
+        props: {...node.props, if (!own.isEmpty) 'display': own.toJson()},
+      ),
+      [for (final _ in node.children) const SizedBox.shrink()],
+    );
+    if (built is HfDescribed) {
+      final description = (built as HfDescribed).describe(env.at(number));
+      if (!description.isEmpty) {
+        parts.add(
+          AgentSurfacePart(
+            component: node.component,
+            path: path,
+            number: number,
+            description: description,
+            heading: item.container,
+          ),
+        );
+      }
+    }
+    for (final (i, c) in node.children.indexed) {
+      visit(c, surfaceChildPath(path, i), below.isEmpty ? null : below);
+    }
+  }
+
+  visit(spec.root, 'r', null);
+  return parts;
+}
 
 /// The surface as a serialized layer (see `AgentFrameView`): what the TV
 /// mirror draws and what the voice model reads as numbered screen items.

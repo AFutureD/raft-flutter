@@ -46,6 +46,7 @@ const _neutralTools = {
   'release_spotlight',
   'mark',
   'resolve',
+  'read_screen',
 };
 
 /// Answered at once, never waited for: a screen operation or a decision of
@@ -57,6 +58,7 @@ const _instantTools = {
   'confirm',
   'undo',
   'resolve',
+  'read_screen',
   'set_mood',
   'spotlight',
   'release_spotlight',
@@ -277,7 +279,10 @@ class AgentRuntime extends ChangeNotifier {
   )?
   screenTool;
 
-  /// One line on what the screen shows ("第 2 层「任务」"), for the context.
+  /// What the screen shows, in words (see `AgentScreenSnapshot`): the layer,
+  /// every item with everything it says, the current one in full. The model
+  /// is given it with the context of a turn, and with the answer of every tool
+  /// that changes the screen.
   final String Function()? screenSummary;
 
   /// Last touch on the result of a tool the runtime ran (e.g. adding the
@@ -708,8 +713,9 @@ class AgentRuntime extends ChangeNotifier {
 
   /// What the model is told when a turn starts, in a few words: the turn id,
   /// what the previous turn was and how it ended, the confirmations waiting,
-  /// the screen. Nothing when there is no history yet.
-  String contextLine([AgentTurn? turn]) {
+  /// the screen. Nothing when there is no history yet. [withScreen] false
+  /// leaves the screen out (the answer it goes with has it already).
+  String contextLine([AgentTurn? turn, bool withScreen = true]) {
     final t = turn ?? current;
     if (t == null) return '';
     final prev = t.previous ?? _before(t);
@@ -752,23 +758,24 @@ class AgentRuntime extends ChangeNotifier {
         '待用户确认：${[for (final w in waiting) '${w.summary}（${w.turn}，token ${w.token}）'].join('；')}',
       );
     }
-    final screen = screenSummary?.call();
-    if (screen != null && screen.isNotEmpty) parts.add('屏幕：$screen');
-    if (parts.length == 1) return '';
+    final screen = withScreen ? screenSummary?.call() : null;
+    final hasScreen = screen != null && screen.isNotEmpty;
+    if (parts.length == 1 && !hasScreen) return '';
     if (prev != null && (waiting.isNotEmpty || t.previous != null)) {
       parts.add(
         '用户这句如果是接着上一轮说的（再加、继续、还有），调用工具时带 additive:true，上一轮的会保留；否则上一轮没做完的会被取消',
       );
     }
-    return '${parts.join('。')}。';
+    // The screen is told in its own lines, after the turn.
+    return '${parts.join('。')}。${hasScreen ? '\n$screen' : ''}';
   }
 
   /// The context for the first call of a turn is told once.
-  String? takeContext([AgentTurn? turn]) {
+  String? takeContext([AgentTurn? turn, bool withScreen = true]) {
     final t = turn ?? current;
     if (t == null || t.contextTold) return null;
     t.contextTold = true;
-    final line = contextLine(t);
+    final line = contextLine(t, withScreen);
     return line.isEmpty ? null : line;
   }
 
@@ -883,7 +890,8 @@ class AgentRuntime extends ChangeNotifier {
     }
     if (!result.containsKey('cancelled')) {
       _note(turn, name, result);
-      final ctx = takeContext(turn);
+      // An answer that shows the screen has told it already.
+      final ctx = takeContext(turn, !result.containsKey('snapshot'));
       if (ctx != null) result = {...result, 'ctx': ctx};
     }
     _settle();
@@ -900,7 +908,7 @@ class AgentRuntime extends ChangeNotifier {
       args,
       cancelled: () => turn?.dropped ?? false,
     );
-    if (read != null) return read;
+    if (read != null) return decorate?.call(name, read) ?? read;
     final grounded = await this.grounded.run(name, args);
     if (grounded != null) return decorate?.call(name, grounded) ?? grounded;
     final capability = await capabilities.run(name, args);

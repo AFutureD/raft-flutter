@@ -9,6 +9,7 @@ export 'hf_action.dart';
 export 'hf_basics.dart';
 export 'hf_blocks.dart';
 export 'hf_cards.dart';
+export 'hf_describe.dart';
 export 'hf_detail.dart';
 export 'hf_entity.dart';
 export 'hf_row.dart';

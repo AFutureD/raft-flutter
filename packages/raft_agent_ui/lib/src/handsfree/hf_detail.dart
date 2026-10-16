@@ -4,6 +4,7 @@ import '../marks.dart';
 import '../spotlight.dart';
 import 'hf_action.dart';
 import 'hf_basics.dart';
+import 'hf_describe.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
@@ -23,6 +24,9 @@ class HfFact {
 class HfProgressLine {
   const HfProgressLine(this.time, this.who, this.text);
   final String time, who, text;
+
+  /// The words after the time: "who · text".
+  String get said => who.isEmpty ? text : '$who · $text';
 }
 
 /// Where the title of an [HfDetail] goes.
@@ -40,7 +44,7 @@ enum HfDetailTitle {
 /// The detail of one thing: its title (a sticker, or a heading when it sits
 /// beside a list), fact rows, recent progress and the actions. Wide room puts
 /// the facts and the progress side by side.
-class HfDetail extends StatelessWidget {
+class HfDetail extends StatelessWidget implements HfDescribed {
   const HfDetail({
     super.key,
     required this.title,
@@ -82,6 +86,22 @@ class HfDetail extends StatelessWidget {
   /// Keep the actions in one row on a phone too (a stage with tools).
   final bool oneRowActions;
   final String? focusId;
+
+  /// The heading of the progress rows.
+  static const progressLabel = '最近进展';
+
+  @override
+  HfDescription describe(HfDescribeEnv env) => HfDescription(
+    [
+      ...hfKept([status, title]),
+      for (final f in facts) '${f.label}：${f.value}',
+      if (progress.isNotEmpty) progressLabel,
+      for (final p in progress) hfKept([p.time, p.said]).join(' '),
+    ],
+    actions: [for (final a in actions) a.label],
+    index: index,
+    block: true,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +161,7 @@ class HfDetail extends StatelessWidget {
             ),
           Expanded(
             child: AgentMarkText(
-              p.who.isEmpty ? p.text : '${p.who} · ${p.text}',
+              p.said,
               maxLines: progressLines,
               style: hf.type(HfType.body),
             ),
@@ -158,7 +178,7 @@ class HfDetail extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        HfSectionLabel('最近进展', tone: tone),
+        HfSectionLabel(progressLabel, tone: tone),
         SizedBox(height: hf.sp(8)),
         for (final p in progress) progressLine(p),
       ],
@@ -206,6 +226,7 @@ class HfDetail extends StatelessWidget {
                             children: [
                               if (index != null) ...[
                                 Container(
+                                  key: const ValueKey('hf-detail-index'),
                                   padding: EdgeInsets.symmetric(
                                     horizontal: hf.sp(8),
                                     vertical: hf.sp(1),

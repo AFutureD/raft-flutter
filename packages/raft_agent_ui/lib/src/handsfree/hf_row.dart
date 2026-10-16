@@ -4,6 +4,7 @@ import '../agent_theme.dart';
 import '../marks.dart';
 import '../spotlight.dart';
 import 'hf_basics.dart';
+import 'hf_describe.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
@@ -14,7 +15,7 @@ import 'hf_tokens.dart';
 /// The title takes at most two lines, the others one. Narrow rows (a phone,
 /// a half window) use a 56 s bar and a 96 s stat block; wide ones (a TV, a
 /// full window) 78 s and 150 s. The three text layers stay stacked.
-class HfRow extends StatelessWidget {
+class HfRow extends StatelessWidget implements HfDescribed {
   const HfRow({
     super.key,
     required this.index,
@@ -77,6 +78,12 @@ class HfRow extends StatelessWidget {
 
   /// Rows wider than this many s-units use the wide layout.
   static const wideFrom = 560.0;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) => HfDescription(
+    hfKept([badge, meta, title, detail, stat?.text]),
+    index: index,
+  );
 
   @override
   Widget build(BuildContext context) {

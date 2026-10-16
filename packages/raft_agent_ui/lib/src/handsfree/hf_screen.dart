@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../agent_theme.dart';
 import 'hf_basics.dart';
+import 'hf_describe.dart';
 import 'hf_page.dart';
 import 'hf_scope.dart';
 import 'hf_split.dart';
@@ -299,7 +300,7 @@ class HfChrome extends InheritedWidget {
 /// One layer of agent mode: its header (title, a note, the count line), what
 /// it says in a line, a spinner while it loads or the reason it could not,
 /// and its [children] as the body.
-class HfLayerFrame extends StatelessWidget {
+class HfLayerFrame extends StatelessWidget implements HfDescribed {
   const HfLayerFrame({
     super.key,
     required this.title,
@@ -323,6 +324,18 @@ class HfLayerFrame extends StatelessWidget {
 
   /// The title types itself in (a screen the model composes).
   final bool enterTitle;
+
+  /// The words of the header, the line under it and the error: what the layer
+  /// says about itself. [children] are described by their owner.
+  @override
+  HfDescription describe(HfDescribeEnv env) => HfDescription([
+    title,
+    // A wide window's front layer has the window chrome where the note goes.
+    if (meta != null && (env.phone || !env.front)) meta!,
+    if (summary != null) summary!.toPlainText(),
+    if (count is HfDescribed) ...(count! as HfDescribed).describe(env).lines,
+    ?error,
+  ], block: true);
 
   @override
   Widget build(BuildContext context) {

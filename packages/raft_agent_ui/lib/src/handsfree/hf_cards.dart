@@ -4,6 +4,7 @@ import '../display_spec.dart';
 import '../enter.dart';
 import '../entity_model.dart';
 import 'hf_basics.dart';
+import 'hf_describe.dart';
 import 'hf_detail.dart';
 import 'hf_entity.dart';
 import 'hf_row.dart';
@@ -14,6 +15,9 @@ import 'hf_tokens.dart';
 /// `handle` element is off. The card can be pointed at either way.
 int? _indexOf(BuildContext context, AgentDisplay x) =>
     x.has('handle') ? HfItemScope.maybeOf(context)?.index : null;
+
+/// The number [x] lets a card wear, given the number its place has.
+int? _numbered(int? number, AgentDisplay x) => x.has('handle') ? number : null;
 
 /// An element shown or hidden grows or shrinks the card smoothly.
 Widget _smooth(Widget child) => AnimatedSize(
@@ -36,7 +40,7 @@ String? _joined(Iterable<String?> parts, [String sep = ' · ']) {
 ///
 /// [display] says which of those are drawn (`name`, `state`, `activity`,
 /// `since`, `channel`); without it all of them are.
-class HfStatusCard extends StatelessWidget {
+class HfStatusCard extends StatelessWidget implements HfDescribed {
   const HfStatusCard({
     super.key,
     required this.name,
@@ -51,36 +55,42 @@ class HfStatusCard extends StatelessWidget {
   final String? activity, since, channel;
   final DisplaySpec? display;
 
-  @override
-  Widget build(BuildContext context) {
+  HfRow _row(int? number) {
     final x = (display ?? DisplaySpec.none).resolve('AgentStatusCard');
     final showName = x.has('name');
     final act = x.has('activity') ? activity : null;
-    return _smooth(
-      HfRow(
-        key: ValueKey('agent-status-$name'),
-        index: _indexOf(context, x),
-        tone: hfWorkTone(state),
-        meta: _joined([
-          if (x.has('state')) agentWorkStateLabels[state],
-          if (x.has('since')) since,
-        ]),
-        // Every element off still leaves who it is.
-        title: showName ? name : (act ?? name),
-        titleLines: x.lines,
-        detail: _joined([
-          if (showName) act,
-          if (x.has('channel') && channel != null) '#$channel',
-        ]),
-      ),
+    return HfRow(
+      key: ValueKey('agent-status-$name'),
+      index: _numbered(number, x),
+      tone: hfWorkTone(state),
+      meta: _joined([
+        if (x.has('state')) agentWorkStateLabels[state],
+        if (x.has('since')) since,
+      ]),
+      // Every element off still leaves who it is.
+      title: showName ? name : (act ?? name),
+      titleLines: x.lines,
+      detail: _joined([
+        if (showName) act,
+        if (x.has('channel') && channel != null) '#$channel',
+      ]),
     );
+  }
+
+  @override
+  HfDescription describe(HfDescribeEnv env) => _row(env.index).describe(env);
+
+  @override
+  Widget build(BuildContext context) {
+    final x = (display ?? DisplaySpec.none).resolve('AgentStatusCard');
+    return _smooth(_row(_indexOf(context, x)));
   }
 }
 
 /// One task: its status as the colour and the first word of the meta, the
 /// title, and the latest progress or what is asked of the person. A card whose
 /// `display.level` is `detail` is an [HfDetail] with a row per fact.
-class HfTaskCard extends StatelessWidget {
+class HfTaskCard extends StatelessWidget implements HfDescribed {
   const HfTaskCard({
     super.key,
     required this.title,
@@ -97,8 +107,8 @@ class HfTaskCard extends StatelessWidget {
   final String? assignee, channel, quote, ask;
   final DisplaySpec? display;
 
-  @override
-  Widget build(BuildContext context) {
+  /// The row (or, at the `detail` level, the detail) the card draws.
+  Widget _core(int? place) {
     final x = (display ?? DisplaySpec.none).resolve('TaskCard');
     final word = agentTaskStatusLabels[status] ?? status;
     final meta = _joined([
@@ -110,44 +120,50 @@ class HfTaskCard extends StatelessWidget {
     final said = x.has('latest_progress') ? quote : null;
     final asked = x.has('ask') && ask != null ? ask : null;
     final tone = hfTaskTone(status);
-    final index = _indexOf(context, x);
+    final index = _numbered(place, x);
     if (display?.level == AgentLevel.detail) {
-      return _smooth(
-        HfDetail(
-          key: const ValueKey('agent-task-detail'),
-          titleMode: HfDetailTitle.heading,
-          index: index,
-          title: x.has('title') ? title : (asked ?? title),
-          titleLines: x.lines,
-          status: meta,
-          tone: tone,
-          facts: [
-            if (asked != null) HfFact('要你做', asked),
-            if (x.has('assignee') && assignee != null) HfFact('负责人', assignee!),
-            if (x.has('channel') && channel != null) HfFact('频道', '#$channel'),
-          ],
-          progress: [if (said != null) HfProgressLine('', '', said)],
-        ),
-      );
-    }
-    return _smooth(
-      HfRow(
-        key: const ValueKey('agent-task-row'),
+      return HfDetail(
+        key: const ValueKey('agent-task-detail'),
+        titleMode: HfDetailTitle.heading,
         index: index,
-        tone: tone,
-        meta: meta,
         title: x.has('title') ? title : (asked ?? title),
         titleLines: x.lines,
-        detail: _joined([if (asked != null) '要你做：$asked', ?said]),
-        detailLines: x.lines > 1 ? 2 : 1,
-      ),
+        status: meta,
+        tone: tone,
+        facts: [
+          if (asked != null) HfFact('要你做', asked),
+          if (x.has('assignee') && assignee != null) HfFact('负责人', assignee!),
+          if (x.has('channel') && channel != null) HfFact('频道', '#$channel'),
+        ],
+        progress: [if (said != null) HfProgressLine('', '', said)],
+      );
+    }
+    return HfRow(
+      key: const ValueKey('agent-task-row'),
+      index: index,
+      tone: tone,
+      meta: meta,
+      title: x.has('title') ? title : (asked ?? title),
+      titleLines: x.lines,
+      detail: _joined([if (asked != null) '要你做：$asked', ?said]),
+      detailLines: x.lines > 1 ? 2 : 1,
     );
+  }
+
+  @override
+  HfDescription describe(HfDescribeEnv env) =>
+      (_core(env.index) as HfDescribed).describe(env);
+
+  @override
+  Widget build(BuildContext context) {
+    final x = (display ?? DisplaySpec.none).resolve('TaskCard');
+    return _smooth(_core(_indexOf(context, x)));
   }
 }
 
 /// A quoted line: who said it and when as the meta, the words as the title.
 /// [display]: `author`, `time`, `channel`, `text`; `lines` clamps the words.
-class HfMessageQuote extends StatelessWidget {
+class HfMessageQuote extends StatelessWidget implements HfDescribed {
   const HfMessageQuote({
     super.key,
     required this.author,
@@ -160,24 +176,30 @@ class HfMessageQuote extends StatelessWidget {
   final String? time, channel;
   final DisplaySpec? display;
 
+  HfRow _row(int? number) {
+    final x = (display ?? DisplaySpec.none).resolve('MessageQuote');
+    return HfRow(
+      key: const ValueKey('agent-quote'),
+      bar: x.has('bar'),
+      index: _numbered(number, x),
+      tone: HfTone.info,
+      meta: _joined([
+        if (x.has('author')) author,
+        if (x.has('time')) time,
+        if (x.has('channel') && channel != null) '#$channel',
+      ]),
+      title: x.has('text') ? text : author,
+      titleLines: x.lines,
+    );
+  }
+
+  @override
+  HfDescription describe(HfDescribeEnv env) => _row(env.index).describe(env);
+
   @override
   Widget build(BuildContext context) {
     final x = (display ?? DisplaySpec.none).resolve('MessageQuote');
-    return _smooth(
-      HfRow(
-        key: const ValueKey('agent-quote'),
-        bar: x.has('bar'),
-        index: _indexOf(context, x),
-        tone: HfTone.info,
-        meta: _joined([
-          if (x.has('author')) author,
-          if (x.has('time')) time,
-          if (x.has('channel') && channel != null) '#$channel',
-        ]),
-        title: x.has('text') ? text : author,
-        titleLines: x.lines,
-      ),
-    );
+    return _smooth(_row(_indexOf(context, x)));
   }
 }
 
@@ -189,10 +211,18 @@ class HfStat {
 
 /// A few numbers in one numbered strip: a big value and, when `label` is on,
 /// the word under it.
-class HfStatStrip extends StatelessWidget {
+class HfStatStrip extends StatelessWidget implements HfDescribed {
   const HfStatStrip({super.key, required this.stats, this.display});
   final List<HfStat> stats;
   final DisplaySpec? display;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve('StatRow');
+    return HfDescription([
+      for (final s in stats) x.has('label') ? '${s.label} ${s.value}' : s.value,
+    ], index: _numbered(env.index, x));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +319,7 @@ class HfStatStrip extends StatelessWidget {
 /// A labelled run of children: the group's name with its count and a rule,
 /// then the children. [displayKind] is `Section` or `AgentStatusGroup`;
 /// `title` and `count` say which of the two are drawn.
-class HfGroup extends StatelessWidget {
+class HfGroup extends StatelessWidget implements HfDescribed {
   const HfGroup({
     super.key,
     required this.title,
@@ -303,6 +333,22 @@ class HfGroup extends StatelessWidget {
   final HfTone tone;
   final DisplaySpec? display;
   final String displayKind;
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve(displayKind);
+    return HfDescription(
+      x.has('title') || x.has('count')
+          ? hfKept([
+              HfSectionLabel(
+                x.has('title') ? title : '',
+                count: x.has('count') ? children.length : null,
+                tone: tone,
+              ).describe(env).lines.join(' '),
+            ])
+          : const [],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +378,7 @@ class HfGroup extends StatelessWidget {
 
 /// A group folded to one numbered row: "在忙 1" with its members in a line
 /// under it. A press asks for the full cards.
-class HfSummaryRow extends StatelessWidget {
+class HfSummaryRow extends StatelessWidget implements HfDescribed {
   const HfSummaryRow({
     super.key,
     required this.title,
@@ -357,25 +403,46 @@ class HfSummaryRow extends StatelessWidget {
   final DisplaySpec? display;
   final String displayKind;
 
-  @override
-  Widget build(BuildContext context) {
-    final hf = HandsFree.of(context);
+  /// The label of the arrow, for the description: a press shows the group.
+  static const expandLabel = '展开';
+
+  HfRow _row(int? number, {Widget? icon}) {
     final x = (display ?? DisplaySpec.none).resolve(displayKind);
     final head = _joined([
       if (x.has('title')) title,
       if (x.has('count')) '$count',
     ], ' ');
     return HfRow(
-      index: HfItemScope.maybeOf(context)?.index,
+      index: number,
       tone: tone,
       title: head ?? text,
       titleLines: 1,
       detail: head == null || text.isEmpty ? null : text,
       detailLines: 2,
-      trailing: onTap != null && x.has('collapse')
-          ? Icon(Icons.expand_more, size: hf.sp(26), color: HfColors.inkSoft)
-          : null,
+      trailing: onTap != null && x.has('collapse') ? icon : null,
       onTap: onTap,
+    );
+  }
+
+  @override
+  HfDescription describe(HfDescribeEnv env) {
+    final x = (display ?? DisplaySpec.none).resolve(displayKind);
+    final row = _row(env.index).describe(env);
+    return HfDescription(
+      row.lines,
+      index: row.index,
+      actions: onTap != null && x.has('collapse')
+          ? const [expandLabel]
+          : const [],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hf = HandsFree.of(context);
+    return _row(
+      HfItemScope.maybeOf(context)?.index,
+      icon: Icon(Icons.expand_more, size: hf.sp(26), color: HfColors.inkSoft),
     );
   }
 }

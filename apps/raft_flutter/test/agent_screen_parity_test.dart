@@ -11,6 +11,7 @@ import 'package:raft_flutter/features/agent_mode/agent_consent_tray.dart';
 import 'package:raft_flutter/features/agent_mode/agent_frame_view.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
+import 'package:raft_flutter/features/agent_mode/agent_screen_snapshot.dart';
 import 'package:raft_flutter/features/agent_mode/agent_scripted_model.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability_standard.dart';
@@ -177,45 +178,47 @@ class _Data extends AgentModeData {
         ];
 
   @override
-  Future<AgentChannelBrief> channel(RaftChannel c, {int windowHours = 6}) async =>
-      AgentChannelBrief(
-        channel: c,
-        windowHours: windowHours,
-        tasks: [
-          taskRow(
-            't11',
-            11,
-            'in_review',
-            title: '补全搜索结果的高亮',
-            claimedById: 'a-cody',
-            claimedByName: 'Cody',
-          ),
-          taskRow(
-            't12',
-            12,
-            'in_progress',
-            title: '整理发布说明',
-            claimedById: 'a-cindy',
-            claimedByName: 'Cindy',
-          ),
-        ],
-        messages: [
-          {
-            'id': 'm1',
-            'seq': '1',
-            'senderName': 'Ada',
-            'content': '明天的发布我来盯着',
-            'createdAt': hoursAgo(2),
-          },
-          {
-            'id': 'm2',
-            'seq': '2',
-            'senderName': 'Cody',
-            'content': '#11 已经提交，等验收',
-            'createdAt': hoursAgo(1),
-          },
-        ],
-      );
+  Future<AgentChannelBrief> channel(
+    RaftChannel c, {
+    int windowHours = 6,
+  }) async => AgentChannelBrief(
+    channel: c,
+    windowHours: windowHours,
+    tasks: [
+      taskRow(
+        't11',
+        11,
+        'in_review',
+        title: '补全搜索结果的高亮',
+        claimedById: 'a-cody',
+        claimedByName: 'Cody',
+      ),
+      taskRow(
+        't12',
+        12,
+        'in_progress',
+        title: '整理发布说明',
+        claimedById: 'a-cindy',
+        claimedByName: 'Cindy',
+      ),
+    ],
+    messages: [
+      {
+        'id': 'm1',
+        'seq': '1',
+        'senderName': 'Ada',
+        'content': '明天的发布我来盯着',
+        'createdAt': hoursAgo(2),
+      },
+      {
+        'id': 'm2',
+        'seq': '2',
+        'senderName': 'Cody',
+        'content': '#11 已经提交，等验收',
+        'createdAt': hoursAgo(1),
+      },
+    ],
+  );
 
   @override
   Future<List<Map<String, dynamic>>> openTasks() async => [
@@ -275,9 +278,10 @@ bool _isChrome(String s) => s == 'Agent 模式' || RegExp(r'^第 \d+ 层$').hasM
 List<String> _shown(WidgetTester t, List<Finder> roots) {
   final out = <String>{};
   for (final root in roots) {
-    for (final element in find
-        .descendant(of: root, matching: find.byType(RichText))
-        .evaluate()) {
+    for (final element
+        in find
+            .descendant(of: root, matching: find.byType(RichText))
+            .evaluate()) {
       // Pictures, not words: see the header of this file.
       var skip = false;
       element.visitAncestorElements((a) {
@@ -299,7 +303,14 @@ List<String> _shown(WidgetTester t, List<Finder> roots) {
   return out.toList();
 }
 
+/// The tokens of what the model was given, by scenario (printed at the end).
+final _sizes = <String, int>{};
+
 void _expectParity(List<String> shown, String seen, String what) {
+  final tokens = agentTokenEstimate(seen);
+  _sizes[what] = tokens;
+  // Everything the person reads fits a bounded message.
+  expect(tokens, lessThan(5000), reason: '$what is $tokens tokens');
   expect(shown, isNotEmpty, reason: '$what: nothing was drawn');
   final missing = [
     for (final s in shown)
@@ -315,6 +326,7 @@ void _expectParity(List<String> shown, String seen, String what) {
 }
 
 void main() {
+  tearDownAll(() => debugPrint('screen snapshot tokens: $_sizes'));
   late ActivityClient client;
   late CapabilityWorld w;
 
@@ -367,7 +379,10 @@ void main() {
     await client.dispose();
   });
 
-  Future<_Probe> open(WidgetTester t, {Size size = const Size(390, 844)}) async {
+  Future<_Probe> open(
+    WidgetTester t, {
+    Size size = const Size(390, 1400),
+  }) async {
     t.view.physicalSize = size;
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
@@ -461,6 +476,7 @@ void main() {
     await t.ensureVisible(find.byKey(const ValueKey('attention-team')));
     await t.tap(find.byKey(const ValueKey('attention-team')));
     await t.pumpAndSettle();
+    expect(find.text('Bo 在迁移数据'), findsOneWidget);
     seen = await given(t, probe, 'go_home');
     _expectParity(_shown(t, attentionRoots()), seen, 'team row open');
   });
@@ -485,6 +501,7 @@ void main() {
     });
     await t.tap(find.text('明天的发布我来盯着'));
     await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('agent-frame-stage')), findsOneWidget);
     final seen = await given(t, probe, 'open_channel', {'name': 'general'});
     _expectParity(
       _shown(t, [find.byType(AgentFrameView), find.byType(HfDetail)]),
@@ -535,10 +552,7 @@ void main() {
   String surface(List<Object> children) => _json({
     'title': '全景',
     'summary': '一屏看全',
-    'root': {
-      'component': 'Column',
-      'children': children,
-    },
+    'root': {'component': 'Column', 'children': children},
   });
 
   Future<String> showSurface(
@@ -733,11 +747,15 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.text('完成后通知我'));
     await t.pumpAndSettle();
+    // Showing the same screen again would draw it fresh; look at it instead.
     late Map<String, Object?> again;
     await say(t, probe, (call) async {
-      again = await call('show_surface', {'surface': surface(blocks)});
+      again = await call('read_screen', {});
     });
     seen = _flatten(again);
+    // What the person chose is told too.
+    expect(seen, contains('2 main（已选）'));
+    expect(seen, contains('完成后通知我 开'));
     _expectParity(
       _shown(t, [find.byType(AgentSurfaceView)]),
       seen,

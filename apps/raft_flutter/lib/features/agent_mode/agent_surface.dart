@@ -17,8 +17,11 @@ import 'package:flutter/widgets.dart';
 /// affordable later. Only the wire format would change: genui wants a flat
 /// list of components that reference each other by id, here the tree is
 /// nested because that is easier for a voice model to write correctly.
+///
+/// [context] is null when the node is built only to be described (see
+/// `describeSurface`): the widget is the same, with nothing to react to.
 typedef AgentNodeBuilder = Widget Function(
-  BuildContext context,
+  BuildContext? context,
   SurfaceNode node,
   List<Widget> children,
 );
