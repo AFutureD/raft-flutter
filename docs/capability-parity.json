@@ -11030,7 +11030,7 @@
    ],
    "justification": "Intentional difference (owner decision 2026-10-14, docs/parity.md 'Video cards'): on a phone the message card has no inline player; it shows the poster at the video's real shape with a play button and the length, and a tap anywhere opens the media viewer, which plays. Desktop keeps Web's inline player.",
    "impact": "Phone users start a video with one tap into the viewer instead of playing in the message list; no player (decoder) is held while scrolling.",
-   "size":"S"
+   "size": "S"
   },
   {
    "kind": "ui",
@@ -11693,10 +11693,10 @@
    "status": "covered",
    "webEntry": "messageStore.flushPendingRead (background while viewing a channel)",
    "gate": "",
-   "flutterEntry": "workspace_controller.dart read-receipt flush after rendering rows",
+   "flutterEntry": "conversation_read_repository.dart markRead via workspace_controller.dart receiver dispatch",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/conversation_read_repository.dart",
      "needle": "'/channels/$id/read'"
     }
    ],

@@ -27,7 +27,17 @@ class ConversationReadRepository {
     required this._save,
     required this._changed,
     required this._prefetch,
-  });
+    bool Function(String)? isDiskOnly,
+    Set<String>? Function(String)? visibleIds,
+    int Function()? generation,
+    int Function(bool)? windowGeneration,
+    bool Function()? isDisposed,
+    this._refreshUnread,
+  }) : _isDiskOnly = isDiskOnly ?? _noReceiptWindow,
+       _visibleIds = visibleIds ?? _noVisibleIds,
+       _generation = generation ?? _zeroGeneration,
+       _windowGeneration = windowGeneration ?? _zeroWindowGeneration,
+       _isDisposed = isDisposed ?? _notDisposed;
 
   final RaftClient client;
   final ReadStateLedger Function() _readState;
@@ -41,6 +51,22 @@ class ConversationReadRepository {
   final Future<void> Function(String, String, dynamic) _save;
   final void Function() _changed;
   final Future<void> Function() _prefetch;
+  final bool Function(String) _isDiskOnly;
+  final Set<String>? Function(String) _visibleIds;
+  final int Function() _generation;
+  final int Function(bool) _windowGeneration;
+  final bool Function() _isDisposed;
+  final Future<void> Function()? _refreshUnread;
+
+  // Existing snapshot-only callers remain valid. A receiver must supply
+  // current window facts before receipt I/O is admitted.
+  static bool _noReceiptWindow(String id) => true;
+  static Set<String>? _noVisibleIds(String id) => null;
+  static int _zeroGeneration() => 0;
+  static int _zeroWindowGeneration(bool thread) => 0;
+  static bool _notDisposed() => false;
+
+  Future<void> _reconcileUnread() => _refreshUnread?.call() ?? refreshUnread();
 
   final localReadState = ReadStateLedger();
   Map<String, int> unread = {};
@@ -227,4 +253,137 @@ class ConversationReadRepository {
     unread = {...unread, threadChannelId: count};
     persistUnread();
   }
+
+  /// Windows painted from disk whose first fresh page has not arrived yet.
+  /// Their tail may be stale, so they never send a read receipt (nor clear
+  /// the unread count) until revalidated.
+
+  Future<void> markRead(String id) async {
+    if (_isDiskOnly(id) || !_mayMarkRead(id)) {
+      return;
+    }
+    final rows = _messages(id)
+        .where((m) => _visibleIds(id)?.contains(m['id']) ?? false)
+        .toList();
+    if (rows.isEmpty) return;
+    final origin = client.origin,
+        principal = client.user?.id,
+        serverId = client.serverId,
+        generation = _generation();
+    final window = id == _threadChannelId()
+        ? _windowGeneration(true)
+        : _windowGeneration(false);
+    readPosts[id] = (readPosts[id] ?? 0) + 1;
+    try {
+      final receipt = await client.post(
+        '/channels/$id/read',
+        data: {'seq': rows.last['seq']},
+      );
+      if (client.origin != origin ||
+          client.user?.id != principal ||
+          client.serverId != serverId) {
+        return;
+      }
+      if (_generation() != generation ||
+          window !=
+              (id == _threadChannelId()
+                  ? _windowGeneration(true)
+                  : _windowGeneration(false)) ||
+          !_mayMarkRead(id)) {
+        // The user left (or the window was replaced) while the receipt was in
+        // flight. The server cursor still advanced: fold the accepted frontier
+        // in and clear only what it covers, so Home never keeps an indicator
+        // for a conversation that was read (Source clearUnread).
+        // A reset ledger or a revoked scope never accepts a late receipt.
+        if (_generation() == generation && !_revokedChannels().contains(id)) {
+          _acceptStaleReadReceipt(id, receipt);
+        }
+        return;
+      }
+      if (receipt is Map && client.serverId != null && client.user != null) {
+        _readState().consumeUpdate(
+          {
+            'serverId': client.serverId,
+            'scopeId': id,
+            'maxReadSeq': receipt['maxReadSeq'],
+            'readStateVersion': receipt['readStateVersion'],
+          },
+          serverId: client.serverId!,
+          principalId: client.user!.id,
+        );
+      }
+      // Source clearUnread: the read tail is the latest; no snapshot GET.
+      if ((unread[id] ?? 0) != 0) unread = {...unread, id: 0};
+      clearMention(id);
+      persistReadState();
+      _changed();
+    } catch (_) {
+      // The cursor did not advance: an optimistic clear must not hide it.
+      if (!_isDisposed() &&
+          client.origin == origin &&
+          client.user?.id == principal &&
+          client.serverId == serverId) {
+        unawaited(_reconcileUnread());
+      }
+    }
+  }
+
+  void _acceptStaleReadReceipt(String id, dynamic receipt) {
+    final serverId = client.serverId, principal = client.user?.id;
+    if (_isDisposed() || serverId == null || principal == null) return;
+    if (receipt is Map) {
+      _readState().consumeUpdate(
+        {
+          'serverId': serverId,
+          'scopeId': id,
+          'maxReadSeq': receipt['maxReadSeq'],
+          'readStateVersion': receipt['readStateVersion'],
+        },
+        serverId: serverId,
+        principalId: principal,
+      );
+    }
+    final before = unread[id] ?? 0;
+    projectReadState(id);
+    if ((unread[id] ?? 0) != before) {
+      persistReadState();
+      _changed();
+    }
+    if ((unread[id] ?? 0) != 0) unawaited(_reconcileUnread());
+  }
+
+  /// Source acceptActivityReadAllAck: an Activity row's persisted read-all
+  /// receipt is a read-state fact for [scopeId]. Folding it into the ledger is
+  /// what keeps a stale inbox response from re-presenting the row as unread.
+  /// Returns false for an invalid receipt or a changed identity.
+  bool acceptReadAllAck(
+    String scopeId,
+    dynamic receipt, {
+    required String serverId,
+    required String principalId,
+  }) {
+    if (client.serverId != serverId || client.user?.id != principalId) {
+      return false;
+    }
+    if (receipt is! Map) return false;
+    final outcome = _readState().consumeUpdate(
+      {
+        'serverId': serverId,
+        'scopeId': scopeId,
+        'maxReadSeq': receipt['maxReadSeq'] ?? receipt['seq'],
+        'readStateVersion': receipt['readStateVersion'],
+      },
+      serverId: serverId,
+      principalId: principalId,
+    );
+    if (outcome == 'corrupt') return false;
+    if ((unread[scopeId] ?? 0) != 0) unread = {...unread, scopeId: 0};
+    clearMention(scopeId);
+    persistReadState();
+    _changed();
+    return true;
+  }
+
+  void setTimelineAtBottom(String id, bool atBottom) =>
+      scrolledAway.set(id, atBottom);
 }

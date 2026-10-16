@@ -119,6 +119,13 @@ class WorkspaceController extends ChangeNotifier
       save: (kind, id, value) => _save(kind, id, value),
       changed: notifyListeners,
       prefetch: () => prefetchLikelyChannels(),
+      isDiskOnly: (id) => messageWindows.isDiskOnly(id),
+      visibleIds: (id) => visibleIds[id],
+      generation: () => ledger.generation,
+      windowGeneration: (thread) =>
+          thread ? threadGeneration : channelGeneration,
+      isDisposed: () => _disposed,
+      refreshUnread: () => refreshUnread(),
     );
     sessionScope = SessionScope(this, ownsMedia: presentationSource == null);
     channelRepository = ChannelRepository(
@@ -3334,7 +3341,7 @@ class WorkspaceController extends ChangeNotifier
   RaftTimelineBottoms get _scrolledAway => conversationReads.scrolledAway;
 
   void setTimelineAtBottom(String id, bool atBottom) =>
-      _scrolledAway.set(id, atBottom);
+      conversationReads.setTimelineAtBottom(id, atBottom);
 
   /// Where the reader was in a conversation when its timeline is about to be
   /// rebuilt for another layout (fold / unfold). The next timeline that
@@ -3357,96 +3364,7 @@ class WorkspaceController extends ChangeNotifier
   /// Their tail may be stale, so they never send a read receipt (nor clear
   /// the unread count) until revalidated.
 
-  Future<void> _markRead(String id) async {
-    if (messageWindows.isDiskOnly(id) || !_mayMarkRead(id)) {
-      return;
-    }
-    final rows = ledger
-        .messages(id)
-        .where((m) => visibleIds[id]?.contains(m['id']) ?? false)
-        .toList();
-    if (rows.isEmpty) return;
-    final origin = client.origin,
-        principal = client.user?.id,
-        serverId = client.serverId,
-        generation = ledger.generation;
-    final window = id == threadChannelId ? threadGeneration : channelGeneration;
-    _readPosts[id] = (_readPosts[id] ?? 0) + 1;
-    try {
-      final receipt = await client.post(
-        '/channels/$id/read',
-        data: {'seq': rows.last['seq']},
-      );
-      if (client.origin != origin ||
-          client.user?.id != principal ||
-          client.serverId != serverId) {
-        return;
-      }
-      if (ledger.generation != generation ||
-          window !=
-              (id == threadChannelId ? threadGeneration : channelGeneration) ||
-          !_mayMarkRead(id)) {
-        // The user left (or the window was replaced) while the receipt was in
-        // flight. The server cursor still advanced: fold the accepted frontier
-        // in and clear only what it covers, so Home never keeps an indicator
-        // for a conversation that was read (Source clearUnread).
-        // A reset ledger or a revoked scope never accepts a late receipt.
-        if (ledger.generation == generation && !_revokedChannels.contains(id)) {
-          _acceptStaleReadReceipt(id, receipt);
-        }
-        return;
-      }
-      if (receipt is Map && client.serverId != null && client.user != null) {
-        readState.consumeUpdate(
-          {
-            'serverId': client.serverId,
-            'scopeId': id,
-            'maxReadSeq': receipt['maxReadSeq'],
-            'readStateVersion': receipt['readStateVersion'],
-          },
-          serverId: client.serverId!,
-          principalId: client.user!.id,
-        );
-      }
-      // Source clearUnread: the read tail is the latest; no snapshot GET.
-      if ((unread[id] ?? 0) != 0) unread = {...unread, id: 0};
-      _clearMention(id);
-      _persistReadState();
-      notifyListeners();
-    } catch (_) {
-      // The cursor did not advance: an optimistic clear must not hide it.
-      if (!_disposed &&
-          client.origin == origin &&
-          client.user?.id == principal &&
-          client.serverId == serverId) {
-        unawaited(refreshUnread());
-      }
-    }
-  }
-
-  void _acceptStaleReadReceipt(String id, dynamic receipt) {
-    final serverId = client.serverId, principal = client.user?.id;
-    if (_disposed || serverId == null || principal == null) return;
-    if (receipt is Map) {
-      readState.consumeUpdate(
-        {
-          'serverId': serverId,
-          'scopeId': id,
-          'maxReadSeq': receipt['maxReadSeq'],
-          'readStateVersion': receipt['readStateVersion'],
-        },
-        serverId: serverId,
-        principalId: principal,
-      );
-    }
-    final before = unread[id] ?? 0;
-    _projectReadState(id);
-    if ((unread[id] ?? 0) != before) {
-      _persistReadState();
-      notifyListeners();
-    }
-    if ((unread[id] ?? 0) != 0) unawaited(refreshUnread());
-  }
+  Future<void> _markRead(String id) => conversationReads.markRead(id);
 
   /// Source acceptActivityReadAllAck: an Activity row's persisted read-all
   /// receipt is a read-state fact for [scopeId]. Folding it into the ledger is
@@ -3457,28 +3375,12 @@ class WorkspaceController extends ChangeNotifier
     dynamic receipt, {
     required String serverId,
     required String principalId,
-  }) {
-    if (client.serverId != serverId || client.user?.id != principalId) {
-      return false;
-    }
-    if (receipt is! Map) return false;
-    final outcome = readState.consumeUpdate(
-      {
-        'serverId': serverId,
-        'scopeId': scopeId,
-        'maxReadSeq': receipt['maxReadSeq'] ?? receipt['seq'],
-        'readStateVersion': receipt['readStateVersion'],
-      },
-      serverId: serverId,
-      principalId: principalId,
-    );
-    if (outcome == 'corrupt') return false;
-    if ((unread[scopeId] ?? 0) != 0) unread = {...unread, scopeId: 0};
-    _clearMention(scopeId);
-    _persistReadState();
-    notifyListeners();
-    return true;
-  }
+  }) => conversationReads.acceptReadAllAck(
+    scopeId,
+    receipt,
+    serverId: serverId,
+    principalId: principalId,
+  );
 
   Future<bool> send(
     String text, {
