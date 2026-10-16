@@ -790,6 +790,19 @@ String? agentEntityLabel(
   return r is AgentEntityFound ? r.data.label : null;
 }
 
+/// What the app read for the [kind] thing [id]; null while it is still
+/// being read or cannot be.
+AgentEntityData? agentEntityData(
+  WorkspaceEntityResolver resolver,
+  String kind,
+  String id,
+) {
+  final k = AgentEntityKind.values.where((v) => v.name == kind).firstOrNull;
+  if (k == null) return null;
+  final r = resolver.resolve(AgentEntityRef(k, id));
+  return r is AgentEntityFound ? r.data : null;
+}
+
 // ---- Catalog ---------------------------------------------------------------
 
 /// What the model may write for an id, by kind. 1 to 64 letters, digits,

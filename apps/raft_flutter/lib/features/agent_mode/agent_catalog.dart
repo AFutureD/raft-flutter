@@ -636,6 +636,7 @@ Map<String, Object?> agentSurfaceFrame(
   AgentCatalog? catalog,
   Map<String, Object?>? Function(SurfaceNode node)? entityOf,
   String? Function(String kind, String id)? entityLabel,
+  AgentEntityData? Function(String kind, String id)? entityData,
 }) {
   final catalog0 = catalog ?? agentStandardCatalog;
   final folded = foldedPaths(
@@ -719,17 +720,34 @@ Map<String, Object?> agentSurfaceFrame(
         });
       case AgentEntityComponents.entity:
         // What it shows is read by the app at draw time; the model is told
-        // which thing it pointed at, by the title the app read for it.
+        // which thing it pointed at, by the title the app read for it. The
+        // TV has no workspace of its own, so the facts travel in the frame.
         final entity = entityOf?.call(n);
+        final kind = n.string('entity') ?? '';
+        final id = n.string('id') ?? '';
+        final facts = switch (entityData?.call(kind, id)) {
+          final d? => agentEntityFacts(d),
+          null => null,
+        };
         items.add({
-          'kind': 'priority',
-          'priority': AgentPriority.progress.name,
-          'label': agentEntityKindLabels.entries
-              .firstWhere((e) => e.key.name == n.string('entity'))
-              .value,
+          'kind': facts?.message == true ? 'message' : 'priority',
+          'priority': (facts?.priority ?? AgentPriority.progress).name,
+          'label':
+              facts?.status ??
+              agentEntityKindLabels.entries
+                  .firstWhere(
+                    (e) => e.key.name == kind,
+                    orElse: () => agentEntityKindLabels.entries.first,
+                  )
+                  .value,
           'weight': items.length + 1,
-          'title': entity == null ? n.string('id') ?? '' : '${entity['label']}',
-          'detail': n.string('id') ?? '',
+          'title': entity == null ? id : '${entity['label']}',
+          'detail': facts == null ? (entity == null ? id : null) : facts.detail,
+          if (facts?.message == true) ...{
+            'sender': facts!.sender,
+            'time': facts.time,
+            'text': facts.text,
+          },
           'entity': ?entity,
         });
       case AgentComponents.statRow:
@@ -752,9 +770,97 @@ Map<String, Object?> agentSurfaceFrame(
   visit(spec.root, 'r');
   return {
     'title': spec.title,
-    'meta': 'GenUI',
     'loading': false,
     'summary': spec.summary,
     'items': items,
+  };
+}
+
+/// What an entity card says when it is drawn from a frame instead of the
+/// workspace (the TV): its status word, how urgent it looks, and one line.
+typedef AgentEntityFacts = ({
+  String? status,
+  AgentPriority priority,
+  String? detail,
+  bool message,
+  String? sender,
+  String? time,
+  String? text,
+});
+
+AgentEntityFacts agentEntityFacts(AgentEntityData d) {
+  String? line(List<String?> parts) {
+    final kept = [
+      for (final p in parts)
+        if (p != null && p.trim().isNotEmpty) p.trim(),
+    ];
+    return kept.isEmpty ? null : kept.join(' · ');
+  }
+
+  AgentEntityFacts plain(String? status, AgentPriority p, String? detail) => (
+    status: status,
+    priority: p,
+    detail: detail,
+    message: false,
+    sender: null,
+    time: null,
+    text: null,
+  );
+  return switch (d) {
+    AgentAgentData() => plain(agentWorkStateLabels[d.state], switch (d.state) {
+      AgentWorkState.busy => AgentPriority.progress,
+      AgentWorkState.blocked => AgentPriority.blocked,
+      _ => AgentPriority.mention,
+    }, line([d.activity, d.since, if (d.channel != null) '#${d.channel}'])),
+    AgentTaskData() => plain(
+      agentTaskStatusLabels[d.status] ?? d.status,
+      switch (d.status) {
+        'in_review' => AgentPriority.decision,
+        'in_progress' => AgentPriority.progress,
+        _ => AgentPriority.mention,
+      },
+      line([
+        d.assignee,
+        if (d.channel != null) '#${d.channel}',
+        d.latestProgress ?? d.updated,
+      ]),
+    ),
+    AgentMessageData() => (
+      status: null,
+      priority: AgentPriority.progress,
+      detail: null,
+      message: true,
+      sender: d.author,
+      time: line([d.time, if (d.channel != null) '#${d.channel}']),
+      text: d.text,
+    ),
+    AgentChannelData() => plain(
+      d.unread > 0 ? '${d.unread} 条未读' : (d.direct ? '私信' : '频道'),
+      d.mentioned ? AgentPriority.mention : AgentPriority.progress,
+      line([
+        d.description,
+        if (d.memberCount != null) '${d.memberCount} 人',
+        d.lastActivity,
+      ]),
+    ),
+    AgentMemberData() => plain(
+      d.presence == null ? '成员' : agentPresenceLabels[d.presence],
+      AgentPriority.progress,
+      d.role,
+    ),
+    AgentComputerData() => plain(
+      d.online ? '在线' : '离线',
+      d.online ? AgentPriority.progress : AgentPriority.blocked,
+      line([
+        if (d.agentCount > 0) '${d.agentCount} 个 Agent',
+        if (d.runtimes.isNotEmpty) d.runtimes.join('、'),
+        d.version,
+      ]),
+    ),
+    AgentFileData() => plain(
+      d.type ?? '文件',
+      AgentPriority.progress,
+      line([d.size, d.author]),
+    ),
   };
 }

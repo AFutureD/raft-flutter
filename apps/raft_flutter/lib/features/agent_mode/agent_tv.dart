@@ -152,55 +152,27 @@ class _AgentTvAppState extends State<_AgentTvApp> {
             );
           }
           return Scaffold(
-            backgroundColor: t.canvas,
-            body: AgentCanvas(
-              child: LayoutBuilder(
-                builder: (context, size) {
-                  // 10-foot type: scale with the display, keep a 6% bottom safe
-                  // area for launchers that draw a taskbar over presentations.
-                  final scale = (size.maxHeight / 540).clamp(1.0, 3.0);
-                  return MediaQuery(
-                    data: MediaQuery.of(context)
-                        .copyWith(textScaler: TextScaler.linear(scale)),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        size.maxWidth * .05,
-                        size.maxHeight * .04,
-                        size.maxWidth * .05,
-                        size.maxHeight * .06,
-                      ),
-                      child: layers.isEmpty
-                          ? Center(
-                              child: Text(
-                                'Raft · Agent 模式',
-                                style: t.heading(28),
-                              ),
-                            )
-                          : AgentMarks(
-                              controller: _marks,
-                              child: AgentSpotlight(
-                                controller: _spotlight,
-                                child: ZLayerStack(
-                                  padding: EdgeInsets.only(top: 34 * scale),
-                                  layers: [
-                                    for (final l in layers)
-                                      ZLayer(
-                                        key: ValueKey(l['id']),
-                                        peek: '${l['peek'] ?? ''}',
-                                        child: AgentFrameView(
-                                          frame: l,
-                                          focusPrefix: '${l['id']}',
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
+            backgroundColor: AgentTvAttention.ink,
+            body: top == null
+                ? Center(
+                    child: Text(
+                      'Raft · Agent 模式',
+                      style: t.heading(28).copyWith(color: Colors.white),
                     ),
-                  );
-                },
-              ),
-            ),
+                  )
+                : AgentMarks(
+                    controller: _marks,
+                    child: AgentSpotlight(
+                      controller: _spotlight,
+                      child: AgentTvLayer(
+                        key: ValueKey(top['id']),
+                        frame: top,
+                        caption: '${f?['caption'] ?? ''}',
+                        mood: '${f?['mood'] ?? ''}',
+                        focused: f?['spotlight'] as String?,
+                      ),
+                    ),
+                  ),
           );
         },
       ),
@@ -449,65 +421,12 @@ class AgentTvAttention extends StatelessWidget {
                     ),
                 ],
                 if (caption.isNotEmpty || mood.isNotEmpty)
-                  Container(
-                    height: 64 * s,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18 * s),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _rank[1],
-                          offset: Offset(6 * s, 6 * s),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 80 * s,
-                          decoration: const BoxDecoration(
-                            color: ink,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'AGENT',
-                            style: body(
-                              9,
-                              Colors.white,
-                            ).copyWith(letterSpacing: 1.5 * s),
-                          ),
-                        ),
-                        SizedBox(width: 14 * s),
-                        Expanded(
-                          child: Text(
-                            caption,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: heading(20),
-                          ),
-                        ),
-                        if (mood.isNotEmpty) ...[
-                          SizedBox(width: 12 * s),
-                          // The agent's state and mood, as on the phone.
-                          Container(
-                            width: 52 * s,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: _cream,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: ink, width: 3 * s),
-                            ),
-                            child: Text(
-                              mood,
-                              textScaler: TextScaler.noScaling,
-                              style: TextStyle(fontSize: 30 * s, height: 1.15),
-                            ),
-                          ),
-                        ],
-                        SizedBox(width: 16 * s),
-                      ],
-                    ),
+                  AgentTvCaption(
+                    caption: caption,
+                    mood: mood,
+                    s: s,
+                    heading: heading,
+                    body: body,
                   ),
               ],
             ),
@@ -623,6 +542,344 @@ class _TvRow extends StatelessWidget {
                     ],
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The caption strip at the foot of every TV screen: what the agent says and
+/// its mood, as on the phone.
+class AgentTvCaption extends StatelessWidget {
+  const AgentTvCaption({
+    super.key,
+    required this.caption,
+    required this.mood,
+    required this.s,
+    required this.heading,
+    required this.body,
+  });
+  final String caption, mood;
+  final double s;
+  final TextStyle Function(double, [Color]) heading, body;
+
+  @override
+  Widget build(BuildContext context) {
+    const ink = AgentTvAttention.ink;
+    return Container(
+      height: 64 * s,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18 * s),
+        boxShadow: [
+          BoxShadow(
+            color: AgentTvAttention._rank[1],
+            offset: Offset(6 * s, 6 * s),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 80 * s,
+            decoration: const BoxDecoration(color: ink, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text(
+              'AGENT',
+              style: body(9, Colors.white).copyWith(letterSpacing: 1.5 * s),
+            ),
+          ),
+          SizedBox(width: 14 * s),
+          Expanded(
+            child: Text(
+              caption,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: heading(20),
+            ),
+          ),
+          if (mood.isNotEmpty) ...[
+            SizedBox(width: 12 * s),
+            Container(
+              width: 52 * s,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AgentTvAttention._cream,
+                shape: BoxShape.circle,
+                border: Border.all(color: ink, width: 3 * s),
+              ),
+              child: Text(
+                mood,
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(fontSize: 30 * s, height: 1.15),
+              ),
+            ),
+          ],
+          SizedBox(width: 16 * s),
+        ],
+      ),
+    );
+  }
+}
+
+/// Any layer other than the attention list, on the TV: the same dark
+/// 10-foot style, a few rows at a time, keeping the row the agent points at
+/// on screen. Items are numbered as the agent numbers them (`layer#n`).
+class AgentTvLayer extends StatelessWidget {
+  const AgentTvLayer({
+    super.key,
+    required this.frame,
+    required this.caption,
+    required this.mood,
+    this.focused,
+  });
+  final Map<String, Object?> frame;
+  final String caption, mood;
+
+  /// The spotlit item, `layer#n`.
+  final String? focused;
+
+  static const _priorityColors = {
+    'decision': Color(0xffff5a69),
+    'blocked': Color(0xffff9a4d),
+    'mention': Color(0xffff8cc2),
+    'progress': Color(0xff7fe0a6),
+  };
+
+  /// Rows that fit at 10-foot type.
+  static const rows = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    const ink = AgentTvAttention.ink;
+    final id = '${frame['id'] ?? ''}';
+    // Sections head the rows after them; numbered items count from 1.
+    final entries = <({String? section, Map<String, Object?> item, int n})>[];
+    String? section;
+    var n = 0;
+    for (final i in (frame['items'] as List?) ?? const []) {
+      if (i is! Map) continue;
+      final item = Map<String, Object?>.from(i);
+      if (item['kind'] == 'section') {
+        section = '${item['text'] ?? ''}';
+        continue;
+      }
+      entries.add((section: section, item: item, n: ++n));
+      section = null;
+    }
+    final focus = focused != null && focused!.startsWith('$id#')
+        ? int.tryParse(focused!.substring(id.length + 1))
+        : null;
+    // The page that holds the focused row; the first page otherwise.
+    final start = focus == null || focus <= rows
+        ? 0
+        : ((focus - 1) ~/ rows) * rows;
+    final page = entries.skip(start).take(rows).toList();
+    final more = entries.length - start - page.length;
+    final summary = '${frame['summary'] ?? ''}';
+    return ColoredBox(
+      color: ink,
+      child: LayoutBuilder(
+        builder: (context, size) {
+          final s = (size.maxHeight / 540).clamp(1.0, 3.0);
+          TextStyle heading(double v, [Color color = ink]) => t
+              .heading(v * s, weight: FontWeight.w900)
+              .copyWith(color: color, height: 1.2);
+          TextStyle body(double v, [Color color = ink]) => t
+              .body(v * s, weight: FontWeight.w800, color: color)
+              .copyWith(height: 1.2);
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              size.maxWidth * .04,
+              size.maxHeight * .04,
+              size.maxWidth * .04,
+              size.maxHeight * .06,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Transform.rotate(
+                        angle: -.015,
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16 * s,
+                            vertical: 4 * s,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xffffd441),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xffff8cc2),
+                                offset: Offset(4 * s, 4 * s),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '${frame['title'] ?? ''}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: heading(30),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 20 * s),
+                    if (entries.length > rows)
+                      Text(
+                        '${start + 1}–${start + page.length} / ${entries.length}',
+                        style: body(14, const Color(0xffffd441)),
+                      ),
+                  ],
+                ),
+                if (summary.isNotEmpty) ...[
+                  SizedBox(height: 10 * s),
+                  Text(
+                    summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: body(16, Colors.white),
+                  ),
+                ],
+                SizedBox(height: 14 * s),
+                Expanded(
+                  child: frame['loading'] == true && entries.isEmpty
+                      ? Center(
+                          child: Text(
+                            '正在读取…',
+                            style: heading(28, Colors.white),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            for (var r = 0; r < rows; r++)
+                              Expanded(
+                                child: r < page.length
+                                    ? Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: 10 * s,
+                                        ),
+                                        child: AgentFocusable(
+                                          id: '$id#${page[r].n}',
+                                          child: _TvItemRow(
+                                            entry: page[r],
+                                            color:
+                                                _priorityColors[page[r]
+                                                    .item['priority']] ??
+                                                _priorityColors['progress']!,
+                                            s: s,
+                                            heading: heading,
+                                            body: body,
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                          ],
+                        ),
+                ),
+                if (more > 0)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 10 * s),
+                    child: Text(
+                      '还有 $more 项，说“下一批”',
+                      textAlign: TextAlign.center,
+                      style: body(14, const Color(0xffbdb6ad)),
+                    ),
+                  ),
+                if (caption.isNotEmpty || mood.isNotEmpty)
+                  AgentTvCaption(
+                    caption: caption,
+                    mood: mood,
+                    s: s,
+                    heading: heading,
+                    body: body,
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TvItemRow extends StatelessWidget {
+  const _TvItemRow({
+    required this.entry,
+    required this.color,
+    required this.s,
+    required this.heading,
+    required this.body,
+  });
+  final ({String? section, Map<String, Object?> item, int n}) entry;
+  final Color color;
+  final double s;
+  final TextStyle Function(double, [Color]) heading, body;
+
+  @override
+  Widget build(BuildContext context) {
+    final i = entry.item;
+    final message = i['kind'] == 'message';
+    final meta = [
+      ?entry.section,
+      if (message) '${i['sender'] ?? ''}' else '${i['label'] ?? ''}',
+      if (message) '${i['time'] ?? ''}',
+    ].where((e) => e.isNotEmpty).join(' · ');
+    final title = message ? '${i['text'] ?? ''}' : '${i['title'] ?? ''}';
+    final detail = message ? '' : '${i['detail'] ?? ''}';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16 * s),
+        boxShadow: [BoxShadow(color: color, offset: Offset(0, 6 * s))],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16 * s),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 64 * s,
+              color: color,
+              alignment: Alignment.center,
+              child: Text('${entry.n}', style: heading(34)),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18 * s),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (meta.isNotEmpty)
+                      Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: body(12, const Color(0xff6b6660)),
+                      ),
+                    AgentMarkText(
+                      title,
+                      maxLines: message ? 2 : 1,
+                      style: heading(22),
+                    ),
+                    if (detail.isNotEmpty)
+                      AgentMarkText(
+                        detail,
+                        maxLines: 1,
+                        style: body(13, const Color(0xff57524c)),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],

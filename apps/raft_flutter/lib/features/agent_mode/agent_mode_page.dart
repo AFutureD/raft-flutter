@@ -453,6 +453,8 @@ class _AgentModePageState extends State<AgentModePage> {
           : t.dark
           ? 'elegant-dark'
           : 'elegant-light',
+      'caption': _caption(),
+      'mood': _mood.emoji,
       'spotlight': _spotlight.focused,
       'spotlightEnter': _spotlight.entering,
       'marks': [for (final m in _marks.marks) m.toJson()],
@@ -1312,6 +1314,7 @@ class _AgentModePageState extends State<AgentModePage> {
       compact: _compact,
       expanded: l.expanded,
       entityLabel: (kind, id) => agentEntityLabel(_entities, kind, id),
+      entityData: (kind, id) => agentEntityData(_entities, kind, id),
       entityOf: (n) => l.item != null && n.component == AgentComponents.taskCard
           ? attentionEntity(l.item!)
           : surfaceEntity(
