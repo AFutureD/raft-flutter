@@ -144,14 +144,17 @@ class AgentChannelData extends AgentEntityData {
   const AgentChannelData({
     required this.name,
     this.unread = 0,
-    this.mentions = 0,
+    this.mentioned = false,
     this.lastActivity,
     this.direct = false,
   });
 
   /// Without the leading `#`.
   final String name;
-  final int unread, mentions;
+  final int unread;
+
+  /// Someone @-mentioned the person in the unread messages.
+  final bool mentioned;
   final String? lastActivity;
 
   /// A direct message: shown by name, without `#`.
@@ -167,12 +170,14 @@ class AgentMemberData extends AgentEntityData {
   const AgentMemberData({
     required this.name,
     this.role,
-    this.presence = AgentPresence.offline,
+    this.presence,
     this.avatar,
   });
   final String name;
   final String? role;
-  final AgentPresence presence;
+
+  /// Null when the app does not know (nothing is claimed then).
+  final AgentPresence? presence;
   final AgentAvatarBuilder? avatar;
 
   @override

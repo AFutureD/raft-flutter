@@ -66,7 +66,7 @@ _Resolver _full() => _Resolver()
     const AgentChannelData(
       name: 'raft-flutter',
       unread: 3,
-      mentions: 1,
+      mentioned: true,
       lastActivity: '5 分钟前',
     ),
   )
@@ -168,7 +168,7 @@ void main() {
         '在忙',
         '#raft-flutter',
         '未读 3',
-        '@我 1',
+        '@我',
         'Grace',
         '管理员',
         '在线',

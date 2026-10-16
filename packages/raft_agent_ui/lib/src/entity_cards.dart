@@ -242,23 +242,26 @@ _Parts _partsOf(
         headlineLines: 1,
         extraPills: [
           if (d.unread > 0) ('未读 ${d.unread}', progress),
-          if (d.mentions > 0)
-            ('@我 ${d.mentions}', agentPriorityFill(t, AgentPriority.mention)),
+          if (d.mentioned) ('@我', agentPriorityFill(t, AgentPriority.mention)),
         ],
         metaLine: [if (d.lastActivity != null) '最近 ${d.lastActivity}'],
         facts: [
           ('未读', '${d.unread}'),
-          ('@我', '${d.mentions}'),
+          ('@我', d.mentioned ? '有' : '无'),
           if (d.lastActivity != null) ('最近活动', d.lastActivity!),
         ],
         semantics: '${d.direct ? '私聊' : '频道'} ${d.label}，未读 ${d.unread}',
       );
     case AgentMemberData():
-      final dot = switch (d.presence) {
-        AgentPresence.online => progress,
-        AgentPresence.away => agentPriorityFill(t, AgentPriority.blocked),
-        AgentPresence.offline => t.hint.withValues(alpha: .35),
-      };
+      final presence = d.presence;
+      final dot = presence == null
+          ? null
+          : switch (presence) {
+              AgentPresence.online => progress,
+              AgentPresence.away => agentPriorityFill(t, AgentPriority.blocked),
+              AgentPresence.offline => t.hint.withValues(alpha: .35),
+            };
+      final status = presence == null ? null : agentPresenceLabels[presence];
       return _Parts(
         headline: d.name,
         headlineLines: 1,
@@ -267,12 +270,12 @@ _Parts _partsOf(
         avatar: d.avatar,
         avatarName: d.name,
         statusDot: dot,
-        statusText: agentPresenceLabels[d.presence],
+        statusText: status,
         facts: [
           if (d.role != null && d.role!.isNotEmpty) ('角色', d.role!),
-          ('状态', agentPresenceLabels[d.presence]!),
+          ?(status == null ? null : ('状态', status)),
         ],
-        semantics: '成员 ${d.name}，${agentPresenceLabels[d.presence]}',
+        semantics: '成员 ${d.name}${status == null ? '' : '，$status'}',
       );
     case AgentComputerData():
       final runtimes = d.runtimes.join('、');
