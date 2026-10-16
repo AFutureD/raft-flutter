@@ -10,10 +10,10 @@ import 'package:raft_flutter/data/resource_row_reconcile.dart'
 import 'package:raft_flutter/data/source_activity_unread_store.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_mode/agent_activity_feed.dart';
-import 'package:raft_flutter/features/agent_mode/agent_attention.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
 import 'package:raft_flutter/features/agent_mode/agent_scripted_model.dart';
+import 'package:raft_flutter/features/agent_mode/agent_tools.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability_standard.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_snooze.dart';
@@ -108,28 +108,6 @@ Map<String, dynamic> _channel(
   'hasMention': mention,
 };
 
-Map<String, dynamic> _task(
-  String id,
-  int number,
-  String status,
-  int minutes,
-  String title,
-) => {
-  'id': id,
-  'taskNumber': number,
-  'title': title,
-  'status': status,
-  'channelId': 'c1',
-  'channelName': 'raft-flutter',
-  'createdById': 'kevin',
-  'createdByType': 'user',
-  'createdByName': 'Kevin',
-  'claimedById': 'a-cindy',
-  'claimedByType': 'agent',
-  'claimedByName': 'Cindy',
-  'updatedAt': _ago(minutes),
-};
-
 /// The rows of the Activity the tests read, newest first.
 List<Map<String, dynamic>> _rows() => [
   _thread('th1', minutes: 3, unread: 2, mention: true),
@@ -186,6 +164,23 @@ void main() {
   tearDown(() async {
     w.dispose();
     await client.dispose();
+  });
+
+  test('the model is told the home is the Activity, and what the group at '
+      'the end is', () {
+    final show = agentToolDeclarations.firstWhere(
+      (d) => d['name'] == 'show_attention',
+    );
+    expect('${show['description']}', allOf(contains('动态'), contains('可能需要收尾')));
+    final prompt = agentSystemPrompt(channels: '');
+    expect(prompt, contains('App 的「动态」'));
+    expect(prompt, contains('可能需要收尾'));
+    expect(prompt, contains('最新在前'));
+    expect(prompt, isNot(contains('按急的程度')));
+    final open = agentToolDeclarations.firstWhere(
+      (d) => d['name'] == 'open_item',
+    );
+    expect('${open['description']}', contains('整段对话'));
   });
 
   group('the same source as the App\'s Activity', () {
@@ -737,7 +732,7 @@ void main() {
 /// Stands in for reading the workspace: the feed is composed by the real
 /// code from the Activity rows it is given.
 class _HomeData extends AgentModeData {
-  _HomeData(WorkspaceController w) : super(w, now: () => _now) {
+  _HomeData(super.w) : super(now: () => _now) {
     addTearDown(signal.dispose);
   }
 

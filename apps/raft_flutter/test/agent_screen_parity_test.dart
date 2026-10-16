@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/agent_mode/agent_activity_feed.dart';
 import 'package:raft_flutter/features/agent_mode/agent_attention.dart';
 import 'package:raft_flutter/features/agent_mode/agent_catalog.dart';
