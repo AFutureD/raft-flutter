@@ -194,54 +194,72 @@ void main() {
   );
 
   group('phone', () {
-    testWidgets('header: two counts and the most urgent line, nothing else', (
-      t,
-    ) async {
+    testWidgets('header: the three counts, then the sections', (t) async {
       await open(t, _Data(w, _three()));
       expect(countOf('decision', '3'), findsOneWidget);
       expect(countOf('blocked', '1'), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-count-mention')), findsNothing);
       expect(find.text('件等你决定'), findsOneWidget);
       expect(find.text('件卡住了'), findsOneWidget);
-      // The most urgent item gets its own line.
+      // The most urgent item is tagged.
       expect(find.text('最急'), findsOneWidget);
-      expect(find.textContaining('也在等你'), findsWidgets);
-      // The scope note, the side labels and the mention badge are gone.
+      // Sections head the rows under them (the mention is on the next page).
+      expect(find.text('等你决定'), findsOneWidget);
+      expect(find.text('卡住了'), findsOneWidget);
+      expect(find.text('点名你'), findsNothing);
+      // The scope note and the side labels are gone.
       expect(find.text(AgentAttention.scopeNote), findsNothing);
       expect(find.text('按紧急程度'), findsNothing);
-      expect(find.text('你的事'), findsNothing);
-      expect(find.text('超过 4 小时没动'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('attention-count-mention')),
-        findsNothing,
-      );
-      expect(find.text('处点名你'), findsNothing);
-      // Mentions are one quiet row.
-      expect(find.text('另有 1 处点名你'), findsOneWidget);
       expect(card('m1'), findsNothing);
       // The old query-cap sentence is gone.
       expect(find.textContaining('50 件'), findsNothing);
     });
 
-    testWidgets('a card is a rank, one sentence and one meta line', (t) async {
+    testWidgets('a row is a rank, a meta line, one sentence and what is asked', (
+      t,
+    ) async {
       await open(t, _Data(w, _three()));
       expect(find.text('甲方案：Cardinal 完成了「项目设定」，等你验收'), findsOneWidget);
-      expect(find.text('#raft-flutter · 等了 24 小时'), findsOneWidget);
-      expect(find.text('#raft-flutter · 等了 11 小时'), findsOneWidget);
+      // Where and why in the meta, what is asked under the sentence.
+      expect(
+        find.descendant(
+          of: card('t1'),
+          matching: find.text('#raft-flutter · 2 人在等'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: card('t1'),
+          matching: find.text('验收「甲方」'),
+        ),
+        findsOneWidget,
+      );
+      // How long: the stat block at the right.
+      expect(
+        find.descendant(of: card('t1'), matching: find.text('已等')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: card('t1'), matching: find.text('24')),
+        findsOneWidget,
+      );
       // Rank numbers run over all sections.
-      for (final (id, n) in [('t1', '1'), ('t2', '2'), ('t3', '3')]) {
+      for (final (id, n) in [('t1', '1'), ('t2', '2'), ('t3', '3'), ('b1', '4')]) {
         expect(
-          find.descendant(of: card(id), matching: find.text(n)),
+          find.descendant(
+            of: find.descendant(
+              of: card(id),
+              matching: find.byKey(const ValueKey('hf-row-bar')),
+            ),
+            matching: find.text(n),
+          ),
           findsOneWidget,
+          reason: id,
         );
       }
-      // Nothing else on the card: no reason sticker, quote, ask box, where or
-      // who waits, and no buttons.
-      expect(find.text('2 人在等'), findsNothing);
-      expect(find.text('你派的任务'), findsNothing);
+      // Nothing else on a row: no quote, no who-waits, and no buttons.
       expect(find.textContaining('进展'), findsNothing);
-      expect(find.text('要你做'), findsNothing);
-      expect(find.text('验收「甲方」'), findsNothing);
-      expect(find.text('「t1 讨论」'), findsNothing);
       expect(find.text('Huanan、Cardinal 在等你'), findsNothing);
       for (final k in ['approve', 'open', 'later']) {
         expect(find.byKey(ValueKey('attention-$k-t1')), findsNothing);
@@ -249,35 +267,28 @@ void main() {
       expect(find.text('通过'), findsNothing);
       expect(find.text('打开讨论'), findsNothing);
       expect(find.text('稍后'), findsNothing);
-      // No section dividers on the phone: the header already counts.
-      expect(find.text('等你决定'), findsNothing);
-      expect(find.text('卡住了'), findsNothing);
-      expect(find.text('点名你'), findsNothing);
     });
 
-    testWidgets('at most three cards; the rest is one row', (t) async {
+    testWidgets('four rows to a page; the rest behind the pager', (t) async {
       await open(t, _Data(w, _three()), size: const Size(430, 1100));
-      expect(card('t1'), findsOneWidget);
-      expect(card('t2'), findsOneWidget);
-      expect(card('t3'), findsOneWidget);
-      expect(card('b1'), findsNothing);
-      expect(find.byType(AgentAttentionCard), findsNWidgets(3));
-      expect(find.text('还有 1 件，说“下一批”看看'), findsOneWidget);
-      // Cards stay short for their type size, and the first is the biggest.
-      final heights = [
-        for (final id in ['t1', 't2', 't3']) t.getRect(card(id)).height,
-      ];
-      expect(heights[0], greaterThan(heights[1]));
-      expect(heights[0], lessThanOrEqualTo(170));
-      expect(heights[1], lessThanOrEqualTo(140));
-      expect(heights[2], lessThanOrEqualTo(140));
+      for (final id in ['t1', 't2', 't3', 'b1']) {
+        expect(card(id), findsOneWidget, reason: id);
+      }
+      expect(card('m1'), findsNothing);
+      expect(find.byType(HfRow), findsNWidgets(4));
+      expect(find.text('1–4 / 5'), findsOneWidget);
+      expect(find.text('还有 1 件，说“下一批”'), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-more')), findsOneWidget);
+      // Rows stay short for their type size.
+      for (final id in ['t1', 't2', 't3', 'b1']) {
+        expect(t.getRect(card(id)).height, lessThanOrEqualTo(150), reason: id);
+      }
       expect(t.takeException(), isNull);
     });
 
-    testWidgets('three cards fit above the voice dock on 360x800', (t) async {
-      // A 1080x2400 phone at 3x. Worst case: every headline takes two lines.
-      t.view.physicalSize = const Size(1080, 2400);
-      t.view.devicePixelRatio = 3;
+    testWidgets('three rows fit above the voice dock on 412x915', (t) async {
+      t.view.physicalSize = const Size(412, 915);
+      t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
@@ -290,34 +301,42 @@ void main() {
       for (final id in ['t1', 't2', 't3']) {
         expect(card(id), findsOneWidget);
         final r = t.getRect(card(id));
-        // Every line of the card is on screen, not just its top.
+        // Every line of the row is on screen, not just its top (worst case:
+        // every headline takes two lines).
         expect(
           r.bottom,
           lessThanOrEqualTo(dock.top),
-          reason: 'card $id bottom ${r.bottom} vs dock top ${dock.top}',
+          reason: 'row $id bottom ${r.bottom} vs dock top ${dock.top}',
         );
       }
       expect(t.takeException(), isNull);
     });
 
-    testWidgets('not more than three even with many items', (t) async {
+    testWidgets('not more than a page even with many items', (t) async {
       final many = AgentAttention(
         items: [
-          for (var i = 1; i <= 8; i++)
+          for (var i = 1; i <= 9; i++)
             _decision('t$i', '第$i号方案：等你验收', score: 100.0 - i),
         ],
       );
       await open(t, _Data(w, many), size: const Size(430, 1100));
-      expect(find.byType(AgentAttentionCard), findsNWidgets(3));
-      expect(find.text('还有 5 件，说“下一批”看看'), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-card-t4')), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-card-t5')), findsNothing);
+      expect(find.text('还有 5 件，说“下一批”'), findsOneWidget);
     });
 
-    testWidgets('three or fewer items: no more-row', (t) async {
+    testWidgets('a page or less: no pager', (t) async {
       final few = AgentAttention(
-        items: [_decision('t1', '甲方案：等你验收'), _decision('t2', '乙方案：等你验收')],
+        items: [
+          _decision('t1', '甲方案：等你验收'),
+          _decision('t2', '乙方案：等你验收'),
+          _decision('t3', '丙方案：等你验收'),
+          _decision('t4', '丁方案：等你验收'),
+        ],
       );
       await open(t, _Data(w, few), size: const Size(390, 844));
       expect(find.byKey(const ValueKey('attention-more')), findsNothing);
+      expect(find.byType(HfPager), findsNothing);
     });
 
     testWidgets('the next batch by tap and by voice, wrapping at the end', (
@@ -327,81 +346,79 @@ void main() {
       await t.tap(find.byKey(const ValueKey('attention-more')));
       await t.pumpAndSettle();
       expect(card('t1'), findsNothing);
-      expect(card('b1'), findsOneWidget);
+      expect(card('m1'), findsOneWidget);
       // Ranks stay what they are over all items.
       expect(
-        find.descendant(of: card('b1'), matching: find.text('4')),
+        find.descendant(of: card('m1'), matching: find.text('5')),
         findsOneWidget,
       );
-      expect(find.text('#raft-flutter · 5 小时没动'), findsOneWidget);
+      expect(find.text('点名你'), findsOneWidget);
       expect(find.text('已经是最后一批，说“下一批”回到最前'), findsOneWidget);
-      // The first of a later batch is not the big one.
       await say(t, '下一批');
       expect(card('t1'), findsOneWidget);
-      expect(card('b1'), findsNothing);
-      expect(find.textContaining('现在是第 1 到 3 条'), findsWidgets);
+      expect(card('m1'), findsNothing);
+      expect(find.textContaining('现在是第 1 到 4 条'), findsWidgets);
     });
 
-    testWidgets(
-      'type is made for arm\'s length: nothing under 16, big counts',
-      (t) async {
-        await open(t, _Data(w, _three()), size: const Size(430, 1100));
-        // Open the team row too so its lines count.
-        await t.tap(find.byKey(const ValueKey('attention-team')));
-        await t.pumpAndSettle();
-        double? size(InlineSpan span, double? inherited) {
+    testWidgets('type is made for arm\'s length: nothing under 13, big counts', (
+      t,
+    ) async {
+      await open(
+        t,
+        _Data(
+          w,
+          AgentAttention(
+            items: _three().items.take(4).toList(),
+            team: _three().team,
+          ),
+        ),
+        size: const Size(430, 1100),
+      );
+      // Open the team row too so its lines count.
+      await t.tap(find.byKey(const ValueKey('attention-team')));
+      await t.pumpAndSettle();
+      final small = <String>[];
+      final view = find.byType(AgentAttentionView);
+      for (final rich in t.widgetList<RichText>(
+        find.descendant(of: view, matching: find.byType(RichText)),
+      )) {
+        void visit(InlineSpan span, double? inherited) {
           final own = span.style?.fontSize ?? inherited;
-          return own;
-        }
-
-        final small = <String>[];
-        final view = find.byType(AgentAttentionView);
-        for (final rich in t.widgetList<RichText>(
-          find.descendant(of: view, matching: find.byType(RichText)),
-        )) {
-          void visit(InlineSpan span, double? inherited) {
-            final own = size(span, inherited);
-            if (span is TextSpan) {
-              final text = span.text ?? '';
-              if (text.trim().isNotEmpty && (own == null || own < 16)) {
-                small.add('$text @ $own');
-              }
-              for (final c in span.children ?? const <InlineSpan>[]) {
-                visit(c, own);
-              }
+          if (span is TextSpan) {
+            final text = span.text ?? '';
+            if (text.trim().isNotEmpty && (own == null || own < 13)) {
+              small.add('$text @ $own');
+            }
+            for (final c in span.children ?? const <InlineSpan>[]) {
+              visit(c, own);
             }
           }
-
-          visit(rich.text, null);
         }
-        expect(small, isEmpty);
 
-        Text count(String kind, String n) => t.widget<Text>(
-          find.descendant(
-            of: find.byKey(ValueKey('attention-count-$kind')),
-            matching: find.text(n),
-          ),
-        );
-        expect(
-          count('decision', '3').style!.fontSize,
-          greaterThanOrEqualTo(34),
-        );
-        expect(count('blocked', '1').style!.fontSize, greaterThanOrEqualTo(34));
-        Text inCard(String id, String text) => t.widget<Text>(
-          find.descendant(of: card(id), matching: find.text(text)),
-        );
-        // Headline 26+ bold, meta 18+; the lead card is larger still.
-        final lead = inCard('t1', '甲方案：Cardinal 完成了「项目设定」，等你验收');
-        final other = inCard('t2', '乙方案：Cindy 完成了「改名」，等你验收');
-        expect(other.style!.fontSize, greaterThanOrEqualTo(26));
-        expect(other.style!.fontWeight, FontWeight.w900);
-        expect(lead.style!.fontSize, greaterThan(other.style!.fontSize!));
-        expect(
-          inCard('t2', '#raft-flutter · 等了 11 小时').style!.fontSize,
-          greaterThanOrEqualTo(18),
-        );
-      },
-    );
+        visit(rich.text, null);
+      }
+      expect(small, isEmpty);
+
+      Text count(String kind, String n) => t.widget<Text>(
+        find.descendant(
+          of: find.byKey(ValueKey('attention-count-$kind')),
+          matching: find.text(n),
+        ),
+      );
+      expect(count('decision', '3').style!.fontSize, greaterThanOrEqualTo(22));
+      expect(count('blocked', '1').style!.fontSize, greaterThanOrEqualTo(22));
+      Text inCard(String id, String text) => t.widget<Text>(
+        find.descendant(of: card(id), matching: find.text(text)),
+      );
+      // Headline 22 bold, meta 13.
+      final other = inCard('t2', '乙方案：Cindy 完成了「改名」，等你验收');
+      expect(other.style!.fontSize, greaterThanOrEqualTo(22));
+      expect(other.style!.fontWeight, FontWeight.w900);
+      expect(
+        inCard('t2', '#raft-flutter · 你派的任务').style!.fontSize,
+        greaterThanOrEqualTo(13),
+      );
+    });
 
     testWidgets('a long headline keeps to two lines with an ellipsis', (
       t,
@@ -419,18 +436,18 @@ void main() {
       );
       expect(headline.maxLines, 2);
       expect(headline.overflow, TextOverflow.ellipsis);
-      expect(t.getRect(card('t1')).height, lessThanOrEqualTo(170));
+      expect(t.getRect(card('t1')).height, lessThanOrEqualTo(150));
       final meta = t.widget<Text>(
         find.descendant(
           of: card('t1'),
-          matching: find.text('#raft-flutter · 等了 3 小时'),
+          matching: find.text('#raft-flutter · 你派的任务'),
         ),
       );
       expect(meta.maxLines, 1);
     });
 
     testWidgets(
-      'the phone pieces grow with system type instead of overflowing',
+      'the phone view grows with system type instead of overflowing',
       (t) async {
         t.view.physicalSize = const Size(360, 900);
         t.view.devicePixelRatio = 1;
@@ -441,31 +458,31 @@ void main() {
             MaterialApp(
               theme: raftTheme(RaftFamily.brutal),
               builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.linear(scale)),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
                 child: child!,
               ),
               home: Scaffold(
-                body: ListView(
-                  children: [
-                    const AgentAttentionSummary(
-                      decision: '50+',
-                      blocked: '12',
-                      mention: null,
-                      urgent: '甲方案：Cardinal 完成了「项目设定」，等你验收，已经等了很久很久',
-                      large: true,
+                body: HandsFree(
+                  child: AgentAttentionView(
+                    attention: AgentAttention(
+                      items: [
+                        item,
+                        _decision('t2', '乙方案：等你验收'),
+                        _blocked(),
+                        _mention(),
+                        _decision('t3', '丙方案：等你验收'),
+                      ],
+                      teamCount: 50,
+                      capped: true,
                     ),
-                    AgentAttentionCard(data: agentCardFor(item, 1), lead: true),
-                    AgentAttentionCard(data: agentCardFor(item, 2)),
-                    const AgentMoreRow(text: '还有 12 件，说“下一批”看看'),
-                    const AgentMentionRow(count: '3'),
-                    AgentTeamRow(
-                      compact: true,
-                      count: '50+',
-                      expanded: false,
-                      onTap: () {},
-                    ),
-                  ],
+                    focusPrefix: 'attention',
+                    onApprove: (_) {},
+                    onOpen: (_) {},
+                    onLater: (_) {},
+                    onExpand: (_) {},
+                  ),
                 ),
               ),
             ),
@@ -475,9 +492,11 @@ void main() {
       },
     );
 
-    testWidgets('a mention is not listed; its row opens it', (t) async {
+    testWidgets('a mention is on the next page; its row opens it', (t) async {
       await open(t, _Data(w, _three()));
-      await t.tap(find.byKey(const ValueKey('attention-mentions')));
+      await t.tap(find.byKey(const ValueKey('attention-more')));
+      await t.pumpAndSettle();
+      await t.tap(card('m1'));
       await t.pumpAndSettle();
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.byKey(const ValueKey('detail:m1')), findsOneWidget);
@@ -495,7 +514,13 @@ void main() {
       expect(find.byKey(const ValueKey('detail:t1')), findsOneWidget);
       // The task with its latest progress, the two before it as quotes.
       expect(find.text('甲方案：Cardinal 完成了「项目设定」，等你验收'), findsWidgets);
-      expect(find.text('等验收'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(HfDetail),
+          matching: find.textContaining('等验收'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Cindy · 今天 07:20  t1 进展三'), findsOneWidget);
       expect(find.text('之前的进展'), findsOneWidget);
       expect(find.text('t1 进展一'), findsOneWidget);
@@ -727,8 +752,17 @@ void main() {
     });
 
     testWidgets('team progress is collapsed and counted', (t) async {
-      await open(t, _Data(w, _three()));
-      expect(find.text('团队进度 2 件（不需要你）'), findsOneWidget);
+      await open(
+        t,
+        _Data(
+          w,
+          AgentAttention(
+            items: [_decision('t1', '甲方案：等你验收')],
+            team: _three().team,
+          ),
+        ),
+      );
+      expect(find.text('团队在推进 2 件'), findsOneWidget);
       expect(find.text('Ming 完成了「发布说明」'), findsNothing);
       await t.tap(find.byKey(const ValueKey('attention-team')));
       await t.pumpAndSettle();
@@ -744,7 +778,7 @@ void main() {
         capped: true,
       );
       await open(t, _Data(w, capped));
-      expect(find.text('团队进度 50+ 件（不需要你）'), findsOneWidget);
+      expect(find.text('团队在推进 50+ 件'), findsOneWidget);
     });
 
     testWidgets('nothing waiting says so', (t) async {
@@ -814,24 +848,31 @@ void main() {
     ) async {
       await open(t, _Data(w, _three()), size: wide);
       expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
-      // The first item is selected; its progress lines (last 3) are shown.
+      // The first item is selected; its progress lines (last 2) are shown.
       Finder inDetail(String text) => find.descendant(
         of: find.byKey(const ValueKey('attention-detail')),
         matching: find.textContaining(text),
       );
-      expect(inDetail('t1 进展一'), findsOneWidget);
+      expect(inDetail('t1 进展二'), findsOneWidget);
       expect(inDetail('t1 进展三'), findsOneWidget);
+      expect(inDetail('t1 进展一'), findsNothing);
       expect(inDetail('甲方案'), findsOneWidget);
-      // Rows are compact: headline, no quote, no ask box.
+      // Three rows to a page on a desktop; rows are compact: headline, no
+      // quote.
       expect(find.byKey(const ValueKey('attention-row-t2')), findsOneWidget);
       expect(find.byKey(const ValueKey('attention-card-t2')), findsNothing);
+      expect(find.byKey(const ValueKey('attention-row-b1')), findsNothing);
+      expect(find.text('1–3 / 5'), findsOneWidget);
       expect(find.textContaining('t2 进展三'), findsNothing);
 
       final list = t.getRect(find.byKey(const ValueKey('attention-row-t1')));
       final detail = t.getRect(find.byKey(const ValueKey('attention-detail')));
-      expect(list.width, lessThanOrEqualTo(540));
-      expect(detail.width, lessThanOrEqualTo(560));
       expect(detail.left, greaterThan(list.right));
+      // The selected row is marked.
+      expect(
+        t.widget<HfRow>(find.byKey(const ValueKey('attention-row-t1'))).selected,
+        isTrue,
+      );
     });
 
     testWidgets('tapping a row selects it', (t) async {
@@ -881,7 +922,28 @@ void main() {
       expect(client.posts, isEmpty);
     });
 
-    testWidgets('detail has the ask box and its three actions', (t) async {
+    testWidgets('the selection moves the page: down past the last row', (
+      t,
+    ) async {
+      await open(t, _Data(w, _three()), size: wide);
+      for (var i = 0; i < 3; i++) {
+        await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await t.pumpAndSettle();
+      }
+      // The fourth item (the blocked one) is on the second page now.
+      expect(find.byKey(const ValueKey('attention-row-t1')), findsNothing);
+      expect(find.byKey(const ValueKey('attention-row-b1')), findsOneWidget);
+      expect(find.text('4–5 / 5'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('attention-detail')),
+          matching: find.textContaining('卡住了'),
+        ),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('detail has the ask and its three actions', (t) async {
       await open(t, _Data(w, _three()), size: wide);
       expect(
         find.byKey(const ValueKey('attention-approve-t1')),
@@ -889,15 +951,47 @@ void main() {
       );
       expect(find.byKey(const ValueKey('attention-open-t1')), findsOneWidget);
       expect(find.byKey(const ValueKey('attention-later-t1')), findsOneWidget);
-      expect(find.text('↑↓'), findsOneWidget);
-      expect(find.text('切换'), findsOneWidget);
+      expect(find.text('要你做'), findsOneWidget);
+      expect(find.textContaining('↑↓ 切换'), findsOneWidget);
     });
   });
 
   group('tv', () {
-    testWidgets('top three only, big type, no buttons, caption strip', (
-      t,
-    ) async {
+    Future<void> tv(WidgetTester t, AgentAttention a, {String caption = ''}) async {
+      t.view.physicalSize = const Size(1920, 1080);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final spotlight = AgentSpotlightController();
+      final marks = AgentMarkController();
+      addTearDown(spotlight.dispose);
+      addTearDown(marks.dispose);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: Scaffold(
+            body: AgentTvScreen(
+              frame: {
+                'caption': caption,
+                'mood': '🤔',
+                'layers': [
+                  {
+                    'id': 'attention',
+                    'title': '现在需要你',
+                    'attention': a.toJson(),
+                  },
+                ],
+              },
+              spotlight: spotlight,
+              marks: marks,
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+    }
+
+    testWidgets('the same list and detail as a desktop, voice hints for the '
+        'buttons, caption strip', (t) async {
       final attention = AgentAttention(
         items: [
           _decision('t1', '甲方案：等你验收', hours: 24),
@@ -907,45 +1001,37 @@ void main() {
           _blocked(),
         ],
       );
-      final frame = attention.tvFrame(caption: 'Cardinal 那条已经等了 24 小时，先看这个？');
-      expect((frame['items'] as List), hasLength(3));
-      t.view.physicalSize = const Size(1920, 1080);
-      t.view.devicePixelRatio = 1;
-      addTearDown(t.view.reset);
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
-          home: Scaffold(body: AgentTvAttention(frame: frame)),
-        ),
-      );
-      await t.pumpAndSettle();
-      expect(find.text('甲方案：等你验收'), findsOneWidget);
+      await tv(t, attention, caption: 'Cardinal 那条已经等了 24 小时，先看这个？');
+      // Three rows to a page, as on a desktop; the rest is the pager's.
+      expect(find.text('甲方案：等你验收'), findsWidgets);
       expect(find.text('乙方案：等你验收'), findsOneWidget);
       expect(find.text('丙方案：等你验收'), findsOneWidget);
       expect(find.text('丁方案：等你验收'), findsNothing);
+      expect(find.text('1–3 / 5'), findsOneWidget);
       expect(find.text('最急'), findsOneWidget);
       expect(find.text('24'), findsOneWidget);
-      expect(find.text('在手机上处理'), findsOneWidget);
+      // The detail of the first row, beside the list.
+      expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
+      // The buttons are pills that say what to say; nothing is pressable.
+      expect(find.textContaining('「通过」'), findsOneWidget);
+      expect(find.textContaining('「稍后」'), findsOneWidget);
+      expect(find.text('通过'), findsNothing);
+      expect(find.text('在手机上处理'), findsNothing);
+      expect(find.text('下一批'), findsNothing);
       expect(find.text('Cardinal 那条已经等了 24 小时，先看这个？'), findsOneWidget);
       expect(find.text('AGENT'), findsOneWidget);
+      expect(find.byType(HfDock), findsNothing);
       expect(find.byType(InkWell), findsNothing);
       expect(find.byType(ElevatedButton), findsNothing);
       expect(find.byType(TextButton), findsNothing);
       expect(find.byType(OutlinedButton), findsNothing);
-      // 10-foot type.
-      final size = t.getSize(find.text('甲方案：等你验收'));
-      expect(size.height, greaterThan(30));
+      // The type ramp scaled by s = 2: the headline is 44.
+      final title = t.widget<Text>(find.text('乙方案：等你验收'));
+      expect(title.style!.fontSize, 22 * 2);
     });
 
     testWidgets('an empty list says so on the TV too', (t) async {
-      final frame = const AgentAttention(items: []).tvFrame(caption: '');
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
-          home: Scaffold(body: AgentTvAttention(frame: frame)),
-        ),
-      );
-      await t.pumpAndSettle();
+      await tv(t, const AgentAttention(items: []));
       expect(find.text('现在没有需要你处理的事'), findsOneWidget);
     });
   });

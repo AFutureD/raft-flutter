@@ -3,11 +3,9 @@ import 'package:flutter/scheduler.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart' as ui show AgentEntityRef;
 
-import 'agent_attention.dart' show agentWideBreakpoint;
 import 'agent_entity_binding.dart';
 import 'agent_surface.dart';
 import 'references/agent_handle_tag.dart';
-import 'references/agent_reference_table.dart' show agentHandle;
 
 /// Names of the standard components, for code that composes surfaces.
 abstract final class AgentComponents {
@@ -105,7 +103,7 @@ AgentCatalog _standard() => AgentCatalog([
           activity.isEmpty || agentWorkStateLabels.values.contains(activity);
       return '${n.string('name') ?? ''}${skip ? '' : ' $activity'}';
     },
-    build: (context, n, _) => AgentStatusCardView(
+    build: (context, n, _) => HfStatusCard(
       name: n.string('name') ?? '',
       state: _state(n.string('state')),
       activity: n.string('activity'),
@@ -143,10 +141,13 @@ AgentCatalog _standard() => AgentCatalog([
         {'component': 'AgentStatusCard', 'name': 'Grok', 'state': 'busy'},
       ],
     },
-    build: (context, n, children) => AgentStatusGroupView(
+    build: (context, n, children) => HfGroup(
       title: n.string('title') ?? '',
-      state: n.string('state') == null ? null : _state(n.string('state')),
+      tone: n.string('state') == null
+          ? HfTone.progress
+          : hfWorkTone(_state(n.string('state'))),
       display: _spec(n),
+      displayKind: 'AgentStatusGroup',
       children: children,
     ),
   ),
@@ -196,7 +197,7 @@ AgentCatalog _standard() => AgentCatalog([
     ].join(' '),
     build: (context, n, _) {
       final q = n.object('quote');
-      return AgentTaskCardView(
+      return HfTaskCard(
         title: n.string('title') ?? '',
         status: n.string('status') ?? 'todo',
         number: n.integer('number'),
@@ -230,7 +231,7 @@ AgentCatalog _standard() => AgentCatalog([
     },
     line: (n) =>
         '${n.string('author') ?? ''}：${_clip(n.string('text') ?? '', 24)}',
-    build: (context, n, _) => AgentMessageQuoteView(
+    build: (context, n, _) => HfMessageQuote(
       author: n.string('author') ?? '',
       text: n.string('text') ?? '',
       time: n.string('time'),
@@ -272,10 +273,10 @@ AgentCatalog _standard() => AgentCatalog([
       for (final s in n.list('stats'))
         if (s is Map) '${s['label']} ${s['value']}',
     ].join('，'),
-    build: (context, n, _) => AgentStatRowView(
+    build: (context, n, _) => HfStatStrip(
       stats: [
         for (final s in n.list('stats'))
-          if (s is Map) AgentStatData('${s['label']}', '${s['value']}'),
+          if (s is Map) HfStat('${s['label']}', '${s['value']}'),
       ],
       display: _spec(n),
     ),
@@ -329,7 +330,7 @@ AgentCatalog _standard() => AgentCatalog([
         {'component': 'MessageQuote', 'author': 'Cindy', 'text': '已合入'},
       ],
     },
-    build: (context, n, children) => AgentSurfaceSectionView(
+    build: (context, n, children) => HfGroup(
       title: n.string('title') ?? '',
       display: _spec(n),
       children: children,
@@ -353,16 +354,31 @@ AgentCatalog _standard() => AgentCatalog([
       final scope = AgentActionScope.maybeOf(context);
       void Function()? act(String a) =>
           scope == null ? null : () => scope.onAction(a);
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-        child: AgentActionRow(
-          itemId: n.string('itemId') ?? '',
-          approve: n.flag('approve') ?? false,
-          openLabel: n.string('openLabel') ?? '打开讨论',
-          onApprove: act('approve'),
-          onOpen: act('open'),
-          onLater: act('later'),
-        ),
+      final id = n.string('itemId') ?? '';
+      final approve = n.flag('approve') ?? false;
+      return HfActions(
+        actions: [
+          if (approve)
+            HfAction(
+              '通过',
+              key: ValueKey('attention-approve-$id'),
+              kind: HfActionKind.primary,
+              icon: Icons.check_rounded,
+              onPressed: act('approve'),
+            ),
+          HfAction(
+            n.string('openLabel') ?? '打开讨论',
+            key: ValueKey('attention-open-$id'),
+            kind: approve ? HfActionKind.secondary : HfActionKind.primary,
+            onPressed: act('open'),
+          ),
+          HfAction(
+            '稍后',
+            key: ValueKey('attention-later-$id'),
+            kind: HfActionKind.text,
+            onPressed: act('later'),
+          ),
+        ],
       );
     },
   ),
@@ -372,10 +388,11 @@ AgentCatalog _standard() => AgentCatalog([
 /// The catalog agent mode composes screens from.
 final AgentCatalog agentStandardCatalog = _standard();
 
-/// Draws a validated surface as a layer: heading, summary and the tree. Items
-/// (the leaves, and a folded container as one) are [AgentFocusable] numbered
-/// from 1 in reading order, the same numbers [agentSurfaceFrame] gives them, so
-/// spotlight and marks work.
+/// Draws a validated surface as a layer: title sticker, summary and the tree.
+/// Items (the leaves, and a folded container as one) are [AgentFocusable]
+/// numbered from 1 in reading order, the same numbers [agentSurfaceFrame] gives
+/// them, so spotlight and marks work, and each draws that number on its bar
+/// (the handle: ① is "1").
 ///
 /// On a [compact] screen (the phone) a group or section folds to one summary
 /// row unless its `density` says `detail`; tapping the row calls [onExpand]
@@ -401,7 +418,7 @@ class AgentSurfaceView extends StatefulWidget {
   /// Defaults to [agentStandardCatalog].
   final AgentCatalog? catalog;
 
-  /// Defaults to the width of the screen.
+  /// Defaults to the surface: a phone folds, a desktop and a TV do not.
   final bool? compact;
   final Set<String> expanded;
   final ValueChanged<String>? onExpand;
@@ -418,11 +435,10 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
 
   @override
   Widget build(BuildContext context) {
+    final hf = HandsFree.of(context);
     final spec = widget.spec;
     final catalog = widget.catalog ?? agentStandardCatalog;
-    final compact =
-        widget.compact ??
-        MediaQuery.sizeOf(context).width < agentWideBreakpoint;
+    final compact = widget.compact ?? hf.phone;
     final folded = foldedPaths(
       catalog,
       spec.root,
@@ -440,13 +456,21 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
       final below = agentDisplayOf(node.props, 'childDisplay').over(inherited);
       final Widget drawn;
       if (folded.contains(path)) {
-        drawn = AgentFocusable(
-          id: '${widget.focusPrefix}#${numbers[path]}',
-          child: _summaryRow(
-            catalog,
-            node,
-            display: own,
-            onTap: () => widget.onExpand?.call(path),
+        final id = '${widget.focusPrefix}#${numbers[path]}';
+        drawn = _slot(
+          hf,
+          AgentFocusable(
+            id: id,
+            child: HfItemScope(
+              index: numbers[path]!,
+              focusId: id,
+              child: _summaryRow(
+                catalog,
+                node,
+                display: own,
+                onTap: () => widget.onExpand?.call(path),
+              ),
+            ),
           ),
         );
       } else {
@@ -454,36 +478,41 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
           for (final (i, c) in node.children.indexed)
             draw(c, surfaceChildPath(path, i), below.isEmpty ? null : below),
         ];
-        // An entity card wears the number of its place on the screen (the
-        // handle "第二个" and "②" mean), never one the model wrote.
-        final entityCard =
-            node.component == AgentEntityComponents.entity &&
-            numbers[path] != null;
         final built = item.build(
           context,
           node.copyWith(
             props: {
               ...node.props,
-              if (entityCard) 'handle': agentHandle(numbers[path]!),
               // What the card draws: its own display over the lists'.
               if (!own.isEmpty) 'display': own.toJson(),
             },
           ),
           children,
         );
-        // The handle badge is an element like any other; the card is
-        // numbered and can be pointed at whether it is drawn or not.
-        final handleShown = own.resolve(displayKindOf(node)).has('handle');
-        drawn = item.container || !item.focusable
-            ? built
-            : AgentFocusable(
-                id: '${widget.focusPrefix}#${numbers[path]}',
-                child: AgentHandleTag(
-                  focusId: '${widget.focusPrefix}#${numbers[path]}',
-                  showHandle: !entityCard && handleShown,
+        if (item.container) {
+          drawn = built;
+        } else if (!item.focusable) {
+          drawn = _slot(hf, built);
+        } else {
+          // A component wears the number of its place on the screen (the
+          // number on its bar: "第二个" and "2" mean it), never one the
+          // model wrote.
+          final id = '${widget.focusPrefix}#${numbers[path]}';
+          drawn = _slot(
+            hf,
+            AgentFocusable(
+              id: id,
+              child: AgentHandleTag(
+                focusId: id,
+                child: HfItemScope(
+                  index: numbers[path]!,
+                  focusId: id,
                   child: built,
                 ),
-              );
+              ),
+            ),
+          );
+        }
       }
       if (path == 'r') return drawn;
       return AgentAppear(
@@ -496,7 +525,7 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
     final body = draw(spec.root, 'r', null);
     return AgentEnterPacing(
       pacer: _pacer,
-      child: AgentLayerFrame(
+      child: HfLayerFrame(
         title: spec.title,
         enterTitle: widget.animate,
         summary: spec.summary == null ? null : TextSpan(text: spec.summary),
@@ -504,6 +533,10 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
       ),
     );
   }
+
+  /// The gap under a numbered component: a row's hard shadow hangs below it.
+  Widget _slot(HfData hf, Widget child) =>
+      Padding(padding: EdgeInsets.only(bottom: hf.rowGap), child: child);
 }
 
 /// The kind of thing an entity card stands for, as a person says it
@@ -601,11 +634,13 @@ class _LiveSummaryRowState extends State<_LiveSummaryRow> {
   Widget build(BuildContext context) {
     final node = widget.node;
     final display = widget.display;
-    return AgentSummaryRow(
+    return HfSummaryRow(
       title: node.string('title') ?? '',
       count: node.children.length,
       text: _foldedText(widget.catalog, node, labelOf: _label),
-      state: node.string('state') == null ? null : _state(node.string('state')),
+      tone: node.string('state') == null
+          ? HfTone.progress
+          : hfWorkTone(_state(node.string('state'))),
       display: display == null || display.isEmpty ? null : display,
       displayKind: node.component == AgentComponents.section
           ? 'Section'
@@ -768,12 +803,48 @@ Map<String, Object?> agentSurfaceFrame(
   }
 
   visit(spec.root, 'r');
+  // What the TV draws the screen from: the screen itself, and what the
+  // entity cards on it say (the TV has no workspace to read them from).
+  final entities = <String, Object?>{};
+  for (final (kind, id) in _entityRefs(spec.root)) {
+    final data = entityData?.call(kind, id);
+    if (data != null) entities['$kind:$id'] = agentEntityToJson(data);
+  }
   return {
     'title': spec.title,
     'loading': false,
     'summary': spec.summary,
     'items': items,
+    'spec': spec.toJson(),
+    'expanded': expanded.toList(),
+    // Folded the way the numbers above were counted: the TV draws the same.
+    'compact': compact,
+    'entities': entities,
   };
+}
+
+/// Every thing the screen points at: entity cards, table cells, timeline
+/// items.
+Iterable<(String, String)> _entityRefs(SurfaceNode root) sync* {
+  for (final n in root.walk()) {
+    switch (n.component) {
+      case AgentEntityComponents.entity:
+        yield (n.string('entity') ?? '', n.string('id') ?? '');
+      case AgentEntityComponents.table:
+        for (final row in n.list('rows')) {
+          if (row is! List) continue;
+          for (final c in row) {
+            if (c is Map) yield ('${c['entity']}', '${c['id']}');
+          }
+        }
+      case AgentEntityComponents.timeline:
+        for (final i in n.list('items')) {
+          if (i is Map && i['entity'] != null) {
+            yield ('${i['entity']}', '${i['id']}');
+          }
+        }
+    }
+  }
 }
 
 /// What an entity card says when it is drawn from a frame instead of the

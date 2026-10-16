@@ -100,11 +100,19 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
         if (kinds[r.entity] != null) ui.AgentEntityRef(kinds[r.entity]!, r.id),
     ];
     if (shown.isEmpty) return null;
-    return Column(
-      children: [
-        for (final e in shown)
-          AgentEntityCard(entity: e, density: AgentCardDensity.compact),
-      ],
+    final gap = HandsFree.of(context).rowGap;
+    return Padding(
+      padding: EdgeInsets.only(top: gap * .5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final e in shown)
+            Padding(
+              padding: EdgeInsets.only(bottom: gap),
+              child: HfEntityCard(entity: e),
+            ),
+        ],
+      ),
     );
   }
 
@@ -116,7 +124,7 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
     if (pending.isEmpty && records.isEmpty && cancelled.isEmpty) {
       return const SizedBox.shrink();
     }
-    final compact = MediaQuery.sizeOf(context).width < 700;
+    final hf = HandsFree.of(context);
     final now = _now();
     // A card with the thing it is about is tall: the tray never takes more
     // than half the screen, and scrolls past that.
@@ -126,22 +134,21 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
       ),
       child: SingleChildScrollView(
         reverse: true,
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+        padding: EdgeInsets.fromLTRB(0, 0, hf.sp(8), hf.sp(10)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final r in records)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: AgentConfirmCardView(
+                padding: EdgeInsets.only(top: hf.sp(6)),
+                child: HfConfirm(
                   // The card the confirmation was on: same key, same place.
                   key: ValueKey(
                     'agent-consent-${widget.ledger.cardIdFor(r.id) ?? r.id}',
                   ),
-                  title: r.preview.summary,
+                  message: r.preview.summary,
                   changes: r.preview.changes,
-                  compact: compact,
                   attachment: _refs([
                     if (r.entity != null && !r.undone)
                       r.entity!
@@ -174,10 +181,10 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
             for (final p in pending)
               if (!records.any((r) => r.id == p.request.token))
                 Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: AgentConfirmCardView(
+                  padding: EdgeInsets.only(top: hf.sp(6)),
+                  child: HfConfirm(
                     key: ValueKey('agent-consent-${p.cardId}'),
-                    title: p.request.total > 1
+                    message: p.request.total > 1
                         ? '${p.request.preview.summary}（第 ${p.request.step}/${p.request.total} 次确认）'
                         : p.request.preview.summary,
                     changes: p.request.preview.changes,
@@ -185,8 +192,7 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
                     risk: p.request.sensitive
                         ? AgentConfirmRisk.sensitive
                         : AgentConfirmRisk.change,
-                    compact: compact,
-                    result: p.approved ? AgentConfirmResult.confirmed : null,
+                      result: p.approved ? AgentConfirmResult.confirmed : null,
                     onConfirm: () =>
                         widget.ledger.cardTapped(p.cardId, yes: true),
                     onCancel: () =>
@@ -196,18 +202,17 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
             // What the person moved on from: the card says so for a moment.
             for (final c in cancelled)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: EdgeInsets.only(top: hf.sp(6)),
                 child: GestureDetector(
                   onTap: () => widget.ledger.dismissCancelled(c.cardId),
-                  child: AgentConfirmCardView(
+                  child: HfConfirm(
                     key: ValueKey('agent-consent-${c.cardId}'),
-                    title: c.request.preview.summary,
+                    message: c.request.preview.summary,
                     changes: c.request.preview.changes,
                     risk: c.request.sensitive
                         ? AgentConfirmRisk.sensitive
                         : AgentConfirmRisk.change,
-                    compact: compact,
-                    result: AgentConfirmResult.cancelled,
+                      result: AgentConfirmResult.cancelled,
                   ),
                 ),
               ),

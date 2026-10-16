@@ -410,7 +410,7 @@ void main() {
           '修复返回',
           '#98',
           '等验收',
-          '负责人 Aria',
+          'Aria',
           'Aria · 10:30  已修复并补了测试',
           '验收这个任务',
           '最近讨论',
@@ -419,7 +419,11 @@ void main() {
           '3',
           '卡住',
         ]) {
-          expect(find.text(text), findsWidgets, reason: '$family $dark $text');
+          expect(
+            find.textContaining(text),
+            findsWidgets,
+            reason: '$family $dark $text',
+          );
         }
         expect(t.takeException(), isNull);
       }
@@ -600,7 +604,11 @@ void main() {
       );
     }
 
-    Finder row(String text) => find.text(text, findRichText: true);
+    Finder row(String line) => find.byWidgetPredicate(
+    (w) =>
+        w is HfSummaryRow &&
+        '${w.title} ${w.count}${w.text.isEmpty ? '' : '：${w.text}'}' == line,
+  );
 
     test('density is a schema-validated field of the containers only', () {
       for (final c in ['Column', 'AgentStatusGroup', 'Section']) {
@@ -673,20 +681,20 @@ void main() {
 
     testWidgets('a phone shows numbers and one line per group', (t) async {
       await show(t, spec(agents()));
-      expect(find.byType(AgentStatRowView), findsOneWidget);
+      expect(find.byType(HfStatStrip), findsOneWidget);
       expect(row('在忙 1：Cindy 在做 #119'), findsOneWidget);
       // Idle agents have nothing to say besides the name.
       expect(row('空闲 2：Cy、Di'), findsOneWidget);
       // No agent card until somebody asks.
-      expect(find.byType(AgentStatusCardView), findsNothing);
+      expect(find.byType(HfStatusCard), findsNothing);
       expect(find.text('在做 #119'), findsNothing);
       expect(t.takeException(), isNull);
     });
 
     testWidgets('a wide screen shows the cards', (t) async {
       await show(t, spec(agents()), compact: false);
-      expect(find.byType(AgentSummaryRow), findsNothing);
-      expect(find.byType(AgentStatusCardView), findsNWidgets(3));
+      expect(find.byType(HfSummaryRow), findsNothing);
+      expect(find.byType(HfStatusCard), findsNWidgets(3));
       expect(find.text('Cindy'), findsOneWidget);
     });
 
@@ -695,7 +703,7 @@ void main() {
     ) async {
       await show(t, spec(agents(density: 'detail')));
       expect(find.text('Cindy'), findsOneWidget);
-      expect(find.text('在做 #119'), findsOneWidget);
+      expect(find.textContaining('在做 #119'), findsOneWidget);
       // The other group still folds.
       expect(row('空闲 2：Cy、Di'), findsOneWidget);
       expect(find.text('Cy'), findsNothing);

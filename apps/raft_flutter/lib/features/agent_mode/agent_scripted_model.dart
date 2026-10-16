@@ -55,6 +55,21 @@ class AgentScriptedModel {
       say(item == null ? '${r['error'] ?? '展开不了'}' : explainAttention(item));
       return true;
     }
+    // "把 #98 标记为已完成": the preview of the demo capability, the person
+    // confirms it on its card (the demo registers `demo.finish`).
+    final finish = RegExp(r'把\s*#?\s*(\d+).*(?:完成|通过)').firstMatch(text);
+    if (finish != null) {
+      final r = await call('act', {
+        'capability': 'demo.finish',
+        'args': jsonEncode({'number': int.parse(finish[1]!)}),
+      });
+      say(
+        r['error'] != null
+            ? '${r['error']}'
+            : '要把 #${finish[1]} 标记为已完成吗？点确认，或者说“对”。',
+      );
+      return true;
+    }
     final task = RegExp(
       r'(?:任务|task)\s*#?\s*(\d+)',
       caseSensitive: false,

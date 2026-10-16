@@ -49,6 +49,8 @@ AgentSurfaceSpec attentionDetailSpec(AgentAttentionItem item, int rank) {
             'text': _clip(latest.text, 300),
           },
         'ask': _clip(item.askText, 80),
+        // The detail layer is the card in full: a row per fact.
+        'display': {'level': 'detail'},
       },
     // A mention has no task card: the words said to the person come first.
     if (!isTask && latest != null) _quote(latest),

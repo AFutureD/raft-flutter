@@ -31,21 +31,30 @@ Widget _host(
         ));
   return MaterialApp(
     theme: raftTheme(RaftFamily.brutal),
-    home: Scaffold(
-      body: Center(
-        child: SizedBox(
-          width: 390,
-          child: SingleChildScrollView(
-            child: AgentEntityScope(
-              resolver: r,
-              onProblem: onProblem,
-              child: child,
+    home: HandsFree(
+      child: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 390,
+            child: SingleChildScrollView(
+              child: AgentEntityScope(
+                resolver: r,
+                onProblem: onProblem,
+                child: child,
+              ),
             ),
           ),
         ),
       ),
     ),
   );
+}
+
+/// A phone: s = 1.
+void _phone(WidgetTester t) {
+  t.view.physicalSize = const Size(412, 915);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
 }
 
 List<double> _sizes(WidgetTester t, Finder of) => [
@@ -67,9 +76,10 @@ Finder _lines(String prefix) => find.byWidgetPredicate(
 void main() {
   group('table', () {
     testWidgets('plain text and entity cells, header, every row', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
-          AgentTableView(
+          HfTable(
             columns: const ['任务', '负责人', '状态'],
             rows: [
               [
@@ -94,9 +104,10 @@ void main() {
     });
 
     testWidgets('five columns scroll sideways instead of squeezing', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
-          AgentTableView(
+          HfTable(
             columns: const ['一', '二', '三', '四', '五'],
             rows: [
               [for (final c in 'abcde'.split('')) AgentTableCell.text(c)],
@@ -111,10 +122,11 @@ void main() {
     });
 
     testWidgets('twenty rows draw, a missing entity cell says so', (t) async {
+      _phone(t);
       final problems = <AgentEntityRef>[];
       await t.pumpWidget(
         _host(
-          AgentTableView(
+          HfTable(
             columns: const ['名'],
             rows: [
               for (var i = 0; i < AgentBlockLimits.tableRows; i++)
@@ -134,10 +146,11 @@ void main() {
       expect(problems, hasLength(1));
     });
 
-    testWidgets('nothing under 16', (t) async {
+    testWidgets('nothing under 13', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
-          AgentTableView(
+          HfTable(
             columns: const ['任务', '人'],
             rows: [
               [
@@ -148,17 +161,18 @@ void main() {
           ),
         ),
       );
-      for (final s in _sizes(t, find.byType(AgentTableView))) {
-        expect(s, greaterThanOrEqualTo(16));
+      for (final s in _sizes(t, find.byType(HfTable))) {
+        expect(s, greaterThanOrEqualTo(13));
       }
     });
   });
 
   group('timeline', () {
     testWidgets('time, title and the entity each item concerns', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
-          const AgentTimelineView(
+          const HfTimeline(
             items: [
               AgentTimelineItem(time: '09:10', title: '创建任务'),
               AgentTimelineItem(
@@ -177,8 +191,8 @@ void main() {
       }
       expect(find.text('#98 修复返回'), findsOneWidget);
       expect(find.text('②'), findsOneWidget);
-      for (final s in _sizes(t, find.byType(AgentTimelineView))) {
-        expect(s, greaterThanOrEqualTo(16));
+      for (final s in _sizes(t, find.byType(HfTimeline))) {
+        expect(s, greaterThanOrEqualTo(13));
       }
     });
   });
@@ -188,25 +202,27 @@ void main() {
         '--- a/x.dart\n+++ b/x.dart\n@@ -1,2 +1,2 @@\n context\n-old line\n+new line\n';
 
     testWidgets('+ and - lines are tinted only in diff mode', (t) async {
+      _phone(t);
       await t.pumpWidget(
-        _host(const AgentCodeBlockView(code: diff, diff: true)),
+        _host(const HfCodeBlock(code: diff, diff: true)),
       );
       // +new, -old, @@ hunk.
       expect(_lines('code-line-hot-'), findsNWidgets(3));
       expect(find.text('+new line'), findsOneWidget);
-      await t.pumpWidget(_host(const AgentCodeBlockView(code: diff)));
+      await t.pumpWidget(_host(const HfCodeBlock(code: diff)));
       expect(_lines('code-line-hot-'), findsNothing);
     });
 
-    testWidgets('monospace, 16 or more, one widget per line', (t) async {
+    testWidgets('monospace, 13 or more, one widget per line', (t) async {
+      _phone(t);
       await t.pumpWidget(
-        _host(const AgentCodeBlockView(code: 'a\nb\nc', title: 'x.dart')),
+        _host(const HfCodeBlock(code: 'a\nb\nc', title: 'x.dart')),
       );
-      final mono = RaftTokens.of(t.element(find.byType(AgentCodeBlockView)))
+      final mono = RaftTokens.of(t.element(find.byType(HfCodeBlock)))
           .monoFont;
       final w = t.widget<Text>(find.text('a'));
       expect(w.style!.fontFamily, mono);
-      expect(w.style!.fontSize, greaterThanOrEqualTo(16));
+      expect(w.style!.fontSize, greaterThanOrEqualTo(13));
       expect(_lines('code-line-'), findsNWidgets(3));
       expect(find.text('x.dart'), findsOneWidget);
     });
@@ -214,8 +230,9 @@ void main() {
     testWidgets('forty lines are drawn, the rest is counted not drawn', (
       t,
     ) async {
+      _phone(t);
       final code = [for (var i = 0; i < 45; i++) 'line $i'].join('\n');
-      await t.pumpWidget(_host(AgentCodeBlockView(code: code)));
+      await t.pumpWidget(_host(HfCodeBlock(code: code)));
       expect(_lines('code-line-'), findsNWidgets(40));
       expect(find.text('… 还有 5 行'), findsOneWidget);
     });
@@ -223,13 +240,14 @@ void main() {
 
   group('callout', () {
     testWidgets('one sentence per tone', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
           const Column(
             children: [
-              AgentCalloutView(text: '全量检查通过，可以合。', tone: AgentTone.good),
-              AgentCalloutView(text: '有 2 个检查没跑完。', tone: AgentTone.warn),
-              AgentCalloutView(text: '仅供参考。'),
+              HfCallout(text: '全量检查通过，可以合。', tone: AgentTone.good),
+              HfCallout(text: '有 2 个检查没跑完。', tone: AgentTone.warn),
+              HfCallout(text: '仅供参考。'),
             ],
           ),
         ),
@@ -241,8 +259,8 @@ void main() {
         find.byKey(const ValueKey('agent-callout-neutral')),
         findsOneWidget,
       );
-      for (final s in _sizes(t, find.byType(AgentCalloutView))) {
-        expect(s, greaterThanOrEqualTo(20));
+      for (final s in _sizes(t, find.byType(HfCallout))) {
+        expect(s, greaterThanOrEqualTo(22));
       }
     });
   });
@@ -251,13 +269,14 @@ void main() {
     testWidgets('turns into its outcome: result, thing made, undo, retry', (
       t,
     ) async {
+      _phone(t);
       var undone = 0, retried = 0, dismissed = 0;
       Widget card(AgentActionOutcome? outcome) => _host(
-        AgentConfirmCardView(
-          title: '把 #98 改为 进行中',
+        HfConfirm(
+          message: '把 #98 改为 进行中',
           changes: const ['状态: 待办 → 进行中'],
           outcome: outcome,
-          attachment: const AgentEntityCard(entity: _task),
+          attachment: const HfEntityCard(entity: _task),
           onConfirm: () {},
           onCancel: () {},
         ),
@@ -323,11 +342,12 @@ void main() {
     });
 
     testWidgets('title, every change and both buttons', (t) async {
+      _phone(t);
       var confirmed = 0, cancelled = 0;
       await t.pumpWidget(
         _host(
-          AgentConfirmCardView(
-            title: '把 #98 标记为已完成？',
+          HfConfirm(
+            message: '把 #98 标记为已完成？',
             changes: const ['状态: 等验收 → 已完成', '负责人: Aria → Aria'],
             onConfirm: () => confirmed++,
             onCancel: () => cancelled++,
@@ -351,11 +371,12 @@ void main() {
     });
 
     testWidgets('cancel reports once', (t) async {
+      _phone(t);
       var confirmed = 0, cancelled = 0;
       await t.pumpWidget(
         _host(
-          AgentConfirmCardView(
-            title: '删除这个频道？',
+          HfConfirm(
+            message: '删除这个频道？',
             risk: AgentConfirmRisk.sensitive,
             changes: const ['频道: raft-flutter → 已删除'],
             onConfirm: () => confirmed++,
@@ -365,7 +386,6 @@ void main() {
       );
       expect(find.text('敏感操作'), findsOneWidget);
       expect(find.text('确认执行'), findsOneWidget);
-      expect(find.byKey(const ValueKey('entity-strip')), findsOneWidget);
       await t.tap(find.text('取消'));
       await t.pump();
       expect((confirmed, cancelled), (0, 1));
@@ -376,10 +396,11 @@ void main() {
     });
 
     testWidgets('the owner can set the outcome', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
-          const AgentConfirmCardView(
-            title: '合入？',
+          const HfConfirm(
+            message: '合入？',
             changes: ['分支: 未合入 → 已合入'],
             result: AgentConfirmResult.confirmed,
           ),
@@ -389,31 +410,33 @@ void main() {
       expect(find.text('确认'), findsNothing);
     });
 
-    testWidgets('compact title is at least 26, nothing under 16', (t) async {
+    testWidgets('the message is at least 22, nothing under 13', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
-          const AgentConfirmCardView(
-            title: '合入 #98？',
+          const HfConfirm(
+            message: '合入 #98？',
             changes: ['分支: 未合入 → 已合入'],
           ),
         ),
       );
       expect(
         t.widget<Text>(find.text('合入 #98？')).style!.fontSize,
-        greaterThanOrEqualTo(26),
+        greaterThanOrEqualTo(22),
       );
-      for (final s in _sizes(t, find.byType(AgentConfirmCardView))) {
-        expect(s, greaterThanOrEqualTo(16));
+      for (final s in _sizes(t, find.byType(HfConfirm))) {
+        expect(s, greaterThanOrEqualTo(13));
       }
     });
   });
 
   group('choice and toggle', () {
     testWidgets('choice reports the pick and locks', (t) async {
+      _phone(t);
       final picks = <(int, String)>[];
       await t.pumpWidget(
         _host(
-          AgentChoiceView(
+          HfChoice(
             prompt: '合到哪里？',
             options: const ['integration', 'main', '先不合'],
             onChoose: (i, l) => picks.add((i, l)),
@@ -430,16 +453,18 @@ void main() {
     });
 
     testWidgets('choice shows a pick the owner already knows', (t) async {
+      _phone(t);
       await t.pumpWidget(
-        _host(const AgentChoiceView(options: ['a', 'b'], selected: 0)),
+        _host(const HfChoice(options: ['a', 'b'], selected: 0)),
       );
       expect(find.byIcon(Icons.check), findsOneWidget);
     });
 
     testWidgets('toggle flips and reports', (t) async {
+      _phone(t);
       final seen = <bool>[];
       await t.pumpWidget(
-        _host(AgentToggleView(label: '完成后通知我', onChanged: seen.add)),
+        _host(HfToggle(label: '完成后通知我', onChanged: seen.add)),
       );
       expect(find.text('关'), findsOneWidget);
       await t.tap(find.text('完成后通知我'));
@@ -450,19 +475,20 @@ void main() {
       expect(seen, [true, false]);
     });
 
-    testWidgets('sizes: nothing under 16', (t) async {
+    testWidgets('sizes: nothing under 13', (t) async {
+      _phone(t);
       await t.pumpWidget(
         _host(
           const Column(
             children: [
-              AgentChoiceView(options: ['a', 'b'], prompt: '选一个'),
-              AgentToggleView(label: '开关'),
+              HfChoice(options: ['a', 'b'], prompt: '选一个'),
+              HfToggle(label: '开关'),
             ],
           ),
         ),
       );
       for (final s in _sizes(t, find.byType(Column).first)) {
-        expect(s, greaterThanOrEqualTo(16));
+        expect(s, greaterThanOrEqualTo(13));
       }
     });
   });

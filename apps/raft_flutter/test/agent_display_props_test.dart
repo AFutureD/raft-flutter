@@ -411,13 +411,13 @@ void main() {
         },
         'children': [_entity('message', 'm1'), _entity('message', 'm2')],
       });
-      expect(find.byType(AgentEntityAvatar), findsNothing);
+      expect(find.byType(HfAvatar), findsNothing);
       expect(find.textContaining('hello-m1'), findsOneWidget);
       await show(t, {
         'component': 'Column',
         'children': [_entity('message', 'm1'), _entity('message', 'm2')],
       });
-      expect(find.byType(AgentEntityAvatar), findsNWidgets(2));
+      expect(find.byType(HfAvatar), findsNWidgets(2));
       await show(t, {
         'component': 'Column',
         'childDisplay': {
@@ -430,7 +430,7 @@ void main() {
           }),
         ],
       });
-      expect(find.byType(AgentEntityAvatar), findsOneWidget);
+      expect(find.byType(HfAvatar), findsOneWidget);
     });
 
     testWidgets('a list of other kinds takes names it has no use for', (
@@ -446,7 +446,7 @@ void main() {
           {'component': 'Callout', 'text': '好。'},
         ],
       });
-      expect(find.byType(AgentEntityAvatar), findsNothing);
+      expect(find.byType(HfAvatar), findsNothing);
       expect(find.text('好。'), findsOneWidget);
     });
 
@@ -461,9 +461,10 @@ void main() {
           _entity('message', 'm2'),
         ],
       });
-      // Only the second wears its ②, but both are numbered in order.
-      expect(find.byKey(const ValueKey('entity-handle')), findsOneWidget);
-      expect(find.text('②'), findsOneWidget);
+      // Only the second wears its 2 on the bar, but both are numbered in
+      // order.
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('1'), findsNothing);
       expect(find.bySemanticsLabel(RegExp('^① ')), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('^② ')), findsOneWidget);
       semantics.dispose();
@@ -490,7 +491,8 @@ void main() {
         ],
       };
       await show(t, group(null), compact: true);
-      expect(find.textContaining('在忙 1：Cindy'), findsOneWidget);
+      expect(find.text('在忙 1'), findsOneWidget);
+      expect(find.textContaining('Cindy'), findsOneWidget);
       expect(find.byIcon(Icons.expand_more), findsOneWidget);
       await show(
         t,
@@ -499,7 +501,8 @@ void main() {
         }),
         compact: true,
       );
-      expect(find.textContaining('在忙：Cindy'), findsOneWidget);
+      expect(find.text('在忙'), findsOneWidget);
+      expect(find.textContaining('Cindy'), findsOneWidget);
       expect(find.byIcon(Icons.expand_more), findsNothing);
     });
 

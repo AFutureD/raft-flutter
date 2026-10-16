@@ -126,13 +126,13 @@ void main() {
     expect(shown['shown'], 3);
     // Three entity cards on a phone, in full: the task titles are drawn, and
     // no summary row ("点开") stands in for them.
-    expect(find.byType(AgentEntityCard), findsNWidgets(3));
-    expect(find.byType(AgentSummaryRow), findsNothing);
+    expect(find.byType(HfEntityCard), findsNWidgets(3));
+    expect(find.byType(HfSummaryRow), findsNothing);
     for (final title in ['丙', '丁', '戊']) {
       expect(find.textContaining(title), findsWidgets, reason: title);
     }
     // The numbers are the person's handles: "第二个" can be said.
-    expect(find.text('②'), findsWidgets);
+    expect(find.text('2'), findsWidgets);
   });
 
   testWidgets('a phone shows at least four task cards above the dock, '
@@ -167,7 +167,7 @@ void main() {
     await t.pumpAndSettle();
     final dock = t.getRect(find.byType(AgentVoiceDock));
     final visible = [
-      for (final e in find.byType(AgentEntityCard).evaluate())
+      for (final e in find.byType(HfEntityCard).evaluate())
         if (t.getRect(find.byWidget(e.widget)).bottom <= dock.top) e.widget,
     ];
     // Four cards, with the transcript's two lines above the mic.
@@ -176,7 +176,7 @@ void main() {
     // Drawn top to bottom exactly as told: the cards' titles in the order of
     // the result, and the badges ①, ②, ③ going down.
     final tops = <double>[];
-    for (final glyph in ['①', '②', '③', '④']) {
+    for (final glyph in ['1', '2', '3', '4']) {
       tops.add(t.getTopLeft(find.text(glyph).first).dy);
     }
     expect(tops, [...tops]..sort());

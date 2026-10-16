@@ -6,54 +6,10 @@ import 'package:flutter/widgets.dart';
 /// everything the app knows.
 enum AgentLevel { minimum, medium, detail }
 
-/// The type scale. `compact` is the arm's-length phone scale (headline 26,
-/// nothing under 16); `regular` and `large` only go up from there.
+/// The type size a model may ask for. Hands-free screens have one type ramp
+/// (see `HfType`): the field is still read, so a surface that names it is not
+/// refused, but nothing is drawn differently for it.
 enum AgentSize { compact, regular, large }
-
-/// The type sizes of one entity card.
-@immutable
-class AgentTypeScale {
-  const AgentTypeScale({
-    required this.headline,
-    required this.meta,
-    required this.body,
-    required this.small,
-  });
-  final double headline, meta, body, small;
-
-  static const compact = AgentTypeScale(
-    headline: 26,
-    meta: 18,
-    body: 18,
-    small: 16,
-  );
-  static const regular = AgentTypeScale(
-    headline: 30,
-    meta: 21,
-    body: 21,
-    small: 18,
-  );
-  static const large = AgentTypeScale(
-    headline: 36,
-    meta: 24,
-    body: 24,
-    small: 20,
-  );
-
-  /// The tighter scale a wide screen read from a desk has by default.
-  static const wide = AgentTypeScale(
-    headline: 20,
-    meta: 17,
-    body: 18,
-    small: 16,
-  );
-
-  static AgentTypeScale of(AgentSize size) => switch (size) {
-    AgentSize.compact => compact,
-    AgentSize.regular => regular,
-    AgentSize.large => large,
-  };
-}
 
 /// What one component can show: the elements it is made of (each can be
 /// present or absent), what each preset level shows, and the defaults.
@@ -390,6 +346,7 @@ class DisplaySpec {
 
   /// 1 to 8, the lines of the main text.
   final int? lines;
+  /// Read but not drawn: one type ramp.
   final AgentSize? size;
 
   static const none = DisplaySpec();
@@ -504,19 +461,7 @@ class AgentDisplay {
 
   bool has(String element) => _shown.contains(element);
 
-  /// The entity card's type sizes: the one asked for, else [fallback].
-  AgentTypeScale scale(AgentTypeScale fallback) =>
-      size == null ? fallback : AgentTypeScale.of(size!);
-
   Set<String> get shown => Set.unmodifiable(_shown);
-
-  /// Type scale for the surface cards and blocks: a multiplier on the sizes
-  /// they have always had.
-  double factor({bool surface = false}) => switch (size) {
-    null || AgentSize.compact => 1,
-    AgentSize.regular => surface ? 1.35 : 1.15,
-    AgentSize.large => surface ? 1.6 : 1.3,
-  };
 }
 
 /// A [DisplaySpec] of the JSON a node holds under [key].
@@ -608,7 +553,7 @@ Map<String, Object?> agentDisplaySchema(
         'level 是预设：minimum 只显示一行标题，medium 标题加一行说明，detail 显示全部；'
         'show 是在预设上逐项开关，如 {"avatar":false} 去掉头像、{"reactions":true} 加上表情回应；'
         '${lines ? 'lines 限制主要文字最多几行（1 到 ${DisplaySpec.maxLines}）；' : ''}'
-        'size 是字号，compact 默认，regular 更大，large 最大。都不写就用屏幕的默认。'
+        '字号现在全屏统一，size 不再起作用，不用写。都不写就用屏幕的默认。'
         '${note ?? ''}',
     'properties': {
       'level': {
@@ -635,7 +580,7 @@ Map<String, Object?> agentDisplaySchema(
       'size': {
         'type': 'string',
         'enum': _sizeNames,
-        'description': '字号：compact / regular / large',
+        'description': '不再起作用：字号全屏统一',
       },
     },
   };

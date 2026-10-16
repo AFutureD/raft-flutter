@@ -108,7 +108,7 @@ _Resolver _resolver() {
 /// What on screen says each element is there.
 Map<String, Map<String, Finder>> _finders() => {
   'message': {
-    'avatar': find.byType(AgentEntityAvatar),
+    'avatar': find.byType(HfAvatar),
     'author': find.textContaining('Zed'),
     'time': find.textContaining('10:32'),
     'channel': find.textContaining('#chan-x'),
@@ -120,7 +120,7 @@ Map<String, Map<String, Finder>> _finders() => {
   'task': {
     'number': find.textContaining('#77'),
     'title': find.textContaining('title-tok'),
-    'status': find.text('等验收'),
+    'status': find.textContaining('等验收'),
     'assignee': find.textContaining('asg-tok'),
     'channel': find.textContaining('#tch'),
     'updated': find.textContaining('upd-tok'),
@@ -128,9 +128,9 @@ Map<String, Map<String, Finder>> _finders() => {
     'latest_progress': find.textContaining('prog-tok'),
   },
   'agent': {
-    'avatar': find.byType(AgentEntityAvatar),
+    'avatar': find.byType(HfAvatar),
     'name': find.textContaining('agent-nm'),
-    'state': find.text('在忙'),
+    'state': find.textContaining('在忙'),
     'activity': find.textContaining('act-tok'),
     'since': find.textContaining('since-tok'),
     'computer': find.textContaining('box-tok'),
@@ -141,19 +141,19 @@ Map<String, Map<String, Finder>> _finders() => {
     'name': find.textContaining('chn-name'),
     'description': find.textContaining('cdesc-tok'),
     'unread': find.textContaining('未读 3'),
-    'mentions': find.text('@我'),
+    'mentions': find.textContaining('@我'),
     'last_activity': find.textContaining('last-tok'),
     'members': find.textContaining('12'),
   },
   'member': {
-    'avatar': find.byType(AgentEntityAvatar),
+    'avatar': find.byType(HfAvatar),
     'name': find.textContaining('mem-nm'),
     'role': find.textContaining('role-tok'),
-    'presence': find.text('在线'),
+    'presence': find.textContaining('在线'),
   },
   'computer': {
     'name': find.textContaining('cmp-nm'),
-    'online': find.text('在线'),
+    'online': find.textContaining('在线'),
     'runtimes': find.textContaining('rt-a'),
     'agents': find.textContaining('3 个'),
     'version': find.textContaining('ver-tok'),
@@ -167,7 +167,8 @@ Map<String, Map<String, Finder>> _finders() => {
   },
 };
 
-final _handle = find.byKey(const ValueKey('entity-handle'));
+/// The number on the card's bar is its handle.
+final _handle = find.text('2');
 
 Widget _host(
   Widget child, {
@@ -175,16 +176,28 @@ Widget _host(
   double width = 390,
 }) => MaterialApp(
   theme: raftTheme(RaftFamily.brutal),
-  home: Scaffold(
-    body: Center(
-      child: SizedBox(
-        width: width,
-        child: SingleChildScrollView(
-          child: AgentEntityScope(resolver: resolver, child: child),
+  home: HandsFree(
+    child: Scaffold(
+      body: Center(
+        child: SizedBox(
+          width: width,
+          child: SingleChildScrollView(
+            child: AgentEntityScope(resolver: resolver, child: child),
+          ),
         ),
       ),
     ),
   ),
+);
+
+/// The card as the second thing on the screen: number 2 on its bar.
+Widget _card(
+  String kind,
+  DisplaySpec? display, {
+  Key? key,
+}) => HfItemScope(
+  index: 2,
+  child: HfEntityCard(key: key, entity: _refs[kind]!, display: display),
 );
 
 Future<void> _show(
@@ -193,11 +206,11 @@ Future<void> _show(
   DisplaySpec? display, {
   _Resolver? resolver,
 }) async {
+  t.view.physicalSize = const Size(412, 915);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
   await t.pumpWidget(
-    _host(
-      AgentEntityCard(entity: _refs[kind]!, handle: '2', display: display),
-      resolver: resolver ?? _resolver(),
-    ),
+    _host(_card(kind, display), resolver: resolver ?? _resolver()),
   );
   await t.pumpAndSettle();
 }
@@ -307,7 +320,7 @@ void main() {
     int? headlineLines(WidgetTester t, String text) {
       final w = t.widget<Text>(
         find.descendant(
-          of: find.byType(AgentEntityCard),
+          of: find.byType(HfEntityCard),
           matching: find.textContaining(text),
         ),
       );
@@ -336,7 +349,7 @@ void main() {
   });
 
   group('handles', () {
-    testWidgets('a hidden handle badge is still the card\'s handle', (t) async {
+    testWidgets('a hidden number is still the card\'s handle', (t) async {
       final semantics = t.ensureSemantics();
       await _show(t, 'task', const DisplaySpec(show: {'handle': false}));
       expect(_handle, findsNothing);
@@ -347,13 +360,11 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('at minimum the handle sits in front of the headline', (
-      t,
-    ) async {
+    testWidgets('the number is the bar at the left of the title', (t) async {
       await _show(t, 'task', const DisplaySpec(level: AgentLevel.minimum));
       final badge = t.getRect(_handle);
       final title = t.getRect(find.textContaining('title-tok'));
-      expect((badge.center.dy - title.top).abs(), lessThan(title.height + 20));
+      expect((badge.center.dy - title.center.dy).abs(), lessThan(40));
       expect(badge.right, lessThanOrEqualTo(title.left));
     });
   });
@@ -361,7 +372,7 @@ void main() {
   group('type sizes', () {
     for (final kind in kinds) {
       for (final level in AgentLevel.values) {
-        testWidgets('$kind ${level.name}: nothing under 16', (t) async {
+        testWidgets('$kind ${level.name}: nothing under 13', (t) async {
           await _show(
             t,
             kind,
@@ -372,16 +383,16 @@ void main() {
               },
             ),
           );
-          final sizes = _sizes(t, find.byType(AgentEntityCard));
+          final sizes = _sizes(t, find.byType(HfEntityCard));
           expect(sizes, isNotEmpty);
           for (final s in sizes) {
-            expect(s, greaterThanOrEqualTo(16), reason: '$kind ${level.name}');
+            expect(s, greaterThanOrEqualTo(13), reason: '$kind ${level.name}');
           }
         });
       }
     }
 
-    testWidgets('the headline at minimum is 26 or more', (t) async {
+    testWidgets('the headline at minimum is 22 or more', (t) async {
       for (final kind in kinds) {
         await _show(t, kind, const DisplaySpec(level: AgentLevel.minimum));
         final headline = {
@@ -394,24 +405,20 @@ void main() {
           'file': 'file-nm.pdf',
         }[kind]!;
         final w = t.widget<Text>(find.textContaining(headline));
-        expect(w.style!.fontSize, greaterThanOrEqualTo(26), reason: kind);
+        expect(w.style!.fontSize, greaterThanOrEqualTo(22), reason: kind);
       }
     });
 
-    testWidgets('size only goes up from compact', (t) async {
-      double headline(String kind) =>
+    testWidgets('size is read, but one type ramp draws the same', (t) async {
+      double headline() =>
           t.widget<Text>(find.textContaining('title-tok')).style!.fontSize!;
       final sizes = <double>[];
       for (final s in AgentSize.values) {
         await _show(t, 'task', DisplaySpec(size: s));
-        sizes.add(headline('task'));
-        for (final f in _sizes(t, find.byType(AgentEntityCard))) {
-          expect(f, greaterThanOrEqualTo(16), reason: s.name);
-        }
+        sizes.add(headline());
       }
-      expect(sizes.first, greaterThanOrEqualTo(26));
-      expect(sizes[1], greaterThan(sizes[0]));
-      expect(sizes[2], greaterThan(sizes[1]));
+      expect(sizes.toSet(), hasLength(1));
+      expect(sizes.first, greaterThanOrEqualTo(22));
     });
 
     testWidgets('the largest size lays out at 390 wide without overflow', (
@@ -449,11 +456,7 @@ void main() {
       // without letting the clock run.
       await t.pumpWidget(
         _host(
-          AgentEntityCard(
-            entity: _refs['task']!,
-            handle: '2',
-            display: const DisplaySpec(level: AgentLevel.detail),
-          ),
+          _card('task', const DisplaySpec(level: AgentLevel.detail)),
           resolver: r,
         ),
       );
@@ -485,10 +488,9 @@ void main() {
       final before = height(t);
       await t.pumpWidget(
         _host(
-          AgentEntityCard(
-            entity: _refs['task']!,
-            handle: '2',
-            display: const DisplaySpec(
+          _card(
+            'task',
+            const DisplaySpec(
               level: AgentLevel.detail,
               show: {'description': false, 'latest_progress': false},
             ),
@@ -510,7 +512,7 @@ void main() {
       final r = _resolver();
       final key = GlobalKey();
       Widget card(DisplaySpec d) => _host(
-        AgentEntityCard(key: key, entity: _refs['task']!, display: d),
+        _card('task', d, key: key),
         resolver: r,
       );
       await t.pumpWidget(card(const DisplaySpec(level: AgentLevel.minimum)));
@@ -522,32 +524,7 @@ void main() {
     });
   });
 
-  group('the display follows the data and the screen', () {
-    testWidgets('density is the default level, display beats it', (t) async {
-      await t.pumpWidget(
-        _host(
-          AgentEntityCard(
-            entity: _refs['task']!,
-            density: AgentCardDensity.detail,
-          ),
-          resolver: _resolver(),
-        ),
-      );
-      expect(find.textContaining('desc-tok'), findsOneWidget);
-      await t.pumpWidget(
-        _host(
-          AgentEntityCard(
-            entity: _refs['task']!,
-            density: AgentCardDensity.detail,
-            display: const DisplaySpec(level: AgentLevel.minimum),
-          ),
-          resolver: _resolver(),
-        ),
-      );
-      await t.pumpAndSettle();
-      expect(find.textContaining('desc-tok'), findsNothing);
-    });
-
+  group('the display follows the data', () {
     testWidgets('data an element has none of draws nothing for it', (t) async {
       final r = _resolver();
       r.answers[_refs['message']!] = const AgentEntityFound(

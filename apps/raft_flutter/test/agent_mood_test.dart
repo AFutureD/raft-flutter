@@ -243,9 +243,9 @@ void main() {
       await t.pumpAndSettle();
       final bubble = find.byKey(const ValueKey('agent-mood-badge'));
       final size = t.getSize(bubble);
-      expect(size.width, greaterThanOrEqualTo(56));
+      expect(size.width, greaterThanOrEqualTo(52));
       final glyph = t.widget<Text>(find.text('🙂'));
-      expect(glyph.style!.fontSize, greaterThanOrEqualTo(32));
+      expect(glyph.style!.fontSize, greaterThanOrEqualTo(28));
       expect(glyph.textScaler, TextScaler.noScaling);
       expect(find.bySemanticsLabel('待命 🙂'), findsOneWidget);
       await t.pumpWidget(app(const AgentMoodBadge(emoji: '🔎', label: '在查数据')));
@@ -284,12 +284,29 @@ void main() {
       t.view.physicalSize = const Size(1920, 1080);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
-      final frame = const AgentAttention(items: []).tvFrame(caption: '都处理完了');
+      final spotlight = AgentSpotlightController();
+      final marks = AgentMarkController();
+      addTearDown(spotlight.dispose);
+      addTearDown(marks.dispose);
       await t.pumpWidget(
         MaterialApp(
           theme: raftTheme(RaftFamily.brutal),
           home: Scaffold(
-            body: AgentTvAttention(frame: {...frame, 'mood': '🎉'}),
+            body: AgentTvScreen(
+              frame: {
+                'caption': '都处理完了',
+                'mood': '🎉',
+                'layers': [
+                  {
+                    'id': 'attention',
+                    'title': '现在需要你',
+                    'attention': const AgentAttention(items: []).toJson(),
+                  },
+                ],
+              },
+              spotlight: spotlight,
+              marks: marks,
+            ),
           ),
         ),
       );

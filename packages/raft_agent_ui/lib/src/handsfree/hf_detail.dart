@@ -46,6 +46,9 @@ class HfDetail extends StatelessWidget {
     this.progress = const [],
     this.actions = const [],
     this.titleMode = HfDetailTitle.sticker,
+    this.index,
+    this.titleLines = 2,
+    this.trailing,
     this.focusId,
   });
 
@@ -59,6 +62,15 @@ class HfDetail extends StatelessWidget {
   final List<HfAction> actions;
 
   final HfDetailTitle titleMode;
+
+  /// The number the thing has on the screen (a card of a numbered list).
+  final int? index;
+
+  /// Lines the heading may take.
+  final int titleLines;
+
+  /// Something small at the right of the heading (an avatar).
+  final Widget? trailing;
   final String? focusId;
 
   @override
@@ -73,8 +85,8 @@ class HfDetail extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: hf.sp(64),
-            padding: EdgeInsets.symmetric(vertical: hf.sp(3)),
+            constraints: BoxConstraints(minWidth: hf.sp(64)),
+            padding: EdgeInsets.symmetric(vertical: hf.sp(3), horizontal: hf.sp(6)),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: HfColors.cream,
@@ -90,7 +102,7 @@ class HfDetail extends StatelessWidget {
           Expanded(
             child: AgentMarkText(
               f.value,
-              maxLines: 1,
+              maxLines: 2,
               style: hf.type(HfType.headline),
             ),
           ),
@@ -102,17 +114,18 @@ class HfDetail extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: hf.sp(48),
-            child: Text(
-              p.time,
-              maxLines: 1,
-              style: hf.type(HfType.meta, color: HfColors.inkMuted),
+          if (p.time.isNotEmpty)
+            SizedBox(
+              width: hf.sp(48),
+              child: Text(
+                p.time,
+                maxLines: 1,
+                style: hf.type(HfType.meta, color: HfColors.inkMuted),
+              ),
             ),
-          ),
           Expanded(
             child: AgentMarkText(
-              '${p.who} · ${p.text}',
+              p.who.isEmpty ? p.text : '${p.who} · ${p.text}',
               maxLines: 2,
               style: hf.type(HfType.body),
             ),
@@ -177,20 +190,75 @@ class HfDetail extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (beside) ...[
-                if (status != null)
-                  Text(
-                    status!,
-                    maxLines: 1,
-                    style: hf.type(HfType.meta, color: HfColors.inkMuted),
-                  ),
-                AgentMarkText(
-                  title,
-                  maxLines: 2,
-                  style: hf.type(HfType.headline),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (status != null || index != null)
+                            Row(
+                              children: [
+                                if (index != null) ...[
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: hf.sp(8),
+                                      vertical: hf.sp(1),
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      borderRadius: BorderRadius.circular(
+                                        hf.sp(7),
+                                      ),
+                                      border: Border.all(
+                                        color: HfColors.ink,
+                                        width: hf.sp(2),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '$index',
+                                      style: hf.type(
+                                        HfType.headline,
+                                        base: 15,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: hf.sp(8)),
+                                ],
+                                if (status != null)
+                                  Flexible(
+                                    child: Text(
+                                      status!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: hf.type(
+                                        HfType.meta,
+                                        color: HfColors.inkMuted,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          if (title.isNotEmpty)
+                            AgentMarkText(
+                              title,
+                              maxLines: titleLines,
+                              style: hf.type(HfType.headline),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (trailing != null) ...[
+                      SizedBox(width: hf.sp(10)),
+                      trailing!,
+                    ],
+                  ],
                 ),
-                SizedBox(height: hf.sp(10)),
+                if (facts.isNotEmpty || progress.isNotEmpty)
+                  SizedBox(height: hf.sp(10)),
               ],
-              content,
+              if (facts.isNotEmpty || progress.isNotEmpty) content,
             ],
           ),
         );

@@ -308,10 +308,10 @@ void main() {
       );
       await t.pumpAndSettle();
 
-      // ① and ②, whatever handle the model wrote; no ⑨, no second chip.
-      expect(find.text('①'), findsOneWidget);
-      expect(find.text('②'), findsOneWidget);
-      expect(find.text('⑨'), findsNothing);
+      // 1 and 2 on the bars, whatever handle the model wrote; no 9.
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('9'), findsNothing);
 
       await t.tap(find.textContaining('迁移数据'));
       await t.pump();

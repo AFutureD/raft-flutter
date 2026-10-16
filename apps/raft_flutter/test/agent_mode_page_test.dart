@@ -197,7 +197,9 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    expect(find.text('按住说话 · 点一下实时对话'), findsOneWidget);
+    // The strip says what the agent announced (the most urgent thing); with
+    // nothing said it says how to talk.
+    expect(find.byKey(const ValueKey('agent-mic-hint')), findsOneWidget);
     final mic = await t.startGesture(
       t.getCenter(find.byKey(const ValueKey('agent-orb'))),
     );
@@ -252,10 +254,10 @@ void main() {
                 for (var n = 1; n <= 3; n++)
                   AgentFocusable(
                     id: 'layer#$n',
-                    child: AgentPriorityCard(
-                      priority: AgentPriority.decision,
+                    child: HfRow(
+                      index: n,
+                      tone: HfTone.decision,
                       title: 'Item $n',
-                      weight: n,
                     ),
                   ),
               ],
@@ -297,11 +299,11 @@ void main() {
                 for (var n = 1; n <= 2; n++)
                   AgentFocusable(
                     id: 'layer#$n',
-                    child: AgentPriorityCard(
-                      priority: AgentPriority.decision,
+                    child: HfRow(
+                      index: n,
+                      tone: HfTone.decision,
                       title: 'Personal Agent 第一版选型',
                       detail: '#94 · 已经等了 2 小时',
-                      weight: 5,
                     ),
                   ),
               ],

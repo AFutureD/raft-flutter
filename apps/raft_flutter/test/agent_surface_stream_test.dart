@@ -751,14 +751,14 @@ void main() {
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.text('现在所有 Agent 在做什么'), findsWidgets);
       expect(find.text('在忙'), findsWidgets);
-      expect(find.byType(AgentStatusCardView), findsNothing);
+      expect(find.byType(HfStatusCard), findsNothing);
       // The agent is already saying the conclusion.
       expect(find.textContaining('4 个 Agent'), findsWidgets);
 
       final seen = <int>[];
       for (var i = 0; i < 12; i++) {
         await t.pump(const Duration(milliseconds: 150));
-        seen.add(t.widgetList(find.byType(AgentStatusCardView)).length);
+        seen.add(t.widgetList(find.byType(HfStatusCard)).length);
       }
       // Cards arrive one after another, never all at once.
       expect(seen.first, lessThan(4));
@@ -767,7 +767,7 @@ void main() {
         expect(seen[i], greaterThanOrEqualTo(seen[i - 1]));
       }
       await t.pumpAndSettle();
-      expect(find.byType(AgentStatusCardView), findsNWidgets(4));
+      expect(find.byType(HfStatusCard), findsNWidgets(4));
       // Nobody was spotlit: this was a fill, not a talk.
       expect(find.byKey(const ValueKey('agent-spotlight-scrim')), findsNothing);
       expect(find.byKey(const ValueKey('agent-surface-error')), findsNothing);
@@ -851,8 +851,8 @@ void main() {
       });
       expect(r['ok'], isTrue, reason: '$r');
       await t.pumpAndSettle();
-      expect(find.text('在做 #103'), findsOneWidget);
-      expect(find.text('在做 #102'), findsNothing);
+      expect(find.textContaining('在做 #103'), findsOneWidget);
+      expect(find.textContaining('在做 #102'), findsNothing);
       expect(at('Aria'), ariaTop);
       expect(at('Bo'), before['Bo']);
     });
@@ -914,14 +914,14 @@ void main() {
           await t.pump(const Duration(milliseconds: 100));
         }
         // Shown from what the app had, while the fresh read is still out.
-        expect(find.text('在做 #102「历史上拉」'), findsOneWidget);
-        expect(find.byType(AgentStatusCardView), findsNWidgets(4));
+        expect(find.textContaining('在做 #102「历史上拉」'), findsOneWidget);
+        expect(find.byType(HfStatusCard), findsNWidgets(4));
         await t.pumpAndSettle();
         final boTop = t.getTopLeft(find.text('Bo'));
         data.gate!.complete();
         await t.pumpAndSettle();
-        expect(find.text('在做 #103「新任务」'), findsOneWidget);
-        expect(find.text('在做 #102「历史上拉」'), findsNothing);
+        expect(find.textContaining('在做 #103「新任务」'), findsOneWidget);
+        expect(find.textContaining('在做 #102「历史上拉」'), findsNothing);
         // Only the changed card changed; the others did not move.
         expect(t.getTopLeft(find.text('Bo')), boTop);
         expect(data.reads, 1);

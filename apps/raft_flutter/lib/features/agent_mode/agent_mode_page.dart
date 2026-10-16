@@ -15,6 +15,7 @@ import 'agent_choreography.dart';
 import 'agent_consent_tray.dart';
 import 'agent_detail.dart';
 import 'agent_entity_binding.dart';
+import 'agent_frame_view.dart';
 import 'agent_headlines.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
@@ -139,11 +140,14 @@ class _AgentModePageState extends State<AgentModePage> {
   final _stack = <_Layer>[const _Attention()];
   int _surfaces = 0;
 
-  /// Phone: the first attention card on screen (see [agentPhoneBatch]).
+  /// The first attention row on screen (see [_pageRows]).
   int _batchStart = 0;
 
   /// The phone layout (set by build): surfaces fold their groups to one row.
   bool _compact = true;
+
+  /// One past the last attention row on screen (reported by the view).
+  int _batchEnd = 0;
   // ignore: raft_lints/avoid_imperative_notice_state -- Cleared by the next layer change (push, pop, reveal) or when a surface is accepted.
   String? _surfaceError;
 
@@ -474,6 +478,7 @@ class _AgentModePageState extends State<AgentModePage> {
       'spotlight': _spotlight.focused,
       'spotlightEnter': _spotlight.entering,
       'marks': [for (final m in _marks.marks) m.toJson()],
+      'confirms': _confirmsFrame(),
       'layers': [
         for (final l in _stack.skip(_stack.length > 3 ? _stack.length - 3 : 0))
           {..._frame(l), 'id': l.id, 'peek': _peek(l)},
@@ -483,6 +488,41 @@ class _AgentModePageState extends State<AgentModePage> {
     if (encoded == _sentFrame) return;
     _sentFrame = encoded;
     unawaited(AgentPresentation.instance.send(frame));
+  }
+
+  /// The confirm cards the person has to answer, and the results of the ones
+  /// they did, as the TV draws them (without the buttons).
+  List<Map<String, Object?>> _confirmsFrame() {
+    final now = DateTime.now();
+    final records = _actions.records;
+    return [
+      for (final r in records)
+        {
+          'title': r.preview.summary,
+          'changes': r.preview.changes,
+          'outcome': {
+            'kind': switch (r.phase) {
+              AgentActionPhase.running => 'running',
+              AgentActionPhase.done => 'done',
+              AgentActionPhase.failed => 'failed',
+            },
+            'text': r.text ?? '执行中',
+            'undoLabel': r.undoLabel,
+            'undo': r.undoOpen(now),
+            'retry': r.phase == AgentActionPhase.failed && r.canRetry,
+          },
+        },
+      for (final p in _consent.active)
+        if (!records.any((r) => r.id == p.request.token))
+          {
+            'title': p.request.total > 1
+                ? '${p.request.preview.summary}（第 ${p.request.step}/${p.request.total} 次确认）'
+                : p.request.preview.summary,
+            'changes': p.request.preview.changes,
+            'sensitive': p.request.sensitive,
+            if (p.approved) 'result': 'confirmed',
+          },
+    ];
   }
 
   /// What the person has not set aside or approved in this app session.
@@ -651,27 +691,26 @@ class _AgentModePageState extends State<AgentModePage> {
     });
   }
 
-  /// Shows the cards from [start] on the phone's first layer; what was
-  /// lifted or marked belonged to the old ones.
+  /// Shows the rows from [start] on the first layer; what was lifted or
+  /// marked belonged to the old ones.
   void _showBatch(int start) {
     _choreo.newScreen();
     setState(() => _batchStart = start);
   }
 
-  /// `next_batch`: the next [agentPhoneBatch] cards, or the first ones again
-  /// after the last. Takes the person back to the first layer.
+  /// `next_batch`: the next page of rows, or the first ones again after the
+  /// last. Takes the person back to the first layer.
   Map<String, Object?> _nextBatch() {
-    final a = _visible;
-    final cards = a == null ? 0 : a.decisionCount + a.blockedCount;
-    if (cards <= agentPhoneBatch) {
+    final cards = _visible?.items.length ?? 0;
+    // The view says where its page ends; before it said anything, one page.
+    final shownTo = _batchEnd == 0 ? cards : _batchEnd;
+    if (_batchStart == 0 && shownTo >= cards) {
       return {'error': '只有 $cards 件，已经全部显示了'};
     }
-    final next = _batchStart + agentPhoneBatch;
+    final next = shownTo >= cards ? 0 : shownTo;
     if (_stack.length > 1) setState(() => _stack.removeRange(1, _stack.length));
-    _showBatch(next >= cards ? 0 : next);
-    final from = _batchStart + 1;
-    final to = (_batchStart + agentPhoneBatch).clamp(0, cards);
-    return {'ok': true, 'showing': '第 $from 到 $to 条', 'total': cards};
+    _showBatch(next);
+    return {'ok': true, 'showing': '从第 ${next + 1} 条起', 'total': cards};
   }
 
   /// A summary row was tapped: show that group in full.
@@ -1298,8 +1337,9 @@ class _AgentModePageState extends State<AgentModePage> {
             'entity': attentionEntity(i),
           },
       ],
-      if (_visible != null)
-        'tv': {..._visible!.tvFrame(caption: _caption()), 'mood': _mood.emoji},
+      // The TV draws the same screen from the result itself.
+      if (_visible != null) 'attention': _visible!.toJson(),
+      'batch': _batchStart,
     },
     _Channel(:final channel) => () {
       final b = _briefs[channel.id];
@@ -1390,21 +1430,28 @@ class _AgentModePageState extends State<AgentModePage> {
     if (draft == null || !_runtime.surfaceStopped(draft.id)) return body;
     // A new request stopped this screen while it was being composed: what is
     // here stays, and it says it will not grow.
-    final t = RaftAgentTheme.of(context);
+    final hf = HandsFree.of(context);
     return Stack(
       children: [
         body,
         Positioned(
-          right: 12,
-          bottom: 8,
+          right: hf.sp(12),
+          top: hf.sp(4),
           child: Container(
             key: const ValueKey('agent-surface-stopped'),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: t.chip,
-              borderRadius: BorderRadius.circular(999),
+            padding: EdgeInsets.symmetric(
+              horizontal: hf.sp(10),
+              vertical: hf.sp(3),
             ),
-            child: Text('已停止', style: t.body(11.5, color: t.muted)),
+            decoration: BoxDecoration(
+              color: HfColors.cream,
+              borderRadius: BorderRadius.circular(hf.sp(10)),
+              border: Border.all(color: HfColors.ink, width: hf.sp(2.5)),
+            ),
+            child: Text(
+              '已停止',
+              style: hf.type(HfType.meta, color: HfColors.inkSoft),
+            ),
           ),
         ),
       ],
@@ -1428,8 +1475,6 @@ class _AgentModePageState extends State<AgentModePage> {
 
   Widget _page(BuildContext context) {
     final t = RaftAgentTheme.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= agentWideBreakpoint;
-    _compact = !wide;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncTv(context);
     });
@@ -1442,163 +1487,156 @@ class _AgentModePageState extends State<AgentModePage> {
         backgroundColor: t.canvas,
         body: AgentMarks(
           controller: _marks,
-          child: AgentCanvas(
-            child: SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: wide ? 1240 : 760),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              key: const ValueKey('agent-mode-close'),
-                              tooltip: '关闭',
-                              icon: Icon(Icons.close, color: t.muted),
-                              onPressed: () => Navigator.of(context).maybePop(),
-                            ),
-                            Text('Agent 模式', style: t.heading(15)),
-                            const Spacer(),
-                            IconButton(
-                              key: const ValueKey('agent-voice-settings'),
-                              tooltip: '声音设置',
-                              icon: Icon(Icons.tune, size: 20, color: t.muted),
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => AgentVoiceSettingsPage(
-                                    agents: widget.data == null
-                                        ? _brain.agents
-                                        : null,
-                                    onPreview: (v) =>
-                                        unawaited(_voice.preview(v)),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (AgentAudio.instance.supported)
-                              IconButton(
-                                key: const ValueKey('agent-voice-key-scan'),
-                                tooltip: '扫码填入 Gemini Key',
-                                icon: Icon(
-                                  Icons.qr_code_scanner,
-                                  size: 20,
-                                  color: t.muted,
-                                ),
-                                onPressed: _scanKey,
-                              ),
-                            if (_tvAttached)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 10),
-                                child: Icon(Icons.tv, size: 16, color: t.hint),
-                              ),
-                            Text(
-                              '第 ${_stack.length} 层',
-                              style: t.body(12, color: t.hint),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: AgentRevealSyncScope(
-                          sync: _reveal,
-                          child: AgentSpotlight(
-                            controller: _spotlight,
-                            // Room above the front layer only for the layers
-                            // that peek out behind it: one layer, no gap.
-                            child: ZLayerStack(
-                              padding: EdgeInsets.fromLTRB(
-                                14,
-                                6 + 34.0 * (_stack.length - 1).clamp(0, 2),
-                                14,
-                                8,
-                              ),
-                              onReveal: _revealTo,
-                              layers: [
-                                for (final l in _stack)
-                                  ZLayer(
-                                    key: ValueKey(l.id),
-                                    peek: _peek(l),
-                                    child: l is _Surface
-                                        ? _surfaceLayer(l, compact: !wide)
-                                        : l is _Attention
-                                        ? AgentAttentionView(
-                                            attention: _visible,
-                                            error: _attentionError,
-                                            wide: wide,
-                                            focusPrefix: l.id,
-                                            onApprove: (i) =>
-                                                unawaited(_approve(i)),
-                                            onOpen: _openItem,
-                                            onLater: _later,
-                                            onExpand: _expandItem,
-                                            batchStart: _batchStart,
-                                            onBatch: _showBatch,
-                                          )
-                                        : AgentFrameView(
-                                            focusPrefix: l.id,
-                                            frame: _frame(l),
-                                            onOpen: (id) {
-                                              final c = _channelById(id);
-                                              if (c != null) {
-                                                _openChannel(c).ignore();
-                                              }
-                                            },
-                                          ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (_surfaceError != null)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
-                          child: Text(
-                            key: const ValueKey('agent-surface-error'),
-                            '这块界面没能显示：$_surfaceError',
-                            style: t.body(
-                              11.5,
-                              color: t.priority(AgentPriority.decision),
-                            ),
-                          ),
-                        ),
-                      AgentEntityScope(
-                        resolver: _entities,
-                        child: AgentConsentTray(
-                          ledger: _consent,
-                          board: _actions,
-                          onUndo: (id) =>
-                              unawaited(_actionPressed(id, undo: true)),
-                          onRetry: (id) =>
-                              unawaited(_actionPressed(id, undo: false)),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                        child: ListenableBuilder(
-                          listenable: _voice,
-                          builder: (context, _) => AgentVoiceDock(
-                            mood: AgentMoodBadge(
-                              emoji: _mood.emoji,
-                              label: _mood.label,
-                            ),
-                            lines: _voice.lines,
-                            state: _voice.state,
-                            notice: _voice.notice,
-                            onSubmit: _submit,
-                            onMicDown: () => unawaited(_voice.micDown()),
-                            onMicUp: _voice.micUp,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          child: SafeArea(
+            child: HandsFree(
+              child: Builder(
+                builder: (context) {
+                  final hf = HandsFree.of(context);
+                  _compact = hf.phone;
+                  return _frameScreen(context, hf);
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The close button, the settings and which layer this is: small.
+  Widget _topBar(HfData hf) {
+    final ink = HfColors.inkSoft;
+    return SizedBox(
+      height: hf.sp(40),
+      child: Row(
+        children: [
+          IconButton(
+            key: const ValueKey('agent-mode-close'),
+            tooltip: '关闭',
+            icon: Icon(Icons.close, color: ink, size: hf.sp(24)),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          Text('Agent 模式', style: hf.type(HfType.body)),
+          const Spacer(),
+          IconButton(
+            key: const ValueKey('agent-voice-settings'),
+            tooltip: '声音设置',
+            icon: Icon(Icons.tune, size: hf.sp(22), color: ink),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => AgentVoiceSettingsPage(
+                  agents: widget.data == null ? _brain.agents : null,
+                  onPreview: (v) => unawaited(_voice.preview(v)),
                 ),
               ),
             ),
           ),
+          if (AgentAudio.instance.supported)
+            IconButton(
+              key: const ValueKey('agent-voice-key-scan'),
+              tooltip: '扫码填入 Gemini Key',
+              icon: Icon(Icons.qr_code_scanner, size: hf.sp(22), color: ink),
+              onPressed: _scanKey,
+            ),
+          if (_tvAttached)
+            Padding(
+              padding: EdgeInsets.only(right: hf.sp(10)),
+              child: Icon(Icons.tv, size: hf.sp(18), color: HfColors.inkMuted),
+            ),
+          Text(
+            '第 ${_stack.length} 层',
+            style: hf.type(HfType.meta, color: HfColors.inkMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _layerView(_Layer l, HfData hf) {
+    if (l is _Surface) return _surfaceLayer(l, compact: hf.phone);
+    if (l is _Attention) {
+      return AgentAttentionView(
+        attention: _visible,
+        error: _attentionError,
+        focusPrefix: l.id,
+        onApprove: (i) => unawaited(_approve(i)),
+        onOpen: _openItem,
+        onLater: _later,
+        onExpand: _expandItem,
+        batchStart: _batchStart,
+        onBatch: _showBatch,
+        onPage: (start, end) => _batchEnd = end,
+      );
+    }
+    return AgentFrameView(
+      focusPrefix: l.id,
+      frame: _frame(l),
+      focused: _spotlight.focused,
+      onOpen: (id) {
+        final c = _channelById(id);
+        if (c != null) _openChannel(c).ignore();
+      },
+    );
+  }
+
+  Widget _frameScreen(BuildContext context, HfData hf) {
+    // Room above the front layer only for the layers that peek out behind
+    // it: one layer, no gap.
+    final peeks = (_stack.length - 1).clamp(0, 2);
+    return HfScreenFrame(
+      top: _topBar(hf),
+      content: AgentRevealSyncScope(
+        sync: _reveal,
+        child: AgentSpotlight(
+          controller: _spotlight,
+          child: ZLayerStack(
+            padding: EdgeInsets.only(top: hf.sp(40) * peeks),
+            onReveal: _revealTo,
+            layers: [
+              for (final l in _stack)
+                ZLayer(
+                  key: ValueKey(l.id),
+                  peek: _peek(l),
+                  child: _layerView(l, hf),
+                ),
+            ],
+          ),
+        ),
+      ),
+      above: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_surfaceError != null)
+            Padding(
+              padding: EdgeInsets.only(top: hf.sp(6)),
+              child: Text(
+                key: const ValueKey('agent-surface-error'),
+                '这块界面没能显示：$_surfaceError',
+                style: hf.type(HfType.meta, color: HfColors.decision),
+              ),
+            ),
+          AgentEntityScope(
+            resolver: _entities,
+            child: AgentConsentTray(
+              ledger: _consent,
+              board: _actions,
+              onUndo: (id) => unawaited(_actionPressed(id, undo: true)),
+              onRetry: (id) => unawaited(_actionPressed(id, undo: false)),
+            ),
+          ),
+        ],
+      ),
+      foot: ListenableBuilder(
+        listenable: _voice,
+        builder: (context, _) => AgentVoiceDock(
+          mood: AgentMoodBadge(emoji: _mood.emoji, label: _mood.label),
+          lines: _voice.lines,
+          state: _voice.state,
+          notice: _voice.notice,
+          onSubmit: _submit,
+          onMicDown: () => unawaited(_voice.micDown()),
+          onMicUp: _voice.micUp,
         ),
       ),
     );

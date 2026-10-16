@@ -4,6 +4,14 @@ import 'package:raft_ui/raft_ui.dart';
 /// How urgent a priority item is. The order is the attention weight order.
 enum AgentPriority { decision, blocked, mention, progress }
 
+/// Labels for [AgentPriority]; apps may pass localized ones.
+const agentPriorityLabels = {
+  AgentPriority.decision: '等你决定',
+  AgentPriority.blocked: '卡住了',
+  AgentPriority.mention: '提到了你',
+  AgentPriority.progress: '进展',
+};
+
 /// Visual settings for agent mode, kept outside raft_ui so the mode can
 /// diverge from the product design system without touching it.
 ///

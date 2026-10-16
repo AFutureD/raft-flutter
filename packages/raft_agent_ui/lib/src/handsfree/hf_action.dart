@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../display_spec.dart';
+import '../enter.dart';
+import '../entity_blocks.dart';
 import '../spotlight.dart';
+import 'hf_blocks.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
@@ -173,8 +177,10 @@ class _VoiceHint extends StatelessWidget {
         maxLines: 1,
         textDirection: TextDirection.ltr,
       )..layout();
+      final width = one.width;
+      one.dispose();
       final at = voice.indexOf('「');
-      final fits = one.width <= box.maxWidth || at <= 0;
+      final fits = width <= box.maxWidth || at <= 0;
       // A narrow pill shrinks the words rather than cutting them.
       return FittedBox(
         fit: BoxFit.scaleDown,
@@ -274,14 +280,29 @@ class HfActions extends StatelessWidget {
   }
 }
 
-/// A question with two answers: what is about to happen, then 确认 / 取消.
-/// It can also be answered aloud ("对", "取消"); on a TV the two pills are
-/// the words to say.
-class HfConfirm extends StatelessWidget {
+/// What is about to happen, and a yes / no: the question (or a title), the
+/// changes as "field: from → to" lines, the thing it is about, then 确认 /
+/// 取消. It can also be answered aloud ("对", "取消"); on a TV the two pills
+/// are the words to say.
+///
+/// Once the operation ran (or runs, or failed) the pills give way to the
+/// [outcome]; once it was decided, to [result]. The card locks itself after
+/// the first press so a double tap cannot decide twice. [display]: the
+/// `label` and the `field_names`; the changes, the outcome and the pills are
+/// never left out, a confirmation is only worth anything if the person sees
+/// what they confirm.
+class HfConfirm extends StatefulWidget {
   const HfConfirm({
     super.key,
     required this.message,
-    this.confirmLabel = '确认',
+    this.changes = const [],
+    this.risk = AgentConfirmRisk.change,
+    this.label = '将要修改',
+    this.attachment,
+    this.outcome,
+    this.result,
+    this.display,
+    this.confirmLabel,
     this.cancelLabel = '取消',
     this.confirmVoice = '说「对」确认',
     this.cancelVoice = '说「取消」',
@@ -292,7 +313,26 @@ class HfConfirm extends StatelessWidget {
 
   /// "将把 #12 指派给 Bo —— 确认？"
   final String message;
-  final String confirmLabel, cancelLabel;
+
+  /// "field: from → to" lines.
+  final List<String> changes;
+  final AgentConfirmRisk risk;
+
+  /// The tag above the message of a plain confirmation.
+  final String label;
+
+  /// Under the changes: the things the operation is about, and after it ran,
+  /// the thing it made (an entity card).
+  final Widget? attachment;
+  final AgentActionOutcome? outcome;
+
+  /// Set by the owner once the decision was carried out (or refused).
+  final AgentConfirmResult? result;
+  final DisplaySpec? display;
+
+  /// The confirm pill; null is 确认 (确认执行 for a sensitive operation).
+  final String? confirmLabel;
+  final String cancelLabel;
 
   /// What the two pills say on a TV.
   final String confirmVoice, cancelVoice;
@@ -300,82 +340,251 @@ class HfConfirm extends StatelessWidget {
   final String? focusId;
 
   @override
+  State<HfConfirm> createState() => _HfConfirmState();
+}
+
+class _HfConfirmState extends State<HfConfirm> {
+  AgentConfirmResult? _decided;
+
+  AgentConfirmResult? get _result => widget.result ?? _decided;
+
+  void _decide(AgentConfirmResult r, VoidCallback? cb) {
+    if (_result != null) return;
+    setState(() => _decided = r);
+    cb?.call();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    final card = Container(
-      padding: EdgeInsets.all(hf.sp(16)),
-      decoration: BoxDecoration(
-        color: HfColors.card,
-        borderRadius: BorderRadius.circular(hf.sp(16)),
-        border: Border.all(color: HfColors.ink, width: hf.sp(3)),
-        boxShadow: [
-          BoxShadow(color: HfColors.sticker, offset: Offset(0, hf.sp(6))),
-        ],
+    final x = (widget.display ?? DisplaySpec.none).resolve('ConfirmCard');
+    final sensitive = widget.risk == AgentConfirmRisk.sensitive;
+    final outcome = widget.outcome;
+    final result = _result;
+    final tag = switch (outcome?.kind) {
+      AgentOutcomeKind.running => '执行中',
+      AgentOutcomeKind.done => '已完成',
+      AgentOutcomeKind.failed => '没成功',
+      null => sensitive ? '敏感操作' : widget.label,
+    };
+    final tagFill = switch (outcome?.kind) {
+      AgentOutcomeKind.done => HfColors.progress,
+      AgentOutcomeKind.failed => HfColors.decision,
+      _ => sensitive ? HfColors.blocked : HfColors.ink,
+    };
+    final tagInk = tagFill == HfColors.ink ? Colors.white : HfColors.ink;
+    final card = Semantics(
+      container: true,
+      label: '${sensitive ? '敏感操作，' : ''}${widget.message}',
+      child: KeyedSubtree(
+        key: ValueKey('confirm-card-${widget.risk.name}'),
+        child: HfCard(
+          tone: sensitive ? HfTone.decision : HfTone.sticker,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // A sensitive operation, and one that already ran, always say so.
+              if (x.has('label') || sensitive || outcome != null)
+                Padding(
+                  padding: EdgeInsets.only(bottom: hf.sp(10)),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: hf.sp(8),
+                          vertical: hf.sp(1),
+                        ),
+                        decoration: BoxDecoration(
+                          color: tagFill,
+                          borderRadius: BorderRadius.circular(hf.sp(6)),
+                          border: tagFill == HfColors.ink
+                              ? null
+                              : Border.all(
+                                  color: HfColors.ink,
+                                  width: hf.sp(2),
+                                ),
+                        ),
+                        child: Text(
+                          tag,
+                          style: hf.type(HfType.meta, color: tagInk),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              AgentTypeText(
+                widget.message,
+                maxLines: x.lines,
+                style: hf.type(HfType.headline),
+              ),
+              if (widget.changes.isNotEmpty)
+                SizedBox(height: hf.sp(10)),
+              for (final line in widget.changes.take(
+                AgentBlockLimits.confirmChanges,
+              ))
+                _ChangeRow(
+                  change: AgentChange.parse(line),
+                  showField: x.has('field_names'),
+                ),
+              if (widget.attachment != null) widget.attachment!,
+              SizedBox(height: hf.sp(14)),
+              if (outcome != null)
+                _OutcomeRow(outcome: outcome)
+              else if (result == null) ...[
+                Row(
+                  key: const ValueKey('confirm-card-actions'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: AgentPop(
+                        child: HfAction(
+                          widget.confirmLabel ?? (sensitive ? '确认执行' : '确认'),
+                          kind: HfActionKind.primary,
+                          icon: Icons.check_rounded,
+                          voice: widget.confirmVoice,
+                          onPressed: () => _decide(
+                            AgentConfirmResult.confirmed,
+                            widget.onConfirm,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: hf.sp(12)),
+                    Expanded(
+                      flex: 2,
+                      child: AgentPop(
+                        order: 1,
+                        child: HfAction(
+                          widget.cancelLabel,
+                          icon: Icons.close_rounded,
+                          voice: widget.cancelVoice,
+                          onPressed: () => _decide(
+                            AgentConfirmResult.cancelled,
+                            widget.onCancel,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (hf.interactive) ...[
+                  SizedBox(height: hf.sp(6)),
+                  Text(
+                    '也可以直接说“对”或“取消”',
+                    style: hf.type(HfType.meta, color: HfColors.inkMuted),
+                  ),
+                ],
+              ] else
+                Text(
+                  result == AgentConfirmResult.confirmed ? '已确认' : '已取消',
+                  key: ValueKey('confirm-card-${result.name}'),
+                  style: hf.type(HfType.count),
+                ),
+            ],
+          ),
+        ),
       ),
+    );
+    final id = widget.focusId;
+    return id == null ? card : AgentFocusable(id: id, child: card);
+  }
+}
+
+class _OutcomeRow extends StatelessWidget {
+  const _OutcomeRow({required this.outcome});
+  final AgentActionOutcome outcome;
+
+  @override
+  Widget build(BuildContext context) {
+    final hf = HandsFree.of(context);
+    final o = outcome;
+    final mark = switch (o.kind) {
+      AgentOutcomeKind.done => ' ✅',
+      AgentOutcomeKind.failed => ' ⚠️',
+      AgentOutcomeKind.running => '…',
+    };
+    final buttons = [
+      if (o.onRetry != null)
+        HfAction(
+          '重试',
+          key: const ValueKey('confirm-card-retry'),
+          kind: HfActionKind.primary,
+          onPressed: o.onRetry,
+        ),
+      if (o.onUndo != null && o.undoLabel != null)
+        HfAction(
+          '撤销（${o.undoLabel}）',
+          key: const ValueKey('confirm-card-undo'),
+          voice: '说「撤销」',
+          onPressed: o.onUndo,
+        ),
+      if (o.onDismiss != null)
+        HfAction(
+          '知道了',
+          key: const ValueKey('confirm-card-dismiss'),
+          kind: HfActionKind.text,
+          onPressed: o.onDismiss,
+        ),
+    ];
+    return Column(
+      key: ValueKey('confirm-card-outcome-${o.kind.name}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('${o.text}$mark', style: hf.type(HfType.count)),
+        if (buttons.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: hf.sp(10)),
+            child: HfActions(actions: buttons),
+          ),
+      ],
+    );
+  }
+}
+
+class _ChangeRow extends StatelessWidget {
+  const _ChangeRow({required this.change, this.showField = true});
+  final AgentChange change;
+  final bool showField;
+
+  @override
+  Widget build(BuildContext context) {
+    final hf = HandsFree.of(context);
+    final from = change.from, to = change.to;
+    return Padding(
+      padding: EdgeInsets.only(bottom: hf.sp(8)),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: hf.sp(8),
-                  vertical: hf.sp(1),
-                ),
-                decoration: BoxDecoration(
-                  color: HfColors.ink,
-                  borderRadius: BorderRadius.circular(hf.sp(6)),
-                ),
-                child: Text(
-                  '需要确认',
-                  style: hf.type(HfType.meta, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: hf.sp(10)),
-          Text(
-            message,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: hf.type(HfType.headline),
-          ),
-          SizedBox(height: hf.sp(14)),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: HfAction(
-                  confirmLabel,
-                  kind: HfActionKind.primary,
-                  icon: Icons.check_rounded,
-                  voice: confirmVoice,
-                  onPressed: onConfirm,
-                ),
-              ),
-              SizedBox(width: hf.sp(12)),
-              Expanded(
-                child: HfAction(
-                  cancelLabel,
-                  icon: Icons.close_rounded,
-                  voice: cancelVoice,
-                  onPressed: onCancel,
-                ),
-              ),
-            ],
-          ),
-          if (hf.interactive) ...[
-            SizedBox(height: hf.sp(6)),
+          if (showField || (from == null && to == null))
             Text(
-              '也可以直接说“对”或“取消”',
-              style: hf.type(HfType.meta, color: HfColors.inkMuted),
+              change.field,
+              style: hf.type(HfType.meta, color: HfColors.inkSoft),
             ),
-          ],
+          if (from != null && to != null)
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: hf.sp(8),
+              children: [
+                Text(
+                  from.isEmpty ? '（空）' : from,
+                  style: hf
+                      .type(HfType.body, color: HfColors.inkMuted)
+                      .copyWith(decoration: TextDecoration.lineThrough),
+                ),
+                Icon(Icons.arrow_forward, size: hf.sp(20), color: HfColors.ink),
+                Text(
+                  to.isEmpty ? '（空）' : to,
+                  style: hf.type(HfType.headline),
+                ),
+              ],
+            )
+          else if (to != null)
+            Text(to, style: hf.type(HfType.headline)),
         ],
       ),
     );
-    final id = focusId;
-    return id == null ? card : AgentFocusable(id: id, child: card);
   }
 }

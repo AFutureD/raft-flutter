@@ -113,7 +113,7 @@ void main() {
     await t.pumpAndSettle();
 
     // The home cards already wear their rank, which is their handle.
-    expect(find.byKey(const ValueKey('agent-handle-1')), findsNothing);
+    expect(find.byKey(const ValueKey('agent-pointed-1')), findsNothing);
 
     Future<void> say(
       String text,
@@ -156,8 +156,8 @@ void main() {
     await t.tap(find.text('Cindy 完成了「选型」，等你验收'));
     await t.pumpAndSettle();
     expect(find.text('第 2 层'), findsOneWidget);
-    // The detail's task card wears ① and is the pointed one.
-    expect(find.byKey(const ValueKey('agent-handle-1')), findsOneWidget);
+    // The detail's task card wears 1 on its bar and is the pointed one.
+    expect(find.byKey(const ValueKey('agent-pointed-1')), findsOneWidget);
     late Map<String, Object?> there;
     await say('随便', (call) async {
       there = await call('resolve', {'phrase': '这个'});

@@ -789,8 +789,8 @@ void main() {
       expect(find.text('在忙'), findsOneWidget);
       expect(find.text('#seed'), findsOneWidget);
       expect(find.text('未读 3'), findsOneWidget);
-      expect(find.text('①'), findsOneWidget);
-      expect(find.text('②'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
       expect(find.text('都在正常运行。'), findsOneWidget);
       // The same staged entrance as the other components.
       expect(find.byType(AgentAppear), findsWidgets);
@@ -858,9 +858,9 @@ void main() {
       await t.pump();
       expect(find.textContaining('找不到Agent'), findsOneWidget);
       // The model wrote 3; the cards wear their place on the screen.
-      expect(find.text('③'), findsNothing);
-      expect(find.text('①'), findsOneWidget);
-      expect(find.text('②'), findsOneWidget);
+      expect(find.text('3'), findsNothing);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
       expect(find.text('#seed'), findsOneWidget);
       expect(problems, hasLength(1));
       expect(

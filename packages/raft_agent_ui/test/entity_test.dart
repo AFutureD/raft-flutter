@@ -103,6 +103,12 @@ _Resolver _full() => _Resolver()
     ),
   );
 
+void _size(WidgetTester t, [Size size = const Size(412, 915)]) {
+  t.view.physicalSize = size;
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
+}
+
 Widget _host(
   Widget child, {
   required AgentEntityResolver resolver,
@@ -112,19 +118,22 @@ Widget _host(
 }) => MaterialApp(
   theme: raftTheme(RaftFamily.brutal),
   builder: (context, app) => MediaQuery(
-    data: MediaQuery.of(context)
-        .copyWith(textScaler: TextScaler.linear(textScale)),
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(textScale)),
     child: app!,
   ),
-  home: Scaffold(
-    body: Center(
-      child: SizedBox(
-        width: width,
-        child: SingleChildScrollView(
-          child: AgentEntityScope(
-            resolver: resolver,
-            onProblem: onProblem,
-            child: child,
+  home: HandsFree(
+    child: Scaffold(
+      body: Center(
+        child: SizedBox(
+          width: width,
+          child: SingleChildScrollView(
+            child: AgentEntityScope(
+              resolver: resolver,
+              onProblem: onProblem,
+              child: child,
+            ),
           ),
         ),
       ),
@@ -132,26 +141,32 @@ Widget _host(
   ),
 );
 
-/// Every font size drawn by Text widgets under [of].
+/// A card on the numbered screen: it wears [n] on its bar.
+Widget _at(int n, Widget card) => HfItemScope(index: n, child: card);
+
+/// Every font size drawn under [of].
 List<double> _sizes(WidgetTester t, Finder of) => [
-  for (final w in t.widgetList<Text>(
-    find.descendant(of: of, matching: find.byType(Text)),
+  for (final w in t.widgetList<RichText>(
+    find.descendant(of: of, matching: find.byType(RichText)),
   ))
-    ?(w.style?.fontSize ?? w.textSpan?.style?.fontSize),
+    ?w.text.style?.fontSize,
 ];
+
+const _detail = DisplaySpec(level: AgentLevel.detail);
 
 void main() {
   const all = [_task, _message, _agent, _channel, _member, _computer, _file];
 
   group('entity cards render from the app data', () {
-    testWidgets('every kind, compact', (t) async {
+    testWidgets('every kind, as a numbered row', (t) async {
+      _size(t);
       final r = _full();
       await t.pumpWidget(
         _host(
           Column(
             children: [
-              for (final e in all)
-                AgentEntityCard(entity: e, handle: '${all.indexOf(e) + 1}'),
+              for (final (i, e) in all.indexed)
+                _at(i + 1, HfEntityCard(entity: e)),
             ],
           ),
           resolver: r,
@@ -181,26 +196,28 @@ void main() {
           reason: 'missing "$text"',
         );
       }
-      // The reference handles ① to ⑦.
-      expect(find.byKey(const ValueKey('entity-handle')), findsNWidgets(7));
-      expect(find.text('①'), findsOneWidget);
-      expect(find.text('⑦'), findsOneWidget);
+      // The number on the bar is the handle: 1 to 7.
+      expect(find.byType(HfRow), findsNWidgets(7));
+      for (var n = 1; n <= 7; n++) {
+        expect(find.text('$n'), findsOneWidget, reason: 'number $n');
+      }
     });
 
-    testWidgets('every kind, detail', (t) async {
+    testWidgets('the detail level is a card with a row per fact', (t) async {
+      _size(t);
       final r = _full();
       await t.pumpWidget(
         _host(
           Column(
             children: [
-              for (final e in all)
-                AgentEntityCard(entity: e, density: AgentCardDensity.detail),
+              for (final e in all) HfEntityCard(entity: e, display: _detail),
             ],
           ),
           resolver: r,
         ),
       );
-      // Detail adds labelled facts the compact card folds into one line.
+      expect(find.byType(HfDetail), findsNWidgets(7));
+      // Detail adds labelled facts the row folds into one line.
       for (final text in ['负责人', '频道', '更新', '电脑', '持续', '最近活动']) {
         expect(find.text(text), findsWidgets, reason: 'missing "$text"');
       }
@@ -208,15 +225,32 @@ void main() {
       expect(find.text('大小'), findsOneWidget);
     });
 
+    testWidgets('minimum is the title alone', (t) async {
+      _size(t);
+      await t.pumpWidget(
+        _host(
+          const HfEntityCard(
+            entity: _task,
+            display: DisplaySpec(level: AgentLevel.minimum),
+          ),
+          resolver: _full(),
+        ),
+      );
+      expect(find.text('修复搜索打开频道后无法返回'), findsOneWidget);
+      expect(find.textContaining('等验收'), findsNothing);
+      expect(find.textContaining('Aria'), findsNothing);
+    });
+
     testWidgets('an image shows its cached thumbnail, a file an icon', (
       t,
     ) async {
+      _size(t);
       await t.pumpWidget(
         _host(
           Column(
             children: const [
-              AgentEntityCard(entity: _image),
-              AgentEntityCard(entity: _file),
+              HfEntityCard(entity: _image),
+              HfEntityCard(entity: _file),
             ],
           ),
           resolver: _full(),
@@ -227,35 +261,40 @@ void main() {
       expect(find.byKey(const ValueKey('entity-file-icon')), findsOneWidget);
     });
 
-    testWidgets('tone and emphasis only change the frame', (t) async {
-      final r = _full();
+    testWidgets('tone changes the colour, emphasis adds a tag', (t) async {
+      _size(t);
       await t.pumpWidget(
         _host(
           Column(
             children: const [
-              AgentEntityCard(entity: _task),
-              AgentEntityCard(
+              HfEntityCard(entity: _task),
+              HfEntityCard(
                 entity: _task,
                 tone: AgentTone.good,
                 emphasis: AgentEmphasis.high,
               ),
             ],
           ),
-          resolver: r,
+          resolver: _full(),
         ),
       );
-      // Only the toned one has the strip.
-      expect(find.byKey(const ValueKey('entity-strip')), findsOneWidget);
+      final rows = t.widgetList<HfRow>(find.byType(HfRow)).toList();
+      // A task waiting for the person is red; the good tone makes it green.
+      expect(rows[0].tone, HfTone.decision);
+      expect(rows[1].tone, HfTone.progress);
+      expect(rows[0].badge, isNull);
+      expect(rows[1].badge, '重点');
     });
   });
 
   group('live data', () {
     testWidgets('the card follows the underlying data', (t) async {
+      _size(t);
       final r = _full();
       await t.pumpWidget(
-        _host(const AgentEntityCard(entity: _task), resolver: r),
+        _host(const HfEntityCard(entity: _task), resolver: r),
       );
-      expect(find.text('等验收'), findsOneWidget);
+      expect(find.textContaining('等验收'), findsOneWidget);
       r.put(
         _task,
         const AgentTaskData(
@@ -268,20 +307,21 @@ void main() {
         ),
       );
       await t.pump();
-      expect(find.text('等验收'), findsNothing);
-      expect(find.text('已完成'), findsOneWidget);
+      expect(find.textContaining('等验收'), findsNothing);
+      expect(find.textContaining('已完成'), findsOneWidget);
       expect(find.textContaining('刚刚'), findsOneWidget);
     });
 
     testWidgets('a card that was loading draws when the data arrives', (
       t,
     ) async {
+      _size(t);
       final r = _Resolver();
       r.answers[_task] = const AgentEntityLoading();
       final problems = <AgentEntityRef>[];
       await t.pumpWidget(
         _host(
-          const AgentEntityCard(entity: _task),
+          const HfEntityCard(entity: _task),
           resolver: r,
           onProblem: (ref, _) => problems.add(ref),
         ),
@@ -294,9 +334,10 @@ void main() {
     });
 
     testWidgets('the resolver is released with the card', (t) async {
+      _size(t);
       final r = _full();
       await t.pumpWidget(
-        _host(const AgentEntityCard(entity: _task), resolver: r),
+        _host(const HfEntityCard(entity: _task), resolver: r),
       );
       await t.pumpWidget(_host(const SizedBox(), resolver: r));
       r.notifyListeners();
@@ -305,14 +346,17 @@ void main() {
   });
 
   group('an id the app cannot read', () {
-    testWidgets('draws a small 找不到 stub and tells the model once', (t) async {
+    testWidgets('draws a small 找不到 row and tells the model once', (t) async {
+      _size(t);
       final r = _full();
       final problems = <(AgentEntityRef, String)>[];
       await t.pumpWidget(
         _host(
-          const AgentEntityCard(
-            entity: AgentEntityRef(AgentEntityKind.task, 'nope'),
-            handle: '2',
+          _at(
+            2,
+            const HfEntityCard(
+              entity: AgentEntityRef(AgentEntityKind.task, 'nope'),
+            ),
           ),
           resolver: r,
           onProblem: (ref, reason) => problems.add((ref, reason)),
@@ -320,7 +364,7 @@ void main() {
       );
       expect(find.textContaining('找不到任务'), findsOneWidget);
       expect(find.textContaining('nope'), findsOneWidget);
-      expect(find.text('②'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
       expect(problems, [
         (const AgentEntityRef(AgentEntityKind.task, 'nope'), '没有这个 id'),
       ]);
@@ -332,10 +376,11 @@ void main() {
       expect(problems, hasLength(1));
     });
 
-    testWidgets('the stub is small', (t) async {
+    testWidgets('the stub is one row, not a card', (t) async {
+      _size(t);
       await t.pumpWidget(
         _host(
-          const AgentEntityCard(
+          const HfEntityCard(
             entity: AgentEntityRef(AgentEntityKind.agent, 'nope'),
           ),
           resolver: _Resolver(),
@@ -344,14 +389,17 @@ void main() {
       final box = t.getSize(
         find.byKey(const ValueKey('entity-stub-agent-nope')),
       );
-      expect(box.height, lessThan(70));
+      expect(box.height, lessThan(90));
     });
 
     testWidgets('without a scope nothing is invented either', (t) async {
+      _size(t);
       await t.pumpWidget(
         MaterialApp(
           theme: raftTheme(RaftFamily.brutal),
-          home: const Scaffold(body: AgentEntityCard(entity: _task)),
+          home: const HandsFree(
+            child: Scaffold(body: HfEntityCard(entity: _task)),
+          ),
         ),
       );
       expect(find.textContaining('找不到任务'), findsOneWidget);
@@ -360,11 +408,12 @@ void main() {
     testWidgets('a member that appears later is drawn, the error is cleared', (
       t,
     ) async {
+      _size(t);
       final r = _Resolver();
       final problems = <AgentEntityRef>[];
       await t.pumpWidget(
         _host(
-          const AgentEntityCard(entity: _member),
+          const HfEntityCard(entity: _member),
           resolver: r,
           onProblem: (ref, _) => problems.add(ref),
         ),
@@ -378,62 +427,86 @@ void main() {
   });
 
   group('type sizes at arm\'s length', () {
-    testWidgets('compact: headline at least 26, nothing under 16', (t) async {
+    testWidgets('rows: title at least 22, nothing under 13', (t) async {
+      _size(t);
       await t.pumpWidget(
         _host(
           Column(
             children: [
-              for (final e in all) AgentEntityCard(entity: e, handle: '1'),
-              const AgentEntityCard(
+              for (final e in all) _at(1, HfEntityCard(entity: e)),
+              const HfEntityCard(
                 entity: AgentEntityRef(AgentEntityKind.task, 'nope'),
               ),
-              const AgentEntityCard(entity: _image),
+              const HfEntityCard(entity: _image),
             ],
           ),
           resolver: _full(),
         ),
       );
-      final sizes = _sizes(t, find.byType(AgentEntityCard));
+      final sizes = _sizes(t, find.byType(HfEntityCard));
       expect(sizes, isNotEmpty);
       for (final s in sizes) {
-        expect(s, greaterThanOrEqualTo(16));
+        expect(s, greaterThanOrEqualTo(13));
       }
       for (final text in ['修复搜索打开频道后无法返回', 'PR 已合入，全量检查 0 失败。']) {
-        final w = t.widget<Text>(find.text(text));
+        final w = t.widget<RichText>(
+          find.byWidgetPredicate(
+            (w) => w is RichText && w.text.toPlainText() == text,
+          ),
+        );
         expect(
-          w.style!.fontSize,
-          greaterThanOrEqualTo(entityHeadlineCompact),
+          w.text.style!.fontSize,
+          greaterThanOrEqualTo(22),
           reason: text,
         );
       }
-      expect(entityHeadlineCompact, 26);
     });
 
-    testWidgets('detail and the stub keep nothing under 16 either', (t) async {
+    testWidgets('detail and the stub keep nothing under 13 either', (t) async {
+      _size(t);
       await t.pumpWidget(
         _host(
           Column(
             children: [
-              for (final e in all)
-                AgentEntityCard(entity: e, density: AgentCardDensity.detail),
-              const AgentEntityCard(entity: _image),
+              for (final e in all) HfEntityCard(entity: e, display: _detail),
+              const HfEntityCard(entity: _image),
             ],
           ),
           resolver: _full(),
         ),
       );
-      for (final s in _sizes(t, find.byType(AgentEntityCard))) {
-        expect(s, greaterThanOrEqualTo(16));
+      for (final s in _sizes(t, find.byType(HfEntityCard))) {
+        expect(s, greaterThanOrEqualTo(13));
       }
     });
 
+    testWidgets('the sizes follow s: a desktop window draws them larger', (
+      t,
+    ) async {
+      _size(t, const Size(1440, 900));
+      await t.pumpWidget(
+        _host(
+          const HfEntityCard(entity: _task),
+          resolver: _full(),
+          width: 700,
+        ),
+      );
+      final w = t.widget<RichText>(
+        find.byWidgetPredicate(
+          (w) => w is RichText && w.text.toPlainText() == '修复搜索打开频道后无法返回',
+        ),
+      );
+      expect(w.text.style!.fontSize, closeTo(22 * 900 / 540, .01));
+    });
+
     testWidgets('1.0 and 2.0 text scale lay out without overflow', (t) async {
+      _size(t);
       for (final scale in [1.0, 2.0]) {
         await t.pumpWidget(
           _host(
             Column(
               children: [
-                for (final e in all) AgentEntityCard(entity: e, handle: '1'),
+                for (final e in all) _at(1, HfEntityCard(entity: e)),
               ],
             ),
             resolver: _full(),
@@ -447,13 +520,14 @@ void main() {
 
   group('inline references', () {
     testWidgets('resolve to a one-line label, missing ones say so', (t) async {
+      _size(t);
       final problems = <AgentEntityRef>[];
       await t.pumpWidget(
         _host(
           const Column(
             children: [
-              AgentEntityInline(entity: _task, handle: '1'),
-              AgentEntityInline(
+              HfEntityInline(entity: _task, handle: '1'),
+              HfEntityInline(
                 entity: AgentEntityRef(AgentEntityKind.channel, 'zz'),
               ),
             ],

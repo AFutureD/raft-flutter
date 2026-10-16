@@ -127,7 +127,11 @@ void main() {
     await t.pumpAndSettle();
   }
 
-  Finder row(String text) => find.text(text, findRichText: true);
+  Finder row(String line) => find.byWidgetPredicate(
+    (w) =>
+        w is HfSummaryRow &&
+        '${w.title} ${w.count}${w.text.isEmpty ? '' : '：${w.text}'}' == line,
+  );
 
   testWidgets('"现在所有的 Agent 都在干什么？" is a summary first', (t) async {
     await open(t);
@@ -135,14 +139,14 @@ void main() {
     expect(find.text('第 2 层'), findsOneWidget);
     expect(find.text('现在所有 Agent 在做什么'), findsWidgets);
     // The numbers, then one line per non-empty group.
-    expect(find.byType(AgentStatRowView), findsOneWidget);
+    expect(find.byType(HfStatStrip), findsOneWidget);
     expect(row('在忙 1：Aria 在做 #102「历史上拉」'), findsOneWidget);
     expect(row('卡住了 1：Bo #7「旧任务」 超过 6 小时没动'), findsOneWidget);
     expect(row('空闲 1：Cy'), findsOneWidget);
     expect(find.textContaining('离线'), findsNothing);
     // No agent card until somebody asks.
-    expect(find.byType(AgentStatusCardView), findsNothing);
-    expect(find.text('#seed'), findsNothing);
+    expect(find.byType(HfStatusCard), findsNothing);
+    expect(find.textContaining('#seed'), findsNothing);
     // One short spoken sentence, built from the counts that were read, that
     // offers to go on.
     expect(find.textContaining('3 个 Agent：1 个在忙，1 个卡住了，1 个空闲'), findsWidgets);
@@ -159,12 +163,12 @@ void main() {
     await t.tap(row('在忙 1：Aria 在做 #102「历史上拉」'));
     await t.pumpAndSettle();
     expect(find.text('Aria'), findsOneWidget);
-    expect(find.text('在做 #102「历史上拉」'), findsOneWidget);
-    expect(find.text('#seed'), findsOneWidget);
+    expect(find.textContaining('在做 #102「历史上拉」'), findsOneWidget);
+    expect(find.textContaining('#seed'), findsOneWidget);
     expect(find.text('第 2 层'), findsOneWidget);
     // The others are still rows.
     expect(row('空闲 1：Cy'), findsOneWidget);
-    expect(find.text('Cy'), findsNothing);
+    expect(find.byKey(const ValueKey('agent-status-Cy')), findsNothing);
   });
 
   testWidgets('asking to expand a group recomposes it with density detail', (
@@ -176,7 +180,7 @@ void main() {
     // Same screen, replaced: still the second layer.
     expect(find.text('第 2 层'), findsOneWidget);
     expect(find.text('Aria'), findsOneWidget);
-    expect(find.text('在做 #102「历史上拉」'), findsOneWidget);
+    expect(find.textContaining('在做 #102「历史上拉」'), findsOneWidget);
     expect(row('卡住了 1：Bo #7「旧任务」 超过 6 小时没动'), findsOneWidget);
     expect(find.text('Bo'), findsNothing);
     expect(find.textContaining('在忙那组展开了'), findsWidgets);
@@ -189,10 +193,15 @@ void main() {
     await ask(t, '任务 #98 现在怎么样？');
     expect(find.text('第 2 层'), findsOneWidget);
     expect(find.text('修复搜索打开频道后无法返回'), findsOneWidget);
-    expect(find.text('等验收'), findsOneWidget);
-    expect(find.text('负责人 Aria'), findsOneWidget);
-    expect(find.text('验收这个任务'), findsOneWidget);
-    expect(find.text('Aria · 10:32  已修复并补了测试'), findsOneWidget);
+    // The task card: status, number and who in the meta, the ask and the
+    // latest thing said as its line.
+    final card = find.byType(HfTaskCard);
+    Finder inCard(String text) =>
+        find.descendant(of: card, matching: find.textContaining(text));
+    expect(inCard('等验收'), findsOneWidget);
+    expect(inCard('#98 · Aria'), findsOneWidget);
+    expect(inCard('验收这个任务'), findsOneWidget);
+    expect(inCard('Aria · 10:32  已修复并补了测试'), findsOneWidget);
     // The earlier lines of the thread are one row until asked for.
     expect(row('最近讨论 2：Zed：请看一下返回键、Bo：我这边复现不了了'), findsOneWidget);
     expect(find.text('请看一下返回键'), findsNothing);

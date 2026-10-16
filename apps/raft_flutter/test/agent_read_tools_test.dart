@@ -1034,7 +1034,7 @@ void main() {
       await draw();
       expect(find.textContaining('keep m9'), findsOneWidget);
       expect(find.textContaining('keep m10'), findsOneWidget);
-      expect(find.byType(AgentEntityAvatar), findsNothing);
+      expect(find.byType(HfAvatar), findsNothing);
       final card = find.byKey(const ValueKey('entity-card-message')).first;
       final element = card.evaluate().single;
 
@@ -1057,7 +1057,7 @@ void main() {
         'show': {'avatar': true},
       });
       await draw();
-      expect(find.byType(AgentEntityAvatar), findsNWidgets(2));
+      expect(find.byType(HfAvatar), findsNWidgets(2));
       expect(
         find.byKey(const ValueKey('entity-card-message')).first.evaluate().single,
         same(element),
@@ -1086,7 +1086,7 @@ void main() {
       });
       expect(r['ok'], isTrue, reason: '$r');
       await draw();
-      expect(find.byType(AgentEntityAvatar), findsOneWidget);
+      expect(find.byType(HfAvatar), findsOneWidget);
       expect(
         cards(draft).map((n) => n.string('id')),
         ['m9', 'm10'],

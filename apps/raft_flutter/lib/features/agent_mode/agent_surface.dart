@@ -130,6 +130,25 @@ class SurfaceNode {
   List<Object?> list(String key) =>
       props[key] is List ? (props[key] as List).cast<Object?>() : const [];
 
+  /// The node as JSON (what the TV gets), and back. A node that came this way
+  /// was validated before it was sent: nothing is checked again.
+  Map<String, Object?> toJson() => {
+    'component': component,
+    if (id != null) 'id': id,
+    'props': props,
+    if (children.isNotEmpty) 'children': [for (final c in children) c.toJson()],
+  };
+
+  factory SurfaceNode.fromJson(Map<String, Object?> json) => SurfaceNode(
+    '${json['component']}',
+    (json['props'] as Map?)?.cast<String, Object?>() ?? const {},
+    id: json['id'] as String?,
+    children: [
+      for (final c in (json['children'] as List? ?? const []))
+        if (c is Map) SurfaceNode.fromJson(c.cast<String, Object?>()),
+    ],
+  );
+
   /// This node and every node below it, depth first (the order the screen
   /// numbers its items).
   Iterable<SurfaceNode> walk() sync* {
@@ -150,6 +169,21 @@ class AgentSurfaceSpec {
   final String title;
   final String? summary;
   final SurfaceNode root;
+
+  Map<String, Object?> toJson() => {
+    'title': title,
+    'summary': summary,
+    'root': root.toJson(),
+  };
+
+  factory AgentSurfaceSpec.fromJson(Map<String, Object?> json) =>
+      AgentSurfaceSpec(
+        title: '${json['title']}',
+        summary: json['summary'] as String?,
+        root: SurfaceNode.fromJson(
+          (json['root'] as Map).cast<String, Object?>(),
+        ),
+      );
 }
 
 /// How many more components a streamed surface may take.

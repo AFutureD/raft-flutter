@@ -167,22 +167,12 @@ void main() {
       expect(const DisplaySpec(lines: 0).resolve('message').lines, 1);
     });
 
-    test('size picks a scale that is never under the compact one', () {
-      final compact = AgentTypeScale.compact;
-      expect(compact.headline, 26);
-      expect(compact.small, 16);
-      for (final s in AgentSize.values) {
-        final scale = AgentTypeScale.of(s);
-        expect(scale.headline, greaterThanOrEqualTo(26));
-        expect(scale.meta, greaterThanOrEqualTo(18));
-        expect(scale.small, greaterThanOrEqualTo(16));
-      }
+    test('size is read and resolved, but there is one type ramp', () {
+      // Hands-free screens draw one ramp (HfType): the field is kept so a
+      // surface that names it is not refused, and it carries through.
       final x = const DisplaySpec(size: AgentSize.large).resolve('task');
-      expect(x.scale(AgentTypeScale.wide).headline, 36);
-      expect(
-        DisplaySpec.none.resolve('task').scale(AgentTypeScale.wide),
-        AgentTypeScale.wide,
-      );
+      expect(x.size, AgentSize.large);
+      expect(DisplaySpec.none.resolve('task').size, isNull);
     });
 
     test('json round trip, and anything off the schema is left out', () {

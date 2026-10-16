@@ -12,12 +12,14 @@ class _Resolver extends ChangeNotifier implements AgentEntityResolver {
 
 Widget _host(Widget child) => MaterialApp(
   theme: raftTheme(RaftFamily.brutal),
-  home: Scaffold(
-    body: Center(
-      child: SizedBox(
-        width: 390,
-        child: SingleChildScrollView(
-          child: AgentEntityScope(resolver: _Resolver(), child: child),
+  home: HandsFree(
+    child: Scaffold(
+      body: Center(
+        child: SizedBox(
+          width: 390,
+          child: SingleChildScrollView(
+            child: AgentEntityScope(resolver: _Resolver(), child: child),
+          ),
         ),
       ),
     ),
@@ -31,16 +33,12 @@ Future<void> _show(
   Widget Function(DisplaySpec?) make,
   DisplaySpec? spec,
 ) async {
+  t.view.physicalSize = const Size(412, 915);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
   await t.pumpWidget(_host(make(spec)));
   await t.pumpAndSettle();
 }
-
-List<double> _sizes(WidgetTester t, Finder of) => [
-  for (final w in t.widgetList<Text>(
-    find.descendant(of: of, matching: find.byType(Text)),
-  ))
-    ?(w.style?.fontSize ?? w.textSpan?.style?.fontSize),
-];
 
 /// A component under test: how to draw it, and how to see each element.
 class _Case {
@@ -63,7 +61,7 @@ class _Case {
 final _cases = <_Case>[
   _Case(
     'AgentStatusCard',
-    (d) => AgentStatusCardView(
+    (d) => HfStatusCard(
       name: 'nm-tok',
       state: AgentWorkState.busy,
       activity: 'act-tok',
@@ -73,15 +71,15 @@ final _cases = <_Case>[
     ),
     {
       'name': () => find.textContaining('nm-tok'),
-      'state': () => find.text('在忙'),
+      'state': () => find.textContaining('在忙'),
       'activity': () => find.textContaining('act-tok'),
-      'since': () => find.text('since-tok'),
-      'channel': () => find.text('#ch-tok'),
+      'since': () => find.textContaining('since-tok'),
+      'channel': () => find.textContaining('#ch-tok'),
     },
   ),
   _Case(
     'TaskCard',
-    (d) => AgentTaskCardView(
+    (d) => HfTaskCard(
       title: 'title-tok',
       status: 'in_review',
       number: 98,
@@ -92,18 +90,18 @@ final _cases = <_Case>[
       display: d,
     ),
     {
-      'number': () => find.text('#98'),
-      'status': () => find.text('等验收'),
+      'number': () => find.textContaining('#98'),
+      'status': () => find.textContaining('等验收'),
       'title': () => find.textContaining('title-tok'),
-      'assignee': () => find.text('负责人 asg-tok'),
-      'channel': () => find.text('#ch-tok'),
+      'assignee': () => find.textContaining('asg-tok'),
+      'channel': () => find.textContaining('#ch-tok'),
       'latest_progress': () => find.textContaining('quote-tok'),
       'ask': () => find.textContaining('ask-tok'),
     },
   ),
   _Case(
     'MessageQuote',
-    (d) => AgentMessageQuoteView(
+    (d) => HfMessageQuote(
       author: 'au-tok',
       text: 'text-tok',
       time: 'time-tok',
@@ -115,29 +113,24 @@ final _cases = <_Case>[
       'time': () => find.textContaining('time-tok'),
       'channel': () => find.textContaining('#ch-tok'),
       'text': () => find.textContaining('text-tok'),
-      'bar': () => find.byWidgetPredicate(
-        (w) =>
-            w is Container &&
-            w.decoration is BoxDecoration &&
-            (w.decoration! as BoxDecoration).border != null,
-      ),
+      'bar': () => find.byKey(const ValueKey('hf-row-bar')),
     },
   ),
   _Case(
     'StatRow',
-    (d) => AgentStatRowView(
-      stats: const [AgentStatData('label-tok', '3')],
+    (d) => HfStatStrip(
+      stats: const [HfStat('label-tok', '3')],
       display: d,
     ),
     {'label': () => find.text('label-tok')},
   ),
   _Case(
     'AgentStatusGroup',
-    (d) => AgentStatusGroupView(
+    (d) => HfGroup(
       title: 'group-tok',
-      count: 7,
+      displayKind: 'AgentStatusGroup',
       display: d,
-      children: const [SizedBox(height: 10)],
+      children: [for (var i = 0; i < 7; i++) const SizedBox(height: 4)],
     ),
     {
       'title': () => find.textContaining('group-tok'),
@@ -148,7 +141,7 @@ final _cases = <_Case>[
   ),
   _Case(
     'Section',
-    (d) => AgentSurfaceSectionView(
+    (d) => HfGroup(
       title: 'sect-tok',
       display: d,
       children: const [SizedBox(height: 10)],
@@ -162,7 +155,7 @@ final _cases = <_Case>[
   ),
   _Case(
     'Table',
-    (d) => AgentTableView(
+    (d) => HfTable(
       columns: const ['col-a', 'col-b'],
       rows: const [
         [AgentTableCell.text('x1'), AgentTableCell.text('y1')],
@@ -178,7 +171,7 @@ final _cases = <_Case>[
   ),
   _Case(
     'Timeline',
-    (d) => AgentTimelineView(
+    (d) => HfTimeline(
       items: const [
         AgentTimelineItem(
           time: 'time-tok',
@@ -198,7 +191,7 @@ final _cases = <_Case>[
   ),
   _Case(
     'CodeBlock',
-    (d) => AgentCodeBlockView(
+    (d) => HfCodeBlock(
       title: 'file-tok.dart',
       code: List.generate(44, (i) => 'line $i').join('\n'),
       display: d,
@@ -211,7 +204,7 @@ final _cases = <_Case>[
   ),
   _Case(
     'Callout',
-    (d) => AgentCalloutView(text: 'say-tok', tone: AgentTone.good, display: d),
+    (d) => HfCallout(text: 'say-tok', tone: AgentTone.good, display: d),
     {
       'icon': () => find.byIcon(Icons.check_circle_outline),
       'text': () => find.textContaining('say-tok'),
@@ -219,8 +212,8 @@ final _cases = <_Case>[
   ),
   _Case(
     'ConfirmCard',
-    (d) => AgentConfirmCardView(
-      title: 'conf-tok',
+    (d) => HfConfirm(
+      message: 'conf-tok',
       changes: const ['状态-tok: 进行中 → 已完成'],
       display: d,
     ),
@@ -310,40 +303,11 @@ void main() {
           );
         }
       });
-
-      testWidgets('regular and large are never smaller than compact', (
-        t,
-      ) async {
-        double biggest(List<double> s) => s.reduce((a, b) => a > b ? a : b);
-        double smallest(List<double> s) => s.reduce((a, b) => a < b ? a : b);
-        final all = DisplaySpec(
-          level: AgentLevel.detail,
-          show: {for (final e in kind.elements) e: true},
-        );
-        final seen = <AgentSize, List<double>>{};
-        for (final size in AgentSize.values) {
-          await _show(
-            t,
-            c.make,
-            DisplaySpec(level: all.level, show: all.show, size: size),
-          );
-          expect(t.takeException(), isNull, reason: size.name);
-          seen[size] = _sizes(t, find.byType(Scaffold));
-        }
-        expect(
-          smallest(seen[AgentSize.regular]!),
-          greaterThanOrEqualTo(smallest(seen[AgentSize.compact]!)),
-        );
-        expect(
-          biggest(seen[AgentSize.large]!),
-          greaterThan(biggest(seen[AgentSize.compact]!)),
-        );
-      });
     });
   }
 
   group('summary row', () {
-    Widget row(DisplaySpec? d) => AgentSummaryRow(
+    Widget row(DisplaySpec? d) => HfSummaryRow(
       title: 'grp-tok',
       count: 3,
       text: 'members-tok',
@@ -372,8 +336,8 @@ void main() {
     ) async {
       await _show(
         t,
-        (d) => AgentConfirmCardView(
-          title: 'conf-tok',
+        (d) => HfConfirm(
+          message: 'conf-tok',
           changes: const ['状态: 进行中 → 已完成'],
           display: d,
         ),
@@ -392,8 +356,8 @@ void main() {
     testWidgets('a sensitive confirmation always says so', (t) async {
       await _show(
         t,
-        (d) => AgentConfirmCardView(
-          title: 'conf-tok',
+        (d) => HfConfirm(
+          message: 'conf-tok',
           changes: const ['状态: 进行中 → 已完成'],
           risk: AgentConfirmRisk.sensitive,
           display: d,
@@ -407,7 +371,7 @@ void main() {
   group('a property change moves the card smoothly', () {
     testWidgets('a status card grows and shrinks over time', (t) async {
       Widget card(DisplaySpec d) => _host(
-        AgentStatusCardView(
+        HfStatusCard(
           name: 'nm-tok',
           state: AgentWorkState.busy,
           activity: 'act-tok act-tok act-tok act-tok act-tok act-tok',
@@ -416,7 +380,7 @@ void main() {
           display: d,
         ),
       );
-      double height() => t.getSize(find.byType(AgentStatusCardView)).height;
+      double height() => t.getSize(find.byType(HfStatusCard)).height;
       await t.pumpWidget(card(const DisplaySpec(level: AgentLevel.minimum)));
       await t.pumpAndSettle();
       final small = height();

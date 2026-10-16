@@ -101,6 +101,73 @@ class AgentAttentionItem {
   /// The last few thread lines, oldest first.
   final List<AgentProgressLine> progress;
 
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'priority': priority.name,
+    'headline': headline,
+    'ask': ask,
+    'reason': reason,
+    'at': at.toIso8601String(),
+    'askLine': askLine,
+    'action': action.name,
+    'canApprove': canApprove,
+    'score': score,
+    'waitValue': waitValue,
+    'waitUnit': waitUnit,
+    'idle': idle,
+    'waiters': waiters,
+    'doer': doer,
+    'channelId': channelId,
+    'channelName': channelName,
+    'threadTitle': threadTitle,
+    'taskId': taskId,
+    'taskNumber': taskNumber,
+    'progress': [
+      for (final p in progress) {'who': p.who, 'time': p.time, 'text': p.text},
+    ],
+  };
+
+  factory AgentAttentionItem.fromJson(Map<String, Object?> j) {
+    String? str(String k) => j[k] is String ? j[k] as String : null;
+    return AgentAttentionItem(
+      id: str('id') ?? '',
+      priority: AgentPriority.values.firstWhere(
+        (p) => p.name == j['priority'],
+        orElse: () => AgentPriority.progress,
+      ),
+      headline: str('headline') ?? '',
+      ask: str('ask') ?? '',
+      reason: str('reason') ?? '',
+      at: DateTime.tryParse(str('at') ?? '') ?? DateTime.now(),
+      askLine: str('askLine'),
+      action: AgentAction.values.firstWhere(
+        (a) => a.name == j['action'],
+        orElse: () => AgentAction.open,
+      ),
+      canApprove: j['canApprove'] == true,
+      score: (j['score'] as num?)?.toDouble() ?? 0,
+      waitValue: j['waitValue'] as int? ?? 1,
+      waitUnit: str('waitUnit') ?? '小时',
+      idle: j['idle'] == true,
+      waiters: [for (final w in (j['waiters'] as List? ?? const [])) '$w'],
+      doer: str('doer'),
+      channelId: str('channelId'),
+      channelName: str('channelName'),
+      threadTitle: str('threadTitle'),
+      taskId: str('taskId'),
+      taskNumber: j['taskNumber'] as int?,
+      progress: [
+        for (final p in (j['progress'] as List? ?? const []))
+          if (p is Map)
+            AgentProgressLine(
+              who: '${p['who']}',
+              time: '${p['time']}',
+              text: '${p['text']}',
+            ),
+      ],
+    );
+  }
+
   AgentAttentionItem withProgress(List<AgentProgressLine> lines) =>
       _copy(progress: lines);
 
@@ -220,27 +287,41 @@ class AgentAttention {
     return '${parts.join('，')}。';
   }
 
-  /// What the TV mirror shows: the top three, no actions.
-  Map<String, Object?> tvFrame({required String caption}) => {
-    'decision': decisionCount,
-    'blocked': blockedCount,
-    'mention': mentionCount,
-    'caption': caption,
-    'items': [
-      for (var n = 0; n < items.length && n < 3; n++)
+  /// The result as JSON: what the TV gets, which draws the same screen from
+  /// it ([AgentAttention.fromJson]).
+  Map<String, Object?> toJson() => {
+    'capped': capped,
+    'teamCount': teamCount,
+    'items': [for (final i in items) i.toJson()],
+    'team': [
+      for (final t in team)
         {
-          'rank': n + 1,
-          'priority': items[n].priority.name,
-          'reason': items[n].reason,
-          'channel': items[n].channelName ?? '',
-          'headline': items[n].headline,
-          'waitValue': items[n].waitValue,
-          'waitUnit': items[n].waitUnit,
-          'idle': items[n].idle,
-          'urgent': n == 0,
+          'id': t.id,
+          'headline': t.headline,
+          'channelName': t.channelName,
+          'who': t.who,
         },
     ],
   };
+
+  static AgentAttention fromJson(Map<String, Object?> json) => AgentAttention(
+    items: [
+      for (final i in (json['items'] as List? ?? const []))
+        if (i is Map) AgentAttentionItem.fromJson(i.cast<String, Object?>()),
+    ],
+    team: [
+      for (final t in (json['team'] as List? ?? const []))
+        if (t is Map)
+          AgentTeamItem(
+            id: '${t['id']}',
+            headline: '${t['headline']}',
+            channelName: '${t['channelName']}',
+            who: '${t['who']}',
+          ),
+    ],
+    teamCount: json['teamCount'] as int?,
+    capped: json['capped'] == true,
+  );
 }
 
 /// What a headline is built from. A summarizer can use the same input.

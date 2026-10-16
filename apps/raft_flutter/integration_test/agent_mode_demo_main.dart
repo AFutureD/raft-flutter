@@ -1,7 +1,11 @@
 // Offline visual host for the agent mode demo: fixed sample data, no network.
 //   tool/flutter run -d linux -t integration_test/agent_mode_demo_main.dart \
 //     --dart-define=AGENT_DEMO_THEME=brutal|elegant-light|elegant-dark \
-//     --dart-define=AGENT_DEMO_SCRIPT=true
+//     --dart-define=AGENT_DEMO_SCRIPT=true \
+//     --dart-define=AGENT_DEMO_TV=true
+// AGENT_DEMO_TV shows what the TV presentation shows (the frames the phone
+// would send, drawn by AgentTvView) instead of the page; the page still runs,
+// out of sight, and the script drives it.
 // The script opens a card's detail, asks the generative UI questions ("现在所有的
 // Agent 都在干什么？", "展开卡住了", a channel, "任务 #98 现在怎么样？") and goes back
 // to the attention layer; a scripted model answers them with the real tools, so
@@ -17,11 +21,17 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
 import 'package:raft_flutter/features/agent_mode/agent_scripted_model.dart';
+import 'package:raft_flutter/features/agent_mode/agent_tv.dart';
+import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart';
+import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability_standard.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 final _theme =
     Platform.environment['AGENT_DEMO_THEME'] ??
     const String.fromEnvironment('AGENT_DEMO_THEME', defaultValue: 'brutal');
+final _tv =
+    Platform.environment['AGENT_DEMO_TV'] == '1' ||
+    const bool.fromEnvironment('AGENT_DEMO_TV');
 final _script =
     Platform.environment['AGENT_DEMO_SCRIPT'] == '1' ||
     const bool.fromEnvironment('AGENT_DEMO_SCRIPT');
@@ -283,14 +293,54 @@ void main() {
     'elegant-dark' => raftTheme(RaftFamily.elegant, dark: true),
     _ => raftTheme(RaftFamily.brutal),
   };
+  final page = _ScriptedPage(controller: w);
+  if (_tv) {
+    final frames = ValueNotifier<Map<String, Object?>?>(null);
+    AgentPresentation.instance.debugSink = (f) => frames.value = f;
+    runApp(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        home: Stack(
+          children: [
+            // The phone, out of sight: it composes what the TV shows.
+            Offstage(child: page),
+            Scaffold(body: AgentTvView(frames: frames)),
+          ],
+        ),
+      ),
+    );
+    return;
+  }
   runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: theme,
-      home: _ScriptedPage(controller: w),
-    ),
+    MaterialApp(debugShowCheckedModeBanner: false, theme: theme, home: page),
   );
 }
+
+/// What the demo can change, so a confirm card has something to ask about.
+final _registry = AgentCapabilityRegistry([
+  AgentCapability(
+    id: 'demo.finish',
+    title: '把任务标成完成',
+    kind: AgentCapabilityKind.action,
+    risk: AgentCapabilityRisk.change,
+    paramsSchema: const {
+      'type': 'object',
+      'properties': {
+        'number': {'type': 'integer', 'description': '任务编号'},
+      },
+      'required': ['number'],
+    },
+    resultSummary: '任务',
+    keywords: const ['完成'],
+    preview: (w, args, env) async => AgentActionPreview(
+      summary: '把 #${args['number']} 标记为已完成',
+      changes: const ['状态: 等验收 → 已完成'],
+    ),
+    run: (w, args, env) async => {'status': 'done'},
+  ),
+  ...agentStandardCapabilities.all,
+]);
 
 class _ScriptedPage extends StatefulWidget {
   const _ScriptedPage({required this.controller});
@@ -405,6 +455,16 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await _type('任务 #98 现在怎么样？');
     await wait(7000);
     await mark('task');
+    await _type('把 #98 标记为已完成');
+    await wait(3500);
+    await mark('confirm');
+    await _type('算了');
+    await wait(1500);
+    await _type('回到提醒');
+    await wait(3500);
+    await _type('讲讲第一条');
+    await wait(3500);
+    await mark('detail');
     await _type('回到提醒');
     await wait(3500);
     await mark('attention-dock');
@@ -416,6 +476,7 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     child: AgentModePage(
       controller: widget.controller,
       data: _DemoData(widget.controller),
+      registry: _registry,
       // No network: a scripted model answers through the same tools.
       model: const AgentScriptedModel(),
     ),

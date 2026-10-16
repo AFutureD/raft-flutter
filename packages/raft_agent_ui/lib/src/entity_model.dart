@@ -1,7 +1,34 @@
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import 'surface_cards.dart' show AgentWorkState;
+
+/// What an agent is doing right now, as the person reads it.
+enum AgentWorkState { busy, idle, blocked, offline }
+
+/// Labels for [AgentWorkState]; apps may pass localized ones.
+const agentWorkStateLabels = {
+  AgentWorkState.busy: '在忙',
+  AgentWorkState.idle: '空闲',
+  AgentWorkState.blocked: '卡住了',
+  AgentWorkState.offline: '离线',
+};
+
+/// Labels for task statuses.
+const agentTaskStatusLabels = {
+  'todo': '待办',
+  'in_progress': '进行中',
+  'in_review': '等验收',
+  'done': '已完成',
+  'closed': '已关闭',
+};
+
+/// ① to ⑳ for 1 to 20, else the handle as written.
+String agentHandleGlyph(String handle) {
+  const circled = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+  final n = int.tryParse(handle);
+  if (n != null && n >= 1 && n <= 20) return circled[n - 1];
+  return handle;
+}
 
 /// The things the model may point at by id. It never writes their content:
 /// the app resolves an [AgentEntityRef] from its own data and draws it, so a
@@ -385,5 +412,187 @@ class _AgentEntityBuilderState extends State<AgentEntityBuilder> {
       _reported = null;
     }
     return widget.builder(context, resolution);
+  }
+}
+
+
+/// What an entity says, as JSON: what travels to the TV, which has no
+/// workspace of its own. The avatar and thumbnail builders do not travel.
+Map<String, Object?> agentEntityToJson(AgentEntityData d) => switch (d) {
+  AgentMessageData() => {
+    'kind': 'message',
+    'author': d.author,
+    'text': d.text,
+    'time': d.time,
+    'channel': d.channel,
+    'attachmentCount': d.attachmentCount,
+    'reactions': [
+      for (final r in d.reactions) [r.emoji, r.count],
+    ],
+    'threadCount': d.threadCount,
+  },
+  AgentTaskData() => {
+    'kind': 'task',
+    'title': d.title,
+    'status': d.status,
+    'number': d.number,
+    'assignee': d.assignee,
+    'channel': d.channel,
+    'updated': d.updated,
+    'description': d.description,
+    'latestProgress': d.latestProgress,
+  },
+  AgentAgentData() => {
+    'kind': 'agent',
+    'name': d.name,
+    'state': d.state.name,
+    'activity': d.activity,
+    'computer': d.computer,
+    'since': d.since,
+    'channel': d.channel,
+    'model': d.model,
+  },
+  AgentChannelData() => {
+    'kind': 'channel',
+    'name': d.name,
+    'unread': d.unread,
+    'mentioned': d.mentioned,
+    'lastActivity': d.lastActivity,
+    'direct': d.direct,
+    'description': d.description,
+    'memberCount': d.memberCount,
+  },
+  AgentMemberData() => {
+    'kind': 'member',
+    'name': d.name,
+    'role': d.role,
+    'presence': d.presence?.name,
+  },
+  AgentComputerData() => {
+    'kind': 'computer',
+    'name': d.name,
+    'online': d.online,
+    'runtimes': d.runtimes,
+    'agentCount': d.agentCount,
+    'version': d.version,
+  },
+  AgentFileData() => {
+    'kind': 'file',
+    'name': d.name,
+    'type': d.type,
+    'size': d.size,
+    'isImage': d.isImage,
+    'author': d.author,
+  },
+};
+
+/// The inverse of [agentEntityToJson]; null for anything it does not know.
+AgentEntityData? agentEntityFromJson(Object? json) {
+  if (json is! Map) return null;
+  String? s(String k) => json[k] is String ? json[k] as String : null;
+  int? i(String k) => json[k] is int ? json[k] as int : null;
+  final name = s('name') ?? '';
+  switch (json['kind']) {
+    case 'message':
+      return AgentMessageData(
+        author: s('author') ?? '',
+        text: s('text') ?? '',
+        time: s('time'),
+        channel: s('channel'),
+        attachmentCount: i('attachmentCount') ?? 0,
+        reactions: [
+          for (final r in (json['reactions'] as List? ?? const []))
+            if (r is List && r.length == 2 && r[1] is int)
+              AgentReaction('${r[0]}', r[1] as int),
+        ],
+        threadCount: i('threadCount') ?? 0,
+      );
+    case 'task':
+      return AgentTaskData(
+        title: s('title') ?? '',
+        status: s('status') ?? 'todo',
+        number: i('number'),
+        assignee: s('assignee'),
+        channel: s('channel'),
+        updated: s('updated'),
+        description: s('description'),
+        latestProgress: s('latestProgress'),
+      );
+    case 'agent':
+      return AgentAgentData(
+        name: name,
+        state: AgentWorkState.values.firstWhere(
+          (e) => e.name == json['state'],
+          orElse: () => AgentWorkState.idle,
+        ),
+        activity: s('activity'),
+        computer: s('computer'),
+        since: s('since'),
+        channel: s('channel'),
+        model: s('model'),
+      );
+    case 'channel':
+      return AgentChannelData(
+        name: name,
+        unread: i('unread') ?? 0,
+        mentioned: json['mentioned'] == true,
+        lastActivity: s('lastActivity'),
+        direct: json['direct'] == true,
+        description: s('description'),
+        memberCount: i('memberCount'),
+      );
+    case 'member':
+      return AgentMemberData(
+        name: name,
+        role: s('role'),
+        presence: AgentPresence.values
+            .where((e) => e.name == json['presence'])
+            .firstOrNull,
+      );
+    case 'computer':
+      return AgentComputerData(
+        name: name,
+        online: json['online'] == true,
+        runtimes: [for (final r in (json['runtimes'] as List? ?? const [])) '$r'],
+        agentCount: i('agentCount') ?? 0,
+        version: s('version'),
+      );
+    case 'file':
+      return AgentFileData(
+        name: name,
+        type: s('type'),
+        size: s('size'),
+        isImage: json['isImage'] == true,
+        author: s('author'),
+      );
+  }
+  return null;
+}
+
+/// Answers from a fixed set of entities (what a frame carried), by kind and
+/// id: the TV's resolver. Never changes, never reads anything.
+class AgentStaticEntityResolver extends ChangeNotifier
+    implements AgentEntityResolver {
+  AgentStaticEntityResolver(this._entities);
+
+  /// A frame's `entities`: `kind:id` to the JSON of [agentEntityToJson].
+  factory AgentStaticEntityResolver.fromJson(Object? json) {
+    final out = <String, AgentEntityData>{};
+    if (json is Map) {
+      for (final e in json.entries) {
+        final d = agentEntityFromJson(e.value);
+        if (d != null) out['${e.key}'] = d;
+      }
+    }
+    return AgentStaticEntityResolver(out);
+  }
+  final Map<String, AgentEntityData> _entities;
+
+  @override
+  AgentEntityResolution resolve(AgentEntityRef ref) {
+    final d = _entities['${ref.kind.name}:${ref.id}'];
+    return d == null
+        ? const AgentEntityMissing('这块屏幕里没有它的内容')
+        : AgentEntityFound(d);
   }
 }

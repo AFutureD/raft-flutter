@@ -290,14 +290,14 @@ void main() {
             ),
           ),
         );
-        expect(find.text('②'), findsOneWidget);
-        expect(find.byKey(const ValueKey('agent-handle-2')), findsOneWidget);
-        expect(find.text('①'), findsNothing);
+        // The number a card wears is on its own bar; the tag only points.
+        expect(find.byKey(const ValueKey('agent-pointed-2')), findsNothing);
         expect(pointer.entity, isNull);
 
         await t.tap(find.text('搜索返回'));
         await t.pump();
         expect(cardTaps, 1);
+        expect(find.byKey(const ValueKey('agent-pointed-2')), findsOneWidget);
         expect(pointer.entity?.id, 't95');
         expect(pointer.layerId, 'surface:1');
       },
@@ -399,8 +399,8 @@ void main() {
           ),
         ),
       );
-      expect(find.byKey(const ValueKey('agent-handle-1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('agent-handle-2')), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
       await t.tap(find.textContaining('历史上拉').first);
       await t.pump();
       expect(pointer.entity?.id, 't94');
@@ -480,10 +480,7 @@ void main() {
             ),
           ),
         );
-        expect(
-          find.byKey(const ValueKey('agent-handle-1')),
-          hidden ? findsNothing : findsOneWidget,
-        );
+        expect(find.text('1'), hidden ? findsNothing : findsOneWidget);
         pointer.clear();
         await t.tap(find.textContaining('历史上拉').first);
         await t.pump();

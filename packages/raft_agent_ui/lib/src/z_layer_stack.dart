@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'handsfree/hf_scope.dart';
+import 'handsfree/hf_tokens.dart';
 
 /// One result layer on the Z axis. [key] identifies the layer across pushes
 /// and pops so a layer keeps its state while it moves back and forth.
@@ -122,7 +124,9 @@ class _ZLayerView extends StatelessWidget {
         final ahead = (-d).clamp(0, 1).toDouble();
         final scale =
             1 - theme.depthScale * behind + theme.leavingScale * ahead;
-        final dy = -theme.depthOffset * behind + theme.leavingOffset * ahead;
+        final s = HandsFree.of(context).s;
+        final dy =
+            -40 * s * behind + theme.leavingOffset * s * ahead;
         final opacity = (1 - theme.depthFade * behind - ahead)
             .clamp(0, 1)
             .toDouble();
@@ -151,6 +155,9 @@ class _ZLayerView extends StatelessWidget {
   }
 }
 
+/// The front layer is its own content, drawn straight on the canvas (a
+/// hands-free screen has its own cards); a layer behind shows only a strip
+/// with its name, which a tap brings back.
 class _LayerSurface extends StatelessWidget {
   const _LayerSurface({
     required this.theme,
@@ -168,40 +175,35 @@ class _LayerSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(theme.layerRadius);
-    final surface = DecoratedBox(
-      decoration: BoxDecoration(
-        color: front ? theme.layer : theme.backLayer,
-        borderRadius: radius,
-        border: Border.all(color: theme.line, width: theme.border),
-        boxShadow: front ? theme.topShadow : theme.layerShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: peek == null
-            ? child
-            : Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
-                  ),
-                  child: Text(
-                    '‹  $peek',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.body(13, color: theme.muted),
-                  ),
-                ),
-              ),
+    if (peek == null) return child;
+    final hf = HandsFree.of(context);
+    final strip = Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        height: hf.sp(30),
+        alignment: Alignment.centerLeft,
+        padding: EdgeInsets.symmetric(horizontal: hf.sp(12)),
+        decoration: BoxDecoration(
+          color: HfColors.card,
+          borderRadius: BorderRadius.circular(hf.sp(12)),
+          border: Border.all(color: HfColors.ink, width: hf.sp(2.5)),
+          boxShadow: [
+            BoxShadow(color: HfColors.info, offset: Offset(0, hf.sp(4))),
+          ],
+        ),
+        child: Text(
+          '‹  $peek',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: hf.type(HfType.meta, color: HfColors.inkSoft),
+        ),
       ),
     );
-    if (onReveal == null) return surface;
+    if (onReveal == null) return strip;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onReveal,
-      child: Semantics(button: true, label: peek, child: surface),
+      child: Semantics(button: true, label: peek, child: strip),
     );
   }
 }

@@ -24,29 +24,20 @@ class AgentReferenceScope extends InheritedWidget {
       !identical(old.table, table) || !identical(old.pointer, pointer);
 }
 
-/// Shows the handle (① ② ③ …) of the entity a card stands for, small in its
-/// corner (on a desktop window: in the margin left of the card, where it
-/// cannot sit on the card's status chip), and makes a tap on the card "point" at it: the next thing said
-/// with "这个" means this card. The tap still reaches the card; this only
-/// listens.
+/// Makes a tap on the card "point" at the entity it stands for: the next
+/// thing said with "这个" means this card. The tap still reaches the card;
+/// this only listens. The number the card wears on its bar is the handle
+/// (① ② ③ …), so there is no badge to draw; a pointed card gets a yellow
+/// outline.
 ///
 /// [focusId] is the id the card has as an `AgentFocusable` (`layer#3`);
 /// cards that are not on the front screen, or stand for no entity, are
 /// left as they are.
 class AgentHandleTag extends StatelessWidget {
-  const AgentHandleTag({
-    super.key,
-    required this.focusId,
-    required this.child,
-    this.showHandle = true,
-  });
+  const AgentHandleTag({super.key, required this.focusId, required this.child});
 
   final String focusId;
   final Widget child;
-
-  /// False for a card that already wears its number (the home cards show
-  /// their rank, which is the handle): it still points when tapped.
-  final bool showHandle;
 
   /// A tap moves less than this and ends within [tapTime].
   static const slop = 18.0;
@@ -61,7 +52,6 @@ class AgentHandleTag extends StatelessWidget {
       entry: entry,
       layerId: scope.table.layerId,
       pointer: scope.pointer,
-      showHandle: showHandle,
       child: child,
     );
   }
@@ -72,10 +62,8 @@ class _Tagged extends StatefulWidget {
     required this.entry,
     required this.layerId,
     required this.pointer,
-    required this.showHandle,
     required this.child,
   });
-  final bool showHandle;
   final AgentEntityRef entry;
   final String layerId;
   final AgentPointer pointer;
@@ -91,10 +79,7 @@ class _TaggedState extends State<_Tagged> {
 
   @override
   Widget build(BuildContext context) {
-    final t = RaftAgentTheme.of(context);
-    // The layer keeps a margin of at least [agentLayerGutter] beside its
-    // column on a desktop window.
-    final margin = agentIsWide(context);
+    final hf = HandsFree.of(context);
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (e) {
@@ -117,44 +102,15 @@ class _TaggedState extends State<_Tagged> {
           final pointed =
               widget.pointer.entity == widget.entry &&
               widget.pointer.layerId == widget.layerId;
-          return Stack(
-            fit: StackFit.passthrough,
-            clipBehavior: Clip.none,
-            children: [
-              child!,
-              if (widget.showHandle)
-                Positioned(
-                  top: margin ? 8 : 4,
-                  left: margin ? -(agentLayerGutter - 6) : null,
-                  right: margin ? null : 6,
-                  child: IgnorePointer(
-                    child: ExcludeSemantics(
-                      child: Container(
-                        key: ValueKey('agent-handle-${widget.entry.index}'),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: pointed ? t.markHighlight : t.chip,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: t.line, width: .8),
-                        ),
-                        child: Text(
-                          widget.entry.handle,
-                          style: t
-                              .body(
-                                16,
-                                color: t.foreground,
-                                weight: FontWeight.w800,
-                              )
-                              .copyWith(height: 1.1),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+          if (!pointed) return child!;
+          return DecoratedBox(
+            key: ValueKey('agent-pointed-${widget.entry.index}'),
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(hf.sp(18)),
+              border: Border.all(color: HfColors.sticker, width: hf.sp(4)),
+            ),
+            child: child,
           );
         },
         child: widget.child,

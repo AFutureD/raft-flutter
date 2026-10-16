@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
-/// "1–5 / 7  还有 2 项，说“下一批”". A phone or a desktop also gets a
-/// "下一批" button.
+/// "1–5 / 7  还有 2 项，说“下一批”". A phone or a desktop also gets a "下一批"
+/// button. On the last page of several it says so and offers the first one.
 class HfPager extends StatelessWidget {
   const HfPager({
     super.key,
@@ -12,41 +12,53 @@ class HfPager extends StatelessWidget {
     required this.to,
     required this.total,
     this.onNext,
+    this.nextKey,
+    this.noun = '项',
   });
 
   /// First and last item shown, counting from 1, and how many there are.
   final int from, to, total;
   final VoidCallback? onNext;
 
+  /// Put on the button.
+  final Key? nextKey;
+
+  /// What is counted: 项, 件.
+  final String noun;
+
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final more = total - to;
-    return Row(
-      children: [
-        Text('$from–$to / $total', style: hf.type(HfType.body)),
-        SizedBox(width: hf.sp(12)),
-        if (more > 0)
-          Expanded(
-            child: Text(
-              '还有 $more 项，说“下一批”',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: hf.type(HfType.meta, color: HfColors.inkSoft),
-            ),
-          )
-        else
-          const Spacer(),
-        if (hf.interactive && more > 0) ...[
-          SizedBox(width: hf.sp(8)),
-          MouseRegion(
+    final paged = total > to - from + 1;
+    final hint = more > 0
+        ? '还有 $more $noun，说“下一批”'
+        : paged
+        ? '已经是最后一批，说“下一批”回到最前'
+        : '';
+    final range = Text(
+      '$from–$to / $total',
+      maxLines: 1,
+      style: hf.type(HfType.body),
+    );
+    final hintText = hint.isEmpty
+        ? null
+        : Text(
+            hint,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: hf.type(HfType.meta, color: HfColors.inkSoft),
+          );
+    final button = hf.interactive && paged
+        ? MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
+              key: nextKey,
               behavior: HitTestBehavior.opaque,
               onTap: onNext,
               child: Semantics(
                 button: true,
-                label: '下一批',
+                label: more > 0 ? '下一批' : '回到最前',
                 excludeSemantics: true,
                 child: Container(
                   constraints: BoxConstraints(minHeight: hf.sp(30)),
@@ -60,9 +72,14 @@ class HfPager extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('下一批', style: hf.type(HfType.body)),
+                      Text(
+                        more > 0 ? '下一批' : '回到最前',
+                        style: hf.type(HfType.body),
+                      ),
                       Icon(
-                        Icons.chevron_right_rounded,
+                        more > 0
+                            ? Icons.chevron_right_rounded
+                            : Icons.replay_rounded,
                         size: hf.sp(20),
                         color: HfColors.ink,
                       ),
@@ -71,8 +88,23 @@ class HfPager extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-        ],
+          )
+        : null;
+    // With big system type the three do not fit on a line: they wrap.
+    if (MediaQuery.textScalerOf(context).scale(10) > 13) {
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: hf.sp(12),
+        runSpacing: hf.sp(6),
+        children: [range, ?button, ?hintText],
+      );
+    }
+    return Row(
+      children: [
+        range,
+        SizedBox(width: hf.sp(12)),
+        if (hintText != null) Expanded(child: hintText) else const Spacer(),
+        if (button != null) ...[SizedBox(width: hf.sp(8)), button],
       ],
     );
   }
@@ -110,9 +142,24 @@ class HfMood extends StatelessWidget {
 /// The foot of every screen: what the agent says, in two lines, and (when
 /// the screen has no dock) its mood. A phone puts it above the dock.
 class HfCaptionStrip extends StatelessWidget {
-  const HfCaptionStrip({super.key, required this.caption, this.mood});
+  const HfCaptionStrip({
+    super.key,
+    required this.caption,
+    this.mood,
+    this.moodWidget,
+    this.who = 'AGENT',
+    this.textKey,
+  });
   final String caption;
   final String? mood;
+
+  /// The mood as a widget (the badge that pops a new emoji in), instead of
+  /// the plain [mood] disc.
+  final Widget? moodWidget;
+
+  /// Whose words these are: the round badge at the left (AGENT, 你).
+  final String who;
+  final Key? textKey;
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +190,7 @@ class HfCaptionStrip extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Text(
-                'AGENT',
+                who,
                 maxLines: 1,
                 softWrap: false,
                 style: hf
@@ -155,12 +202,16 @@ class HfCaptionStrip extends StatelessWidget {
             Expanded(
               child: Text(
                 caption,
+                key: textKey,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: hf.type(HfType.headline),
               ),
             ),
-            if (mood != null && mood!.isNotEmpty) ...[
+            if (moodWidget != null) ...[
+              SizedBox(width: hf.sp(10)),
+              moodWidget!,
+            ] else if (mood != null && mood!.isNotEmpty) ...[
               SizedBox(width: hf.sp(10)),
               HfMood(mood!, diameter: 46),
             ],
@@ -172,27 +223,46 @@ class HfCaptionStrip extends StatelessWidget {
 }
 
 /// The input area of a phone or desktop: a big microphone, a keyboard button
-/// and the agent's mood. A TV has none. Visual only: wire [onMic] and
-/// [onKeyboard] to the voice and text input of the screen.
+/// and the agent's mood. A TV has none. Hold the microphone to talk
+/// ([onMicDown], then [onMicUp] with how long), or tap it ([onMic]).
 class HfDock extends StatelessWidget {
   const HfDock({
     super.key,
     this.onMic,
+    this.onMicDown,
+    this.onMicUp,
     this.onKeyboard,
     this.mood,
+    this.moodWidget,
     this.listening = false,
+    this.micIcon = Icons.mic_rounded,
+    this.keyboardOpen = false,
   });
-  final VoidCallback? onMic, onKeyboard;
+  final VoidCallback? onMic, onMicDown, onKeyboard;
+
+  /// The finger left the microphone after this long.
+  final ValueChanged<Duration>? onMicUp;
   final String? mood;
+
+  /// The mood as a widget (see [HfCaptionStrip.moodWidget]).
+  final Widget? moodWidget;
 
   /// The microphone is open: it turns pink.
   final bool listening;
+
+  /// What the microphone shows: a mic, three dots while thinking, a wave
+  /// while the agent speaks.
+  final IconData micIcon;
+
+  /// The keyboard is out (the button then puts it away).
+  final bool keyboardOpen;
 
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     if (hf.tv) return const SizedBox.shrink();
     Widget round({
+      Key? key,
       required double diameter,
       required Color color,
       required Widget child,
@@ -206,6 +276,7 @@ class HfDock extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
+          key: key,
           onTap: onTap,
           child: Container(
             width: hf.sp(diameter),
@@ -227,6 +298,7 @@ class HfDock extends StatelessWidget {
     // A desktop keeps the dock short so the list above has the room.
     final k = hf.phone ? 1.0 : .82;
     final gap = SizedBox(width: hf.sp(hf.phone ? 28 : 20));
+    DateTime? down;
     return SizedBox(
       height: hf.sp(76 * k),
       child: Row(
@@ -238,36 +310,54 @@ class HfDock extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(top: hf.sp(10 * k)),
             child: round(
+              key: const ValueKey('agent-keyboard'),
               diameter: 52 * k,
               color: HfColors.card,
-              label: '键盘',
+              label: keyboardOpen ? '收起键盘' : '打字',
               onTap: onKeyboard,
               child: Icon(
-                Icons.keyboard_alt_outlined,
+                keyboardOpen
+                    ? Icons.keyboard_hide_outlined
+                    : Icons.keyboard_alt_outlined,
                 size: hf.sp(26),
                 color: HfColors.ink,
               ),
             ),
           ),
           gap,
-          round(
-            diameter: 68 * k,
-            color: listening ? HfColors.mention : HfColors.sticker,
-            label: '麦克风',
-            lift: 5,
-            onTap: onMic,
-            child: Icon(
-              Icons.mic_rounded,
-              size: hf.sp(38 * k),
-              color: HfColors.ink,
+          Listener(
+            onPointerDown: (_) {
+              down = DateTime.now();
+              onMicDown?.call();
+            },
+            onPointerUp: (_) {
+              final at = down;
+              down = null;
+              if (at != null) onMicUp?.call(DateTime.now().difference(at));
+            },
+            onPointerCancel: (_) {
+              final at = down;
+              down = null;
+              if (at != null) onMicUp?.call(DateTime.now().difference(at));
+            },
+            child: round(
+              key: const ValueKey('agent-orb'),
+              diameter: 68 * k,
+              color: listening ? HfColors.mention : HfColors.sticker,
+              label: '麦克风',
+              lift: 5,
+              onTap: onMic,
+              child: Icon(micIcon, size: hf.sp(38 * k), color: HfColors.ink),
             ),
           ),
           gap,
           Padding(
             padding: EdgeInsets.only(top: hf.sp(10 * k)),
-            child: mood == null
-                ? SizedBox(width: hf.sp(52 * k), height: hf.sp(52 * k))
-                : HfMood(mood!, diameter: 52 * k),
+            child:
+                moodWidget ??
+                (mood == null
+                    ? SizedBox(width: hf.sp(52 * k), height: hf.sp(52 * k))
+                    : HfMood(mood!, diameter: 52 * k)),
           ),
         ],
       ),

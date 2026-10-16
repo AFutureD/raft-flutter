@@ -15,7 +15,6 @@ import '../../platform/attachment_files.dart';
 import '../agent_metadata_projection.dart';
 import '../attachment_image_loader.dart';
 import '../attachment_view.dart' show attachmentIsInlineImage;
-import 'agent_attention.dart' show agentWideBreakpoint;
 import 'agent_mode_data.dart';
 import 'agent_surface.dart';
 
@@ -893,13 +892,6 @@ AgentEntityRef _refOf(String entity, String id) => AgentEntityRef(
   id,
 );
 
-/// The screen's default for a card that says nothing about its level: the
-/// one-glance card on a phone, more on a wide screen.
-AgentCardDensity _density(BuildContext context) =>
-    MediaQuery.sizeOf(context).width < agentWideBreakpoint
-    ? AgentCardDensity.compact
-    : AgentCardDensity.detail;
-
 /// The `display` field of a component (see [agentDisplayKinds] for the
 /// element names of each).
 Map<String, Object?> _displayField(Iterable<String> kinds) =>
@@ -911,9 +903,6 @@ DisplaySpec? _spec(SurfaceNode n) {
 }
 
 final _entityKindNames = [for (final k in AgentEntityKind.values) k.name];
-
-bool _phone(BuildContext context) =>
-    MediaQuery.sizeOf(context).width < agentWideBreakpoint;
 
 AgentTone _tone(String? name) => AgentTone.values.firstWhere(
   (t) => t.name == name,
@@ -974,14 +963,12 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
         '$path.display',
       );
     },
-    build: (context, n, _) => AgentEntityCard(
+    build: (context, n, _) => HfEntityCard(
       entity: _refOf(n.string('entity')!, n.string('id')!),
-      handle: n.string('handle'),
       emphasis: n.string('emphasis') == 'high'
           ? AgentEmphasis.high
           : AgentEmphasis.normal,
       tone: _tone(n.string('tone')),
-      density: _density(context),
       display: _spec(n),
     ),
   ),
@@ -1048,7 +1035,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
       }
       return problems;
     },
-    build: (context, n, _) => AgentTableView(
+    build: (context, n, _) => HfTable(
       columns: [for (final c in n.list('columns')) '$c'],
       rows: [
         for (final row in n.list('rows'))
@@ -1125,7 +1112,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
       }
       return problems;
     },
-    build: (context, n, _) => AgentTimelineView(
+    build: (context, n, _) => HfTimeline(
       items: [
         for (final item in n.list('items'))
           if (item is Map)
@@ -1174,7 +1161,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
           '$path.code 有 $lines 行，最多 ${AgentBlockLimits.codeLines} 行：只放关键的几行',
       ];
     },
-    build: (context, n, _) => AgentCodeBlockView(
+    build: (context, n, _) => HfCodeBlock(
       code: n.string('code') ?? '',
       diff: n.string('format') == 'diff',
       title: n.string('title'),
@@ -1207,7 +1194,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
           '$path.text 只写一句话（不要换行，不要几句并列）',
       ];
     },
-    build: (context, n, _) => AgentCalloutView(
+    build: (context, n, _) => HfCallout(
       text: n.string('text') ?? '',
       tone: _tone(n.string('tone')),
       display: _spec(n),
@@ -1253,13 +1240,12 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
       final title = n.string('title') ?? '';
       void report(bool yes) =>
           scope?.onInteraction(AgentConfirmed(n.id, title: title, yes: yes));
-      return AgentConfirmCardView(
-        title: title,
+      return HfConfirm(
+        message: title,
         changes: [for (final c in n.list('changes')) '$c'],
         risk: n.string('risk') == 'sensitive'
             ? AgentConfirmRisk.sensitive
             : AgentConfirmRisk.change,
-        compact: _phone(context),
         display: _spec(n),
         onConfirm: () => report(true),
         onCancel: () => report(false),
@@ -1298,7 +1284,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
     },
     build: (context, n, _) {
       final scope = AgentInteractionScope.maybeOf(context);
-      return AgentChoiceView(
+      return HfChoice(
         prompt: n.string('prompt'),
         options: [for (final o in n.list('options')) '$o'],
         onChoose: (index, label) => scope?.onInteraction(
@@ -1329,7 +1315,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
     build: (context, n, _) {
       final scope = AgentInteractionScope.maybeOf(context);
       final label = n.string('label') ?? '';
-      return AgentToggleView(
+      return HfToggle(
         label: label,
         value: n.flag('value') ?? false,
         onChanged: (on) =>

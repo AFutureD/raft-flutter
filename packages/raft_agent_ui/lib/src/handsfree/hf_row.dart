@@ -24,14 +24,20 @@ class HfRow extends StatelessWidget {
     this.detail,
     this.badge,
     this.stat,
+    this.trailing,
+    this.titleLines = 2,
+    this.detailLines = 1,
+    this.bar = true,
     this.focusId,
     this.onTap,
     this.selected = false,
     this.verticalPad,
   });
 
-  /// The number on the bar, from 1.
-  final int index;
+  /// The number on the bar, from 1: what a person says to point at the row.
+  /// Null for a row that is not on the numbered screen (a thing a confirm
+  /// card is about): the bar stays, without a number.
+  final int? index;
   final HfTone tone;
   final String title;
 
@@ -44,6 +50,17 @@ class HfRow extends StatelessWidget {
   /// A small black tag before the meta, such as "最急".
   final String? badge;
   final HfStatBlock? stat;
+
+  /// Something small at the right of the text (an avatar, a picture).
+  final Widget? trailing;
+
+  /// Lines the title may take (the level of a card says how many), and the
+  /// detail; the meta is always one.
+  final int titleLines, detailLines;
+
+  /// The colour bar with the number at the left. Off, the row is only its
+  /// text (and carries no number).
+  final bool bar;
 
   /// Makes the row something the agent can point at (spotlight, marks).
   final String? focusId;
@@ -73,7 +90,7 @@ class HfRow extends StatelessWidget {
     row = Semantics(
       container: true,
       button: onTap != null,
-      label: '$index，$title',
+      label: index == null ? title : '$index，$title',
       child: row,
     );
     if (onTap != null && hf.interactive) {
@@ -130,11 +147,15 @@ class HfRow extends StatelessWidget {
                 ),
             ],
           ),
-        AgentMarkText(title, maxLines: 2, style: hf.type(HfType.headline)),
+        AgentMarkText(
+          title,
+          maxLines: titleLines,
+          style: hf.type(HfType.headline),
+        ),
         if (detail != null && detail!.isNotEmpty)
           AgentMarkText(
             detail!,
-            maxLines: 1,
+            maxLines: detailLines,
             style: hf.type(HfType.body, color: HfColors.inkSoft),
           ),
       ],
@@ -159,12 +180,14 @@ class HfRow extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
+                if (bar)
+                  Container(
+                    key: const ValueKey('hf-row-bar'),
                   width: hf.sp(wide ? 78 : 56),
                   color: color,
                   alignment: Alignment.center,
                   child: Text(
-                    '$index',
+                    index == null ? '' : '$index',
                     // Tight lines: the number must not set the row's height.
                     style: hf
                         .type(HfType.rank, base: wide ? 46 : null)
@@ -180,6 +203,11 @@ class HfRow extends StatelessWidget {
                     child: titleBlock,
                   ),
                 ),
+                if (trailing != null)
+                  Padding(
+                    padding: EdgeInsets.only(right: hf.sp(10)),
+                    child: Center(child: trailing),
+                  ),
                 if (stat != null)
                   SizedBox(width: hf.sp(wide ? 150 : 96), child: stat),
               ],
@@ -204,6 +232,10 @@ class HfEntityRow extends HfRow {
     HfTone? tone,
     super.badge,
     super.stat,
+    super.trailing,
+    super.titleLines,
+    super.detailLines,
+    super.bar,
     super.focusId,
     super.onTap,
     super.selected,

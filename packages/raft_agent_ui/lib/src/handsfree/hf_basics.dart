@@ -2,15 +2,24 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../enter.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
 /// The yellow sticker with the pink hard shadow that names the screen. Tilted
 /// -0.9 degrees.
 class HfTitleSticker extends StatelessWidget {
-  const HfTitleSticker(this.text, {super.key, this.maxLines = 2});
+  const HfTitleSticker(
+    this.text, {
+    super.key,
+    this.maxLines = 2,
+    this.enter = false,
+  });
   final String text;
   final int maxLines;
+
+  /// The words type themselves in as the layer enters.
+  final bool enter;
 
   @override
   Widget build(BuildContext context) {
@@ -34,12 +43,21 @@ class HfTitleSticker extends StatelessWidget {
               ),
             ],
           ),
-          child: Text(
-            text,
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-            style: hf.type(HfType.display),
-          ),
+          child: enter
+              ? AgentAppear(
+                  child: AgentTypeText(
+                    text,
+                    style: hf.type(HfType.display),
+                    maxLines: maxLines,
+                    at: .2,
+                  ),
+                )
+              : Text(
+                  text,
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
+                  style: hf.type(HfType.display),
+                ),
         ),
       ),
     );
@@ -87,8 +105,11 @@ class HfBadge extends StatelessWidget {
 /// One counted group of the count line.
 @immutable
 class HfCount {
-  const HfCount(this.tone, this.count, this.label);
+  const HfCount(this.tone, this.count, this.label, {this.key});
   final HfTone tone;
+
+  /// Put on the group, for a test or a screen reader to find it.
+  final Key? key;
   final int count;
 
   /// What is counted, after the number: "件等你决定".
@@ -119,6 +140,7 @@ class HfCountLine extends StatelessWidget {
           for (var i = 0; i < shown.length; i++)
             // A group stays whole: a wrap breaks between groups only.
             Row(
+              key: shown[i].key,
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (i > 0)
@@ -192,17 +214,21 @@ class HfStatBlock extends StatelessWidget {
             maxLines: 1,
             style: hf.type(HfType.meta, color: HfColors.inkSoft),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(value, maxLines: 1, style: hf.type(HfType.stat)),
-              if (unit != null) ...[
-                SizedBox(width: hf.sp(4)),
-                Text(unit!, maxLines: 1, style: hf.type(HfType.body)),
+          // A long number or unit shrinks to the block instead of spilling.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(value, maxLines: 1, style: hf.type(HfType.stat)),
+                if (unit != null) ...[
+                  SizedBox(width: hf.sp(4)),
+                  Text(unit!, maxLines: 1, style: hf.type(HfType.body)),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),

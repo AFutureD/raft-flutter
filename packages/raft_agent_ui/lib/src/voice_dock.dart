@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'agent_theme.dart';
-import 'scroll_fade.dart';
+import 'handsfree/hf_scope.dart';
+import 'handsfree/hf_strip.dart';
+import 'handsfree/hf_tokens.dart';
 
 /// Who spoke a transcript line.
 enum AgentSpeaker { you, agent }
@@ -21,9 +22,11 @@ enum AgentMicState {
   speaking,
 }
 
-/// The bottom of agent mode: captions of the latest exchange and a large mic
-/// button. Hold the button to talk, tap it for a live conversation. Typing is
-/// secondary, behind the keyboard icon.
+/// The foot of agent mode on a phone or a desktop: the caption strip with the
+/// latest words (the agent's, or yours while you speak), and under it (or at
+/// its right, on a desktop) the dock: a big mic, a keyboard button and the
+/// agent's mood. Hold the mic to talk, tap it for a live conversation. Typing
+/// is secondary, behind the keyboard button.
 class AgentVoiceDock extends StatefulWidget {
   const AgentVoiceDock({
     super.key,
@@ -37,9 +40,7 @@ class AgentVoiceDock extends StatefulWidget {
     this.mood,
   });
 
-  /// Latest lines, oldest first. The dock shows the last two (side by side on
-  /// a desktop window, so the dock is one bubble tall and never takes the
-  /// layer's room).
+  /// Latest lines, oldest first. The caption strip shows the last one.
   final List<(AgentSpeaker, String)> lines;
   final ValueChanged<String> onSubmit;
   final AgentMicState state;
@@ -50,14 +51,14 @@ class AgentVoiceDock extends StatefulWidget {
   /// The finger left the mic button after [held].
   final ValueChanged<Duration>? onMicUp;
 
-  /// A one-line status shown under the button instead of the usual hint,
-  /// e.g. a missing key or a connection error.
+  /// A one-line status shown in the strip instead of the usual hint, e.g. a
+  /// missing key or a connection error.
   final String? notice;
   final String hint;
 
-  /// The agent's state and mood ([AgentMoodBadge]), beside the mic button:
-  /// in the free corner, or just left of the send button while typing.
+  /// The agent's state and mood ([AgentMoodBadge]), in the dock.
   final Widget? mood;
+
 
   @override
   State<AgentVoiceDock> createState() => _AgentVoiceDockState();
@@ -67,7 +68,6 @@ class _AgentVoiceDockState extends State<AgentVoiceDock> {
   final _text = TextEditingController();
   final _focus = FocusNode();
   bool _typing = false;
-  DateTime? _down;
 
   @override
   void dispose() {
@@ -101,307 +101,167 @@ class _AgentVoiceDockState extends State<AgentVoiceDock> {
     AgentMicState.speaking => '正在回答 · 按住可以打断',
   };
 
+  /// What the strip says: a notice, what the mic is doing while the person
+  /// talks, else the latest words (the agent's while it thinks and speaks),
+  /// else how to start.
+  (String, String) get _caption {
+    if (widget.notice != null) return ('AGENT', widget.notice!);
+    final talking =
+        widget.state == AgentMicState.holding ||
+        widget.state == AgentMicState.live ||
+        widget.state == AgentMicState.connecting;
+    if (talking) return ('AGENT', _stateHint);
+    if (widget.lines.isEmpty) {
+      return ('AGENT', _stateHint);
+    }
+    // The agent's words win over the person's own, when it spoke in the last
+    // two lines (a typed "算了" is answered before it is echoed).
+    final last = widget.lines.last;
+    final before = widget.lines.length > 1
+        ? widget.lines[widget.lines.length - 2]
+        : null;
+    final (who, text) = last.$1 == AgentSpeaker.you && before != null
+        ? (before.$1 == AgentSpeaker.agent ? before : last)
+        : last;
+    return (who == AgentSpeaker.agent ? 'AGENT' : '你', text);
+  }
+
+  IconData get _micIcon => switch (widget.state) {
+    AgentMicState.connecting ||
+    AgentMicState.thinking => Icons.more_horiz_rounded,
+    AgentMicState.speaking => Icons.graphic_eq_rounded,
+    _ => Icons.mic_rounded,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final t = RaftAgentTheme.of(context);
-    final shown = widget.lines.length > 2
-        ? widget.lines.sublist(widget.lines.length - 2)
-        : widget.lines;
-    final wide = agentIsWide(context);
+    final hf = HandsFree.of(context);
+    final (who, said) = _caption;
+    final caption = HfCaptionStrip(
+      who: who,
+      caption: said,
+      textKey: const ValueKey('agent-mic-hint'),
+    );
+    final dock = HfDock(
+      onMicDown: widget.onMicDown,
+      onMicUp: widget.onMicUp,
+      onKeyboard: _toggleTyping,
+      keyboardOpen: _typing,
+      moodWidget: widget.mood,
+      listening:
+          widget.state == AgentMicState.holding ||
+          widget.state == AgentMicState.live,
+      micIcon: _micIcon,
+    );
+    final input = _typing
+        ? Padding(
+            padding: EdgeInsets.only(bottom: hf.sp(12)),
+            child: _InputBar(
+              controller: _text,
+              focus: _focus,
+              hint: widget.hint,
+              onSubmit: _submit,
+            ),
+          )
+        : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (wide && shown.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (i, (speaker, text)) in shown.indexed) ...[
-                    if (i > 0) const SizedBox(width: 10),
-                    Expanded(
-                      child: _Bubble(
-                        speaker: speaker,
-                        text: text,
-                        theme: t,
-                        maxLines: 2,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          )
-        else
-          for (final (speaker, text) in shown)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _Bubble(
-                speaker: speaker,
-                text: text,
-                theme: t,
-                maxLines: wide ? 2 : 3,
-              ),
-            ),
-        if (_typing)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: t.layer,
-                borderRadius: BorderRadius.circular(t.cardRadius),
-                border: Border.all(color: t.line, width: t.border),
-              ),
-              child: TextField(
-                key: const ValueKey('agent-input'),
-                controller: _text,
-                focusNode: _focus,
-                onSubmitted: (_) => _submit(),
-                textInputAction: TextInputAction.send,
-                style: t.body(14),
-                cursorColor: t.foreground,
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  hintText: widget.hint,
-                  hintStyle: t.body(14, color: t.hint),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        Stack(
-          children: [
-            if (widget.mood != null)
-              Positioned(right: _typing ? 64 : 0, top: 0, child: widget.mood!),
-            _controls(t),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _controls(RaftAgentTheme t) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 56,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _SmallButton(
-              key: const ValueKey('agent-keyboard'),
-              icon: _typing ? Icons.keyboard_hide : Icons.keyboard,
-              label: _typing ? '收起键盘' : '打字',
-              onTap: _toggleTyping,
-              theme: t,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        ?input,
+        if (hf.phone) ...[
+          caption,
+          SizedBox(height: hf.sp(14)),
+          dock,
+        ] else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Listener(
-                onPointerDown: (_) {
-                  _down = DateTime.now();
-                  widget.onMicDown?.call();
-                },
-                onPointerUp: (_) => _release(),
-                onPointerCancel: (_) => _release(),
-                child: AgentOrb(state: widget.state, size: 76),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                widget.notice ?? _stateHint,
-                key: const ValueKey('agent-mic-hint'),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: t.body(
-                  12.5,
-                  color: widget.notice == null ? t.muted : t.foreground,
-                  weight: FontWeight.w600,
-                ),
-              ),
+              Expanded(child: caption),
+              SizedBox(width: hf.sp(28)),
+              dock,
             ],
           ),
-        ),
-        if (_typing)
-          SizedBox(
-            width: 56,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: _SmallButton(
-                key: const ValueKey('agent-send'),
-                icon: Icons.arrow_upward,
-                label: '发送',
-                onTap: _submit,
-                theme: t,
-              ),
-            ),
-          )
-        else
-          const SizedBox(width: 56),
       ],
     );
   }
-
-  void _release() {
-    final down = _down;
-    _down = null;
-    if (down != null) widget.onMicUp?.call(DateTime.now().difference(down));
-  }
 }
 
-class _SmallButton extends StatelessWidget {
-  const _SmallButton({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.theme,
+/// The text field and its send button.
+class _InputBar extends StatelessWidget {
+  const _InputBar({
+    required this.controller,
+    required this.focus,
+    required this.hint,
+    required this.onSubmit,
   });
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final RaftAgentTheme theme;
+  final TextEditingController controller;
+  final FocusNode focus;
+  final String hint;
+  final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
-    final t = theme;
-    return Semantics(
-      button: true,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: t.layer,
-            shape: t.orbSquare ? BoxShape.rectangle : BoxShape.circle,
-            border: Border.all(color: t.line, width: t.cardBorderWidth),
-          ),
-          child: Icon(icon, size: 20, color: t.foreground),
-        ),
-      ),
-    );
-  }
-}
-
-class _Bubble extends StatelessWidget {
-  const _Bubble({
-    required this.speaker,
-    required this.text,
-    required this.theme,
-    required this.maxLines,
-  });
-  final AgentSpeaker speaker;
-  final String text;
-  final RaftAgentTheme theme;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = theme;
-    final agent = speaker == AgentSpeaker.agent;
-    return DecoratedBox(
+    final hf = HandsFree.of(context);
+    return Container(
+      padding: EdgeInsets.only(left: hf.sp(14), right: hf.sp(6)),
       decoration: BoxDecoration(
-        color: agent ? t.hud : t.layer,
-        borderRadius: BorderRadius.circular(t.cardRadius),
-        border: Border.all(color: agent ? t.hud : t.line, width: t.border),
-        boxShadow: t.cardShadow,
+        color: HfColors.card,
+        borderRadius: BorderRadius.circular(hf.sp(16)),
+        border: Border.all(color: HfColors.ink, width: hf.sp(3)),
+        boxShadow: [
+          BoxShadow(color: HfColors.sticker, offset: Offset(0, hf.sp(5))),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 9, 14, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              agent ? 'Agent' : '你',
-              style: t.body(
-                11,
-                color: agent ? t.orb : t.hint,
-                weight: FontWeight.w700,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('agent-input'),
+              controller: controller,
+              focusNode: focus,
+              onSubmitted: (_) => onSubmit(),
+              textInputAction: TextInputAction.send,
+              style: hf.type(HfType.body),
+              cursorColor: HfColors.ink,
+              decoration: InputDecoration(
+                isDense: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                hintText: hint,
+                hintStyle: hf.type(HfType.body, color: HfColors.inkMuted),
+                contentPadding: EdgeInsets.symmetric(vertical: hf.sp(14)),
               ),
             ),
-            Text(
-              text,
-              maxLines: maxLines,
-              overflow: TextOverflow.ellipsis,
-              style: t.body(14, color: agent ? t.hudForeground : t.foreground),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The mic button: brand yellow, square with a hard shadow in Brutal. Turns
-/// to the "decision" color while the microphone is open.
-class AgentOrb extends StatelessWidget {
-  const AgentOrb({super.key, this.state = AgentMicState.idle, this.size = 52});
-  final AgentMicState state;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftAgentTheme.of(context);
-    final shape = t.orbSquare ? BoxShape.rectangle : BoxShape.circle;
-    final open = state == AgentMicState.holding || state == AgentMicState.live;
-    final pressed = state == AgentMicState.holding;
-    final fill = open
-        ? (t.cardFills?[AgentPriority.decision] ??
-              t.priority(AgentPriority.decision))
-        : t.orb;
-    final icon = switch (state) {
-      AgentMicState.idle || AgentMicState.holding => Icons.mic,
-      AgentMicState.live => Icons.mic,
-      AgentMicState.connecting || AgentMicState.thinking => Icons.more_horiz,
-      AgentMicState.speaking => Icons.graphic_eq,
-    };
-    final shadow = t.orbSquare ? (pressed ? 1.0 : 5.0) : 0.0;
-    return Semantics(
-      button: true,
-      label: '麦克风',
-      child: AnimatedContainer(
-        key: const ValueKey('agent-orb'),
-        duration: const Duration(milliseconds: 120),
-        width: size,
-        height: size,
-        transform: Matrix4.translationValues(
-          t.orbSquare && pressed ? 4 : 0,
-          t.orbSquare && pressed ? 4 : 0,
-          0,
-        ),
-        decoration: BoxDecoration(
-          color: fill,
-          shape: shape,
-          border: t.orbSquare
-              ? Border.all(color: t.line, width: t.border)
-              : null,
-          boxShadow: [
-            if (t.orbSquare)
-              BoxShadow(color: t.line, offset: Offset(shadow, shadow))
-            else
-              BoxShadow(
-                color: open ? fill.withValues(alpha: .35) : t.orbHalo,
-                spreadRadius: open ? 14 : 7,
+          ),
+          Semantics(
+            button: true,
+            label: '发送',
+            child: GestureDetector(
+              key: const ValueKey('agent-send'),
+              onTap: onSubmit,
+              child: Container(
+                width: hf.sp(44),
+                height: hf.sp(44),
+                decoration: BoxDecoration(
+                  color: HfColors.sticker,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: HfColors.ink, width: hf.sp(3)),
+                ),
+                child: Icon(
+                  Icons.arrow_upward_rounded,
+                  size: hf.sp(24),
+                  color: HfColors.ink,
+                ),
               ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          color: open ? t.foreground : t.orbForeground,
-          size: size * .44,
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
