@@ -25,11 +25,11 @@ class MessageHistoryReconciliation {
     void Function(Map<String, dynamic>)? received,
     void Function(Object cause)? failed,
   }) async {
-    final db = MessageHistoryPages.storage(w.cache);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
     if (db == null) return false;
     bool current() =>
         request.current &&
-        w.cacheWritable &&
+        w.deviceStore.writable &&
         !db.reads.closed &&
         ticket == w.messageHistoryTicket(scope.parentChannel) &&
         w.messageWindows.notRevoked(scope.channel) &&
@@ -44,7 +44,7 @@ class MessageHistoryReconciliation {
     final upper = shown.isEmpty ? null : shown.last.seq;
     try {
       final page = await MessageHistoryPages.load(
-        cache: w.cache,
+        cache: w.deviceStore.cache,
         scope: scope,
         current: current,
         held: () => w.ledger.messages(scope.channel),
