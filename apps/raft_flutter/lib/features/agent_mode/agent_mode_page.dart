@@ -2203,8 +2203,8 @@ class _AgentModePageState extends State<AgentModePage> {
     }(),
   };
 
-  /// The title of a conversation: the channel, the private conversation
-  /// ("@Alice") or the thread.
+  /// The title of a conversation as the strip of a layer behind names it:
+  /// the channel, the private conversation ("@Alice") or the thread.
   String _conversationTitle(_Channel l) {
     if (l.thread != null) {
       final t = l.threadTitle;
@@ -2215,16 +2215,22 @@ class _AgentModePageState extends State<AgentModePage> {
         : '# ${l.channel.name}';
   }
 
+  /// The title in the header of the layer: short, so it keeps to a line; a
+  /// thread says what it hangs under in the note beside it.
+  String _conversationHeader(_Channel l) =>
+      l.thread != null ? '讨论' : _conversationTitle(l);
+
   /// What the conversation layer [l] draws.
   AgentConversationData _conversationOf(_Channel l) {
     final read = _convos[l.id];
     final error = _convoErrors[l.id];
     final messages = _convoMessages[l.id] ?? const <HfMessageData>[];
     return AgentConversationData(
-      title: _conversationTitle(l),
+      title: _conversationHeader(l),
       meta: l.thread == null
           ? null
-          : '在 ${l.channel.type == 'dm' ? '@${l.channel.peerLabel}' : '#${l.channel.name}'}',
+          : '${l.channel.type == 'dm' ? '@${l.channel.peerLabel}' : '#${l.channel.name}'}'
+                '${l.threadTitle == null ? '' : ' › ${l.threadTitle}'}',
       messages: messages,
       highlightId: messages.any((m) => m.id == l.highlight)
           ? l.highlight

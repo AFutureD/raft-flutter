@@ -802,9 +802,19 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     Future<void> wait(int ms) =>
         Future<void>.delayed(Duration(milliseconds: ms));
     // Leaves the screen alone while a harness takes its screenshot.
+    final hold = int.tryParse(Platform.environment['AGENT_DEMO_HOLD_MS'] ?? '');
+    // Puts the typing bar away, so the page has its whole room.
+    Future<void> closeKeyboard() async {
+      if (find(_key.currentContext!) != null) {
+        _tap(_key.currentContext!, const ValueKey('agent-keyboard'));
+        await wait(600);
+      }
+    }
+
     Future<void> mark(String name) async {
+      await closeKeyboard();
       _mark(name);
-      await wait(1500);
+      await wait(hold ?? 1500);
     }
 
     await wait(2500);

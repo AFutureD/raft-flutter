@@ -673,7 +673,7 @@ void main() {
     final probe = await open(t, data: _HomeData.new);
     final seen = await given(t, probe, 'go_home');
     _expectParity(_shown(t, attentionRoots()), seen, 'activity home');
-    for (final word in ['Cody', '#general', '检测首片什么时候出？', '点名了你', '2 条未读', '私信 · alice', 'Alice Chen', '私信你', '已读']) {
+    for (final word in ['Cody', '#general', '检测首片什么时候出？', '点名了你', '2 条未读', '@alice', 'Alice Chen', '私信你', '已读']) {
       expect(seen, contains(word), reason: word);
     }
     // The stale tasks are one collapsed row, and the model is told so.

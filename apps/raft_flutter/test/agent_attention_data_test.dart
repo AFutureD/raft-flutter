@@ -725,7 +725,7 @@ void main() {
       ]);
       expect(items.first.reason, '私信你');
       expect(items.first.unread, 2);
-      expect(items.first.place, startsWith('私信'));
+      expect(items.first.place, startsWith('@'));
       expect(items.last.unread, 0);
       expect(items.first.tone, HfTone.info);
     });

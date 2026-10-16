@@ -138,7 +138,7 @@ class AgentAttentionView extends StatefulWidget {
       HfCount(
         HfTone.info,
         a.unreadCount,
-        '个会话有未读',
+        '个未读',
         key: const ValueKey('attention-count-unread'),
       ),
       HfCount(
@@ -176,8 +176,9 @@ class AgentAttentionView extends StatefulWidget {
       index: n,
       tone: i.tone,
       badge: i.arrived ? '刚到' : null,
-      // Beside the detail, which has the whole sentence, a row keeps to one line.
-      titleLines: split ? 1 : 2,
+      // Beside the detail, which has the whole sentence, a task keeps to one
+      // line; what a person said keeps two, it is what the row is about.
+      titleLines: split && !i.isActivity ? 1 : 2,
       meta: _meta(i),
       title: i.headline,
       detail: i.isActivity ? chip : i.askText,
@@ -547,9 +548,13 @@ class AgentAttentionDetail extends StatelessWidget {
       gridActions: activity,
       titleMode: HfDetailTitle.heading,
       index: n,
-      title: activity ? (item.place ?? item.headline) : item.headline,
+      title: activity ? (item.excerpt ?? item.place ?? item.headline) : item.headline,
       status: activity
-          ? [item.reason, if (item.arrived) '刚到'].join(' · ')
+          ? [
+              item.reason,
+              ?item.place,
+              if (item.arrived) '刚到',
+            ].join(' · ')
           : [
               if (item.channelName != null) '#${item.channelName}',
               item.reason,
@@ -558,6 +563,7 @@ class AgentAttentionDetail extends StatelessWidget {
       facts: activity
           ? [
               if (who != null) HfFact('谁', who),
+              if (item.place != null) HfFact('在哪', item.place!),
               HfFact(
                 '多久',
                 '${item.agoLabel} · ${item.unread > 0 ? '${item.unread} 条未读' : '已读'}',
@@ -569,7 +575,11 @@ class AgentAttentionDetail extends StatelessWidget {
               if (who != null) HfFact('谁', who),
               HfFact('多久', item.waitLabel),
             ],
-      progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
+      // An Activity row's words are its title; a task shows its last progress.
+      progress: [
+        if (!activity)
+          for (final p in lines) HfProgressLine(p.time, p.who, p.text),
+      ],
       actions: [
         if (item.canApprove)
           HfAction(

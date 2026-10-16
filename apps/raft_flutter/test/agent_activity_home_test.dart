@@ -262,7 +262,7 @@ void main() {
       expect(thread.tone, HfTone.mention);
       final dm = items[1];
       expect(dm.reason, '私信你');
-      expect(dm.place, '私信 · Alice Chen');
+      expect(dm.place, '@Alice Chen');
       expect(dm.dm, isTrue);
       expect(dm.tone, HfTone.info);
       expect(items[2].reason, '频道有新消息');
@@ -441,8 +441,9 @@ void main() {
       await t.pumpAndSettle();
       expect(data.reads, ['th1']);
       expect(find.text('第 2 层'), findsOneWidget);
-      // A thread: its title, and where it is.
-      expect(find.text('讨论 · 检测首片什么时候出？'), findsWidgets);
+      // A thread: its title, and where it is and what it hangs under.
+      expect(find.text('讨论'), findsOneWidget);
+      expect(find.textContaining('#raft-flutter › 检测首片什么时候出？'), findsWidgets);
       // The page is the layer's one scroll.
       expect(
         find.descendant(

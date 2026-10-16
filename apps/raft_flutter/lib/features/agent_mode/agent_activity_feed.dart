@@ -131,7 +131,7 @@ class AgentActivityFeed {
             if (parentTitle.isNotEmpty) parentTitle,
           ].join(' › ')
         : dm
-        ? '私信 · ${activityRowTitle(row, dms)}'
+        ? '@${activityRowTitle(row, dms)}'
         : '#${channelName ?? ''}';
     final why = whyOf(row, me: mine);
     final replyable =
