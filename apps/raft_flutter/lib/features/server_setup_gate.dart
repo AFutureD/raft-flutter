@@ -180,7 +180,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
       _directory?.removeListener(directoryChanged);
       _signal?.removeListener(reload);
       if (_announcementServer != null) {
-        oldWidget.controller.announcementGate.detach(_announcementServer!);
+        oldWidget.controller.services.announcementGate.detach(_announcementServer!);
         _announcementServer = null;
       }
       rebindManagementController();
@@ -195,7 +195,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   void _attachAnnouncementGate() {
     final id = w.server?.id;
     if (id == _announcementServer) return;
-    final gate = w.announcementGate;
+    final gate = w.services.announcementGate;
     if (_announcementServer != null) gate.detach(_announcementServer!);
     _announcementServer = id;
     if (id != null) gate.attach(id);
@@ -205,13 +205,13 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   /// first read (no projection) reads as blocked.
   void _reportAnnouncementGate(String serverId) {
     if (w.server?.id != serverId) return;
-    w.announcementGate.report(serverId, projection);
+    w.services.announcementGate.report(serverId, projection);
   }
 
   @override
   void dispose() {
     if (_announcementServer != null) {
-      w.announcementGate.detach(_announcementServer!);
+      w.services.announcementGate.detach(_announcementServer!);
     }
     _signal?.removeListener(reload);
     events?.cancel();

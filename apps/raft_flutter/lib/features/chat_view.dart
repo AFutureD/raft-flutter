@@ -1475,7 +1475,7 @@ class _RaftChatViewState extends State<RaftChatView>
                 (int.tryParse('${summary['replyCount']}') ?? 0) > 0)) ||
         message.json['threadChannelId'] != null;
     // Source MessageItem reads the server-scoped followed list synchronously.
-    final followedThreads = w.followedThreads;
+    final followedThreads = w.services.followedThreads;
     if (!hideThreadActions && hasThreadConversation) followedThreads.ensure();
     final followed = followedThreads.isFollowing(message.id);
     final task = taskProjection.taskFor(message);

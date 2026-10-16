@@ -42,7 +42,7 @@ class ThreadAgentFollowersView extends StatefulWidget {
 
 class _ThreadAgentFollowersViewState extends State<ThreadAgentFollowersView> {
   WorkspaceController get w => widget.controller;
-  ThreadAgentFollowers get store => w.threadFollowers;
+  ThreadAgentFollowers get store => w.services.threadFollowers;
   final toast = RaftToastController();
   StreamSubscription<RaftEvent>? events;
   String? removingId;

@@ -713,7 +713,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     HardwareKeyboard.instance.addHandler(globalShortcut);
     w.addListener(syncMobileAppBadge);
     syncMobileAppBadge();
-    activityUnread = w.activityUnread..addListener(activityUnreadChanged);
+    activityUnread = w.services.activityUnread..addListener(activityUnreadChanged);
     serverUnread = mobileHost?.serverUnread ?? SourceServerUnreadStore(w);
     serverUnread.addListener(serverUnreadChanged);
     serverMenu.addListener(serverMenuChanged);
@@ -853,7 +853,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       w.addListener(syncMobileAppBadge);
       syncMobileAppBadge();
       activityUnread.removeListener(activityUnreadChanged);
-      activityUnread = w.activityUnread..addListener(activityUnreadChanged);
+      activityUnread = w.services.activityUnread..addListener(activityUnreadChanged);
       serverMenu.close();
       if (mobileHost == null) {
         oldWidget.controller.resumes.removeListener(appResumed);
@@ -2188,7 +2188,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final sourceChannel = w.threadSourceChannel;
     final threadId = w.threadChannelId;
     return ListenableBuilder(
-      listenable: w.threadFollowers,
+      listenable: w.services.threadFollowers,
       builder: (context, _) => RaftThreadHeader(
         key: Key(
           mobile ? 'workspace-mobile-detail-header' : 'workspace-thread-header',
@@ -2220,7 +2220,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         followersVisible:
             threadId != null &&
             !unresolved &&
-            w.threadFollowers.visible(threadId),
+            w.services.threadFollowers.visible(threadId),
         actions: [
           if (!unresolved && parentId != null && parentChannelId != null)
             ThreadActions(

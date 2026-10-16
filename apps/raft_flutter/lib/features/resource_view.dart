@@ -898,7 +898,7 @@ class _ResourceViewState extends State<ResourceView> {
         listView != SourceActivityUnreadStore.defaultInboxView) {
       return null;
     }
-    return w.activityUnreadIfBound?.windowSince(inboxSerial);
+    return w.services.activityUnreadIfBound?.windowSince(inboxSerial);
   }
 
   /// The Activity badge's store, whose own reads (the retries that wait for
@@ -910,7 +910,7 @@ class _ResourceViewState extends State<ResourceView> {
   void bindSharedInbox() {
     sharedInbox?.removeListener(sharedInboxChanged);
     sharedInbox = widget.section == 'activity'
-        ? (w.activityUnreadIfBound?..addListener(sharedInboxChanged))
+        ? (w.services.activityUnreadIfBound?..addListener(sharedInboxChanged))
         : null;
   }
 
@@ -1339,7 +1339,7 @@ class _ResourceViewState extends State<ResourceView> {
 
   void subscribeEvents() {
     final client = w.client;
-    final inbox = widget.section == 'activity' ? w.activityUnreadIfBound : null;
+    final inbox = widget.section == 'activity' ? w.services.activityUnreadIfBound : null;
     events = (inbox?.pageEvents ?? client.events).listen((event) {
       if (!mounted || !identical(client, w.client)) return;
       if (SourceActivityUnreadStore.changesAuthority(event.name)) {
@@ -2143,7 +2143,7 @@ class _ResourceViewState extends State<ResourceView> {
               if (widget.section != 'tasks') 'offset': append ? rows.length : 0,
             };
       final view = ResourceFilters.viewKey(path, params ?? const {});
-      final sharedSerial = w.activityUnreadIfBound?.windowSerial ?? 0;
+      final sharedSerial = w.services.activityUnreadIfBound?.windowSerial ?? 0;
       var value =
           seed ??
           (path == '/channels/inbox'
@@ -5021,7 +5021,7 @@ class _ResourceViewState extends State<ResourceView> {
         // Source ThreadsInbox mutates through threadStore.followedThreads.
         final parentId = row['parentMessageId'];
         if (parentId is String) {
-          w.followedThreads.acknowledge(
+          w.services.followedThreads.acknowledge(
             parentMessageId: parentId,
             threadChannelId: id,
             following: action == 'follow',

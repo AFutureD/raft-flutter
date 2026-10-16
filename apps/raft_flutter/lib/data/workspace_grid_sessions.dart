@@ -87,7 +87,7 @@ class WorkspaceGridSessions extends ChangeNotifier {
       cache: parent.deviceStore.cache,
       ownsClient: false,
       entityDirectory: parent.services.entityDirectory,
-      followedThreads: parent.followedThreads,
+      followedThreads: parent.services.followedThreads,
       composer: parent.composer,
     );
     child.server = parent.server;
