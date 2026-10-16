@@ -2386,7 +2386,7 @@ class WorkspaceController extends ChangeNotifier
   void _receiveUnread(Map<String, dynamic> row) {
     final id = row['channelId'];
     if (id is! String || _revokedChannels.contains(id)) return;
-    final seq = canonicalUint64(row['seq']);
+    final seq = canonicalWireSeq(row['seq']);
     if (seq != null && seq > (_latestActivity[id] ?? BigInt.zero)) {
       _latestActivity[id] = seq;
     }
