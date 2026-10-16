@@ -336,9 +336,11 @@ class WorkspaceController extends ChangeNotifier
   )?
   discardSharedScope;
   late final WorkspaceServices services;
+  @override
   WorkspaceEntityDirectory get entityDirectory => services.entityDirectory;
 
   /// Server-scoped followed threads, shared with borrowed controllers.
+  @override
   FollowedThreadsStore get followedThreads => services.followedThreads;
 
   /// Web `useTranslationStore`: translation settings and the in-memory
@@ -977,6 +979,7 @@ class WorkspaceController extends ChangeNotifier
   bool agentMigrationEnabled = false, runtimeFormV2WebEnabled = false;
   int _messageFlagRequest = 0;
 
+  @override
   Future<void> refreshMessageSyncFlag() async {
     _ensureSyncIdentity();
     final request = ++_messageFlagRequest;
@@ -1134,6 +1137,7 @@ class WorkspaceController extends ChangeNotifier
   /// This session owns one window; pages and platform adapters only borrow it.
   /// Server selection creates it before UI; standalone views can borrow a
   /// passive projection before selection. Neither path starts work by reading.
+  @override
   @override
   SourceActivityUnreadStore get activityUnread => services.activityUnread;
 
@@ -2231,6 +2235,27 @@ class WorkspaceController extends ChangeNotifier
     }
   }
 
+  @override
+  void beginServerSelectionProjection(RaftRecord next) {
+    server = next;
+    // A workspace error belongs to the server where it was raised.
+    error = null;
+    _burstAt.clear();
+    if (mobileNavigation) section = 'home';
+    if (!canVisitSection(section)) section = 'chat';
+    sidebarOrder = {};
+    client.selectServer(next.id);
+  }
+
+  @override
+  void resetServerSelectionState() {
+    _channelRowSeq.clear();
+    // The new server's socket connects for the first time.
+    _connectedBefore = _roomsJoinedPending = false;
+    _gapSyncedThrough = null;
+    hasNewer = false;
+  }
+
   /// [onHydrated] runs once the on-device channels, selection window and
   /// unread counts of [next] are painted, before any network response; it
   /// does not run when nothing is cached. The returned future still settles
@@ -2253,35 +2278,7 @@ class WorkspaceController extends ChangeNotifier
       throw StateError('A borrowed editor cannot select a server.');
     }
     if (_revokedServers.contains(next.id)) return;
-    server = next;
-    // A workspace error belongs to the server it was raised in (it is a toast
-    // not yet shown when no workspace view was mounted to consume it).
-    error = null;
-    _burstAt.clear();
-    if (mobileNavigation) section = 'home';
-    if (!canVisitSection(section)) section = 'chat';
-    sidebarOrder = {};
-    client.selectServer(next.id);
-    activityUnread.start();
-    entityDirectory.synchronize();
-    // Agents, members and computers saved on this device paint with the
-    // cached channels (first workspace frame); the preload revalidates them.
-    final restoredEntities = entityDirectory.restored;
-    // Saved translations and the server's translation gate paint with them,
-    // so a cached row shows its translation at its first frame.
-    final restoredTranslations = translations.restore();
-    unawaited(entityDirectory.preload());
-    followedThreads.start();
-    composer.clearOwnedBy(this);
-    sessionScope.resetServer(next.id);
-    refreshMessageSyncFlag();
-    loadSidebar();
-    _revokedChannels.clear();
-    _channelRowSeq.clear();
-    // The new server's socket connects for the first time.
-    _connectedBefore = _roomsJoinedPending = false;
-    _gapSyncedThrough = null;
-    hasNewer = false;
+    final selection = sessionScope.selectServer(next);
     final selectionAtStart = channelGeneration,
         threadAtStart = threadGeneration,
         navigationAtStart = navigationRevision;
@@ -2289,8 +2286,8 @@ class WorkspaceController extends ChangeNotifier
     final generation = client.generation;
     final replyIdentity = _syncIdentity();
     final cached = await _cached('channels', '');
-    await restoredEntities;
-    await restoredTranslations;
+    await selection.restoredEntities;
+    await selection.restoredTranslations;
     if (generation != client.generation) return;
     if (cached is Map) {
       channels = (cached['channels'] as List)
@@ -2748,6 +2745,7 @@ class WorkspaceController extends ChangeNotifier
   @override
   void persistSessionReadState() => _persistReadState();
 
+  @override
   Future<void> loadSidebar() async {
     if (presentationSource != null) return presentationSource!.loadSidebar();
     return sidebarRepository.load();

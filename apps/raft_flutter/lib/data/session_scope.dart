@@ -5,9 +5,13 @@ import 'package:raft_sync/raft_sync.dart';
 
 import 'attachment_media.dart';
 import 'channel_revocation.dart';
+import 'followed_threads_store.dart';
+import 'message_translation_store.dart';
 import 'resource_snapshot_cache.dart';
+import 'source_activity_unread_store.dart';
 import 'workspace_composer.dart';
 import 'workspace_device_store.dart';
+import 'workspace_entity_directory.dart';
 import 'workspace_message_windows.dart';
 
 /// Existing domain owners and the receiver's remaining presentation hooks.
@@ -25,6 +29,10 @@ abstract interface class SessionScopeBinding {
   MessageSync get messageSync;
   ThreadRepliesSync get threadRepliesSync;
   NotificationPrefsSync get notificationPrefsSync;
+  SourceActivityUnreadStore get activityUnread;
+  WorkspaceEntityDirectory get entityDirectory;
+  MessageTranslationStore get translations;
+  FollowedThreadsStore get followedThreads;
   Future<void> Function(String, String, String, String?)?
   get discardSharedScope;
 
@@ -36,6 +44,10 @@ abstract interface class SessionScopeBinding {
   void removeRevokedParentSummary(dynamic messageId);
   void closeRevokedChannelProjection(ChannelRevocation event);
   void persistSessionReadState();
+  void beginServerSelectionProjection(RaftRecord next);
+  void resetServerSelectionState();
+  Future<void> refreshMessageSyncFlag();
+  Future<void> loadSidebar();
   set syncCoreMessagesEnabled(bool value);
   void notifyListeners();
 }
@@ -60,6 +72,22 @@ enum ServerRevocationStage {
 }
 
 enum ChannelRevocationStage { scopes, parents, projection, readState, device }
+
+enum ServerSelectionStage {
+  initialProjection,
+  domains,
+  composer,
+  windows,
+  background,
+  realtime,
+}
+
+/// Futures start in the original order; the caller retains both await points.
+class ServerSelection {
+  ServerSelection(this.server);
+  final RaftRecord server;
+  late final Future<void> restoredEntities, restoredTranslations;
+}
 
 class ServerReset {
   const ServerReset(this.serverId);
@@ -207,6 +235,35 @@ class SessionScope {
         keepShared: event.keepShared,
       );
     });
+
+    onServerSelected(
+      ServerSelectionStage.initialProjection,
+      (event) => binding.beginServerSelectionProjection(event.server),
+    );
+    onServerSelected(ServerSelectionStage.domains, (event) {
+      binding.activityUnread.start();
+      binding.entityDirectory.synchronize();
+      event.restoredEntities = binding.entityDirectory.restored;
+      event.restoredTranslations = binding.translations.restore();
+      unawaited(binding.entityDirectory.preload());
+      binding.followedThreads.start();
+    });
+    onServerSelected(
+      ServerSelectionStage.composer,
+      (_) => binding.composer.clearOwnedBy(binding),
+    );
+    onServerSelected(
+      ServerSelectionStage.windows,
+      (event) => resetServer(event.server.id),
+    );
+    onServerSelected(ServerSelectionStage.background, (_) {
+      binding.refreshMessageSyncFlag();
+      binding.loadSidebar();
+    });
+    onServerSelected(ServerSelectionStage.realtime, (_) {
+      revokedChannels.clear();
+      binding.resetServerSelectionState();
+    });
   }
 
   final SessionScopeBinding binding;
@@ -216,6 +273,8 @@ class SessionScope {
       <ServerRevocationStage, List<void Function(ServerRevocation)>>{};
   final _channelHandlers =
       <ChannelRevocationStage, List<void Function(ChannelRevocation)>>{};
+  final _selectionHandlers =
+      <ServerSelectionStage, List<void Function(ServerSelection)>>{};
   bool _closed = false;
 
   /// Register in a named phase. Removal affects subsequent dispatches.
@@ -247,6 +306,28 @@ class SessionScope {
     final handlers = _channelHandlers.putIfAbsent(stage, () => []);
     handlers.add(run);
     return () => handlers.remove(run);
+  }
+
+  void Function() onServerSelected(
+    ServerSelectionStage stage,
+    void Function(ServerSelection) run,
+  ) {
+    if (_closed) throw StateError('Session scope is disposed.');
+    final handlers = _selectionHandlers.putIfAbsent(stage, () => []);
+    handlers.add(run);
+    return () => handlers.remove(run);
+  }
+
+  ServerSelection selectServer(RaftRecord next) {
+    final event = ServerSelection(next);
+    final handlers = [
+      for (final stage in ServerSelectionStage.values)
+        ...?_selectionHandlers[stage],
+    ];
+    for (final run in handlers) {
+      run(event);
+    }
+    return event;
   }
 
   /// Retire accepted windows and projections in the current call stack.
@@ -319,5 +400,6 @@ class SessionScope {
     _resetHandlers.clear();
     _revokeHandlers.clear();
     _channelHandlers.clear();
+    _selectionHandlers.clear();
   }
 }
