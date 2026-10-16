@@ -1,6 +1,11 @@
 import 'control_typography.dart';
 import 'composer_composing_text.dart';
+import 'composer_action_row.dart';
 import 'composer_editing.dart';
+import 'composer_expand.dart';
+import 'dismiss_scope.dart';
+import 'overlays/dialog.dart' show RaftDialogRoute;
+import 'markdown_editing.dart';
 import 'markdown_autolink.dart';
 import 'message_semantics.dart';
 import 'message_row_recipe.dart';
@@ -14,6 +19,7 @@ import 'collapsible.dart';
 import 'sidebar_indicators.dart';
 
 import 'package:flutter/material.dart';
+
 import 'raft_selection_area.dart';
 
 import 'error_presentation.dart' show RaftToastHost;
@@ -44,6 +50,8 @@ import 'recipes/recipe_utilities.g.dart';
 import 'tooltip.dart' show RaftTooltip;
 import 'text_scaling.dart' show RaftScaled;
 import 'sized_image.dart';
+
+part 'composer_expansion_state.dart';
 
 /// Surface styles of [RaftPanel].
 enum RaftPanelStyle {
@@ -1821,6 +1829,10 @@ class RaftMessageTile extends StatelessWidget {
   }
 }
 
+class _RaftToggleExpandIntent extends Intent {
+  const _RaftToggleExpandIntent();
+}
+
 class _RaftForceTaskSendIntent extends Intent {
   const _RaftForceTaskSendIntent();
 }
@@ -1915,6 +1927,7 @@ class RaftComposer extends StatefulWidget {
     this.onPasteAttachments,
     this.onContentInserted,
     this.frame,
+    this.previewBuilder,
   }) : assert(bottomSafeInset == null || bottomSafeInset >= 0);
   final List<RaftComposerSuggestion> suggestions;
   final Future<bool> Function(String, List<Map<String, dynamic>>)?
@@ -1988,13 +2001,32 @@ class RaftComposer extends StatefulWidget {
   /// the composer's lifetime: adding or removing it remounts the editor.
   final Widget Function(BuildContext context, Widget composer, bool enabled)?
   frame;
+
+  /// Renders the draft as the expanded editor's preview. The default draws it
+  /// with [RaftMessageBody], exactly as a sent message with no references
+  /// resolves; a host that resolves @, # and task references passes its own.
+  final Widget Function(BuildContext context, String content)? previewBuilder;
   @override
   State<RaftComposer> createState() => _RaftComposerState();
 }
 
 class _RaftComposerState extends State<RaftComposer> {
-  late final TextEditingController controller;
+  late final RaftMarkdownEditingController controller;
   final focus = FocusNode();
+
+  // The expanded editor (see composer_expansion_state.dart): its own focus
+  // node over the same controller, one shared undo history, and a suggestion
+  // popup anchored to its own field.
+  final expandedFocus = FocusNode();
+  final undoHistory = UndoHistoryController();
+  final expandedLink = LayerLink();
+  final expandedPortal = OverlayPortalController();
+  final expandedChanges = ValueNotifier<int>(0);
+  bool expandedRefreshQueued = false;
+  Future<void>? expansion;
+  Route<void>? expandedRoute;
+  bool get expanded => expansion != null;
+  FocusNode get activeFocus => expanded ? expandedFocus : focus;
   final suggestionScroll = ScrollController();
   final suggestionPortal = OverlayPortalController();
   final suggestionLink = LayerLink();
@@ -2200,7 +2232,7 @@ class _RaftComposerState extends State<RaftComposer> {
             1,
       ),
     );
-    focus.requestFocus();
+    activeFocus.requestFocus();
   }
 
   bool insertSender(RaftComposerSuggestion suggestion) {
@@ -2232,7 +2264,7 @@ class _RaftComposerState extends State<RaftComposer> {
         offset: before.length + insertion.length,
       ),
     );
-    focus.requestFocus();
+    activeFocus.requestFocus();
     return true;
   }
 
@@ -2313,7 +2345,9 @@ class _RaftComposerState extends State<RaftComposer> {
     if (keyboard.isControlPressed || keyboard.isMetaPressed) {
       return KeyEventResult.ignored;
     }
-    if (keyboard.isShiftPressed) {
+    // The expanded editor is for long text: Enter adds a line there, and
+    // Cmd/Ctrl+Enter (a Shortcut below) sends.
+    if (keyboard.isShiftPressed || expanded) {
       insertNewline();
     } else if (event is KeyDownEvent) {
       send();
@@ -2338,7 +2372,7 @@ class _RaftComposerState extends State<RaftComposer> {
   @override
   void initState() {
     super.initState();
-    controller = RaftComposerEditingController(
+    controller = RaftMarkdownEditingController(
       text: raftProgrammaticEditingText(widget.initialDraft),
     );
     controller.addListener(changed);
@@ -2357,11 +2391,12 @@ class _RaftComposerState extends State<RaftComposer> {
       widget.handle?._bind(this, insertSender);
     }
     updateSuggestionPortal(defer: true);
+    if (!widget.enabled && expanded) closeExpanded();
     if (oldWidget.draftRevision != widget.draftRevision) {
       applyProgrammaticDraft(widget.initialDraft);
     } else if (oldWidget.initialDraft != widget.initialDraft &&
         controller.text.isEmpty &&
-        !focus.hasFocus &&
+        !activeFocus.hasFocus &&
         !sending) {
       restoringDraft = true;
       controller.text = raftProgrammaticEditingText(widget.initialDraft);
@@ -2415,6 +2450,7 @@ class _RaftComposerState extends State<RaftComposer> {
       final succeeded = submit == null
           ? await widget.onSend(text)
           : await submit(text, selected);
+      if (succeeded && mounted) closeExpanded();
       if (succeeded && mounted && controller.text == draft) {
         mentions.clear();
         controller.clear();
@@ -2444,6 +2480,7 @@ class _RaftComposerState extends State<RaftComposer> {
         : widget.onSendWithMentions;
     mentions.clear();
     controller.clear();
+    closeExpanded();
     // Release the sent draft's insertion handle (see [send]).
     focus.context?.findAncestorStateOfType<EditableTextState>()?.hideToolbar();
     final succeeded = submit == null
@@ -2479,8 +2516,12 @@ class _RaftComposerState extends State<RaftComposer> {
   void dispose() {
     toastHost?.unavoid(toastAvoidKey);
     widget.handle?._release(this);
+    closeExpandedAfterDispose();
     controller.dispose();
     focus.dispose();
+    expandedFocus.dispose();
+    undoHistory.dispose();
+    expandedChanges.dispose();
     suggestionScroll.dispose();
     super.dispose();
   }
@@ -2505,17 +2546,28 @@ class _RaftComposerState extends State<RaftComposer> {
         !sending &&
         !widget.submitBusy &&
         (widget.suggestionOverlay != null || matches.isNotEmpty);
-    if (show && !suggestionPortal.isShowing) {
-      suggestionPortal.show();
-    } else if (!show && suggestionPortal.isShowing) {
-      suggestionPortal.hide();
+    // The popup belongs to whichever editor is showing: the inline composer's
+    // portal while collapsed, the expanded editor's own while it is open.
+    for (final (portal, wanted) in [
+      (suggestionPortal, show && !expanded),
+      (expandedPortal, show && expanded),
+    ]) {
+      if (wanted && !portal.isShowing) {
+        portal.show();
+      } else if (!wanted && portal.isShowing) {
+        portal.hide();
+      }
     }
   }
 
   String groupLabelCase(String label, bool uppercase) =>
       uppercase ? label.toUpperCase() : label;
 
-  Widget suggestionPopup(RaftComposerRecipe recipe, double width) {
+  Widget suggestionPopup(
+    RaftComposerRecipe recipe,
+    double width, {
+    LayerLink? link,
+  }) {
     final options = matches;
     if (widget.suggestionOverlay == null && options.isEmpty) {
       return const SizedBox.shrink();
@@ -2525,7 +2577,7 @@ class _RaftComposerState extends State<RaftComposer> {
       top: 0,
       width: width,
       child: CompositedTransformFollower(
-        link: suggestionLink,
+        link: link ?? suggestionLink,
         showWhenUnlinked: false,
         targetAnchor: Alignment.topLeft,
         followerAnchor: Alignment.bottomLeft,
@@ -2649,6 +2701,7 @@ class _RaftComposerState extends State<RaftComposer> {
   // CSS places line-height leading evenly above and below the glyphs.
   @override
   Widget build(BuildContext context) {
+    if (expanded) queueExpandedRefresh();
     final composer = DefaultTextHeightBehavior(
       textHeightBehavior: raftCssTextHeightBehavior,
       // The host paints to the screen edge, so it decides nav icon contrast.
@@ -2703,6 +2756,141 @@ class _RaftComposerState extends State<RaftComposer> {
           ],
         );
 
+  /// The composer's text field with its key rules, shortcuts, IME and paste
+  /// handling. The inline composer and the expanded editor both show it: same
+  /// controller (one draft, selection and mentions) and undo history, each with
+  /// its own focus node.
+  Widget buildEditorField(
+    BuildContext context,
+    RaftComposerRecipe recipe, {
+    bool expanded = false,
+  }) {
+    final fieldFocus = expanded ? expandedFocus : focus;
+    final field = Focus(
+      onKeyEvent: composerKey,
+      child: Shortcuts(
+        shortcuts: {
+          const SingleActivator(
+            LogicalKeyboardKey.enter,
+            control: true,
+            shift: true,
+          ): const _RaftForceTaskSendIntent(),
+          const SingleActivator(
+            LogicalKeyboardKey.enter,
+            meta: true,
+            shift: true,
+          ): const _RaftForceTaskSendIntent(),
+          const SingleActivator(
+            LogicalKeyboardKey.keyE,
+            control: true,
+            shift: true,
+          ): const _RaftToggleExpandIntent(),
+          const SingleActivator(
+            LogicalKeyboardKey.keyE,
+            meta: true,
+            shift: true,
+          ): const _RaftToggleExpandIntent(),
+          const SingleActivator(LogicalKeyboardKey.enter, control: true):
+              const ActivateIntent(),
+          const SingleActivator(LogicalKeyboardKey.enter, meta: true):
+              const ActivateIntent(),
+        },
+        child: Actions(
+          actions: {
+            _RaftForceTaskSendIntent: CallbackAction<_RaftForceTaskSendIntent>(
+              onInvoke: (_) {
+                if (!composing) send(forceTask: true);
+                return null;
+              },
+            ),
+            _RaftToggleExpandIntent: CallbackAction<_RaftToggleExpandIntent>(
+              onInvoke: (_) {
+                toggleExpanded();
+                return null;
+              },
+            ),
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                if (!composing) send();
+                return null;
+              },
+            ),
+            if (widget.onPasteAttachments != null)
+              PasteTextIntent: _RaftPasteAction(
+                () => widget.onPasteAttachments,
+              ),
+          },
+          child: RaftCssLineBox(
+            style: recipe.editorText,
+            textScaler: MediaQuery.textScalerOf(context),
+            child: RaftComposerComposingText(
+              controller: controller,
+              focusNode: fieldFocus,
+              color: recipe.editorText.color!,
+              enabled: widget.enabled,
+              child: TextField(
+                autofillHints: null,
+                autofocus: expanded,
+                controller: controller,
+                focusNode: fieldFocus,
+                onChanged: (_) {
+                  // A typed collapsed caret replaces the
+                  // previous insertion handle. Merely
+                  // fading it leaves its overlay hit box
+                  // above the Source composer toolbar.
+                  if (controller.selection.isCollapsed) {
+                    focus.context
+                        ?.findAncestorStateOfType<EditableTextState>()
+                        ?.hideToolbar();
+                  }
+                },
+                enabled: widget.enabled,
+                undoController: undoHistory,
+                expands: expanded,
+                textAlignVertical: expanded ? TextAlignVertical.top : null,
+                minLines: expanded ? null : 1,
+                maxLines: expanded ? null : 6,
+                style: recipe.editorText,
+                decoration: InputDecoration(
+                  hintText: widget.hint,
+                  hintStyle: recipe.placeholder,
+                  filled: false,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                ),
+                textCapitalization: TextCapitalization.sentences,
+                contextMenuBuilder: widget.onPasteAttachments == null
+                    ? _defaultEditorMenu
+                    : pasteAwareMenu,
+                contentInsertionConfiguration: widget.onContentInserted == null
+                    ? null
+                    : ContentInsertionConfiguration(
+                        onContentInserted: (content) {
+                          if (presentationActive && widget.enabled) {
+                            widget.onContentInserted?.call(content);
+                          }
+                        },
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return expanded
+        ? CallbackShortcuts(
+            bindings: raftMarkdownShortcuts(applyFormat),
+            child: field,
+          )
+        : field;
+  }
+
   Widget buildContent(BuildContext context) {
     final t = RaftTokens.of(context);
     final recipe = RaftComposerRecipe(
@@ -2714,12 +2902,7 @@ class _RaftComposerState extends State<RaftComposer> {
       bottomSafeInset: widget.bottomSafeInset ?? raftBottomInset(context),
     );
     final busy = sending || widget.submitBusy;
-    final submitEnabled =
-        widget.enabled &&
-        widget.canSend &&
-        !busy &&
-        !composing &&
-        (controller.text.trim().isNotEmpty || widget.hasAttachments);
+    final submitEnabled = submitReady;
     // A composer under a covered route stops counting.
     toastAvoidActive = TickerMode.valuesOf(context).enabled;
     return LayoutBuilder(
@@ -2797,212 +2980,30 @@ class _RaftComposerState extends State<RaftComposer> {
                                     fontSize: recipe.editorText.fontSize ?? 14,
                                   ),
                                 ),
-                                child: Padding(
-                                  padding: recipe.editorInset,
-                                  child: Focus(
-                                    onKeyEvent: composerKey,
-                                    child: Shortcuts(
-                                      shortcuts: const {
-                                        SingleActivator(
-                                          LogicalKeyboardKey.enter,
-                                          control: true,
-                                          shift: true,
-                                        ): _RaftForceTaskSendIntent(),
-                                        SingleActivator(
-                                          LogicalKeyboardKey.enter,
-                                          meta: true,
-                                          shift: true,
-                                        ): _RaftForceTaskSendIntent(),
-                                        SingleActivator(
-                                          LogicalKeyboardKey.enter,
-                                          control: true,
-                                        ): ActivateIntent(),
-                                        SingleActivator(
-                                          LogicalKeyboardKey.enter,
-                                          meta: true,
-                                        ): ActivateIntent(),
-                                      },
-                                      child: Actions(
-                                        actions: {
-                                          _RaftForceTaskSendIntent:
-                                              CallbackAction<
-                                                _RaftForceTaskSendIntent
-                                              >(
-                                                onInvoke: (_) {
-                                                  if (!composing)
-                                                    send(forceTask: true);
-                                                  return null;
-                                                },
-                                              ),
-                                          ActivateIntent:
-                                              CallbackAction<ActivateIntent>(
-                                                onInvoke: (_) {
-                                                  if (!composing) send();
-                                                  return null;
-                                                },
-                                              ),
-                                          if (widget.onPasteAttachments != null)
-                                            PasteTextIntent: _RaftPasteAction(
-                                              () => widget.onPasteAttachments,
-                                            ),
-                                        },
-                                        child: RaftCssLineBox(
-                                          style: recipe.editorText,
-                                          textScaler: MediaQuery.textScalerOf(
-                                            context,
-                                          ),
-                                          child: RaftComposerComposingText(
-                                            controller: controller,
-                                            focusNode: focus,
-                                            color: recipe.editorText.color!,
-                                            enabled: widget.enabled,
-                                            child: TextField(
-                                              autofillHints: null,
-                                              controller: controller,
-                                              focusNode: focus,
-                                              onChanged: (_) {
-                                                // A typed collapsed caret replaces the
-                                                // previous insertion handle. Merely
-                                                // fading it leaves its overlay hit box
-                                                // above the Source composer toolbar.
-                                                if (controller
-                                                    .selection
-                                                    .isCollapsed) {
-                                                  focus.context
-                                                      ?.findAncestorStateOfType<
-                                                        EditableTextState
-                                                      >()
-                                                      ?.hideToolbar();
-                                                }
-                                              },
-                                              enabled: widget.enabled,
-                                              minLines: 1,
-                                              maxLines: 6,
-                                              style: recipe.editorText,
-                                              decoration: InputDecoration(
-                                                hintText: widget.hint,
-                                                hintStyle: recipe.placeholder,
-                                                filled: false,
-                                                isDense: true,
-                                                contentPadding: EdgeInsets.zero,
-                                                border: InputBorder.none,
-                                                enabledBorder: InputBorder.none,
-                                                focusedBorder: InputBorder.none,
-                                                disabledBorder:
-                                                    InputBorder.none,
-                                                errorBorder: InputBorder.none,
-                                                focusedErrorBorder:
-                                                    InputBorder.none,
-                                              ),
-                                              textCapitalization:
-                                                  TextCapitalization.sentences,
-                                              contextMenuBuilder:
-                                                  widget.onPasteAttachments ==
-                                                      null
-                                                  ? _defaultEditorMenu
-                                                  : pasteAwareMenu,
-                                              contentInsertionConfiguration:
-                                                  widget.onContentInserted ==
-                                                      null
-                                                  ? null
-                                                  : ContentInsertionConfiguration(
-                                                      onContentInserted: (content) {
-                                                        if (presentationActive &&
-                                                            widget.enabled) {
-                                                          widget
-                                                              .onContentInserted
-                                                              ?.call(content);
-                                                        }
-                                                      },
-                                                    ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                child: RaftComposerExpandable(
+                                  text: controller.text,
+                                  recipe: recipe,
+                                  onExpand: widget.enabled && !busy
+                                      ? openExpanded
+                                      : null,
+                                  builder: (inset) => Padding(
+                                    padding: inset,
+                                    child: buildEditorField(context, recipe),
                                   ),
                                 ),
                               ),
                               SizedBox(height: recipe.shellGap),
-                              Transform.translate(
-                                offset: recipe.toolbarPaintOffset,
-                                child: Padding(
-                                  key: const ValueKey('composer-toolbar-slot'),
-                                  padding: recipe.toolbarInset,
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (!recipe.compact &&
-                                              widget.onImagePick != null)
-                                            RaftComposerAction(
-                                              glyph: RaftGlyph.imagePlus,
-                                              tooltip: 'Attach media',
-                                              onPressed: busy || !widget.enabled
-                                                  ? null
-                                                  : widget.onImagePick,
-                                            ),
-                                          if (!recipe.compact &&
-                                              widget.onImagePick != null &&
-                                              widget.onAttach != null)
-                                            SizedBox(width: recipe.actionGap),
-                                          if (!recipe.compact &&
-                                              widget.onAttach != null)
-                                            RaftComposerAction(
-                                              glyph: RaftGlyph.paperclip,
-                                              tooltip: 'Attach file',
-                                              onPressed: busy || !widget.enabled
-                                                  ? null
-                                                  : widget.onAttach,
-                                            ),
-                                        ],
-                                      ),
-                                      SizedBox(width: recipe.toolbarGap),
-                                      Flexible(
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            if (widget.taskAction != null) ...[
-                                              Flexible(
-                                                child: KeyedSubtree(
-                                                  key: const ValueKey(
-                                                    'composer-task-action-slot',
-                                                  ),
-                                                  child: widget.taskAction!,
-                                                ),
-                                              ),
-                                              SizedBox(width: recipe.metaGap),
-                                            ],
-                                            RaftComposerAction(
-                                              key: const ValueKey(
-                                                'composer-submit',
-                                              ),
-                                              glyph: RaftGlyph.send,
-                                              tooltip:
-                                                  widget.submitTooltip ??
-                                                  'Send',
-                                              submit: true,
-                                              busy: busy,
-                                              spinner: widget.submitSpinner,
-                                              // Source MessageInput only prevents the
-                                              // pointer-down blur: an unfocused composer
-                                              // stays unfocused after a Send tap (no
-                                              // keyboard pop), a focused one keeps focus.
-                                              onPressed: submitEnabled
-                                                  ? () => send()
-                                                  : null,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                              RaftComposerActionRow(
+                                recipe: recipe,
+                                enabled: widget.enabled,
+                                busy: busy,
+                                onImagePick: widget.onImagePick,
+                                onAttach: widget.onAttach,
+                                taskAction: widget.taskAction,
+                                submitTooltip: widget.submitTooltip,
+                                spinner: widget.submitSpinner,
+                                submitEnabled: submitEnabled,
+                                onSend: send,
                               ),
                             ],
                           ),
