@@ -55,6 +55,7 @@ import 'attachment_image_repository.dart';
 import 'cache_clear.dart';
 import 'attachment_url_cache.dart';
 import 'attachment_media.dart';
+import 'attachment_retention_index.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
@@ -524,91 +525,26 @@ class WorkspaceController extends ChangeNotifier
   SourceChannelFilesStore channelFilesStore(String channelId) =>
       services.channelFilesStore(channelId);
 
-  bool _retainsAttachmentByHistory(AttachmentImageKey key) {
-    final candidates =
-        _retainedAttachmentIndex()[key.channelId]?[key.attachmentId] ??
-        const <Map<String, dynamic>>[];
-    for (final metadata in candidates) {
-      final canonical = AttachmentImageKey.fromMetadata(
-        scope: key.scope,
-        channelId: key.channelId,
-        metadata: metadata,
-        rendition: key.rendition,
-        target: key.target,
+  // Per receiver, even when its media owner is borrowed from another page.
+  late final AttachmentRetentionIndex attachmentRetentionIndex =
+      AttachmentRetentionIndex(
+        ledgerRevision: () => ledger.revision,
+        stateStamp: () => _stateStamp,
+        scope: () => attachmentImageScope,
+        channels: () => channels,
+        dms: () => dms,
+        revokedChannels: () => _revokedChannels,
+        canView: (row) => can('viewChannel', resource: row),
+        messages: (id) => ledger.messages(id),
       );
-      if (canonical == key) return true;
-    }
-    return false;
-  }
 
-  // Attachments in currently admitted channels, keyed by channel then file.
-  // Notifications recheck admission; history is scanned only when the ledger,
-  // image scope or admitted channel ids change.
-  Object? _retainedIndexStamp;
-  Map<String, Map<String, List<Map<String, dynamic>>>> _retainedIndex = {};
-  Object? _retainedAdmissionStamp;
-  List<String> _retainedChannelIds = const [];
-  int _retainedIndexBuilds = 0;
+  bool _retainsAttachmentByHistory(AttachmentImageKey key) =>
+      attachmentRetentionIndex.retains(key);
 
   /// Number of complete history scans used for attachment retention.
   @visibleForTesting
-  int get debugRetainedAttachmentIndexBuilds => _retainedIndexBuilds;
-
-  List<String> _admittedAttachmentChannels() {
-    // Keep every former index invalidation boundary. In particular a normal
-    // notification still reevaluates can() and revocations before reusing any
-    // metadata, even when the channel list has the same identity and length.
-    final stamp = (
-      ledger.revision,
-      _stateStamp,
-      attachmentImageScope,
-      identityHashCode(channels),
-      channels.length,
-      identityHashCode(dms),
-      dms.length,
-      _revokedChannels.length,
-    );
-    if (stamp == _retainedAdmissionStamp) return _retainedChannelIds;
-    final admitted = [
-      for (final channel in [...channels, ...dms])
-        if (!_revokedChannels.contains(channel.id) &&
-            can('viewChannel', resource: channel))
-          channel.id,
-    ];
-    if (!listEquals(admitted, _retainedChannelIds)) {
-      _retainedChannelIds = List.unmodifiable(admitted);
-    }
-    _retainedAdmissionStamp = stamp;
-    return _retainedChannelIds;
-  }
-
-  Map<String, Map<String, List<Map<String, dynamic>>>>
-  _retainedAttachmentIndex() {
-    final admitted = _admittedAttachmentChannels();
-    final stamp = (ledger.revision, attachmentImageScope, admitted);
-    if (stamp == _retainedIndexStamp) return _retainedIndex;
-    ++_retainedIndexBuilds;
-    final index = <String, Map<String, List<Map<String, dynamic>>>>{};
-    for (final id in admitted) {
-      final channelIds = <String>{id};
-      for (final message in ledger.messages(id)) {
-        final thread = RaftMessage(message).threadId;
-        if (thread != null) channelIds.add(thread);
-      }
-      for (final channelId in channelIds) {
-        if (index.containsKey(channelId)) continue;
-        final byAttachment = index[channelId] = {};
-        for (final message in ledger.messages(channelId)) {
-          for (final metadata in RaftMessage(message).attachments) {
-            final id = metadata['id'];
-            if (id is String) (byAttachment[id] ??= []).add(metadata);
-          }
-        }
-      }
-    }
-    _retainedIndexStamp = stamp;
-    return _retainedIndex = index;
-  }
+  int get debugRetainedAttachmentIndexBuilds =>
+      attachmentRetentionIndex.debugBuilds;
 
   WorkspaceAttachmentImageLease acquireAttachmentImage(
     AttachmentImageKey key, {

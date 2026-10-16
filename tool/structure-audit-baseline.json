@@ -101,11 +101,11 @@
         "field.WorkspaceController._replyIdentity": 1,
         "field.WorkspaceController._resolvingConversationChannelId": 1,
         "field.WorkspaceController._resourceSnapshots": 1,
-        "field.WorkspaceController._retainedAdmissionStamp": 1,
-        "field.WorkspaceController._retainedChannelIds": 1,
-        "field.WorkspaceController._retainedIndex": 1,
-        "field.WorkspaceController._retainedIndexBuilds": 1,
-        "field.WorkspaceController._retainedIndexStamp": 1,
+        "field.WorkspaceController._retainedAdmissionStamp": 0,
+        "field.WorkspaceController._retainedChannelIds": 0,
+        "field.WorkspaceController._retainedIndex": 0,
+        "field.WorkspaceController._retainedIndexBuilds": 0,
+        "field.WorkspaceController._retainedIndexStamp": 0,
         "field.WorkspaceController._revokedChannels": 0,
         "field.WorkspaceController._revokedServers": 0,
         "field.WorkspaceController._roomsJoinedPending": 1,
@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 5917,
-        "tokens": 32685
+        "lines": 5853,
+        "tokens": 32283
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
@@ -933,6 +933,14 @@
       "metric": "field.WorkspaceController.channelRepository",
       "limit": 1,
       "reason": "task #136 step 6a requested by Cindy: replace five receiver-local channel read-order and in-flight fields with one ChannelRepository; retain controller list projections, original source delegation and overridable entrypoints. Principle accepted by Cindy; exact slice metrics and bounded replacement remain subject to PR review.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController.attachmentRetentionIndex",
+      "limit": 1,
+      "reason": "task #136 step 6c authorized by Cindy: replace five receiver-local attachment history retention index fields with one AttachmentRetentionIndex; preserve admission stamps, debug counters and the original source-captured media callback. Principle accepted; this concrete field and measured slice remain subject to reviewer acceptance.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }
