@@ -936,17 +936,3 @@ List<String> _ran(List<(String, Map<String, Object?>)> ran) => [
 ];
 
 String _c(String id, Map<String, Object?> args) => '$id ${jsonEncode(args)}';
-
-(ActivityClient, ActivityWorkspace) probeWorld() {
-  final (c, w) = activityFixture();
-  w.inbox = _rows();
-  w.channels = [RaftChannel({'id': 'c1', 'name': 'raft-flutter', 'joined': true})];
-  c.user = RaftRecord({'id': 'kevin'});
-  return (c, w);
-}
-
-AgentModeData probeData(WorkspaceController w) {
-  final d = _HomeData(w);
-  d.result = AgentAttention(items: d.feed(_rows()));
-  return d;
-}

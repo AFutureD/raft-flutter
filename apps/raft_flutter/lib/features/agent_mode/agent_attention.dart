@@ -520,6 +520,9 @@ class AgentAttentionDetail extends StatelessWidget {
   static const assignLabel = '交给 Agent';
   static const openActivityLabel = '看完整对话';
 
+  /// The heading over the message of an Activity row.
+  static const messageLabel = '原话';
+
   /// The detail as the screen draws it; the description of the current item
   /// is read from this same widget.
   HfDetail view() {
@@ -551,11 +554,9 @@ class AgentAttentionDetail extends StatelessWidget {
       gridActions: activity,
       titleMode: HfDetailTitle.heading,
       index: n,
-      title: activity
-          ? (item.excerpt ?? item.place ?? item.headline)
-          : item.headline,
+      title: activity ? (item.place ?? item.headline) : item.headline,
       status: activity
-          ? [item.reason, ?item.place, if (item.arrived) '刚到'].join(' · ')
+          ? [item.reason, if (item.arrived) '刚到'].join(' · ')
           : [
               if (item.channelName != null) '#${item.channelName}',
               item.reason,
@@ -564,7 +565,6 @@ class AgentAttentionDetail extends StatelessWidget {
       facts: activity
           ? [
               if (who != null) HfFact('谁', who),
-              if (item.place != null) HfFact('在哪', item.place!),
               HfFact(
                 '多久',
                 '${item.agoLabel} · ${item.unread > 0 ? '${item.unread} 条未读' : '已读'}',
@@ -576,11 +576,9 @@ class AgentAttentionDetail extends StatelessWidget {
               if (who != null) HfFact('谁', who),
               HfFact('多久', item.waitLabel),
             ],
-      // An Activity row's words are its title; a task shows its last progress.
-      progress: [
-        if (!activity)
-          for (final p in lines) HfProgressLine(p.time, p.who, p.text),
-      ],
+      // An Activity row shows what was said, a task its last progress.
+      progressLabel: activity ? messageLabel : HfDetail.progressHeading,
+      progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
       actions: [
         if (item.canApprove)
           HfAction(

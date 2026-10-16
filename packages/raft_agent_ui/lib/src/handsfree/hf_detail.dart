@@ -61,6 +61,7 @@ class HfDetail extends StatelessWidget implements HfDescribed {
     this.focusId,
     this.oneRowActions = false,
     this.gridActions = false,
+    this.progressLabel = progressHeading,
   });
 
   final String title;
@@ -91,8 +92,12 @@ class HfDetail extends StatelessWidget implements HfDescribed {
   final bool gridActions;
   final String? focusId;
 
-  /// The heading of the progress rows.
-  static const progressLabel = '最近进展';
+  /// The heading of the progress rows, unless [progressLabel] says another.
+  static const progressHeading = '最近进展';
+
+  /// The heading over the [progress] rows (the lines of a message are not
+  /// "progress").
+  final String progressLabel;
 
   @override
   HfDescription describe(HfDescribeEnv env) => HfDescription(
