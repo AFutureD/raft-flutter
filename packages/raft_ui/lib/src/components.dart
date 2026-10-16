@@ -1477,6 +1477,8 @@ class RaftMessageTile extends StatelessWidget {
     this.onReact,
     this.onReactionAdd,
     this.collapseLongMessages = true,
+    this.initiallyExpanded = false,
+    this.onMessageExpanded,
     this.bodyFontSize = 14,
     this.body,
     this.hoverToolbar,
@@ -1518,6 +1520,12 @@ class RaftMessageTile extends StatelessWidget {
   final String? modelLabel, subtitle;
   final Widget? avatar;
   final bool collapseLongMessages;
+
+  /// First mount only. The row keeps its expand state after that.
+  final bool initiallyExpanded;
+
+  /// The reader's expand or collapse. Null when the row does not track it.
+  final ValueChanged<bool>? onMessageExpanded;
   final double bodyFontSize;
 
   /// Business adapters may supply a richer body without replacing message
@@ -1676,6 +1684,8 @@ class RaftMessageTile extends StatelessWidget {
             ),
       content: RaftCollapsible(
         enabled: collapseLongMessages,
+        initiallyExpanded: initiallyExpanded,
+        onExpandedChanged: onMessageExpanded,
         child:
             body ??
             compactProse(
