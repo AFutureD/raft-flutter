@@ -2802,7 +2802,7 @@
      "flutter": "yes",
      "parityCase": [],
      "status": "na",
-     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, quiet loading/offline states, terminal-error retry and three themes at phone width; history_quiet_gap_view_test.dart verifies recovery and reopening."
     },
     {
      "state": "empty",
@@ -2811,7 +2811,7 @@
      "flutter": "yes",
      "parityCase": [],
      "status": "na",
-     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, quiet loading/offline states, terminal-error retry and three themes at phone width; history_quiet_gap_view_test.dart verifies recovery and reopening."
     },
     {
      "state": "error",
@@ -2820,7 +2820,7 @@
      "flutter": "yes",
      "parityCase": [],
      "status": "na",
-     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, quiet loading/offline states, terminal-error retry and three themes at phone width; history_quiet_gap_view_test.dart verifies recovery and reopening."
     },
     {
      "state": "partial",
@@ -2829,7 +2829,7 @@
      "flutter": "yes",
      "parityCase": [],
      "status": "na",
-     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, explicit loading, retry and three themes at phone width."
+     "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, quiet loading/offline states, terminal-error retry and three themes at phone width; history_quiet_gap_view_test.dart verifies recovery and reopening."
     }
    ]
   }

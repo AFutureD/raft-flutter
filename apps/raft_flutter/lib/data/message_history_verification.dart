@@ -114,6 +114,7 @@ class MessageHistoryVerification {
     MessageHistoryScope scope, {
     BigInt? before,
     required HistoryReadReason reason,
+    void Function(Object cause)? failed,
   }) {
     final db = MessageHistoryPages.storage(w.deviceStore.cache)!;
     final context = _context(w, db), range = ranges(w, scope);
@@ -134,6 +135,7 @@ class MessageHistoryVerification {
         wireTicket: (ticket, range.token),
         allowOnlineOnly: true,
         received: (page) => response = page,
+        failed: failed,
       );
       return accepted && guarded.current && response != null
           ? HistoryRangeProof.page(response!, before)

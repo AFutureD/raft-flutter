@@ -23,6 +23,7 @@ class MessageHistoryReconciliation {
     Object? wireTicket,
     bool allowOnlineOnly = false,
     void Function(Map<String, dynamic>)? received,
+    void Function(Object cause)? failed,
   }) async {
     final db = MessageHistoryPages.storage(w.cache);
     if (db == null) return false;
@@ -164,6 +165,7 @@ class MessageHistoryReconciliation {
       return current();
     } on RaftApiException catch (error) {
       if (!current()) return false;
+      failed?.call(error);
       if (target != null && error.status == 404) {
         // A missing target is not proof that its entire channel is revoked.
         // A complete page around its saved seq can confirm the deletion.
@@ -179,6 +181,7 @@ class MessageHistoryReconciliation {
             reason: reason,
             wireTicket: wireTicket,
             allowOnlineOnly: allowOnlineOnly,
+            failed: failed,
           );
         }
       } else if (error.status == 403 || error.status == 404) {
@@ -187,9 +190,12 @@ class MessageHistoryReconciliation {
       }
       db.reads.count(HistoryReadReason.failed);
       return false;
-    } catch (_) {
+    } catch (error) {
       // A transient read failure leaves the accepted local range on screen.
-      if (current()) db.reads.count(HistoryReadReason.failed);
+      if (current()) {
+        failed?.call(error);
+        db.reads.count(HistoryReadReason.failed);
+      }
       return false;
     }
   }

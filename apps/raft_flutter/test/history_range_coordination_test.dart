@@ -202,7 +202,13 @@ void main() {
     c.attach();
     await c.settle();
     expect(c.client.beforeReads, [BigInt.from(201)]);
-    expect(c.recovery!.failed('chat-201'), isTrue);
+    expect(c.recovery!.contains('chat-201'), isTrue);
+    expect(
+      c.recovery!.failed('chat-201'),
+      isFalse,
+      reason:
+          'One failed attempt stays quiet while automatic recovery can retry.',
+    );
     expect(c.w.ledger.message('chat', 'chat-151'), isNull);
   });
 

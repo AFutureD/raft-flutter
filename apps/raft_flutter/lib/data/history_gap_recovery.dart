@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftIdleTimer;
 
 import 'history_gaps.dart';
@@ -10,6 +11,7 @@ import 'history_range_reads.dart';
 import 'message_history_verification.dart';
 import 'message_history_pages.dart';
 import 'workspace_controller.dart';
+import 'user_error.dart';
 
 /// Event-driven repair for an actually presented conversation. Failed gaps
 /// retry with bounded backoff while connected, or resume on reconnect.
@@ -26,24 +28,40 @@ class HistoryGapRecovery extends ChangeNotifier {
   static void reconnect(WorkspaceController w) {
     for (final value in _owners[w]?.values ?? <HistoryGapRecovery>[]) {
       value._retry.cancel();
-      value._attempt = 0;
+      value._attempts.clear();
       value._attempted.clear();
       value._failed.clear();
+      value._errors.clear();
       value.refresh();
     }
   }
 
   final _views = <Object>{};
+  final _errors = <String, String>{};
+  bool _online = false;
   final _attempted = <Object>{}, _failed = <String>{};
   final _gaps = <String, HistoryGap>{};
   HistoryGapQueries? _source;
   bool _running = false, _again = false, _closed = false;
   Object? _identity;
-  int _attempt = 0;
+  final _attempts = <BigInt, int>{};
   final _zone = Zone.current;
   final _retry = RaftIdleTimer(yieldToAnimation: false);
   bool contains(String id) => _gaps.containsKey(id);
-  bool failed(String id) => _failed.contains(id);
+  bool failed(String id) => w.connected && _failed.contains(id);
+  String? error(String id) => failed(id) ? _errors[id] : null;
+
+  /// Explicit recovery after the bounded automatic attempts have failed.
+  void retry(String id) {
+    final gap = _gaps[id];
+    if (_closed || gap == null || !w.connected || !failed(id)) return;
+    _retry.cancel();
+    _attempted.remove((_identity, gap.before));
+    _failed.remove(id);
+    _errors.remove(id);
+    _attempts.remove(gap.before);
+    refresh();
+  }
 
   void start(Object view) {
     if (!_views.add(view) || _views.length > 1) return;
@@ -67,6 +85,10 @@ class HistoryGapRecovery extends ChangeNotifier {
 
   void refresh() {
     if (_closed || _views.isEmpty) return;
+    if (_online != w.connected) {
+      _online = w.connected;
+      notifyListeners();
+    }
     if (_running) {
       _again = true;
       return;
@@ -120,8 +142,9 @@ class HistoryGapRecovery extends ChangeNotifier {
       _identity = identity;
       _attempted.clear();
       _failed.clear();
+      _errors.clear();
       _retry.cancel();
-      _attempt = 0;
+      _attempts.clear();
     }
     final request = w.messageWindows.request(
       thread: thread,
@@ -143,6 +166,8 @@ class HistoryGapRecovery extends ChangeNotifier {
       ..clear()
       ..addEntries(gaps.map((g) => MapEntry(g.newerId, g)));
     _failed.removeWhere((id) => !_gaps.containsKey(id));
+    _errors.removeWhere((id, _) => !_gaps.containsKey(id));
+    _attempts.removeWhere((before, _) => !gaps.any((g) => g.before == before));
     if (changed) notifyListeners();
     if (w.loadingOlder) return;
     final next = gaps.reversed
@@ -152,6 +177,7 @@ class HistoryGapRecovery extends ChangeNotifier {
     _attempted.add((identity, next.before));
     _failed.remove(next.newerId);
     notifyListeners();
+    Object? failure;
     var success = false;
     w.loadingOlder = true;
     w.notifyListeners();
@@ -162,6 +188,7 @@ class HistoryGapRecovery extends ChangeNotifier {
         scope,
         before: next.before,
         reason: HistoryReadReason.gap,
+        failed: (cause) => failure = cause,
       );
       success = proof != null;
       if (proof != null && !proof.limited && proof.lower <= proof.upper) {
@@ -178,22 +205,43 @@ class HistoryGapRecovery extends ChangeNotifier {
     }
     if (!current()) return;
     if (!success) {
-      _failed.add(next.newerId);
-      notifyListeners();
-      if (w.connected && w.foreground && !_retry.isActive) {
-        final delay = Duration(seconds: 2 << _attempt.clamp(0, 5));
-        _attempt++;
+      // A transient failure stays quiet for the initial try and two retries.
+      // Offline work resumes on reconnect without displaying an error.
+      final denied =
+          failure is RaftApiException &&
+          {401, 403}.contains((failure as RaftApiException).status);
+      final attempt = w.connected
+          ? _attempts.update(next.before, (n) => n + 1, ifAbsent: () => 1)
+          : 0;
+      if (w.connected && (denied || attempt >= 3)) {
+        _failed.add(next.newerId);
+        _errors[next.newerId] = userErrorText(
+          failure,
+          fallback: 'Unable to load messages.',
+          statusText: const {
+            401: 'Sign in to load messages.',
+            403: 'You do not have permission to load these messages.',
+          },
+          where: 'fill message gap',
+        );
+        notifyListeners();
+      } else if (w.connected && w.foreground && !_retry.isActive) {
+        final delay = Duration(seconds: 2 << (attempt - 1));
         _zone.run(
           () => _retry.start(delay, () {
-            if (_closed || _identity != identity) return;
-            _attempted.remove((identity, next.before));
+            if (_closed || _identity != identity || !w.connected) return;
+            for (final gap in _gaps.values) {
+              if (!_failed.contains(gap.newerId)) {
+                _attempted.remove((identity, gap.before));
+              }
+            }
             refresh();
           }),
         );
       }
     } else {
-      _attempt = 0;
-      _retry.cancel();
+      _attempts.remove(next.before);
+      if (_attempts.isEmpty) _retry.cancel();
     }
     // Accepted coverage may leave a smaller interval. Verify its new boundary
     // rather than retrying the same failed request.

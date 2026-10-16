@@ -1,5 +1,8 @@
 // Native account-wide message history settings.
 const Map<String, String> zhCatalogMessageHistory = <String, String>{
+  'Unable to load messages.': '无法加载消息。',
+  'Sign in to load messages.': '请登录后加载消息。',
+  'You do not have permission to load these messages.': '你没有权限加载这些消息。',
   "Storage limit reached. New messages are not being saved offline; existing messages and drafts are kept.":
       "已超出，新消息暂不离线保存；已有消息和草稿仍保留。",
   "Messages will fill in automatically when connected.": "联网后自动补齐消息。",

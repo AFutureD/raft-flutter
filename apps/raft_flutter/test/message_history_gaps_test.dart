@@ -27,13 +27,16 @@ void main() {
               supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
               home: MediaQuery(
-                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                data: MediaQueryData(
+                  textScaler: TextScaler.linear(scale),
+                  disableAnimations: true,
+                ),
                 child: Scaffold(
                   body: Align(
                     alignment: Alignment.topCenter,
                     child: Padding(
                       padding: const EdgeInsets.all(RaftSpace.x2),
-                      child: HistoryGapNotice(failed: failed),
+                      child: HistoryGapNotice(failed: failed, onRetry: () {}),
                     ),
                   ),
                 ),
@@ -47,15 +50,13 @@ void main() {
         final semantics = t.ensureSemantics();
         try {
           await pump();
-          expect(find.text('正在补齐消息…'), findsOneWidget);
+          expect(find.byType(Text), findsNothing);
+          expect(find.byType(RaftSpinner), findsOneWidget);
           expect(find.byType(RaftRecipeButton), findsNothing);
-          expect(
-            t.getSemantics(find.text('正在补齐消息…')).getSemanticsData().label,
-            contains('正在补齐消息'),
-          );
           await pump(failed: true);
-          expect(find.text('联网后自动补齐消息。'), findsOneWidget);
-          expect(find.byType(RaftRecipeButton), findsNothing);
+          expect(find.text('无法加载消息。'), findsOneWidget);
+          expect(find.text('重试'), findsOneWidget);
+          expect(find.byType(RaftRecipeButton), findsOneWidget);
           await t.pumpWidget(const SizedBox.shrink());
         } finally {
           semantics.dispose();

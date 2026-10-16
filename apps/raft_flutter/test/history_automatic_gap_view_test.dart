@@ -108,7 +108,7 @@ void main() {
           if (offline) {
             expect(
               find.text('Messages will fill in automatically when connected.'),
-              findsOneWidget,
+              findsNothing,
             );
             client.disconnected = false;
             client.arrivals.add(const RaftEvent('rooms:joined', null));

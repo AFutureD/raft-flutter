@@ -73,7 +73,7 @@ void main() {
           w.addListener(finished);
           try {
             await drainIo(t, client.beforeArrived.future);
-            expect(find.text('Loading missing messages…'), findsWidgets);
+            expect(find.text('Loading missing messages…'), findsNothing);
             if (empty) {
               client.arrivals.add(
                 RaftEvent('message:updated', {

@@ -77,6 +77,9 @@ class HistoryGapPlaceholder extends StatelessWidget {
             HistoryGapNotice(
               key: ValueKey('history-gap-placeholder-$newerId'),
               failed: recovery.failed(newerId),
+              offline: !controller.connected,
+              error: recovery.error(newerId),
+              onRetry: () => recovery.retry(newerId),
             ),
           child,
         ],
@@ -85,27 +88,54 @@ class HistoryGapPlaceholder extends StatelessWidget {
   }
 }
 
-/// A passive, accessible placeholder. Connection events own all recovery.
+/// Quiet loading at the missing interval; only actionable errors have copy.
 class HistoryGapNotice extends StatelessWidget {
-  const HistoryGapNotice({super.key, this.failed = false});
-  final bool failed;
+  const HistoryGapNotice({
+    super.key,
+    this.failed = false,
+    this.offline = false,
+    this.error,
+    this.onRetry,
+  });
+  final bool failed, offline;
+  final String? error;
+  final VoidCallback? onRetry;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: RaftSpace.x4,
-      vertical: RaftSpace.x2,
-    ),
-    child: Semantics(
-      liveRegion: true,
-      child: Text(
-        raftText(
-          context,
-          failed
-              ? 'Messages will fill in automatically when connected.'
-              : 'Loading missing messages…',
-        ),
-        style: RaftSettingsText(RaftTokens.of(context)).description,
+  Widget build(BuildContext context) {
+    if (offline) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: RaftSpace.x4),
+      );
+    }
+    if (!failed) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: RaftSpace.x2),
+        child: Center(child: RaftSpinner(size: 16)),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: RaftSpace.x4,
+        vertical: RaftSpace.x2,
       ),
-    ),
-  );
+      child: Semantics(
+        liveRegion: true,
+        child: Wrap(
+          spacing: RaftSpace.x2,
+          runSpacing: RaftSpace.x2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              raftText(context, error ?? 'Unable to load messages.'),
+              style: RaftSettingsText(RaftTokens.of(context)).description,
+            ),
+            RaftRecipeButton(
+              onPressed: onRetry,
+              child: Text(raftText(context, 'Retry')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
