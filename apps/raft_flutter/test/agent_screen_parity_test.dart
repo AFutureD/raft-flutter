@@ -618,6 +618,8 @@ void main() {
     return _flatten(result);
   }
 
+  List<Finder> conversationRoots() => [find.byType(AgentConversationView)];
+
   List<Finder> attentionRoots() => [
     find.byType(AgentAttentionView),
     find.byType(HfDetail),
@@ -727,8 +729,6 @@ void main() {
     _expectParity(_shown(t, conversationRoots()), seen, 'opened conversation');
     expect(seen, contains('你是从这一条打开的'));
   });
-
-  List<Finder> conversationRoots() => [find.byType(AgentConversationView)];
 
   testWidgets('a channel layer: a chat of every kind of message', (t) async {
     final probe = await open(t);

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
+import 'package:raft_flutter/features/agent_mode/agent_attention.dart';
 import 'package:raft_flutter/features/agent_mode/agent_catalog.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_surface.dart';
