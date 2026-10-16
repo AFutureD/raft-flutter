@@ -156,8 +156,12 @@ void main() {
         expect(find.text('第 1 层'), findsOneWidget);
         expect(find.text('# raft-flutter'), findsNothing);
 
-        // A priority card opens its channel as a new layer.
+        // A priority card becomes the current item (a sheet, no layer); 展开
+        // opens its full detail as a new layer.
         await t.tap(find.text('Cindy 完成了「Personal Agent 第一版选型」，等你验收'));
+        await t.pumpAndSettle();
+        expect(find.text('第 1 层'), findsOneWidget);
+        await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
         await t.pumpAndSettle();
         expect(find.text('第 2 层'), findsOneWidget);
 
@@ -166,6 +170,64 @@ void main() {
         await t.pumpAndSettle();
         expect(popped, isTrue);
         expect(find.text('第 1 层'), findsOneWidget);
+      },
+    );
+  }
+
+  for (final wide in [false, true]) {
+    testWidgets(
+      'a row of a channel is current on a tap: ${wide ? 'the slot beside '
+                'the list' : 'a sheet'} shows it',
+      (t) async {
+        t.view.physicalSize = wide
+            ? const Size(1440, 900)
+            : const Size(390, 844);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(RaftFamily.brutal),
+            home: AgentModePage(controller: w, data: _Data(w)),
+          ),
+        );
+        await t.pumpAndSettle();
+        if (find.byKey(const ValueKey('agent-input')).evaluate().isEmpty) {
+          await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+        }
+        await t.pumpAndSettle();
+        await t.enterText(
+          find.byKey(const ValueKey('agent-input')),
+          'raft-flutter 现在什么情况？',
+        );
+        await t.testTextInput.receiveAction(TextInputAction.send);
+        await t.pumpAndSettle();
+        expect(find.text('第 2 层'), findsOneWidget);
+        expect(find.byKey(const ValueKey('agent-frame-stage')), findsNothing);
+
+        await t.tap(find.text('PR #113 已合入'));
+        await t.pumpAndSettle();
+        // No new layer; the item is shown on the stage, in full.
+        expect(find.text('第 2 层'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('agent-frame-stage')),
+            matching: find.text('PR #113 已合入'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('hf-stage-sheet')),
+          wide ? findsNothing : findsOneWidget,
+        );
+        // Its row is still in the list, lit.
+        expect(find.text('PR #113 已合入'), findsNWidgets(2));
+        // Going back puts a sheet away first; the pane has nothing to put away.
+        if (!wide) {
+          await t.binding.handlePopRoute();
+          await t.pumpAndSettle();
+          expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+          expect(find.text('第 2 层'), findsOneWidget);
+        }
       },
     );
   }
@@ -238,7 +300,9 @@ void main() {
     expect(s.styleNote, allOf(contains('语速放慢'), contains('克制')));
   });
 
-  testWidgets('a spotlit item lifts above the page and goes back', (t) async {
+  testWidgets('the current item is highlighted where it is; nothing floats', (
+    t,
+  ) async {
     final spotlight = AgentSpotlightController();
     addTearDown(spotlight.dispose);
     await t.pumpWidget(
@@ -264,23 +328,30 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Item 2'), findsOneWidget);
+    // The highlight is the row's own fill.
+    int lit() => t
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .where(
+          (d) =>
+              d.decoration is BoxDecoration &&
+              (d.decoration as BoxDecoration).color == const Color(0xfffff7d6),
+        )
+        .length;
+    expect(lit(), 0);
     spotlight.focus('layer#2');
     await t.pumpAndSettle();
-    // The lifted copy floats above the page; its place stays reserved.
-    expect(find.text('Item 2'), findsNWidgets(2));
-    expect(find.byKey(const ValueKey('agent-spotlight-scrim')), findsOneWidget);
-    await t.tap(find.byKey(const ValueKey('agent-spotlight-scrim')));
-    await t.pumpAndSettle();
-    expect(spotlight.focused, isNull);
+    // No copy floats above the page, no scrim: the row stays and lights up.
     expect(find.text('Item 2'), findsOneWidget);
-    // Switching items flies the first back before lifting the next.
-    spotlight.focus('layer#1');
-    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('agent-spotlight-scrim')), findsNothing);
+    expect(lit(), 1);
+    // Another item takes over; letting go lights none.
     spotlight.focus('layer#3');
     await t.pumpAndSettle();
-    expect(find.text('Item 3'), findsNWidgets(2));
-    expect(find.text('Item 1'), findsOneWidget);
+    expect(lit(), 1);
+    expect(find.text('Item 3'), findsOneWidget);
+    spotlight.release();
+    await t.pumpAndSettle();
+    expect(lit(), 0);
   });
 
   testWidgets('marks draw on the item text they name', (t) async {

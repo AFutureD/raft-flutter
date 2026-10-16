@@ -236,7 +236,8 @@ class AgentTvScreen extends StatelessWidget {
   final AgentSpotlightController spotlight;
   final AgentMarkController marks;
 
-  /// The front layer's content.
+  /// The front layer's content. The current item (`focused`) is the row that
+  /// is highlighted, and the detail slot beside the list shows it.
   static Widget layer(Map<String, Object?> layer, {String? focused}) {
     final id = '${layer['id'] ?? ''}';
     final attention = layer['attention'];
@@ -247,14 +248,38 @@ class AgentTvScreen extends StatelessWidget {
         onApprove: (_) {},
         onOpen: (_) {},
         onLater: (_) {},
-        onExpand: (_) {},
         batchStart: layer['batch'] as int? ?? 0,
-        selectedNumber: _focusNumber(focused, id),
+        current: _focusNumber(focused, id),
       );
     }
     final spec = layer['spec'];
-    if (spec is Map) return _TvSurface(layer: layer);
-    return AgentFrameView(frame: layer, focusPrefix: id, focused: focused);
+    final n = _focusNumber(focused, id);
+    // What the phone's layer lists, numbered the way the voice says them.
+    final items = [
+      for (final i
+          in (spec is Map
+                      ? agentSurfaceFrame(
+                          AgentSurfaceSpec.fromJson(
+                            spec.cast<String, Object?>(),
+                          ),
+                          compact: layer['compact'] == true,
+                        )['items']
+                      : layer['items'])
+                  as List? ??
+              const [])
+        if (i is Map && i['kind'] != 'section') i.cast<String, Object?>(),
+    ];
+    final view = spec is Map
+        ? _TvSurface(layer: layer)
+        : AgentFrameView(frame: layer, focusPrefix: id, focused: focused);
+    if (n == null || n < 1 || n > items.length) return view;
+    return HfStageScope(
+      stage: AgentItemScope(
+        id: '$id#$n',
+        child: AgentFrameStage(item: items[n - 1], number: n),
+      ),
+      child: view,
+    );
   }
 
   static int? _focusNumber(String? focused, String id) =>

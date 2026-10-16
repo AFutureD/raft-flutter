@@ -55,6 +55,14 @@ class AgentScriptedModel {
       say(item == null ? '${r['error'] ?? '展开不了'}' : explainAttention(item));
       return true;
     }
+    // "看看第二个": make that item the current one, as the model does when it
+    // starts talking about it.
+    final look = agentOrdinal(text);
+    if (look != null && RegExp(r'看看|看下|聚焦|指一下').hasMatch(text)) {
+      final r = await call('spotlight', {'number': look});
+      say(r['error'] != null ? '${r['error']}' : '好，第 $look 条。');
+      return true;
+    }
     // "把 #98 标记为已完成": the preview of the demo capability, the person
     // confirms it on its card (the demo registers `demo.finish`).
     final finish = RegExp(r'把\s*#?\s*(\d+).*(?:完成|通过)').firstMatch(text);

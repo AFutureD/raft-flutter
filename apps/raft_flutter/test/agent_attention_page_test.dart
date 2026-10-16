@@ -188,6 +188,15 @@ void main() {
 
   Finder card(String id) => find.byKey(ValueKey('attention-card-$id'));
 
+  /// A tap on a card makes it the current item (its detail in a sheet);
+  /// the sheet's 展开 goes to the full detail page.
+  Future<void> openDetail(WidgetTester t, String id) async {
+    await t.tap(card(id));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
+    await t.pumpAndSettle();
+  }
+
   Finder countOf(String kind, String n) => find.descendant(
     of: find.byKey(ValueKey('attention-count-$kind')),
     matching: find.text(n),
@@ -490,7 +499,6 @@ void main() {
                     onApprove: (_) {},
                     onOpen: (_) {},
                     onLater: (_) {},
-                    onExpand: (_) {},
                   ),
                 ),
               ),
@@ -505,8 +513,7 @@ void main() {
       await open(t, _Data(w, _three()));
       await t.tap(find.byKey(const ValueKey('attention-more')));
       await t.pumpAndSettle();
-      await t.tap(card('m1'));
-      await t.pumpAndSettle();
+      await openDetail(t, 'm1');
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.byKey(const ValueKey('detail:m1')), findsOneWidget);
       // A question to answer, not a task: no 通过, a reply button.
@@ -515,9 +522,16 @@ void main() {
       expect(find.byKey(const ValueKey('attention-later-m1')), findsOneWidget);
     });
 
-    testWidgets('tapping a card opens its detail as a new layer', (t) async {
+    testWidgets('tapping a card shows its detail in a sheet; 展开 goes to the '
+        'full page and back finds it current', (t) async {
       await open(t, _Data(w, _three()));
       await t.tap(card('t1'));
+      await t.pumpAndSettle();
+      // No layer: the card is current, and its detail is in the sheet.
+      expect(find.text('第 1 层'), findsOneWidget);
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
       await t.pumpAndSettle();
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.byKey(const ValueKey('detail:t1')), findsOneWidget);
@@ -542,6 +556,75 @@ void main() {
       );
       expect(find.byKey(const ValueKey('attention-open-t1')), findsOneWidget);
       expect(find.byKey(const ValueKey('attention-later-t1')), findsOneWidget);
+
+      // Back: the card is still the current one, so its sheet is there.
+      await t.binding.handlePopRoute();
+      await t.pumpAndSettle();
+      expect(find.text('第 1 层'), findsOneWidget);
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      // Back again puts the sheet away before it leaves the screen.
+      await t.binding.handlePopRoute();
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+      expect(find.text('第 1 层'), findsOneWidget);
+    });
+
+    testWidgets('a tap on the current card again, or the sheet\'s close, '
+        'puts the sheet away', (t) async {
+      await open(t, _Data(w, _three()));
+      await t.tap(card('t1'));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      // Its row stays on the screen, with its number.
+      expect(card('t1'), findsOneWidget);
+      await t.tap(card('t1'));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+
+      await t.tap(card('t2'));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      // Another card takes the sheet over: one sheet, the new item in it.
+      await t.tap(card('t3'));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attention-approve-t3')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('attention-approve-t2')), findsNothing);
+      await t.tap(find.byKey(const ValueKey('hf-stage-close')));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+    });
+
+    testWidgets('the voice makes an item current the same way a tap does: '
+        'the sheet, the same actions, and 展开 for the full page', (t) async {
+      await open(t, _Data(w, _three()), model: const _Spot());
+      await say(t, 'x');
+      // The model's words are not heard in a test: the item comes after the
+      // wait the speech sync allows.
+      await t.pump(const Duration(seconds: 4));
+      await t.pumpAndSettle();
+      expect(find.text('第 1 层'), findsOneWidget);
+      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attention-approve-t2')),
+        findsOneWidget,
+      );
+      // 通过 acts on the current one: it asks about t2.
+      await t.tap(find.byKey(const ValueKey('attention-approve-t2')));
+      await t.pumpAndSettle();
+      expect(find.textContaining('乙方案'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('attention-approve-confirm')),
+        findsOneWidget,
+      );
+      await t.tap(find.byKey(const ValueKey('attention-approve-cancel')));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('detail:t2')), findsOneWidget);
     });
 
     testWidgets('a tap and the voice request open the same layer', (t) async {
@@ -552,8 +635,7 @@ void main() {
       }
 
       await open(t, _Data(w, _three()), model: const AgentScriptedModel());
-      await t.tap(card('t2'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't2');
       final byTap = await shown();
       await say(t, '返回');
       expect(find.text('第 1 层'), findsOneWidget);
@@ -563,14 +645,15 @@ void main() {
       expect(await shown(), byTap);
       await say(t, '返回');
 
-      // Digits, other words, and "this one" (the most urgent).
+      // Digits, other words, and "this one": the current item, which is the
+      // one just gone back to.
       await say(t, '讲讲第 3 条');
       expect(find.byKey(const ValueKey('detail:t3')), findsOneWidget);
       await say(t, '返回');
       await say(t, '详细说说这个');
-      expect(find.byKey(const ValueKey('detail:t1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('detail:t3')), findsOneWidget);
       // The model then says one or two sentences, from what it was given.
-      expect(find.textContaining('Cindy 最后说：「t1 进展三」'), findsWidgets);
+      expect(find.textContaining('Cindy 最后说：「t3 进展三」'), findsWidgets);
     });
 
     testWidgets('expanding another card replaces the open detail', (t) async {
@@ -620,8 +703,7 @@ void main() {
     testWidgets('the detail actions: 通过 asks, 稍后 hides, 打开讨论 opens', (t) async {
       await open(t, _Data(w, _three()));
       client.posts.clear();
-      await t.tap(card('t2'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't2');
       await t.tap(find.byKey(const ValueKey('attention-approve-t2')));
       await t.pumpAndSettle();
       expect(client.posts, isEmpty);
@@ -633,16 +715,14 @@ void main() {
       expect(card('t2'), findsNothing);
       expect(countOf('decision', '2'), findsOneWidget);
 
-      await t.tap(card('t3'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't3');
       await t.tap(find.byKey(const ValueKey('attention-later-t3')));
       await t.pumpAndSettle();
       expect(find.text('第 1 层'), findsOneWidget);
       expect(card('t3'), findsNothing);
       expect(countOf('decision', '1'), findsOneWidget);
 
-      await t.tap(card('t1'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't1');
       await t.tap(find.byKey(const ValueKey('attention-open-t1')));
       await t.pumpAndSettle();
       expect(find.text('第 3 层'), findsOneWidget);
@@ -651,8 +731,7 @@ void main() {
 
     testWidgets('spotlight and marks work on the detail layer', (t) async {
       await open(t, _Data(w, _three()));
-      await t.tap(card('t1'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't1');
       final ids = [
         for (final f in t.widgetList<AgentFocusable>(
           find.byType(AgentFocusable),
@@ -666,8 +745,7 @@ void main() {
     testWidgets('通过 asks first; nothing is written until confirmed', (t) async {
       await open(t, _Data(w, _three()));
       client.posts.clear();
-      await t.tap(card('t2'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't2');
       await t.tap(find.byKey(const ValueKey('attention-approve-t2')));
       await t.pumpAndSettle();
       expect(
@@ -716,8 +794,7 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      await t.tap(card('t1'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't1');
       await t.tap(find.byKey(const ValueKey('attention-approve-t1')));
       await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey('attention-approve-confirm')));
@@ -755,8 +832,7 @@ void main() {
 
     testWidgets('打开讨论 opens the item\'s channel as a layer', (t) async {
       await open(t, _Data(w, _three()));
-      await t.tap(card('t3'));
-      await t.pumpAndSettle();
+      await openDetail(t, 't3');
       await t.tap(find.byKey(const ValueKey('attention-open-t3')));
       await t.pumpAndSettle();
       expect(find.text('第 3 层'), findsOneWidget);
@@ -886,6 +962,53 @@ void main() {
             .selected,
         isTrue,
       );
+    });
+
+    testWidgets('expand_item in a wide window selects in place: no layer, '
+        'the pane and the row follow', (t) async {
+      await open(
+        t,
+        _Data(w, _three()),
+        size: wide,
+        model: const AgentScriptedModel(),
+      );
+      await say(t, '展开第二条');
+      expect(find.text('第 1 层'), findsOneWidget);
+      expect(find.byKey(const ValueKey('detail:t2')), findsNothing);
+      Finder inDetail(String text) => find.descendant(
+        of: find.byKey(const ValueKey('attention-detail')),
+        matching: find.textContaining(text),
+      );
+      expect(inDetail('t2 进展三'), findsOneWidget);
+      expect(inDetail('t1 进展三'), findsNothing);
+      expect(
+        t
+            .widget<HfRow>(find.byKey(const ValueKey('attention-row-t2')))
+            .selected,
+        isTrue,
+      );
+      // And the actions act on it.
+      expect(
+        find.byKey(const ValueKey('attention-approve-t2')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the pane follows the voice (spotlight), and a tap after it '
+        'moves it again', (t) async {
+      await open(t, _Data(w, _three()), size: wide, model: const _Spot());
+      await say(t, 'x');
+      await t.pump(const Duration(seconds: 4));
+      await t.pumpAndSettle();
+      Finder inDetail(String text) => find.descendant(
+        of: find.byKey(const ValueKey('attention-detail')),
+        matching: find.textContaining(text),
+      );
+      expect(inDetail('t2 进展三'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('attention-row-t1')));
+      await t.pumpAndSettle();
+      expect(inDetail('t1 进展三'), findsOneWidget);
+      expect(find.text('第 1 层'), findsOneWidget);
     });
 
     testWidgets('tapping a row selects it', (t) async {
@@ -1051,6 +1174,22 @@ void main() {
       expect(find.text('现在没有需要你处理的事'), findsOneWidget);
     });
   });
+}
+
+/// Makes the second item the current one, as the model does when it starts
+/// talking about it.
+class _Spot extends AgentScriptedModel {
+  const _Spot();
+
+  @override
+  Future<bool> handle(
+    String text,
+    AgentToolHandler call,
+    void Function(String) say,
+  ) async {
+    await call('spotlight', {'number': 2});
+    return true;
+  }
 }
 
 /// Calls `expand_item` three ways and keeps what the tool answered.

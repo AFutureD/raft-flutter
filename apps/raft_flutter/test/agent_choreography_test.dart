@@ -4,7 +4,7 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_flutter/features/agent_mode/agent_choreography.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-/// One owner for what moves while the agent talks: the spotlight travels
+/// One owner for what moves while the agent talks: the current item travels
 /// along the stream, bulk fills stay in place, the end is calm.
 void main() {
   late AgentSpotlightController spotlight;
@@ -12,6 +12,7 @@ void main() {
   late AgentRevealSync reveal;
   late ValueNotifier<String> saying;
   late bool speaking;
+  late bool follows;
   late AgentChoreographer choreo;
 
   setUp(() {
@@ -20,6 +21,7 @@ void main() {
     reveal = AgentRevealSync();
     saying = ValueNotifier('');
     speaking = true;
+    follows = true;
     choreo = AgentChoreographer(
       spotlight: spotlight,
       marks: marks,
@@ -27,6 +29,7 @@ void main() {
       saying: saying,
       playbackLag: () async => Duration.zero,
       isSpeaking: () => speaking,
+      followStream: () => follows,
     );
   });
   tearDown(() {
@@ -52,7 +55,7 @@ void main() {
     expect(spotlight.focused, isNull);
     await hear(t, '先看 Aria，她在做历史上拉。');
     expect(spotlight.focused, 's#1');
-    // It came straight into the spotlight, not flown there from its slot.
+    // It is the current item as it was added.
     expect(spotlight.entering, isTrue);
     // The headline starts typing a moment after it landed.
     expect(reveal.isHeld('s#1'), isTrue);
@@ -114,19 +117,32 @@ void main() {
     expect(choreo.hasCues, isFalse);
   });
 
-  testWidgets('the lifted item settles when the speech ends', (t) async {
+  testWidgets('the current item stays current when the speech ends', (t) async {
     choreo.added('s#1', 'Aria 在做 历史上拉');
     await hear(t, 'Aria 在做历史上拉');
     expect(spotlight.focused, 's#1');
     speaking = false;
     choreo.speechEnded();
-    expect(spotlight.focused, isNull);
-    expect(choreo.log, ['enter:s#1', 'settle:s#1']);
+    expect(spotlight.focused, 's#1');
+    expect(choreo.log, ['enter:s#1']);
     await rest(t);
   });
 
-  testWidgets('end_surface leaves the screen calm: nothing lifted, marks '
-      'lighter and then gone', (t) async {
+  testWidgets('a screen with no stage only types the item in place', (t) async {
+    follows = false;
+    choreo.added('s#1', 'Aria 在做 历史上拉');
+    expect(reveal.isHeld('s#1'), isTrue);
+    await hear(t, 'Aria 在做历史上拉');
+    // Not current (a sheet would cover the screen for each item), but its
+    // text is released to type.
+    expect(spotlight.focused, isNull);
+    await t.pump(const Duration(milliseconds: 250));
+    expect(reveal.isHeld('s#1'), isFalse);
+    await rest(t);
+  });
+
+  testWidgets('end_surface leaves the screen calm: the current item stays, '
+      'marks lighter and then gone', (t) async {
     choreo.added('s#1', 'Aria 在做 历史上拉');
     await hear(t, 'Aria 在做历史上拉');
     choreo.mark(
@@ -143,10 +159,10 @@ void main() {
     // Still speaking: end_surface is noted, the screen waits.
     choreo.end();
     expect(spotlight.focused, 's#1');
-    // The agent finishes: settled, the mark stays on the card, lightly.
+    // The agent finishes: calm, the mark stays on the card, lightly.
     speaking = false;
     choreo.speechEnded();
-    expect(spotlight.focused, isNull);
+    expect(spotlight.focused, 's#1');
     expect(marks.marks, hasLength(1));
     expect(marks.dimmed, isTrue);
     expect(choreo.log.last, 'calm');
@@ -163,7 +179,7 @@ void main() {
     spotlight.focus('s#1');
     marks.add(const AgentMark(itemId: 's#1', phrase: '历史'));
     choreo.end();
-    expect(spotlight.focused, isNull);
+    expect(spotlight.focused, 's#1');
     expect(marks.dimmed, isTrue);
     await t.pump(const Duration(seconds: 5));
     expect(marks.marks, isEmpty);
@@ -200,9 +216,8 @@ void main() {
       ),
     );
 
-    testWidgets('an item enters at the lifted place and flies to its slot', (
-      t,
-    ) async {
+    testWidgets('the current item is lit in its slot: nothing is lifted or '
+        'copied, and the slot never moves', (t) async {
       t.view.physicalSize = const Size(400, 800);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
@@ -210,35 +225,14 @@ void main() {
       final slot = t.getRect(find.text('Item 2'));
       spotlight.focus('layer#2', enter: true);
       await t.pump();
-      await t.pump(const Duration(milliseconds: 16));
-      // Two copies: the hidden slot and the lifted one, which is already at
-      // the middle of the screen and bigger than its slot.
-      expect(find.text('Item 2'), findsNWidgets(2));
-      final lifted = t.getRect(find.text('Item 2').last);
-      expect((lifted.center - const Offset(200, 400)).distance, lessThan(60));
       await t.pump(const Duration(milliseconds: 400));
-      expect(t.getRect(find.text('Item 2').last).width, greaterThan(slot.width));
-      // Settling: back into the same slot, which never changed size.
+      expect(find.text('Item 2'), findsOneWidget);
+      expect(t.getRect(find.text('Item 2')), slot);
       spotlight.release();
-      await t.pump(const Duration(milliseconds: 10));
       await t.pumpAndSettle();
       expect(find.text('Item 2'), findsOneWidget);
       expect(t.getRect(find.text('Item 2')), slot);
       expect(spotlight.entering, isFalse);
-    });
-
-    testWidgets('a plain focus still flies from the slot', (t) async {
-      t.view.physicalSize = const Size(400, 800);
-      t.view.devicePixelRatio = 1;
-      addTearDown(t.view.reset);
-      await t.pumpWidget(app());
-      final slot = t.getRect(find.text('Item 2'));
-      spotlight.focus('layer#2');
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 16));
-      final lifted = t.getRect(find.text('Item 2').last);
-      expect((lifted.center - slot.center).distance, lessThan(30));
-      await t.pumpAndSettle();
     });
   });
 }

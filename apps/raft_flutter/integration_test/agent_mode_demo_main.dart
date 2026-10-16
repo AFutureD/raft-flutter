@@ -461,6 +461,12 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await wait(1500);
     await _type('回到提醒');
     await wait(3500);
+    // One current item: said, then highlighted with its detail on the stage
+    // (a sheet on a phone, the slot beside the list on a wide window).
+    final wide = MediaQuery.sizeOf(_key.currentContext!).width >= 1280;
+    await _type(wide ? '看看第二个' : '看看第一个');
+    await wait(6000);
+    await mark('current');
     await _type('讲讲第一条');
     await wait(3500);
     await mark('detail');

@@ -6,14 +6,15 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 /// The one owner of what moves on the screen while the agent talks.
 ///
-/// A visual that belongs to words (a spotlight, a mark, the typing of a
-/// headline) waits until the speaker has played those words; the spotlight
-/// travels along the stream: an item added while the agent speaks enters
-/// straight into the spotlight, and settles into its reserved slot when the
-/// agent moves on (the next item, a call to `spotlight`, or the end of the
-/// speech). Items added without speech (a bulk fill) are not spotlit; they
-/// just enter in place. When the surface ends the screen is calm: nothing
-/// lifted, marks lighter and then gone.
+/// A visual that belongs to words (the current item, a mark, the typing of a
+/// headline) waits until the speaker has played those words. The current item
+/// travels along the stream where the screen has a stage for it (a wide
+/// window): an item added while the agent speaks becomes the current one, and
+/// the next one takes over when the agent moves on. The current item is not
+/// put back when the speech ends: it stays current until another is. A screen
+/// with no room beside its list (a phone) only types the item in place. Items
+/// added without speech (a bulk fill) just enter in place. When the surface
+/// ends the screen is calm: marks lighter and then gone.
 ///
 /// Everything goes through this class so two animations never fight over an
 /// item: it is the only code that moves the [AgentSpotlightController] or
@@ -26,6 +27,7 @@ class AgentChoreographer {
     required this.saying,
     required this.playbackLag,
     required this.isSpeaking,
+    this.followStream = _always,
     this.fallback = const Duration(milliseconds: 3500),
     this.typeDelay = const Duration(milliseconds: 220),
     this.marksLinger = const Duration(seconds: 4),
@@ -45,6 +47,13 @@ class AgentChoreographer {
   final Future<Duration> Function() playbackLag;
   final bool Function() isSpeaking;
 
+  /// Whether an item added to a streamed screen becomes the current one as
+  /// the agent talks about it (a screen with a stage for it); else it only
+  /// types in place.
+  final bool Function() followStream;
+
+  static bool _always() => true;
+
   /// Words that never come (a paraphrase, another language) still show, in
   /// order, this long after their turn.
   final Duration fallback;
@@ -55,7 +64,6 @@ class AgentChoreographer {
   final Duration marksLinger;
 
   bool _disposed = false;
-  bool _calming = false;
   bool _ending = false;
   int _epoch = 0;
   int _heardFrom = 0;
@@ -106,9 +114,9 @@ class AgentChoreographer {
   }
 
   void _focusChanged() {
-    // Annotations belong to what is being explained; a new focus or putting
-    // the item back wipes them, except while the screen settles at the end.
-    if (!_calming) marks.clear();
+    // Annotations belong to what is being explained; another current item
+    // wipes them.
+    marks.clear();
     if (spotlight.focused == null) {
       // An item that came back may have been typing for nobody.
       reveal.releaseAll();
@@ -218,8 +226,8 @@ class AgentChoreographer {
   void _enter(String id) {
     _pending.remove(id);
     log.add('enter:$id');
-    // The previous item flies back to its slot while this one comes in.
-    spotlight.focus(id, enter: true);
+    // The next item takes over from the one before it.
+    if (followStream()) spotlight.focus(id, enter: true);
     _typing.add(
       Timer(typeDelay, () {
         if (!_disposed) reveal.release(id);
@@ -248,15 +256,11 @@ class AgentChoreographer {
     });
   }
 
-  /// The agent finished speaking: the lifted item goes back, and a surface
-  /// that was ended meanwhile goes calm.
+  /// The agent finished speaking: a surface that was ended meanwhile goes
+  /// calm. The current item stays current.
   void speechEnded() {
     if (_cues.isNotEmpty) return;
-    if (_ending) return _calm();
-    if (spotlight.focused != null) {
-      log.add('settle:${spotlight.focused}');
-      spotlight.release();
-    }
+    if (_ending) _calm();
   }
 
   /// `end_surface`: once the agent has nothing more to show for it, the
@@ -268,11 +272,7 @@ class AgentChoreographer {
 
   void _calm() {
     _ending = false;
-    if (spotlight.focused != null) log.add('settle:${spotlight.focused}');
     log.add('calm');
-    _calming = true;
-    spotlight.release();
-    _calming = false;
     reveal.releaseAll();
     marks.dim();
     _fade?.cancel();

@@ -15,7 +15,7 @@ class AgentFrameView extends StatefulWidget {
   const AgentFrameView({
     super.key,
     required this.frame,
-    this.onOpen,
+    this.onCurrent,
     this.focusPrefix,
     this.focused,
   });
@@ -28,8 +28,8 @@ class AgentFrameView extends StatefulWidget {
   /// The spotlit item, `layer#n`.
   final String? focused;
 
-  /// Opens the item's channel as a new layer (a tap, never on a TV).
-  final void Function(String channelId)? onOpen;
+  /// A row was tapped: it is the current item (never on a TV).
+  final ValueChanged<int>? onCurrent;
 
   @override
   State<AgentFrameView> createState() => _AgentFrameViewState();
@@ -70,8 +70,7 @@ class _AgentFrameViewState extends State<AgentFrameView> {
     final i = e.item;
     final message = i['kind'] == 'message';
     final label = '${i['label'] ?? ''}';
-    final channelId = i['channelId'];
-    final open = widget.onOpen;
+    final current = widget.onCurrent;
     return HfRow(
       key: ValueKey('frame-row-${e.n}'),
       index: e.n,
@@ -83,9 +82,7 @@ class _AgentFrameViewState extends State<AgentFrameView> {
       ].where((s) => s.isNotEmpty).join(' · '),
       title: message ? '${i['text'] ?? ''}' : '${i['title'] ?? ''}',
       detail: message || i['detail'] == label ? null : '${i['detail'] ?? ''}',
-      onTap: open != null && channelId is String && hf.interactive
-          ? () => open(channelId)
-          : null,
+      onTap: current != null && hf.interactive ? () => current(e.n) : null,
     );
   }
 
@@ -139,6 +136,70 @@ class _AgentFrameViewState extends State<AgentFrameView> {
               ),
             ),
         ],
+      ],
+    );
+  }
+}
+
+/// One item of a [AgentFrameView] (or of a screen's frame) in its detail
+/// rendering: what the stage beside a list, or a phone's sheet, shows for the
+/// current item. A message says who and when, with its words in full; the
+/// rest say what they are, their title and their facts. [trailing] is the
+/// sheet's small tools.
+class AgentFrameStage extends StatelessWidget {
+  const AgentFrameStage({
+    super.key,
+    required this.item,
+    required this.number,
+    this.trailing,
+    this.onOpen,
+  });
+  final Map<String, Object?> item;
+  final int number;
+  final Widget? trailing;
+
+  /// 打开讨论: the item's channel as a layer (when it has one).
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = item['kind'] == 'message';
+    final detail = '${item['detail'] ?? ''}';
+    final label = '${item['label'] ?? ''}';
+    return HfDetail(
+      key: const ValueKey('agent-frame-stage'),
+      titleMode: HfDetailTitle.heading,
+      index: number,
+      titleLines: 5,
+      tone: message
+          ? HfTone.info
+          : HfColors.toneOf(
+              AgentPriority.values.firstWhere(
+                (p) => p.name == item['priority'],
+                orElse: () => AgentPriority.progress,
+              ),
+            ),
+      status: message
+          ? [
+              '${item['sender'] ?? ''}',
+              '${item['time'] ?? ''}',
+            ].where((e) => e.isNotEmpty).join(' · ')
+          : label,
+      title: message ? '${item['text'] ?? ''}' : '${item['title'] ?? ''}',
+      facts: [
+        if (!message && detail.isNotEmpty && detail != label)
+          HfFact('情况', detail, lines: 4),
+      ],
+      trailing: trailing,
+      oneRowActions: trailing != null,
+      actions: [
+        if (onOpen != null)
+          HfAction(
+            '打开讨论',
+            key: const ValueKey('agent-stage-open'),
+            kind: HfActionKind.secondary,
+            onPressed: onOpen,
+          ),
       ],
     );
   }

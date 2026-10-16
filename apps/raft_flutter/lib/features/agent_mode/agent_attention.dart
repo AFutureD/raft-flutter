@@ -7,11 +7,12 @@ import 'references/agent_handle_tag.dart';
 
 /// The first layer: what needs the person now ("现在需要你"). The same screen
 /// on a phone, a desktop and a TV: a count line, the items in sections (等你
-/// 决定 / 卡住了 / 点名你) as numbered rows, a pager for the rest. A window
-/// 1280 wide or more (and a TV) puts the selected item's detail with its
-/// last progress and actions beside the list; a narrower one opens the
-/// detail as a layer of its own. A TV only shows: its actions are voice
-/// hints.
+/// 决定 / 卡住了 / 点名你) as numbered rows, a pager for the rest.
+///
+/// One row is the current item (a tap, a key, or the voice says so). A window
+/// 1280 wide or more (and a TV) shows the current item's detail with its last
+/// progress and actions beside the list, in place; a narrower one has its
+/// owner show it in a sheet. A TV only shows: its actions are voice hints.
 class AgentAttentionView extends StatefulWidget {
   const AgentAttentionView({
     super.key,
@@ -20,11 +21,11 @@ class AgentAttentionView extends StatefulWidget {
     required this.onApprove,
     required this.onOpen,
     required this.onLater,
-    required this.onExpand,
     this.batchStart = 0,
     this.onBatch,
     this.error,
-    this.selectedNumber,
+    this.current,
+    this.onCurrent,
     this.onPage,
   });
 
@@ -34,19 +35,19 @@ class AgentAttentionView extends StatefulWidget {
   final String focusPrefix;
   final void Function(AgentAttentionItem item) onApprove, onOpen, onLater;
 
-  /// A row was tapped (narrow screen): opens the detail layer (the same call
-  /// the voice tool `expand_item` makes).
-  final void Function(AgentAttentionItem item) onExpand;
-
   /// The first row on screen, counted over all the items. A page holds as
   /// many rows as fit (at most [HfData.attentionRows]) and [onBatch] asks for
   /// the next ones (the pager; voice says "下一批").
   final int batchStart;
   final void Function(int start)? onBatch;
 
-  /// The row (from 1) the detail is of, and the page it is on, set from
-  /// outside: the TV follows what the agent talks about.
-  final int? selectedNumber;
+  /// The current row (from 1), set from outside: the voice and the TV follow
+  /// what the agent talks about. Null is none (a wide window then shows the
+  /// first row of the page).
+  final int? current;
+
+  /// A row was tapped, or an arrow key moved on: it is the current one.
+  final ValueChanged<int>? onCurrent;
 
   /// The page on show changed: its first and one past its last row. The
   /// owner needs it for "下一批".
@@ -57,51 +58,40 @@ class AgentAttentionView extends StatefulWidget {
 }
 
 class _AgentAttentionViewState extends State<AgentAttentionView> {
-  String? _selected;
-  int _index = 0;
   bool _teamOpen = false;
+
+  /// The row index (from 0) that is current, set by the last build; -1 is
+  /// none.
+  int _shown = -1;
 
   static const _title = '现在需要你';
 
   List<AgentAttentionItem> get _items => widget.attention?.items ?? const [];
 
-  AgentAttentionItem? get _current {
+  AgentAttentionItem? get _currentItem {
     final items = _items;
-    if (items.isEmpty) return null;
-    final at = items.indexWhere((i) => i.id == _selected);
-    final index = at >= 0 ? at : _index.clamp(0, items.length - 1);
-    _index = index;
-    _selected = items[index].id;
-    return items[index];
+    if (items.isEmpty || _shown < 0) return null;
+    return items[_shown.clamp(0, items.length - 1)];
   }
-
-  /// Where the page that holds a row starts, by the layout of the last build.
-  int Function(int index)? _startOf;
 
   void _select(int index) {
     final items = _items;
     if (items.isEmpty) return;
     final next = index.clamp(0, items.length - 1);
-    setState(() {
-      _index = next;
-      _selected = items[next].id;
-    });
-    // The page follows the selection.
-    final start = _startOf?.call(next);
-    if (start != null && start != widget.batchStart) {
-      widget.onBatch?.call(start);
-    }
+    // Keys can arrive faster than frames: the next one starts from here.
+    _shown = next;
+    widget.onCurrent?.call(next + 1);
   }
 
   KeyEventResult _key(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
-    final item = _current;
+    final item = _currentItem;
     if (item == null) return KeyEventResult.ignored;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowDown) {
-      _select(_index + 1);
+      _select(_shown + 1);
     } else if (key == LogicalKeyboardKey.arrowUp) {
-      _select(_index - 1);
+      _select(_shown - 1);
     } else if (event is KeyDownEvent &&
         (key == LogicalKeyboardKey.enter ||
             key == LogicalKeyboardKey.numpadEnter)) {
@@ -208,8 +198,8 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
       unit: i.waitUnit,
     ),
     selected: selected,
-    onTap: hf.interactive
-        ? () => split ? _select(n - 1) : widget.onExpand(i)
+    onTap: hf.interactive && widget.onCurrent != null
+        ? () => widget.onCurrent!(n)
         : null,
   );
 
@@ -221,7 +211,6 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     required int end,
   }) {
     final items = a.items;
-    final current = _current;
     final children = <Widget>[];
     for (var n = start; n < end; n++) {
       final i = items[n];
@@ -244,13 +233,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
           id: id,
           child: AgentHandleTag(
             focusId: id,
-            child: _row(
-              hf,
-              i,
-              n + 1,
-              split: split,
-              selected: split && i.id == current?.id,
-            ),
+            child: _row(hf, i, n + 1, split: split, selected: n == _shown),
           ),
         ),
       );
@@ -293,56 +276,17 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     );
   }
 
-  Widget _detail(HfData hf, AgentAttentionItem item, int n) {
-    final lines = item.progress.isEmpty
-        ? const <AgentProgressLine>[]
-        : [item.progress.last];
-    final who = item.doer ?? (item.waiters.isEmpty ? null : item.waiters.first);
-    return HfDetail(
-      key: const ValueKey('attention-detail'),
-      titleMode: HfDetailTitle.heading,
-      index: n,
-      // A desktop can scroll the pane to read the whole line; a TV is only
-      // looked at, so it keeps to one.
-      progressLines: hf.interactive ? 4 : 1,
-      title: item.headline,
-      status: [
-        if (item.channelName != null) '#${item.channelName}',
-        item.reason,
-      ].join(' · '),
-      tone: _tone(item.priority),
-      facts: [
-        HfFact('要你做', item.askText, lines: 1),
-        if (who != null) HfFact('谁', who),
-        HfFact('多久', item.waitLabel),
-      ],
-      progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
-      actions: [
-        if (item.canApprove)
-          HfAction(
-            '通过',
-            key: ValueKey('attention-approve-${item.id}'),
-            kind: HfActionKind.primary,
-            icon: Icons.check_rounded,
-            onPressed: () => widget.onApprove(item),
-          ),
-        HfAction(
-          item.action == AgentAction.reply
-              ? '回复${who == null ? '' : ' $who'}'
-              : '打开讨论',
-          key: ValueKey('attention-open-${item.id}'),
-          kind: item.canApprove ? HfActionKind.secondary : HfActionKind.primary,
-          onPressed: () => widget.onOpen(item),
-        ),
-        HfAction(
-          '稍后',
-          key: ValueKey('attention-later-${item.id}'),
-          kind: HfActionKind.text,
-          onPressed: () => widget.onLater(item),
-        ),
-      ],
-    );
-  }
+  Widget _detail(AgentAttentionItem item, int n) => AgentItemScope(
+    // The marks the agent draws on this item show here too.
+    id: '${widget.focusPrefix}#$n',
+    child: AgentAttentionDetail(
+      item: item,
+      number: n,
+      onApprove: widget.onApprove,
+      onOpen: widget.onOpen,
+      onLater: widget.onLater,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -424,22 +368,15 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
       }
     }
 
-    final sel = widget.selectedNumber;
+    final sel = widget.current;
     var start = widget.batchStart >= items.length ? 0 : widget.batchStart;
-    if (sel != null && sel >= 1 && sel <= items.length) {
-      start = pageStartOf(sel - 1);
-    }
+    final hasSel = sel != null && sel >= 1 && sel <= items.length;
+    if (hasSel) start = pageStartOf(sel - 1);
     final end = pageEnd(start);
-    _startOf = pageStartOf;
     widget.onPage?.call(start, end);
-    if (sel != null && sel >= 1 && sel <= items.length) {
-      _index = sel - 1;
-      _selected = items[sel - 1].id;
-    } else if (!hf.interactive) {
-      // A TV shows the detail of the first row on the page.
-      _index = start;
-      _selected = items[start].id;
-    }
+    // A wide window always shows a detail: the first row of the page when
+    // nothing was chosen.
+    _shown = hasSel ? sel - 1 : (split ? start : -1);
     final pager = alone
         ? null
         : HfPager(
@@ -453,7 +390,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
                 : () => widget.onBatch!(end < items.length ? end : 0),
           );
     final list = _list(hf, a, split: split, start: start, end: end);
-    final current = _current;
+    final current = _currentItem;
     if (!split) {
       return HfLayerFrame(
         title: _title,
@@ -497,13 +434,92 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
                   flex: 47,
                   child: current == null
                       ? const SizedBox.shrink()
-                      : _detail(hf, current, _index + 1),
+                      : _detail(current, _shown + 1),
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// One attention item in its detail rendering: what is asked, who, how long,
+/// the last progress and the three actions. The detail slot beside the list
+/// (a wide window, a TV) and a phone's sheet both show it; [trailing] is the
+/// small tools of a sheet.
+class AgentAttentionDetail extends StatelessWidget {
+  const AgentAttentionDetail({
+    super.key,
+    required this.item,
+    required this.number,
+    required this.onApprove,
+    required this.onOpen,
+    required this.onLater,
+    this.trailing,
+  });
+  final AgentAttentionItem item;
+
+  /// The number the item has on the screen.
+  final int number;
+  final void Function(AgentAttentionItem item) onApprove, onOpen, onLater;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final hf = HandsFree.of(context);
+    final n = number;
+    final lines = item.progress.isEmpty
+        ? const <AgentProgressLine>[]
+        : [item.progress.last];
+    final who = item.doer ?? (item.waiters.isEmpty ? null : item.waiters.first);
+    return HfDetail(
+      key: const ValueKey('attention-detail'),
+      trailing: trailing,
+      // The tools are a sheet's: it has no height for stacked buttons.
+      oneRowActions: trailing != null,
+      titleMode: HfDetailTitle.heading,
+      index: n,
+      // A desktop can scroll the pane to read the whole line; a TV is only
+      // looked at, so it keeps to one.
+      progressLines: hf.interactive ? 4 : 1,
+      title: item.headline,
+      status: [
+        if (item.channelName != null) '#${item.channelName}',
+        item.reason,
+      ].join(' · '),
+      tone: HfColors.toneOf(item.priority),
+      facts: [
+        HfFact('要你做', item.askText, lines: 1),
+        if (who != null) HfFact('谁', who),
+        HfFact('多久', item.waitLabel),
+      ],
+      progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
+      actions: [
+        if (item.canApprove)
+          HfAction(
+            '通过',
+            key: ValueKey('attention-approve-${item.id}'),
+            kind: HfActionKind.primary,
+            icon: Icons.check_rounded,
+            onPressed: () => onApprove(item),
+          ),
+        HfAction(
+          item.action == AgentAction.reply
+              ? '回复${who == null ? '' : ' $who'}'
+              : '打开讨论',
+          key: ValueKey('attention-open-${item.id}'),
+          kind: item.canApprove ? HfActionKind.secondary : HfActionKind.primary,
+          onPressed: () => onOpen(item),
+        ),
+        HfAction(
+          '稍后',
+          key: ValueKey('attention-later-${item.id}'),
+          kind: HfActionKind.text,
+          onPressed: () => onLater(item),
+        ),
+      ],
     );
   }
 }

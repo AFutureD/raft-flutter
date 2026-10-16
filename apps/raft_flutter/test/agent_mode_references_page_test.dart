@@ -152,8 +152,17 @@ void main() {
     expect(items.first['handle'], '①');
     expect(items.first['entity'], {'type': 'task', 'id': 't94'});
 
-    // Tapping the first card opens its detail; “这个” is that task.
+    // Tapping the first card makes it the current one (its detail is in a
+    // sheet) and “这个” is that task; 展开 goes to the full page.
     await t.tap(find.text('Cindy 完成了「选型」，等你验收'));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+    late Map<String, Object?> sheet;
+    await say('随便', (call) async {
+      sheet = await call('resolve', {'phrase': '这个'});
+    });
+    expect((sheet['entity'] as Map)['id'], 't94');
+    await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
     await t.pumpAndSettle();
     expect(find.text('第 2 层'), findsOneWidget);
     // The detail's task card wears 1 on its bar and is the pointed one.
