@@ -10553,7 +10553,7 @@
    "status": "covered",
    "webEntry": "ImageLightbox > Download icon | ChannelFilesPanel > 'Download file' / file preview | MessageItem attachment card > 'Download {filename}' icon, inline video/audio players (background URL load) | openDocumentPreview/openMediaPreview (PDF, CSV, XLSX, markdown, text, HTML, video, audio preview shell > Download)",
    "gate": "any member who can read the channel; guests read-only",
-   "flutterEntry": "workspace_controller.dart attachmentUrl() delegates to attachment_media.dart url(); used by attachment_view.dart (card download/inline media), source_channel_files_view.dart ('Download file'), attachment_preview_dialog.dart, media_image_page.dart (Download)",
+   "flutterEntry": "attachment_media.dart url(); attachment_transfers.dart calls controller.attachmentMedia.url(); used by attachment_view.dart (card download/inline media), source_channel_files_view.dart ('Download file'), attachment_preview_dialog.dart, media_image_page.dart (Download)",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/data/attachment_media.dart",
@@ -10561,7 +10561,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/attachment_transfers.dart",
-     "needle": "controller.attachmentUrl("
+     "needle": "controller.attachmentMedia.url("
     },
     {
      "file": "apps/raft_flutter/lib/features/source_channel_files_view.dart",
