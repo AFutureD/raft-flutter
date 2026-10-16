@@ -128,6 +128,7 @@ void _enableLeakTracking() {
       'MobileSettingsPreference',
       'AgentModePreference',
       'AgentVoiceKey',
+      'OpenAiVoiceKey',
       'AgentVoiceSettings',
       'AppUpdater',
       'InviteRequests',

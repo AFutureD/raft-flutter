@@ -58,9 +58,9 @@ class AgentAudio {
 
 /// The Gemini API key for the demo, kept in the platform secure storage.
 class AgentVoiceKey extends ChangeNotifier {
-  AgentVoiceKey._();
+  AgentVoiceKey._([this._storageKey = 'raft.agentDemo.geminiKey']);
   static final instance = AgentVoiceKey._();
-  static const _storageKey = 'raft.agentDemo.geminiKey';
+  final String _storageKey;
 
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(resetOnError: false),
@@ -112,4 +112,10 @@ class AgentVoiceKey extends ChangeNotifier {
     _key = null;
     notifyListeners();
   }
+}
+
+/// The OpenAI API key for the Realtime voice, stored like the Gemini key.
+class OpenAiVoiceKey extends AgentVoiceKey {
+  OpenAiVoiceKey._() : super._('raft.agentDemo.openaiKey');
+  static final instance = OpenAiVoiceKey._();
 }

@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'voice_provider.dart';
+
 /// A tool the model may call: [declaration] is a Gemini FunctionDeclaration.
 typedef AgentToolHandler = Future<Map<String, Object?>> Function(
   String name,
@@ -15,7 +17,7 @@ typedef AgentToolHandler = Future<Map<String, Object?>> Function(
 ///
 /// Uses automatic voice activity detection. Push-to-talk sends audio only while
 /// held and then [endAudio]; live mode keeps sending.
-class GeminiLiveSession {
+class GeminiLiveSession implements VoiceSession {
   GeminiLiveSession({
     required this.apiKey,
     required this.systemPrompt,
@@ -92,22 +94,31 @@ class GeminiLiveSession {
   final String apiKey;
   final String systemPrompt;
   final List<Map<String, Object?>> tools;
+  @override
   final AgentToolHandler onToolCall;
   final String voice;
+  @override
   final void Function(Uint8List pcm24k)? onAudio;
+  @override
   final void Function(String text)? onInputText;
+  @override
   final void Function(String text)? onOutputText;
+  @override
   final void Function()? onTurnComplete;
+  @override
   final void Function()? onInterrupted;
 
   /// The server closed the session.
+  @override
   final void Function(String reason)? onClosed;
 
   static String? _model;
   WebSocket? _socket;
   String? _resumeHandle;
 
+  @override
   bool get connected => _socket != null;
+  @override
   String? get model => _model;
 
   /// The model chosen for this key, once known.
@@ -158,6 +169,7 @@ class GeminiLiveSession {
     }
   }
 
+  @override
   Future<void> connect() async {
     if (_socket != null) return;
     final hasNonBlocking = nonBlockingNames(tools).isNotEmpty;
@@ -336,6 +348,7 @@ class GeminiLiveSession {
     return true;
   }
 
+  @override
   void sendAudio(Uint8List pcm16k) => _send({
     'realtimeInput': {
       'audio': {
@@ -346,14 +359,17 @@ class GeminiLiveSession {
   });
 
   /// The microphone stopped (push-to-talk released): answer now.
+  @override
   void endAudio() => _send({
     'realtimeInput': {'audioStreamEnd': true},
   });
 
+  @override
   void sendText(String text) => _send({
     'realtimeInput': {'text': text},
   });
 
+  @override
   Future<void> close() async {
     final socket = _socket;
     _socket = null;
