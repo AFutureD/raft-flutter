@@ -66,6 +66,7 @@ class AgentDisplayKind {
     this.lines,
     this.legacy,
     this.words,
+    this.textLines,
   );
 
   /// `message`, `task`… for the entity cards, else the component name.
@@ -83,6 +84,9 @@ class AgentDisplayKind {
 
   /// What each element is, for the model.
   final Map<String, String> words;
+
+  /// Whether the component has a main text `lines` can clamp.
+  final bool textLines;
 
   Set<String> preset(AgentLevel level) => _presets[level]!;
 
@@ -113,6 +117,7 @@ AgentDisplayKind _kind(
   String? detail,
   (int, int, int) lines = (1, 2, 3),
   AgentLevel legacy = AgentLevel.medium,
+  bool textLines = true,
 }) {
   final elements = words.keys.toList();
   Set<String> set(String? s) =>
@@ -134,6 +139,7 @@ AgentDisplayKind _kind(
     lines,
     legacy,
     Map.unmodifiable(words),
+    textLines,
   );
 }
 
@@ -300,18 +306,21 @@ final Map<String, AgentDisplayKind> agentDisplayKinds = Map.unmodifiable({
       {'label': '数字下面的说明', 'handle': '编号 ① ② ③'},
       minimum: 'handle',
       legacy: AgentLevel.detail,
+      textLines: false,
     ),
     _kind(
       'AgentStatusGroup',
       {'title': '组标题', 'count': '个数徽标', 'collapse': '折叠成一行时的展开箭头'},
       minimum: 'title',
       legacy: AgentLevel.detail,
+      textLines: false,
     ),
-    _kind('Section', {
-      'title': '小标题',
-      'count': '个数徽标',
-      'collapse': '折叠成一行时的展开箭头',
-    }, minimum: 'title'),
+    _kind(
+      'Section',
+      {'title': '小标题', 'count': '个数徽标', 'collapse': '折叠成一行时的展开箭头'},
+      minimum: 'title',
+      textLines: false,
+    ),
     _kind(
       'Table',
       {'header': '表头', 'borders': '行间的线', 'zebra': '隔行底色'},
@@ -332,6 +341,7 @@ final Map<String, AgentDisplayKind> agentDisplayKinds = Map.unmodifiable({
       {'title': '文件名', 'line_numbers': '行号', 'more': '“还有 N 行”'},
       minimum: '',
       medium: 'title more',
+      textLines: false,
     ),
     _kind(
       'Callout',
@@ -578,9 +588,10 @@ Map<String, Object?> mergeNodeProps(
 Map<String, Object?> agentDisplaySchema(
   Iterable<String> kinds, {
   bool childDisplay = false,
-  bool lines = true,
   String? note,
 }) {
+  final kindList = kinds.toList();
+  final lines = kindList.any((k) => agentDisplayKinds[k]?.textLines ?? false);
   final words = <String, String>{};
   for (final key in kinds) {
     for (final e
