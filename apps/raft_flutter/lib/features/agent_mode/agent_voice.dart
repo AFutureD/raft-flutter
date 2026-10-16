@@ -23,6 +23,7 @@ class AgentVoiceController extends ChangeNotifier {
     this.audio.onPlaybackIdle = _playbackIdle;
     AgentVoiceSettings.instance.addListener(_settingsChanged);
     unawaited(AgentVoiceSettings.instance.applyOutput());
+    unawaited(AgentVoiceSettings.instance.applyRecordingMode());
   }
 
   static const tapLimit = Duration(milliseconds: 300);

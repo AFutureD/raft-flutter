@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
@@ -118,6 +120,26 @@ class AgentVoiceSettings extends ChangeNotifier {
   bool get writeBack => _read('writeBack') != 'off';
   set writeBack(bool v) => _write('writeBack', v ? 'on' : 'off');
 
+  /// 录屏模式: play the agent's voice as media instead of as a call, so
+  /// Android's screen recorder can capture it (it never records
+  /// voice-communication audio). Off by default; the price is that the
+  /// phone's echo cancellation no longer covers the speaker, so the mic may
+  /// hear the agent when it speaks aloud.
+  bool get recordingMode => _read('recording') == 'on';
+  set recordingMode(bool v) {
+    _write('recording', v ? 'on' : 'off');
+    unawaited(applyRecordingMode());
+  }
+
+  /// Tells the native side how to play the agent's voice.
+  Future<void> applyRecordingMode() async {
+    try {
+      await _output.invokeMethod('setRecordingMode', recordingMode);
+    } catch (_) {
+      /* platforms without native audio */
+    }
+  }
+
   /// Tells the native side where speech goes (a headset always wins).
   Future<void> applyOutput() async {
     try {
@@ -235,6 +257,18 @@ class AgentVoiceSettingsPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
                 '插上耳机时总是从耳机出声。语速和性格从下一句开始生效。',
+                style: t.body(12, color: t.hint),
+              ),
+            ),
+            section('录屏'),
+            SwitchListTile(
+              key: const ValueKey('agent-recording-mode'),
+              value: s.recordingMode,
+              onChanged: (v) => s.recordingMode = v,
+              title: Text('录屏模式', style: t.body(15)),
+              subtitle: Text(
+                '录屏时用，建议按住说话。Agent 的声音改走媒体通道，系统录屏才能录到；'
+                '外放时可能被麦克风收回去形成回声。',
                 style: t.body(12, color: t.hint),
               ),
             ),

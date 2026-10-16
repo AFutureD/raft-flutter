@@ -63,6 +63,13 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
     private var communication = false
     private var speaker = false
 
+    // 录屏模式: speech plays as media (USAGE_MEDIA) and the call mode is not
+    // entered, because Android's screen recorder cannot capture
+    // voice-communication audio. The microphone stays on the
+    // voice-communication source.
+    @Volatile private var recording = false
+    private var modeSet = false
+
     init {
         methods.setMethodCallHandler { call, result ->
             when (call.method) {
@@ -81,9 +88,21 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
                     result.success(null)
                 }
                 "scanCode" -> scanCode(result)
+                "setRecordingMode" -> {
+                    val on = call.arguments == true
+                    if (on != recording) {
+                        recording = on
+                        dropTrack()
+                        if (communication) {
+                            leaveCommunication()
+                            if (capturing) enterCommunication()
+                        }
+                    }
+                    result.success(null)
+                }
                 "setOutput" -> {
                     speaker = call.arguments == "speaker"
-                    if (communication) routeOutput()
+                    if (modeSet) routeOutput()
                     result.success(null)
                 }
                 "release" -> {
@@ -141,6 +160,11 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
     private fun enterCommunication() {
         if (communication) return
         communication = true
+        if (recording) {
+            activity.volumeControlStream = AudioManager.STREAM_MUSIC
+            return
+        }
+        modeSet = true
         audio.mode = AudioManager.MODE_IN_COMMUNICATION
         routeOutput()
         activity.volumeControlStream = AudioManager.STREAM_VOICE_CALL
@@ -165,9 +189,11 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
     private fun leaveCommunication() {
         if (!communication) return
         communication = false
+        activity.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
+        if (!modeSet) return
+        modeSet = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audio.clearCommunicationDevice()
         audio.mode = AudioManager.MODE_NORMAL
-        activity.volumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE
     }
 
     private fun startCapture() {
@@ -232,7 +258,9 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
         val created = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setUsage(
+                        if (recording) AudioAttributes.USAGE_MEDIA else AudioAttributes.USAGE_VOICE_COMMUNICATION,
+                    )
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build(),
             )
@@ -291,6 +319,19 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
         val played = (t.playbackHeadPosition.toLong() and 0xffffffffL) - headBase
         val frames = queuedBytes.get() / 2 + maxOf(0L, writtenFrames - played)
         return frames * 1000 / SPEAKER_RATE
+    }
+
+    // The next speech builds a new track (the usage differs by mode).
+    private fun dropTrack() {
+        playGeneration++
+        playQueue.clear()
+        queuedBytes.set(0)
+        val old = track
+        track = null
+        playThread?.join(500)
+        playThread = null
+        old?.stop()
+        old?.release()
     }
 
     private fun release() {
