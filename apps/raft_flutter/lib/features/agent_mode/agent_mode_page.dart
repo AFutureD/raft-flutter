@@ -14,6 +14,8 @@ import 'agent_audio.dart';
 import 'agent_catalog.dart';
 import 'agent_choreography.dart';
 import 'agent_consent_tray.dart';
+import 'agent_conversation.dart';
+import 'agent_conversation_view.dart';
 import 'agent_detail.dart';
 import 'agent_entity_binding.dart';
 import 'agent_frame_view.dart';
@@ -105,13 +107,24 @@ class _Attention extends _Layer {
   const _Attention() : super('attention');
 }
 
+/// A conversation: a channel, a private conversation or a thread, drawn as
+/// the chat it is. [highlight] is the message the person opened it from.
 class _Channel extends _Layer {
-  _Channel(this.channel) : super('channel:${channel.id}');
+  _Channel(this.channel, {this.thread, this.threadTitle, this.highlight})
+    : super(thread != null ? 'thread:$thread' : 'channel:${channel.id}');
+
+  /// The channel; for a thread, the channel it is in.
   final RaftChannel channel;
+  final String? thread, threadTitle, highlight;
+
+  /// The channel the messages are read from.
+  String get readId => thread ?? channel.id;
 }
 
+/// The open tasks of the workspace, or (with [channel]) of one channel.
 class _Tasks extends _Layer {
-  const _Tasks() : super('tasks');
+  _Tasks({this.channel}) : super(channel == null ? 'tasks' : 'tasks:${channel.id}');
+  final RaftChannel? channel;
 }
 
 /// A screen composed from the catalog: by the model (`show_surface`), or the
@@ -441,6 +454,12 @@ class _AgentModePageState extends State<AgentModePage> {
   Object? _attentionError;
   final _briefs = <String, AgentChannelBrief>{};
   final _briefErrors = <String, Object>{};
+
+  /// What each conversation layer was drawn from (by layer id), and its
+  /// messages as the chat draws them.
+  final _convos = <String, AgentConversationRead>{};
+  final _convoMessages = <String, List<HfMessageData>>{};
+  final _convoErrors = <String, Object>{};
   List<Map<String, dynamic>>? _tasks;
   Object? _tasksError;
 
@@ -898,13 +917,24 @@ class _AgentModePageState extends State<AgentModePage> {
     );
   }
 
+  /// 看完整对话: the whole conversation the item is in (the channel, the
+  /// private conversation or the thread), with the item's message
+  /// highlighted.
   void _openItem(AgentAttentionItem item) {
     final c = _channelById(item.channelId);
     if (c == null) {
       _voice.say(AgentSpeaker.agent, '这条所在的频道不在你的列表里，打不开。');
       return;
     }
-    _openChannel(c).ignore();
+    final thread = item.rowKind == 'thread' ? item.threadChannelId : null;
+    _openChannel(
+      c,
+      thread: thread,
+      threadTitle: thread == null ? null : item.threadTitle,
+      highlight: item.focusMessageId ?? item.messageId,
+      parentMessageId: item.parentMessageId,
+      announce: false,
+    ).ignore();
   }
 
   // ---- the current item ---------------------------------------------------
@@ -992,7 +1022,8 @@ class _AgentModePageState extends State<AgentModePage> {
   /// detail of an item is a stage of its own.
   bool get _stageAllowed {
     final top = _stack.last;
-    return !(top is _Surface && top.item != null);
+    // A conversation is read, not picked from: it has no detail pane.
+    return !(top is _Surface && top.item != null) && top is! _Channel;
   }
 
   /// A phone's stage is open: the current item has its detail under it.
@@ -1198,20 +1229,53 @@ class _AgentModePageState extends State<AgentModePage> {
   Future<AgentChannelBrief?> _openChannel(
     RaftChannel c, {
     bool announce = true,
+    String? thread,
+    String? threadTitle,
+    String? highlight,
+    String? parentMessageId,
   }) async {
-    final layer = _Channel(c);
+    final layer = _Channel(
+      c,
+      thread: thread,
+      threadTitle: threadTitle,
+      highlight: highlight,
+    );
     _push(layer);
     try {
-      final brief = await data.channel(c);
+      final read = await data.conversation(
+        layer.readId,
+        withTasks: thread == null,
+        parentChannelId: thread == null ? null : c.id,
+        parentMessageId: parentMessageId,
+      );
       if (!mounted) return null;
+      final brief = data.briefOf(c, read);
       setState(() {
-        _briefs[c.id] = brief;
-        _briefErrors.remove(c.id);
+        _convos[layer.id] = read;
+        _convoMessages[layer.id] = hfMessagesFrom(
+          read.rows,
+          myUserId: widget.controller.client.user?.id,
+          now: data.now(),
+        );
+        _convoErrors.remove(layer.id);
+        if (thread == null) {
+          _briefs[c.id] = brief;
+          _briefErrors.remove(c.id);
+        }
       });
+      // What the screen shows may be quoted by the model.
+      for (final m in read.rows) {
+        _grounded.facts.learnMessage(
+          '${m['senderName'] ?? m['senderDisplayName'] ?? ''}',
+          '${m['content'] ?? ''}',
+          id: m['id'] is String ? m['id'] as String : null,
+        );
+      }
+      _grounded.facts.learnTaskRows(read.tasks);
       if (announce) _voice.say(AgentSpeaker.agent, _channelSummary(brief));
       return brief;
     } catch (e) {
-      if (mounted) setState(() => _briefErrors[c.id] = e);
+      if (mounted) setState(() => _convoErrors[layer.id] = e);
       rethrow;
     }
   }
@@ -1225,8 +1289,19 @@ class _AgentModePageState extends State<AgentModePage> {
     return '${parts.join('，')}。细节在屏幕上。';
   }
 
-  Future<List<Map<String, dynamic>>?> _showTasks({bool announce = true}) async {
-    _push(const _Tasks());
+  Future<List<Map<String, dynamic>>?> _showTasks({
+    bool announce = true,
+    RaftChannel? channel,
+  }) async {
+    _push(_Tasks(channel: channel));
+    if (channel != null) {
+      // The channel's tasks were read with its conversation.
+      final tasks = _convos['channel:${channel.id}']?.tasks ?? const [];
+      if (announce) {
+        _voice.say(AgentSpeaker.agent, '#${channel.name} 有 ${tasks.length} 个任务。');
+      }
+      return tasks;
+    }
     try {
       final tasks = await data.openTasks();
       if (!mounted) return null;
@@ -1573,13 +1648,47 @@ class _AgentModePageState extends State<AgentModePage> {
           ],
           detail: _detailPart(current, env),
         );
-      case _Channel() || _Tasks():
+      case _Channel():
+        final convo = _conversationOf(layer);
+        final frame = _frame(layer);
+        final table = AgentReferenceTable.fromFrame(layer.id, frame);
+        final parts = HfConversation.partsOf(
+          convo.messages,
+          highlightId: convo.highlightId,
+          hasMoreAbove: convo.hasMoreAbove,
+          now: data.now(),
+        );
+        return make(
+          '频道',
+          AgentConversationView.frameOf(convo).describe(env),
+          [
+            for (final p in parts)
+              AgentScreenPart(
+                p.describe(env),
+                n: p is HfMessagePart ? p.n : null,
+                heading: p is HfSeparatorPart,
+                entity: p is HfMessagePart ? table.byIndex(p.n) : null,
+                facts: [
+                  if (p is HfMessagePart)
+                    '消息 id ${p.message.id}（频道 #${layer.channel.name}，id ${layer.readId}）',
+                ],
+                view: p is HfMessagePart ? views?[p.n] : null,
+              ),
+          ],
+          loading: convo.loading && convo.messages.isEmpty,
+          more: [
+            '这一层是${layer.thread == null ? '' : '讨论串，在'}频道 #${layer.channel.name}（id ${layer.channel.id}）'
+                '${layer.thread == null ? '' : '，讨论串 id ${layer.thread}'}',
+            if (convo.taskCount > 0)
+              '标题旁的“任务 ${convo.taskCount}”点开是这个频道的任务（show_tasks 也可以）',
+          ],
+        );
+      case _Tasks():
         final frame = _frame(layer);
         final table = AgentReferenceTable.fromFrame(layer.id, frame);
         final entries = AgentFrameView.entriesOf(frame);
-        final channel = layer is _Channel ? layer.channel : null;
         return make(
-          layer is _Channel ? '频道' : '任务',
+          '任务',
           AgentFrameView.frameOf(frame).describe(env),
           [
             for (final e in entries)
@@ -1594,9 +1703,6 @@ class _AgentModePageState extends State<AgentModePage> {
           ],
           loading: frame['loading'] == true && entries.isEmpty,
           detail: _detailPart(current, env),
-          more: [
-            if (channel != null) '这一层是频道 #${channel.name}（id ${channel.id}）',
-          ],
         );
     }
   }
@@ -1750,7 +1856,7 @@ class _AgentModePageState extends State<AgentModePage> {
         final c = _channelNamed('${args['name'] ?? ''}');
         if (c == null) return {'error': '没有叫 ${args['name']} 的频道'};
         final top = _stack.last;
-        if (top is! _Channel || top.channel.id != c.id) {
+        if (top is! _Channel || top.thread != null || top.channel.id != c.id) {
           _openChannel(c, announce: false).ignore();
         }
         return _screen();
@@ -1774,6 +1880,16 @@ class _AgentModePageState extends State<AgentModePage> {
         });
       case 'open_item':
         final n = (args['number'] as num?)?.toInt() ?? 0;
+        // On the home, the item's whole conversation.
+        if (_stack.last is _Attention) {
+          final listed = _listed;
+          if (n < 1 || n > listed.length) {
+            return {'error': '屏幕上没有第 $n 条', ..._screen()};
+          }
+          _currentOf[_stack.first.id] = n;
+          _openItem(listed[n - 1]);
+          return _screen();
+        }
         final items = (_frame(_stack.last)['items'] as List? ?? const [])
             .cast<Map<String, Object?>>()
             .where((i) => i['kind'] != 'section')
@@ -1958,7 +2074,10 @@ class _AgentModePageState extends State<AgentModePage> {
 
   RaftChannel? _channelById(String? id) => id == null
       ? null
-      : widget.controller.channels.where((c) => c.id == id).firstOrNull;
+      : [
+          ...widget.controller.channels,
+          ...widget.controller.dms,
+        ].where((c) => c.id == id).firstOrNull;
 
   String _hhmm(Object? iso) {
     final t = iso is String ? DateTime.tryParse(iso)?.toLocal() : null;
@@ -2027,34 +2146,33 @@ class _AgentModePageState extends State<AgentModePage> {
       if (_visible != null)
         'attention': {..._visible!.toJson(), 'staleOpen': _staleOpen},
     },
-    _Channel(:final channel) => () {
-      final b = _briefs[channel.id];
-      final error = _briefErrors[channel.id];
+    _Channel() => () {
+      final convo = _conversationOf(l);
+      // What the voice agent sees and numbers: the messages, as the chat
+      // numbers its bubbles.
       return <String, Object?>{
-        'title': '# ${channel.name}',
-        'meta': b == null ? null : '最近 ${b.windowHours} 小时',
-        'loading': b == null && error == null,
-        'summary': error != null
-            ? '读取失败：$error'
-            : b == null
-            ? null
-            : '要点：${_channelSummary(b)}',
+        ...convo.toFrame(),
         'items': [
-          if (b != null && b.tasks.isNotEmpty) ...[
-            {'kind': 'section', 'text': '进行中的任务'},
-            for (final t in b.tasks.take(4)) _taskItem(t),
-          ],
-          if (b != null && b.messages.isNotEmpty) ...[
-            {'kind': 'section', 'text': '最近的消息'},
-            for (final m in b.messages.reversed.take(8))
+          for (final p in HfConversation.partsOf(
+            convo.messages,
+            highlightId: convo.highlightId,
+            hasMoreAbove: convo.hasMoreAbove,
+            now: data.now(),
+          ))
+            if (p is HfMessagePart)
               {
                 'kind': 'message',
-                'sender': '${m['senderName'] ?? ''}',
-                'time': _hhmm(m['createdAt']),
-                'text': '${m['content'] ?? ''}',
-                'entity': messageRowEntity(m),
+                'sender': p.message.senderName,
+                'time': HfConversation.clock(p.message.time),
+                'text': p.message.text,
+                'channelId': l.channel.id,
+                'entity': agentEntity(
+                  AgentEntityTypes.message,
+                  p.message.id,
+                  p.message.text,
+                  [p.message.senderName],
+                ),
               },
-          ],
         ],
       };
     }(),
@@ -2072,16 +2190,54 @@ class _AgentModePageState extends State<AgentModePage> {
               labelOf: (kind, id) => agentEntityLabel(_entities, kind, id),
             ),
     ),
-    _Tasks() => {
-      'title': '进行中的任务',
-      'loading': _tasks == null && _tasksError == null,
-      'summary': _tasksError == null ? null : '读取失败：$_tasksError',
-      'items': [
-        for (final t in _tasks ?? const <Map<String, dynamic>>[])
-          _taskItem(t, where: true),
-      ],
-    },
+    _Tasks(:final channel) => () {
+      final rows = channel == null
+          ? _tasks
+          : _convos['channel:${channel.id}']?.tasks;
+      return <String, Object?>{
+        'title': channel == null ? '进行中的任务' : '# ${channel.name} 的任务',
+        'loading': rows == null && _tasksError == null,
+        'summary': _tasksError == null ? null : '读取失败：$_tasksError',
+        'items': [
+          for (final t in rows ?? const <Map<String, dynamic>>[])
+            _taskItem(t, where: channel == null),
+        ],
+      };
+    }(),
   };
+
+  /// The title of a conversation: the channel, the private conversation
+  /// ("@Alice") or the thread.
+  String _conversationTitle(_Channel l) {
+    if (l.thread != null) {
+      final t = l.threadTitle;
+      return '讨论 · ${t == null || t.isEmpty ? l.channel.name : t}';
+    }
+    return l.channel.type == 'dm'
+        ? '@${l.channel.peerLabel}'
+        : '# ${l.channel.name}';
+  }
+
+  /// What the conversation layer [l] draws.
+  AgentConversationData _conversationOf(_Channel l) {
+    final read = _convos[l.id];
+    final error = _convoErrors[l.id];
+    final messages = _convoMessages[l.id] ?? const <HfMessageData>[];
+    return AgentConversationData(
+      title: _conversationTitle(l),
+      meta: l.thread == null
+          ? null
+          : '在 ${l.channel.type == 'dm' ? '@${l.channel.peerLabel}' : '#${l.channel.name}'}',
+      messages: messages,
+      highlightId: messages.any((m) => m.id == l.highlight)
+          ? l.highlight
+          : null,
+      hasMoreAbove: read?.hasMore ?? false,
+      taskCount: l.thread == null ? (read?.tasks.length ?? 0) : 0,
+      loading: read == null && error == null,
+      error: error == null ? null : '读取失败：$error',
+    );
+  }
 
   /// What the agent says, for the caption strip on the TV.
   String _caption() {
@@ -2091,8 +2247,9 @@ class _AgentModePageState extends State<AgentModePage> {
 
   String _peek(_Layer l) => switch (l) {
     _Attention() => AgentAttentionView.layerTitle,
-    _Channel(:final channel) => '# ${channel.name}',
-    _Tasks() => '进行中的任务',
+    _Channel() => _conversationTitle(l),
+    _Tasks(:final channel) =>
+      channel == null ? '进行中的任务' : '# ${channel.name} 的任务',
     _Surface(:final spec) => spec.title,
   };
 
@@ -2297,6 +2454,14 @@ class _AgentModePageState extends State<AgentModePage> {
         onTeam: () => setState(() => _teamOpen = !_teamOpen),
         staleOpen: _staleOpen,
         onStale: () => setState(() => _staleOpen = !_staleOpen),
+      );
+    }
+    if (l is _Channel) {
+      return AgentConversationView(
+        data: _conversationOf(l),
+        focusPrefix: l.id,
+        onTasks: () => unawaited(_showTasks(channel: l.channel)),
+        onTapMessage: (n, _) => _tapCurrent(n),
       );
     }
     return AgentFrameView(

@@ -728,6 +728,22 @@ class AgentTaskDetail {
   };
 }
 
+/// The messages and tasks a conversation layer was drawn from.
+class AgentConversationRead {
+  const AgentConversationRead({
+    required this.rows,
+    this.hasMore = false,
+    this.tasks = const [],
+  });
+
+  /// As the wire gives them (unsorted).
+  final List<Map<String, dynamic>> rows;
+
+  /// Older messages exist beyond the page.
+  final bool hasMore;
+  final List<Map<String, dynamic>> tasks;
+}
+
 /// A compact view of one channel for a Z layer.
 class AgentChannelBrief {
   const AgentChannelBrief({
@@ -1557,18 +1573,69 @@ class AgentModeData {
     );
   }
 
-  Future<AgentChannelBrief> channel(
-    RaftChannel c, {
-    int windowHours = 6,
+  /// What a conversation layer shows: the newest messages of a channel, a
+  /// private conversation or a thread (all of them, system messages too, as
+  /// the wire gives them) and, for a channel, its tasks. The tasks are not
+  /// the first thing on that screen; they only make the count of a chip.
+  /// A thread also brings the message it hangs under ([parentMessageId], read
+  /// in [parentChannelId]) when the newest page does not hold it.
+  Future<AgentConversationRead> conversation(
+    String id, {
+    int limit = 50,
+    bool withTasks = true,
+    String? parentChannelId,
+    String? parentMessageId,
   }) async {
+    Future<List<Map<String, dynamic>>> lane(String status) => _tasks(
+      status,
+      channelId: id,
+    ).then((v) => v, onError: (Object _) => <Map<String, dynamic>>[]);
     final results = await Future.wait([
-      w.client.messagePage(c.id, limit: 30),
-      _tasks('in_review', channelId: c.id),
-      _tasks('in_progress', channelId: c.id),
+      w.client.messagePage(id, limit: limit),
+      if (withTasks) lane('in_review'),
+      if (withTasks) lane('in_progress'),
     ]);
     final page = results[0] as Map<String, dynamic>;
+    final rows = _rows(page, 'messages');
+    if (parentMessageId != null &&
+        !rows.any((m) => m['id'] == parentMessageId)) {
+      try {
+        final body = await w
+            .query(
+              '/messages/context/${Uri.encodeComponent(parentMessageId)}',
+              query: {'channelId': ?parentChannelId},
+            )
+            .timeout(const Duration(seconds: 4));
+        final parent = _rows(
+          body,
+          'messages',
+        ).where((m) => m['id'] == parentMessageId).firstOrNull;
+        if (parent != null) rows.add(parent);
+      } on Object {
+        // The thread is shown without its first message.
+      }
+    }
+    return AgentConversationRead(
+      rows: rows,
+      hasMore: page['hasMore'] == true,
+      tasks: withTasks
+          ? [
+              ...results[1] as List<Map<String, dynamic>>,
+              ...results[2] as List<Map<String, dynamic>>,
+            ]
+          : const [],
+    );
+  }
+
+  /// The channel's brief (what the voice model reads about it) from what a
+  /// conversation read returned.
+  AgentChannelBrief briefOf(
+    RaftChannel c,
+    AgentConversationRead read, {
+    int windowHours = 6,
+  }) {
     final since = _now().subtract(Duration(hours: windowHours));
-    final messages = _rows(page, 'messages')
+    final messages = [...read.rows]
       ..sort((a, b) {
         final sa = BigInt.tryParse('${a['seq']}') ?? BigInt.zero;
         final sb = BigInt.tryParse('${b['seq']}') ?? BigInt.zero;
@@ -1583,13 +1650,19 @@ class AgentModeData {
       messages: recent.isEmpty
           ? messages.sublist(messages.length > 5 ? messages.length - 5 : 0)
           : recent,
-      tasks: [
-        ...results[1] as List<Map<String, dynamic>>,
-        ...results[2] as List<Map<String, dynamic>>,
-      ],
+      tasks: read.tasks,
       windowHours: windowHours,
     );
   }
+
+  Future<AgentChannelBrief> channel(
+    RaftChannel c, {
+    int windowHours = 6,
+  }) async => briefOf(
+    c,
+    await conversation(c.id, limit: 30),
+    windowHours: windowHours,
+  );
 
   Future<List<Map<String, dynamic>>> openTasks() async {
     final results = await Future.wait([

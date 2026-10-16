@@ -8,6 +8,7 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'agent_attention.dart';
+import 'agent_conversation_view.dart';
 import 'agent_catalog.dart';
 import 'agent_frame_view.dart';
 import 'agent_mode_data.dart';
@@ -309,8 +310,11 @@ class AgentTvScreen extends StatelessWidget {
                 const [])
           if (i is Map && i['kind'] != 'section') i.cast<String, Object?>(),
       ];
+      final convo = AgentConversationData.fromFrame(layer);
       view = spec is Map
           ? _TvSurface(layer: layer)
+          : convo != null
+          ? AgentConversationView(data: convo, focusPrefix: id)
           : AgentFrameView(frame: layer, focusPrefix: id, focused: focused);
       if (n != null && n >= 1 && n <= items.length) {
         stage = AgentFrameStage(item: items[n - 1], number: n);

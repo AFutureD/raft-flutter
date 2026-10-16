@@ -624,7 +624,8 @@ void main() {
         'activity:channel:ch-x',
         'new1',
       ]);
-      expect([for (final i in got.stale) i.taskId], ['old1', 'old2']);
+      // The least stale first: what was touched last may still be alive.
+      expect([for (final i in got.stale) i.taskId], ['old2', 'old1']);
       expect(got.stale.every((i) => i.kind == AgentItemKind.stale), isTrue);
       expect(got.stale.first.idle, isTrue);
       expect(got.stale.first.waitUnit, '天');
