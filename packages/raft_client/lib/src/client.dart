@@ -87,6 +87,7 @@ class RaftApiException implements Exception {
 Map<String, dynamic> _errorDetails(Map? body) {
   const keys = {
     'code',
+    'retryable',
     'conversionJob',
     'conversionCommand',
     'uploadScope',
@@ -249,6 +250,16 @@ class RaftClient {
   /// 429 answers a request waits out (honouring `Retry-After`) before the
   /// caller sees the error.
   static const rateLimitRetries = 2;
+
+  /// Reads served from RisingWave that Web retries once when the server
+  /// answers 503 `rw_overloaded` (Web `getWithRwOverloadRetry`).
+  static const rwOverloadRetriedPaths = {
+    '/channels/unread',
+    '/channels/inbox',
+    '/servers/unread-summary',
+  };
+  static const rwOverloadDefaultRetryAfter = Duration(seconds: 2);
+  static const rwOverloadMaxRetryAfter = Duration(seconds: 10);
   final Map<String, ({Future<dynamic> flight, DateTime at})> _singleFlight = {};
 
   /// A read already in flight is joined only while it is this young: one that
@@ -1058,6 +1069,7 @@ class RaftClient {
     // decides to retry; the session check has its own recovery timer, which
     // honours Retry-After); nothing else waits behind a closed account bucket.
     final waits = authorized && !path.startsWith('/auth/');
+    var overloadRetried = false;
     for (var attempt = 0; ; attempt++) {
       try {
         if (limits.isNotEmpty) {
@@ -1096,6 +1108,24 @@ class RaftClient {
         );
       } on RaftApiException catch (e) {
         final wait = e.retryAfter;
+        if (!overloadRetried &&
+            e.status == 503 &&
+            wait != null &&
+            method == 'GET' &&
+            rwOverloadRetriedPaths.contains(path) &&
+            cancellation?.cancelled != true) {
+          // Web getWithRwOverloadRetry: these reads come from RisingWave. A
+          // first load after a saturated pool has nothing to keep, so retry
+          // once after the server's hint; more would add load while it is behind.
+          overloadRetried = true;
+          await _sleep(wait);
+          if (_closed ||
+              authentication != _authenticationGeneration ||
+              workspace != (workspaceScoped ? _generation : 0)) {
+            throw const RaftApiException.staleScope();
+          }
+          continue;
+        }
         if (e.status != 429 ||
             !waits ||
             wait == null ||
@@ -1275,6 +1305,19 @@ class RaftClient {
           ServerRateLimits.forRequest(method, path),
           e.response?.headers,
         );
+        if (status == 503 &&
+            body is Map &&
+            body['code'] == 'rw_overloaded' &&
+            body['retryable'] == true) {
+          // Web overloadRetry.rwOverloadRetryDelayMs: the server's hint, 2 s
+          // when it sent none, never more than 10 s.
+          final hint = retryAfterOf(e.response?.headers, governor.now());
+          retryAfter = hint == null
+              ? rwOverloadDefaultRetryAfter
+              : hint > rwOverloadMaxRetryAfter
+              ? rwOverloadMaxRetryAfter
+              : hint;
+        }
       }
       throw RaftApiException.response(
         body is Map
