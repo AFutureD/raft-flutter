@@ -25,6 +25,7 @@ import 'agent_tools.dart';
 import 'agent_tv.dart';
 import 'agent_voice.dart';
 import 'agent_voice_settings.dart';
+import 'gemini_live.dart' show agentToolTimeout;
 
 /// Opens agent mode above the workspace. A [PageRouteBuilder] (not a
 /// MaterialPageRoute) so a layout change adapts the page instead of closing it.
@@ -215,8 +216,8 @@ class _AgentModePageState extends State<AgentModePage> {
           : _localBusy
           ? AgentMoodPhase.thinking
           : switch (mic) {
-              AgentMicState.holding || AgentMicState.live =>
-                AgentMoodPhase.listening,
+              AgentMicState.holding ||
+              AgentMicState.live => AgentMoodPhase.listening,
               AgentMicState.connecting ||
               AgentMicState.thinking => AgentMoodPhase.thinking,
               AgentMicState.speaking => AgentMoodPhase.speaking,
@@ -796,17 +797,27 @@ class _AgentModePageState extends State<AgentModePage> {
   ) async {
     if (!mounted) return {'error': 'closed'};
     final reading = _readTools.contains(name);
+    // The model is answered with an error after agentToolTimeout; the read
+    // must stop counting then too, or the mood badge stays on "reading".
+    var settled = !reading;
+    void settle() {
+      if (settled) return;
+      settled = true;
+      _reads--;
+      if (mounted) _syncMood();
+    }
+
+    Timer? guard;
     if (reading) {
       _reads++;
       _syncMood();
+      guard = Timer(agentToolTimeout, settle);
     }
     try {
       return await _dispatchTool(name, args);
     } finally {
-      if (reading) {
-        _reads--;
-        if (mounted) _syncMood();
-      }
+      guard?.cancel();
+      settle();
     }
   }
 
@@ -1054,10 +1065,7 @@ class _AgentModePageState extends State<AgentModePage> {
           },
       ],
       if (_visible != null)
-        'tv': {
-          ..._visible!.tvFrame(caption: _caption()),
-          'mood': _mood.emoji,
-        },
+        'tv': {..._visible!.tvFrame(caption: _caption()), 'mood': _mood.emoji},
     },
     _Channel(:final channel) => () {
       final b = _briefs[channel.id];

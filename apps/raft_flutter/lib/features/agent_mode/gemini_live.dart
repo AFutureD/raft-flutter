@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 
 /// A tool the model may call: [declaration] is a Gemini FunctionDeclaration.
 typedef AgentToolHandler = Future<Map<String, Object?>> Function(
@@ -279,6 +280,8 @@ class GeminiLiveSession {
     }
     final calls = message['toolCall']?['functionCalls'] as List?;
     if (calls != null) unawaited(_answer(calls));
+    final cancelled = message['toolCallCancellation']?['ids'];
+    if (cancelled is List) _responder.cancel(cancelled);
     final update = message['sessionResumptionUpdate'];
     if (update is Map && update['resumable'] == true) {
       _resumeHandle = update['newHandle'] as String?;
@@ -286,64 +289,19 @@ class GeminiLiveSession {
     if (message.containsKey('goAway')) unawaited(_reconnect());
   }
 
-  /// Answers the calls of one message. Functions run in the order they
-  /// came (a screen is built by calls that depend on each other); a
-  /// non-blocking one is answered at once, while a read answers when it is
-  /// done and never holds the screen operations behind it.
-  Future<void> _answer(List<dynamic> calls) async {
-    final quiet = _declaredNonBlocking ? nonBlockingNames(tools) : <String>{};
-    final slow = <Future<void>>[];
-    for (final call in calls.cast<Map<String, dynamic>>()) {
-      final name = '${call['name']}';
-      final run = _run(call, name, quiet.contains(name));
-      if (quiet.contains(name) || _ui.contains(name)) {
-        await run;
-      } else {
-        slow.add(run);
-      }
-    }
-    await Future.wait(slow);
-  }
+  /// Answers the calls of one message (see [AgentToolResponder]).
+  Future<void> _answer(List<dynamic> calls) => _responder.answer(calls);
 
-  /// Screen operations answered immediately even when the model rejected
-  /// non-blocking functions (blocking, but never kept waiting by a read).
-  static const _ui = {
-    'begin_surface',
-    'add_component',
-    'update_component',
-    'end_surface',
-    'spotlight',
-    'release_spotlight',
-    'mark',
-    'set_mood',
-  };
-
-  Future<void> _run(
-    Map<String, dynamic> call,
-    String name,
-    bool nonBlocking,
-  ) async {
-    Map<String, Object?> result;
-    try {
-      result = await onToolCall(
-        name,
-        (call['args'] as Map?)?.cast<String, Object?>() ?? const {},
-      );
-    } catch (e) {
-      result = {'error': '$e'};
-    }
-    _send({
+  late final _responder = AgentToolResponder(
+    handler: onToolCall,
+    quietNames: () =>
+        _declaredNonBlocking ? nonBlockingNames(tools) : const <String>{},
+    send: (response) => _send({
       'toolResponse': {
-        'functionResponses': [
-          {
-            'id': call['id'],
-            'name': name,
-            'response': nonBlocking ? quietResponse(result) : result,
-          },
-        ],
+        'functionResponses': [response],
       },
-    });
-  }
+    }),
+  );
 
   Future<void> _reconnect() async {
     final old = _socket;
@@ -352,7 +310,13 @@ class GeminiLiveSession {
     await connect();
   }
 
-  void _send(Map<String, Object?> message) => _socket?.add(jsonEncode(message));
+  /// False when there was no open socket (the message is lost).
+  bool _send(Map<String, Object?> message) {
+    final socket = _socket;
+    if (socket == null) return false;
+    socket.add(jsonEncode(message));
+    return true;
+  }
 
   void sendAudio(Uint8List pcm16k) => _send({
     'realtimeInput': {
@@ -384,4 +348,125 @@ class GeminiLiveException implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+/// How long a tool may run before the model gets an error instead.
+const agentToolTimeout = Duration(seconds: 8);
+
+void _toolLog(String message) {
+  if (!kReleaseMode) debugPrint('agent-tool $message');
+}
+
+/// Answers the function calls of a Live session: every call id gets exactly
+/// one response, in blocking and non-blocking mode alike. A handler that
+/// throws or runs longer than [timeout] is answered with a structured error
+/// (a model whose call is never answered just keeps saying it is waiting).
+///
+/// Functions run in the order they came (a screen is built by calls that
+/// depend on each other); a non-blocking one is answered at once, while a
+/// read answers when it is done and never holds the screen operations
+/// behind it.
+class AgentToolResponder {
+  AgentToolResponder({
+    required this.handler,
+    required this.send,
+    Set<String> Function()? quietNames,
+    this.timeout = agentToolTimeout,
+    void Function(String message)? log,
+  }) : quietNames = quietNames ?? (() => const <String>{}),
+       log = log ?? _toolLog;
+
+  final AgentToolHandler handler;
+
+  /// Sends one `functionResponses` entry; false when it could not be sent.
+  final bool Function(Map<String, Object?> response) send;
+
+  /// The functions declared non-blocking in this session.
+  final Set<String> Function() quietNames;
+  final Duration timeout;
+  final void Function(String message) log;
+
+  final _seen = <String>{};
+  final _cancelled = <String>{};
+
+  /// Screen operations answered immediately even when the model rejected
+  /// non-blocking functions (blocking, but never kept waiting by a read).
+  static const _ui = {
+    'begin_surface',
+    'add_component',
+    'update_component',
+    'end_surface',
+    'spotlight',
+    'release_spotlight',
+    'mark',
+    'set_mood',
+  };
+
+  Future<void> answer(List<dynamic> calls) async {
+    final quiet = quietNames();
+    final slow = <Future<void>>[];
+    for (final call in calls.cast<Map<String, dynamic>>()) {
+      final name = '${call['name']}';
+      final id = call['id'];
+      if (id != null && !_seen.add('$id')) {
+        log('duplicate call $name id=$id ignored');
+        continue;
+      }
+      final run = _run(call, name, quiet.contains(name));
+      if (quiet.contains(name) || _ui.contains(name)) {
+        await run;
+      } else {
+        slow.add(run);
+      }
+    }
+    await Future.wait(slow);
+  }
+
+  /// The server cancelled these calls: they need no response.
+  void cancel(List<dynamic> ids) {
+    for (final id in ids) {
+      log('call id=$id cancelled by the server');
+      _cancelled.add('$id');
+    }
+  }
+
+  Future<void> _run(
+    Map<String, dynamic> call,
+    String name,
+    bool nonBlocking,
+  ) async {
+    final id = call['id'];
+    final watch = Stopwatch()..start();
+    log('call $name id=$id ${nonBlocking ? 'non-blocking' : 'blocking'}');
+    Map<String, Object?> result;
+    try {
+      result = await handler(
+        name,
+        (call['args'] as Map?)?.cast<String, Object?>() ?? const {},
+      ).timeout(timeout);
+    } on TimeoutException {
+      result = {
+        'error':
+            '$name 超过 ${timeout.inSeconds} 秒没有返回：现在读不到，'
+            '请如实告诉用户稍后再试，不要重复调用。',
+      };
+    } catch (e) {
+      result = {'error': '$e'};
+    }
+    if (id != null && _cancelled.remove('$id')) {
+      log('response id=$id dropped (cancelled)');
+      return;
+    }
+    final delivered = send({
+      'id': id,
+      'name': name,
+      'response': nonBlocking
+          ? GeminiLiveSession.quietResponse(result)
+          : result,
+    });
+    log(
+      'response $name id=$id ${result['error'] == null ? 'ok' : 'error'} '
+      '${watch.elapsedMilliseconds}ms${delivered ? '' : ' NOT SENT (no socket)'}',
+    );
+  }
 }
