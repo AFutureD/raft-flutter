@@ -3,7 +3,11 @@ import 'package:raft_agent_ui/raft_agent_ui.dart' show AgentPriority;
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart';
+import 'package:raft_flutter/features/agent_mode/agent_surface_tools.dart';
+import 'package:raft_flutter/features/agent_mode/agent_voice.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_snooze.dart';
+import 'package:raft_flutter/features/agent_mode/references/agent_reference_table.dart';
+import 'package:raft_flutter/features/agent_mode/runtime/agent_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/agent_action_harness.dart';
@@ -299,6 +303,33 @@ void main() {
     });
   });
 
+  test('the runtime tells the model when something comes back', () async {
+    final told = <String>[];
+    final rt = AgentRuntime(
+      workspace: h.w,
+      data: AgentModeData(h.w, now: () => worldNow),
+      surfaces: AgentSurfaceHost(
+        begin: (_) => const {},
+        changed: (draft, {added}) => const {},
+        isOpen: (_) => false,
+      ),
+      references: () => AgentReferenceTable.empty,
+      modelLink: _Link(told),
+    );
+    addTearDown(rt.dispose);
+    // The app's own store, on the real clock, with a timer while the runtime lives.
+    final live = AgentSnoozeStore.of(h.w);
+    live.snooze(
+      item('t-98', number: 98),
+      DateTime.now().add(const Duration(milliseconds: 150)),
+    );
+    expect(AgentModeData.hidden(h.w), contains('t-98'));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    expect(AgentModeData.hidden(h.w), isNot(contains('t-98')));
+    expect(told.single, contains('#98'));
+    expect(told.single, contains('稍后'));
+  });
+
   test('registry: local capabilities, change risk, previewed', () {
     for (final id in ['attention.snooze', 'attention.unsnooze']) {
       final c = h.tools.registry[id]!;
@@ -308,4 +339,17 @@ void main() {
     }
     expect(h.tools.registry['attention.snoozed']!.isQuery, isTrue);
   });
+}
+
+class _Link implements AgentModelLink {
+  _Link(this.told);
+  final List<String> told;
+  @override
+  Future<bool> tell(String note) async {
+    told.add(note);
+    return true;
+  }
+
+  @override
+  void stopSpeaking() {}
 }

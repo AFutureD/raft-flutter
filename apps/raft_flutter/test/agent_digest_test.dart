@@ -1,6 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
+import 'package:raft_flutter/features/agent_mode/agent_surface_tools.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart';
+import 'package:raft_flutter/features/agent_mode/references/agent_reference_table.dart';
+import 'package:raft_flutter/features/agent_mode/runtime/agent_runtime.dart';
 
 import 'support/agent_action_harness.dart';
 import 'support/agent_capability_world.dart';
@@ -253,6 +257,32 @@ void main() {
       expect(undone['status'], 'undone', reason: '$undone');
       expect(h.w.switched, ['s3', 's1']);
       expect(told, 2);
+    });
+
+    test('the runtime tells the page so it can reload for the new workspace', () async {
+      var reloaded = 0;
+      final rt = AgentRuntime(
+        workspace: h.w,
+        data: AgentModeData(h.w, now: () => worldNow),
+        surfaces: AgentSurfaceHost(
+          begin: (_) => const {},
+          changed: (draft, {added}) => const {},
+          isOpen: (_) => false,
+        ),
+        references: () => AgentReferenceTable.empty,
+        onServerSwitched: () => reloaded++,
+      );
+      addTearDown(rt.dispose);
+      final r = await rt.runTool('act', {
+        'capability': 'servers.switch',
+        'args': {'server': 'labs'},
+      });
+      expect(r['status'], 'needs_confirmation', reason: '$r');
+      expect(rt.consent.cardTapped(rt.consent.active.last.cardId, yes: true), isTrue);
+      final done = await rt.runTool('confirm', {'token': r['confirmToken']});
+      expect(done['status'], 'done', reason: '$done');
+      expect(reloaded, 1);
+      expect(h.w.server?.id, 's3');
     });
 
     test('by name, an exact name beats a longer one', () async {

@@ -57,7 +57,7 @@ const capabilityToolDeclarations = <Map<String, Object?>>[
     'name': 'act',
     'description':
         '申请一项“操作”能力（发消息、改任务等常用操作有各自的专用工具，优先用它们；这里是其余操作的通用入口）。不会马上执行：先返回“将要发生什么”的预览和 confirmToken，屏幕上会自动出现带预览的确认卡；'
-        '把预览用一句话告诉用户，等他自己点“确认”或亲口说确认，再用 confirm 执行。敏感操作只认点确认卡，要确认两次。永远不能语音执行的操作只会返回要打开的页面。',
+        '把预览用一句话告诉用户，等他自己点“确认”或亲口说确认，再用 confirm 执行。敏感操作只认点确认卡，要确认两次。永远不能语音执行的操作（删除、改角色、计费、设置……）没有预览：App 直接把对应页面打开并返回 status=open_page、opened=true，你只用一句话说“已带你去那个页面，自己操作”。',
     'parameters': {
       'type': 'object',
       'properties': {

@@ -11,6 +11,7 @@ import 'package:raft_flutter/features/agent_mode/agent_attention.dart';
 import 'package:raft_flutter/features/agent_mode/agent_catalog.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
+import 'package:raft_flutter/features/agent_mode/capabilities/agent_snooze.dart';
 import 'package:raft_flutter/features/agent_mode/agent_scripted_model.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/agent_tv.dart';
@@ -702,6 +703,11 @@ void main() {
       expect(find.byKey(const ValueKey('attention-card-t1')), findsNothing);
       expect(countOf('decision', '2'), findsOneWidget);
       expect(client.posts.where((p) => p.startsWith('PATCH')), isEmpty);
+      // It is kept (on the device) until it is due, not just hidden: a
+      // question can ask for it, and it comes back by itself.
+      final kept = AgentSnoozeStore.of(w).active.single;
+      expect(kept.id, 't1');
+      expect(kept.until.isAfter(DateTime.now().add(const Duration(hours: 2))), isTrue);
 
       // Opening agent mode again keeps it hidden.
       await t.pumpWidget(const SizedBox());
