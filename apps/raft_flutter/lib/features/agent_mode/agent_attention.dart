@@ -7,6 +7,9 @@ import 'agent_mode_data.dart';
 /// Screen width from which the attention layer becomes master-detail.
 const agentWideBreakpoint = 900.0;
 
+/// Cards on the phone's first screen: read from a distance, so few.
+const agentPhoneBatch = 3;
+
 AgentCardData agentCardFor(AgentAttentionItem i, int rank) => AgentCardData(
   id: i.id,
   rank: rank,
@@ -21,7 +24,9 @@ AgentCardData agentCardFor(AgentAttentionItem i, int rank) => AgentCardData(
   approve: i.canApprove,
   channel: i.channelName,
   thread: i.threadTitle,
-  threadKind: i.taskNumber != null || i.threadTitle != null ? i.threadKind : null,
+  threadKind: i.taskNumber != null || i.threadTitle != null
+      ? i.threadKind
+      : null,
   waiting: i.waitingText.isEmpty ? null : i.waitingText,
   progress: [
     for (final p in i.progress)
@@ -29,9 +34,11 @@ AgentCardData agentCardFor(AgentAttentionItem i, int rank) => AgentCardData(
   ],
 );
 
-/// The first layer: what needs the person now, as final cards. Phone: one
-/// scrolling list of cards. Wide: list on the left, the selected item with
-/// its last progress lines and actions on the right.
+/// The first layer: what needs the person now. Phone: one scrolling list of
+/// short cards (a sentence and where/how long); a tap, or asking by voice,
+/// opens the detail with the progress and the actions. Wide: list on the
+/// left, the selected item with its last progress lines and actions on the
+/// right.
 class AgentAttentionView extends StatefulWidget {
   const AgentAttentionView({
     super.key,
@@ -41,6 +48,9 @@ class AgentAttentionView extends StatefulWidget {
     required this.onApprove,
     required this.onOpen,
     required this.onLater,
+    required this.onExpand,
+    this.batchStart = 0,
+    this.onBatch,
     this.error,
   });
 
@@ -50,6 +60,16 @@ class AgentAttentionView extends StatefulWidget {
   final bool wide;
   final String focusPrefix;
   final void Function(AgentAttentionItem item) onApprove, onOpen, onLater;
+
+  /// Phone: a card was tapped. Opens the detail layer (the same call the
+  /// voice tool `expand_item` makes).
+  final void Function(AgentAttentionItem item) onExpand;
+
+  /// Phone: the first card on screen, counted over the cards (decisions and
+  /// blocked). [agentPhoneBatch] cards show at a time; [onBatch] asks for
+  /// the next ones (the "还有 N 件" row; voice says "下一批").
+  final int batchStart;
+  final void Function(int start)? onBatch;
 
   @override
   State<AgentAttentionView> createState() => _AgentAttentionViewState();
@@ -112,7 +132,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     return KeyEventResult.handled;
   }
 
-  Widget _summary(AgentAttention a) {
+  Widget _summary(AgentAttention a, {required bool compact}) {
     if (a.isEmpty) {
       final t = RaftAgentTheme.of(context);
       return Padding(
@@ -120,51 +140,99 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('现在没有需要你处理的事', style: t.body(16.5, weight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(AgentAttention.scopeNote, style: t.body(11.5, color: t.muted)),
+            Text(
+              '现在没有需要你处理的事',
+              style: t.body(compact ? 22 : 16.5, weight: FontWeight.w800),
+            ),
+            if (!compact) ...[
+              const SizedBox(height: 6),
+              Text(
+                AgentAttention.scopeNote,
+                style: t.body(11.5, color: t.muted),
+              ),
+            ],
           ],
         ),
       );
     }
     String? n(int v) => v == 0 ? null : '$v${a.capped ? '+' : ''}';
+    // The phone says what needs a decision and the most urgent sentence;
+    // mentions get one row at the end, the scope stays out of the way.
     return AgentAttentionSummary(
       decision: n(a.decisionCount),
       blocked: n(a.blockedCount),
-      mention: a.mentionCount == 0 ? null : '${a.mentionCount}',
+      mention: compact || a.mentionCount == 0 ? null : '${a.mentionCount}',
       urgent: a.urgent,
-      scope: AgentAttention.scopeNote,
+      scope: compact ? null : AgentAttention.scopeNote,
+      large: compact,
     );
   }
 
-  List<Widget> _sections(AgentAttention a, {required bool wide}) {
-    final current = wide ? _current : null;
+  /// Phone: at most [agentPhoneBatch] cards, the first one larger, then one
+  /// row for the rest and one for the mentions.
+  List<Widget> _phone(AgentAttention a) {
+    final cards = [...a.decisions, ...a.blocked];
+    final start = widget.batchStart >= cards.length ? 0 : widget.batchStart;
+    final end = (start + agentPhoneBatch).clamp(0, cards.length);
+    final after = cards.length - end;
+    return [
+      for (var n = start; n < end; n++)
+        AgentFocusable(
+          id: '${widget.focusPrefix}#${n + 1}',
+          child: AgentAttentionCard(
+            data: agentCardFor(cards[n], n + 1),
+            lead: n == 0,
+            onTap: () => widget.onExpand(cards[n]),
+          ),
+        ),
+      if (cards.length > agentPhoneBatch)
+        AgentMoreRow(
+          key: const ValueKey('attention-more'),
+          text: after > 0 ? '还有 $after 件，说“下一批”看看' : '已经是最后一批，说“下一批”回到最前',
+          onTap: widget.onBatch == null
+              ? null
+              : () => widget.onBatch!(after > 0 ? end : 0),
+        ),
+      if (a.mentions.isNotEmpty)
+        AgentMentionRow(
+          count: '${a.mentionCount}',
+          onTap: () => widget.onExpand(a.mentions.first),
+        ),
+      if (a.teamCount > 0)
+        AgentTeamRow(
+          compact: true,
+          count: a.teamLabel,
+          expanded: _teamOpen,
+          onTap: () => setState(() => _teamOpen = !_teamOpen),
+          children: [
+            for (final t in a.team)
+              AgentTeamLine(
+                compact: true,
+                text: t.headline,
+                channel: t.channelName,
+              ),
+            const SizedBox(height: 4),
+          ],
+        ),
+    ];
+  }
+
+  List<Widget> _sections(AgentAttention a) {
+    final current = _current;
     var rank = 0;
     Widget card(AgentAttentionItem i) {
       final n = ++rank;
       final data = agentCardFor(i, n);
-      final focus = '${widget.focusPrefix}#$n';
-      if (wide) {
-        return AgentFocusable(
-          id: focus,
-          child: KeyedSubtree(
-            key: _rowKeys.putIfAbsent(i.id, GlobalKey.new),
-            child: AgentAttentionRow(
-              key: ValueKey('attention-row-${i.id}'),
-              data: data,
-              selected: identical(i, current) || i.id == current?.id,
-              onTap: () => _select(n - 1),
-            ),
-          ),
-        );
-      }
       return AgentFocusable(
-        id: focus,
-        child: AgentAttentionCard(
-          data: data,
-          onApprove: () => widget.onApprove(i),
-          onOpen: () => widget.onOpen(i),
-          onLater: () => widget.onLater(i),
+        id: '${widget.focusPrefix}#$n',
+        child: KeyedSubtree(
+          key: _rowKeys.putIfAbsent(i.id, GlobalKey.new),
+          child: AgentAttentionRow(
+            key: ValueKey('attention-row-${i.id}'),
+            data: data,
+            selected: identical(i, current) || i.id == current?.id,
+            onTap: () => _select(n - 1),
+          ),
         ),
       );
     }
@@ -214,8 +282,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     if (!widget.wide) {
       return AgentLayerFrame(
         title: _title,
-        meta: '按紧急程度',
-        children: [_summary(a), ..._sections(a, wide: false)],
+        children: [_summary(a, compact: true), ..._phone(a)],
       );
     }
     final t = RaftAgentTheme.of(context);
@@ -254,8 +321,8 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
                         ],
                       ),
                     ),
-                    _summary(a),
-                    ..._sections(a, wide: true),
+                    _summary(a, compact: false),
+                    ..._sections(a),
                   ],
                 ),
               ),

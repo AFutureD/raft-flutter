@@ -259,7 +259,15 @@ class _BrainPicker extends StatefulWidget {
 }
 
 class _BrainPickerState extends State<_BrainPicker> {
-  late final _agents = widget.load();
+  // An agent that was archived since it was chosen is not offered any more:
+  // the choice falls back to 独立记忆 instead of pointing at it.
+  late final _agents = widget.load().then((list) {
+    final current = widget.settings.brain?.id;
+    if (current != null && !list.any((a) => a.id == current)) {
+      widget.settings.brain = null;
+    }
+    return list;
+  });
 
   @override
   Widget build(BuildContext context) {

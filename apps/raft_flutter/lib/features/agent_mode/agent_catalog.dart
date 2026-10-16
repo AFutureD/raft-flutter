@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
+import 'agent_attention.dart' show agentWideBreakpoint;
 import 'agent_surface.dart';
 
 /// Names of the standard components, for code that composes surfaces.
@@ -12,6 +13,9 @@ abstract final class AgentComponents {
   static const statRow = 'StatRow';
   static const column = 'Column';
   static const section = 'Section';
+
+  /// 通过 / 打开讨论 / 稍后: only the app puts this on a detail layer.
+  static const actionRow = 'ActionRow';
 }
 
 AgentWorkState _state(String? name) => AgentWorkState.values.firstWhere(
@@ -27,6 +31,10 @@ Map<String, Object?> _string(String doc, [int max = 120]) => {
   'description': doc,
   'maxLength': max,
 };
+
+/// The quote line a task card shows: `who · time  text`.
+String _clip(String text, int max) =>
+    text.length <= max ? text : '${text.substring(0, max)}…';
 
 /// The quote line a task card shows: `who · time  text`.
 String formatQuote(Map<String, Object?> q) {
@@ -64,6 +72,12 @@ AgentCatalog _standard() => AgentCatalog([
       'since': '12 分钟前有进展',
       'channel': 'raft-flutter',
     },
+    line: (n) {
+      final activity = n.string('activity') ?? '';
+      final skip =
+          activity.isEmpty || agentWorkStateLabels.values.contains(activity);
+      return '${n.string('name') ?? ''}${skip ? '' : ' $activity'}';
+    },
     build: (context, n, _) => AgentStatusCardView(
       name: n.string('name') ?? '',
       state: _state(n.string('state')),
@@ -76,11 +90,13 @@ AgentCatalog _standard() => AgentCatalog([
     name: AgentComponents.statusGroup,
     description: '同一种状态的一组 Agent，带标题和个数',
     container: true,
+    fold: true,
     childNames: {AgentComponents.statusCard},
     schema: {
       'type': 'object',
       'properties': {
         'title': _string('组标题，如“在忙”“卡住了”', 40),
+        'density': agentDensityField,
         'state': {
           'type': 'string',
           'enum': _states,
@@ -142,6 +158,10 @@ AgentCatalog _standard() => AgentCatalog([
       'quote': {'who': 'Grok', 'time': '10:32', 'text': '已修复并补了测试'},
       'ask': '验收这个任务',
     },
+    line: (n) => [
+      if (n.integer('number') != null) '#${n.integer('number')}',
+      n.string('title') ?? '',
+    ].join(' '),
     build: (context, n, _) {
       final q = n.object('quote');
       return AgentTaskCardView(
@@ -174,6 +194,8 @@ AgentCatalog _standard() => AgentCatalog([
       'time': '昨天 18:20',
       'text': 'PR 已合入，全量检查 0 失败。',
     },
+    line: (n) =>
+        '${n.string('author') ?? ''}：${_clip(n.string('text') ?? '', 24)}',
     build: (context, n, _) => AgentMessageQuoteView(
       author: n.string('author') ?? '',
       text: n.string('text') ?? '',
@@ -210,6 +232,10 @@ AgentCatalog _standard() => AgentCatalog([
         {'label': '卡住', 'value': '1'},
       ],
     },
+    line: (n) => [
+      for (final s in n.list('stats'))
+        if (s is Map) '${s['label']} ${s['value']}',
+    ].join('，'),
     build: (context, n, _) => AgentStatRowView(
       stats: [
         for (final s in n.list('stats'))
@@ -221,7 +247,10 @@ AgentCatalog _standard() => AgentCatalog([
     name: AgentComponents.column,
     description: '竖着排列子组件',
     container: true,
-    schema: {'type': 'object', 'properties': <String, Object?>{}},
+    schema: {
+      'type': 'object',
+      'properties': {'density': agentDensityField},
+    },
     example: {
       'component': 'Column',
       'children': [
@@ -242,9 +271,10 @@ AgentCatalog _standard() => AgentCatalog([
     name: AgentComponents.section,
     description: '带小标题的一段，放子组件',
     container: true,
+    fold: true,
     schema: {
       'type': 'object',
-      'properties': {'title': _string('小标题', 40)},
+      'properties': {'title': _string('小标题', 40), 'density': agentDensityField},
       'required': ['title'],
     },
     example: {
@@ -259,20 +289,59 @@ AgentCatalog _standard() => AgentCatalog([
       children: children,
     ),
   ),
+  AgentCatalogItem(
+    name: AgentComponents.actionRow,
+    description: '通过 / 打开讨论 / 稍后',
+    internal: true,
+    focusable: false,
+    schema: {
+      'type': 'object',
+      'properties': {
+        'itemId': _string('这一条的 id', 120),
+        'approve': {'type': 'boolean', 'description': '提供“通过”'},
+        'openLabel': _string('不能通过时主按钮的字', 30),
+      },
+      'required': ['itemId'],
+    },
+    build: (context, n, _) {
+      final scope = AgentActionScope.maybeOf(context);
+      void Function()? act(String a) =>
+          scope == null ? null : () => scope.onAction(a);
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+        child: AgentActionRow(
+          itemId: n.string('itemId') ?? '',
+          approve: n.flag('approve') ?? false,
+          openLabel: n.string('openLabel') ?? '打开讨论',
+          onApprove: act('approve'),
+          onOpen: act('open'),
+          onLater: act('later'),
+        ),
+      );
+    },
+  ),
 ]);
 
 /// The catalog agent mode composes screens from.
 final AgentCatalog agentStandardCatalog = _standard();
 
 /// Draws a validated surface as a layer: heading, summary and the tree. Items
-/// (the leaves) are [AgentFocusable] numbered from 1 in reading order, the same
-/// numbers [agentSurfaceFrame] gives them, so spotlight and marks work.
+/// (the leaves, and a folded container as one) are [AgentFocusable] numbered
+/// from 1 in reading order, the same numbers [agentSurfaceFrame] gives them, so
+/// spotlight and marks work.
+///
+/// On a [compact] screen (the phone) a group or section folds to one summary
+/// row unless its `density` says `detail`; tapping the row calls [onExpand]
+/// with its path, and the owner adds it to [expanded].
 class AgentSurfaceView extends StatelessWidget {
   const AgentSurfaceView({
     super.key,
     required this.spec,
     required this.focusPrefix,
     this.catalog,
+    this.compact,
+    this.expanded = const {},
+    this.onExpand,
   });
   final AgentSurfaceSpec spec;
   final String focusPrefix;
@@ -280,21 +349,43 @@ class AgentSurfaceView extends StatelessWidget {
   /// Defaults to [agentStandardCatalog].
   final AgentCatalog? catalog;
 
+  /// Defaults to the width of the screen.
+  final bool? compact;
+  final Set<String> expanded;
+  final ValueChanged<String>? onExpand;
+
   @override
   Widget build(BuildContext context) {
     final catalog = this.catalog ?? agentStandardCatalog;
+    final compact =
+        this.compact ?? MediaQuery.sizeOf(context).width < agentWideBreakpoint;
+    final folded = foldedPaths(
+      catalog,
+      spec.root,
+      compact: compact,
+      expanded: expanded,
+    );
     var n = 0;
-    Widget draw(SurfaceNode node) {
+    Widget draw(SurfaceNode node, String path) {
       final item = catalog.item(node.component);
       if (item == null) return const SizedBox.shrink();
-      final children = [for (final c in node.children) draw(c)];
+      if (folded.contains(path)) {
+        return AgentFocusable(
+          id: '$focusPrefix#${++n}',
+          child: _summaryRow(catalog, node, onTap: () => onExpand?.call(path)),
+        );
+      }
+      final children = [
+        for (final (i, c) in node.children.indexed)
+          draw(c, surfaceChildPath(path, i)),
+      ];
       final built = item.build(context, node, children);
-      return item.container
+      return item.container || !item.focusable
           ? built
           : AgentFocusable(id: '$focusPrefix#${++n}', child: built);
     }
 
-    final body = draw(spec.root);
+    final body = draw(spec.root, 'r');
     return AgentLayerFrame(
       title: spec.title,
       summary: spec.summary == null ? null : TextSpan(text: spec.summary),
@@ -303,11 +394,59 @@ class AgentSurfaceView extends StatelessWidget {
   }
 }
 
+/// What a folded container says: its members in one run.
+String _foldedText(AgentCatalog catalog, SurfaceNode node) => [
+  for (final c in node.children) catalog.item(c.component)?.line?.call(c) ?? '',
+].where((s) => s.isNotEmpty).join('、');
+
+Widget _summaryRow(
+  AgentCatalog catalog,
+  SurfaceNode node, {
+  VoidCallback? onTap,
+}) => AgentSummaryRow(
+  title: node.string('title') ?? '',
+  count: node.children.length,
+  text: _foldedText(catalog, node),
+  state: node.string('state') == null ? null : _state(node.string('state')),
+  onTap: onTap,
+);
+
 /// The surface as a serialized layer (see `AgentFrameView`): what the TV
 /// mirror draws and what the voice model reads as numbered screen items.
-Map<String, Object?> agentSurfaceFrame(AgentSurfaceSpec spec) {
+Map<String, Object?> agentSurfaceFrame(
+  AgentSurfaceSpec spec, {
+  bool compact = false,
+  Set<String> expanded = const {},
+  AgentCatalog? catalog,
+}) {
+  final catalog0 = catalog ?? agentStandardCatalog;
+  final folded = foldedPaths(
+    catalog0,
+    spec.root,
+    compact: compact,
+    expanded: expanded,
+  );
   final items = <Map<String, Object?>>[];
-  void visit(SurfaceNode n) {
+  void visit(SurfaceNode n, String path) {
+    if (folded.contains(path)) {
+      final state = n.string('state') == null
+          ? null
+          : _state(n.string('state'));
+      items.add({
+        'kind': 'priority',
+        'priority': switch (state) {
+          AgentWorkState.blocked => AgentPriority.blocked,
+          AgentWorkState.idle => AgentPriority.mention,
+          _ => AgentPriority.progress,
+        }.name,
+        'label': n.string('title') ?? '',
+        'weight': items.length + 1,
+        'title':
+            '${n.string('title') ?? ''} ${n.children.length}：${_foldedText(catalog0, n)}',
+        'detail': '摘要，点开或说“展开”看全部',
+      });
+      return;
+    }
     switch (n.component) {
       case AgentComponents.statusGroup || AgentComponents.section:
         items.add({'kind': 'section', 'text': n.string('title') ?? ''});
@@ -369,10 +508,12 @@ Map<String, Object?> agentSurfaceFrame(AgentSurfaceSpec spec) {
           ].join('　'),
         });
     }
-    n.children.forEach(visit);
+    for (final (i, c) in n.children.indexed) {
+      visit(c, surfaceChildPath(path, i));
+    }
   }
 
-  visit(spec.root);
+  visit(spec.root, 'r');
   return {
     'title': spec.title,
     'meta': 'GenUI',

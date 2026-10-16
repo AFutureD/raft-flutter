@@ -1,6 +1,7 @@
 import 'package:raft_agent_ui/raft_agent_ui.dart' show AgentSpeaker;
 
 import '../../data/workspace_controller.dart';
+import 'agent_voice_settings.dart';
 
 /// A Raft agent whose memory the voice agent shares.
 typedef AgentBrainChoice = ({String id, String name});
@@ -36,6 +37,25 @@ class AgentBrain {
             name: '${r['displayName'] ?? r['name'] ?? r['id']}',
           ),
     ];
+  }
+
+  /// The stored memory agent, or null (独立记忆) when it is not one of the
+  /// person's active agents any more (archived or removed): that one is
+  /// cleared from [settings] so the picker and the voice stop pointing at
+  /// it. When the list cannot be read the choice is kept as it is.
+  Future<AgentBrainChoice?> liveBrain(AgentVoiceSettings settings) async {
+    final stored = settings.brain;
+    if (stored == null) return null;
+    final List<AgentBrainChoice> active;
+    try {
+      active = await agents();
+    } catch (_) {
+      return stored;
+    }
+    if (active.any((a) => a.id == stored.id)) return stored;
+    // The user may have chosen another one while the list loaded.
+    if (settings.brain?.id == stored.id) settings.brain = null;
+    return null;
   }
 
   /// The agent's MEMORY.md, trimmed; null when it cannot be read (no

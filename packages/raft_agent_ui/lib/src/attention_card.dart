@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
-import 'marks.dart';
 
 /// One line of thread progress: who, when, what.
 class AgentQuoteData {
@@ -101,9 +100,14 @@ class _Box extends StatelessWidget {
         border: Border.all(color: t.line, width: _border(t)),
         boxShadow: _hard(t, 2),
       ),
-      child: Text(
-        text,
-        style: t.heading(size, weight: FontWeight.w900).copyWith(height: 1),
+      // A big count is a badge, not reading text: it stops growing at 1.35x
+      // (the labels next to it keep following the system size).
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: size > 20 ? 1.35 : double.infinity,
+        child: Text(
+          text,
+          style: t.heading(size, weight: FontWeight.w900).copyWith(height: 1),
+        ),
       ),
     );
   }
@@ -111,9 +115,17 @@ class _Box extends StatelessWidget {
 
 /// The "N" in "N 件等你决定": a coloured count badge.
 class AgentCountBadge extends StatelessWidget {
-  const AgentCountBadge(this.text, {super.key, required this.priority});
+  const AgentCountBadge(
+    this.text, {
+    super.key,
+    required this.priority,
+    this.size = 15,
+  });
   final String text;
   final AgentPriority priority;
+
+  /// Font size of the number; the box follows (34 on a phone read from afar).
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -123,8 +135,8 @@ class AgentCountBadge extends StatelessWidget {
       excludeSemantics: true,
       child: _Box(
         text,
-        size: 15,
-        minWidth: 26,
+        size: size,
+        minWidth: size > 20 ? size * 1.15 : 26,
         fill: t.cardFills?[priority] ?? t.priority(priority),
       ),
     );
@@ -139,68 +151,78 @@ class AgentAttentionSummary extends StatelessWidget {
     required this.decision,
     required this.blocked,
     required this.mention,
-    required this.scope,
+    this.scope,
     this.urgent,
+    this.large = false,
   });
 
-  /// Counts as shown: "3", or "50+" when the source was capped.
+  /// Phone read at arm's length: counts at 34, the rest at 18 and up.
+  final bool large;
+
+  /// Counts as shown: "3", or "50+" when the source was capped. The phone
+  /// leaves [mention] and [scope] out: it keeps only the counts that need a
+  /// decision and the most urgent sentence.
   final String? decision, blocked, mention;
   final String? urgent;
-  final String scope;
+  final String? scope;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
-    final style = t.body(16.5, weight: FontWeight.w800);
-    Widget count(String key, String? n, AgentPriority p, String label) =>
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            KeyedSubtree(
-              key: ValueKey('attention-count-$key'),
-              child: AgentCountBadge(n!, priority: p),
-            ),
-            const SizedBox(width: 6),
-            Text(label, style: style),
-          ],
-        );
+    final style = t.body(large ? 20 : 16.5, weight: FontWeight.w800);
+    Widget count(String key, String? n, AgentPriority p, String label) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        KeyedSubtree(
+          key: ValueKey('attention-count-$key'),
+          child: AgentCountBadge(n!, priority: p, size: large ? 34 : 15),
+        ),
+        const SizedBox(width: 6),
+        Flexible(child: Text(label, style: style)),
+      ],
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (decision != null)
-                count('decision', decision, AgentPriority.decision, '件等你决定'),
-              if (decision != null && blocked != null)
-                Text('·', style: style),
-              if (blocked != null)
-                count('blocked', blocked, AgentPriority.blocked, '件卡住了'),
-              if (mention != null)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('另有', style: style),
-                    const SizedBox(width: 6),
-                    KeyedSubtree(
-                      key: const ValueKey('attention-count-mention'),
-                      child: AgentCountBadge(
-                        mention!,
-                        priority: AgentPriority.mention,
+          if (decision != null || blocked != null || mention != null)
+            Wrap(
+              spacing: 10,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (decision != null)
+                  count('decision', decision, AgentPriority.decision, '件等你决定'),
+                if (decision != null && blocked != null)
+                  Text('·', style: style),
+                if (blocked != null)
+                  count('blocked', blocked, AgentPriority.blocked, '件卡住了'),
+                if (mention != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('另有', style: style),
+                      const SizedBox(width: 6),
+                      KeyedSubtree(
+                        key: const ValueKey('attention-count-mention'),
+                        child: AgentCountBadge(
+                          mention!,
+                          priority: AgentPriority.mention,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('处点名你', style: style),
-                  ],
-                ),
-            ],
-          ),
+                      const SizedBox(width: 6),
+                      Text('处点名你', style: style),
+                    ],
+                  ),
+              ],
+            ),
           if (urgent != null) ...[
-            const SizedBox(height: 10),
+            SizedBox(
+              height: decision == null && blocked == null && mention == null
+                  ? 0
+                  : 10,
+            ),
             DecoratedBox(
               decoration: BoxDecoration(
                 color: _creamOf(t),
@@ -212,12 +234,17 @@ class AgentAttentionSummary extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _InkLabel('最急'),
+                    _InkLabel('最急', size: large ? 16 : 11.5),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         urgent!,
-                        style: t.body(13.5, weight: FontWeight.w700),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.body(
+                          large ? 18 : 13.5,
+                          weight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -225,8 +252,10 @@ class AgentAttentionSummary extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 6),
-          Text(scope, style: t.body(11.5, color: t.muted)),
+          if (scope != null) ...[
+            const SizedBox(height: 6),
+            Text(scope!, style: t.body(11.5, color: t.muted)),
+          ],
         ],
       ),
     );
@@ -235,8 +264,9 @@ class AgentAttentionSummary extends StatelessWidget {
 
 /// White on ink label ("最急", "要你做").
 class _InkLabel extends StatelessWidget {
-  const _InkLabel(this.text);
+  const _InkLabel(this.text, {this.size = 11.5});
   final String text;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +281,7 @@ class _InkLabel extends StatelessWidget {
         child: Text(
           text,
           style: t.body(
-            11.5,
+            size,
             weight: FontWeight.w800,
             color: t.stickerLabels ? t.layer : t.canvas,
           ),
@@ -269,22 +299,30 @@ class AgentSectionHeader extends StatelessWidget {
     required this.count,
     required this.priority,
     this.hint,
+    this.compact = false,
   });
   final String title, count;
   final AgentPriority priority;
   final String? hint;
 
+  /// Phone: just the title and the dotted line; the header already counts.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(18, 10, 18, 4)
+          : const EdgeInsets.fromLTRB(18, 18, 18, 8),
       child: Row(
         children: [
           Text(title, style: t.heading(15, weight: FontWeight.w900)),
           const SizedBox(width: 8),
-          AgentCountBadge(count, priority: priority),
-          const SizedBox(width: 8),
+          if (!compact) ...[
+            AgentCountBadge(count, priority: priority),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: SizedBox(
               height: 3,
@@ -428,38 +466,6 @@ class _Where extends StatelessWidget {
   }
 }
 
-class _Quote extends StatelessWidget {
-  const _Quote(this.q);
-  final AgentQuoteData q;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftAgentTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.only(left: 10),
-      decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: t.line.withValues(alpha: .25), width: 4),
-        ),
-      ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: [q.who, q.time].where((s) => s.isNotEmpty).join(' · '),
-              style: t.body(12.5, color: t.muted, weight: FontWeight.w800),
-            ),
-            if (q.text.isNotEmpty)
-              TextSpan(text: '  ${q.text}', style: t.body(12.5, color: t.hint)),
-          ],
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
 class _Btn extends StatelessWidget {
   const _Btn({
     super.key,
@@ -508,10 +514,7 @@ class _Btn extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: ghost
-            ? CustomPaint(
-                foregroundPainter: _Dashed(t.line, 11),
-                child: body,
-              )
+            ? CustomPaint(foregroundPainter: _Dashed(t.line, 11), child: body)
             : body,
       ),
     );
@@ -527,10 +530,7 @@ class _Dashed extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          Radius.circular(radius),
-        ),
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
       );
     final paint = Paint()
       ..color = color
@@ -587,43 +587,13 @@ class AgentAskBox extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 9),
-            Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 9,
-                    runSpacing: 8,
-                    children: [
-                      if (data.approve) ...[
-                        _Btn(
-                          key: ValueKey('attention-approve-$id'),
-                          label: '通过',
-                          primary: true,
-                          onTap: onApprove,
-                        ),
-                        _Btn(
-                          key: ValueKey('attention-open-$id'),
-                          label: '打开讨论',
-                          onTap: onOpen,
-                        ),
-                      ] else
-                        _Btn(
-                          key: ValueKey('attention-open-$id'),
-                          label: data.primaryLabel,
-                          primary: true,
-                          onTap: onOpen,
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 9),
-                _Btn(
-                  key: ValueKey('attention-later-$id'),
-                  label: '稍后',
-                  ghost: true,
-                  onTap: onLater,
-                ),
-              ],
+            AgentActionRow(
+              itemId: id,
+              approve: data.approve,
+              openLabel: data.primaryLabel,
+              onApprove: onApprove,
+              onOpen: onOpen,
+              onLater: onLater,
             ),
           ],
         ),
@@ -632,26 +602,103 @@ class AgentAskBox extends StatelessWidget {
   }
 }
 
-/// The phone card: band (rank, reason, wait), a full sentence, where it is,
-/// the latest progress as a grey quote, and what to do about it.
-class AgentAttentionCard extends StatelessWidget {
-  const AgentAttentionCard({
+/// 通过 / 打开讨论 / 稍后. Only the detail of one item shows these: the list
+/// itself carries no buttons.
+class AgentActionRow extends StatelessWidget {
+  const AgentActionRow({
     super.key,
-    required this.data,
+    required this.itemId,
+    this.approve = false,
+    this.openLabel = '打开讨论',
     this.onApprove,
     this.onOpen,
     this.onLater,
   });
-  final AgentCardData data;
+  final String itemId;
+
+  /// Offer 通过 (and keep 打开讨论 next to it).
+  final bool approve;
+
+  /// The main button when [approve] is false.
+  final String openLabel;
   final VoidCallback? onApprove, onOpen, onLater;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = itemId;
+    return Row(
+      children: [
+        Expanded(
+          child: Wrap(
+            spacing: 9,
+            runSpacing: 8,
+            children: [
+              if (approve) ...[
+                _Btn(
+                  key: ValueKey('attention-approve-$id'),
+                  label: '通过',
+                  primary: true,
+                  onTap: onApprove,
+                ),
+                _Btn(
+                  key: ValueKey('attention-open-$id'),
+                  label: '打开讨论',
+                  onTap: onOpen,
+                ),
+              ] else
+                _Btn(
+                  key: ValueKey('attention-open-$id'),
+                  label: openLabel,
+                  primary: true,
+                  onTap: onOpen,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 9),
+        _Btn(
+          key: ValueKey('attention-later-$id'),
+          label: '稍后',
+          ghost: true,
+          onTap: onLater,
+        ),
+      ],
+    );
+  }
+}
+
+/// "#频道 · 等了 3 天": the one meta line under a phone card.
+String agentCardMeta(AgentCardData d) => [
+  if (d.channel != null && d.channel!.isNotEmpty) '#${d.channel}',
+  d.wait,
+].join(' · ');
+
+/// The phone card: a coloured rank strip and one sentence (two lines at
+/// most) with one meta line, set for reading at arm's length. No quote, no
+/// ask box, no buttons: tapping it opens the detail, which is where the
+/// actions live. The [lead] card (the most urgent) is larger than the rest.
+class AgentAttentionCard extends StatelessWidget {
+  const AgentAttentionCard({
+    super.key,
+    required this.data,
+    this.onTap,
+    this.lead = false,
+  });
+  final AgentCardData data;
+  final VoidCallback? onTap;
+  final bool lead;
+
+  /// Smallest headline / meta size on the phone card.
+  static const headlineSize = 26.0, leadHeadlineSize = 30.0;
+  static const metaSize = 18.0, leadMetaSize = 20.0;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     final radius = BorderRadius.circular(_r(t));
-    final quote = data.quote;
+    final meta = agentCardMeta(data);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 5, 12, 11),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       child: DecoratedBox(
         key: ValueKey('attention-card-${data.id}'),
         decoration: BoxDecoration(
@@ -662,52 +709,138 @@ class AgentAttentionCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(_r(t) - t.cardBorderWidth),
-          child: Material(
-            type: MaterialType.transparency,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Band(data: data),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: Semantics(
+            button: true,
+            container: true,
+            label: '第 ${data.rank} 条，${data.headline}，$meta',
+            excludeSemantics: true,
+            onTap: onTap,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: onTap,
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      InkWell(
-                        onTap: onOpen,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AgentMarkText(
-                              data.headline,
-                              style: t.heading(16.5, weight: FontWeight.w900),
+                      Container(
+                        constraints: BoxConstraints(minWidth: lead ? 60 : 52),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _band(t, data.priority),
+                          border: Border(
+                            right: BorderSide(
+                              color: t.line,
+                              width: t.cardBorderWidth,
                             ),
-                            const SizedBox(height: 7),
-                            _Where(data: data),
-                            if (quote != null) ...[
-                              const SizedBox(height: 8),
-                              _Quote(quote),
-                            ],
-                          ],
+                          ),
+                        ),
+                        child: Text(
+                          '${data.rank}',
+                          style: t
+                              .heading(lead ? 38 : 30, weight: FontWeight.w900)
+                              .copyWith(height: 1),
                         ),
                       ),
-                      const SizedBox(height: 11),
-                      AgentAskBox(
-                        data: data,
-                        onApprove: onApprove,
-                        onOpen: onOpen,
-                        onLater: onLater,
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            14,
+                            lead ? 14 : 10,
+                            12,
+                            lead ? 14 : 10,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                data.headline,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: t
+                                    .heading(
+                                      lead ? leadHeadlineSize : headlineSize,
+                                      weight: FontWeight.w900,
+                                    )
+                                    .copyWith(height: 1.18),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                meta,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: t.body(
+                                  lead ? leadMetaSize : metaSize,
+                                  color: t.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// "另有 2 处点名你" / "还有 4 件，说“下一批”看看": one quiet row for what the
+/// phone does not list. Never smaller than 16.
+class AgentMoreRow extends StatelessWidget {
+  const AgentMoreRow({super.key, required this.text, this.onTap});
+  final String text;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    return Semantics(
+      button: onTap != null,
+      label: text,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.body(18, color: t.muted, weight: FontWeight.w800),
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 22, color: t.hint),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "另有 2 处点名你": the only trace of the mentions on the phone.
+class AgentMentionRow extends StatelessWidget {
+  const AgentMentionRow({super.key, required this.count, this.onTap});
+  final String count;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => KeyedSubtree(
+    key: const ValueKey('attention-mentions'),
+    child: AgentMoreRow(text: '另有 $count 处点名你', onTap: onTap),
+  );
 }
 
 /// A compact list row for the wide master list.
@@ -918,9 +1051,10 @@ class AgentAttentionDetail extends StatelessWidget {
                                     SizedBox(
                                       width: 120,
                                       child: Text(
-                                        [l.who, l.time]
-                                            .where((s) => s.isNotEmpty)
-                                            .join(' '),
+                                        [
+                                          l.who,
+                                          l.time,
+                                        ].where((s) => s.isNotEmpty).join(' '),
                                         style: t.body(
                                           11.5,
                                           color: t.muted,
@@ -929,10 +1063,7 @@ class AgentAttentionDetail extends StatelessWidget {
                                       ),
                                     ),
                                     Expanded(
-                                      child: Text(
-                                        l.text,
-                                        style: t.body(13.5),
-                                      ),
+                                      child: Text(l.text, style: t.body(13.5)),
                                     ),
                                   ],
                                 ),
@@ -987,7 +1118,10 @@ class AgentKeyHints extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 7),
-                    child: Text(key, style: t.body(12, weight: FontWeight.w800)),
+                    child: Text(
+                      key,
+                      style: t.body(12, weight: FontWeight.w800),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -1008,10 +1142,14 @@ class AgentTeamRow extends StatelessWidget {
     required this.expanded,
     required this.onTap,
     this.children = const [],
+    this.compact = false,
   });
 
   /// "12" or "50+".
   final String count;
+
+  /// Phone: one line, no explanation under it.
+  final bool compact;
   final bool expanded;
   final VoidCallback onTap;
   final List<Widget> children;
@@ -1019,7 +1157,8 @@ class AgentTeamRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
-    final green = t.cardFills?[AgentPriority.progress] ??
+    final green =
+        t.cardFills?[AgentPriority.progress] ??
         t.priority(AgentPriority.progress);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -1036,13 +1175,18 @@ class AgentTeamRow extends StatelessWidget {
                 key: const ValueKey('attention-team'),
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+                  padding: EdgeInsets.fromLTRB(
+                    13,
+                    compact ? 8 : 11,
+                    13,
+                    compact ? 8 : 11,
+                  ),
                   child: Row(
                     children: [
                       _Box(
                         count.replaceAll('+', ''),
-                        size: 14,
-                        minWidth: 26,
+                        size: compact ? 18 : 14,
+                        minWidth: compact ? 32 : 26,
                         fill: green,
                       ),
                       const SizedBox(width: 10),
@@ -1052,17 +1196,22 @@ class AgentTeamRow extends StatelessWidget {
                           children: [
                             Text(
                               '团队进度 $count 件（不需要你）',
-                              style: t.body(14, weight: FontWeight.w800),
+                              style: t.body(
+                                compact ? 18 : 14,
+                                weight: FontWeight.w800,
+                              ),
                             ),
-                            Text(
-                              '别人创建、别人验收的任务，点开可看',
-                              style: t.body(11.5, color: t.muted),
-                            ),
+                            if (!compact)
+                              Text(
+                                '别人创建、别人验收的任务，点开可看',
+                                style: t.body(11.5, color: t.muted),
+                              ),
                           ],
                         ),
                       ),
                       Icon(
                         expanded ? Icons.expand_less : Icons.chevron_right,
+                        size: compact ? 22 : 24,
                         color: t.foreground,
                       ),
                     ],
@@ -1080,9 +1229,15 @@ class AgentTeamRow extends StatelessWidget {
 
 /// One line inside the open team row.
 class AgentTeamLine extends StatelessWidget {
-  const AgentTeamLine({super.key, required this.text, this.channel});
+  const AgentTeamLine({
+    super.key,
+    required this.text,
+    this.channel,
+    this.compact = false,
+  });
   final String text;
   final String? channel;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1092,10 +1247,13 @@ class AgentTeamLine extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(text, style: t.body(13), maxLines: 2),
+            child: Text(text, style: t.body(compact ? 16 : 13), maxLines: 2),
           ),
           if (channel != null && channel!.isNotEmpty)
-            Text('#$channel', style: t.body(11.5, color: t.muted)),
+            Text(
+              '#$channel',
+              style: t.body(compact ? 16 : 11.5, color: t.muted),
+            ),
         ],
       ),
     );

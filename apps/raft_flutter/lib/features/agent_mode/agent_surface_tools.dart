@@ -74,6 +74,10 @@ class AgentFacts {
     final problems = <String>[];
     for (final n in root.walk()) {
       switch (n.component) {
+        case AgentComponents.actionRow:
+          problems.add(
+            'ActionRow（通过 / 打开讨论 / 稍后）只出现在展开的详情里，不能自己放；要展开某一条请调用 expand_item',
+          );
         case AgentComponents.statusCard:
           final name = n.string('name') ?? '';
           final known = _agents[name.toLowerCase()];

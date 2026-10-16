@@ -287,9 +287,7 @@ class RuleHeadlineWriter implements AgentHeadlineWriter {
     final ask = AgentHeadlines.askVerb(i.text);
     final who = i.claimer;
     if (who != null) {
-      return clean.isEmpty
-          ? '$who 完成了$n，等你$ask'
-          : '$who 完成了「$clean」，等你$ask';
+      return clean.isEmpty ? '$who 完成了$n，等你$ask' : '$who 完成了「$clean」，等你$ask';
     }
     return clean.isEmpty ? '$n 已提交，等你$ask' : '「$clean」已提交，等你$ask';
   }
@@ -506,8 +504,7 @@ class AgentModeData {
   );
 
   /// The last accepted result for this account and server.
-  static AgentAttention? cached(WorkspaceController w) =>
-      _session(w).attention;
+  static AgentAttention? cached(WorkspaceController w) => _session(w).attention;
   static void remember(WorkspaceController w, AgentAttention value) =>
       _session(w).attention = value;
 
@@ -595,7 +592,8 @@ class AgentModeData {
         if (m is Map && m['id'] == id) return true;
       }
     }
-    final text = '${t['title'] ?? ''}\n${t['description'] ?? ''}\n'
+    final text =
+        '${t['title'] ?? ''}\n${t['description'] ?? ''}\n'
         '${t['descriptionPreview'] ?? ''}';
     return [
       for (final n in names)
@@ -745,12 +743,15 @@ class AgentModeData {
       if (r['hasMention'] != true) continue;
       final thread = r['kind'] == 'thread';
       final channelId = _str(thread ? r['parentChannelId'] : r['channelId']);
-      if (r['taskNumber'] != null && known.contains('$channelId#${r['taskNumber']}')) {
+      if (r['taskNumber'] != null &&
+          known.contains('$channelId#${r['taskNumber']}')) {
         continue;
       }
       final at = _time(r['lastActivityAt'] ?? r['lastMessageAt']) ?? now;
       final who =
-          _str(r[thread ? 'latestActivitySenderName' : 'lastMessageSenderName']) ??
+          _str(
+            r[thread ? 'latestActivitySenderName' : 'lastMessageSenderName'],
+          ) ??
           '有人';
       final raw =
           '${r[thread ? 'latestActivityPreview' : 'lastMessagePreview'] ?? r['messagePreview'] ?? ''}';
@@ -769,7 +770,9 @@ class AgentModeData {
         AgentAttentionItem(
           id: mentionId,
           priority: AgentPriority.mention,
-          headline: said.isEmpty ? '$who 在 $where @ 了你' : '$who 在 $where @ 了你：$said',
+          headline: said.isEmpty
+              ? '$who 在 $where @ 了你'
+              : '$who 在 $where @ 了你：$said',
           ask: question ? '回答' : '回复',
           askLine: question ? '回答一个问题' : '回复 $who',
           action: AgentAction.reply,
@@ -883,7 +886,8 @@ class AgentModeData {
     return Future.wait([
       for (final i in items)
         if (i.taskId != null && threadOf[i.taskId] != null)
-          _thread(threadOf[i.taskId]!).then((lines) => lines.isEmpty ? i : i.withProgress(lines))
+          _thread(threadOf[i.taskId]!)
+              .then((lines) => lines.isEmpty ? i : i.withProgress(lines))
         else
           Future.value(i),
     ]);
@@ -912,7 +916,9 @@ class AgentModeData {
             AgentProgressLine(
               who: _str(m['senderName']) ?? '',
               time: _stamp(_time(m['createdAt']) ?? _now()),
-              text: '${m['content'] ?? ''}'.replaceAll(RegExp(r'\s+'), ' ').trim(),
+              text: '${m['content'] ?? ''}'
+                  .replaceAll(RegExp(r'\s+'), ' ')
+                  .trim(),
             ),
       ];
     } on Object {
@@ -1236,6 +1242,18 @@ class AgentOpenChannel extends AgentIntent {
   final RaftChannel channel;
 }
 
+/// "讲讲第一条" / "展开第 2 条" / "详细说说这个": open the detail of a card.
+/// [index] is null for "这个" (the focused one, else the most urgent).
+class AgentExpand extends AgentIntent {
+  const AgentExpand(this.index);
+  final int? index;
+}
+
+/// "下一批": the next cards on the phone's first layer.
+class AgentNextBatch extends AgentIntent {
+  const AgentNextBatch();
+}
+
 class AgentUnknown extends AgentIntent {
   const AgentUnknown();
 }
@@ -1245,6 +1263,13 @@ class AgentUnknown extends AgentIntent {
 AgentIntent parseAgentIntent(String text, List<RaftChannel> channels) {
   final s = text.trim().toLowerCase();
   if (RegExp(r'^(返回|回去|后退|back)$').hasMatch(s)) return const AgentBack();
+  if (RegExp(r'下一批|还有吗|再看看别的').hasMatch(s)) return const AgentNextBatch();
+  if (RegExp(r'讲讲|展开|详细|详情|细说|说说|expand').hasMatch(s)) {
+    final n = agentOrdinal(s);
+    if (n != null || RegExp(r'这个|这条|这件|它|展开$').hasMatch(s)) {
+      return AgentExpand(n);
+    }
+  }
   if (RegExp(r'(提醒|需要我|首页|home|回到开始)').hasMatch(s)) {
     return const AgentHome();
   }
@@ -1259,4 +1284,32 @@ AgentIntent parseAgentIntent(String text, List<RaftChannel> channels) {
   if (best != null) return AgentOpenChannel(best);
   if (RegExp(r'(任务|task)').hasMatch(s)) return const AgentTasks();
   return const AgentUnknown();
+}
+
+/// The number in "第一条", "第 2 条", "第十二个": null when none is said.
+int? agentOrdinal(String text) {
+  final m = RegExp(r'第\s*([0-9一二两三四五六七八九十]+)').firstMatch(text);
+  if (m == null) return null;
+  final raw = m[1]!;
+  final digits = int.tryParse(raw);
+  if (digits != null) return digits;
+  const d = {
+    '一': 1,
+    '二': 2,
+    '两': 2,
+    '三': 3,
+    '四': 4,
+    '五': 5,
+    '六': 6,
+    '七': 7,
+    '八': 8,
+    '九': 9,
+  };
+  if (raw == '十') return 10;
+  if (raw.startsWith('十')) return 10 + (d[raw.substring(1)] ?? 0);
+  if (raw.endsWith('十')) return (d[raw[0]] ?? 0) * 10;
+  if (raw.length == 3 && raw[1] == '十') {
+    return (d[raw[0]] ?? 0) * 10 + (d[raw[2]] ?? 0);
+  }
+  return raw.length == 1 ? d[raw] : null;
 }

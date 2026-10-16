@@ -12,6 +12,7 @@ import '../../data/workspace_controller.dart';
 import 'agent_attention.dart';
 import 'agent_audio.dart';
 import 'agent_catalog.dart';
+import 'agent_detail.dart';
 import 'agent_headlines.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
@@ -86,10 +87,17 @@ class _Tasks extends _Layer {
   const _Tasks() : super('tasks');
 }
 
-/// A screen the model composed from the catalog (`show_surface`).
+/// A screen composed from the catalog: by the model (`show_surface`), or the
+/// detail of one attention item ([item], `expand_item` and a tap on a card).
 class _Surface extends _Layer {
-  _Surface(this.spec, int n) : super('surface:$n');
+  _Surface(this.spec, int n) : item = null, super('surface:$n');
+  _Surface.detail(this.spec, AgentAttentionItem this.item)
+    : super('detail:${item.id}');
   final AgentSurfaceSpec spec;
+  final AgentAttentionItem? item;
+
+  /// Folded containers the person opened (paths, see `foldedPaths`).
+  final expanded = <String>{};
 }
 
 class _AgentModePageState extends State<AgentModePage> {
@@ -100,6 +108,12 @@ class _AgentModePageState extends State<AgentModePage> {
       widget.data ?? AgentModeData(widget.controller, summarizer: _summarizer);
   final _stack = <_Layer>[const _Attention()];
   int _surfaces = 0;
+
+  /// Phone: the first attention card on screen (see [agentPhoneBatch]).
+  int _batchStart = 0;
+
+  /// The phone layout (set by build): surfaces fold their groups to one row.
+  bool _compact = true;
   // ignore: raft_lints/avoid_imperative_notice_state -- Cleared by the next layer change (push, pop, reveal) or when a surface is accepted.
   String? _surfaceError;
   late final _grounded = AgentGroundedTools(
@@ -337,9 +351,10 @@ class _AgentModePageState extends State<AgentModePage> {
 
   String _attentionSummary(AgentAttention a) => a.summary;
 
-  Future<void> _approve(AgentAttentionItem item) async {
+  /// True when the task was set to done.
+  Future<bool> _approve(AgentAttentionItem item) async {
     final id = item.taskId;
-    if (!item.canApprove || id == null) return;
+    if (!item.canApprove || id == null) return false;
     final t = RaftAgentTheme.of(context);
     final ok = await showDialog<bool>(
       context: context,
@@ -350,10 +365,7 @@ class _AgentModePageState extends State<AgentModePage> {
           side: BorderSide(color: t.line, width: t.cardBorderWidth),
         ),
         title: Text('通过这件事？', style: t.heading(18, weight: FontWeight.w900)),
-        content: Text(
-          '${item.headline}\n\n会把任务设为已完成。',
-          style: t.body(14),
-        ),
+        content: Text('${item.headline}\n\n会把任务设为已完成。', style: t.body(14)),
         actions: [
           TextButton(
             key: const ValueKey('attention-approve-cancel'),
@@ -372,19 +384,20 @@ class _AgentModePageState extends State<AgentModePage> {
         ],
       ),
     );
-    if (ok != true || !mounted) return;
+    if (ok != true || !mounted) return false;
     try {
       await data.approve(id);
     } catch (_) {
       if (mounted) {
         _voice.say(AgentSpeaker.agent, '没能通过这件事，任务还在原处。稍后再试，或打开讨论处理。');
       }
-      return;
+      return false;
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => AgentModeData.hidden(widget.controller).add(item.id));
     _voice.say(AgentSpeaker.agent, '已通过：${item.headline}');
     unawaited(_loadAttention());
+    return true;
   }
 
   void _later(AgentAttentionItem item) =>
@@ -397,6 +410,104 @@ class _AgentModePageState extends State<AgentModePage> {
       return;
     }
     _openChannel(c).ignore();
+  }
+
+  /// The detail of one attention item as a new layer. A tap on a card and
+  /// the voice tool `expand_item` both come here, so they show the same
+  /// thing. An open detail is replaced, not stacked.
+  void _expandItem(AgentAttentionItem item) {
+    final top = _stack.last;
+    if (top is _Surface && top.item != null) _stack.removeLast();
+    _push(_Surface.detail(attentionDetailSpec(item, _rankOf(item)), item));
+  }
+
+  int _rankOf(AgentAttentionItem item) {
+    final at = (_visible?.items ?? const <AgentAttentionItem>[]).indexWhere(
+      (i) => i.id == item.id,
+    );
+    return at < 0 ? 1 : at + 1;
+  }
+
+  /// `expand_item` and "讲讲第一条": [number] counts the home cards from 1;
+  /// null means the focused one, else the most urgent.
+  Map<String, Object?> _expandNumber(int? number) {
+    final items = _visible?.items ?? const <AgentAttentionItem>[];
+    if (items.isEmpty) return {'error': '现在没有需要你处理的事，没有可展开的'};
+    final focused = RegExp(r'^attention#(\d+)$')
+        .firstMatch(_spotlight.focused ?? '')?[1];
+    final n = number ?? int.tryParse(focused ?? '') ?? 1;
+    if (n < 1 || n > items.length) {
+      return {'error': '首页没有第 $n 条，一共 ${items.length} 条'};
+    }
+    final item = items[n - 1];
+    final facts = attentionFacts(item, n);
+    // What the screen now shows may be quoted by the model.
+    for (final p in item.progress) {
+      _grounded.facts.learnMessage(p.who, p.text);
+    }
+    _expandItem(item);
+    return {'ok': true, 'layer': _stack.length, 'item': facts};
+  }
+
+  /// 通过 / 打开讨论 / 稍后 on a detail layer: the only place they live.
+  void _detailAction(_Surface layer, String action) {
+    final item = layer.item;
+    if (item == null) return;
+    switch (action) {
+      case 'approve':
+        _approve(item).then((done) {
+          if (done) _dismiss(layer);
+        });
+      case 'open':
+        _openItem(item);
+      case 'later':
+        _later(item);
+        _dismiss(layer);
+    }
+  }
+
+  void _dismiss(_Layer layer) {
+    if (!mounted || !_stack.contains(layer)) return;
+    _spotlight.release();
+    _marks.clear();
+    _screenEpoch++;
+    setState(() {
+      _surfaceError = null;
+      _stack.remove(layer);
+    });
+  }
+
+  /// Shows the cards from [start] on the phone's first layer; what was
+  /// lifted or marked belonged to the old ones.
+  void _showBatch(int start) {
+    _spotlight.release();
+    _marks.clear();
+    _screenEpoch++;
+    setState(() => _batchStart = start);
+  }
+
+  /// `next_batch`: the next [agentPhoneBatch] cards, or the first ones again
+  /// after the last. Takes the person back to the first layer.
+  Map<String, Object?> _nextBatch() {
+    final a = _visible;
+    final cards = a == null ? 0 : a.decisionCount + a.blockedCount;
+    if (cards <= agentPhoneBatch) {
+      return {'error': '只有 $cards 件，已经全部显示了'};
+    }
+    final next = _batchStart + agentPhoneBatch;
+    if (_stack.length > 1) setState(() => _stack.removeRange(1, _stack.length));
+    _showBatch(next >= cards ? 0 : next);
+    final from = _batchStart + 1;
+    final to = (_batchStart + agentPhoneBatch).clamp(0, cards);
+    return {'ok': true, 'showing': '第 $from 到 $to 条', 'total': cards};
+  }
+
+  /// A summary row was tapped: show that group in full.
+  void _expandNode(_Surface layer, String path) {
+    _spotlight.release();
+    _marks.clear();
+    _screenEpoch++;
+    setState(() => layer.expanded.add(path));
   }
 
   void _push(_Layer layer) {
@@ -434,6 +545,11 @@ class _AgentModePageState extends State<AgentModePage> {
 
   /// `show_surface`: the validated screen becomes the front layer.
   Map<String, Object?> _showSurface(AgentSurfaceSpec spec) {
+    // The same screen asked again (say, a group in full) replaces itself.
+    final top = _stack.last;
+    if (top is _Surface && top.item == null && top.spec.title == spec.title) {
+      _stack.removeLast();
+    }
     _push(_Surface(spec, ++_surfaces));
     return _screen();
   }
@@ -508,6 +624,20 @@ class _AgentModePageState extends State<AgentModePage> {
         _pop();
       case AgentHome():
         setState(() => _stack.removeRange(1, _stack.length));
+      case AgentExpand(:final index):
+        final r = _expandNumber(index);
+        _voice.say(
+          AgentSpeaker.agent,
+          r['error'] != null
+              ? '${r['error']}'
+              : explainAttention((r['item'] as Map).cast<String, Object?>()),
+        );
+      case AgentNextBatch():
+        final r = _nextBatch();
+        _voice.say(
+          AgentSpeaker.agent,
+          r['error'] != null ? '${r['error']}' : '现在是${r['showing']}。',
+        );
       case AgentTasks():
         _showTasks().ignore();
       case AgentOpenChannel(:final channel):
@@ -637,6 +767,12 @@ class _AgentModePageState extends State<AgentModePage> {
           _openChannel(c, announce: false).ignore();
         }
         return _screen();
+      case 'next_batch':
+        return _nextBatch();
+      case 'expand_item':
+        return _expandNumber(
+          ((args['index'] ?? args['number']) as num?)?.toInt(),
+        );
       case 'open_item':
         final n = (args['number'] as num?)?.toInt() ?? 0;
         final items = (_frame(_stack.last)['items'] as List? ?? const [])
@@ -755,7 +891,9 @@ class _AgentModePageState extends State<AgentModePage> {
     });
   }
 
-  /// Reads the chosen agent's memory for the next voice session.
+  /// Reads the chosen agent's memory for the next voice session. A stored
+  /// agent that is archived or gone is cleared first (独立记忆) instead of
+  /// being read.
   Future<void> _loadBrain() async {
     final brain = widget.data == null
         ? AgentVoiceSettings.instance.brain
@@ -766,11 +904,22 @@ class _AgentModePageState extends State<AgentModePage> {
       _brainContext = null;
       return;
     }
-    final loading = _brain.context(brain);
+    final loading = _brain.liveBrain(AgentVoiceSettings.instance).then((
+      live,
+    ) async {
+      if (live == null) return (cleared: true, context: null as String?);
+      return (cleared: false, context: await _brain.context(live));
+    });
     _brainLoading = loading.then((_) {}, onError: (Object _) {});
-    final context = await loading;
-    if (!mounted || _brainContextFor != brain.id) return;
-    _brainContext = context;
+    final result = await loading;
+    if (!mounted) return;
+    if (result.cleared) {
+      // The setting listener already moved on to 独立记忆.
+      _voice.say(AgentSpeaker.agent, '记忆：之前选的 Agent 已经归档，改用独立记忆');
+      return;
+    }
+    if (_brainContextFor != brain.id) return;
+    _brainContext = result.context;
     // Says what the voice will remember, so a missing memory is visible.
     final note = _brain.note;
     if (note != null) _voice.say(AgentSpeaker.agent, '记忆：$note');
@@ -837,8 +986,8 @@ class _AgentModePageState extends State<AgentModePage> {
           : _attentionSummary(_visible!),
       // What the voice agent sees and numbers: the cards, in rank order.
       'items': [
-        for (final (n, i) in (_visible?.items ?? const <AgentAttentionItem>[])
-            .indexed)
+        for (final (n, i)
+            in (_visible?.items ?? const <AgentAttentionItem>[]).indexed)
           {
             'kind': 'priority',
             'priority': i.priority.name,
@@ -885,7 +1034,11 @@ class _AgentModePageState extends State<AgentModePage> {
         ],
       };
     }(),
-    _Surface(:final spec) => agentSurfaceFrame(spec),
+    _Surface() => agentSurfaceFrame(
+      l.spec,
+      compact: _compact,
+      expanded: l.expanded,
+    ),
     _Tasks() => {
       'title': '进行中的任务',
       'loading': _tasks == null && _tasksError == null,
@@ -910,10 +1063,28 @@ class _AgentModePageState extends State<AgentModePage> {
     _Surface(:final spec) => spec.title,
   };
 
+  Widget _surfaceLayer(_Surface l, {required bool compact}) {
+    final view = AgentSurfaceView(
+      spec: l.spec,
+      focusPrefix: l.id,
+      compact: compact,
+      expanded: l.expanded,
+      onExpand: (path) => _expandNode(l, path),
+    );
+    // Only a detail layer carries actions.
+    return l.item == null
+        ? view
+        : AgentActionScope(
+            onAction: (action) => _detailAction(l, action),
+            child: view,
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     final wide = MediaQuery.sizeOf(context).width >= agentWideBreakpoint;
+    _compact = !wide;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncTv(context);
     });
@@ -996,10 +1167,7 @@ class _AgentModePageState extends State<AgentModePage> {
                                   key: ValueKey(l.id),
                                   peek: _peek(l),
                                   child: l is _Surface
-                                      ? AgentSurfaceView(
-                                          spec: l.spec,
-                                          focusPrefix: l.id,
-                                        )
+                                      ? _surfaceLayer(l, compact: !wide)
                                       : l is _Attention
                                       ? AgentAttentionView(
                                           attention: _visible,
@@ -1010,13 +1178,18 @@ class _AgentModePageState extends State<AgentModePage> {
                                               unawaited(_approve(i)),
                                           onOpen: _openItem,
                                           onLater: _later,
+                                          onExpand: _expandItem,
+                                          batchStart: _batchStart,
+                                          onBatch: _showBatch,
                                         )
                                       : AgentFrameView(
                                           focusPrefix: l.id,
                                           frame: _frame(l),
                                           onOpen: (id) {
                                             final c = _channelById(id);
-                                            if (c != null) _openChannel(c).ignore();
+                                            if (c != null) {
+                                              _openChannel(c).ignore();
+                                            }
                                           },
                                         ),
                                 ),

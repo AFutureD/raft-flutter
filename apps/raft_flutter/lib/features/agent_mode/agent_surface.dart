@@ -33,6 +33,10 @@ class AgentCatalogItem {
     this.container = false,
     this.childNames,
     this.example,
+    this.fold = false,
+    this.line,
+    this.focusable = true,
+    this.internal = false,
   });
 
   /// The value of `component` in a surface.
@@ -56,6 +60,20 @@ class AgentCatalogItem {
   /// A valid node of this component, shown to the model.
   final Map<String, Object?>? example;
 
+  /// A container that folds to one summary row when its density is `summary`
+  /// (the default on a phone); tapping the row shows the full cards.
+  final bool fold;
+
+  /// This component as a phrase inside a summary row ("Cindy 在做 #119").
+  final String Function(SurfaceNode node)? line;
+
+  /// Counts as one numbered item on screen (spotlight, marks). Actions do not.
+  final bool focusable;
+
+  /// Built by the app itself (the detail layer's actions): the model neither
+  /// sees it in the catalog reference nor may it place one.
+  final bool internal;
+
   Map<String, Object?> get properties =>
       (schema['properties'] as Map?)?.cast<String, Object?>() ?? const {};
   List<String> get required => [
@@ -76,6 +94,8 @@ class SurfaceNode {
   }
 
   int? integer(String key) => props[key] is int ? props[key] as int : null;
+
+  bool? flag(String key) => props[key] is bool ? props[key] as bool : null;
 
   Map<String, Object?>? object(String key) =>
       props[key] is Map ? (props[key] as Map).cast<String, Object?>() : null;
@@ -127,6 +147,9 @@ class AgentCatalog {
 
   AgentCatalogItem? item(String name) => items[name];
 
+  Iterable<AgentCatalogItem> get _visible =>
+      items.values.where((i) => !i.internal);
+
   /// Parses [raw] (a JSON string or an already decoded map) and checks it
   /// against the catalog.
   SurfaceParse parse(Object? raw) {
@@ -175,7 +198,7 @@ class AgentCatalog {
       final item = name is String ? items[name] : null;
       if (item == null) {
         problems.add(
-          '$path.component "${name ?? ''}" 不在目录里（可用：${items.keys.join('、')}）',
+          '$path.component "${name ?? ''}" 不在目录里（可用：${_visible.map((i) => i.name).join('、')}）',
         );
         return null;
       }
@@ -328,12 +351,12 @@ class AgentCatalog {
   /// fields, and one valid example each.
   String describe() {
     final lines = <String>[];
-    for (final item in items.values) {
+    for (final item in _visible) {
       final fields = [
         for (final e in item.properties.entries)
           '${e.key}${item.required.contains(e.key) ? '*' : ''}:${_typeOf((e.value as Map).cast<String, Object?>())}',
         if (item.container)
-          'children:[${(item.childNames ?? items.keys).join('|')}]',
+          'children:[${(item.childNames ?? _visible.map((i) => i.name)).join('|')}]',
       ];
       lines.add('- ${item.name}（${item.description}）{${fields.join(', ')}}');
       if (item.example != null) lines.add('  例：${jsonEncode(item.example)}');
@@ -357,4 +380,69 @@ class AgentCatalog {
     }
     return '${schema['type']}';
   }
+}
+
+/// How a folding container is drawn: `summary` or `detail`.
+const agentDensities = ['summary', 'detail'];
+
+/// The `density` field every container takes.
+const Map<String, Object?> agentDensityField = {
+  'type': 'string',
+  'enum': agentDensities,
+  'description': 'summary 摘要：每组只占一行（手机上不写就是它）；detail 展开成完整卡片，只在用户要求展开这一组时才写',
+};
+
+/// Where a node sits in a surface, for naming it: `r`, `r.0`, `r.0.2`.
+String surfaceChildPath(String path, int index) => '$path.$index';
+
+/// The paths of the containers drawn as one summary row. A container
+/// follows its own `density`, else the nearest enclosing one, else [compact]
+/// (summary on a phone, detail on a wide screen); a path in [expanded] was
+/// opened by the person and shows in full. Cards and the frame sent to the
+/// model share this, so item numbers always agree.
+Set<String> foldedPaths(
+  AgentCatalog catalog,
+  SurfaceNode root, {
+  required bool compact,
+  Set<String> expanded = const {},
+}) {
+  final folded = <String>{};
+  void visit(SurfaceNode n, String path, String? inherited) {
+    final own = n.string('density');
+    final density = own ?? inherited;
+    if (catalog.item(n.component)?.fold ?? false) {
+      final summary =
+          (density ?? (compact ? 'summary' : 'detail')) == 'summary';
+      if (summary && !expanded.contains(path)) {
+        folded.add(path);
+        return;
+      }
+    }
+    for (final (i, c) in n.children.indexed) {
+      visit(c, surfaceChildPath(path, i), density);
+    }
+  }
+
+  visit(root, 'r', null);
+  return folded;
+}
+
+/// The actions a detail layer offers (通过 / 打开讨论 / 稍后), handed down to
+/// the `ActionRow` inside it. Nothing else may act, so a surface the model
+/// composes cannot carry them.
+class AgentActionScope extends InheritedWidget {
+  const AgentActionScope({
+    super.key,
+    required this.onAction,
+    required super.child,
+  });
+
+  /// `approve`, `open` or `later`.
+  final void Function(String action) onAction;
+
+  static AgentActionScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AgentActionScope>();
+
+  @override
+  bool updateShouldNotify(AgentActionScope old) => false;
 }

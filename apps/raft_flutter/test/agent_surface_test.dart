@@ -296,15 +296,18 @@ void main() {
 
     test('the model reference lists every component with an example', () {
       final doc = catalog.describe();
-      for (final name in catalog.items.keys) {
-        expect(doc, contains(name));
+      for (final item in catalog.items.values.where((i) => !i.internal)) {
+        expect(doc, contains(item.name));
       }
+      // The actions are the app's own: the model is not told about them.
+      expect(doc, isNot(contains('ActionRow')));
+      expect(doc, contains('density'));
       expect(doc, contains('例：'));
       final tool = groundedToolDeclarations(catalog)
           .firstWhere((t) => t['name'] == 'show_surface');
       expect(tool['description'], contains('AgentStatusGroup'));
       // Every example in the catalog is itself a valid surface node.
-      for (final item in catalog.items.values) {
+      for (final item in catalog.items.values.where((i) => !i.internal)) {
         expect(
           catalog.parse(_surface(item.example!)).problems,
           isEmpty,
@@ -388,7 +391,11 @@ void main() {
           MaterialApp(
             theme: raftTheme(family, dark: dark),
             home: Scaffold(
-              body: AgentSurfaceView(spec: spec, focusPrefix: 'surface:1'),
+              body: AgentSurfaceView(
+                spec: spec,
+                focusPrefix: 'surface:1',
+                compact: false,
+              ),
             ),
           ),
         );
@@ -470,7 +477,12 @@ void main() {
         t.view.physicalSize = const Size(320, 900);
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.reset);
-        for (final scale in [1.0, 2.0]) {
+        for (final (scale, compact) in [
+          (1.0, false),
+          (2.0, false),
+          (1.0, true),
+          (2.0, true),
+        ]) {
           await t.pumpWidget(
             MaterialApp(
               theme: raftTheme(RaftFamily.brutal),
@@ -480,11 +492,15 @@ void main() {
                 child: child!,
               ),
               home: Scaffold(
-                body: AgentSurfaceView(spec: spec, focusPrefix: 's'),
+                body: AgentSurfaceView(
+                  spec: spec,
+                  focusPrefix: 's',
+                  compact: compact,
+                ),
               ),
             ),
           );
-          expect(t.takeException(), isNull, reason: 'scale $scale');
+          expect(t.takeException(), isNull, reason: 'scale $scale $compact');
         }
       },
     );
@@ -521,6 +537,230 @@ void main() {
       ];
       expect(ids, ['surface:7#1', 'surface:7#2']);
     });
+  });
+
+  group('density', () {
+    Map<String, Object?> agents({String? density, String? column}) => {
+      'component': 'Column',
+      'density': ?column,
+      'children': [
+        {
+          'component': 'StatRow',
+          'stats': [
+            {'label': '在忙', 'value': '1'},
+            {'label': '空闲', 'value': '2'},
+          ],
+        },
+        {
+          'component': 'AgentStatusGroup',
+          'title': '在忙',
+          'state': 'busy',
+          'density': ?density,
+          'children': [
+            {..._card('Cindy', 'busy'), 'activity': '在做 #119'},
+          ],
+        },
+        {
+          'component': 'AgentStatusGroup',
+          'title': '空闲',
+          'state': 'idle',
+          'children': [
+            {..._card('Cy', 'idle'), 'activity': '空闲'},
+            {..._card('Di', 'idle'), 'activity': '空闲'},
+          ],
+        },
+      ],
+    };
+
+    AgentSurfaceSpec spec(Object root) => catalog.parse(_surface(root)).spec!;
+
+    Future<void> show(
+      WidgetTester t,
+      AgentSurfaceSpec spec, {
+      bool? compact,
+      Set<String> expanded = const {},
+      ValueChanged<String>? onExpand,
+    }) async {
+      t.view.physicalSize = const Size(390, 1200);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: Scaffold(
+            body: AgentSurfaceView(
+              spec: spec,
+              focusPrefix: 's',
+              compact: compact,
+              expanded: expanded,
+              onExpand: onExpand,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Finder row(String text) => find.text(text, findRichText: true);
+
+    test('density is a schema-validated field of the containers only', () {
+      for (final c in ['Column', 'AgentStatusGroup', 'Section']) {
+        for (final d in ['summary', 'detail']) {
+          final node = {
+            'component': c,
+            'density': d,
+            if (c != 'Column') 'title': 'x',
+          };
+          expect(
+            catalog.parse(_surface(node)).problems,
+            isEmpty,
+            reason: '$c $d',
+          );
+        }
+      }
+      final bad = catalog.parse(
+        _surface({'component': 'Column', 'density': 'full'}),
+      );
+      expect(bad.ok, isFalse);
+      expect(
+        bad.problems.join(),
+        allOf(contains('density'), contains('summary')),
+      );
+      expect(
+        catalog
+            .parse(_surface({'component': 'Column', 'density': 3}))
+            .problems
+            .join(),
+        contains('density 必须是字符串'),
+      );
+      // A leaf has no density.
+      expect(
+        catalog
+            .parse(_surface({..._card('A', 'busy'), 'density': 'detail'}))
+            .problems
+            .join(),
+        contains('没有字段 "density"'),
+      );
+      expect(catalog.describe(), contains('density:summary|detail'));
+    });
+
+    test(
+      'folding follows the field, the enclosing container, then the width',
+      () {
+        Set<String> folded(Object root, {required bool compact}) =>
+            foldedPaths(catalog, spec(root).root, compact: compact);
+        expect(folded(agents(), compact: true), {'r.1', 'r.2'});
+        expect(folded(agents(), compact: false), isEmpty);
+        // One group in full, the other still a row.
+        expect(folded(agents(density: 'detail'), compact: true), {'r.2'});
+        // A column's density reaches the groups that do not say their own.
+        expect(folded(agents(column: 'detail'), compact: true), isEmpty);
+        expect(folded(agents(column: 'summary'), compact: false), {
+          'r.1',
+          'r.2',
+        });
+        // A path the person opened is no longer a row.
+        expect(
+          foldedPaths(
+            catalog,
+            spec(agents()).root,
+            compact: true,
+            expanded: {'r.1'},
+          ),
+          {'r.2'},
+        );
+      },
+    );
+
+    testWidgets('a phone shows numbers and one line per group', (t) async {
+      await show(t, spec(agents()));
+      expect(find.byType(AgentStatRowView), findsOneWidget);
+      expect(row('在忙 1：Cindy 在做 #119'), findsOneWidget);
+      // Idle agents have nothing to say besides the name.
+      expect(row('空闲 2：Cy、Di'), findsOneWidget);
+      // No agent card until somebody asks.
+      expect(find.byType(AgentStatusCardView), findsNothing);
+      expect(find.text('在做 #119'), findsNothing);
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('a wide screen shows the cards', (t) async {
+      await show(t, spec(agents()), compact: false);
+      expect(find.byType(AgentSummaryRow), findsNothing);
+      expect(find.byType(AgentStatusCardView), findsNWidgets(3));
+      expect(find.text('Cindy'), findsOneWidget);
+    });
+
+    testWidgets('density detail on a group shows its cards on a phone', (
+      t,
+    ) async {
+      await show(t, spec(agents(density: 'detail')));
+      expect(find.text('Cindy'), findsOneWidget);
+      expect(find.text('在做 #119'), findsOneWidget);
+      // The other group still folds.
+      expect(row('空闲 2：Cy、Di'), findsOneWidget);
+      expect(find.text('Cy'), findsNothing);
+    });
+
+    testWidgets('tapping a row asks the owner to show that group', (t) async {
+      final asked = <String>[];
+      await show(t, spec(agents()), onExpand: asked.add);
+      await t.tap(row('空闲 2：Cy、Di'));
+      expect(asked, ['r.2']);
+      await show(t, spec(agents()), expanded: {'r.2'}, onExpand: asked.add);
+      expect(find.text('Cy'), findsOneWidget);
+      expect(find.text('Di'), findsOneWidget);
+      expect(row('在忙 1：Cindy 在做 #119'), findsOneWidget);
+    });
+
+    testWidgets('item numbers match the frame folded and expanded', (t) async {
+      for (final expanded in [
+        <String>{},
+        {'r.1'},
+        {'r.1', 'r.2'},
+      ]) {
+        final s = spec(agents());
+        final frame = agentSurfaceFrame(s, compact: true, expanded: expanded);
+        final items = (frame['items'] as List).cast<Map<String, Object?>>();
+        await show(t, s, compact: true, expanded: expanded);
+        final ids = [
+          for (final f in t.widgetList<AgentFocusable>(
+            find.byType(AgentFocusable),
+          ))
+            f.id,
+        ];
+        final numbered = items.where((i) => i['kind'] != 'section').length;
+        expect(ids, [
+          for (var n = 1; n <= numbered; n++) 's#$n',
+        ], reason: '$expanded');
+      }
+      final folded =
+          agentSurfaceFrame(spec(agents()), compact: true)['items'] as List;
+      expect((folded[1] as Map)['title'], '在忙 1：Cindy 在做 #119');
+    });
+
+    testWidgets(
+      'the actions are not a numbered item and carry no model field',
+      (t) async {
+        final s = catalog.parse({
+          'title': 'x',
+          'root': {
+            'component': 'Column',
+            'children': [
+              _card('A', 'busy'),
+              {'component': 'ActionRow', 'itemId': 'i1', 'approve': true},
+            ],
+          },
+        }).spec!;
+        final frame = agentSurfaceFrame(s);
+        expect((frame['items'] as List), hasLength(1));
+        await show(t, s);
+        expect(find.byType(AgentFocusable), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('attention-approve-i1')),
+          findsOneWidget,
+        );
+      },
+    );
   });
 
   group('grounded tools', () {

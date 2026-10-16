@@ -127,30 +127,64 @@ void main() {
     await t.pumpAndSettle();
   }
 
-  testWidgets('"现在所有的 Agent 都在干什么？" composes statuses by state', (t) async {
+  Finder row(String text) => find.text(text, findRichText: true);
+
+  testWidgets('"现在所有的 Agent 都在干什么？" is a summary first', (t) async {
     await open(t);
     await ask(t, '现在所有的 Agent 都在干什么？');
     expect(find.text('第 2 层'), findsOneWidget);
     expect(find.text('现在所有 Agent 在做什么'), findsWidgets);
-    // Groups by state, only the non-empty ones.
-    expect(find.text('在忙'), findsWidgets);
-    expect(find.text('卡住了'), findsWidgets);
-    expect(find.text('空闲'), findsWidgets);
-    expect(find.text('离线'), findsNothing);
-    for (final name in ['Aria', 'Bo', 'Cy']) {
-      expect(find.text(name), findsOneWidget);
-    }
-    expect(find.text('在做 #102「历史上拉」'), findsOneWidget);
-    expect(find.text('#seed'), findsOneWidget);
-    // One spoken sentence, built from the counts that were read.
+    // The numbers, then one line per non-empty group.
+    expect(find.byType(AgentStatRowView), findsOneWidget);
+    expect(row('在忙 1：Aria 在做 #102「历史上拉」'), findsOneWidget);
+    expect(row('卡住了 1：Bo #7「旧任务」 超过 6 小时没动'), findsOneWidget);
+    expect(row('空闲 1：Cy'), findsOneWidget);
+    expect(find.textContaining('离线'), findsNothing);
+    // No agent card until somebody asks.
+    expect(find.byType(AgentStatusCardView), findsNothing);
+    expect(find.text('#seed'), findsNothing);
+    // One short spoken sentence, built from the counts that were read, that
+    // offers to go on.
     expect(find.textContaining('3 个 Agent：1 个在忙，1 个卡住了，1 个空闲'), findsWidgets);
+    expect(find.textContaining('要不要展开'), findsWidgets);
     expect(find.byKey(const ValueKey('agent-surface-error')), findsNothing);
 
     await ask(t, '返回');
     expect(find.text('第 1 层'), findsOneWidget);
   });
 
-  testWidgets('"任务 #98 现在怎么样？" shows the task card and its quotes', (t) async {
+  testWidgets('tapping a group row shows that group in full', (t) async {
+    await open(t);
+    await ask(t, '现在所有的 Agent 都在干什么？');
+    await t.tap(row('在忙 1：Aria 在做 #102「历史上拉」'));
+    await t.pumpAndSettle();
+    expect(find.text('Aria'), findsOneWidget);
+    expect(find.text('在做 #102「历史上拉」'), findsOneWidget);
+    expect(find.text('#seed'), findsOneWidget);
+    expect(find.text('第 2 层'), findsOneWidget);
+    // The others are still rows.
+    expect(row('空闲 1：Cy'), findsOneWidget);
+    expect(find.text('Cy'), findsNothing);
+  });
+
+  testWidgets('asking to expand a group recomposes it with density detail', (
+    t,
+  ) async {
+    await open(t);
+    await ask(t, '现在所有的 Agent 都在干什么？');
+    await ask(t, '展开在忙那组');
+    // Same screen, replaced: still the second layer.
+    expect(find.text('第 2 层'), findsOneWidget);
+    expect(find.text('Aria'), findsOneWidget);
+    expect(find.text('在做 #102「历史上拉」'), findsOneWidget);
+    expect(row('卡住了 1：Bo #7「旧任务」 超过 6 小时没动'), findsOneWidget);
+    expect(find.text('Bo'), findsNothing);
+    expect(find.textContaining('在忙那组展开了'), findsWidgets);
+  });
+
+  testWidgets('"任务 #98 现在怎么样？" shows the task card, discussion folded', (
+    t,
+  ) async {
     await open(t);
     await ask(t, '任务 #98 现在怎么样？');
     expect(find.text('第 2 层'), findsOneWidget);
@@ -159,11 +193,28 @@ void main() {
     expect(find.text('负责人 Aria'), findsOneWidget);
     expect(find.text('验收这个任务'), findsOneWidget);
     expect(find.text('Aria · 10:32  已修复并补了测试'), findsOneWidget);
-    // The earlier lines of the thread are quoted below.
+    // The earlier lines of the thread are one row until asked for.
+    expect(row('最近讨论 2：Zed：请看一下返回键、Bo：我这边复现不了了'), findsOneWidget);
+    expect(find.text('请看一下返回键'), findsNothing);
+    await t.tap(find.textContaining('最近讨论 2', findRichText: true));
+    await t.pumpAndSettle();
     expect(find.text('最近讨论'), findsOneWidget);
     expect(find.text('请看一下返回键'), findsOneWidget);
     expect(find.text('我这边复现不了了'), findsOneWidget);
     expect(find.textContaining('任务 #98 现在等验收，由 Aria 负责'), findsWidgets);
+  });
+
+  testWidgets('the model cannot place the app-only action row', (t) async {
+    await open(
+      t,
+      model: const _Wrong(
+        '{"title":"x","root":{"component":"ActionRow","itemId":"i","approve":true}}',
+      ),
+    );
+    await ask(t, '随便');
+    expect(find.text('第 1 层'), findsOneWidget);
+    expect(find.byKey(const ValueKey('agent-surface-error')), findsOneWidget);
+    expect(find.textContaining('ActionRow'), findsWidgets);
   });
 
   testWidgets('a task that does not exist says so and shows nothing', (

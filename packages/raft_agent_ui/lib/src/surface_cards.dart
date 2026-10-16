@@ -490,3 +490,115 @@ class AgentSurfaceSectionView extends StatelessWidget {
     children: [AgentSectionLabel(title), ...children],
   );
 }
+
+/// A group or section folded to one entry: "在忙 1：Cindy 在做 #119". Tapping
+/// it asks for the full cards.
+class AgentSummaryRow extends StatelessWidget {
+  const AgentSummaryRow({
+    super.key,
+    required this.title,
+    required this.count,
+    required this.text,
+    this.state,
+    this.onTap,
+  });
+
+  final String title;
+  final int count;
+
+  /// The members in one run: "Cindy 在做 #119、Bo 在做 #7".
+  final String text;
+
+  /// Colours the strip on the left; null uses the progress tone.
+  final AgentWorkState? state;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    final strip = state == null
+        ? (t.cardFills?[AgentPriority.progress] ??
+              t.priority(AgentPriority.progress))
+        : agentWorkStateColor(t, state!);
+    final line = '$title $count${text.isEmpty ? '' : '：$text'}';
+    return Semantics(
+      button: onTap != null,
+      container: true,
+      label: line,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(t.cardRadius),
+            border: Border.all(color: t.line, width: t.cardBorderWidth),
+            boxShadow: t.cardShadow,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(
+              (t.cardRadius - t.cardBorderWidth).clamp(0, 99),
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: onTap,
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        width: 10,
+                        decoration: BoxDecoration(
+                          color: strip,
+                          border: Border(
+                            right: BorderSide(
+                              color: t.line,
+                              width: t.cardBorderWidth,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '$title $count',
+                                  style: t.heading(15, weight: FontWeight.w900),
+                                ),
+                                if (text.isNotEmpty)
+                                  TextSpan(
+                                    text: '：$text',
+                                    style: t.body(14, color: t.foreground),
+                                  ),
+                              ],
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      if (onTap != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Icon(
+                            Icons.expand_more,
+                            size: 20,
+                            color: t.hint,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

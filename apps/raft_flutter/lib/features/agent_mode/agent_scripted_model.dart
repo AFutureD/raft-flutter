@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_catalog.dart';
+import 'agent_detail.dart';
+import 'agent_mode_data.dart' show agentOrdinal;
 import 'gemini_live.dart' show AgentToolHandler;
 
 /// A stand-in for the voice model that needs no network: it recognises the
@@ -21,6 +23,26 @@ class AgentScriptedModel {
     AgentToolHandler call,
     void Function(String line) say,
   ) async {
+    if (RegExp(r'下一批|还有吗|再看看别的').hasMatch(text)) {
+      final r = await call('next_batch', const {});
+      say(r['error'] != null ? '${r['error']}' : '现在是${r['showing']}。');
+      return true;
+    }
+    // "讲讲第一条" / "展开第 2 条" / "详细说说这个": the home card in full.
+    final wantsMore = RegExp(r'讲讲|展开|详细|详情|细说|说说').hasMatch(text);
+    final group = RegExp(r'在忙|卡住|空闲|离线').firstMatch(text)?[0];
+    if (wantsMore && group != null && agentOrdinal(text) == null) {
+      await _agents(call, say, expand: group);
+      return true;
+    }
+    if (wantsMore &&
+        (agentOrdinal(text) != null || RegExp(r'这个|这条|这件').hasMatch(text))) {
+      final n = agentOrdinal(text);
+      final r = await call('expand_item', {'index': ?n});
+      final item = (r['item'] as Map?)?.cast<String, Object?>();
+      say(item == null ? '${r['error'] ?? '展开不了'}' : explainAttention(item));
+      return true;
+    }
     final task = RegExp(
       r'(?:任务|task)\s*#?\s*(\d+)',
       caseSensitive: false,
@@ -50,7 +72,12 @@ class AgentScriptedModel {
     }
   }
 
-  Future<void> _agents(AgentToolHandler call, void Function(String) say) async {
+  /// [expand] is the label word of a group ("在忙") to show in full.
+  Future<void> _agents(
+    AgentToolHandler call,
+    void Function(String) say, {
+    String? expand,
+  }) async {
     final read = await call('list_agents', const {});
     final agents = [
       for (final a in (read['agents'] as List? ?? const []))
@@ -77,6 +104,8 @@ class AgentScriptedModel {
         'component': AgentComponents.statusGroup,
         'title': titles[state],
         'state': state,
+        if (expand != null && titles[state]!.contains(expand))
+          'density': 'detail',
         'children': [
           for (final a in of)
             {
@@ -101,18 +130,32 @@ class AgentScriptedModel {
     await _show(call, {
       'title': '现在所有 Agent 在做什么',
       'summary': summary,
-      'root': {'component': AgentComponents.column, 'children': groups},
+      'root': {
+        'component': AgentComponents.column,
+        'children': [
+          // Numbers first, then one row per group; a phone folds the groups.
+          {
+            'component': AgentComponents.statRow,
+            'stats': [
+              for (final s in const ['busy', 'blocked', 'idle', 'offline'])
+                if (counts[s] is int && (counts[s] as int) > 0)
+                  {'label': titles[s], 'value': '${counts[s]}'},
+            ],
+          },
+          ...groups,
+        ],
+      },
     }, say);
-    final busy = agents
-        .where((a) => a['state'] == 'busy')
-        .map((a) => a['name'])
-        .take(2);
+    if (expand != null) {
+      say('$expand那组展开了。');
+      return;
+    }
     final blocked = agents
         .where((a) => a['state'] == 'blocked')
         .map((a) => a['name']);
     say(
-      '$summary${busy.isEmpty ? '' : '${busy.join('、')} 正忙着。'}'
-      '${blocked.isEmpty ? '' : '${blocked.join('、')} 卡住了，需要你看一眼。'}',
+      '$summary${blocked.isEmpty ? '' : '${blocked.join('、')} 卡住了。'}'
+      '要不要展开？',
     );
   }
 
