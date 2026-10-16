@@ -211,9 +211,10 @@ void main() {
       final home = (await t.runAsync(
         () => AgentModeData(w, now: () => _now).attention(),
       ))!;
-      expect([for (final i in home.items) i.id], [
-        for (final key in page) 'activity:$key',
-      ]);
+      expect(
+        [for (final i in home.items) i.id],
+        [for (final key in page) 'activity:$key'],
+      );
       // The unread state is the row's own.
       expect(
         [for (final i in home.items) i.unread],
@@ -296,7 +297,10 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('attention-card-activity:thread:th1')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attention-card-activity:thread:th1')),
+        findsOneWidget,
+      );
       expect(find.text('刚到'), findsNothing);
 
       // The server lists the new message and the socket announces it: the
@@ -326,7 +330,18 @@ void main() {
       expect(find.text('刚到'), findsOneWidget);
       expect(find.text('CodexWin：暗色稿改好了，你看一眼可以就合'), findsOneWidget);
       // It is the first row; the one that was first is second.
-      expect(t.getTopLeft(fresh).dy, lessThan(t.getTopLeft(find.byKey(const ValueKey('attention-card-activity:thread:th1'))).dy));
+      expect(
+        t.getTopLeft(fresh).dy,
+        lessThan(
+          t
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey('attention-card-activity:thread:th1'),
+                ),
+              )
+              .dy,
+        ),
+      );
     });
   });
 
@@ -353,7 +368,10 @@ void main() {
       );
       await t.pumpAndSettle();
       // The first row is an Activity row, never a stale task.
-      expect(find.byKey(const ValueKey('attention-card-activity:thread:th1')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attention-card-activity:thread:th1')),
+        findsOneWidget,
+      );
       final group = find.byKey(const ValueKey('attention-stale'));
       expect(find.text('可能需要收尾 2 件'), findsOneWidget);
       expect(group, findsOneWidget);
@@ -362,11 +380,20 @@ void main() {
       expect(
         t.getTopLeft(group).dy,
         greaterThan(
-          t.getBottomLeft(find.byKey(const ValueKey('attention-card-activity:channel:c3'))).dy,
+          t
+              .getBottomLeft(
+                find.byKey(
+                  const ValueKey('attention-card-activity:channel:c3'),
+                ),
+              )
+              .dy,
         ),
       );
       // The count line does not count them as decisions.
-      expect(find.byKey(const ValueKey('attention-count-decision')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('attention-count-decision')),
+        findsNothing,
+      );
 
       await t.tap(group);
       await t.pumpAndSettle();
@@ -426,7 +453,9 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      await t.tap(find.byKey(const ValueKey('attention-card-activity:thread:th1')));
+      await t.tap(
+        find.byKey(const ValueKey('attention-card-activity:thread:th1')),
+      );
       await t.pumpAndSettle();
       final openButton = find.byKey(
         const ValueKey('attention-open-activity:thread:th1'),
@@ -458,7 +487,10 @@ void main() {
       }
       expect(find.text('第 12 句话', skipOffstage: false), findsOneWidget);
       // A system message is a note, not a bubble.
-      expect(find.byKey(const ValueKey('hf-bubble-sys1'), skipOffstage: false), findsNothing);
+      expect(
+        find.byKey(const ValueKey('hf-bubble-sys1'), skipOffstage: false),
+        findsNothing,
+      );
       Color? fill(String id) =>
           (t
                       .widget<DecoratedBox>(
@@ -518,12 +550,28 @@ void main() {
       'tasks.create',
     };
     final registry = AgentCapabilityRegistry([
-      spy('messages.react', ['message', 'emoji', 'channel'], required: ['message', 'emoji']),
-      spy('messages.reply_thread', ['message', 'text', 'channel'], required: ['message', 'text']),
+      spy(
+        'messages.react',
+        ['message', 'emoji', 'channel'],
+        required: ['message', 'emoji'],
+      ),
+      spy(
+        'messages.reply_thread',
+        ['message', 'text', 'channel'],
+        required: ['message', 'text'],
+      ),
       spy('messages.send', ['channel', 'text'], required: ['channel', 'text']),
       spy('activity.mark_done', ['channel', 'thread'], required: ['channel']),
-      spy('tasks.assign', ['task', 'assignee', 'channel'], required: ['task', 'assignee']),
-      spy('tasks.create', ['channel', 'title', 'description', 'assignee'], required: ['channel', 'title']),
+      spy(
+        'tasks.assign',
+        ['task', 'assignee', 'channel'],
+        required: ['task', 'assignee'],
+      ),
+      spy(
+        'tasks.create',
+        ['channel', 'title', 'description', 'assignee'],
+        required: ['channel', 'title'],
+      ),
       for (final c in agentStandardCapabilities.all)
         if (!spied.contains(c.id)) c,
     ]);
@@ -594,7 +642,11 @@ void main() {
       expect(ran, isEmpty);
       await confirm(t);
       expect(_ran(ran), [
-        _c('messages.react', {'message': 'l-th1', 'emoji': '👍', 'channel': 'th1'}),
+        _c('messages.react', {
+          'message': 'l-th1',
+          'emoji': '👍',
+          'channel': 'th1',
+        }),
       ]);
     });
 
@@ -624,7 +676,9 @@ void main() {
       ]);
       await current(t, 'activity:mention_action:ma1');
       expect(
-        find.byKey(const ValueKey('attention-done-activity:mention_action:ma1')),
+        find.byKey(
+          const ValueKey('attention-done-activity:mention_action:ma1'),
+        ),
         findsNothing,
       );
     });
@@ -640,10 +694,11 @@ void main() {
       expect(find.byKey(const ValueKey('agent-reply-note')), findsNothing);
       await confirm(t);
       expect(_ran(ran), [
-        _c(
-          'messages.reply_thread',
-          {'message': 'p-th1', 'text': '先跑全量', 'channel': 'c1'},
-        ),
+        _c('messages.reply_thread', {
+          'message': 'p-th1',
+          'text': '先跑全量',
+          'channel': 'c1',
+        }),
       ]);
       ran.clear();
       await current(t, 'activity:dm:d1');
@@ -684,7 +739,10 @@ void main() {
       await open(t);
       // The Activity row of a task I decide: its own task is assigned.
       await current(t, 'activity:thread:th2');
-      expect(find.byKey(const ValueKey('attention-approve-activity:thread:th2')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('attention-approve-activity:thread:th2')),
+        findsOneWidget,
+      );
       await press(t, 'attention-assign-activity:thread:th2');
       expect(find.byKey(const ValueKey('agent-assign-panel')), findsOneWidget);
       // Only an Agent that is online can be chosen.

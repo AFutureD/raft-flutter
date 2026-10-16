@@ -199,10 +199,7 @@ void main() {
           await t.tap(find.byKey(const ValueKey('agent-keyboard')));
         }
         await t.pumpAndSettle();
-        await t.enterText(
-          find.byKey(const ValueKey('agent-input')),
-          '看看任务',
-        );
+        await t.enterText(find.byKey(const ValueKey('agent-input')), '看看任务');
         await t.testTextInput.receiveAction(TextInputAction.send);
         await t.pumpAndSettle();
         expect(find.text('第 2 层'), findsOneWidget);

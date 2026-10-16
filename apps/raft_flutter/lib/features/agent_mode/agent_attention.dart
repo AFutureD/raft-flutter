@@ -504,7 +504,10 @@ class AgentAttentionDetail extends StatelessWidget {
   /// The number the item has on the screen.
   final int number;
   final void Function(AgentAttentionItem item) onApprove, onOpen, onLater;
-  final void Function(AgentAttentionItem item)? onReply, onLike, onDone, onAssign;
+  final void Function(AgentAttentionItem item)? onReply,
+      onLike,
+      onDone,
+      onAssign;
   final Widget? trailing;
 
   @override
@@ -548,13 +551,11 @@ class AgentAttentionDetail extends StatelessWidget {
       gridActions: activity,
       titleMode: HfDetailTitle.heading,
       index: n,
-      title: activity ? (item.excerpt ?? item.place ?? item.headline) : item.headline,
+      title: activity
+          ? (item.excerpt ?? item.place ?? item.headline)
+          : item.headline,
       status: activity
-          ? [
-              item.reason,
-              ?item.place,
-              if (item.arrived) '刚到',
-            ].join(' · ')
+          ? [item.reason, ?item.place, if (item.arrived) '刚到'].join(' · ')
           : [
               if (item.channelName != null) '#${item.channelName}',
               item.reason,
@@ -602,9 +603,7 @@ class AgentAttentionDetail extends StatelessWidget {
             key: ValueKey('attention-like-${item.id}'),
             onPressed: call(onLike),
           ),
-        if (activity &&
-            onDone != null &&
-            item.rowKind != 'mention_action')
+        if (activity && onDone != null && item.rowKind != 'mention_action')
           HfAction(
             doneLabel,
             key: ValueKey('attention-done-${item.id}'),

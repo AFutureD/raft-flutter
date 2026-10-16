@@ -310,16 +310,21 @@ class _DemoData extends AgentModeData {
       items: AgentActivityFeed.compose(activityItems(_rows), pool),
       stale: [
         _taskItem(
-          _task('t77', 77, 'in_progress', 6 * 24 * 60, 'Windows 安装包签名',
-              claimer: 'CodexWin'),
+          _task(
+            't77',
+            77,
+            'in_progress',
+            6 * 24 * 60,
+            'Windows 安装包签名',
+            claimer: 'CodexWin',
+          ),
           'CodexWin 的「Windows 安装包签名」6 天没动',
           reason: '很久没动了',
           stale: true,
           ask: '解除阻塞',
         ),
         _taskItem(
-          _task('t80', 80, 'in_review', 9 * 24 * 60, '旧版迁移脚本',
-              claimer: 'Grok'),
+          _task('t80', 80, 'in_review', 9 * 24 * 60, '旧版迁移脚本', claimer: 'Grok'),
           'Grok 完成了「旧版迁移脚本」，9 天没人验收',
           reason: '很久没动了',
           stale: true,
@@ -381,8 +386,16 @@ class _DemoData extends AgentModeData {
     if (id == 'th-m7') {
       return AgentConversationRead(
         rows: [
-          _msg('m-m7', 1, 'Kevin', 'M7 问题检测首片什么时候能出？', 190,
-              type: 'user', senderId: _me, more: {'replyCount': 4}),
+          _msg(
+            'm-m7',
+            1,
+            'Kevin',
+            'M7 问题检测首片什么时候能出？',
+            190,
+            type: 'user',
+            senderId: _me,
+            more: {'replyCount': 4},
+          ),
           _msg('m-m7-1', 2, 'Cody', '开始跑了，先抽 12 张样本做首片，不动全量。', 175),
           _msg(
             'm-m7-2',
@@ -411,19 +424,32 @@ class _DemoData extends AgentModeData {
     if (id == 'c1') {
       return AgentConversationRead(
         rows: [
-          _msg('m-c1-1', 1, 'Kevin', '今天先把 M6 验收收掉，再开 M7。', 330,
-              type: 'user', senderId: _me),
-          _msg('m-c1-2', 2, 'Cindy', '收到。我先把 #94 的选型文档补完整，再提验收。', 322,
-              more: {
-                'reactions': [
-                  {
-                    'emoji': '👍',
-                    'count': 2,
-                    'reactorIds': [_me, 'u-bo'],
-                    'reactorNames': ['Kevin', 'Bo'],
-                  },
-                ],
-              }),
+          _msg(
+            'm-c1-1',
+            1,
+            'Kevin',
+            '今天先把 M6 验收收掉，再开 M7。',
+            330,
+            type: 'user',
+            senderId: _me,
+          ),
+          _msg(
+            'm-c1-2',
+            2,
+            'Cindy',
+            '收到。我先把 #94 的选型文档补完整，再提验收。',
+            322,
+            more: {
+              'reactions': [
+                {
+                  'emoji': '👍',
+                  'count': 2,
+                  'reactorIds': [_me, 'u-bo'],
+                  'reactorNames': ['Kevin', 'Bo'],
+                },
+              ],
+            },
+          ),
           _sys('s1', 3, 'Cindy claimed #98 "搜索打开另一个频道后没有返回"', 300),
           _sys('s2', 4, 'Cindy moved #98 "搜索打开另一个频道后没有返回" to In Progress', 299),
           _msg(
@@ -434,8 +460,16 @@ class _DemoData extends AgentModeData {
             250,
             more: {'replyCount': 3},
           ),
-          _msg('m-c1-6', 6, 'Bo', '暗色稿的对比度我再看一下，晚点给结论。', 205,
-              type: 'user', senderId: 'u-bo', more: {'editedAt': _ago(200)}),
+          _msg(
+            'm-c1-6',
+            6,
+            'Bo',
+            '暗色稿的对比度我再看一下，晚点给结论。',
+            205,
+            type: 'user',
+            senderId: 'u-bo',
+            more: {'editedAt': _ago(200)},
+          ),
           _msg(
             'm-c1-7',
             7,
@@ -459,20 +493,53 @@ class _DemoData extends AgentModeData {
               ],
             },
           ),
-          _sys('s3', 8, 'Cindy moved #94 "Personal Agent 第一版选型" to In Review', 119),
+          _sys(
+            's3',
+            8,
+            'Cindy moved #94 "Personal Agent 第一版选型" to In Review',
+            119,
+          ),
           _msg('m-c1-9', 9, 'CodexMac', 'iOS 验收：4 项未通过，M6 暂不默认开启。', 190),
-          _msg('m-c1-10', 10, 'Bo', '这条已经删了', 185,
-              type: 'user', senderId: 'u-bo', more: {'deletedAt': _ago(180)}),
-          _msg('m-c1-11', 11, 'Kevin', '收到，M6 先不开。#98 修好之后再验一轮。', 60,
-              type: 'user', senderId: _me),
+          _msg(
+            'm-c1-10',
+            10,
+            'Bo',
+            '这条已经删了',
+            185,
+            type: 'user',
+            senderId: 'u-bo',
+            more: {'deletedAt': _ago(180)},
+          ),
+          _msg(
+            'm-c1-11',
+            11,
+            'Kevin',
+            '收到，M6 先不开。#98 修好之后再验一轮。',
+            60,
+            type: 'user',
+            senderId: _me,
+          ),
           _msg('m-c1-12', 12, 'Grok', '好的。预计 40 分钟后补完回归测试。', 31),
         ],
         hasMore: true,
         tasks: [
-          _task('t98', 98, 'in_progress', 31, '搜索打开另一个频道后没有返回',
-              claimer: 'Grok'),
+          _task(
+            't98',
+            98,
+            'in_progress',
+            31,
+            '搜索打开另一个频道后没有返回',
+            claimer: 'Grok',
+          ),
           _task('t101', 101, 'in_review', 250, '发布说明初稿'),
-          _task('t96', 96, 'in_progress', 20, 'M7 profile 问题检测', claimer: 'Cody'),
+          _task(
+            't96',
+            96,
+            'in_progress',
+            20,
+            'M7 profile 问题检测',
+            claimer: 'Cody',
+          ),
         ],
       );
     }
@@ -829,7 +896,10 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await wait(4500);
     await mark('actions');
     // 点赞: the preview and its confirm card, as for every operation.
-    _tap(_key.currentContext!, const ValueKey('attention-like-activity:channel:c3'));
+    _tap(
+      _key.currentContext!,
+      const ValueKey('attention-like-activity:channel:c3'),
+    );
     await wait(2500);
     await mark('confirm');
     await _type('算了');

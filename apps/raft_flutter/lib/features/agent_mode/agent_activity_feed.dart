@@ -60,9 +60,11 @@ class AgentActivityFeed {
   String _stamp(DateTime at) {
     String two(int v) => v.toString().padLeft(2, '0');
     final n = now.toLocal(), t = at.toLocal();
-    final days = DateTime(n.year, n.month, n.day)
-        .difference(DateTime(t.year, t.month, t.day))
-        .inDays;
+    final days = DateTime(
+      n.year,
+      n.month,
+      n.day,
+    ).difference(DateTime(t.year, t.month, t.day)).inDays;
     final clock = '${two(t.hour)}:${two(t.minute)}';
     return switch (days) {
       0 => '今天 $clock',
@@ -73,8 +75,7 @@ class AgentActivityFeed {
 
   /// The items of [rows], in the order of [rows].
   List<AgentAttentionItem> itemsOf(Iterable<Map> rows) => [
-    for (final row in rows)
-      ?itemOf(Map<String, dynamic>.from(row)),
+    for (final row in rows) ?itemOf(Map<String, dynamic>.from(row)),
   ];
 
   /// Why the row is in the person's Activity, in their words.
@@ -101,7 +102,9 @@ class AgentActivityFeed {
     final thread = kind == 'thread';
     final action = kind == 'mention_action';
     final dm = kind == 'dm' || (action && row['channelType'] == 'dm');
-    final senderId = _s(row[thread ? 'latestActivitySenderId' : 'lastMessageSenderId']);
+    final senderId = _s(
+      row[thread ? 'latestActivitySenderId' : 'lastMessageSenderId'],
+    );
     final mine = senderId != null && senderId == myId;
     final senderType = _s(
       row[thread ? 'latestActivitySenderType' : 'lastMessageSenderType'],
@@ -116,12 +119,16 @@ class AgentActivityFeed {
         '${(thread ? row['latestActivityPreview'] : row['lastMessagePreview']) ?? row['messagePreview'] ?? ''}';
     final excerpt = excerptOf(raw);
     final at =
-        _time(row['lastActivityAt'] ?? row['lastMessageAt'] ?? row['lastReplyAt']) ??
+        _time(
+          row['lastActivityAt'] ?? row['lastMessageAt'] ?? row['lastReplyAt'],
+        ) ??
         now;
     final unread = ((row['unreadCount'] as num?) ?? 0).toInt();
     final mentioned = row['hasMention'] == true || action;
     final channelId = _s(thread ? row['parentChannelId'] : row['channelId']);
-    final channelName = _s(thread ? row['parentChannelName'] : row['channelName']);
+    final channelName = _s(
+      thread ? row['parentChannelName'] : row['channelName'],
+    );
     final parentTitle = thread
         ? AgentHeadlines.clean('${row['parentMessagePreview'] ?? ''}', max: 24)
         : '';
@@ -135,10 +142,15 @@ class AgentActivityFeed {
         : '#${channelName ?? ''}';
     final why = whyOf(row, me: mine);
     final replyable =
-        mentioned || dm || (thread && why == '回复了你的消息') || row['isFollowing'] == true;
+        mentioned ||
+        dm ||
+        (thread && why == '回复了你的消息') ||
+        row['isFollowing'] == true;
     final ago = _ago(at);
     final destination = ActivityDestination.fromRow(row, canonical: false);
-    final said = excerpt.isEmpty ? place : '${who == null ? '' : '$who：'}$excerpt';
+    final said = excerpt.isEmpty
+        ? place
+        : '${who == null ? '' : '$who：'}$excerpt';
     return AgentAttentionItem(
       id: 'activity:$key',
       kind: AgentItemKind.activity,
@@ -188,7 +200,8 @@ class AgentActivityFeed {
     List<AgentAttentionItem> pool,
   ) {
     if (pool.isEmpty) return activity;
-    String? taskKey(AgentAttentionItem i) => i.channelId == null || i.taskNumber == null
+    String? taskKey(AgentAttentionItem i) =>
+        i.channelId == null || i.taskNumber == null
         ? null
         : '${i.channelId}#${i.taskNumber}';
     final byTask = {
@@ -213,16 +226,17 @@ class AgentActivityFeed {
       for (final a in activity)
         if (taskKey(a) != null) taskKey(a)!: a.at,
     };
-    final extras = [
-      for (final p in pool)
-        if (!used.contains(taskKey(p)) ||
-            (p.priority == AgentPriority.blocked &&
-                !(alive[taskKey(p)]?.isAfter(p.at) ?? false)))
-          p,
-    ]..sort((a, b) {
-      final t = b.at.compareTo(a.at);
-      return t != 0 ? t : b.score.compareTo(a.score);
-    });
+    final extras =
+        [
+          for (final p in pool)
+            if (!used.contains(taskKey(p)) ||
+                (p.priority == AgentPriority.blocked &&
+                    !(alive[taskKey(p)]?.isAfter(p.at) ?? false)))
+              p,
+        ]..sort((a, b) {
+          final t = b.at.compareTo(a.at);
+          return t != 0 ? t : b.score.compareTo(a.score);
+        });
     final out = <AgentAttentionItem>[];
     var e = 0;
     for (final r in rows) {

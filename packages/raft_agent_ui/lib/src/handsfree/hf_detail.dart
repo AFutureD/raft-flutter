@@ -332,11 +332,7 @@ class HfDetail extends StatelessWidget implements HfDescribed {
         card,
         if (actions.isNotEmpty) ...[
           actionGap,
-          HfActions(
-            actions: actions,
-            oneRow: oneRowActions,
-            grid: gridActions,
-          ),
+          HfActions(actions: actions, oneRow: oneRowActions, grid: gridActions),
         ],
       ],
     );

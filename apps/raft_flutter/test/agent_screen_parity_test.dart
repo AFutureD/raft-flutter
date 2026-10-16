@@ -270,7 +270,9 @@ class _Data extends AgentModeData {
     'senderName': who,
     'content': text,
     'messageType': 'chat',
-    'createdAt': worldNow.subtract(Duration(minutes: minutes)).toIso8601String(),
+    'createdAt': worldNow
+        .subtract(Duration(minutes: minutes))
+        .toIso8601String(),
     ...more,
   };
 
@@ -287,7 +289,9 @@ class _Data extends AgentModeData {
     'senderName': 'System',
     'content': text,
     'messageType': 'system',
-    'createdAt': worldNow.subtract(Duration(minutes: minutes)).toIso8601String(),
+    'createdAt': worldNow
+        .subtract(Duration(minutes: minutes))
+        .toIso8601String(),
   };
 
   @override
@@ -672,7 +676,17 @@ void main() {
     final probe = await open(t, data: _HomeData.new);
     final seen = await given(t, probe, 'go_home');
     _expectParity(_shown(t, attentionRoots()), seen, 'activity home');
-    for (final word in ['Cody', '#general', '检测首片什么时候出？', '点名了你', '2 条未读', '@alice', 'Alice Chen', '私信你', '已读']) {
+    for (final word in [
+      'Cody',
+      '#general',
+      '检测首片什么时候出？',
+      '点名了你',
+      '2 条未读',
+      '@alice',
+      'Alice Chen',
+      '私信你',
+      '已读',
+    ]) {
       expect(seen, contains(word), reason: word);
     }
     // The stale tasks are one collapsed row, and the model is told so.
@@ -736,11 +750,7 @@ void main() {
       await call('open_channel', {'name': 'general'});
     });
     final seen = await given(t, probe, 'open_channel', {'name': 'general'});
-    _expectParity(
-      _shown(t, conversationRoots()),
-      seen,
-      'channel layer',
-    );
+    _expectParity(_shown(t, conversationRoots()), seen, 'channel layer');
     // Who said it, what kind it is, and what it holds.
     expect(seen, contains('来自 Agent Cody'));
     expect(seen, contains('系统消息'));

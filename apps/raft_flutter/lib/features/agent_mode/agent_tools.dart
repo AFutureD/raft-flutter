@@ -33,8 +33,7 @@ const agentToolDeclarations = <Map<String, Object?>>[
   },
   {
     'name': 'open_item',
-    'description':
-        '打开当前屏幕上的第 N 条（从 1 开始），比如“第二条”“这个”。在首页上就是打开那条动态所在的整段对话：这个频道、私信或讨论里的全部消息，那一条高亮。立即生效。',
+    'description': '打开当前屏幕上的第 N 条（从 1 开始），比如“第二条”“这个”。在首页上就是打开那条动态所在的整段对话：这个频道、私信或讨论里的全部消息，那一条高亮。立即生效。',
     'parameters': {
       'type': 'object',
       'properties': {

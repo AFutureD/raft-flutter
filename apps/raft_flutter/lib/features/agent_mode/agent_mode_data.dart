@@ -429,7 +429,8 @@ class AgentAttention {
   int get staleCount => stale.length;
 
   /// Conversations with something unread.
-  int get unreadCount => items.where((i) => i.isActivity && i.unread > 0).length;
+  int get unreadCount =>
+      items.where((i) => i.isActivity && i.unread > 0).length;
   int get teamCount => _teamCount ?? team.length;
   String get teamLabel => '$teamCount${capped ? '+' : ''}';
   bool get isEmpty => items.isEmpty;
@@ -1664,11 +1665,8 @@ class AgentModeData {
   Future<AgentChannelBrief> channel(
     RaftChannel c, {
     int windowHours = 6,
-  }) async => briefOf(
-    c,
-    await conversation(c.id, limit: 30),
-    windowHours: windowHours,
-  );
+  }) async =>
+      briefOf(c, await conversation(c.id, limit: 30), windowHours: windowHours);
 
   Future<List<Map<String, dynamic>>> openTasks() async {
     final results = await Future.wait([

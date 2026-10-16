@@ -387,7 +387,9 @@ final actionCapabilities = <AgentCapability>[
       final c = channelByRef(w, '${args['channel']}');
       final row = await _inboxRow(w, c, thread: text(args['thread']));
       if (row == null || activityMutation(row, 'done') == null) {
-        throw AgentCapabilityError('${_doneWord(w, c, row)} 现在不在动态里，没有可以标为已处理的');
+        throw AgentCapabilityError(
+          '${_doneWord(w, c, row)} 现在不在动态里，没有可以标为已处理的',
+        );
       }
       final n = ((row['unreadCount'] as num?) ?? 0).toInt();
       return AgentActionPreview(

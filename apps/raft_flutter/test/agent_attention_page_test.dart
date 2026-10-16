@@ -214,7 +214,10 @@ void main() {
       expect(countOf('decision', '3'), findsOneWidget);
       expect(countOf('blocked', '1'), findsOneWidget);
       expect(countOf('mention', '1'), findsOneWidget);
-      expect(find.byKey(const ValueKey('attention-count-unread')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('attention-count-unread')),
+        findsNothing,
+      );
       expect(find.text('件等你决定'), findsOneWidget);
       expect(find.text('件卡住了'), findsOneWidget);
       expect(find.text('处点名你'), findsOneWidget);

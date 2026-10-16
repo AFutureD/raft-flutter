@@ -122,7 +122,8 @@ class _Channel extends _Layer {
 
 /// The open tasks of the workspace, or (with [channel]) of one channel.
 class _Tasks extends _Layer {
-  _Tasks({this.channel}) : super(channel == null ? 'tasks' : 'tasks:${channel.id}');
+  _Tasks({this.channel})
+    : super(channel == null ? 'tasks' : 'tasks:${channel.id}');
   final RaftChannel? channel;
 }
 
@@ -969,11 +970,7 @@ class _AgentModePageState extends State<AgentModePage> {
   int? get _currentNow {
     final c = _current ?? _currentOf[_stack.last.id];
     if (c != null) return c;
-    return _split &&
-            _stack.last is _Attention &&
-            _listed.isNotEmpty
-        ? 1
-        : null;
+    return _split && _stack.last is _Attention && _listed.isNotEmpty ? 1 : null;
   }
 
   /// A tap, a key and the voice all make an item current the same way.
@@ -1042,9 +1039,7 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   int _rankOf(AgentAttentionItem item) {
-    final at = _listed.indexWhere(
-      (i) => i.id == item.id,
-    );
+    final at = _listed.indexWhere((i) => i.id == item.id);
     return at < 0 ? 1 : at + 1;
   }
 
@@ -1295,7 +1290,10 @@ class _AgentModePageState extends State<AgentModePage> {
       // The channel's tasks were read with its conversation.
       final tasks = _convos['channel:${channel.id}']?.tasks ?? const [];
       if (announce) {
-        _voice.say(AgentSpeaker.agent, '#${channel.name} 有 ${tasks.length} 个任务。');
+        _voice.say(
+          AgentSpeaker.agent,
+          '#${channel.name} 有 ${tasks.length} 个任务。',
+        );
       }
       return tasks;
     }
@@ -1538,7 +1536,11 @@ class _AgentModePageState extends State<AgentModePage> {
       if (_replying != null)
         '屏幕下方提示：正在回复${_replying!.doer == null ? '' : ' ${_replying!.doer}'}，等他说出或输入要回的话',
       if (_assigning != null)
-        '屏幕下方提示：交给哪个 Agent？${_assignees == null ? '正在读取' : _assignees!.isEmpty ? '没有在线的 Agent' : _assignees!.join('、')}',
+        '屏幕下方提示：交给哪个 Agent？${_assignees == null
+            ? '正在读取'
+            : _assignees!.isEmpty
+            ? '没有在线的 Agent'
+            : _assignees!.join('、')}',
     ];
     AgentScreenSnapshot make(
       String kind,
@@ -1766,7 +1768,8 @@ class _AgentModePageState extends State<AgentModePage> {
     if (i.messageId != null) '消息 id ${i.messageId}',
     if (i.threadChannelId != null)
       '讨论串 id ${i.threadChannelId}（父消息 ${i.parentMessageId}）',
-    if (i.isActivity) '动态来源：${i.place ?? ''}，${i.unread > 0 ? '${i.unread} 条未读' : '已读'}',
+    if (i.isActivity)
+      '动态来源：${i.place ?? ''}，${i.unread > 0 ? '${i.unread} 条未读' : '已读'}',
     if (i.doer != null) '负责人/发言人 ${i.doer}',
     if (i.waiters.isNotEmpty) '在等的人 ${i.waiters.join('、')}',
     if (i.threadTitle != null) '讨论「${i.threadTitle}」',
@@ -2113,8 +2116,7 @@ class _AgentModePageState extends State<AgentModePage> {
           : _attentionSummary(_visible!),
       // What the voice agent sees and numbers: the cards, in rank order.
       'items': [
-        for (final (n, i)
-            in _listed.indexed)
+        for (final (n, i) in _listed.indexed)
           {
             'kind': 'priority',
             'priority': i.priority.name,
