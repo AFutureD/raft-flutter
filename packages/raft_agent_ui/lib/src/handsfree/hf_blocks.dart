@@ -61,8 +61,9 @@ class HfCard extends StatelessWidget {
   }
 }
 
-/// Columns and rows, for comparing many things at once. Scrolls sideways
-/// when the columns do not fit at a readable width.
+/// Columns and rows, for comparing many things at once. The columns share the
+/// width; a cell wraps to the lines it is allowed. (It never scrolls sideways:
+/// the page is the only thing that scrolls.)
 ///
 /// [display] says whether the `header`, the `borders` between rows and the
 /// `zebra` fill are drawn; `lines` clamps a cell's text.
@@ -77,9 +78,6 @@ class HfTable extends StatelessWidget {
   final List<List<AgentTableCell>> rows;
   final DisplaySpec? display;
 
-  /// In s-units.
-  static const minColumnWidth = 120.0;
-
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
@@ -89,73 +87,57 @@ class HfTable extends StatelessWidget {
     return HfCard(
       padding: EdgeInsets.zero,
       clip: true,
-      child: LayoutBuilder(
-        builder: (context, box) {
-          final width = math.max(box.maxWidth / cols, hf.sp(minColumnWidth));
-          final fits = width * cols <= box.maxWidth + .5;
-          final table = Table(
-            key: const ValueKey('agent-table'),
-            defaultColumnWidth: fits
-                ? const FlexColumnWidth()
-                : FixedColumnWidth(width),
-            border: x.has('borders')
-                ? TableBorder(
-                    horizontalInside: BorderSide(
-                      color: HfColors.ink.withValues(alpha: .35),
-                      width: hf.sp(1.5),
-                    ),
-                  )
-                : null,
-            children: [
-              if (x.has('header'))
-                TableRow(
-                  decoration: BoxDecoration(
-                    color: HfColors.cream,
-                    border: Border(
-                      bottom: BorderSide(color: HfColors.ink, width: hf.sp(3)),
+      child: Table(
+        key: const ValueKey('agent-table'),
+        defaultColumnWidth: const FlexColumnWidth(),
+        border: x.has('borders')
+            ? TableBorder(
+                horizontalInside: BorderSide(
+                  color: HfColors.ink.withValues(alpha: .35),
+                  width: hf.sp(1.5),
+                ),
+              )
+            : null,
+        children: [
+          if (x.has('header'))
+            TableRow(
+              decoration: BoxDecoration(
+                color: HfColors.cream,
+                border: Border(
+                  bottom: BorderSide(color: HfColors.ink, width: hf.sp(3)),
+                ),
+              ),
+              children: [
+                for (final c in columns)
+                  Padding(
+                    padding: pad,
+                    child: Text(
+                      c,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: hf
+                          .type(HfType.body)
+                          .copyWith(fontWeight: FontWeight.w900),
                     ),
                   ),
-                  children: [
-                    for (final c in columns)
-                      Padding(
-                        padding: pad,
-                        child: Text(
-                          c,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: hf
-                              .type(HfType.body)
-                              .copyWith(fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                  ],
-                ),
-              for (final (r, row) in rows.indexed)
-                TableRow(
-                  decoration: x.has('zebra') && r.isOdd
-                      ? BoxDecoration(
-                          color: HfColors.cream.withValues(alpha: .55),
-                        )
-                      : null,
-                  children: [
-                    for (var i = 0; i < cols; i++)
-                      Padding(
-                        padding: pad,
-                        child: i < row.length
-                            ? _cell(hf, row[i], x.lines)
-                            : const SizedBox.shrink(),
-                      ),
-                  ],
-                ),
-            ],
-          );
-          return fits
-              ? table
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: table,
-                );
-        },
+              ],
+            ),
+          for (final (r, row) in rows.indexed)
+            TableRow(
+              decoration: x.has('zebra') && r.isOdd
+                  ? BoxDecoration(color: HfColors.cream.withValues(alpha: .55))
+                  : null,
+              children: [
+                for (var i = 0; i < cols; i++)
+                  Padding(
+                    padding: pad,
+                    child: i < row.length
+                        ? _cell(hf, row[i], x.lines)
+                        : const SizedBox.shrink(),
+                  ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -358,60 +340,45 @@ class HfCodeBlock extends StatelessWidget {
                 style: hf.type(HfType.body),
               ),
             ),
-          LayoutBuilder(
-            builder: (context, box) => SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: box.maxWidth),
-                child: IntrinsicWidth(
-                  child: Column(
-                    key: const ValueKey('agent-code'),
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final (i, line) in lines.indexed)
-                        Container(
-                          key: ValueKey(
-                            tint(line) == null
-                                ? 'code-line-$i'
-                                : 'code-line-hot-$i',
-                          ),
-                          color: tint(line),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: hf.sp(12),
-                            vertical: hf.sp(1),
-                          ),
-                          child: x.has('line_numbers')
-                              ? Row(
-                                  children: [
-                                    SizedBox(
-                                      width: hf.sp(digits * 9 + 8),
-                                      child: Text(
-                                        '${i + 1}',
-                                        textAlign: TextAlign.right,
-                                        style: style.copyWith(
-                                          color: HfColors.inkMuted,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(width: hf.sp(10)),
-                                    Text(
-                                      line.isEmpty ? ' ' : line,
-                                      softWrap: false,
-                                      style: style,
-                                    ),
-                                  ],
-                                )
-                              : Text(
-                                  line.isEmpty ? ' ' : line,
-                                  softWrap: false,
-                                  style: style,
-                                ),
-                        ),
-                    ],
+          Column(
+            key: const ValueKey('agent-code'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, line) in lines.indexed)
+                Container(
+                  key: ValueKey(
+                    tint(line) == null ? 'code-line-$i' : 'code-line-hot-$i',
                   ),
+                  color: tint(line),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: hf.sp(12),
+                    vertical: hf.sp(1),
+                  ),
+                  // A long line wraps: the page is the only scroll.
+                  child: x.has('line_numbers')
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: hf.sp(digits * 9 + 8),
+                              child: Text(
+                                '${i + 1}',
+                                textAlign: TextAlign.right,
+                                style: style.copyWith(color: HfColors.inkMuted),
+                              ),
+                            ),
+                            SizedBox(width: hf.sp(10)),
+                            Expanded(
+                              child: Text(
+                                line.isEmpty ? ' ' : line,
+                                style: style,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(line.isEmpty ? ' ' : line, style: style),
                 ),
-              ),
-            ),
+            ],
           ),
           if (more > 0 && x.has('more'))
             Padding(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../marks.dart';
-import '../scroll_fade.dart';
 import '../spotlight.dart';
 import 'hf_action.dart';
 import 'hf_basics.dart';
@@ -11,11 +10,12 @@ import 'hf_tokens.dart';
 /// One fact of a detail: who, where, how long.
 @immutable
 class HfFact {
-  const HfFact(this.label, this.value, {this.lines = 2});
+  const HfFact(this.label, this.value, {this.lines});
   final String label, value;
 
-  /// Lines the value may take.
-  final int lines;
+  /// Lines the value may take; null takes as many as it needs (a detail is
+  /// part of a page that scrolls, so nothing in it is cut short).
+  final int? lines;
 }
 
 /// One line of recent progress.
@@ -51,8 +51,8 @@ class HfDetail extends StatelessWidget {
     this.actions = const [],
     this.titleMode = HfDetailTitle.sticker,
     this.index,
-    this.titleLines = 2,
-    this.progressLines = 2,
+    this.titleLines,
+    this.progressLines,
     this.trailing,
     this.focusId,
     this.oneRowActions = false,
@@ -72,13 +72,14 @@ class HfDetail extends StatelessWidget {
   /// The number the thing has on the screen (a card of a numbered list).
   final int? index;
 
-  /// Lines the heading may take, and each line of progress.
-  final int titleLines, progressLines;
+  /// Lines the heading may take, and each line of progress. Null takes as
+  /// many as the words need: the page scrolls, nothing is cut short.
+  final int? titleLines, progressLines;
 
   /// Something small at the right of the heading (an avatar).
   final Widget? trailing;
 
-  /// Keep the actions in one row on a phone too (a sheet).
+  /// Keep the actions in one row on a phone too (a stage with tools).
   final bool oneRowActions;
   final String? focusId;
 
@@ -127,12 +128,15 @@ class HfDetail extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (p.time.isNotEmpty)
-            SizedBox(
-              width: hf.sp(48),
-              child: Text(
-                p.time,
-                maxLines: 1,
-                style: hf.type(HfType.meta, color: HfColors.inkMuted),
+            Padding(
+              padding: EdgeInsets.only(right: hf.sp(6)),
+              child: ConstrainedBox(
+                // Times line up when they are alike; a long one is whole.
+                constraints: BoxConstraints(minWidth: hf.sp(48)),
+                child: Text(
+                  p.time,
+                  style: hf.type(HfType.meta, color: HfColors.inkMuted),
+                ),
               ),
             ),
           Expanded(
@@ -159,9 +163,7 @@ class HfDetail extends StatelessWidget {
         for (final p in progress) progressLine(p),
       ],
     );
-    // [scroll]: the card is given a height that may be too little for it; its
-    // content then scrolls inside the frame and fades where it is cut.
-    Widget cardOf({required bool scroll}) => LayoutBuilder(
+    Widget cardOf() => LayoutBuilder(
       builder: (context, box) {
         final wide = box.maxWidth / hf.s >= 560;
         Widget content;
@@ -229,8 +231,6 @@ class HfDetail extends StatelessWidget {
                                 Flexible(
                                   child: Text(
                                     status!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                     style: hf.type(
                                       HfType.meta,
                                       color: HfColors.inkMuted,
@@ -261,36 +261,18 @@ class HfDetail extends StatelessWidget {
           ],
         );
         return Container(
-          padding: scroll
-              ? EdgeInsets.symmetric(horizontal: hf.sp(16))
-              : EdgeInsets.fromLTRB(hf.sp(16), top, hf.sp(16), bottom),
+          padding: EdgeInsets.fromLTRB(hf.sp(16), top, hf.sp(16), bottom),
           decoration: BoxDecoration(
             color: HfColors.card,
             borderRadius: BorderRadius.circular(hf.sp(16)),
             border: Border.all(color: HfColors.ink, width: hf.sp(3)),
             boxShadow: [BoxShadow(color: color, offset: Offset(0, hf.sp(6)))],
           ),
-          child: scroll
-              ? AgentScrollFade(
-                  key: const ValueKey('hf-detail-fade'),
-                  shrinkWrap: true,
-                  scrollbar: hf.interactive,
-                  fadeColor: HfColors.card,
-                  builder: (context, controller) => SingleChildScrollView(
-                    key: const ValueKey('hf-detail-scroll'),
-                    controller: controller,
-                    physics: hf.interactive
-                        ? const ClampingScrollPhysics()
-                        : const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.only(top: top, bottom: bottom),
-                    child: inner,
-                  ),
-                )
-              : inner,
+          child: inner,
         );
       },
     );
-    final card = cardOf(scroll: false);
+    final card = cardOf();
     final head = <Widget>[
       if (titleMode == HfDetailTitle.sticker)
         Align(alignment: Alignment.centerLeft, child: HfTitleSticker(title)),
@@ -317,35 +299,17 @@ class HfDetail extends StatelessWidget {
       ],
     ];
     final actionGap = SizedBox(height: hf.sp(beside ? 10 : 18));
-    // In a room of its own height (beside a list) the card scrolls inside it
-    // and the actions stay in view under it; else it is as tall as it is.
-    final body = LayoutBuilder(
-      builder: (context, box) {
-        if (!box.hasBoundedHeight || actions.isEmpty) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ...head,
-              card,
-              if (actions.isNotEmpty) ...[
-                actionGap,
-                HfActions(actions: actions, oneRow: oneRowActions),
-              ],
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...head,
-            Flexible(child: cardOf(scroll: true)),
-            actionGap,
-            HfActions(actions: actions, oneRow: oneRowActions),
-          ],
-        );
-      },
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...head,
+        card,
+        if (actions.isNotEmpty) ...[
+          actionGap,
+          HfActions(actions: actions, oneRow: oneRowActions),
+        ],
+      ],
     );
     final id = focusId;
     return id == null ? body : AgentFocusable(id: id, child: body);

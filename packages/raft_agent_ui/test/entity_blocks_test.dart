@@ -103,23 +103,27 @@ void main() {
       expect(find.text('①'), findsOneWidget);
     });
 
-    testWidgets('five columns scroll sideways instead of squeezing', (t) async {
-      _phone(t);
-      await t.pumpWidget(
-        _host(
-          HfTable(
-            columns: const ['一', '二', '三', '四', '五'],
-            rows: [
-              [for (final c in 'abcde'.split('')) AgentTableCell.text(c)],
-            ],
+    testWidgets(
+      'five columns share the width: a table never scrolls sideways',
+      (t) async {
+        _phone(t);
+        await t.pumpWidget(
+          _host(
+            HfTable(
+              columns: const ['一', '二', '三', '四', '五'],
+              rows: [
+                [for (final c in 'abcde'.split('')) AgentTableCell.text(c)],
+              ],
+            ),
           ),
-        ),
-      );
-      expect(find.byType(SingleChildScrollView), findsNWidgets(2));
-      expect(t.takeException(), isNull);
-      final first = t.getSize(find.text('一'));
-      expect(first.width, lessThan(120));
-    });
+        );
+        // Only the host's own scroll: the table adds none of its own.
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+        expect(t.takeException(), isNull);
+        final first = t.getSize(find.text('一'));
+        expect(first.width, lessThan(120));
+      },
+    );
 
     testWidgets('twenty rows draw, a missing entity cell says so', (t) async {
       _phone(t);
