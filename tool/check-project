@@ -113,9 +113,23 @@ def plan_parallelism(cpu, load1=0.0, env=None, platform=None):
         return int(raw)
 
     eff = effective_cpus(cpu, load1)
-    shards = positive('RAFT_CHECK_SHARDS') or (1 if platform == 'darwin' else max(1, min(8, eff // 3)))
+    # A busy machine must not fall back to one shard: one shard runs every file
+    # in a row and outlives the shard watchdog. Keep a floor tied to the CPU
+    # count (not the load) and let -j absorb the contention instead.
+    floor = max(1, min(3, cpu // 4))
+    shards = positive('RAFT_CHECK_SHARDS') or (1 if platform == 'darwin' else max(floor, min(8, eff // 3)))
     jobs = positive('RAFT_CHECK_JOBS') or max(2, min(4 if shards > 1 else 8, eff // shards))
     return shards, jobs
+
+
+def shard_timeout_seconds(weight, jobs, override=None):
+    """Whole-shard watchdog: the default, or longer for a shard whose measured
+    work (`weight` file-seconds over `jobs` workers) needs more, with 2.5x
+    headroom for a loaded machine. An explicit override always wins."""
+    if override:
+        return float(override) * 60
+    expected = (weight or 0) / max(1, jobs)
+    return max(DEFAULT_SHARD_TIMEOUT_MINUTES * 60, 2.5 * expected)
 
 
 def partition(files, weights, shards, fallback=None):
@@ -655,7 +669,7 @@ def run_gate(check_env, emit, started):
     sizes = {f: (app_dir / f).stat().st_size for f in files if (app_dir / f).is_file()}
     shard_count, jobs = plan_parallelism(cpu, load)
     plan = partition(files, history_weights(root), shard_count, sizes)
-    shard_timeout = float(os.environ.get('RAFT_CHECK_SHARD_TIMEOUT_MINUTES') or DEFAULT_SHARD_TIMEOUT_MINUTES) * 60
+    timeout_override = os.environ.get('RAFT_CHECK_SHARD_TIMEOUT_MINUTES')
     max_failures = int(env_number('RAFT_CHECK_MAX_FAILURES', DEFAULT_MAX_FAILURES))
     stall_minutes = env_number('RAFT_CHECK_STALL_MINUTES', DEFAULT_STALL_MINUTES)
     print(f'check-project: {len(files)} test files in {len(plan)} shard(s) x -j{jobs} on {cpu} CPUs (load {load:.1f}); themes: {themes_mode(check_env)}.', file=sys.stderr)
@@ -725,7 +739,7 @@ def run_gate(check_env, emit, started):
         lints_future = pool.submit(raft_lints)
         startup_gate = StartupGate()
         shard_logs, shard_events = fresh_shard_outputs(len(plan))
-        shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout, startup_gate) for i, bucket in enumerate(plan)]
+        shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout_seconds(bucket['weight'], jobs, timeout_override), startup_gate) for i, bucket in enumerate(plan)]
         watch = GateWatch([[repo_path(f) for f in bucket['files']] for bucket in plan], time.monotonic(), max_failures, stall_minutes, emit, to_repo_path)
         try:
             stop = supervise([*shard_futures, host_future, analyze_future, lints_future], shard_logs, shard_events, watch, emit)

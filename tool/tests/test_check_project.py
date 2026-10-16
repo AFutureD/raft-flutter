@@ -86,9 +86,18 @@ class ParallelismTests(unittest.TestCase):
         self.assertEqual(check.plan_parallelism(16, 0.0, {}, 'linux'), (5, 3))
         self.assertEqual(check.plan_parallelism(16, 0.0, {}, 'darwin'), (1, 8))
         self.assertEqual(check.plan_parallelism(16, 0.0, {'RAFT_CHECK_SHARDS': '2'}, 'darwin'), (2, 4))
-        self.assertEqual(check.plan_parallelism(16, 10.0, {}, 'linux'), (2, 3))
+        self.assertEqual(check.plan_parallelism(16, 10.0, {}, 'linux'), (3, 2))
+        # A saturated 16-CPU machine keeps three shards instead of one.
+        self.assertEqual(check.plan_parallelism(16, 30.0, {}, 'linux'), (3, 2))
+        self.assertEqual(check.plan_parallelism(8, 30.0, {}, 'linux'), (2, 2))
         self.assertEqual(check.plan_parallelism(2, 8.0, {}, 'linux'), (1, 2))
         self.assertLessEqual(check.plan_parallelism(128, 0.0, {}, 'linux')[0], 8)
+
+    def test_shard_timeout_scales_with_measured_work(self):
+        self.assertEqual(check.shard_timeout_seconds(600, 3), 3600)
+        self.assertEqual(check.shard_timeout_seconds(6000, 2), 7500)
+        self.assertEqual(check.shard_timeout_seconds(6000, 2, '90'), 5400)
+        self.assertEqual(check.shard_timeout_seconds(None, 2), 3600)
 
     def test_environment_overrides(self):
         self.assertEqual(check.plan_parallelism(16, 0.0, {'RAFT_CHECK_SHARDS': '3', 'RAFT_CHECK_JOBS': '1'}, 'linux'), (3, 1))
