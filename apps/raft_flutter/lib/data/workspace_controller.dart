@@ -19,6 +19,7 @@ import 'source_activity_unread_store.dart';
 import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
 import 'workspace_device_store.dart';
+import 'sidebar_repository.dart';
 import 'raft_api_gateway.dart';
 import 'workspace_composer.dart';
 import 'workspace_uploads.dart';
@@ -130,6 +131,21 @@ class WorkspaceController extends ChangeNotifier
         }
       },
     );
+    sidebarRepository =
+        presentationSource?.sidebarRepository ??
+        SidebarRepository(
+          client,
+          order: () => sidebarOrder,
+          setOrder: (value) => sidebarOrder = value,
+          serverId: () => server?.id,
+          loadAuthority: () =>
+              jsonEncode([client.user?.id, server?.id, server?.string('role')]),
+          isDisposed: () => _disposed,
+          readDevice: () => _cached('sidebar-order', ''),
+          saveDevice: (value) => _save('sidebar-order', '', value),
+          changed: notifyListeners,
+          reload: () => loadSidebar(),
+        );
     this.composer =
         composer ??
         presentationSource?.composer ??
@@ -195,6 +211,7 @@ class WorkspaceController extends ChangeNotifier
 
   VoidCallback? _removeCacheClear;
   late final WorkspaceComposer composer;
+  late final SidebarRepository sidebarRepository;
   late final WorkspaceMessageWindows messageWindows =
       presentationSource?.messageWindows ??
       WorkspaceMessageWindows(
@@ -2791,51 +2808,12 @@ class WorkspaceController extends ChangeNotifier
     }
   }
 
-  int _sidebarRequest = 0;
   Future<void> loadSidebar() async {
     if (presentationSource != null) return presentationSource!.loadSidebar();
-    final request = ++_sidebarRequest;
-    final generation = client.generation, id = client.serverId;
-    final authority = jsonEncode([
-      client.user?.id,
-      server?.id,
-      server?.string('role'),
-    ]);
-    bool accepts() =>
-        !_disposed &&
-        request == _sidebarRequest &&
-        generation == client.generation &&
-        id == client.serverId &&
-        authority ==
-            jsonEncode([client.user?.id, server?.id, server?.string('role')]);
-    if (id == null) return;
-    final cached = await _cached('sidebar-order', '');
-    if (!accepts()) return;
-    if (cached is Map) {
-      sidebarOrder = Map<String, dynamic>.from(cached);
-      notifyListeners();
-    }
-    try {
-      final value = await client.get('/servers/$id/sidebar-order');
-      if (!accepts()) return;
-      sidebarOrder = Map<String, dynamic>.from(value);
-      _save('sidebar-order', '', sidebarOrder);
-      notifyListeners();
-    } catch (_) {
-      /* Cached order remains usable while offline. */
-    }
+    return sidebarRepository.load();
   }
 
   // ---- sidebar-order writes (Source serverStore.updateSidebarOrder) -------
-
-  static const _sectionFields = {
-    'customSections',
-    'sectionOrder',
-    'sectionPlacements',
-  };
-  int _sidebarSectionSeq = 0, _sidebarSectionsInFlight = 0;
-  Future<void> _sidebarSectionTail = Future.value();
-  num? _sidebarConfirmedVersion;
 
   /// Applies [updates] to [sidebarOrder] at once (the row moves before the
   /// request returns), then PATCHes `/servers/:id/sidebar-order`. A request
@@ -2845,76 +2823,7 @@ class WorkspaceController extends ChangeNotifier
   Future<void> updateSidebarOrder(Map<String, dynamic> updates) async {
     final source = presentationSource;
     if (source != null) return source.updateSidebarOrder(updates);
-    final id = server?.id ?? client.serverId;
-    if (id == null || _disposed) return;
-    final generation = client.generation;
-    final previous = sidebarOrder;
-    final next = {...previous, ...updates};
-    final sections = updates.keys.any(_sectionFields.contains);
-    sidebarOrder = next;
-    _save('sidebar-order', '', next);
-    notifyListeners();
-    bool current() =>
-        !_disposed &&
-        (server?.id ?? client.serverId) == id &&
-        client.generation == generation;
-
-    Future<void> perform(int sequence, num? version, bool queued) async {
-      if (!current()) return;
-      try {
-        final value = await client.request(
-          'PATCH',
-          '/servers/$id/sidebar-order',
-          data: sections ? {...updates, 'sectionsVersion': ?version} : updates,
-        );
-        if (!current()) return;
-        final reply = value is Map
-            ? Map<String, dynamic>.from(value)
-            : <String, dynamic>{};
-        if (queued) _sidebarConfirmedVersion = reply['sectionsVersion'] as num?;
-        if (queued && sequence != _sidebarSectionSeq) {
-          // A newer section write is queued: keep its optimistic order and
-          // only adopt the versions.
-          sidebarOrder = {
-            ...sidebarOrder,
-            if (reply['sectionsVersion'] != null)
-              'sectionsVersion': reply['sectionsVersion'],
-            if (reply['pinnedVersion'] != null)
-              'pinnedVersion': reply['pinnedVersion'],
-          };
-        } else {
-          sidebarOrder = {...next, ...reply};
-        }
-        _save('sidebar-order', '', sidebarOrder);
-        notifyListeners();
-      } catch (error) {
-        if (!current()) return;
-        if (!queued || sequence == _sidebarSectionSeq) {
-          sidebarOrder = previous;
-          _save('sidebar-order', '', previous);
-          notifyListeners();
-        }
-        if (error is RaftApiException && error.status == 409) {
-          unawaited(loadSidebar());
-        }
-      }
-    }
-
-    if (!sections) return perform(0, null, false);
-    final sequence = ++_sidebarSectionSeq;
-    _sidebarConfirmedVersion ??= previous['sectionsVersion'] as num?;
-    // An idle queue sends at once; otherwise this write waits for the
-    // previous one so it carries the version that one produced.
-    final run = _sidebarSectionsInFlight == 0
-        ? perform(sequence, _sidebarConfirmedVersion, true)
-        : _sidebarSectionTail.then(
-            (_) => perform(sequence, _sidebarConfirmedVersion, true),
-          );
-    _sidebarSectionsInFlight++;
-    _sidebarSectionTail = run;
-    return run.whenComplete(() {
-      if (--_sidebarSectionsInFlight == 0) _sidebarConfirmedVersion = null;
-    });
+    return sidebarRepository.update(updates);
   }
 
   /// Source channelStore.setActivityMuteState: patches the mute fields of one

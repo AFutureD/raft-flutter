@@ -112,11 +112,11 @@
         "field.WorkspaceController._scopeVisits": 1,
         "field.WorkspaceController._scrolledAway": 1,
         "field.WorkspaceController._sharedReads": 0,
-        "field.WorkspaceController._sidebarConfirmedVersion": 1,
-        "field.WorkspaceController._sidebarRequest": 1,
-        "field.WorkspaceController._sidebarSectionSeq": 1,
-        "field.WorkspaceController._sidebarSectionTail": 1,
-        "field.WorkspaceController._sidebarSectionsInFlight": 1,
+        "field.WorkspaceController._sidebarConfirmedVersion": 0,
+        "field.WorkspaceController._sidebarRequest": 0,
+        "field.WorkspaceController._sidebarSectionSeq": 0,
+        "field.WorkspaceController._sidebarSectionTail": 0,
+        "field.WorkspaceController._sidebarSectionsInFlight": 0,
         "field.WorkspaceController._stateStamp": 1,
         "field.WorkspaceController._tabPresentationOwner": 1,
         "field.WorkspaceController._taskHistoryCache": 0,
@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 6336,
-        "tokens": 35833
+        "lines": 6245,
+        "tokens": 35269
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
@@ -909,6 +909,14 @@
       "metric": "field.WorkspaceController.services",
       "limit": 1,
       "reason": "task #136 composition-root continuation requested by Cindy: replace repository ownership flags, lazy stores and panel caches with one WorkspaceServices owner; preserve injection, facade overrides and teardown order. Pending reviewer acceptance with this slice.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController.sidebarRepository",
+      "limit": 1,
+      "reason": "task #136 SidebarRepository slice requested by Cindy: replace five request, version and section-queue fields with one source-shared owner; keep the existing sidebarOrder projection and overridable controller entrypoints. Pending reviewer acceptance with this slice.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }
