@@ -218,9 +218,11 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   /// The key of the voice service chosen in the settings.
   Future<String?> _activeKey() =>
-      AgentVoiceSettings.instance.provider == AgentVoiceProvider.gemini
-      ? key.read()
-      : OpenAiVoiceKey.instance.read();
+      switch (AgentVoiceSettings.instance.provider) {
+        AgentVoiceProvider.gemini => key.read(),
+        AgentVoiceProvider.openai => OpenAiVoiceKey.instance.read(),
+        AgentVoiceProvider.grok => GrokVoiceKey.instance.read(),
+      };
 
   Future<VoiceSession?> _ensureSession() {
     if (_session?.connected ?? false) return Future.value(_session);

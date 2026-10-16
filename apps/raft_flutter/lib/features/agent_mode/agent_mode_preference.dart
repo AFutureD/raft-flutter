@@ -141,6 +141,7 @@ class _VoiceKeyRow extends StatefulWidget {
 class _VoiceKeyRowState extends State<_VoiceKeyRow> {
   final _key = AgentVoiceKey.instance;
   final _openAiKey = OpenAiVoiceKey.instance;
+  final _grokKey = GrokVoiceKey.instance;
   String? _error;
 
   @override
@@ -148,6 +149,7 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
     super.initState();
     _key.read();
     _openAiKey.read();
+    _grokKey.read();
   }
 
   Future<void> _scan() async {
@@ -172,14 +174,17 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
     final t = RaftTokens.of(context);
     final scanSupported = AgentAudio.instance.supported;
     return ListenableBuilder(
-      listenable: Listenable.merge([_key, _openAiKey]),
+      listenable: Listenable.merge([_key, _openAiKey, _grokKey]),
       builder: (context, _) {
         final suffix = _key.suffix;
         final openAiSuffix = _openAiKey.suffix;
-        final anyKey = suffix != null || openAiSuffix != null;
+        final grokSuffix = _grokKey.suffix;
+        final anyKey =
+            suffix != null || openAiSuffix != null || grokSuffix != null;
         final stored = [
           if (suffix != null) 'Gemini Key ····$suffix',
           if (openAiSuffix != null) 'OpenAI Key ····$openAiSuffix',
+          if (grokSuffix != null) 'Grok Key ····$grokSuffix',
         ];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,7 +192,7 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
             RaftCssText(
               !anyKey
                   ? (scanSupported
-                        ? '语音：还没有 Gemini 或 OpenAI Key。'
+                        ? '语音：还没有 Gemini、OpenAI 或 Grok Key。'
                         : '语音：这台设备还不能扫码填入 Key。')
                   : '语音：${stored.join('；')}',
               key: const ValueKey('agent-voice-key-status'),
@@ -219,6 +224,7 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
                     onPressed: () {
                       _key.clear();
                       _openAiKey.clear();
+                      _grokKey.clear();
                     },
                   ),
               ],

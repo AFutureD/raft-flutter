@@ -47,8 +47,21 @@ class Pcm16Resampler {
   }
 }
 
+/// Which service speaks the OpenAI Realtime protocol to the session. xAI's
+/// Grok Voice API is a clone of it (same events, audio and tool flow), with a
+/// few documented differences that [OpenAiRealtimeSession] branches on:
+/// where `voice` and `turn_detection` sit in `session.update`, the transcript
+/// events, no `reasoning`/`truncation` settings, and per-minute billing.
+///
+/// Verified against https://docs.x.ai/developers/model-capabilities/audio/speech-to-speech
+/// and https://docs.x.ai/developers/rest-api-reference/inference/voice
+/// (event list and schemas: https://docs.x.ai/voice-realtime.ws.json).
+enum RealtimeService { openai, grok }
+
 /// One OpenAI Realtime session over WebSocket (`gpt-realtime-2.1-mini`):
-/// the same job as [GeminiLiveSession] on another service.
+/// the same job as [GeminiLiveSession] on another service. With
+/// `service: RealtimeService.grok` it is an xAI Grok Voice session
+/// (`grok-voice-latest`) instead.
 ///
 /// Audio: the Realtime API takes and returns 24 kHz mono PCM16, the app's
 /// microphone gives 16 kHz (resampled here) and its speaker plays 24 kHz
@@ -75,15 +88,37 @@ class OpenAiRealtimeSession implements VoiceSession {
     this.onInterrupted,
     this.onClosed,
     this.playbackPending,
+    this.service = RealtimeService.openai,
+    Duration? idleClose,
     Uri? endpoint,
     void Function(String message)? log,
     this._toolTimeout = agentToolTimeout,
-  }) : endpoint = endpoint ?? Uri.parse('$_url?model=$modelName'),
-       _log = log ?? _debugLog;
+  }) : endpoint =
+           endpoint ??
+           (service == RealtimeService.grok
+               ? Uri.parse('$_grokUrl?model=$grokModelName')
+               : Uri.parse('$_url?model=$modelName')),
+       _idleClose =
+           idleClose ??
+           (service == RealtimeService.grok ? grokIdleClose : null),
+       _log = log ?? ((m) => _debugLog(service, m));
 
   static const modelName = 'gpt-realtime-2.1-mini';
   static const defaultVoice = 'marin';
   static const _url = 'wss://api.openai.com/v1/realtime';
+
+  /// Grok Voice: `grok-voice-latest` is an alias of Grok Voice 3.0.
+  static const grokModelName = 'grok-voice-latest';
+  static const grokDefaultVoice = 'eve';
+  static const _grokUrl = 'wss://api.x.ai/v1/realtime';
+
+  /// Grok Voice is priced per minute.
+  static const grokUsdPerMinute = 0.08;
+
+  /// A per-minute service is billed for the time a session is open, so it is
+  /// closed after this long without any traffic, tool or speech, and opened
+  /// again on next use.
+  static const grokIdleClose = Duration(seconds: 60);
 
   /// The server decides the person has finished after this much silence.
   static const silenceMs = 400;
@@ -91,6 +126,9 @@ class OpenAiRealtimeSession implements VoiceSession {
 
   /// Sent when the microphone stops, so the server sees the silence.
   static const _tailMs = silenceMs + 300;
+
+  /// Grok's end-of-speech delay is not documented, so the tail is longer.
+  static const _grokTailMs = 1200;
 
   /// The Realtime API takes and gives audio at this rate only (PCM16).
   static const apiRate = 24000;
@@ -102,12 +140,22 @@ class OpenAiRealtimeSession implements VoiceSession {
   static bool _truncation = true;
   static String _transcribeModel = 'gpt-4o-mini-transcribe';
 
+  /// Same for Grok's `audio.input.transcription.model`.
+  static bool _grokTranscription = true;
+
   @visibleForTesting
   static void resetFallbacks() {
     _reasoning = true;
     _truncation = true;
     _transcribeModel = 'gpt-4o-mini-transcribe';
+    _grokTranscription = true;
   }
+
+  final RealtimeService service;
+  bool get _grok => service == RealtimeService.grok;
+
+  /// Close the socket after this long without activity (null: never).
+  final Duration? _idleClose;
 
   final String apiKey;
   final String systemPrompt;
@@ -135,8 +183,10 @@ class OpenAiRealtimeSession implements VoiceSession {
   final void Function(String message) _log;
   final Duration _toolTimeout;
 
-  static void _debugLog(String message) {
-    if (!kReleaseMode) debugPrint('agent-openai $message');
+  static void _debugLog(RealtimeService service, String message) {
+    if (kReleaseMode) return;
+    final tag = service == RealtimeService.grok ? 'grok' : 'openai';
+    debugPrint('agent-$tag $message');
   }
 
   WebSocket? _socket;
@@ -169,13 +219,29 @@ class OpenAiRealtimeSession implements VoiceSession {
   String? _audioItem;
   double _audioMs = 0;
   final _inputDeltaItems = <String>{};
+
+  /// Grok: the transcript already passed on, per item (its `updated` events
+  /// carry the whole text so far, not a delta).
+  final _inputStreamed = <String, String>{};
+
+  /// Grok: the speech received is heard before the next `response.create`
+  /// (so the answer after a tool does not overlap the speech before it).
+  bool _waitingForPlayback = false;
+  bool _playbackSettled = false;
+
+  // ---- idle close and session time (per-minute billing) --------------------
+
+  Timer? _idleTimer;
+  final _sinceActivity = Stopwatch();
+  final _open = Stopwatch();
+  bool _openLogged = true;
   final _callResponses = <String>{};
 
   @override
   bool get connected => _socket != null;
 
   @override
-  String? get model => modelName;
+  String? get model => _grok ? grokModelName : modelName;
 
   // ---- tools -----------------------------------------------------------
 
@@ -220,7 +286,14 @@ class OpenAiRealtimeSession implements VoiceSession {
         // ignore: raft_lints/avoid_caught_exception_text -- Matched against setting names to pick which one to drop; the text is never shown.
         final named = '${e.param ?? ''} ${e.message}'.toLowerCase();
         if (attempt >= 3) rethrow;
-        if (_reasoning && named.contains('reasoning')) {
+        if (_grok) {
+          // Grok has no other optional settings than the transcription.
+          if (_grokTranscription && named.contains('transcri')) {
+            _grokTranscription = false;
+          } else {
+            rethrow;
+          }
+        } else if (_reasoning && named.contains('reasoning')) {
           _reasoning = false;
         } else if (_truncation && named.contains('truncation')) {
           _truncation = false;
@@ -238,7 +311,32 @@ class OpenAiRealtimeSession implements VoiceSession {
   /// The `session` of the `session.update` sent at setup. Stable from one
   /// turn to the next (and from session to session): nothing in front of the
   /// instructions changes, so the server's prompt cache applies.
-  Map<String, Object?> sessionConfig() => {
+  Map<String, Object?> sessionConfig() =>
+      _grok ? _grokSessionConfig() : _openAiSessionConfig();
+
+  /// Grok Voice's `session`: `voice` and `turn_detection` at the top level
+  /// (not under `audio`), PCM at 24 kHz both ways, input transcription by
+  /// `grok-transcribe` (without it the server sends no user transcript).
+  /// No `type`, `output_modalities`, `truncation` (speech only) and no VAD
+  /// tuning: the documented `turn_detection` fields are `type` and
+  /// `idle_timeout_ms`. `reasoning` is left at the server default.
+  Map<String, Object?> _grokSessionConfig() => {
+    'instructions': systemPrompt,
+    'voice': voice,
+    'turn_detection': {'type': 'server_vad'},
+    'tools': functionTools(tools),
+    'audio': {
+      'input': {
+        'format': {'type': 'audio/pcm', 'rate': apiRate},
+        if (_grokTranscription) 'transcription': {'model': 'grok-transcribe'},
+      },
+      'output': {
+        'format': {'type': 'audio/pcm', 'rate': apiRate},
+      },
+    },
+  };
+
+  Map<String, Object?> _openAiSessionConfig() => {
     'type': 'realtime',
     'output_modalities': ['audio'],
     'instructions': systemPrompt,
@@ -282,8 +380,10 @@ class OpenAiRealtimeSession implements VoiceSession {
       // dart:io does not say why the upgrade was refused (an unknown or
       // revoked key is a 401, a key without the model a 403/404).
       if (refused.contains('not upgraded')) {
-        throw const OpenAiRealtimeException(
-          'OpenAI 拒绝了连接：请检查 Key 是否有效、账户能否使用实时语音模型',
+        throw OpenAiRealtimeException(
+          _grok
+              ? 'xAI 拒绝了连接：请检查 Key 是否有效、账户能否使用 Grok 语音'
+              : 'OpenAI 拒绝了连接：请检查 Key 是否有效、账户能否使用实时语音模型',
         );
       }
       throw OpenAiRealtimeException('连接失败（${refused.split('\n').first}）');
@@ -320,7 +420,10 @@ class OpenAiRealtimeSession implements VoiceSession {
       onDone: () {
         final established = ready.isCompleted;
         final remote = _socket == socket;
-        if (remote) _socket = null;
+        if (remote) {
+          _socket = null;
+          _logOpenTime('closed by the server');
+        }
         final reason = (socket.closeReason?.isNotEmpty ?? false)
             ? socket.closeReason!
             : '连接已断开（${socket.closeCode ?? '-'}）';
@@ -345,6 +448,7 @@ class OpenAiRealtimeSession implements VoiceSession {
       rethrow;
     }
     _resetConversation();
+    _startClock();
   }
 
   void _resetConversation() {
@@ -353,11 +457,68 @@ class OpenAiRealtimeSession implements VoiceSession {
     _outstanding = 0;
     _audioItem = null;
     _audioMs = 0;
+    _waitingForPlayback = _playbackSettled = false;
+    _inputStreamed.clear();
+  }
+
+  // ---- idle close and session time ----------------------------------------
+
+  void _startClock() {
+    _open
+      ..reset()
+      ..start();
+    _openLogged = false;
+    _sinceActivity
+      ..reset()
+      ..start();
+    _armIdle(_idleClose);
+  }
+
+  void _armIdle(Duration? after) {
+    _idleTimer?.cancel();
+    if (_idleClose == null || after == null) return;
+    _idleTimer = Timer(after, _idleCheck);
+  }
+
+  /// Nothing is happening when no response is being made, no tool is running
+  /// and the person is not talking.
+  void _idleCheck() {
+    final limit = _idleClose;
+    if (limit == null || _socket == null) return;
+    final quietFor = _sinceActivity.elapsed;
+    final busy = _responseActive || _awaitingCreated || _outstanding > 0;
+    if (busy || _userSpeaking || quietFor < limit) {
+      _armIdle(busy || _userSpeaking ? limit : limit - quietFor);
+      return;
+    }
+    _log('idle for ${quietFor.inSeconds}s: closing the session');
+    final socket = _socket;
+    _socket = null;
+    _logOpenTime('idle');
+    // Not reported as closed by the server: the next use connects again.
+    unawaited(socket?.close());
+  }
+
+  /// One debug line with how long the session was open; for a per-minute
+  /// service, what that costs at the list price. Never logs the key.
+  void _logOpenTime(String why) {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    if (_openLogged) return;
+    _openLogged = true;
+    _open.stop();
+    final seconds = _open.elapsed.inMilliseconds / 1000;
+    final cost = _grok
+        ? ' (about \$${(seconds / 60 * grokUsdPerMinute).toStringAsFixed(4)} '
+              'at \$$grokUsdPerMinute/min)'
+        : '';
+    _log('session $why after ${seconds.toStringAsFixed(1)}s open$cost');
   }
 
   // ---- events from the server --------------------------------------------
 
   void _handle(Map<String, dynamic> event) {
+    _sinceActivity.reset();
     switch (event['type']) {
       case 'input_audio_buffer.speech_started':
         unawaited(_speechStarted());
@@ -370,7 +531,17 @@ class OpenAiRealtimeSession implements VoiceSession {
           _inputDeltaItems.add('${event['item_id']}');
           onInputText?.call(delta);
         }
+      case 'conversation.item.input_audio_transcription.updated':
+        // Grok: the whole transcript so far, which may correct what was said
+        // before. Only the text that extends what was passed on is passed on.
+        _inputTranscript('${event['item_id']}', event['transcript']);
       case 'conversation.item.input_audio_transcription.completed':
+        if (_grok) {
+          final id = '${event['item_id']}';
+          _inputTranscript(id, event['transcript']);
+          _inputStreamed.remove(id);
+          return;
+        }
         // Models that stream deltas have said it all already.
         final streamed = _inputDeltaItems.remove('${event['item_id']}');
         final transcript = event['transcript'];
@@ -412,6 +583,20 @@ class OpenAiRealtimeSession implements VoiceSession {
           '${error['message']}',
         );
     }
+  }
+
+  /// Passes on the part of a Grok transcript [text] (cumulative) that follows
+  /// what was passed on for [item]. A correction of earlier text cannot be
+  /// taken back from the captions; it is logged and the rest follows.
+  void _inputTranscript(String item, Object? text) {
+    if (text is! String || text.isEmpty) return;
+    final before = _inputStreamed[item] ?? '';
+    if (text.length <= before.length) return;
+    if (!text.startsWith(before)) {
+      _log('transcript of $item revised; keeping the captions as they are');
+    }
+    _inputStreamed[item] = text;
+    onInputText?.call(text.substring(before.length));
   }
 
   /// The person began to speak. The server has already cut the response off;
@@ -472,6 +657,12 @@ class OpenAiRealtimeSession implements VoiceSession {
         'response': {'error': '用户打断了，这次调用没有执行。'},
       });
       return;
+    }
+    if (_grok && !_responseActive) {
+      // Grok sends the call "alongside" `response.done`: if that came first
+      // the model must still be asked to go on once the call is answered.
+      _continuation = true;
+      _continueEpoch = _epoch;
     }
     final call = {'id': callId, 'name': name, 'args': args};
     if (_quiet.contains(name)) {
@@ -541,14 +732,37 @@ class OpenAiRealtimeSession implements VoiceSession {
     if (_continuation && _epoch != _continueEpoch) _continuation = false;
     if (!(_wantResponse || _continuation)) return;
     if (_responseActive || _awaitingCreated) return;
-    if (_outstanding > 0 || _userSpeaking) return;
+    if (_outstanding > 0 || _userSpeaking || _waitingForPlayback) return;
+    final settled = _playbackSettled;
+    _playbackSettled = false;
+    if (_grok && !settled && playbackPending != null) {
+      // Grok: an answer that starts while the speech before it is still
+      // playing overlaps it, so wait for the speech to be heard.
+      _waitingForPlayback = true;
+      unawaited(_afterPlayback());
+      return;
+    }
     _wantResponse = _continuation = false;
     _awaitingCreated = _send({'type': 'response.create'});
+  }
+
+  Future<void> _afterPlayback() async {
+    try {
+      final wait = await playbackPending!();
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
+    } catch (_) {
+      /* ask now */
+    }
+    _waitingForPlayback = false;
+    _playbackSettled = true;
+    _flush();
+    _playbackSettled = false;
   }
 
   Future<void> _fail(String reason) async {
     final socket = _socket;
     _socket = null;
+    _logOpenTime('failed');
     await socket?.close();
     onClosed?.call(reason);
   }
@@ -588,6 +802,7 @@ class OpenAiRealtimeSession implements VoiceSession {
   bool _send(Map<String, Object?> message) {
     final socket = _socket;
     if (socket == null) return false;
+    _sinceActivity.reset();
     socket.add(jsonEncode(message));
     return true;
   }
@@ -603,7 +818,9 @@ class OpenAiRealtimeSession implements VoiceSession {
   /// silence, so a tail of it is sent.
   @override
   void endAudio() {
-    final silence = Uint8List(apiRate * 2 * _tailMs ~/ 1000);
+    final silence = Uint8List(
+      apiRate * 2 * (_grok ? _grokTailMs : _tailMs) ~/ 1000,
+    );
     _send({
       'type': 'input_audio_buffer.append',
       'audio': base64Encode(silence),
@@ -630,6 +847,7 @@ class OpenAiRealtimeSession implements VoiceSession {
   Future<void> close() async {
     final socket = _socket;
     _socket = null;
+    _logOpenTime('closed');
     await socket?.close();
   }
 }

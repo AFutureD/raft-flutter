@@ -44,6 +44,16 @@ class AgentVoiceSettings extends ChangeNotifier {
     'shimmer': 'Shimmer',
     'verse': 'Verse',
   };
+
+  /// xAI Grok Voice built-in voices (`GET /v1/tts/voices`); eve is the
+  /// default. The names are the service's own.
+  static const grokVoices = {
+    'eve': 'Eve',
+    'ara': 'Ara',
+    'rex': 'Rex',
+    'sal': 'Sal',
+    'leo': 'Leo',
+  };
   static const paceLabels = {
     AgentPace.slow: '慢一点',
     AgentPace.normal: '正常',
@@ -119,9 +129,27 @@ class AgentVoiceSettings extends ChangeNotifier {
 
   set openAiVoice(String v) => _write('openAiVoice', v);
 
+  String get grokVoice {
+    final v = _read('grokVoice');
+    return v != null && grokVoices.containsKey(v) ? v : grokVoices.keys.first;
+  }
+
+  set grokVoice(String v) => _write('grokVoice', v);
+
   /// The chosen voice of [provider].
-  String voiceOf(AgentVoiceProvider provider) =>
-      provider == AgentVoiceProvider.openai ? openAiVoice : voice;
+  String voiceOf(AgentVoiceProvider provider) => switch (provider) {
+    AgentVoiceProvider.gemini => voice,
+    AgentVoiceProvider.openai => openAiVoice,
+    AgentVoiceProvider.grok => grokVoice,
+  };
+
+  /// The voices [provider] offers, with how they are shown.
+  static Map<String, String> voicesOf(AgentVoiceProvider provider) =>
+      switch (provider) {
+        AgentVoiceProvider.gemini => voices,
+        AgentVoiceProvider.openai => openAiVoices,
+        AgentVoiceProvider.grok => grokVoices,
+      };
 
   AgentPace get pace => _enum(AgentPace.values, 'pace', AgentPace.normal);
   set pace(AgentPace v) => _write('pace', v.name);
@@ -260,11 +288,7 @@ class AgentVoiceSettingsPage extends StatelessWidget {
               provider: s.provider,
             ),
             section('声音'),
-            for (final e
-                in (s.provider == AgentVoiceProvider.openai
-                        ? AgentVoiceSettings.openAiVoices
-                        : AgentVoiceSettings.voices)
-                    .entries)
+            for (final e in AgentVoiceSettings.voicesOf(s.provider).entries)
               ListTile(
                 key: ValueKey('agent-voice-${e.key}'),
                 leading: Icon(
@@ -274,9 +298,9 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                   color: t.foreground,
                 ),
                 title: Text(e.value, style: t.body(15)),
-                subtitle: s.provider == AgentVoiceProvider.openai
-                    ? null
-                    : Text(e.key, style: t.body(12, color: t.hint)),
+                subtitle: s.provider == AgentVoiceProvider.gemini
+                    ? Text(e.key, style: t.body(12, color: t.hint))
+                    : null,
                 trailing: onPreview == null
                     ? null
                     : IconButton(
@@ -334,10 +358,13 @@ class AgentVoiceSettingsPage extends StatelessWidget {
 }
 
 void _setVoice(AgentVoiceSettings s, String voice) {
-  if (s.provider == AgentVoiceProvider.openai) {
-    s.openAiVoice = voice;
-  } else {
-    s.voice = voice;
+  switch (s.provider) {
+    case AgentVoiceProvider.gemini:
+      s.voice = voice;
+    case AgentVoiceProvider.openai:
+      s.openAiVoice = voice;
+    case AgentVoiceProvider.grok:
+      s.grokVoice = voice;
   }
 }
 

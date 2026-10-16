@@ -123,6 +123,47 @@ void main() {
     expect(find.byKey(const ValueKey('agent-voice-Sulafat')), findsOneWidget);
   });
 
+  testWidgets('Grok has its own key row and voices', (t) async {
+    t.view.physicalSize = const Size(420, 2600);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: const AgentVoiceSettingsPage(),
+      ),
+    );
+    final s = AgentVoiceSettings.instance;
+    addTearDown(() => s.grokVoice = 'eve');
+    await t.tap(
+      find.byKey(ValueKey('agent-setting-${AgentVoiceProvider.grok}')),
+    );
+    await t.pump();
+    expect(s.provider, AgentVoiceProvider.grok);
+    expect(find.text('还没有 Grok Key'), findsOneWidget);
+    expect(find.byKey(const ValueKey('agent-voice-eve')), findsOneWidget);
+    expect(find.byKey(const ValueKey('agent-voice-marin')), findsNothing);
+    expect(s.voiceOf(AgentVoiceProvider.grok), 'eve');
+    await t.tap(find.byKey(const ValueKey('agent-voice-rex')));
+    await t.pump();
+    expect(s.grokVoice, 'rex');
+    expect(s.voice, 'Sulafat');
+  });
+
+  test('a Grok key is stored under its own name', () async {
+    const grok = 'xai-abcdefghijklmnopqrstuvwxyz0123456789ABCDEF';
+    final saved = await saveScannedKey(
+      'XAI_API_KEY=$grok',
+      preferred: AgentVoiceProvider.gemini,
+    );
+    expect(saved, AgentVoiceProvider.grok);
+    expect(await GrokVoiceKey.instance.read(), grok);
+    expect(stored.keys.single, 'raft.agentDemo.grokKey');
+    expect(GrokVoiceKey.instance.suffix, 'CDEF');
+    await GrokVoiceKey.instance.clear();
+    expect(stored, isEmpty);
+  });
+
   testWidgets('a stored key shows only its last four characters', (t) async {
     await OpenAiVoiceKey.instance.save(
       'sk-proj-abcdefghijklmnopqrstuvwxyz0123456789',

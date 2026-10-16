@@ -5,16 +5,17 @@ import 'gemini_live.dart';
 import 'openai_realtime.dart';
 
 /// Which realtime voice service agent mode talks to.
-enum AgentVoiceProvider { gemini, openai }
+enum AgentVoiceProvider { gemini, openai, grok }
 
 const agentVoiceProviderLabels = {
   AgentVoiceProvider.gemini: 'Gemini',
   AgentVoiceProvider.openai: 'OpenAI',
+  AgentVoiceProvider.grok: 'Grok',
 };
 
 /// One realtime voice session: microphone audio goes in, speech, transcripts
 /// and tool calls come out. [GeminiLiveSession] and [OpenAiRealtimeSession]
-/// implement it; the voice controller only knows this.
+/// (which also runs xAI Grok Voice) implement it; the voice controller only knows this.
 ///
 /// The callbacks are constructor parameters of each session (they appear here
 /// as getters so a caller can rely on them):
@@ -102,36 +103,56 @@ VoiceSession createVoiceSession({
     onClosed: onClosed,
     playbackPending: playbackPending,
   ),
+  // Grok Voice speaks the same protocol with a few documented differences.
+  AgentVoiceProvider.grok => OpenAiRealtimeSession(
+    service: RealtimeService.grok,
+    apiKey: apiKey,
+    voice: voice,
+    systemPrompt: systemPrompt,
+    tools: tools,
+    onToolCall: onToolCall,
+    onAudio: onAudio,
+    onInputText: onInputText,
+    onOutputText: onOutputText,
+    onTurnComplete: onTurnComplete,
+    onInterrupted: onInterrupted,
+    onClosed: onClosed,
+    playbackPending: playbackPending,
+  ),
 };
 
 /// The stored key of [provider].
 AgentVoiceKey voiceKeyFor(AgentVoiceProvider provider) => switch (provider) {
   AgentVoiceProvider.gemini => AgentVoiceKey.instance,
   AgentVoiceProvider.openai => OpenAiVoiceKey.instance,
+  AgentVoiceProvider.grok => GrokVoiceKey.instance,
 };
 
-/// Reads a scanned code or pasted text: a Gemini key (`AIza...`) or an OpenAI
-/// key (`sk-...`) is recognised wherever it sits in the text; a bare token
-/// without either prefix belongs to [preferred]. Null when nothing looks like
-/// a key.
+/// Reads a scanned code or pasted text: a Gemini key (`AIza...`), an xAI key
+/// (`xai-...`) or an OpenAI key (`sk-...`) is recognised wherever it sits in
+/// the text; a bare token without any of these prefixes belongs to
+/// [preferred]. Null when nothing looks like a key.
 ({AgentVoiceProvider provider, String key})? parseScannedKey(
   String? scanned, {
   required AgentVoiceProvider preferred,
 }) {
   if (scanned == null) return null;
-  final openai = RegExp(r'sk-[0-9A-Za-z_\-]{20,}').firstMatch(scanned);
-  final gemini = RegExp(r'AIza[0-9A-Za-z_\-]{30,}').firstMatch(scanned);
-  // A key of the preferred provider wins if the text holds both.
-  if (openai != null && gemini != null) {
-    return preferred == AgentVoiceProvider.openai
-        ? (provider: AgentVoiceProvider.openai, key: openai.group(0)!)
-        : (provider: AgentVoiceProvider.gemini, key: gemini.group(0)!);
+  final found = <AgentVoiceProvider, String>{
+    for (final (provider, pattern) in [
+      (AgentVoiceProvider.openai, r'sk-[0-9A-Za-z_\-]{20,}'),
+      (AgentVoiceProvider.grok, r'xai-[0-9A-Za-z_\-]{20,}'),
+      (AgentVoiceProvider.gemini, r'AIza[0-9A-Za-z_\-]{30,}'),
+    ])
+      if (RegExp(pattern).firstMatch(scanned) case final match?)
+        provider: match.group(0)!,
+  };
+  // A key of the preferred provider wins if the text holds several.
+  if (found.containsKey(preferred)) {
+    return (provider: preferred, key: found[preferred]!);
   }
-  if (openai != null) {
-    return (provider: AgentVoiceProvider.openai, key: openai.group(0)!);
-  }
-  if (gemini != null) {
-    return (provider: AgentVoiceProvider.gemini, key: gemini.group(0)!);
+  if (found.isNotEmpty) {
+    final first = found.entries.first;
+    return (provider: first.key, key: first.value);
   }
   final bare = scanned.trim();
   return RegExp(r'^[0-9A-Za-z_\-\.]{20,200}$').hasMatch(bare)

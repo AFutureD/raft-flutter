@@ -119,3 +119,9 @@ class OpenAiVoiceKey extends AgentVoiceKey {
   OpenAiVoiceKey._() : super._('raft.agentDemo.openaiKey');
   static final instance = OpenAiVoiceKey._();
 }
+
+/// The xAI API key for Grok Voice, stored like the others.
+class GrokVoiceKey extends AgentVoiceKey {
+  GrokVoiceKey._() : super._('raft.agentDemo.grokKey');
+  static final instance = GrokVoiceKey._();
+}

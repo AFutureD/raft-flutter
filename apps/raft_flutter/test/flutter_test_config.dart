@@ -129,6 +129,7 @@ void _enableLeakTracking() {
       'AgentModePreference',
       'AgentVoiceKey',
       'OpenAiVoiceKey',
+      'GrokVoiceKey',
       'AgentVoiceSettings',
       'AppUpdater',
       'InviteRequests',
