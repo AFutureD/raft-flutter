@@ -14,8 +14,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'history_gaps_test.dart' show GapClient, seedGap;
-import 'history_memory_test.dart' show receiver;
+import 'history_memory_test.dart' show receiver, row;
 import 'history_memory_viewport_test.dart' show drainIo;
+import 'support/history_gap_view_cleanup.dart';
 
 class _Client extends GapClient {
   @override
@@ -31,11 +32,19 @@ class _Client extends GapClient {
     int limit = 50,
     BigInt? before,
     BigInt? after,
-  }) {
+  }) async {
     if (disconnected && before != null) {
       beforeReads.add(before);
       if (!beforeArrived.isCompleted) beforeArrived.complete();
       throw StateError('Offline');
+    }
+    // Two complete pages exercise continued repair without rendering 800
+    // extra rows. The large-range/frontier-release contract has a non-UI test.
+    if (before == null) {
+      return {
+        'messages': [for (var n = 201; n <= 250; n++) row(id, n)],
+        'historyLimited': false,
+      };
     }
     return super.messagePage(id, limit: limit, before: before, after: after);
   }
@@ -47,7 +56,7 @@ void main() {
     testWidgets(
       'gap fills automatically $mode with an inline placeholder and stable reading row',
       (t) async {
-        // Initial: older saved island 1–100 and tail 901–950, with an unverified interval.
+        // Initial: older saved island 1–100 and tail 201–250, with an unverified interval.
         // Event: open/scroll to that interval; when offline reconnect without tapping.
         // Expected: inline placeholder then complete coverage, no button, stable anchor.
         SharedPreferences.setMockInitialValues({});
@@ -90,7 +99,7 @@ void main() {
           expect(client.beforeReads, isNotEmpty);
           final dynamic state = t.state(find.byType(RaftChatView));
           state.recenter(
-            first: 'chat-901',
+            first: 'chat-201',
             alignment: RaftTimelineAlignment.start,
           );
           await t.pumpAndSettle();
@@ -106,7 +115,7 @@ void main() {
             await t.pump();
           }
           expect(
-            find.byKey(const ValueKey('history-gap-placeholder-chat-901')),
+            find.byKey(const ValueKey('history-gap-placeholder-chat-201')),
             findsOneWidget,
           );
           state.saveReadingAnchor();
@@ -132,21 +141,21 @@ void main() {
                 t,
                 db.messageHistory.gaps.read(scope, [
                   ('chat-100', BigInt.from(100)),
-                  ('chat-901', BigInt.from(901)),
+                  ('chat-201', BigInt.from(201)),
                 ]),
               ),
               isEmpty,
             );
           }
           expect(
-            find.byKey(const ValueKey('history-gap-placeholder-chat-901')),
+            find.byKey(const ValueKey('history-gap-placeholder-chat-201')),
             findsNothing,
           );
           if (!limited) {
             expect(
               await drainIo(
                 t,
-                db.messageHistory.readContext(scope, 'chat-851', radius: 0),
+                db.messageHistory.readContext(scope, 'chat-151', radius: 0),
               ),
               isNotNull,
             );
@@ -155,16 +164,19 @@ void main() {
             await t.pump(const Duration(milliseconds: 16));
             expect(t.getRect(reading).top, closeTo(top, 1));
           }
+          expect(
+            client.beforeReads.toSet(),
+            contains(BigInt.from(151)),
+            reason: 'The second page must load automatically.',
+          );
+          if (!offline) {
+            expect(client.beforeReads, [BigInt.from(201), BigInt.from(151)]);
+          }
           if (limited) {
-            expect(
-              client.beforeReads,
-              contains(BigInt.from(151)),
-              reason: 'All of the interval must load online even when bodies cannot be admitted to disk.',
-            );
             expect(
               await drainIo(
                 t,
-                db.messageHistory.readContext(scope, 'chat-851', radius: 0),
+                db.messageHistory.readContext(scope, 'chat-151', radius: 0),
               ),
               isNull,
             );
@@ -183,11 +195,7 @@ void main() {
           }
         } finally {
           if (!client.gate!.isCompleted) client.gate!.complete();
-          await t.pumpWidget(const SizedBox.shrink());
-          await drainIo(t, w.flushCache());
-          w.dispose();
-          await drainIo(t, client.arrivals.close());
-          await drainIo(t, db.close());
+          await closeGapView(t, w, client, db);
         }
       },
     );
