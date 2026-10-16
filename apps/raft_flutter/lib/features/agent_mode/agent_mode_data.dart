@@ -1040,6 +1040,29 @@ class AgentModeData {
     } on Object {
       // Without tasks the activity text comes from the runtime alone.
     }
+    _heldTasks[w] = held;
+    return _describeAgents(rows, held);
+  }
+
+  /// The tasks agents held at the last full read, per workspace controller.
+  static final _heldTasks = Expando<Map<String, Map<String, dynamic>>>(
+    'agent tasks',
+  );
+
+  /// The agents as the app already has them, without waiting for the
+  /// network: the accepted rows of the entity directory (device-cached) and
+  /// the tasks of the last full read. Null when the directory holds none
+  /// yet. [agents] is the fresh read that follows.
+  List<AgentRuntimeInfo>? cachedAgents() {
+    final rows = w.entityDirectory.rows(WorkspaceEntityKind.agents);
+    if (rows.isEmpty) return null;
+    return _describeAgents(rows, _heldTasks[w] ?? const {});
+  }
+
+  List<AgentRuntimeInfo> _describeAgents(
+    List<Map<String, dynamic>> rows,
+    Map<String, Map<String, dynamic>> held,
+  ) {
     final now = _now();
     String agoText(DateTime at) {
       final a = _ago(at);

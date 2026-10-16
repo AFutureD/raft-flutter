@@ -1,5 +1,10 @@
 import 'agent_surface.dart';
 
+/// `behavior` of a function the model may call while it keeps talking: the
+/// Live API does not wait for its answer, and the app answers at once and
+/// quietly (see `GeminiLiveSession`).
+const nonBlocking = 'NON_BLOCKING';
+
 /// The operations a voice model may perform in agent mode, as Gemini
 /// FunctionDeclarations (the same JSON Schema shape MCP tools use, so another
 /// provider or an MCP server can reuse them).
@@ -56,6 +61,7 @@ const agentToolDeclarations = <Map<String, Object?>>[
   },
   {
     'name': 'spotlight',
+    'behavior': nonBlocking,
     'description':
         '聚焦屏幕上的第 N 条：让它从界面里浮出来、放大到屏幕中间。'
         '开始讲某一条（某个任务、某条消息、某张卡片）时先调用，再讲它；讲完会自动放回。',
@@ -67,9 +73,14 @@ const agentToolDeclarations = <Map<String, Object?>>[
       'required': ['number'],
     },
   },
-  {'name': 'release_spotlight', 'description': '把聚焦的那一条放回原位。'},
+  {
+    'name': 'release_spotlight',
+    'behavior': nonBlocking,
+    'description': '把聚焦的那一条放回原位。',
+  },
   {
     'name': 'mark',
+    'behavior': nonBlocking,
     'description':
         '像老师用马克笔一样，在屏幕第 N 条里标出重点：circle 圈出、underline 划线、'
         'highlight 荧光笔涂亮、arrow 画箭头并写两三个字的批注。phrase 必须是那一条原文里的几个字。'
@@ -129,21 +140,27 @@ String agentSystemPrompt({
     '【操作永远先行】要切换界面时，立刻调用界面工具（show_attention、open_channel、open_item、expand_item、show_tasks、go_back、go_home），'
     '调用前什么都不说；界面工具会立即返回屏幕上现在的内容。需要讲内容时再调用 read_channel 或 read_tasks，'
     '拿到结果后用一句有温度的话说结论。“第二条”“这个任务”指的是屏幕状态里的序号。'
-    '讲到屏幕上某一条具体内容时，先调用 spotlight 把它聚焦出来再开口；每换讲一条，都要先对新的那一条调用 spotlight。'
+    '讲到屏幕上已有的某一条具体内容时，先调用 spotlight 把它聚焦出来再开口；每换讲一条，都要先对新的那一条调用 spotlight（正在 add_component 的那一条不用，会自动聚焦）。'
     '讲到其中的关键词或关键句时，用 mark 把它圈出来或划出来，像讲课一样，但每条最多标一两处。\n'
     '【先说结论，再问要不要展开】首页一次只有最急的 3 张卡片，每张只有一句话和“频道 · 等了多久”，用户是在一臂远的地方看手机：你也一样，只说最要紧的，'
     '没被问到就不要读引用、进展、负责人这些细节，一句话说完结论，再问一句“要不要展开”。'
     '用户说“讲讲第一条”“展开第 N 条”“详细说说这个”时，调用 expand_item（“这个”不传 index），屏幕会新开一层详情；'
     '然后只用一两句话讲发生了什么、要他做什么，要通过、打开讨论或稍后，请他在详情里点，你不能替他点。\n'
-    '【按问题组界面】用户问一个具体的问题（比如“现在所有的 Agent 都在干什么”“任务 #94 现在怎么样”），'
-    '就让屏幕只显示他问的这件事：先调用读取工具拿事实（list_agents、get_task、search_tasks、read_tasks、read_channel），'
-    '再调用 show_surface 把答案排成一屏，然后用一句话说结论。事实只能来自工具返回的内容，不要编造名字、状态、编号或引用；引用要用原话。'
-    '问所有 Agent 在干什么：list_agents 后，先放 StatRow，再按 state 分成 AgentStatusGroup（在忙、卡住了、空闲、离线，空的组不放），每个 Agent 一张 AgentStatusCard。'
-    '问某个任务：get_task 后，放一张 TaskCard（带最新进展的原话），再用 Section 放最近的 MessageQuote。'
-    '手机上先给摘要再给细节：Column 里先放一个 StatRow（几个数字），再放各个 AgentStatusGroup，不用写 density——手机上每组自动折成一行，如“在忙 1：Cindy 在做 #119”。'
-    '用户说“展开在忙那组”“看看 Bo 在做什么”时，才用同一个标题再调用一次 show_surface，把那一组的 density 设为 detail（或只放那一个 Agent 的卡片）。'
+    '【按问题组界面，边说边出】用户问一个具体的问题（比如“现在所有的 Agent 都在干什么”“任务 #94 现在怎么样”），'
+    '就让屏幕只显示他问的这件事，而且不要等数据全了再显示：\n'
+    '1) 先调用读取工具拿事实（list_agents、get_task、search_tasks、read_tasks、read_channel）。list_agents 会立刻返回 App 已有的数据，随后 App 自己把变了的 Agent 原地更新，你不用再读一次。\n'
+    '2) 马上调用 begin_surface：给屏幕起标题，layout 只写骨架——容器和带标题的分组（Column、AgentStatusGroup、Section，加上 StatRow 数字），不写具体的 Agent 或任务。骨架立刻上屏。\n'
+    '3) 然后一边开口说结论，一边逐条 add_component：每个 Agent、每个任务、每条引用各一次调用，parent_id 填它所在分组的 id（begin_surface 的返回里有 containers）。从上往下、一组一组地加，不要回头改前面的位置；要改内容用 update_component。\n'
+    '4) 加上一条，屏幕会自动把你正在讲的那一条聚焦出来，它的文字跟着你说的话一点点出现；你只管讲，讲到关键词时才用 mark 圈一下。每条最多一两句，别把屏幕上的字全念一遍。\n'
+    '5) 全部加完，调用 end_surface。屏幕随后安静下来。\n'
+    '界面工具（begin_surface、add_component、update_component、end_surface、spotlight、mark）不会等你，调用时不必停下来，也不要念出它们的名字；返回 ok 就继续说，返回 error 才按 problems 改正，不要念出错误。\n'
+    '事实只能来自工具返回的内容，不要编造名字、状态、编号或引用；引用要用原话。某个组件对不上读到的事实会被单独拒绝，其余的保留，你改正后再加那一个即可。\n'
+    '问所有 Agent 在干什么：list_agents 后，begin_surface 放 StatRow 和按 state 分的 AgentStatusGroup（在忙、卡住了、空闲、离线，空的组不放），再逐个 add_component 一张 AgentStatusCard。'
+    '问某个任务：get_task 后，begin_surface 只放 Column，先 add TaskCard（带最新进展的原话），再 add 一个 Section（最近讨论），再往里 add MessageQuote。\n'
+    '手机上先给摘要再给细节：不写 density——手机上每组自动折成一行，如“在忙 1：Cindy 在做 #119”。'
+    '用户说“展开在忙那组”“看看 Bo 在做什么”时，才用同一个标题再 begin_surface 一次，把那一组的 density 设为 detail（或只放那一个 Agent 的卡片）。'
     '没被要求展开时，不要把 density 设成 detail，也不要把每个 Agent 的细节念出来，说一句结论（比如几个在忙、谁卡住了）就好。\n'
-    'show_surface 被拒绝时，按返回的 problems 改正后重试一次，不要念出错误。\n'
+    '内容很少、一句话能放完时，也可以用 show_surface 一次给出整棵树。\n'
     '你现在只能查看，不能发消息、改任务或做其他操作；被要求做这些时，轻松地说明这个 demo 还做不到，并给出能做的最接近的操作。\n'
     '\n'
     '${style.isEmpty ? '' : '【这次的偏好】$style\n\n'}'
@@ -157,7 +174,7 @@ List<Map<String, Object?>> groundedToolDeclarations(AgentCatalog catalog) => [
     'name': 'list_agents',
     'description':
         '读取所有 Agent 现在的状态：名字、state（busy 在忙 / idle 空闲 / blocked 卡住 / offline 离线）、'
-        '正在做什么、持续多久、所在频道。问“Agent 们在干什么”之类时用，拿到结果后再 show_surface。',
+        '正在做什么、持续多久、所在频道。问“Agent 们在干什么”之类时用，拿到结果后马上 begin_surface。先返回 App 已有的数据，变了的 Agent 稍后由 App 自己更新到屏幕上。',
   },
   {
     'name': 'get_task',
@@ -189,14 +206,86 @@ List<Map<String, Object?>> groundedToolDeclarations(AgentCatalog catalog) => [
     },
   },
   {
+    'name': 'begin_surface',
+    'behavior': nonBlocking,
+    'description':
+        '开始一块新屏幕，作为新的一层立刻显示（先显示骨架，内容之后一条条加）。'
+        'layout 参数是骨架的 JSON 文本：一个容器节点 {"component":"Column","id":"root","children":[…]}，'
+        'children 里放带标题的分组（AgentStatusGroup、Section）和 StatRow，每个分组给一个 id，后面 add_component 用它做 parent_id。'
+        '骨架里不放具体的 Agent、任务、引用（它们用 add_component 一条条加）。省略 layout 就是一个空的 Column（id 为 root）。'
+        '同一个标题再调一次会替换这一屏。返回 surface_id、root 和所有容器的 id。'
+        '组件树的节点是 {"component":"名字", "id":"可选", 字段…, "children":[…]}。可用组件（字段后带 * 的必填）：\n'
+        '${catalog.describe()}',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'surface_id': {
+          'type': 'string',
+          'description': '这一屏的名字，字母数字，如 agents；省略则自动取',
+        },
+        'title': {'type': 'string', 'description': '屏幕标题，最多 60 字'},
+        'summary': {'type': 'string', 'description': '可选，一句话'},
+        'layout': {'type': 'string', 'description': '骨架的 JSON 文本，可省略'},
+      },
+      'required': ['title'],
+    },
+  },
+  {
+    'name': 'add_component',
+    'behavior': nonBlocking,
+    'description':
+        '往屏幕上追加一个组件（添加到 parent_id 的最后面，已经显示的不会动）。'
+        '一个 Agent、一个任务、一条引用各调用一次。组件的名字、状态、编号、引用原话都会和读到的事实核对，对不上只拒绝这一个，其余保留。'
+        'component 参数是组件的 JSON 文本，如 {"component":"AgentStatusCard","name":"Grok","state":"busy","activity":"…"}。'
+        '返回 id，以及它在屏幕上的序号 item（可用于 mark）。从上往下加，别回头。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'surface_id': {
+          'type': 'string',
+          'description': 'begin_surface 返回的 surface_id；省略就是最新一屏',
+        },
+        'parent_id': {'type': 'string', 'description': '加到哪个容器里；省略就是根'},
+        'component': {'type': 'string', 'description': '组件的 JSON 文本'},
+      },
+      'required': ['component'],
+    },
+  },
+  {
+    'name': 'update_component',
+    'behavior': nonBlocking,
+    'description':
+        '原地修改一个已经显示的组件的字段（位置不变）。props 是 {字段: 新值} 的 JSON 文本，值为 null 表示去掉这个字段。'
+        '只能改字段，不能改子组件（加子组件用 add_component）。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'surface_id': {'type': 'string', 'description': '省略就是最新一屏'},
+        'id': {'type': 'string', 'description': '组件 id'},
+        'props': {'type': 'string', 'description': '{字段: 新值} 的 JSON 文本'},
+      },
+      'required': ['id', 'props'],
+    },
+  },
+  {
+    'name': 'end_surface',
+    'behavior': nonBlocking,
+    'description': '这一屏的内容都加完了。屏幕随后安静下来：聚焦的那一条放回原位，标记淡去。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'surface_id': {'type': 'string', 'description': '省略就是最新一屏'},
+      },
+    },
+  },
+  {
     'name': 'show_surface',
     'description':
-        '把答案排成一屏，作为新的一层显示在屏幕上，只放用户问到的内容。'
+        '一次给出整棵树的简便写法（内容很少时用）：作为新的一层显示。'
         '内容只能来自本次对话里工具读到的事实，名字、状态、编号、引用原话都会被核对，对不上就整屏拒绝并告诉你原因。'
         'surface 参数是一段 JSON 文本：{"title":"屏幕标题","summary":"可选，一句话","root":{组件树}}。'
         '手机上默认摘要：AgentStatusGroup 和 Section 折成一行，要展开才给完整卡片，用 density 控制。'
-        '组件树的每个节点是 {"component":"名字", 字段…, "children":[…]}。可用组件（字段后带 * 的必填）：\n'
-        '${catalog.describe()}',
+        '组件树的每个节点是 {"component":"名字", 字段…, "children":[…]}。组件见 begin_surface。',
     'parameters': {
       'type': 'object',
       'properties': {

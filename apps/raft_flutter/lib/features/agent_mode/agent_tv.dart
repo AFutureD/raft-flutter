@@ -85,7 +85,10 @@ class _AgentTvAppState extends State<_AgentTvApp> {
   /// Applies a frame from the phone, including what is lifted and marked.
   void _show(Map<String, Object?> next) {
     setState(() => frame = next);
-    _spotlight.sync(next['spotlight'] as String?);
+    _spotlight.sync(
+      next['spotlight'] as String?,
+      enter: next['spotlightEnter'] == true,
+    );
     final marks = [
       for (final m in (next['marks'] as List?) ?? const [])
         ?AgentMark.fromJson(m),

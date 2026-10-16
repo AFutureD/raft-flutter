@@ -83,10 +83,31 @@ class AgentCatalogItem {
 
 /// A node of a validated surface.
 class SurfaceNode {
-  const SurfaceNode(this.component, this.props, [this.children = const []]);
+  const SurfaceNode(
+    this.component,
+    this.props, {
+    this.children = const [],
+    this.id,
+  });
   final String component;
   final Map<String, Object?> props;
   final List<SurfaceNode> children;
+
+  /// Names the component so a later `update_component` / `add_component`
+  /// can reach it (A2UI's component id). A surface that arrives whole may
+  /// leave it out; a streamed one always has it.
+  final String? id;
+
+  SurfaceNode copyWith({
+    Map<String, Object?>? props,
+    List<SurfaceNode>? children,
+    String? id,
+  }) => SurfaceNode(
+    component,
+    props ?? this.props,
+    children: children ?? this.children,
+    id: id ?? this.id,
+  );
 
   String? string(String key) {
     final v = props[key];
@@ -123,6 +144,13 @@ class AgentSurfaceSpec {
   final String title;
   final String? summary;
   final SurfaceNode root;
+}
+
+/// How many more components a streamed surface may take.
+class SurfaceBudget {
+  SurfaceBudget(this.left) : limit = left;
+  int left;
+  final int limit;
 }
 
 /// The result of reading a surface: a spec, or every reason it was refused.
@@ -190,50 +218,12 @@ class AgentCatalog {
         problems.add('$path 嵌套太深（最多 $maxDepth 层）');
         return null;
       }
-      if (node is! Map) {
-        problems.add('$path 必须是带 component 的对象');
-        return null;
-      }
-      final name = node['component'];
-      final item = name is String ? items[name] : null;
-      if (item == null) {
-        problems.add(
-          '$path.component "${name ?? ''}" 不在目录里（可用：${_visible.map((i) => i.name).join('、')}）',
-        );
-        return null;
-      }
-      final here = '$path<$name>';
-      final allowed = {
-        'component',
-        ...item.properties.keys,
-        if (item.container) 'children',
-      };
-      for (final key in node.keys) {
-        if (!allowed.contains(key)) {
-          problems.add(
-            '$here 没有字段 "$key"（可用：${(allowed.toList()..remove('component')).join('、')}）',
-          );
-        }
-      }
-      final props = <String, Object?>{};
-      for (final entry in item.properties.entries) {
-        final value = node[entry.key];
-        if (value == null) {
-          if (item.required.contains(entry.key)) {
-            problems.add('$here 缺少必填字段 "${entry.key}"');
-          }
-          continue;
-        }
-        _check(
-          value,
-          (entry.value as Map).cast<String, Object?>(),
-          '$here.${entry.key}',
-          problems,
-        );
-        props[entry.key] = value;
-      }
+      final own = readOwn(node, path, problems);
+      if (own == null) return null;
+      final item = items[own.component]!;
+      final here = '$path<${own.component}>';
       final children = <SurfaceNode>[];
-      final rawChildren = node['children'];
+      final rawChildren = (node as Map)['children'];
       if (rawChildren != null && item.container) {
         if (rawChildren is! List) {
           problems.add('$here.children 必须是数组');
@@ -252,7 +242,7 @@ class AgentCatalog {
           }
         }
       }
-      return SurfaceNode(item.name, props, children);
+      return own.copyWith(children: children);
     }
 
     final root = read(json['root'], 'root', 1);
@@ -270,6 +260,151 @@ class AgentCatalog {
         root: root,
       ),
     );
+  }
+
+  static final _idPattern = RegExp(r'^[A-Za-z0-9_\-]{1,40}$');
+
+  /// A component's own part: its name, id and fields, checked against the
+  /// catalog, without descending into `children`. Null (with the reason in
+  /// [problems]) when the component is not in the catalog.
+  SurfaceNode? readOwn(Object? node, String path, List<String> problems) {
+    if (node is! Map) {
+      problems.add('$path 必须是带 component 的对象');
+      return null;
+    }
+    final name = node['component'];
+    final item = name is String ? items[name] : null;
+    if (item == null) {
+      problems.add(
+        '$path.component "${name ?? ''}" 不在目录里（可用：${_visible.map((i) => i.name).join('、')}）',
+      );
+      return null;
+    }
+    final here = '$path<$name>';
+    final allowed = {
+      'component',
+      'id',
+      ...item.properties.keys,
+      if (item.container) 'children',
+    };
+    for (final key in node.keys) {
+      if (!allowed.contains(key)) {
+        problems.add(
+          '$here 没有字段 "$key"（可用：${(allowed.toList()..remove('component')).join('、')}）',
+        );
+      }
+    }
+    final id = node['id'];
+    if (id != null && (id is! String || !_idPattern.hasMatch(id))) {
+      problems.add('$here.id 必须是 1 到 40 位的字母、数字、下划线或短横线');
+    }
+    final props = <String, Object?>{};
+    for (final entry in item.properties.entries) {
+      final value = node[entry.key];
+      if (value == null) {
+        if (item.required.contains(entry.key)) {
+          problems.add('$here 缺少必填字段 "${entry.key}"');
+        }
+        continue;
+      }
+      _check(
+        value,
+        (entry.value as Map).cast<String, Object?>(),
+        '$here.${entry.key}',
+        problems,
+      );
+      props[entry.key] = value;
+    }
+    return SurfaceNode(item.name, props, id: id is String ? id : null);
+  }
+
+  /// Checks [props] against [item]'s schema (an `update_component` result).
+  List<String> checkProps(
+    AgentCatalogItem item,
+    Map<String, Object?> props,
+    String path,
+  ) {
+    final problems = <String>[];
+    for (final entry in item.properties.entries) {
+      final value = props[entry.key];
+      if (value == null) {
+        if (item.required.contains(entry.key)) {
+          problems.add('$path 缺少必填字段 "${entry.key}"');
+        }
+        continue;
+      }
+      _check(
+        value,
+        (entry.value as Map).cast<String, Object?>(),
+        '$path.${entry.key}',
+        problems,
+      );
+    }
+    return problems;
+  }
+
+  /// Reads a subtree one component at a time: a component that fails the
+  /// catalog or [ground] is dropped with its subtree and its reasons are
+  /// added to [problems]; the others are kept. [budget] counts how many more
+  /// nodes may be accepted. Null when [raw] itself is dropped.
+  SurfaceNode? salvage(
+    Object? raw, {
+    required List<String> problems,
+    required SurfaceBudget budget,
+    SurfaceNode? parent,
+    String path = 'component',
+    int depth = 1,
+    List<String> Function(SurfaceNode shallow, SurfaceNode? parent)? ground,
+  }) {
+    if (depth > maxDepth) {
+      problems.add('$path 嵌套太深（最多 $maxDepth 层）');
+      return null;
+    }
+    if (budget.left <= 0) {
+      problems.add('组件太多（一屏最多 ${budget.limit} 个）');
+      return null;
+    }
+    final own = <String>[];
+    final node = readOwn(raw, path, own);
+    if (node != null && own.isEmpty && ground != null) {
+      own.addAll(ground(node, parent));
+    }
+    if (node == null || own.isNotEmpty) {
+      problems.addAll(own);
+      return null;
+    }
+    budget.left--;
+    final item = items[node.component]!;
+    final rawChildren = (raw as Map)['children'];
+    final children = <SurfaceNode>[];
+    if (rawChildren != null && item.container) {
+      final here = '$path<${node.component}>';
+      if (rawChildren is! List) {
+        problems.add('$here.children 必须是数组');
+      } else {
+        for (final (i, c) in rawChildren.indexed) {
+          final child = salvage(
+            c,
+            problems: problems,
+            budget: budget,
+            parent: node,
+            path: '$here.children[$i]',
+            depth: depth + 1,
+            ground: ground,
+          );
+          if (child == null) continue;
+          final only = item.childNames;
+          if (only != null && !only.contains(child.component)) {
+            problems.add(
+              '$here.children[$i] 不能放 ${child.component}（只能放：${only.join('、')}）',
+            );
+            continue;
+          }
+          children.add(child);
+        }
+      }
+    }
+    return node.copyWith(children: children);
   }
 
   static String _unfence(String raw) {
@@ -413,7 +548,8 @@ Set<String> foldedPaths(
     if (catalog.item(n.component)?.fold ?? false) {
       final summary =
           (density ?? (compact ? 'summary' : 'detail')) == 'summary';
-      if (summary && !expanded.contains(path)) {
+      // A group with nothing in it yet (a streamed skeleton) shows its title.
+      if (summary && !expanded.contains(path) && n.children.isNotEmpty) {
         folded.add(path);
         return;
       }
@@ -425,6 +561,33 @@ Set<String> foldedPaths(
 
   visit(root, 'r', null);
   return folded;
+}
+
+/// The number each item on screen has, by path: a folded container counts as
+/// one item, a leaf is one, a plain container none. The same numbers the
+/// cards are tagged with and the frame sent to the model uses.
+Map<String, int> focusNumbers(
+  AgentCatalog catalog,
+  SurfaceNode root,
+  Set<String> folded,
+) {
+  final numbers = <String, int>{};
+  void visit(SurfaceNode n, String path) {
+    if (folded.contains(path)) {
+      numbers[path] = numbers.length + 1;
+      return;
+    }
+    final item = catalog.item(n.component);
+    if (item != null && !item.container && item.focusable) {
+      numbers[path] = numbers.length + 1;
+    }
+    for (final (i, c) in n.children.indexed) {
+      visit(c, surfaceChildPath(path, i));
+    }
+  }
+
+  visit(root, 'r');
+  return numbers;
 }
 
 /// The actions a detail layer offers (通过 / 打开讨论 / 稍后), handed down to

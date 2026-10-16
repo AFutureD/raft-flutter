@@ -37,6 +37,39 @@ class GeminiLiveSession {
   /// endpoint and a model that supports it; dropped after one refusal.
   static bool _affective = true;
 
+  /// Functions declared `NON_BLOCKING` let the model keep talking while a
+  /// screen is composed. A model that refuses them at setup gets blocking
+  /// functions instead (answered just as fast); dropped after one refusal.
+  static bool _nonBlocking = true;
+
+  /// Whether this session declared its UI functions non-blocking.
+  bool get nonBlocking => _declaredNonBlocking;
+  bool _declaredNonBlocking = false;
+
+  /// The function declarations as sent: [tools] as they are while
+  /// [nonBlocking], else without `behavior` (every function blocks).
+  static List<Map<String, Object?>> declarations(
+    List<Map<String, Object?>> tools, {
+    required bool nonBlocking,
+  }) => [
+    for (final t in tools)
+      if (nonBlocking) t else {...t}..remove('behavior'),
+  ];
+
+  /// The names declared non-blocking in [tools].
+  static Set<String> nonBlockingNames(List<Map<String, Object?>> tools) => {
+    for (final t in tools)
+      if (t['behavior'] == 'NON_BLOCKING') '${t['name']}',
+  };
+
+  /// The response of a non-blocking function. A success is absorbed quietly
+  /// (`SILENT`: the model goes on with what it was saying); an error is
+  /// told when the model is next idle (`WHEN_IDLE`), never by interrupting.
+  static Map<String, Object?> quietResponse(Map<String, Object?> result) => {
+    ...result,
+    'scheduling': result['error'] != null ? 'WHEN_IDLE' : 'SILENT',
+  };
+
   final String apiKey;
   final String systemPrompt;
   final List<Map<String, Object?>> tools;
@@ -108,16 +141,39 @@ class GeminiLiveSession {
 
   Future<void> connect() async {
     if (_socket != null) return;
-    if (!_affective) return _connect(affective: false);
-    try {
-      await _connect(affective: true);
-    } catch (_) {
-      _affective = false;
-      await _connect(affective: false);
+    final hasNonBlocking = nonBlockingNames(tools).isNotEmpty;
+    while (true) {
+      final nb = _nonBlocking && hasNonBlocking;
+      try {
+        await _connect(affective: _affective, nonBlocking: nb);
+        return;
+      } catch (e) {
+        // A refusal that names the function behavior drops that first;
+        // otherwise affective dialog (as before), then non-blocking.
+        // ignore: raft_lints/avoid_caught_exception_text -- Matched against "behavior" / "non_blocking" to pick which feature to drop; the text is never shown.
+        final refusal = '$e';
+        final behavior = RegExp(
+          r'behavior|non_?blocking|scheduling',
+          caseSensitive: false,
+        ).hasMatch(refusal);
+        if (nb && behavior) {
+          _nonBlocking = false;
+        } else if (_affective) {
+          _affective = false;
+        } else if (nb) {
+          _nonBlocking = false;
+        } else {
+          rethrow;
+        }
+      }
     }
   }
 
-  Future<void> _connect({required bool affective}) async {
+  Future<void> _connect({
+    required bool affective,
+    required bool nonBlocking,
+  }) async {
+    _declaredNonBlocking = nonBlocking;
     final model = await _pickModel(apiKey);
     final socket = await WebSocket.connect(
       Uri(
@@ -177,7 +233,12 @@ class GeminiLiveSession {
           ],
         },
         'tools': [
-          {'functionDeclarations': tools},
+          {
+            'functionDeclarations': declarations(
+              tools,
+              nonBlocking: nonBlocking,
+            ),
+          },
         ],
         // End the turn soon after the person stops talking.
         'realtimeInputConfig': {
@@ -225,23 +286,61 @@ class GeminiLiveSession {
     if (message.containsKey('goAway')) unawaited(_reconnect());
   }
 
+  /// Answers the calls of one message. Functions run in the order they
+  /// came (a screen is built by calls that depend on each other); a
+  /// non-blocking one is answered at once, while a read answers when it is
+  /// done and never holds the screen operations behind it.
   Future<void> _answer(List<dynamic> calls) async {
-    final responses = <Map<String, Object?>>[];
+    final quiet = _declaredNonBlocking ? nonBlockingNames(tools) : <String>{};
+    final slow = <Future<void>>[];
     for (final call in calls.cast<Map<String, dynamic>>()) {
       final name = '${call['name']}';
-      Map<String, Object?> result;
-      try {
-        result = await onToolCall(
-          name,
-          (call['args'] as Map?)?.cast<String, Object?>() ?? const {},
-        );
-      } catch (e) {
-        result = {'error': '$e'};
+      final run = _run(call, name, quiet.contains(name));
+      if (quiet.contains(name) || _ui.contains(name)) {
+        await run;
+      } else {
+        slow.add(run);
       }
-      responses.add({'id': call['id'], 'name': name, 'response': result});
+    }
+    await Future.wait(slow);
+  }
+
+  /// Screen operations answered immediately even when the model rejected
+  /// non-blocking functions (blocking, but never kept waiting by a read).
+  static const _ui = {
+    'begin_surface',
+    'add_component',
+    'update_component',
+    'end_surface',
+    'spotlight',
+    'release_spotlight',
+    'mark',
+  };
+
+  Future<void> _run(
+    Map<String, dynamic> call,
+    String name,
+    bool nonBlocking,
+  ) async {
+    Map<String, Object?> result;
+    try {
+      result = await onToolCall(
+        name,
+        (call['args'] as Map?)?.cast<String, Object?>() ?? const {},
+      );
+    } catch (e) {
+      result = {'error': '$e'};
     }
     _send({
-      'toolResponse': {'functionResponses': responses},
+      'toolResponse': {
+        'functionResponses': [
+          {
+            'id': call['id'],
+            'name': name,
+            'response': nonBlocking ? quietResponse(result) : result,
+          },
+        ],
+      },
     });
   }
 

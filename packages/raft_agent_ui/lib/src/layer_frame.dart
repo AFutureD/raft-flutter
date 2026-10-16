@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'enter.dart';
 import 'marks.dart';
 
 /// Content of one Z layer: a heading, a short spoken-style summary and a
@@ -15,9 +16,13 @@ class AgentLayerFrame extends StatelessWidget {
     this.loading = false,
     this.error,
     this.dense = false,
+    this.enterTitle = false,
   });
 
   final String title;
+
+  /// The title is a piece of its own that enters (a streamed surface).
+  final bool enterTitle;
   final String? meta;
 
   /// The takeaway the agent would say aloud. The rest stays on screen.
@@ -29,6 +34,20 @@ class AgentLayerFrame extends StatelessWidget {
   /// Phone first screen: less air above and below the title so more cards
   /// fit above the voice dock.
   final bool dense;
+
+  Widget _title(String text, TextStyle style) {
+    if (!enterTitle) {
+      return Text(
+        text,
+        style: style,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    return AgentAppear(
+      child: AgentTypeText(text, style: style, maxLines: 2, at: .2),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +62,9 @@ class AgentLayerFrame extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Expanded(
-                child: Text(
+                child: _title(
                   title,
-                  style: t
+                  t
                       .heading(
                         dense && t.titleSize > 26 ? 26 : t.titleSize,
                         weight: t.titleWeight,
@@ -54,8 +73,6 @@ class AgentLayerFrame extends StatelessWidget {
                         height: 1.1,
                         letterSpacing: t.weightNumerals ? -.8 : 0,
                       ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (meta != null) Text(meta!, style: t.body(12, color: t.hint)),

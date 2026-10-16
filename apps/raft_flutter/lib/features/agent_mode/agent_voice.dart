@@ -175,7 +175,11 @@ class AgentVoiceController extends ChangeNotifier {
       systemPrompt: systemPrompt(),
       tools: tools,
       onToolCall: (name, args) async {
-        if (!_live && !_holding) _set(AgentMicState.thinking);
+        // A screen operation while the agent is talking (non-blocking) must
+        // not turn "speaking" into "thinking".
+        if (!_live && !_holding && state != AgentMicState.speaking) {
+          _set(AgentMicState.thinking);
+        }
         return onToolCall(name, args);
       },
       onAudio: (pcm) {

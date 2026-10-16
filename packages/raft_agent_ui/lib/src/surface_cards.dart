@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
 import 'attention_card.dart' show AgentCountBadge;
+import 'enter.dart';
 import 'layer_frame.dart';
 import 'marks.dart';
 
@@ -88,25 +89,27 @@ class _Sticker extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     final square = t.cardRadius == 0;
-    return Transform.rotate(
-      angle: t.stickerLabels ? -.04 : 0,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(square ? 0 : 999),
-          border: Border.all(color: t.line, width: t.stickerLabels ? 2.5 : 1),
-          boxShadow: t.stickerLabels
-              ? [BoxShadow(color: t.line, offset: const Offset(2, 2))]
-              : const [],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 1.5),
-          child: Text(
-            text,
-            style: t.body(
-              12,
-              weight: FontWeight.w800,
-              color: t.stickerLabels ? t.line : t.foreground,
+    return AgentPop(
+      child: Transform.rotate(
+        angle: t.stickerLabels ? -.04 : 0,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(square ? 0 : 999),
+            border: Border.all(color: t.line, width: t.stickerLabels ? 2.5 : 1),
+            boxShadow: t.stickerLabels
+                ? [BoxShadow(color: t.line, offset: const Offset(2, 2))]
+                : const [],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 1.5),
+            child: Text(
+              text,
+              style: t.body(
+                12,
+                weight: FontWeight.w800,
+                color: t.stickerLabels ? t.line : t.foreground,
+              ),
             ),
           ),
         ),
@@ -180,7 +183,10 @@ class AgentStatusCardView extends StatelessWidget {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: [for (final tag in tags) AgentChip(tag)],
+                children: [
+                  for (final (i, tag) in tags.indexed)
+                    AgentPop(order: i + 1, child: AgentChip(tag)),
+                ],
               ),
             ],
           ],
@@ -219,15 +225,19 @@ class AgentStatusGroupView extends StatelessWidget {
           child: Row(
             children: [
               Flexible(
-                child: Text(
+                child: AgentTypeText(
                   title,
+                  at: .2,
                   style: t.heading(15, weight: FontWeight.w900),
                 ),
               ),
               const SizedBox(width: 8),
-              AgentCountBadge(
-                '$n',
-                priority: _priorityOf(state ?? AgentWorkState.busy),
+              AgentPop(
+                at: .5,
+                child: AgentCountBadge(
+                  '$n',
+                  priority: _priorityOf(state ?? AgentWorkState.busy),
+                ),
               ),
             ],
           ),
@@ -303,7 +313,10 @@ class AgentTaskCardView extends StatelessWidget {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: [for (final m in meta) AgentChip(m)],
+                children: [
+                  for (final (i, m) in meta.indexed)
+                    AgentPop(order: i + 1, child: AgentChip(m)),
+                ],
               ),
             ],
             if (quote != null && quote!.isNotEmpty) ...[
@@ -321,22 +334,25 @@ class AgentTaskCardView extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: t.stickerLabels ? t.line : t.foreground,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 1,
+                  AgentPop(
+                    order: 2,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: t.stickerLabels ? t.line : t.foreground,
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        '要你做',
-                        style: t.body(
-                          11.5,
-                          weight: FontWeight.w800,
-                          color: t.stickerLabels ? t.layer : t.canvas,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 1,
+                        ),
+                        child: Text(
+                          '要你做',
+                          style: t.body(
+                            11.5,
+                            weight: FontWeight.w800,
+                            color: t.stickerLabels ? t.layer : t.canvas,
+                          ),
                         ),
                       ),
                     ),
@@ -455,7 +471,7 @@ class AgentStatRowView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  AgentCountUp(
                     s.value,
                     style: t
                         .heading(

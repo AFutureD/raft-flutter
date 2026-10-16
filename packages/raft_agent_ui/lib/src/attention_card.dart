@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'enter.dart';
 
 /// One line of thread progress: who, when, what.
 class AgentQuoteData {
@@ -644,33 +645,43 @@ class AgentActionRow extends StatelessWidget {
             runSpacing: 8,
             children: [
               if (approve) ...[
-                _Btn(
-                  key: ValueKey('attention-approve-$id'),
-                  label: '通过',
-                  primary: true,
-                  onTap: onApprove,
+                AgentPop(
+                  child: _Btn(
+                    key: ValueKey('attention-approve-$id'),
+                    label: '通过',
+                    primary: true,
+                    onTap: onApprove,
+                  ),
                 ),
-                _Btn(
-                  key: ValueKey('attention-open-$id'),
-                  label: '打开讨论',
-                  onTap: onOpen,
+                AgentPop(
+                  order: 1,
+                  child: _Btn(
+                    key: ValueKey('attention-open-$id'),
+                    label: '打开讨论',
+                    onTap: onOpen,
+                  ),
                 ),
               ] else
-                _Btn(
-                  key: ValueKey('attention-open-$id'),
-                  label: openLabel,
-                  primary: true,
-                  onTap: onOpen,
+                AgentPop(
+                  child: _Btn(
+                    key: ValueKey('attention-open-$id'),
+                    label: openLabel,
+                    primary: true,
+                    onTap: onOpen,
+                  ),
                 ),
             ],
           ),
         ),
         const SizedBox(width: 9),
-        _Btn(
-          key: ValueKey('attention-later-$id'),
-          label: '稍后',
-          ghost: true,
-          onTap: onLater,
+        AgentPop(
+          order: 2,
+          child: _Btn(
+            key: ValueKey('attention-later-$id'),
+            label: '稍后',
+            ghost: true,
+            onTap: onLater,
+          ),
         ),
       ],
     );

@@ -828,10 +828,14 @@ void main() {
       shown = [];
       tools = AgentGroundedTools(
         data: data,
-        show: (spec) {
-          shown.add(spec);
-          return {'layer': shown.length + 1};
-        },
+        host: AgentSurfaceHost(
+          begin: (draft) {
+            shown.add(draft.spec);
+            return {'layer': shown.length + 1};
+          },
+          changed: (draft, {added}) => const {},
+          isOpen: (_) => true,
+        ),
       );
     });
     tearDown(() async {
@@ -1043,7 +1047,11 @@ void main() {
       Object? rejected;
       final t = AgentGroundedTools(
         data: data,
-        show: (_) => {},
+        host: AgentSurfaceHost(
+          begin: (_) => {},
+          changed: (draft, {added}) => const {},
+          isOpen: (_) => true,
+        ),
         onRejected: (p) => rejected = p,
       );
       final out = (await t.run('show_surface', {

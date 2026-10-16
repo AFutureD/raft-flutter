@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'agent_theme.dart';
+import 'enter.dart';
 
 /// How a marker annotation is drawn.
 enum AgentMarkStyle { circle, underline, highlight, arrow }
@@ -57,7 +58,20 @@ class AgentMarkController extends ChangeNotifier {
 
   List<AgentMark> get marks => List.unmodifiable(_marks);
 
+  bool _dimmed = false;
+
+  /// The marks stay on a settled item but lightly, on their way out.
+  bool get dimmed => _dimmed;
+
+  /// Draws the marks lightly (the screen is calm again; they leave soon).
+  void dim() {
+    if (_marks.isEmpty || _dimmed) return;
+    _dimmed = true;
+    notifyListeners();
+  }
+
   void add(AgentMark mark) {
+    _dimmed = false;
     _marks.removeWhere(
       (m) => m.itemId == mark.itemId && m.phrase == mark.phrase,
     );
@@ -69,6 +83,7 @@ class AgentMarkController extends ChangeNotifier {
   }
 
   void clear() {
+    _dimmed = false;
     if (_marks.isEmpty) return;
     _marks.clear();
     notifyListeners();
@@ -152,13 +167,13 @@ class _AgentMarkTextState extends State<AgentMarkText>
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
-    final text = Text(
+    final text = AgentTypeText(
       widget.text,
-      key: _text,
+      textKey: _text,
       maxLines: widget.maxLines,
-      overflow: widget.maxLines == null ? null : TextOverflow.ellipsis,
       style: widget.style,
     );
+    final dim = AgentMarks.of(context)?.dimmed ?? false;
     if (_mine.isEmpty) return text;
     return CustomPaint(
       foregroundPainter: _MarkPainter(
@@ -166,8 +181,10 @@ class _AgentMarkTextState extends State<AgentMarkText>
         text: widget.text,
         marks: _mine,
         draw: _draw,
-        ink: t.markInk,
-        highlight: t.markHighlight,
+        ink: dim ? t.markInk.withValues(alpha: .4) : t.markInk,
+        highlight: dim
+            ? t.markHighlight.withValues(alpha: .4)
+            : t.markHighlight,
         noteStyle: t.body(14, color: t.markInk, weight: FontWeight.w800),
       ),
       child: text,

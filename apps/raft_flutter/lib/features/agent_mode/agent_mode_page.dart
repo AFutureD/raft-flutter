@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -12,12 +11,14 @@ import '../../data/workspace_controller.dart';
 import 'agent_attention.dart';
 import 'agent_audio.dart';
 import 'agent_catalog.dart';
+import 'agent_choreography.dart';
 import 'agent_detail.dart';
 import 'agent_headlines.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
 import 'agent_scripted_model.dart';
 import 'agent_surface.dart';
+import 'agent_surface_stream.dart';
 import 'agent_surface_tools.dart';
 import 'agent_tools.dart';
 import 'agent_tv.dart';
@@ -90,10 +91,19 @@ class _Tasks extends _Layer {
 /// A screen composed from the catalog: by the model (`show_surface`), or the
 /// detail of one attention item ([item], `expand_item` and a tap on a card).
 class _Surface extends _Layer {
-  _Surface(this.spec, int n) : item = null, super('surface:$n');
+  _Surface.draft(AgentSurfaceDraft this.draft, int n)
+    : spec = draft.spec,
+      item = null,
+      super('surface:$n');
   _Surface.detail(this.spec, AgentAttentionItem this.item)
-    : super('detail:${item.id}');
-  final AgentSurfaceSpec spec;
+    : draft = null,
+      super('detail:${item.id}');
+
+  /// What is on screen; follows [draft] while the model composes it.
+  AgentSurfaceSpec spec;
+
+  /// Set for a screen the model composes (and streams).
+  final AgentSurfaceDraft? draft;
   final AgentAttentionItem? item;
 
   /// Folded containers the person opened (paths, see `foldedPaths`).
@@ -118,7 +128,13 @@ class _AgentModePageState extends State<AgentModePage> {
   String? _surfaceError;
   late final _grounded = AgentGroundedTools(
     data: data,
-    show: _showSurface,
+    host: AgentSurfaceHost(
+      begin: _beginSurface,
+      changed: _surfaceChanged,
+      isOpen: (draft) =>
+          _stack.any((l) => l is _Surface && identical(l.draft, draft)),
+      ended: (_) => _choreo.end(),
+    ),
     onRejected: (problems) {
       if (mounted) setState(() => _surfaceError = problems.first);
     },
@@ -145,102 +161,17 @@ class _AgentModePageState extends State<AgentModePage> {
   final _marks = AgentMarkController();
   AgentMicState _lastMic = AgentMicState.idle;
 
-  /// Bumped on every layer change so a visual timed to speech that belongs
-  /// to an old screen never fires.
-  int _screenEpoch = 0;
-
-  /// Visuals waiting for the agent to say their words, in call order.
-  final _cues = <({Set<String> words, VoidCallback effect, int epoch})>[];
-  int _heardFrom = 0;
-  Timer? _cueFallback;
-  Object? _fallbackFor;
-
-  /// Runs [effect] once the agent says [words] (fuzzy, from the live
-  /// transcript) and the speaker has reached them. Models often send every
-  /// tool call before speaking; this keeps each visual on its own phrase.
-  void _cue(String words, VoidCallback effect) {
-    _cues.add((words: _grams(words), effect: effect, epoch: _screenEpoch));
-    _checkCues();
-  }
-
-  void _sayingChanged() {
-    if (_voice.saying.value.isEmpty) {
-      // A new reply: leftovers from the last one no longer apply.
-      _cues.clear();
-      _heardFrom = 0;
-      _cueFallback?.cancel();
-      _fallbackFor = null;
-      return;
-    }
-    _checkCues();
-  }
-
-  void _checkCues() {
-    while (_cues.isNotEmpty) {
-      final cue = _cues.first;
-      if (cue.epoch != _screenEpoch) {
-        _cues.removeAt(0);
-        continue;
-      }
-      final said = _voice.saying.value;
-      final fresh = said.length >= _heardFrom ? said.substring(_heardFrom) : '';
-      if (!_heard(fresh, cue.words)) break;
-      _cues.removeAt(0);
-      _heardFrom = said.length;
-      unawaited(_atSpeech(cue.effect));
-    }
-    if (_cues.isEmpty) {
-      _cueFallback?.cancel();
-      _fallbackFor = null;
-      return;
-    }
-    // Words that never come (paraphrase, another language) still show, in
-    // order, a little after the cue reaches the front of the queue; more
-    // transcript arriving does not postpone it.
-    if (identical(_fallbackFor, _cues.first)) return;
-    _fallbackFor = _cues.first;
-    _cueFallback?.cancel();
-    _cueFallback = Timer(const Duration(milliseconds: 3500), () {
-      if (!mounted || _cues.isEmpty) return;
-      final cue = _cues.removeAt(0);
-      _fallbackFor = null;
-      _heardFrom = _voice.saying.value.length;
-      if (cue.epoch == _screenEpoch) cue.effect();
-      _checkCues();
-    });
-  }
-
-  static Set<String> _grams(String text) {
-    final t = text.toLowerCase().replaceAll(
-      RegExp(r'[\s\p{P}\p{S}]', unicode: true),
-      '',
-    );
-    final words = RegExp(r'[a-z0-9]+');
-    return {
-      for (final m in words.allMatches(t))
-        if (m[0]!.length >= 2) m[0]!,
-      for (final part in t.split(words))
-        for (var i = 0; i + 1 < part.length; i++) part.substring(i, i + 2),
-    };
-  }
-
-  static bool _heard(String said, Set<String> words) {
-    if (words.isEmpty) return true;
-    final heard = _grams(said);
-    final hits = words.where(heard.contains).length;
-    return hits >= math.max(1, math.min(3, (words.length * .25).ceil()));
-  }
-
-  /// Runs [effect] when the speaker reaches the words received so far, so
-  /// a spotlight or a mark lands with the phrase it belongs to.
-  Future<void> _atSpeech(VoidCallback effect) async {
-    final epoch = _screenEpoch;
-    final wait = await AgentAudio.instance.pending();
-    if (wait > const Duration(milliseconds: 60)) {
-      await Future<void>.delayed(wait - const Duration(milliseconds: 40));
-    }
-    if (mounted && epoch == _screenEpoch) effect();
-  }
+  /// The only owner of what moves for the voice: spotlight, marks and the
+  /// typing of what is being said, timed to the speech.
+  late final _choreo = AgentChoreographer(
+    spotlight: _spotlight,
+    marks: _marks,
+    reveal: _reveal,
+    saying: _voice.saying,
+    playbackLag: AgentAudio.instance.pending,
+    isSpeaking: () => _voice.state == AgentMicState.speaking,
+  );
+  final _reveal = AgentRevealSync();
 
   /// The last accepted attention result. It starts from the previous visit
   /// so the first frame is already final; a refresh replaces it in place.
@@ -261,13 +192,7 @@ class _AgentModePageState extends State<AgentModePage> {
     _voice.addListener(_voiceChanged);
     AgentVoiceSettings.instance.addListener(_loadBrain);
     _loadBrain();
-    _voice.saying.addListener(_sayingChanged);
-    _spotlight.addListener(() {
-      // Annotations belong to what is being explained; a new focus or
-      // putting the item back wipes them.
-      _marks.clear();
-      setState(() {});
-    });
+    _spotlight.addListener(() => setState(() {}));
     _marks.addListener(() => setState(() {}));
     unawaited(_attachTv());
   }
@@ -288,8 +213,8 @@ class _AgentModePageState extends State<AgentModePage> {
     unawaited(AgentPresentation.instance.detach());
     _voice.removeListener(_voiceChanged);
     AgentVoiceSettings.instance.removeListener(_loadBrain);
-    _voice.saying.removeListener(_sayingChanged);
-    _cueFallback?.cancel();
+    _choreo.dispose();
+    _reveal.dispose();
     _voice.dispose();
     _spotlight.dispose();
     _marks.dispose();
@@ -307,6 +232,7 @@ class _AgentModePageState extends State<AgentModePage> {
           ? 'elegant-dark'
           : 'elegant-light',
       'spotlight': _spotlight.focused,
+      'spotlightEnter': _spotlight.entering,
       'marks': [for (final m in _marks.marks) m.toJson()],
       'layers': [
         for (final l in _stack.skip(_stack.length > 3 ? _stack.length - 3 : 0))
@@ -468,9 +394,7 @@ class _AgentModePageState extends State<AgentModePage> {
 
   void _dismiss(_Layer layer) {
     if (!mounted || !_stack.contains(layer)) return;
-    _spotlight.release();
-    _marks.clear();
-    _screenEpoch++;
+    _choreo.newScreen();
     setState(() {
       _surfaceError = null;
       _stack.remove(layer);
@@ -480,9 +404,7 @@ class _AgentModePageState extends State<AgentModePage> {
   /// Shows the cards from [start] on the phone's first layer; what was
   /// lifted or marked belonged to the old ones.
   void _showBatch(int start) {
-    _spotlight.release();
-    _marks.clear();
-    _screenEpoch++;
+    _choreo.newScreen();
     setState(() => _batchStart = start);
   }
 
@@ -504,16 +426,12 @@ class _AgentModePageState extends State<AgentModePage> {
 
   /// A summary row was tapped: show that group in full.
   void _expandNode(_Surface layer, String path) {
-    _spotlight.release();
-    _marks.clear();
-    _screenEpoch++;
+    _choreo.newScreen();
     setState(() => layer.expanded.add(path));
   }
 
   void _push(_Layer layer) {
-    _spotlight.release();
-    _marks.clear();
-    _screenEpoch++;
+    _choreo.newScreen();
     setState(() {
       _surfaceError = null;
       _stack.removeWhere((l) => l.id == layer.id);
@@ -522,9 +440,7 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   void _pop() {
-    _spotlight.release();
-    _marks.clear();
-    _screenEpoch++;
+    _choreo.newScreen();
     if (_stack.length > 1) {
       setState(() {
         _surfaceError = null;
@@ -534,25 +450,64 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   void _revealTo(int index) {
-    _spotlight.release();
-    _marks.clear();
-    _screenEpoch++;
+    _choreo.newScreen();
     setState(() {
       _surfaceError = null;
       _stack.removeRange(index + 1, _stack.length);
     });
   }
 
-  /// `show_surface`: the validated screen becomes the front layer.
-  Map<String, Object?> _showSurface(AgentSurfaceSpec spec) {
+  /// `begin_surface` / `show_surface`: the screen becomes the front layer.
+  Map<String, Object?> _beginSurface(AgentSurfaceDraft draft) {
     // The same screen asked again (say, a group in full) replaces itself.
     final top = _stack.last;
-    if (top is _Surface && top.item == null && top.spec.title == spec.title) {
+    if (top is _Surface &&
+        top.item == null &&
+        (top.draft?.id == draft.id || top.spec.title == draft.title)) {
       _stack.removeLast();
     }
-    _push(_Surface(spec, ++_surfaces));
+    _push(_Surface.draft(draft, ++_surfaces));
     return _screen();
   }
+
+  /// A component was added to, or changed on, a streamed screen. The
+  /// layer follows the draft in place: what is above stays where it is.
+  /// Returns the screen number of the component just added (when it is an
+  /// item of its own) so the model can point at it.
+  Map<String, Object?> _surfaceChanged(
+    AgentSurfaceDraft draft, {
+    String? added,
+  }) {
+    final layer = _stack
+        .whereType<_Surface>()
+        .where((l) => identical(l.draft, draft))
+        .firstOrNull;
+    if (layer == null) return const {};
+    setState(() => layer.spec = draft.spec);
+    final id = added;
+    final path = id == null ? null : draft.pathOf(id);
+    if (path == null) return const {};
+    final catalog = agentStandardCatalog;
+    final folded = foldedPaths(
+      catalog,
+      layer.spec.root,
+      compact: _compact,
+      expanded: layer.expanded,
+    );
+    final number = focusNumbers(catalog, layer.spec.root, folded)[path];
+    if (number == null) return const {};
+    // While the agent talks about it, it enters the spotlight.
+    if (identical(_stack.last, layer)) {
+      final node = draft.find(id!)!;
+      _choreo.added('${layer.id}#$number', _nodeWords(node));
+    }
+    return {'item': number};
+  }
+
+  static String _nodeWords(SurfaceNode node) => [
+    for (final v in node.props.values)
+      if (v is String) v else if (v is Map) ...v.values.whereType<String>(),
+  ].join(' ');
 
   Future<AgentChannelBrief?> _openChannel(
     RaftChannel c, {
@@ -710,6 +665,12 @@ class _AgentModePageState extends State<AgentModePage> {
     ];
   }
 
+  /// The words of a screen item, to time its visual to the speech.
+  static String _itemWords(Map<String, Object?> item) => [
+    for (final k in const ['label', 'title', 'detail', 'from', 'text'])
+      '${item[k] ?? ''}',
+  ].join(' ');
+
   /// What the screen shows now; every screen tool returns this.
   Map<String, Object?> _screen() {
     final frame = _frame(_stack.last);
@@ -794,13 +755,7 @@ class _AgentModePageState extends State<AgentModePage> {
         }
         final id = '${_stack.last.id}#$n';
         final item = items[n - 1];
-        _cue(
-          [
-            for (final k in const ['label', 'title', 'detail', 'from', 'text'])
-              '${item[k] ?? ''}',
-          ].join(' '),
-          () => _spotlight.focus(id),
-        );
+        _choreo.spotlightItem(id, _itemWords(item));
         return {'ok': true, 'item': items[n - 1]};
       case 'mark':
         final n = (args['number'] as num?)?.toInt() ?? 0;
@@ -828,12 +783,7 @@ class _AgentModePageState extends State<AgentModePage> {
           note: args['note'] as String?,
         );
         // Marking an item that is not lifted lifts it first.
-        _cue(phrase, () {
-          if (_spotlight.focused != mark.itemId) {
-            _spotlight.focus(mark.itemId);
-          }
-          _marks.add(mark);
-        });
+        _choreo.mark(mark);
         return {'ok': true};
       case 'release_spotlight':
         _spotlight.release();
@@ -885,8 +835,8 @@ class _AgentModePageState extends State<AgentModePage> {
           _spotlight.focused == shown &&
           _voice.state == AgentMicState.idle &&
           _voice.saying.value.length == said &&
-          _cues.isEmpty) {
-        _spotlight.release();
+          !_choreo.hasCues) {
+        _choreo.speechEnded();
       }
     });
   }
@@ -1066,6 +1016,7 @@ class _AgentModePageState extends State<AgentModePage> {
   Widget _surfaceLayer(_Surface l, {required bool compact}) {
     final view = AgentSurfaceView(
       spec: l.spec,
+      animate: l.draft != null,
       focusPrefix: l.id,
       compact: compact,
       expanded: l.expanded,
@@ -1156,51 +1107,54 @@ class _AgentModePageState extends State<AgentModePage> {
                         ),
                       ),
                       Expanded(
-                        child: AgentSpotlight(
-                          controller: _spotlight,
-                          // Room above the front layer only for the layers
-                          // that peek out behind it: one layer, no gap.
-                          child: ZLayerStack(
-                            padding: EdgeInsets.fromLTRB(
-                              14,
-                              6 + 34.0 * (_stack.length - 1).clamp(0, 2),
-                              14,
-                              8,
+                        child: AgentRevealSyncScope(
+                          sync: _reveal,
+                          child: AgentSpotlight(
+                            controller: _spotlight,
+                            // Room above the front layer only for the layers
+                            // that peek out behind it: one layer, no gap.
+                            child: ZLayerStack(
+                              padding: EdgeInsets.fromLTRB(
+                                14,
+                                6 + 34.0 * (_stack.length - 1).clamp(0, 2),
+                                14,
+                                8,
+                              ),
+                              onReveal: _revealTo,
+                              layers: [
+                                for (final l in _stack)
+                                  ZLayer(
+                                    key: ValueKey(l.id),
+                                    peek: _peek(l),
+                                    child: l is _Surface
+                                        ? _surfaceLayer(l, compact: !wide)
+                                        : l is _Attention
+                                        ? AgentAttentionView(
+                                            attention: _visible,
+                                            error: _attentionError,
+                                            wide: wide,
+                                            focusPrefix: l.id,
+                                            onApprove: (i) =>
+                                                unawaited(_approve(i)),
+                                            onOpen: _openItem,
+                                            onLater: _later,
+                                            onExpand: _expandItem,
+                                            batchStart: _batchStart,
+                                            onBatch: _showBatch,
+                                          )
+                                        : AgentFrameView(
+                                            focusPrefix: l.id,
+                                            frame: _frame(l),
+                                            onOpen: (id) {
+                                              final c = _channelById(id);
+                                              if (c != null) {
+                                                _openChannel(c).ignore();
+                                              }
+                                            },
+                                          ),
+                                  ),
+                              ],
                             ),
-                            onReveal: _revealTo,
-                            layers: [
-                              for (final l in _stack)
-                                ZLayer(
-                                  key: ValueKey(l.id),
-                                  peek: _peek(l),
-                                  child: l is _Surface
-                                      ? _surfaceLayer(l, compact: !wide)
-                                      : l is _Attention
-                                      ? AgentAttentionView(
-                                          attention: _visible,
-                                          error: _attentionError,
-                                          wide: wide,
-                                          focusPrefix: l.id,
-                                          onApprove: (i) =>
-                                              unawaited(_approve(i)),
-                                          onOpen: _openItem,
-                                          onLater: _later,
-                                          onExpand: _expandItem,
-                                          batchStart: _batchStart,
-                                          onBatch: _showBatch,
-                                        )
-                                      : AgentFrameView(
-                                          focusPrefix: l.id,
-                                          frame: _frame(l),
-                                          onOpen: (id) {
-                                            final c = _channelById(id);
-                                            if (c != null) {
-                                              _openChannel(c).ignore();
-                                            }
-                                          },
-                                        ),
-                                ),
-                            ],
                           ),
                         ),
                       ),

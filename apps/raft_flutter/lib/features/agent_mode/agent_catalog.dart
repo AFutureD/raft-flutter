@@ -333,7 +333,7 @@ final AgentCatalog agentStandardCatalog = _standard();
 /// On a [compact] screen (the phone) a group or section folds to one summary
 /// row unless its `density` says `detail`; tapping the row calls [onExpand]
 /// with its path, and the owner adds it to [expanded].
-class AgentSurfaceView extends StatelessWidget {
+class AgentSurfaceView extends StatefulWidget {
   const AgentSurfaceView({
     super.key,
     required this.spec,
@@ -342,9 +342,14 @@ class AgentSurfaceView extends StatelessWidget {
     this.compact,
     this.expanded = const {},
     this.onExpand,
+    this.animate = false,
   });
   final AgentSurfaceSpec spec;
   final String focusPrefix;
+
+  /// Components enter one after another (a screen the model is composing);
+  /// off for a screen that is simply there (the detail of a card).
+  final bool animate;
 
   /// Defaults to [agentStandardCatalog].
   final AgentCatalog? catalog;
@@ -355,41 +360,72 @@ class AgentSurfaceView extends StatelessWidget {
   final ValueChanged<String>? onExpand;
 
   @override
+  State<AgentSurfaceView> createState() => _AgentSurfaceViewState();
+}
+
+class _AgentSurfaceViewState extends State<AgentSurfaceView> {
+  /// Components that appear (the skeleton that came with the layer, then
+  /// whatever is added) enter one after another when [AgentSurfaceView.animate]
+  /// is on; paint only, nothing is laid out differently for it.
+  final _pacer = AgentEnterPacer();
+
+  @override
   Widget build(BuildContext context) {
-    final catalog = this.catalog ?? agentStandardCatalog;
+    final spec = widget.spec;
+    final catalog = widget.catalog ?? agentStandardCatalog;
     final compact =
-        this.compact ?? MediaQuery.sizeOf(context).width < agentWideBreakpoint;
+        widget.compact ??
+        MediaQuery.sizeOf(context).width < agentWideBreakpoint;
     final folded = foldedPaths(
       catalog,
       spec.root,
       compact: compact,
-      expanded: expanded,
+      expanded: widget.expanded,
     );
-    var n = 0;
+    final numbers = focusNumbers(catalog, spec.root, folded);
     Widget draw(SurfaceNode node, String path) {
       final item = catalog.item(node.component);
       if (item == null) return const SizedBox.shrink();
+      final Widget drawn;
       if (folded.contains(path)) {
-        return AgentFocusable(
-          id: '$focusPrefix#${++n}',
-          child: _summaryRow(catalog, node, onTap: () => onExpand?.call(path)),
+        drawn = AgentFocusable(
+          id: '${widget.focusPrefix}#${numbers[path]}',
+          child: _summaryRow(
+            catalog,
+            node,
+            onTap: () => widget.onExpand?.call(path),
+          ),
         );
+      } else {
+        final children = [
+          for (final (i, c) in node.children.indexed)
+            draw(c, surfaceChildPath(path, i)),
+        ];
+        final built = item.build(context, node, children);
+        drawn = item.container || !item.focusable
+            ? built
+            : AgentFocusable(
+                id: '${widget.focusPrefix}#${numbers[path]}',
+                child: built,
+              );
       }
-      final children = [
-        for (final (i, c) in node.children.indexed)
-          draw(c, surfaceChildPath(path, i)),
-      ];
-      final built = item.build(context, node, children);
-      return item.container || !item.focusable
-          ? built
-          : AgentFocusable(id: '$focusPrefix#${++n}', child: built);
+      if (path == 'r') return drawn;
+      return AgentAppear(
+        key: ValueKey(node.id ?? path),
+        animate: widget.animate,
+        child: drawn,
+      );
     }
 
     final body = draw(spec.root, 'r');
-    return AgentLayerFrame(
-      title: spec.title,
-      summary: spec.summary == null ? null : TextSpan(text: spec.summary),
-      children: [body],
+    return AgentEnterPacing(
+      pacer: _pacer,
+      child: AgentLayerFrame(
+        title: spec.title,
+        enterTitle: widget.animate,
+        summary: spec.summary == null ? null : TextSpan(text: spec.summary),
+        children: [body],
+      ),
     );
   }
 }
