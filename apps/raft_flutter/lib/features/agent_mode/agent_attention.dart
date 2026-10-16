@@ -299,51 +299,49 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
         : [item.progress.last];
     final who = item.doer ?? (item.waiters.isEmpty ? null : item.waiters.first);
     return HfDetail(
-          key: const ValueKey('attention-detail'),
-          titleMode: HfDetailTitle.heading,
-          index: n,
-          progressLines: 1,
-          title: item.headline,
-          status: [
-            if (item.channelName != null) '#${item.channelName}',
-            item.reason,
-          ].join(' · '),
-          tone: _tone(item.priority),
-          facts: [
-            HfFact('要你做', item.askText, lines: 1),
-            if (who != null) HfFact('谁', who),
-            HfFact('多久', item.waitLabel),
-          ],
-          progress: [
-            for (final p in lines) HfProgressLine(p.time, p.who, p.text),
-          ],
-          actions: [
-            if (item.canApprove)
-              HfAction(
-                '通过',
-                key: ValueKey('attention-approve-${item.id}'),
-                kind: HfActionKind.primary,
-                icon: Icons.check_rounded,
-                onPressed: () => widget.onApprove(item),
-              ),
-            HfAction(
-              item.action == AgentAction.reply
-                  ? '回复${who == null ? '' : ' $who'}'
-                  : '打开讨论',
-              key: ValueKey('attention-open-${item.id}'),
-              kind: item.canApprove
-                  ? HfActionKind.secondary
-                  : HfActionKind.primary,
-              onPressed: () => widget.onOpen(item),
-            ),
-            HfAction(
-              '稍后',
-              key: ValueKey('attention-later-${item.id}'),
-              kind: HfActionKind.text,
-              onPressed: () => widget.onLater(item),
-            ),
-          ],
-        );
+      key: const ValueKey('attention-detail'),
+      titleMode: HfDetailTitle.heading,
+      index: n,
+      // A desktop can scroll the pane to read the whole line; a TV is only
+      // looked at, so it keeps to one.
+      progressLines: hf.interactive ? 4 : 1,
+      title: item.headline,
+      status: [
+        if (item.channelName != null) '#${item.channelName}',
+        item.reason,
+      ].join(' · '),
+      tone: _tone(item.priority),
+      facts: [
+        HfFact('要你做', item.askText, lines: 1),
+        if (who != null) HfFact('谁', who),
+        HfFact('多久', item.waitLabel),
+      ],
+      progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
+      actions: [
+        if (item.canApprove)
+          HfAction(
+            '通过',
+            key: ValueKey('attention-approve-${item.id}'),
+            kind: HfActionKind.primary,
+            icon: Icons.check_rounded,
+            onPressed: () => widget.onApprove(item),
+          ),
+        HfAction(
+          item.action == AgentAction.reply
+              ? '回复${who == null ? '' : ' $who'}'
+              : '打开讨论',
+          key: ValueKey('attention-open-${item.id}'),
+          kind: item.canApprove ? HfActionKind.secondary : HfActionKind.primary,
+          onPressed: () => widget.onOpen(item),
+        ),
+        HfAction(
+          '稍后',
+          key: ValueKey('attention-later-${item.id}'),
+          kind: HfActionKind.text,
+          onPressed: () => widget.onLater(item),
+        ),
+      ],
+    );
   }
 
   @override
@@ -378,7 +376,9 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
         ],
       );
     }
-    return LayoutBuilder(builder: (context, box) => _paged(context, hf, a, box));
+    return LayoutBuilder(
+      builder: (context, box) => _paged(context, hf, a, box),
+    );
   }
 
   /// The layer once the room is known: a page of as many whole rows as fit.
@@ -477,27 +477,30 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
           SizedBox(
             height: room.isFinite ? room - hf.sp(10) : null,
             child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 53,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    list,
-                    if (pager != null) ...[SizedBox(height: hf.sp(12)), pager],
-                  ],
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 53,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      list,
+                      if (pager != null) ...[
+                        SizedBox(height: hf.sp(12)),
+                        pager,
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(width: hf.sp(28)),
-              Expanded(
-                flex: 47,
-                child: current == null
-                    ? const SizedBox.shrink()
-                    : _detail(hf, current, _index + 1),
-              ),
-            ],
-          ),
+                SizedBox(width: hf.sp(28)),
+                Expanded(
+                  flex: 47,
+                  child: current == null
+                      ? const SizedBox.shrink()
+                      : _detail(hf, current, _index + 1),
+                ),
+              ],
+            ),
           ),
         ],
       ),

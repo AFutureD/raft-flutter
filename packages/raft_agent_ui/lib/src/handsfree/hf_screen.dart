@@ -136,8 +136,10 @@ class HfLayerBody extends StatelessWidget {
         Expanded(
           child: AgentScrollFade(
             // A desktop shows that there is more (a fade, a scrollbar); a
-            // finger on a phone needs neither.
-            enabled: hf.interactive && !hf.phone,
+            // finger on a phone needs neither. A TV cannot scroll, but a row
+            // it cuts off still fades rather than ends mid-line.
+            enabled: !hf.phone,
+            scrollbar: hf.interactive,
             builder: (context, controller) => SingleChildScrollView(
               controller: controller,
               physics: hf.interactive
@@ -193,7 +195,11 @@ class HfScreenFrame extends StatelessWidget {
       foot = hf.phone
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [caption!, SizedBox(height: hf.sp(14)), dock!],
+              children: [
+                caption!,
+                SizedBox(height: hf.sp(14)),
+                dock!,
+              ],
             )
           : Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -319,7 +325,8 @@ class HfLayerFrame extends StatelessWidget {
         title: title,
         count: count,
         enterTitle: enterTitle,
-        trailing: (hf.phone ? null : HfChrome.of(context)) ??
+        trailing:
+            (hf.phone ? null : HfChrome.of(context)) ??
             (meta == null
                 ? null
                 : Text(

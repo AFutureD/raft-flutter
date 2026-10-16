@@ -27,6 +27,34 @@ Widget _frame({int rows = 3}) => HfScreenFrame(
   ),
 );
 
+Widget _pane({HfSurface? surface, int progress = 8, double height = 420}) =>
+    MaterialApp(
+      theme: raftTheme(RaftFamily.brutal),
+      home: Scaffold(
+        body: HandsFree(
+          surface: surface,
+          child: Center(
+            child: SizedBox(
+              width: 520,
+              height: height,
+              child: HfDetail(
+                title: 'Aria 完成了一件事，等你验收',
+                titleMode: HfDetailTitle.heading,
+                status: '#room · 等验收',
+                index: 1,
+                facts: const [HfFact('要你做', '验收这件事'), HfFact('谁', 'Aria')],
+                progress: [
+                  for (var i = 0; i < progress; i++)
+                    HfProgressLine('今天', 'Aria', '第 $i 条进展：结论都写在文档里了，请看第 3 节。'),
+                ],
+                actions: [HfAction('通过', kind: HfActionKind.primary)],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
 void _size(WidgetTester t, Size size) {
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
@@ -70,6 +98,71 @@ void main() {
         t
             .widget<AnimatedOpacity>(
               find.byKey(const ValueKey('agent-fade-bottom')),
+            )
+            .opacity,
+        0,
+      );
+    });
+
+    testWidgets('a detail pane too short for its text scrolls inside its frame '
+        'with a fade, and keeps its actions in view', (t) async {
+      _size(t, const Size(1440, 900));
+      await t.pumpWidget(_pane());
+      await t.pumpAndSettle();
+      double opacity(String key) =>
+          t.widget<AnimatedOpacity>(find.byKey(ValueKey(key))).opacity;
+      expect(opacity('agent-fade-bottom'), 1);
+      expect(opacity('agent-fade-top'), 0);
+      expect(find.text('通过'), findsOneWidget);
+      // The frame is the pane's own: the text is not drawn past it.
+      final scroll = t.getRect(find.byKey(const ValueKey('hf-detail-scroll')));
+      final action = t.getRect(find.text('通过'));
+      expect(action.top, greaterThan(scroll.bottom));
+      await t.drag(
+        find.byKey(const ValueKey('hf-detail-scroll')),
+        const Offset(0, -4000),
+      );
+      await t.pumpAndSettle();
+      expect(opacity('agent-fade-bottom'), 0);
+      expect(opacity('agent-fade-top'), 1);
+    });
+
+    testWidgets('a detail pane that fits has no fade', (t) async {
+      _size(t, const Size(1440, 900));
+      await t.pumpWidget(_pane(progress: 1, height: 800));
+      await t.pumpAndSettle();
+      expect(
+        t
+            .widget<AnimatedOpacity>(
+              find.byKey(const ValueKey('agent-fade-bottom')),
+            )
+            .opacity,
+        0,
+      );
+    });
+
+    testWidgets('a TV cannot scroll a cut pane, and still fades it', (t) async {
+      _size(t, const Size(1920, 1080));
+      await t.pumpWidget(_pane(surface: HfSurface.tv));
+      await t.pumpAndSettle();
+      expect(
+        t
+            .widget<AnimatedOpacity>(
+              find.byKey(const ValueKey('agent-fade-bottom')),
+            )
+            .opacity,
+        1,
+      );
+      expect(find.byType(Scrollbar), findsNothing);
+      await t.drag(
+        find.byKey(const ValueKey('hf-detail-scroll')),
+        const Offset(0, -400),
+      );
+      await t.pumpAndSettle();
+      expect(
+        t
+            .widget<AnimatedOpacity>(
+              find.byKey(const ValueKey('agent-fade-top')),
             )
             .opacity,
         0,

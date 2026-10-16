@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../marks.dart';
+import '../scroll_fade.dart';
 import '../spotlight.dart';
 import 'hf_action.dart';
 import 'hf_basics.dart';
@@ -90,7 +91,10 @@ class HfDetail extends StatelessWidget {
         children: [
           Container(
             constraints: BoxConstraints(minWidth: hf.sp(64)),
-            padding: EdgeInsets.symmetric(vertical: hf.sp(3), horizontal: hf.sp(6)),
+            padding: EdgeInsets.symmetric(
+              vertical: hf.sp(3),
+              horizontal: hf.sp(6),
+            ),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: HfColors.cream,
@@ -151,7 +155,9 @@ class HfDetail extends StatelessWidget {
         for (final p in progress) progressLine(p),
       ],
     );
-    final card = LayoutBuilder(
+    // [scroll]: the card is given a height that may be too little for it; its
+    // content then scrolls inside the frame and fades where it is cut.
+    Widget cardOf({required bool scroll}) => LayoutBuilder(
       builder: (context, box) {
         final wide = box.maxWidth / hf.s >= 560;
         Widget content;
@@ -176,122 +182,135 @@ class HfDetail extends StatelessWidget {
             ],
           );
         }
+        final top = hf.sp(beside ? 14 : 16), bottom = hf.sp(beside ? 6 : 8);
+        final inner = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (beside) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (status != null || index != null)
+                          Row(
+                            children: [
+                              if (index != null) ...[
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: hf.sp(8),
+                                    vertical: hf.sp(1),
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    borderRadius: BorderRadius.circular(
+                                      hf.sp(7),
+                                    ),
+                                    border: Border.all(
+                                      color: HfColors.ink,
+                                      width: hf.sp(2),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '$index',
+                                    style: hf.type(HfType.headline, base: 15),
+                                  ),
+                                ),
+                                SizedBox(width: hf.sp(8)),
+                              ],
+                              if (status != null)
+                                Flexible(
+                                  child: Text(
+                                    status!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: hf.type(
+                                      HfType.meta,
+                                      color: HfColors.inkMuted,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        if (title.isNotEmpty)
+                          AgentMarkText(
+                            title,
+                            maxLines: titleLines,
+                            style: hf.type(HfType.headline),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    SizedBox(width: hf.sp(10)),
+                    trailing!,
+                  ],
+                ],
+              ),
+              if (facts.isNotEmpty || progress.isNotEmpty)
+                SizedBox(height: hf.sp(10)),
+            ],
+            if (facts.isNotEmpty || progress.isNotEmpty) content,
+          ],
+        );
         return Container(
-          padding: EdgeInsets.fromLTRB(
-            hf.sp(16),
-            hf.sp(beside ? 14 : 16),
-            hf.sp(16),
-            hf.sp(beside ? 6 : 8),
-          ),
+          padding: scroll
+              ? EdgeInsets.symmetric(horizontal: hf.sp(16))
+              : EdgeInsets.fromLTRB(hf.sp(16), top, hf.sp(16), bottom),
           decoration: BoxDecoration(
             color: HfColors.card,
             borderRadius: BorderRadius.circular(hf.sp(16)),
             border: Border.all(color: HfColors.ink, width: hf.sp(3)),
             boxShadow: [BoxShadow(color: color, offset: Offset(0, hf.sp(6)))],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (beside) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (status != null || index != null)
-                            Row(
-                              children: [
-                                if (index != null) ...[
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: hf.sp(8),
-                                      vertical: hf.sp(1),
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      borderRadius: BorderRadius.circular(
-                                        hf.sp(7),
-                                      ),
-                                      border: Border.all(
-                                        color: HfColors.ink,
-                                        width: hf.sp(2),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '$index',
-                                      style: hf.type(
-                                        HfType.headline,
-                                        base: 15,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: hf.sp(8)),
-                                ],
-                                if (status != null)
-                                  Flexible(
-                                    child: Text(
-                                      status!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: hf.type(
-                                        HfType.meta,
-                                        color: HfColors.inkMuted,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          if (title.isNotEmpty)
-                            AgentMarkText(
-                              title,
-                              maxLines: titleLines,
-                              style: hf.type(HfType.headline),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (trailing != null) ...[
-                      SizedBox(width: hf.sp(10)),
-                      trailing!,
-                    ],
-                  ],
-                ),
-                if (facts.isNotEmpty || progress.isNotEmpty)
-                  SizedBox(height: hf.sp(10)),
-              ],
-              if (facts.isNotEmpty || progress.isNotEmpty) content,
-            ],
-          ),
+          child: scroll
+              ? AgentScrollFade(
+                  key: const ValueKey('hf-detail-fade'),
+                  shrinkWrap: true,
+                  scrollbar: hf.interactive,
+                  fadeColor: HfColors.card,
+                  builder: (context, controller) => SingleChildScrollView(
+                    key: const ValueKey('hf-detail-scroll'),
+                    controller: controller,
+                    physics: hf.interactive
+                        ? const ClampingScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(top: top, bottom: bottom),
+                    child: inner,
+                  ),
+                )
+              : inner,
         );
       },
     );
+    final card = cardOf(scroll: false);
     final head = <Widget>[
-        if (titleMode == HfDetailTitle.sticker)
-          Align(alignment: Alignment.centerLeft, child: HfTitleSticker(title)),
-        if (!beside) ...[
-          if (status != null) ...[
-            if (titleMode == HfDetailTitle.sticker) SizedBox(height: hf.sp(10)),
-            Row(
-              children: [
-                Container(
-                  width: hf.sp(12),
-                  height: hf.sp(12),
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: HfColors.ink, width: hf.sp(2)),
-                  ),
+      if (titleMode == HfDetailTitle.sticker)
+        Align(alignment: Alignment.centerLeft, child: HfTitleSticker(title)),
+      if (!beside) ...[
+        if (status != null) ...[
+          if (titleMode == HfDetailTitle.sticker) SizedBox(height: hf.sp(10)),
+          Row(
+            children: [
+              Container(
+                width: hf.sp(12),
+                height: hf.sp(12),
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: HfColors.ink, width: hf.sp(2)),
                 ),
-                SizedBox(width: hf.sp(8)),
-                Text(status!, style: hf.type(HfType.count)),
-              ],
-            ),
-          ],
-          SizedBox(height: gap),
+              ),
+              SizedBox(width: hf.sp(8)),
+              Text(status!, style: hf.type(HfType.count)),
+            ],
+          ),
         ],
+        SizedBox(height: gap),
+      ],
     ];
     final actionGap = SizedBox(height: hf.sp(beside ? 10 : 18));
     // In a room of its own height (beside a list) the card scrolls inside it
@@ -317,16 +336,7 @@ class HfDetail extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ...head,
-            Flexible(
-              child: SingleChildScrollView(
-                key: const ValueKey('hf-detail-scroll'),
-                physics: hf.interactive
-                    ? const ClampingScrollPhysics()
-                    : const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.only(bottom: hf.sp(8), right: hf.sp(2)),
-                child: card,
-              ),
-            ),
+            Flexible(child: cardOf(scroll: true)),
             actionGap,
             HfActions(actions: actions),
           ],
