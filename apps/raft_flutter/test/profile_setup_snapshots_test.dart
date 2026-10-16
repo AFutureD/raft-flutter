@@ -212,7 +212,7 @@ void main() {
       final reads = w.paths.length;
       await t.pumpWidget(page());
       expect(find.text('Fixture agent'), findsOneWidget);
-      expect(find.textContaining('In progress'), findsOneWidget);
+      expect(find.text('Migrating to Target'), findsOneWidget);
       expect(_spinner, findsNothing);
       final rect = t.getRect(find.text('Fixture agent'));
       await t.pump();
