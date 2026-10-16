@@ -9,6 +9,7 @@ export 'src/attention_card.dart';
 export 'src/enter.dart';
 export 'src/layer_frame.dart';
 export 'src/marks.dart';
+export 'src/mood_badge.dart';
 export 'src/priority_card.dart';
 export 'src/spotlight.dart';
 export 'src/surface_cards.dart';

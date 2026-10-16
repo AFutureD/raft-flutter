@@ -16,6 +16,7 @@ import 'agent_detail.dart';
 import 'agent_headlines.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
+import 'agent_mood.dart';
 import 'agent_scripted_model.dart';
 import 'agent_surface.dart';
 import 'agent_surface_stream.dart';
@@ -133,7 +134,10 @@ class _AgentModePageState extends State<AgentModePage> {
       changed: _surfaceChanged,
       isOpen: (draft) =>
           _stack.any((l) => l is _Surface && identical(l.draft, draft)),
-      ended: (_) => _choreo.end(),
+      ended: (_) {
+        _choreo.end();
+        _setComposing(false);
+      },
     ),
     onRejected: (problems) {
       if (mounted) setState(() => _surfaceError = problems.first);
@@ -173,6 +177,68 @@ class _AgentModePageState extends State<AgentModePage> {
   );
   final _reveal = AgentRevealSync();
 
+  /// The mood badge: the phase comes from the voice session and the tools
+  /// that run; the model may set a mood with `set_mood`.
+  final _mood = AgentMoodController();
+  int _reads = 0;
+  bool _composing = false;
+  bool _localBusy = false;
+  Timer? _composingEnds;
+  AgentMicState _moodMic = AgentMicState.idle;
+
+  static const _readTools = {
+    'list_agents',
+    'get_task',
+    'search_tasks',
+    'read_channel',
+    'read_tasks',
+  };
+
+  void _syncMood() {
+    final mic = _voice.state;
+    // A new turn starts when the person starts talking or typing.
+    if (mic != _moodMic) {
+      final start =
+          mic == AgentMicState.holding ||
+          mic == AgentMicState.live ||
+          (mic == AgentMicState.thinking &&
+              (_moodMic == AgentMicState.idle ||
+                  _moodMic == AgentMicState.speaking));
+      if (start) _mood.newTurn();
+      _moodMic = mic;
+    }
+    _mood.setPhase(
+      _reads > 0
+          ? AgentMoodPhase.reading
+          : _composing
+          ? AgentMoodPhase.composing
+          : _localBusy
+          ? AgentMoodPhase.thinking
+          : switch (mic) {
+              AgentMicState.holding || AgentMicState.live =>
+                AgentMoodPhase.listening,
+              AgentMicState.connecting ||
+              AgentMicState.thinking => AgentMoodPhase.thinking,
+              AgentMicState.speaking => AgentMoodPhase.speaking,
+              AgentMicState.idle => AgentMoodPhase.idle,
+            },
+    );
+  }
+
+  /// A screen is being composed (or has just been); a model that never ends
+  /// it does not leave the badge writing for good.
+  void _setComposing(bool on) {
+    _composingEnds?.cancel();
+    _composing = on;
+    if (on) {
+      _composingEnds = Timer(const Duration(seconds: 8), () {
+        _composing = false;
+        if (mounted) _syncMood();
+      });
+    }
+    _syncMood();
+  }
+
   /// The last accepted attention result. It starts from the previous visit
   /// so the first frame is already final; a refresh replaces it in place.
   late AgentAttention? _attention = AgentModeData.cached(widget.controller);
@@ -190,6 +256,9 @@ class _AgentModePageState extends State<AgentModePage> {
     final tv = AgentPresentation.instance;
     tv.onDisplaysChanged = () => unawaited(_attachTv());
     _voice.addListener(_voiceChanged);
+    _mood.addListener(() {
+      if (mounted) setState(() {});
+    });
     AgentVoiceSettings.instance.addListener(_loadBrain);
     _loadBrain();
     _spotlight.addListener(() => setState(() {}));
@@ -215,6 +284,8 @@ class _AgentModePageState extends State<AgentModePage> {
     AgentVoiceSettings.instance.removeListener(_loadBrain);
     _choreo.dispose();
     _reveal.dispose();
+    _composingEnds?.cancel();
+    _mood.dispose();
     _voice.dispose();
     _spotlight.dispose();
     _marks.dispose();
@@ -467,6 +538,8 @@ class _AgentModePageState extends State<AgentModePage> {
       _stack.removeLast();
     }
     _push(_Surface.draft(draft, ++_surfaces));
+    // A whole tree (show_surface) is composed already.
+    _setComposing(!draft.ended);
     return _screen();
   }
 
@@ -484,6 +557,7 @@ class _AgentModePageState extends State<AgentModePage> {
         .firstOrNull;
     if (layer == null) return const {};
     setState(() => layer.spec = draft.spec);
+    if (!draft.ended) _setComposing(true);
     final id = added;
     final path = id == null ? null : draft.pathOf(id);
     if (path == null) return const {};
@@ -567,12 +641,17 @@ class _AgentModePageState extends State<AgentModePage> {
     if (stub == null && await _voice.sendText(text)) return;
     if (!mounted) return;
     _voice.say(AgentSpeaker.you, text);
-    if (stub != null &&
+    _mood.newTurn();
+    _localBusy = stub != null;
+    _syncMood();
+    final handled =
+        stub != null &&
         await stub.handle(text, _runTool, (line) {
           if (mounted) _voice.say(AgentSpeaker.agent, line);
-        })) {
-      return;
-    }
+        });
+    _localBusy = false;
+    if (mounted) _syncMood();
+    if (handled) return;
     if (!mounted) return;
     switch (parseAgentIntent(text, widget.controller.channels)) {
       case AgentBack():
@@ -716,7 +795,28 @@ class _AgentModePageState extends State<AgentModePage> {
     Map<String, Object?> args,
   ) async {
     if (!mounted) return {'error': 'closed'};
+    final reading = _readTools.contains(name);
+    if (reading) {
+      _reads++;
+      _syncMood();
+    }
+    try {
+      return await _dispatchTool(name, args);
+    } finally {
+      if (reading) {
+        _reads--;
+        if (mounted) _syncMood();
+      }
+    }
+  }
+
+  Future<Map<String, Object?>> _dispatchTool(
+    String name,
+    Map<String, Object?> args,
+  ) async {
     switch (name) {
+      case 'set_mood':
+        return _mood.setMood(args['emoji'], args['reason']);
       case 'show_attention' || 'go_home':
         setState(() => _stack.removeRange(1, _stack.length));
         return _screen();
@@ -821,6 +921,7 @@ class _AgentModePageState extends State<AgentModePage> {
   void _voiceChanged() {
     // The TV caption follows what the agent says.
     if (mounted && _tvAttached) _syncTv(context);
+    if (mounted) _syncMood();
     final now = _voice.state;
     final finished =
         _lastMic == AgentMicState.speaking && now == AgentMicState.idle;
@@ -952,7 +1053,11 @@ class _AgentModePageState extends State<AgentModePage> {
             'channelId': i.channelId,
           },
       ],
-      if (_visible != null) 'tv': _visible!.tvFrame(caption: _caption()),
+      if (_visible != null)
+        'tv': {
+          ..._visible!.tvFrame(caption: _caption()),
+          'mood': _mood.emoji,
+        },
     },
     _Channel(:final channel) => () {
       final b = _briefs[channel.id];
@@ -1175,6 +1280,10 @@ class _AgentModePageState extends State<AgentModePage> {
                         child: ListenableBuilder(
                           listenable: _voice,
                           builder: (context, _) => AgentVoiceDock(
+                            mood: AgentMoodBadge(
+                              emoji: _mood.emoji,
+                              label: _mood.label,
+                            ),
                             lines: _voice.lines,
                             state: _voice.state,
                             notice: _voice.notice,

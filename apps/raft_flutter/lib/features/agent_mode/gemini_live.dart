@@ -315,6 +315,7 @@ class GeminiLiveSession {
     'spotlight',
     'release_spotlight',
     'mark',
+    'set_mood',
   };
 
   Future<void> _run(

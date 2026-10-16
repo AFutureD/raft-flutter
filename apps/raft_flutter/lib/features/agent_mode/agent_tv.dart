@@ -314,6 +314,7 @@ class AgentTvAttention extends StatelessWidget {
           ];
           int count(String k) => (frame[k] as int?) ?? 0;
           final caption = '${frame['caption'] ?? ''}';
+          final mood = '${frame['mood'] ?? ''}';
           Widget badge(int n, Color color) => Container(
             padding: EdgeInsets.symmetric(horizontal: 8 * s),
             constraints: BoxConstraints(minWidth: 34 * s),
@@ -436,7 +437,7 @@ class AgentTvAttention extends StatelessWidget {
                           : const SizedBox.shrink(),
                     ),
                 ],
-                if (caption.isNotEmpty)
+                if (caption.isNotEmpty || mood.isNotEmpty)
                   Container(
                     height: 64 * s,
                     decoration: BoxDecoration(
@@ -474,6 +475,24 @@ class AgentTvAttention extends StatelessWidget {
                             style: heading(20),
                           ),
                         ),
+                        if (mood.isNotEmpty) ...[
+                          SizedBox(width: 12 * s),
+                          // The agent's state and mood, as on the phone.
+                          Container(
+                            width: 52 * s,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: _cream,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: ink, width: 3 * s),
+                            ),
+                            child: Text(
+                              mood,
+                              textScaler: TextScaler.noScaling,
+                              style: TextStyle(fontSize: 30 * s, height: 1.15),
+                            ),
+                          ),
+                        ],
                         SizedBox(width: 16 * s),
                       ],
                     ),

@@ -33,6 +33,7 @@ class AgentVoiceDock extends StatefulWidget {
     this.onMicUp,
     this.notice,
     this.hint = '比如 “raft-flutter 现在什么情况？”',
+    this.mood,
   });
 
   /// Latest lines, oldest first. The dock shows the last two.
@@ -50,6 +51,10 @@ class AgentVoiceDock extends StatefulWidget {
   /// e.g. a missing key or a connection error.
   final String? notice;
   final String hint;
+
+  /// The agent's state and mood ([AgentMoodBadge]), beside the mic button:
+  /// in the free corner, or just left of the send button while typing.
+  final Widget? mood;
 
   @override
   State<AgentVoiceDock> createState() => _AgentVoiceDockState();
@@ -138,69 +143,79 @@ class _AgentVoiceDockState extends State<AgentVoiceDock> {
               ),
             ),
           ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        Stack(
           children: [
-            SizedBox(
-              width: 56,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _SmallButton(
-                  key: const ValueKey('agent-keyboard'),
-                  icon: _typing ? Icons.keyboard_hide : Icons.keyboard,
-                  label: _typing ? '收起键盘' : '打字',
-                  onTap: _toggleTyping,
-                  theme: t,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Listener(
-                    onPointerDown: (_) {
-                      _down = DateTime.now();
-                      widget.onMicDown?.call();
-                    },
-                    onPointerUp: (_) => _release(),
-                    onPointerCancel: (_) => _release(),
-                    child: AgentOrb(state: widget.state, size: 76),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    widget.notice ?? _stateHint,
-                    key: const ValueKey('agent-mic-hint'),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.body(
-                      12.5,
-                      color: widget.notice == null ? t.muted : t.foreground,
-                      weight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_typing)
-              SizedBox(
-                width: 56,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: _SmallButton(
-                    key: const ValueKey('agent-send'),
-                    icon: Icons.arrow_upward,
-                    label: '发送',
-                    onTap: _submit,
-                    theme: t,
-                  ),
-                ),
-              )
-            else
-              const SizedBox(width: 56),
+            if (widget.mood != null)
+              Positioned(right: _typing ? 64 : 0, top: 0, child: widget.mood!),
+            _controls(t),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _controls(RaftAgentTheme t) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 56,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _SmallButton(
+              key: const ValueKey('agent-keyboard'),
+              icon: _typing ? Icons.keyboard_hide : Icons.keyboard,
+              label: _typing ? '收起键盘' : '打字',
+              onTap: _toggleTyping,
+              theme: t,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Listener(
+                onPointerDown: (_) {
+                  _down = DateTime.now();
+                  widget.onMicDown?.call();
+                },
+                onPointerUp: (_) => _release(),
+                onPointerCancel: (_) => _release(),
+                child: AgentOrb(state: widget.state, size: 76),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.notice ?? _stateHint,
+                key: const ValueKey('agent-mic-hint'),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: t.body(
+                  12.5,
+                  color: widget.notice == null ? t.muted : t.foreground,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_typing)
+          SizedBox(
+            width: 56,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _SmallButton(
+                key: const ValueKey('agent-send'),
+                icon: Icons.arrow_upward,
+                label: '发送',
+                onTap: _submit,
+                theme: t,
+              ),
+            ),
+          )
+        else
+          const SizedBox(width: 56),
       ],
     );
   }

@@ -1,3 +1,4 @@
+import 'agent_mood.dart';
 import 'agent_surface.dart';
 
 /// `behavior` of a function the model may call while it keeps talking: the
@@ -99,6 +100,22 @@ const agentToolDeclarations = <Map<String, Object?>>[
       'required': ['number', 'phrase', 'style'],
     },
   },
+  {
+    'name': 'set_mood',
+    'behavior': nonBlocking,
+    'description':
+        '用一个 emoji 表达你此刻真实的心情，显示在屏幕角落约 6 秒（默认的表情由 App 按你在听、想、查数据、说话自动切换）。'
+        '只在确实有感觉的时候用，不要装：比如没有任何事等他处理时 🎉，事情卡住了 😟，读取失败了 😅。每一轮最多一次，不要连着用。'
+        'emoji 必须是这些之一：$agentMoodAllowlistText。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'emoji': {'type': 'string', 'description': '一个 emoji，必须在列表里'},
+        'reason': {'type': 'string', 'description': '为什么，几个字'},
+      },
+      'required': ['emoji'],
+    },
+  },
   {'name': 'show_tasks', 'description': '在屏幕上列出进行中和等验收的任务。立即生效。'},
   {'name': 'go_back', 'description': '返回上一层。立即生效。'},
   {'name': 'go_home', 'description': '回到第一层（首页）。立即生效。'},
@@ -153,6 +170,8 @@ String agentSystemPrompt({
     '3) 然后一边开口说结论，一边逐条 add_component：每个 Agent、每个任务、每条引用各一次调用，parent_id 填它所在分组的 id（begin_surface 的返回里有 containers）。从上往下、一组一组地加，不要回头改前面的位置；要改内容用 update_component。\n'
     '4) 加上一条，屏幕会自动把你正在讲的那一条聚焦出来，它的文字跟着你说的话一点点出现；你只管讲，讲到关键词时才用 mark 圈一下。每条最多一两句，别把屏幕上的字全念一遍。\n'
     '5) 全部加完，调用 end_surface。屏幕随后安静下来。\n'
+    '【心情】屏幕角落有个表情，默认由 App 按你在听、想、查数据、整理屏幕、说话自动切换。你可以用 set_mood 换成此刻真实的心情，要少、要真：'
+    '事情都处理完、没有任何东西在等他时用 🎉，有东西卡住了用 😟，读取失败了用 😅；一般的回答不用。每一轮最多一次，不要念出来，也不要为了好玩而用。\n'
     '界面工具（begin_surface、add_component、update_component、end_surface、spotlight、mark）不会等你，调用时不必停下来，也不要念出它们的名字；返回 ok 就继续说，返回 error 才按 problems 改正，不要念出错误。\n'
     '事实只能来自工具返回的内容，不要编造名字、状态、编号或引用；引用要用原话。某个组件对不上读到的事实会被单独拒绝，其余的保留，你改正后再加那一个即可。\n'
     '问所有 Agent 在干什么：list_agents 后，begin_surface 放 StatRow 和按 state 分的 AgentStatusGroup（在忙、卡住了、空闲、离线，空的组不放），再逐个 add_component 一张 AgentStatusCard。'
