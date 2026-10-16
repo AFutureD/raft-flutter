@@ -267,6 +267,10 @@ String _flatten(Object? v) {
 bool _isIcon(String s) =>
     s.runes.isNotEmpty && s.runes.every((r) => r >= 0xE000 && r <= 0xF8FF);
 
+/// The window's own chrome, which a wide window draws in the header of the
+/// front layer: its title and the layer count.
+bool _isChrome(String s) => s == 'Agent 模式' || RegExp(r'^第 \d+ 层$').hasMatch(s);
+
 /// The strings drawn under [roots], as a person reads them.
 List<String> _shown(WidgetTester t, List<Finder> roots) {
   final out = <String>{};
@@ -288,7 +292,7 @@ List<String> _shown(WidgetTester t, List<Finder> roots) {
       });
       if (skip) continue;
       final text = _norm((element.widget as RichText).text.toPlainText());
-      if (text.isEmpty || _isIcon(text)) continue;
+      if (text.isEmpty || _isIcon(text) || _isChrome(text)) continue;
       out.add(text);
     }
   }
@@ -743,18 +747,19 @@ void main() {
 
   testWidgets('a confirm card waiting for the person', (t) async {
     final probe = await open(t);
-    late Map<String, Object?> previewed;
+    late Map<String, Object?> previewed, home;
+    // Same request: a new one would cancel the preview.
     await say(t, probe, (call) async {
       previewed = await call('act', {
         'capability': 'tasks.finish',
         'args': '{"taskId":"t3"}',
       });
+      home = await call('go_home', {});
     });
     expect(previewed['status'], 'needs_confirmation');
-    final seen = await given(t, probe, 'go_home');
     _expectParity(
       _shown(t, [...attentionRoots(), find.byType(AgentConsentTray)]),
-      seen,
+      _flatten(home),
       'home layer + confirm card',
     );
   });
