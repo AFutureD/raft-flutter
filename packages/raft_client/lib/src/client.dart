@@ -15,6 +15,8 @@ import 'proxy/transport_stub.dart'
     if (dart.library.io) 'proxy/transport_io.dart';
 import 'session_policy.dart';
 
+part 'channel_read_dispatch.dart';
+
 abstract interface class SessionStore {
   Future<Session?> read(String origin);
   Future<void> write(String origin, Session? session);
@@ -1159,25 +1161,45 @@ class RaftClient {
       }
     }
     final sentAccessToken = authorized ? _session?.accessToken : null;
+    final requestHeaders = <String, dynamic>{
+      ...?headers,
+      if (authorized && _session != null)
+        'Authorization': 'Bearer ${_session!.accessToken}',
+      if (authorized && workspaceScoped && serverId != null)
+        'X-Server-Id': serverId,
+    };
     try {
-      final response = await http.request<dynamic>(
+      // Evaluating this call hands a channel read to the adapter before the
+      // await yields. Other requests keep Dio's own chain.
+      final Response<dynamic> response = _channelReadStaysOnThisTurn(
+        http,
+        method,
         path,
         data: data,
-        queryParameters: query,
-        cancelToken: cancellation?._token,
         onSendProgress: onSendProgress,
-        options: Options(
-          method: method,
-          receiveTimeout: receiveTimeout,
-          headers: {
-            ...?headers,
-            if (authorized && _session != null)
-              'Authorization': 'Bearer ${_session!.accessToken}',
-            if (authorized && workspaceScoped && serverId != null)
-              'X-Server-Id': serverId,
-          },
-        ),
-      );
+      )
+          ? await _dispatchChannelRead(
+              http,
+              method: method,
+              path: path,
+              data: data,
+              query: query,
+              headers: requestHeaders,
+              receiveTimeout: receiveTimeout,
+              cancelToken: cancellation?._token,
+            )
+          : await http.request<dynamic>(
+              path,
+              data: data,
+              queryParameters: query,
+              cancelToken: cancellation?._token,
+              onSendProgress: onSendProgress,
+              options: Options(
+                method: method,
+                receiveTimeout: receiveTimeout,
+                headers: requestHeaders,
+              ),
+            );
       governor.observe(
         ServerRateLimits.forRequest(method, path),
         response.headers,
