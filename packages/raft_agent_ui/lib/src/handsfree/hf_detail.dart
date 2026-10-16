@@ -55,6 +55,7 @@ class HfDetail extends StatelessWidget {
     this.progressLines = 2,
     this.trailing,
     this.focusId,
+    this.oneRowActions = false,
   });
 
   final String title;
@@ -76,6 +77,9 @@ class HfDetail extends StatelessWidget {
 
   /// Something small at the right of the heading (an avatar).
   final Widget? trailing;
+
+  /// Keep the actions in one row on a phone too (a sheet).
+  final bool oneRowActions;
   final String? focusId;
 
   @override
@@ -326,7 +330,7 @@ class HfDetail extends StatelessWidget {
               card,
               if (actions.isNotEmpty) ...[
                 actionGap,
-                HfActions(actions: actions),
+                HfActions(actions: actions, oneRow: oneRowActions),
               ],
             ],
           );
@@ -338,7 +342,7 @@ class HfDetail extends StatelessWidget {
             ...head,
             Flexible(child: cardOf(scroll: true)),
             actionGap,
-            HfActions(actions: actions),
+            HfActions(actions: actions, oneRow: oneRowActions),
           ],
         );
       },

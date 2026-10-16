@@ -4,6 +4,7 @@ import '../agent_theme.dart';
 import '../scroll_fade.dart';
 import 'hf_basics.dart';
 import 'hf_scope.dart';
+import 'hf_stage.dart';
 import 'hf_tokens.dart';
 
 /// The canvas every screen sits on: Raft UI's paper with its dots (the dots
@@ -127,6 +128,32 @@ class HfLayerBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final gap = hfScreenGap(hf);
+    // A wide window (or a TV) with a current item shows it in the detail
+    // slot beside the list; a phone's goes in a sheet the screen puts under
+    // the layer.
+    final stage = hf.split ? HfStageScope.of(context) : null;
+    Widget scrolled(Widget child) => AgentScrollFade(
+      // A desktop shows that there is more (a fade, a scrollbar); a finger on
+      // a phone needs neither. A TV cannot scroll, but a row it cuts off
+      // still fades rather than ends mid-line.
+      enabled: !hf.phone,
+      scrollbar: hf.interactive,
+      builder: (context, controller) => SingleChildScrollView(
+        controller: controller,
+        physics: hf.interactive
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.only(bottom: hf.sp(10), right: hf.sp(8)),
+        child: child,
+      ),
+    );
+    final list = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: scrolled(body)),
+        if (pager != null) ...[SizedBox(height: gap), pager!],
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -134,23 +161,17 @@ class HfLayerBody extends StatelessWidget {
         if (summary != null) ...[SizedBox(height: hf.sp(8)), summary!],
         SizedBox(height: gap),
         Expanded(
-          child: AgentScrollFade(
-            // A desktop shows that there is more (a fade, a scrollbar); a
-            // finger on a phone needs neither. A TV cannot scroll, but a row
-            // it cuts off still fades rather than ends mid-line.
-            enabled: !hf.phone,
-            scrollbar: hf.interactive,
-            builder: (context, controller) => SingleChildScrollView(
-              controller: controller,
-              physics: hf.interactive
-                  ? const ClampingScrollPhysics()
-                  : const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.only(bottom: hf.sp(10), right: hf.sp(8)),
-              child: body,
-            ),
-          ),
+          child: stage == null
+              ? list
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 53, child: list),
+                    SizedBox(width: hf.sp(28)),
+                    Expanded(flex: 47, child: stage),
+                  ],
+                ),
         ),
-        if (pager != null) ...[SizedBox(height: gap), pager!],
       ],
     );
   }

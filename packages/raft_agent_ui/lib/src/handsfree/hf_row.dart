@@ -162,7 +162,9 @@ class HfRow extends StatelessWidget {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: selected ? const Color(0xfffff7d6) : HfColors.card,
+        color: selected || AgentSpotlight.isCurrent(context)
+            ? const Color(0xfffff7d6)
+            : HfColors.card,
         borderRadius: radius,
         boxShadow: [BoxShadow(color: color, offset: Offset(0, hf.sp(6)))],
       ),

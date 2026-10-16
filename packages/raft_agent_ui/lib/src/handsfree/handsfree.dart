@@ -13,6 +13,7 @@ export 'hf_detail.dart';
 export 'hf_entity.dart';
 export 'hf_fit.dart';
 export 'hf_row.dart';
+export 'hf_stage.dart';
 export 'hf_scope.dart';
 export 'hf_screen.dart';
 export 'hf_strip.dart';

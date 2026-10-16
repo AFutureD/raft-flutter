@@ -169,6 +169,40 @@ void main() {
       );
     });
 
+    testWidgets('a layer with a stage lays it out beside its list', (t) async {
+      _size(t, const Size(1440, 900));
+      await t.pumpWidget(
+        _app(
+          HfStageScope(
+            stage: const Text('the stage', key: ValueKey('stage')),
+            child: _frame(),
+          ),
+        ),
+      );
+      final row = t.getRect(find.byKey(const ValueKey('row-0')));
+      final stage = t.getRect(find.byKey(const ValueKey('stage')));
+      expect(stage.left, greaterThan(row.right));
+      // The same place whatever the list holds.
+      await t.pumpWidget(
+        _app(
+          HfStageScope(
+            stage: const Text('the stage', key: ValueKey('stage')),
+            child: _frame(rows: 1),
+          ),
+        ),
+      );
+      expect(t.getRect(find.byKey(const ValueKey('stage'))).left, stage.left);
+    });
+
+    testWidgets('a layer with no stage keeps the whole width', (t) async {
+      _size(t, const Size(1440, 900));
+      await t.pumpWidget(_app(_frame()));
+      expect(
+        t.getRect(find.byKey(const ValueKey('row-0'))).width,
+        greaterThan(1440 * .8),
+      );
+    });
+
     testWidgets('the foot is one strip tall however many lines there are', (
       t,
     ) async {
@@ -211,6 +245,20 @@ void main() {
       expect(row.width, greaterThan(412 - 50));
       expect(find.byKey(const ValueKey('agent-fade-bottom')), findsNothing);
       expect(find.byType(Scrollbar), findsNothing);
+    });
+
+    testWidgets('a phone has no slot beside its list: the stage waits for '
+        'the sheet', (t) async {
+      _size(t, const Size(412, 915));
+      await t.pumpWidget(
+        _app(
+          HfStageScope(
+            stage: const Text('the stage', key: ValueKey('stage')),
+            child: _frame(),
+          ),
+        ),
+      );
+      expect(find.byKey(const ValueKey('stage')), findsNothing);
     });
 
     testWidgets('the strip sits above the dock', (t) async {
