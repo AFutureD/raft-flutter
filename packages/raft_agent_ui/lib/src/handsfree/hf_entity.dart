@@ -403,7 +403,11 @@ class HfEntityCard extends StatelessWidget {
         onTap: onTap,
       );
 
-  Widget _found(BuildContext context, AgentEntityData data, HfItemScope? scope) {
+  Widget _found(
+    BuildContext context,
+    AgentEntityData data,
+    HfItemScope? scope,
+  ) {
     final x = (display ?? DisplaySpec.none).resolve(
       data.kind.name,
       fallbackLevel: AgentLevel.medium,
@@ -424,9 +428,7 @@ class HfEntityCard extends StatelessWidget {
         status: p.meta.isEmpty ? null : p.meta.join(' · '),
         tone: base,
         facts: p.facts,
-        progress: [
-          if (p.quote != null) HfProgressLine('', '', p.quote!),
-        ],
+        progress: [if (p.quote != null) HfProgressLine('', '', p.quote!)],
         trailing: p.trailing,
       );
     } else {

@@ -59,7 +59,6 @@ class AgentVoiceDock extends StatefulWidget {
   /// The agent's state and mood ([AgentMoodBadge]), in the dock.
   final Widget? mood;
 
-
   @override
   State<AgentVoiceDock> createState() => _AgentVoiceDockState();
 }
@@ -105,7 +104,11 @@ class _AgentVoiceDockState extends State<AgentVoiceDock> {
   /// talks, else the latest words (the agent's while it thinks and speaks),
   /// else how to start.
   (String, String) get _caption {
-    if (widget.notice != null) return ('AGENT', widget.notice!);
+    // A notice (no key, no voice here) is the strip's words while nothing was
+    // said; else it is a line of its own above the strip.
+    if (widget.notice != null && widget.lines.isEmpty) {
+      return ('AGENT', widget.notice!);
+    }
     final talking =
         widget.state == AgentMicState.holding ||
         widget.state == AgentMicState.live ||
@@ -169,6 +172,17 @@ class _AgentVoiceDockState extends State<AgentVoiceDock> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ?input,
+        if (widget.notice != null && widget.lines.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(bottom: hf.sp(8)),
+            child: Text(
+              widget.notice!,
+              key: const ValueKey('agent-mic-notice'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: hf.type(HfType.meta, color: HfColors.inkSoft),
+            ),
+          ),
         if (hf.phone) ...[
           caption,
           SizedBox(height: hf.sp(14)),

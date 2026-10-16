@@ -58,21 +58,21 @@ class HfStatusCard extends StatelessWidget {
     final act = x.has('activity') ? activity : null;
     return _smooth(
       HfRow(
-      key: ValueKey('agent-status-$name'),
-      index: _indexOf(context, x),
-      tone: hfWorkTone(state),
-      meta: _joined([
-        if (x.has('state')) agentWorkStateLabels[state],
-        if (x.has('since')) since,
-      ]),
-      // Every element off still leaves who it is.
-      title: showName ? name : (act ?? name),
-      titleLines: x.lines,
-      detail: _joined([
-        if (showName) act,
-        if (x.has('channel') && channel != null) '#$channel',
-      ]),
-    ),
+        key: ValueKey('agent-status-$name'),
+        index: _indexOf(context, x),
+        tone: hfWorkTone(state),
+        meta: _joined([
+          if (x.has('state')) agentWorkStateLabels[state],
+          if (x.has('since')) since,
+        ]),
+        // Every element off still leaves who it is.
+        title: showName ? name : (act ?? name),
+        titleLines: x.lines,
+        detail: _joined([
+          if (showName) act,
+          if (x.has('channel') && channel != null) '#$channel',
+        ]),
+      ),
     );
   }
 }
@@ -112,32 +112,36 @@ class HfTaskCard extends StatelessWidget {
     final tone = hfTaskTone(status);
     final index = _indexOf(context, x);
     if (display?.level == AgentLevel.detail) {
-      return _smooth(HfDetail(
-        key: const ValueKey('agent-task-detail'),
-        titleMode: HfDetailTitle.heading,
+      return _smooth(
+        HfDetail(
+          key: const ValueKey('agent-task-detail'),
+          titleMode: HfDetailTitle.heading,
+          index: index,
+          title: x.has('title') ? title : (asked ?? title),
+          titleLines: x.lines,
+          status: meta,
+          tone: tone,
+          facts: [
+            if (asked != null) HfFact('要你做', asked),
+            if (x.has('assignee') && assignee != null) HfFact('负责人', assignee!),
+            if (x.has('channel') && channel != null) HfFact('频道', '#$channel'),
+          ],
+          progress: [if (said != null) HfProgressLine('', '', said)],
+        ),
+      );
+    }
+    return _smooth(
+      HfRow(
+        key: const ValueKey('agent-task-row'),
         index: index,
+        tone: tone,
+        meta: meta,
         title: x.has('title') ? title : (asked ?? title),
         titleLines: x.lines,
-        status: meta,
-        tone: tone,
-        facts: [
-          if (asked != null) HfFact('要你做', asked),
-          if (x.has('assignee') && assignee != null) HfFact('负责人', assignee!),
-          if (x.has('channel') && channel != null) HfFact('频道', '#$channel'),
-        ],
-        progress: [if (said != null) HfProgressLine('', '', said)],
-      ));
-    }
-    return _smooth(HfRow(
-      key: const ValueKey('agent-task-row'),
-      index: index,
-      tone: tone,
-      meta: meta,
-      title: x.has('title') ? title : (asked ?? title),
-      titleLines: x.lines,
-      detail: _joined([if (asked != null) '要你做：$asked', ?said]),
-      detailLines: x.lines > 1 ? 2 : 1,
-    ));
+        detail: _joined([if (asked != null) '要你做：$asked', ?said]),
+        detailLines: x.lines > 1 ? 2 : 1,
+      ),
+    );
   }
 }
 
@@ -159,19 +163,21 @@ class HfMessageQuote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final x = (display ?? DisplaySpec.none).resolve('MessageQuote');
-    return _smooth(HfRow(
-      key: const ValueKey('agent-quote'),
-      bar: x.has('bar'),
-      index: _indexOf(context, x),
-      tone: HfTone.info,
-      meta: _joined([
-        if (x.has('author')) author,
-        if (x.has('time')) time,
-        if (x.has('channel') && channel != null) '#$channel',
-      ]),
-      title: x.has('text') ? text : author,
-      titleLines: x.lines,
-    ));
+    return _smooth(
+      HfRow(
+        key: const ValueKey('agent-quote'),
+        bar: x.has('bar'),
+        index: _indexOf(context, x),
+        tone: HfTone.info,
+        meta: _joined([
+          if (x.has('author')) author,
+          if (x.has('time')) time,
+          if (x.has('channel') && channel != null) '#$channel',
+        ]),
+        title: x.has('text') ? text : author,
+        titleLines: x.lines,
+      ),
+    );
   }
 }
 
@@ -194,85 +200,89 @@ class HfStatStrip extends StatelessWidget {
     final x = (display ?? DisplaySpec.none).resolve('StatRow');
     final radius = BorderRadius.circular(hf.sp(16));
     final index = _indexOf(context, x);
-    return _smooth(DecoratedBox(
-      decoration: BoxDecoration(
-        color: HfColors.cream,
-        borderRadius: radius,
-        boxShadow: [
-          BoxShadow(color: HfColors.progress, offset: Offset(0, hf.sp(6))),
-        ],
-      ),
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
+    return _smooth(
+      DecoratedBox(
         decoration: BoxDecoration(
+          color: HfColors.cream,
           borderRadius: radius,
-          border: Border.all(color: HfColors.ink, width: hf.sp(3)),
+          boxShadow: [
+            BoxShadow(color: HfColors.progress, offset: Offset(0, hf.sp(6))),
+          ],
         ),
-        child: ClipRRect(
-          borderRadius: radius,
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: hf.sp(56),
-                  color: HfColors.progress,
-                  alignment: Alignment.center,
-                  child: Text(
-                    index == null ? '' : '$index',
-                    style: hf.type(HfType.rank).copyWith(height: 1),
+        child: DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: HfColors.ink, width: hf.sp(3)),
+          ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: hf.sp(56),
+                    color: HfColors.progress,
+                    alignment: Alignment.center,
+                    child: Text(
+                      index == null ? '' : '$index',
+                      style: hf.type(HfType.rank).copyWith(height: 1),
+                    ),
                   ),
-                ),
-                for (final (i, s) in stats.indexed)
-                  Expanded(
-                    child: Semantics(
-                      container: true,
-                      label: '${s.label} ${s.value}',
-                      excludeSemantics: true,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          vertical: hf.sp(6),
-                          horizontal: hf.sp(4),
-                        ),
-                        decoration: BoxDecoration(
-                          border: i == 0
-                              ? null
-                              : Border(
-                                  left: BorderSide(
-                                    color: HfColors.ink,
-                                    width: hf.sp(2),
+                  for (final (i, s) in stats.indexed)
+                    Expanded(
+                      child: Semantics(
+                        container: true,
+                        label: '${s.label} ${s.value}',
+                        excludeSemantics: true,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            vertical: hf.sp(6),
+                            horizontal: hf.sp(4),
+                          ),
+                          decoration: BoxDecoration(
+                            border: i == 0
+                                ? null
+                                : Border(
+                                    left: BorderSide(
+                                      color: HfColors.ink,
+                                      width: hf.sp(2),
+                                    ),
+                                  ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AgentCountUp(
+                                s.value,
+                                style: hf
+                                    .type(HfType.stat)
+                                    .copyWith(height: 1.1),
+                              ),
+                              if (x.has('label'))
+                                Text(
+                                  s.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: hf.type(
+                                    HfType.meta,
+                                    color: HfColors.inkSoft,
                                   ),
                                 ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AgentCountUp(
-                              s.value,
-                              style: hf.type(HfType.stat).copyWith(height: 1.1),
-                            ),
-                            if (x.has('label'))
-                              Text(
-                                s.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: hf.type(
-                                  HfType.meta,
-                                  color: HfColors.inkSoft,
-                                ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
   }
 }
 

@@ -118,10 +118,7 @@ final _cases = <_Case>[
   ),
   _Case(
     'StatRow',
-    (d) => HfStatStrip(
-      stats: const [HfStat('label-tok', '3')],
-      display: d,
-    ),
+    (d) => HfStatStrip(stats: const [HfStat('label-tok', '3')], display: d),
     {'label': () => find.text('label-tok')},
   ),
   _Case(

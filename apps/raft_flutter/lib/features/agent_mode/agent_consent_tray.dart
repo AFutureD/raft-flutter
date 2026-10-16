@@ -192,7 +192,7 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
                     risk: p.request.sensitive
                         ? AgentConfirmRisk.sensitive
                         : AgentConfirmRisk.change,
-                      result: p.approved ? AgentConfirmResult.confirmed : null,
+                    result: p.approved ? AgentConfirmResult.confirmed : null,
                     onConfirm: () =>
                         widget.ledger.cardTapped(p.cardId, yes: true),
                     onCancel: () =>
@@ -212,7 +212,7 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
                     risk: c.request.sensitive
                         ? AgentConfirmRisk.sensitive
                         : AgentConfirmRisk.change,
-                      result: AgentConfirmResult.cancelled,
+                    result: AgentConfirmResult.cancelled,
                   ),
                 ),
               ),

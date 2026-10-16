@@ -254,11 +254,7 @@ class AgentTvScreen extends StatelessWidget {
     }
     final spec = layer['spec'];
     if (spec is Map) return _TvSurface(layer: layer);
-    return AgentFrameView(
-      frame: layer,
-      focusPrefix: id,
-      focused: focused,
-    );
+    return AgentFrameView(frame: layer, focusPrefix: id, focused: focused);
   }
 
   static int? _focusNumber(String? focused, String id) =>

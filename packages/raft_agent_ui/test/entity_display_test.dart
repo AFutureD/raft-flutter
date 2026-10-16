@@ -191,11 +191,7 @@ Widget _host(
 );
 
 /// The card as the second thing on the screen: number 2 on its bar.
-Widget _card(
-  String kind,
-  DisplaySpec? display, {
-  Key? key,
-}) => HfItemScope(
+Widget _card(String kind, DisplaySpec? display, {Key? key}) => HfItemScope(
   index: 2,
   child: HfEntityCard(key: key, entity: _refs[kind]!, display: display),
 );
@@ -511,10 +507,8 @@ void main() {
     ) async {
       final r = _resolver();
       final key = GlobalKey();
-      Widget card(DisplaySpec d) => _host(
-        _card('task', d, key: key),
-        resolver: r,
-      );
+      Widget card(DisplaySpec d) =>
+          _host(_card('task', d, key: key), resolver: r);
       await t.pumpWidget(card(const DisplaySpec(level: AgentLevel.minimum)));
       await t.pumpAndSettle();
       final element = key.currentContext!;

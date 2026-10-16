@@ -21,7 +21,6 @@ import 'activity_incremental_refresh_test.dart' show ActivityClient;
 /// the model may override sparingly with set_mood. Fictional data only.
 final _now = DateTime.utc(2026, 10, 15, 12);
 
-
 class _Data extends AgentModeData {
   _Data(super.w) : super(now: () => _now);
   Completer<void>? gate;

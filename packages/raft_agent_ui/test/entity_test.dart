@@ -118,9 +118,8 @@ Widget _host(
 }) => MaterialApp(
   theme: raftTheme(RaftFamily.brutal),
   builder: (context, app) => MediaQuery(
-    data: MediaQuery.of(
-      context,
-    ).copyWith(textScaler: TextScaler.linear(textScale)),
+    data: MediaQuery.of(context)
+        .copyWith(textScaler: TextScaler.linear(textScale)),
     child: app!,
   ),
   home: HandsFree(
@@ -291,9 +290,7 @@ void main() {
     testWidgets('the card follows the underlying data', (t) async {
       _size(t);
       final r = _full();
-      await t.pumpWidget(
-        _host(const HfEntityCard(entity: _task), resolver: r),
-      );
+      await t.pumpWidget(_host(const HfEntityCard(entity: _task), resolver: r));
       expect(find.textContaining('等验收'), findsOneWidget);
       r.put(
         _task,
@@ -336,9 +333,7 @@ void main() {
     testWidgets('the resolver is released with the card', (t) async {
       _size(t);
       final r = _full();
-      await t.pumpWidget(
-        _host(const HfEntityCard(entity: _task), resolver: r),
-      );
+      await t.pumpWidget(_host(const HfEntityCard(entity: _task), resolver: r));
       await t.pumpWidget(_host(const SizedBox(), resolver: r));
       r.notifyListeners();
       await t.pump();
@@ -454,11 +449,7 @@ void main() {
             (w) => w is RichText && w.text.toPlainText() == text,
           ),
         );
-        expect(
-          w.text.style!.fontSize,
-          greaterThanOrEqualTo(22),
-          reason: text,
-        );
+        expect(w.text.style!.fontSize, greaterThanOrEqualTo(22), reason: text);
       }
     });
 
@@ -485,11 +476,7 @@ void main() {
     ) async {
       _size(t, const Size(1440, 900));
       await t.pumpWidget(
-        _host(
-          const HfEntityCard(entity: _task),
-          resolver: _full(),
-          width: 700,
-        ),
+        _host(const HfEntityCard(entity: _task), resolver: _full(), width: 700),
       );
       final w = t.widget<RichText>(
         find.byWidgetPredicate(
@@ -505,9 +492,7 @@ void main() {
         await t.pumpWidget(
           _host(
             Column(
-              children: [
-                for (final e in all) _at(1, HfEntityCard(entity: e)),
-              ],
+              children: [for (final e in all) _at(1, HfEntityCard(entity: e))],
             ),
             resolver: _full(),
             textScale: scale,

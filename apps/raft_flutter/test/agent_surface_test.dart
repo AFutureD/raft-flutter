@@ -605,10 +605,10 @@ void main() {
     }
 
     Finder row(String line) => find.byWidgetPredicate(
-    (w) =>
-        w is HfSummaryRow &&
-        '${w.title} ${w.count}${w.text.isEmpty ? '' : '：${w.text}'}' == line,
-  );
+      (w) =>
+          w is HfSummaryRow &&
+          '${w.title} ${w.count}${w.text.isEmpty ? '' : '：${w.text}'}' == line,
+    );
 
     test('density is a schema-validated field of the containers only', () {
       for (final c in ['Column', 'AgentStatusGroup', 'Section']) {

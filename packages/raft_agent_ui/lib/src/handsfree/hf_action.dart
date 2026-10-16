@@ -419,8 +419,7 @@ class _HfConfirmState extends State<HfConfirm> {
                 maxLines: x.lines,
                 style: hf.type(HfType.headline),
               ),
-              if (widget.changes.isNotEmpty)
-                SizedBox(height: hf.sp(10)),
+              if (widget.changes.isNotEmpty) SizedBox(height: hf.sp(10)),
               for (final line in widget.changes.take(
                 AgentBlockLimits.confirmChanges,
               ))
@@ -575,10 +574,7 @@ class _ChangeRow extends StatelessWidget {
                       .copyWith(decoration: TextDecoration.lineThrough),
                 ),
                 Icon(Icons.arrow_forward, size: hf.sp(20), color: HfColors.ink),
-                Text(
-                  to.isEmpty ? '（空）' : to,
-                  style: hf.type(HfType.headline),
-                ),
+                Text(to.isEmpty ? '（空）' : to, style: hf.type(HfType.headline)),
               ],
             )
           else if (to != null)

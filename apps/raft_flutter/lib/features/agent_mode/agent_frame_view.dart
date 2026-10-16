@@ -121,7 +121,8 @@ class _AgentFrameViewState extends State<AgentFrameView> {
               from: _start + 1,
               to: end,
               total: entries.length,
-              onNext: () => setState(() => _start = end < entries.length ? end : 0),
+              onNext: () =>
+                  setState(() => _start = end < entries.length ? end : 0),
             )
           : null,
       children: [

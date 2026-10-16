@@ -346,6 +346,7 @@ class DisplaySpec {
 
   /// 1 to 8, the lines of the main text.
   final int? lines;
+
   /// Read but not drawn: one type ramp.
   final AgentSize? size;
 

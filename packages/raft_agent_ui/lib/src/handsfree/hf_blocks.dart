@@ -85,21 +85,13 @@ class HfTable extends StatelessWidget {
     final hf = HandsFree.of(context);
     final x = (display ?? DisplaySpec.none).resolve('Table');
     final cols = math.max(columns.length, 1);
-    final pad = EdgeInsets.fromLTRB(
-      hf.sp(12),
-      hf.sp(8),
-      hf.sp(8),
-      hf.sp(8),
-    );
+    final pad = EdgeInsets.fromLTRB(hf.sp(12), hf.sp(8), hf.sp(8), hf.sp(8));
     return HfCard(
       padding: EdgeInsets.zero,
       clip: true,
       child: LayoutBuilder(
         builder: (context, box) {
-          final width = math.max(
-            box.maxWidth / cols,
-            hf.sp(minColumnWidth),
-          );
+          final width = math.max(box.maxWidth / cols, hf.sp(minColumnWidth));
           final fits = width * cols <= box.maxWidth + .5;
           final table = Table(
             key: const ValueKey('agent-table'),
@@ -131,9 +123,9 @@ class HfTable extends StatelessWidget {
                           c,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: hf.type(HfType.body).copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
+                          style: hf
+                              .type(HfType.body)
+                              .copyWith(fontWeight: FontWeight.w900),
                         ),
                       ),
                   ],
@@ -213,7 +205,10 @@ class HfTimeline extends StatelessWidget {
                     SizedBox(
                       width: hf.sp(72),
                       child: Padding(
-                        padding: EdgeInsets.only(top: hf.sp(2), right: hf.sp(8)),
+                        padding: EdgeInsets.only(
+                          top: hf.sp(2),
+                          right: hf.sp(8),
+                        ),
                         child: Text(
                           item.time,
                           textAlign: TextAlign.right,
@@ -485,24 +480,24 @@ class HfCallout extends StatelessWidget {
             curve: agentResizeCurve,
             alignment: Alignment.topCenter,
             child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (x.has('icon'))
-                Padding(
-                  padding: EdgeInsets.only(top: hf.sp(2)),
-                  child: Icon(icon, size: hf.sp(28), color: HfColors.ink),
-                ),
-              if (x.has('icon') && showText) SizedBox(width: hf.sp(10)),
-              if (showText)
-                Expanded(
-                  child: AgentTypeText(
-                    text,
-                    maxLines: x.lines,
-                    style: hf.type(HfType.headline),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (x.has('icon'))
+                  Padding(
+                    padding: EdgeInsets.only(top: hf.sp(2)),
+                    child: Icon(icon, size: hf.sp(28), color: HfColors.ink),
                   ),
-                ),
-            ],
-          ),
+                if (x.has('icon') && showText) SizedBox(width: hf.sp(10)),
+                if (showText)
+                  Expanded(
+                    child: AgentTypeText(
+                      text,
+                      maxLines: x.lines,
+                      style: hf.type(HfType.headline),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

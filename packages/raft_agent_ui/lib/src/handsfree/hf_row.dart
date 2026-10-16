@@ -183,17 +183,17 @@ class HfRow extends StatelessWidget {
                 if (bar)
                   Container(
                     key: const ValueKey('hf-row-bar'),
-                  width: hf.sp(wide ? 78 : 56),
-                  color: color,
-                  alignment: Alignment.center,
-                  child: Text(
-                    index == null ? '' : '$index',
-                    // Tight lines: the number must not set the row's height.
-                    style: hf
-                        .type(HfType.rank, base: wide ? 46 : null)
-                        .copyWith(height: 1),
+                    width: hf.sp(wide ? 78 : 56),
+                    color: color,
+                    alignment: Alignment.center,
+                    child: Text(
+                      index == null ? '' : '$index',
+                      // Tight lines: the number must not set the row's height.
+                      style: hf
+                          .type(HfType.rank, base: wide ? 46 : null)
+                          .copyWith(height: 1),
+                    ),
                   ),
-                ),
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.symmetric(

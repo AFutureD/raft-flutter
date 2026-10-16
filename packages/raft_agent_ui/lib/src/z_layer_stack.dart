@@ -125,8 +125,7 @@ class _ZLayerView extends StatelessWidget {
         final scale =
             1 - theme.depthScale * behind + theme.leavingScale * ahead;
         final s = HandsFree.of(context).s;
-        final dy =
-            -40 * s * behind + theme.leavingOffset * s * ahead;
+        final dy = -40 * s * behind + theme.leavingOffset * s * ahead;
         final opacity = (1 - theme.depthFade * behind - ahead)
             .clamp(0, 1)
             .toDouble();

@@ -203,9 +203,7 @@ void main() {
 
     testWidgets('+ and - lines are tinted only in diff mode', (t) async {
       _phone(t);
-      await t.pumpWidget(
-        _host(const HfCodeBlock(code: diff, diff: true)),
-      );
+      await t.pumpWidget(_host(const HfCodeBlock(code: diff, diff: true)));
       // +new, -old, @@ hunk.
       expect(_lines('code-line-hot-'), findsNWidgets(3));
       expect(find.text('+new line'), findsOneWidget);
@@ -218,8 +216,7 @@ void main() {
       await t.pumpWidget(
         _host(const HfCodeBlock(code: 'a\nb\nc', title: 'x.dart')),
       );
-      final mono = RaftTokens.of(t.element(find.byType(HfCodeBlock)))
-          .monoFont;
+      final mono = RaftTokens.of(t.element(find.byType(HfCodeBlock))).monoFont;
       final w = t.widget<Text>(find.text('a'));
       expect(w.style!.fontFamily, mono);
       expect(w.style!.fontSize, greaterThanOrEqualTo(13));
@@ -323,7 +320,12 @@ void main() {
       expect(find.byKey(const ValueKey('confirm-card-undo')), findsNothing);
 
       await t.pumpWidget(
-        card(const AgentActionOutcome(kind: AgentOutcomeKind.running, text: '正在发送')),
+        card(
+          const AgentActionOutcome(
+            kind: AgentOutcomeKind.running,
+            text: '正在发送',
+          ),
+        ),
       );
       expect(find.text('正在发送…'), findsOneWidget);
       expect(find.byKey(const ValueKey('confirm-card-retry')), findsNothing);
@@ -413,12 +415,7 @@ void main() {
     testWidgets('the message is at least 22, nothing under 13', (t) async {
       _phone(t);
       await t.pumpWidget(
-        _host(
-          const HfConfirm(
-            message: '合入 #98？',
-            changes: ['分支: 未合入 → 已合入'],
-          ),
-        ),
+        _host(const HfConfirm(message: '合入 #98？', changes: ['分支: 未合入 → 已合入'])),
       );
       expect(
         t.widget<Text>(find.text('合入 #98？')).style!.fontSize,
@@ -463,9 +460,7 @@ void main() {
     testWidgets('toggle flips and reports', (t) async {
       _phone(t);
       final seen = <bool>[];
-      await t.pumpWidget(
-        _host(HfToggle(label: '完成后通知我', onChanged: seen.add)),
-      );
+      await t.pumpWidget(_host(HfToggle(label: '完成后通知我', onChanged: seen.add)));
       expect(find.text('关'), findsOneWidget);
       await t.tap(find.text('完成后通知我'));
       await t.pump(const Duration(milliseconds: 200));

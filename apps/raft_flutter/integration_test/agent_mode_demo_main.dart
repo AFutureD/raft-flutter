@@ -420,9 +420,8 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     if (file == null) {
       debugPrint('AGENT_DEMO_MARK $name');
     } else {
-      File(
-        file,
-      ).writeAsStringSync('$name\n', mode: FileMode.append, flush: true);
+      File(file)
+          .writeAsStringSync('$name\n', mode: FileMode.append, flush: true);
     }
   }
 

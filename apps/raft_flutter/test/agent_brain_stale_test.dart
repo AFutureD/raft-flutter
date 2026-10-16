@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
@@ -126,7 +127,14 @@ void main() {
     );
     await t.pumpAndSettle();
     expect(settings.brain, isNull);
-    expect(find.textContaining('已经归档，改用独立记忆'), findsWidgets);
+    // It was said to the person (the strip shows the newest line, the
+    // transcript keeps them all).
+    final said = t.widget<AgentVoiceDock>(find.byType(AgentVoiceDock)).lines;
+    expect(
+      said.any((l) => l.$2.contains('已经归档，改用独立记忆')),
+      isTrue,
+      reason: '$said',
+    );
     // Nothing was read from the archived agent.
     expect(find.textContaining('MEMORY.md'), findsNothing);
   });

@@ -75,7 +75,10 @@ void main() {
 
   test('the frame carries the screen and what its cards say', () {
     final f = frame();
-    expect(AgentSurfaceSpec.fromJson((f['spec']! as Map).cast()).title, spec.title);
+    expect(
+      AgentSurfaceSpec.fromJson((f['spec']! as Map).cast()).title,
+      spec.title,
+    );
     final entities = (f['entities']! as Map).cast<String, Object?>();
     expect(entities.keys, containsAll(['agent:$id', 'task:t98']));
     final back = AgentStaticEntityResolver.fromJson(entities);
@@ -259,4 +262,3 @@ void main() {
     expect(find.text('空闲'), findsOneWidget);
   });
 }
-

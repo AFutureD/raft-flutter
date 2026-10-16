@@ -424,7 +424,10 @@ void main() {
     }
 
     test('mine is created by me, assigned to me or mentioning me', () async {
-      expect(await ids({'mine': true}), unorderedEquals(['made', 'given', 'named']));
+      expect(
+        await ids({'mine': true}),
+        unorderedEquals(['made', 'given', 'named']),
+      );
       expect(
         await ids({'relation': 'any_mine'}),
         unorderedEquals(['made', 'given', 'named']),
@@ -455,16 +458,22 @@ void main() {
       expect((only['result'] as Map)['total'], 1, reason: '$only');
       final me = AgentModeData(w, now: () => worldNow).me;
       final concerns = {
-        for (final t in [row('made', 1, createdById: 'kevin'), row('given', 2, claimedById: 'kevin', claimedByType: 'user'), row('named', 3, title: '请 @Kevin 看一下'), row('other', 4, claimedById: 'a-cindy')])
+        for (final t in [
+          row('made', 1, createdById: 'kevin'),
+          row('given', 2, claimedById: 'kevin', claimedByType: 'user'),
+          row('named', 3, title: '请 @Kevin 看一下'),
+          row('other', 4, claimedById: 'a-cindy'),
+        ])
           '${t['id']}': AgentModeData.relationOf(t, me),
       };
       expect(concerns['made']!.created, isTrue);
       expect(concerns['given']!.assigned, isTrue);
       expect(concerns['named']!.mentioned, isTrue);
-      expect(
-        [concerns['other']!.created, concerns['other']!.assigned, concerns['other']!.mentioned],
-        everyElement(isFalse),
-      );
+      expect([
+        concerns['other']!.created,
+        concerns['other']!.assigned,
+        concerns['other']!.mentioned,
+      ], everyElement(isFalse));
     });
 
     test('the tool says what mine is', () {
@@ -473,10 +482,11 @@ void main() {
       );
       final props = (show['parameters'] as Map)['properties'] as Map;
       expect(props.keys, containsAll(['mine', 'relation']));
-      expect(
-        (props['relation'] as Map)['enum'],
-        ['assigned', 'created', 'any_mine'],
-      );
+      expect((props['relation'] as Map)['enum'], [
+        'assigned',
+        'created',
+        'any_mine',
+      ]);
       expect(show['description'], contains('创建的、派给我的、或提到我的'));
     });
   });
@@ -510,13 +520,10 @@ void main() {
       final items = (r['items'] as List).cast<Map<String, Object?>>();
       // What the model is told is what the screen draws, card for card.
       expect([for (final i in items) i['id']], drawn(begun.single));
-      expect([for (final i in items) i['id']], [
-        't133',
-        't50',
-        't61',
-        't60',
-        't2',
-      ]);
+      expect(
+        [for (final i in items) i['id']],
+        ['t133', 't50', 't61', 't60', 't2'],
+      );
       expect([for (final i in items) i['handle']], ['①', '②', '③', '④', '⑤']);
       expect([for (final i in items) i['n']], [1, 2, 3, 4, 5]);
       expect(items.first['label'], startsWith('#133'));
@@ -541,10 +548,10 @@ void main() {
         'kind': 'tasks',
         'status': 'todo',
       });
-      expect([for (final i in r['items'] as List) (i as Map)['id']], [
-        't61',
-        't60',
-      ]);
+      expect(
+        [for (final i in r['items'] as List) (i as Map)['id']],
+        ['t61', 't60'],
+      );
       expect(drawn(begun.last), ['t61', 't60']);
     });
 
@@ -860,34 +867,37 @@ void main() {
           'props': jsonEncode(args['props']),
         });
 
-    test('show_list passes display and childDisplay to what it draws', () async {
-      final r = await rt.runTool('show_list', {
-        'kind': 'tasks',
-        'display': {'level': 'minimum'},
-        'childDisplay': {
+    test(
+      'show_list passes display and childDisplay to what it draws',
+      () async {
+        final r = await rt.runTool('show_list', {
+          'kind': 'tasks',
+          'display': {'level': 'minimum'},
+          'childDisplay': {
+            'level': 'medium',
+            'show': {'assignee': false},
+          },
+        });
+        expect(r['ok'], isTrue, reason: '$r');
+        final draft = begun.single;
+        final sections = [
+          for (final n in draft.root.walk())
+            if (n.component == AgentComponents.section) n,
+        ];
+        expect(sections, hasLength(1));
+        for (final section in sections) {
+          expect(section.props['display'], {'level': 'minimum'});
+        }
+        // The cards' look is the screen's: one change reaches every group.
+        expect(draft.root.props['childDisplay'], {
           'level': 'medium',
           'show': {'assignee': false},
-        },
-      });
-      expect(r['ok'], isTrue, reason: '$r');
-      final draft = begun.single;
-      final sections = [
-        for (final n in draft.root.walk())
-          if (n.component == AgentComponents.section) n,
-      ];
-      expect(sections, hasLength(1));
-      for (final section in sections) {
-        expect(section.props['display'], {'level': 'minimum'});
-      }
-      // The cards' look is the screen's: one change reaches every group.
-      expect(draft.root.props['childDisplay'], {
-        'level': 'medium',
-        'show': {'assignee': false},
-      });
-      // The screen says where to change it later.
-      expect(r['surface_id'], draft.id);
-      expect(r['root'], draft.root.id);
-    });
+        });
+        // The screen says where to change it later.
+        expect(r['surface_id'], draft.id);
+        expect(r['root'], draft.root.id);
+      },
+    );
 
     test('one card tools take display for the card itself', () async {
       await rt.runTool('show_item', {
@@ -1059,7 +1069,11 @@ void main() {
       await draw();
       expect(find.byType(HfAvatar), findsNWidgets(2));
       expect(
-        find.byKey(const ValueKey('entity-card-message')).first.evaluate().single,
+        find
+            .byKey(const ValueKey('entity-card-message'))
+            .first
+            .evaluate()
+            .single,
         same(element),
         reason: 'the same card, changed in place',
       );
@@ -1087,11 +1101,10 @@ void main() {
       expect(r['ok'], isTrue, reason: '$r');
       await draw();
       expect(find.byType(HfAvatar), findsOneWidget);
-      expect(
-        cards(draft).map((n) => n.string('id')),
-        ['m9', 'm10'],
-        reason: 'nothing moved',
-      );
+      expect(cards(draft).map((n) => n.string('id')), [
+        'm9',
+        'm10',
+      ], reason: 'nothing moved');
 
       // A handle that is not on this screen is refused, nothing changes.
       await t.runAsync(() async {

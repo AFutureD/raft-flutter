@@ -198,7 +198,10 @@ void main() {
       await open(t, _Data(w, _three()));
       expect(countOf('decision', '3'), findsOneWidget);
       expect(countOf('blocked', '1'), findsOneWidget);
-      expect(find.byKey(const ValueKey('attention-count-mention')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('attention-count-mention')),
+        findsNothing,
+      );
       expect(find.text('件等你决定'), findsOneWidget);
       expect(find.text('件卡住了'), findsOneWidget);
       // The most urgent item is tagged.
@@ -215,59 +218,62 @@ void main() {
       expect(find.textContaining('50 件'), findsNothing);
     });
 
-    testWidgets('a row is a rank, a meta line, one sentence and what is asked', (
-      t,
-    ) async {
-      await open(t, _Data(w, _three()));
-      expect(find.text('甲方案：Cardinal 完成了「项目设定」，等你验收'), findsOneWidget);
-      // Where and why in the meta, what is asked under the sentence.
-      expect(
-        find.descendant(
-          of: card('t1'),
-          matching: find.text('#raft-flutter · 2 人在等'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: card('t1'),
-          matching: find.text('验收「甲方」'),
-        ),
-        findsOneWidget,
-      );
-      // How long: the stat block at the right.
-      expect(
-        find.descendant(of: card('t1'), matching: find.text('已等')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: card('t1'), matching: find.text('24')),
-        findsOneWidget,
-      );
-      // Rank numbers run over all sections.
-      for (final (id, n) in [('t1', '1'), ('t2', '2'), ('t3', '3'), ('b1', '4')]) {
+    testWidgets(
+      'a row is a rank, a meta line, one sentence and what is asked',
+      (t) async {
+        await open(t, _Data(w, _three()));
+        expect(find.text('甲方案：Cardinal 完成了「项目设定」，等你验收'), findsOneWidget);
+        // Where and why in the meta, what is asked under the sentence.
         expect(
           find.descendant(
-            of: find.descendant(
-              of: card(id),
-              matching: find.byKey(const ValueKey('hf-row-bar')),
-            ),
-            matching: find.text(n),
+            of: card('t1'),
+            matching: find.text('#raft-flutter · 2 人在等'),
           ),
           findsOneWidget,
-          reason: id,
         );
-      }
-      // Nothing else on a row: no quote, no who-waits, and no buttons.
-      expect(find.textContaining('进展'), findsNothing);
-      expect(find.text('Huanan、Cardinal 在等你'), findsNothing);
-      for (final k in ['approve', 'open', 'later']) {
-        expect(find.byKey(ValueKey('attention-$k-t1')), findsNothing);
-      }
-      expect(find.text('通过'), findsNothing);
-      expect(find.text('打开讨论'), findsNothing);
-      expect(find.text('稍后'), findsNothing);
-    });
+        expect(
+          find.descendant(of: card('t1'), matching: find.text('验收「甲方」')),
+          findsOneWidget,
+        );
+        // How long: the stat block at the right.
+        expect(
+          find.descendant(of: card('t1'), matching: find.text('已等')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: card('t1'), matching: find.text('24')),
+          findsOneWidget,
+        );
+        // Rank numbers run over all sections.
+        for (final (id, n) in [
+          ('t1', '1'),
+          ('t2', '2'),
+          ('t3', '3'),
+          ('b1', '4'),
+        ]) {
+          expect(
+            find.descendant(
+              of: find.descendant(
+                of: card(id),
+                matching: find.byKey(const ValueKey('hf-row-bar')),
+              ),
+              matching: find.text(n),
+            ),
+            findsOneWidget,
+            reason: id,
+          );
+        }
+        // Nothing else on a row: no quote, no who-waits, and no buttons.
+        expect(find.textContaining('进展'), findsNothing);
+        expect(find.text('Huanan、Cardinal 在等你'), findsNothing);
+        for (final k in ['approve', 'open', 'later']) {
+          expect(find.byKey(ValueKey('attention-$k-t1')), findsNothing);
+        }
+        expect(find.text('通过'), findsNothing);
+        expect(find.text('打开讨论'), findsNothing);
+        expect(find.text('稍后'), findsNothing);
+      },
+    );
 
     testWidgets('four rows to a page; the rest behind the pager', (t) async {
       await open(t, _Data(w, _three()), size: const Size(430, 1100));
@@ -360,65 +366,69 @@ void main() {
       expect(find.textContaining('现在是从第 1 条起'), findsWidgets);
     });
 
-    testWidgets('type is made for arm\'s length: nothing under 13, big counts', (
-      t,
-    ) async {
-      await open(
-        t,
-        _Data(
-          w,
-          AgentAttention(
-            items: _three().items.take(4).toList(),
-            team: _three().team,
+    testWidgets(
+      'type is made for arm\'s length: nothing under 13, big counts',
+      (t) async {
+        await open(
+          t,
+          _Data(
+            w,
+            AgentAttention(
+              items: _three().items.take(4).toList(),
+              team: _three().team,
+            ),
           ),
-        ),
-        size: const Size(430, 1100),
-      );
-      // Open the team row too so its lines count.
-      await t.tap(find.byKey(const ValueKey('attention-team')));
-      await t.pumpAndSettle();
-      final small = <String>[];
-      final view = find.byType(AgentAttentionView);
-      for (final rich in t.widgetList<RichText>(
-        find.descendant(of: view, matching: find.byType(RichText)),
-      )) {
-        void visit(InlineSpan span, double? inherited) {
-          final own = span.style?.fontSize ?? inherited;
-          if (span is TextSpan) {
-            final text = span.text ?? '';
-            if (text.trim().isNotEmpty && (own == null || own < 13)) {
-              small.add('$text @ $own');
-            }
-            for (final c in span.children ?? const <InlineSpan>[]) {
-              visit(c, own);
+          size: const Size(430, 1100),
+        );
+        // Open the team row too so its lines count.
+        await t.tap(find.byKey(const ValueKey('attention-team')));
+        await t.pumpAndSettle();
+        final small = <String>[];
+        final view = find.byType(AgentAttentionView);
+        for (final rich in t.widgetList<RichText>(
+          find.descendant(of: view, matching: find.byType(RichText)),
+        )) {
+          void visit(InlineSpan span, double? inherited) {
+            final own = span.style?.fontSize ?? inherited;
+            if (span is TextSpan) {
+              final text = span.text ?? '';
+              if (text.trim().isNotEmpty && (own == null || own < 13)) {
+                small.add('$text @ $own');
+              }
+              for (final c in span.children ?? const <InlineSpan>[]) {
+                visit(c, own);
+              }
             }
           }
+
+          visit(rich.text, null);
         }
+        expect(small, isEmpty);
 
-        visit(rich.text, null);
-      }
-      expect(small, isEmpty);
-
-      Text count(String kind, String n) => t.widget<Text>(
-        find.descendant(
-          of: find.byKey(ValueKey('attention-count-$kind')),
-          matching: find.text(n),
-        ),
-      );
-      expect(count('decision', '3').style!.fontSize, greaterThanOrEqualTo(22));
-      expect(count('blocked', '1').style!.fontSize, greaterThanOrEqualTo(22));
-      Text inCard(String id, String text) => t.widget<Text>(
-        find.descendant(of: card(id), matching: find.text(text)),
-      );
-      // Headline 22 bold, meta 13.
-      final other = inCard('t2', '乙方案：Cindy 完成了「改名」，等你验收');
-      expect(other.style!.fontSize, greaterThanOrEqualTo(22));
-      expect(other.style!.fontWeight, FontWeight.w900);
-      expect(
-        inCard('t2', '#raft-flutter · 你派的任务').style!.fontSize,
-        greaterThanOrEqualTo(13),
-      );
-    });
+        Text count(String kind, String n) => t.widget<Text>(
+          find.descendant(
+            of: find.byKey(ValueKey('attention-count-$kind')),
+            matching: find.text(n),
+          ),
+        );
+        expect(
+          count('decision', '3').style!.fontSize,
+          greaterThanOrEqualTo(22),
+        );
+        expect(count('blocked', '1').style!.fontSize, greaterThanOrEqualTo(22));
+        Text inCard(String id, String text) => t.widget<Text>(
+          find.descendant(of: card(id), matching: find.text(text)),
+        );
+        // Headline 22 bold, meta 13.
+        final other = inCard('t2', '乙方案：Cindy 完成了「改名」，等你验收');
+        expect(other.style!.fontSize, greaterThanOrEqualTo(22));
+        expect(other.style!.fontWeight, FontWeight.w900);
+        expect(
+          inCard('t2', '#raft-flutter · 你派的任务').style!.fontSize,
+          greaterThanOrEqualTo(13),
+        );
+      },
+    );
 
     testWidgets('a long headline keeps to two lines with an ellipsis', (
       t,
@@ -458,9 +468,8 @@ void main() {
             MaterialApp(
               theme: raftTheme(RaftFamily.brutal),
               builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(scale)),
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(scale)),
                 child: child!,
               ),
               home: Scaffold(
@@ -732,7 +741,10 @@ void main() {
       // question can ask for it, and it comes back by itself.
       final kept = AgentSnoozeStore.of(w).active.single;
       expect(kept.id, 't1');
-      expect(kept.until.isAfter(DateTime.now().add(const Duration(hours: 2))), isTrue);
+      expect(
+        kept.until.isAfter(DateTime.now().add(const Duration(hours: 2))),
+        isTrue,
+      );
 
       // Opening agent mode again keeps it hidden.
       await t.pumpWidget(const SizedBox());
@@ -869,7 +881,9 @@ void main() {
       expect(detail.left, greaterThan(list.right));
       // The selected row is marked.
       expect(
-        t.widget<HfRow>(find.byKey(const ValueKey('attention-row-t1'))).selected,
+        t
+            .widget<HfRow>(find.byKey(const ValueKey('attention-row-t1')))
+            .selected,
         isTrue,
       );
     });
@@ -955,7 +969,11 @@ void main() {
   });
 
   group('tv', () {
-    Future<void> tv(WidgetTester t, AgentAttention a, {String caption = ''}) async {
+    Future<void> tv(
+      WidgetTester t,
+      AgentAttention a, {
+      String caption = '',
+    }) async {
       t.view.physicalSize = const Size(1920, 1080);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);

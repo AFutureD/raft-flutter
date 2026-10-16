@@ -182,9 +182,8 @@ class _GalleryState extends State<_Gallery> {
     if (file == null) {
       debugPrint('HF_MARK $name');
     } else {
-      File(
-        file,
-      ).writeAsStringSync('$name\n', mode: FileMode.append, flush: true);
+      File(file)
+          .writeAsStringSync('$name\n', mode: FileMode.append, flush: true);
     }
   }
 

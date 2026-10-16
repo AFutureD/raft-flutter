@@ -94,4 +94,3 @@ class AgentChange {
     return c.field.isNotEmpty && c.from != null && c.to != null;
   }
 }
-

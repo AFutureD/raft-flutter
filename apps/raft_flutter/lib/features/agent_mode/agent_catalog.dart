@@ -535,8 +535,10 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
   }
 
   /// The gap under a numbered component: a row's hard shadow hangs below it.
-  Widget _slot(HfData hf, Widget child) =>
-      Padding(padding: EdgeInsets.only(bottom: hf.rowGap), child: child);
+  Widget _slot(HfData hf, Widget child) => Padding(
+    padding: EdgeInsets.only(bottom: hf.rowGap),
+    child: child,
+  );
 }
 
 /// The kind of thing an entity card stands for, as a person says it

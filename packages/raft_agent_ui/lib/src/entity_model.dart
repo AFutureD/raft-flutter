@@ -1,7 +1,6 @@
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-
 /// What an agent is doing right now, as the person reads it.
 enum AgentWorkState { busy, idle, blocked, offline }
 
@@ -52,10 +51,6 @@ enum AgentEmphasis { normal, high }
 /// What a card or callout says about itself: nothing special, good news, or
 /// something to watch.
 enum AgentTone { neutral, good, warn }
-
-/// `compact` is the one-glance card read at arm's length; `detail` shows more
-/// of the same thing.
-enum AgentCardDensity { compact, detail }
 
 /// A thing by kind and id.
 @immutable
@@ -415,7 +410,6 @@ class _AgentEntityBuilderState extends State<AgentEntityBuilder> {
   }
 }
 
-
 /// What an entity says, as JSON: what travels to the TV, which has no
 /// workspace of its own. The avatar and thumbnail builders do not travel.
 Map<String, Object?> agentEntityToJson(AgentEntityData d) => switch (d) {
@@ -553,7 +547,9 @@ AgentEntityData? agentEntityFromJson(Object? json) {
       return AgentComputerData(
         name: name,
         online: json['online'] == true,
-        runtimes: [for (final r in (json['runtimes'] as List? ?? const [])) '$r'],
+        runtimes: [
+          for (final r in (json['runtimes'] as List? ?? const [])) '$r',
+        ],
         agentCount: i('agentCount') ?? 0,
         version: s('version'),
       );

@@ -237,10 +237,7 @@ void main() {
       final table = _table(_spec([_card('message', 'm1')]));
       expect(table.entries.single.id, 'm1');
       expect(table.entries.single.label, '消息');
-      expect(
-        resolveAgentReference('这条消息', table).entity?.id,
-        'm1',
-      );
+      expect(resolveAgentReference('这条消息', table).entity?.id, 'm1');
     });
 
     test('files are a kind of thing a screen can show', () {
@@ -296,10 +293,7 @@ void main() {
       await t.pumpWidget(
         host(
           _spec([
-            {
-              'component': 'Callout',
-              'text': '不占编号',
-            },
+            {'component': 'Callout', 'text': '不占编号'},
             _card('task', 't98', '⑨'),
             _card('task', 't99'),
           ]),

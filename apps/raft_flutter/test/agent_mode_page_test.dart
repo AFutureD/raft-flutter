@@ -157,9 +157,7 @@ void main() {
         expect(find.text('# raft-flutter'), findsNothing);
 
         // A priority card opens its channel as a new layer.
-        await t.tap(
-          find.text('Cindy 完成了「Personal Agent 第一版选型」，等你验收'),
-        );
+        await t.tap(find.text('Cindy 完成了「Personal Agent 第一版选型」，等你验收'));
         await t.pumpAndSettle();
         expect(find.text('第 2 层'), findsOneWidget);
 

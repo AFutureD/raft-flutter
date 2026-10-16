@@ -291,7 +291,10 @@ List<Map<String, Object?>> groundedToolDeclarations(AgentCatalog catalog) => [
       'properties': {
         'surface_id': {'type': 'string', 'description': '省略就是最新一屏'},
         'id': {'type': 'string', 'description': '组件 id；root 是整屏'},
-        'handle': {'type': 'string', 'description': '屏幕上卡片的编号，如 ② 或 2；给了 handle 就不用 id'},
+        'handle': {
+          'type': 'string',
+          'description': '屏幕上卡片的编号，如 ② 或 2；给了 handle 就不用 id',
+        },
         'props': {'type': 'string', 'description': '{字段: 新值} 的 JSON 文本'},
       },
       'required': ['props'],
