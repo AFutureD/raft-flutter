@@ -37,6 +37,7 @@ class AgentCatalogItem {
     this.line,
     this.focusable = true,
     this.internal = false,
+    this.validate,
   });
 
   /// The value of `component` in a surface.
@@ -73,6 +74,11 @@ class AgentCatalogItem {
   /// Built by the app itself (the detail layer's actions): the model neither
   /// sees it in the catalog reference nor may it place one.
   final bool internal;
+
+  /// Rules a JSON Schema subset cannot say (ids by kind, rows as wide as the
+  /// columns). Called with the node's own fields once they passed the schema;
+  /// returns the reasons it is refused, already prefixed with [path].
+  final List<String> Function(SurfaceNode node, String path)? validate;
 
   Map<String, Object?> get properties =>
       (schema['properties'] as Map?)?.cast<String, Object?>() ?? const {};
@@ -299,6 +305,7 @@ class AgentCatalog {
       problems.add('$here.id 必须是 1 到 40 位的字母、数字、下划线或短横线');
     }
     final props = <String, Object?>{};
+    final checked = problems.length;
     for (final entry in item.properties.entries) {
       final value = node[entry.key];
       if (value == null) {
@@ -315,7 +322,11 @@ class AgentCatalog {
       );
       props[entry.key] = value;
     }
-    return SurfaceNode(item.name, props, id: id is String ? id : null);
+    final own = SurfaceNode(item.name, props, id: id is String ? id : null);
+    if (item.validate != null && problems.length == checked) {
+      problems.addAll(item.validate!(own, here));
+    }
+    return own;
   }
 
   /// Checks [props] against [item]'s schema (an `update_component` result).
@@ -339,6 +350,9 @@ class AgentCatalog {
         '$path.${entry.key}',
         problems,
       );
+    }
+    if (item.validate != null && problems.isEmpty) {
+      problems.addAll(item.validate!(SurfaceNode(item.name, props), path));
     }
     return problems;
   }
@@ -420,6 +434,18 @@ class AgentCatalog {
     String path,
     List<String> problems,
   ) {
+    final either = schema['oneOf'];
+    if (either is List) {
+      final reasons = <String>[];
+      for (final alternative in either) {
+        final own = <String>[];
+        _check(value, (alternative as Map).cast<String, Object?>(), path, own);
+        if (own.isEmpty) return;
+        reasons.add(own.first);
+      }
+      problems.add(reasons.join(' 或 '));
+      return;
+    }
     switch (schema['type']) {
       case 'string':
         if (value is! String) {
@@ -500,6 +526,12 @@ class AgentCatalog {
   }
 
   static String _typeOf(Map<String, Object?> schema) {
+    final either = schema['oneOf'];
+    if (either is List) {
+      return either
+          .map((a) => _typeOf((a as Map).cast<String, Object?>()))
+          .join('|');
+    }
     final choices = schema['enum'] as List?;
     if (choices != null) return choices.join('|');
     if (schema['type'] == 'array') {

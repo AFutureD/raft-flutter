@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_attention.dart' show agentWideBreakpoint;
+import 'agent_entity_binding.dart';
 import 'agent_surface.dart';
 import 'references/agent_handle_tag.dart';
 
@@ -321,6 +322,7 @@ AgentCatalog _standard() => AgentCatalog([
       );
     },
   ),
+  ...agentEntityCatalogItems,
 ]);
 
 /// The catalog agent mode composes screens from.
@@ -539,6 +541,18 @@ Map<String, Object?> agentSurfaceFrame(
           'time': n.string('time') ?? '',
           'text': n.string('text') ?? '',
           'entity': ?entityOf?.call(n),
+        });
+      case AgentEntityComponents.entity:
+        // What it shows is read by the app at draw time; the model is told
+        // which thing and number it pointed at.
+        items.add({
+          'kind': 'priority',
+          'priority': AgentPriority.progress.name,
+          'label': agentEntityKindLabels.entries
+              .firstWhere((e) => e.key.name == n.string('entity'))
+              .value,
+          'weight': items.length + 1,
+          'title': [?n.string('handle'), n.string('id') ?? ''].join(' '),
         });
       case AgentComponents.statRow:
         items.add({
