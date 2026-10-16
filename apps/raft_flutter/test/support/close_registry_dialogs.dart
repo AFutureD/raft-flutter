@@ -272,6 +272,21 @@ const dialogSurfaces = <CloseSurface>[
     fix: '',
   ),
   CloseSurface(
+    'composer-expanded-editor',
+    kind: SurfaceKind.dialog,
+    web:
+        'no Web surface: MessageInput has no expand mode. Flutter-only (GitHub #153): a centered dialog from 768 (collapse button, Esc, scrim, back) and a full-screen page below it (collapse button, Esc, back); every close keeps the draft',
+    phone: {_x, _esc, _sys},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
+    files: [
+      '../../packages/raft_ui/lib/src/composer_expand.dart',
+      '../../packages/raft_ui/lib/src/composer_expansion_state.dart',
+    ],
+    status: 'no-web',
+    fix: '',
+  ),
+  CloseSurface(
     'community-agreement',
     kind: SurfaceKind.dialog,
     web: 'CommunityAgreementDialog.tsx:49,59 Modal (no backdrop close) + X',

@@ -647,6 +647,36 @@ void main() {
         scrim: _corner,
       );
     },
+    'composer-expanded-editor': (t, size) async {
+      ignoreOverflow();
+      t.view.physicalSize = size;
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(
+            body: Column(
+              children: [
+                const Spacer(),
+                RaftComposer(
+                  initialDraft: 'one\ntwo\nthree',
+                  onSend: (_) async => true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.byKey(const ValueKey('composer-expand')));
+      await frames(t, 25);
+      return SurfaceProbe(
+        isOpen: () =>
+            find.byType(RaftComposerExpandedView).evaluate().isNotEmpty,
+        x: find.byKey(const ValueKey('composer-collapse')),
+        scrim: size.width >= 768 ? _corner : null,
+      );
+    },
     'forward-dialog': (t, size) async {
       final probe = await inWorkspace(
         t,
