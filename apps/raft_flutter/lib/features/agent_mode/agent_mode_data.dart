@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../../data/workspace_controller.dart';
+import '../../data/workspace_entity_directory.dart';
+import '../agent_metadata_projection.dart';
+import 'agent_headlines.dart';
 
 /// What the person is asked to do with an item. Only [approve] writes.
 enum AgentAction { approve, reply, open }
@@ -98,29 +102,37 @@ class AgentAttentionItem {
   final List<AgentProgressLine> progress;
 
   AgentAttentionItem withProgress(List<AgentProgressLine> lines) =>
-      AgentAttentionItem(
-        id: id,
-        priority: priority,
-        headline: headline,
-        ask: ask,
-        reason: reason,
-        at: at,
-        askLine: askLine,
-        action: action,
-        canApprove: canApprove,
-        score: score,
-        waitValue: waitValue,
-        waitUnit: waitUnit,
-        idle: idle,
-        waiters: waiters,
-        doer: doer,
-        channelId: channelId,
-        channelName: channelName,
-        threadTitle: threadTitle,
-        taskId: taskId,
-        taskNumber: taskNumber,
-        progress: lines,
-      );
+      _copy(progress: lines);
+
+  /// The same item with another sentence on its card.
+  AgentAttentionItem withHeadline(String text) => _copy(headline: text);
+
+  AgentAttentionItem _copy({
+    String? headline,
+    List<AgentProgressLine>? progress,
+  }) => AgentAttentionItem(
+    id: id,
+    priority: priority,
+    headline: headline ?? this.headline,
+    ask: ask,
+    reason: reason,
+    at: at,
+    askLine: askLine,
+    action: action,
+    canApprove: canApprove,
+    score: score,
+    waitValue: waitValue,
+    waitUnit: waitUnit,
+    idle: idle,
+    waiters: waiters,
+    doer: doer,
+    channelId: channelId,
+    channelName: channelName,
+    threadTitle: threadTitle,
+    taskId: taskId,
+    taskNumber: taskNumber,
+    progress: progress ?? this.progress,
+  );
 
   String get askText => askLine ?? ask;
   AgentProgressLine? get quote => progress.isEmpty ? null : progress.last;
@@ -346,6 +358,88 @@ abstract final class AgentHeadlines {
       hours >= 48 ? '${hours ~/ 24} 天' : '$hours 小时';
 }
 
+/// One agent as the person reads it: what it is doing right now.
+class AgentRuntimeInfo {
+  const AgentRuntimeInfo({
+    required this.id,
+    required this.name,
+    required this.state,
+    required this.activity,
+    this.since,
+    this.channel,
+    this.taskNumber,
+    this.taskTitle,
+  });
+
+  final String id, name;
+  final AgentWorkState state;
+
+  /// One phrase: the task it holds, what its runtime reports, or "空闲".
+  final String activity;
+
+  /// How long, already worded ("12 分钟前有进展", "离线 3 小时").
+  final String? since;
+  final String? channel, taskTitle;
+  final int? taskNumber;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'state': state.name,
+    'activity': activity,
+    if (since != null) 'since': since,
+    if (channel != null) 'channel': channel,
+    if (taskNumber != null) 'task': '#$taskNumber ${taskTitle ?? ''}'.trim(),
+  };
+}
+
+/// One task read in full: content, who has it and the end of its thread.
+class AgentTaskDetail {
+  const AgentTaskDetail({
+    required this.id,
+    required this.number,
+    required this.title,
+    required this.status,
+    required this.description,
+    required this.updated,
+    this.creator,
+    this.claimer,
+    this.channelId,
+    this.channelName,
+    this.thread = const [],
+  });
+
+  final String id, title, status, description;
+
+  /// "3 小时前".
+  final String updated;
+  final int number;
+  final String? creator, claimer, channelId, channelName;
+
+  /// The last thread lines, oldest first.
+  final List<AgentProgressLine> thread;
+
+  Map<String, Object?> toJson() => {
+    'number': number,
+    'title': AgentHeadlines.plain(title, max: 140),
+    'status': status,
+    if (description.isNotEmpty)
+      'description': AgentHeadlines.plain(description, max: 600),
+    if (creator != null) 'creator': creator,
+    if (claimer != null) 'claimer': claimer,
+    if (channelName != null) 'channel': channelName,
+    'updated': updated,
+    'thread': [
+      for (final l in thread)
+        {
+          'who': l.who,
+          'time': l.time,
+          'text': AgentHeadlines.plain(l.text, max: 300),
+        },
+    ],
+  };
+}
+
 /// A compact view of one channel for a Z layer.
 class AgentChannelBrief {
   const AgentChannelBrief({
@@ -384,11 +478,20 @@ class AgentModeData {
     this.w, {
     DateTime Function()? now,
     this.headlines = const RuleHeadlineWriter(),
+    this.summarizer,
   }) : _now = now ?? DateTime.now;
 
   final WorkspaceController w;
   final DateTime Function() _now;
   final AgentHeadlineWriter headlines;
+
+  /// Optional: rewrites the rule sentences with a model, in one batch. The
+  /// rule sentence stays for every card it returns nothing for.
+  final AgentHeadlineSummarizer? summarizer;
+
+  /// How long a first result waits for the summarizer before showing the
+  /// rule sentences (the model request goes on and fills its cache).
+  static const summaryWait = Duration(seconds: 6);
 
   static const stalledAfter = Duration(hours: 4);
 
@@ -530,6 +633,9 @@ class AgentModeData {
     final blocked = <AgentAttentionItem>[];
     final team = <AgentTeamItem>[];
 
+    // What each card is about, for the summarizer.
+    final sources = <String, String>{};
+
     AgentAttentionItem build(Map<String, dynamic> t, {required bool stalled}) {
       final createdByMe = isMe(t['createdById'], t['createdByType']);
       final assigned = isMe(t['claimedById'], t['claimedByType']);
@@ -571,6 +677,7 @@ class AgentModeData {
           : (createdByMe ? '你派的任务' : '指给你的任务');
       final verb = AgentHeadlines.askVerb(text);
       final taskId = '${t['id'] ?? ''}';
+      sources[taskId] = AgentHeadlines.plain(text, max: 300);
       return AgentAttentionItem(
         id: taskId,
         taskId: taskId,
@@ -655,9 +762,12 @@ class AgentModeData {
           : '';
       final ago = _ago(at);
       final question = AgentHeadlines.asksQuestion(raw);
+      final mentionId =
+          'mention:${_str(r['threadChannelId']) ?? _str(r['channelId']) ?? mentions.length}';
+      sources[mentionId] = AgentHeadlines.plain(raw, max: 300);
       mentions.add(
         AgentAttentionItem(
-          id: 'mention:${_str(r['threadChannelId']) ?? _str(r['channelId']) ?? mentions.length}',
+          id: mentionId,
           priority: AgentPriority.mention,
           headline: said.isEmpty ? '$who 在 $where @ 了你' : '$who 在 $where @ 了你：$said',
           ask: question ? '回答' : '回复',
@@ -694,10 +804,54 @@ class AgentModeData {
     mentions.sort(byScore);
     final items = [...decisions, ...blocked, ...mentions];
     return AgentAttention(
-      items: await _withThreads(items, [...review, ...progress]),
+      items: await _rewrite(
+        await _withThreads(items, [...review, ...progress]),
+        sources,
+      ),
       team: team,
       capped: capped,
     );
+  }
+
+  /// Gives the cards the summarizer's sentences. Done before the result is
+  /// accepted, so a card never changes after its first frame; a summarizer
+  /// that is slow, offline or wrong leaves the rule sentences.
+  Future<List<AgentAttentionItem>> _rewrite(
+    List<AgentAttentionItem> items,
+    Map<String, String> sources,
+  ) async {
+    final summarizer = this.summarizer;
+    if (summarizer == null || items.isEmpty) return items;
+    final requests = [
+      for (final i in items)
+        AgentHeadlineRequest(
+          id: i.id,
+          version: i.at.toUtc().toIso8601String(),
+          kind: i.priority.name,
+          text: sources[i.id] ?? '',
+          ask: i.askText,
+          wait: i.waitLabel,
+          doer: i.doer,
+          quote: i.quote?.text == null
+              ? null
+              : AgentHeadlines.plain(i.quote!.text, max: 160),
+        ),
+    ];
+    // Whichever comes first: the sentences, a failure, or the wait running
+    // out. A request still running then keeps filling the summarizer's cache.
+    final done = Completer<Map<String, String>>();
+    void finish(Map<String, String> v) {
+      if (!done.isCompleted) done.complete(v);
+    }
+
+    final timer = Timer(summaryWait, () => finish(const {}));
+    Future<Map<String, String>>.sync(() => summarizer.summarize(requests))
+        .then(finish, onError: (Object _) => finish(const {}));
+    final got = await done.future;
+    timer.cancel();
+    return [
+      for (final i in items) got[i.id] == null ? i : i.withHeadline(got[i.id]!),
+    ];
   }
 
   AgentTeamItem _teamItem(Map<String, dynamic> t) {
@@ -735,10 +889,13 @@ class AgentModeData {
     ]);
   }
 
-  Future<List<AgentProgressLine>> _thread(String threadChannelId) async {
+  Future<List<AgentProgressLine>> _thread(
+    String threadChannelId, {
+    int limit = 3,
+  }) async {
     try {
       final body = await w
-          .query('/messages/channel/$threadChannelId', query: {'limit': 3})
+          .query('/messages/channel/$threadChannelId', query: {'limit': limit})
           .timeout(const Duration(seconds: 4));
       final rows = _rows(body, 'messages')
         ..sort((a, b) {
@@ -747,7 +904,9 @@ class AgentModeData {
           return sa.compareTo(sb);
         });
       return [
-        for (final m in rows.skip(rows.length > 3 ? rows.length - 3 : 0))
+        for (final m in rows.skip(
+          rows.length > limit ? rows.length - limit : 0,
+        ))
           if (AgentHeadlines.plain('${m['content'] ?? ''}').isNotEmpty ||
               '${m['content'] ?? ''}'.trim().isNotEmpty)
             AgentProgressLine(
@@ -760,6 +919,256 @@ class AgentModeData {
       // A thread that cannot be read leaves the task's own text as the quote.
       return const [];
     }
+  }
+
+  // ---- Grounding reads for the voice model and generated screens ---------
+
+  /// Task rows of every status, newest facts only; a lane the server refuses
+  /// is left out rather than failing the read.
+  Future<List<Map<String, dynamic>>> _allTasks([
+    Iterable<String>? statuses,
+  ]) async {
+    final lanes = await Future.wait([
+      for (final s
+          in statuses ??
+              const ['in_progress', 'in_review', 'todo', 'done', 'closed'])
+        _tasks(s)
+            .then((v) => v, onError: (Object _) => <Map<String, dynamic>>[]),
+    ]);
+    return [for (final l in lanes) ...l];
+  }
+
+  static const _blockedKinds = {
+    'delivery_unconsumed',
+    'wake_crash_loop_blocked',
+    'terminal_failure_paused',
+  };
+
+  /// Every agent with what it is doing now. State comes from the same
+  /// presence rules the Agents list uses (runtime activity, external last
+  /// seen); an online agent holding a task that has not moved for
+  /// [stalledAfter] counts as blocked, the same rule the attention layer uses.
+  Future<List<AgentRuntimeInfo>> agents() async {
+    final directory = w.entityDirectory;
+    try {
+      await directory
+          .refresh(WorkspaceEntityKind.agents)
+          .timeout(const Duration(seconds: 8));
+    } on Object {
+      // The accepted rows (if any) are still the best facts.
+    }
+    var rows = directory.rows(WorkspaceEntityKind.agents);
+    if (rows.isEmpty) {
+      try {
+        final body = await w.query('/agents');
+        rows = [
+          if (body is List)
+            for (final r in body)
+              if (r is Map && r['deletedAt'] == null)
+                Map<String, dynamic>.from(r),
+        ];
+      } on Object {
+        rows = const [];
+      }
+    }
+    final held = <String, Map<String, dynamic>>{};
+    try {
+      for (final t in await _tasks('in_progress')) {
+        final owner = _str(t['claimedById']);
+        if (owner == null) continue;
+        final seen = held[owner];
+        if (seen == null ||
+            (_time(t['updatedAt']) ?? DateTime(0)).isAfter(
+              _time(seen['updatedAt']) ?? DateTime(0),
+            )) {
+          held[owner] = t;
+        }
+      }
+    } on Object {
+      // Without tasks the activity text comes from the runtime alone.
+    }
+    final now = _now();
+    String agoText(DateTime at) {
+      final a = _ago(at);
+      return '${a.value} ${a.unit}';
+    }
+
+    final out = <AgentRuntimeInfo>[];
+    for (final row in rows) {
+      final id = '${row['id']}';
+      final display = agentRowAmbientDisplay(row, now: now);
+      if (display.deactivated) continue;
+      final task = held[id];
+      final taskAt = task == null ? null : _time(task['updatedAt']);
+      final stalled = taskAt != null && now.difference(taskAt) >= stalledAfter;
+      final taskNumber = task?['taskNumber'] is int
+          ? task!['taskNumber'] as int
+          : null;
+      final taskTitle = task == null
+          ? null
+          : AgentHeadlines.clean(
+              '${task['title'] ?? ''}\n${task['description'] ?? ''}',
+              max: 30,
+            );
+      final taskText = taskNumber == null
+          ? null
+          : '#$taskNumber${taskTitle == null || taskTitle.isEmpty ? '' : '「$taskTitle」'}';
+      final detail = AgentHeadlines.plain(display.detail, max: 60);
+      final lastSeen = _time(row['lastSeenAt']);
+      final AgentWorkState state;
+      final String activity;
+      String? since;
+      if (!display.online) {
+        state = AgentWorkState.offline;
+        activity = '离线';
+        if (lastSeen != null) since = '离线 ${agoText(lastSeen)}';
+      } else if (display.activity == 'error' ||
+          _blockedKinds.contains(display.detailKind)) {
+        state = AgentWorkState.blocked;
+        final reason = AgentHeadlines.plain(
+          agentActivityErrorDetail(display.detail),
+          max: 60,
+        );
+        activity = reason.isNotEmpty ? '出错：$reason' : '运行出错';
+      } else if (display.activity == 'working' ||
+          display.activity == 'thinking') {
+        if (stalled) {
+          state = AgentWorkState.blocked;
+          activity = '$taskText 超过 ${agoText(taskAt)}没动';
+        } else {
+          state = AgentWorkState.busy;
+          activity = taskText != null
+              ? '在做 $taskText'
+              : detail.isNotEmpty
+              ? detail
+              : (display.activity == 'thinking' ? '在思考' : '在工作');
+          if (taskAt != null) since = '${agoText(taskAt)}前有进展';
+        }
+      } else if (stalled) {
+        state = AgentWorkState.blocked;
+        activity = '$taskText 超过 ${agoText(taskAt)}没动';
+      } else {
+        state = AgentWorkState.idle;
+        activity = '空闲';
+      }
+      out.add(
+        AgentRuntimeInfo(
+          id: id,
+          name: agentRowName(row),
+          state: state,
+          activity: activity,
+          since: since,
+          channel: _str(task?['channelName']),
+          taskNumber: taskNumber,
+          taskTitle: taskTitle,
+        ),
+      );
+    }
+    int order(AgentWorkState s) => switch (s) {
+      AgentWorkState.blocked => 0,
+      AgentWorkState.busy => 1,
+      AgentWorkState.idle => 2,
+      AgentWorkState.offline => 3,
+    };
+    out.sort((a, b) {
+      final o = order(a.state) - order(b.state);
+      return o != 0 ? o : a.name.compareTo(b.name);
+    });
+    return out;
+  }
+
+  /// Tasks numbered [number] (numbers repeat across channels), each read in
+  /// full with the end of its thread. [channel] narrows by channel name.
+  Future<List<AgentTaskDetail>> tasksNumbered(
+    int number, {
+    String? channel,
+  }) async {
+    final want = channel?.replaceAll('#', '').trim().toLowerCase();
+    final rows = [
+      for (final t in await _allTasks())
+        if (t['taskNumber'] == number &&
+            (want == null ||
+                want.isEmpty ||
+                '${t['channelName']}'.toLowerCase() == want))
+          t,
+    ];
+    final seen = <String>{};
+    final unique = [
+      for (final t in rows)
+        if (seen.add('${t['channelId']}')) t,
+    ].take(3);
+    return Future.wait([for (final t in unique) _detail(t)]);
+  }
+
+  Future<AgentTaskDetail> _detail(Map<String, dynamic> summary) async {
+    var task = summary;
+    final channelId = _str(summary['channelId']);
+    try {
+      if (channelId != null) {
+        final full = await w.query(
+          '/tasks/channel/$channelId/number/${summary['taskNumber']}',
+        );
+        if (full is Map && full['task'] is Map) {
+          task = {
+            ...summary,
+            ...Map<String, dynamic>.from(full['task'] as Map),
+          };
+        }
+      }
+    } on Object {
+      // The summary row still has the title and status.
+    }
+    final threadId = _str(task['threadChannelId']);
+    final thread = threadId == null
+        ? const <AgentProgressLine>[]
+        : await _thread(threadId, limit: 6);
+    final at = _time(task['updatedAt']) ?? _now();
+    final ago = _ago(at);
+    return AgentTaskDetail(
+      id: '${task['id'] ?? ''}',
+      number: task['taskNumber'] as int,
+      title: '${task['title'] ?? ''}',
+      status: '${task['status'] ?? ''}',
+      description: '${task['description'] ?? ''}',
+      updated: '${ago.value} ${ago.unit}前',
+      creator: _str(task['createdByName']),
+      claimer: _str(task['claimedByName']),
+      channelId: channelId,
+      channelName: _str(task['channelName']),
+      thread: thread,
+    );
+  }
+
+  /// Tasks of any status whose title, text, owner or channel contain every
+  /// word of [query] (`#94` or `94` matches by number). Newest first.
+  Future<List<Map<String, dynamic>>> searchTasks(
+    String query, {
+    String? status,
+  }) async {
+    final words = query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    final rows = await _allTasks(
+      status == null || status.isEmpty ? null : [status],
+    );
+    bool hit(Map<String, dynamic> t) {
+      final hay =
+          '#${t['taskNumber']} ${t['title']} ${t['description'] ?? t['descriptionPreview'] ?? ''} '
+                  '${t['claimedByName']} ${t['createdByName']} ${t['channelName']}'
+              .toLowerCase();
+      return words.every((w) => hay.contains(w));
+    }
+
+    return [
+      for (final t in rows)
+        if (words.isEmpty || hit(t)) t,
+    ]..sort(
+      (a, b) => (_time(b['updatedAt']) ?? DateTime(0)).compareTo(
+        _time(a['updatedAt']) ?? DateTime(0),
+      ),
+    );
   }
 
   Future<AgentChannelBrief> channel(

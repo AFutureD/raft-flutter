@@ -11,8 +11,13 @@ import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 import '../../data/workspace_controller.dart';
 import 'agent_attention.dart';
 import 'agent_audio.dart';
+import 'agent_catalog.dart';
+import 'agent_headlines.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
+import 'agent_scripted_model.dart';
+import 'agent_surface.dart';
+import 'agent_surface_tools.dart';
 import 'agent_tools.dart';
 import 'agent_tv.dart';
 import 'agent_voice.dart';
@@ -44,8 +49,17 @@ Future<void> openAgentMode(BuildContext context, WorkspaceController w) =>
     );
 
 class AgentModePage extends StatefulWidget {
-  const AgentModePage({super.key, required this.controller, this.data});
+  const AgentModePage({
+    super.key,
+    required this.controller,
+    this.data,
+    this.model,
+  });
   final WorkspaceController controller;
+
+  /// Stands in for the voice model (offline demo, tests): answers the
+  /// scripted questions through the same tools, with no network.
+  final AgentScriptedModel? model;
 
   /// Test seam; defaults to reading the workspace.
   final AgentModeData? data;
@@ -72,11 +86,34 @@ class _Tasks extends _Layer {
   const _Tasks() : super('tasks');
 }
 
+/// A screen the model composed from the catalog (`show_surface`).
+class _Surface extends _Layer {
+  _Surface(this.spec, int n) : super('surface:$n');
+  final AgentSurfaceSpec spec;
+}
+
 class _AgentModePageState extends State<AgentModePage> {
-  late final data = widget.data ?? AgentModeData(widget.controller);
+  /// One summarizer for the app session, so its answers outlive a visit.
+  static final _summarizer = ModelHeadlineSummarizer.gemini();
+
+  late final data =
+      widget.data ?? AgentModeData(widget.controller, summarizer: _summarizer);
   final _stack = <_Layer>[const _Attention()];
+  int _surfaces = 0;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared by the next layer change (push, pop, reveal) or when a surface is accepted.
+  String? _surfaceError;
+  late final _grounded = AgentGroundedTools(
+    data: data,
+    show: _showSurface,
+    onRejected: (problems) {
+      if (mounted) setState(() => _surfaceError = problems.first);
+    },
+  );
   late final _voice = AgentVoiceController(
-    tools: agentToolDeclarations,
+    tools: [
+      ...agentToolDeclarations,
+      ...groundedToolDeclarations(agentStandardCatalog),
+    ],
     onToolCall: _runTool,
     systemPrompt: _systemPrompt,
     beforeConnect: () => _brainLoading ?? Future<void>.value(),
@@ -367,6 +404,7 @@ class _AgentModePageState extends State<AgentModePage> {
     _marks.clear();
     _screenEpoch++;
     setState(() {
+      _surfaceError = null;
       _stack.removeWhere((l) => l.id == layer.id);
       _stack.add(layer);
     });
@@ -376,14 +414,28 @@ class _AgentModePageState extends State<AgentModePage> {
     _spotlight.release();
     _marks.clear();
     _screenEpoch++;
-    if (_stack.length > 1) setState(_stack.removeLast);
+    if (_stack.length > 1) {
+      setState(() {
+        _surfaceError = null;
+        _stack.removeLast();
+      });
+    }
   }
 
   void _revealTo(int index) {
     _spotlight.release();
     _marks.clear();
     _screenEpoch++;
-    setState(() => _stack.removeRange(index + 1, _stack.length));
+    setState(() {
+      _surfaceError = null;
+      _stack.removeRange(index + 1, _stack.length);
+    });
+  }
+
+  /// `show_surface`: the validated screen becomes the front layer.
+  Map<String, Object?> _showSurface(AgentSurfaceSpec spec) {
+    _push(_Surface(spec, ++_surfaces));
+    return _screen();
   }
 
   Future<AgentChannelBrief?> _openChannel(
@@ -440,9 +492,17 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   Future<void> _submit(String text) async {
-    if (await _voice.sendText(text)) return;
+    final stub = widget.model;
+    if (stub == null && await _voice.sendText(text)) return;
     if (!mounted) return;
     _voice.say(AgentSpeaker.you, text);
+    if (stub != null &&
+        await stub.handle(text, _runTool, (line) {
+          if (mounted) _voice.say(AgentSpeaker.agent, line);
+        })) {
+      return;
+    }
+    if (!mounted) return;
     switch (parseAgentIntent(text, widget.controller.channels)) {
       case AgentBack():
         _pop();
@@ -535,6 +595,13 @@ class _AgentModePageState extends State<AgentModePage> {
     final b = _briefs[c.id] ?? await data.channel(c);
     if (mounted && !_briefs.containsKey(c.id)) {
       setState(() => _briefs[c.id] = b);
+    }
+    _grounded.facts.learnTaskRows(b.tasks);
+    for (final m in b.messages) {
+      _grounded.facts.learnMessage(
+        '${m['senderName'] ?? ''}',
+        '${m['content'] ?? ''}',
+      );
     }
     return {
       'channel': c.name,
@@ -654,10 +721,13 @@ class _AgentModePageState extends State<AgentModePage> {
       case 'read_tasks':
         final tasks = _tasks ?? await data.openTasks();
         if (mounted && _tasks == null) setState(() => _tasks = tasks);
+        _grounded.facts.learnTaskRows(tasks);
         return {
           'tasks': [for (final t in tasks.take(20)) _taskFacts(t)],
         };
     }
+    final grounded = await _grounded.run(name, args);
+    if (grounded != null) return grounded;
     return {'error': 'unknown tool $name'};
   }
 
@@ -815,6 +885,7 @@ class _AgentModePageState extends State<AgentModePage> {
         ],
       };
     }(),
+    _Surface(:final spec) => agentSurfaceFrame(spec),
     _Tasks() => {
       'title': '进行中的任务',
       'loading': _tasks == null && _tasksError == null,
@@ -836,6 +907,7 @@ class _AgentModePageState extends State<AgentModePage> {
     _Attention() => '现在需要你',
     _Channel(:final channel) => '# ${channel.name}',
     _Tasks() => '进行中的任务',
+    _Surface(:final spec) => spec.title,
   };
 
   @override
@@ -923,7 +995,12 @@ class _AgentModePageState extends State<AgentModePage> {
                                 ZLayer(
                                   key: ValueKey(l.id),
                                   peek: _peek(l),
-                                  child: l is _Attention
+                                  child: l is _Surface
+                                      ? AgentSurfaceView(
+                                          spec: l.spec,
+                                          focusPrefix: l.id,
+                                        )
+                                      : l is _Attention
                                       ? AgentAttentionView(
                                           attention: _visible,
                                           error: _attentionError,
@@ -947,6 +1024,18 @@ class _AgentModePageState extends State<AgentModePage> {
                           ),
                         ),
                       ),
+                      if (_surfaceError != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+                          child: Text(
+                            key: const ValueKey('agent-surface-error'),
+                            '这块界面没能显示：$_surfaceError',
+                            style: t.body(
+                              11.5,
+                              color: t.priority(AgentPriority.decision),
+                            ),
+                          ),
+                        ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                         child: ListenableBuilder(

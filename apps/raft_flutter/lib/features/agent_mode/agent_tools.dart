@@ -1,3 +1,5 @@
+import 'agent_surface.dart';
+
 /// The operations a voice model may perform in agent mode, as Gemini
 /// FunctionDeclarations (the same JSON Schema shape MCP tools use, so another
 /// provider or an MCP server can reuse them).
@@ -110,7 +112,70 @@ String agentSystemPrompt({
     '拿到结果后用一句有温度的话说结论。“第二条”“这个任务”指的是屏幕状态里的序号。'
     '讲到屏幕上某一条具体内容时，先调用 spotlight 把它聚焦出来再开口；每换讲一条，都要先对新的那一条调用 spotlight。'
     '讲到其中的关键词或关键句时，用 mark 把它圈出来或划出来，像讲课一样，但每条最多标一两处。\n'
+    '【按问题组界面】用户问一个具体的问题（比如“现在所有的 Agent 都在干什么”“任务 #94 现在怎么样”），'
+    '就让屏幕只显示他问的这件事：先调用读取工具拿事实（list_agents、get_task、search_tasks、read_tasks、read_channel），'
+    '再调用 show_surface 把答案排成一屏，然后用一句话说结论。事实只能来自工具返回的内容，不要编造名字、状态、编号或引用；引用要用原话。'
+    '问所有 Agent 在干什么：list_agents 后，按 state 分成 AgentStatusGroup（在忙、卡住了、空闲、离线，空的组不放），每个 Agent 一张 AgentStatusCard。'
+    '问某个任务：get_task 后，放一张 TaskCard（带最新进展的原话），再用 Section 放最近的 MessageQuote。'
+    'show_surface 被拒绝时，按返回的 problems 改正后重试一次，不要念出错误。\n'
     '你现在只能查看，不能发消息、改任务或做其他操作；被要求做这些时，轻松地说明这个 demo 还做不到，并给出能做的最接近的操作。\n'
     '\n'
     '${style.isEmpty ? '' : '【这次的偏好】$style\n\n'}'
     '可以打开的频道：$channels${home == null ? '' : '\n首页现在：$home'}';
+
+/// Read tools that ground generated screens, and the UI tool that shows one.
+/// [catalog] is the single source of what `show_surface` accepts: its
+/// reference is generated into the tool description.
+List<Map<String, Object?>> groundedToolDeclarations(AgentCatalog catalog) => [
+  {
+    'name': 'list_agents',
+    'description':
+        '读取所有 Agent 现在的状态：名字、state（busy 在忙 / idle 空闲 / blocked 卡住 / offline 离线）、'
+        '正在做什么、持续多久、所在频道。问“Agent 们在干什么”之类时用，拿到结果后再 show_surface。',
+  },
+  {
+    'name': 'get_task',
+    'description':
+        '按编号读取一个任务的全部内容：标题、描述、状态、创建人、负责人、频道，以及它讨论串最后几条消息。'
+        '问“任务 #N 怎么样了”时用。不同频道的任务编号会重复，重复时带上 channel。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'number': {'type': 'integer', 'description': '任务编号，不带 #'},
+        'channel': {'type': 'string', 'description': '频道名，不带 #；编号重复时才需要'},
+      },
+      'required': ['number'],
+    },
+  },
+  {
+    'name': 'search_tasks',
+    'description': '按关键词（或 #编号）搜索任务，返回编号、标题、状态、负责人、频道。可限定 status。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'query': {'type': 'string', 'description': '关键词，空格分隔，全部命中才算'},
+        'status': {
+          'type': 'string',
+          'enum': ['todo', 'in_progress', 'in_review', 'done', 'closed'],
+        },
+      },
+      'required': ['query'],
+    },
+  },
+  {
+    'name': 'show_surface',
+    'description':
+        '把答案排成一屏，作为新的一层显示在屏幕上，只放用户问到的内容。'
+        '内容只能来自本次对话里工具读到的事实，名字、状态、编号、引用原话都会被核对，对不上就整屏拒绝并告诉你原因。'
+        'surface 参数是一段 JSON 文本：{"title":"屏幕标题","summary":"可选，一句话","root":{组件树}}。'
+        '组件树的每个节点是 {"component":"名字", 字段…, "children":[…]}。可用组件（字段后带 * 的必填）：\n'
+        '${catalog.describe()}',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'surface': {'type': 'string', 'description': 'surface 的 JSON 文本'},
+      },
+      'required': ['surface'],
+    },
+  },
+];

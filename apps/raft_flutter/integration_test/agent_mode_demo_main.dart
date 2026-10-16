@@ -2,8 +2,9 @@
 //   tool/flutter run -d linux -t integration_test/agent_mode_demo_main.dart \
 //     --dart-define=AGENT_DEMO_THEME=brutal|elegant-light|elegant-dark \
 //     --dart-define=AGENT_DEMO_SCRIPT=true
-// The script types a channel request, goes back and opens tasks so a recording
-// shows each Z-axis transition.
+// The script types a channel request, goes back, then asks the two generative
+// UI questions ("现在所有的 Agent 都在干什么？", "任务 #98 现在怎么样？"); a
+// scripted model answers them with the real tools, so a recording needs no key.
 import 'dart:async';
 import 'dart:io' show Platform;
 
@@ -13,6 +14,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
+import 'package:raft_flutter/features/agent_mode/agent_scripted_model.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 final _theme =
@@ -30,43 +32,152 @@ class _DemoData extends AgentModeData {
   _DemoData(super.w);
 
   @override
-  Future<List<AgentAttentionItem>> attention() async {
+  Future<AgentAttention> attention() async {
     await Future<void>.delayed(const Duration(milliseconds: 500));
-    return [
-      AgentAttentionItem(
-        priority: AgentPriority.decision,
-        weight: 5,
-        title: 'Personal Agent 第一版选型（5 个问题）',
-        detail: '#94 等你验收 · Cindy',
-        chips: const ['等了 2 小时', '#raft-flutter'],
-        hot: true,
-        at: _now,
-        channelId: 'c1',
+    return AgentAttention(
+      items: [
+        AgentAttentionItem(
+          id: 't94',
+          taskId: 't94',
+          taskNumber: 94,
+          priority: AgentPriority.decision,
+          headline: 'Cindy 完成了「Personal Agent 第一版选型」，等你验收',
+          ask: '验收',
+          askLine: '验收「Personal Agent 选型」',
+          action: AgentAction.approve,
+          canApprove: true,
+          reason: '你派的任务',
+          waitValue: 2,
+          waitUnit: '小时',
+          at: _now,
+          waiters: const ['Cindy'],
+          doer: 'Cindy',
+          channelId: 'c1',
+          channelName: 'raft-flutter',
+          progress: [
+            AgentProgressLine(
+              who: 'Cindy',
+              time: '今天 10:32',
+              text: '五个问题的结论都写在文档里了，请看第 3 节。',
+            ),
+          ],
+        ),
+        AgentAttentionItem(
+          id: 't98',
+          taskId: 't98',
+          taskNumber: 98,
+          priority: AgentPriority.blocked,
+          headline: 'Grok 的「iOS 从搜索进频道后无法返回」5 小时没动，卡住了',
+          ask: '解除阻塞',
+          reason: '卡住了',
+          idle: true,
+          waitValue: 5,
+          waitUnit: '小时',
+          at: _now,
+          doer: 'Grok',
+          channelId: 'c1',
+          channelName: 'raft-flutter',
+        ),
+        AgentAttentionItem(
+          id: 'mention:c1',
+          priority: AgentPriority.mention,
+          headline: 'Cody 在 raft-flutter @ 了你：M7 问题检测首片待审',
+          ask: '回复',
+          askLine: '回复 Cody',
+          action: AgentAction.reply,
+          reason: '点名找你',
+          waitValue: 12,
+          waitUnit: '分钟',
+          at: _now,
+          doer: 'Cody',
+          channelId: 'c1',
+          channelName: 'raft-flutter',
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<List<AgentRuntimeInfo>> agents() async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return const [
+      AgentRuntimeInfo(
+        id: 'a-grok',
+        name: 'Grok',
+        state: AgentWorkState.blocked,
+        activity: '#98「搜索打开另一个频道后没有返回」 超过 5 小时没动',
+        channel: 'raft-flutter',
+        taskNumber: 98,
       ),
-      AgentAttentionItem(
-        priority: AgentPriority.blocked,
-        weight: 4,
-        title: 'iOS：从搜索进频道后无法返回',
-        detail: '#98 · Grok · 5 小时没有进展',
-        chips: const ['#raft-flutter'],
-        at: _now,
-        channelId: 'c1',
+      AgentRuntimeInfo(
+        id: 'a-cody',
+        name: 'Cody',
+        state: AgentWorkState.busy,
+        activity: '在做 #96「M7 profile 问题检测」',
+        since: '4 分钟前有进展',
+        channel: 'raft-flutter',
+        taskNumber: 96,
       ),
-      AgentAttentionItem(
-        priority: AgentPriority.mention,
-        weight: 3,
-        title: 'Cody：M7 问题检测首片待审',
-        detail: '#raft-flutter 的讨论',
-        chips: const ['未读', '12 分钟'],
-        at: _now,
-        channelId: 'c1',
+      AgentRuntimeInfo(
+        id: 'a-codexwin',
+        name: 'CodexWin',
+        state: AgentWorkState.busy,
+        activity: '在做 #99「Windows 退出关库验证」',
+        since: '9 分钟前有进展',
+        channel: 'raft-flutter',
+        taskNumber: 99,
       ),
-      AgentAttentionItem(
-        priority: AgentPriority.progress,
-        weight: 1,
-        title: '修复并行发送后的排序 已完成',
-        detail: '#97 · Cody',
-        at: _now,
+      AgentRuntimeInfo(
+        id: 'a-cindy',
+        name: 'Cindy',
+        state: AgentWorkState.idle,
+        activity: '空闲',
+      ),
+      AgentRuntimeInfo(
+        id: 'a-codexmac',
+        name: 'CodexMac',
+        state: AgentWorkState.offline,
+        activity: '离线',
+        since: '离线 3 小时',
+      ),
+    ];
+  }
+
+  @override
+  Future<List<AgentTaskDetail>> tasksNumbered(
+    int number, {
+    String? channel,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (number != 98) return const [];
+    return const [
+      AgentTaskDetail(
+        id: 't98',
+        number: 98,
+        title: '搜索打开另一个频道后没有返回',
+        status: 'in_progress',
+        description: 'iOS 从搜索进入另一个频道后，左上角返回回不到搜索页。',
+        updated: '5 小时前',
+        creator: 'Kevin',
+        claimer: 'Grok',
+        channelName: 'raft-flutter',
+        thread: [
+          AgentProgressLine(
+            who: 'CodexMac',
+            time: '今天 07:40',
+            text: 'iOS 验收：4 项未通过，M6 暂不默认开启。',
+          ),
+          AgentProgressLine(
+            who: 'Grok',
+            time: '今天 07:52',
+            text: '搜索页撤销在 M5 之前就存在，不是 M5 引入的。',
+          ),
+          AgentProgressLine(
+            who: 'Grok',
+            time: '今天 08:10',
+            text: '正在改路由栈，改完补回归测试。',
+          ),
+        ],
       ),
     ];
   }
@@ -226,8 +337,12 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await wait(3200);
     await _type('返回');
     await wait(2200);
-    await _type('看看任务');
-    await wait(3000);
+    await _type('现在所有的 Agent 都在干什么？');
+    await wait(4500);
+    await _type('返回');
+    await wait(1800);
+    await _type('任务 #98 现在怎么样？');
+    await wait(4500);
     await _type('回到提醒');
   }
 
@@ -237,6 +352,8 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     child: AgentModePage(
       controller: widget.controller,
       data: _DemoData(widget.controller),
+      // No network: a scripted model answers through the same tools.
+      model: const AgentScriptedModel(),
     ),
   );
 }

@@ -10,5 +10,6 @@ export 'src/layer_frame.dart';
 export 'src/marks.dart';
 export 'src/priority_card.dart';
 export 'src/spotlight.dart';
+export 'src/surface_cards.dart';
 export 'src/voice_dock.dart';
 export 'src/z_layer_stack.dart';
