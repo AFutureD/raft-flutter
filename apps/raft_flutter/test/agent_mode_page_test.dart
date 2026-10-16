@@ -22,24 +22,38 @@ class _Data extends AgentModeData {
   int channelReads = 0;
 
   @override
-  Future<List<AgentAttentionItem>> attention() async => [
-    AgentAttentionItem(
-      priority: AgentPriority.decision,
-      weight: 5,
-      title: 'Personal Agent 第一版选型',
-      detail: '#94 等你验收 · Cindy',
-      chips: const ['等了 3 小时'],
-      hot: true,
-      at: _now,
-      channelId: 'c1',
-    ),
-    AgentAttentionItem(
-      priority: AgentPriority.blocked,
-      weight: 3,
-      title: 'iOS 搜索后无法返回',
-      at: _now,
-    ),
-  ];
+  Future<AgentAttention> attention() async => AgentAttention(
+    items: [
+      AgentAttentionItem(
+        id: 't94',
+        taskId: 't94',
+        taskNumber: 94,
+        priority: AgentPriority.decision,
+        headline: 'Cindy 完成了「Personal Agent 第一版选型」，等你验收',
+        ask: '验收',
+        action: AgentAction.approve,
+        canApprove: true,
+        reason: '你派的任务',
+        waitValue: 3,
+        waitUnit: '小时',
+        at: _now,
+        waiters: const ['Cindy'],
+        channelId: 'c1',
+        channelName: 'raft-flutter',
+      ),
+      AgentAttentionItem(
+        id: 't7',
+        taskId: 't7',
+        priority: AgentPriority.blocked,
+        headline: 'Grok 的「iOS 搜索后无法返回」5 小时没动，卡住了',
+        ask: '解除阻塞',
+        reason: '卡住了',
+        idle: true,
+        waitValue: 5,
+        at: _now,
+      ),
+    ],
+  );
 
   @override
   Future<AgentChannelBrief> channel(
@@ -75,6 +89,7 @@ void main() {
   late ActivityClient client;
   late WorkspaceController w;
   setUp(() {
+    AgentModeData.clearSession();
     // No voice key: typed requests use the local intents.
     FlutterSecureStorage.setMockInitialValues({});
     client = ActivityClient()..user = RaftRecord({'id': 'kevin'});
@@ -112,7 +127,10 @@ void main() {
         await t.pumpAndSettle();
         expect(find.text('现在需要你'), findsWidgets);
         expect(find.text('第 1 层'), findsOneWidget);
-        expect(find.text('Personal Agent 第一版选型'), findsOneWidget);
+        expect(
+          find.text('Cindy 完成了「Personal Agent 第一版选型」，等你验收'),
+          findsOneWidget,
+        );
 
         // Voice first: typing is behind the keyboard button.
         expect(find.byKey(const ValueKey('agent-input')), findsNothing);
@@ -139,7 +157,9 @@ void main() {
         expect(find.text('# raft-flutter'), findsNothing);
 
         // A priority card opens its channel as a new layer.
-        await t.tap(find.text('Personal Agent 第一版选型'));
+        await t.tap(
+          find.text('Cindy 完成了「Personal Agent 第一版选型」，等你验收'),
+        );
         await t.pumpAndSettle();
         expect(find.text('第 2 层'), findsOneWidget);
 

@@ -5,6 +5,7 @@
 library;
 
 export 'src/agent_theme.dart';
+export 'src/attention_card.dart';
 export 'src/layer_frame.dart';
 export 'src/marks.dart';
 export 'src/priority_card.dart';

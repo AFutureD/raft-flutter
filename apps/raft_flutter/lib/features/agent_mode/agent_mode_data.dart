@@ -1,33 +1,349 @@
+import 'dart:convert';
+
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../../data/workspace_controller.dart';
 
-/// One proactive item: what it needs from the person and why.
+/// What the person is asked to do with an item. Only [approve] writes.
+enum AgentAction { approve, reply, open }
+
+/// One line of a task's thread, shown as the latest progress.
+class AgentProgressLine {
+  const AgentProgressLine({
+    required this.who,
+    required this.time,
+    required this.text,
+  });
+  final String who, time, text;
+}
+
+/// A task or thread that moves along without the person: the collapsed
+/// "team progress" row lists these.
+class AgentTeamItem {
+  const AgentTeamItem({
+    required this.id,
+    required this.headline,
+    required this.channelName,
+    required this.who,
+  });
+  final String id, headline, channelName, who;
+}
+
+/// One proactive item: what happened, what it asks of the person, and why it
+/// ranks where it does.
 class AgentAttentionItem {
   const AgentAttentionItem({
+    required this.id,
     required this.priority,
-    required this.weight,
-    required this.title,
+    required this.headline,
+    required this.ask,
+    required this.reason,
     required this.at,
-    this.detail,
-    this.chips = const [],
-    this.hot = false,
+    this.askLine,
+    this.action = AgentAction.open,
+    this.canApprove = false,
+    this.score = 0,
+    this.waitValue = 1,
+    this.waitUnit = '小时',
+    this.idle = false,
+    this.waiters = const [],
+    this.doer,
     this.channelId,
+    this.channelName,
+    this.threadTitle,
+    this.taskId,
+    this.taskNumber,
+    this.progress = const [],
   });
 
+  /// Task id for tasks, `mention:<thread or channel id>` for mentions.
+  final String id;
   final AgentPriority priority;
 
-  /// 0-5, drawn as bars. Higher sorts first within a priority.
-  final int weight;
-  final String title;
-  final DateTime at;
-  final String? detail;
-  final List<String> chips;
+  /// One sentence: who did what, and what the person is asked.
+  final String headline;
 
-  /// Seen but not handled: it keeps its weight instead of dropping away.
-  final bool hot;
-  final String? channelId;
+  /// The verb of the ask: 验收 / 确认 / 回答 / 解除阻塞.
+  final String ask;
+
+  /// The ask as shown in the card ("验收「改名」"). Defaults to [ask].
+  final String? askLine;
+  final AgentAction action;
+
+  /// The task can be set to done by this person right now.
+  final bool canApprove;
+
+  /// The one sticker: 点名找你 / 你派的任务 / 2 人在等 / 卡住了 …
+  final String reason;
+
+  /// Waiting time as a number and a unit ("24", "小时").
+  final int waitValue;
+  final String waitUnit;
+
+  /// In progress without movement (reads "5 小时没动") rather than waiting.
+  final bool idle;
+  final DateTime at;
+  final double score;
+
+  /// People other than the user who wait on this.
+  final List<String> waiters;
+
+  /// Who did the work (claimer) or wrote the message.
+  final String? doer;
+  final String? channelId, channelName, threadTitle, taskId;
+  final int? taskNumber;
+
+  /// The last few thread lines, oldest first.
+  final List<AgentProgressLine> progress;
+
+  AgentAttentionItem withProgress(List<AgentProgressLine> lines) =>
+      AgentAttentionItem(
+        id: id,
+        priority: priority,
+        headline: headline,
+        ask: ask,
+        reason: reason,
+        at: at,
+        askLine: askLine,
+        action: action,
+        canApprove: canApprove,
+        score: score,
+        waitValue: waitValue,
+        waitUnit: waitUnit,
+        idle: idle,
+        waiters: waiters,
+        doer: doer,
+        channelId: channelId,
+        channelName: channelName,
+        threadTitle: threadTitle,
+        taskId: taskId,
+        taskNumber: taskNumber,
+        progress: lines,
+      );
+
+  String get askText => askLine ?? ask;
+  AgentProgressLine? get quote => progress.isEmpty ? null : progress.last;
+  String get waitLabel =>
+      idle ? '$waitValue $waitUnit没动' : '等了 $waitValue $waitUnit';
+  String get waitingText => waiters.isEmpty ? '' : '${waiters.join('、')} 在等你';
+
+  /// "「title」任务 #1" or "「title」讨论": what the chip row names.
+  String get threadKind => taskNumber == null ? '讨论' : '任务 #$taskNumber';
+
+  /// The one-line reason this is the most urgent thing.
+  String get urgent {
+    final lead = doer ?? (waiters.isEmpty ? '有人' : waiters.first);
+    final others = [
+      for (final n in waiters)
+        if (n != lead) n,
+    ];
+    final tail = others.isEmpty ? '' : '，${others.join('、')} 也在等你';
+    final wait = '$waitValue $waitUnit';
+    return switch (priority) {
+      AgentPriority.blocked => '$lead 的任务已经 $wait没动$tail',
+      AgentPriority.mention => '$lead 点名了你，已经等了 $wait$tail',
+      _ => '$lead 的$ask已经等了 $wait$tail',
+    };
+  }
+}
+
+/// Everything agent mode asks the person to look at, as one accepted result.
+class AgentAttention {
+  const AgentAttention({
+    required this.items,
+    this.team = const [],
+    int? teamCount,
+    this.capped = false,
+    // ignore: prefer_initializing_formals -- a private field cannot be a named parameter
+  }) : _teamCount = teamCount;
+
+  static const scopeNote = '只统计你创建、指派给你、或点名你确认的事项';
+
+  /// Decisions, then blocked, then mentions; each by descending score.
+  final List<AgentAttentionItem> items;
+  final List<AgentTeamItem> team;
+  final int? _teamCount;
+
+  /// A source list hit the query limit: counts are lower bounds.
+  final bool capped;
+
+  List<AgentAttentionItem> _of(AgentPriority p) => [
+    for (final i in items)
+      if (i.priority == p) i,
+  ];
+  List<AgentAttentionItem> get decisions => _of(AgentPriority.decision);
+  List<AgentAttentionItem> get blocked => _of(AgentPriority.blocked);
+  List<AgentAttentionItem> get mentions => _of(AgentPriority.mention);
+  int get decisionCount => decisions.length;
+  int get blockedCount => blocked.length;
+  int get mentionCount => mentions.length;
+  int get teamCount => _teamCount ?? team.length;
+  String get teamLabel => '$teamCount${capped ? '+' : ''}';
+  bool get isEmpty => items.isEmpty;
+  AgentAttentionItem? get top => items.isEmpty ? null : items.first;
+  String? get urgent => top?.urgent;
+
+  /// The same result without [ids] (snoozed or just approved).
+  AgentAttention without(Set<String> ids) => ids.isEmpty
+      ? this
+      : AgentAttention(
+          items: [
+            for (final i in items)
+              if (!ids.contains(i.id)) i,
+          ],
+          team: team,
+          teamCount: _teamCount,
+          capped: capped,
+        );
+
+  /// One spoken sentence, also what the agent knows about the screen.
+  String get summary {
+    if (isEmpty) return '现在没有需要你处理的事。';
+    final parts = [
+      if (decisionCount > 0) '$decisionCount 件等你决定',
+      if (blockedCount > 0) '$blockedCount 件卡住了',
+      if (mentionCount > 0) '$mentionCount 处点名你',
+    ];
+    return '${parts.join('，')}。';
+  }
+
+  /// What the TV mirror shows: the top three, no actions.
+  Map<String, Object?> tvFrame({required String caption}) => {
+    'decision': decisionCount,
+    'blocked': blockedCount,
+    'mention': mentionCount,
+    'caption': caption,
+    'items': [
+      for (var n = 0; n < items.length && n < 3; n++)
+        {
+          'rank': n + 1,
+          'priority': items[n].priority.name,
+          'reason': items[n].reason,
+          'channel': items[n].channelName ?? '',
+          'headline': items[n].headline,
+          'waitValue': items[n].waitValue,
+          'waitUnit': items[n].waitUnit,
+          'idle': items[n].idle,
+          'urgent': n == 0,
+        },
+    ],
+  };
+}
+
+/// What a headline is built from. A summarizer can use the same input.
+class AgentHeadlineInput {
+  const AgentHeadlineInput({
+    required this.status,
+    required this.text,
+    this.claimer,
+    this.number,
+    this.idleHours,
+  });
+
+  /// `in_review` or `in_progress`.
+  final String status;
+
+  /// Title and description joined: the full content, not just the first line.
+  final String text;
+
+  /// Who did the work; null when unknown or the user themself.
+  final String? claimer;
+  final int? number;
+  final int? idleHours;
+}
+
+/// Turns a task into the sentence on its card. The rule writer is
+/// deterministic; a summarizer can implement this later without touching the
+/// data or the UI.
+abstract interface class AgentHeadlineWriter {
+  String write(AgentHeadlineInput input);
+}
+
+class RuleHeadlineWriter implements AgentHeadlineWriter {
+  const RuleHeadlineWriter();
+
+  @override
+  String write(AgentHeadlineInput i) {
+    final clean = AgentHeadlines.clean(i.text);
+    final n = i.number == null ? '任务' : '任务 #${i.number}';
+    if (i.status == 'in_progress') {
+      final who = i.claimer == null ? '' : '${i.claimer} 的';
+      final what = clean.isEmpty ? n : '「$clean」';
+      return '$who$what${AgentHeadlines.duration(i.idleHours ?? 0)}没动，卡住了';
+    }
+    final ask = AgentHeadlines.askVerb(i.text);
+    final who = i.claimer;
+    if (who != null) {
+      return clean.isEmpty
+          ? '$who 完成了$n，等你$ask'
+          : '$who 完成了「$clean」，等你$ask';
+    }
+    return clean.isEmpty ? '$n 已提交，等你$ask' : '「$clean」已提交，等你$ask';
+  }
+}
+
+/// Text helpers shared by headlines, quotes and chips.
+abstract final class AgentHeadlines {
+  static final _fence = RegExp(r'```[\s\S]*?```');
+  static final _link = RegExp(r'\[([^\]]*)\]\([^)]*\)');
+  static final _lead = RegExp(r'^(?:#{1,6}\s*|>\s*|[-*+]\s+|\d+[.)]\s+)+');
+  static final _marks = RegExp(r'\*\*|__|~~|`|\*');
+  static final _mention = RegExp(r'@[^\s@，,。：:！!？?；;、]+');
+  static final _question = RegExp(r'确认|是否|？|\?|吗|要不要|可以');
+
+  /// Markdown and @mentions removed, whitespace collapsed.
+  static String plain(String raw, {int max = 120}) {
+    final text = _strip(raw.replaceAll(_fence, ' ')).join(' ');
+    return _clip(text, max);
+  }
+
+  static List<String> _strip(String raw) => [
+    for (final line in raw.split(RegExp(r'\r?\n')))
+      if (_line(line).isNotEmpty) _line(line),
+  ];
+
+  static String _line(String line) => line
+      .trim()
+      .replaceFirst(_lead, '')
+      .replaceAllMapped(_link, (m) => m[1] ?? '')
+      .replaceAll(_marks, '')
+      .replaceAll(_mention, '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  static String _clip(String text, int max) =>
+      text.length <= max ? text : '${text.substring(0, max).trimRight()}…';
+
+  /// The first meaningful sentence: leading @mentions and markdown removed,
+  /// cut at the first sentence end or colon, at most 40 characters.
+  static String clean(String raw, {int max = 40}) {
+    final lines = _strip(raw.replaceAll(_fence, ' '));
+    if (lines.isEmpty) return '';
+    final line = lines.first;
+    var end = line.length;
+    var keep = false;
+    for (var i = 0; i < line.length; i++) {
+      final c = line[i];
+      final next = i + 1 < line.length ? line[i + 1] : ' ';
+      if ('。；;：'.contains(c) ||
+          ((c == ':' || c == '.') && next == ' ') ||
+          '！？!?'.contains(c)) {
+        end = i;
+        keep = '！？!?'.contains(c);
+        break;
+      }
+    }
+    return _clip(line.substring(0, keep ? end + 1 : end).trim(), max);
+  }
+
+  /// 确认 when the text asks something, 验收 otherwise.
+  static String askVerb(String text) => _question.hasMatch(text) ? '确认' : '验收';
+
+  static bool asksQuestion(String text) => _question.hasMatch(text);
+
+  static String duration(int hours) =>
+      hours >= 48 ? '${hours ~/ 24} 天' : '$hours 小时';
 }
 
 /// A compact view of one channel for a Z layer.
@@ -49,20 +365,52 @@ class AgentChannelBrief {
   int get inProgress => tasks.where((t) => t['status'] == 'in_progress').length;
 }
 
-/// Reads existing workspace endpoints for agent mode. Nothing is written.
+/// What one visit keeps for the next: the last accepted result and what the
+/// person set aside, so reopening agent mode paints final cards at once.
+class _AgentSession {
+  AgentAttention? attention;
+  final hidden = <String>{};
+}
+
+/// Reads existing workspace endpoints for agent mode. The only write is
+/// [approve], on an explicit confirmation.
 ///
-/// Weighting (demo): tasks waiting for review are decisions; work in progress
-/// that has not moved for a while is blocked; mentions in Activity follow,
-/// and stay weighted after they were read until the row is handled; recent
-/// completions are progress.
+/// Only the user's own matters wait for a decision: tasks they created, tasks
+/// assigned to them, and tasks that @-mention them. Everything else in review
+/// is team progress. Score = waiting time x how it concerns the user
+/// (mentioned > assigned > created) x people waiting.
 class AgentModeData {
-  AgentModeData(this.w, {DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  AgentModeData(
+    this.w, {
+    DateTime Function()? now,
+    this.headlines = const RuleHeadlineWriter(),
+  }) : _now = now ?? DateTime.now;
 
   final WorkspaceController w;
   final DateTime Function() _now;
+  final AgentHeadlineWriter headlines;
 
   static const stalledAfter = Duration(hours: 4);
+
+  /// The server-wide task queries return at most this many rows per status.
+  static const taskLimit = 50;
+
+  static final _sessions = <String, _AgentSession>{};
+
+  static _AgentSession _session(WorkspaceController w) => _sessions.putIfAbsent(
+    jsonEncode([w.client.origin, w.client.user?.id, w.client.serverId]),
+    _AgentSession.new,
+  );
+
+  /// The last accepted result for this account and server.
+  static AgentAttention? cached(WorkspaceController w) =>
+      _session(w).attention;
+  static void remember(WorkspaceController w, AgentAttention value) =>
+      _session(w).attention = value;
+
+  /// Ids set aside ("稍后") or approved during this app session.
+  static Set<String> hidden(WorkspaceController w) => _session(w).hidden;
+  static void clearSession() => _sessions.clear();
 
   static DateTime? _time(Object? v) =>
       v is String ? DateTime.tryParse(v)?.toLocal() : null;
@@ -79,7 +427,7 @@ class AgentModeData {
   Future<List<Map<String, dynamic>>> _tasks(
     String status, {
     String? channelId,
-    int limit = 50,
+    int limit = taskLimit,
   }) async {
     final path = channelId == null
         ? '/tasks/server'
@@ -91,116 +439,327 @@ class AgentModeData {
     return _rows(body, 'tasks');
   }
 
-  String _ago(DateTime at) {
-    final d = _now().difference(at);
-    if (d.inMinutes < 60) return '${d.inMinutes.clamp(1, 59)} 分钟';
-    if (d.inHours < 48) return '${d.inHours} 小时';
-    return '${d.inDays} 天';
+  /// The one write: the task is done. Throws when the server refuses.
+  Future<void> approve(String taskId) async {
+    await w.command('PATCH', '/tasks/$taskId/status', data: {'status': 'done'});
   }
 
-  Future<List<AgentAttentionItem>> attention() async {
+  ({int value, String unit}) _ago(DateTime at) {
+    final d = _now().difference(at);
+    if (d.inMinutes < 60) return (value: d.inMinutes.clamp(1, 59), unit: '分钟');
+    if (d.inHours < 48) return (value: d.inHours, unit: '小时');
+    return (value: d.inDays, unit: '天');
+  }
+
+  /// "今天 07:02", "昨天 23:21", "10月3日 08:00".
+  String _stamp(DateTime at) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    final now = _now().toLocal(), t = at.toLocal();
+    final days = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime(t.year, t.month, t.day)).inDays;
+    final clock = '${two(t.hour)}:${two(t.minute)}';
+    return switch (days) {
+      0 => '今天 $clock',
+      1 => '昨天 $clock',
+      _ => '${t.month}月${t.day}日 $clock',
+    };
+  }
+
+  static String? _str(Object? v) {
+    final s = v is String ? v.trim() : null;
+    return s == null || s.isEmpty ? null : s;
+  }
+
+  /// The signed-in user, as the task rows name people.
+  ({String? id, Set<String> names}) get _me {
+    final u = w.client.user;
+    return (
+      id: _str(u?.id),
+      names: {
+        for (final k in const ['displayName', 'name', 'username'])
+          ?_str(u?.json[k]),
+      },
+    );
+  }
+
+  static bool _mentions(Map<String, dynamic> t, String? id, Set<String> names) {
+    final list = t['mentions'];
+    if (id != null && list is List) {
+      for (final m in list) {
+        if (m is Map && m['id'] == id) return true;
+      }
+    }
+    final text = '${t['title'] ?? ''}\n${t['description'] ?? ''}\n'
+        '${t['descriptionPreview'] ?? ''}';
+    return [
+      for (final n in names)
+        if (RegExp(
+          '@${RegExp.escape(n)}(?![\\w-])',
+          caseSensitive: false,
+        ).hasMatch(text))
+          n,
+    ].isNotEmpty;
+  }
+
+  Future<AgentAttention> attention() async {
     final results = await Future.wait([
       _tasks('in_review'),
       _tasks('in_progress'),
-      _tasks('done', limit: 10),
       w.sharedQuery(
         '/channels/inbox',
         query: {'filter': 'all', 'sort': 'desc', 'limit': 30, 'offset': 0},
       ),
     ]);
+    final review = results[0] as List<Map<String, dynamic>>;
+    final progress = results[1] as List<Map<String, dynamic>>;
+    final capped = review.length >= taskLimit || progress.length >= taskLimit;
     final now = _now();
-    final items = <AgentAttentionItem>[];
+    final me = _me;
 
-    for (final t in results[0] as List<Map<String, dynamic>>) {
+    bool isMe(Object? id, Object? type) =>
+        type != 'agent' && me.id != null && id == me.id;
+    bool concerns(Map<String, dynamic> t) =>
+        isMe(t['createdById'], t['createdByType']) ||
+        isMe(t['claimedById'], t['claimedByType']) ||
+        _mentions(t, me.id, me.names);
+
+    final decisions = <AgentAttentionItem>[];
+    final blocked = <AgentAttentionItem>[];
+    final team = <AgentTeamItem>[];
+
+    AgentAttentionItem build(Map<String, dynamic> t, {required bool stalled}) {
+      final createdByMe = isMe(t['createdById'], t['createdByType']);
+      final assigned = isMe(t['claimedById'], t['claimedByType']);
+      final mentioned = _mentions(t, me.id, me.names);
+
       final at = _time(t['updatedAt']) ?? now;
-      final waiting = now.difference(at);
-      items.add(
-        AgentAttentionItem(
-          priority: AgentPriority.decision,
-          weight: waiting > const Duration(hours: 2) ? 5 : 4,
-          title: '${t['title'] ?? '未命名任务'}',
-          detail: '#${t['taskNumber']} 等你验收 · ${t['claimedByName'] ?? '未认领'}',
-          chips: ['等了 ${_ago(at)}', '#${t['channelName'] ?? ''}'],
-          hot: waiting > const Duration(hours: 2),
-          at: at,
-          channelId: t['channelId'] as String?,
+      final wait = now.difference(at);
+      final claimer = assigned ? null : _str(t['claimedByName']);
+      final creator = createdByMe ? null : _str(t['createdByName']);
+      final waiters = <String>{
+        for (final n in [creator, claimer])
+          if (n != null && !me.names.contains(n)) n,
+      }.toList();
+      final text =
+          '${t['title'] ?? ''}\n'
+          '${t['description'] ?? t['descriptionPreview'] ?? ''}';
+      final number = t['taskNumber'] is int ? t['taskNumber'] as int : null;
+      final clean = AgentHeadlines.clean(text);
+      final short = clean.length > 14 ? '${clean.substring(0, 14)}…' : clean;
+      final hours = wait.inHours;
+      final factor = mentioned ? 3.0 : (assigned ? 2.0 : 1.5);
+      final score =
+          (wait.inMinutes / 60).clamp(.25, 100000).toDouble() *
+          factor *
+          (1 + .5 * ((waiters.length - 1).clamp(0, 10)));
+      final ago = _ago(at);
+      final readOnly =
+          t['readOnlyReason'] != null || w.server?.string('role') == 'guest';
+      final reason = stalled
+          ? (RegExp(r'合并|merge', caseSensitive: false).hasMatch(text)
+                ? '卡住合并'
+                : waiters.length > 1
+                ? '${waiters.length} 人在等'
+                : '卡住了')
+          : waiters.length > 1
+          ? '${waiters.length} 人在等'
+          : mentioned
+          ? '点名找你'
+          : (createdByMe ? '你派的任务' : '指给你的任务');
+      final verb = AgentHeadlines.askVerb(text);
+      final taskId = '${t['id'] ?? ''}';
+      return AgentAttentionItem(
+        id: taskId,
+        taskId: taskId,
+        taskNumber: number,
+        priority: stalled ? AgentPriority.blocked : AgentPriority.decision,
+        headline: headlines.write(
+          AgentHeadlineInput(
+            status: stalled ? 'in_progress' : 'in_review',
+            text: text,
+            claimer: claimer,
+            number: number,
+            idleHours: hours,
+          ),
         ),
+        ask: stalled ? '解除阻塞' : verb,
+        askLine: stalled
+            ? '解除阻塞'
+            : (short.isEmpty ? '$verb这个任务' : '$verb「$short」'),
+        action: !stalled && !readOnly ? AgentAction.approve : AgentAction.open,
+        canApprove: !stalled && !readOnly && taskId.isNotEmpty,
+        reason: reason,
+        waitValue: ago.value,
+        waitUnit: ago.unit,
+        idle: stalled,
+        at: at,
+        score: score,
+        waiters: waiters,
+        doer: claimer,
+        channelId: _str(t['channelId']),
+        channelName: _str(t['channelName']),
+        threadTitle: short.isEmpty ? null : short,
+        progress: [
+          AgentProgressLine(
+            who: claimer ?? creator ?? '',
+            time: _stamp(at),
+            text: AgentHeadlines.plain(text),
+          ),
+        ],
       );
     }
 
-    for (final t in results[1] as List<Map<String, dynamic>>) {
+    for (final t in review) {
+      if (concerns(t)) {
+        decisions.add(build(t, stalled: false));
+      } else {
+        team.add(_teamItem(t));
+      }
+    }
+    for (final t in progress) {
       final at = _time(t['updatedAt']) ?? now;
-      final idle = now.difference(at);
-      if (idle < stalledAfter) continue;
-      items.add(
-        AgentAttentionItem(
-          priority: AgentPriority.blocked,
-          weight: idle > const Duration(hours: 24) ? 4 : 3,
-          title: '${t['title'] ?? '未命名任务'}',
-          detail:
-              '#${t['taskNumber']} · ${t['claimedByName'] ?? '未认领'} · ${_ago(at)}没有进展',
-          chips: ['#${t['channelName'] ?? ''}'],
-          at: at,
-          channelId: t['channelId'] as String?,
-        ),
-      );
+      final stalled = now.difference(at) >= stalledAfter;
+      if (!concerns(t)) {
+        team.add(_teamItem(t));
+      } else if (stalled) {
+        blocked.add(build(t, stalled: true));
+      }
     }
 
-    final inbox = _rows(results[3], 'items');
-    for (final r in inbox) {
+    final mentions = <AgentAttentionItem>[];
+    final known = {
+      for (final i in [...decisions, ...blocked])
+        '${i.channelId}#${i.taskNumber}',
+    };
+    for (final r in _rows(results[2], 'items')) {
       if (r['hasMention'] != true) continue;
-      final unread =
-          (r['unreadCount'] is int ? r['unreadCount'] as int : 0) > 0;
-      final at = _time(r['lastActivityAt'] ?? r['lastMessageAt']) ?? now;
       final thread = r['kind'] == 'thread';
-      final where = thread
-          ? '#${r['parentChannelName'] ?? ''} 的讨论'
-          : '#${r['channelName'] ?? ''}';
-      final who =
-          r[thread ? 'latestActivitySenderName' : 'lastMessageSenderName'];
-      final preview =
-          r[thread ? 'latestActivityPreview' : 'lastMessagePreview'] ??
-          r['messagePreview'];
-      items.add(
-        AgentAttentionItem(
-          priority: AgentPriority.mention,
-          weight: unread ? 3 : 2,
-          title: '${who ?? '有人'}：${preview ?? ''}'.trim(),
-          detail: where,
-          chips: [unread ? '未读' : '已读未处理', _ago(at)],
-          hot: !unread,
-          at: at,
-          channelId:
-              (thread ? r['parentChannelId'] : r['channelId']) as String?,
-        ),
-      );
-    }
-
-    for (final t in results[2] as List<Map<String, dynamic>>) {
-      final at = _time(t['completedAt'] ?? t['updatedAt']);
-      if (at == null || now.difference(at) > const Duration(hours: 24)) {
+      final channelId = _str(thread ? r['parentChannelId'] : r['channelId']);
+      if (r['taskNumber'] != null && known.contains('$channelId#${r['taskNumber']}')) {
         continue;
       }
-      items.add(
+      final at = _time(r['lastActivityAt'] ?? r['lastMessageAt']) ?? now;
+      final who =
+          _str(r[thread ? 'latestActivitySenderName' : 'lastMessageSenderName']) ??
+          '有人';
+      final raw =
+          '${r[thread ? 'latestActivityPreview' : 'lastMessagePreview'] ?? r['messagePreview'] ?? ''}';
+      final where =
+          _str(thread ? r['parentChannelName'] : r['channelName']) ?? '';
+      final said = AgentHeadlines.clean(raw);
+      final parentTitle = thread
+          ? AgentHeadlines.clean('${r['parentMessagePreview'] ?? ''}')
+          : '';
+      final ago = _ago(at);
+      final question = AgentHeadlines.asksQuestion(raw);
+      mentions.add(
         AgentAttentionItem(
-          priority: AgentPriority.progress,
-          weight: 1,
-          title: '${t['title'] ?? '任务'} 已完成',
-          detail: '#${t['taskNumber']} · ${t['claimedByName'] ?? ''}',
+          id: 'mention:${_str(r['threadChannelId']) ?? _str(r['channelId']) ?? mentions.length}',
+          priority: AgentPriority.mention,
+          headline: said.isEmpty ? '$who 在 $where @ 了你' : '$who 在 $where @ 了你：$said',
+          ask: question ? '回答' : '回复',
+          askLine: question ? '回答一个问题' : '回复 $who',
+          action: AgentAction.reply,
+          reason: '点名找你',
+          waitValue: ago.value,
+          waitUnit: ago.unit,
           at: at,
-          channelId: t['channelId'] as String?,
+          score: (now.difference(at).inMinutes / 60).clamp(.25, 100000) * 3.0,
+          waiters: [who],
+          doer: who,
+          channelId: channelId,
+          channelName: where.isEmpty ? null : where,
+          threadTitle: parentTitle.isEmpty ? null : parentTitle,
+          progress: [
+            AgentProgressLine(
+              who: who,
+              time: _stamp(at),
+              text: AgentHeadlines.plain(raw),
+            ),
+          ],
         ),
       );
     }
 
-    items.sort((a, b) {
-      final p = a.priority.index.compareTo(b.priority.index);
-      if (p != 0) return p;
-      final wgt = b.weight.compareTo(a.weight);
-      if (wgt != 0) return wgt;
-      return b.at.compareTo(a.at);
-    });
-    return items;
+    int byScore(AgentAttentionItem a, AgentAttentionItem b) {
+      final s = b.score.compareTo(a.score);
+      return s != 0 ? s : a.at.compareTo(b.at);
+    }
+
+    decisions.sort(byScore);
+    blocked.sort(byScore);
+    mentions.sort(byScore);
+    final items = [...decisions, ...blocked, ...mentions];
+    return AgentAttention(
+      items: await _withThreads(items, [...review, ...progress]),
+      team: team,
+      capped: capped,
+    );
+  }
+
+  AgentTeamItem _teamItem(Map<String, dynamic> t) {
+    final who = _str(t['claimedByName']) ?? _str(t['createdByName']) ?? '';
+    final text = '${t['title'] ?? ''}\n${t['description'] ?? ''}';
+    final clean = AgentHeadlines.clean(text);
+    final what = clean.isEmpty ? '任务 #${t['taskNumber'] ?? ''}' : '「$clean」';
+    final verb = t['status'] == 'in_review' ? '完成了' : '正在做';
+    return AgentTeamItem(
+      id: '${t['id'] ?? ''}',
+      headline: who.isEmpty ? what : '$who $verb$what',
+      channelName: _str(t['channelName']) ?? '',
+      who: who,
+    );
+  }
+
+  /// Replaces the fallback quote with the last lines of the task's thread
+  /// when it can be read. Done before the result is accepted so a card never
+  /// changes after its first frame.
+  Future<List<AgentAttentionItem>> _withThreads(
+    List<AgentAttentionItem> items,
+    List<Map<String, dynamic>> tasks,
+  ) async {
+    final threadOf = {
+      for (final t in tasks)
+        if (_str(t['threadChannelId']) != null)
+          '${t['id']}': _str(t['threadChannelId'])!,
+    };
+    return Future.wait([
+      for (final i in items)
+        if (i.taskId != null && threadOf[i.taskId] != null)
+          _thread(threadOf[i.taskId]!).then((lines) => lines.isEmpty ? i : i.withProgress(lines))
+        else
+          Future.value(i),
+    ]);
+  }
+
+  Future<List<AgentProgressLine>> _thread(String threadChannelId) async {
+    try {
+      final body = await w
+          .query('/messages/channel/$threadChannelId', query: {'limit': 3})
+          .timeout(const Duration(seconds: 4));
+      final rows = _rows(body, 'messages')
+        ..sort((a, b) {
+          final sa = BigInt.tryParse('${a['seq']}') ?? BigInt.zero;
+          final sb = BigInt.tryParse('${b['seq']}') ?? BigInt.zero;
+          return sa.compareTo(sb);
+        });
+      return [
+        for (final m in rows.skip(rows.length > 3 ? rows.length - 3 : 0))
+          if (AgentHeadlines.plain('${m['content'] ?? ''}').isNotEmpty ||
+              '${m['content'] ?? ''}'.trim().isNotEmpty)
+            AgentProgressLine(
+              who: _str(m['senderName']) ?? '',
+              time: _stamp(_time(m['createdAt']) ?? _now()),
+              text: '${m['content'] ?? ''}'.replaceAll(RegExp(r'\s+'), ' ').trim(),
+            ),
+      ];
+    } on Object {
+      // A thread that cannot be read leaves the task's own text as the quote.
+      return const [];
+    }
   }
 
   Future<AgentChannelBrief> channel(

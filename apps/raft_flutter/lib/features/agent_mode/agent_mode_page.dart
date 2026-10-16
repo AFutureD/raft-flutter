@@ -9,6 +9,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 
 import '../../data/workspace_controller.dart';
+import 'agent_attention.dart';
 import 'agent_audio.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
@@ -190,7 +191,10 @@ class _AgentModePageState extends State<AgentModePage> {
     if (mounted && epoch == _screenEpoch) effect();
   }
 
-  List<AgentAttentionItem>? _attention;
+  /// The last accepted attention result. It starts from the previous visit
+  /// so the first frame is already final; a refresh replaces it in place.
+  late AgentAttention? _attention = AgentModeData.cached(widget.controller);
+  bool _announced = false;
   Object? _attentionError;
   final _briefs = <String, AgentChannelBrief>{};
   final _briefErrors = <String, Object>{};
@@ -264,32 +268,98 @@ class _AgentModePageState extends State<AgentModePage> {
     unawaited(AgentPresentation.instance.send(frame));
   }
 
+  /// What the person has not set aside or approved in this app session.
+  AgentAttention? get _visible =>
+      _attention?.without(AgentModeData.hidden(widget.controller));
+
   Future<void> _loadAttention() async {
     try {
-      final items = await data.attention();
+      final result = await data.attention();
       if (!mounted) return;
+      AgentModeData.remember(widget.controller, result);
       setState(() {
-        _attention = items;
+        _attention = result;
         _attentionError = null;
-        _voice.say(AgentSpeaker.agent, _attentionSummary(items));
       });
+      if (!_announced) {
+        _announced = true;
+        final visible = _visible!;
+        final urgent = visible.urgent;
+        _voice.say(
+          AgentSpeaker.agent,
+          urgent == null
+              ? _attentionSummary(visible)
+              : '${_attentionSummary(visible)}最急的：$urgent。',
+        );
+      }
     } catch (e) {
-      if (mounted) setState(() => _attentionError = e);
+      // A result already on screen stays; only a first visit shows the error.
+      if (mounted && _attention == null) setState(() => _attentionError = e);
     }
   }
 
-  String _attentionSummary(List<AgentAttentionItem> items) {
-    int count(AgentPriority p) => items.where((i) => i.priority == p).length;
-    final decision = count(AgentPriority.decision);
-    final blocked = count(AgentPriority.blocked);
-    final mention = count(AgentPriority.mention);
-    if (decision + blocked + mention == 0) return '现在没有需要你处理的事。';
-    final parts = [
-      if (decision > 0) '$decision 件等你决定',
-      if (blocked > 0) '$blocked 件卡住了',
-      if (mention > 0) '$mention 处提到了你',
-    ];
-    return '${parts.join('，')}。';
+  String _attentionSummary(AgentAttention a) => a.summary;
+
+  Future<void> _approve(AgentAttentionItem item) async {
+    final id = item.taskId;
+    if (!item.canApprove || id == null) return;
+    final t = RaftAgentTheme.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        backgroundColor: t.layer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(t.cardRadius == 0 ? 14 : 18),
+          side: BorderSide(color: t.line, width: t.cardBorderWidth),
+        ),
+        title: Text('通过这件事？', style: t.heading(18, weight: FontWeight.w900)),
+        content: Text(
+          '${item.headline}\n\n会把任务设为已完成。',
+          style: t.body(14),
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('attention-approve-cancel'),
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: Text('取消', style: t.body(14, color: t.muted)),
+          ),
+          FilledButton(
+            key: const ValueKey('attention-approve-confirm'),
+            style: FilledButton.styleFrom(
+              backgroundColor: t.markHighlight,
+              foregroundColor: t.foreground,
+            ),
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('通过'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await data.approve(id);
+    } catch (_) {
+      if (mounted) {
+        _voice.say(AgentSpeaker.agent, '没能通过这件事，任务还在原处。稍后再试，或打开讨论处理。');
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => AgentModeData.hidden(widget.controller).add(item.id));
+    _voice.say(AgentSpeaker.agent, '已通过：${item.headline}');
+    unawaited(_loadAttention());
+  }
+
+  void _later(AgentAttentionItem item) =>
+      setState(() => AgentModeData.hidden(widget.controller).add(item.id));
+
+  void _openItem(AgentAttentionItem item) {
+    final c = _channelById(item.channelId);
+    if (c == null) {
+      _voice.say(AgentSpeaker.agent, '这条所在的频道不在你的列表里，打不开。');
+      return;
+    }
+    _openChannel(c).ignore();
   }
 
   void _push(_Layer layer) {
@@ -593,6 +663,8 @@ class _AgentModePageState extends State<AgentModePage> {
 
   /// The lifted item goes back once the agent has finished speaking.
   void _voiceChanged() {
+    // The TV caption follows what the agent says.
+    if (mounted && _tvAttached) _syncTv(context);
     final now = _voice.state;
     final finished =
         _lastMic == AgentMicState.speaking && now == AgentMicState.idle;
@@ -688,25 +760,30 @@ class _AgentModePageState extends State<AgentModePage> {
   Map<String, Object?> _frame(_Layer l) => switch (l) {
     _Attention() => {
       'title': '现在需要你',
-      'meta': '按权重排序',
+      'meta': '按紧急程度',
       'loading': _attention == null && _attentionError == null,
-      'summary': _attentionError != null
-          ? '读取失败：$_attentionError'
-          : _attention == null
-          ? null
-          : _attentionSummary(_attention!),
+      'summary': _attention == null
+          ? (_attentionError == null ? null : '读取失败：$_attentionError')
+          : _attentionSummary(_visible!),
+      // What the voice agent sees and numbers: the cards, in rank order.
       'items': [
-        for (final i in _attention?.take(8) ?? const <AgentAttentionItem>[])
+        for (final (n, i) in (_visible?.items ?? const <AgentAttentionItem>[])
+            .indexed)
           {
             'kind': 'priority',
             'priority': i.priority.name,
-            'weight': i.weight,
-            'title': i.title,
-            'detail': i.detail,
-            'chips': i.chips,
+            'label': i.reason,
+            'weight': n + 1,
+            'title': i.headline,
+            'detail': '要你做：${i.askText} · ${i.waitLabel}',
+            'chips': [
+              if (i.channelName != null) '#${i.channelName}',
+              i.waitLabel,
+            ],
             'channelId': i.channelId,
           },
       ],
+      if (_visible != null) 'tv': _visible!.tvFrame(caption: _caption()),
     },
     _Channel(:final channel) => () {
       final b = _briefs[channel.id];
@@ -749,6 +826,12 @@ class _AgentModePageState extends State<AgentModePage> {
     },
   };
 
+  /// What the agent says, for the caption strip on the TV.
+  String _caption() {
+    final said = _voice.lines.where((l) => l.$1 == AgentSpeaker.agent);
+    return said.isEmpty ? (_visible?.urgent ?? '') : said.last.$2;
+  }
+
   String _peek(_Layer l) => switch (l) {
     _Attention() => '现在需要你',
     _Channel(:final channel) => '# ${channel.name}',
@@ -758,6 +841,7 @@ class _AgentModePageState extends State<AgentModePage> {
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    final wide = MediaQuery.sizeOf(context).width >= agentWideBreakpoint;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncTv(context);
     });
@@ -774,7 +858,7 @@ class _AgentModePageState extends State<AgentModePage> {
             child: SafeArea(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
+                  constraints: BoxConstraints(maxWidth: wide ? 1240 : 760),
                   child: Column(
                     children: [
                       Padding(
@@ -839,14 +923,25 @@ class _AgentModePageState extends State<AgentModePage> {
                                 ZLayer(
                                   key: ValueKey(l.id),
                                   peek: _peek(l),
-                                  child: AgentFrameView(
-                                    focusPrefix: l.id,
-                                    frame: _frame(l),
-                                    onOpen: (id) {
-                                      final c = _channelById(id);
-                                      if (c != null) _openChannel(c).ignore();
-                                    },
-                                  ),
+                                  child: l is _Attention
+                                      ? AgentAttentionView(
+                                          attention: _visible,
+                                          error: _attentionError,
+                                          wide: wide,
+                                          focusPrefix: l.id,
+                                          onApprove: (i) =>
+                                              unawaited(_approve(i)),
+                                          onOpen: _openItem,
+                                          onLater: _later,
+                                        )
+                                      : AgentFrameView(
+                                          focusPrefix: l.id,
+                                          frame: _frame(l),
+                                          onOpen: (id) {
+                                            final c = _channelById(id);
+                                            if (c != null) _openChannel(c).ignore();
+                                          },
+                                        ),
                                 ),
                             ],
                           ),
