@@ -755,7 +755,7 @@ void main() {
     expect(seen, contains('此消息已删除'));
     // The tasks are behind a chip, not the first thing.
     expect(seen, contains('任务 2'));
-    expect(seen, isNot(contains('补全搜索结果的高亮')));
+    expect(seen, isNot(contains('整理发布说明')));
   });
 
   testWidgets('a channel layer with a message pointed at', (t) async {
@@ -763,7 +763,7 @@ void main() {
     await say(t, probe, (call) async {
       await call('open_channel', {'name': 'general'});
     });
-    await t.tap(find.text('明天的发布我来盯着'));
+    await t.tap(find.text('好，我先停下'));
     await t.pumpAndSettle();
     // A conversation is read: pointing at a message opens no stage.
     expect(find.byKey(const ValueKey('agent-frame-stage')), findsNothing);
