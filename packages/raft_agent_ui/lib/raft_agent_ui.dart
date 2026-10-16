@@ -8,6 +8,7 @@ export 'src/agent_theme.dart';
 export 'src/display_spec.dart';
 export 'src/attention_card.dart';
 export 'src/enter.dart';
+export 'src/handsfree/handsfree.dart';
 export 'src/entity_blocks.dart';
 export 'src/entity_cards.dart';
 export 'src/entity_common.dart';
