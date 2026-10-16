@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/message_history_memory.dart';
+import 'package:raft_flutter/data/message_history.dart';
+import 'package:raft_flutter/data/history_memory.dart';
 import 'package:raft_flutter/data/message_history_positions.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/platform/workspace_cache.dart';
@@ -12,6 +16,78 @@ import 'history_memory_test.dart' show HistoryClient, receiver;
 import 'history_memory_viewport_test.dart' show drainIo;
 
 void main() {
+  test(
+    'awaiting maintenance includes changes made during an earlier proof',
+    () async {
+      final changes = ValueNotifier(0),
+          proving = Completer<void>(),
+          releaseProof = Completer<void>();
+      final held = <String, List<Map<String, dynamic>>>{
+        for (var n = 1; n <= 2; n++)
+          'chat-$n': [
+            {'id': 'chat-$n', 'seq': '$n'},
+          ],
+      };
+      var firstProof = true;
+      final pool = HistoryMemoryPool((scope, versions) async {
+        if (firstProof) {
+          firstProof = false;
+          proving.complete();
+          await releaseProof.future;
+        }
+        return [
+          for (final id in versions.keys) (id: id, bytes: 1, durable: true),
+        ];
+      }, activeLimit: 1);
+      addTearDown(() {
+        pool.close();
+        changes.dispose();
+      });
+      pool.register(
+        Object(),
+        HistoryMemoryPort(
+          changes: changes,
+          stamp: () => changes.value,
+          capture: () async {
+            final generation = changes.value;
+            return [
+              HistoryMemoryWindow(
+                scope: const MessageHistoryScope(
+                  origin: 'https://memory.invalid',
+                  principal: 'alice',
+                  server: 'server',
+                  channel: 'chat',
+                  parentChannel: 'chat',
+                  authority: 'member',
+                ),
+                versions: Map.of(held),
+                active: true,
+                current: () => generation == changes.value,
+                release: (ids) {
+                  for (final id in ids) {
+                    held.remove(id);
+                  }
+                  return ids;
+                },
+              ),
+            ];
+          },
+        ),
+      );
+      final earlier = pool.maintain();
+      await proving.future;
+      held['chat-3'] = [
+        {'id': 'chat-3', 'seq': '3'},
+      ];
+      changes.value++;
+      final current = pool.maintain();
+      releaseProof.complete();
+      await current;
+      await earlier;
+      expect(held.keys, ['chat-3']);
+    },
+  );
+
   for (final thread in [false, true]) {
     for (final active in [true, false]) {
       test(

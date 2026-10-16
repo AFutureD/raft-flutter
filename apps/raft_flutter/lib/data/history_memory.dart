@@ -143,8 +143,19 @@ class HistoryMemoryPool {
     }
   }
 
-  Future<void> maintain() =>
-      _maintenance ??= _maintain().whenComplete(() => _maintenance = null);
+  Future<void> maintain() {
+    final running = _maintenance;
+    if (running != null) {
+      // A caller that joins an older proof also waits for changes that made
+      // that capture stale. Returning the old future can leave every new body
+      // retained until the next timer despite the caller awaiting cleanup.
+      return running.then((_) async {
+        if (_dirty && !_closed) await maintain();
+      });
+    }
+    _timer.cancel();
+    return _maintenance = _maintain().whenComplete(() => _maintenance = null);
+  }
 
   Future<void> _maintain() async {
     if (_running || _closed) return;
