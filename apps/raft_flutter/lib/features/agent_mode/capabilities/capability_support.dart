@@ -123,7 +123,23 @@ Map<String, Object?> messageRow(Map<String, dynamic> m) => compact({
   'threadId': m['threadId'] ?? m['threadChannelId'],
   'replyCount': m['replyCount'],
   'seq': m['seq'],
+  'attachments': _attachmentsOf(m['attachments']),
 });
+
+/// The files on a message, for the model to name ("刚才那张图") and to pass to
+/// an operation as `attachment`.
+List<Map<String, Object?>>? _attachmentsOf(Object? raw) {
+  if (raw is! List || raw.isEmpty) return null;
+  return [
+    for (final a in raw.take(4))
+      if (a is Map && a['id'] != null)
+        compact({
+          'id': a['id'],
+          'filename': a['filename'],
+          'mimeType': a['mimeType'],
+        }),
+  ];
+}
 
 List<Map<String, dynamic>> mapRows(Object? v) => [
   if (v is List)

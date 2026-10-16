@@ -489,11 +489,12 @@ void main() {
       'approvals.pending': ({}, 'cards'),
     };
 
-    test('the smoke table covers every registered capability but one', () {
-      // tasks.detail has its own tests below (ambiguity, ids).
+    test('the smoke table covers every registered capability but two', () {
+      // tasks.detail has its own tests below (ambiguity, ids); the
+      // translation read needs the translation store (agent_message_actions).
       expect(
         {for (final c in registry.queries) c.id}.difference(cases.keys.toSet()),
-        {'tasks.detail'},
+        {'tasks.detail', 'messages.translate'},
       );
     });
 
