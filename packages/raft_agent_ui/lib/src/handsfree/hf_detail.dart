@@ -10,8 +10,11 @@ import 'hf_tokens.dart';
 /// One fact of a detail: who, where, how long.
 @immutable
 class HfFact {
-  const HfFact(this.label, this.value);
+  const HfFact(this.label, this.value, {this.lines = 2});
   final String label, value;
+
+  /// Lines the value may take.
+  final int lines;
 }
 
 /// One line of recent progress.
@@ -48,6 +51,7 @@ class HfDetail extends StatelessWidget {
     this.titleMode = HfDetailTitle.sticker,
     this.index,
     this.titleLines = 2,
+    this.progressLines = 2,
     this.trailing,
     this.focusId,
   });
@@ -66,8 +70,8 @@ class HfDetail extends StatelessWidget {
   /// The number the thing has on the screen (a card of a numbered list).
   final int? index;
 
-  /// Lines the heading may take.
-  final int titleLines;
+  /// Lines the heading may take, and each line of progress.
+  final int titleLines, progressLines;
 
   /// Something small at the right of the heading (an avatar).
   final Widget? trailing;
@@ -102,7 +106,7 @@ class HfDetail extends StatelessWidget {
           Expanded(
             child: AgentMarkText(
               f.value,
-              maxLines: 2,
+              maxLines: f.lines,
               style: hf.type(HfType.headline),
             ),
           ),
@@ -126,7 +130,7 @@ class HfDetail extends StatelessWidget {
           Expanded(
             child: AgentMarkText(
               p.who.isEmpty ? p.text : '${p.who} · ${p.text}',
-              maxLines: 2,
+              maxLines: progressLines,
               style: hf.type(HfType.body),
             ),
           ),
@@ -264,10 +268,7 @@ class HfDetail extends StatelessWidget {
         );
       },
     );
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    final head = <Widget>[
         if (titleMode == HfDetailTitle.sticker)
           Align(alignment: Alignment.centerLeft, child: HfTitleSticker(title)),
         if (!beside) ...[
@@ -291,12 +292,46 @@ class HfDetail extends StatelessWidget {
           ],
           SizedBox(height: gap),
         ],
-        card,
-        if (actions.isNotEmpty) ...[
-          SizedBox(height: hf.sp(beside ? 10 : 18)),
-          HfActions(actions: actions),
-        ],
-      ],
+    ];
+    final actionGap = SizedBox(height: hf.sp(beside ? 10 : 18));
+    // In a room of its own height (beside a list) the card scrolls inside it
+    // and the actions stay in view under it; else it is as tall as it is.
+    final body = LayoutBuilder(
+      builder: (context, box) {
+        if (!box.hasBoundedHeight || actions.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...head,
+              card,
+              if (actions.isNotEmpty) ...[
+                actionGap,
+                HfActions(actions: actions),
+              ],
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...head,
+            Flexible(
+              child: SingleChildScrollView(
+                key: const ValueKey('hf-detail-scroll'),
+                physics: hf.interactive
+                    ? const ClampingScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.only(bottom: hf.sp(8), right: hf.sp(2)),
+                child: card,
+              ),
+            ),
+            actionGap,
+            HfActions(actions: actions),
+          ],
+        );
+      },
     );
     final id = focusId;
     return id == null ? body : AgentFocusable(id: id, child: body);

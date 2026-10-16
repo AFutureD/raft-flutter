@@ -267,6 +267,20 @@ class HfSummaryLine extends StatelessWidget {
   }
 }
 
+/// What a layer's header carries at its right on a desktop window (the close
+/// button, the settings): the screen puts it around the front layer. A phone
+/// has no room in its header and keeps these in a bar of their own.
+class HfChrome extends InheritedWidget {
+  const HfChrome({super.key, required this.trailing, required super.child});
+  final Widget trailing;
+
+  static Widget? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<HfChrome>()?.trailing;
+
+  @override
+  bool updateShouldNotify(HfChrome old) => old.trailing != trailing;
+}
+
 /// One layer of agent mode: its header (title, a note, the count line), what
 /// it says in a line, a spinner while it loads or the reason it could not,
 /// and its [children] as the body.
@@ -305,13 +319,14 @@ class HfLayerFrame extends StatelessWidget {
         title: title,
         count: count,
         enterTitle: enterTitle,
-        trailing: meta == null
-            ? null
-            : Text(
-                meta!,
-                maxLines: 1,
-                style: hf.type(HfType.meta, color: HfColors.inkMuted),
-              ),
+        trailing: (hf.phone ? null : HfChrome.of(context)) ??
+            (meta == null
+                ? null
+                : Text(
+                    meta!,
+                    maxLines: 1,
+                    style: hf.type(HfType.meta, color: HfColors.inkMuted),
+                  )),
       ),
       summary: summary == null ? null : HfSummaryLine(summary!),
       pager: pager,

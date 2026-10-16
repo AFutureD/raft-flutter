@@ -78,9 +78,6 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
   /// Where the page that holds a row starts, by the layout of the last build.
   int Function(int index)? _startOf;
 
-  /// The page on show, by the layout of the last build.
-  (int, int) _shown = (0, 0);
-
   void _select(int index) {
     final items = _items;
     if (items.isEmpty) return;
@@ -129,6 +126,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     required double rowWidth,
     required double budget,
     required int cap,
+    required int titleLines,
   }) {
     var used = 0.0;
     var end = start;
@@ -147,6 +145,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
             detail: i.askText,
             badge: n == 0,
             stat: true,
+            titleLines: titleLines,
           );
       // A page holds at least one row, whatever its size.
       if (end > start && used + cost > budget) break;
@@ -198,6 +197,8 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     index: n,
     tone: _tone(i.priority),
     badge: n == 1 ? '最急' : null,
+    // Beside the detail, which has the whole sentence, a row keeps to one line.
+    titleLines: split ? 1 : 2,
     meta: _meta(i),
     title: i.headline,
     detail: i.askText,
@@ -233,7 +234,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
             count: items.where((x) => x.priority == i.priority).length,
           ),
         );
-        children.add(SizedBox(height: hf.sp(8)));
+        children.add(SizedBox(height: hf.sp(4)));
       } else {
         children.add(SizedBox(height: hf.rowGap));
       }
@@ -293,17 +294,15 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
   }
 
   Widget _detail(HfData hf, AgentAttentionItem item, int n) {
-    final lines = item.progress.length > 2
-        ? item.progress.sublist(item.progress.length - 2)
-        : item.progress;
+    final lines = item.progress.isEmpty
+        ? const <AgentProgressLine>[]
+        : [item.progress.last];
     final who = item.doer ?? (item.waiters.isEmpty ? null : item.waiters.first);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        HfDetail(
+    return HfDetail(
           key: const ValueKey('attention-detail'),
           titleMode: HfDetailTitle.heading,
           index: n,
+          progressLines: 1,
           title: item.headline,
           status: [
             if (item.channelName != null) '#${item.channelName}',
@@ -311,7 +310,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
           ].join(' · '),
           tone: _tone(item.priority),
           facts: [
-            HfFact('要你做', item.askText),
+            HfFact('要你做', item.askText, lines: 1),
             if (who != null) HfFact('谁', who),
             HfFact('多久', item.waitLabel),
           ],
@@ -344,17 +343,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
               onPressed: () => widget.onLater(item),
             ),
           ],
-        ),
-        if (hf.interactive)
-          Padding(
-            padding: EdgeInsets.only(top: hf.sp(4)),
-            child: Text(
-              '↑↓ 切换 · ↵ ${item.canApprove ? '通过' : '打开'} · S 稍后',
-              style: hf.type(HfType.meta, color: HfColors.inkMuted),
-            ),
-          ),
-      ],
-    );
+        );
   }
 
   @override
@@ -412,7 +401,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     final room = box.hasBoundedHeight
         ? box.maxHeight - HfFit.header(hf, count: true) - gap
         : double.infinity;
-    final pagerRoom = gap + hf.sp(36);
+    final pagerRoom = gap + hf.sp(32);
     int endOf(int start, {required bool pager}) => _pageEnd(
       hf,
       scaler,
@@ -421,6 +410,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
       rowWidth: listWidth,
       budget: pager ? room - pagerRoom : room,
       cap: cap,
+      titleLines: split ? 1 : 2,
     );
     // Everything fits on one page: no pager. Else the pager takes its room.
     final alone = endOf(0, pager: false) >= items.length;
@@ -441,7 +431,6 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     }
     final end = pageEnd(start);
     _startOf = pageStartOf;
-    _shown = (start, end);
     widget.onPage?.call(start, end);
     if (sel != null && sel >= 1 && sel <= items.length) {
       _index = sel - 1;
@@ -483,7 +472,11 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
         meta: '按紧急程度',
         count: _count(a),
         children: [
-          Row(
+          // A room of its own height: the detail scrolls inside it and keeps
+          // its actions in view.
+          SizedBox(
+            height: room.isFinite ? room - hf.sp(10) : null,
+            child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
@@ -504,6 +497,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
                     : _detail(hf, current, _index + 1),
               ),
             ],
+          ),
           ),
         ],
       ),

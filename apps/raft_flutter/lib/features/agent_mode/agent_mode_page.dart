@@ -1503,12 +1503,15 @@ class _AgentModePageState extends State<AgentModePage> {
     );
   }
 
-  /// The close button, the settings and which layer this is: small.
-  Widget _topBar(HfData hf) {
+  /// The close button, the settings and which layer this is: small. On a
+  /// phone a bar of its own; on a desktop window the right end of the header
+  /// of the front layer ([HfChrome]), so the page keeps its room.
+  Widget _chrome(HfData hf, {required bool bar}) {
     final ink = HfColors.inkSoft;
     return SizedBox(
-      height: hf.sp(40),
+      height: hf.sp(bar ? 40 : 36),
       child: Row(
+        mainAxisSize: bar ? MainAxisSize.max : MainAxisSize.min,
         children: [
           IconButton(
             key: const ValueKey('agent-mode-close'),
@@ -1517,7 +1520,7 @@ class _AgentModePageState extends State<AgentModePage> {
             onPressed: () => Navigator.of(context).maybePop(),
           ),
           Text('Agent 模式', style: hf.type(HfType.body)),
-          const Spacer(),
+          if (bar) const Spacer() else SizedBox(width: hf.sp(12)),
           IconButton(
             key: const ValueKey('agent-voice-settings'),
             tooltip: '声音设置',
@@ -1584,7 +1587,7 @@ class _AgentModePageState extends State<AgentModePage> {
     // it: one layer, no gap.
     final peeks = (_stack.length - 1).clamp(0, 2);
     return HfScreenFrame(
-      top: _topBar(hf),
+      top: hf.phone ? _chrome(hf, bar: true) : null,
       content: AgentRevealSyncScope(
         sync: _reveal,
         child: AgentSpotlight(
@@ -1597,7 +1600,12 @@ class _AgentModePageState extends State<AgentModePage> {
                 ZLayer(
                   key: ValueKey(l.id),
                   peek: _peek(l),
-                  child: _layerView(l, hf),
+                  child: !hf.phone && identical(l, _stack.last)
+                      ? HfChrome(
+                          trailing: _chrome(hf, bar: false),
+                          child: _layerView(l, hf),
+                        )
+                      : _layerView(l, hf),
                 ),
             ],
           ),

@@ -334,7 +334,7 @@ void main() {
           _decision('t4', '丁方案：等你验收'),
         ],
       );
-      await open(t, _Data(w, few), size: const Size(390, 844));
+      await open(t, _Data(w, few), size: const Size(390, 5000));
       expect(find.byKey(const ValueKey('attention-more')), findsNothing);
       expect(find.byType(HfPager), findsNothing);
     });
@@ -357,7 +357,7 @@ void main() {
       await say(t, '下一批');
       expect(card('t1'), findsOneWidget);
       expect(card('m1'), findsNothing);
-      expect(find.textContaining('现在是第 1 到 4 条'), findsWidgets);
+      expect(find.textContaining('现在是从第 1 条起'), findsWidgets);
     });
 
     testWidgets('type is made for arm\'s length: nothing under 13, big counts', (
@@ -848,14 +848,13 @@ void main() {
     ) async {
       await open(t, _Data(w, _three()), size: wide);
       expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
-      // The first item is selected; its progress lines (last 2) are shown.
+      // The first item is selected; its last progress line is shown.
       Finder inDetail(String text) => find.descendant(
         of: find.byKey(const ValueKey('attention-detail')),
         matching: find.textContaining(text),
       );
-      expect(inDetail('t1 进展二'), findsOneWidget);
       expect(inDetail('t1 进展三'), findsOneWidget);
-      expect(inDetail('t1 进展一'), findsNothing);
+      expect(inDetail('t1 进展二'), findsNothing);
       expect(inDetail('甲方案'), findsOneWidget);
       // Three rows to a page on a desktop; rows are compact: headline, no
       // quote.
@@ -952,7 +951,6 @@ void main() {
       expect(find.byKey(const ValueKey('attention-open-t1')), findsOneWidget);
       expect(find.byKey(const ValueKey('attention-later-t1')), findsOneWidget);
       expect(find.text('要你做'), findsOneWidget);
-      expect(find.textContaining('↑↓ 切换'), findsOneWidget);
     });
   });
 

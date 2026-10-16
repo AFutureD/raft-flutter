@@ -150,7 +150,8 @@ class HfCountLine extends StatelessWidget {
                   ),
                 HfBadge(shown[i].count, tone: shown[i].tone),
                 SizedBox(width: hf.sp(8)),
-                Text(shown[i].label, style: style),
+                // Big system type wraps the words instead of spilling.
+                Flexible(child: Text(shown[i].label, style: style)),
               ],
             ),
         ],
@@ -173,7 +174,14 @@ class HfSectionLabel extends StatelessWidget {
       header: true,
       child: Row(
         children: [
-          Text(label, style: hf.type(HfType.body)),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: hf.type(HfType.body),
+            ),
+          ),
           if (count != null) ...[
             SizedBox(width: hf.sp(8)),
             HfBadge(count!, tone: tone, small: true),
