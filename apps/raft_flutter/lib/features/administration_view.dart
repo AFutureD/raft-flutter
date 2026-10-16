@@ -1048,7 +1048,7 @@ class _TranslationSection extends StatefulWidget {
 
 class _TranslationState extends State<_TranslationSection> with _SavedFlash {
   WorkspaceController get w => widget.w;
-  late bool accepted = w.translations.settings.serverEnabled;
+  late bool accepted = w.services.translations.settings.serverEnabled;
   late bool enabled = accepted;
   bool saving = false;
   // ignore: raft_lints/avoid_imperative_notice_state -- Each section's error clears when its next save/action starts, on a successful load, and when the real server state it describes changes (_resync); sections are remounted on server/account change.
@@ -1057,20 +1057,20 @@ class _TranslationState extends State<_TranslationSection> with _SavedFlash {
   @override
   void initState() {
     super.initState();
-    w.translations.addListener(_resync);
-    w.translations.ensureSettings();
+    w.services.translations.addListener(_resync);
+    w.services.translations.ensureSettings();
   }
 
   @override
   void dispose() {
-    w.translations.removeListener(_resync);
+    w.services.translations.removeListener(_resync);
     super.dispose();
   }
 
   /// Re-sync when the accepted server gate changes.
   void _resync() {
     if (!mounted) return;
-    final next = w.translations.settings.serverEnabled;
+    final next = w.services.translations.settings.serverEnabled;
     setState(() {
       if (next != accepted) {
         accepted = next;
@@ -1094,7 +1094,7 @@ class _TranslationState extends State<_TranslationSection> with _SavedFlash {
         data: {'translationEnabled': enabled},
       );
       // Message rows follow the accepted gate without a reload.
-      w.translations.adoptServerSettings(response);
+      w.services.translations.adoptServerSettings(response);
       if (!mounted) return;
       flashSaved(const Duration(seconds: 2));
     } catch (e) {
@@ -1113,7 +1113,7 @@ class _TranslationState extends State<_TranslationSection> with _SavedFlash {
 
   @override
   Widget build(BuildContext context) {
-    final store = w.translations, settings = store.settings;
+    final store = w.services.translations, settings = store.settings;
     final loading = store.settingsLoading;
     final canManage = settings.canManage;
     final failure = error ?? store.settingsError;

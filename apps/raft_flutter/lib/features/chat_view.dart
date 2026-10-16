@@ -196,7 +196,7 @@ class _RaftChatViewState extends State<RaftChatView>
                   listRevision != inputs.$3) {
                 return;
               }
-              final translation = w.translations.present(message);
+              final translation = w.services.translations.present(message);
               if (translation.skeleton) return;
               MessagePresentation(
                 controller: w,
@@ -512,7 +512,7 @@ class _RaftChatViewState extends State<RaftChatView>
     taskProjection = MessageTaskProjection(w)..addListener(referencesChanged);
     selection = MessageSelection(w, thread: widget.thread)
       ..addListener(selectionChanged);
-    w.translations.addListener(referencesChanged);
+    w.services.translations.addListener(referencesChanged);
     bindThreadSearch();
     w.addListener(sync);
     sync();
@@ -538,8 +538,8 @@ class _RaftChatViewState extends State<RaftChatView>
       selection.dispose();
       if (controllerChanged) {
         oldWidget.controller.removeListener(sync);
-        oldWidget.controller.translations.removeListener(referencesChanged);
-        w.translations.addListener(referencesChanged);
+        oldWidget.controller.services.translations.removeListener(referencesChanged);
+        w.services.translations.addListener(referencesChanged);
         taskProjection.dispose();
         composerDirectory.dispose();
         agentPresentation.dispose();
@@ -950,7 +950,7 @@ class _RaftChatViewState extends State<RaftChatView>
     composerDirectory.dispose();
     agentPresentation.dispose();
     referenceDirectory.dispose();
-    w.translations.removeListener(referencesChanged);
+    w.services.translations.removeListener(referencesChanged);
     w.removeListener(sync);
     adapter.dispose();
     viewport.dispose();
@@ -1092,7 +1092,7 @@ class _RaftChatViewState extends State<RaftChatView>
     }
     // Web useTranslationBatch: the panel loads the server's translation
     // settings once per server.
-    w.translations.ensureSettings();
+    w.services.translations.ensureSettings();
     // Upload drafts and composer authority are independent of the chat
     // adapter's message diff. Rebuild them on this view's own listener even
     // when an adaptive/setup parent retains the same child instance. A hidden
@@ -1485,7 +1485,7 @@ class _RaftChatViewState extends State<RaftChatView>
         w.channel?.type != 'thread' &&
         message.string('senderType') != 'external_projection';
     final saved = SavedCountStore.of(w).isSaved(message.id);
-    final translation = w.translations.present(message);
+    final translation = w.services.translations.present(message);
     String? result;
     void pick(BuildContext menuContext, String value) {
       result = value;
@@ -1620,7 +1620,7 @@ class _RaftChatViewState extends State<RaftChatView>
       if (choice == 'copy-markdown') {
         await Clipboard.setData(ClipboardData(text: message.content));
       }
-      if (choice == 'translate') unawaited(w.translations.translate(message));
+      if (choice == 'translate') unawaited(w.services.translations.translate(message));
       if (choice == 'select') selection.enter(message.id);
       if (choice == 'thread') await w.openThread(message);
       if (choice == 'save') await saveMessage(message);
@@ -2597,7 +2597,7 @@ class _RaftChatViewState extends State<RaftChatView>
               ? 'Original shown. Show translation'
               : 'Translated. Show original',
         ),
-        onAction: () => w.translations.setShowOriginal(m.id, !original),
+        onAction: () => w.services.translations.setShowOriginal(m.id, !original),
       );
     } else if (entry.status == MessageTranslationStatus.pending) {
       status = RaftMessageTranslationStatus(
@@ -2612,7 +2612,7 @@ class _RaftChatViewState extends State<RaftChatView>
         message: unavailable,
         actionLabel: raftText(context, 'Retry'),
         tooltip: unavailable,
-        onAction: () => unawaited(w.translations.translate(m)),
+        onAction: () => unawaited(w.services.translations.translate(m)),
       );
     }
     return KeyedSubtree(
@@ -2622,13 +2622,13 @@ class _RaftChatViewState extends State<RaftChatView>
   }
 
   List<RaftMessageSemanticsAction> translationSemanticsActions(RaftMessage m) {
-    final translation = w.translations.present(m);
+    final translation = w.services.translations.present(m);
     final entry = translation.entry;
     return [
       if (translation.manualAction && !translation.manualPending)
         RaftMessageSemanticsAction(
           raftText(context, 'Translate'),
-          (_) => unawaited(w.translations.translate(m)),
+          (_) => unawaited(w.services.translations.translate(m)),
         ),
       if (entry != null && entry.hasContent)
         RaftMessageSemanticsAction(
@@ -2636,7 +2636,7 @@ class _RaftChatViewState extends State<RaftChatView>
             context,
             translation.showingOriginal ? 'Show translation' : 'Show original',
           ),
-          (_) => w.translations.setShowOriginal(
+          (_) => w.services.translations.setShowOriginal(
             m.id,
             !translation.showingOriginal,
           ),
@@ -2644,7 +2644,7 @@ class _RaftChatViewState extends State<RaftChatView>
       else if (entry?.status == MessageTranslationStatus.failed)
         RaftMessageSemanticsAction(
           raftText(context, 'Retry'),
-          (_) => unawaited(w.translations.translate(m)),
+          (_) => unawaited(w.services.translations.translate(m)),
         ),
     ];
   }
@@ -2671,11 +2671,11 @@ class _RaftChatViewState extends State<RaftChatView>
       context,
       w.client.user?.string('preferredMessageBodyFontSize'),
     );
-    final translation = w.translations.present(m);
+    final translation = w.services.translations.present(m);
     // Web useTranslationBatch: auto mode asks for the rows in the built
     // window; the store batches them and skips cached / in-flight rows.
     if (translation.needsRequest && presentationActive) {
-      w.translations.want(m);
+      w.services.translations.want(m);
     }
     return RaftMessageTile(
       key: ValueKey('message-$key'),
