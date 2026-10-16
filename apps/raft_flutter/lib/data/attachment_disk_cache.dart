@@ -274,7 +274,9 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     await _pruneEmpty(index.directory);
   }
 
-  /// Serializes mutations so concurrent writes/evictions see one index.
+  /// Serializes lookups and mutations, including recency updates, so a purge
+  /// waits for lookup handles and index updates. Downloads run separately;
+  /// only their commit enters this queue.
   Future<T> _serial<T>(Future<T> Function() task) {
     final result = _tail.then((_) => task());
     _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
@@ -316,21 +318,26 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   Future<Uint8List?> read(AttachmentImageStoreKey key) async {
     final index = await _open();
     if (index == null) return null;
-    final path = _path(index, key);
+    return _serial(() => _readBytes(index, _path(index, key)));
+  }
+
+  /// Inside [_serial], so a late read cannot restore an entry removed by a
+  /// purge, and Windows deletion never races our timestamp handle.
+  Future<Uint8List?> _readBytes(_DiskIndex index, String path) async {
     final entry = index.files[path];
     if (entry == null) return null;
     if (_expired(index, path, entry.$2)) {
-      await _serial(() => _delete(index, path));
+      await _delete(index, path);
       return null;
     }
     try {
       final bytes = await File(path).readAsBytes();
       final now = _clock();
       index.files[path] = (bytes.length, now);
-      unawaited(_quietly(() => File(path).setLastModified(now)));
+      await _quietly(() => File(path).setLastModified(now));
       return bytes;
     } on FileSystemException {
-      await _serial(() => _delete(index, path));
+      await _delete(index, path);
       return null;
     }
   }
@@ -359,7 +366,8 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   /// True when the bytes entry is stored; no read and no LRU touch.
   Future<bool> contains(AttachmentImageStoreKey key) async {
     final index = await _open();
-    return index != null && await _stored(index, _path(index, key));
+    return index != null &&
+        await _serial(() => _stored(index, _path(index, key)));
   }
 
   /// True when the index has [path], it has not expired and the file is still
@@ -369,7 +377,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     final entry = index.files[path];
     if (entry == null || _expired(index, path, entry.$2)) return false;
     if (await File(path).exists()) return true;
-    await _serial(() => _delete(index, path));
+    await _delete(index, path);
     return false;
   }
 
@@ -430,18 +438,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   Future<Uint8List?> readPublic(String key) async {
     final index = await _open();
     if (index == null) return null;
-    final path = _publicPath(index, key);
-    if (!index.files.containsKey(path)) return null;
-    try {
-      final bytes = await File(path).readAsBytes();
-      final now = _clock();
-      index.files[path] = (bytes.length, now);
-      unawaited(_quietly(() => File(path).setLastModified(now)));
-      return bytes;
-    } on FileSystemException {
-      await _serial(() => _delete(index, path));
-      return null;
-    }
+    return _serial(() => _readBytes(index, _publicPath(index, key)));
   }
 
   /// Stores [bytes] under [key] in the public namespace, then trims that
@@ -483,7 +480,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   }) async {
     final index = await _open();
     return index != null &&
-        await _stored(index, _filePath(index, key, filename));
+        await _serial(() => _stored(index, _filePath(index, key, filename)));
   }
 
   /// The stored file for [key], pinned, or null on a miss. A file whose size
@@ -497,7 +494,9 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     expectedBytes = _knownSize(expectedBytes);
     final index = await _open();
     if (index == null) return null;
-    return _openPath(index, _filePath(index, key, filename), expectedBytes);
+    return _serial(
+      () => _openPath(index, _filePath(index, key, filename), expectedBytes),
+    );
   }
 
   /// Attachment metadata without a size (0, negative) promises nothing: it must
@@ -513,7 +512,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     final entry = index.files[path];
     if (entry == null) return null;
     if (_expired(index, path, entry.$2)) {
-      await _serial(() => _delete(index, path));
+      await _delete(index, path);
       return null;
     }
     _pin(path); // Before touching the disk: eviction must not win the race.
@@ -527,11 +526,11 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
       }
       final now = _clock();
       index.files[path] = (stat.size, now);
-      unawaited(_quietly(() => File(path).setLastModified(now)));
+      await _quietly(() => File(path).setLastModified(now));
       return AttachmentCachedFile._(this, File(path));
     } on FileSystemException {
       _unpin(path);
-      await _serial(() => _delete(index, path));
+      await _delete(index, path);
       return null;
     }
   }
@@ -555,7 +554,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     final index = await _open();
     if (index == null) throw const AttachmentCacheUnavailable();
     final path = _filePath(index, key, filename);
-    final stored = await _openPath(index, path, expectedBytes);
+    final stored = await _serial(() => _openPath(index, path, expectedBytes));
     if (stored != null) return stored;
     if (cancel?.isCancelled == true) return null;
     final job = _downloads[path] ??= _startDownload(
