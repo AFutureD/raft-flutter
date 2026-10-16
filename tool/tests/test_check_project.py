@@ -464,7 +464,7 @@ class RetryFilesTests(unittest.TestCase):
             return attempt == 2
 
         flaky, still = check.retry_files(['a_test.dart'], failures, 3, run_once)
-        self.assertEqual(flaky, [{'file': 'a_test.dart', 'tests': ['one', 'two'], 'attempts': 2}])
+        self.assertEqual(flaky, [{'file': 'a_test.dart', 'tests': ['one', 'two'], 'errors': [], 'attempts': 2}])
         self.assertEqual(still, [])
         self.assertEqual(calls, [('a_test.dart', 1), ('a_test.dart', 2)])  # stops at the first pass
 
@@ -570,7 +570,7 @@ class RunGateRetryTests(unittest.TestCase):
         outcome, result, emitted = self.run_it()
         self.assertTrue(outcome['ok'])
         self.assertTrue(result['passed'])
-        self.assertEqual(result['flaky'], [{'file': 'apps/raft_flutter/test/a_test.dart', 'tests': ['sample test'], 'attempts': 1}])
+        self.assertEqual(result['flaky'], [{'file': 'apps/raft_flutter/test/a_test.dart', 'tests': ['sample test'], 'errors': [], 'attempts': 1}])
         self.assertEqual(len(self.retries('test/a_test.dart')), 1)
         self.assertEqual(self.retries('test/b_test.dart'), [])
         self.assertTrue(all(result['checks'].values()))
@@ -779,3 +779,18 @@ class ReuseTests(unittest.TestCase):
             check.parse_args(['--nope'])
         self.assertEqual(check.parse_args(['--reuse', '--all-themes']), (True, True))
         self.assertEqual(check.parse_args([]), (False, False))
+
+
+class FlakyEvidenceTests(unittest.TestCase):
+    def test_first_run_errors_are_kept_for_a_flake(self):
+        failures = [
+            {'file': 'a_test.dart', 'name': 'one', 'error': 'Expected: <14>\n  Actual: <6.4>', 'status': 'failed'},
+            {'file': 'a_test.dart', 'name': 'two', 'error': 'Expected: <14>\n  Actual: <6.4>', 'status': 'failed'},
+            {'file': 'b_test.dart', 'name': 'three', 'error': 'other file', 'status': 'failed'},
+            {'file': 'a_test.dart', 'name': 'four', 'error': 'x' * 400, 'status': 'failed'},
+        ]
+        errors = check.first_run_errors(failures, 'a_test.dart')
+        self.assertEqual(errors[0], 'Expected: <14>\n  Actual: <6.4>')
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(errors[1].endswith('…'))
+        self.assertLessEqual(len(errors[1]), 301)

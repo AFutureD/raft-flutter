@@ -15,7 +15,7 @@ retried), the failed test files plus files that never finished are re-run alone 
 `flutter test <file>`, up to RAFT_CHECK_RETRIES attempts each (default 3, 0 = no
 retry), stopping at the first pass. A file that passes on a retry is a flake: the
 run may pass, and the final JSON lists it as
-"flaky": [{"file", "tests": [failed test names of the first run], "attempts": n}]
+"flaky": [{"file", "tests": [failed test names of the first run], "errors": [their first-run failure messages], "attempts": n}]
 (n = retry attempts used) while the summary prints "FLAKY (passed on retry)". A
 file that fails every attempt keeps the run failed. More than 6 files to retry
 (real breakage), an early stop (max failures, compile error, stall) or a failure
@@ -290,6 +290,8 @@ def format_summary(shards, failures, totals, slowest, limit=None, themes=None, s
         for item in flaky:
             names = '; '.join(item['tests']) or '(file did not finish)'
             lines.append(f"  {item['file']} (retry attempt {item['attempts']}): {names}")
+            for error in item.get('errors', ()):
+                lines.append(f"    first run: {error}")
     if retry_failed:
         lines.append('Still failing after retries:')
         lines.extend(f"  {item['file']} ({item['attempts']} retry attempt(s))" for item in retry_failed)
@@ -683,6 +685,16 @@ def failed_test_names(failures, file):
     return names
 
 
+def first_run_errors(failures, file, limit=3, width=300):
+    """The first run's failure messages in `file`, so a flake keeps the evidence of how it failed."""
+    errors = []
+    for failure in failures:
+        message = (failure.get('error') or '').strip()
+        if failure['file'] == file and message and message not in errors:
+            errors.append(message if len(message) <= width else message[:width] + '…')
+    return errors[:limit]
+
+
 def retry_files(files, failures, retries, run_once):
     """Re-run each file alone, up to `retries` attempts, stopping at its first pass.
 
@@ -694,7 +706,7 @@ def retry_files(files, failures, retries, run_once):
     for file in files:
         for attempt in range(1, retries + 1):
             if run_once(file, attempt):
-                flaky.append({'file': file, 'tests': failed_test_names(failures, file), 'attempts': attempt})
+                flaky.append({'file': file, 'tests': failed_test_names(failures, file), 'errors': first_run_errors(failures, file), 'attempts': attempt})
                 break
         else:
             still_failing.append({'file': file, 'attempts': retries})
