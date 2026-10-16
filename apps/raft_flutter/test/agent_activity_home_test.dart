@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -268,7 +270,7 @@ void main() {
       expect(items[3].reason, '点名后等你处理');
       expect(items[3].rowKind, 'mention_action');
       // A thread under a message of mine, read: it replied to me.
-      expect(items[4].reason, '你关注的讨论');
+      expect(items[4].reason, '回复了你的消息');
       expect(items[4].unread, 0);
       final mine = feed.itemOf({
         ..._thread('th9', unread: 0, who: 'Kevin'),
@@ -398,7 +400,9 @@ void main() {
         rows: [
           for (var i = 1; i <= 12; i++)
             {
-              'id': i == 1 ? 'p-th1' : (i == 12 ? 'l-th1' : 'm$i'),
+              'id': i == 1
+                  ? 'p-th1'
+                  : (i == 5 ? 'u-th1' : (i == 12 ? 'l-th1' : 'm$i')),
               'seq': '$i',
               'senderType': i.isEven ? 'agent' : 'user',
               'senderId': i.isEven ? 'a-cody' : 'kevin',
@@ -449,7 +453,7 @@ void main() {
       );
       // The message the Activity page opens at is the highlighted one (the
       // first unread of the thread): every message of the list is there.
-      for (final id in ['p-th1', 'm2', 'm7', 'l-th1']) {
+      for (final id in ['p-th1', 'm2', 'u-th1', 'm7', 'l-th1']) {
         expect(
           find.byKey(ValueKey('hf-bubble-$id'), skipOffstage: false),
           findsOneWidget,
@@ -459,13 +463,24 @@ void main() {
       expect(find.text('第 12 句话', skipOffstage: false), findsOneWidget);
       // A system message is a note, not a bubble.
       expect(find.byKey(const ValueKey('hf-bubble-sys1'), skipOffstage: false), findsNothing);
-      final bubble = t.widget<DecoratedBox>(
-        find.descendant(
-          of: find.byKey(const ValueKey('hf-bubble-u-th1'), skipOffstage: false),
-          matching: find.byType(DecoratedBox),
-        ).first,
-      );
-      expect(bubble, isNotNull);
+      Color? fill(String id) =>
+          ((t.widget<DecoratedBox>(
+                        find
+                            .descendant(
+                              of: find.byKey(
+                                ValueKey('hf-bubble-$id'),
+                                skipOffstage: false,
+                              ),
+                              matching: find.byType(DecoratedBox),
+                            )
+                            .first,
+                      )).decoration
+                  as BoxDecoration)
+              .color;
+      expect(fill('u-th1'), const Color(0xfffff7d6));
+      expect(fill('m7'), isNot(const Color(0xfffff7d6)));
+      // The chip of the tasks is in the header, the tasks are not on top.
+      expect(find.byKey(const ValueKey('conversation-tasks')), findsNothing);
       expect(t.takeException(), isNull);
     }, skip: false);
   });
@@ -583,8 +598,8 @@ void main() {
       expect(find.textContaining('预览 messages.react'), findsWidgets);
       expect(ran, isEmpty);
       await confirm(t);
-      expect(ran, [
-        ('messages.react', {'message': 'l-th1', 'emoji': '👍', 'channel': 'th1'}),
+      expect(_ran(ran), [
+        _c('messages.react', {'message': 'l-th1', 'emoji': '👍', 'channel': 'th1'}),
       ]);
     });
 
@@ -608,9 +623,9 @@ void main() {
       await current(t, 'activity:dm:d1');
       await press(t, 'attention-done-activity:dm:d1');
       await confirm(t);
-      expect(ran, [
-        ('activity.mark_done', {'channel': 'c1', 'thread': 'th1'}),
-        ('activity.mark_done', {'channel': 'd1'}),
+      expect(_ran(ran), [
+        _c('activity.mark_done', {'channel': 'c1', 'thread': 'th1'}),
+        _c('activity.mark_done', {'channel': 'd1'}),
       ]);
       await current(t, 'activity:mention_action:ma1');
       expect(
@@ -629,8 +644,8 @@ void main() {
       await type(t, '先跑全量');
       expect(find.byKey(const ValueKey('agent-reply-note')), findsNothing);
       await confirm(t);
-      expect(ran, [
-        (
+      expect(_ran(ran), [
+        _c(
           'messages.reply_thread',
           {'message': 'p-th1', 'text': '先跑全量', 'channel': 'c1'},
         ),
@@ -640,8 +655,8 @@ void main() {
       await press(t, 'attention-reply-activity:dm:d1');
       await type(t, '可以，周五见');
       await confirm(t);
-      expect(ran, [
-        ('messages.send', {'channel': 'd1', 'text': '可以，周五见'}),
+      expect(_ran(ran), [
+        _c('messages.send', {'channel': 'd1', 'text': '可以，周五见'}),
       ]);
     });
 
@@ -683,8 +698,8 @@ void main() {
       await press(t, 'agent-assign-Cody');
       expect(find.byKey(const ValueKey('agent-assign-panel')), findsNothing);
       await confirm(t);
-      expect(ran, [
-        ('tasks.assign', {'task': 't1', 'assignee': 'Cody'}),
+      expect(_ran(ran), [
+        _c('tasks.assign', {'task': 't1', 'assignee': 'Cody'}),
       ]);
       ran.clear();
       // A message that is no task yet.
@@ -822,3 +837,10 @@ class _HomeData extends AgentModeData {
 class _Signal extends ChangeNotifier {
   void fire() => notifyListeners();
 }
+
+/// What ran, as text: the capability and the arguments it was given.
+List<String> _ran(List<(String, Map<String, Object?>)> ran) => [
+  for (final (id, args) in ran) _c(id, args),
+];
+
+String _c(String id, Map<String, Object?> args) => '$id ${jsonEncode(args)}';
