@@ -456,6 +456,36 @@ void main() {
       final r = await ask('mark_done', {'channel': 'design'});
       expect(r['error'], contains('不在动态里'));
     });
+
+    test('a thread of the Activity is done by its own id', () async {
+      w.routes['/channels/inbox'] = (_) => {
+        'items': [
+          {
+            'kind': 'thread',
+            'threadChannelId': 'th-1',
+            'parentChannelId': 'ch-general',
+            'parentMessageId': 'p-1',
+            'unreadCount': 3,
+            'doneFrontierSeq': '9',
+          },
+        ],
+      };
+      final r = await ask('mark_done', {'channel': 'general', 'thread': 'th-1'});
+      expect(changes(r), ['#general 里的讨论串 动态: 待处理 → 已处理', '未读: 3 条 → 0 条']);
+      await approve(r);
+      expect(w.commands.first.$2, '/channels/threads/done');
+      expect(w.commands.first.$3, {
+        'threadChannelId': 'th-1',
+        'throughActivitySeq': '9',
+        'frontierSpace': 'storage',
+      });
+      // A thread the Activity does not list is refused.
+      final none = await ask('mark_done', {
+        'channel': 'general',
+        'thread': 'th-9',
+      });
+      expect(none['error'], contains('不在动态里'));
+    });
   });
 
   group('channels.join', () {
