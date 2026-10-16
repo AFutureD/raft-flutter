@@ -174,7 +174,7 @@ void main() {
       expect(r['status'], 'needs_confirmation', reason: '$r');
       expect(h.summary(r), contains('#98'));
       expect(h.summary(r), contains('明天 09:00'));
-      expect(h.changes(r).single, '现在需要你: 待处理 → 稍后（明天 09:00）');
+      expect(h.changes(r).single, '首页: 待处理 → 稍后（明天 09:00）');
       expect((r['preview'] as Map)['reversible'], isTrue);
       expect(store.active, isEmpty, reason: 'nothing before 确认');
 
@@ -241,7 +241,7 @@ void main() {
     test('undo puts it back; undoing a re-snooze restores the old time', () async {
       var done = await h.run('attention.snooze', {'item': '98', 'when': 'tomorrow'});
       expect(done['status'], 'done');
-      expect((done['undo'] as Map)['label'], '放回现在需要你');
+      expect((done['undo'] as Map)['label'], '放回首页');
       final undone = await h.undoSaid();
       expect(undone['status'], 'undone', reason: '$undone');
       expect(store.active, isEmpty);

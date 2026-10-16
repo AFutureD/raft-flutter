@@ -192,7 +192,7 @@ void main() {
     // right, numbered; the type is the same ramp scaled by s = 2.
     expect(find.byType(HfRow), findsNWidgets(2));
     expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
-    expect(find.text('现在需要你'), findsOneWidget);
+    expect(find.text(AgentAttentionView.layerTitle), findsOneWidget);
     expect(find.textContaining('修复已提交'), findsOneWidget);
     // Nothing to press: the buttons are pills that say what to say.
     expect(find.textContaining('「通过」'), findsOneWidget);

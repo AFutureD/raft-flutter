@@ -56,26 +56,30 @@ class _Data extends AgentModeData {
   );
 
   @override
-  Future<AgentChannelBrief> channel(
-    RaftChannel c, {
-    int windowHours = 6,
+  Future<AgentConversationRead> conversation(
+    String id, {
+    int limit = 50,
+    bool withTasks = true,
+    String? parentChannelId,
+    String? parentMessageId,
   }) async {
     channelReads++;
-    return AgentChannelBrief(
-      channel: c,
-      messages: [
+    return AgentConversationRead(
+      rows: [
         {
           'id': 'm1',
           'seq': '1',
           'content': 'PR #113 已合入',
+          'senderType': 'agent',
+          'senderId': 'a-cindy',
           'senderName': 'Cindy',
+          'messageType': 'chat',
           'createdAt': _now.toIso8601String(),
         },
       ],
       tasks: [
         {'taskNumber': 98, 'title': '搜索返回', 'status': 'in_review'},
       ],
-      windowHours: windowHours,
     );
   }
 
@@ -125,7 +129,7 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
-        expect(find.text('现在需要你'), findsWidgets);
+        expect(find.text('动态'), findsWidgets);
         expect(find.text('第 1 层'), findsOneWidget);
         expect(
           find.text('Cindy 完成了「Personal Agent 第一版选型」，等你验收'),
@@ -148,7 +152,7 @@ void main() {
         expect(find.text('PR #113 已合入'), findsOneWidget);
         expect(data.channelReads, 1);
         // The attention layer is still mounted behind as a peek strip.
-        expect(find.textContaining('现在需要你'), findsWidgets);
+        expect(find.textContaining('动态'), findsWidgets);
 
         await t.enterText(find.byKey(const ValueKey('agent-input')), '返回');
         await t.testTextInput.receiveAction(TextInputAction.send);
@@ -176,7 +180,7 @@ void main() {
 
   for (final wide in [false, true]) {
     testWidgets(
-      'a row of a channel is current on a tap: ${wide ? 'the slot beside '
+      'a row of the tasks is current on a tap: ${wide ? 'the slot beside '
                 'the list' : 'a stage under it'} shows it',
       (t) async {
         t.view.physicalSize = wide
@@ -197,21 +201,21 @@ void main() {
         await t.pumpAndSettle();
         await t.enterText(
           find.byKey(const ValueKey('agent-input')),
-          'raft-flutter 现在什么情况？',
+          '看看任务',
         );
         await t.testTextInput.receiveAction(TextInputAction.send);
         await t.pumpAndSettle();
         expect(find.text('第 2 层'), findsOneWidget);
         expect(find.byKey(const ValueKey('agent-frame-stage')), findsNothing);
 
-        await t.tap(find.text('PR #113 已合入'));
+        await t.tap(find.text('历史上拉'));
         await t.pumpAndSettle();
         // No new layer; the item is shown on the stage, in full.
         expect(find.text('第 2 层'), findsOneWidget);
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('agent-frame-stage')),
-            matching: find.text('PR #113 已合入'),
+            matching: find.text('历史上拉'),
           ),
           findsOneWidget,
         );
@@ -220,7 +224,7 @@ void main() {
           wide ? findsNothing : findsOneWidget,
         );
         // Its row is still in the list, lit.
-        expect(find.text('PR #113 已合入'), findsNWidgets(2));
+        expect(find.text('历史上拉'), findsNWidgets(2));
         // Going back puts the stage under a row away first; the pane beside a
         // list has nothing to put away.
         if (!wide) {
@@ -232,6 +236,37 @@ void main() {
       },
     );
   }
+
+  testWidgets('a conversation is read, not picked from: a tap on a message '
+      'opens no stage', (t) async {
+    t.view.physicalSize = const Size(390, 844);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: AgentModePage(controller: w, data: _Data(w)),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+    await t.pumpAndSettle();
+    await t.enterText(
+      find.byKey(const ValueKey('agent-input')),
+      'raft-flutter 现在什么情况？',
+    );
+    await t.testTextInput.receiveAction(TextInputAction.send);
+    await t.pumpAndSettle();
+    expect(find.text('第 2 层'), findsOneWidget);
+    expect(find.byKey(const ValueKey('hf-bubble-m1')), findsOneWidget);
+    await t.tap(find.text('PR #113 已合入'));
+    await t.pumpAndSettle();
+    expect(find.text('第 2 层'), findsOneWidget);
+    expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
+    expect(find.byKey(const ValueKey('agent-frame-stage')), findsNothing);
+    // The tasks are behind the chip in the header, not on top of the chat.
+    expect(find.text('任务 1'), findsOneWidget);
+  });
 
   testWidgets('unknown requests get a hint and keep the stack', (t) async {
     await t.pumpWidget(

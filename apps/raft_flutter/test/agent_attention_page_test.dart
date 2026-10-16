@@ -209,25 +209,24 @@ void main() {
   );
 
   group('phone', () {
-    testWidgets('header: the three counts, then the sections', (t) async {
+    testWidgets('header: the counts, then one feed', (t) async {
       await open(t, _Data(w, _three()));
       expect(countOf('decision', '3'), findsOneWidget);
       expect(countOf('blocked', '1'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('attention-count-mention')),
-        findsNothing,
-      );
+      expect(countOf('mention', '1'), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-count-unread')), findsNothing);
       expect(find.text('件等你决定'), findsOneWidget);
       expect(find.text('件卡住了'), findsOneWidget);
-      // The most urgent item is tagged.
-      expect(find.text('最急'), findsOneWidget);
-      // Sections head the rows under them: all of them, one page.
-      expect(find.text('等你决定'), findsOneWidget);
-      expect(find.text('卡住了'), findsOneWidget);
-      expect(find.text('点名你'), findsOneWidget);
+      expect(find.text('处点名你'), findsOneWidget);
+      // One label heads all the rows: the feed is not cut into sections by
+      // how urgent each thing is, and no row is called the most urgent.
+      expect(find.text('最新动态'), findsOneWidget);
+      expect(find.text('最急'), findsNothing);
+      expect(find.text('等你决定'), findsNothing);
+      expect(find.text('点名你'), findsNothing);
       // The scope note and the side labels are gone.
       expect(find.text(AgentAttention.scopeNote), findsNothing);
-      expect(find.text('按紧急程度'), findsNothing);
+      expect(find.text(AgentAttentionView.layerMeta), findsNothing);
       expect(card('m1'), findsOneWidget);
       // The old query-cap sentence is gone.
       expect(find.textContaining('50 件'), findsNothing);
@@ -909,7 +908,7 @@ void main() {
 
     testWidgets('nothing waiting says so', (t) async {
       await open(t, _Data(w, const AgentAttention(items: [])));
-      expect(find.text('现在没有需要你处理的事'), findsOneWidget);
+      expect(find.text(AgentAttentionView.emptyHeadline), findsOneWidget);
       expect(
         find.byKey(const ValueKey('attention-count-decision')),
         findsNothing,
@@ -959,7 +958,7 @@ void main() {
         ),
       );
       await t.pump();
-      expect(find.text('现在没有需要你处理的事'), findsNothing);
+      expect(find.text(AgentAttentionView.emptyHeadline), findsNothing);
       data.gate!.complete(_three());
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('attention-card-t1')), findsOneWidget);
@@ -1206,7 +1205,7 @@ void main() {
       expect(find.text('丙方案：等你验收'), findsOneWidget);
       expect(find.text('丁方案：等你验收'), findsOneWidget);
       expect(find.textContaining('/ 5'), findsNothing);
-      expect(find.text('最急'), findsOneWidget);
+      expect(find.text('最急'), findsNothing);
       expect(find.text('24'), findsOneWidget);
       // The detail of the first row, beside the list.
       expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
@@ -1230,7 +1229,7 @@ void main() {
 
     testWidgets('an empty list says so on the TV too', (t) async {
       await tv(t, const AgentAttention(items: []));
-      expect(find.text('现在没有需要你处理的事'), findsOneWidget);
+      expect(find.text(AgentAttentionView.emptyHeadline), findsOneWidget);
     });
   });
 }

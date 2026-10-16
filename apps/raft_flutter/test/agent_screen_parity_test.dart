@@ -5,9 +5,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/features/agent_mode/agent_activity_feed.dart';
 import 'package:raft_flutter/features/agent_mode/agent_attention.dart';
 import 'package:raft_flutter/features/agent_mode/agent_catalog.dart';
 import 'package:raft_flutter/features/agent_mode/agent_consent_tray.dart';
+import 'package:raft_flutter/features/agent_mode/agent_conversation_view.dart';
 import 'package:raft_flutter/features/agent_mode/agent_frame_view.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
@@ -178,47 +180,116 @@ class _Data extends AgentModeData {
         ];
 
   @override
-  Future<AgentChannelBrief> channel(
-    RaftChannel c, {
-    int windowHours = 6,
-  }) async => AgentChannelBrief(
-    channel: c,
-    windowHours: windowHours,
-    tasks: [
-      taskRow(
-        't11',
-        11,
-        'in_review',
-        title: '补全搜索结果的高亮',
-        claimedById: 'a-cody',
-        claimedByName: 'Cody',
+  Future<AgentConversationRead> conversation(
+    String id, {
+    int limit = 50,
+    bool withTasks = true,
+    String? parentChannelId,
+    String? parentMessageId,
+  }) async => AgentConversationRead(
+    hasMore: true,
+    tasks: withTasks
+        ? [
+            taskRow(
+              't11',
+              11,
+              'in_review',
+              title: '补全搜索结果的高亮',
+              claimedById: 'a-cody',
+              claimedByName: 'Cody',
+            ),
+            taskRow(
+              't12',
+              12,
+              'in_progress',
+              title: '整理发布说明',
+              claimedById: 'a-cindy',
+              claimedByName: 'Cindy',
+            ),
+          ]
+        : const [],
+    // Every kind of message a channel holds: people and Agents, system
+    // notes, a task event, files and a picture, code, a quote, a reaction,
+    // a thread, an edited and a deleted message.
+    rows: [
+      _chat('m1', 1, 'Ada', '明天的发布我来盯着', 300, more: {'replyCount': 2}),
+      _chat('m2', 2, 'Cody', '#11 已经提交，等验收', 290, agent: true),
+      _system('s1', 3, 'Cody claimed #11 "补全搜索结果的高亮"', 288),
+      _system('s2', 4, 'Cody moved #11 "补全搜索结果的高亮" to In Review', 287),
+      _system('s3', 5, '系统：频道设置已更新', 286),
+      _chat(
+        'm3',
+        6,
+        'Zed',
+        '看一下这个：\n```\nfinal a = 1;\n```\n> 先别合并',
+        200,
+        more: {
+          'attachments': [
+            {
+              'id': 'f1',
+              'filename': '日志.txt',
+              'mimeType': 'text/plain',
+              'sizeBytes': 2048,
+            },
+            {
+              'id': 'f2',
+              'filename': '截图.png',
+              'mimeType': 'image/png',
+              'sizeBytes': 90210,
+            },
+          ],
+          'reactions': [
+            {
+              'emoji': '👍',
+              'count': 2,
+              'reactorIds': ['u1', 'u2'],
+              'reactorNames': ['Ada', 'Bo'],
+            },
+          ],
+        },
       ),
-      taskRow(
-        't12',
-        12,
-        'in_progress',
-        title: '整理发布说明',
-        claimedById: 'a-cindy',
-        claimedByName: 'Cindy',
-      ),
-    ],
-    messages: [
-      {
-        'id': 'm1',
-        'seq': '1',
-        'senderName': 'Ada',
-        'content': '明天的发布我来盯着',
-        'createdAt': hoursAgo(2),
-      },
-      {
-        'id': 'm2',
-        'seq': '2',
-        'senderName': 'Cody',
-        'content': '#11 已经提交，等验收',
-        'createdAt': hoursAgo(1),
-      },
+      _chat('m4', 7, 'Ada', '改了一下说法', 100, more: {'editedAt': hoursAgo(1)}),
+      _chat('m5', 8, 'Bo', '删掉了', 90, more: {'deletedAt': hoursAgo(1)}),
+      _chat('m6', 9, 'Cody', '好，我先停下', 60, agent: true),
     ],
   );
+
+  static Map<String, dynamic> _chat(
+    String id,
+    int seq,
+    String who,
+    String text,
+    int minutes, {
+    bool agent = false,
+    Map<String, dynamic> more = const {},
+  }) => {
+    'id': id,
+    'seq': '$seq',
+    'channelId': 'ch-general',
+    'senderType': agent ? 'agent' : 'user',
+    'senderId': agent ? 'a-${who.toLowerCase()}' : 'u-${who.toLowerCase()}',
+    'senderName': who,
+    'content': text,
+    'messageType': 'chat',
+    'createdAt': worldNow.subtract(Duration(minutes: minutes)).toIso8601String(),
+    ...more,
+  };
+
+  static Map<String, dynamic> _system(
+    String id,
+    int seq,
+    String text,
+    int minutes,
+  ) => {
+    'id': id,
+    'seq': '$seq',
+    'channelId': 'ch-general',
+    'senderType': 'system',
+    'senderName': 'System',
+    'content': text,
+    'messageType': 'system',
+    'createdAt': worldNow.subtract(Duration(minutes: minutes)).toIso8601String(),
+  };
 
   @override
   Future<List<Map<String, dynamic>>> openTasks() async => [
@@ -241,6 +312,118 @@ class _Data extends AgentModeData {
       claimedByName: 'Cindy',
     ),
   ];
+}
+
+/// The home as the App's Activity gives it: rows composed by the real code,
+/// a decision among them, and tasks nobody touched for days apart.
+class _HomeData extends _Data {
+  _HomeData(super.w);
+
+  List<Map<String, dynamic>> rows() => [
+    {
+      'kind': 'thread',
+      'threadChannelId': 'th-m7',
+      'parentChannelId': 'ch-general',
+      'parentChannelName': 'general',
+      'parentChannelType': 'channel',
+      'parentMessageId': 'p-m7',
+      'parentMessagePreview': '检测首片什么时候出？',
+      'parentMessageSenderId': 'kevin',
+      'latestActivityMessageId': 'l-m7',
+      'latestActivityPreview': '@Kevin 首片 12 张里 2 张误检，继续跑全量吗？',
+      'latestActivitySenderName': 'Cody',
+      'latestActivitySenderId': 'a-cody',
+      'latestActivitySenderType': 'agent',
+      'firstUnreadMessageId': 'u-m7',
+      'lastActivityAt': hoursAgo(0),
+      'unreadCount': 2,
+      'hasMention': true,
+      'isFollowing': true,
+    },
+    {
+      'kind': 'dm',
+      'channelId': 'd1',
+      'channelName': 'alice',
+      'channelType': 'dm',
+      'lastMessageId': 'l-d1',
+      'lastMessagePreview': '周五的评审你能来吗？',
+      'lastMessageSenderName': 'Alice Chen',
+      'lastMessageSenderId': 'u-alice',
+      'lastMessageSenderType': 'user',
+      'lastMessageAt': hoursAgo(1),
+      'unreadCount': 1,
+    },
+    {
+      'kind': 'channel',
+      'channelId': 'ch-design',
+      'channelName': 'design',
+      'channelType': 'channel',
+      'lastMessageId': 'l-design',
+      'lastMessagePreview': '暗色稿上传了',
+      'lastMessageSenderName': 'Bo',
+      'lastMessageSenderId': 'u-bo',
+      'lastMessageSenderType': 'user',
+      'lastMessageAt': hoursAgo(5),
+      'unreadCount': 0,
+    },
+  ];
+
+  @override
+  Future<AgentConversationRead> conversation(
+    String id, {
+    int limit = 50,
+    bool withTasks = true,
+    String? parentChannelId,
+    String? parentMessageId,
+  }) async => id != 'th-m7'
+      ? super.conversation(id, withTasks: withTasks)
+      : AgentConversationRead(
+          rows: [
+            _Data._chat('p-m7', 1, 'Kevin', '检测首片什么时候出？', 300),
+            _Data._chat('u-m7', 2, 'Cody', '首片出来了，两张误检。', 20, agent: true),
+            _Data._chat(
+              'l-m7',
+              3,
+              'Cody',
+              '@Kevin 首片 12 张里 2 张误检，继续跑全量吗？',
+              2,
+              agent: true,
+            ),
+          ],
+        );
+
+  AgentAttentionItem stale(String id, int n, String text, int days) =>
+      AgentAttentionItem(
+        id: id,
+        taskId: id,
+        taskNumber: n,
+        kind: AgentItemKind.stale,
+        priority: AgentPriority.blocked,
+        headline: '$text，$days 天没动',
+        ask: '解除阻塞',
+        reason: '很久没动了',
+        idle: true,
+        at: worldNow.subtract(Duration(days: days)),
+        waitValue: days,
+        waitUnit: '天',
+        channelId: 'ch-general',
+        channelName: 'general',
+        progress: [_line('Grok', '10-0$days 09:00', text)],
+      );
+
+  @override
+  Future<AgentAttention> attention() async => AgentAttention(
+    items: AgentActivityFeed.compose(activityItems(rows()), const []),
+    stale: [stale('s1', 77, '安装包签名', 4), stale('s2', 80, '迁移脚本', 9)],
+    team: const [
+      AgentTeamItem(
+        id: 'tm1',
+        headline: 'Bo 在迁移数据',
+        channelName: 'general',
+        who: 'Bo',
+      ),
+    ],
+  );
 }
 
 String _norm(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -382,6 +565,7 @@ void main() {
   Future<_Probe> open(
     WidgetTester t, {
     Size size = const Size(390, 1400),
+    AgentModeData Function(CapabilityWorld w)? data,
   }) async {
     t.view.physicalSize = size;
     t.view.devicePixelRatio = 1;
@@ -392,7 +576,7 @@ void main() {
         theme: raftTheme(RaftFamily.elegant, dark: false),
         home: AgentModePage(
           controller: w,
-          data: _Data(w),
+          data: data == null ? _Data(w) : data(w),
           model: probe,
           registry: registry,
         ),
@@ -481,33 +665,131 @@ void main() {
     _expectParity(_shown(t, attentionRoots()), seen, 'team row open');
   });
 
-  testWidgets('a channel layer: its tasks and messages', (t) async {
+  testWidgets('the Activity home: who, where, the words, how long, why', (
+    t,
+  ) async {
+    final probe = await open(t, data: _HomeData.new);
+    final seen = await given(t, probe, 'go_home');
+    _expectParity(_shown(t, attentionRoots()), seen, 'activity home');
+    for (final word in ['Cody', '#general', '检测首片什么时候出？', '点名了你', '2 条未读', '私信 · Alice Chen', '私信你', '已读']) {
+      expect(seen, contains(word), reason: word);
+    }
+    // The stale tasks are one collapsed row, and the model is told so.
+    expect(seen, contains('可能需要收尾 2 件'));
+    expect(seen, isNot(contains('安装包签名')));
+  });
+
+  testWidgets('the Activity home with its feedback actions open', (t) async {
+    final probe = await open(t, data: _HomeData.new);
+    await t.tap(find.textContaining('首片 12 张里'));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
+    final seen = await given(t, probe, 'go_home');
+    _expectParity(_shown(t, attentionRoots()), seen, 'activity home + actions');
+    for (final action in ['看完整对话', '回复', '点赞', '标记已处理', '稍后', '交给 Agent']) {
+      expect(seen, contains(action), reason: action);
+    }
+  });
+
+  testWidgets('the Activity home on a wide window', (t) async {
+    final probe = await open(
+      t,
+      size: const Size(1500, 900),
+      data: _HomeData.new,
+    );
+    expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
+    final seen = await given(t, probe, 'go_home');
+    _expectParity(_shown(t, attentionRoots()), seen, 'wide activity home');
+  });
+
+  testWidgets('the stale group, closed and open', (t) async {
+    final probe = await open(t, data: _HomeData.new);
+    var seen = await given(t, probe, 'go_home');
+    _expectParity(_shown(t, attentionRoots()), seen, 'stale group closed');
+    await t.ensureVisible(find.byKey(const ValueKey('attention-stale')));
+    await t.tap(find.byKey(const ValueKey('attention-stale')));
+    await t.pumpAndSettle();
+    expect(find.textContaining('安装包签名'), findsWidgets);
+    seen = await given(t, probe, 'go_home');
+    _expectParity(_shown(t, attentionRoots()), seen, 'stale group open');
+    expect(seen, contains('安装包签名'));
+    expect(seen, contains('迁移脚本'));
+  });
+
+  testWidgets('a conversation opened from an item of the home', (t) async {
+    final probe = await open(t, data: _HomeData.new);
+    late Map<String, Object?> result;
+    await say(t, probe, (call) async {
+      result = await call('open_item', {'number': 1});
+    });
+    expect(find.text('第 2 层'), findsOneWidget);
+    final seen = _flatten(result);
+    _expectParity(_shown(t, conversationRoots()), seen, 'opened conversation');
+    expect(seen, contains('你是从这一条打开的'));
+  });
+
+  List<Finder> conversationRoots() => [find.byType(AgentConversationView)];
+
+  testWidgets('a channel layer: a chat of every kind of message', (t) async {
     final probe = await open(t);
     await say(t, probe, (call) async {
       await call('open_channel', {'name': 'general'});
     });
     final seen = await given(t, probe, 'open_channel', {'name': 'general'});
     _expectParity(
-      _shown(t, [find.byType(AgentFrameView), find.byType(HfDetail)]),
+      _shown(t, conversationRoots()),
       seen,
       'channel layer',
     );
+    // Who said it, what kind it is, and what it holds.
+    expect(seen, contains('来自 Agent Cody'));
+    expect(seen, contains('系统消息'));
+    expect(seen, contains('任务事件'));
+    expect(seen, contains('日志.txt'));
+    expect(seen, contains('图片：截图.png'));
+    expect(seen, contains('final a = 1;'));
+    expect(seen, contains('👍 2'));
+    expect(seen, contains('2 条回复'));
+    expect(seen, contains('已编辑'));
+    expect(seen, contains('此消息已删除'));
+    // The tasks are behind a chip, not the first thing.
+    expect(seen, contains('任务 2'));
+    expect(seen, isNot(contains('补全搜索结果的高亮')));
   });
 
-  testWidgets('a channel layer with a message made current', (t) async {
+  testWidgets('a channel layer with a message pointed at', (t) async {
     final probe = await open(t);
     await say(t, probe, (call) async {
       await call('open_channel', {'name': 'general'});
     });
     await t.tap(find.text('明天的发布我来盯着'));
     await t.pumpAndSettle();
-    expect(find.byKey(const ValueKey('agent-frame-stage')), findsOneWidget);
+    // A conversation is read: pointing at a message opens no stage.
+    expect(find.byKey(const ValueKey('agent-frame-stage')), findsNothing);
     final seen = await given(t, probe, 'open_channel', {'name': 'general'});
+    _expectParity(
+      _shown(t, conversationRoots()),
+      seen,
+      'channel layer + message pointed at',
+    );
+  });
+
+  testWidgets('the tasks of a channel are their own layer', (t) async {
+    final probe = await open(t);
+    await say(t, probe, (call) async {
+      await call('open_channel', {'name': 'general'});
+    });
+    await t.tap(find.byKey(const ValueKey('conversation-tasks')));
+    await t.pumpAndSettle();
+    expect(find.text('第 2 层'), findsNothing);
+    expect(find.text('第 3 层'), findsOneWidget);
+    final seen = await given(t, probe, 'show_tasks');
     _expectParity(
       _shown(t, [find.byType(AgentFrameView), find.byType(HfDetail)]),
       seen,
-      'channel layer + message detail',
+      'channel tasks layer',
     );
+    expect(seen, contains('补全搜索结果的高亮'));
   });
 
   testWidgets('the tasks layer', (t) async {

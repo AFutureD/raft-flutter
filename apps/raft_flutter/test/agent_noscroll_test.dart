@@ -52,19 +52,24 @@ class _Data extends AgentModeData {
       AgentAttention(items: [for (var n = 1; n <= 12; n++) _item(n)]);
 
   @override
-  Future<AgentChannelBrief> channel(
-    RaftChannel c, {
-    int windowHours = 6,
-  }) async => AgentChannelBrief(
-    channel: c,
-    messages: [
-      for (var i = 0; i < 8; i++)
+  Future<AgentConversationRead> conversation(
+    String id, {
+    int limit = 50,
+    bool withTasks = true,
+    String? parentChannelId,
+    String? parentMessageId,
+  }) async => AgentConversationRead(
+    rows: [
+      for (var i = 0; i < 16; i++)
         {
           'id': 'm$i',
           'seq': '$i',
           'content': '第 $i 条消息：这里是一句比较长的话，用来看列表是不是完整地出现在页面里。',
-          'senderName': 'Cindy',
-          'createdAt': _now.toIso8601String(),
+          'senderType': i.isEven ? 'user' : 'agent',
+          'senderId': i.isEven ? 'u-bo' : 'a-cindy',
+          'senderName': i.isEven ? 'Bo' : 'Cindy',
+          'messageType': 'chat',
+          'createdAt': _now.add(Duration(minutes: i)).toIso8601String(),
         },
     ],
     tasks: [
@@ -75,7 +80,6 @@ class _Data extends AgentModeData {
           'status': i.isEven ? 'in_review' : 'in_progress',
         },
     ],
-    windowHours: windowHours,
   );
 }
 
@@ -179,11 +183,11 @@ void main() {
         // (The keyboard button opens the input bar above the dock.)
         await t.tap(find.byKey(const ValueKey('agent-keyboard')));
         await t.pumpAndSettle();
-        final title = t.getRect(find.text('现在需要你').first);
+        final title = t.getRect(find.text('动态').first);
         final dock = t.getRect(find.byType(AgentVoiceDock));
         await say(t, '看看第十一个');
         expect(scroll(t).position.pixels, greaterThan(0));
-        expect(t.getRect(find.text('现在需要你').first), title);
+        expect(t.getRect(find.text('动态').first), title);
         expect(t.getRect(find.byType(AgentVoiceDock)), dock);
       });
 
@@ -254,15 +258,15 @@ void main() {
         expect(find.textContaining('t2 的最后进展'), findsOneWidget);
       });
 
-      testWidgets('a channel layer is one scroll too; its rows scroll into '
-          'view when the agent points at them', (t) async {
+      testWidgets('a conversation layer is one scroll too; its messages scroll '
+          'into view when the agent points at them', (t) async {
         await open(t, size);
         await say(t, 'raft-flutter 现在什么情况？');
         expect(find.text('第 2 层'), findsOneWidget);
         expect(layerScrolls(), findsOneWidget);
         await say(t, '看看第十个');
         expect(scroll(t).position.pixels, greaterThan(0));
-        expectInWindow(t, find.byKey(const ValueKey('frame-row-10')));
+        expectInWindow(t, find.byKey(const ValueKey('hf-bubble-m9')));
         expect(layerScrolls(), findsOneWidget);
         // Nothing fades the page out at an edge.
         expect(find.byKey(const ValueKey('agent-fade-bottom')), findsNothing);
