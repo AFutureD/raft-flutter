@@ -136,8 +136,8 @@ String migrationCancelErrorText(Object error) {
       code == 'MIGRATION_REVISION_STALE' ||
       code == 'MIGRATION_CONCURRENT_UPDATE';
   final message = stale
-      ? 'The migration changed before cancellation was submitted. Status was refreshed; review the current status and try again.'
-      : 'Cancellation could not be requested. Status was refreshed; keep both computers online and try again.';
+      ? 'The migration moved on before your request went through. Check the latest status and try again.'
+      : "Couldn't cancel the migration. The status has been refreshed. Keep both computers online and try again.";
   return code is String && _safeTechnicalCode.hasMatch(code)
       ? '$message ($code)'
       : message;
@@ -169,5 +169,5 @@ String? migrationFailureText(Map<String, dynamic> migration) {
 /// Raft could not confirm.
 String migrationCancelAttentionText(Map<String, dynamic> migration) =>
     migration['state'] == 'cancel_requested_post_flip'
-    ? 'Raft could not confirm cleanup after the computer switch. Keep both computers online and use the migration reference when asking for support.'
-    : 'Raft could not confirm cleanup on the source computer. Keep both computers online and use the migration reference when asking for support.';
+    ? "Raft couldn't finish cleaning up after the agent switched computers. Keep both computers online. If you contact support, include the migration ID."
+    : "Raft couldn't finish cleaning up the original computer. Keep both computers online. If you contact support, include the migration ID.";

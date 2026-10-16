@@ -65,7 +65,7 @@ void main() {
     test('cancel copy depends on staleness and appends a safe code', () {
       expect(
         migrationCancelErrorText(_api(409, code: 'MIGRATION_REVISION_STALE')),
-        startsWith('The migration changed before cancellation was submitted.'),
+        startsWith('The migration moved on before your request went through.'),
       );
       expect(
         migrationCancelErrorText(_api(500, code: 'MIGRATION_CANCEL_FAILED')),

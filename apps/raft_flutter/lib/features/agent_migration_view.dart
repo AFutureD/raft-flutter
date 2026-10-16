@@ -202,7 +202,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     if (targets.isEmpty) {
       setState(
         // Web's target select is disabled with this placeholder.
-        () => error = 'No other attached computer',
+        () => error = 'No other computers available',
       );
       return;
     }
@@ -358,7 +358,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
                     child: RaftBanner(
                       status: RaftBannerRecipeStatus.warning,
                       size: RaftBannerRecipeSize.sm,
-                      title: 'Cancellation needs attention',
+                      title: "Cancellation couldn't finish",
                       description: migrationCancelAttentionText(migration),
                     ),
                   ),

@@ -140,7 +140,7 @@ void main() {
       // server's sentence is not shown.
       expect(
         find.textContaining(
-          'The migration changed before cancellation was submitted',
+          'The migration moved on before your request went through',
         ),
         findsOneWidget,
       );
