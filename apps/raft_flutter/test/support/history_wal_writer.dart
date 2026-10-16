@@ -5,10 +5,28 @@ import 'package:sqlite3/sqlite3.dart';
 
 /// Child-only fixture. The parent kills it after the uncommitted write.
 Future<void> main(List<String> arguments) async {
-  final database = sqlite3.open(arguments.single);
+  final expected = jsonDecode(arguments[1]) as Map<String, dynamic>;
+  final diagnostics = sqlite3.openInMemory();
+  late final List<String> options;
   try {
-    if (database.select('PRAGMA journal_mode').single.values.single != 'wal') {
-      throw StateError('The crash fixture must already use WAL.');
+    options = [
+      for (final row in diagnostics.select('PRAGMA compile_options'))
+        row.values.single as String,
+    ]..sort();
+  } finally {
+    diagnostics.close();
+  }
+  if (sqlite3.version.sourceId != expected['sourceId'] ||
+      jsonEncode(options) != jsonEncode(expected['options'])) {
+    throw StateError('SQLite library differs from the test process.');
+  }
+  final database = sqlite3.open(arguments[0]);
+  try {
+    final mode = database.select('PRAGMA journal_mode').single.values.single;
+    if (mode != 'wal') {
+      throw StateError(
+        'The crash fixture must already use WAL; got $mode at ${arguments[0]}.',
+      );
     }
     database.execute('BEGIN IMMEDIATE');
     final rows = database.select('SELECT payload FROM raft_history_rows');

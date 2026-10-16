@@ -148,28 +148,80 @@ CREATE TABLE message_translations(origin TEXT NOT NULL,principal TEXT NOT NULL,s
     await f.store(cache, f.scope('chat'), [
       {'id': 'chat-1', 'channelId': 'chat', 'seq': '1', 'content': 'Committed'},
     ]);
+    expect(
+      (await cache.customSelect('PRAGMA journal_mode').getSingle())
+          .read<String>('journal_mode'),
+      'wal',
+    );
     await cache.close();
     final dart = _dartExecutable();
-    final kernel = p.join(dir.path, 'wal-writer.dill');
-    // Prepare with the SDK toolchain available, then run only the compiled
-    // writer with an empty PATH. No SQLite CLI participates in either step.
+    // Kernel-only compilation omits native assets. Build the supported SDK
+    // bundle so the writer loads this project's SQLite, not a system fallback.
+    // The SDK cleans its output directory; keep the live fixture outside it.
+    final writer = p.join(dir.path, 'writer');
     final compiled = await Process.run(dart, [
-      'compile',
-      'kernel',
+      'build',
+      'cli',
+      '--target',
       p.join('test', 'support', 'history_wal_writer.dart'),
-      '-o',
-      kernel,
+      '--output',
+      writer,
     ]);
     expect(
       compiled.exitCode,
       0,
       reason: '${compiled.stdout}\n${compiled.stderr}',
     );
+    final bundle = p.join(writer, 'bundle');
+    final executable = p.join(
+      bundle,
+      'bin',
+      Platform.isWindows ? 'history_wal_writer.exe' : 'history_wal_writer',
+    );
+    final diagnostics = sqlite3.openInMemory();
+    late final List<String> options;
+    try {
+      options = [
+        for (final row in diagnostics.select('PRAGMA compile_options'))
+          row.values.single as String,
+      ]..sort();
+    } finally {
+      diagnostics.close();
+    }
+    final fingerprint = jsonEncode({
+      'sourceId': sqlite3.version.sourceId,
+      'options': options,
+    });
     final emptyPath = await Directory(p.join(dir.path, 'empty-path')).create();
+    final arguments = [file.path, fingerprint];
+    final environment = {'PATH': emptyPath.path};
+    final libraries = Directory(p.join(bundle, 'lib'))
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where(
+          (file) => p.basename(file.path).toLowerCase().contains('sqlite3'),
+        )
+        .toList();
+    expect(libraries, hasLength(1));
+    final library = libraries.single;
+    final withheld = await library.rename(p.join(dir.path, 'withheld-sqlite'));
+    try {
+      // A passing system fallback must not hide a broken asset bundle on Mac.
+      final missing = await Process.run(
+        executable,
+        arguments,
+        environment: environment,
+      );
+      expect(missing.exitCode, isNot(0));
+      expect(missing.stdout, isNot(contains('MUTATED')));
+      expect('${missing.stderr}'.toLowerCase(), contains('sqlite'));
+    } finally {
+      await withheld.rename(library.path);
+    }
     final child = await Process.start(
-      dart,
-      ['--disable-dart-dev', kernel, file.path],
-      environment: {'PATH': emptyPath.path},
+      executable,
+      arguments,
+      environment: environment,
     );
     final mutated = Completer<void>();
     final output = child.stdout
