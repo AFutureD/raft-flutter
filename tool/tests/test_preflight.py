@@ -94,6 +94,9 @@ class PortabilityTests(unittest.TestCase):
                 "final b = '/usr/bin/sqlite3';\n")
         self.assertEqual([n for _, n, _ in scan(text)], [4])
 
+    def test_one_finding_per_line(self):
+        self.assertEqual(len(scan("await Process.run('/usr/bin/sqlite3', []);\n")), 1)
+
     def test_only_the_given_lines_are_reported(self):
         text = "final a = '/usr/bin/sqlite3';\nfinal b = '/opt/homebrew/bin/x';\n"
         self.assertEqual([n for _, n, _ in scan(text, {2})], [2])
@@ -322,6 +325,21 @@ class NiceTests(unittest.TestCase):
 
 
 class SummaryTests(unittest.TestCase):
+    def test_a_failed_test_run_shows_the_failure_list_not_the_progress_noise(self):
+        output = '\n'.join([f'01:0{i} +{i}: some test' for i in range(9)] + ['Some tests failed.', 'Failing tests:', '  a_test.dart: boom'])
+        self.assertEqual(pf.tail_of(output), ['Failing tests:', '  a_test.dart: boom'])
+        self.assertEqual(pf.tail_of('a\nb\nc', 2), ['b', 'c'])
+
+    def test_an_unusable_sdk_fails_the_format_check_only(self):
+        world = FakeWorld(self)
+        with mock.patch.object(pf, 'dart_executable', side_effect=pf.PreflightError('tool/flutter --version failed')):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = pf.main(['--out', str(world.root / 'r.json')])
+        statuses = {c['name']: c['status'] for c in json.loads((world.root / 'r.json').read_text())['checks']}
+        self.assertEqual(code, 1)
+        self.assertEqual((statuses['format'], statuses['analyze']), ('fail', 'pass'))
+
     def test_summary_line_and_table(self):
         results = [pf.Result('a', 'pass', 1.25, 'fine'), pf.Result('b', 'fail', 2.0, 'bad'), pf.Result('c', 'skip', 0, 'nothing')]
         table = pf.format_table(results)

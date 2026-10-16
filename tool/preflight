@@ -30,6 +30,7 @@ A portability finding that is intended can carry `// preflight-allow: <reason>` 
 same line or the line above. Preflight passing does not replace the full check.
 """
 import argparse
+import concurrent.futures
 import datetime
 import json
 import os
@@ -195,15 +196,15 @@ def scan_portability(path, text, lines=None):
         if line.lstrip().startswith('//'):
             continue
         for match in ABSOLUTE_TOOL.finditer(line):
-            found.setdefault((number, 'path'), f'hard-coded tool path {match.group(0)}; resolve it from PATH or skip when absent')
+            found.setdefault(number, f'hard-coded tool path {match.group(0)}; resolve it from PATH or skip when absent')
     for match in PROCESS_CALL.finditer(text):
         executable = match.group(2).strip()
         name = executable.rsplit('/', 1)[-1]
         number = line_of(text, match.start())
         if source[number - 1].lstrip().startswith('//') or name in CORE_TOOLS:
             continue
-        found.setdefault((number, 'process'), f"Process of system CLI '{executable}'; the Linux check machine may not have it")
-    return [(path, number, message) for (number, _), message in sorted(found.items())
+        found.setdefault(number, f"Process of system CLI '{executable}'; the Linux check machine may not have it")
+    return [(path, number, message) for number, message in sorted(found.items())
             if (lines is None or number in lines) and not allowed(number)]
 
 
@@ -223,26 +224,24 @@ class Result:
 
 
 def tail_of(output, count=TAIL_LINES):
-    return [line for line in output.splitlines() if line.strip()][-count:]
+    """The lines worth showing for a failed step: the test reporter's failure list when there is one, else the last few."""
+    lines = [line for line in output.splitlines() if line.strip()]
+    marked = [i for i, line in enumerate(lines) if line.strip() == 'Failing tests:']
+    return lines[marked[-1]:][:count * 2] if marked else lines[-count:]
 
 
 class Runner:
     def __init__(self, env, out_dir):
         self.env, self.out_dir = env, out_dir
-        self.results = []
         self.resolved = True  # flipped to False when `pub get` fails
-
-    def record(self, result):
-        self.results.append(result)
-        return result
 
     def command(self, name, command, cwd=root, ok_detail='', fail_detail='', requires_workspace=True):
         """Run one child as the whole check; its exit code is the verdict."""
         started = clock()
         if requires_workspace and not self.resolved:
-            return self.record(Result(name, 'fail', 0.0, 'workspace is not resolved (pub get failed above)'))
+            return Result(name, 'fail', 0.0, 'workspace is not resolved (pub get failed above)')
         code, output = execute(command, cwd, self.env)
-        return self.record(self.outcome(name, code == 0, started, output, command, ok_detail, fail_detail or f'exit {code}'))
+        return self.outcome(name, code == 0, started, output, command, ok_detail, fail_detail or f'exit {code}')
 
     def outcome(self, name, ok, started, output, command=None, ok_detail='', fail_detail=''):
         log = self.out_dir / f'{name}.txt'
@@ -255,7 +254,7 @@ class Runner:
         return Result(name, 'pass' if ok else 'fail', clock() - started, ok_detail if ok else fail_detail, log_text, [] if ok else tail_of(output))
 
     def skip(self, name, why):
-        return self.record(Result(name, 'skip', 0.0, why))
+        return Result(name, 'skip', 0.0, why)
 
 
 # ---------------------------------------------------------------- steps
@@ -284,10 +283,13 @@ def lints_resolved():
 def ensure_resolved(runner, need_lints):
     """`pub get` where the checks need it and it was never run in this checkout (a fresh worktree)."""
     pub_get = [*tool_command('flutter'), 'pub', 'get', '--enforce-lockfile']
+    results = []
     if not workspace_resolved():
-        runner.resolved = runner.command('pub-get', pub_get, root, ok_detail='workspace resolved', requires_workspace=False).status == 'pass'
+        results.append(runner.command('pub-get', pub_get, root, ok_detail='workspace resolved', requires_workspace=False))
+        runner.resolved = results[-1].status == 'pass'
     if need_lints and not lints_resolved():
-        runner.command('pub-get-lints', pub_get, root / 'tool/raft_lints', ok_detail='raft_lints resolved', requires_workspace=False)
+        results.append(runner.command('pub-get-lints', pub_get, root / 'tool/raft_lints', ok_detail='raft_lints resolved', requires_workspace=False))
+    return results
 
 
 def rank_tests(changes, max_tests):
@@ -304,73 +306,100 @@ def rank_tests(changes, max_tests):
 
 
 def flutter_test_command(files):
-    jobs = max(1, min(4, os.cpu_count() or 1))
+    jobs = max(2, min(8, (os.cpu_count() or 2) // 2))
     return [*tool_command('flutter'), 'test', '--no-pub', '-j', str(jobs), '--reporter', 'expanded', *files]
 
 
+def app_relative(path):
+    return os.path.relpath(root / path, app_dir).replace('\\', '/')
+
+
 def run_steps(runner, changes, max_tests):
+    """Every check, concurrently (they are independent); returns (results in table order, portability findings)."""
     dart = changes.dart
     workspace_dart = [f for f in dart if WORKSPACE_DART.match(f)]
     lib_files = [f for f in dart if LINT_TARGET.match(f) and not f.endswith('.g.dart')]
     format_files = [f for f in dart if not f.endswith('.g.dart')]
-    ensure_resolved(runner, bool(lib_files))
+    results = ensure_resolved(runner, bool(lib_files))
+    findings = []
 
-    runner.command('structure-audit', [*tool_command('structure-audit'), '--check'], ok_detail='no hotspot grew',
-                   fail_detail='a hotspot module grew; see the log')
-    runner.command('ds-audit', [*tool_command('ds-audit'), '--check'], ok_detail='at or below the baseline',
-                   fail_detail='style literals above the baseline; see the log')
-    runner.command('docs-index', [sys.executable, '-m', 'unittest', '-q', DOCS_INDEX_TEST], ok_detail='docs/README.md lists every doc',
-                   requires_workspace=False)
-    runner.command('guard-tests', flutter_test_command([os.path.relpath(root / t, app_dir).replace('\\', '/') for t in GUARD_TESTS]), app_dir,
-                   ok_detail=f'{len(GUARD_TESTS)} guard files', fail_detail='a guard test failed; see the log')
+    def structure():
+        return runner.command('structure-audit', [*tool_command('structure-audit'), '--check'], ok_detail='no hotspot grew',
+                              fail_detail='a hotspot module grew; see the log')
 
-    if workspace_dart:
-        runner.command('analyze', [*tool_command('flutter'), 'analyze', '--no-pub', *workspace_dart],
-                       ok_detail=f'{len(workspace_dart)} files', fail_detail='analyzer findings')
-    else:
-        runner.skip('analyze', 'no changed Dart files in apps/ or packages/')
+    def design_system():
+        return runner.command('ds-audit', [*tool_command('ds-audit'), '--check'], ok_detail='at or below the baseline',
+                              fail_detail='style literals above the baseline; see the log')
 
-    if not lib_files:
-        runner.skip('raft-lints', 'no changed lib/ Dart files')
-    elif lints_resolved():
-        runner.command('raft-lints', [*tool_command('raft-lints'), *lib_files], ok_detail=f'{len(lib_files)} lib files',
-                       fail_detail='lint findings', requires_workspace=False)
-    else:
-        runner.record(Result('raft-lints', 'fail', 0.0, 'tool/raft_lints is not resolved (pub get failed)'))
+    def docs_index():
+        return runner.command('docs-index', [sys.executable, '-m', 'unittest', '-q', DOCS_INDEX_TEST], ok_detail='docs/README.md lists every doc',
+                              requires_workspace=False)
 
-    if format_files:
-        started = clock()
-        try:
-            command = [dart_executable(), 'format', '--output=none', '--set-exit-if-changed', *format_files]
-        except PreflightError as error:
-            runner.record(Result('format', 'fail', clock() - started, str(error)))
-        else:
-            runner.command('format', command, ok_detail=f'{len(format_files)} files', fail_detail='files need `dart format`', requires_workspace=False)
-    else:
-        runner.skip('format', 'no changed Dart files')
+    def analyze():
+        if not workspace_dart:
+            return runner.skip('analyze', 'no changed Dart files in apps/ or packages/')
+        return runner.command('analyze', [*tool_command('flutter'), 'analyze', '--no-pub', *workspace_dart],
+                              ok_detail=f'{len(workspace_dart)} files', fail_detail='analyzer findings')
 
-    if dart and runner.resolved:
+    def lints():
+        if not lib_files:
+            return runner.skip('raft-lints', 'no changed lib/ Dart files')
+        if not lints_resolved():
+            return Result('raft-lints', 'fail', 0.0, 'tool/raft_lints is not resolved (pub get failed)')
+        return runner.command('raft-lints', [*tool_command('raft-lints'), *lib_files], ok_detail=f'{len(lib_files)} lib files',
+                              fail_detail='lint findings', requires_workspace=False)
+
+    def formatting():
+        if not format_files:
+            return runner.skip('format', 'no changed Dart files')
+        if dart_exe is None:
+            return Result('format', 'fail', 0.0, dart_error)
+        return runner.command('format', [dart_exe, 'format', '--output=none', '--set-exit-if-changed', *format_files],
+                              ok_detail=f'{len(format_files)} files', fail_detail='files need `dart format`', requires_workspace=False)
+
+    def tests():
+        """One lane, not two: guard tests, then the affected tests (two `flutter test` at once only fight over the build)."""
+        guards = runner.command('guard-tests', flutter_test_command([app_relative(t) for t in GUARD_TESTS]), app_dir,
+                                ok_detail=f'{len(GUARD_TESTS)} guard files', fail_detail='a guard test failed; see the log')
+        if not dart:
+            return [guards, runner.skip('affected-tests', 'no changed Dart files')]
+        if not runner.resolved:
+            return [guards, Result('affected-tests', 'fail', 0.0, 'workspace is not resolved (pub get failed above)')]
         files, skipped, total = rank_tests(changes, max_tests)
         if not files:
-            runner.skip('affected-tests', 'no test file reaches a changed Dart file')
-        else:
-            note = f'{len(files)} of {total} test files' + (f'; {skipped} farthest skipped (--max-tests {max_tests})' if skipped else '')
-            result = runner.command('affected-tests', flutter_test_command(files), app_dir, ok_detail=note, fail_detail='test failures; ' + note)
-            result.skipped, result.selected, result.total = skipped, len(files), total
-    elif dart:
-        runner.record(Result('affected-tests', 'fail', 0.0, 'workspace is not resolved (pub get failed above)'))
-    else:
-        runner.skip('affected-tests', 'no changed Dart files')
+            return [guards, runner.skip('affected-tests', 'no test file reaches a changed Dart file')]
+        note = f'{len(files)} of {total} test files' + (f'; {skipped} farthest skipped (--max-tests {max_tests})' if skipped else '')
+        affected = runner.command('affected-tests', flutter_test_command(files), app_dir, ok_detail=note, fail_detail='test failures; ' + note)
+        affected.selected, affected.total, affected.skipped = len(files), total, skipped
+        return [guards, affected]
 
-    return portability_step(runner, changes)
+    def portability():
+        found, result = portability_step(runner, changes)
+        findings.extend(found)
+        return result
+
+    # The pinned dart is found through tool/flutter, which regenerates files other children read: do it before they start.
+    dart_exe, dart_error = None, ''
+    if format_files:
+        try:
+            dart_exe = dart_executable()
+        except PreflightError as error:
+            dart_error = str(error)
+    order = ['structure-audit', 'ds-audit', 'docs-index', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'portability']
+    steps = [structure, design_system, docs_index, tests, analyze, lints, formatting, portability]
+    table = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(steps)) as pool:
+        for future in [pool.submit(step) for step in steps]:
+            outcome = future.result()
+            table.extend(outcome if isinstance(outcome, list) else [outcome])
+    return results + sorted(table, key=lambda r: order.index(r.name)), findings
 
 
 def portability_step(runner, changes):
     started = clock()
     tests = changes.test_files
     if not tests:
-        runner.skip('portability', 'no changed test files')
-        return []
+        return [], runner.skip('portability', 'no changed test files')
     findings = []
     for path in tests:
         text = (root / path).read_text(encoding='utf-8', errors='replace')
@@ -378,8 +407,7 @@ def portability_step(runner, changes):
     output = ''.join(f'{p}:{n}: {m}\n' for p, n, m in findings)
     result = runner.outcome('portability', not findings, started, output, None, f'{len(tests)} test files', f'{len(findings)} finding(s)')
     result.tail = [f'{p}:{n}: {m}' for p, n, m in findings]
-    runner.record(result)
-    return findings
+    return findings, result
 
 
 # ---------------------------------------------------------------- report
@@ -455,10 +483,9 @@ def main(argv=None):
     tmp = run_tmp()
     runner = Runner(run_env(tmp), root / OUT_DIR)
     try:
-        findings = run_steps(runner, changes, args.max_tests)
+        results, findings = run_steps(runner, changes, args.max_tests)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    results = runner.results
     seconds = clock() - started
 
     print()
