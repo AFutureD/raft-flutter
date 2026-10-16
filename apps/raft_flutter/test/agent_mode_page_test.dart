@@ -321,7 +321,7 @@ void main() {
   });
 
   test('shared memory: prompt context and session summary', () {
-    expect(AgentBrain.compose('Cindy', null, const []), isNull);
+    expect(AgentBrain.compose('Cindy', null, const []), contains('「Cindy」'));
     final context = AgentBrain.compose('Cindy', '喜欢简短回答', ['Kevin：发版吧']);
     expect(context, contains('Agent「Cindy」的语音形态'));
     expect(context, contains('喜欢简短回答'));

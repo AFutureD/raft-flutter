@@ -78,6 +78,7 @@ class _AgentModePageState extends State<AgentModePage> {
     tools: agentToolDeclarations,
     onToolCall: _runTool,
     systemPrompt: _systemPrompt,
+    beforeConnect: () => _brainLoading ?? Future<void>.value(),
     onSessionEnd: _sessionEnded,
   );
 
@@ -85,6 +86,7 @@ class _AgentModePageState extends State<AgentModePage> {
   late final _brain = AgentBrain(widget.controller);
   String? _brainContext;
   String? _brainContextFor;
+  Future<void>? _brainLoading;
 
   /// The item the agent is talking about, lifted above the page.
   final _spotlight = AgentSpotlightController();
@@ -622,8 +624,14 @@ class _AgentModePageState extends State<AgentModePage> {
       _brainContext = null;
       return;
     }
-    final context = await _brain.context(brain);
-    if (mounted && _brainContextFor == brain.id) _brainContext = context;
+    final loading = _brain.context(brain);
+    _brainLoading = loading.then((_) {}, onError: (Object _) {});
+    final context = await loading;
+    if (!mounted || _brainContextFor != brain.id) return;
+    _brainContext = context;
+    // Says what the voice will remember, so a missing memory is visible.
+    final note = _brain.note;
+    if (note != null) _voice.say(AgentSpeaker.agent, '记忆：$note');
   }
 
   /// Hands the session to the shared agent so it remembers what matters.

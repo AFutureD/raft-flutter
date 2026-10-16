@@ -14,6 +14,7 @@ class AgentVoiceController extends ChangeNotifier {
     required this.tools,
     required this.onToolCall,
     required this.systemPrompt,
+    this.beforeConnect,
     this.onSessionEnd,
     AgentAudio? audio,
     AgentVoiceKey? key,
@@ -31,6 +32,9 @@ class AgentVoiceController extends ChangeNotifier {
 
   /// Built when a session starts, so it can include the latest context.
   final String Function() systemPrompt;
+
+  /// Awaited before a session is built (e.g. the shared memory still loading).
+  final Future<void> Function()? beforeConnect;
   final AgentAudio audio;
   final AgentVoiceKey key;
 
@@ -159,6 +163,7 @@ class AgentVoiceController extends ChangeNotifier {
   }
 
   Future<GeminiLiveSession?> _connect() async {
+    await beforeConnect?.call();
     final apiKey = await key.read();
     if (apiKey == null) {
       _set(AgentMicState.idle, note: '还没有 Gemini Key：点右上角扫码填入');

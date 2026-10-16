@@ -15,6 +15,10 @@ class AgentBrain {
 
   static const _memoryLimit = 6000;
 
+  /// What the last [context] call managed to read, for the captions.
+  String? note;
+  Object? _memoryError;
+
   /// Agents on this server the person can choose from.
   Future<List<AgentBrainChoice>> agents() async {
     final body = await w.query('/agents');
@@ -46,7 +50,8 @@ class AgentBrain {
       return content.length <= _memoryLimit
           ? content
           : '${content.substring(0, _memoryLimit)}\n…';
-    } catch (_) {
+    } catch (e) {
+      _memoryError = e;
       return null;
     }
   }
@@ -88,20 +93,27 @@ class AgentBrain {
 
   /// Background for the voice session: who it is and what it remembers.
   Future<String?> context(AgentBrainChoice brain) async {
+    _memoryError = null;
     final results = await Future.wait<Object?>([
       memory(brain.id),
       recent(brain.id),
     ]);
-    return compose(
-      brain.name,
-      results[0] as String?,
-      results[1]! as List<String>,
-    );
+    final remembered = results[0] as String?;
+    final talk = results[1]! as List<String>;
+    final error = _memoryError;
+    note = [
+      remembered != null
+          ? '已读取 ${brain.name} 的 MEMORY.md（${remembered.length} 字）'
+          : error != null
+          ? '读不到 ${brain.name} 的 MEMORY.md：${_clip('$error', 80)}'
+          : '${brain.name} 没有 MEMORY.md',
+      '最近私信 ${talk.length} 条',
+    ].join('，');
+    return compose(brain.name, remembered, talk);
   }
 
   /// The prompt section for [name]'s memory and recent conversation.
-  static String? compose(String name, String? remembered, List<String> talk) {
-    if (remembered == null && talk.isEmpty) return null;
+  static String compose(String name, String? remembered, List<String> talk) {
     return [
       '你就是用户在 Raft 里的 Agent「$name」的语音形态，和它是同一个人，记忆共享。',
       if (remembered != null) '【你的长期记忆（$name 的 MEMORY.md）】\n$remembered',
