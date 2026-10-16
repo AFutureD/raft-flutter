@@ -138,12 +138,12 @@
         "field.WorkspaceController.cache": 0,
         "field.WorkspaceController.channel": 1,
         "field.WorkspaceController.channelLoading": 1,
-        "field.WorkspaceController.channels": 1,
+        "field.WorkspaceController.channels": 0,
         "field.WorkspaceController.client": 1,
         "field.WorkspaceController.composer": 1,
         "field.WorkspaceController.connected": 1,
         "field.WorkspaceController.discardSharedScope": 1,
-        "field.WorkspaceController.dms": 1,
+        "field.WorkspaceController.dms": 0,
         "field.WorkspaceController.entityDirectory": 0,
         "field.WorkspaceController.error": 1,
         "field.WorkspaceController.followedThreads": 0,
@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 5969,
-        "tokens": 33136
+        "lines": 5917,
+        "tokens": 32685
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",

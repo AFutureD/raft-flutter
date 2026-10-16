@@ -722,7 +722,7 @@
    "status": "covered",
    "webEntry": "CollapsibleMessageContent button",
    "gate": "preference collapseLongMessages (channel settings)",
-   "flutterEntry": "raft_ui collapsible.dart used by message rows; preference in channel_settings.dart",
+   "flutterEntry": "raft_ui collapsible.dart used by message rows; preference in channel_settings.dart; channel_repository.dart applies versioned display preferences through the controller facade",
    "flutterRefs": [
     {
      "file": "packages/raft_ui/lib/src/collapsible.dart",
@@ -731,6 +731,10 @@
     {
      "file": "apps/raft_flutter/lib/features/channel_settings.dart",
      "needle": "collapseLongMessages"
+    },
+    {
+     "file": "apps/raft_flutter/lib/data/channel_repository.dart",
+     "needle": "void consumeMessageDisplayPrefs(dynamic payload)"
     }
    ],
    "justification": "",
@@ -2767,7 +2771,7 @@
    "status": "partial",
    "webEntry": "Sidebar.tsx ChannelRow / DmRow / AgentDmRow",
    "gate": "",
-   "flutterEntry": "workspace_view.dart channel row passes unread, joined, activityMuted, hasDraft, mention; agent presence on avatar",
+   "flutterEntry": "workspace_view.dart channel row passes unread, joined, activityMuted, hasDraft, mention; agent presence on avatar; channel_repository.dart owns the directory and channel mute projections",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
@@ -2776,6 +2780,10 @@
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
      "needle": "hasDraft: (w.drafts[c.id] ?? '').isNotEmpty"
+    },
+    {
+     "file": "apps/raft_flutter/lib/data/channel_repository.dart",
+     "needle": "void setActivityMuteState(String id, Map<String, dynamic> state)"
     }
    ],
    "justification": "No Slack provider badge on bridged channel rows (c.bridge.provider is not read).",
@@ -11519,11 +11527,15 @@
    "status": "covered",
    "webEntry": "ChatPanel effect on channel open (background hydrate; badge 'Activity muted' in header and Mute switch in settings drawer)",
    "gate": "joined channel/private/joint",
-   "flutterEntry": "channel_settings.dart loads it when the settings sheet opens; row/header mute state comes from the channel list activityMuted flag",
+   "flutterEntry": "channel_settings.dart loads it when the settings sheet opens; row/header mute state comes from the channel list activityMuted flag; channel_repository.dart applies accepted channel notification preference state",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/channel_settings.dart",
      "needle": "/channels/$id/notification-settings"
+    },
+    {
+     "file": "apps/raft_flutter/lib/data/channel_repository.dart",
+     "needle": "bool applyNotificationPrefs(Map<String, dynamic> accepted)"
     }
    ],
    "justification": "",

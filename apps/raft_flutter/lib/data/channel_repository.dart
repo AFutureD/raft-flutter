@@ -27,6 +27,9 @@ class ChannelRepository {
     required this._changed,
     required this._setError,
     required this._quietFailure,
+    this._saveDirectory,
+    this._acceptSelection,
+    this._patchSelected,
   });
 
   final RaftClient client;
@@ -46,6 +49,13 @@ class ChannelRepository {
   final void Function(String) _revokeChannel, _closeDeniedThread, _setError;
   final void Function() _changed;
   final bool Function(Object) _quietFailure;
+
+  // Production receiver projections read these same owned lists through the
+  // existing read ports. The ports also preserve explicit external bindings.
+  List<RaftChannel> channels = [], dms = [];
+  final void Function(Map<String, dynamic>)? _saveDirectory;
+  final void Function(Set<String>)? _acceptSelection;
+  final void Function(RaftChannel Function(RaftChannel))? _patchSelected;
 
   /// Selection has always reset only row authority, leaving reads in flight.
   void resetRowAuthority() => _channelRowSeq.clear();
@@ -324,5 +334,106 @@ class ChannelRepository {
       _closeDeniedThread(id);
       if (held == null) _changed();
     }
+  }
+
+  /// Revoke missing rows before publishing; selection remains the UI's job.
+  void acceptLists(
+    List<RaftChannel> nextChannels,
+    List<RaftChannel> nextDms, {
+    required Set<String> readmit,
+  }) {
+    final accessible = {
+      for (final c in [...nextChannels, ...nextDms]) c.id,
+    };
+    for (final old in [..._channels(), ..._dms()]) {
+      if (!accessible.contains(old.id)) _revokeChannel(old.id);
+    }
+    _revokedChannels().removeAll(readmit);
+    channels = nextChannels;
+    dms = nextDms;
+    _saveDirectory?.call({
+      'channels': channels.map((c) => c.json).toList(),
+      'dms': dms.map((c) => c.json).toList(),
+    });
+    _acceptSelection?.call(accessible);
+    _changed();
+  }
+
+  /// The controller has already accepted this channel preference update.
+  bool applyNotificationPrefs(Map<String, dynamic> accepted) {
+    final state = accepted['state'] as Map;
+    final id = accepted['channelId'];
+    if (_revokedChannels().contains(id)) return false;
+    RaftChannel patch(RaftChannel value) {
+      if (value.id != id) return value;
+      final old = value.json['prefsVersion'], incoming = state['prefsVersion'];
+      if (old is int && incoming is int && incoming < old) return value;
+      return RaftChannel({...value.json, ...state});
+    }
+
+    channels = channels.map(patch).toList();
+    dms = dms.map(patch).toList();
+    _patchSelected?.call(patch);
+    return true;
+  }
+
+  /// Patch activity mute without changing its existing notification boundary.
+  void setActivityMuteState(String id, Map<String, dynamic> state) {
+    RaftChannel patch(RaftChannel value) =>
+        value.id == id ? RaftChannel({...value.json, ...state}) : value;
+    channels = channels.map(patch).toList();
+    dms = dms.map(patch).toList();
+    _patchSelected?.call(patch);
+    _changed();
+  }
+
+  static ({String serverId, String channelId, bool collapse, int? version})?
+  readMessageDisplayPrefsUpdate(dynamic payload) {
+    if (payload is! Map) return null;
+    final serverId = payload['serverId'], scopeId = payload['scopeId'];
+    final prefs = payload['prefs'];
+    if (serverId is! String || scopeId is! String || prefs is! Map) return null;
+    final collapse = prefs['collapseLongMessages'];
+    if (collapse is! bool) return null;
+    final version = payload['prefsVersion'];
+    return (
+      serverId: serverId,
+      channelId: scopeId,
+      collapse: collapse,
+      version: version is num ? version.toInt() : null,
+    );
+  }
+
+  static RaftChannel applyMessageDisplayPrefsToChannel(
+    RaftChannel value, {
+    required bool collapse,
+    int? version,
+  }) {
+    final prior = value.json['displayPrefsVersion'];
+    if (prior is num && version != null && version < prior) return value;
+    return RaftChannel({
+      ...value.json,
+      'collapseLongMessages': collapse,
+      'displayPrefsVersion': ?version,
+    });
+  }
+
+  void consumeMessageDisplayPrefs(dynamic payload) {
+    final update = readMessageDisplayPrefsUpdate(payload);
+    if (update == null ||
+        (client.serverId != null && update.serverId != client.serverId) ||
+        _revokedChannels().contains(update.channelId)) {
+      return;
+    }
+    RaftChannel patch(RaftChannel value) => value.id != update.channelId
+        ? value
+        : applyMessageDisplayPrefsToChannel(
+            value,
+            collapse: update.collapse,
+            version: update.version,
+          );
+    channels = channels.map(patch).toList();
+    dms = dms.map(patch).toList();
+    _patchSelected?.call(patch);
   }
 }

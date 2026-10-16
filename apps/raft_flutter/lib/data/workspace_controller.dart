@@ -109,6 +109,13 @@ class WorkspaceController extends ChangeNotifier
       isDisposed: () => _disposed,
       revokedChannels: () => _revokedChannels,
       acceptLists: _acceptChannelLists,
+      saveDirectory: (record) {
+        _save('channels', '', record);
+      },
+      acceptSelection: _adoptAcceptedChannelSelection,
+      patchSelected: (patch) {
+        if (channel != null) channel = patch(channel!);
+      },
       reloadLists: () => refreshChannels(),
       reloadRow: (id) => refreshChannel(id),
       revokeChannel: _revokeChannel,
@@ -903,21 +910,8 @@ class WorkspaceController extends ChangeNotifier
 
       servers = servers.map(patch).toList();
       if (server != null) server = patch(server!);
-    } else {
-      final state = accepted['state'] as Map;
-      final id = accepted['channelId'];
-      if (_revokedChannels.contains(id)) return;
-      RaftChannel patch(RaftChannel value) {
-        if (value.id != id) return value;
-        final old = value.json['prefsVersion'],
-            incoming = state['prefsVersion'];
-        if (old is int && incoming is int && incoming < old) return value;
-        return RaftChannel({...value.json, ...state});
-      }
-
-      channels = channels.map(patch).toList();
-      dms = dms.map(patch).toList();
-      if (channel != null) channel = patch(channel!);
+    } else if (!channelRepository.applyNotificationPrefs(accepted)) {
+      return;
     }
     refreshUnread();
   }
@@ -926,21 +920,8 @@ class WorkspaceController extends ChangeNotifier
   /// frame carries a string `serverId`/`scopeId` and a boolean
   /// `prefs.collapseLongMessages`.
   static ({String serverId, String channelId, bool collapse, int? version})?
-  readMessageDisplayPrefsUpdate(dynamic payload) {
-    if (payload is! Map) return null;
-    final serverId = payload['serverId'], scopeId = payload['scopeId'];
-    final prefs = payload['prefs'];
-    if (serverId is! String || scopeId is! String || prefs is! Map) return null;
-    final collapse = prefs['collapseLongMessages'];
-    if (collapse is! bool) return null;
-    final version = payload['prefsVersion'];
-    return (
-      serverId: serverId,
-      channelId: scopeId,
-      collapse: collapse,
-      version: version is num ? version.toInt() : null,
-    );
-  }
+  readMessageDisplayPrefsUpdate(dynamic payload) =>
+      ChannelRepository.readMessageDisplayPrefsUpdate(payload);
 
   /// Source `applyMessageDisplayPrefsState` for one row: a patch older than
   /// the row's `displayPrefsVersion` is ignored.
@@ -948,36 +929,16 @@ class WorkspaceController extends ChangeNotifier
     RaftChannel value, {
     required bool collapse,
     int? version,
-  }) {
-    final prior = value.json['displayPrefsVersion'];
-    if (prior is num && version != null && version < prior) return value;
-    return RaftChannel({
-      ...value.json,
-      'collapseLongMessages': collapse,
-      'displayPrefsVersion': ?version,
-    });
-  }
+  }) => ChannelRepository.applyMessageDisplayPrefsToChannel(
+    value,
+    collapse: collapse,
+    version: version,
+  );
 
   /// Source socketBridge `message_display_prefs:updated`: written onto the
   /// channel row so chat folding follows another device's toggle.
-  void _consumeMessageDisplayPrefs(dynamic payload) {
-    final update = readMessageDisplayPrefsUpdate(payload);
-    if (update == null ||
-        (client.serverId != null && update.serverId != client.serverId) ||
-        _revokedChannels.contains(update.channelId)) {
-      return;
-    }
-    RaftChannel patch(RaftChannel value) => value.id != update.channelId
-        ? value
-        : applyMessageDisplayPrefsToChannel(
-            value,
-            collapse: update.collapse,
-            version: update.version,
-          );
-    channels = channels.map(patch).toList();
-    dms = dms.map(patch).toList();
-    if (channel != null) channel = patch(channel!);
-  }
+  void _consumeMessageDisplayPrefs(dynamic payload) =>
+      channelRepository.consumeMessageDisplayPrefs(payload);
 
   @override
   bool syncCoreMessagesEnabled = false;
@@ -1805,7 +1766,11 @@ class WorkspaceController extends ChangeNotifier
   @override
   List<RaftRecord> servers = [];
   @override
-  List<RaftChannel> channels = [], dms = [];
+  List<RaftChannel> get channels => channelRepository.channels;
+  set channels(List<RaftChannel> value) => channelRepository.channels = value;
+  @override
+  List<RaftChannel> get dms => channelRepository.dms;
+  set dms(List<RaftChannel> value) => channelRepository.dms = value;
   Map<String, int> unread = {};
 
   /// Source messageStore `mentionFlags`: conversations whose unread messages
@@ -2790,12 +2755,7 @@ class WorkspaceController extends ChangeNotifier
   void setActivityMuteState(String id, Map<String, dynamic> state) {
     final source = presentationSource;
     if (source != null) return source.setActivityMuteState(id, state);
-    RaftChannel patch(RaftChannel value) =>
-        value.id == id ? RaftChannel({...value.json, ...state}) : value;
-    channels = channels.map(patch).toList();
-    dms = dms.map(patch).toList();
-    if (channel != null) channel = patch(channel!);
-    notifyListeners();
+    channelRepository.setActivityMuteState(id, state);
   }
 
   /// The channel row [id] as currently held (channels first, then DMs).
@@ -2829,20 +2789,9 @@ class WorkspaceController extends ChangeNotifier
     List<RaftChannel> nextChannels,
     List<RaftChannel> nextDms, {
     required Set<String> readmit,
-  }) {
-    final accessible = {
-      for (final c in [...nextChannels, ...nextDms]) c.id,
-    };
-    for (final old in [...channels, ...dms]) {
-      if (!accessible.contains(old.id)) _revokeChannel(old.id);
-    }
-    _revokedChannels.removeAll(readmit);
-    channels = nextChannels;
-    dms = nextDms;
-    _save('channels', '', {
-      'channels': channels.map((c) => c.json).toList(),
-      'dms': dms.map((c) => c.json).toList(),
-    });
+  }) => channelRepository.acceptLists(nextChannels, nextDms, readmit: readmit);
+
+  void _adoptAcceptedChannelSelection(Set<String> accessible) {
     // A held share's destination (and a DM that is not on the server yet)
     // stays open when the lists do not carry it: the composer says why.
     if (channel != null &&
@@ -2861,7 +2810,6 @@ class WorkspaceController extends ChangeNotifier
         messageWindows.channelGeneration++;
       }
     }
-    notifyListeners();
   }
 
   /// Replaces [next]'s row in place, or adds it (a new DM goes first, as the
