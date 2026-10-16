@@ -120,6 +120,48 @@ void main() {
   });
   tearDown(() => root.delete(recursive: true));
 
+  test(
+    'an unrelated write never delays stored reads or cache misses',
+    () async {
+      final writing = Completer<void>(), resume = Completer<void>();
+      final other = AttachmentImageStoreKey(
+        identity: _key.identity,
+        channelId: 'other-channel',
+        entry: 'other-image',
+      );
+      final io = _ObservedIO()
+        ..afterWrite = (_) async {
+          writing.complete();
+          await resume.future;
+        };
+      await IOOverrides.runWithIOOverrides(() async {
+        final write = cache.write(other, Uint8List.fromList([4, 5]));
+        await writing.future;
+        try {
+          // This is a bounded liveness assertion, not a delay before checking.
+          // The unrelated write stays blocked until every lookup completes.
+          final results = await Future.wait<Object?>([
+            cache.read(_key),
+            cache.contains(_key),
+            cache.readPublic('missing-avatar'),
+            cache.containsFile(_key, filename: 'missing.pdf'),
+            cache.openFile(_key, filename: 'missing.pdf'),
+          ]).timeout(const Duration(seconds: 5));
+          expect(results, [
+            Uint8List.fromList([1, 2, 3]),
+            true,
+            null,
+            false,
+            null,
+          ]);
+        } finally {
+          resume.complete();
+          await write;
+        }
+      }, io);
+    },
+  );
+
   test('a late byte read cannot restore a purged index entry', () async {
     final paused = Completer<void>(), resume = Completer<void>();
     final io = _ObservedIO()
@@ -142,6 +184,33 @@ void main() {
     expect(await cache.sizeBytes(), 0);
     expect(await AttachmentDiskCache(() async => root).read(_key), isNull);
   });
+
+  test(
+    'a failed read cannot discard a replacement with the same clock',
+    () async {
+      final now = DateTime.now();
+      cache = AttachmentDiskCache(() async => root, clock: () => now);
+      await cache.write(_key, Uint8List.fromList([1, 2, 3]));
+      final reading = Completer<void>(), resume = Completer<void>();
+      final io = _ObservedIO()
+        ..afterRead = (_) async {
+          reading.complete();
+          await resume.future;
+          throw const FileSystemException('read failed after opening');
+        };
+      await IOOverrides.runWithIOOverrides(() async {
+        final read = cache.read(_key);
+        await reading.future;
+        final write = cache.write(_key, Uint8List.fromList([4, 5, 6]));
+        await Future<void>(() {});
+        resume.complete();
+        expect(await read, isNull);
+        await write;
+      }, io);
+      expect(await cache.read(_key), [4, 5, 6]);
+      expect(await cache.sizeBytes(), 3);
+    },
+  );
 
   test('revocation waits for the timestamp handle before deleting', () async {
     final touching = Completer<void>(), resume = Completer<void>();
