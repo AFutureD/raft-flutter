@@ -123,4 +123,95 @@ void main() {
       );
     }
   });
+
+  group(
+    'read_state:updated unreadCount hint (Web applyServerThreadUnread)',
+    () {
+      Future<(WorkspaceController, _EventClient)> opened() async {
+        final (w, _, client) = await _login();
+        await w.selectChannel(_c1, autoRead: false);
+        expect(w.threadSummaries['p-c1']['unreadCount'], 3);
+        return (w, client);
+      }
+
+      test('[BP-READ-079] a read elsewhere lowers the thread badge to the server count', () async {
+        final (w, client) = await opened();
+        addTearDown(w.dispose);
+        client.emit('read_state:updated', {
+          'serverId': 's1',
+          'scopeId': 't-c1',
+          'maxReadSeq': 5,
+          'readStateVersion': 1,
+          'unreadCount': 1,
+        });
+        expect(w.threadSummaries['p-c1']['unreadCount'], 1);
+        expect(
+          w.threadSummaries['p-c1']['firstUnreadMessageId'],
+          't-c1-r1',
+          reason: 'the server sends a count, not a position',
+        );
+        expect(w.threadSummaries['p-c1']['replyCount'], 3);
+      });
+
+      test('[BP-READ-079] zero drops the jump target; a count never raises the badge', () async {
+        final (w, client) = await opened();
+        addTearDown(w.dispose);
+        client.emit('read_state:updated', {
+          'serverId': 's1',
+          'scopeId': 't-c1',
+          'maxReadSeq': 5,
+          'readStateVersion': 1,
+          'unreadCount': 2,
+        });
+        client.emit('read_state:updated', {
+          'serverId': 's1',
+          'scopeId': 't-c1',
+          'maxReadSeq': 6,
+          'readStateVersion': 2,
+          'unreadCount': 9,
+        });
+        expect(w.threadSummaries['p-c1']['unreadCount'], 2);
+        client.emit('read_state:updated_bulk', {
+          'serverId': 's1',
+          'scopes': [
+            {
+              'scopeId': 't-c1',
+              'maxReadSeq': 9,
+              'readStateVersion': 3,
+              'unreadCount': 0,
+            },
+          ],
+        });
+        expect(w.threadSummaries['p-c1']['unreadCount'], 0);
+        expect(w.threadSummaries['p-c1']['firstUnreadMessageId'], isNull);
+      });
+
+      test('[BP-READ-079] a frame without a usable count, or a stale one, leaves the badge alone', () async {
+        final (w, client) = await opened();
+        addTearDown(w.dispose);
+        client.emit('read_state:updated', {
+          'serverId': 's1',
+          'scopeId': 't-c1',
+          'maxReadSeq': 5,
+          'readStateVersion': 5,
+        });
+        client.emit('read_state:updated', {
+          'serverId': 's1',
+          'scopeId': 't-c1',
+          'maxReadSeq': 5,
+          'readStateVersion': 6,
+          'unreadCount': -1,
+        });
+        // A frame the read-state ledger already has (same version) is stale.
+        client.emit('read_state:updated', {
+          'serverId': 's1',
+          'scopeId': 't-c1',
+          'maxReadSeq': 5,
+          'readStateVersion': 6,
+          'unreadCount': 0,
+        });
+        expect(w.threadSummaries['p-c1']['unreadCount'], 3);
+      });
+    },
+  );
 }

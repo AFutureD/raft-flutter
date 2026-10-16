@@ -12,6 +12,7 @@ import 'message_task_cache.dart';
 import 'message_translation_store.dart';
 import 'thread_agent_followers.dart';
 import 'thread_search.dart';
+import 'thread_unread_hint.dart';
 import 'workspace_services.dart';
 import 'session_scope.dart';
 import 'channel_revocation.dart';
@@ -4983,6 +4984,15 @@ class WorkspaceController extends ChangeNotifier
             );
             if (outcome == 'accepted' && fact['scopeId'] is String) {
               _projectReadState(fact['scopeId'] as String);
+              // Optional server hint: unread left after the read.
+              final left = fact['unreadCount'];
+              if (left is int && left >= 0) {
+                lowerThreadSummaryUnread(
+                  _summariesByChannel,
+                  fact['scopeId'] as String,
+                  left,
+                );
+              }
             }
           }
         }
