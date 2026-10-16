@@ -106,6 +106,20 @@ void main() {
       expect(logs.join('\n'), isNot(contains('xai-test')));
     });
 
+    test('Grok has no effort scale: the choice is never sent', () {
+      for (final r in AgentReasoning.values) {
+        final config = OpenAiRealtimeSession(
+          service: RealtimeService.grok,
+          reasoning: r,
+          apiKey: key,
+          systemPrompt: 'p',
+          tools: const [],
+          onToolCall: (n, a) async => {},
+        ).sessionConfig();
+        expect(config.containsKey('reasoning'), isFalse, reason: r.name);
+      }
+    });
+
     test('the session.update has Grok\'s shape', () async {
       await connected();
       final update = await server.waitFor('session.update');

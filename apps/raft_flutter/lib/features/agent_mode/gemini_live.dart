@@ -24,6 +24,7 @@ class GeminiLiveSession implements VoiceSession {
     required this.tools,
     required this.onToolCall,
     this.voice = 'Sulafat',
+    this.reasoning = AgentReasoning.low,
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -31,6 +32,21 @@ class GeminiLiveSession implements VoiceSession {
     this.onInterrupted,
     this.onClosed,
   });
+
+  /// How hard the model thinks (`thinkingConfig.thinkingLevel`). Gemini Live
+  /// models accept `low`, `medium` and `high` (3.1 Flash Live also `minimal`;
+  /// the plain 3.8 Live takes none at all). A model that refuses the level
+  /// gets the next lower one, and none when `low` is refused too.
+  /// https://ai.google.dev/gemini-api/docs/live-api/capabilities
+  final AgentReasoning reasoning;
+  late AgentReasoning? _level = reasoning;
+
+  /// The level after a refusal of [level]: the next one down, then none.
+  static AgentReasoning? lowerThinking(AgentReasoning level) => switch (level) {
+    AgentReasoning.high => AgentReasoning.medium,
+    AgentReasoning.medium => AgentReasoning.low,
+    AgentReasoning.low => null,
+  };
 
   static const _host = 'generativelanguage.googleapis.com';
   static String _path(String version) =>
@@ -187,7 +203,13 @@ class GeminiLiveSession implements VoiceSession {
           r'behavior|non_?blocking|scheduling',
           caseSensitive: false,
         ).hasMatch(refusal);
-        if (nb && behavior) {
+        final thinking = RegExp(
+          r'thinking|thought',
+          caseSensitive: false,
+        ).hasMatch(refusal);
+        if (thinking && _level != null) {
+          _level = lowerThinking(_level!);
+        } else if (nb && behavior) {
           _nonBlocking = false;
         } else if (_affective) {
           _affective = false;
@@ -245,46 +267,7 @@ class GeminiLiveSession implements VoiceSession {
       cancelOnError: true,
     );
     _socket = socket;
-    _send({
-      'setup': {
-        'model': model,
-        'generationConfig': {
-          'responseModalities': ['AUDIO'],
-          // Gemini 3 Live models require a level; low keeps replies quick.
-          'thinkingConfig': {'thinkingLevel': 'low'},
-          'speechConfig': {
-            'voiceConfig': {
-              'prebuiltVoiceConfig': {'voiceName': voice},
-            },
-          },
-        },
-        'systemInstruction': {
-          'parts': [
-            {'text': systemPrompt},
-          ],
-        },
-        'tools': [
-          {
-            'functionDeclarations': declarations(
-              tools,
-              nonBlocking: nonBlocking,
-            ),
-          },
-        ],
-        // End the turn soon after the person stops talking.
-        'realtimeInputConfig': {
-          'automaticActivityDetection': {
-            'endOfSpeechSensitivity': 'END_SENSITIVITY_HIGH',
-            'silenceDurationMs': 500,
-          },
-        },
-        'inputAudioTranscription': <String, Object?>{},
-        'outputAudioTranscription': <String, Object?>{},
-        'contextWindowCompression': contextCompression(),
-        if (affective) 'enableAffectiveDialog': true,
-        'sessionResumption': {'handle': ?_resumeHandle},
-      },
-    });
+    _send(setupMessage(model, affective: affective, nonBlocking: nonBlocking));
     try {
       await ready.future.timeout(const Duration(seconds: 15));
     } catch (_) {
@@ -292,6 +275,49 @@ class GeminiLiveSession implements VoiceSession {
       rethrow;
     }
   }
+
+  /// The first message of the session.
+  Map<String, Object?> setupMessage(
+    String model, {
+    required bool affective,
+    required bool nonBlocking,
+  }) => {
+    'setup': {
+      'model': model,
+      'generationConfig': {
+        'responseModalities': ['AUDIO'],
+        // Gemini 3 Live models want a level (low keeps replies quick, and is
+        // what is sent unless the person chose another in the voice
+        // settings).
+        if (_level != null) 'thinkingConfig': {'thinkingLevel': _level!.name},
+        'speechConfig': {
+          'voiceConfig': {
+            'prebuiltVoiceConfig': {'voiceName': voice},
+          },
+        },
+      },
+      'systemInstruction': {
+        'parts': [
+          {'text': systemPrompt},
+        ],
+      },
+      'tools': [
+        {'functionDeclarations': declarations(tools, nonBlocking: nonBlocking)},
+      ],
+      // End the turn soon after the person stops talking.
+      'realtimeInputConfig': {
+        'automaticActivityDetection': {
+          'endOfSpeechSensitivity': 'END_SENSITIVITY_HIGH',
+          'silenceDurationMs': 500,
+        },
+      },
+      'inputAudioTranscription': <String, Object?>{},
+      'outputAudioTranscription': <String, Object?>{},
+      'contextWindowCompression': contextCompression(),
+      if (affective) 'enableAffectiveDialog': true,
+      'sessionResumption': {'handle': ?_resumeHandle},
+    },
+  };
 
   void _handle(Map<String, dynamic> message) {
     final content = message['serverContent'] as Map<String, dynamic>?;

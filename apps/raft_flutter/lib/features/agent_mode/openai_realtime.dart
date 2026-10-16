@@ -81,6 +81,7 @@ class OpenAiRealtimeSession implements VoiceSession {
     required this.tools,
     required this.onToolCall,
     this.voice = defaultVoice,
+    this.reasoning = AgentReasoning.low,
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -153,6 +154,14 @@ class OpenAiRealtimeSession implements VoiceSession {
 
   final RealtimeService service;
   bool get _grok => service == RealtimeService.grok;
+
+  /// `reasoning.effort` of the session: OpenAI accepts minimal, low, medium,
+  /// high and xhigh (https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets/methods/create);
+  /// the app offers the middle three. A refusal that names it steps down one
+  /// level, and `low` refused drops `reasoning` as before. Grok Voice has no
+  /// such scale (`reasoning.effort` is `high` or `none`), so it is not sent.
+  final AgentReasoning reasoning;
+  late AgentReasoning _effort = reasoning;
 
   /// Close the socket after this long without activity (null: never).
   final Duration? _idleClose;
@@ -294,7 +303,12 @@ class OpenAiRealtimeSession implements VoiceSession {
             rethrow;
           }
         } else if (_reasoning && named.contains('reasoning')) {
-          _reasoning = false;
+          final lower = GeminiLiveSession.lowerThinking(_effort);
+          if (lower == null) {
+            _reasoning = false;
+          } else {
+            _effort = lower;
+          }
         } else if (_truncation && named.contains('truncation')) {
           _truncation = false;
         } else if (_transcribeModel != 'whisper-1' &&
@@ -341,7 +355,7 @@ class OpenAiRealtimeSession implements VoiceSession {
     'output_modalities': ['audio'],
     'instructions': systemPrompt,
     'tools': functionTools(tools),
-    if (_reasoning) 'reasoning': {'effort': 'low'},
+    if (_reasoning) 'reasoning': {'effort': _effort.name},
     if (_truncation)
       // Drops a fifth of a full conversation at once instead of a little each
       // turn, which would break the cached prefix every turn.

@@ -4,6 +4,12 @@ import 'agent_audio.dart';
 import 'gemini_live.dart';
 import 'openai_realtime.dart';
 
+/// How hard the voice model thinks before it answers: low is the quickest
+/// (what agent mode always used), high reasons longer and answers later. The
+/// names are the values Gemini (`thinkingLevel`) and OpenAI
+/// (`reasoning.effort`) both accept.
+enum AgentReasoning { low, medium, high }
+
 /// Which realtime voice service agent mode talks to.
 enum AgentVoiceProvider { gemini, openai, grok }
 
@@ -68,6 +74,7 @@ VoiceSession createVoiceSession({
   required List<Map<String, Object?>> tools,
   required AgentToolHandler onToolCall,
   required String voice,
+  AgentReasoning reasoning = AgentReasoning.low,
   void Function(Uint8List pcm24k)? onAudio,
   void Function(String text)? onInputText,
   void Function(String text)? onOutputText,
@@ -79,6 +86,7 @@ VoiceSession createVoiceSession({
   AgentVoiceProvider.gemini => GeminiLiveSession(
     apiKey: apiKey,
     voice: voice,
+    reasoning: reasoning,
     systemPrompt: systemPrompt,
     tools: tools,
     onToolCall: onToolCall,
@@ -92,6 +100,7 @@ VoiceSession createVoiceSession({
   AgentVoiceProvider.openai => OpenAiRealtimeSession(
     apiKey: apiKey,
     voice: voice,
+    reasoning: reasoning,
     systemPrompt: systemPrompt,
     tools: tools,
     onToolCall: onToolCall,

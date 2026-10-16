@@ -265,6 +265,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       provider: provider,
       apiKey: apiKey,
       voice: settings.voiceOf(provider),
+      reasoning: settings.reasoning,
       playbackPending: audio.pending,
       systemPrompt: systemPrompt(),
       tools: tools,

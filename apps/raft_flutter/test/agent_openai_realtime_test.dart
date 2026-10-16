@@ -122,7 +122,9 @@ void main() {
   OpenAiRealtimeSession session({
     List<Map<String, Object?>>? tools,
     String prompt = '你是语音助理。',
+    AgentReasoning reasoning = AgentReasoning.low,
   }) => OpenAiRealtimeSession(
+    reasoning: reasoning,
     apiKey: 'sk-test-key-0123456789abcdef0123',
     systemPrompt: prompt,
     tools: tools ?? agentModeToolDeclarations(),
@@ -235,6 +237,35 @@ void main() {
           );
           expect(sent[i].containsKey('behavior'), isFalse);
         }
+      },
+    );
+
+    test('the reasoning effort is the one chosen in the voice settings', () {
+      for (final r in AgentReasoning.values) {
+        expect(session(reasoning: r).sessionConfig()['reasoning'], {
+          'effort': r.name,
+        }, reason: r.name);
+      }
+    });
+
+    test(
+      'a refused effort steps down one level at a time, then goes',
+      () async {
+        server
+          ..rejectUpdates = 2
+          ..rejectParam = 'session.reasoning.effort';
+        final s = session(reasoning: AgentReasoning.high);
+        await s.connect();
+        addTearDown(s.close);
+        final efforts = [
+          for (final u in server.of('session.update'))
+            (u['session'] as Map)['reasoning'],
+        ];
+        expect(efforts, [
+          {'effort': 'high'},
+          {'effort': 'medium'},
+          {'effort': 'low'},
+        ]);
       },
     );
 

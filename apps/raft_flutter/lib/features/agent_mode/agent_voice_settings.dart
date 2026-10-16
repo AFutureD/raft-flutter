@@ -63,6 +63,18 @@ class AgentVoiceSettings extends ChangeNotifier {
     AgentOutput.earpiece: '听筒',
     AgentOutput.speaker: '扬声器',
   };
+  static const reasoningLabels = {
+    AgentReasoning.low: '低',
+    AgentReasoning.medium: '中',
+    AgentReasoning.high: '高',
+  };
+
+  /// Grok Voice has one switch (`reasoning.effort` is `high` or `none`), no
+  /// scale, so the choice does not apply to it and it keeps the service's
+  /// default (on). See https://docs.x.ai/developers/model-capabilities/audio/speech-to-speech
+  static bool reasoningApplies(AgentVoiceProvider provider) =>
+      provider != AgentVoiceProvider.grok;
+
   static const warmthLabels = {
     AgentWarmth.restrained: '克制',
     AgentWarmth.natural: '自然',
@@ -154,6 +166,11 @@ class AgentVoiceSettings extends ChangeNotifier {
   AgentPace get pace => _enum(AgentPace.values, 'pace', AgentPace.normal);
   set pace(AgentPace v) => _write('pace', v.name);
 
+  /// The reasoning effort of the next voice session (Gemini, OpenAI).
+  AgentReasoning get reasoning =>
+      _enum(AgentReasoning.values, 'reasoning', AgentReasoning.low);
+  set reasoning(AgentReasoning v) => _write('reasoning', v.name);
+
   AgentWarmth get warmth =>
       _enum(AgentWarmth.values, 'warmth', AgentWarmth.natural);
   set warmth(AgentWarmth v) => _write('warmth', v.name);
@@ -243,9 +260,9 @@ class AgentVoiceSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     final s = AgentVoiceSettings.instance;
-    Widget section(String title) => Padding(
+    Widget section(String title, {Key? key, TextStyle? style}) => Padding(
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 8),
-      child: Text(title, style: t.heading(15)),
+      child: Text(title, key: key, style: style ?? t.heading(15)),
     );
     Widget choices<T>(Map<T, String> labels, T current, ValueChanged<T> on) =>
         Padding(
@@ -312,6 +329,24 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                         },
                       ),
                 onTap: () => _setVoice(s, e.key),
+              ),
+            section('推理强度'),
+            if (AgentVoiceSettings.reasoningApplies(s.provider)) ...[
+              choices(
+                AgentVoiceSettings.reasoningLabels,
+                s.reasoning,
+                (v) => s.reasoning = v,
+              ),
+              section(
+                '低最快；高想得更久、答得更晚。下一次对话生效。',
+                key: const ValueKey('agent-reasoning-note'),
+                style: t.body(12, color: t.hint),
+              ),
+            ] else
+              section(
+                'Grok 只有开和关两档，没有强度可选，这里用服务默认（开）。',
+                key: const ValueKey('agent-reasoning-grok-note'),
+                style: t.body(12, color: t.hint),
               ),
             section('语速'),
             choices(AgentVoiceSettings.paceLabels, s.pace, (v) => s.pace = v),
