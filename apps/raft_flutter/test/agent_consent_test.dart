@@ -288,6 +288,12 @@ void main() {
       await t.pump();
       ledger.userSaid('算了');
       await t.pump();
+      // The card says it was cancelled for a moment, then goes.
+      expect(find.text('已取消'), findsOneWidget);
+      expect(find.text('确认'), findsNothing);
+      final gone = AgentConsentLedger.cancelledStay + const Duration(seconds: 1);
+      clock = clock.add(gone);
+      await t.pump(gone);
       expect(find.text('把 #98 标记为已完成'), findsNothing);
     });
 

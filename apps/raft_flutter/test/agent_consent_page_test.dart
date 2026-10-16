@@ -200,7 +200,9 @@ void main() {
     });
     expect(done['status'], 'declined');
     expect(ran, isEmpty);
-    expect(find.text('把任务 t3 标记为已完成'), findsNothing);
+    // The card says so, and has nothing left to press.
+    expect(find.text('已取消'), findsOneWidget);
+    expect(find.text('确认'), findsNothing);
   });
 
   testWidgets('a confirm card the model draws approves nothing', (t) async {

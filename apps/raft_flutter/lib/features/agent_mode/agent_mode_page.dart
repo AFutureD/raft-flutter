@@ -27,17 +27,18 @@ import 'agent_tools.dart';
 import 'agent_tv.dart';
 import 'agent_voice.dart';
 import 'agent_voice_settings.dart';
-import 'capabilities/agent_capability.dart'
-    show AgentCapabilityEnv, AgentCapabilityRegistry;
+import 'capabilities/agent_capability.dart' show AgentCapabilityRegistry;
 import 'capabilities/agent_action_board.dart';
-import 'capabilities/agent_capability_standard.dart';
 import 'capabilities/agent_capability_tools.dart';
-import 'capabilities/agent_direct_tools.dart';
 import 'capabilities/agent_consent.dart';
+import 'capabilities/agent_read_tools.dart' show agentReadToolNames;
 import 'gemini_live.dart' show agentToolTimeout;
 import 'references/agent_entities.dart';
 import 'references/agent_handle_tag.dart';
 import 'references/agent_reference_table.dart';
+import 'runtime/agent_runtime.dart';
+import 'runtime/agent_turn.dart' show AgentTurn;
+import 'runtime/agent_tool_set.dart';
 
 /// Opens agent mode above the workspace. A [PageRouteBuilder] (not a
 /// MaterialPageRoute) so a layout change adapts the page instead of closing it.
@@ -144,9 +145,15 @@ class _AgentModePageState extends State<AgentModePage> {
   bool _compact = true;
   // ignore: raft_lints/avoid_imperative_notice_state -- Cleared by the next layer change (push, pop, reveal) or when a surface is accepted.
   String? _surfaceError;
-  late final _grounded = AgentGroundedTools(
+
+  /// The turn state machine, and the owner of everything a turn touches: what
+  /// the person agreed to, the screens the model composes, the tools, the
+  /// voice session. This page draws what the runtime holds.
+  late final _runtime = AgentRuntime(
+    workspace: widget.controller,
     data: data,
-    host: AgentSurfaceHost(
+    registry: widget.registry,
+    surfaces: AgentSurfaceHost(
       begin: _beginSurface,
       changed: _surfaceChanged,
       isOpen: (draft) =>
@@ -156,29 +163,32 @@ class _AgentModePageState extends State<AgentModePage> {
         _setComposing(false);
       },
     ),
+    references: _references,
+    pointed: _pointed,
+    screenTool: _dispatchScreenTool,
+    screenSummary: () => '第 ${_stack.length} 层「${_peek(_stack.last)}」',
+    decorate: (name, result) =>
+        name == 'end_surface' ? _withRefs(result) : result,
+    around: _aroundTool,
     onRejected: (problems) {
       if (mounted) setState(() => _surfaceError = problems.first);
     },
-  );
+    voice: AgentVoiceSetup(
+      tools: agentModeToolDeclarations(widget.registry),
+      systemPrompt: _systemPrompt,
+      beforeConnect: () => _brainLoading ?? Future<void>.value(),
+      onSessionEnd: _sessionEnded,
+    ),
+  )..addListener(_runtimeChanged);
+
+  AgentGroundedTools get _grounded => _runtime.grounded;
+  AgentCapabilityTools get _capabilities => _runtime.capabilities;
 
   /// The card the person tapped, for "这个".
   final _pointer = AgentPointer();
 
-  /// `find` / `query` / `act` / `confirm` / `resolve`: every capability of
-  /// the app behind five tools. What they read is remembered in the same
-  /// facts the generated screens are checked against.
-  late final _capabilities = AgentCapabilityTools(
-    workspace: widget.controller,
-    registry: widget.registry,
-    env: AgentCapabilityEnv(data: data, facts: _grounded.facts),
-    references: _references,
-    pointed: _pointed,
-    userConsent: _consent,
-    board: _actions,
-  );
-
   /// The confirmed operations: their confirm cards turn into the result.
-  final _actions = AgentActionBoard();
+  AgentActionBoard get _actions => _runtime.actions;
 
   /// The person pressed 撤销 / 重试 on a result card: that press is their
   /// say-so (the undo is within its 30 s, the retry is the same operation
@@ -197,7 +207,7 @@ class _AgentModePageState extends State<AgentModePage> {
 
   /// What the person has agreed to. Fed only by them: a tap on a confirm
   /// card, their typed words and the transcript of their speech.
-  final _consent = AgentConsentLedger();
+  AgentConsentLedger get _consent => _runtime.consent;
 
   /// Reads the things entity cards point at; the frame takes their titles
   /// from it, so "Cody 那个任务" finds a card too.
@@ -275,20 +285,8 @@ class _AgentModePageState extends State<AgentModePage> {
   AgentEntityRef? _pointed() =>
       _pointer.layerId == _stack.last.id ? _pointer.entity : null;
 
-  late final _voice = AgentVoiceController(
-    tools: [
-      ...agentToolDeclarations,
-      ...groundedToolDeclarations(agentStandardCatalog),
-      ...capabilityToolDeclarations,
-      ...directActionDeclarations(widget.registry ?? agentStandardCapabilities),
-    ],
-    onToolCall: _runTool,
-    systemPrompt: _systemPrompt,
-    beforeConnect: () => _brainLoading ?? Future<void>.value(),
-    onSessionEnd: _sessionEnded,
-    onUserSaid: (text, {required fresh}) =>
-        _consent.userSaid(text, fresh: fresh),
-  );
+  /// The voice session; the runtime owns it and hears what happens in it.
+  AgentVoiceController get _voice => _runtime.voice!;
 
   /// Memory shared with a Raft agent (real workspace only).
   late final _brain = AgentBrain(widget.controller);
@@ -330,6 +328,7 @@ class _AgentModePageState extends State<AgentModePage> {
     'read_tasks',
     'find',
     'query',
+    ...agentReadToolNames,
   };
 
   void _syncMood() {
@@ -433,13 +432,12 @@ class _AgentModePageState extends State<AgentModePage> {
     _reveal.dispose();
     _composingEnds?.cancel();
     _mood.dispose();
-    _voice.dispose();
+    _runtime.removeListener(_runtimeChanged);
+    _runtime.dispose();
     _spotlight.dispose();
     _marks.dispose();
     _pointer.dispose();
     _problemsTold?.cancel();
-    _consent.dispose();
-    _actions.dispose();
     _entities.dispose();
     super.dispose();
   }
@@ -792,15 +790,30 @@ class _AgentModePageState extends State<AgentModePage> {
     }
   }
 
+  /// The runtime heard a change (a new request, a screen stopped, a card
+  /// cancelled): redraw what it holds.
+  void _runtimeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// What the model is told in front of typed words: the turn, what the
+  /// last one was, what waits, and what "第二个" means on this screen.
+  String _typedContext(AgentTurn turn) => [
+    ?_runtime.takeContext(turn),
+    _references().contextText(pointed: _pointed()),
+  ].where((line) => line.isNotEmpty).join('\n');
+
   Future<void> _submit(String text) async {
-    // Typed words are the person's: they may answer a pending preview.
-    _consent.userSaid(text);
+    // Typed words are the person's: they may answer a pending preview, or
+    // only stop everything ("算了"), which needs no model.
+    final turn = _runtime.submitText(text);
+    if (turn == null) {
+      _voice.say(AgentSpeaker.you, text);
+      return;
+    }
     final stub = widget.model;
     if (stub == null &&
-        await _voice.sendText(
-          text,
-          context: _references().contextText(pointed: _pointed()),
-        )) {
+        await _voice.sendText(text, context: _typedContext(turn))) {
       return;
     }
     if (!mounted) return;
@@ -810,11 +823,13 @@ class _AgentModePageState extends State<AgentModePage> {
     _syncMood();
     final handled =
         stub != null &&
-        await stub.handle(text, _runTool, (line) {
+        await stub.handle(text, _runtime.runTool, (line) {
           if (mounted) _voice.say(AgentSpeaker.agent, line);
         });
     _localBusy = false;
     if (mounted) _syncMood();
+    // Nobody else answers a typed request that is handled here.
+    _runtime.finishTurn();
     if (handled) return;
     if (!mounted) return;
     switch (parseAgentIntent(text, widget.controller.channels)) {
@@ -977,11 +992,13 @@ class _AgentModePageState extends State<AgentModePage> {
     };
   }
 
-  /// Voice tools. Screen tools act before returning and never wait for data;
-  /// read tools fetch what the model needs to answer.
-  Future<Map<String, Object?>> _runTool(
+  /// Around every tool call: a read keeps the mood badge on "reading" until it
+  /// is answered, and what the screen noticed (cards that could not be drawn)
+  /// rides on the answer.
+  Future<Map<String, Object?>> _aroundTool(
     String name,
     Map<String, Object?> args,
+    Future<Map<String, Object?>> Function() run,
   ) async {
     if (!mounted) return {'error': 'closed'};
     final reading = _readTools.contains(name);
@@ -1002,14 +1019,17 @@ class _AgentModePageState extends State<AgentModePage> {
       guard = Timer(agentToolTimeout, settle);
     }
     try {
-      return _withProblems(await _dispatchTool(name, args));
+      return _withProblems(await run());
     } finally {
       guard?.cancel();
       settle();
     }
   }
 
-  Future<Map<String, Object?>> _dispatchTool(
+  /// The tools only this screen can run: change the layer, open, expand,
+  /// spotlight, mark. Everything else (reads, screens the model composes,
+  /// operations) is the runtime's.
+  Future<Map<String, Object?>> _dispatchScreenTool(
     String name,
     Map<String, Object?> args,
   ) async {
@@ -1111,12 +1131,6 @@ class _AgentModePageState extends State<AgentModePage> {
           'tasks': [for (final t in tasks.take(20)) _taskFacts(t)],
         };
     }
-    final grounded = await _grounded.run(name, args);
-    if (grounded != null) {
-      return name == 'end_surface' ? _withRefs(grounded) : grounded;
-    }
-    final capability = await _capabilities.run(name, args);
-    if (capability != null) return capability;
     return {'error': 'unknown tool $name'};
   }
 
@@ -1339,12 +1353,35 @@ class _AgentModePageState extends State<AgentModePage> {
       onExpand: (path) => _expandNode(l, path),
     );
     // Only a detail layer carries actions.
-    return l.item == null
+    final body = l.item == null
         ? view
         : AgentActionScope(
             onAction: (action) => _detailAction(l, action),
             child: view,
           );
+    final draft = l.draft;
+    if (draft == null || !_runtime.surfaceStopped(draft.id)) return body;
+    // A new request stopped this screen while it was being composed: what is
+    // here stays, and it says it will not grow.
+    final t = RaftAgentTheme.of(context);
+    return Stack(
+      children: [
+        body,
+        Positioned(
+          right: 12,
+          bottom: 8,
+          child: Container(
+            key: const ValueKey('agent-surface-stopped'),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: t.chip,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text('已停止', style: t.body(11.5, color: t.muted)),
+          ),
+        ),
+      ],
+    );
   }
 
   @override

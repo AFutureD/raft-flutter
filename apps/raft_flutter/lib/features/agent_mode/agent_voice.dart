@@ -7,9 +7,24 @@ import 'agent_audio.dart';
 import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
 
+/// What the runtime needs of the model's side: to tell it something the app
+/// saw, and to silence it.
+abstract interface class AgentModelLink {
+  /// Tells the model something the app saw (a card was pressed), outside the
+  /// captions. False when there is no session to tell.
+  Future<bool> tell(String note);
+
+  /// Stops what the model is saying at once.
+  void stopSpeaking();
+}
+
 /// The conversation of agent mode: captions, the mic state and the realtime
 /// voice session. Push-to-talk on hold, live conversation on tap.
-class AgentVoiceController extends ChangeNotifier {
+///
+/// It reports what happens in the conversation (the person starts or stops
+/// speaking, the model is interrupted, speaks, finishes); the
+/// [AgentRuntime] decides what that means for the turn.
+class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   AgentVoiceController({
     required this.tools,
     required this.onToolCall,
@@ -17,6 +32,12 @@ class AgentVoiceController extends ChangeNotifier {
     this.beforeConnect,
     this.onSessionEnd,
     this.onUserSaid,
+    this.onListening,
+    this.onListeningEnded,
+    this.onModelInterrupted,
+    this.onModelSpoke,
+    this.onModelTurnComplete,
+    this.muted,
     AgentAudio? audio,
     AgentVoiceKey? key,
   }) : audio = audio ?? AgentAudio.instance,
@@ -42,6 +63,25 @@ class AgentVoiceController extends ChangeNotifier {
   /// for the first chunk of a new utterance. Never called with what the
   /// agent says: this is the one stream a confirmation may be read from.
   final void Function(String text, {required bool fresh})? onUserSaid;
+
+  /// The mic opened for the person (held, or live): a turn starts.
+  final void Function()? onListening;
+
+  /// The person let go, or live mode ended: they are done speaking.
+  final void Function()? onListeningEnded;
+
+  /// The server cut the model off because the person spoke over it.
+  final void Function()? onModelInterrupted;
+
+  /// The model began to answer (audio or words).
+  final void Function()? onModelSpoke;
+
+  /// The model finished its turn.
+  final void Function()? onModelTurnComplete;
+
+  /// True while what the model says is not wanted (the person just said 停):
+  /// its audio and words are dropped.
+  final bool Function()? muted;
   final AgentAudio audio;
   final AgentVoiceKey key;
 
@@ -190,6 +230,8 @@ class AgentVoiceController extends ChangeNotifier {
         return onToolCall(name, args);
       },
       onAudio: (pcm) {
+        onModelSpoke?.call();
+        if (muted?.call() ?? false) return;
         if (!audio.supported) return;
         unawaited(audio.play(pcm));
         if (!_live && !_holding && state != AgentMicState.speaking) {
@@ -204,6 +246,8 @@ class AgentVoiceController extends ChangeNotifier {
         _append(AgentSpeaker.you, text);
       },
       onOutputText: (text) {
+        onModelSpoke?.call();
+        if (muted?.call() ?? false) return;
         saying.value += text;
         _logAppend(AgentSpeaker.agent, text);
         _append(AgentSpeaker.agent, text);
@@ -211,10 +255,12 @@ class AgentVoiceController extends ChangeNotifier {
       onTurnComplete: () {
         _youLine = _agentLine = null;
         if (state == AgentMicState.thinking) _set(AgentMicState.idle);
+        onModelTurnComplete?.call();
       },
       onInterrupted: () {
         _agentLine = null;
         unawaited(audio.stopPlayback());
+        onModelInterrupted?.call();
       },
       onClosed: (reason) {
         _endSession();
@@ -284,6 +330,7 @@ class AgentVoiceController extends ChangeNotifier {
     _live = early == true;
     _pending.clear();
     _startMic();
+    onListening?.call();
     _set(
       _session?.connected ?? false
           ? AgentMicState.holding
@@ -306,6 +353,7 @@ class AgentVoiceController extends ChangeNotifier {
     } else {
       // Released while connecting: the buffered speech is the whole turn.
       session.endAudio();
+      onListeningEnded?.call();
       _set(AgentMicState.thinking);
     }
   }
@@ -330,6 +378,7 @@ class AgentVoiceController extends ChangeNotifier {
     }
     _stopMic();
     _session?.endAudio();
+    onListeningEnded?.call();
     _set(
       _session?.connected ?? false
           ? AgentMicState.thinking
@@ -341,7 +390,18 @@ class AgentVoiceController extends ChangeNotifier {
     _live = false;
     _stopMic();
     _session?.endAudio();
+    onListeningEnded?.call();
     _set(AgentMicState.idle);
+  }
+
+  @override
+  void stopSpeaking() {
+    _agentLine = null;
+    saying.value = '';
+    unawaited(audio.stopPlayback());
+    if (state == AgentMicState.speaking || state == AgentMicState.thinking) {
+      _set(_live ? AgentMicState.live : AgentMicState.idle);
+    }
   }
 
   /// Sends typed text to the voice session; false when there is no key.
@@ -364,6 +424,7 @@ class AgentVoiceController extends ChangeNotifier {
   /// Tells the model something the app saw (a card was pressed), outside the
   /// captions. It is the app speaking, not the person: it never counts as
   /// their words. False when there is no session to tell.
+  @override
   Future<bool> tell(String note) async {
     if (_disposed || !await hasKey) return false;
     final session = await _ensureSession();

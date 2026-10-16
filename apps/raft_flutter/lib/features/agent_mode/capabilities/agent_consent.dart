@@ -251,19 +251,27 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
   /// The app cancels the confirmation of [token] (the person went on to
   /// something unrelated): its card turns into "已取消" for a moment, and the
   /// model's `confirm` for it is answered "declined". False when there is no
-  /// live confirmation for it.
-  bool cancel(String token) {
+  /// live confirmation for it, or when the person already agreed to it (their
+  /// yes is not undone because they said something else next) unless [force]:
+  /// they asked to stop everything.
+  bool cancel(String token, {bool force = false}) {
     _prune();
-    final entry = _entries.remove(token);
-    if (entry == null) return false;
+    final held = _entries[token];
+    if (held == null || (held.approved && !force)) return false;
+    _cancelEntry(_entries[token]!);
+    notifyListeners();
+    return true;
+  }
+
+  void _cancelEntry(_Entry entry) {
+    final token = entry.request.token;
+    _entries.remove(token);
     _cancelledTokens.add(token);
     _cancelled[token] = AgentCancelledConfirmation(
       entry.cardId,
       entry.request,
       _now().add(cancelledStay),
     );
-    notifyListeners();
-    return true;
   }
 
   /// The card of a cancelled confirmation was dismissed.
@@ -357,9 +365,10 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
     if (eligible.isEmpty) return;
     switch (classifyUtterance(_said)) {
       case AgentUtterance.no:
+        // Their no is a cancellation like any other: the card says so.
         for (final e in eligible) {
-          e.declined = true;
           e.approved = false;
+          _cancelEntry(e);
         }
         notifyListeners();
       case AgentUtterance.yes:
