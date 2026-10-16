@@ -52,12 +52,12 @@
         "field.WorkspaceController._cacheRetired": 0,
         "field.WorkspaceController._cacheWrites": 0,
         "field.WorkspaceController._channelFilesStores": 0,
-        "field.WorkspaceController._channelListSeq": 1,
-        "field.WorkspaceController._channelReadSeq": 1,
-        "field.WorkspaceController._channelReads": 1,
+        "field.WorkspaceController._channelListSeq": 0,
+        "field.WorkspaceController._channelReadSeq": 0,
+        "field.WorkspaceController._channelReads": 0,
         "field.WorkspaceController._channelReplyEpochs": 1,
-        "field.WorkspaceController._channelRereads": 1,
-        "field.WorkspaceController._channelRowSeq": 1,
+        "field.WorkspaceController._channelRereads": 0,
+        "field.WorkspaceController._channelRowSeq": 0,
         "field.WorkspaceController._chatTabPresented": 1,
         "field.WorkspaceController._composerNotices": 1,
         "field.WorkspaceController._connectedBefore": 1,
@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 6184,
-        "tokens": 34686
+        "lines": 5969,
+        "tokens": 33136
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
@@ -925,6 +925,14 @@
       "metric": "field.WorkspaceController.sessionScope",
       "limit": 1,
       "reason": "task #136 step 5a authorized by Cindy: replace two receiver-local revocation sets with one SessionScope that dispatches server revocation and reset in fixed synchronous phases; preserve projection, borrowed/independent ownership and queued purge order. Pending exception approval with this concrete slice.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController.channelRepository",
+      "limit": 1,
+      "reason": "task #136 step 6a requested by Cindy: replace five receiver-local channel read-order and in-flight fields with one ChannelRepository; retain controller list projections, original source delegation and overridable entrypoints. Principle accepted by Cindy; exact slice metrics and bounded replacement remain subject to PR review.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }

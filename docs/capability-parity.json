@@ -2155,11 +2155,15 @@
    "status": "covered",
    "webEntry": "channelStore.loadChannels on bootstrap/server switch/realtime resync (background)",
    "gate": "",
-   "flutterEntry": "workspace_controller / RaftClient.channels() with archived=include",
+   "flutterEntry": "workspace_controller.dart server selection / channel_repository.dart refreshChannels() via controller facade; RaftClient.channels() with archived=include",
    "flutterRefs": [
     {
      "file": "packages/raft_client/lib/src/client.dart",
      "needle": "query: dm ? null : {'archived': 'include'}"
+    },
+    {
+     "file": "apps/raft_flutter/lib/data/channel_repository.dart",
+     "needle": "client.channels(),"
     }
    ],
    "justification": "",
@@ -2175,10 +2179,14 @@
    "status": "covered",
    "webEntry": "channelStore.ensureChannel (ChannelRoute, notification click, search result) | readReceiptStore.fetchScope (background)",
    "gate": "",
-   "flutterEntry": "workspace_controller.dart channel refresh / app_root.dart deep link resolve",
+   "flutterEntry": "channel_repository.dart refreshChannel() via controller facade; workspace_controller.dart resolveConversationChannel() for unknown/deep-link channels",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "needle": "final data = await client.get('/channels/$id');"
+    },
+    {
+     "file": "apps/raft_flutter/lib/data/channel_repository.dart",
      "needle": "final data = await client.get('/channels/$id');"
     }
    ],
@@ -2903,11 +2911,15 @@
    "status": "covered",
    "webEntry": "channelStore.loadDMChannels / addOrRefreshDM (background)",
    "gate": "",
-   "flutterEntry": "RaftClient.channels(dm: true)",
+   "flutterEntry": "workspace_controller.dart server selection / channel_repository.dart refreshChannels() via controller facade; RaftClient.channels(dm: true)",
    "flutterRefs": [
     {
      "file": "packages/raft_client/lib/src/client.dart",
      "needle": "dm ? '/channels/dm' : '/channels',"
+    },
+    {
+     "file": "apps/raft_flutter/lib/data/channel_repository.dart",
+     "needle": "client.channels(dm: true),"
     }
    ],
    "justification": "",
