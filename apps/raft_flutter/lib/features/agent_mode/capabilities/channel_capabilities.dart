@@ -1,7 +1,9 @@
 import '../../../data/workspace_controller.dart';
 import '../../resource_filters.dart';
 import 'agent_capability.dart';
+import 'action_support.dart' show messageById;
 import 'capability_support.dart';
+import 'message_capabilities.dart' show senderByRef;
 
 /// Channels, DMs, threads, unread and the Activity inbox.
 
@@ -401,7 +403,7 @@ final channelCapabilities = <AgentCapability>[
   ),
   AgentCapability(
     id: 'channels.files',
-    title: '一个频道里分享过的文件和图片（文件名、类型、大小、谁在什么时候传的）',
+    title: '一个频道里分享过的文件和图片（文件名、类型、大小、时间），可只看图片或其它文件、可只看某人发的',
     kind: AgentCapabilityKind.query,
     risk: AgentCapabilityRisk.read,
     parity: 'GET /channels/:id/files',
@@ -415,27 +417,86 @@ final channelCapabilities = <AgentCapability>[
       'files',
       '文档',
       '上传的',
+      '找图片',
+      '某人发的图',
+      '设计图',
+      '发的文件',
+      '谁发的文件',
+      '截图',
     ],
     paramsSchema: objectSchema(
       {
         'channel': strArg('频道 id 或名字'),
+        'kind': strArg(
+          '只看哪一类：image 图片 / document 其它文件',
+          values: const ['image', 'document'],
+        ),
+        'sender': strArg('只看这个人或 Agent 发的（名字）；会逐个去读消息核对，慢一点'),
         'limit': intArg('几个，默认 10', min: 1, max: 30, dflt: 10),
       },
       required: const ['channel'],
     ),
-    resultSummary: 'files[{id,filename,mimeType,size,time,messageId}]，hasMore',
+    resultSummary: 'files[{id,filename,mimeType,size,time,messageId,from}]，hasMore；from 只在按 sender 筛时有',
     run: (w, args, env) async {
       final channel = channelByRef(w, '${args['channel']}');
       final limit = limitOf(args, dflt: 10);
+      final kind = text(args['kind']);
+      final senderRef = text(args['sender']);
+      final sender = senderRef == null
+          ? null
+          : await senderByRef(w, senderRef);
+      final filtering = kind != null || sender != null;
       final body = await w.query(
         '/channels/${Uri.encodeComponent(channel.id)}/files',
-        query: {'limit': limit},
+        query: {'limit': filtering ? 50 : limit},
       );
-      final rows = rowsOf(body, const ['files']);
+      var rows = rowsOf(body, const ['files']);
+      if (kind != null) {
+        bool image(Map<String, dynamic> f) =>
+            '${f['mimeType'] ?? f['contentType']}'.toLowerCase().startsWith('image/');
+        rows = [
+          for (final f in rows)
+            if (kind == 'image' ? image(f) : !image(f)) f,
+        ];
+      }
+      final from = <String, String>{};
+      if (sender != null) {
+        // File rows do not say who sent them; the messages do.
+        final candidates = rows.take(25).toList();
+        final kept = <Map<String, dynamic>>[];
+        await Future.wait([
+          for (final f in candidates)
+            () async {
+              try {
+                final m = await messageById(
+                  w,
+                  '${f['messageId']}',
+                  channelRef: channel.id,
+                );
+                if (m.senderId == sender.id) {
+                  kept.add(f);
+                  from['${f['id']}'] = m.author;
+                }
+              } on Object {
+                // A message that cannot be read cannot be matched.
+              }
+            }(),
+        ]);
+        rows = [
+          for (final f in candidates)
+            if (kept.contains(f)) f,
+        ];
+      }
       return compact({
         'channel': channel.name,
-        'count': rows.length,
+        'count': rows.take(limit).length,
         'hasMore': body is Map && body['nextCursor'] != null ? true : null,
+        'filteredBy': filtering
+            ? [
+                ?(kind == null ? null : kind == 'image' ? '图片' : '其它文件'),
+                ?(sender == null ? null : '${sender.label} 发的（只查了最近 25 个文件）'),
+              ].join('，')
+            : null,
         'files': [
           for (final f in rows.take(limit))
             compact({
@@ -445,6 +506,7 @@ final channelCapabilities = <AgentCapability>[
               'size': f['size'] ?? f['sizeBytes'],
               'time': stamp(f['createdAt']),
               'messageId': f['messageId'],
+              'from': from['${f['id']}'],
             }),
         ],
       });

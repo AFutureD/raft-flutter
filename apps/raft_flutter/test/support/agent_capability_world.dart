@@ -20,6 +20,20 @@ class CapabilityWorld extends WorkspaceController {
   @override
   Future<void> refreshUnread() async {}
 
+  /// Servers selected, in order (the server menu's own `selectServer`).
+  final switched = <String>[];
+  bool switchAccepted = true;
+
+  @override
+  Future<void> selectServer(
+    RaftRecord next, {
+    void Function()? onHydrated,
+    void Function()? onCacheMiss,
+  }) async {
+    switched.add(next.id);
+    if (switchAccepted) server = next;
+  }
+
   // ---- What the operations call on the controller, recorded ----
 
   /// `(method, path, data)` of every [command].

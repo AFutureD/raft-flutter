@@ -177,6 +177,7 @@ class AgentRuntime extends ChangeNotifier {
     this.modelLink,
     this.onNotice,
     this.onLeave,
+    this.onServerSwitched,
     this.leaveDelay = const Duration(milliseconds: 1500),
     DateTime Function()? now,
     AgentConsentLedger? consent,
@@ -194,7 +195,11 @@ class AgentRuntime extends ChangeNotifier {
       capabilities: registry,
       references: references,
     );
-    final env = AgentCapabilityEnv(data: data, facts: grounded.facts);
+    final env = AgentCapabilityEnv(
+      data: data,
+      facts: grounded.facts,
+      onServerSwitched: () => onServerSwitched?.call(),
+    );
     capabilities = AgentCapabilityTools(
       workspace: workspace,
       registry: registry,
@@ -296,6 +301,10 @@ class AgentRuntime extends ChangeNotifier {
   /// never-by-voice operation) and the model has said so. Called a moment
   /// after the model's turn ends.
   final VoidCallback? onLeave;
+
+  /// The person switched to another workspace by voice: what the screen holds
+  /// (the attention layer, the layers above it) belongs to the old one.
+  final VoidCallback? onServerSwitched;
 
   /// How long after the model's turn ends agent mode closes.
   final Duration leaveDelay;

@@ -89,7 +89,7 @@ Map<String, Object?> _savedRow(Map<String, dynamic> r) => compact({
 final messageCapabilities = <AgentCapability>[
   AgentCapability(
     id: 'messages.search',
-    title: '在整个工作区搜消息：关键词，可按频道、发送人、人/Agent、时间范围、是否提到我过滤',
+    title: '在整个工作区搜消息：关键词，可按频道、发送人、人/Agent、时间范围、是否提到我、是否带图片或文件过滤',
     kind: AgentCapabilityKind.query,
     risk: AgentCapabilityRisk.read,
     parity: 'GET /messages/search',
@@ -108,6 +108,9 @@ final messageCapabilities = <AgentCapability>[
       '某个人说的',
       '昨天的消息',
       '这周的消息',
+      '带图片的消息',
+      '带文件的消息',
+      '某人发的图片',
       'search',
     ],
     paramsSchema: objectSchema({
@@ -119,6 +122,10 @@ final messageCapabilities = <AgentCapability>[
         values: const ['user', 'agent'],
       ),
       'mentionedMe': boolArg('只看提到我的'),
+      'attachment': strArg(
+        '只看带附件的消息：image 带图片的 / file 带文件（非图片）的；与 sender 一起用就是“某人发的图 / 文件”',
+        values: const ['image', 'file'],
+      ),
       'within': strArg(
         '最近多久：today 今天 / 7d / 30d',
         values: const ['today', '7d', '30d'],
@@ -155,12 +162,33 @@ final messageCapabilities = <AgentCapability>[
       if (params == null) {
         throw const AgentCapabilityError('需要关键词 q，或至少一个过滤条件（频道、发送人、时间）');
       }
-      params['limit'] = limitOf(args);
+      final attachment = text(args['attachment']);
+      // The filter is applied here, so read the most a page gives.
+      params['limit'] = attachment == null ? limitOf(args) : 20;
       final after = text(args['after']), before = text(args['before']);
       if (after != null) params['after'] = _day(after);
       if (before != null) params['before'] = _day(before, end: true);
       final body = await w.query('/messages/search', query: params);
-      final rows = rowsOf(body, const ['results']);
+      var rows = rowsOf(body, const ['results']);
+      if (attachment != null) {
+        // The search has no file-type filter of its own: keep the rows whose
+        // files fit. A reply that carries no file information at all cannot
+        // be filtered, and saying "none" would be false.
+        if (rows.isNotEmpty && !rows.any((m) => m.containsKey('attachments'))) {
+          throw const AgentCapabilityError('这次搜索的结果里没有附件信息，按图片 / 文件筛不了：改用 channels.files 看某个频道的文件');
+        }
+        bool image(Object? a) =>
+            a is Map &&
+            '${a['mimeType']}'.toLowerCase().startsWith('image/');
+        rows = [
+          for (final m in rows)
+            if (m['attachments'] is List &&
+                (m['attachments'] as List).any(
+                  (a) => attachment == 'image' ? image(a) : a is Map && !image(a),
+                ))
+              m,
+        ].take(limitOf(args)).toList();
+      }
       for (final m in rows) {
         env.facts?.learnMessage(
           '${m['senderDisplayName'] ?? m['senderName'] ?? ''}',
@@ -171,6 +199,7 @@ final messageCapabilities = <AgentCapability>[
       return compact({
         'count': rows.length,
         'hasMore': body is Map ? body['hasMore'] : null,
+        'filteredBy': attachment == null ? null : '带${attachment == 'image' ? '图片' : '文件'}的消息（在搜索结果里筛的，可能漏掉更早的）',
         'messages': [for (final m in rows) messageRow(m)],
       });
     },

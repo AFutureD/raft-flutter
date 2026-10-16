@@ -27,12 +27,17 @@ class AgentCapabilityEnv {
     this.onAgents,
     this.audit,
     this.snooze,
+    this.onServerSwitched,
   });
 
   final AgentModeData? data;
 
   /// Where "稍后" is kept; null is the app's own (see [snoozeFor]).
   final AgentSnoozeStore? snooze;
+
+  /// The app's server changed under the agent (`servers.switch`): whatever
+  /// was read for the old one is stale.
+  final void Function()? onServerSwitched;
   final AgentFacts? facts;
 
   /// What the agent did in this session, for `agent.audit_log`. The tools
@@ -45,6 +50,7 @@ class AgentCapabilityEnv {
     onAgents: onAgents,
     audit: log,
     snooze: snooze,
+    onServerSwitched: onServerSwitched,
   );
 
   AgentSnoozeStore snoozeFor(WorkspaceController w) =>

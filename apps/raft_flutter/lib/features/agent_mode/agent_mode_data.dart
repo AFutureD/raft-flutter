@@ -491,6 +491,9 @@ class AgentModeData {
   /// rule sentences (the model request goes on and fills its cache).
   static const summaryWait = Duration(seconds: 6);
 
+  /// The clock this reader goes by (tests set it).
+  DateTime now() => _now();
+
   static const stalledAfter = Duration(hours: 4);
 
   /// The server-wide task queries return at most this many rows per status.

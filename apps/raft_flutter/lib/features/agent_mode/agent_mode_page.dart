@@ -175,6 +175,18 @@ class _AgentModePageState extends State<AgentModePage> {
     onLeave: () {
       if (mounted) Navigator.of(context).maybePop();
     },
+    // 切到另一个工作区: what the layers hold belongs to the old one.
+    onServerSwitched: () {
+      if (!mounted) return;
+      setState(() {
+        _attention = AgentModeData.cached(widget.controller);
+        _attentionError = null;
+        _announced = false;
+        _batchStart = 0;
+        _stack.removeRange(1, _stack.length);
+      });
+      unawaited(_loadAttention());
+    },
     onRejected: (problems) {
       if (mounted) setState(() => _surfaceError = problems.first);
     },

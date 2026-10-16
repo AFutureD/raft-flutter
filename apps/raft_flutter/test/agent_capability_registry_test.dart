@@ -490,6 +490,7 @@ void main() {
       'agents.workspace_files': ({'agent': 'Cody'}, 'files'),
       'agents.mcp_usage': ({'agent': 'Cody'}, 'servers'),
       'notifications.center': ({}, 'notices'),
+      'digest.since': ({}, 'tasks'),
     };
 
     test('the smoke table covers every registered capability but two', () {
