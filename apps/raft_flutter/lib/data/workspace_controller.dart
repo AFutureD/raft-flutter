@@ -47,24 +47,12 @@ import 'thread_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'cache_clear.dart';
 import 'attachment_url_cache.dart';
-import '../platform/memory_budgets.dart';
-import '../platform/memory_release.dart';
+import 'attachment_media.dart';
+
+export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
 import 'upload_mime.dart';
 import 'feature_flag_client_facts.dart';
-
-class WorkspaceAttachmentImageLease {
-  WorkspaceAttachmentImageLease(this.lease, this._releaseAuthority);
-  final AttachmentImageLease lease;
-  final VoidCallback _releaseAuthority;
-  bool _released = false;
-  void release({bool discard = false}) {
-    if (_released) return;
-    _released = true;
-    discard ? lease.discard() : lease.release();
-    _releaseAuthority();
-  }
-}
 
 /// Real URI identity, independent of the asynchronously accepted parent record.
 @immutable
@@ -114,10 +102,7 @@ class WorkspaceController extends ChangeNotifier {
     AttachmentImageByteStore? attachmentImageStore,
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
-  }) : _attachmentUrls = attachmentUrls ?? AttachmentUrlCache(),
-       _presentationAuthority = presentationSource?.navigationAuthority,
-       attachmentImageStore =
-           attachmentImageStore ?? AttachmentDiskCache.installed {
+  }) : _presentationAuthority = presentationSource?.navigationAuthority {
     this.composer =
         composer ??
         presentationSource?.composer ??
@@ -134,9 +119,20 @@ class WorkspaceController extends ChangeNotifier {
             jsonEncode(server?.json['permissions']),
           ),
         );
-    if (presentationSource == null) {
-      _removePlayerTrim = _playerSessions.installMemoryTrim();
-    }
+    attachmentMedia =
+        presentationSource?.attachmentMedia ??
+        AttachmentMedia(
+          scope: () => attachmentImageScope,
+          get: (path, {query}) => client.get(path, query: query),
+          post: (path, {data}) => client.post(path, data: data),
+          isDisposed: () => _disposed,
+          admitsImages: () =>
+              client.user != null && server?.id == client.serverId,
+          isRevoked: (id) => _revokedChannels.contains(id),
+          retainedByHistory: _retainsAttachmentByHistory,
+          imageStore: attachmentImageStore ?? AttachmentDiskCache.installed,
+          urls: attachmentUrls,
+        );
     MessageHistoryPages.attach(this);
     _ownsFollowedThreads = followedThreads == null;
     this.followedThreads =
@@ -270,10 +266,7 @@ class WorkspaceController extends ChangeNotifier {
   /// widget holds, requests in flight and playing or held players stay.
   @visibleForTesting
   void clearRebuildableMemory() {
-    _attachmentImages?.trimIdle();
-    _attachmentUrls.dropResolved();
-    _playerSessions.trimStills();
-    _playerSessions.forgetFrames();
+    attachmentMedia.trimRebuildable();
   }
 
   /// Borrowed editor controllers project messages but never own the session,
@@ -484,15 +477,17 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  AttachmentImageRepository? _attachmentImages;
+  /// One media owner for the session and all borrowed presentations.
+  late final AttachmentMedia attachmentMedia;
 
-  /// Persistent bytes for inline/list image previews (null: memory only).
-  final AttachmentImageByteStore? attachmentImageStore;
-  int get retainedImageDecodedBytes => _attachmentImages?.decodedByteCount ?? 0;
-  int get retainedImageCount => _attachmentImages?.entryCount ?? 0;
-  int get retainedImageEncodedBytes => _attachmentImages?.encodedByteCount ?? 0;
-  final _imageAuthorities =
-      <AttachmentImageKey, Map<Object, bool Function()>>{};
+  /// Compatibility facade while attachment surfaces move to [attachmentMedia].
+  AttachmentImageByteStore? get attachmentImageStore =>
+      attachmentMedia.imageStore;
+  int get retainedImageDecodedBytes =>
+      attachmentMedia.retainedImageDecodedBytes;
+  int get retainedImageCount => attachmentMedia.retainedImageCount;
+  int get retainedImageEncodedBytes =>
+      attachmentMedia.retainedImageEncodedBytes;
   AttachmentImageScope get attachmentImageScope => AttachmentImageScope(
     origin: client.origin,
     principal: client.user?.id ?? '',
@@ -583,18 +578,7 @@ class WorkspaceController extends ChangeNotifier {
     return store;
   }
 
-  bool _retainsAttachment(AttachmentImageKey key) {
-    if (_disposed ||
-        key.scope != attachmentImageScope ||
-        client.user == null ||
-        server?.id != client.serverId) {
-      return false;
-    }
-    // A freshly accepted Files row is an independent permission projection.
-    // Its active owner never grants authority through a cached URL or count.
-    if (_imageAuthorities[key]?.values.any((admitted) => admitted()) == true) {
-      return true;
-    }
+  bool _retainsAttachmentByHistory(AttachmentImageKey key) {
     final candidates =
         _retainedAttachmentIndex()[key.channelId]?[key.attachmentId] ??
         const <Map<String, dynamic>>[];
@@ -680,144 +664,36 @@ class WorkspaceController extends ChangeNotifier {
     return _retainedIndex = index;
   }
 
-  VoidCallback _registerImageAuthority(
-    AttachmentImageKey key,
-    bool Function() authorized,
-  ) {
-    final owner = Object();
-    _imageAuthorities.putIfAbsent(key, () => {})[owner] = authorized;
-    return () {
-      final owners = _imageAuthorities[key];
-      owners?.remove(owner);
-      if (owners?.isEmpty == true) _imageAuthorities.remove(key);
-      _attachmentImages?.synchronize(attachmentImageScope);
-    };
-  }
-
-  AttachmentImageRepository _newImageRepository() {
-    final budgets = RaftMemoryBudgets.current;
-    final repository = AttachmentImageRepository(
-      scope: attachmentImageScope,
-      retainedAuthority: _retainsAttachment,
-      store: attachmentImageStore,
-      maxEntries: budgets.attachmentImageEntries,
-      maxDecodedBytes: budgets.attachmentImageDecodedBytes,
-      maxActiveDecodedBytes: budgets.attachmentImageActiveDecodedBytes,
-      maxEncodedBytes: budgets.attachmentImageEncodedBytes,
-    );
-    // Decoded bitmaps are rebuildable from the byte store: let go of the
-    // unleased ones under memory pressure and while the app is hidden.
-    _removeImageReporter = RaftMemoryRelease.instance.addReporter(
-      'attachmentImages',
-      () =>
-          '${repository.entryCount}/${repository.maxEntries} entries '
-          '${repository.decodedByteCount}/${repository.maxDecodedBytes} B decoded '
-          '${repository.encodedByteCount} B encoded',
-    );
-    _removeImageTrimmer = RaftMemoryRelease.instance.addTrimmer(
-      (reason) => repository.trimIdle(
-        pressure: reason == RaftMemoryTrim.pressure,
-        reason: reason.name,
-      ),
-    );
-    return repository;
-  }
-
-  VoidCallback? _removeImageTrimmer, _removeImageReporter;
-
   WorkspaceAttachmentImageLease acquireAttachmentImage(
     AttachmentImageKey key, {
     required AttachmentImageLoader load,
     required bool Function() authorized,
     bool foreground = false,
     bool bestAvailable = false,
-  }) {
-    if (presentationSource != null) {
-      return presentationSource!.acquireAttachmentImage(
-        key,
-        load: load,
-        authorized: authorized,
-        foreground: foreground,
-        bestAvailable: bestAvailable,
-      );
-    }
-    final releaseAuthority = _registerImageAuthority(key, authorized);
-    try {
-      final repository = _attachmentImages ??= _newImageRepository();
-      repository.synchronize(attachmentImageScope);
-      return WorkspaceAttachmentImageLease(
-        repository.acquire(
-          key,
-          load: load,
-          authorized: authorized,
-          foreground: foreground,
-          bestAvailable: bestAvailable,
-        ),
-        releaseAuthority,
-      );
-    } catch (_) {
-      releaseAuthority();
-      rethrow;
-    }
-  }
+  }) => attachmentMedia.acquireImage(
+    key,
+    load: load,
+    authorized: authorized,
+    foreground: foreground,
+    bestAvailable: bestAvailable,
+  );
 
-  /// Synchronous lookup: a lease on the already decoded image for [key], or
-  /// null when it is not retained (or no longer authorized). Never loads.
+  /// Synchronous lookup; never loads an image.
   WorkspaceAttachmentImageLease? peekAttachmentImage(
     AttachmentImageKey key, {
     required bool Function() authorized,
-  }) {
-    if (presentationSource != null) {
-      return presentationSource!.peekAttachmentImage(
-        key,
-        authorized: authorized,
-      );
-    }
-    final repository = _attachmentImages;
-    if (repository == null || _disposed) return null;
-    repository.synchronize(attachmentImageScope);
-    final releaseAuthority = _registerImageAuthority(key, authorized);
-    final lease = repository.acquireReady(key, authorized: authorized);
-    if (lease == null) {
-      releaseAuthority();
-      return null;
-    }
-    return WorkspaceAttachmentImageLease(lease, releaseAuthority);
-  }
+  }) => attachmentMedia.peekImage(key, authorized: authorized);
 
-  /// The persistent attachment cache, when this controller has one (the
-  /// installed app cache by default; tests with a fake byte store have none).
-  AttachmentDiskCache? get attachmentDiskCache {
-    final source = presentationSource;
-    if (source != null) return source.attachmentDiskCache;
-    final store = attachmentImageStore;
-    return store is AttachmentDiskCache ? store : null;
-  }
+  AttachmentDiskCache? get attachmentDiskCache => attachmentMedia.diskCache;
 
-  /// Persistent key of a derived entry (`file`, `preview`, `html`) of
-  /// [metadata]'s attachment for the current account and server.
   AttachmentImageStoreKey attachmentCacheKey(
     Map<String, dynamic> metadata,
     String kind, {
     required String channelId,
-  }) => AttachmentImageKey.storeKeyOf(
-    scope: attachmentImageScope,
-    channelId: channelId,
-    metadata: metadata,
-    kind: kind,
-  );
+  }) => attachmentMedia.cacheKey(metadata, kind, channelId: channelId);
 
-  /// True when [key]'s source bytes are already stored on this device, so
-  /// nothing needs to be signed or fetched for them.
-  Future<bool> attachmentStored(AttachmentImageKey key) async {
-    final disk = attachmentDiskCache;
-    if (disk == null) return false;
-    try {
-      return await disk.contains(key.source.storeKey);
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> attachmentStored(AttachmentImageKey key) =>
+      attachmentMedia.stored(key);
 
   /// Set by the host from its actual logical width before bootstrap. Home
   /// retains selection/drafts, but is not an open conversation/read surface.
@@ -1408,13 +1284,8 @@ class WorkspaceController extends ChangeNotifier {
     final origin = client.origin;
     unawaited(discardSharedScope?.call(origin, principal, id, null));
     // Everything cached for that server on this device is revoked with it.
-    final store = attachmentImageStore;
-    if (store != null && presentationSource == null) {
-      unawaited(
-        store
-            .purgeIdentity(AttachmentImageKey.identityOf(origin, principal, id))
-            .catchError((Object _) {}),
-      );
+    if (presentationSource == null) {
+      attachmentMedia.purgeIdentity(origin, principal, id);
     }
     if (client.serverId == id) {
       composer.clearOwnedBy(this);
@@ -1640,9 +1511,7 @@ class WorkspaceController extends ChangeNotifier {
   @override
   void notifyListeners() {
     _stateStamp++;
-    _attachmentImages?.synchronize(attachmentImageScope);
-    _attachmentUrls.synchronize(attachmentImageScope);
-    _playerSessions.synchronize(attachmentImageScope);
+    if (presentationSource == null) attachmentMedia.synchronize();
     if (!_disposed) {
       _syncScopeVisits();
       _ensureSyncIdentity();
@@ -3017,14 +2886,7 @@ class WorkspaceController extends ChangeNotifier {
     };
     for (final scope in {id, ...threadIds}) {
       _revokedChannels.add(scope);
-      _attachmentImages
-        ?..synchronize(attachmentImageScope)
-        ..invalidateChannel(scope);
-      _attachmentUrls.invalidateChannel(scope);
-      _playerSessions.invalidateChannel(scope);
-      // Stored images, preview files and documents of the channel go too,
-      // also when no decoded image was ever held this session.
-      _purgeStoredChannel(scope);
+      if (presentationSource == null) attachmentMedia.revokeChannel(scope);
       messageWindows.revokeChannel(scope);
       messageSync.revokeChannel(scope);
       threadRepliesSync.revokeChannel(scope);
@@ -3102,19 +2964,6 @@ class WorkspaceController extends ChangeNotifier {
         }
       });
     }
-  }
-
-  void _purgeStoredChannel(String channelId) {
-    final store = attachmentImageStore;
-    if (store == null || presentationSource != null) return;
-    unawaited(
-      store
-          .purgeChannel(
-            AttachmentImageKey.storeIdentity(attachmentImageScope),
-            channelId,
-          )
-          .catchError((Object _) {}),
-    );
   }
 
   int _sidebarRequest = 0;
@@ -5339,137 +5188,31 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.sharedQuery(path, query: query) ??
       client.get(path, query: query);
 
-  // ---- Signed attachment URLs -------------------------------------------
-  // One cache and one resolve path for every attachment surface (list preview,
-  // lightbox, document/media preview, inline players, Files panel). Memory
-  // only; see [AttachmentUrlCache] for the lifetime rules.
-  final AttachmentUrlCache _attachmentUrls;
+  /// Compatibility facade; all presentations share [attachmentMedia].
+  PlayerSessions get playerSessions => attachmentMedia.playerSessions;
 
-  /// The players of inline video/audio cards and their full-screen viewers
-  /// (one stream per attachment, shared; see [PlayerSessions]). A route-local
-  /// presentation shares its source's.
-  PlayerSessions get playerSessions =>
-      presentationSource?.playerSessions ?? _playerSessions;
-  final PlayerSessions _playerSessions = PlayerSessions();
-  VoidCallback? _removePlayerTrim;
-
-  int _attachmentUrlRequests = 0;
-
-  /// Number of `/attachments/<id>/url` + batch requests this controller sent.
   @visibleForTesting
-  int get debugAttachmentUrlRequests =>
-      presentationSource?.debugAttachmentUrlRequests ?? _attachmentUrlRequests;
+  int get debugAttachmentUrlRequests => attachmentMedia.debugUrlRequests;
   @visibleForTesting
-  AttachmentUrlCache get debugAttachmentUrls =>
-      presentationSource?.debugAttachmentUrls ?? _attachmentUrls;
+  AttachmentUrlCache get debugAttachmentUrls => attachmentMedia.debugUrls;
 
-  /// The signed URL of attachment [id]. Reuses a fresh cached URL and joins a
-  /// request already in flight; otherwise asks the API once. [disposition]
-  /// null sends no disposition (server default). `attachment` URLs are
-  /// one-shot downloads and are never retained. [channelId] ties the entry to
-  /// its channel so revocation drops it.
   Future<String> attachmentUrl(
     String id, {
     String? disposition = 'inline',
     String? channelId,
     bool refresh = false,
     bool coalesce = false,
-  }) {
-    final source = presentationSource;
-    if (source != null) {
-      return source.attachmentUrl(
-        id,
-        disposition: disposition,
-        channelId: channelId,
-        refresh: refresh,
-        coalesce: coalesce,
-      );
-    }
-    final scope = attachmentImageScope;
-    Future<dynamic> fetch() {
-      _attachmentUrlRequests++;
-      return client.get(
-        '/attachments/${Uri.encodeComponent(id)}/url',
-        query: disposition == null ? null : {'disposition': disposition},
-      );
-    }
+  }) => attachmentMedia.url(
+    id,
+    disposition: disposition,
+    channelId: channelId,
+    refresh: refresh,
+    coalesce: coalesce,
+  );
 
-    if (disposition == 'attachment' || _revokedChannels.contains(channelId)) {
-      return fetch().then(_urlOf);
-    }
-    if (refresh) _attachmentUrls.invalidate(id, disposition: disposition ?? '');
-    if (coalesce && disposition == 'inline') {
-      // Many tiles asking at once (a screenful of images) share one batch
-      // request instead of sending one request each.
-      return _attachmentUrls.resolveCoalesced(
-        id,
-        scope: scope,
-        channelId: channelId,
-        fetchMany: _fetchAttachmentUrls,
-        fetch: fetch,
-      );
-    }
-    return _attachmentUrls.resolve(
-      id,
-      disposition: disposition ?? '',
-      scope: scope,
-      channelId: channelId,
-      fetch: fetch,
-    );
-  }
+  void invalidateAttachmentUrl(String id) => attachmentMedia.invalidateUrl(id);
 
-  static String _urlOf(dynamic body) {
-    final url = body is Map ? body['url'] : null;
-    if (url is! String || url.isEmpty) {
-      throw const FormatException('Invalid attachment response.');
-    }
-    return url;
-  }
-
-  /// A transfer rejected [id]'s cached URL (expired): forget it.
-  void invalidateAttachmentUrl(String id) {
-    final source = presentationSource;
-    if (source != null) {
-      source.invalidateAttachmentUrl(id);
-    } else {
-      _attachmentUrls.invalidate(id);
-    }
-  }
-
-  /// `POST /attachments/urls` (1..50 ids) for the visible tiles that need a
-  /// signed URL in this frame (images without a server thumbnail). Foreground
-  /// work: a user-visible load, never speculative.
-  Future<dynamic> _fetchAttachmentUrls(List<String> ids) {
-    _attachmentUrlRequests++;
-    return client.post('/attachments/urls', data: {'attachmentIds': ids});
-  }
-
-  DateTime? _previewGateAt;
-  bool? _previewGate;
-  Object? _previewGateScope;
-
-  /// Whether document/media previews are enabled on the server. The flag is
-  /// per server, so a short per-scope memory removes a serial round trip from
-  /// every preview open; a failed read is never remembered.
-  Future<bool> attachmentPreviewEnabled() async {
-    final source = presentationSource;
-    if (source != null) return source.attachmentPreviewEnabled();
-    final scope = attachmentImageScope;
-    final at = _previewGateAt;
-    if (_previewGate != null &&
-        _previewGateScope == scope &&
-        at != null &&
-        DateTime.now().difference(at) < const Duration(minutes: 2)) {
-      return _previewGate!;
-    }
-    final gate = await client.get('/messages/attachment-preview/enabled');
-    final enabled = gate is Map && gate['enabled'] == true;
-    if (_disposed || scope != attachmentImageScope) return enabled;
-    _previewGate = enabled;
-    _previewGateScope = scope;
-    _previewGateAt = DateTime.now();
-    return enabled;
-  }
+  Future<bool> attachmentPreviewEnabled() => attachmentMedia.previewEnabled();
 
   final _sharedReads = <String, Future<dynamic>>{};
 
@@ -5987,18 +5730,9 @@ class WorkspaceController extends ChangeNotifier {
     _threadFollowers?.dispose();
     _announcements?.dispose();
     _announcementGate?.dispose();
-    _imageAuthorities.clear();
-    _removeImageTrimmer?.call();
-    _removeImageTrimmer = null;
-    _removeImageReporter?.call();
-    _removeImageReporter = null;
-    _removePlayerTrim?.call();
-    _removePlayerTrim = null;
     _removeCacheClear?.call();
     _removeCacheClear = null;
-    _attachmentImages?.dispose();
-    _attachmentUrls.dispose();
-    _playerSessions.dispose();
+    if (presentationSource == null) attachmentMedia.dispose();
     _channelFilesStores.clear();
     subscription.cancel();
     _activityUnread?.dispose();
