@@ -6,7 +6,7 @@ import 'agent_mode_data.dart';
 import 'references/agent_handle_tag.dart';
 
 /// Screen width from which the attention layer becomes master-detail.
-const agentWideBreakpoint = 900.0;
+const agentWideBreakpoint = agentLayerWideWidth;
 
 /// Cards on the phone's first screen: read from a distance, so few.
 const agentPhoneBatch = 3;
@@ -310,30 +310,33 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
               flex: 54,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 540),
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 0, 18, 0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _title,
-                              style: t
-                                  .heading(t.titleSize, weight: t.titleWeight)
-                                  .copyWith(height: 1.1),
+                child: AgentScrollFade(
+                  builder: (context, scroll) => ListView(
+                    controller: scroll,
+                    padding: const EdgeInsets.only(bottom: 16),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 0, 18, 0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _title,
+                                style: t
+                                    .heading(t.titleSize, weight: t.titleWeight)
+                                    .copyWith(height: 1.1),
+                              ),
                             ),
-                          ),
-                          Text('按紧急程度', style: t.body(12, color: t.hint)),
-                        ],
+                            Text('按紧急程度', style: t.body(12, color: t.hint)),
+                          ],
+                        ),
                       ),
-                    ),
-                    _summary(a, compact: false),
-                    ..._sections(a),
-                  ],
+                      _summary(a, compact: false),
+                      ..._sections(a),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -344,21 +347,24 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: current == null
                     ? const SizedBox.shrink()
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.only(right: 6, bottom: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            AgentAttentionDetail(
-                              data: agentCardFor(current, _index + 1),
-                              onApprove: () => widget.onApprove(current),
-                              onOpen: () => widget.onOpen(current),
-                              onLater: () => widget.onLater(current),
-                            ),
-                            const AgentKeyHints(
-                              hints: [('↑↓', '切换'), ('↵', '通过'), ('S', '稍后')],
-                            ),
-                          ],
+                    : AgentScrollFade(
+                        builder: (context, scroll) => SingleChildScrollView(
+                          controller: scroll,
+                          padding: const EdgeInsets.only(right: 6, bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              AgentAttentionDetail(
+                                data: agentCardFor(current, _index + 1),
+                                onApprove: () => widget.onApprove(current),
+                                onOpen: () => widget.onOpen(current),
+                                onLater: () => widget.onLater(current),
+                              ),
+                              const AgentKeyHints(
+                                hints: [('↑↓', '切换'), ('↵', '通过'), ('S', '稍后')],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
               ),

@@ -2,11 +2,13 @@
 //   tool/flutter run -d linux -t integration_test/agent_mode_demo_main.dart \
 //     --dart-define=AGENT_DEMO_THEME=brutal|elegant-light|elegant-dark \
 //     --dart-define=AGENT_DEMO_SCRIPT=true
-// The script types a channel request, goes back, then asks the two generative
-// UI questions ("现在所有的 Agent 都在干什么？", "任务 #98 现在怎么样？"); a
-// scripted model answers them with the real tools, so a recording needs no key.
+// The script opens a card's detail, asks the generative UI questions ("现在所有的
+// Agent 都在干什么？", "展开卡住了", a channel, "任务 #98 现在怎么样？") and goes back
+// to the attention layer; a scripted model answers them with the real tools, so
+// a recording needs no key. It prints `AGENT_DEMO_MARK <name>` at each moment
+// worth a screenshot.
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, FileMode, Platform;
 
 import 'package:flutter/material.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
@@ -306,11 +308,43 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     if (_script) unawaited(_run());
   }
 
+  /// The input field only exists once the keyboard button was pressed.
   Future<void> _type(String text) async {
-    final field = find(_key.currentContext!);
+    var field = find(_key.currentContext!);
+    if (field == null) {
+      _tap(_key.currentContext!, const ValueKey('agent-keyboard'));
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      field = find(_key.currentContext!);
+    }
     if (field == null) return;
     field.controller?.text = text;
     field.onSubmitted?.call(text);
+  }
+
+  /// Taps the first [GestureDetector] below the widget keyed [key].
+  void _tap(BuildContext root, Key key) {
+    var done = false;
+    void inside(Element e) {
+      if (done) return;
+      final widget = e.widget;
+      if (widget is GestureDetector && widget.onTap != null) {
+        done = true;
+        widget.onTap!();
+        return;
+      }
+      e.visitChildren(inside);
+    }
+
+    void visit(Element e) {
+      if (done) return;
+      if (e.widget.key == key) {
+        inside(e);
+        return;
+      }
+      e.visitChildren(visit);
+    }
+
+    (root as Element).visitChildren(visit);
   }
 
   TextField? find(BuildContext root) {
@@ -329,21 +363,51 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     return hit;
   }
 
+  /// A moment worth a screenshot: a recording harness waits for this line (in
+  /// the file named by `AGENT_DEMO_MARKS` when set, else on stdout).
+  void _mark(String name) {
+    final file = Platform.environment['AGENT_DEMO_MARKS'];
+    if (file == null) {
+      debugPrint('AGENT_DEMO_MARK $name');
+    } else {
+      File(
+        file,
+      ).writeAsStringSync('$name\n', mode: FileMode.append, flush: true);
+    }
+  }
+
   Future<void> _run() async {
     Future<void> wait(int ms) =>
         Future<void>.delayed(Duration(milliseconds: ms));
+    // Leaves the screen alone while a harness takes its screenshot.
+    Future<void> mark(String name) async {
+      _mark(name);
+      await wait(1500);
+    }
+
+    await wait(2500);
+    await mark('attention');
+    await _type('现在所有的 Agent 都在干什么？');
+    await wait(9000);
+    await mark('agents');
+    await _type('展开卡住了');
+    await wait(8000);
+    await mark('agents-expanded');
+    await _type('返回');
+    await wait(2500);
+    await _type('返回');
     await wait(2500);
     await _type('raft-flutter 现在什么情况？');
-    await wait(3200);
+    await wait(5000);
+    await mark('channel');
     await _type('返回');
-    await wait(2200);
-    await _type('现在所有的 Agent 都在干什么？');
-    await wait(4500);
-    await _type('返回');
-    await wait(1800);
+    await wait(2500);
     await _type('任务 #98 现在怎么样？');
-    await wait(4500);
+    await wait(7000);
+    await mark('task');
     await _type('回到提醒');
+    await wait(3500);
+    await mark('attention-dock');
   }
 
   @override

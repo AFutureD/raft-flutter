@@ -16,6 +16,7 @@ export 'src/layer_frame.dart';
 export 'src/marks.dart';
 export 'src/mood_badge.dart';
 export 'src/priority_card.dart';
+export 'src/scroll_fade.dart';
 export 'src/spotlight.dart';
 export 'src/surface_cards.dart';
 export 'src/voice_dock.dart';

@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'agent_theme.dart';
 import 'enter.dart';
 import 'marks.dart';
+import 'scroll_fade.dart';
 
 /// Content of one Z layer: a heading, a short spoken-style summary and a
-/// scrolling body.
+/// scrolling body. On a desktop window the content keeps to a readable column
+/// ([agentLayerContentWidth]) in the middle of the layer, and the body shows
+/// a scrollbar and a fade where it is cut off ([AgentScrollFade]).
 class AgentLayerFrame extends StatelessWidget {
   const AgentLayerFrame({
     super.key,
@@ -52,8 +55,33 @@ class AgentLayerFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    final wide = agentIsWide(context);
+    return LayoutBuilder(
+      builder: (context, box) {
+        // Wide: the column, never closer to the edge than the gutter the
+        // handles of the cards stand in.
+        final side = wide
+            ? ((box.maxWidth - agentLayerContentWidth) / 2).clamp(
+                agentLayerGutter,
+                double.infinity,
+              )
+            : 0.0;
+        return AgentScrollFade(
+          enabled: wide,
+          builder: (context, controller) => _body(
+            t,
+            controller,
+            EdgeInsets.fromLTRB(side, dense ? 8 : 18, side, dense ? 12 : 24),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _body(RaftAgentTheme t, ScrollController? controller, EdgeInsets pad) {
     return ListView(
-      padding: EdgeInsets.fromLTRB(0, dense ? 8 : 18, 0, dense ? 12 : 24),
+      controller: controller,
+      padding: pad,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18),

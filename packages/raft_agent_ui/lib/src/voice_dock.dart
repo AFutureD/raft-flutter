@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'scroll_fade.dart';
 
 /// Who spoke a transcript line.
 enum AgentSpeaker { you, agent }
@@ -36,7 +37,9 @@ class AgentVoiceDock extends StatefulWidget {
     this.mood,
   });
 
-  /// Latest lines, oldest first. The dock shows the last two.
+  /// Latest lines, oldest first. The dock shows the last two (side by side on
+  /// a desktop window, so the dock is one bubble tall and never takes the
+  /// layer's room).
   final List<(AgentSpeaker, String)> lines;
   final ValueChanged<String> onSubmit;
   final AgentMicState state;
@@ -104,15 +107,44 @@ class _AgentVoiceDockState extends State<AgentVoiceDock> {
     final shown = widget.lines.length > 2
         ? widget.lines.sublist(widget.lines.length - 2)
         : widget.lines;
+    final wide = agentIsWide(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final (speaker, text) in shown)
+        if (wide && shown.length > 1)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: _Bubble(speaker: speaker, text: text, theme: t),
-          ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, (speaker, text)) in shown.indexed) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    Expanded(
+                      child: _Bubble(
+                        speaker: speaker,
+                        text: text,
+                        theme: t,
+                        maxLines: 2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          )
+        else
+          for (final (speaker, text) in shown)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _Bubble(
+                speaker: speaker,
+                text: text,
+                theme: t,
+                maxLines: wide ? 2 : 3,
+              ),
+            ),
         if (_typing)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -268,10 +300,12 @@ class _Bubble extends StatelessWidget {
     required this.speaker,
     required this.text,
     required this.theme,
+    required this.maxLines,
   });
   final AgentSpeaker speaker;
   final String text;
   final RaftAgentTheme theme;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +333,7 @@ class _Bubble extends StatelessWidget {
             ),
             Text(
               text,
-              maxLines: 3,
+              maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
               style: t.body(14, color: agent ? t.hudForeground : t.foreground),
             ),

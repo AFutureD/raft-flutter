@@ -25,7 +25,8 @@ class AgentReferenceScope extends InheritedWidget {
 }
 
 /// Shows the handle (① ② ③ …) of the entity a card stands for, small in its
-/// corner, and makes a tap on the card "point" at it: the next thing said
+/// corner (on a desktop window: in the margin left of the card, where it
+/// cannot sit on the card's status chip), and makes a tap on the card "point" at it: the next thing said
 /// with "这个" means this card. The tap still reaches the card; this only
 /// listens.
 ///
@@ -91,6 +92,9 @@ class _TaggedState extends State<_Tagged> {
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    // The layer keeps a margin of at least [agentLayerGutter] beside its
+    // column on a desktop window.
+    final margin = agentIsWide(context);
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (e) {
@@ -120,8 +124,9 @@ class _TaggedState extends State<_Tagged> {
               child!,
               if (widget.showHandle)
                 Positioned(
-                  top: 4,
-                  right: 6,
+                  top: margin ? 8 : 4,
+                  left: margin ? -(agentLayerGutter - 6) : null,
+                  right: margin ? null : 6,
                   child: IgnorePointer(
                     child: ExcludeSemantics(
                       child: Container(
