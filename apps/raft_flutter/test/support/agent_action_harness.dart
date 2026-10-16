@@ -65,7 +65,11 @@ class ActionHarness {
 
   /// The person presses 确认 on the latest card, then the model confirms.
   Future<Map<String, Object?>> approve(Map<String, Object?> previewed) async {
-    expect(previewed['status'], 'needs_confirmation', reason: '$previewed');
+    expect(
+      previewed['status'],
+      anyOf('needs_confirmation', 'needs_second_confirmation'),
+      reason: '$previewed',
+    );
     expect(ledger.cardTapped(ledger.active.last.cardId, yes: true), isTrue);
     return (await tools.run('confirm', {'token': previewed['confirmToken']}))!;
   }

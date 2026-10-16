@@ -1,4 +1,5 @@
 import 'action_capabilities.dart';
+import 'approval_capabilities.dart';
 import 'agent_capability.dart';
 import 'audit_capabilities.dart';
 import 'task_action_capabilities.dart';
@@ -25,6 +26,7 @@ final agentStandardCapabilities = AgentCapabilityRegistry([
   ...actionCapabilities,
   ...taskActionCapabilities,
   ...taskMoreCapabilities,
+  ...approvalCapabilities,
   ...snoozeCapabilities,
   ...openPageCapabilities,
 ]);

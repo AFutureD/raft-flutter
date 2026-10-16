@@ -486,6 +486,7 @@ void main() {
       'server.info': ({}, 'current'),
       'agent.audit_log': ({}, 'entries'),
       'attention.snoozed': ({}, 'snoozed'),
+      'approvals.pending': ({}, 'cards'),
     };
 
     test('the smoke table covers every registered capability but one', () {
