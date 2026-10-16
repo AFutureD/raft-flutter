@@ -28,6 +28,7 @@ import 'agent_tv.dart';
 import 'agent_voice.dart';
 import 'agent_voice_settings.dart';
 import 'capabilities/agent_capability.dart' show AgentCapabilityRegistry;
+import 'capabilities/agent_snooze.dart' show AgentSnoozeStore;
 import 'capabilities/agent_action_board.dart';
 import 'capabilities/agent_capability_tools.dart';
 import 'capabilities/agent_consent.dart';
@@ -171,6 +172,9 @@ class _AgentModePageState extends State<AgentModePage> {
     decorate: (name, result) =>
         name == 'end_surface' ? _withRefs(result) : result,
     around: _aroundTool,
+    onLeave: () {
+      if (mounted) Navigator.of(context).maybePop();
+    },
     onRejected: (problems) {
       if (mounted) setState(() => _surfaceError = problems.first);
     },
@@ -550,8 +554,14 @@ class _AgentModePageState extends State<AgentModePage> {
     return true;
   }
 
-  void _later(AgentAttentionItem item) =>
-      setState(() => AgentModeData.hidden(widget.controller).add(item.id));
+  /// 稍后: set aside until this afternoon or the next morning (kept on the
+  /// device, see AgentSnoozeStore), then it is asked about again.
+  void _later(AgentAttentionItem item) => setState(
+    () => _runtime.snooze.snooze(
+      item,
+      AgentSnoozeStore.untilFor('later', DateTime.now()),
+    ),
+  );
 
   void _openItem(AgentAttentionItem item) {
     final c = _channelById(item.channelId);
@@ -1213,6 +1223,7 @@ class _AgentModePageState extends State<AgentModePage> {
       await AgentVoiceKey.instance.save(key);
       _voice.say(AgentSpeaker.agent, 'Key 已保存。按住下面的按钮说话吧。');
     } on PlatformException catch (e) {
+      // ignore: raft_lints/avoid_caught_exception_text -- Demo screen: the scanner plugin's own message is the most useful thing to read aloud.
       _voice.say(AgentSpeaker.agent, '扫码失败：${e.message ?? e.code}');
     }
   }

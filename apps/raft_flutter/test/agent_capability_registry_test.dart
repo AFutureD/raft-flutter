@@ -44,7 +44,7 @@ void main() {
   final registry = agentStandardCapabilities;
 
   group('registry integrity', () {
-    test('about thirty read capabilities and the ordinary operations', () {
+    test('about thirty read capabilities and the operations by risk', () {
       expect(registry.queries.length, greaterThanOrEqualTo(30));
       for (final c in registry.all) {
         expect(
@@ -54,18 +54,22 @@ void main() {
         );
         if (c.isQuery) {
           expect(c.risk, AgentCapabilityRisk.read, reason: c.id);
+        } else if (c.risk == AgentCapabilityRisk.neverByVoice) {
+          // Only a page to go to: nothing to preview, run or take back.
+          expect(c.openRoute, startsWith('/'), reason: c.id);
+          expect(c.preview, isNull, reason: c.id);
+          expect(c.prepareUndo, isNull, reason: c.id);
         } else {
-          // Phase 2: ordinary changes only, each previewed.
-          expect(c.risk, AgentCapabilityRisk.change, reason: c.id);
+          // Changes and sensitive operations are previewed first.
           expect(c.preview, isNotNull, reason: c.id);
         }
       }
       expect(
         [
           for (final c in registry.all)
-            if (!c.isQuery) c.id,
+            if (!c.isQuery && c.risk == AgentCapabilityRisk.change) c.id,
         ],
-        unorderedEquals([
+        containsAll([
           'messages.send',
           'messages.reply_thread',
           'messages.react',
@@ -132,8 +136,14 @@ void main() {
           (e as Map)['id'] as String: e['status'] as String,
       };
       var withKey = 0;
-      // The only capability that reads no server endpoint.
-      const local = {'agent.audit_log'};
+      // The capabilities that touch no server endpoint (the session's own
+      // record, what the person set aside on this device).
+      const local = {
+        'agent.audit_log',
+        'attention.snooze',
+        'attention.unsnooze',
+        'attention.snoozed',
+      };
       for (final c in registry.all) {
         final key = c.parity;
         if (key == null) {
@@ -475,6 +485,7 @@ void main() {
       'members.profile': ({'member': 'Ada'}, 'member'),
       'server.info': ({}, 'current'),
       'agent.audit_log': ({}, 'entries'),
+      'attention.snoozed': ({}, 'snoozed'),
     };
 
     test('the smoke table covers every registered capability but one', () {

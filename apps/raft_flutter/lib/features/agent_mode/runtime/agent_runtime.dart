@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart' show AgentSpeaker;
 
 import '../../../data/workspace_controller.dart';
+import '../../../data/raft_location.dart';
 import '../agent_mode_data.dart';
 import '../agent_surface_stream.dart';
 import '../agent_surface_tools.dart';
@@ -13,6 +14,7 @@ import '../capabilities/agent_capability.dart';
 import '../capabilities/agent_capability_tools.dart';
 import '../capabilities/agent_consent.dart';
 import '../capabilities/agent_read_tools.dart';
+import '../capabilities/agent_snooze.dart';
 import '../references/agent_reference_table.dart';
 import 'agent_stop_words.dart';
 import 'agent_turn.dart';
@@ -172,6 +174,8 @@ class AgentRuntime extends ChangeNotifier {
     AgentVoiceSetup? voice,
     this.modelLink,
     this.onNotice,
+    this.onLeave,
+    this.leaveDelay = const Duration(milliseconds: 1500),
     DateTime Function()? now,
     AgentConsentLedger? consent,
     AgentActionBoard? actions,
@@ -197,6 +201,13 @@ class AgentRuntime extends ChangeNotifier {
       pointed: pointed,
       userConsent: _gate,
       board: this.actions,
+      // Sensitive operations (stop an agent, approve an app) are previewed and
+      // confirmed twice; what must not be done by voice opens its page.
+      actionRisks: const {
+        AgentCapabilityRisk.change,
+        AgentCapabilityRisk.sensitive,
+      },
+      onPageOpened: _pageOpened,
       now: now,
     );
     reads = AgentReadTools(
@@ -208,6 +219,12 @@ class AgentRuntime extends ChangeNotifier {
       compact: compact,
     );
     this.consent.addListener(_consentChanged);
+    _snooze = env.snoozeFor(workspace)
+      ..addListener(_snoozeChanged)
+      ..watch();
+    // Items set aside in an earlier visit stay hidden; the ones that came due
+    // since are told once the model can hear it.
+    _snooze.tick();
     if (voice != null) {
       this.voice = AgentVoiceController(
         tools: agentTurnToolDeclarations(voice.tools),
@@ -272,6 +289,14 @@ class AgentRuntime extends ChangeNotifier {
 
   /// A line for the person (a caption): "已停止".
   final void Function(String line)? onNotice;
+
+  /// Agent mode should close: the person was taken to a page of the app (a
+  /// never-by-voice operation) and the model has said so. Called a moment
+  /// after the model's turn ends.
+  final VoidCallback? onLeave;
+
+  /// How long after the model's turn ends agent mode closes.
+  final Duration leaveDelay;
   final DateTime Function() _now;
 
   /// What stands in for the voice session when there is none (tests).
@@ -293,6 +318,45 @@ class AgentRuntime extends ChangeNotifier {
   AgentVoiceController? voice;
 
   AgentModelLink? get link => modelLink ?? voice;
+
+  /// What the person set aside ("稍后"), kept on the device.
+  late final AgentSnoozeStore _snooze;
+  AgentSnoozeStore get snooze => _snooze;
+
+  void _snoozeChanged() {
+    notifyListeners();
+    final back = _snooze.takeResurfaced();
+    if (back.isEmpty) return;
+    final what = [
+      for (final e in back.take(3))
+        e.taskNumber == null ? e.headline : '#${e.taskNumber} ${e.headline}',
+    ].join('；');
+    unawaited(
+      tell(
+        '（屏幕提示，不是用户说的）用户之前让你稍后再提醒的事到时间了，已经回到“现在需要你”：$what。'
+        '用一句话提醒他一下，不要展开。',
+      ),
+    );
+  }
+
+  Timer? _leaveTimer;
+  bool _leaving = false;
+
+  /// A never-by-voice operation opened a page: when the model has finished
+  /// saying so, agent mode steps aside so the page can be seen.
+  void _pageOpened(RaftLocation location) {
+    _leaving = true;
+    // The model may never finish its turn (a dropped link): leave anyway.
+    _leaveTimer?.cancel();
+    _leaveTimer = Timer(const Duration(seconds: 20), _leave);
+  }
+
+  void _leave() {
+    _leaveTimer?.cancel();
+    if (!_leaving) return;
+    _leaving = false;
+    onLeave?.call();
+  }
 
   /// A call that comes within this long after the person began to speak, with
   /// nothing heard yet, was started before they spoke.
@@ -607,6 +671,14 @@ class AgentRuntime extends ChangeNotifier {
     // A turn that made no call did not go on from the old one.
     if (!t.classified) _decide(t, additive: false);
     _settle();
+    _leaveSoon();
+  }
+
+  /// The model finished the turn in which it took the person to a page.
+  void _leaveSoon() {
+    if (!_leaving) return;
+    _leaveTimer?.cancel();
+    _leaveTimer = Timer(leaveDelay, _leave);
   }
 
   /// A turn that is only text (the offline demo, a scripted model) is over.
@@ -616,6 +688,7 @@ class AgentRuntime extends ChangeNotifier {
     t.modelDone = true;
     if (!t.classified) _decide(t, additive: false);
     _settle();
+    _leaveSoon();
   }
 
   // ---- the context the model is given ---------------------------------
@@ -940,6 +1013,10 @@ class AgentRuntime extends ChangeNotifier {
       }
     }
     consent.removeListener(_consentChanged);
+    _snooze
+      ..removeListener(_snoozeChanged)
+      ..unwatch();
+    _leaveTimer?.cancel();
     voice?.dispose();
     consent.dispose();
     actions.dispose();

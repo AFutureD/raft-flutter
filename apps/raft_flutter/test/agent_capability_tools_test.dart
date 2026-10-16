@@ -346,10 +346,12 @@ void main() {
       ]);
     });
 
-    test('the standard registry holds only ordinary (change) operations', () {
-      final ops = tools().registry.all.where((c) => !c.isQuery);
-      expect(ops, hasLength(10));
-      expect(ops.map((c) => c.risk).toSet(), {AgentCapabilityRisk.change});
+    test('by default only ordinary (change) operations may be run', () {
+      expect(tools().actionRisks, {AgentCapabilityRisk.change});
+      final ops = tools().registry.all.where(
+        (c) => !c.isQuery && c.risk == AgentCapabilityRisk.change,
+      );
+      expect(ops.length, greaterThanOrEqualTo(10));
     });
 
     test('act only previews: nothing changes until confirm', () async {

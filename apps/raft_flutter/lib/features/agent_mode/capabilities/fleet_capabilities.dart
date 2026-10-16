@@ -7,7 +7,7 @@ import 'message_capabilities.dart' show senderByRef;
 
 /// Computers, members and the workspace itself.
 
-Future<Map<String, dynamic>> _computerByRef(
+Future<Map<String, dynamic>> computerByRef(
   WorkspaceController w,
   String ref,
 ) async {
@@ -132,7 +132,7 @@ final fleetCapabilities = <AgentCapability>[
     resultSummary: 'computer{id,name,status,hostname,os,version,lastSeen,agents[]}，runtimes[{id,name,available}]',
     run: (w, args, env) async {
       await _ensure(w, WorkspaceEntityKind.agents);
-      final row = await _computerByRef(w, '${args['computer']}');
+      final row = await computerByRef(w, '${args['computer']}');
       final server = w.server?.id;
       var runtimes = const <Map<String, dynamic>>[];
       if (server != null) {

@@ -6,6 +6,8 @@ import 'agent_capabilities.dart';
 import 'channel_capabilities.dart';
 import 'fleet_capabilities.dart';
 import 'message_capabilities.dart';
+import 'open_page_capabilities.dart';
+import 'snooze_capabilities.dart';
 import 'task_capabilities.dart';
 
 /// Every capability the app registers: the reads, the audit log and the
@@ -21,4 +23,6 @@ final agentStandardCapabilities = AgentCapabilityRegistry([
   ...auditCapabilities,
   ...actionCapabilities,
   ...taskActionCapabilities,
+  ...snoozeCapabilities,
+  ...openPageCapabilities,
 ]);

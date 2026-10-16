@@ -2,6 +2,7 @@ import '../../../data/workspace_controller.dart';
 import '../agent_mode_data.dart';
 import '../agent_surface_tools.dart' show AgentFacts;
 import 'agent_audit_log.dart';
+import 'agent_snooze.dart';
 
 /// Whether a capability reads or changes something.
 enum AgentCapabilityKind { query, action }
@@ -20,9 +21,18 @@ enum AgentCapabilityRisk { read, change, sensitive, neverByVoice }
 /// agent-mode page was built with (so tests can stand in for it) and the
 /// facts a generated screen is checked against, which every read teaches.
 class AgentCapabilityEnv {
-  const AgentCapabilityEnv({this.data, this.facts, this.onAgents, this.audit});
+  const AgentCapabilityEnv({
+    this.data,
+    this.facts,
+    this.onAgents,
+    this.audit,
+    this.snooze,
+  });
 
   final AgentModeData? data;
+
+  /// Where "稍后" is kept; null is the app's own (see [snoozeFor]).
+  final AgentSnoozeStore? snooze;
   final AgentFacts? facts;
 
   /// What the agent did in this session, for `agent.audit_log`. The tools
@@ -34,7 +44,11 @@ class AgentCapabilityEnv {
     facts: facts,
     onAgents: onAgents,
     audit: log,
+    snooze: snooze,
   );
+
+  AgentSnoozeStore snoozeFor(WorkspaceController w) =>
+      snooze ?? AgentSnoozeStore.of(w);
 
   /// Told the typed agent reading a query answered from, and whether it was
   /// the app's cached one (a caller that patches screens from a later fresh
@@ -120,6 +134,15 @@ typedef AgentCapabilityPreview = Future<AgentActionPreview> Function(
   AgentCapabilityEnv env,
 );
 
+/// [AgentCapabilityRisk.neverByVoice]: the page that does it for the thing
+/// the person named (`/channel/<id>?channelPage=settings:<id>`), when the
+/// arguments say which. Throws [AgentCapabilityError] when the thing cannot
+/// be found; the caller then falls back to [AgentCapability.openRoute].
+typedef AgentCapabilityRoute = Future<String> Function(
+  WorkspaceController w,
+  Map<String, Object?> args,
+);
+
 /// One thing the app can do, described so a model can find and call it.
 ///
 /// A capability runs on the app's own data layer (the workspace controller,
@@ -138,6 +161,7 @@ class AgentCapability {
     this.parity,
     this.preview,
     this.openRoute,
+    this.openRouteFor,
     this.prepareUndo,
   });
 
@@ -168,9 +192,14 @@ class AgentCapability {
   /// Actions: what the change will be, computed without changing anything.
   final AgentCapabilityPreview? preview;
 
-  /// [AgentCapabilityRisk.neverByVoice]: the page that does it, as an app
-  /// route.
+  /// [AgentCapabilityRisk.neverByVoice]: the page that does it, as a
+  /// workspace route without the server (`/settings/billing`, `/computers`):
+  /// the app puts `/s/<slug>` in front. See `agent_pages.dart`.
   final String? openRoute;
+
+  /// [AgentCapabilityRisk.neverByVoice]: a closer page for the arguments
+  /// given (this channel's settings, that computer), else [openRoute].
+  final AgentCapabilityRoute? openRouteFor;
 
   /// Actions that can be taken back: called right before [run] to capture
   /// what is needed (null when this call cannot be reversed).

@@ -5,6 +5,8 @@ import '../../../data/user_error.dart';
 import '../../../data/workspace_controller.dart';
 import 'agent_action_board.dart';
 import 'agent_audit_log.dart';
+import 'agent_pages.dart';
+import '../../../data/raft_location.dart';
 import '../references/agent_reference_table.dart';
 import 'agent_capability.dart';
 import 'agent_consent.dart';
@@ -205,6 +207,7 @@ class AgentCapabilityTools {
     this.userConsent,
     AgentAuditLog? audit,
     this.board,
+    this.onPageOpened,
     DateTime Function()? now,
     Random? random,
   }) : registry = registry ?? agentStandardCapabilities,
@@ -237,6 +240,10 @@ class AgentCapabilityTools {
 
   /// The confirm cards turn into their result here.
   final AgentActionBoard? board;
+
+  /// A never-by-voice operation took the person to a page of the app: the
+  /// workspace now shows [location]. The runtime lets agent mode step aside.
+  final void Function(RaftLocation location)? onPageOpened;
   late final AgentCapabilityEnv _env = env.withAudit(audit);
   late final AgentCapabilityIndex index;
   final AgentReferenceTable Function() _references;
@@ -370,6 +377,52 @@ class AgentCapabilityTools {
     }
   }
 
+  // ---- never by voice: take the person to the page ----------------------
+
+  Future<Map<String, Object?>> _openPage(
+    AgentCapability c,
+    Map<String, Object?> args,
+  ) async {
+    var route = c.openRoute!;
+    String? note;
+    final dynamicRoute = c.openRouteFor;
+    if (dynamicRoute != null) {
+      // The arguments only narrow the page; a bad one still gets the list.
+      final prepared = _prepare(args);
+      try {
+        if (prepared.capability != null) {
+          route = await dynamicRoute(workspace, prepared.args);
+        }
+      } on AgentCapabilityError catch (e) {
+        // ignore: raft_lints/avoid_caught_exception_text -- AgentCapabilityError is this layer's own error; its text is written for the person and the model.
+        note = '${e.message}；先带用户去列表页，让他自己找';
+      }
+    }
+    final result = openAgentPage(workspace, route);
+    audit.add(
+      AgentAuditEntry(
+        at: _now(),
+        capability: c.id,
+        summary: '带用户去页面：${c.title}',
+        args: _argsText(const {}),
+        result: result.opened ? '已打开 $route' : '没有打开：${result.problem}',
+        ok: result.opened,
+      ),
+    );
+    if (result.opened) onPageOpened?.call(result.location!);
+    return {
+      'status': 'open_page',
+      'capability': c.id,
+      'openPage': route,
+      'opened': result.opened,
+      'note': ?note,
+      'error': ?(result.opened ? null : result.problem),
+      'message': result.opened
+          ? '这类操作不能用语音做，App 已经把页面打开了（${c.title}）。用一句话告诉用户：已带他去对应页面，请他在页面里自己操作；Agent 模式随后会收起'
+          : '这类操作不能用语音做，页面也没能打开：${result.problem}。如实告诉用户，让他自己去 App 里找',
+    };
+  }
+
   // ---- act / confirm ---------------------------------------------------
 
   String _token() {
@@ -378,16 +431,13 @@ class AgentCapabilityTools {
   }
 
   Future<Map<String, Object?>> _act(Map<String, Object?> args) async {
-    // What cannot be done by voice needs no arguments to say so.
+    // What cannot be done by voice needs no confirmation: the app takes the
+    // person to the page where they do it themselves.
     final named = registry['${args['capability'] ?? ''}'];
     if (named != null &&
         !named.isQuery &&
         named.risk == AgentCapabilityRisk.neverByVoice) {
-      return {
-        'status': 'open_page',
-        'openPage': named.openRoute,
-        'message': '这类操作不能用语音做：请告诉用户，帮他打开对应的页面自己操作',
-      };
+      return _openPage(named, args);
     }
     final prepared = _prepare(args);
     final capability = prepared.capability;
@@ -561,6 +611,7 @@ class AgentCapabilityTools {
       };
     } on Object catch (e) {
       final message = e is AgentCapabilityError
+          // ignore: raft_lints/avoid_caught_exception_text -- AgentCapabilityError is this layer's own error; its text is written for the person and the model.
           ? e.message
           : userErrorText(e, fallback: '没有成功（服务器没有接受，或网络出错）', where: c.id);
       audit.add(
@@ -656,6 +707,7 @@ class AgentCapabilityTools {
       return {'status': 'undone', 'message': text};
     } on Object catch (e) {
       final message = e is AgentCapabilityError
+          // ignore: raft_lints/avoid_caught_exception_text -- AgentCapabilityError is this layer's own error; its text is written for the person and the model.
           ? e.message
           : userErrorText(e, fallback: '没有成功（服务器没有接受，或网络出错）', where: 'undo');
       audit.add(
