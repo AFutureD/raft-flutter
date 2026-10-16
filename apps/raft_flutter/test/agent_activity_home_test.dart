@@ -135,6 +135,8 @@ List<Map<String, dynamic>> _rows() => [
   _channel('c2', minutes: 40, unread: 4),
   {
     'kind': 'mention_action',
+    'id': 'ma1',
+    'unreadCount': 0,
     'channelId': 'c1',
     'channelName': 'raft-flutter',
     'channelType': 'channel',
@@ -427,7 +429,11 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey('attention-card-activity:thread:th1')));
       await t.pumpAndSettle();
-      await t.tap(find.byKey(const ValueKey('attention-open-activity:thread:th1')));
+      final openButton = find.byKey(
+        const ValueKey('attention-open-activity:thread:th1'),
+      );
+      await t.ensureVisible(openButton);
+      await t.tap(openButton);
       await t.pumpAndSettle();
       expect(data.reads, ['th1']);
       expect(find.text('第 2 层'), findsOneWidget);
