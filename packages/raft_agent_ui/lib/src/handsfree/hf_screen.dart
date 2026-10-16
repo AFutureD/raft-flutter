@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../agent_theme.dart';
-import '../scroll_fade.dart';
 import 'hf_basics.dart';
+import 'hf_page.dart';
 import 'hf_scope.dart';
+import 'hf_split.dart';
 import 'hf_stage.dart';
 import 'hf_tokens.dart';
 
@@ -105,21 +106,23 @@ class HfHeader extends StatelessWidget {
 /// The gap between the parts of a screen.
 double hfScreenGap(HfData hf) => hf.sp(hf.phone ? 12 : 10);
 
-/// A header, a body that scrolls (a phone or a desktop; a TV is cut, so keep
-/// it to a page) and a pager under it that is never cut off. This is the
-/// content of one layer.
+/// A header and, under it, the layer's page: everything else is one scroll
+/// (the summary line, the [body], the stage of the current item and the
+/// [HfPageTail]). Only the header stays where it is. This is the content of
+/// one layer.
+///
+/// The current item's stage goes where the item is, in the same page: beside
+/// the list at the height of the current row on a wide window or a TV
+/// ([HfSplit]), under the row on a phone (the row's [AgentFocusable] puts it
+/// there). The page scrolls to the current item; see [HfPage].
 class HfLayerBody extends StatelessWidget {
   const HfLayerBody({
     super.key,
     required this.header,
     required this.body,
-    this.pager,
     this.summary,
   });
   final Widget header, body;
-
-  /// An [HfPager]. It is laid out under the body, outside its scroll.
-  final Widget? pager;
 
   /// One line of what the layer says, under the header.
   final Widget? summary;
@@ -128,49 +131,32 @@ class HfLayerBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final gap = hfScreenGap(hf);
-    // A wide window (or a TV) with a current item shows it in the detail
-    // slot beside the list; a phone's goes in a sheet the screen puts under
-    // the layer.
-    final stage = hf.split ? HfStageScope.of(context) : null;
-    Widget scrolled(Widget child) => AgentScrollFade(
-      // A desktop shows that there is more (a fade, a scrollbar); a finger on
-      // a phone needs neither. A TV cannot scroll, but a row it cuts off
-      // still fades rather than ends mid-line.
-      enabled: !hf.phone,
-      scrollbar: hf.interactive,
-      builder: (context, controller) => SingleChildScrollView(
-        controller: controller,
-        physics: hf.interactive
-            ? const ClampingScrollPhysics()
-            : const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.only(bottom: hf.sp(10), right: hf.sp(8)),
-        child: child,
-      ),
-    );
-    final list = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: scrolled(body)),
-        if (pager != null) ...[SizedBox(height: gap), pager!],
-      ],
-    );
+    final stage = HfStageScope.maybeOf(context);
+    final tail = HfPageTail.of(context);
+    final content = hf.split
+        ? HfSplit(
+            list: body,
+            stage: stage?.stage,
+            gap: hf.sp(28),
+            snap: hf.sp(70),
+          )
+        : body;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
-        if (summary != null) ...[SizedBox(height: hf.sp(8)), summary!],
         SizedBox(height: gap),
         Expanded(
-          child: stage == null
-              ? list
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(flex: 53, child: list),
-                    SizedBox(width: hf.sp(28)),
-                    Expanded(flex: 47, child: stage),
-                  ],
-                ),
+          child: HfPage(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (summary != null) ...[summary!, SizedBox(height: gap)],
+                content,
+                if (tail != null) tail,
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -187,6 +173,7 @@ class HfScreenFrame extends StatelessWidget {
     required this.content,
     this.top,
     this.above,
+    this.tail,
     this.caption,
     this.dock,
     this.foot,
@@ -199,6 +186,10 @@ class HfScreenFrame extends StatelessWidget {
   /// Between the content and the foot, with its own spacing (it may be
   /// empty: a tray of cards).
   final Widget? above;
+
+  /// What goes at the end of the layer's page (the confirm cards that wait
+  /// for an answer): it scrolls with the page, whatever its height.
+  final Widget? tail;
   final Widget? caption, dock;
 
   /// The foot as one widget (a composite that lays out its own caption and
@@ -240,7 +231,9 @@ class HfScreenFrame extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ?top,
-            Expanded(child: content),
+            Expanded(
+              child: HfPageTail(tail: tail, child: content),
+            ),
             ?above,
             if (foot != null) ...[SizedBox(height: gap), foot],
           ],
@@ -250,24 +243,21 @@ class HfScreenFrame extends StatelessWidget {
   }
 }
 
-/// One whole hands-free screen: [HfScreenFrame] around a header, a body and
-/// a pager.
+/// One whole hands-free screen: [HfScreenFrame] around a header and a body.
 class HfScreen extends StatelessWidget {
   const HfScreen({
     super.key,
     required this.header,
     required this.body,
-    this.pager,
     this.caption,
     this.dock,
   });
   final Widget header, body;
-  final Widget? pager;
   final Widget? caption, dock;
 
   @override
   Widget build(BuildContext context) => HfScreenFrame(
-    content: HfLayerBody(header: header, body: body, pager: pager),
+    content: HfLayerBody(header: header, body: body),
     caption: caption,
     dock: dock,
   );
@@ -284,8 +274,6 @@ class HfSummaryLine extends StatelessWidget {
     final hf = HandsFree.of(context);
     return Text.rich(
       span,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
       style: hf.type(
         HfType.body,
         color: error ? HfColors.decision : HfColors.inkSoft,
@@ -322,7 +310,6 @@ class HfLayerFrame extends StatelessWidget {
     this.loading = false,
     this.error,
     this.enterTitle = false,
-    this.pager,
   });
   final String title;
 
@@ -336,7 +323,6 @@ class HfLayerFrame extends StatelessWidget {
 
   /// The title types itself in (a screen the model composes).
   final bool enterTitle;
-  final Widget? pager;
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +343,6 @@ class HfLayerFrame extends StatelessWidget {
                   )),
       ),
       summary: summary == null ? null : HfSummaryLine(summary!),
-      pager: pager,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

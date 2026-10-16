@@ -158,6 +158,11 @@ class _AgentTvViewState extends State<AgentTvView> {
   final _spotlight = AgentSpotlightController();
   final _marks = AgentMarkController();
 
+  /// The scroll of the page on show: the TV cannot be scrolled by hand, so it
+  /// follows the agent (the current item, "下一批").
+  final _page = HfPageController();
+  int? _screens;
+
   @override
   void initState() {
     super.initState();
@@ -179,6 +184,7 @@ class _AgentTvViewState extends State<AgentTvView> {
     widget.frames.removeListener(_changed);
     _spotlight.dispose();
     _marks.dispose();
+    _page.dispose();
     super.dispose();
   }
 
@@ -191,6 +197,14 @@ class _AgentTvViewState extends State<AgentTvView> {
   /// What is lifted and marked follows the phone.
   void _apply(Map<String, Object?>? next) {
     if (next == null) return;
+    // The phone scrolled its page on by a screen ("下一批"): so does the TV.
+    final screens = next['screens'] as int?;
+    if (screens != null && _screens != null && screens != _screens) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _page.nextScreen();
+      });
+    }
+    _screens = screens;
     _spotlight.sync(
       next['spotlight'] as String?,
       enter: next['spotlightEnter'] == true,
@@ -211,10 +225,13 @@ class _AgentTvViewState extends State<AgentTvView> {
   }
 
   @override
-  Widget build(BuildContext context) => AgentTvScreen(
-    frame: widget.frames.value,
-    spotlight: _spotlight,
-    marks: _marks,
+  Widget build(BuildContext context) => HfPageControllerScope(
+    controller: _page,
+    child: AgentTvScreen(
+      frame: widget.frames.value,
+      spotlight: _spotlight,
+      marks: _marks,
+    ),
   );
 }
 
@@ -237,47 +254,68 @@ class AgentTvScreen extends StatelessWidget {
   final AgentMarkController marks;
 
   /// The front layer's content. The current item (`focused`) is the row that
-  /// is highlighted, and the detail slot beside the list shows it.
+  /// is highlighted, the detail beside the list shows it, and the page scrolls
+  /// to it: a TV cannot be scrolled by hand, so it follows the agent.
   static Widget layer(Map<String, Object?> layer, {String? focused}) {
     final id = '${layer['id'] ?? ''}';
+    final n = _focusNumber(focused, id);
     final attention = layer['attention'];
+    final Widget view;
+    Widget? stage;
+    // The item the stage is about.
+    var shown = n;
     if (attention is Map) {
-      return AgentAttentionView(
-        attention: AgentAttention.fromJson(attention.cast<String, Object?>()),
+      final result = AgentAttention.fromJson(attention.cast<String, Object?>());
+      // The TV always marks one row; the first, when the phone chose none.
+      shown = n ?? 1;
+      view = AgentAttentionView(
+        attention: result,
         focusPrefix: id,
         onApprove: (_) {},
         onOpen: (_) {},
         onLater: (_) {},
-        batchStart: layer['batch'] as int? ?? 0,
-        current: _focusNumber(focused, id),
+        current: n,
       );
+      if (shown >= 1 && shown <= result.items.length) {
+        stage = AgentAttentionDetail(
+          item: result.items[shown - 1],
+          number: shown,
+          onApprove: (_) {},
+          onOpen: (_) {},
+          onLater: (_) {},
+        );
+      }
+    } else {
+      final spec = layer['spec'];
+      // What the phone's layer lists, numbered the way the voice says them.
+      final items = [
+        for (final i
+            in (spec is Map
+                        ? agentSurfaceFrame(
+                            AgentSurfaceSpec.fromJson(
+                              spec.cast<String, Object?>(),
+                            ),
+                            compact: layer['compact'] == true,
+                          )['items']
+                        : layer['items'])
+                    as List? ??
+                const [])
+          if (i is Map && i['kind'] != 'section') i.cast<String, Object?>(),
+      ];
+      view = spec is Map
+          ? _TvSurface(layer: layer)
+          : AgentFrameView(frame: layer, focusPrefix: id, focused: focused);
+      if (n != null && n >= 1 && n <= items.length) {
+        stage = AgentFrameStage(item: items[n - 1], number: n);
+      }
     }
-    final spec = layer['spec'];
-    final n = _focusNumber(focused, id);
-    // What the phone's layer lists, numbered the way the voice says them.
-    final items = [
-      for (final i
-          in (spec is Map
-                      ? agentSurfaceFrame(
-                          AgentSurfaceSpec.fromJson(
-                            spec.cast<String, Object?>(),
-                          ),
-                          compact: layer['compact'] == true,
-                        )['items']
-                      : layer['items'])
-                  as List? ??
-              const [])
-        if (i is Map && i['kind'] != 'section') i.cast<String, Object?>(),
-    ];
-    final view = spec is Map
-        ? _TvSurface(layer: layer)
-        : AgentFrameView(frame: layer, focusPrefix: id, focused: focused);
-    if (n == null || n < 1 || n > items.length) return view;
+    // Always there, so the page keeps its place (and its scroll) when a stage
+    // comes and goes.
     return HfStageScope(
-      stage: AgentItemScope(
-        id: '$id#$n',
-        child: AgentFrameStage(item: items[n - 1], number: n),
-      ),
+      id: stage == null ? '' : '$id#$shown',
+      stage: stage == null
+          ? null
+          : AgentItemScope(id: '$id#$shown', child: stage),
       child: view,
     );
   }
@@ -351,17 +389,20 @@ class AgentTvScreen extends StatelessWidget {
                         key: ValueKey(top['id']),
                         child: layer(top, focused: f?['spotlight'] as String?),
                       ),
-                above: confirms.isEmpty
+                tail: confirms.isEmpty
                     ? null
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final c in confirms)
-                            Padding(
-                              padding: EdgeInsets.only(top: hf.sp(6)),
-                              child: confirm(c),
-                            ),
-                        ],
+                    : AgentReveal(
+                        signature: confirms.length,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final c in confirms)
+                              Padding(
+                                padding: EdgeInsets.only(top: hf.sp(6)),
+                                child: confirm(c),
+                              ),
+                          ],
+                        ),
                       ),
                 caption: caption.isEmpty && mood.isEmpty
                     ? null

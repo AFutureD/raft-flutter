@@ -126,15 +126,13 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
     }
     final hf = HandsFree.of(context);
     final now = _now();
-    // A card with the thing it is about is tall: the tray never takes more
-    // than half the screen, and scrolls past that.
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * .5,
-      ),
-      child: SingleChildScrollView(
-        reverse: true,
-        padding: EdgeInsets.fromLTRB(0, 0, hf.sp(8), hf.sp(10)),
+    // The tray is the end of the layer's page, whatever its height (a card
+    // with the thing it is about is tall): it scrolls with the page, and the
+    // page scrolls to a card that comes.
+    return AgentReveal(
+      signature: pending.length + records.length + cancelled.length,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: hf.sp(10)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

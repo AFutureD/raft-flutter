@@ -46,7 +46,6 @@ Widget _screen() {
                 stat: const HfStatBlock(label: '已等', value: '3', unit: '天'),
               ),
             ),
-          const HfPager(from: 1, to: 3, total: 5),
         ],
       );
       return HfScreen(

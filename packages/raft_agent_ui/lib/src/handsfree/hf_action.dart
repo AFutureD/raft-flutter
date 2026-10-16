@@ -242,7 +242,7 @@ class _DashedOutline extends CustomPainter {
 /// The actions of a card, laid out for the width: side by side when there is
 /// room (not on a phone), else the first on its own line above the rest. On
 /// a TV they are voice hints. [oneRow] keeps them side by side on a phone too
-/// (a sheet, which has no height to spare).
+/// (a stage under a row, which has little height to spare).
 class HfActions extends StatelessWidget {
   const HfActions({super.key, required this.actions, this.oneRow = false});
   final List<HfAction> actions;

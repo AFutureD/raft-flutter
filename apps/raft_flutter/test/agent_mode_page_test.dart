@@ -156,7 +156,7 @@ void main() {
         expect(find.text('第 1 层'), findsOneWidget);
         expect(find.text('# raft-flutter'), findsNothing);
 
-        // A priority card becomes the current item (a sheet, no layer); 展开
+        // A priority card becomes the current item (its stage opens, no layer); 展开
         // opens its full detail as a new layer.
         await t.tap(find.text('Cindy 完成了「Personal Agent 第一版选型」，等你验收'));
         await t.pumpAndSettle();
@@ -177,7 +177,7 @@ void main() {
   for (final wide in [false, true]) {
     testWidgets(
       'a row of a channel is current on a tap: ${wide ? 'the slot beside '
-                'the list' : 'a sheet'} shows it',
+                'the list' : 'a stage under it'} shows it',
       (t) async {
         t.view.physicalSize = wide
             ? const Size(1440, 900)
@@ -216,16 +216,17 @@ void main() {
           findsOneWidget,
         );
         expect(
-          find.byKey(const ValueKey('hf-stage-sheet')),
+          find.byKey(const ValueKey('hf-stage')),
           wide ? findsNothing : findsOneWidget,
         );
         // Its row is still in the list, lit.
         expect(find.text('PR #113 已合入'), findsNWidgets(2));
-        // Going back puts a sheet away first; the pane has nothing to put away.
+        // Going back puts the stage under a row away first; the pane beside a
+        // list has nothing to put away.
         if (!wide) {
           await t.binding.handlePopRoute();
           await t.pumpAndSettle();
-          expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+          expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
           expect(find.text('第 2 层'), findsOneWidget);
         }
       },

@@ -12,7 +12,6 @@ export 'src/entity_blocks.dart';
 export 'src/entity_model.dart';
 export 'src/marks.dart';
 export 'src/mood_badge.dart';
-export 'src/scroll_fade.dart';
 export 'src/spotlight.dart';
 export 'src/voice_dock.dart';
 export 'src/z_layer_stack.dart';

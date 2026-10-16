@@ -98,6 +98,8 @@ void main() {
     final marks = AgentMarkController();
     addTearDown(spotlight.dispose);
     addTearDown(marks.dispose);
+    // What AgentTvView does with the phone's frame.
+    spotlight.sync(f['spotlight'] as String?);
     await t.pumpWidget(
       MaterialApp(
         theme: raftTheme(RaftFamily.brutal),
@@ -220,7 +222,7 @@ void main() {
     expect(find.text('确认'), findsNothing);
   });
 
-  testWidgets('the rows the agent points at stay on screen', (t) async {
+  testWidgets('the page follows the row the agent points at', (t) async {
     final many = {
       'id': 'surface-2',
       'title': '任务',
@@ -230,13 +232,73 @@ void main() {
       ],
     };
     await tv(t, {
-      'spotlight': 'surface-2#8',
+      'spotlight': 'surface-2#12',
       'layers': [many],
     });
-    expect(find.text('第 8 项'), findsWidgets);
-    expect(find.text('第 1 项'), findsNothing);
-    // Three rows a page on a desktop and a TV.
-    expect(find.text('7–9 / 12'), findsOneWidget);
+    // The page scrolled to the row the agent points at: it is whole inside the
+    // page's window, and the first rows are above it. No pager.
+    final view = t.getRect(find.byKey(const ValueKey('hf-page')));
+    final row = t.getRect(find.byKey(const ValueKey('frame-row-12')));
+    expect(row.top, greaterThanOrEqualTo(view.top - 1));
+    expect(row.bottom, lessThanOrEqualTo(view.bottom + 1));
+    expect(
+      t.getRect(find.byKey(const ValueKey('frame-row-1'))).bottom,
+      lessThan(view.top),
+    );
+    expect(find.textContaining('/ 12'), findsNothing);
+  });
+
+  testWidgets('the TV scrolls on by a screen when the phone does ("下一批")', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(1920, 1080);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    final layer = {
+      'id': 'surface-2',
+      'title': '任务',
+      'items': [
+        for (var n = 1; n <= 12; n++)
+          {'kind': 'priority', 'priority': 'progress', 'title': '第 $n 项'},
+      ],
+    };
+    final frames = ValueNotifier<Map<String, Object?>?>({
+      'screens': 0,
+      'layers': [layer],
+    });
+    addTearDown(frames.dispose);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: Scaffold(body: AgentTvView(frames: frames)),
+      ),
+    );
+    await t.pumpAndSettle();
+    ScrollableState page() => t.state<ScrollableState>(
+      find.descendant(
+        of: find.byKey(const ValueKey('hf-page')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(page().position.pixels, 0);
+    // The same frame again: nothing moves. A new count: one screen on.
+    frames.value = {
+      'screens': 0,
+      'layers': [layer],
+    };
+    await t.pumpAndSettle();
+    expect(page().position.pixels, 0);
+    frames.value = {
+      'screens': 1,
+      'layers': [layer],
+    };
+    await t.pumpAndSettle();
+    expect(page().position.pixels, greaterThan(0));
+    // A TV cannot be dragged.
+    final at = page().position.pixels;
+    await t.drag(find.byKey(const ValueKey('hf-page')), const Offset(0, 300));
+    await t.pumpAndSettle();
+    expect(page().position.pixels, at);
   });
 
   testWidgets('a row does not repeat its title or status', (t) async {

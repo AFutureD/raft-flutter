@@ -141,22 +141,27 @@ class _AgentModePageState extends State<AgentModePage> {
   final _stack = <_Layer>[const _Attention()];
   int _surfaces = 0;
 
-  /// The first attention row on screen (see [_pageRows]).
-  int _batchStart = 0;
+  /// How many times "下一批" scrolled a page by a screen: the TV does the same
+  /// when this changes (it cannot be scrolled by hand).
+  int _screens = 0;
+
+  /// The scroll of each layer's page, by layer id: the voice moves it.
+  final _pages = <String, HfPageController>{};
+
+  HfPageController _pageOf(_Layer l) =>
+      _pages.putIfAbsent(l.id, HfPageController.new);
 
   /// The phone layout (set by build): surfaces fold their groups to one row.
   bool _compact = true;
 
   /// A window wide enough for a list with its detail beside it (set by
-  /// build). Narrower ones show the current item in a sheet under the layer.
+  /// build). Narrower ones show the current item under its row.
   bool _split = false;
 
   /// The current item of each layer (layer id to its number), kept while
   /// another layer is in front, so going back finds it still current.
   final _currentOf = <String, int>{};
 
-  /// One past the last attention row on screen (reported by the view).
-  int _batchEnd = 0;
   // ignore: raft_lints/avoid_imperative_notice_state -- Cleared by the next layer change (push, pop, reveal) or when a surface is accepted.
   String? _surfaceError;
 
@@ -195,7 +200,6 @@ class _AgentModePageState extends State<AgentModePage> {
         _attention = AgentModeData.cached(widget.controller);
         _attentionError = null;
         _announced = false;
-        _batchStart = 0;
         _stack.removeRange(1, _stack.length);
       });
       unawaited(_loadAttention());
@@ -469,6 +473,9 @@ class _AgentModePageState extends State<AgentModePage> {
     _spotlight.removeListener(_currentChanged);
     _spotlight.dispose();
     _marks.dispose();
+    for (final p in _pages.values) {
+      p.dispose();
+    }
     _pointer.dispose();
     _problemsTold?.cancel();
     _entities.dispose();
@@ -491,6 +498,7 @@ class _AgentModePageState extends State<AgentModePage> {
       'spotlightEnter': _spotlight.entering,
       'marks': [for (final m in _marks.marks) m.toJson()],
       'confirms': _confirmsFrame(),
+      'screens': _screens,
       'layers': [
         for (final l in _stack.skip(_stack.length > 3 ? _stack.length - 3 : 0))
           {..._frame(l), 'id': l.id, 'peek': _peek(l)},
@@ -672,22 +680,23 @@ class _AgentModePageState extends State<AgentModePage> {
   /// A tap, a key and the voice all make an item current the same way.
   void _setCurrent(int n) => _spotlight.focus('${_stack.last.id}#$n');
 
-  /// Nothing is current on the front layer (the sheet closes).
+  /// Nothing is current on the front layer (a phone's stage closes).
   void _clearCurrent() {
     _currentOf.remove(_stack.last.id);
     _spotlight.release();
   }
 
-  /// The current attention item left the list (通过, 稍后). A sheet closes; a
-  /// wide window keeps the same place, which the next item now takes.
+  /// The current attention item left the list (通过, 稍后). A phone's stage
+  /// closes; a wide window keeps the same place, which the next item now
+  /// takes.
   void _itemGone() {
     if (_split) return;
     _currentOf.remove(_stack.first.id);
     if (_stack.last is _Attention) _spotlight.release();
   }
 
-  /// A tap on a row. On a screen with a sheet, the tap on the current row
-  /// again puts the sheet away.
+  /// A tap on a row. On a phone, the tap on the current row again puts its
+  /// stage away.
   void _tapCurrent(int n) {
     if (_current == n && !_split) {
       _clearCurrent();
@@ -714,11 +723,11 @@ class _AgentModePageState extends State<AgentModePage> {
     return !(top is _Surface && top.item != null);
   }
 
-  /// A phone's stage is open: the current item has its sheet.
-  bool get _sheetOpen => !_split && _stageAllowed && _current != null;
+  /// A phone's stage is open: the current item has its detail under it.
+  bool get _stageOpen => !_split && _stageAllowed && _current != null;
 
   /// The detail of one attention item as a new layer (the full page). The
-  /// voice tool `expand_item` on a narrow screen and the sheet's 展开 both
+  /// voice tool `expand_item` on a narrow screen and the stage's 展开 both
   /// come here, so they show the same thing. An open detail is replaced, not
   /// stacked. The item stays current, so going back finds it.
   void _expandItem(AgentAttentionItem item) {
@@ -800,28 +809,22 @@ class _AgentModePageState extends State<AgentModePage> {
     _restoreCurrent();
   }
 
-  /// Shows the rows from [start] on the first layer; what was lifted or
-  /// marked belonged to the old ones.
-  void _showBatch(int start) {
-    _choreo.newScreen();
-    // Another page: its rows are new, and the old current one is not on it.
-    _currentOf.remove(_stack.first.id);
-    setState(() => _batchStart = start);
-  }
-
-  /// `next_batch`: the next page of rows, or the first ones again after the
-  /// last. Takes the person back to the first layer.
+  /// `next_batch`: the front layer's page scrolls on by a screen to the next
+  /// items, or back to the top after the last. (A TV scrolls the same way:
+  /// see [_screens].)
   Map<String, Object?> _nextBatch() {
     final cards = _visible?.items.length ?? 0;
-    // The view says where its page ends; before it said anything, one page.
-    final shownTo = _batchEnd == 0 ? cards : _batchEnd;
-    if (_batchStart == 0 && shownTo >= cards) {
-      return {'error': '只有 $cards 件，已经全部显示了'};
+    final step = _pageOf(_stack.last).nextScreen();
+    if (step == HfPageStep.none) {
+      return {'error': '这一层已经全部显示在一屏里了，没有更多要翻的'};
     }
-    final next = shownTo >= cards ? 0 : shownTo;
-    if (_stack.length > 1) setState(() => _stack.removeRange(1, _stack.length));
-    _showBatch(next);
-    return {'ok': true, 'showing': '从第 ${next + 1} 条起', 'total': cards};
+    setState(() => _screens++);
+    return {
+      'ok': true,
+      'showing': step == HfPageStep.wrapped ? '已经是最后了，回到最前面' : '往后翻了一屏',
+      'layer': _stack.length,
+      if (_stack.last is _Attention) 'total': cards,
+    };
   }
 
   /// A summary row was tapped: show that group in full.
@@ -840,9 +843,9 @@ class _AgentModePageState extends State<AgentModePage> {
     _restoreCurrent();
   }
 
-  /// Back: a sheet that is open goes first, then the layer.
+  /// Back: a stage that is open goes first, then the layer.
   void _pop() {
-    if (_sheetOpen) {
+    if (_stageOpen) {
       _clearCurrent();
       return;
     }
@@ -1032,7 +1035,7 @@ class _AgentModePageState extends State<AgentModePage> {
         final r = _nextBatch();
         _voice.say(
           AgentSpeaker.agent,
-          r['error'] != null ? '${r['error']}' : '现在是${r['showing']}。',
+          r['error'] != null ? '${r['error']}' : '${r['showing']}。',
         );
       case AgentTasks():
         _showTasks().ignore();
@@ -1461,7 +1464,6 @@ class _AgentModePageState extends State<AgentModePage> {
       ],
       // The TV draws the same screen from the result itself.
       if (_visible != null) 'attention': _visible!.toJson(),
-      'batch': _batchStart,
     },
     _Channel(:final channel) => () {
       final b = _briefs[channel.id];
@@ -1601,7 +1603,7 @@ class _AgentModePageState extends State<AgentModePage> {
       if (mounted) _syncTv(context);
     });
     return PopScope(
-      canPop: _stack.length == 1 && !_sheetOpen,
+      canPop: _stack.length == 1 && !_stageOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _pop();
       },
@@ -1679,17 +1681,46 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   Widget _layerView(_Layer l, HfData hf) {
-    final view = _layerContent(l, hf);
-    // A wide window shows the current item of a list in the slot beside it
-    // (the attention layer draws its own, in place).
-    if (!hf.split || l is _Attention || !identical(l, _stack.last)) return view;
-    final stage = _stage(l, _current, hf);
-    return stage == null ? view : HfStageScope(stage: stage, child: view);
+    Widget view = _layerContent(l, hf);
+    if (!identical(l, _stack.last)) {
+      return HfPageControllerScope(controller: _pageOf(l), child: view);
+    }
+    // The current item's detail is part of the layer's page: beside its row
+    // on a wide window, under it on a phone. The confirm cards that wait for
+    // an answer end the page.
+    final n = _current;
+    final stage = _stage(l, n, hf, tools: hf.split ? null : _stageTools(l, n));
+    // The scope is always there, so the page keeps its place (and its scroll)
+    // when a stage comes and goes.
+    view = HfPageTail(
+      tail: _tray(),
+      child: HfStageScope(
+        id: stage == null || n == null ? '' : '${l.id}#$n',
+        stage: stage,
+        child: view,
+      ),
+    );
+    return HfPageControllerScope(controller: _pageOf(l), child: view);
   }
 
   Widget _layerContent(_Layer l, HfData hf) {
     if (l is _Surface) return _surfaceLayer(l, compact: hf.phone);
     if (l is _Attention) {
+      // A wide window always has a current item: the first row until another
+      // is chosen.
+      if (_split &&
+          identical(l, _stack.last) &&
+          _current == null &&
+          (_visible?.items.isNotEmpty ?? false)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              _split &&
+              _current == null &&
+              _stack.last is _Attention) {
+            _setCurrent(1);
+          }
+        });
+      }
       return AgentAttentionView(
         attention: _visible,
         error: _attentionError,
@@ -1699,24 +1730,6 @@ class _AgentModePageState extends State<AgentModePage> {
         onLater: _later,
         current: identical(l, _stack.last) ? _current : _currentOf[l.id],
         onCurrent: _tapCurrent,
-        batchStart: _batchStart,
-        onBatch: _showBatch,
-        onPage: (start, end) {
-          _batchStart = start;
-          _batchEnd = end;
-          // A wide window always shows a detail: the first row of the page is
-          // the current one until another is chosen.
-          if (_split && identical(l, _stack.last) && _current == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted &&
-                  _split &&
-                  _current == null &&
-                  _stack.last is _Attention) {
-                _setCurrent(start + 1);
-              }
-            });
-          }
-        },
       );
     }
     return AgentFrameView(
@@ -1728,9 +1741,9 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   /// The current item [n] of [layer] in its detail rendering, for the stage:
-  /// the pane beside a list, or a phone's sheet. Null when nothing is
-  /// current, or the layer has no such item. [tools] are the sheet's 展开 and
-  /// close.
+  /// the pane beside a list, or under a row on a phone. Null when nothing is
+  /// current, or the layer has no such item. [tools] are the phone stage's
+  /// 展开 and close.
   Widget? _stage(_Layer layer, int? n, HfData hf, {Widget? tools}) {
     if (n == null || !_stageAllowed) return null;
     if (layer is _Attention) {
@@ -1765,25 +1778,28 @@ class _AgentModePageState extends State<AgentModePage> {
     );
   }
 
-  /// A phone's stage: the current item of the front layer in a sheet that
-  /// takes the lower half of the layer's area, with a way to the full page
-  /// (attention items only) and a way to put it away.
-  Widget? _sheet(HfData hf, double room) {
-    if (hf.split) return null;
-    final layer = _stack.last;
-    final n = _current;
-    final tools = HfStageTools(
-      onExpand: layer is _Attention && n != null
-          ? () {
-              final items = _visible?.items ?? const <AgentAttentionItem>[];
-              if (n >= 1 && n <= items.length) _expandItem(items[n - 1]);
-            }
-          : null,
-      onClose: _clearCurrent,
-    );
-    final stage = _stage(layer, n, hf, tools: tools);
-    return stage == null ? null : HfStageSheet(height: room * .5, child: stage);
-  }
+  /// A phone's stage has two small tools: a way to the full page (attention
+  /// items only) and a way to put it away.
+  Widget _stageTools(_Layer layer, int? n) => HfStageTools(
+    onExpand: layer is _Attention && n != null
+        ? () {
+            final items = _visible?.items ?? const <AgentAttentionItem>[];
+            if (n >= 1 && n <= items.length) _expandItem(items[n - 1]);
+          }
+        : null,
+    onClose: _clearCurrent,
+  );
+
+  /// The confirm cards, as the end of the front layer's page.
+  Widget _tray() => AgentEntityScope(
+    resolver: _entities,
+    child: AgentConsentTray(
+      ledger: _consent,
+      board: _actions,
+      onUndo: (id) => unawaited(_actionPressed(id, undo: true)),
+      onRetry: (id) => unawaited(_actionPressed(id, undo: false)),
+    ),
+  );
 
   Widget _frameScreen(BuildContext context, HfData hf) {
     // Room above the front layer only for the layers that peek out behind
@@ -1795,35 +1811,22 @@ class _AgentModePageState extends State<AgentModePage> {
         sync: _reveal,
         child: AgentSpotlight(
           controller: _spotlight,
-          child: LayoutBuilder(
-            builder: (context, box) {
-              final sheet = _sheet(hf, box.maxHeight);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: ZLayerStack(
-                      padding: EdgeInsets.only(top: hf.sp(40) * peeks),
-                      onReveal: _revealTo,
-                      layers: [
-                        for (final l in _stack)
-                          ZLayer(
-                            key: ValueKey(l.id),
-                            peek: _peek(l),
-                            child: !hf.phone && identical(l, _stack.last)
-                                ? HfChrome(
-                                    trailing: _chrome(hf, bar: false),
-                                    child: _layerView(l, hf),
-                                  )
-                                : _layerView(l, hf),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (sheet != null) ...[SizedBox(height: hf.sp(12)), sheet],
-                ],
-              );
-            },
+          child: ZLayerStack(
+            padding: EdgeInsets.only(top: hf.sp(40) * peeks),
+            onReveal: _revealTo,
+            layers: [
+              for (final l in _stack)
+                ZLayer(
+                  key: ValueKey(l.id),
+                  peek: _peek(l),
+                  child: !hf.phone && identical(l, _stack.last)
+                      ? HfChrome(
+                          trailing: _chrome(hf, bar: false),
+                          child: _layerView(l, hf),
+                        )
+                      : _layerView(l, hf),
+                ),
+            ],
           ),
         ),
       ),
@@ -1840,15 +1843,6 @@ class _AgentModePageState extends State<AgentModePage> {
                 style: hf.type(HfType.meta, color: HfColors.decision),
               ),
             ),
-          AgentEntityScope(
-            resolver: _entities,
-            child: AgentConsentTray(
-              ledger: _consent,
-              board: _actions,
-              onUndo: (id) => unawaited(_actionPressed(id, undo: true)),
-              onRetry: (id) => unawaited(_actionPressed(id, undo: false)),
-            ),
-          ),
         ],
       ),
       foot: ListenableBuilder(

@@ -188,14 +188,20 @@ void main() {
 
   Finder card(String id) => find.byKey(ValueKey('attention-card-$id'));
 
-  /// A tap on a card makes it the current item (its detail in a sheet);
-  /// the sheet's 展开 goes to the full detail page.
+  /// A tap on a card makes it the current item (its detail opens under it);
+  /// the stage's 展开 goes to the full detail page.
   Future<void> openDetail(WidgetTester t, String id) async {
     await t.tap(card(id));
     await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
     await t.pumpAndSettle();
   }
+
+  /// The one scroll of the front layer: its page.
+  Finder page() => find.byKey(const ValueKey('hf-page'));
+  ScrollableState pageScroll(WidgetTester t) => t.state<ScrollableState>(
+    find.descendant(of: page(), matching: find.byType(Scrollable)),
+  );
 
   Finder countOf(String kind, String n) => find.descendant(
     of: find.byKey(ValueKey('attention-count-$kind')),
@@ -215,14 +221,14 @@ void main() {
       expect(find.text('件卡住了'), findsOneWidget);
       // The most urgent item is tagged.
       expect(find.text('最急'), findsOneWidget);
-      // Sections head the rows under them (the mention is on the next page).
+      // Sections head the rows under them: all of them, one page.
       expect(find.text('等你决定'), findsOneWidget);
       expect(find.text('卡住了'), findsOneWidget);
-      expect(find.text('点名你'), findsNothing);
+      expect(find.text('点名你'), findsOneWidget);
       // The scope note and the side labels are gone.
       expect(find.text(AgentAttention.scopeNote), findsNothing);
       expect(find.text('按紧急程度'), findsNothing);
-      expect(card('m1'), findsNothing);
+      expect(card('m1'), findsOneWidget);
       // The old query-cap sentence is gone.
       expect(find.textContaining('50 件'), findsNothing);
     });
@@ -284,16 +290,18 @@ void main() {
       },
     );
 
-    testWidgets('four rows to a page; the rest behind the pager', (t) async {
+    testWidgets('every row is in the one page: no pager, no paging text', (
+      t,
+    ) async {
       await open(t, _Data(w, _three()), size: const Size(430, 1100));
-      for (final id in ['t1', 't2', 't3', 'b1']) {
+      for (final id in ['t1', 't2', 't3', 'b1', 'm1']) {
         expect(card(id), findsOneWidget, reason: id);
       }
-      expect(card('m1'), findsNothing);
-      expect(find.byType(HfRow), findsNWidgets(4));
-      expect(find.text('1–4 / 5'), findsOneWidget);
-      expect(find.text('还有 1 件，说“下一批”'), findsOneWidget);
-      expect(find.byKey(const ValueKey('attention-more')), findsOneWidget);
+      // Five rows and the team row, none behind a pager.
+      expect(find.byType(HfRow), findsNWidgets(6));
+      expect(find.textContaining('下一批'), findsNothing);
+      expect(find.textContaining('/ 5'), findsNothing);
+      expect(find.byKey(const ValueKey('attention-more')), findsNothing);
       // Rows stay short for their type size.
       for (final id in ['t1', 't2', 't3', 'b1']) {
         expect(t.getRect(card(id)).height, lessThanOrEqualTo(150), reason: id);
@@ -327,7 +335,8 @@ void main() {
       expect(t.takeException(), isNull);
     });
 
-    testWidgets('not more than a page even with many items', (t) async {
+    testWidgets('many items: all of them are in the page, which scrolls as '
+        'a whole and is the only scroll in the layer', (t) async {
       final many = AgentAttention(
         items: [
           for (var i = 1; i <= 9; i++)
@@ -335,12 +344,23 @@ void main() {
         ],
       );
       await open(t, _Data(w, many), size: const Size(430, 1100));
-      expect(find.byKey(const ValueKey('attention-card-t4')), findsOneWidget);
-      expect(find.byKey(const ValueKey('attention-card-t5')), findsNothing);
-      expect(find.text('还有 5 件，说“下一批”'), findsOneWidget);
+      for (var i = 1; i <= 9; i++) {
+        expect(card('t$i'), findsOneWidget, reason: 't$i');
+      }
+      expect(page(), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AgentAttentionView),
+          matching: find.byType(Scrollable),
+        ),
+        findsOneWidget,
+      );
+      expect(pageScroll(t).position.maxScrollExtent, greaterThan(0));
+      expect(find.textContaining('下一批'), findsNothing);
+      expect(find.byKey(const ValueKey('attention-more')), findsNothing);
     });
 
-    testWidgets('a page or less: no pager', (t) async {
+    testWidgets('a short list has nothing to scroll', (t) async {
       final few = AgentAttention(
         items: [
           _decision('t1', '甲方案：等你验收'),
@@ -350,29 +370,49 @@ void main() {
         ],
       );
       await open(t, _Data(w, few), size: const Size(390, 5000));
-      expect(find.byKey(const ValueKey('attention-more')), findsNothing);
-      expect(find.byType(HfPager), findsNothing);
+      expect(pageScroll(t).position.maxScrollExtent, 0);
     });
 
-    testWidgets('the next batch by tap and by voice, wrapping at the end', (
-      t,
-    ) async {
-      await open(t, _Data(w, _three()), model: const AgentScriptedModel());
-      await t.tap(find.byKey(const ValueKey('attention-more')));
-      await t.pumpAndSettle();
-      expect(card('t1'), findsNothing);
-      expect(card('m1'), findsOneWidget);
-      // Ranks stay what they are over all items.
-      expect(
-        find.descendant(of: card('m1'), matching: find.text('5')),
-        findsOneWidget,
+    testWidgets('"下一批" by voice scrolls the page on by a screen, and back '
+        'to the top after the end', (t) async {
+      final many = AgentAttention(
+        items: [
+          for (var i = 1; i <= 9; i++)
+            _decision('t$i', '第$i号方案：等你验收', score: 100.0 - i),
+        ],
       );
-      expect(find.text('点名你'), findsOneWidget);
-      expect(find.text('已经是最后一批，说“下一批”回到最前'), findsOneWidget);
+      await open(
+        t,
+        _Data(w, many),
+        size: const Size(430, 900),
+        model: const AgentScriptedModel(),
+      );
+      final scroll = pageScroll(t);
+      expect(scroll.position.pixels, 0);
       await say(t, '下一批');
-      expect(card('t1'), findsOneWidget);
-      expect(card('m1'), findsNothing);
-      expect(find.textContaining('现在是从第 1 条起'), findsWidgets);
+      expect(scroll.position.pixels, greaterThan(0));
+      expect(find.textContaining('往后翻了一屏'), findsWidgets);
+      for (var i = 0; i < 6; i++) {
+        if (scroll.position.pixels >= scroll.position.maxScrollExtent - 1) {
+          break;
+        }
+        await say(t, '下一批');
+      }
+      expect(scroll.position.pixels, scroll.position.maxScrollExtent);
+      await say(t, '下一批');
+      expect(scroll.position.pixels, 0);
+      expect(find.textContaining('回到最前面'), findsWidgets);
+    });
+
+    testWidgets('"下一批" when everything is on the screen says so', (t) async {
+      await open(
+        t,
+        _Data(w, _three()),
+        size: const Size(390, 5000),
+        model: const AgentScriptedModel(),
+      );
+      await say(t, '下一批');
+      expect(find.textContaining('已经全部显示在一屏里'), findsWidgets);
     });
 
     testWidgets(
@@ -509,10 +549,8 @@ void main() {
       },
     );
 
-    testWidgets('a mention is on the next page; its row opens it', (t) async {
+    testWidgets('a mention is the last row; its row opens it', (t) async {
       await open(t, _Data(w, _three()));
-      await t.tap(find.byKey(const ValueKey('attention-more')));
-      await t.pumpAndSettle();
       await openDetail(t, 'm1');
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.byKey(const ValueKey('detail:m1')), findsOneWidget);
@@ -522,14 +560,14 @@ void main() {
       expect(find.byKey(const ValueKey('attention-later-m1')), findsOneWidget);
     });
 
-    testWidgets('tapping a card shows its detail in a sheet; 展开 goes to the '
+    testWidgets('tapping a card opens its detail under it; 展开 goes to the '
         'full page and back finds it current', (t) async {
       await open(t, _Data(w, _three()));
       await t.tap(card('t1'));
       await t.pumpAndSettle();
-      // No layer: the card is current, and its detail is in the sheet.
+      // No layer: the card is current, and its detail is under it.
       expect(find.text('第 1 层'), findsOneWidget);
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
       expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
       await t.pumpAndSettle();
@@ -557,37 +595,37 @@ void main() {
       expect(find.byKey(const ValueKey('attention-open-t1')), findsOneWidget);
       expect(find.byKey(const ValueKey('attention-later-t1')), findsOneWidget);
 
-      // Back: the card is still the current one, so its sheet is there.
+      // Back: the card is still the current one, so its detail is there.
       await t.binding.handlePopRoute();
       await t.pumpAndSettle();
       expect(find.text('第 1 层'), findsOneWidget);
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
-      // Back again puts the sheet away before it leaves the screen.
+      expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
+      // Back again puts the detail away before it leaves the screen.
       await t.binding.handlePopRoute();
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+      expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
       expect(find.text('第 1 层'), findsOneWidget);
     });
 
-    testWidgets('a tap on the current card again, or the sheet\'s close, '
-        'puts the sheet away', (t) async {
+    testWidgets('a tap on the current card again, or the stage\'s close, '
+        'puts the stage away', (t) async {
       await open(t, _Data(w, _three()));
       await t.tap(card('t1'));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
       // Its row stays on the screen, with its number.
       expect(card('t1'), findsOneWidget);
       await t.tap(card('t1'));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+      expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
 
       await t.tap(card('t2'));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
-      // Another card takes the sheet over: one sheet, the new item in it.
+      expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
+      // Another card takes the stage over: one stage, the new item in it.
       await t.tap(card('t3'));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('attention-approve-t3')),
         findsOneWidget,
@@ -595,11 +633,11 @@ void main() {
       expect(find.byKey(const ValueKey('attention-approve-t2')), findsNothing);
       await t.tap(find.byKey(const ValueKey('hf-stage-close')));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsNothing);
+      expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
     });
 
     testWidgets('the voice makes an item current the same way a tap does: '
-        'the sheet, the same actions, and 展开 for the full page', (t) async {
+        'the stage, the same actions, and 展开 for the full page', (t) async {
       await open(t, _Data(w, _three()), model: const _Spot());
       await say(t, 'x');
       // The model's words are not heard in a test: the item comes after the
@@ -607,7 +645,7 @@ void main() {
       await t.pump(const Duration(seconds: 4));
       await t.pumpAndSettle();
       expect(find.text('第 1 层'), findsOneWidget);
-      expect(find.byKey(const ValueKey('hf-stage-sheet')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('attention-approve-t2')),
         findsOneWidget,
@@ -944,12 +982,18 @@ void main() {
       expect(inDetail('t1 进展三'), findsOneWidget);
       expect(inDetail('t1 进展二'), findsNothing);
       expect(inDetail('甲方案'), findsOneWidget);
-      // Three rows to a page on a desktop; rows are compact: headline, no
-      // quote.
+      // Every row is in the page; rows are compact: headline, no quote.
       expect(find.byKey(const ValueKey('attention-row-t2')), findsOneWidget);
       expect(find.byKey(const ValueKey('attention-card-t2')), findsNothing);
-      expect(find.byKey(const ValueKey('attention-row-b1')), findsNothing);
-      expect(find.text('1–3 / 5'), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-row-b1')), findsOneWidget);
+      expect(find.textContaining('/ 5'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(AgentAttentionView),
+          matching: find.byType(Scrollable),
+        ),
+        findsOneWidget,
+      );
       expect(find.textContaining('t2 进展三'), findsNothing);
 
       final list = t.getRect(find.byKey(const ValueKey('attention-row-t1')));
@@ -1005,6 +1049,10 @@ void main() {
         matching: find.textContaining(text),
       );
       expect(inDetail('t2 进展三'), findsOneWidget);
+      // The page scrolled to the second row and its detail; the first row is
+      // a scroll away.
+      await t.ensureVisible(find.byKey(const ValueKey('attention-row-t1')));
+      await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey('attention-row-t1')));
       await t.pumpAndSettle();
       expect(inDetail('t1 进展三'), findsOneWidget);
@@ -1058,22 +1106,33 @@ void main() {
       expect(client.posts, isEmpty);
     });
 
-    testWidgets('the selection moves the page: down past the last row', (
-      t,
-    ) async {
+    testWidgets('the selection moves the page: down past the last row, the '
+        'row and its detail scroll into view', (t) async {
       await open(t, _Data(w, _three()), size: wide);
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < 4; i++) {
         await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await t.pumpAndSettle();
       }
-      // The fourth item (the blocked one) is on the second page now.
-      expect(find.byKey(const ValueKey('attention-row-t1')), findsNothing);
-      expect(find.byKey(const ValueKey('attention-row-b1')), findsOneWidget);
-      expect(find.text('4–5 / 5'), findsOneWidget);
+      // The mention (the fifth) is current: the page moved to show it and
+      // its detail, still the same page. The detail is whole when it fits the
+      // window, else its top is at the top.
+      final view = t.getRect(page());
+      final row = t.getRect(find.byKey(const ValueKey('attention-row-m1')));
+      final detail = t.getRect(find.byKey(const ValueKey('attention-detail')));
+      expect(pageScroll(t).position.pixels, greaterThan(0));
+      expect(row.top, greaterThanOrEqualTo(view.top - 1));
+      expect(row.bottom, lessThanOrEqualTo(view.bottom + 1));
+      expect(detail.top, greaterThanOrEqualTo(view.top - 1));
+      // (The page keeps some air around what it shows: 2 x 12 s.)
+      if (detail.height <= view.height - 2 * 12 * 900 / 540) {
+        expect(detail.bottom, lessThanOrEqualTo(view.bottom + 1));
+      }
+      // The detail stands level with its row.
+      expect(detail.top, closeTo(row.top, 2));
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('attention-detail')),
-          matching: find.textContaining('卡住了'),
+          matching: find.textContaining('点名找你'),
         ),
         findsWidgets,
       );
@@ -1141,12 +1200,12 @@ void main() {
         ],
       );
       await tv(t, attention, caption: 'Cardinal 那条已经等了 24 小时，先看这个？');
-      // Three rows to a page, as on a desktop; the rest is the pager's.
+      // The whole list is one page, as on a desktop; no pager.
       expect(find.text('甲方案：等你验收'), findsWidgets);
       expect(find.text('乙方案：等你验收'), findsOneWidget);
       expect(find.text('丙方案：等你验收'), findsOneWidget);
-      expect(find.text('丁方案：等你验收'), findsNothing);
-      expect(find.text('1–3 / 5'), findsOneWidget);
+      expect(find.text('丁方案：等你验收'), findsOneWidget);
+      expect(find.textContaining('/ 5'), findsNothing);
       expect(find.text('最急'), findsOneWidget);
       expect(find.text('24'), findsOneWidget);
       // The detail of the first row, beside the list.

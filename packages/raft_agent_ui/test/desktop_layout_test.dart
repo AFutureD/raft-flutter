@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 /// Fictional data only.
-Widget _app(Widget child) => MaterialApp(
+Widget _app(Widget child, {HfSurface? surface}) => MaterialApp(
   theme: raftTheme(RaftFamily.brutal),
-  home: Scaffold(body: HandsFree(child: child)),
+  home: Scaffold(
+    body: HandsFree(surface: surface, child: child),
+  ),
 );
 
 Widget _frame({int rows = 3}) => HfScreenFrame(
@@ -19,6 +22,7 @@ Widget _frame({int rows = 3}) => HfScreenFrame(
           key: ValueKey('row-$i'),
           index: i + 1,
           tone: HfTone.progress,
+          focusId: 'room#${i + 1}',
           title: 'Aria $i',
           detail: '在做 #10$i',
         ),
@@ -27,33 +31,33 @@ Widget _frame({int rows = 3}) => HfScreenFrame(
   ),
 );
 
-Widget _pane({HfSurface? surface, int progress = 8, double height = 420}) =>
-    MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
-      home: Scaffold(
-        body: HandsFree(
-          surface: surface,
-          child: Center(
-            child: SizedBox(
-              width: 520,
-              height: height,
-              child: HfDetail(
-                title: 'Aria 完成了一件事，等你验收',
-                titleMode: HfDetailTitle.heading,
-                status: '#room · 等验收',
-                index: 1,
-                facts: const [HfFact('要你做', '验收这件事'), HfFact('谁', 'Aria')],
-                progress: [
-                  for (var i = 0; i < progress; i++)
-                    HfProgressLine('今天', 'Aria', '第 $i 条进展：结论都写在文档里了，请看第 3 节。'),
-                ],
-                actions: [HfAction('通过', kind: HfActionKind.primary)],
-              ),
+Widget _pane({HfSurface? surface, int progress = 8}) => MaterialApp(
+  theme: raftTheme(RaftFamily.brutal),
+  home: Scaffold(
+    body: HandsFree(
+      surface: surface,
+      child: Center(
+        child: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: HfDetail(
+              title: 'Aria 完成了一件事，等你验收',
+              titleMode: HfDetailTitle.heading,
+              status: '#room · 等验收',
+              index: 1,
+              facts: const [HfFact('要你做', '验收这件事'), HfFact('谁', 'Aria')],
+              progress: [
+                for (var i = 0; i < progress; i++)
+                  HfProgressLine('今天', 'Aria', '第 $i 条进展：结论都写在文档里了，请看第 3 节。'),
+              ],
+              actions: [HfAction('通过', kind: HfActionKind.primary)],
             ),
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
 
 void _size(WidgetTester t, Size size) {
   t.view.physicalSize = size;
@@ -72,101 +76,93 @@ void main() {
       expect(row.right, closeTo(1440 * .96 - 8 * 900 / 540, 2));
     });
 
-    testWidgets('a body that is cut off says so: fade and scrollbar', (
-      t,
-    ) async {
+    testWidgets('a page taller than the window scrolls as a whole: one '
+        'scroll, a scrollbar, and no fade that hides rows', (t) async {
       _size(t, const Size(1440, 500));
       await t.pumpWidget(_app(_frame(rows: 12)));
       await t.pumpAndSettle();
-      double opacity(String key) =>
-          t.widget<AnimatedOpacity>(find.byKey(ValueKey(key))).opacity;
-      expect(opacity('agent-fade-bottom'), 1);
-      expect(opacity('agent-fade-top'), 0);
+      expect(find.byType(Scrollable), findsOneWidget);
       expect(find.byType(Scrollbar), findsOneWidget);
+      expect(find.byKey(const ValueKey('agent-fade-bottom')), findsNothing);
+      expect(find.byKey(const ValueKey('agent-fade-top')), findsNothing);
 
+      final page = t.state<ScrollableState>(find.byType(Scrollable));
+      expect(page.position.maxScrollExtent, greaterThan(0));
       await t.drag(find.byType(SingleChildScrollView), const Offset(0, -4000));
       await t.pumpAndSettle();
-      expect(opacity('agent-fade-bottom'), 0);
-      expect(opacity('agent-fade-top'), 1);
+      expect(page.position.pixels, page.position.maxScrollExtent);
+      // The last row is whole, above the bottom of the page.
+      final last = t.getRect(find.byKey(const ValueKey('row-11')));
+      expect(
+        last.bottom,
+        lessThanOrEqualTo(t.getRect(find.byType(Scrollable)).bottom),
+      );
     });
 
-    testWidgets('a body that fits has no fade', (t) async {
+    testWidgets('a page that fits has nothing to scroll', (t) async {
       _size(t, const Size(1440, 900));
       await t.pumpWidget(_app(_frame(rows: 2)));
       await t.pumpAndSettle();
-      expect(
-        t
-            .widget<AnimatedOpacity>(
-              find.byKey(const ValueKey('agent-fade-bottom')),
-            )
-            .opacity,
-        0,
-      );
+      final page = t.state<ScrollableState>(find.byType(Scrollable));
+      expect(page.position.maxScrollExtent, 0);
     });
 
-    testWidgets('a detail pane too short for its text scrolls inside its frame '
-        'with a fade, and keeps its actions in view', (t) async {
+    testWidgets('a long detail is as tall as its words: no scroll, no clip, '
+        'no cut line, and the actions come after the last line', (t) async {
       _size(t, const Size(1440, 900));
       await t.pumpWidget(_pane());
       await t.pumpAndSettle();
-      double opacity(String key) =>
-          t.widget<AnimatedOpacity>(find.byKey(ValueKey(key))).opacity;
-      expect(opacity('agent-fade-bottom'), 1);
-      expect(opacity('agent-fade-top'), 0);
-      expect(find.text('通过'), findsOneWidget);
-      // The frame is the pane's own: the text is not drawn past it.
-      final scroll = t.getRect(find.byKey(const ValueKey('hf-detail-scroll')));
-      final action = t.getRect(find.text('通过'));
-      expect(action.top, greaterThan(scroll.bottom));
-      await t.drag(
-        find.byKey(const ValueKey('hf-detail-scroll')),
-        const Offset(0, -4000),
-      );
-      await t.pumpAndSettle();
-      expect(opacity('agent-fade-bottom'), 0);
-      expect(opacity('agent-fade-top'), 1);
+      expect(t.takeException(), isNull);
+      final detail = find.byType(HfDetail);
+      for (final kind in [
+        Scrollable,
+        ClipRect,
+        ClipRRect,
+        ClipPath,
+        ShaderMask,
+        AnimatedOpacity,
+      ]) {
+        expect(
+          find.descendant(of: detail, matching: find.byType(kind)),
+          findsNothing,
+          reason: '$kind',
+        );
+      }
+      // Every line of progress is there, and none was cut short.
+      for (var i = 0; i < 8; i++) {
+        expect(find.textContaining('第 $i 条进展'), findsOneWidget);
+      }
+      for (final p in t.renderObjectList<RenderParagraph>(
+        find.descendant(of: detail, matching: find.byType(RichText)),
+      )) {
+        expect(p.didExceedMaxLines, isFalse, reason: p.text.toPlainText());
+      }
+      final last = t.getRect(find.textContaining('第 7 条进展'));
+      expect(t.getRect(find.text('通过')).top, greaterThan(last.bottom));
     });
 
-    testWidgets('a detail pane that fits has no fade', (t) async {
-      _size(t, const Size(1440, 900));
-      await t.pumpWidget(_pane(progress: 1, height: 800));
-      await t.pumpAndSettle();
-      expect(
-        t
-            .widget<AnimatedOpacity>(
-              find.byKey(const ValueKey('agent-fade-bottom')),
-            )
-            .opacity,
-        0,
-      );
-    });
-
-    testWidgets('a TV cannot scroll a cut pane, and still fades it', (t) async {
+    testWidgets('a TV page cannot be dragged, and moves to what the agent '
+        'looks at', (t) async {
       _size(t, const Size(1920, 1080));
-      await t.pumpWidget(_pane(surface: HfSurface.tv));
-      await t.pumpAndSettle();
-      expect(
-        t
-            .widget<AnimatedOpacity>(
-              find.byKey(const ValueKey('agent-fade-bottom')),
-            )
-            .opacity,
-        1,
+      final controller = HfPageController();
+      addTearDown(controller.dispose);
+      await t.pumpWidget(
+        _app(
+          HfPageControllerScope(
+            controller: controller,
+            child: _frame(rows: 14),
+          ),
+          surface: HfSurface.tv,
+        ),
       );
+      await t.pumpAndSettle();
       expect(find.byType(Scrollbar), findsNothing);
-      await t.drag(
-        find.byKey(const ValueKey('hf-detail-scroll')),
-        const Offset(0, -400),
-      );
+      await t.drag(find.byType(SingleChildScrollView), const Offset(0, -400));
       await t.pumpAndSettle();
-      expect(
-        t
-            .widget<AnimatedOpacity>(
-              find.byKey(const ValueKey('agent-fade-top')),
-            )
-            .opacity,
-        0,
-      );
+      expect(controller.offset, 0);
+      expect(controller.nextScreen(), HfPageStep.moved);
+      await t.pumpAndSettle();
+      expect(controller.offset, greaterThan(0));
     });
 
     testWidgets('a layer with a stage lays it out beside its list', (t) async {
@@ -174,6 +170,7 @@ void main() {
       await t.pumpWidget(
         _app(
           HfStageScope(
+            id: 'room#1',
             stage: const Text('the stage', key: ValueKey('stage')),
             child: _frame(),
           ),
@@ -186,12 +183,34 @@ void main() {
       await t.pumpWidget(
         _app(
           HfStageScope(
+            id: 'room#1',
             stage: const Text('the stage', key: ValueKey('stage')),
             child: _frame(rows: 1),
           ),
         ),
       );
       expect(t.getRect(find.byKey(const ValueKey('stage'))).left, stage.left);
+    });
+
+    testWidgets('the stage stands level with the row it is about', (t) async {
+      _size(t, const Size(1440, 900));
+      await t.pumpWidget(
+        _app(
+          HfStageScope(
+            id: 'room#3',
+            stage: const SizedBox(
+              key: ValueKey('stage'),
+              height: 100,
+              child: Text('the stage'),
+            ),
+            child: _frame(),
+          ),
+        ),
+      );
+      expect(
+        t.getRect(find.byKey(const ValueKey('stage'))).top,
+        closeTo(t.getRect(find.byKey(const ValueKey('row-2'))).top, 1),
+      );
     });
 
     testWidgets('a layer with no stage keeps the whole width', (t) async {
@@ -247,18 +266,30 @@ void main() {
       expect(find.byType(Scrollbar), findsNothing);
     });
 
-    testWidgets('a phone has no slot beside its list: the stage waits for '
-        'the sheet', (t) async {
+    testWidgets('a phone opens the stage under its row, in the same page', (
+      t,
+    ) async {
       _size(t, const Size(412, 915));
       await t.pumpWidget(
         _app(
           HfStageScope(
-            stage: const Text('the stage', key: ValueKey('stage')),
+            id: 'room#2',
+            stage: const SizedBox(
+              key: ValueKey('stage'),
+              height: 100,
+              child: Text('the stage'),
+            ),
             child: _frame(),
           ),
         ),
       );
-      expect(find.byKey(const ValueKey('stage')), findsNothing);
+      // (The keyed row widget holds its stage; the row itself is its text.)
+      final row = t.getRect(find.text('Aria 1'));
+      final stage = t.getRect(find.byKey(const ValueKey('stage')));
+      final next = t.getRect(find.byKey(const ValueKey('row-2')));
+      expect(stage.top, greaterThan(row.bottom));
+      expect(next.top, greaterThan(stage.bottom));
+      expect(find.byType(Scrollable), findsOneWidget);
     });
 
     testWidgets('the strip sits above the dock', (t) async {

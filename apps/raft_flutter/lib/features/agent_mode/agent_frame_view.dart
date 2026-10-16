@@ -3,15 +3,17 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'references/agent_handle_tag.dart';
 
+typedef _Entry = ({String? section, Map<String, Object?> item, int n});
+
 /// One serialized layer (see `agentSurfaceFrame` and the `_frame` of the
 /// page) drawn as hands-free rows: a channel's brief, the tasks, anything
 /// that is a list of numbered items. The phone, the desktop and the TV draw
 /// it with the same code; a TV only shows.
 ///
-/// A page holds [HfData.listRows] rows with the section labels they come
-/// under; the pager asks for the next page. The page that holds [focused] (the
-/// item the agent is talking about, `layer#n`) is the one shown.
-class AgentFrameView extends StatefulWidget {
+/// All the rows, with the section labels they come under, are one page that
+/// scrolls as a whole. [focused] (the item the agent is talking about,
+/// `layer#n`) is brought into view by the item itself (see [AgentFocusable]).
+class AgentFrameView extends StatelessWidget {
   const AgentFrameView({
     super.key,
     required this.frame,
@@ -25,21 +27,11 @@ class AgentFrameView extends StatefulWidget {
   /// counting items (not section labels) from 1 as the agent sees them.
   final String? focusPrefix;
 
-  /// The spotlit item, `layer#n`.
+  /// The spotlit item, `layer#n`. (The items themselves scroll the page to it.)
   final String? focused;
 
   /// A row was tapped: it is the current item (never on a TV).
   final ValueChanged<int>? onCurrent;
-
-  @override
-  State<AgentFrameView> createState() => _AgentFrameViewState();
-}
-
-typedef _Entry = ({String? section, Map<String, Object?> item, int n});
-
-class _AgentFrameViewState extends State<AgentFrameView> {
-  int _start = 0;
-  String? _seenFocus;
 
   static AgentPriority _priority(Object? v) => AgentPriority.values.firstWhere(
     (p) => p.name == v,
@@ -47,11 +39,11 @@ class _AgentFrameViewState extends State<AgentFrameView> {
   );
 
   List<_Entry> _entries() {
-    final title = '${widget.frame['title'] ?? ''}';
+    final title = '${frame['title'] ?? ''}';
     final entries = <_Entry>[];
     String? section;
     var n = 0;
-    for (final i in (widget.frame['items'] as List?) ?? const []) {
+    for (final i in (frame['items'] as List?) ?? const []) {
       if (i is! Map) continue;
       final item = Map<String, Object?>.from(i);
       if (item['kind'] == 'section') {
@@ -70,7 +62,7 @@ class _AgentFrameViewState extends State<AgentFrameView> {
     final i = e.item;
     final message = i['kind'] == 'message';
     final label = '${i['label'] ?? ''}';
-    final current = widget.onCurrent;
+    final current = onCurrent;
     return HfRow(
       key: ValueKey('frame-row-${e.n}'),
       index: e.n,
@@ -89,41 +81,18 @@ class _AgentFrameViewState extends State<AgentFrameView> {
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    final frame = widget.frame;
     final entries = _entries();
-    final rows = hf.listRows;
-    final id = '${frame['id'] ?? widget.focusPrefix ?? ''}';
-    final focus = widget.focused != null && widget.focused!.startsWith('$id#')
-        ? int.tryParse(widget.focused!.substring(id.length + 1))
-        : null;
-    // The agent points at an item on another page: that page comes.
-    if (focus != null && widget.focused != _seenFocus) {
-      _start = ((focus - 1) ~/ rows) * rows;
-    }
-    _seenFocus = widget.focused;
-    if (_start >= entries.length) _start = 0;
-    final page = entries.skip(_start).take(rows).toList();
-    final end = _start + page.length;
     final summary = frame['summary'] as String?;
     final failed = summary != null && summary.startsWith('读取失败');
-    final prefix = widget.focusPrefix;
+    final prefix = focusPrefix;
     return HfLayerFrame(
       title: '${frame['title'] ?? ''}',
       meta: frame['meta'] as String?,
       summary: summary == null || failed ? null : TextSpan(text: summary),
       loading: frame['loading'] == true && entries.isEmpty,
       error: failed ? summary : null,
-      pager: entries.length > rows
-          ? HfPager(
-              from: _start + 1,
-              to: end,
-              total: entries.length,
-              onNext: () =>
-                  setState(() => _start = end < entries.length ? end : 0),
-            )
-          : null,
       children: [
-        for (final (r, e) in page.indexed) ...[
+        for (final (r, e) in entries.indexed) ...[
           if (r > 0) SizedBox(height: hf.rowGap),
           if (prefix == null)
             _row(hf, e)
@@ -142,10 +111,10 @@ class _AgentFrameViewState extends State<AgentFrameView> {
 }
 
 /// One item of a [AgentFrameView] (or of a screen's frame) in its detail
-/// rendering: what the stage beside a list, or a phone's sheet, shows for the
-/// current item. A message says who and when, with its words in full; the
-/// rest say what they are, their title and their facts. [trailing] is the
-/// sheet's small tools.
+/// rendering: what the stage beside a list, or under a row on a phone, shows
+/// for the current item. A message says who and when, with its words in full;
+/// the rest say what they are, their title and their facts. [trailing] is the
+/// stage's small tools.
 class AgentFrameStage extends StatelessWidget {
   const AgentFrameStage({
     super.key,
@@ -170,7 +139,6 @@ class AgentFrameStage extends StatelessWidget {
       key: const ValueKey('agent-frame-stage'),
       titleMode: HfDetailTitle.heading,
       index: number,
-      titleLines: 5,
       tone: message
           ? HfTone.info
           : HfColors.toneOf(
@@ -188,7 +156,7 @@ class AgentFrameStage extends StatelessWidget {
       title: message ? '${item['text'] ?? ''}' : '${item['title'] ?? ''}',
       facts: [
         if (!message && detail.isNotEmpty && detail != label)
-          HfFact('情况', detail, lines: 4),
+          HfFact('情况', detail),
       ],
       trailing: trailing,
       oneRowActions: trailing != null,

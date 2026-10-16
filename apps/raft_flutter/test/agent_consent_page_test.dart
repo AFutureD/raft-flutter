@@ -224,13 +224,15 @@ void main() {
     expect(drawn['error'], isNull);
     await t.pumpAndSettle();
     expect(find.text('完成任务 t3？'), findsOneWidget);
+    // The app's own card is the end of the same page; the model's card is
+    // the one before it, the first.
     await t.tap(
       find
           .descendant(
             of: find.byType(AgentSurfaceView),
             matching: find.text('确认'),
           )
-          .last,
+          .first,
     );
     await t.pumpAndSettle();
     await say(t, probe, '随便', (call) async {
