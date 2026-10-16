@@ -683,17 +683,20 @@ class _AgentAttachmentThumbState extends State<AgentAttachmentThumb> {
 }
 
 /// Gives the entity cards below it the app's data. Owns a
-/// [WorkspaceEntityResolver] for [controller]; [onProblem] is told when the
-/// model pointed at something the app cannot read, so it can answer the model.
+/// [WorkspaceEntityResolver] for [controller] (or draws from [resolver], which
+/// the caller keeps); [onProblem] is told when the model pointed at something
+/// the app cannot read, so it can answer the model.
 class AgentEntityBindingScope extends StatefulWidget {
   const AgentEntityBindingScope({
     super.key,
     required this.controller,
     required this.child,
     this.onProblem,
+    this.resolver,
   });
   final WorkspaceController controller;
   final AgentEntityProblem? onProblem;
+  final WorkspaceEntityResolver? resolver;
   final Widget child;
 
   @override
@@ -702,22 +705,23 @@ class AgentEntityBindingScope extends StatefulWidget {
 }
 
 class _AgentEntityBindingScopeState extends State<AgentEntityBindingScope> {
-  late WorkspaceEntityResolver _resolver = WorkspaceEntityResolver(
-    widget.controller,
-  );
+  WorkspaceEntityResolver? _own;
+
+  WorkspaceEntityResolver get _resolver =>
+      widget.resolver ?? (_own ??= WorkspaceEntityResolver(widget.controller));
 
   @override
   void didUpdateWidget(AgentEntityBindingScope old) {
     super.didUpdateWidget(old);
-    if (old.controller != widget.controller) {
-      _resolver.dispose();
-      _resolver = WorkspaceEntityResolver(widget.controller);
+    if (old.controller != widget.controller || widget.resolver != null) {
+      _own?.dispose();
+      _own = null;
     }
   }
 
   @override
   void dispose() {
-    _resolver.dispose();
+    _own?.dispose();
     super.dispose();
   }
 
@@ -727,6 +731,19 @@ class _AgentEntityBindingScopeState extends State<AgentEntityBindingScope> {
     onProblem: widget.onProblem,
     child: widget.child,
   );
+}
+
+/// What the app reads for the [kind] (`task`, `agent` …) thing [id], as one
+/// short phrase; null while it is still being read or cannot be.
+String? agentEntityLabel(
+  WorkspaceEntityResolver resolver,
+  String kind,
+  String id,
+) {
+  final k = AgentEntityKind.values.where((v) => v.name == kind).firstOrNull;
+  if (k == null) return null;
+  final r = resolver.resolve(AgentEntityRef(k, id));
+  return r is AgentEntityFound ? r.data.label : null;
 }
 
 // ---- Catalog ---------------------------------------------------------------

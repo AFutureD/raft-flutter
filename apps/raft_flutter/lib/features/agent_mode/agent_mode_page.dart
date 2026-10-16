@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:raft_agent_ui/raft_agent_ui.dart';
+import 'package:raft_agent_ui/raft_agent_ui.dart' hide AgentEntityRef;
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 
@@ -12,7 +12,9 @@ import 'agent_attention.dart';
 import 'agent_audio.dart';
 import 'agent_catalog.dart';
 import 'agent_choreography.dart';
+import 'agent_consent_tray.dart';
 import 'agent_detail.dart';
+import 'agent_entity_binding.dart';
 import 'agent_headlines.dart';
 import 'agent_memory.dart';
 import 'agent_mode_data.dart';
@@ -25,8 +27,10 @@ import 'agent_tools.dart';
 import 'agent_tv.dart';
 import 'agent_voice.dart';
 import 'agent_voice_settings.dart';
-import 'capabilities/agent_capability.dart' show AgentCapabilityEnv;
+import 'capabilities/agent_capability.dart'
+    show AgentCapabilityEnv, AgentCapabilityRegistry;
 import 'capabilities/agent_capability_tools.dart';
+import 'capabilities/agent_consent.dart';
 import 'gemini_live.dart' show agentToolTimeout;
 import 'references/agent_entities.dart';
 import 'references/agent_handle_tag.dart';
@@ -63,8 +67,12 @@ class AgentModePage extends StatefulWidget {
     required this.controller,
     this.data,
     this.model,
+    this.registry,
   });
   final WorkspaceController controller;
+
+  /// Test seam; defaults to the app's capabilities.
+  final AgentCapabilityRegistry? registry;
 
   /// Stands in for the voice model (offline demo, tests): answers the
   /// scripted questions through the same tools, with no network.
@@ -158,10 +166,80 @@ class _AgentModePageState extends State<AgentModePage> {
   /// facts the generated screens are checked against.
   late final _capabilities = AgentCapabilityTools(
     workspace: widget.controller,
+    registry: widget.registry,
     env: AgentCapabilityEnv(data: data, facts: _grounded.facts),
     references: _references,
     pointed: _pointed,
+    userConsent: _consent,
   );
+
+  /// What the person has agreed to. Fed only by them: a tap on a confirm
+  /// card, their typed words and the transcript of their speech.
+  final _consent = AgentConsentLedger();
+
+  /// Reads the things entity cards point at; the frame takes their titles
+  /// from it, so "Cody 那个任务" finds a card too.
+  late final _entities = WorkspaceEntityResolver(widget.controller)
+    ..addListener(_entitiesChanged);
+
+  void _entitiesChanged() {
+    final front = _stack.last;
+    if (mounted &&
+        front is _Surface &&
+        front.spec.root.walk().any(
+          (n) => n.component == AgentEntityComponents.entity,
+        )) {
+      setState(() {});
+    }
+  }
+
+  /// Cards that could not be drawn from real data, for the model to hear.
+  final _entityProblems = <String>[];
+  Timer? _problemsTold;
+
+  void _entityProblem(String kind, String id, String reason) {
+    final line = '$kind $id：$reason';
+    if (_entityProblems.contains(line) || _entityProblems.length >= 6) return;
+    _entityProblems.add(line);
+    // Normally the next tool result carries it; a model that is done with
+    // tools is told after a moment.
+    _problemsTold?.cancel();
+    _problemsTold = Timer(const Duration(seconds: 2), () {
+      if (!mounted || _entityProblems.isEmpty) return;
+      final lines = List.of(_entityProblems);
+      _entityProblems.clear();
+      unawaited(_voice.tell('（屏幕提示，不是用户说的）有卡片画不出来：${lines.join('；')}。用读取工具核对 id 后改正，或如实告诉用户。'));
+    });
+  }
+
+  Map<String, Object?> _withProblems(Map<String, Object?> result) {
+    if (_entityProblems.isEmpty || result.containsKey('entityProblems')) {
+      return result;
+    }
+    final lines = List.of(_entityProblems);
+    _entityProblems.clear();
+    return {
+      ...result,
+      'entityProblems': lines,
+      'entityHint': '这些卡片没能画出来：id 只能取自读取工具的结果；核对后用 update_component 改正',
+    };
+  }
+
+  /// A press on a component the model composed. A confirm card the app drew
+  /// for an `act` preview is decided by the ledger itself (see
+  /// [AgentConsentTray]); anything else is only news for the model.
+  void _interaction(AgentInteraction i) {
+    final note = switch (i) {
+      AgentConfirmed(:final title, :final yes) =>
+        '（屏幕提示，不是用户说的）用户点了你放的确认卡“$title”的“${yes ? '确认' : '取消'}”。'
+            '这张卡不会执行任何操作；要改动数据请用 act 预览，由用户确认预览。',
+      AgentChose(:final index, :final label, :final prompt) =>
+        '（屏幕提示，不是用户说的）用户在“${prompt ?? '选项'}”里选了第 ${index + 1} 个：$label。',
+      AgentToggled(:final label, :final on) =>
+        '（屏幕提示，不是用户说的）用户把“$label”${on ? '打开' : '关掉'}了。',
+    };
+    unawaited(_voice.tell(note));
+  }
 
   /// What is on the front screen, by handle (① ② ③ …).
   AgentReferenceTable _references() =>
@@ -181,6 +259,8 @@ class _AgentModePageState extends State<AgentModePage> {
     systemPrompt: _systemPrompt,
     beforeConnect: () => _brainLoading ?? Future<void>.value(),
     onSessionEnd: _sessionEnded,
+    onUserSaid: (text, {required fresh}) =>
+        _consent.userSaid(text, fresh: fresh),
   );
 
   /// Memory shared with a Raft agent (real workspace only).
@@ -287,6 +367,15 @@ class _AgentModePageState extends State<AgentModePage> {
     final tv = AgentPresentation.instance;
     tv.onDisplaysChanged = () => unawaited(_attachTv());
     _voice.addListener(_voiceChanged);
+    // The person pressed 确认 / 取消 on a preview: tell the model, which is
+    // waiting for them (their words reach it as audio or text on their own).
+    _consent.onTapped = (request, yes) => unawaited(
+      _voice.tell(
+        yes
+            ? '（屏幕提示，不是用户说的）用户点了确认卡的“确认”（confirmToken ${request.token}）。现在可以调用 confirm 执行。'
+            : '（屏幕提示，不是用户说的）用户点了确认卡的“取消”（confirmToken ${request.token}）。不要执行，告诉他已经取消。',
+      ),
+    );
     _mood.addListener(() {
       if (mounted) setState(() {});
     });
@@ -321,6 +410,9 @@ class _AgentModePageState extends State<AgentModePage> {
     _spotlight.dispose();
     _marks.dispose();
     _pointer.dispose();
+    _problemsTold?.cancel();
+    _consent.dispose();
+    _entities.dispose();
     super.dispose();
   }
 
@@ -673,6 +765,8 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   Future<void> _submit(String text) async {
+    // Typed words are the person's: they may answer a pending preview.
+    _consent.userSaid(text);
     final stub = widget.model;
     if (stub == null &&
         await _voice.sendText(
@@ -803,6 +897,17 @@ class _AgentModePageState extends State<AgentModePage> {
       '${item[k] ?? ''}',
   ].join(' ');
 
+  /// [result] of a tool that changed the screen, with the handles of what is
+  /// on it now: a spoken "这个" or "③" has no 【屏幕引用】 line in front of
+  /// it, so the tool results carry it.
+  Map<String, Object?> _withRefs(Map<String, Object?> result) {
+    if (result.containsKey('refs')) return result;
+    final refs = _references();
+    return refs.isEmpty
+        ? result
+        : {...result, 'refs': refs.contextText(pointed: _pointed())};
+  }
+
   /// What the screen shows now; every screen tool returns this.
   Map<String, Object?> _screen() {
     final frame = _frame(_stack.last);
@@ -869,7 +974,7 @@ class _AgentModePageState extends State<AgentModePage> {
       guard = Timer(agentToolTimeout, settle);
     }
     try {
-      return await _dispatchTool(name, args);
+      return _withProblems(await _dispatchTool(name, args));
     } finally {
       guard?.cancel();
       settle();
@@ -895,10 +1000,10 @@ class _AgentModePageState extends State<AgentModePage> {
         }
         return _screen();
       case 'next_batch':
-        return _nextBatch();
+        return _withRefs(_nextBatch());
       case 'expand_item':
-        return _expandNumber(
-          ((args['index'] ?? args['number']) as num?)?.toInt(),
+        return _withRefs(
+          _expandNumber(((args['index'] ?? args['number']) as num?)?.toInt()),
         );
       case 'open_item':
         final n = (args['number'] as num?)?.toInt() ?? 0;
@@ -979,7 +1084,9 @@ class _AgentModePageState extends State<AgentModePage> {
         };
     }
     final grounded = await _grounded.run(name, args);
-    if (grounded != null) return grounded;
+    if (grounded != null) {
+      return name == 'end_surface' ? _withRefs(grounded) : grounded;
+    }
     final capability = await _capabilities.run(name, args);
     if (capability != null) return capability;
     return {'error': 'unknown tool $name'};
@@ -1163,7 +1270,11 @@ class _AgentModePageState extends State<AgentModePage> {
       expanded: l.expanded,
       entityOf: (n) => l.item != null && n.component == AgentComponents.taskCard
           ? attentionEntity(l.item!)
-          : surfaceEntity(n, _grounded.facts),
+          : surfaceEntity(
+              n,
+              _grounded.facts,
+              labelOf: (kind, id) => agentEntityLabel(_entities, kind, id),
+            ),
     ),
     _Tasks() => {
       'title': '进行中的任务',
@@ -1211,7 +1322,16 @@ class _AgentModePageState extends State<AgentModePage> {
   Widget build(BuildContext context) => AgentReferenceScope(
     table: _references(),
     pointer: _pointer,
-    child: _page(context),
+    child: AgentEntityBindingScope(
+      controller: widget.controller,
+      resolver: _entities,
+      onProblem: (ref, reason) =>
+          _entityProblem(ref.kind.name, ref.id, reason),
+      child: AgentInteractionScope(
+        onInteraction: _interaction,
+        child: _page(context),
+      ),
+    ),
   );
 
   Widget _page(BuildContext context) {
@@ -1352,6 +1472,7 @@ class _AgentModePageState extends State<AgentModePage> {
                             ),
                           ),
                         ),
+                      AgentConsentTray(ledger: _consent),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                         child: ListenableBuilder(

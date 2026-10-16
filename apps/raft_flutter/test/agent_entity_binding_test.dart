@@ -452,7 +452,10 @@ void main() {
       final frame = agentSurfaceFrame(spec);
       final items = frame['items']! as List;
       expect(items, hasLength(1));
-      expect((items.single as Map)['title'], '1 task-1');
+      // The app numbers the card itself (see agentHandle); the title is what
+      // the app read for it, the id while nothing was.
+      expect((items.single as Map)['title'], 'task-1');
+      expect((items.single as Map)['detail'], 'task-1');
     });
   });
 
@@ -849,7 +852,10 @@ void main() {
       );
       await t.pump();
       expect(find.textContaining('找不到Agent'), findsOneWidget);
-      expect(find.text('③'), findsOneWidget);
+      // The model wrote 3; the cards wear their place on the screen.
+      expect(find.text('③'), findsNothing);
+      expect(find.text('①'), findsOneWidget);
+      expect(find.text('②'), findsOneWidget);
       expect(find.text('#seed'), findsOneWidget);
       expect(problems, hasLength(1));
       expect(

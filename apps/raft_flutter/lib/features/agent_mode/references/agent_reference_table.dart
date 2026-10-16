@@ -29,8 +29,18 @@ abstract final class AgentEntityTypes {
   static const member = 'member';
   static const computer = 'computer';
   static const thread = 'thread';
+  static const file = 'file';
 
-  static const all = [message, task, agent, channel, member, computer, thread];
+  static const all = [
+    message,
+    task,
+    agent,
+    channel,
+    member,
+    computer,
+    thread,
+    file,
+  ];
 
   /// Words that name a type, longest first inside each type.
   static const words = <String, List<String>>{
@@ -41,6 +51,7 @@ abstract final class AgentEntityTypes {
     channel: ['频道', 'channel'],
     member: ['成员', '同事', 'member'],
     computer: ['电脑', '机器', 'computer'],
+    file: ['文件', '图片', '附件', 'file'],
   };
 
   static const labels = <String, String>{
@@ -51,6 +62,7 @@ abstract final class AgentEntityTypes {
     member: '成员',
     computer: '电脑',
     thread: '讨论',
+    file: '文件',
   };
 }
 

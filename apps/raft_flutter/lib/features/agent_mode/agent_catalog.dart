@@ -5,6 +5,7 @@ import 'agent_attention.dart' show agentWideBreakpoint;
 import 'agent_entity_binding.dart';
 import 'agent_surface.dart';
 import 'references/agent_handle_tag.dart';
+import 'references/agent_reference_table.dart' show agentHandle;
 
 /// Names of the standard components, for code that composes surfaces.
 abstract final class AgentComponents {
@@ -404,13 +405,27 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
           for (final (i, c) in node.children.indexed)
             draw(c, surfaceChildPath(path, i)),
         ];
-        final built = item.build(context, node, children);
+        // An entity card wears the number of its place on the screen (the
+        // handle "第二个" and "②" mean), never one the model wrote.
+        final entityCard =
+            node.component == AgentEntityComponents.entity &&
+            numbers[path] != null;
+        final built = item.build(
+          context,
+          entityCard
+              ? node.copyWith(
+                  props: {...node.props, 'handle': agentHandle(numbers[path]!)},
+                )
+              : node,
+          children,
+        );
         drawn = item.container || !item.focusable
             ? built
             : AgentFocusable(
                 id: '${widget.focusPrefix}#${numbers[path]}',
                 child: AgentHandleTag(
                   focusId: '${widget.focusPrefix}#${numbers[path]}',
+                  showHandle: !entityCard,
                   child: built,
                 ),
               );
@@ -544,7 +559,8 @@ Map<String, Object?> agentSurfaceFrame(
         });
       case AgentEntityComponents.entity:
         // What it shows is read by the app at draw time; the model is told
-        // which thing and number it pointed at.
+        // which thing it pointed at, by the title the app read for it.
+        final entity = entityOf?.call(n);
         items.add({
           'kind': 'priority',
           'priority': AgentPriority.progress.name,
@@ -552,7 +568,9 @@ Map<String, Object?> agentSurfaceFrame(
               .firstWhere((e) => e.key.name == n.string('entity'))
               .value,
           'weight': items.length + 1,
-          'title': [?n.string('handle'), n.string('id') ?? ''].join(' '),
+          'title': entity == null ? n.string('id') ?? '' : '${entity['label']}',
+          'detail': n.string('id') ?? '',
+          'entity': ?entity,
         });
       case AgentComponents.statRow:
         items.add({

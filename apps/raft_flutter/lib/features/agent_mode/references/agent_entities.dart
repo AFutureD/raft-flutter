@@ -1,4 +1,5 @@
 import '../agent_catalog.dart' show AgentComponents;
+import '../agent_entity_binding.dart' show AgentEntityComponents;
 import '../agent_mode_data.dart';
 import '../agent_surface.dart' show SurfaceNode;
 import '../agent_surface_tools.dart' show AgentFacts;
@@ -57,8 +58,28 @@ Map<String, Object?> messageRowEntity(Map<String, dynamic> m) => agentEntity(
 
 /// A component the model composed, resolved to ids through what it read.
 /// Null for components that stand for no entity.
-Map<String, Object?>? surfaceEntity(SurfaceNode n, AgentFacts facts) {
+///
+/// An `EntityCard` already names its kind and id; [labelOf] gives what the
+/// app reads for them (its title), so "Cody 那个任务" can find it too.
+Map<String, Object?>? surfaceEntity(
+  SurfaceNode n,
+  AgentFacts facts, {
+  String? Function(String kind, String id)? labelOf,
+}) {
   switch (n.component) {
+    case AgentEntityComponents.entity:
+      final kind = n.string('entity'), id = n.string('id');
+      if (kind == null || id == null) return null;
+      final label = labelOf?.call(kind, id);
+      return agentEntity(
+        kind,
+        id,
+        label == null || label.trim().isEmpty
+            ? (AgentEntityTypes.labels[kind] ?? kind)
+            : label,
+        // "#98" is how people say a task; the label's own cleaning drops it.
+        [for (final m in RegExp(r'#\d+').allMatches(label ?? '')) m[0]],
+      );
     case AgentComponents.statusCard:
       final name = n.string('name') ?? '';
       return agentEntity(AgentEntityTypes.agent, facts.agentId(name), name, [

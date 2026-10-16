@@ -16,6 +16,7 @@ class AgentVoiceController extends ChangeNotifier {
     required this.systemPrompt,
     this.beforeConnect,
     this.onSessionEnd,
+    this.onUserSaid,
     AgentAudio? audio,
     AgentVoiceKey? key,
   }) : audio = audio ?? AgentAudio.instance,
@@ -36,6 +37,11 @@ class AgentVoiceController extends ChangeNotifier {
 
   /// Awaited before a session is built (e.g. the shared memory still loading).
   final Future<void> Function()? beforeConnect;
+
+  /// The transcript of what the person said, chunk by chunk. [fresh] is true
+  /// for the first chunk of a new utterance. Never called with what the
+  /// agent says: this is the one stream a confirmation may be read from.
+  final void Function(String text, {required bool fresh})? onUserSaid;
   final AgentAudio audio;
   final AgentVoiceKey key;
 
@@ -191,6 +197,7 @@ class AgentVoiceController extends ChangeNotifier {
         }
       },
       onInputText: (text) {
+        onUserSaid?.call(text, fresh: _youLine == null);
         // The person speaking starts a new reply.
         if (saying.value.isNotEmpty) saying.value = '';
         _logAppend(AgentSpeaker.you, text);
@@ -351,6 +358,17 @@ class AgentVoiceController extends ChangeNotifier {
     session.sendText(
       context == null || context.isEmpty ? text : '$context\n$text',
     );
+    return true;
+  }
+
+  /// Tells the model something the app saw (a card was pressed), outside the
+  /// captions. It is the app speaking, not the person: it never counts as
+  /// their words. False when there is no session to tell.
+  Future<bool> tell(String note) async {
+    if (_disposed || !await hasKey) return false;
+    final session = await _ensureSession();
+    if (session == null) return false;
+    session.sendText(note);
     return true;
   }
 

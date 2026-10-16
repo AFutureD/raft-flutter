@@ -4,6 +4,7 @@ import 'dart:math';
 import '../../../data/workspace_controller.dart';
 import '../references/agent_reference_table.dart';
 import 'agent_capability.dart';
+import 'agent_consent.dart';
 import 'agent_capability_args.dart';
 import 'agent_capability_search.dart';
 import 'agent_capability_standard.dart';
@@ -49,8 +50,8 @@ const capabilityToolDeclarations = <Map<String, Object?>>[
   {
     'name': 'act',
     'description':
-        '申请一项“操作”能力。不会马上执行：先返回“将要发生什么”的预览和 confirmToken，把预览用一句话告诉用户，'
-        '等用户明确说确认后，再用 confirm 执行。敏感操作要确认两次。永远不能语音执行的操作只会返回要打开的页面。',
+        '申请一项“操作”能力。不会马上执行：先返回“将要发生什么”的预览和 confirmToken，屏幕上会自动出现带预览的确认卡；'
+        '把预览用一句话告诉用户，等他自己点“确认”或亲口说确认，再用 confirm 执行。敏感操作只认点确认卡，要确认两次。永远不能语音执行的操作只会返回要打开的页面。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -62,7 +63,9 @@ const capabilityToolDeclarations = <Map<String, Object?>>[
   },
   {
     'name': 'confirm',
-    'description': '用户明确确认之后，执行 act 返回的预览。token 填 confirmToken。用户没有明确说“确认/好/做吧”之前不要调用；敏感操作第一次 confirm 只会再要一次确认。',
+    'description':
+        '用户自己确认之后（点了确认卡的“确认”，或亲口说了确认），执行 act 返回的预览。token 填 confirmToken。'
+        '你自己的话不算确认：用户没有表态之前调用只会返回 needs_user_confirmation，什么都不会执行；敏感操作第一次 confirm 只会再要一次确认。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -88,6 +91,54 @@ const capabilityToolDeclarations = <Map<String, Object?>>[
     },
   },
 ];
+
+/// The kind of thing a result key lists, as `EntityCard.entity` names it.
+const _entityOfKey = <String, String>{
+  'task': 'task',
+  'tasks': 'task',
+  'message': 'message',
+  'messages': 'message',
+  'channel': 'channel',
+  'channels': 'channel',
+  'member': 'member',
+  'members': 'member',
+  'humans': 'member',
+  'agent': 'agent',
+  'agents': 'agent',
+  'computer': 'computer',
+  'computers': 'computer',
+  'file': 'file',
+  'files': 'file',
+};
+
+/// [result] with `entity` (the kind an `EntityCard` takes) added next to the
+/// `id` of every task, message, channel, member, agent, computer and file row,
+/// so the model can put a card on screen from what it read without guessing
+/// the kind. [found] is whether any row got one.
+({Map<String, Object?> result, bool found}) annotateEntities(
+  Map<String, Object?> result,
+) {
+  var found = false;
+  Map<String, Object?> tag(Map<String, Object?> row, String kind) {
+    if (row['id'] is! String || row.containsKey('entity')) return row;
+    found = true;
+    return {'entity': kind, ...row};
+  }
+
+  Object? walk(Object? value, String? kind) {
+    if (value is Map) {
+      final map = {
+        for (final e in value.entries)
+          '${e.key}': walk(e.value, _entityOfKey['${e.key}']),
+      };
+      return kind == null ? map : tag(map, kind);
+    }
+    if (value is List) return [for (final v in value) walk(v, kind)];
+    return value;
+  }
+
+  return (result: walk(result, null) as Map<String, Object?>, found: found);
+}
 
 class _Pending {
   _Pending(this.capability, this.args, this.preview, this.expires);
@@ -152,10 +203,10 @@ class AgentCapabilityTools {
   /// "not available" until the risk is added here.
   final Set<AgentCapabilityRisk> actionRisks;
 
-  /// Asks the person themselves (the confirm card, or their spoken "确认")
-  /// before an operation runs. Without it the model's own `confirm` call is
-  /// the confirmation, which phase 2 replaces with the card button.
-  final Future<bool> Function(AgentActionPreview preview)? userConsent;
+  /// Whether the person agreed (the confirm card the app draws for each
+  /// preview, or their own words after it). Without one nothing can be
+  /// confirmed: the model's own `confirm` call is never the confirmation.
+  final AgentUserConsent? userConsent;
 
   final _pending = <String, _Pending>{};
 
@@ -258,7 +309,13 @@ class AgentCapabilityTools {
     }
     try {
       final result = await capability.run(workspace, checked, env);
-      return {'capability': capability.id, 'result': result};
+      final cards = annotateEntities(result);
+      return {
+        'capability': capability.id,
+        'result': cards.result,
+        if (cards.found)
+          'render': '要在屏幕上展示其中某一项：用 EntityCard 组件 {entity, id}，entity 和 id 原样取自结果，不要编',
+      };
     } on AgentCapabilityError catch (e) {
       return e.toJson();
     }
@@ -304,20 +361,32 @@ class AgentCapabilityTools {
       return e.toJson();
     }
     final token = _token();
-    _pending[token] = _Pending(
+    final total = capability.risk == AgentCapabilityRisk.sensitive ? 2 : 1;
+    final pending = _Pending(
       capability,
       checked,
       preview,
       _now().add(confirmWindow),
     );
-    return _needsConfirmation(
-      token,
-      capability,
-      preview,
-      1,
-      capability.risk == AgentCapabilityRisk.sensitive ? 2 : 1,
-    );
+    _pending[token] = pending;
+    _show(token, pending, 1, total);
+    return _needsConfirmation(token, capability, preview, 1, total);
   }
+
+  /// The preview goes in front of the person (the app draws its confirm
+  /// card); from here on their answer can count for [token].
+  void _show(String token, _Pending p, int step, int total) =>
+      userConsent?.previewShown(
+        AgentConsentRequest(
+          token: token,
+          capabilityId: p.capability.id,
+          preview: p.preview,
+          risk: p.capability.risk,
+          expires: p.expires,
+          step: step,
+          total: total,
+        ),
+      );
 
   Map<String, Object?> _needsConfirmation(
     String token,
@@ -332,28 +401,45 @@ class AgentCapabilityTools {
     'risk': capability.risk.name,
     'confirmation': '$step/$total',
     'next':
-        '把 preview.summary 用一句话告诉用户并等他明确确认；确认后调用 confirm(token)，没有确认就什么都不要做',
+        '屏幕上已经出现确认卡。把 preview.summary 用一句话告诉用户，等他点“确认”或亲口说确认；'
+        '他表态之后调用 confirm(token)，没有表态就什么都不要做',
   };
 
   Future<Map<String, Object?>> _confirm(Map<String, Object?> args) async {
     final token = '${args['token'] ?? ''}'.trim();
-    final pending = _pending.remove(token);
+    final pending = _pending[token];
     if (pending == null || !_now().isBefore(pending.expires)) {
+      _pending.remove(token);
       return {'error': 'confirmToken 无效或已过期：重新 act 一次'};
     }
-    final consent = userConsent;
-    if (consent != null && !await consent(pending.preview)) {
-      return {'status': 'declined', 'message': '用户没有确认，什么都没有做'};
+    switch (userConsent?.take(token) ?? AgentConsentVerdict.pending) {
+      case AgentConsentVerdict.pending:
+        // The token stays: the person may still agree.
+        return {
+          'error': 'needs_user_confirmation',
+          'message':
+              '用户还没有确认，什么都没有做。请他点屏幕上确认卡的“确认”或亲口说确认；'
+              '你自己说的话不算确认，不要重复调用',
+          if (pending.capability.risk == AgentCapabilityRisk.sensitive)
+            'hint': '敏感操作只认确认卡上的按钮',
+        };
+      case AgentConsentVerdict.declined:
+        _pending.remove(token);
+        return {'status': 'declined', 'message': '用户没有确认，什么都没有做'};
+      case AgentConsentVerdict.granted:
+        _pending.remove(token);
     }
     if (pending.capability.risk == AgentCapabilityRisk.sensitive &&
         !pending.confirmedOnce) {
       final again = _token();
-      _pending[again] = _Pending(
+      final second = _Pending(
         pending.capability,
         pending.args,
         pending.preview,
         _now().add(confirmWindow),
       )..confirmedOnce = true;
+      _pending[again] = second;
+      _show(again, second, 2, 2);
       return {
         ..._needsConfirmation(again, pending.capability, pending.preview, 2, 2),
         'status': 'needs_second_confirmation',

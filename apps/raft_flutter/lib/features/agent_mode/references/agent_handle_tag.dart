@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:raft_agent_ui/raft_agent_ui.dart';
+import 'package:raft_agent_ui/raft_agent_ui.dart' hide AgentEntityRef;
 
 import 'agent_reference_table.dart';
 
