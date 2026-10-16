@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'display_spec.dart';
 import 'entity_common.dart';
 import 'entity_model.dart';
 import 'marks.dart';
@@ -9,10 +10,14 @@ import 'surface_cards.dart';
 /// One thing the app holds, drawn from its own data by id.
 ///
 /// The model gives only [entity] (kind and id), an optional [handle] ("①",
-/// the number the person says to point at it), [emphasis], [tone] and
-/// [density]. What the card says comes from the [AgentEntityScope] resolver,
+/// the number the person says to point at it), [emphasis], [tone] and a
+/// [display]: a preset level, and which of the elements of the card are
+/// shown. What the card says comes from the [AgentEntityScope] resolver,
 /// so it follows the data when it changes, and an id that cannot be read is
 /// drawn as a small "找不到" stub and reported (never invented).
+///
+/// [density] is the screen's default: the level and type scale a card has
+/// when [display] says neither.
 class AgentEntityCard extends StatelessWidget {
   const AgentEntityCard({
     super.key,
@@ -21,6 +26,7 @@ class AgentEntityCard extends StatelessWidget {
     this.emphasis = AgentEmphasis.normal,
     this.tone = AgentTone.neutral,
     this.density = AgentCardDensity.compact,
+    this.display,
     this.onTap,
   });
   final AgentEntityRef entity;
@@ -28,6 +34,9 @@ class AgentEntityCard extends StatelessWidget {
   final AgentEmphasis emphasis;
   final AgentTone tone;
   final AgentCardDensity density;
+
+  /// What to show; unset parts come from [density].
+  final DisplaySpec? display;
   final VoidCallback? onTap;
 
   @override
@@ -42,7 +51,8 @@ class AgentEntityCard extends StatelessWidget {
             handle: handle,
             emphasis: emphasis,
             tone: tone,
-            compact: density == AgentCardDensity.compact,
+            density: density,
+            spec: display ?? DisplaySpec.none,
           );
         case AgentEntityLoading():
           body = _Stub(entity: entity, handle: handle, text: '读取中…');
@@ -111,206 +121,263 @@ class _Stub extends StatelessWidget {
   }
 }
 
-/// What a card prints, before sizes: filled in per kind.
-class _Parts {
-  _Parts({
-    required this.headline,
-    this.lead,
-    this.pill,
-    this.pillFill,
-    this.extraPills = const [],
-    this.metaLine = const [],
-    this.statusDot,
-    this.statusText,
-    this.body,
-    this.facts = const [],
-    this.avatar,
-    this.avatarName,
-    this.thumb,
-    this.semantics = '',
-    this.headlineLines = 2,
-  });
-  final String headline;
-
-  /// Small text left of the pill ("#98").
-  final String? lead;
-  final String? pill;
-  final Color? pillFill;
-  final List<(String, Color)> extraPills;
-
-  /// The one meta line of the compact card.
-  final List<String> metaLine;
-  final Color? statusDot;
-  final String? statusText;
-
-  /// Text shown under the headline on the detail card (the message).
-  final String? body;
-
-  /// Label / value rows of the detail card.
-  final List<(String, String)> facts;
-  final AgentAvatarBuilder? avatar;
-  final String? avatarName;
-  final Widget Function(bool compact)? thumb;
-  final String semantics;
-  final int headlineLines;
+/// One coloured word in the top row of a card.
+class _Pill {
+  const _Pill(this.text, this.fill);
+  final String text;
+  final Color fill;
 }
 
+/// What a card prints, before sizes: filled in per kind from the elements
+/// that are shown.
+class _Parts {
+  String? headline;
+  int headlineLines = 1;
+
+  /// Small text left of the pills ("#98").
+  String? lead;
+  final pills = <_Pill>[];
+
+  /// The one meta line of the compact card.
+  final meta = <String>[];
+  int metaLines = 2;
+  Color? statusDot;
+  String? statusText;
+
+  /// Text under the headline (a message on the detail card, a description).
+  String? body;
+  int bodyLines = 3;
+
+  /// The latest thing said about a task.
+  String? quote;
+
+  /// "👍 3", "回复 2".
+  final chips = <String>[];
+
+  /// Label / value rows of the detail card.
+  final facts = <(String, String)>[];
+  AgentAvatarBuilder? avatar;
+  String? avatarName;
+  Widget Function(bool compact)? thumb;
+  String semantics = '';
+
+  bool get hasContent =>
+      headline != null ||
+      lead != null ||
+      pills.isNotEmpty ||
+      meta.isNotEmpty ||
+      statusText != null ||
+      body != null ||
+      quote != null ||
+      chips.isNotEmpty ||
+      facts.isNotEmpty ||
+      avatarName != null ||
+      thumb != null;
+}
+
+String? _some(String? s) => s == null || s.isEmpty ? null : s;
+
 _Parts _partsOf(
-  BuildContext context,
   RaftAgentTheme t,
   AgentEntityData d,
-  bool compact,
-) {
+  AgentDisplay x, {
+  required bool detail,
+}) {
+  final has = x.has;
   final progress = agentPriorityFill(t, AgentPriority.progress);
+  final p = _Parts();
   switch (d) {
     case AgentMessageData():
+      p.semantics = '消息，${d.author} 说：${d.text}';
+      if (has('avatar')) {
+        p.avatar = d.avatar;
+        p.avatarName = d.author;
+      }
+      final time = has('time') ? _some(d.time) : null;
+      final channel = has('channel') ? _some(d.channel) : null;
       final meta = [
-        d.author,
-        ?d.time,
-        if (d.channel != null && d.channel!.isNotEmpty) '#${d.channel}',
-        if (d.attachmentCount > 0) '附件 ${d.attachmentCount}',
+        if (!detail && has('author')) d.author,
+        ?time,
+        if (channel != null) '#$channel',
+        if (has('attachments') && d.attachmentCount > 0)
+          '附件 ${d.attachmentCount}',
       ];
-      return compact
-          ? _Parts(
-              headline: d.text,
-              metaLine: meta,
-              avatar: d.avatar,
-              avatarName: d.author,
-              semantics: '消息，${d.author} 说：${d.text}',
-            )
-          : _Parts(
-              headline: d.author,
-              metaLine: meta.skip(1).toList(),
-              body: d.text,
-              avatar: d.avatar,
-              avatarName: d.author,
-              headlineLines: 1,
-              semantics: '消息，${d.author} 说：${d.text}',
-            );
+      p.meta.addAll(meta);
+      if (detail) {
+        p.headline = has('author') ? d.author : null;
+        p.body = has('text') ? d.text : null;
+        p.bodyLines = x.lines;
+      } else {
+        p.headline = has('text') ? d.text : null;
+        p.headlineLines = x.lines;
+      }
+      if (has('reactions')) {
+        for (final r in d.reactions) {
+          if (r.count > 0) p.chips.add('${r.emoji} ${r.count}');
+        }
+      }
+      if (has('thread_count') && d.threadCount > 0) {
+        p.chips.add('回复 ${d.threadCount}');
+      }
     case AgentTaskData():
-      final assignee = d.assignee == null || d.assignee!.isEmpty
-          ? null
-          : d.assignee;
-      final channel = d.channel == null || d.channel!.isEmpty
-          ? null
-          : '#${d.channel}';
-      return _Parts(
-        lead: d.number == null ? null : '#${d.number}',
-        pill: agentTaskStatusLabels[d.status] ?? d.status,
-        pillFill: _taskFill(t, d.status),
-        headline: d.title,
-        headlineLines: compact ? 2 : 3,
-        metaLine: [
+      final status = agentTaskStatusLabels[d.status] ?? d.status;
+      p.semantics =
+          '任务${d.number == null ? '' : ' ${d.number}'}，$status，${d.title}';
+      if (has('number') && d.number != null) p.lead = '#${d.number}';
+      if (has('status')) p.pills.add(_Pill(status, _taskFill(t, d.status)));
+      if (has('title')) p.headline = d.title;
+      p.headlineLines = x.lines;
+      final assignee = has('assignee') ? _some(d.assignee) : null;
+      final channel = has('channel') ? _some(d.channel) : null;
+      final updated = has('updated') ? _some(d.updated) : null;
+      if (detail) {
+        p.facts.addAll([
+          ?(assignee == null ? null : ('负责人', assignee)),
+          ?(channel == null ? null : ('频道', '#$channel')),
+          ?(updated == null ? null : ('更新', updated)),
+        ]);
+      } else {
+        p.meta.addAll([
           ?(assignee == null ? null : '负责人 $assignee'),
-          ?channel,
-          ?d.updated,
-        ],
-        facts: [
-          if (assignee != null) ('负责人', assignee),
-          if (channel != null) ('频道', channel),
-          if (d.updated != null) ('更新', d.updated!),
-        ],
-        semantics:
-            '任务${d.number == null ? '' : ' ${d.number}'}，${agentTaskStatusLabels[d.status] ?? d.status}，${d.title}',
-      );
+          ?(channel == null ? null : '#$channel'),
+          ?updated,
+        ]);
+      }
+      if (has('description')) p.body = _some(d.description);
+      if (has('latest_progress')) p.quote = _some(d.latestProgress);
     case AgentAgentData():
-      final activity = d.activity == null || d.activity!.isEmpty
-          ? null
-          : d.activity;
-      final computer = d.computer == null || d.computer!.isEmpty
-          ? null
-          : d.computer;
-      return _Parts(
-        pill: agentWorkStateLabels[d.state],
-        pillFill: agentWorkStateColor(t, d.state),
-        headline: d.name,
-        headlineLines: 1,
-        avatar: d.avatar,
-        avatarName: d.name,
-        statusDot: agentWorkStateColor(t, d.state),
-        metaLine: [?activity, ?(computer == null ? null : '在 $computer')],
-        facts: [
-          if (activity != null) ('在做', activity),
-          if (computer != null) ('电脑', computer),
-          if (d.since != null && d.since!.isNotEmpty) ('持续', d.since!),
-        ],
-        semantics: '${d.name}，${agentWorkStateLabels[d.state]}',
-      );
+      p.semantics = '${d.name}，${agentWorkStateLabels[d.state]}';
+      if (has('avatar')) {
+        p.avatar = d.avatar;
+        p.avatarName = d.name;
+      }
+      if (has('name')) p.headline = d.name;
+      if (has('state')) {
+        p.pills.add(
+          _Pill(
+            agentWorkStateLabels[d.state] ?? '',
+            agentWorkStateColor(t, d.state),
+          ),
+        );
+        p.statusDot = agentWorkStateColor(t, d.state);
+      }
+      final activity = has('activity') ? _some(d.activity) : null;
+      final computer = has('computer') ? _some(d.computer) : null;
+      final since = has('since') ? _some(d.since) : null;
+      final channel = has('channel') ? _some(d.channel) : null;
+      final model = has('model') ? _some(d.model) : null;
+      p.metaLines = x.lines;
+      if (detail) {
+        p.facts.addAll([
+          ?(activity == null ? null : ('在做', activity)),
+          ?(computer == null ? null : ('电脑', computer)),
+          ?(since == null ? null : ('持续', since)),
+          ?(channel == null ? null : ('频道', '#$channel')),
+          ?(model == null ? null : ('模型', model)),
+        ]);
+      } else {
+        p.meta.addAll([
+          ?activity,
+          ?(computer == null ? null : '在 $computer'),
+          ?since,
+          ?(channel == null ? null : '#$channel'),
+          ?model,
+        ]);
+      }
     case AgentChannelData():
-      return _Parts(
-        headline: d.label,
-        headlineLines: 1,
-        extraPills: [
-          if (d.unread > 0) ('未读 ${d.unread}', progress),
-          if (d.mentioned) ('@我', agentPriorityFill(t, AgentPriority.mention)),
-        ],
-        metaLine: [if (d.lastActivity != null) '最近 ${d.lastActivity}'],
-        facts: [
-          ('未读', '${d.unread}'),
-          ('@我', d.mentioned ? '有' : '无'),
-          if (d.lastActivity != null) ('最近活动', d.lastActivity!),
-        ],
-        semantics: '${d.direct ? '私聊' : '频道'} ${d.label}，未读 ${d.unread}',
-      );
+      p.semantics = '${d.direct ? '私聊' : '频道'} ${d.label}，未读 ${d.unread}';
+      if (has('name')) p.headline = d.label;
+      if (has('unread') && d.unread > 0) {
+        p.pills.add(_Pill('未读 ${d.unread}', progress));
+      }
+      if (has('mentions') && d.mentioned) {
+        p.pills.add(_Pill('@我', agentPriorityFill(t, AgentPriority.mention)));
+      }
+      final last = has('last_activity') ? _some(d.lastActivity) : null;
+      final members = has('members') ? d.memberCount : null;
+      if (has('description')) p.body = _some(d.description);
+      p.bodyLines = x.lines;
+      if (detail) {
+        p.facts.addAll([
+          if (has('unread')) ('未读', '${d.unread}'),
+          if (has('mentions')) ('@我', d.mentioned ? '有' : '无'),
+          ?(last == null ? null : ('最近活动', last)),
+          ?(members == null ? null : ('成员', '$members')),
+        ]);
+      } else {
+        p.meta.addAll([
+          ?(last == null ? null : '最近 $last'),
+          ?(members == null ? null : '成员 $members'),
+        ]);
+      }
     case AgentMemberData():
       final presence = d.presence;
-      final dot = presence == null
-          ? null
-          : switch (presence) {
-              AgentPresence.online => progress,
-              AgentPresence.away => agentPriorityFill(t, AgentPriority.blocked),
-              AgentPresence.offline => t.hint.withValues(alpha: .35),
-            };
-      final status = presence == null ? null : agentPresenceLabels[presence];
-      return _Parts(
-        headline: d.name,
-        headlineLines: 1,
-        pill: d.role == null || d.role!.isEmpty ? null : d.role,
-        pillFill: t.chip,
-        avatar: d.avatar,
-        avatarName: d.name,
-        statusDot: dot,
-        statusText: status,
-        facts: [
-          if (d.role != null && d.role!.isNotEmpty) ('角色', d.role!),
-          ?(status == null ? null : ('状态', status)),
-        ],
-        semantics: '成员 ${d.name}${status == null ? '' : '，$status'}',
-      );
+      p.semantics =
+          '成员 ${d.name}${presence == null ? '' : '，${agentPresenceLabels[presence]}'}';
+      if (has('avatar')) {
+        p.avatar = d.avatar;
+        p.avatarName = d.name;
+      }
+      if (has('name')) p.headline = d.name;
+      p.headlineLines = x.lines;
+      if (has('role') && _some(d.role) != null) {
+        p.pills.add(_Pill(d.role!, t.chip));
+      }
+      if (has('presence') && presence != null) {
+        p.statusDot = switch (presence) {
+          AgentPresence.online => progress,
+          AgentPresence.away => agentPriorityFill(t, AgentPriority.blocked),
+          AgentPresence.offline => t.hint.withValues(alpha: .35),
+        };
+        p.statusText = agentPresenceLabels[presence];
+      }
     case AgentComputerData():
       final runtimes = d.runtimes.join('、');
-      return _Parts(
-        headline: d.name,
-        headlineLines: 1,
-        statusDot: d.online ? progress : t.hint.withValues(alpha: .35),
-        statusText: d.online ? '在线' : '离线',
-        metaLine: [
-          if (runtimes.isNotEmpty) runtimes,
-          '${d.agentCount} 个 Agent',
-        ],
-        facts: [
-          if (runtimes.isNotEmpty) ('运行环境', runtimes),
-          ('Agent', '${d.agentCount} 个'),
-        ],
-        semantics: '电脑 ${d.name}，${d.online ? '在线' : '离线'}',
-      );
+      p.semantics = '电脑 ${d.name}，${d.online ? '在线' : '离线'}';
+      if (has('name')) p.headline = d.name;
+      p.headlineLines = x.lines;
+      if (has('online')) {
+        p.statusDot = d.online ? progress : t.hint.withValues(alpha: .35);
+        p.statusText = d.online ? '在线' : '离线';
+      }
+      final version = has('version') ? _some(d.version) : null;
+      final showRuntimes = has('runtimes') && runtimes.isNotEmpty;
+      if (detail) {
+        p.facts.addAll([
+          if (showRuntimes) ('运行环境', runtimes),
+          if (has('agents')) ('Agent', '${d.agentCount} 个'),
+          ?(version == null ? null : ('版本', version)),
+        ]);
+      } else {
+        p.meta.addAll([
+          if (showRuntimes) runtimes,
+          if (has('agents')) '${d.agentCount} 个 Agent',
+          ?(version == null ? null : 'v$version'),
+        ]);
+      }
     case AgentFileData():
-      final meta = [
-        if (d.type != null && d.type!.isNotEmpty) d.type!,
-        if (d.size != null && d.size!.isNotEmpty) d.size!,
-      ];
-      return _Parts(
-        headline: d.name,
-        headlineLines: 2,
-        metaLine: meta,
-        facts: [
-          if (d.type != null && d.type!.isNotEmpty) ('类型', d.type!),
-          if (d.size != null && d.size!.isNotEmpty) ('大小', d.size!),
-        ],
-        thumb: (compactSize) => _FileThumb(data: d, compact: compactSize),
-        semantics: '${d.isImage ? '图片' : '文件'} ${d.name}',
-      );
+      p.semantics = '${d.isImage ? '图片' : '文件'} ${d.name}';
+      if (has('name')) p.headline = d.name;
+      p.headlineLines = x.lines;
+      final type = has('type') ? _some(d.type) : null;
+      final size = has('size') ? _some(d.size) : null;
+      final author = has('author') ? _some(d.author) : null;
+      if (detail) {
+        p.facts.addAll([
+          ?(type == null ? null : ('类型', type)),
+          ?(size == null ? null : ('大小', size)),
+          ?(author == null ? null : ('上传者', author)),
+        ]);
+      } else {
+        p.meta.addAll([?type, ?size, ?author]);
+      }
+      if (has('thumbnail')) {
+        p.thumb = (compactSize) => _FileThumb(data: d, compact: compactSize);
+      }
   }
+  // Every element off still leaves a card that says what it is.
+  if (!p.hasContent) p.headline = d.label;
+  return p;
 }
 
 Color _taskFill(RaftAgentTheme t, String status) => switch (status) {
@@ -376,52 +443,97 @@ class _FoundCard extends StatelessWidget {
     required this.handle,
     required this.emphasis,
     required this.tone,
-    required this.compact,
+    required this.density,
+    required this.spec,
   });
   final AgentEntityData data;
   final String? handle;
   final AgentEmphasis emphasis;
   final AgentTone tone;
-  final bool compact;
+  final AgentCardDensity density;
+  final DisplaySpec spec;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
-    final p = _partsOf(context, t, data, compact);
+    final x = spec.resolve(
+      data.kind.name,
+      fallbackLevel: density == AgentCardDensity.compact
+          ? AgentLevel.medium
+          : AgentLevel.detail,
+    );
+    // The level picks how much; the facts of the detail card are labelled
+    // rows, the others a single meta line.
+    final detail = x.level == AgentLevel.detail;
+    final scale = x.scale(
+      density == AgentCardDensity.compact
+          ? AgentTypeScale.compact
+          : AgentTypeScale.wide,
+    );
+    final p = _partsOf(t, data, x, detail: detail);
     final high = emphasis == AgentEmphasis.high;
-    final headlineSize = compact ? entityHeadlineCompact : entityHeadlineDetail;
-    final metaSize = compact ? entityMetaCompact : entityMinText + 1;
-    final hasTop =
-        handle != null ||
-        p.lead != null ||
-        p.pill != null ||
-        p.extraPills.isNotEmpty;
-    final avatarSize = compact ? 56.0 : 44.0;
-    final thumbBeside = p.thumb != null && compact;
-    final thumbAbove = p.thumb != null && !compact;
+    final headlineSize = scale.headline;
+    final metaSize = scale.meta;
+    final showHandle = handle != null && x.has('handle');
+    final hasTop = p.lead != null || p.pills.isNotEmpty;
+    final avatarSize = detail ? 44.0 : (scale.headline * 2.15).roundToDouble();
+    final thumbBeside = p.thumb != null && !detail;
+    final thumbAbove = p.thumb != null && detail;
+    // With nothing else in the top row the handle sits in front of the
+    // headline, and a minimum card stays one line.
+    final handleInline = showHandle && !hasTop && p.headline != null;
+    final handleTop = showHandle && !handleInline;
+    final topRow = handleTop || hasTop;
 
-    final meta = <String>[...p.metaLine];
-    final showMetaLine = compact || data is AgentMessageData;
+    final showStatusRow = p.meta.isNotEmpty || p.statusText != null;
+    final headline = p.headline == null
+        ? null
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (handleInline) ...[
+                AgentHandleBadge(handle!),
+                const SizedBox(width: 10),
+              ],
+              if (p.statusDot != null && p.avatarName == null) ...[
+                Padding(
+                  padding: EdgeInsets.only(top: headlineSize * .4),
+                  child: AgentStatusDot(p.statusDot!, size: detail ? 14 : 18),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                child: AgentMarkText(
+                  p.headline!,
+                  maxLines: p.headlineLines,
+                  style: t
+                      .heading(
+                        headlineSize,
+                        weight: high ? FontWeight.w900 : FontWeight.w800,
+                      )
+                      .copyWith(height: 1.18),
+                ),
+              ),
+            ],
+          );
+
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (hasTop)
+        if (topRow)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: [
-                if (handle != null) ...[
+                if (handleTop) ...[
                   AgentHandleBadge(handle!),
                   const SizedBox(width: 10),
                 ],
                 if (p.lead != null)
                   Text(
                     p.lead!,
-                    style: t.heading(
-                      entityMetaCompact,
-                      weight: FontWeight.w900,
-                    ),
+                    style: t.heading(scale.meta, weight: FontWeight.w900),
                   ),
                 Expanded(
                   child: Wrap(
@@ -429,41 +541,21 @@ class _FoundCard extends StatelessWidget {
                     spacing: 6,
                     runSpacing: 4,
                     children: [
-                      if (p.pill != null)
-                        AgentEntityPill(p.pill!, fill: p.pillFill ?? t.chip),
-                      for (final (i, e) in p.extraPills.indexed)
-                        AgentEntityPill(e.$1, fill: e.$2, order: i + 1),
+                      for (final (i, e) in p.pills.indexed)
+                        AgentEntityPill(
+                          e.text,
+                          fill: e.fill,
+                          order: i,
+                          size: scale.small,
+                        ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (p.statusDot != null && p.avatarName == null) ...[
-              Padding(
-                padding: EdgeInsets.only(top: headlineSize * .4),
-                child: AgentStatusDot(p.statusDot!, size: compact ? 18 : 14),
-              ),
-              const SizedBox(width: 10),
-            ],
-            Expanded(
-              child: AgentMarkText(
-                p.headline,
-                maxLines: p.headlineLines,
-                style: t
-                    .heading(
-                      headlineSize,
-                      weight: high ? FontWeight.w900 : FontWeight.w800,
-                    )
-                    .copyWith(height: 1.18),
-              ),
-            ),
-          ],
-        ),
-        if (showMetaLine && (meta.isNotEmpty || p.statusText != null))
+        ?headline,
+        if (showStatusRow)
           Padding(
             padding: const EdgeInsets.only(top: 3),
             child: Row(
@@ -474,17 +566,17 @@ class _FoundCard extends StatelessWidget {
                 ],
                 if (p.statusText != null)
                   Padding(
-                    padding: EdgeInsets.only(right: meta.isEmpty ? 0 : 8),
+                    padding: EdgeInsets.only(right: p.meta.isEmpty ? 0 : 8),
                     child: Text(
                       p.statusText!,
                       style: t.body(metaSize, weight: FontWeight.w800),
                     ),
                   ),
-                if (meta.isNotEmpty)
+                if (p.meta.isNotEmpty)
                   Expanded(
                     child: Text(
-                      meta.join(' · '),
-                      maxLines: compact ? 2 : 1,
+                      p.meta.join(' · '),
+                      maxLines: p.metaLines,
                       overflow: TextOverflow.ellipsis,
                       style: t.body(metaSize, color: t.muted),
                     ),
@@ -492,16 +584,68 @@ class _FoundCard extends StatelessWidget {
               ],
             ),
           ),
-        if (!compact && p.body != null)
+        if (p.body != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: AgentMarkText(
               p.body!,
-              maxLines: 8,
-              style: t.body(entityMetaCompact, color: t.foreground),
+              maxLines: p.bodyLines,
+              style: t.body(scale.body, color: t.foreground),
             ),
           ),
-        if (!compact && p.facts.isNotEmpty && data is! AgentMessageData)
+        if (p.quote != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: t.line.withValues(alpha: .25),
+                    width: 4,
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: AgentMarkText(
+                  p.quote!,
+                  maxLines: 3,
+                  style: t.body(metaSize, color: t.muted),
+                ),
+              ),
+            ),
+          ),
+        if (p.chips.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final c in p.chips)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: t.chip,
+                      borderRadius: BorderRadius.circular(
+                        t.cardRadius == 0 ? 0 : 999,
+                      ),
+                      border: Border.all(color: t.line, width: 1.5),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        c,
+                        style: t.body(scale.small, weight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        if (p.facts.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Column(
@@ -514,18 +658,23 @@ class _FoundCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(
-                          width: 84,
+                          width: (scale.small * 5.25).roundToDouble(),
                           child: Text(
                             label,
                             style: t.body(
-                              entityMinText,
+                              scale.small,
                               weight: FontWeight.w800,
                               color: t.muted,
                             ),
                           ),
                         ),
                         Expanded(
-                          child: Text(value, style: t.body(entityMetaCompact)),
+                          child: Text(
+                            value,
+                            maxLines: data is AgentAgentData ? p.metaLines : 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: t.body(scale.body),
+                          ),
                         ),
                       ],
                     ),

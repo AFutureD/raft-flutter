@@ -113,8 +113,11 @@ class AgentLayerFrame extends StatelessWidget {
 
 /// Small uppercase section label inside a layer.
 class AgentSectionLabel extends StatelessWidget {
-  const AgentSectionLabel(this.text, {super.key});
+  const AgentSectionLabel(this.text, {super.key, this.scale = 1});
   final String text;
+
+  /// Multiplies the font size.
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +126,7 @@ class AgentSectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 2),
       child: Text(
         text,
-        style: t.body(11.5, color: t.hint, weight: FontWeight.w600),
+        style: t.body(11.5 * scale, color: t.hint, weight: FontWeight.w600),
       ),
     );
   }
@@ -194,9 +197,12 @@ class AgentMessageTile extends StatelessWidget {
 
 /// A compact pill.
 class AgentChip extends StatelessWidget {
-  const AgentChip(this.label, {super.key, this.hot = false});
+  const AgentChip(this.label, {super.key, this.hot = false, this.size = 11});
   final String label;
   final bool hot;
+
+  /// Font size of the label.
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +221,7 @@ class AgentChip extends StatelessWidget {
         child: Text(
           label,
           style: t.body(
-            11,
+            size,
             color: square ? t.foreground : t.muted,
             weight: square ? FontWeight.w700 : null,
           ),
