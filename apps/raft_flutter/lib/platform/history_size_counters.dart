@@ -52,10 +52,22 @@ class HistorySizeCounters {
     for (final op in ['insert', 'update', 'delete']) {
       final add = op != 'delete', subtract = op != 'insert';
       final ref = subtract ? 'OLD' : 'NEW';
+      // Read hits only touch LRU time. They must not subtract and re-add the
+      // same charge for every displayed row.
+      final updatedColumns = op == 'update'
+          ? ' OF origin,principal,server,channel,message_id,seq_key,byte_size,tombstone'
+          : '';
+      final changedCharge = op == 'update'
+          ? '''AND (NEW.origin IS NOT OLD.origin OR NEW.principal IS NOT OLD.principal
+            OR NEW.server IS NOT OLD.server OR NEW.channel IS NOT OLD.channel
+            OR NEW.message_id IS NOT OLD.message_id OR NEW.seq_key IS NOT OLD.seq_key
+            OR NEW.byte_size IS NOT OLD.byte_size OR (NEW.tombstone=0) IS NOT (OLD.tombstone=0))'''
+          : '';
       await db.customStatement('DROP TRIGGER IF EXISTS raft_history_size_$op');
       await db.customStatement('''CREATE TRIGGER raft_history_size_$op
-        AFTER ${op.toUpperCase()} ON raft_history_rows
+        AFTER ${op.toUpperCase()}$updatedColumns ON raft_history_rows
         WHEN (SELECT complete OR $ref.rowid<=cursor FROM raft_history_counter_progress WHERE kind='rows')
+        $changedCharge
         BEGIN
         ${subtract ? '''UPDATE raft_history_sizes SET payload=payload-OLD.byte_size,
           weight=weight-(${rowWeight('OLD')}),rows=rows-(OLD.tombstone=0)
