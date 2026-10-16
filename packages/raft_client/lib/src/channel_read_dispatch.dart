@@ -36,6 +36,9 @@ Future<Response<dynamic>> _dispatchChannelRead(
   required Duration? receiveTimeout,
   required CancelToken? cancelToken,
 }) {
+  // Dio refuses a token that is already cancelled before any interceptor.
+  final cancelled = cancelToken?.cancelError;
+  if (cancelled != null) return Future<Response<dynamic>>.error(cancelled);
   final options =
       Options(
         method: method,
@@ -115,6 +118,10 @@ class _ChannelReadChain {
         StateError('Read dispatch stopped without a request.'),
       );
     }
+    // A cancel that lands while an interceptor is still waiting never starts
+    // the exchange, including the retry after a 401 refresh.
+    final cancelled = prepared.cancelToken?.cancelError;
+    if (cancelled != null) return Future<Response<dynamic>>.error(cancelled);
     Future<ResponseBody> pending;
     try {
       pending = _http.httpClientAdapter.fetch(

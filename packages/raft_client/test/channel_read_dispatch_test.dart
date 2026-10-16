@@ -94,6 +94,142 @@ void main() {
     expect(receipts.last.headers['Authorization'], 'Bearer access-2');
     expect(adapter.calls.where((c) => c.path == '/auth/refresh'), hasLength(1));
   });
+
+  test('a channel read hands its cancel signal to the adapter before the caller yields', () async {
+    final adapter = _Adapter();
+    final client = _client(adapter);
+    addTearDown(client.dispose);
+    await client.login('ada@example.invalid', 'secret');
+    final cancel = UploadCancellation();
+
+    final pending = client.request(
+      'POST',
+      '/channels/c1/read',
+      data: {'seq': '1'},
+      cancellation: cancel,
+    );
+
+    final signal = adapter.cancelSignals.last;
+    expect(signal, isNotNull);
+    expect(adapter.calls.last.path, '/channels/c1/read');
+    var heard = false;
+    unawaited(signal!.whenComplete(() => heard = true));
+    await Future<void>.delayed(Duration.zero);
+    expect(heard, isFalse);
+    cancel.cancel();
+    await Future<void>.delayed(Duration.zero);
+    expect(heard, isTrue);
+    expect(await pending, {'maxReadSeq': '901', 'readStateVersion': 3});
+  });
+
+  test(
+    'a channel read cancelled before it starts never reaches the adapter',
+    () async {
+      final adapter = _Adapter();
+      final client = _client(adapter);
+      addTearDown(client.dispose);
+      await client.login('ada@example.invalid', 'secret');
+      final cancel = UploadCancellation()..cancel();
+      final before = adapter.calls.length;
+
+      await expectLater(
+        client.request(
+          'POST',
+          '/channels/c1/read',
+          data: {'seq': '1'},
+          cancellation: cancel,
+        ),
+        throwsA(isA<RaftApiException>()),
+      );
+      expect(adapter.calls, hasLength(before));
+    },
+  );
+
+  test(
+    'a channel read cancelled while an interceptor waits is not sent',
+    () async {
+      final adapter = _Adapter();
+      final client = _client(adapter);
+      addTearDown(client.dispose);
+      await client.login('ada@example.invalid', 'secret');
+      final gate = Completer<void>();
+      var waiting = false;
+      client.http.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) async {
+            waiting = true;
+            await gate.future;
+            handler.next(options);
+          },
+        ),
+      );
+      final cancel = UploadCancellation();
+      final before = adapter.calls.length;
+      final pending = client.request(
+        'POST',
+        '/channels/c1/read',
+        data: {'seq': '1'},
+        cancellation: cancel,
+      );
+      final rejected = expectLater(pending, throwsA(isA<RaftApiException>()));
+      for (var i = 0; i < 50 && !waiting; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      expect(waiting, isTrue);
+      expect(adapter.calls, hasLength(before));
+      cancel.cancel();
+      gate.complete();
+      await rejected;
+      expect(adapter.calls, hasLength(before));
+    },
+  );
+
+  test(
+    'cancelling a channel read during refresh does not send the retry',
+    () async {
+      final adapter = _Adapter();
+      final client = _client(adapter);
+      addTearDown(client.dispose);
+      await client.login('ada@example.invalid', 'secret');
+      final refreshGate = Completer<void>();
+      adapter.pauseRefresh = refreshGate.future;
+      var reads = 0;
+      adapter.handler = (options) {
+        if (options.path == '/channels/c1/read') {
+          reads++;
+          return _json({'error': 'expired'}, 401);
+        }
+        if (options.path == '/auth/refresh') {
+          return _json({
+            'accessToken': 'access-2',
+            'refreshToken': 'refresh-2',
+          });
+        }
+        return _json({'error': 'missing'}, 404);
+      };
+      final cancel = UploadCancellation();
+      final pending = client.request(
+        'POST',
+        '/channels/c1/read',
+        data: {'seq': '1'},
+        cancellation: cancel,
+      );
+      final rejected = expectLater(pending, throwsA(isA<RaftApiException>()));
+      for (var i = 0; i < 100 && !adapter.refreshSeen; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      expect(adapter.refreshSeen, isTrue);
+      expect(reads, 1);
+      cancel.cancel();
+      refreshGate.complete();
+      await rejected;
+      expect(reads, 1);
+      expect(
+        adapter.calls.where((c) => c.path == '/auth/refresh'),
+        hasLength(1),
+      );
+    },
+  );
 }
 
 RaftClient _client(_Adapter adapter) => RaftClient(
@@ -113,7 +249,10 @@ ResponseBody _json(Object body, [int status = 200]) => ResponseBody.fromString(
 class _Adapter implements HttpClientAdapter {
   final calls = <RequestOptions>[];
   final bodies = <String>[];
+  final cancelSignals = <Future<void>?>[];
   void Function()? onFetch;
+  Future<void>? pauseRefresh;
+  bool refreshSeen = false;
   ResponseBody Function(RequestOptions options)? handler;
 
   @override
@@ -123,6 +262,7 @@ class _Adapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     calls.add(options);
+    cancelSignals.add(cancelFuture);
     onFetch?.call();
     if (requestStream == null) {
       bodies.add('');
@@ -132,6 +272,11 @@ class _Adapter implements HttpClientAdapter {
         return all;
       });
       bodies.add(utf8.decode(bytes));
+    }
+    if (options.path == '/auth/refresh') {
+      refreshSeen = true;
+      final pause = pauseRefresh;
+      if (pause != null) await pause;
     }
     final answer = handler?.call(options);
     if (answer != null) return answer;
