@@ -1906,7 +1906,7 @@ class _RaftChatViewState extends State<RaftChatView>
       gallery: images.isEmpty
           ? null
           : ShapedImageGallery(
-              sessions: w.playerSessions,
+              sessions: w.attachmentMedia.playerSessions,
               images: images,
               builder: (dimensions) => RaftAttachmentGallery(
                 dimensions: dimensions,
