@@ -23,6 +23,7 @@ import 'agent_mood.dart';
 import 'agent_scripted_model.dart';
 import 'agent_surface.dart';
 import 'agent_surface_stream.dart';
+import 'agent_summary.dart' show AgentToolOutcome;
 import 'agent_surface_tools.dart';
 import 'agent_tools.dart';
 import 'agent_tv.dart';
@@ -1381,12 +1382,17 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   /// Hands the session to the shared agent so it remembers what matters.
-  void _sessionEnded(List<(AgentSpeaker, String)> transcript) {
+  void _sessionEnded(
+    List<(AgentSpeaker, String)> transcript,
+    List<AgentToolOutcome> outcomes,
+  ) {
     final settings = AgentVoiceSettings.instance;
     final brain = settings.brain;
     if (widget.data != null || brain == null || !settings.writeBack) return;
     unawaited(
-      _brain.sendSummary(brain, transcript).catchError((Object _) => false),
+      _brain
+          .sendSummary(brain, transcript, outcomes)
+          .catchError((Object _) => false),
     );
   }
 

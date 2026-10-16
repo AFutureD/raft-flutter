@@ -7,6 +7,7 @@ import '../../../data/workspace_controller.dart';
 import '../../../data/raft_location.dart';
 import '../agent_mode_data.dart';
 import '../agent_surface_stream.dart';
+import '../agent_summary.dart' show AgentSessionEnd;
 import '../agent_surface_tools.dart';
 import '../agent_voice.dart';
 import '../capabilities/agent_action_board.dart';
@@ -33,7 +34,7 @@ class AgentVoiceSetup {
   final List<Map<String, Object?>> tools;
   final String Function() systemPrompt;
   final Future<void> Function()? beforeConnect;
-  final void Function(List<(AgentSpeaker, String)> transcript)? onSessionEnd;
+  final AgentSessionEnd? onSessionEnd;
 }
 
 /// The tools that never say what a request is about: a mood, a spotlight,

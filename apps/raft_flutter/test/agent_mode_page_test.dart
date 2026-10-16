@@ -412,21 +412,13 @@ void main() {
     expect(painted('#94 · 已经等了 2 小时'), findsNothing);
   });
 
-  test('shared memory: prompt context and session summary', () {
+  test('shared memory: prompt context', () {
     expect(AgentBrain.compose('Cindy', null, const []), contains('「Cindy」'));
     final context = AgentBrain.compose('Cindy', '喜欢简短回答', ['Kevin：发版吧']);
     expect(context, contains('Agent「Cindy」的语音形态'));
     expect(context, contains('喜欢简短回答'));
     expect(context, contains('Kevin：发版吧'));
-    // Nothing the person said: nothing to remember.
-    expect(AgentBrain.summaryText(const [(AgentSpeaker.agent, '你好')]), isNull);
-    final summary = AgentBrain.summaryText(const [
-      (AgentSpeaker.you, '明天提醒我看选型'),
-      (AgentSpeaker.agent, '好，记下了'),
-    ])!;
-    expect(summary, startsWith('【语音对话记录 · 来自 Agent 模式】'));
-    expect(summary, contains('我：明天提醒我看选型'));
-    expect(summary, contains('你（语音）：好，记下了'));
+    // The summary of a session is covered in agent_session_summary_test.dart.
   });
 
   test('voice keys are found inside scanned text', () {

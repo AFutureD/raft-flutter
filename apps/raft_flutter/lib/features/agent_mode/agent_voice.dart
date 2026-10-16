@@ -5,6 +5,7 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_audio.dart';
 import 'agent_live_guard.dart';
+import 'agent_summary.dart';
 import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
 import 'voice_provider.dart';
@@ -121,9 +122,23 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     if (state == AgentMicState.idle) unawaited(restart());
   }
 
-  /// Receives what was said in a session when it ends (for memory).
-  final void Function(List<(AgentSpeaker, String)> transcript)? onSessionEnd;
+  /// Receives what was said in a session, and the tools that ran in it, when
+  /// it ends (for memory).
+  final AgentSessionEnd? onSessionEnd;
   final _log = <(AgentSpeaker, String)>[];
+  final _outcomes = <AgentToolOutcome>[];
+
+  /// The most tool outcomes kept for one session.
+  static const _maxOutcomes = 80;
+
+  void _recordOutcome(
+    String name,
+    Map<String, Object?> args,
+    Map<String, Object?> result,
+  ) {
+    if (_outcomes.length >= _maxOutcomes) _outcomes.removeAt(0);
+    _outcomes.add(AgentToolOutcome(name: name, args: args, result: result));
+  }
 
   void _logAppend(AgentSpeaker speaker, String text) {
     if (_log.isNotEmpty && _log.last.$1 == speaker) {
@@ -134,10 +149,15 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   }
 
   void _endSession() {
-    if (_log.isEmpty) return;
+    if (_log.isEmpty) {
+      _outcomes.clear();
+      return;
+    }
     final transcript = List.of(_log);
+    final outcomes = List.of(_outcomes);
     _log.clear();
-    onSessionEnd?.call(transcript);
+    _outcomes.clear();
+    onSessionEnd?.call(transcript, outcomes);
   }
 
   /// What the agent has said so far in its current reply (from the live
@@ -257,7 +277,12 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         _toolsRunning++;
         _guard.touch();
         try {
-          return await onToolCall(name, args);
+          final result = await onToolCall(name, args);
+          _recordOutcome(name, args, result);
+          return result;
+        } catch (_) {
+          _recordOutcome(name, args, {'error': '工具出错'});
+          rethrow;
         } finally {
           _toolsRunning--;
           _guard.touch();

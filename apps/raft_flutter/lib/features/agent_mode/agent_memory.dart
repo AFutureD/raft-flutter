@@ -1,6 +1,7 @@
 import 'package:raft_agent_ui/raft_agent_ui.dart' show AgentSpeaker;
 
 import '../../data/workspace_controller.dart';
+import 'agent_summary.dart';
 import 'agent_voice_settings.dart';
 
 /// A Raft agent whose memory the voice agent shares.
@@ -142,32 +143,26 @@ class AgentBrain {
     ].join('\n\n');
   }
 
-  /// Sends what was said in a voice session to the agent so it can keep the
-  /// parts worth remembering. Returns false when nothing was sent.
+  /// Sends a summary of a voice session to the agent so it can keep the
+  /// parts worth remembering (never the transcript itself). [generate] is the
+  /// text model for the summary (tests give a fake one). Returns false when
+  /// nothing was sent.
   Future<bool> sendSummary(
     AgentBrainChoice brain,
     List<(AgentSpeaker, String)> transcript,
-  ) async {
-    final text = summaryText(transcript);
+    List<AgentToolOutcome> outcomes, {
+    Future<String?> Function(String system, String prompt)? generate,
+  }) async {
+    final text = await AgentSessionSummary.build(
+      transcript,
+      outcomes,
+      generate: generate,
+    );
     if (text == null) return false;
     final channel = await _directChannel(brain.id);
     if (channel == null) return false;
     await w.client.send(channel, text);
     return true;
-  }
-
-  /// The direct message for a session; null when the person said nothing.
-  static String? summaryText(List<(AgentSpeaker, String)> transcript) {
-    if (!transcript.any((l) => l.$1 == AgentSpeaker.you)) return null;
-    final lines = [
-      for (final (who, text) in transcript)
-        '${who == AgentSpeaker.you ? '我' : '你（语音）'}：${_clip(text, 300)}',
-    ];
-    var body = lines.join('\n');
-    if (body.length > 3000) body = '…${body.substring(body.length - 3000)}';
-    return '【语音对话记录 · 来自 Agent 模式】\n'
-        '这是我刚才和你的语音形态的对话，请把值得长期记住的部分（我的偏好、决定、待办）记进你的记忆，不需要回复。\n\n'
-        '$body';
   }
 
   static String _clip(String text, int max) {
