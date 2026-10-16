@@ -812,6 +812,11 @@ void main() {
       await t.tap(find.byKey(const ValueKey('attention-approve-confirm')));
       await t.pumpAndSettle();
       expect(data.approved, ['t1']);
+      // The task is done; its row stays in the Activity.
+      expect(
+        find.byKey(const ValueKey('attention-card-activity:thread:th2')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('看完整对话 opens the conversation of the row', (t) async {

@@ -707,7 +707,10 @@ class _AgentModePageState extends State<AgentModePage> {
     }
     if (!mounted) return false;
     _itemGone();
-    setState(() => AgentModeData.hidden(widget.controller).add(item.id));
+    // The task is done; an Activity row it came with stays in the Activity.
+    if (item.rowKind == null) {
+      setState(() => AgentModeData.hidden(widget.controller).add(item.id));
+    }
     _voice.say(AgentSpeaker.agent, '已通过：${item.headline}');
     unawaited(_loadAttention());
     return true;

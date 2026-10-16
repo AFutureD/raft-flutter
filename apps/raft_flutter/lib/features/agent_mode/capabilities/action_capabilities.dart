@@ -379,6 +379,7 @@ final actionCapabilities = <AgentCapability>[
         run: () async {
           await w.command('POST', undone.path, data: undone.data);
           await w.refreshUnread();
+          await w.activityUnreadIfBound?.refresh();
           return '已把 ${_doneWord(w, c, row)} 放回动态';
         },
       );
@@ -411,6 +412,8 @@ final actionCapabilities = <AgentCapability>[
       }
       await w.command('POST', done.path, data: done.data);
       await w.refreshUnread();
+      // The home of agent mode is the Activity: it drops the row at once.
+      await w.activityUnreadIfBound?.refresh();
       return actionResult(
         '已把 ${_doneWord(w, c, row)} 标为已处理',
         entity: 'channel',
