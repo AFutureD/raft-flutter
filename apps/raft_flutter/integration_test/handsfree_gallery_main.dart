@@ -253,7 +253,7 @@ class _AttentionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    final shown = _asks.take(hf.attentionRows).toList();
+    final shown = _asks;
     final foot = _foot(hf, '先看第一件：Bo 做完了 #12，要验收吗？', '🤔');
     final rows = <Widget>[];
     for (var i = 0; i < shown.length; i++) {
@@ -278,7 +278,6 @@ class _AttentionScreen extends StatelessWidget {
           focusId: 'attention#${i + 1}',
           onTap: hf.interactive ? () {} : null,
           selected: hf.split && i == 0,
-          // A phone has room above the caption: let the four rows grow.
           verticalPad: hf.phone ? 19 : null,
           badge: a.badge,
           meta: '#${a.channel} · ${a.reason}',
@@ -291,14 +290,6 @@ class _AttentionScreen extends StatelessWidget {
           ),
         ),
       );
-    }
-    final pager = _asks.length > shown.length
-        ? HfPager(from: 1, to: shown.length, total: _asks.length, onNext: () {})
-        : null;
-    // Beside the detail the pager stays under the list; else under the body.
-    if (pager != null && hf.split) {
-      rows.add(SizedBox(height: hf.sp(12)));
-      rows.add(pager);
     }
     final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -327,7 +318,6 @@ class _AttentionScreen extends StatelessWidget {
               ],
             )
           : list,
-      pager: hf.split ? null : pager,
       caption: foot.caption,
       dock: foot.dock,
     );
@@ -354,7 +344,7 @@ class _ListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    final shown = _agents.take(hf.listRows).toList();
+    final shown = _agents;
     final foot = _foot(hf, 'Dex 卡住了，Bo 在等你。', '😮');
     int n(HfTone t) => _agents.where((a) => a.tone == t).length;
     return HfScreen(
@@ -387,12 +377,6 @@ class _ListScreen extends StatelessWidget {
             ),
           ],
         ],
-      ),
-      pager: HfPager(
-        from: 1,
-        to: shown.length,
-        total: _agents.length,
-        onNext: () {},
       ),
       caption: foot.caption,
       dock: foot.dock,

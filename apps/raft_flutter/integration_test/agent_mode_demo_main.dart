@@ -449,6 +449,13 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await _type('raft-flutter 现在什么情况？');
     await wait(5000);
     await mark('channel');
+    // A row far down the page: the page scrolls to it, its detail with it.
+    await _type('看看第五个');
+    await wait(6000);
+    await mark('channel-focus');
+    await _type('下一批');
+    await wait(3000);
+    await mark('channel-next');
     await _type('返回');
     await wait(2500);
     await _type('任务 #98 现在怎么样？');
@@ -462,7 +469,7 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await _type('回到提醒');
     await wait(3500);
     // One current item: said, then highlighted with its detail on the stage
-    // (a sheet on a phone, the slot beside the list on a wide window).
+    // (under its row on a phone, beside the list on a wide window).
     final wide = MediaQuery.sizeOf(_key.currentContext!).width >= 1280;
     await _type(wide ? '看看第二个' : '看看第一个');
     await wait(6000);
