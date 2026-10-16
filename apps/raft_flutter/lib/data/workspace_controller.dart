@@ -4191,7 +4191,7 @@ class WorkspaceController extends ChangeNotifier {
           ? null
           : await _cached('window', next.id);
       if (!request.current) return;
-      if (!retainContextUntilAccepted && await MessageHistoryPositions.restoreMain(this, request, next.id)) {
+      if (!retainContextUntilAccepted && await MessageHistoryPositions.restoreMain(this, request, next.id, cached: page)) {
         if (request.current) await _save('selection', '', next.id);
         return;
       }

@@ -6,9 +6,16 @@ import '../data/message_history.dart';
 import '../data/workspace_cache_codec.dart';
 
 class CommittedHistoryWindow {
-  CommittedHistoryWindow(this.scope, this.value);
+  CommittedHistoryWindow(
+    this.scope,
+    this.value, {
+    required this.hasPosition,
+    required this.positionsUnchanged,
+  });
   final MessageHistoryScope scope;
   final Map<String, dynamic> value;
+  final bool hasPosition;
+  final bool Function() positionsUnchanged;
 }
 
 /// Reads metadata, permission denial, coverage and rows in one SQLite snapshot.
@@ -20,8 +27,9 @@ class SqliteCommittedHistoryReads {
     String principal,
     String server,
     String kind,
-    String id,
-  ) async {
+    String id, {
+    required bool Function() positionsUnchanged,
+  }) async {
     final rows = await db
         .customSelect(
           '''/* raft-history-snapshot */
@@ -73,6 +81,11 @@ class SqliteCommittedHistoryReads {
       )
       SELECT b.payload AS marker,b.requested,b.empty,m.payload AS message,
         EXISTS (
+          SELECT 1 FROM workspace_cache a
+          WHERE a.origin=? AND a.principal=? AND a.server=?
+            AND a.kind='history-anchor' AND a.id=b.channel
+        ) AS has_position,
+        EXISTS (
           SELECT 1 FROM raft_history_ranges g
           WHERE g.origin=? AND g.principal=? AND g.server=? AND g.channel=b.channel
             AND g.lower_key<='00000000000000000000' AND g.upper_key>=b.target
@@ -85,6 +98,9 @@ class SqliteCommittedHistoryReads {
               principal,
               server,
               id,
+              origin,
+              principal,
+              server,
               origin,
               principal,
               server,
@@ -144,6 +160,8 @@ class SqliteCommittedHistoryReads {
             (payloads.length > size || rows.first.read<int>('complete') == 0),
         'historyLimited': marker['historyLimited'] == true,
       },
+      hasPosition: rows.first.read<int>('has_position') != 0,
+      positionsUnchanged: positionsUnchanged,
     );
   }
 }

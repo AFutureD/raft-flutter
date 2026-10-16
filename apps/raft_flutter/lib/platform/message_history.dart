@@ -1521,10 +1521,12 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   Future<CommittedHistoryWindow?> peekCommittedWindow(
     String origin, String principal, String server, String kind, String id,
   ) async {
+    final positionsUnchanged = _positions.unchangedGuard();
     await _ready();
     _scheduleMigration(MessageHistoryScope(origin: origin, principal: principal,
       server: server, channel: id, parentChannel: id, authority: ''));
-    return SqliteCommittedHistoryReads.read(db, origin, principal, server, kind, id);
+    return SqliteCommittedHistoryReads.read(db, origin, principal, server, kind, id,
+      positionsUnchanged: positionsUnchanged);
   }
 
   /// Retain IDs only while queued. LRU maintenance must not delay first paint.

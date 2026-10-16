@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../data/workspace_cache.dart';
 import '../data/message_history.dart';
 import '../data/cache_read_versions.dart';
+import '../data/cached_history_window.dart';
 import 'message_history.dart';
 import '../data/workspace_cache_codec.dart';
 
@@ -187,7 +188,9 @@ class DriftWorkspaceCache extends GeneratedDatabase
       for (final row in snapshot.value['messages'] as List)
         if (row['id'] case final String id) id,
     ], current: valid);
-    return snapshot.value;
+    return CachedHistoryWindow(snapshot.value, scope: scope,
+      positionAbsent: !snapshot.hasPosition,
+      positionsUnchanged: snapshot.positionsUnchanged, current: valid);
   }
 
   @override

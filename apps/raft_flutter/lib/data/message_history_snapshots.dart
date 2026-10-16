@@ -53,6 +53,9 @@ class MessageHistorySnapshots {
     );
     w.messageWindows.setDiskOnly(request, id, true);
     w.messageWindows.setContextMode(request, id, null);
+    // This accepted local window is ready to present. Background validation
+    // must not leave the chat adapter waiting for a writer or the network.
+    w.channelLoading = false;
     return true;
   }
 

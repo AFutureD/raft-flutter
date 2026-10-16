@@ -6,6 +6,8 @@ import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/platform/workspace_cache.dart';
+import 'package:raft_flutter/data/cached_history_window.dart';
+import 'package:raft_flutter/data/reading_positions.dart';
 
 import 'message_history_store_test.dart' as fixture;
 
@@ -414,4 +416,143 @@ void main() {
       expect((migrated['messages'] as List).single['id'], 'legacy-only-1');
     },
   );
+  test(
+    'absence proof is transient and belongs to its receiver scope',
+    () async {
+      final saved = await committed() as CachedHistoryWindow;
+      expect(saved.provesNoPosition(scope), isTrue);
+      expect(jsonDecode(jsonEncode(saved)), isA<Map>());
+      expect(saved.keys, isNot(contains('positionAbsent')));
+      for (final other in [
+        fixture.scope(principal: 'bob'),
+        fixture.scope(server: 'two'),
+        fixture.scope(channel: 'other'),
+        fixture.scope(parent: 'other'),
+        fixture.scope(authority: 'old-role'),
+      ]) {
+        expect(saved.provesNoPosition(other), isFalse);
+      }
+    },
+  );
+
+  test(
+    'an existing reading position never takes the absence shortcut',
+    () async {
+      await cache.messageHistory.savePosition(
+        scope,
+        SavedReadingPosition('chat-42', BigInt.from(42), -12.25),
+      );
+      final saved = await committed() as CachedHistoryWindow;
+      expect(saved.provesNoPosition(scope), isFalse);
+      final position = await cache.messageHistory.readPosition(scope);
+      expect(position!.messageId, 'chat-42');
+      expect(position.top, -12.25);
+    },
+  );
+
+  test(
+    'a position queued behind a writer invalidates absence at read start',
+    () async {
+      gate.draft = true;
+      final writing = cache.write(
+        scope.origin,
+        scope.principal,
+        scope.server,
+        'draft',
+        'hold',
+        {},
+      );
+      await gate.reached.future;
+      final saving = cache.messageHistory.savePosition(
+        scope,
+        SavedReadingPosition('chat-42', BigInt.from(42), -12.25),
+      );
+      try {
+        final saved = await committed().timeout(
+          const Duration(seconds: 3),
+        ) as CachedHistoryWindow;
+        expect(saved.provesNoPosition(scope), isFalse);
+        gate.release.complete();
+        await Future.wait([writing, saving]);
+        expect(saved.provesNoPosition(scope), isFalse);
+        expect(
+          (await cache.messageHistory.readPosition(scope))!.messageId,
+          'chat-42',
+        );
+      } finally {
+        if (!gate.release.isCompleted) gate.release.complete();
+        await Future.wait([writing, saving]);
+      }
+    },
+  );
+
+  test(
+    'save and clear invalidate a previously returned absence proof',
+    () async {
+      final saved = await committed() as CachedHistoryWindow;
+      final saving = cache.messageHistory.savePosition(
+        scope,
+        SavedReadingPosition('chat-42', BigInt.from(42), -12.25),
+      );
+      expect(saved.provesNoPosition(scope), isFalse);
+      await saving;
+      expect(saved.provesNoPosition(scope), isFalse);
+      await cache.messageHistory.savePosition(scope, null);
+      expect(saved.provesNoPosition(scope), isFalse);
+      final next = await committed() as CachedHistoryWindow;
+      expect(next.provesNoPosition(scope), isTrue);
+      final clearing = cache.messageHistory.savePosition(scope, null);
+      expect(next.provesNoPosition(scope), isFalse);
+      await clearing;
+      expect(next.provesNoPosition(scope), isFalse);
+    },
+  );
+
+  test(
+    'a save after SQL capture prevents an obsolete absence decision',
+    () async {
+      gate.read = true;
+      final reading = committed();
+      await gate.reached.future;
+      final saving = cache.messageHistory.savePosition(
+        scope,
+        SavedReadingPosition('chat-42', BigInt.from(42), -12.25),
+      );
+      gate.release.complete();
+      final saved = await reading as CachedHistoryWindow;
+      expect(saved.provesNoPosition(scope), isFalse);
+      await saving;
+      expect(saved.provesNoPosition(scope), isFalse);
+    },
+  );
+
+  for (final kind in ['channel', 'server', 'account']) {
+    test('$kind purge invalidates an already returned absence proof', () async {
+      final saved = await committed() as CachedHistoryWindow;
+      final purging = switch (kind) {
+        'channel' => cache.revokeChannel(
+          scope.origin,
+          scope.principal,
+          scope.server,
+          scope.channel,
+        ),
+        'server' => cache.revokeServer(
+          scope.origin,
+          scope.principal,
+          scope.server,
+        ),
+        _ => cache.clearAccount(scope.origin, scope.principal),
+      };
+      expect(saved.provesNoPosition(scope), isFalse);
+      await purging;
+      expect(saved.provesNoPosition(scope), isFalse);
+    });
+  }
+
+  test('close invalidates an already returned absence proof', () async {
+    final saved = await committed() as CachedHistoryWindow;
+    final closing = cache.close();
+    expect(saved.provesNoPosition(scope), isFalse);
+    await closing;
+  });
 }
