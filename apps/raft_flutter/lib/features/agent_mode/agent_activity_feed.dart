@@ -4,7 +4,6 @@ import 'package:raft_client/raft_client.dart';
 import '../../data/resource_row_reconcile.dart' show activityItemKey;
 import '../activity_destination.dart';
 import '../resource_view.dart' show activityRowTitle, activityThreadSubtitle;
-import 'agent_headlines.dart';
 import 'agent_mode_data.dart';
 
 /// The home of agent mode is the App's Activity (動態): the rows of the

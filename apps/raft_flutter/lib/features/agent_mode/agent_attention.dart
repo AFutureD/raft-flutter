@@ -528,7 +528,7 @@ class AgentAttentionDetail extends StatelessWidget {
     final chip = AgentAttentionView.taskChip(item);
     VoidCallback? call(void Function(AgentAttentionItem)? f) =>
         f == null ? null : () => f(item);
-    final HfAction? open = HfAction(
+    final open = HfAction(
       activity
           ? openActivityLabel
           : item.action == AgentAction.reply
@@ -579,7 +579,7 @@ class AgentAttentionDetail extends StatelessWidget {
             icon: Icons.check_rounded,
             onPressed: () => onApprove(item),
           ),
-        ?open,
+        open,
         if (activity && onReply != null)
           HfAction(
             replyLabel,
