@@ -2112,16 +2112,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       ? sidebarWidth
                       : 0)
             : 0,
-        childBuilder: (dockWidth, onEscape) =>
-            widget.mobileRoutePage &&
-                (location.task != null || location.legacyTask != null)
-            ? const SizedBox.expand()
-            : channelPageHost(
-                widget.mobileRoutePage && location.channelPage != null
-                    ? const SizedBox.expand()
-                    : workspace(dockWidth, onEscape),
-                location,
-              ),
+        childBuilder: (dockWidth, onEscape) => channelPageHost(
+          widget.mobileRoutePage &&
+                  location.channelPage != null &&
+                  location.task == null &&
+                  location.legacyTask == null
+              ? const SizedBox.expand()
+              : workspace(dockWidth, onEscape),
+          location,
+        ),
       );
       if (RouteFrameDiagnostics.enabled) {
         RouteFrameDiagnostics.scope('shellBuildUs', buildStarted);
@@ -3053,6 +3052,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         settingsPath: [tab],
       ),
     );
+    w.notifyListeners();
     setState(() {});
   }
 
