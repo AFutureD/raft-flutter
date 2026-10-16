@@ -29,7 +29,10 @@ import 'agent_voice.dart';
 import 'agent_voice_settings.dart';
 import 'capabilities/agent_capability.dart'
     show AgentCapabilityEnv, AgentCapabilityRegistry;
+import 'capabilities/agent_action_board.dart';
+import 'capabilities/agent_capability_standard.dart';
 import 'capabilities/agent_capability_tools.dart';
+import 'capabilities/agent_direct_tools.dart';
 import 'capabilities/agent_consent.dart';
 import 'gemini_live.dart' show agentToolTimeout;
 import 'references/agent_entities.dart';
@@ -171,7 +174,26 @@ class _AgentModePageState extends State<AgentModePage> {
     references: _references,
     pointed: _pointed,
     userConsent: _consent,
+    board: _actions,
   );
+
+  /// The confirmed operations: their confirm cards turn into the result.
+  final _actions = AgentActionBoard();
+
+  /// The person pressed 撤销 / 重试 on a result card: that press is their
+  /// say-so (the undo is within its 30 s, the retry is the same operation
+  /// they already agreed to).
+  Future<void> _actionPressed(String id, {required bool undo}) async {
+    final r = undo
+        ? await _capabilities.undoAction(id)
+        : await _capabilities.retryAction(id);
+    if (!mounted) return;
+    final ok = r['error'] == null && r['status'] != 'failed';
+    await _voice.tell(
+      '（屏幕提示，不是用户说的）用户点了卡片上的“${undo ? '撤销' : '重试'}”，'
+      '${ok ? '已经${undo ? '撤销' : '重新执行'}了' : '没有成功：${r['error'] ?? r['message']}'}。用一句话告诉他。',
+    );
+  }
 
   /// What the person has agreed to. Fed only by them: a tap on a confirm
   /// card, their typed words and the transcript of their speech.
@@ -208,7 +230,11 @@ class _AgentModePageState extends State<AgentModePage> {
       if (!mounted || _entityProblems.isEmpty) return;
       final lines = List.of(_entityProblems);
       _entityProblems.clear();
-      unawaited(_voice.tell('（屏幕提示，不是用户说的）有卡片画不出来：${lines.join('；')}。用读取工具核对 id 后改正，或如实告诉用户。'));
+      unawaited(
+        _voice.tell(
+          '（屏幕提示，不是用户说的）有卡片画不出来：${lines.join('；')}。用读取工具核对 id 后改正，或如实告诉用户。',
+        ),
+      );
     });
   }
 
@@ -254,6 +280,7 @@ class _AgentModePageState extends State<AgentModePage> {
       ...agentToolDeclarations,
       ...groundedToolDeclarations(agentStandardCatalog),
       ...capabilityToolDeclarations,
+      ...directActionDeclarations(widget.registry ?? agentStandardCapabilities),
     ],
     onToolCall: _runTool,
     systemPrompt: _systemPrompt,
@@ -412,6 +439,7 @@ class _AgentModePageState extends State<AgentModePage> {
     _pointer.dispose();
     _problemsTold?.cancel();
     _consent.dispose();
+    _actions.dispose();
     _entities.dispose();
     super.dispose();
   }
@@ -1326,8 +1354,7 @@ class _AgentModePageState extends State<AgentModePage> {
     child: AgentEntityBindingScope(
       controller: widget.controller,
       resolver: _entities,
-      onProblem: (ref, reason) =>
-          _entityProblem(ref.kind.name, ref.id, reason),
+      onProblem: (ref, reason) => _entityProblem(ref.kind.name, ref.id, reason),
       child: AgentInteractionScope(
         onInteraction: _interaction,
         child: _page(context),
@@ -1473,7 +1500,17 @@ class _AgentModePageState extends State<AgentModePage> {
                             ),
                           ),
                         ),
-                      AgentConsentTray(ledger: _consent),
+                      AgentEntityScope(
+                        resolver: _entities,
+                        child: AgentConsentTray(
+                          ledger: _consent,
+                          board: _actions,
+                          onUndo: (id) =>
+                              unawaited(_actionPressed(id, undo: true)),
+                          onRetry: (id) =>
+                              unawaited(_actionPressed(id, undo: false)),
+                        ),
+                      ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                         child: ListenableBuilder(

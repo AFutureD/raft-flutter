@@ -229,8 +229,14 @@ void main() {
         (found.result['channels'] as List).single,
         containsPair('entity', 'channel'),
       );
-      expect((found.result['messages'] as List).single, containsPair('entity', 'message'));
-      expect((found.result['members'] as List).single, containsPair('entity', 'member'));
+      expect(
+        (found.result['messages'] as List).single,
+        containsPair('entity', 'message'),
+      );
+      expect(
+        (found.result['members'] as List).single,
+        containsPair('entity', 'member'),
+      );
       expect(found.result['agent'], containsPair('entity', 'agent'));
       expect((found.result['note'] as Map).containsKey('entity'), isFalse);
       expect(annotateEntities({'total': 0}).found, isFalse);
@@ -340,8 +346,10 @@ void main() {
       ]);
     });
 
-    test('phase one registers no operation at all', () {
-      expect(tools().registry.all.where((c) => !c.isQuery), isEmpty);
+    test('the standard registry holds only ordinary (change) operations', () {
+      final ops = tools().registry.all.where((c) => !c.isQuery);
+      expect(ops, hasLength(10));
+      expect(ops.map((c) => c.risk).toSet(), {AgentCapabilityRisk.change});
     });
 
     test('act only previews: nothing changes until confirm', () async {
@@ -490,13 +498,13 @@ void main() {
         'args': {'taskId': 't1'},
       }))!;
 
-      Future<Map<String, Object?>> confirm(AgentCapabilityTools t, Object? r) async =>
+      Future<Map<String, Object?>> confirm(
+        AgentCapabilityTools t,
+        Object? r,
+      ) async =>
           (await t.run('confirm', {'token': (r as Map)['confirmToken']}))!;
 
-      final both = {
-        AgentCapabilityRisk.change,
-        AgentCapabilityRisk.sensitive,
-      };
+      final both = {AgentCapabilityRisk.change, AgentCapabilityRisk.sensitive};
 
       test('act draws the preview for the person by itself', () async {
         final t = tools(registry: registry);
@@ -509,19 +517,22 @@ void main() {
         expect('$r', isNot(contains(card.cardId)));
       });
 
-      test('confirm without any consent is rejected and runs nothing', () async {
-        final t = tools(registry: registry);
-        final r = await preview(t);
-        final no = await confirm(t, r);
-        expect(no['error'], 'needs_user_confirmation');
-        expect(ran, 0);
-        // Asking again changes nothing, and the token is still good.
-        expect((await confirm(t, r))['error'], 'needs_user_confirmation');
-        expect(ran, 0);
-        ledger.cardTapped(ledger.active.single.cardId, yes: true);
-        expect((await confirm(t, r))['status'], 'done');
-        expect(ran, 1);
-      });
+      test(
+        'confirm without any consent is rejected and runs nothing',
+        () async {
+          final t = tools(registry: registry);
+          final r = await preview(t);
+          final no = await confirm(t, r);
+          expect(no['error'], 'needs_user_confirmation');
+          expect(ran, 0);
+          // Asking again changes nothing, and the token is still good.
+          expect((await confirm(t, r))['error'], 'needs_user_confirmation');
+          expect(ran, 0);
+          ledger.cardTapped(ledger.active.single.cardId, yes: true);
+          expect((await confirm(t, r))['status'], 'done');
+          expect(ran, 1);
+        },
+      );
 
       test('without a consent source nothing can be confirmed', () async {
         final t = AgentCapabilityTools(
@@ -547,7 +558,10 @@ void main() {
         final t = tools(registry: registry);
         final r = await preview(t);
         // The model can write a ConfirmCard with any id, even the token.
-        expect(ledger.cardTapped(r['confirmToken'] as String, yes: true), isFalse);
+        expect(
+          ledger.cardTapped(r['confirmToken'] as String, yes: true),
+          isFalse,
+        );
         expect(ledger.cardTapped('pv_guess', yes: true), isFalse);
         expect((await confirm(t, r))['error'], 'needs_user_confirmation');
       });
@@ -687,7 +701,10 @@ void main() {
             (await preview(t))['confirmToken'],
         ];
         expect(ledger.active, hasLength(AgentConsentLedger.maxPending));
-        expect(ledger.active.map((a) => a.request.token), isNot(contains(tokens.first)));
+        expect(
+          ledger.active.map((a) => a.request.token),
+          isNot(contains(tokens.first)),
+        );
       });
     });
 

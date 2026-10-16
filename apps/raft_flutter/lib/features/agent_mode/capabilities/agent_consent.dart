@@ -99,7 +99,9 @@ AgentUtterance classifyUtterance(String raw) {
     s = s.replaceAll(f, ' ');
   }
   final bare = s.replaceAll(RegExp(r'[\s,，。.！!、~～…;；:：]+'), '');
-  if (bare.isEmpty || bare.length > _agreeMaxLength) return AgentUtterance.other;
+  if (bare.isEmpty || bare.length > _agreeMaxLength) {
+    return AgentUtterance.other;
+  }
   return _affirmation.hasMatch(s) ? AgentUtterance.yes : AgentUtterance.other;
 }
 
@@ -146,6 +148,12 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
 
   final _entries = <String, _Entry>{};
 
+  /// The card of each token, kept after the confirmation is spent so the
+  /// result can turn the very same card into its outcome.
+  final _cardIds = <String, String>{};
+
+  String? cardIdFor(String token) => _cardIds[token];
+
   int _utterance = 0;
   String _said = '';
 
@@ -157,7 +165,8 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
     _prune();
     return [
       for (final e in _entries.values)
-        if (!e.declined) AgentPendingConfirmation(e.cardId, e.request, e.approved),
+        if (!e.declined)
+          AgentPendingConfirmation(e.cardId, e.request, e.approved),
     ];
   }
 
@@ -192,7 +201,12 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
     while (_entries.length >= maxPending) {
       _entries.remove(_entries.keys.first);
     }
-    _entries[request.token] = _Entry(_cardId(), request, _utterance);
+    final entry = _Entry(_cardId(), request, _utterance);
+    _entries[request.token] = entry;
+    _cardIds[request.token] = entry.cardId;
+    while (_cardIds.length > 24) {
+      _cardIds.remove(_cardIds.keys.first);
+    }
     notifyListeners();
   }
 

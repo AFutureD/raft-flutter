@@ -421,6 +421,27 @@ enum AgentConfirmRisk { change, sensitive }
 /// What the person decided.
 enum AgentConfirmResult { confirmed, cancelled }
 
+/// Where a confirmed operation is, as its confirm card shows it.
+enum AgentOutcomeKind { running, done, failed }
+
+/// The outcome of the operation a confirm card asked about. The card keeps
+/// its place and turns into this: "已发送 ✅" with the thing it made, or the
+/// error with 重试; [onUndo] is the way back while there is one.
+class AgentActionOutcome {
+  const AgentActionOutcome({
+    required this.kind,
+    required this.text,
+    this.undoLabel,
+    this.onUndo,
+    this.onRetry,
+    this.onDismiss,
+  });
+  final AgentOutcomeKind kind;
+  final String text;
+  final String? undoLabel;
+  final VoidCallback? onUndo, onRetry, onDismiss;
+}
+
 /// One line of a confirmation: "状态: 进行中 → 已完成".
 class AgentChange {
   const AgentChange(this.field, this.from, this.to);
@@ -463,8 +484,18 @@ class AgentConfirmCardView extends StatefulWidget {
     this.onCancel,
     this.result,
     this.compact = true,
+    this.outcome,
+    this.attachment,
   });
   final String title;
+
+  /// Once the operation ran (or is running, or failed) the buttons give way
+  /// to this.
+  final AgentActionOutcome? outcome;
+
+  /// Under the changes: the things the operation is about, and after it ran,
+  /// the thing it made (an entity card).
+  final Widget? attachment;
 
   /// "field: from → to" lines.
   final List<String> changes;
@@ -514,8 +545,20 @@ class _AgentConfirmCardViewState extends State<AgentConfirmCardView> {
               child: Row(
                 children: [
                   AgentEntityPill(
-                    sensitive ? '敏感操作' : '将要修改',
-                    fill: sensitive ? warn : t.chip,
+                    switch (widget.outcome?.kind) {
+                      AgentOutcomeKind.running => '执行中',
+                      AgentOutcomeKind.done => '已完成',
+                      AgentOutcomeKind.failed => '没成功',
+                      null => sensitive ? '敏感操作' : '将要修改',
+                    },
+                    fill: switch (widget.outcome?.kind) {
+                      AgentOutcomeKind.done => agentPriorityFill(
+                        t,
+                        AgentPriority.progress,
+                      ),
+                      AgentOutcomeKind.failed => danger,
+                      _ => sensitive ? warn : t.chip,
+                    },
                   ),
                 ],
               ),
@@ -535,8 +578,11 @@ class _AgentConfirmCardViewState extends State<AgentConfirmCardView> {
               AgentBlockLimits.confirmChanges,
             ))
               _ChangeRow(change: AgentChange.parse(line)),
+            if (widget.attachment != null) widget.attachment!,
             const SizedBox(height: 12),
-            if (result == null)
+            if (widget.outcome != null)
+              _OutcomeRow(outcome: widget.outcome!)
+            else if (result == null)
               Row(
                 key: const ValueKey('confirm-card-actions'),
                 children: [
@@ -581,6 +627,70 @@ class _AgentConfirmCardViewState extends State<AgentConfirmCardView> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _OutcomeRow extends StatelessWidget {
+  const _OutcomeRow({required this.outcome});
+  final AgentActionOutcome outcome;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    final o = outcome;
+    final mark = switch (o.kind) {
+      AgentOutcomeKind.done => ' ✅',
+      AgentOutcomeKind.failed => ' ⚠️',
+      AgentOutcomeKind.running => '…',
+    };
+    return Column(
+      key: ValueKey('confirm-card-outcome-${o.kind.name}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${o.text}$mark',
+          style: t.heading(entityMetaCompact + 2, weight: FontWeight.w900),
+        ),
+        if (o.onUndo != null && o.undoLabel != null ||
+            o.onRetry != null ||
+            o.onDismiss != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              children: [
+                if (o.onRetry != null)
+                  Expanded(
+                    child: AgentActionButton(
+                      key: const ValueKey('confirm-card-retry'),
+                      label: '重试',
+                      fill: t.markHighlight,
+                      onTap: o.onRetry!,
+                    ),
+                  ),
+                if (o.onUndo != null && o.undoLabel != null)
+                  Expanded(
+                    child: AgentActionButton(
+                      key: const ValueKey('confirm-card-undo'),
+                      label: '撤销（${o.undoLabel}）',
+                      onTap: o.onUndo!,
+                    ),
+                  ),
+                if (o.onDismiss != null) ...[
+                  if (o.onRetry != null || o.onUndo != null)
+                    const SizedBox(width: 12),
+                  Expanded(
+                    child: AgentActionButton(
+                      key: const ValueKey('confirm-card-dismiss'),
+                      label: '知道了',
+                      onTap: o.onDismiss!,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

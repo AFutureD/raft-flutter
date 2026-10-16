@@ -1,6 +1,7 @@
 import '../../../data/workspace_controller.dart';
 import '../agent_mode_data.dart';
 import '../agent_surface_tools.dart' show AgentFacts;
+import 'agent_audit_log.dart';
 
 /// Whether a capability reads or changes something.
 enum AgentCapabilityKind { query, action }
@@ -19,10 +20,21 @@ enum AgentCapabilityRisk { read, change, sensitive, neverByVoice }
 /// agent-mode page was built with (so tests can stand in for it) and the
 /// facts a generated screen is checked against, which every read teaches.
 class AgentCapabilityEnv {
-  const AgentCapabilityEnv({this.data, this.facts, this.onAgents});
+  const AgentCapabilityEnv({this.data, this.facts, this.onAgents, this.audit});
 
   final AgentModeData? data;
   final AgentFacts? facts;
+
+  /// What the agent did in this session, for `agent.audit_log`. The tools
+  /// that run operations fill it (see [AgentCapabilityTools]).
+  final AgentAuditLog? audit;
+
+  AgentCapabilityEnv withAudit(AgentAuditLog log) => AgentCapabilityEnv(
+    data: data,
+    facts: facts,
+    onAgents: onAgents,
+    audit: log,
+  );
 
   /// Told the typed agent reading a query answered from, and whether it was
   /// the app's cached one (a caller that patches screens from a later fresh
@@ -33,27 +45,68 @@ class AgentCapabilityEnv {
   AgentModeData dataFor(WorkspaceController w) => data ?? AgentModeData(w);
 }
 
+/// A thing an action is about, as an entity card names it (`task`, an id
+/// the app read). The confirm card draws it from the app's own data.
+class AgentPreviewRef {
+  const AgentPreviewRef(this.entity, this.id);
+  final String entity, id;
+
+  Map<String, Object?> toJson() => {'entity': entity, 'id': id};
+
+  @override
+  bool operator ==(Object other) =>
+      other is AgentPreviewRef && other.entity == entity && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(entity, id);
+}
+
 /// What an action will change, shown to the person before anything runs.
 class AgentActionPreview {
   const AgentActionPreview({
     required this.summary,
     this.changes = const [],
     this.reversible = false,
+    this.refs = const [],
   });
 
   /// One sentence: what will happen.
   final String summary;
 
-  /// The concrete changes, one line each.
+  /// The concrete changes, one line each, `字段: 原值 → 新值`.
   final List<String> changes;
   final bool reversible;
+
+  /// The things it is about (the task, the message, the channel), drawn as
+  /// cards under the changes.
+  final List<AgentPreviewRef> refs;
 
   Map<String, Object?> toJson() => {
     'summary': summary,
     if (changes.isNotEmpty) 'changes': changes,
     'reversible': reversible,
+    if (refs.isNotEmpty) 'refs': [for (final r in refs) r.toJson()],
   };
 }
+
+/// How to take back an operation that just ran: captured before it runs
+/// (the previous status, the previous assignee) and good for
+/// [AgentCapabilityTools.undoWindow] afterwards.
+class AgentUndoPlan {
+  const AgentUndoPlan({required this.label, required this.run});
+
+  /// What undoing does, for the button: "改回 待办".
+  final String label;
+
+  /// Does it and answers with what the person reads ("已改回 待办").
+  final Future<String> Function() run;
+}
+
+typedef AgentCapabilityUndo = Future<AgentUndoPlan?> Function(
+  WorkspaceController w,
+  Map<String, Object?> args,
+  AgentCapabilityEnv env,
+);
 
 typedef AgentCapabilityRun = Future<Map<String, Object?>> Function(
   WorkspaceController w,
@@ -85,6 +138,7 @@ class AgentCapability {
     this.parity,
     this.preview,
     this.openRoute,
+    this.prepareUndo,
   });
 
   /// `domain.verb`, lower case: `tasks.board`.
@@ -117,6 +171,10 @@ class AgentCapability {
   /// [AgentCapabilityRisk.neverByVoice]: the page that does it, as an app
   /// route.
   final String? openRoute;
+
+  /// Actions that can be taken back: called right before [run] to capture
+  /// what is needed (null when this call cannot be reversed).
+  final AgentCapabilityUndo? prepareUndo;
 
   bool get isQuery => kind == AgentCapabilityKind.query;
 
@@ -183,9 +241,14 @@ class AgentCapabilityRegistry {
           problems.add('查询的 risk 只能是 read');
         }
         if (c.preview != null) problems.add('查询不需要 preview');
+        if (c.prepareUndo != null) problems.add('查询不需要撤销');
       case AgentCapabilityKind.action:
         if (c.risk == AgentCapabilityRisk.read) {
           problems.add('操作的 risk 不能是 read');
+        }
+        if (c.risk == AgentCapabilityRisk.neverByVoice &&
+            c.prepareUndo != null) {
+          problems.add('不能语音执行的操作没有撤销');
         }
         if (c.risk == AgentCapabilityRisk.neverByVoice) {
           if (c.openRoute == null || !c.openRoute!.startsWith('/')) {

@@ -44,17 +44,40 @@ void main() {
   final registry = agentStandardCapabilities;
 
   group('registry integrity', () {
-    test('about thirty read capabilities, every one well formed', () {
-      expect(registry.all.length, greaterThanOrEqualTo(30));
+    test('about thirty read capabilities and the ordinary operations', () {
+      expect(registry.queries.length, greaterThanOrEqualTo(30));
       for (final c in registry.all) {
         expect(
           AgentCapabilityRegistry.integrityProblems(c),
           isEmpty,
           reason: c.id,
         );
-        expect(c.kind, AgentCapabilityKind.query, reason: c.id);
-        expect(c.risk, AgentCapabilityRisk.read, reason: c.id);
+        if (c.isQuery) {
+          expect(c.risk, AgentCapabilityRisk.read, reason: c.id);
+        } else {
+          // Phase 2: ordinary changes only, each previewed.
+          expect(c.risk, AgentCapabilityRisk.change, reason: c.id);
+          expect(c.preview, isNotNull, reason: c.id);
+        }
       }
+      expect(
+        [
+          for (final c in registry.all)
+            if (!c.isQuery) c.id,
+        ],
+        unorderedEquals([
+          'messages.send',
+          'messages.reply_thread',
+          'messages.react',
+          'activity.mark_read',
+          'activity.mark_done',
+          'channels.join',
+          'tasks.create',
+          'tasks.set_status',
+          'tasks.assign',
+          'tasks.unassign',
+        ]),
+      );
     });
 
     test('ids are unique and domain.verb', () {
@@ -109,9 +132,14 @@ void main() {
           (e as Map)['id'] as String: e['status'] as String,
       };
       var withKey = 0;
+      // The only capability that reads no server endpoint.
+      const local = {'agent.audit_log'};
       for (final c in registry.all) {
         final key = c.parity;
-        if (key == null) continue;
+        if (key == null) {
+          expect(local, contains(c.id), reason: '${c.id} has no parity key');
+          continue;
+        }
         withKey++;
         expect(entries, contains(key), reason: '${c.id} -> $key');
         // The Flutter client has the call: the capability rides on it.
@@ -121,7 +149,7 @@ void main() {
           reason: '${c.id} -> $key is ${entries[key]}',
         );
       }
-      expect(withKey, registry.all.length);
+      expect(withKey, registry.all.length - local.length);
     });
   });
 
@@ -446,12 +474,13 @@ void main() {
       'members.list': ({}, 'members'),
       'members.profile': ({'member': 'Ada'}, 'member'),
       'server.info': ({}, 'current'),
+      'agent.audit_log': ({}, 'entries'),
     };
 
     test('the smoke table covers every registered capability but one', () {
       // tasks.detail has its own tests below (ambiguity, ids).
       expect(
-        {for (final c in registry.all) c.id}.difference(cases.keys.toSet()),
+        {for (final c in registry.queries) c.id}.difference(cases.keys.toSet()),
         {'tasks.detail'},
       );
     });

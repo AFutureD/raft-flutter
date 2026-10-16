@@ -248,6 +248,65 @@ void main() {
   });
 
   group('confirm card', () {
+    testWidgets('turns into its outcome: result, thing made, undo, retry', (
+      t,
+    ) async {
+      var undone = 0, retried = 0, dismissed = 0;
+      Widget card(AgentActionOutcome? outcome) => _host(
+        AgentConfirmCardView(
+          title: '把 #98 改为 进行中',
+          changes: const ['状态: 待办 → 进行中'],
+          outcome: outcome,
+          attachment: const AgentEntityCard(entity: _task),
+          onConfirm: () {},
+          onCancel: () {},
+        ),
+      );
+      await t.pumpWidget(card(null));
+      expect(find.text('确认'), findsOneWidget);
+      expect(find.text('将要修改'), findsOneWidget);
+
+      await t.pumpWidget(
+        card(
+          AgentActionOutcome(
+            kind: AgentOutcomeKind.done,
+            text: '已改为 进行中',
+            undoLabel: '改回 待办',
+            onUndo: () => undone++,
+            onDismiss: () => dismissed++,
+          ),
+        ),
+      );
+      // The same card: the buttons gave way to the result, the thing stays.
+      expect(find.text('确认'), findsNothing);
+      expect(find.text('已完成'), findsWidgets);
+      expect(find.text('已改为 进行中 ✅'), findsOneWidget);
+      expect(find.textContaining('修复返回'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('confirm-card-undo')));
+      await t.tap(find.byKey(const ValueKey('confirm-card-dismiss')));
+      expect((undone, dismissed), (1, 1));
+
+      await t.pumpWidget(
+        card(
+          AgentActionOutcome(
+            kind: AgentOutcomeKind.failed,
+            text: '没有成功',
+            onRetry: () => retried++,
+          ),
+        ),
+      );
+      expect(find.text('没有成功 ⚠️'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('confirm-card-retry')));
+      expect(retried, 1);
+      expect(find.byKey(const ValueKey('confirm-card-undo')), findsNothing);
+
+      await t.pumpWidget(
+        card(const AgentActionOutcome(kind: AgentOutcomeKind.running, text: '正在发送')),
+      );
+      expect(find.text('正在发送…'), findsOneWidget);
+      expect(find.byKey(const ValueKey('confirm-card-retry')), findsNothing);
+    });
+
     test('changes parse as field: from → to', () {
       final c = AgentChange.parse('状态: 进行中 → 已完成');
       expect((c.field, c.from, c.to), ('状态', '进行中', '已完成'));
@@ -275,7 +334,7 @@ void main() {
       expect(find.text('把 #98 标记为已完成？'), findsOneWidget);
       expect(find.text('状态'), findsOneWidget);
       expect(find.text('等验收'), findsOneWidget);
-      expect(find.text('已完成'), findsOneWidget);
+      expect(find.text('已完成'), findsWidgets);
       expect(find.text('将要修改'), findsOneWidget);
       await t.tap(find.text('确认'));
       await t.pump();

@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'dart:math';
 
+import '../../../data/user_error.dart';
 import '../../../data/workspace_controller.dart';
+import 'agent_action_board.dart';
+import 'agent_audit_log.dart';
 import '../references/agent_reference_table.dart';
 import 'agent_capability.dart';
 import 'agent_consent.dart';
+import 'agent_direct_tools.dart';
 import 'agent_capability_args.dart';
 import 'agent_capability_search.dart';
 import 'agent_capability_standard.dart';
@@ -50,7 +54,7 @@ const capabilityToolDeclarations = <Map<String, Object?>>[
   {
     'name': 'act',
     'description':
-        '申请一项“操作”能力。不会马上执行：先返回“将要发生什么”的预览和 confirmToken，屏幕上会自动出现带预览的确认卡；'
+        '申请一项“操作”能力（发消息、改任务等常用操作有各自的专用工具，优先用它们；这里是其余操作的通用入口）。不会马上执行：先返回“将要发生什么”的预览和 confirmToken，屏幕上会自动出现带预览的确认卡；'
         '把预览用一句话告诉用户，等他自己点“确认”或亲口说确认，再用 confirm 执行。敏感操作只认点确认卡，要确认两次。永远不能语音执行的操作只会返回要打开的页面。',
     'parameters': {
       'type': 'object',
@@ -75,6 +79,21 @@ const capabilityToolDeclarations = <Map<String, Object?>>[
         },
       },
       'required': ['token'],
+    },
+  },
+  {
+    'name': 'undo',
+    'description':
+        '撤销刚刚执行完的操作（标已读、改状态、表情、指派等能撤销的）。只在用户说“撤销/改回去/刚才那个不要了”时调用；'
+        '执行后 30 秒内有效，不需要再确认。token 省略就是最近一次能撤销的。',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'token': {
+          'type': 'string',
+          'description': 'confirm 返回的 confirmToken；省略就是最近一次',
+        },
+      },
     },
   },
   {
@@ -151,6 +170,16 @@ class _Pending {
   bool confirmedOnce = false;
 }
 
+class _Ran {
+  _Ran(this.capability, this.args, this.preview);
+  final AgentCapability capability;
+  final Map<String, Object?> args;
+  final AgentActionPreview preview;
+  AgentUndoPlan? plan;
+  DateTime? until;
+  bool undone = false;
+}
+
 /// One run of an operation, for the record of what was done by voice.
 class AgentExecution {
   const AgentExecution(this.capability, this.args, this.at);
@@ -174,9 +203,12 @@ class AgentCapabilityTools {
     AgentEntityRef? Function()? pointed,
     this.actionRisks = const {AgentCapabilityRisk.change},
     this.userConsent,
+    AgentAuditLog? audit,
+    this.board,
     DateTime Function()? now,
     Random? random,
   }) : registry = registry ?? agentStandardCapabilities,
+       audit = audit ?? AgentAuditLog(),
        _references = references ?? (() => AgentReferenceTable.empty),
        _pointed = pointed ?? (() => null),
        _now = now ?? DateTime.now,
@@ -184,7 +216,14 @@ class AgentCapabilityTools {
     index = AgentCapabilityIndex(this.registry.all);
   }
 
-  static const names = {'find', 'query', 'act', 'confirm', 'resolve'};
+  static const names = {'find', 'query', 'act', 'confirm', 'undo', 'resolve'};
+
+  /// Every tool this handler answers: the generic ones and the one-step
+  /// action tools (`send_message` ...), which are `act` on one capability.
+  static Set<String> get allNames => {...names, ...agentDirectActionTools.keys};
+
+  /// How long an operation can be taken back after it ran.
+  static const undoWindow = Duration(seconds: 30);
 
   /// How long a preview waits for its confirmation.
   static const confirmWindow = Duration(minutes: 2);
@@ -192,6 +231,13 @@ class AgentCapabilityTools {
   final WorkspaceController workspace;
   final AgentCapabilityRegistry registry;
   final AgentCapabilityEnv env;
+
+  /// What ran, for `agent.audit_log` and the timeline.
+  final AgentAuditLog audit;
+
+  /// The confirm cards turn into their result here.
+  final AgentActionBoard? board;
+  late final AgentCapabilityEnv _env = env.withAudit(audit);
   late final AgentCapabilityIndex index;
   final AgentReferenceTable Function() _references;
   final AgentEntityRef? Function() _pointed;
@@ -226,9 +272,13 @@ class AgentCapabilityTools {
         return _act(args);
       case 'confirm':
         return _confirm(args);
+      case 'undo':
+        return undoAction('${args['token'] ?? ''}'.trim());
       case 'resolve':
         return _resolve(args);
     }
+    final direct = agentDirectActionTools[name];
+    if (direct != null) return _act({'capability': direct, 'args': args});
     return null;
   }
 
@@ -308,13 +358,12 @@ class AgentCapabilityTools {
       return {'error': '${capability.id} 是操作不是查询：用 act，用户确认后再 confirm'};
     }
     try {
-      final result = await capability.run(workspace, checked, env);
+      final result = await capability.run(workspace, checked, _env);
       final cards = annotateEntities(result);
       return {
         'capability': capability.id,
         'result': cards.result,
-        if (cards.found)
-          'render': '要在屏幕上展示其中某一项：用 EntityCard 组件 {entity, id}，entity 和 id 原样取自结果，不要编',
+        if (cards.found) 'render': '要在屏幕上展示其中某一项：用 EntityCard 组件 {entity, id}，entity 和 id 原样取自结果，不要编',
       };
     } on AgentCapabilityError catch (e) {
       return e.toJson();
@@ -356,7 +405,7 @@ class AgentCapabilityTools {
     }
     final AgentActionPreview preview;
     try {
-      preview = await capability.preview!(workspace, checked, env);
+      preview = await capability.preview!(workspace, checked, _env);
     } on AgentCapabilityError catch (e) {
       return e.toJson();
     }
@@ -446,19 +495,181 @@ class AgentCapabilityTools {
         'warning': '这是敏感操作：请再向用户确认一次，让他再说一遍确认',
       };
     }
+    return _execute(token, pending.capability, pending.args, pending.preview);
+  }
+
+  // ---- running, retrying and taking back -------------------------------
+
+  final _ran = <String, _Ran>{};
+
+  Future<Map<String, Object?>> _execute(
+    String id,
+    AgentCapability c,
+    Map<String, Object?> args,
+    AgentActionPreview preview,
+  ) async {
+    _ran[id] = _Ran(c, args, preview);
+    while (_ran.length > 12) {
+      _ran.remove(_ran.keys.first);
+    }
+    board?.running(id, c.id, preview);
+    AgentUndoPlan? plan;
     try {
-      final result = await pending.capability.run(workspace, pending.args, env);
-      executions.add(
-        AgentExecution(pending.capability.id, pending.args, _now()),
+      plan = await c.prepareUndo?.call(workspace, args, _env);
+    } on Object {
+      plan = null;
+    }
+    try {
+      final result = await c.run(workspace, args, _env);
+      final at = _now();
+      executions.add(AgentExecution(c.id, args, at));
+      final text = '${result['done'] ?? '已完成'}';
+      final entity = _entityOf(result);
+      audit.add(
+        AgentAuditEntry(
+          at: at,
+          capability: c.id,
+          summary: preview.summary,
+          args: _argsText(args),
+          result: text,
+          ok: true,
+          entity: entity?.entity,
+          entityId: entity?.id,
+        ),
+      );
+      final until = at.add(undoWindow);
+      final ran = _ran[id]!..plan = plan;
+      ran.until = plan == null ? null : until;
+      board?.done(
+        id,
+        text: text,
+        entity: entity,
+        undoLabel: plan?.label,
+        undoUntil: plan == null ? null : until,
       );
       return {
         'status': 'done',
-        'capability': pending.capability.id,
+        'capability': c.id,
         'result': result,
+        'card': '确认卡已在屏幕上变成结果：“$text”。用一句话告诉用户做完了，不要重复念细节',
+        if (plan != null)
+          'undo': {
+            'label': plan.label,
+            'seconds': undoWindow.inSeconds,
+            'how': '用户说撤销时调用 undo，30 秒内有效；卡上也有撤销按钮',
+          },
       };
-    } on AgentCapabilityError catch (e) {
-      return e.toJson();
+    } on Object catch (e) {
+      final message = e is AgentCapabilityError
+          ? e.message
+          : userErrorText(e, fallback: '没有成功（服务器没有接受，或网络出错）', where: c.id);
+      audit.add(
+        AgentAuditEntry(
+          at: _now(),
+          capability: c.id,
+          summary: preview.summary,
+          args: _argsText(args),
+          result: '失败：$message',
+          ok: false,
+        ),
+      );
+      board?.failed(id, message);
+      return {
+        if (e is AgentCapabilityError) ...e.toJson() else 'error': message,
+        'status': 'failed',
+        'message': '没有成功，屏幕上的卡片上有“重试”。如实告诉用户原因，不要说成功了',
+      };
     }
+  }
+
+  /// The person pressed 重试 on a failed card: that press is their consent.
+  Future<Map<String, Object?>> retryAction(String id) async {
+    final ran = _ran[id];
+    if (ran == null) return {'error': '这次操作已经过期，请重新说一遍'};
+    return _execute(id, ran.capability, ran.args, ran.preview);
+  }
+
+  /// Takes back the operation [id] (the latest one that can be, when empty),
+  /// by the card's 撤销 button or the `undo` tool. Within [undoWindow] it
+  /// needs no confirmation: it only restores what the person had agreed to
+  /// change.
+  Future<Map<String, Object?>> undoAction(String id) async {
+    final now = _now();
+    String? key = id.isEmpty ? null : id;
+    key ??= _ran.entries
+        .where(
+          (e) =>
+              e.value.plan != null &&
+              !e.value.undone &&
+              (e.value.until?.isAfter(now) ?? false),
+        )
+        .map((e) => e.key)
+        .lastOrNull;
+    final ran = key == null ? null : _ran[key];
+    final plan = ran?.plan;
+    if (ran == null || plan == null || ran.undone) {
+      return {'error': '没有能撤销的操作'};
+    }
+    if (ran.until == null || !now.isBefore(ran.until!)) {
+      return {'error': '撤销的 30 秒已经过了，这个只能再做一次相反的操作（走 act，要用户确认）'};
+    }
+    board?.busy(key!);
+    try {
+      final text = await plan.run();
+      ran.undone = true;
+      audit.add(
+        AgentAuditEntry(
+          at: _now(),
+          capability: ran.capability.id,
+          summary: '撤销：${ran.preview.summary}',
+          args: _argsText(ran.args),
+          result: text,
+          ok: true,
+          undo: true,
+        ),
+      );
+      board?.undone(key!, text);
+      return {'status': 'undone', 'message': text};
+    } on Object catch (e) {
+      final message = e is AgentCapabilityError
+          ? e.message
+          : userErrorText(e, fallback: '没有成功（服务器没有接受，或网络出错）', where: 'undo');
+      audit.add(
+        AgentAuditEntry(
+          at: _now(),
+          capability: ran.capability.id,
+          summary: '撤销：${ran.preview.summary}',
+          args: _argsText(ran.args),
+          result: '撤销失败：$message',
+          ok: false,
+          undo: true,
+        ),
+      );
+      final r = board?[key!];
+      board?.done(
+        key!,
+        text: '${r?.text ?? '已完成'} · 撤销没成功：$message',
+        entity: r?.entity,
+        undoLabel: plan.label,
+        undoUntil: ran.until,
+      );
+      return {'error': '撤销没成功：$message'};
+    }
+  }
+
+  static AgentPreviewRef? _entityOf(Map<String, Object?> result) {
+    final e = result['entity'], id = result['id'];
+    return e is String && id is String && id.isNotEmpty
+        ? AgentPreviewRef(e, id)
+        : null;
+  }
+
+  static String _argsText(Map<String, Object?> args) {
+    final text = [
+      for (final e in args.entries)
+        if (e.value != null) '${e.key}=${e.value}',
+    ].join(' ');
+    return text.length <= 120 ? text : '${text.substring(0, 120)}…';
   }
 
   // ---- resolve ---------------------------------------------------------

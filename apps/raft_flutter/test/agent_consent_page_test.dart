@@ -135,10 +135,8 @@ void main() {
     await t.pumpAndSettle();
   }
 
-  Future<Map<String, Object?>> act(AgentToolHandler call) => call('act', {
-    'capability': 'tasks.finish',
-    'args': '{"taskId":"t3"}',
-  });
+  Future<Map<String, Object?>> act(AgentToolHandler call) =>
+      call('act', {'capability': 'tasks.finish', 'args': '{"taskId":"t3"}'});
 
   testWidgets('act draws the preview itself; confirm waits for a tap', (
     t,
@@ -168,7 +166,13 @@ void main() {
     expect(done['status'], 'done');
     expect(ran, ['t3']);
     expect(again['error'], contains('无效'));
-    expect(find.text('把任务 t3 标记为已完成'), findsNothing);
+    // The same card stays and turns into the result.
+    expect(find.text('把任务 t3 标记为已完成'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('confirm-card-outcome-done')),
+      findsOneWidget,
+    );
+    expect(find.text('确认'), findsNothing);
   });
 
   testWidgets('what the person types after the preview is consent', (t) async {
