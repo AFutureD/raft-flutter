@@ -1441,6 +1441,8 @@ class RaftMessageTile extends StatelessWidget {
     required this.author,
     required this.content,
     required this.timestamp,
+    this.continuationTimestamp,
+    this.timestampTooltip,
     this.onThread,
     this.onActions,
     this.onActionsAt,
@@ -1484,6 +1486,10 @@ class RaftMessageTile extends StatelessWidget {
     this.semanticsActions = const [],
   });
   final String author, content, timestamp;
+
+  /// Clock-only continuation label and its complete date/time tooltip.
+  /// [timestamp] still supplies the full header and compact semantics label.
+  final String? continuationTimestamp, timestampTooltip;
   final RaftMessageRowContext rowContext;
   final String? threadLabel, badge;
 
@@ -1562,6 +1568,8 @@ class RaftMessageTile extends StatelessWidget {
     return RaftMessageRow(
       author: author,
       timestamp: timestamp,
+      continuationTimestamp: continuationTimestamp,
+      timestampTooltip: timestampTooltip,
       semanticsLabel: compactSemantics
           ? [
               author,

@@ -2667,6 +2667,7 @@ class _RaftChatViewState extends State<RaftChatView>
         timestamp: m.createdAt == null ? '' : clock(m.createdAt!),
       );
     }
+    final times = timeFormatter;
     final fontSize = PersonalPresentationScope.bodyFontSize(
       context,
       w.client.user?.string('preferredMessageBodyFontSize'),
@@ -2722,7 +2723,9 @@ class _RaftChatViewState extends State<RaftChatView>
           (m.json['actionMetadata'] is! Map ||
               m.json['actionMetadata']['kind'] != 'action-card') &&
           w.channel?.json['collapseLongMessages'] != false,
-      timestamp: m.createdAt == null ? '' : clock(m.createdAt!),
+      timestamp: times.messageTime(m.createdAt),
+      continuationTimestamp: continuation ? times.clock(m.createdAt) : null,
+      timestampTooltip: continuation ? times.mediumDateTime(m.createdAt) : null,
       // Source renders a badge only for deactivated/departed identities.
       // Sender type is already represented by the scoped avatar, not an Agent badge.
       departureLabel: senderDepartureLabel(m),
