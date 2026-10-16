@@ -304,7 +304,7 @@ void main() {
         headlines: const _Shouting(),
       );
       final got = await custom.attention();
-      expect(got.items.first.headline, 'HEADLINE');
+      expect(got.decisions.first.headline, 'HEADLINE');
     });
   });
 
@@ -313,9 +313,10 @@ void main() {
       'only my tasks wait for a decision; the rest is team progress',
       () async {
         final got = await data.attention();
+        // By recency (3, 11 and 24 hours), not by how long they waited.
         expect(
           [for (final i in got.decisions) i.taskId],
-          ['task1', 'task2', 'task4'],
+          ['task4', 'task2', 'task1'],
         );
         expect(got.team.map((t) => t.id), containsAll(['task3', 'task6']));
         expect(got.teamCount, 2);
@@ -403,11 +404,12 @@ void main() {
     test('mentions come from the inbox and keep the sender', () async {
       final got = await data.attention();
       final m = got.mentions.single;
-      expect(m.reason, '点名找你');
+      expect(m.reason, '点名了你');
       expect(m.waiters, ['Cody']);
-      expect(m.headline, contains('Cody'));
-      expect(m.headline, contains('M7'));
-      expect(m.askLine, '回答一个问题');
+      expect(m.headline, startsWith('Cody：'));
+      expect(m.excerpt, contains('继续跑全量还是先调阈值'));
+      expect(m.place, '#M7 › 检测首片');
+      expect(m.askLine, '回复 Cody');
       expect(m.channelName, 'M7');
     });
 
@@ -436,7 +438,7 @@ void main() {
   group('cards', () {
     test('content comes from the full task text, not the first line', () async {
       final got = await data.attention();
-      final first = got.decisions.first;
+      final first = got.decisions.firstWhere((i) => i.taskId == 'task1');
       expect(first.headline, 'Cardinal 完成了「记住以下内容」，等你确认');
       expect(first.headline, isNot(contains('@')));
       expect(first.ask, '确认');
@@ -447,25 +449,53 @@ void main() {
       expect(first.action, AgentAction.approve);
     });
 
-    test('ranking: waiting time x ownership x people waiting', () async {
+    test('ranking: Activity first, decisions by recency, not by waiting', () async {
       final got = await data.attention();
       expect(
         [for (final i in got.items) i.taskId ?? i.id],
         [
-          'task1',
-          'task2',
+          // The App's Activity rows, as the server orders them ...
+          'activity:thread:th-m7',
+          'activity:channel:ch-x',
+          // ... and the tasks that wait for a decision after them, the most
+          // recently touched first (3, 5, 11 and 24 hours ago).
           'task4',
           'task5',
-          isNot(anyOf('task1', 'task2', 'task4', 'task5')),
+          'task2',
+          'task1',
         ],
       );
-      final ranks = got.decisions.map((i) => i.score).toList();
-      expect(ranks, [...ranks]..sort((a, b) => b.compareTo(a)));
-      expect(got.decisions[0].reason, '2 人在等');
-      expect(got.decisions[1].reason, '你派的任务');
-      expect(got.decisions[2].reason, '指给你的任务');
-      expect(got.decisions[0].waitValue, 24);
-      expect(got.decisions[0].waitUnit, '小时');
+      final task1 = got.decisions.firstWhere((i) => i.taskId == 'task1');
+      expect(task1.reason, '2 人在等');
+      expect(
+        got.decisions.firstWhere((i) => i.taskId == 'task2').reason,
+        '你派的任务',
+      );
+      expect(
+        got.decisions.firstWhere((i) => i.taskId == 'task4').reason,
+        '指给你的任务',
+      );
+      expect(task1.waitValue, 24);
+      expect(task1.waitUnit, '小时');
+      expect(task1.kind, AgentItemKind.decision);
+    });
+
+    test('two equally recent tasks: the more direct one first', () async {
+      w.inbox = [];
+      w.tasks['in_review'] = [
+        _task('c', 'in_review', 4, title: '三', createdById: 'kevin', number: 3),
+        _task(
+          'd',
+          'in_review',
+          4,
+          title: '四 @Kevin',
+          createdById: 'cindy',
+          number: 4,
+        ),
+      ];
+      w.tasks['in_progress'] = [];
+      final got = await data.attention();
+      expect([for (final i in got.items) i.taskId], ['d', 'c']);
     });
 
     test('a mention outweighs an equally old created task', () async {
@@ -505,21 +535,21 @@ void main() {
           _msg(2, 'Cardinal', '正在写入 4 / 6', 3),
         ];
         final got = await data.attention();
-        final p = got.decisions.first.progress;
-        expect(p.map((l) => l.text), [
+        final first = got.decisions.firstWhere((i) => i.taskId == 'task1');
+        expect(first.progress.map((l) => l.text), [
           '@Cardinal 记住设定',
           '正在写入 4 / 6',
           '已记住 6 条',
         ]);
-        expect(got.decisions.first.quote!.who, 'Cardinal');
-        expect(got.decisions.first.quote!.text, '已记住 6 条');
+        expect(first.quote!.who, 'Cardinal');
+        expect(first.quote!.text, '已记住 6 条');
       },
     );
 
     test('a failing thread read falls back to the task text', () async {
       w.failing.add('/messages/channel/th1');
       final got = await data.attention();
-      final first = got.decisions.first;
+      final first = got.decisions.firstWhere((i) => i.taskId == 'task1');
       expect(first.progress, isNotEmpty);
       expect(first.quote!.text, contains('记住以下内容'));
     });
@@ -528,18 +558,29 @@ void main() {
       'header facts: urgent line names who waits and for how long',
       () async {
         final got = await data.attention();
-        expect(got.urgent, 'Cardinal 的确认已经等了 24 小时，Huanan 也在等你');
-        expect(AgentAttention.scopeNote, '只统计你创建、指派给你、或点名你确认的事项');
+        // The top of the home is the newest Activity row.
+        expect(
+          got.urgent,
+          'Cody在#M7 › 检测首片，点名了你：@Kevin 首片 12 张里 2 张误检，继续跑全量还是先调阈值？（1 分钟前）',
+        );
+        // A task that waits for a decision still says who waits and how long.
+        expect(
+          got.decisions.firstWhere((i) => i.taskId == 'task1').urgent,
+          'Cardinal 的确认已经等了 24 小时，Huanan 也在等你',
+        );
+        expect(AgentAttention.scopeNote, contains('任务只统计你创建、指派给你、或点名你确认的事项'));
       },
     );
 
     test('hiding items recounts without touching the rest', () async {
       final got = await data.attention();
-      final less = got.without({got.decisions.first.id});
+      final less = got.without({
+        got.decisions.firstWhere((i) => i.taskId == 'task1').id,
+      });
       expect(less.decisionCount, 2);
       expect(less.blockedCount, 1);
       expect(got.decisionCount, 3);
-      expect(less.urgent, isNot(got.urgent));
+      expect(got.without({got.top!.id}).urgent, isNot(got.urgent));
     });
 
     test('the accepted result is kept for the next visit', () async {
@@ -549,6 +590,143 @@ void main() {
       expect(AgentModeData.cached(w), same(got));
       AgentModeData.clearSession();
       expect(AgentModeData.cached(w), isNull);
+    });
+  });
+
+  group('stale tasks', () {
+    test('a task nobody touched for days is in the stale group, not the feed', () async {
+      w.tasks['in_review'] = [
+        _task(
+          'old1',
+          'in_review',
+          24 * 6,
+          title: '很久以前交的',
+          createdById: 'kevin',
+          number: 21,
+        ),
+        _task('new1', 'in_review', 2, title: '刚交的', createdById: 'kevin', number: 22),
+      ];
+      w.tasks['in_progress'] = [
+        _task(
+          'old2',
+          'in_progress',
+          24 * 4,
+          title: '早就没动了',
+          createdById: 'kevin',
+          claimedById: 'grok',
+          claimedByName: 'Grok',
+          number: 23,
+        ),
+      ];
+      final got = await data.attention();
+      expect([for (final i in got.items) i.taskId ?? i.id], [
+        'activity:thread:th-m7',
+        'activity:channel:ch-x',
+        'new1',
+      ]);
+      expect([for (final i in got.stale) i.taskId], ['old1', 'old2']);
+      expect(got.stale.every((i) => i.kind == AgentItemKind.stale), isTrue);
+      expect(got.stale.first.idle, isTrue);
+      expect(got.stale.first.waitUnit, '天');
+      // The stale group counts apart; it is never the top and is not a decision.
+      expect(got.staleCount, 2);
+      expect(got.decisionCount, 1);
+      expect(got.top!.isActivity, isTrue);
+      expect(got.listed(open: false), hasLength(3));
+      expect(got.listed(open: true), hasLength(5));
+      expect(got.summary, contains('2 件很久没动'));
+    });
+  });
+
+  group('the feed', () {
+    test('a decision is placed among the Activity rows by recency', () async {
+      w.tasks['in_review'] = [
+        _task('t-mid', 'in_review', 5, title: '中间的', createdById: 'kevin', number: 31),
+      ];
+      w.tasks['in_progress'] = [];
+      w.inbox = [
+        for (final (i, hours) in [1, 9].indexed)
+          {
+            'kind': 'channel',
+            'channelId': 'ch$i',
+            'channelName': 'c$i',
+            'lastMessageAt': _ago(hours),
+            'lastMessagePreview': 'm$i',
+            'unreadCount': 1,
+          },
+      ];
+      final got = await data.attention();
+      expect([for (final i in got.items) i.taskId ?? i.id], [
+        'activity:channel:ch0',
+        't-mid',
+        'activity:channel:ch1',
+      ]);
+    });
+
+    test('the Activity row of a task I decide gains the decision', () async {
+      w.tasks['in_review'] = [
+        _task(
+          't1',
+          'in_review',
+          6,
+          title: '待验收的',
+          createdById: 'kevin',
+          number: 41,
+          channel: 'Seed',
+        ),
+      ];
+      w.tasks['in_progress'] = [];
+      w.inbox = [
+        {
+          'kind': 'thread',
+          'threadChannelId': 'th-41',
+          'parentChannelId': 'ch-Seed',
+          'parentChannelName': 'Seed',
+          'parentMessagePreview': '待验收的',
+          'taskNumber': 41,
+          'taskStatus': 'in_review',
+          'latestActivitySenderName': 'Grok',
+          'latestActivityPreview': '做完了，请看',
+          'lastActivityAt': _ago(1),
+          'unreadCount': 2,
+        },
+      ];
+      final got = await data.attention();
+      final only = got.items.single;
+      expect(only.id, 'activity:thread:th-41');
+      expect(only.isActivity, isFalse);
+      expect(only.kind, AgentItemKind.decision);
+      expect(only.canApprove, isTrue);
+      expect(only.taskId, 't1');
+      // It keeps what the row said.
+      expect(only.excerpt, '做完了，请看');
+      expect(only.unread, 2);
+    });
+
+    test('the rows are the first page of the inbox, newest first', () async {
+      final items = data.activityItems([
+        for (var i = 0; i < 3; i++)
+          {
+            'kind': 'dm',
+            'channelId': 'd$i',
+            'channelName': 'p$i',
+            'lastMessageAt': _ago(i + 1),
+            'lastMessagePreview': 'hello $i',
+            'lastMessageSenderName': 'P$i',
+            'lastMessageSenderId': 'p$i',
+            'unreadCount': i == 0 ? 2 : 0,
+          },
+      ]);
+      expect([for (final i in items) i.id], [
+        'activity:dm:d0',
+        'activity:dm:d1',
+        'activity:dm:d2',
+      ]);
+      expect(items.first.reason, '私信你');
+      expect(items.first.unread, 2);
+      expect(items.first.place, startsWith('私信'));
+      expect(items.last.unread, 0);
+      expect(items.first.tone, HfTone.info);
     });
   });
 }
