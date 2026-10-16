@@ -1437,7 +1437,7 @@ class AgentExpand extends AgentIntent {
   final int? index;
 }
 
-/// "下一批": the next cards on the phone's first layer.
+/// "下一批": scroll the front layer on by a screen (the next items).
 class AgentNextBatch extends AgentIntent {
   const AgentNextBatch();
 }

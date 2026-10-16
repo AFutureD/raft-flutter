@@ -37,7 +37,7 @@ class AgentScriptedModel {
   ) async {
     if (RegExp(r'下一批|还有吗|再看看别的').hasMatch(text)) {
       final r = await call('next_batch', const {});
-      say(r['error'] != null ? '${r['error']}' : '现在是${r['showing']}。');
+      say(r['error'] != null ? '${r['error']}' : '${r['showing']}。');
       return true;
     }
     // "讲讲第一条" / "展开第 2 条" / "详细说说这个": the home card in full.
