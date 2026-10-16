@@ -2114,9 +2114,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
             : 0,
         childBuilder: (dockWidth, onEscape) => channelPageHost(
           widget.mobileRoutePage &&
-                  location.channelPage != null &&
-                  location.task == null &&
-                  location.legacyTask == null
+                  (location.task != null || location.legacyTask != null)
+              ? const RaftAdaptiveWorkspace(
+                  content: SizedBox.expand(),
+                  sidebar: SizedBox.shrink(),
+                  rail: SizedBox.shrink(),
+                )
+              : widget.mobileRoutePage && location.channelPage != null
               ? const SizedBox.expand()
               : workspace(dockWidth, onEscape),
           location,
