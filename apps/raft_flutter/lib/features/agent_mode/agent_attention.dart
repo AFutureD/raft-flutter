@@ -282,6 +282,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
     if (!widget.wide) {
       return AgentLayerFrame(
         title: _title,
+        dense: true,
         children: [_summary(a, compact: true), ..._phone(a)],
       );
     }

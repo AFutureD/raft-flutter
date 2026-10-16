@@ -496,6 +496,9 @@ class AgentModeData {
   /// The server-wide task queries return at most this many rows per status.
   static const taskLimit = 50;
 
+  /// Rows read per status before the count is shown as "N+".
+  static const maxTaskRows = 500;
+
   static final _sessions = <String, _AgentSession>{};
 
   static _AgentSession _session(WorkspaceController w) => _sessions.putIfAbsent(
@@ -528,15 +531,53 @@ class AgentModeData {
     String status, {
     String? channelId,
     int limit = taskLimit,
+  }) async =>
+      (await _taskLane(status, channelId: channelId, limit: limit)).rows;
+
+  /// One status lane, paged by `next_cursor` as the Tasks page does (the
+  /// endpoint has no assignee or creator filter, so ownership is filtered by
+  /// the caller). Reads until the server has no more or [maxTaskRows] rows
+  /// are held; [truncated] is true only when rows may still be unread.
+  Future<({List<Map<String, dynamic>> rows, bool truncated})> _taskLane(
+    String status, {
+    String? channelId,
+    int limit = taskLimit,
   }) async {
     final path = channelId == null
         ? '/tasks/server'
         : '/tasks/channel/$channelId';
-    final body = await w.query(
-      path,
-      query: {'status': status, 'detail': 'summary', 'limit': limit},
-    );
-    return _rows(body, 'tasks');
+    final rows = <Map<String, dynamic>>[];
+    final seen = <Object?>{};
+    final cursors = <String>{};
+    String? cursor;
+    while (true) {
+      final Object? body;
+      try {
+        body = await w.query(
+          path,
+          query: {
+            'status': status,
+            'detail': 'summary',
+            'limit': limit,
+            'cursor': ?cursor,
+          },
+        );
+      } catch (_) {
+        // The first page failing is a failed read; a later page leaves the
+        // rows so far, and they are not the whole.
+        if (cursor == null) rethrow;
+        return (rows: rows, truncated: true);
+      }
+      for (final r in _rows(body, 'tasks')) {
+        if (r['id'] == null || seen.add(r['id'])) rows.add(r);
+      }
+      final next = body is Map ? _str(body['next_cursor']) : null;
+      if (next == null || !cursors.add(next)) {
+        return (rows: rows, truncated: false);
+      }
+      if (rows.length >= maxTaskRows) return (rows: rows, truncated: true);
+      cursor = next;
+    }
   }
 
   /// The one write: the task is done. Throws when the server refuses.
@@ -607,16 +648,22 @@ class AgentModeData {
 
   Future<AgentAttention> attention() async {
     final results = await Future.wait([
-      _tasks('in_review'),
-      _tasks('in_progress'),
+      _taskLane('in_review'),
+      _taskLane('in_progress'),
       w.sharedQuery(
         '/channels/inbox',
         query: {'filter': 'all', 'sort': 'desc', 'limit': 30, 'offset': 0},
       ),
     ]);
-    final review = results[0] as List<Map<String, dynamic>>;
-    final progress = results[1] as List<Map<String, dynamic>>;
-    final capped = review.length >= taskLimit || progress.length >= taskLimit;
+    final reviewLane =
+        results[0] as ({List<Map<String, dynamic>> rows, bool truncated});
+    final progressLane =
+        results[1] as ({List<Map<String, dynamic>> rows, bool truncated});
+    final review = reviewLane.rows;
+    final progress = progressLane.rows;
+    // "N+" only when rows were left unread; with every row read, the counts
+    // after ownership filtering are exact.
+    final capped = reviewLane.truncated || progressLane.truncated;
     final now = _now();
     final me = _me;
 

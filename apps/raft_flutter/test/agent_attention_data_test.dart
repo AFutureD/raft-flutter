@@ -52,12 +52,30 @@ class _Server extends WorkspaceController {
   final failing = <String>{};
   final reads = <String>[];
 
+  /// When set, /tasks/server answers like the server: [serverPage] rows per
+  /// page and a `next_cursor` (an offset) while rows remain.
+  int? serverPage;
+  final taskQueries = <Map<String, dynamic>>[];
+  int? failPageAfter;
+
   @override
   Future<dynamic> query(String path, {Map<String, dynamic>? query}) async {
     reads.add(path);
     if (failing.contains(path)) throw StateError('offline');
     if (path == '/tasks/server') {
-      return {'tasks': tasks[query?['status']] ?? const []};
+      taskQueries.add({...?query});
+      final all = tasks[query?['status']] ?? const [];
+      final size = serverPage;
+      if (size == null) return {'tasks': all};
+      final from = int.tryParse('${query?['cursor'] ?? 0}') ?? 0;
+      if (failPageAfter != null && from >= failPageAfter!) {
+        throw StateError('page failed');
+      }
+      final to = (from + size).clamp(0, all.length);
+      return {
+        'tasks': all.sublist(from, to),
+        'next_cursor': to < all.length ? '$to' : null,
+      };
     }
     if (path.startsWith('/messages/channel/')) {
       return {'messages': threads[path.split('/').last] ?? const []};
@@ -66,7 +84,10 @@ class _Server extends WorkspaceController {
   }
 
   @override
-  Future<dynamic> sharedQuery(String path, {Map<String, dynamic>? query}) async {
+  Future<dynamic> sharedQuery(
+    String path, {
+    Map<String, dynamic>? query,
+  }) async {
     if (path == '/channels/inbox') return {'items': inbox};
     return this.query(path, query: query);
   }
@@ -211,7 +232,9 @@ void main() {
         '记住以下内容',
       );
       expect(
-        AgentHeadlines.clean('## **修复** [登录页](https://example.test/a) 的 `bug`。后续再说'),
+        AgentHeadlines.clean(
+          '## **修复** [登录页](https://example.test/a) 的 `bug`。后续再说',
+        ),
         '修复 登录页 的 bug',
       );
       expect(AgentHeadlines.clean('@A @B'), isEmpty);
@@ -286,33 +309,80 @@ void main() {
   });
 
   group('ownership and counts', () {
-    test('only my tasks wait for a decision; the rest is team progress', () async {
+    test(
+      'only my tasks wait for a decision; the rest is team progress',
+      () async {
+        final got = await data.attention();
+        expect(
+          [for (final i in got.decisions) i.taskId],
+          ['task1', 'task2', 'task4'],
+        );
+        expect(got.team.map((t) => t.id), containsAll(['task3', 'task6']));
+        expect(got.teamCount, 2);
+        expect(got.teamLabel, '2');
+        expect(got.capped, isFalse);
+        expect(got.decisionCount, 3);
+        expect(got.blockedCount, 1);
+        expect(got.mentionCount, 1);
+      },
+    );
+
+    List<Map<String, dynamic>> others(int n) => [
+      for (var i = 0; i < n; i++)
+        _task('other$i', 'in_review', 2, number: 100 + i),
+    ];
+
+    test('pages past 50 rows, so the count after filtering is exact', () async {
+      w.serverPage = 50;
+      w.tasks['in_review'] = [...others(120), ...w.tasks['in_review']!];
       final got = await data.attention();
-      expect([for (final i in got.decisions) i.taskId], [
-        'task1',
-        'task2',
-        'task4',
-      ]);
-      expect(got.team.map((t) => t.id), containsAll(['task3', 'task6']));
-      expect(got.teamCount, 2);
-      expect(got.teamLabel, '2');
+      // 120 + 6 rows read in three pages, then only mine are decisions.
+      expect(w.taskQueries.where((q) => q['status'] == 'in_review').length, 3);
+      expect(
+        w.taskQueries
+            .where((q) => q['status'] == 'in_review')
+            .map((q) => q['cursor']),
+        [null, '50', '100'],
+      );
       expect(got.capped, isFalse);
       expect(got.decisionCount, 3);
-      expect(got.blockedCount, 1);
-      expect(got.mentionCount, 1);
+      expect(got.teamLabel, isNot(endsWith('+')));
+      expect(got.teamCount, 120 + 2);
     });
 
-    test('a capped query is not shown as an exact number', () async {
+    test('a bound that was hit is shown as N+', () async {
+      w.serverPage = 50;
       w.tasks['in_review'] = [
-        for (var i = 0; i < 50; i++)
-          _task('other$i', 'in_review', 2, number: 100 + i),
+        ...others(AgentModeData.maxTaskRows + 100),
         ...w.tasks['in_review']!,
       ];
       final got = await data.attention();
       expect(got.capped, isTrue);
       expect(got.teamLabel, endsWith('+'));
-      expect(got.teamLabel, isNot('50'));
-      expect(got.decisionCount, 3);
+      expect(
+        w.taskQueries.where((q) => q['status'] == 'in_review').length,
+        AgentModeData.maxTaskRows ~/ 50,
+      );
+    });
+
+    test('exactly the bound with nothing more is not capped', () async {
+      w.serverPage = 50;
+      w.tasks['in_review'] = others(AgentModeData.maxTaskRows);
+      final got = await data.attention();
+      expect(got.capped, isFalse);
+    });
+
+    test('a later page that fails leaves the count open', () async {
+      w.serverPage = 50;
+      w.failPageAfter = 50;
+      w.tasks['in_review'] = [...others(120), ...w.tasks['in_review']!];
+      final got = await data.attention();
+      expect(got.capped, isTrue);
+    });
+
+    test('a first page that fails is still a failed read', () async {
+      w.failing.add('/tasks/server');
+      expect(data.attention(), throwsStateError);
     });
 
     test('no user means nothing is mine', () async {
@@ -341,23 +411,26 @@ void main() {
       expect(m.channelName, 'M7');
     });
 
-    test('a task already in my decisions is not repeated as a mention', () async {
-      w.inbox.add({
-        'kind': 'thread',
-        'threadChannelId': 'th1',
-        'parentChannelId': 'ch-Seed',
-        'parentChannelName': 'Seed',
-        'taskNumber': 1,
-        'taskStatus': 'in_review',
-        'latestActivitySenderName': 'Cardinal',
-        'latestActivityPreview': '@Kevin 已记住',
-        'lastActivityAt': _ago(1),
-        'unreadCount': 1,
-        'hasMention': true,
-      });
-      final got = await data.attention();
-      expect(got.mentionCount, 1);
-    });
+    test(
+      'a task already in my decisions is not repeated as a mention',
+      () async {
+        w.inbox.add({
+          'kind': 'thread',
+          'threadChannelId': 'th1',
+          'parentChannelId': 'ch-Seed',
+          'parentChannelName': 'Seed',
+          'taskNumber': 1,
+          'taskStatus': 'in_review',
+          'latestActivitySenderName': 'Cardinal',
+          'latestActivityPreview': '@Kevin 已记住',
+          'lastActivityAt': _ago(1),
+          'unreadCount': 1,
+          'hasMention': true,
+        });
+        final got = await data.attention();
+        expect(got.mentionCount, 1);
+      },
+    );
   });
 
   group('cards', () {
@@ -376,13 +449,16 @@ void main() {
 
     test('ranking: waiting time x ownership x people waiting', () async {
       final got = await data.attention();
-      expect([for (final i in got.items) i.taskId ?? i.id], [
-        'task1',
-        'task2',
-        'task4',
-        'task5',
-        isNot(anyOf('task1', 'task2', 'task4', 'task5')),
-      ]);
+      expect(
+        [for (final i in got.items) i.taskId ?? i.id],
+        [
+          'task1',
+          'task2',
+          'task4',
+          'task5',
+          isNot(anyOf('task1', 'task2', 'task4', 'task5')),
+        ],
+      );
       final ranks = got.decisions.map((i) => i.score).toList();
       expect(ranks, [...ranks]..sort((a, b) => b.compareTo(a)));
       expect(got.decisions[0].reason, '2 人在等');
@@ -420,18 +496,25 @@ void main() {
       expect(got.decisions.first.reason, '点名找你');
     });
 
-    test('the last thread messages become progress; the last is the quote', () async {
-      w.threads['th1'] = [
-        _msg(3, 'Cardinal', '已记住 6 条', 1),
-        _msg(1, 'Huanan', '@Cardinal 记住设定', 5),
-        _msg(2, 'Cardinal', '正在写入 4 / 6', 3),
-      ];
-      final got = await data.attention();
-      final p = got.decisions.first.progress;
-      expect(p.map((l) => l.text), ['@Cardinal 记住设定', '正在写入 4 / 6', '已记住 6 条']);
-      expect(got.decisions.first.quote!.who, 'Cardinal');
-      expect(got.decisions.first.quote!.text, '已记住 6 条');
-    });
+    test(
+      'the last thread messages become progress; the last is the quote',
+      () async {
+        w.threads['th1'] = [
+          _msg(3, 'Cardinal', '已记住 6 条', 1),
+          _msg(1, 'Huanan', '@Cardinal 记住设定', 5),
+          _msg(2, 'Cardinal', '正在写入 4 / 6', 3),
+        ];
+        final got = await data.attention();
+        final p = got.decisions.first.progress;
+        expect(p.map((l) => l.text), [
+          '@Cardinal 记住设定',
+          '正在写入 4 / 6',
+          '已记住 6 条',
+        ]);
+        expect(got.decisions.first.quote!.who, 'Cardinal');
+        expect(got.decisions.first.quote!.text, '已记住 6 条');
+      },
+    );
 
     test('a failing thread read falls back to the task text', () async {
       w.failing.add('/messages/channel/th1');
@@ -441,11 +524,14 @@ void main() {
       expect(first.quote!.text, contains('记住以下内容'));
     });
 
-    test('header facts: urgent line names who waits and for how long', () async {
-      final got = await data.attention();
-      expect(got.urgent, 'Cardinal 的确认已经等了 24 小时，Huanan 也在等你');
-      expect(AgentAttention.scopeNote, '只统计你创建、指派给你、或点名你确认的事项');
-    });
+    test(
+      'header facts: urgent line names who waits and for how long',
+      () async {
+        final got = await data.attention();
+        expect(got.urgent, 'Cardinal 的确认已经等了 24 小时，Huanan 也在等你');
+        expect(AgentAttention.scopeNote, '只统计你创建、指派给你、或点名你确认的事项');
+      },
+    );
 
     test('hiding items recounts without touching the rest', () async {
       final got = await data.attention();

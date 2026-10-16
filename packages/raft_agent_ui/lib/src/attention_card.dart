@@ -92,7 +92,7 @@ class _Box extends StatelessWidget {
     final t = RaftAgentTheme.of(context);
     return Container(
       constraints: BoxConstraints(minWidth: minWidth, minHeight: minWidth - 2),
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: EdgeInsets.symmetric(horizontal: size > 20 ? 4 : 6),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: fill ?? t.layer,
@@ -169,7 +169,7 @@ class AgentAttentionSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
-    final style = t.body(large ? 20 : 16.5, weight: FontWeight.w800);
+    final style = t.body(large ? 18 : 16.5, weight: FontWeight.w800);
     Widget count(String key, String? n, AgentPriority p, String label) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -177,19 +177,24 @@ class AgentAttentionSummary extends StatelessWidget {
           key: ValueKey('attention-count-$key'),
           child: AgentCountBadge(n!, priority: p, size: large ? 34 : 15),
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: large ? 4 : 6),
         Flexible(child: Text(label, style: style)),
       ],
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
+      padding: EdgeInsets.fromLTRB(
+        large ? 14 : 18,
+        large ? 2 : 8,
+        large ? 14 : 18,
+        large ? 4 : 6,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (decision != null || blocked != null || mention != null)
             Wrap(
-              spacing: 10,
-              runSpacing: 6,
+              spacing: large ? 6 : 10,
+              runSpacing: large ? 2 : 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 if (decision != null)
@@ -221,7 +226,7 @@ class AgentAttentionSummary extends StatelessWidget {
             SizedBox(
               height: decision == null && blocked == null && mention == null
                   ? 0
-                  : 10,
+                  : (large ? 6 : 10),
             ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -230,7 +235,12 @@ class AgentAttentionSummary extends StatelessWidget {
                 border: Border.all(color: t.line, width: _border(t)),
               ),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                padding: EdgeInsets.fromLTRB(
+                  10,
+                  large ? 5 : 8,
+                  10,
+                  large ? 5 : 8,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -698,7 +708,7 @@ class AgentAttentionCard extends StatelessWidget {
     final radius = BorderRadius.circular(_r(t));
     final meta = agentCardMeta(data);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
       child: DecoratedBox(
         key: ValueKey('attention-card-${data.id}'),
         decoration: BoxDecoration(
@@ -747,9 +757,9 @@ class AgentAttentionCard extends StatelessWidget {
                         child: Padding(
                           padding: EdgeInsets.fromLTRB(
                             14,
-                            lead ? 14 : 10,
+                            lead ? 9 : 6,
                             12,
-                            lead ? 14 : 10,
+                            lead ? 9 : 6,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,7 +776,7 @@ class AgentAttentionCard extends StatelessWidget {
                                     )
                                     .copyWith(height: 1.18),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 meta,
                                 maxLines: 1,

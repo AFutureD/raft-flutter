@@ -1158,8 +1158,15 @@ class _AgentModePageState extends State<AgentModePage> {
                       Expanded(
                         child: AgentSpotlight(
                           controller: _spotlight,
+                          // Room above the front layer only for the layers
+                          // that peek out behind it: one layer, no gap.
                           child: ZLayerStack(
-                            padding: const EdgeInsets.fromLTRB(14, 76, 14, 12),
+                            padding: EdgeInsets.fromLTRB(
+                              14,
+                              6 + 34.0 * (_stack.length - 1).clamp(0, 2),
+                              14,
+                              8,
+                            ),
                             onReveal: _revealTo,
                             layers: [
                               for (final l in _stack)

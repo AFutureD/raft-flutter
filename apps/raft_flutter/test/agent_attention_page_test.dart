@@ -273,6 +273,32 @@ void main() {
       expect(t.takeException(), isNull);
     });
 
+    testWidgets('three cards fit above the voice dock on 360x800', (t) async {
+      // A 1080x2400 phone at 3x. Worst case: every headline takes two lines.
+      t.view.physicalSize = const Size(1080, 2400);
+      t.view.devicePixelRatio = 3;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: AgentModePage(controller: w, data: _Data(w, _three())),
+        ),
+      );
+      await t.pumpAndSettle();
+      final dock = t.getRect(find.byType(AgentVoiceDock));
+      for (final id in ['t1', 't2', 't3']) {
+        expect(card(id), findsOneWidget);
+        final r = t.getRect(card(id));
+        // Every line of the card is on screen, not just its top.
+        expect(
+          r.bottom,
+          lessThanOrEqualTo(dock.top),
+          reason: 'card $id bottom ${r.bottom} vs dock top ${dock.top}',
+        );
+      }
+      expect(t.takeException(), isNull);
+    });
+
     testWidgets('not more than three even with many items', (t) async {
       final many = AgentAttention(
         items: [

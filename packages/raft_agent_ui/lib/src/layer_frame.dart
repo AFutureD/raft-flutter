@@ -14,6 +14,7 @@ class AgentLayerFrame extends StatelessWidget {
     this.children = const [],
     this.loading = false,
     this.error,
+    this.dense = false,
   });
 
   final String title;
@@ -25,11 +26,15 @@ class AgentLayerFrame extends StatelessWidget {
   final bool loading;
   final String? error;
 
+  /// Phone first screen: less air above and below the title so more cards
+  /// fit above the voice dock.
+  final bool dense;
+
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 18, 0, 24),
+      padding: EdgeInsets.fromLTRB(0, dense ? 8 : 18, 0, dense ? 12 : 24),
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -41,7 +46,10 @@ class AgentLayerFrame extends StatelessWidget {
                 child: Text(
                   title,
                   style: t
-                      .heading(t.titleSize, weight: t.titleWeight)
+                      .heading(
+                        dense && t.titleSize > 26 ? 26 : t.titleSize,
+                        weight: t.titleWeight,
+                      )
                       .copyWith(
                         height: 1.1,
                         letterSpacing: t.weightNumerals ? -.8 : 0,
