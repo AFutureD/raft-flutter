@@ -1,5 +1,7 @@
+import 'message_history.dart';
 import 'message_history_pages.dart';
 import 'message_history_positions.dart';
+import 'message_history_summaries.dart';
 import 'message_window_snapshot.dart';
 import 'workspace_controller.dart';
 import 'workspace_message_windows.dart';
@@ -68,7 +70,15 @@ class MessageHistoryNavigation {
         w.historyLimited = limited;
         w.hasMore = hasMore;
       }
-      if (!thread) summaries(id, page['threadSummariesByParentMessageId']);
+      if (!thread) {
+        final carried = page['threadSummariesByParentMessageId'];
+        summaries(
+          id,
+          page is MessageHistoryPage && page.local
+              ? MessageHistorySummaries.unheld(w, id, carried)
+              : carried,
+        );
+      }
       MessageHistoryPages.storage(w.deviceStore.cache)?.memory
           .direction(w, id, older: !newer);
       await w.saveHistoryWindow(id, thread: thread);

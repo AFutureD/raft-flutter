@@ -17,6 +17,7 @@ import 'history_positions.dart';
 import 'history_gaps.dart';
 import 'history_shadows.dart';
 import 'history_committed_reads.dart';
+import 'history_summaries.dart';
 import 'device_storage.dart';
 
 typedef HistoryOperationOrder = Future<T> Function<T>(
@@ -196,6 +197,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       origin TEXT NOT NULL, principal TEXT NOT NULL, server TEXT NOT NULL,
       channel TEXT NOT NULL, request TEXT NOT NULL, verified INTEGER NOT NULL,
       PRIMARY KEY(origin,principal,server,channel,request))''');
+    await SqliteHistorySummaries.create(db);
     await db.customStatement('''CREATE TRIGGER IF NOT EXISTS raft_history_position_purge
       AFTER DELETE ON workspace_cache WHEN OLD.kind='message-history'
       BEGIN
@@ -914,6 +916,11 @@ class SqliteMessageHistory implements MessageHistoryStorage {
           if (older == null) targetRow else ...older.rows,
           ...?newer?.rows,
         ],
+        'threadSummariesByParentMessageId': {
+          ...await _summaries(scope, [targetRow]),
+          ...?older?.summaries,
+          ...?newer?.summaries,
+        },
         'targetMessageId': messageId,
         'channelId': scope.channel,
         'hasOlder': older?.hasMore ?? true,
@@ -1025,6 +1032,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
             (rows.length > limit || !complete),
         historyLimited: marker['historyLimited'] == true,
         verifiedAt: DateTime.fromMillisecondsSinceEpoch(stamp),
+        summaries: await _summaries(scope, decoded),
       );
     }
     // Stored intervals are disjoint and non-adjacent. The nearest preceding
@@ -1077,8 +1085,39 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       hasMore: hasMore,
       historyLimited: marker['historyLimited'] == true,
       verifiedAt: DateTime.fromMillisecondsSinceEpoch(verified),
+      summaries: await _summaries(scope, decoded),
     );
   }
+
+  /// Reply previews of the parents among [rows], read with the rows.
+  Future<Map<String, dynamic>> _summaries(
+    MessageHistoryScope scope,
+    Iterable<Map<String, dynamic>> rows,
+  ) => SqliteHistorySummaries.read(
+    db,
+    scope.origin,
+    scope.principal,
+    scope.server,
+    scope.channel,
+    rows.map((row) => row['id']),
+  );
+
+  @override
+  Future<void> saveSummaries(
+    MessageHistoryScope scope,
+    Map<String, dynamic> summaries,
+  ) => order(() async {
+    await _ready();
+    final marker = await _marker(scope);
+    if (marker == null ||
+        marker['authority'] != scope.authority ||
+        await _denial(scope) >= 0) {
+      return;
+    }
+    await db.transaction(
+      () => SqliteHistorySummaries.write(db, scope, summaries),
+    );
+  });
 
   Future<void> _touchRows(MessageHistoryScope scope, List<Map<String, dynamic>> rows) async {
     if (rows.isEmpty) return;
@@ -1272,6 +1311,18 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         );
         await HistoryShadows(db).refresh(scope);
       }
+      // The page is the authority for the parents it carries: a parent
+      // without a summary here has none now. A response without the field
+      // (older server) says nothing either way.
+      final wireSummaries = remote['threadSummariesByParentMessageId'];
+      if (wireSummaries is Map && scope.parentMessage == null) {
+        await SqliteHistorySummaries.write(
+          db,
+          scope,
+          wireSummaries,
+          absent: [for (final row in rows) row['id'] as String],
+        );
+      }
       if (lower <= upper) {
         await _range(
           scope,
@@ -1380,14 +1431,27 @@ class SqliteMessageHistory implements MessageHistoryStorage {
         await _revision(scope, advance: true),
         onlyNew: true,
       );
-      await _setMarker(scope, {
-        ...?marker,
-        ...snapshot,
-        'messages': <dynamic>[],
-        'windowSize': raw.length.clamp(50, 500),
-        'channelId': channel,
-        if (kind == 'thread-window') 'parentMessageId': id,
-      });
+      // Reply previews live beside their parent rows, not in the marker.
+      // A marker from before the table moves its previews over first.
+      if (kind == 'window') {
+        for (final held in [
+          marker?['threadSummaries'],
+          snapshot['threadSummaries'],
+        ]) {
+          if (held is Map) await SqliteHistorySummaries.write(db, scope, held);
+        }
+      }
+      await _setMarker(
+        scope,
+        {
+          ...?marker,
+          ...snapshot,
+          'messages': <dynamic>[],
+          'windowSize': raw.length.clamp(50, 500),
+          'channelId': channel,
+          if (kind == 'thread-window') 'parentMessageId': id,
+        }..remove('threadSummaries'),
+      );
     });
     return true;
   }
@@ -1505,6 +1569,13 @@ class SqliteMessageHistory implements MessageHistoryStorage {
               'messages': local.rows,
               'hasMore': local.hasMore,
               'historyLimited': local.historyLimited,
+              // Markers written before previews had their own table still
+              // carry them; the table wins where it has the parent.
+              'threadSummaries': {
+                if (marker['threadSummaries'] case final Map old)
+                  ...Map<String, dynamic>.from(old),
+                ...local.summaries,
+              },
             };
     }
 

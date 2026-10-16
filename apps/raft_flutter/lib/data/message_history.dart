@@ -52,14 +52,19 @@ class LocalMessageHistoryPage {
     required this.hasMore,
     required this.historyLimited,
     required this.verifiedAt,
+    this.summaries = const {},
   }) : rows = List.unmodifiable(rows);
   final List<Map<String, dynamic>> rows;
   final bool hasMore, historyLimited;
   final DateTime verifiedAt;
+
+  /// Reply previews of the parents in [rows], by parent message id.
+  final Map<String, dynamic> summaries;
   Map<String, dynamic> get page => {
     'messages': rows,
     'historyLimited': historyLimited,
     'hasMore': hasMore,
+    if (summaries.isNotEmpty) 'threadSummariesByParentMessageId': summaries,
   };
 }
 
@@ -160,6 +165,13 @@ abstract interface class MessageHistoryStorage {
     Iterable<String> ids,
   );
   Future<int> migrateLegacy(MessageHistoryScope scope, {int limit = 4});
+
+  /// Reply previews follow their parent rows: stored only for a live row,
+  /// and removed with it. The network page remains the authority.
+  Future<void> saveSummaries(
+    MessageHistoryScope scope,
+    Map<String, dynamic> summaries,
+  );
 
   /// Orders receiver events, including asynchronous parent-scope resolution.
   /// This queue is separate from the database queue to avoid nested writes.

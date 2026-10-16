@@ -5,6 +5,7 @@ import 'cached_history_window.dart';
 import 'history_read_policy.dart';
 import 'message_history_pages.dart';
 import 'message_history_verification.dart';
+import 'message_history_summaries.dart';
 import 'message_window_snapshot.dart';
 import 'reading_positions.dart';
 import 'workspace_controller.dart';
@@ -145,6 +146,7 @@ class MessageHistoryPositions {
     );
     w.messageWindows.setContextMode(request, id, w.hasNewer);
     w.messageWindows.setDiskOnly(request, id, true);
+    MessageHistorySummaries.restore(w, id, page);
     w.client.joinChannel(id);
     w.channelLoading = false;
     w.notifyListeners();

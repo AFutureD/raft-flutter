@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Variable, driftRuntimeOptions;
@@ -16,6 +17,7 @@ import 'package:raft_sync/raft_sync.dart' show threadRepliesProducer;
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'history_capacity_test.dart' as f;
 import 'history_memory_viewport_test.dart' show drainIo;
 import 'support/history_automatic_fixture.dart';
 
@@ -422,7 +424,7 @@ void main() {
         automaticHistoryMaintenance: false,
       );
       addTearDown(cache.close);
-      await cache.messageHistory.revision(
+      await cache.messageHistory.receiverRevision(
         MessageHistoryScope(
           origin: 'https://verify.invalid',
           principal: 'alice',
@@ -438,6 +440,90 @@ void main() {
       expect(await _leaks(cache, 'm25 #1', true), 0);
       expect(await _leaks(cache, 'm100 #1', true), greaterThan(0));
     });
+  });
+
+  group('upgrade', () {
+    test('last release window keeps its previews and rows', () async {
+      // Initial: the previous release saved a window with a preview in its
+      // JSON snapshot. Event: this release opens that database.
+      // Expected: rows and preview readable at once and, once migrated,
+      // from the history store; nothing is lost or invented.
+      var cache = DriftWorkspaceCache(
+        NativeDatabase(file),
+        automaticHistoryMaintenance: false,
+      );
+      final window = jsonEncode({
+        'version': 1,
+        'windowKind': 'tail',
+        'authority': 'member',
+        'parentChannelId': 'chat',
+        'messages': f.rows('chat', 1, 3, bytes: 8),
+        'hasMore': false,
+        'historyLimited': false,
+        'threadSummaries': {'chat-2': _summary('chat-2', 4)},
+      });
+      // Straight into the v2 table: no history store has seen this window.
+      await cache.customStatement(
+        'INSERT INTO workspace_cache VALUES(?,?,?,?,?,?)',
+        [f.account.origin, 'alice', 'one', 'window', 'chat', window],
+      );
+      final opened = await cache.read(
+        f.account.origin,
+        'alice',
+        'one',
+        'window',
+        'chat',
+      );
+      expect((opened['messages'] as List), hasLength(3));
+      expect(opened['threadSummaries']['chat-2']['replyCount'], 4);
+      await cache.messageHistory.receiver.settled;
+      await cache.close();
+      cache = DriftWorkspaceCache(
+        NativeDatabase(file),
+        automaticHistoryMaintenance: false,
+      );
+      addTearDown(() => cache.close());
+      final page = await cache.messageHistory.readPage(f.scope('chat'));
+      expect(page?.rows, hasLength(3));
+      expect(page?.summaries['chat-2']?['replyCount'], 4);
+    });
+
+    test(
+      'a history store from before the previews table gains it without loss',
+      () async {
+        // Initial: a history database created by the build before this one.
+        // Event: this build opens it. Expected: rows intact, previews work.
+        var cache = DriftWorkspaceCache(
+          NativeDatabase(file),
+          automaticHistoryMaintenance: false,
+        );
+        await f.store(cache, f.scope('chat'), f.rows('chat', 1, 3, bytes: 8));
+        await cache.customStatement('DROP TABLE raft_history_summaries');
+        for (final trigger in [
+          'raft_history_summaries_row_gone',
+          'raft_history_summaries_row_retired',
+          'raft_history_summaries_purge',
+        ]) {
+          await cache.customStatement('DROP TRIGGER $trigger');
+        }
+        await cache.close();
+        cache = DriftWorkspaceCache(
+          NativeDatabase(file),
+          automaticHistoryMaintenance: false,
+        );
+        addTearDown(() => cache.close());
+        expect(
+          (await cache.messageHistory.readPage(f.scope('chat')))?.rows,
+          hasLength(3),
+        );
+        await cache.messageHistory.saveSummaries(f.scope('chat'), {
+          'chat-2': _summary('chat-2', 2),
+          'not-here': _summary('not-here', 2),
+        });
+        final page = await cache.messageHistory.readPage(f.scope('chat'));
+        expect(page?.summaries.keys, ['chat-2']);
+      },
+    );
   });
 
   testWidgets(

@@ -50,6 +50,7 @@ import 'message_history_events.dart';
 import 'message_history_snapshots.dart';
 import 'message_history_navigation.dart';
 import 'message_history_positions.dart';
+import 'message_history_summaries.dart';
 import 'thread_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'cache_clear.dart';
@@ -729,6 +730,9 @@ class WorkspaceController extends ChangeNotifier
         request.parentChannelId,
         () => {},
       )[request.parentMessageId] = result.summary;
+      MessageHistorySummaries.store(this, request.parentChannelId, {
+        request.parentMessageId: result.summary,
+      });
       _applyThreadUnread(request.threadChannelId, result.summary);
       if (channel?.id == request.parentChannelId) _saveWindow(channel!.id);
       notifyListeners();
@@ -768,6 +772,7 @@ class WorkspaceController extends ChangeNotifier
       if (owner != null && !_revokedChannels.contains(owner)) {
         _summariesByChannel.putIfAbsent(owner, () => {})[parentId] =
             result.summary;
+        MessageHistorySummaries.store(this, owner, {parentId: result.summary});
       }
       _applyThreadUnread(payload['threadChannelId'], payload);
     }
@@ -3367,9 +3372,16 @@ class WorkspaceController extends ChangeNotifier
       replace: true,
     );
     final held = _summariesByChannel[id] ?? const {};
+    // The fresh page decides for the parents it carries; a page without the
+    // field (older server) decides nothing.
+    final Set<dynamic> answered =
+        fresh['threadSummariesByParentMessageId'] is Map
+        ? {for (final row in rows) row['id']}
+        : const {};
     _summariesByChannel[id] = {
       for (final row in retained)
-        if (held[row['id']] != null) row['id'] as String: held[row['id']],
+        if (held[row['id']] != null && !answered.contains(row['id']))
+          row['id'] as String: held[row['id']],
       ..._hydrateThreadSummaries(
         fresh['threadSummariesByParentMessageId'],
         id,
