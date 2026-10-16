@@ -209,30 +209,3 @@ class HfStatBlock extends StatelessWidget {
     );
   }
 }
-
-/// "在手机上处理": what a TV shows where a phone has buttons.
-class HfPhoneBadge extends StatelessWidget {
-  const HfPhoneBadge({super.key});
-  static const text = '在手机上处理';
-
-  @override
-  Widget build(BuildContext context) {
-    final hf = HandsFree.of(context);
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: hf.sp(12), vertical: hf.sp(5)),
-      decoration: BoxDecoration(
-        color: HfColors.card,
-        borderRadius: BorderRadius.circular(hf.sp(10)),
-        border: Border.all(color: HfColors.ink, width: hf.sp(2.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.smartphone, size: hf.sp(18), color: HfColors.ink),
-          SizedBox(width: hf.sp(6)),
-          Text(text, style: hf.type(HfType.body)),
-        ],
-      ),
-    );
-  }
-}

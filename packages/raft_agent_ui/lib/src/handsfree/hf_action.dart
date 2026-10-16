@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../spotlight.dart';
-import 'hf_basics.dart';
 import 'hf_scope.dart';
 import 'hf_tokens.dart';
 
@@ -16,9 +15,8 @@ enum HfActionKind {
   text,
 }
 
-/// A big button, at least 56 s high. A TV cannot press anything, so there it
-/// draws nothing; group actions in [HfActions] to get the "在手机上处理" badge
-/// in their place.
+/// A big button, at least 56 s high. On a TV (nothing can be pressed) the
+/// same pill is drawn as a voice hint, "说「通过」", and does not react.
 class HfAction extends StatefulWidget {
   const HfAction(
     this.label, {
@@ -27,6 +25,7 @@ class HfAction extends StatefulWidget {
     this.icon,
     this.onPressed,
     this.focusId,
+    this.voice,
   });
 
   final String label;
@@ -36,6 +35,9 @@ class HfAction extends StatefulWidget {
 
   /// Makes the button something the agent can point at.
   final String? focusId;
+
+  /// What the pill says on a TV; null is `说「label」`.
+  final String? voice;
 
   static const minHeight = 56.0;
 
@@ -49,7 +51,8 @@ class _HfActionState extends State<HfAction> {
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    if (!hf.interactive) return const SizedBox.shrink();
+    final hint = !hf.interactive;
+    final voice = widget.voice ?? '说「${widget.label}」';
     final text = widget.kind == HfActionKind.text;
     final radius = BorderRadius.circular(hf.sp(14));
     final lift = hf.sp(4);
@@ -74,29 +77,38 @@ class _HfActionState extends State<HfAction> {
                 ),
               ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.icon != null) ...[
-            Icon(widget.icon, size: hf.sp(24), color: HfColors.ink),
-            SizedBox(width: hf.sp(8)),
-          ],
-          Flexible(
-            // Never cut a label with "…": a narrow button shrinks it.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                widget.label,
-                maxLines: 1,
-                style: hf.type(
-                  HfType.headline,
-                  color: text ? HfColors.inkSoft : HfColors.ink,
-                ),
+      child: hint
+          ? _VoiceHint(
+              voice,
+              style: hf.type(
+                HfType.headline,
+                color: text ? HfColors.inkSoft : HfColors.ink,
               ),
+              lead: hf.type(HfType.body, color: HfColors.inkSoft),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: hf.sp(24), color: HfColors.ink),
+                  SizedBox(width: hf.sp(8)),
+                ],
+                Flexible(
+                  // Never cut a label with "…": a narrow button shrinks it.
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.label,
+                      maxLines: 1,
+                      style: hf.type(
+                        HfType.headline,
+                        color: text ? HfColors.inkSoft : HfColors.ink,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
     if (text) {
       face = CustomPaint(
@@ -118,29 +130,66 @@ class _HfActionState extends State<HfAction> {
         child: face,
       ),
     );
-    button = MouseRegion(
-      cursor: widget.onPressed == null
-          ? MouseCursor.defer
-          : SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _down = true),
-        onTapCancel: () => setState(() => _down = false),
-        onTapUp: (_) => setState(() => _down = false),
-        onTap: widget.onPressed,
+    if (hint) {
+      button = Semantics(label: voice, excludeSemantics: true, child: button);
+    } else {
+      button = MouseRegion(
+        cursor: widget.onPressed == null
+            ? MouseCursor.defer
+            : SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => setState(() => _down = true),
+          onTapCancel: () => setState(() => _down = false),
+          onTapUp: (_) => setState(() => _down = false),
+          onTap: widget.onPressed,
+          child: button,
+        ),
+      );
+      button = Semantics(
+        button: true,
+        label: widget.label,
+        enabled: widget.onPressed != null,
+        excludeSemantics: true,
         child: button,
-      ),
-    );
-    button = Semantics(
-      button: true,
-      label: widget.label,
-      enabled: widget.onPressed != null,
-      excludeSemantics: true,
-      child: button,
-    );
+      );
+    }
     final id = widget.focusId;
     return id == null ? button : AgentFocusable(id: id, child: button);
   }
+}
+
+/// "说「打开讨论」" on one line when it fits, else "说" above "「打开讨论」".
+class _VoiceHint extends StatelessWidget {
+  const _VoiceHint(this.voice, {required this.style, required this.lead});
+  final String voice;
+  final TextStyle style, lead;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final one = TextPainter(
+        text: TextSpan(text: voice, style: style),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final at = voice.indexOf('「');
+      final fits = one.width <= box.maxWidth || at <= 0;
+      // A narrow pill shrinks the words rather than cutting them.
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        child: fits
+            ? Text(voice, maxLines: 1, style: style)
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(voice.substring(0, at), maxLines: 1, style: lead),
+                  Text(voice.substring(at), maxLines: 1, style: style),
+                ],
+              ),
+      );
+    },
+  );
 }
 
 class _DashedOutline extends CustomPainter {
@@ -185,8 +234,8 @@ class _DashedOutline extends CustomPainter {
 }
 
 /// The actions of a card, laid out for the width: side by side when there is
-/// room (not on a phone), else the first on its own line above the rest. On a TV they become
-/// one "在手机上处理" badge.
+/// room (not on a phone), else the first on its own line above the rest. On
+/// a TV they are voice hints.
 class HfActions extends StatelessWidget {
   const HfActions({super.key, required this.actions});
   final List<HfAction> actions;
@@ -195,12 +244,6 @@ class HfActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     if (actions.isEmpty) return const SizedBox.shrink();
-    if (!hf.interactive) {
-      return const Align(
-        alignment: Alignment.centerLeft,
-        child: HfPhoneBadge(),
-      );
-    }
     final gap = hf.sp(12);
     Widget row(List<HfAction> items) => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,14 +275,16 @@ class HfActions extends StatelessWidget {
 }
 
 /// A question with two answers: what is about to happen, then 确认 / 取消.
-/// It can also be answered aloud ("对", "取消"). A TV shows the question and
-/// the words to say, nothing to press.
+/// It can also be answered aloud ("对", "取消"); on a TV the two pills are
+/// the words to say.
 class HfConfirm extends StatelessWidget {
   const HfConfirm({
     super.key,
     required this.message,
     this.confirmLabel = '确认',
     this.cancelLabel = '取消',
+    this.confirmVoice = '说「对」确认',
+    this.cancelVoice = '说「取消」',
     this.onConfirm,
     this.onCancel,
     this.focusId,
@@ -248,21 +293,15 @@ class HfConfirm extends StatelessWidget {
   /// "将把 #12 指派给 Bo —— 确认？"
   final String message;
   final String confirmLabel, cancelLabel;
+
+  /// What the two pills say on a TV.
+  final String confirmVoice, cancelVoice;
   final VoidCallback? onConfirm, onCancel;
   final String? focusId;
 
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    Widget voice(String text) => Container(
-      padding: EdgeInsets.symmetric(horizontal: hf.sp(10), vertical: hf.sp(3)),
-      decoration: BoxDecoration(
-        color: HfColors.cream,
-        borderRadius: BorderRadius.circular(hf.sp(8)),
-        border: Border.all(color: HfColors.ink, width: hf.sp(2)),
-      ),
-      child: Text(text, style: hf.type(HfType.body)),
-    );
     final card = Container(
       padding: EdgeInsets.all(hf.sp(16)),
       decoration: BoxDecoration(
@@ -303,53 +342,36 @@ class HfConfirm extends StatelessWidget {
             style: hf.type(HfType.headline),
           ),
           SizedBox(height: hf.sp(14)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: HfAction(
+                  confirmLabel,
+                  kind: HfActionKind.primary,
+                  icon: Icons.check_rounded,
+                  voice: confirmVoice,
+                  onPressed: onConfirm,
+                ),
+              ),
+              SizedBox(width: hf.sp(12)),
+              Expanded(
+                child: HfAction(
+                  cancelLabel,
+                  icon: Icons.close_rounded,
+                  voice: cancelVoice,
+                  onPressed: onCancel,
+                ),
+              ),
+            ],
+          ),
           if (hf.interactive) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: HfAction(
-                    confirmLabel,
-                    kind: HfActionKind.primary,
-                    icon: Icons.check_rounded,
-                    onPressed: onConfirm,
-                  ),
-                ),
-                SizedBox(width: hf.sp(12)),
-                Expanded(
-                  child: HfAction(
-                    cancelLabel,
-                    icon: Icons.close_rounded,
-                    onPressed: onCancel,
-                  ),
-                ),
-              ],
-            ),
             SizedBox(height: hf.sp(6)),
             Text(
               '也可以直接说“对”或“取消”',
               style: hf.type(HfType.meta, color: HfColors.inkMuted),
             ),
-          ] else
-            Row(
-              children: [
-                Text('说', style: hf.type(HfType.body, color: HfColors.inkSoft)),
-                SizedBox(width: hf.sp(8)),
-                voice('对'),
-                SizedBox(width: hf.sp(8)),
-                Text(
-                  '确认，说',
-                  style: hf.type(HfType.body, color: HfColors.inkSoft),
-                ),
-                SizedBox(width: hf.sp(8)),
-                voice('取消'),
-                SizedBox(width: hf.sp(8)),
-                Text(
-                  '放弃',
-                  style: hf.type(HfType.body, color: HfColors.inkSoft),
-                ),
-              ],
-            ),
+          ],
         ],
       ),
     );

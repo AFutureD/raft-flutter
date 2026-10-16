@@ -225,7 +225,7 @@ class HfDetail extends StatelessWidget {
         ],
         card,
         if (actions.isNotEmpty) ...[
-          SizedBox(height: hf.sp(beside ? 14 : 18)),
+          SizedBox(height: hf.sp(beside ? 10 : 18)),
           HfActions(actions: actions),
         ],
       ],

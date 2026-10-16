@@ -129,7 +129,7 @@ void main() {
         expect(seen.s, closeTo(s, 1e-9));
         expect(seen.surface, surface);
         expect(seen.u, closeTo(4 * s, 1e-9));
-        expect(seen.rowGap, closeTo((name == 'tv' ? 3.5 : 3) * 4 * s, 1e-9));
+        expect(seen.rowGap, closeTo(3 * 4 * s, 1e-9));
         // The headline is 22 s, a row's text never smaller than the ramp.
         expect(seen.type(HfType.headline).fontSize, closeTo(22 * s, 1e-9));
       });
@@ -295,25 +295,46 @@ void main() {
       expect(pressed, 1);
     });
 
-    testWidgets('a TV draws no buttons, a badge says where to act', (t) async {
+    testWidgets('on a TV the same pills are voice hints that do not react', (
+      t,
+    ) async {
       _size(t, _tv);
+      var pressed = 0;
       await t.pumpWidget(
         _app(
-          Column(
-            children: [
-              HfAction('通过', kind: HfActionKind.primary, onPressed: () {}),
-              HfActions(actions: [HfAction('通过'), const HfAction('稍后')]),
+          HfActions(
+            actions: [
+              HfAction(
+                '通过',
+                kind: HfActionKind.primary,
+                onPressed: () => pressed++,
+              ),
+              HfAction('打开讨论', onPressed: () => pressed++),
+              HfAction(
+                '稍后',
+                kind: HfActionKind.text,
+                onPressed: () => pressed++,
+              ),
             ],
           ),
           surface: HfSurface.tv,
         ),
       );
       expect(find.text('通过'), findsNothing);
-      expect(find.text('稍后'), findsNothing);
-      expect(find.text('在手机上处理'), findsOneWidget);
+      expect(find.textContaining('「通过」'), findsOneWidget);
+      expect(find.textContaining('「打开讨论」'), findsOneWidget);
+      expect(find.textContaining('「稍后」'), findsOneWidget);
+      expect(find.text('在手机上处理'), findsNothing);
+      // Same pills: still at least 56 s (112 px at s = 2) high.
+      expect(
+        t.getSize(find.byType(HfAction).first).height,
+        greaterThanOrEqualTo(112),
+      );
+      await t.tap(find.textContaining('「通过」'), warnIfMissed: false);
+      expect(pressed, 0);
     });
 
-    testWidgets('a confirm card on a TV only shows the question', (t) async {
+    testWidgets('a confirm card on a TV shows the words to say', (t) async {
       _size(t, _tv);
       await t.pumpWidget(
         _app(
@@ -322,8 +343,9 @@ void main() {
         ),
       );
       expect(find.text('将把 #12 指派给 Bo —— 确认？'), findsOneWidget);
-      expect(find.byType(HfAction), findsNothing);
       expect(find.text('确认'), findsNothing);
+      expect(find.textContaining('「对」确认'), findsOneWidget);
+      expect(find.textContaining('「取消」'), findsOneWidget);
       await t.pumpWidget(
         _app(
           const HfConfirm(message: '将把 #12 指派给 Bo —— 确认？'),
@@ -348,23 +370,27 @@ void main() {
         await t.pumpWidget(_app(_screen(), surface: surface));
         expect(t.takeException(), isNull);
         if (name == 'tv') {
+          // The desktop layout, without the dock: the mood is in the strip.
           expect(find.byType(HfDock), findsNothing);
           expect(find.byIcon(Icons.mic_rounded), findsNothing);
-          expect(find.text('在手机上处理'), findsOneWidget);
+          expect(find.text('🤔'), findsOneWidget);
         } else {
           expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
         }
-        if (name == 'desktop') {
+        if (name == 'phone') {
+          expect(find.byType(HfDetail), findsNothing);
+        } else {
           // Wide enough: the detail stands beside the list.
           expect(find.byType(HfDetail), findsOneWidget);
-          expect(find.text('通过'), findsOneWidget);
-        } else {
-          expect(find.byType(HfDetail), findsNothing);
+          expect(
+            find.textContaining(name == 'tv' ? '「通过」' : '通过'),
+            findsOneWidget,
+          );
         }
         // The page fits: nothing is cut off at the bottom. (The test font is
-        // wider than the real one, so the desktop split is judged by eye in
+        // wider than the real one, so the split layouts are judged by eye in
         // the gallery screenshots.)
-        if (name != 'desktop') {
+        if (name == 'phone') {
           final scroll = t.state<ScrollableState>(
             find.byType(Scrollable).first,
           );

@@ -5,27 +5,17 @@ import 'hf_basics.dart';
 import 'hf_scope.dart';
 
 /// The top of a screen: the title sticker and the count line. A phone stacks
-/// them; wider screens put them on one line, with "在手机上处理" at the right
-/// on a TV.
+/// them; wider screens (desktop, TV) put them on one line.
 class HfHeader extends StatelessWidget {
-  const HfHeader({
-    super.key,
-    required this.title,
-    this.count,
-    this.trailing,
-    this.phoneHint = true,
-  });
+  const HfHeader({super.key, required this.title, this.count, this.trailing});
   final String title;
   final Widget? count;
   final Widget? trailing;
 
-  /// A TV shows the "在手机上处理" badge at the right.
-  final bool phoneHint;
-
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
-    final end = trailing ?? (hf.tv && phoneHint ? const HfPhoneBadge() : null);
+    final end = trailing;
     if (hf.phone) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -361,7 +361,6 @@ class _ListScreen extends StatelessWidget {
     return HfScreen(
       header: HfHeader(
         title: '所有 Agent 在做什么',
-        phoneHint: false,
         count: HfCountLine(
           counts: [
             HfCount(HfTone.progress, n(HfTone.progress), '个在忙'),
@@ -412,7 +411,7 @@ class _DetailScreen extends StatelessWidget {
     final hf = HandsFree.of(context);
     final foot = _foot(hf, '修复已提交，现在通过吗？', '😊');
     return HfScreen(
-      header: const HfHeader(title: '#12 修复登录跳转', phoneHint: false),
+      header: const HfHeader(title: '#12 修复登录跳转'),
       body: HfDetail(
         titleMode: HfDetailTitle.none,
         title: '#12 修复登录跳转',

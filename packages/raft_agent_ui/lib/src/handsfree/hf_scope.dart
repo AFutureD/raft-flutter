@@ -23,17 +23,18 @@ class HfData {
   bool get desktop => surface == HfSurface.desktop;
   bool get phone => surface == HfSurface.phone;
 
-  /// Whether things can be pressed. A TV only shows.
+  /// Whether things can be pressed. A TV has the desktop's layout but only
+  /// shows: its buttons are voice hints.
   bool get interactive => !tv;
 
   /// A wide window shows the list and the detail side by side.
-  bool get split => desktop && size.width >= HfScale.splitWidth;
+  bool get split => !phone && size.width >= HfScale.splitWidth;
 
   /// Base step 4s.
   double get u => 4 * s;
 
-  /// Gap between rows: 3u, on a TV 3.5u.
-  double get rowGap => (tv ? 3.5 : 3) * u;
+  /// Gap between rows: 3u.
+  double get rowGap => 3 * u;
 
   /// Screen margins: 4% of the width, 4% above, 6% below (a TV keeps its
   /// taskbar safe area).
