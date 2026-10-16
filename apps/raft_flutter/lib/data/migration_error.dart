@@ -13,6 +13,42 @@ import 'package:raft_client/raft_client.dart';
 
 import 'user_error.dart';
 
+/// Web components/agentMigration/state.ts migrationPhase: null for a state
+/// this client does not know.
+String? migrationPhase(String? state) => switch (state) {
+  'provisioning' ||
+  'prep' ||
+  'ready' ||
+  'in_transit' ||
+  'arriving' ||
+  'starting' ||
+  'cancel_requested_pre_flip' ||
+  'cancel_requested_post_flip' => 'active',
+  'canceled_pre_flip' || 'canceled_post_flip' => 'canceled',
+  'completed' => 'completed',
+  'aborted' || 'failed' => 'failed',
+  _ => null,
+};
+
+/// Web billing.ts `MIGRATION_PRO_PLAN_REQUIRED_CODE`.
+const migrationProPlanRequiredCode = 'MIGRATION_PRO_PLAN_REQUIRED';
+
+/// Web billing.ts `isMigrationProPlanRequiredError`: the start route refused
+/// because the Server is not on a Pro-capable plan.
+bool isMigrationProPlanRequiredError(Object? error) =>
+    error is RaftApiException &&
+    error.details['code'] == migrationProPlanRequiredCode;
+
+/// Web billing.ts `agentMigrationRequiresUpgrade`. The billing projection is
+/// advisory; an unavailable or unrecognized plan must not invent a denial the
+/// server cannot confirm. [trialActive] is `isTrialActive(now)`.
+bool agentMigrationRequiresUpgrade(Object? plan, {required bool trialActive}) =>
+    switch (plan) {
+      'pro' || 'founder' || 'partner' => false,
+      'free' => !trialActive,
+      _ => false,
+    };
+
 enum MigrationErrorContext { start, status, failed, aborted, cancel }
 
 const _entryCountLimit =

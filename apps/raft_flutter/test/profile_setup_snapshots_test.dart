@@ -84,6 +84,7 @@ class _Workspace extends WorkspaceController {
           'targetMachineId': 'c2',
         },
       },
+      '/billing/subscription' => {'plan': 'pro'},
       '/servers/s/machines' => {
         'machines': [
           {'id': 'c1', 'name': 'Source'},
@@ -217,8 +218,8 @@ void main() {
       await t.pump();
       expect(
         w.paths.length,
-        reads + 3,
-        reason: 'revalidates in the background',
+        reads + 4,
+        reason: 'revalidates agent, status, computers and billing in the background',
       );
       release(gate);
       w.gate = null;

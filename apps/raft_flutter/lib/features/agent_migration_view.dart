@@ -10,24 +10,8 @@ import '../data/migration_error.dart';
 import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import 'agent_metadata_projection.dart' show nonEmptyOr;
+import 'billing_view.dart' show RaftBillingPlans;
 import 'management_support.dart';
-
-/// Web components/agentMigration/state.ts migrationPhase: null for a state
-/// this client does not know.
-String? migrationPhase(String? state) => switch (state) {
-  'provisioning' ||
-  'prep' ||
-  'ready' ||
-  'in_transit' ||
-  'arriving' ||
-  'starting' ||
-  'cancel_requested_pre_flip' ||
-  'cancel_requested_post_flip' => 'active',
-  'canceled_pre_flip' || 'canceled_post_flip' => 'canceled',
-  'completed' => 'completed',
-  'aborted' || 'failed' => 'failed',
-  _ => null,
-};
 
 /// Web MigrationProgressPanel status word; an unknown state reads as its
 /// words ("in_transit_v2" -> "In transit v2") instead of the raw enum.
@@ -71,9 +55,13 @@ class AgentMigrationView extends StatefulWidget {
     super.key,
     required this.controller,
     required this.agentId,
+    this.now,
   });
   final WorkspaceController controller;
   final String agentId;
+
+  /// Clock for the free-trial Pro gate (tests freeze it).
+  final DateTime Function()? now;
   @override
   State<AgentMigrationView> createState() => _AgentMigrationState();
 }
@@ -83,6 +71,20 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
   WorkspaceController get w => widget.controller;
   Map<String, dynamic> agent = {}, migration = {};
   List<Map<String, dynamic>> machines = [];
+
+  /// Web `useServerStore().billing`: GET /billing/subscription. Null until a
+  /// read lands; a failed read leaves it as it was.
+  Map<String, dynamic>? billing;
+  bool loadingBilling = false;
+
+  /// Web `billingChecking`: Move waits for the first billing answer.
+  bool get billingChecking => billing == null && loadingBilling;
+  bool get requiresUpgrade => agentMigrationRequiresUpgrade(
+    billing?['plan'],
+    trialActive: RaftBillingPlans.trialActive(
+      (widget.now ?? DateTime.now)().toUtc(),
+    ),
+  );
   String get base => '/agents/${widget.agentId}';
   bool get manager =>
       w.can('migrateAgents') ||
@@ -103,15 +105,29 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     'canceled_post_flip',
   };
   StreamSubscription<RaftEvent>? _events;
+
+  /// Web realtime.ts `pollMs`: while a migration is active the status is
+  /// re-read this often, so a missed push cannot leave the page stale.
+  static const pollInterval = Duration(seconds: 2);
+  RaftForegroundPeriodic? _poll;
+  int _reads = 0, _planRevision = 0;
+
+  /// Web `watchedActiveRef`: the run this page saw active.
+  String? _watchedRef;
   @override
   void initState() {
     super.initState();
     startManagement();
+    _planRevision = w.planRevision;
+    w.addListener(_planChanged);
+    _observeMigration();
+    unawaited(loadBilling());
     _events = w.client.events.listen((e) {
-      // Web realtime.ts: a migration update for this agent (or a reconnect)
-      // refetches the latest migration.
+      // Web realtime.ts: a migration update for this agent, a reconnect or the
+      // rooms rejoin refetches the latest migration.
       final p = e.payload;
       if (e.name == 'connected' ||
+          e.name == 'rooms:joined' ||
           e.name == 'agent:migration-updated' &&
               p is Map &&
               p['agentId'] == widget.agentId) {
@@ -123,7 +139,71 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
   @override
   void dispose() {
     _events?.cancel();
+    w.removeListener(_planChanged);
+    _poll?.dispose();
+    _poll = null;
     super.dispose();
+  }
+
+  /// Web `server:plan-updated` reloads billing.
+  void _planChanged() {
+    if (_planRevision == w.planRevision) return;
+    _planRevision = w.planRevision;
+    unawaited(loadBilling());
+  }
+
+  /// Web `loadBilling`: a failed read just leaves the gate undecided.
+  Future<void> loadBilling() async {
+    if (w.server == null) return;
+    final generation = w.client.generation;
+    loadingBilling = true;
+    try {
+      final value = await w.query('/billing/subscription');
+      if (accepts(generation) && value is Map) {
+        setState(() => billing = Map<String, dynamic>.from(value));
+        saveSnapshot();
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => loadingBilling = false);
+    }
+  }
+
+  @override
+  Future<void> reload() async {
+    _reads++;
+    try {
+      await super.reload();
+    } finally {
+      _reads--;
+    }
+    _observeMigration();
+  }
+
+  /// Follows the accepted migration after every read. An active run is polled
+  /// until it ends. Web `AgentMigrationSection`: completion broadcasts no
+  /// agent update, so when this page watched a run finish it re-reads agents
+  /// (here: the entity directory, which feeds the agent detail Computer row,
+  /// the computer's agent list and the fleet grouping, and the device
+  /// record). Failed and canceled ends are covered too: a post-flip cancel
+  /// leaves the agent on the target computer.
+  void _observeMigration() {
+    if (!mounted) return;
+    final phase = migrationPhase(migration['state'] as String?);
+    final ref = migration['migrationRef'];
+    if (phase == 'active') {
+      _watchedRef = ref is String ? ref : null;
+      _poll ??= RaftForegroundPeriodic(pollInterval, () {
+        if (mounted && _reads == 0) unawaited(reload());
+      });
+      return;
+    }
+    _poll?.dispose();
+    _poll = null;
+    if (ref is String && ref == _watchedRef && phase != null) {
+      _watchedRef = null;
+      w.entityDirectory.reloadAgents();
+    }
   }
 
   @override
@@ -133,12 +213,14 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     'agent': agent,
     'migration': migration,
     'machines': machines,
+    'billing': billing,
   };
   @override
   bool restoreSnapshot(Map<String, Object?> fields) {
     agent = fields['agent'] as Map<String, dynamic>;
     migration = fields['migration'] as Map<String, dynamic>;
     machines = fields['machines'] as List<Map<String, dynamic>>;
+    billing = fields['billing'] as Map<String, dynamic>?;
     return true;
   }
 
@@ -147,6 +229,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     agent = {};
     migration = {};
     machines = [];
+    billing = null;
   }
 
   /// Web `migrationErrorPresentation`: the failure's `code` picks the
@@ -190,8 +273,31 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     machines = managementRows(managementMap(responses[2])['machines']);
   }
 
+  /// Web AgentMigrationUpgradeDialog: "Upgrade" opens Plan & Billing.
+  Future<void> _showUpgrade() async {
+    final viewPlans = await scopedDialog<bool>(
+      (_) => RaftConfirmDialog(
+        title: 'Upgrade to Pro to migrate agents',
+        message: 'After upgrading, you can migrate an agent and its workspace to another computer.',
+        confirmLabel: 'Upgrade',
+        confirmVariant: RaftButtonRecipeVariant.accent,
+        maxWidth: 448,
+      ),
+    );
+    if (viewPlans != true || !mounted) return;
+    // The migration page is a pushed route over the workspace: leave it so
+    // the Settings section is what the user lands on.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    w.setSection('billing');
+  }
+
   Future<void> move() async {
     if (!manager || agent['runtime'] == 'external') return;
+    // Web openMigration: a known non-Pro plan gets the upgrade prompt instead.
+    if (requiresUpgrade) {
+      await _showUpgrade();
+      return;
+    }
     final targets = machines
         .where(
           (m) =>
@@ -206,6 +312,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       );
       return;
     }
+    var proRequired = false;
     await form(
       'Move agent',
       [
@@ -217,16 +324,29 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
         ),
       ],
       (values) => _migration(MigrationErrorContext.start, () async {
-        await w.command(
-          'POST',
-          '$base/migrate',
-          data: {'targetComputer': values['target']},
-        );
+        try {
+          await w.command(
+            'POST',
+            '$base/migrate',
+            data: {'targetComputer': values['target']},
+          );
+        } catch (e) {
+          // Web handleProRequired: the server is the authority on the plan.
+          // Closing the form without an error hands over to the upgrade
+          // prompt below.
+          if (!isMigrationProPlanRequiredError(e)) rethrow;
+          proRequired = true;
+        }
       }),
       description:
           'The source agent will stop while its workspace moves. Check progress for completion.',
       submit: 'Move',
     );
+    if (proRequired) {
+      unawaited(loadBilling());
+      await _showUpgrade();
+      return;
+    }
     await reload();
   }
 
@@ -379,7 +499,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
                 const SizedBox(height: 20),
                 RaftButton(
                   label: raftText(context, 'Move agent'),
-                  onPressed: busy ? null : () => run(move),
+                  onPressed: busy || billingChecking ? null : () => run(move),
                 ),
                 TextButton(
                   onPressed: busy ? null : () => run(assign),
