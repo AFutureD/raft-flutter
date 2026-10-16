@@ -581,6 +581,34 @@ void main() {
       );
     });
 
+    test('after the session dropped the old turns (context compression) the '
+        'next turn still says what was done and what waits', () async {
+      rt.submitText('看所有频道');
+      await call('show_list', {'kind': 'channels'});
+      rt.modelTurnComplete();
+      rt.submitText('看所有任务');
+      await call('show_list', {'kind': 'tasks'});
+      rt.modelTurnComplete();
+      rt.submitText('跟大家说你好');
+      final r = await call('send_message', {
+        'channel': 'general',
+        'text': '你好',
+      });
+      rt.modelTurnComplete();
+      // The model's window was compressed: it has none of the turns above.
+      // Only the line the app gives it at the start of a turn is left.
+      rt.submitText('刚才做了什么');
+      final line = rt.contextLine();
+      expect(line, contains('t3「跟大家说你好」'));
+      expect(line, contains('等用户确认：发到#general'));
+      expect(line, contains('待用户确认：发到#general'));
+      expect(line, contains('token ${r['confirmToken']}'));
+      expect(line, contains('更早：'));
+      expect(line, contains('t1「看所有频道」展示了 3 项：channels'));
+      expect(line, contains('t2「看所有任务」'));
+      expect(line.length, lessThan(600), reason: 'still a compact line');
+    });
+
     test('a stopped turn is said to be stopped', () async {
       rt.submitText('搜一下上线');
       rt.submitText('算了');

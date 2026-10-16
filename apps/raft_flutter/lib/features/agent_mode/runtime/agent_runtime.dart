@@ -537,6 +537,7 @@ class AgentRuntime extends ChangeNotifier {
       }
       turn.surfaces.addAll(old.surfaces);
       turn.summary ??= old.summary;
+      turn.outcomes.insertAll(0, old.outcomes);
     } else {
       _cancelTurn(old, AgentCancelReason.replaced);
     }
@@ -726,8 +727,23 @@ class AgentRuntime extends ChangeNotifier {
       parts.add(
         '上一轮 ${prev.id}'
         '${said.isEmpty ? '' : '「${_clip(said, 16)}」'}：$status'
-        '${prev.summary == null ? '' : '（${prev.summary}）'}',
+        '${prev.summary == null ? '' : '（${prev.outcomes.length > 1 ? _clip(prev.outcomes.join('，'), 80) : prev.summary}）'}',
       );
+      // The turns before it, in a few words each: a long session drops them
+      // from the model's window, this is what it keeps of them.
+      final earlier = [
+        for (final o in turns)
+          if (!identical(o, prev) &&
+              !identical(o, t) &&
+              turns.indexOf(o) < turns.indexOf(prev) &&
+              o.outcomes.isNotEmpty)
+            '${o.id}「${_clip(o.userText, 12)}」${_clip(o.outcomes.join('，'), 40)}',
+      ];
+      if (earlier.isNotEmpty) {
+        parts.add(
+          '更早：${earlier.skip(earlier.length > 3 ? earlier.length - 3 : 0).join('；')}',
+        );
+      }
     }
     final waiting = _waiting();
     if (waiting.isNotEmpty) {
@@ -955,18 +971,26 @@ class AgentRuntime extends ChangeNotifier {
 
   void _note(AgentTurn turn, String name, Map<String, Object?> result) {
     if (result['error'] != null) return;
+    void said(String note) {
+      turn.summary = note;
+      if (turn.outcomes.isEmpty || turn.outcomes.last != note) {
+        turn.outcomes.add(note);
+      }
+    }
+
     if (result['shown'] is int) {
       turn.rendered = true;
-      turn.summary =
-          '展示了 ${result['shown']} 项${result['kind'] == null ? '' : '：${result['kind']}'}';
+      said(
+        '展示了 ${result['shown']} 项${result['kind'] == null ? '' : '：${result['kind']}'}',
+      );
     } else if (result['status'] == 'needs_confirmation') {
       final p = result['preview'];
-      turn.summary = '等用户确认：${p is Map ? p['summary'] : name}';
+      said('等用户确认：${p is Map ? p['summary'] : name}');
     } else if (result['status'] == 'done') {
-      turn.summary = '已执行：${(result['result'] as Map?)?['done'] ?? name}';
+      said('已执行：${(result['result'] as Map?)?['done'] ?? name}');
     } else if (name == 'begin_surface' || name == 'show_surface') {
       turn.rendered = true;
-      turn.summary = '组了一屏';
+      said('组了一屏');
     } else if (agentReadToolNames.contains(name)) {
       turn.rendered = true;
     }

@@ -43,6 +43,24 @@ class GeminiLiveSession {
   /// functions instead (answered just as fast); dropped after one refusal.
   static bool _nonBlocking = true;
 
+  /// The tokens of context at which the session starts dropping its oldest
+  /// turns, and what it keeps (`ContextWindowCompressionConfig.triggerTokens`
+  /// and `SlidingWindow.targetTokens` of the Live API). The whole context is
+  /// billed again at every turn, so it must not grow towards the model's
+  /// limit (the default trigger is 80% of it). The system instruction stays
+  /// at the start whatever is dropped; the setup is about 20k tokens (the
+  /// instruction and the function declarations), so the target leaves a
+  /// room for the conversation above it. What the model must still know of
+  /// the dropped turns is in the 【回合】 line the app sends with each turn.
+  static const compressionTriggerTokens = 40000;
+  static const compressionTargetTokens = 30000;
+
+  /// The `contextWindowCompression` of the setup message.
+  static Map<String, Object?> contextCompression() => {
+    'triggerTokens': compressionTriggerTokens,
+    'slidingWindow': {'targetTokens': compressionTargetTokens},
+  };
+
   /// Whether this session declared its UI functions non-blocking.
   bool get nonBlocking => _declaredNonBlocking;
   bool _declaredNonBlocking = false;
@@ -250,7 +268,7 @@ class GeminiLiveSession {
         },
         'inputAudioTranscription': <String, Object?>{},
         'outputAudioTranscription': <String, Object?>{},
-        'contextWindowCompression': {'slidingWindow': <String, Object?>{}},
+        'contextWindowCompression': contextCompression(),
         if (affective) 'enableAffectiveDialog': true,
         'sessionResumption': {'handle': ?_resumeHandle},
       },

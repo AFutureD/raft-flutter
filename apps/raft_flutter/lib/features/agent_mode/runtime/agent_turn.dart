@@ -186,6 +186,11 @@ class AgentTurn {
   /// ("展示了 8 个任务").
   String? summary;
 
+  /// Everything the turn showed or did, one short phrase each, in order. The
+  /// turn context repeats the latest ones, so the model still knows after the
+  /// session dropped the old turns from its window (context compression).
+  final outcomes = <String>[];
+
   /// The model has said its last word for this turn.
   bool modelDone = false;
 
