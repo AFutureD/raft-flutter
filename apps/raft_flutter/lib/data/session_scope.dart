@@ -4,6 +4,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_sync/raft_sync.dart';
 
 import 'attachment_media.dart';
+import 'channel_revocation.dart';
 import 'resource_snapshot_cache.dart';
 import 'workspace_composer.dart';
 import 'workspace_device_store.dart';
@@ -22,12 +23,19 @@ abstract interface class SessionScopeBinding {
   ResourceSnapshotCache get resourceSnapshots;
   ReactionViewerLedger get reactionViewer;
   MessageSync get messageSync;
+  ThreadRepliesSync get threadRepliesSync;
+  NotificationPrefsSync get notificationPrefsSync;
   Future<void> Function(String, String, String, String?)?
   get discardSharedScope;
 
   void resetServerProjection();
   void clearSessionPrefetch();
   void closeRevokedServerProjection();
+  ChannelRevocationPlan planChannelRevocation(String id);
+  void clearRevokedChannelProjection(String scope);
+  void removeRevokedParentSummary(dynamic messageId);
+  void closeRevokedChannelProjection(ChannelRevocation event);
+  void persistSessionReadState();
   set syncCoreMessagesEnabled(bool value);
   void notifyListeners();
 }
@@ -50,6 +58,8 @@ enum ServerRevocationStage {
   device,
   directory,
 }
+
+enum ChannelRevocationStage { scopes, parents, projection, readState, device }
 
 class ServerReset {
   const ServerReset(this.serverId);
@@ -139,6 +149,64 @@ class SessionScope {
       );
       binding.notifyListeners();
     });
+
+    onChannelRevoked(ChannelRevocationStage.scopes, (event) {
+      for (final scope in event.plan.scopes) {
+        revokedChannels.add(scope);
+        if (ownsMedia) binding.attachmentMedia.revokeChannel(scope);
+        binding.messageWindows.revokeChannel(scope);
+        binding.messageSync.revokeChannel(scope);
+        binding.threadRepliesSync.revokeChannel(scope);
+        binding.notificationPrefsSync.revokeChannel(scope);
+        binding.messageWindows.discardWindow(scope);
+        binding.clearRevokedChannelProjection(scope);
+        binding.messageWindows.revokeThreads(scope);
+        if (event.serverId != null && event.principal != null) {
+          binding.readState.revoke(event.serverId!, event.principal!, scope);
+        }
+        binding.composer.retireScope(
+          scope,
+          keepFiles: event.keepShared && scope == event.plan.channelId,
+        );
+        if (event.keepShared && scope == event.plan.channelId) continue;
+        binding.composer.attempts.remove(scope);
+      }
+    });
+    onChannelRevoked(ChannelRevocationStage.parents, (event) {
+      for (final messageId in event.plan.messageIds) {
+        final scope = 'thread:$messageId';
+        binding.composer.attempts.remove(scope);
+        binding.composer.retireScope(scope);
+        binding.reactionViewer.remove(messageId);
+        binding.removeRevokedParentSummary(messageId);
+      }
+    });
+    onChannelRevoked(
+      ChannelRevocationStage.projection,
+      binding.closeRevokedChannelProjection,
+    );
+    onChannelRevoked(
+      ChannelRevocationStage.readState,
+      (_) => binding.persistSessionReadState(),
+    );
+    onChannelRevoked(ChannelRevocationStage.device, (event) {
+      if (event.principal == null || event.serverId == null) return;
+      // Retirement and thread closure have finished. Keep authored text only;
+      // the device owner retains the existing shared-draft exception.
+      final keptDrafts = {
+        for (final scope in event.plan.draftScopes)
+          scope: binding.composer.draftRecord(scope, includeShareTokens: false),
+      };
+      binding.deviceStore.revokeChannel(
+        origin: event.origin,
+        principal: event.principal!,
+        serverId: event.serverId!,
+        channelId: event.plan.channelId,
+        scopes: event.plan.scopes,
+        keptDrafts: keptDrafts,
+        keepShared: event.keepShared,
+      );
+    });
   }
 
   final SessionScopeBinding binding;
@@ -146,6 +214,8 @@ class SessionScope {
   final _resetHandlers = <ServerResetStage, List<void Function(ServerReset)>>{};
   final _revokeHandlers =
       <ServerRevocationStage, List<void Function(ServerRevocation)>>{};
+  final _channelHandlers =
+      <ChannelRevocationStage, List<void Function(ChannelRevocation)>>{};
   bool _closed = false;
 
   /// Register in a named phase. Removal affects subsequent dispatches.
@@ -165,6 +235,16 @@ class SessionScope {
   ) {
     if (_closed) throw StateError('Session scope is disposed.');
     final handlers = _revokeHandlers.putIfAbsent(stage, () => []);
+    handlers.add(run);
+    return () => handlers.remove(run);
+  }
+
+  void Function() onChannelRevoked(
+    ChannelRevocationStage stage,
+    void Function(ChannelRevocation) run,
+  ) {
+    if (_closed) throw StateError('Session scope is disposed.');
+    final handlers = _channelHandlers.putIfAbsent(stage, () => []);
     handlers.add(run);
     return () => handlers.remove(run);
   }
@@ -200,10 +280,44 @@ class SessionScope {
     }
   }
 
+  void revokeChannel(String id) {
+    final origin = binding.client.origin,
+        principal = binding.client.user?.id,
+        serverId = binding.client.serverId,
+        generation = binding.client.generation;
+    final holds = binding.composer.uploads.holds,
+        keepShared = holds.containsKey(id);
+    if (keepShared) {
+      holds[id] = 'This conversation is no longer available. Your draft and files are kept.';
+    }
+    if (!keepShared && principal != null && serverId != null) {
+      unawaited(
+        binding.discardSharedScope?.call(origin, principal, serverId, id),
+      );
+    }
+    // Sharing callbacks still run before discovery, as in the original entry.
+    final event = ChannelRevocation(
+      origin: origin,
+      principal: principal,
+      serverId: serverId,
+      generation: generation,
+      keepShared: keepShared,
+      plan: binding.planChannelRevocation(id),
+    );
+    final handlers = [
+      for (final stage in ChannelRevocationStage.values)
+        ...?_channelHandlers[stage],
+    ];
+    for (final run in handlers) {
+      run(event);
+    }
+  }
+
   /// Only this receiver's bindings are detached; borrowed owners stay alive.
   void dispose() {
     _closed = true;
     _resetHandlers.clear();
     _revokeHandlers.clear();
+    _channelHandlers.clear();
   }
 }

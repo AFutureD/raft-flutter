@@ -14,6 +14,7 @@ import 'thread_agent_followers.dart';
 import 'thread_search.dart';
 import 'workspace_services.dart';
 import 'session_scope.dart';
+import 'channel_revocation.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
@@ -615,7 +616,9 @@ class WorkspaceController extends ChangeNotifier
   bool mobileNavigation;
   @override
   final messageSync = MessageSync();
+  @override
   final threadRepliesSync = ThreadRepliesSync();
+  @override
   final notificationPrefsSync = NotificationPrefsSync();
   bool syncCoreNotificationPrefsEnabled = false;
   String? _replyIdentity;
@@ -1345,7 +1348,6 @@ class WorkspaceController extends ChangeNotifier
   final Map<String, Future<void>> _reactionWrites = {};
   final Map<String, Future<void>> _viewerLoads = {};
   Map<String, List<UploadDraft>> get _uploads => composer.uploads.byScope;
-  Map<String, ComposerSendAttempt> get _attempts => composer.attempts;
 
   bool _disposed = false;
   int _stateStamp = 0;
@@ -2698,107 +2700,53 @@ class WorkspaceController extends ChangeNotifier
     }
   }
 
-  void _revokeChannel(String id) {
-    final origin = client.origin,
-        principal = client.user?.id,
-        serverId = client.serverId;
-    // Content just handed over from a share is kept when its destination is
-    // refused: the composer says so and Send stays off, nothing is discarded.
-    final keepShared = _shareHolds.containsKey(id);
-    if (keepShared) {
-      _shareHolds[id] = 'This conversation is no longer available. Your draft and files are kept.';
+  void _revokeChannel(String id) => sessionScope.revokeChannel(id);
+
+  @override
+  ChannelRevocationPlan planChannelRevocation(String id) =>
+      ChannelRevocationPlan.discover(
+        channelId: id,
+        messages: ledger.messages(id),
+        parentMessageIds: threadRepliesSync.parentMessageIdsForChannel(id),
+        summaries: _summariesByChannel,
+        identity: _threadIdentity,
+        parent: threadParent,
+        threadChannelId: threadChannelId,
+      );
+
+  @override
+  void clearRevokedChannelProjection(String scope) {
+    unread.remove(scope);
+    _clearMention(scope);
+    _latestActivity.remove(scope);
+    _summariesByChannel.remove(scope);
+  }
+
+  @override
+  void removeRevokedParentSummary(dynamic messageId) {
+    for (final bucket in _summariesByChannel.values) {
+      bucket.remove(messageId);
     }
-    if (!keepShared && principal != null && serverId != null) {
-      unawaited(discardSharedScope?.call(origin, principal, serverId, id));
-    }
-    final messageIds = <dynamic>{
-      ...ledger.messages(id).map((m) => m['id']),
-      ...threadRepliesSync.parentMessageIdsForChannel(id),
-      if (_threadIdentity != null &&
-          (_threadIdentity!.parentChannelId == id || threadChannelId == id))
-        _threadIdentity!.parentMessageId,
-      if (threadChannelId == id && threadParent != null) threadParent!.id,
-    };
-    final threadIds = <String>{
-      for (final message in ledger.messages(id))
-        if (message['threadChannelId'] is String) message['threadChannelId'],
-      for (final summary in [
-        ...?_summariesByChannel[id]?.values,
-        for (final bucket in _summariesByChannel.values)
-          for (final messageId in messageIds) ?bucket[messageId],
-      ])
-        if (summary is Map &&
-            messageIds.contains(summary['parentMessageId']) &&
-            summary['threadChannelId'] is String)
-          summary['threadChannelId'],
-      if ((threadParent?.channelId == id ||
-              _threadIdentity?.parentChannelId == id) &&
-          threadChannelId != null)
-        threadChannelId!,
-    };
-    for (final scope in {id, ...threadIds}) {
-      _revokedChannels.add(scope);
-      if (presentationSource == null) attachmentMedia.revokeChannel(scope);
-      messageWindows.revokeChannel(scope);
-      messageSync.revokeChannel(scope);
-      threadRepliesSync.revokeChannel(scope);
-      notificationPrefsSync.revokeChannel(scope);
-      messageWindows.discardWindow(scope);
-      unread.remove(scope);
-      _clearMention(scope);
-      _latestActivity.remove(scope);
-      _summariesByChannel.remove(scope);
-      messageWindows.revokeThreads(scope);
-      if (serverId != null && principal != null) {
-        readState.revoke(serverId, principal, scope);
-      }
-      composer.retireScope(scope, keepFiles: keepShared && scope == id);
-      if (keepShared && scope == id) continue;
-      _attempts.remove(scope);
-    }
-    for (final messageId in messageIds) {
-      final scope = 'thread:$messageId';
-      _attempts.remove(scope);
-      composer.retireScope(scope);
-      reactionViewer.remove(messageId);
-      for (final bucket in _summariesByChannel.values) {
-        bucket.remove(messageId);
-      }
-    }
-    if (channel?.id == id && !keepShared) {
+  }
+
+  @override
+  void closeRevokedChannelProjection(ChannelRevocation event) {
+    final id = event.plan.channelId;
+    if (channel?.id == id && !event.keepShared) {
       channel = null;
       _missingConversationChannelId = id;
       messageWindows.channelGeneration++;
     }
     if (threadParent?.channelId == id ||
         _threadIdentity?.parentChannelId == id ||
-        threadIds.contains(threadChannelId) ||
+        event.plan.threadIds.contains(threadChannelId) ||
         threadChannelId == id) {
       closeThread();
     }
-    _persistReadState();
-    if (principal != null && serverId != null) {
-      // Web keeps authored text on channel removal or a refused message read.
-      // Snapshot it before the private-cache purge; never restore server files.
-      final keptDrafts = {
-        for (final scope in {
-          id,
-          ...threadIds,
-          for (final messageId in messageIds) 'thread:$messageId',
-        })
-          scope: composer.draftRecord(scope, includeShareTokens: false),
-      };
-      deviceStore.revokeChannel(
-        origin: origin,
-        principal: principal,
-        serverId: serverId,
-        channelId: id,
-        scopes: {id, ...threadIds},
-        keptDrafts: keptDrafts,
-        keepShared: keepShared,
-      );
-    }
   }
+
+  @override
+  void persistSessionReadState() => _persistReadState();
 
   Future<void> loadSidebar() async {
     if (presentationSource != null) return presentationSource!.loadSidebar();
