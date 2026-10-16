@@ -7,6 +7,7 @@ import 'agent_audio.dart';
 import 'agent_live_guard.dart';
 import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
+import 'voice_provider.dart';
 
 /// What the runtime needs of the model's side: to tell it something the app
 /// saw, and to silence it.
@@ -150,8 +151,8 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   late final AgentLiveGuard _guard;
   int _toolsRunning = 0;
 
-  GeminiLiveSession? _session;
-  Future<GeminiLiveSession?>? _connecting;
+  VoiceSession? _session;
+  Future<VoiceSession?>? _connecting;
   StreamSubscription<Uint8List>? _mic;
   final _pending = <Uint8List>[];
   bool _live = false;
@@ -213,23 +214,36 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   }
 
   /// Whether a voice key exists; text falls back to local intents without.
-  Future<bool> get hasKey async => (await key.read()) != null;
+  Future<bool> get hasKey async => (await _activeKey()) != null;
 
-  Future<GeminiLiveSession?> _ensureSession() {
+  /// The key of the voice service chosen in the settings.
+  Future<String?> _activeKey() =>
+      AgentVoiceSettings.instance.provider == AgentVoiceProvider.gemini
+      ? key.read()
+      : OpenAiVoiceKey.instance.read();
+
+  Future<VoiceSession?> _ensureSession() {
     if (_session?.connected ?? false) return Future.value(_session);
     return _connecting ??= _connect().whenComplete(() => _connecting = null);
   }
 
-  Future<GeminiLiveSession?> _connect() async {
+  Future<VoiceSession?> _connect() async {
     await beforeConnect?.call();
-    final apiKey = await key.read();
+    final settings = AgentVoiceSettings.instance;
+    final provider = settings.provider;
+    final apiKey = await _activeKey();
     if (apiKey == null) {
-      _set(AgentMicState.idle, note: '还没有 Gemini Key：点右上角扫码填入');
+      _set(
+        AgentMicState.idle,
+        note: '还没有 ${agentVoiceProviderLabels[provider]} Key：点右上角扫码填入',
+      );
       return null;
     }
-    final session = GeminiLiveSession(
+    final session = createVoiceSession(
+      provider: provider,
       apiKey: apiKey,
-      voice: AgentVoiceSettings.instance.voice,
+      voice: settings.voiceOf(provider),
+      playbackPending: audio.pending,
       systemPrompt: systemPrompt(),
       tools: tools,
       onToolCall: (name, args) async {
@@ -296,7 +310,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     try {
       await session.connect();
     } catch (e) {
-      final model = GeminiLiveSession.pickedModel;
+      final model = session.model;
       _set(
         AgentMicState.idle,
         note: '连接失败${model == null ? '' : '（${model.split('/').last}）'}：$e',

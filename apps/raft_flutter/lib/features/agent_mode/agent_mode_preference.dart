@@ -10,6 +10,7 @@ import 'agent_audio.dart';
 import 'agent_memory.dart';
 import 'agent_mode_page.dart';
 import 'agent_voice_settings.dart';
+import 'voice_provider.dart';
 
 /// Device-local opt-in for the agent mode demo. Default off.
 class AgentModePreference extends ChangeNotifier {
@@ -128,8 +129,8 @@ class AgentModeLabsCard extends StatelessWidget {
   }
 }
 
-/// Gemini key for the demo's voice: scanned from a QR code, kept in secure
-/// storage, shown by its last four characters only.
+/// Keys for the demo's voice (Gemini, OpenAI): scanned from a QR code, kept in
+/// secure storage, shown by their last four characters only.
 class _VoiceKeyRow extends StatefulWidget {
   const _VoiceKeyRow();
 
@@ -139,12 +140,14 @@ class _VoiceKeyRow extends StatefulWidget {
 
 class _VoiceKeyRowState extends State<_VoiceKeyRow> {
   final _key = AgentVoiceKey.instance;
+  final _openAiKey = OpenAiVoiceKey.instance;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _key.read();
+    _openAiKey.read();
   }
 
   Future<void> _scan() async {
@@ -152,12 +155,13 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
     try {
       final scanned = await AgentAudio.instance.scanCode();
       if (scanned == null) return;
-      final key = AgentVoiceKey.parse(scanned);
-      if (key == null) {
+      final saved = await saveScannedKey(
+        scanned,
+        preferred: AgentVoiceSettings.instance.provider,
+      );
+      if (saved == null) {
         setState(() => _error = '二维码里没有找到 Key');
-        return;
       }
-      await _key.save(key);
     } on PlatformException catch (e) {
       if (mounted) setState(() => _error = '扫码失败：${e.message ?? e.code}');
     }
@@ -168,18 +172,24 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
     final t = RaftTokens.of(context);
     final scanSupported = AgentAudio.instance.supported;
     return ListenableBuilder(
-      listenable: _key,
+      listenable: Listenable.merge([_key, _openAiKey]),
       builder: (context, _) {
         final suffix = _key.suffix;
+        final openAiSuffix = _openAiKey.suffix;
+        final anyKey = suffix != null || openAiSuffix != null;
+        final stored = [
+          if (suffix != null) 'Gemini Key ····$suffix',
+          if (openAiSuffix != null) 'OpenAI Key ····$openAiSuffix',
+        ];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             RaftCssText(
-              suffix == null
+              !anyKey
                   ? (scanSupported
-                        ? '语音：还没有 Gemini Key。'
+                        ? '语音：还没有 Gemini 或 OpenAI Key。'
                         : '语音：这台设备还不能扫码填入 Key。')
-                  : '语音：Gemini Key ····$suffix',
+                  : '语音：${stored.join('；')}',
               key: const ValueKey('agent-voice-key-status'),
               style: TextStyle(color: t.muted, fontSize: 13),
             ),
@@ -199,14 +209,17 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
                 if (scanSupported)
                   RaftButton(
                     key: const ValueKey('agent-voice-key-scan'),
-                    label: suffix == null ? '扫码填入 Key' : '重新扫码',
+                    label: !anyKey ? '扫码填入 Key' : '重新扫码',
                     onPressed: _scan,
                   ),
-                if (suffix != null)
+                if (anyKey)
                   RaftButton(
                     key: const ValueKey('agent-voice-key-clear'),
                     label: '清除 Key',
-                    onPressed: _key.clear,
+                    onPressed: () {
+                      _key.clear();
+                      _openAiKey.clear();
+                    },
                   ),
               ],
             ),

@@ -35,6 +35,7 @@ import 'capabilities/agent_capability_tools.dart';
 import 'capabilities/agent_consent.dart';
 import 'capabilities/agent_read_tools.dart' show agentReadToolNames;
 import 'gemini_live.dart' show agentToolTimeout;
+import 'voice_provider.dart';
 import 'references/agent_entities.dart';
 import 'references/agent_handle_tag.dart';
 import 'references/agent_reference_table.dart';
@@ -1388,9 +1389,11 @@ class _AgentModePageState extends State<AgentModePage> {
 
   Future<void> _scanKey() async {
     try {
-      final key = AgentVoiceKey.parse(await AgentAudio.instance.scanCode());
-      if (key == null) return;
-      await AgentVoiceKey.instance.save(key);
+      final saved = await saveScannedKey(
+        await AgentAudio.instance.scanCode(),
+        preferred: AgentVoiceSettings.instance.provider,
+      );
+      if (saved == null) return;
       _voice.say(AgentSpeaker.agent, 'Key 已保存。按住下面的按钮说话吧。');
     } on PlatformException catch (e) {
       // ignore: raft_lints/avoid_caught_exception_text -- Demo screen: the scanner plugin's own message is the most useful thing to read aloud.
@@ -1657,7 +1660,7 @@ class _AgentModePageState extends State<AgentModePage> {
           if (AgentAudio.instance.supported)
             IconButton(
               key: const ValueKey('agent-voice-key-scan'),
-              tooltip: '扫码填入 Gemini Key',
+              tooltip: '扫码填入语音 Key',
               icon: Icon(Icons.qr_code_scanner, size: hf.sp(22), color: ink),
               onPressed: _scanKey,
             ),

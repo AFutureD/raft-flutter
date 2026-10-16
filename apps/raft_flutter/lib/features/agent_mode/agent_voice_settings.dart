@@ -7,6 +7,8 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/device_preferences.dart';
+import 'agent_audio.dart';
+import 'voice_provider.dart';
 
 enum AgentPace { slow, normal, fast }
 
@@ -27,6 +29,20 @@ class AgentVoiceSettings extends ChangeNotifier {
     'Aoede': '轻快',
     'Despina': '顺滑',
     'Kore': '坚定',
+  };
+
+  /// OpenAI Realtime built-in voices; marin and cedar are the recommended ones.
+  static const openAiVoices = {
+    'marin': 'Marin（推荐）',
+    'cedar': 'Cedar（推荐）',
+    'alloy': 'Alloy',
+    'ash': 'Ash',
+    'ballad': 'Ballad',
+    'coral': 'Coral',
+    'echo': 'Echo',
+    'sage': 'Sage',
+    'shimmer': 'Shimmer',
+    'verse': 'Verse',
   };
   static const paceLabels = {
     AgentPace.slow: '慢一点',
@@ -88,6 +104,24 @@ class AgentVoiceSettings extends ChangeNotifier {
   }
 
   set voice(String v) => _write('voice', v);
+
+  /// Which realtime voice service the conversation runs on.
+  AgentVoiceProvider get provider =>
+      _enum(AgentVoiceProvider.values, 'provider', AgentVoiceProvider.gemini);
+  set provider(AgentVoiceProvider v) => _write('provider', v.name);
+
+  String get openAiVoice {
+    final v = _read('openAiVoice');
+    return v != null && openAiVoices.containsKey(v)
+        ? v
+        : openAiVoices.keys.first;
+  }
+
+  set openAiVoice(String v) => _write('openAiVoice', v);
+
+  /// The chosen voice of [provider].
+  String voiceOf(AgentVoiceProvider provider) =>
+      provider == AgentVoiceProvider.openai ? openAiVoice : voice;
 
   AgentPace get pace => _enum(AgentPace.values, 'pace', AgentPace.normal);
   set pace(AgentPace v) => _write('pace', v.name);
@@ -215,29 +249,45 @@ class AgentVoiceSettingsPage extends StatelessWidget {
         builder: (context, _) => ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: [
+            section('语音服务'),
+            choices(
+              agentVoiceProviderLabels,
+              s.provider,
+              (v) => s.provider = v,
+            ),
+            _ProviderKeyRow(
+              key: ValueKey('agent-provider-key-${s.provider.name}'),
+              provider: s.provider,
+            ),
             section('声音'),
-            for (final e in AgentVoiceSettings.voices.entries)
+            for (final e
+                in (s.provider == AgentVoiceProvider.openai
+                        ? AgentVoiceSettings.openAiVoices
+                        : AgentVoiceSettings.voices)
+                    .entries)
               ListTile(
                 key: ValueKey('agent-voice-${e.key}'),
                 leading: Icon(
-                  e.key == s.voice
+                  e.key == s.voiceOf(s.provider)
                       ? Icons.radio_button_checked
                       : Icons.radio_button_unchecked,
                   color: t.foreground,
                 ),
                 title: Text(e.value, style: t.body(15)),
-                subtitle: Text(e.key, style: t.body(12, color: t.hint)),
+                subtitle: s.provider == AgentVoiceProvider.openai
+                    ? null
+                    : Text(e.key, style: t.body(12, color: t.hint)),
                 trailing: onPreview == null
                     ? null
                     : IconButton(
                         tooltip: '试听',
                         icon: Icon(Icons.play_circle_outline, color: t.muted),
                         onPressed: () {
-                          s.voice = e.key;
+                          _setVoice(s, e.key);
                           onPreview!(e.key);
                         },
                       ),
-                onTap: () => s.voice = e.key,
+                onTap: () => _setVoice(s, e.key),
               ),
             section('语速'),
             choices(AgentVoiceSettings.paceLabels, s.pace, (v) => s.pace = v),
@@ -279,6 +329,95 @@ class AgentVoiceSettingsPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+void _setVoice(AgentVoiceSettings s, String voice) {
+  if (s.provider == AgentVoiceProvider.openai) {
+    s.openAiVoice = voice;
+  } else {
+    s.voice = voice;
+  }
+}
+
+/// The key of one voice service: whether there is one (last four characters
+/// only), scan a QR code to fill it in, clear it.
+class _ProviderKeyRow extends StatefulWidget {
+  const _ProviderKeyRow({super.key, required this.provider});
+  final AgentVoiceProvider provider;
+
+  @override
+  State<_ProviderKeyRow> createState() => _ProviderKeyRowState();
+}
+
+class _ProviderKeyRowState extends State<_ProviderKeyRow> {
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared by the next scan; the row is rebuilt (and the error gone) when the provider changes.
+  String? _error;
+
+  AgentVoiceKey get _key => voiceKeyFor(widget.provider);
+
+  @override
+  void initState() {
+    super.initState();
+    _key.read();
+  }
+
+  Future<void> _scan() async {
+    setState(() => _error = null);
+    try {
+      final scanned = await AgentAudio.instance.scanCode();
+      if (scanned == null) return;
+      final saved = await saveScannedKey(scanned, preferred: widget.provider);
+      if (saved == null && mounted) {
+        setState(() => _error = '二维码里没有找到 Key');
+      }
+    } on PlatformException catch (e) {
+      // ignore: raft_lints/avoid_caught_exception_text -- Demo screen: the scanner plugin's own message is the most useful thing to read.
+      if (mounted) setState(() => _error = '扫码失败：${e.message ?? e.code}');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    final name = agentVoiceProviderLabels[widget.provider];
+    return ListenableBuilder(
+      listenable: _key,
+      builder: (context, _) {
+        final suffix = _key.suffix;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                suffix == null ? '还没有 $name Key' : '$name Key ····$suffix',
+                key: const ValueKey('agent-provider-key-status'),
+                style: t.body(13, color: t.hint),
+              ),
+              if (_error != null) Text(_error!, style: t.body(13)),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (AgentAudio.instance.supported)
+                    TextButton(
+                      key: const ValueKey('agent-provider-key-scan'),
+                      onPressed: _scan,
+                      child: Text(suffix == null ? '扫码填入 Key' : '重新扫码'),
+                    ),
+                  if (suffix != null)
+                    TextButton(
+                      key: const ValueKey('agent-provider-key-clear'),
+                      onPressed: _key.clear,
+                      child: const Text('清除 Key'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -351,7 +490,7 @@ class _BrainPickerState extends State<_BrainPicker> {
             onChanged: current == null ? null : (v) => s.writeBack = v,
             title: Text('通话结束后把要点发给它', style: t.body(15)),
             subtitle: Text(
-              '以私信发送，由它自己记进记忆。它的记忆会作为背景发给 Gemini。',
+              '以私信发送，由它自己记进记忆。它的记忆会作为背景发给语音模型。',
               style: t.body(12, color: t.hint),
             ),
           ),
