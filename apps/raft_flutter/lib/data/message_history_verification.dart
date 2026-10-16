@@ -1,20 +1,156 @@
+import 'dart:async';
+
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftIdleTimer;
 import 'package:raft_sync/raft_sync.dart' show mergeMessageProjection;
 
 import 'history_read_policy.dart';
+import 'history_gap_recovery.dart';
 import 'message_history.dart';
 import 'message_history_pages.dart';
 import 'workspace_controller.dart';
 import 'workspace_message_windows.dart';
 
-/// Rechecks only a displayed saved range. No timer scans hidden history.
+/// Reconciles authorized saved ranges while preserving accepted projections.
 class MessageHistoryVerification {
-  static void tail(WorkspaceController w, MessageWindowRequest request, MessageHistoryScope scope) {
+  static final _jobs = Expando<_HistoryVerificationJob>();
+
+  /// One event-driven pass over saved ranges, including hidden conversations.
+  /// Existing authorized pages supply the digest; no unsupported endpoint or
+  /// wall-clock freshness can make a missed old edit appear verified.
+  static void reconnect(WorkspaceController w) {
+    HistoryGapRecovery.reconnect(w);
+    final db = MessageHistoryPages.storage(w.cache);
+    if (db == null ||
+        !w.foreground ||
+        !w.cacheWritable ||
+        w.client.user == null ||
+        w.client.serverId == null) {
+      return;
+    }
+    final job = _jobs[w] ??= _HistoryVerificationJob();
+    if (job.running) {
+      job.again = true;
+      return;
+    }
+    job.retry.cancel();
+    job.running = true;
+    db.reads.background(() async {
+      var complete = false;
+      try {
+        do {
+          job.again = false;
+          complete = await _saved(w);
+        } while (job.again &&
+            w.cacheWritable &&
+            w.foreground &&
+            !db.reads.closed);
+      } finally {
+        job.running = false;
+        if (identical(_jobs[w], job)) {
+          if (complete || !w.cacheWritable || db.reads.closed) {
+            job.retry.cancel();
+            _jobs[w] = null;
+          } else if (w.connected && w.foreground) {
+            final seconds = 2 << job.attempt.clamp(0, 5);
+            job.attempt++;
+            job.zone.run(
+              () => job.retry.start(
+                Duration(seconds: seconds),
+                () => reconnect(w),
+              ),
+            );
+          }
+        }
+      }
+    });
+  }
+
+  static void cancel(WorkspaceController w) {
+    _jobs[w]?.retry.cancel();
+    _jobs[w] = null;
+  }
+
+  static Future<bool> _saved(WorkspaceController w) async {
+    final db = MessageHistoryPages.storage(w.cache)!;
+    final user = w.client.user!.id,
+        server = w.client.serverId!,
+        origin = w.client.origin;
+    final ticket = w.messageHistoryTicket(''), generation = w.ledger.generation;
+    bool current() =>
+        w.cacheWritable &&
+        !db.reads.closed &&
+        w.foreground &&
+        w.client.user?.id == user &&
+        w.client.serverId == server &&
+        w.client.origin == origin &&
+        w.ledger.generation == generation &&
+        w.messageHistoryTicket('') == ticket;
+    var complete = true;
+    final ranges = await db.savedRanges(origin, user, server);
+    for (final range in ranges) {
+      if (!current()) return false;
+      final known = range.$1;
+      final scope = MessageHistoryPages.scope(
+        w,
+        known.channel,
+        parent: known.parentChannel,
+        parentMessage: known.parentMessage,
+      );
+      if (scope == null || scope.authority != known.authority) continue;
+      final seal = w.messageHistoryTicket(scope.parentChannel);
+      final request = w.messageWindows.request(
+        allowed: () =>
+            current() && seal == w.messageHistoryTicket(scope.parentChannel),
+      );
+      BigInt? before;
+      while (request.current) {
+        Map<String, dynamic>? response;
+        if (!await _verify(
+          w,
+          request,
+          scope,
+          seal,
+          before: before,
+          reason: HistoryReadReason.reconnect,
+          received: (page) => response = page,
+        )) {
+          complete = false;
+          break;
+        }
+        final raw = response?['messages'];
+        if (raw is! List ||
+            raw.isEmpty ||
+            response?['historyLimited'] == true) {
+          break;
+        }
+        final oldest = raw
+            .map((r) => BigInt.parse('${r['seq']}'))
+            .reduce((a, b) => a < b ? a : b);
+        if (raw.length < 50 ||
+            oldest <= range.$2 ||
+            before != null && oldest >= before) {
+          break;
+        }
+        before = oldest;
+      }
+    }
+    return complete && current();
+  }
+
+  static void tail(
+    WorkspaceController w,
+    MessageWindowRequest request,
+    MessageHistoryScope scope,
+  ) {
     final storage = MessageHistoryPages.storage(w.cache);
     if (storage == null) return;
     final ticket = w.messageHistoryTicket(scope.parentChannel);
-    storage.reads.background(() => _verify(w,request,scope,ticket,reason:HistoryReadReason.tail));
+    storage.reads.background(
+      () => _verify(w, request, scope, ticket, reason: HistoryReadReason.tail),
+    );
   }
+
   static void schedule(
     WorkspaceController w,
     MessageWindowRequest request,
@@ -186,6 +322,7 @@ class MessageHistoryVerification {
     String? target,
     int limit = 50,
     required HistoryReadReason reason,
+    void Function(Map<String, dynamic>)? received,
   }) async {
     final db = MessageHistoryPages.storage(w.cache);
     if (db == null) return false;
@@ -235,6 +372,11 @@ class MessageHistoryVerification {
       if (!current() || page is! MessageHistoryPage) return false;
       await db.acceptPage(page);
       if (!current()) return false;
+      received?.call(page.remotePage ?? page);
+      w.mergeThreadSummaries(
+        scope.channel,
+        (page.remotePage ?? page)['threadSummariesByParentMessageId'],
+      );
       final raw = (page.remotePage?['messages'] as List? ?? const []);
       final ids = {...initial.keys, for (final row in raw) row['id'] as String};
       final stored = await db.projections(scope, ids);
@@ -259,7 +401,9 @@ class MessageHistoryVerification {
         final seq = BigInt.parse('${row['seq']}');
         if (initial.containsKey(id) ||
             lower != null && upper != null && seq >= lower && seq <= upper) {
-          accepted.add(pending == null ? row : mergeMessageProjection(row, pending));
+          accepted.add(
+            pending == null ? row : mergeMessageProjection(row, pending),
+          );
         }
       }
       w.messageWindows.acceptRows(
@@ -336,4 +480,11 @@ class MessageHistoryVerification {
       return false;
     }
   }
+}
+
+class _HistoryVerificationJob {
+  bool again = false, running = false;
+  int attempt = 0;
+  final zone = Zone.current;
+  final retry = RaftIdleTimer(yieldToAnimation: false);
 }

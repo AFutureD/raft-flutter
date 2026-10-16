@@ -3308,8 +3308,10 @@ class _RaftChatViewState extends State<RaftChatView>
               centerIndex: centerIndex(),
               epoch: centerEpoch,
               indexOfId: windowIndexOf,
-              rowBuilder: (context, index) =>
-                  datedTile(source(messages[index])),
+              rowBuilder: (context, index) => HistoryGapPlaceholder(
+                controller: w, thread: widget.thread, newerId: source(messages[index]).id,
+                child: datedTile(source(messages[index])),
+              ),
               estimateRow: (index) => estimateRow(
                 measuredRows,
                 messages,
@@ -3514,7 +3516,7 @@ class _RaftChatViewState extends State<RaftChatView>
                   key: const ValueKey('current-timeline'),
                   child: currentTimeline,
                 ),
-                MessageHistoryGapBanner(controller: w, thread: widget.thread),
+                MessageHistoryGapMonitor(controller: w, thread: widget.thread),
                 if (historyWindow || !atBottom || newMessageCount > 0)
                   RaftTimelineBottomButton(
                     label: bottomCount > 0

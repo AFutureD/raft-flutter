@@ -24,16 +24,6 @@ const dialogSurfaces = <CloseSurface>[
     status: 'no-web',
   ),
   CloseSurface(
-    'history-full-clean-confirm',
-    kind: SurfaceKind.dialog,
-    web: 'Flutter-only storage rebuild; ConfirmDialog.tsx:138-165: X + Esc, no pointer dismissal',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
-    files: ['lib/features/message_history_settings.dart'],
-    status: 'no-web',
-  ),
-  CloseSurface(
     'confirm-dialog',
     kind: SurfaceKind.dialog,
     web: 'ConfirmDialog.tsx:138-165 Dialog disablePointerDismissal: X + Esc, no scrim, all gated on loading',

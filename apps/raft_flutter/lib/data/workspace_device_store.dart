@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:raft_client/raft_client.dart';
 
 import 'workspace_cache.dart';
+import 'history_capacity.dart';
 import 'workspace_cache_reads.dart';
 import 'workspace_entity_directory.dart';
 
@@ -206,7 +207,7 @@ class WorkspaceDeviceStore {
       try {
         await cache!.write(origin, user, serverId, kind, id, value);
       } catch (cause) {
-        _writeFailed(cause);
+        if (cause is! HistoryCapacityExceeded) _writeFailed(cause);
         if (requiredSuccess) rethrow;
       }
     });

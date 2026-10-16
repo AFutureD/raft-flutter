@@ -88,6 +88,7 @@ class MessageHistoryPage extends MapBase<String, dynamic> {
   final bool focused;
   final String? target;
   final DateTime? verifiedAt;
+
   /// Receiver-owned rows that existed before this response was presented.
   final Map<String, Map<String, dynamic>> heldBeforeAdmission;
   String get queryKey => historyQueryKey(
@@ -168,6 +169,13 @@ abstract interface class MessageHistoryStorage {
     String principal,
     String server,
     String channel,
+  );
+
+  /// Oldest retained body per authorized conversation, for reconnect checks.
+  Future<List<(MessageHistoryScope, BigInt)>> savedRanges(
+    String origin,
+    String principal,
+    String server,
   );
   Future<BigInt> resumeSequence(MessageHistoryScope scope);
   Future<void> checkpoint(

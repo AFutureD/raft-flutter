@@ -689,7 +689,7 @@ class WorkspaceController extends ChangeNotifier
     return const {'private', 'dm', 'joint', 'thread'}.contains(known.type);
   }
 
-  void _mergeThreadSummaries(String id, dynamic rows) => _summariesByChannel
+  void mergeThreadSummaries(String id, dynamic rows) => _summariesByChannel
       .putIfAbsent(id, () => {})
       .addAll(
         _hydrateThreadSummaries(rows, id, expectedToken: _replyToken(id)),
@@ -2687,7 +2687,7 @@ class WorkspaceController extends ChangeNotifier
           );
           // Reply rows are part of the window: a first open renders them in
           // the same frame as the prefetched messages.
-          _mergeThreadSummaries(c.id, page['threadSummariesByParentMessageId']);
+          mergeThreadSummaries(c.id, page['threadSummariesByParentMessageId']);
         } catch (_) {
           // Best effort: the channel opens normally on demand.
         }
@@ -3769,7 +3769,7 @@ class WorkspaceController extends ChangeNotifier
       MessageHistoryNavigation.page(this, thread: thread, newer: newer,
         gapBefore: gapBefore,
         requestFor: (id) => _windowRequest(id, thread: thread),
-        summaries: _mergeThreadSummaries);
+        summaries: mergeThreadSummaries);
 
   bool _mayMarkRead(String id) {
     if (!foreground ||
@@ -4718,7 +4718,7 @@ class WorkspaceController extends ChangeNotifier
       replace: true,
     );
     messageWindows.setContextMode(request, id, context ? hasNewer : null);
-    _mergeThreadSummaries(id, page['threadSummariesByParentMessageId']);
+    mergeThreadSummaries(id, page['threadSummariesByParentMessageId']);
     return rows;
   }
 

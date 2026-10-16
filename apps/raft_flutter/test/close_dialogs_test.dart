@@ -346,9 +346,7 @@ void main() {
   leakDebt(const ['ValueNotifier<RaftTranscriptRequestState?>']);
   final harness = <String, OpenSurface>{
     'history-lower-limit-confirm': (t, size) =>
-        historySettingsConfirmation(t, size, rebuild: false),
-    'history-full-clean-confirm': (t, size) =>
-        historySettingsConfirmation(t, size, rebuild: true),
+        historySettingsConfirmation(t, size),
     'confirm-dialog': confirmDialog,
     'role-permission-help': (t, size) async {
       await openFromButton(

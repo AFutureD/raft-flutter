@@ -7,6 +7,7 @@ import 'package:raft_ui/raft_ui.dart' show RaftIdleTimer;
 
 import '../data/message_history.dart';
 import '../data/history_read_policy.dart';
+import '../data/history_range_digest.dart';
 import '../data/history_capacity.dart';
 import '../data/history_memory.dart';
 import '../data/reading_positions.dart';
@@ -32,6 +33,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     required this.writeLegacy,
     this.historyBudget = 2 << 30,
     this.automaticMaintenance = true,
+    this.hardLimitEnabled = true,
     this.historyAvailableSpace,
     DateTime Function()? now,
   }) : now = now ?? DateTime.now;
@@ -43,7 +45,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   writeLegacy;
   final DateTime Function() now;
   final int historyBudget;
-  final bool automaticMaintenance;
+  final bool automaticMaintenance, hardLimitEnabled;
   final Future<int?> Function(String)? historyAvailableSpace;
   final _memoryZone = Zone.current;
   late final _positions = SqliteHistoryPositions(db, order, ready: _ready,
@@ -90,6 +92,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   late final SqliteHistoryCapacity capacity = SqliteHistoryCapacity(
     db, order, ready: _ready, advance: (s) => _revision(s, advance: true),
     now: now, defaultBudget: historyBudget, automatic: automaticMaintenance,
+    hardLimitEnabled: hardLimitEnabled,
     pending: () => receiver.protectedRows,
     availableSpace: historyAvailableSpace ?? availableDeviceStorage,
     coverageChanged: () => gaps.changed(null),
@@ -412,6 +415,20 @@ class SqliteMessageHistory implements MessageHistoryStorage {
   });
 
   @override
+  Future<List<(MessageHistoryScope, BigInt)>> savedRanges(String origin, String principal, String server) async {
+    final candidates = await order(() async {
+      await _ready();
+      return _query('SELECT channel,min(seq_key) AS oldest FROM raft_history_rows WHERE origin=? AND principal=? AND server=? AND tombstone=0 GROUP BY channel', [origin, principal, server]);
+    });
+    final result = <(MessageHistoryScope, BigInt)>[];
+    for (final row in candidates) {
+      final scope = await knownScope(origin, principal, server, row.read<String>('channel'));
+      if (scope != null) result.add((scope, BigInt.parse(row.read<String>('oldest'))));
+    }
+    return result;
+  }
+
+  @override
   Future<BigInt> resumeSequence(MessageHistoryScope scope) => order(() async {
     await _ready();
     final rows = await _query(
@@ -713,7 +730,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       added +=
           sizes[i] - (existing[accepted[i]['id']]?.read<int>('byte_size') ?? 0);
     }
-    capacity.admitNow(scope, added);
+    await capacity.admitNow(scope, added);
     final touched = now().millisecondsSinceEpoch;
     await db.batch((batch) {
       for (var i = 0; i < accepted.length; i++) {
@@ -1215,6 +1232,12 @@ class SqliteMessageHistory implements MessageHistoryStorage {
           !page.focused && page.before == null && page.after == null
           ? historyMaxSequence
           : upper;
+      final localRange = limited ? const <QueryRow>[] : await _query(
+        'SELECT payload FROM raft_history_rows WHERE $_where AND tombstone=0 AND seq_key>=? AND seq_key<=? ORDER BY seq_key LIMIT ?',
+        [...scope.key, historySequenceKey(lower), historySequenceKey(deleteUpper), rows.length + 1],
+      );
+      final localBodies = await decodeWorkspaceTranslations(localRange.map((r) => r.read<String>('payload')).toList());
+      final unchanged = !limited && HistoryRangeDigest(rows).matches(HistoryRangeDigest(localBodies));
       if (limited) {
         await db.customStatement(
           'DELETE FROM raft_history_rows WHERE $_where',
@@ -1224,7 +1247,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
           'DELETE FROM raft_history_ranges WHERE $_where',
           scope.key,
         );
-      } else {
+      } else if (!unchanged) {
         final ids = rows.map((m) => m['id'] as String).toList();
         final except = ids.isEmpty
             ? ''
@@ -1241,14 +1264,14 @@ class SqliteMessageHistory implements MessageHistoryStorage {
           ],
         );
       }
-      await _put(
-        scope,
-        rows,
-        revision,
-        maximumPreviousRevision: limited ? null : page.revision,
-        complete: true,
-      );
-      await HistoryShadows(db).refresh(scope);
+      if (!unchanged) {
+        await _put(
+          scope, rows, revision,
+          maximumPreviousRevision: limited ? null : page.revision,
+          complete: true,
+        );
+        await HistoryShadows(db).refresh(scope);
+      }
       if (lower <= upper) {
         await _range(
           scope,

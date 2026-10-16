@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:raft_client/raft_client.dart';
 
 import 'message_history.dart';
+import 'history_capacity.dart';
 import 'history_read_policy.dart';
 import 'message_history_pages.dart';
+import 'message_history_verification.dart';
 import 'workspace_controller.dart';
 import 'workspace_message_windows.dart';
 
@@ -12,7 +14,7 @@ import 'workspace_message_windows.dart';
 /// resolves its parent through existing, authorized read routes.
 class MessageHistoryEvents {
   static void _saveFailed(WorkspaceController w, Object cause) {
-    if (w.error != null) return;
+    if (w.error != null || cause is HistoryCapacityExceeded) return;
     w.error = MessageHistoryPages.saveError(cause);
     w.notifyListeners();
   }
@@ -313,6 +315,7 @@ class MessageHistoryEvents {
   /// Resume uses committed progress, so a device write failure cannot cause a
   /// later reconnect to skip messages that exist only in memory.
   static Future<void> resume(WorkspaceController w) async {
+    MessageHistoryVerification.reconnect(w);
     if (w.client.user == null || w.client.serverId == null) return;
     final db = MessageHistoryPages.storage(w.cache), current = _current(w);
     if (db == null) {

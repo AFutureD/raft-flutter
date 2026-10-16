@@ -80,6 +80,8 @@ class MessageHistoryPositions {
     bool thread = false,
     dynamic cached,
   }) async {
+    MessageHistoryPages.opened(w, id).ignore();
+    if (!request.current) return null;
     final storage = MessageHistoryPages.storage(w.cache),
         scope = MessageHistoryPages.scope(
           w,
