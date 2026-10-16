@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show Listenable;
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
@@ -1011,6 +1012,11 @@ class AgentModeData {
     );
     return _rows(body, 'items');
   }
+
+  /// Tells when the App's Activity window changed (a message arrived, a
+  /// conversation was read or set to done, the window was read again): the
+  /// home follows it live.
+  Listenable get activityChanges => w.activityUnreadIfBound ?? w.activityUnread;
 
   /// The rows of the window the inbox store holds now; null when it holds
   /// none. No read.

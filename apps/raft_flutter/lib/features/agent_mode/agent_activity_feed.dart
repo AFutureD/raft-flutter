@@ -200,15 +200,25 @@ class AgentActivityFeed {
     for (final a in activity) {
       final k = taskKey(a);
       final task = k == null ? null : byTask[k];
-      if (task != null && used.add(k!)) {
-        rows.add(a.withDecision(task));
-      } else {
+      if (task == null || !used.add(k!)) {
         rows.add(a);
+      } else if (task.priority == AgentPriority.blocked) {
+        // A task whose thread moved after it was last touched is not stuck.
+        rows.add(a);
+      } else {
+        rows.add(a.withDecision(task));
       }
     }
+    final alive = {
+      for (final a in activity)
+        if (taskKey(a) != null) taskKey(a)!: a.at,
+    };
     final extras = [
       for (final p in pool)
-        if (!used.contains(taskKey(p))) p,
+        if (!used.contains(taskKey(p)) ||
+            (p.priority == AgentPriority.blocked &&
+                !(alive[taskKey(p)]?.isAfter(p.at) ?? false)))
+          p,
     ]..sort((a, b) {
       final t = b.at.compareTo(a.at);
       return t != 0 ? t : b.score.compareTo(a.score);

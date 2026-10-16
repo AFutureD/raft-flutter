@@ -7,7 +7,6 @@ import 'package:raft_agent_ui/raft_agent_ui.dart' hide AgentEntityRef;
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 
-import '../../data/source_activity_unread_store.dart';
 import '../../data/workspace_controller.dart';
 import 'agent_attention.dart';
 import 'agent_audio.dart';
@@ -465,9 +464,7 @@ class _AgentModePageState extends State<AgentModePage> {
 
   /// The App's Activity: the inbox window its badge and its page read. The
   /// home follows it live.
-  late final SourceActivityUnreadStore _activity =
-      widget.controller.activityUnreadIfBound ??
-      widget.controller.activityUnread;
+  late final Listenable _activity = data.activityChanges;
 
   @override
   void initState() {

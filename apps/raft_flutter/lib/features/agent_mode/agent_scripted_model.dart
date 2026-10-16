@@ -55,6 +55,13 @@ class AgentScriptedModel {
       say(item == null ? '${r['error'] ?? '展开不了'}' : explainAttention(item));
       return true;
     }
+    // "打开第二条": the whole conversation of that item of the home.
+    final opened = RegExp(r'打开第').hasMatch(text) ? agentOrdinal(text) : null;
+    if (opened != null) {
+      final r = await call('open_item', {'number': opened});
+      say(r['error'] != null ? '${r['error']}' : '打开了第 $opened 条的整段对话。');
+      return true;
+    }
     // "看看第二个": make that item the current one, as the model does when it
     // starts talking about it.
     final look = agentOrdinal(text);
