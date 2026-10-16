@@ -487,6 +487,9 @@ void main() {
       'agent.audit_log': ({}, 'entries'),
       'attention.snoozed': ({}, 'snoozed'),
       'approvals.pending': ({}, 'cards'),
+      'agents.workspace_files': ({'agent': 'Cody'}, 'files'),
+      'agents.mcp_usage': ({'agent': 'Cody'}, 'servers'),
+      'notifications.center': ({}, 'notices'),
     };
 
     test('the smoke table covers every registered capability but two', () {
