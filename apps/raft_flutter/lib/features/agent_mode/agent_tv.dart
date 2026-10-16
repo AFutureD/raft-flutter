@@ -145,21 +145,16 @@ class _AgentTvAppState extends State<_AgentTvApp> {
           final top = layers.isEmpty ? null : layers.last;
           if (top != null && top['id'] == 'attention' && top['tv'] is Map) {
             return Scaffold(
-              backgroundColor: AgentTvAttention.ink,
+              backgroundColor: t.canvas,
               body: AgentTvAttention(
                 frame: Map<String, Object?>.from(top['tv'] as Map),
               ),
             );
           }
           return Scaffold(
-            backgroundColor: AgentTvAttention.ink,
+            backgroundColor: t.canvas,
             body: top == null
-                ? Center(
-                    child: Text(
-                      'Raft · Agent 模式',
-                      style: t.heading(28).copyWith(color: Colors.white),
-                    ),
-                  )
+                ? Center(child: Text('Raft · Agent 模式', style: t.heading(28)))
                 : AgentMarks(
                     controller: _marks,
                     child: AgentSpotlight(
@@ -278,8 +273,7 @@ class AgentTvAttention extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
-    return ColoredBox(
-      color: ink,
+    return AgentCanvas(
       child: LayoutBuilder(
         builder: (context, size) {
           // 10-foot type: 22 logical px of headline per 540 px of height,
@@ -305,7 +299,7 @@ class AgentTvAttention extends StatelessWidget {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(9 * s),
-              border: Border.all(color: Colors.white, width: 2.5 * s),
+              border: Border.all(color: ink, width: 2.5 * s),
             ),
             child: Text('$n', style: heading(22)),
           );
@@ -313,17 +307,17 @@ class AgentTvAttention extends StatelessWidget {
             if (count('decision') > 0) ...[
               badge(count('decision'), _rank[0]),
               SizedBox(width: 8 * s),
-              Text('件等你决定', style: heading(24, Colors.white)),
+              Text('件等你决定', style: heading(24)),
             ],
             if (count('decision') > 0 && count('blocked') > 0)
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10 * s),
-                child: Text('·', style: heading(24, Colors.white)),
+                child: Text('·', style: heading(24)),
               ),
             if (count('blocked') > 0) ...[
               badge(count('blocked'), const Color(0xffff9a4d)),
               SizedBox(width: 8 * s),
-              Text('件卡住了', style: heading(24, Colors.white)),
+              Text('件卡住了', style: heading(24)),
             ],
           ];
           return Padding(
@@ -369,25 +363,16 @@ class AgentTvAttention extends StatelessWidget {
                         vertical: 5 * s,
                       ),
                       decoration: BoxDecoration(
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(10 * s),
-                        border: Border.all(
-                          color: const Color(0xffffd441),
-                          width: 2 * s,
-                        ),
+                        border: Border.all(color: ink, width: 2.5 * s),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.smartphone,
-                            size: 18 * s,
-                            color: const Color(0xffffd441),
-                          ),
+                          Icon(Icons.smartphone, size: 18 * s, color: ink),
                           SizedBox(width: 6 * s),
-                          Text(
-                            '在手机上处理',
-                            style: body(14, const Color(0xffffd441)),
-                          ),
+                          Text('在手机上处理', style: body(14)),
                         ],
                       ),
                     ),
@@ -397,10 +382,7 @@ class AgentTvAttention extends StatelessWidget {
                 if (items.isEmpty)
                   Expanded(
                     child: Center(
-                      child: Text(
-                        '现在没有需要你处理的事',
-                        style: heading(28, Colors.white),
-                      ),
+                      child: Text('现在没有需要你处理的事', style: heading(28)),
                     ),
                   )
                 else ...[
@@ -463,6 +445,7 @@ class _TvRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16 * s),
+        border: Border.all(color: AgentTvAttention.ink, width: 3 * s),
         boxShadow: [BoxShadow(color: color, offset: Offset(0, 7 * s))],
       ),
       child: ClipRRect(
@@ -574,6 +557,7 @@ class AgentTvCaption extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18 * s),
+        border: Border.all(color: AgentTvAttention.ink, width: 3 * s),
         boxShadow: [
           BoxShadow(
             color: AgentTvAttention._rank[1],
@@ -683,8 +667,7 @@ class AgentTvLayer extends StatelessWidget {
     final page = entries.skip(start).take(rows).toList();
     final more = entries.length - start - page.length;
     final summary = '${frame['summary'] ?? ''}';
-    return ColoredBox(
-      color: ink,
+    return AgentCanvas(
       child: LayoutBuilder(
         builder: (context, size) {
           final s = (size.maxHeight / 540).clamp(1.0, 3.0);
@@ -738,7 +721,7 @@ class AgentTvLayer extends StatelessWidget {
                     if (entries.length > rows)
                       Text(
                         '${start + 1}–${start + page.length} / ${entries.length}',
-                        style: body(14, const Color(0xffffd441)),
+                        style: body(14, const Color(0xff57524c)),
                       ),
                   ],
                 ),
@@ -748,18 +731,13 @@ class AgentTvLayer extends StatelessWidget {
                     summary,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: body(16, Colors.white),
+                    style: body(16),
                   ),
                 ],
                 SizedBox(height: 14 * s),
                 Expanded(
                   child: frame['loading'] == true && entries.isEmpty
-                      ? Center(
-                          child: Text(
-                            '正在读取…',
-                            style: heading(28, Colors.white),
-                          ),
-                        )
+                      ? Center(child: Text('正在读取…', style: heading(28)))
                       : Column(
                           children: [
                             for (var r = 0; r < rows; r++)
@@ -794,7 +772,7 @@ class AgentTvLayer extends StatelessWidget {
                     child: Text(
                       '还有 $more 项，说“下一批”',
                       textAlign: TextAlign.center,
-                      style: body(14, const Color(0xffbdb6ad)),
+                      style: body(14, const Color(0xff57524c)),
                     ),
                   ),
                 if (caption.isNotEmpty || mood.isNotEmpty)
@@ -845,6 +823,7 @@ class _TvItemRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16 * s),
+        border: Border.all(color: AgentTvAttention.ink, width: 3 * s),
         boxShadow: [BoxShadow(color: color, offset: Offset(0, 6 * s))],
       ),
       child: ClipRRect(

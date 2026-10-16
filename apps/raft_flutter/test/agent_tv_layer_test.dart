@@ -69,40 +69,42 @@ void main() {
     expect(frame()['meta'], isNull);
   });
 
-  testWidgets('the TV draws a surface dark, numbered, with no ids', (t) async {
-    t.view.physicalSize = const Size(1920, 1080);
-    t.view.devicePixelRatio = 1;
-    addTearDown(t.view.reset);
-    await t.pumpWidget(
-      MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
-        home: Scaffold(
-          body: AgentTvLayer(
-            frame: frame(),
-            caption: '一个卡住了。',
-            mood: '🤔',
-            focused: 'surface-1#2',
+  testWidgets(
+    'the TV draws a surface on the phone canvas, numbered, with no ids',
+    (t) async {
+      t.view.physicalSize = const Size(1920, 1080);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: Scaffold(
+            body: AgentTvLayer(
+              frame: frame(),
+              caption: '一个卡住了。',
+              mood: '🤔',
+              focused: 'surface-1#2',
+            ),
           ),
         ),
-      ),
-    );
-    await t.pumpAndSettle();
-    expect(find.textContaining('Cindy'), findsWidgets);
-    expect(find.textContaining('#98 修复返回'), findsWidgets);
-    expect(find.textContaining(id), findsNothing);
-    expect(find.text('GenUI'), findsNothing);
-    expect(find.text('一个卡住了。'), findsOneWidget);
-    final box = t.widget<ColoredBox>(
-      find
-          .descendant(
-            of: find.byType(AgentTvLayer),
-            matching: find.byType(ColoredBox),
-          )
-          .first,
-    );
-    expect(box.color, AgentTvAttention.ink);
-    expect(t.takeException(), isNull);
-  });
+      );
+      await t.pumpAndSettle();
+      expect(find.textContaining('Cindy'), findsWidgets);
+      expect(find.textContaining('#98 修复返回'), findsWidgets);
+      expect(find.textContaining(id), findsNothing);
+      expect(find.text('GenUI'), findsNothing);
+      expect(find.text('一个卡住了。'), findsOneWidget);
+      // The same dotted canvas as the phone.
+      expect(
+        find.descendant(
+          of: find.byType(AgentTvLayer),
+          matching: find.byType(AgentCanvas),
+        ),
+        findsOneWidget,
+      );
+      expect(t.takeException(), isNull);
+    },
+  );
 
   testWidgets('the row the agent points at stays on screen', (t) async {
     t.view.physicalSize = const Size(1920, 1080);
