@@ -282,7 +282,7 @@ class _SectionDragHeaderState extends State<SidebarSectionDragHeader> {
           final below =
               incoming != null &&
               widget.order.indexOf(incoming) < widget.order.indexOf(id);
-          final edge = BorderSide(color: t.accent, width: 2);
+          final edge = BorderSide(color: t.accent, width: t.border);
           return _SectionDraggable(
             data: id,
             onHeldInPlace: widget.onHeldInPlace,
@@ -339,22 +339,20 @@ class _SectionDragCard extends StatelessWidget {
           color: t.popover,
           borderRadius: BorderRadius.circular(t.radius),
           border: Border.all(color: t.line),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x29000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
+          boxShadow: t.shadows,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: recipe.inset,
           child: DefaultTextStyle(
             style: recipe.title.copyWith(color: recipe.foreground),
             child: Row(
               children: [
-                RaftIcon(glyph, size: 14, color: recipe.foreground),
-                const SizedBox(width: 8),
+                RaftIcon(
+                  glyph,
+                  size: RaftSidebarSectionMetrics.actionGlyph,
+                  color: recipe.foreground,
+                ),
+                const SizedBox(width: RaftSidebarSectionMetrics.inlineGap),
                 Flexible(
                   child: Text(
                     label.toUpperCase(),
@@ -363,7 +361,7 @@ class _SectionDragCard extends StatelessWidget {
                   ),
                 ),
                 if (count != null) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: RaftSidebarSectionMetrics.inlineGap),
                   Text('$count', style: recipe.count),
                 ],
               ],
