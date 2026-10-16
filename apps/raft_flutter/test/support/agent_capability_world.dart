@@ -107,6 +107,78 @@ class CapabilityWorld extends WorkspaceController {
     return true;
   }
 
+  /// Sends addressed by channel id (what the operations use): the selection,
+  /// the open thread and the drafts are never touched, so `selected` and
+  /// `threads` stay empty.
+  @override
+  Future<bool> sendToChannel(
+    RaftChannel target,
+    String text, {
+    List<Map<String, dynamic>>? mentions,
+    String? randomId,
+  }) async {
+    sent.add((
+      text: text,
+      channel: target.id,
+      thread: false,
+      mentions: mentions,
+      randomId: randomId,
+      parent: null,
+    ));
+    if (!sendAccepted) {
+      error = 'Failed to send message';
+      return false;
+    }
+    ledger.ingest([
+      {
+        'id': 'm-sent-${sent.length}',
+        'channelId': target.id,
+        'randomId': randomId,
+        'content': text,
+        'seq': '${900 + sent.length}',
+        'senderId': 'kevin',
+        'senderType': 'user',
+      },
+    ], expectedGeneration: ledger.generation);
+    return true;
+  }
+
+  @override
+  Future<bool> sendThreadReply(
+    RaftMessage parent,
+    String text, {
+    List<Map<String, dynamic>>? mentions,
+    String? randomId,
+    void Function(String threadChannelId)? resolved,
+  }) async {
+    sent.add((
+      text: text,
+      channel: parent.channelId,
+      thread: true,
+      mentions: mentions,
+      randomId: randomId,
+      parent: parent.id,
+    ));
+    if (!sendAccepted) {
+      error = 'Failed to send message';
+      return false;
+    }
+    final threadId = 'thr-${parent.id}';
+    resolved?.call(threadId);
+    ledger.ingest([
+      {
+        'id': 'm-sent-${sent.length}',
+        'channelId': threadId,
+        'randomId': randomId,
+        'content': text,
+        'seq': '${900 + sent.length}',
+        'senderId': 'kevin',
+        'senderType': 'user',
+      },
+    ], expectedGeneration: ledger.generation);
+    return true;
+  }
+
   final threads = <String>[];
 
   @override

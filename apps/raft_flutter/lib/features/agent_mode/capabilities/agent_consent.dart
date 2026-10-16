@@ -57,10 +57,28 @@ abstract interface class AgentUserConsent {
   /// The person's answer for [token]. [AgentConsentVerdict.granted] is given
   /// once: the token is spent by taking it.
   AgentConsentVerdict take(String token);
+
+  /// Whether the person asked, in their own words just now, to take back what
+  /// was done ("撤销", "改回去", "刚才那个不要了"). Given once. A press on a
+  /// result card's 撤销 button needs no words: it does not come through the
+  /// model at all.
+  bool takeUndo();
 }
 
 /// What the words of a person mean for a pending confirmation.
 enum AgentUtterance { yes, no, other }
+
+/// "Take it back": the person's own request to undo the last operation.
+final _undoRequest = RegExp(
+  r'撤销|撤回|改回去|改回来|变回去|恢复原|恢复成|还原|取消刚才|刚才那个不要|刚才的不要|'
+  r"\b(?:undo|revert|take (?:it|that) back|put it back)\b",
+);
+
+/// Whether [raw] is the person asking to undo (a question about undo is not).
+bool isUndoRequest(String raw) =>
+    raw.length <= 40 &&
+    !RegExp(r'[?？吗呢]').hasMatch(raw) &&
+    _undoRequest.hasMatch(raw.toLowerCase());
 
 /// Phrases that contain an affirmative word without being one.
 const _falseFriends = [
@@ -117,6 +135,18 @@ class AgentPendingConfirmation {
   final bool approved;
 }
 
+/// A confirmation the app cancelled because the person moved on to something
+/// else: its card stays a moment, saying so.
+@immutable
+class AgentCancelledConfirmation {
+  const AgentCancelledConfirmation(this.cardId, this.request, this.until);
+  final String cardId;
+  final AgentConsentRequest request;
+
+  /// When the card goes away by itself.
+  final DateTime until;
+}
+
 class _Entry {
   _Entry(this.cardId, this.request, this.since);
   final String cardId;
@@ -157,6 +187,18 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
   int _utterance = 0;
   String _said = '';
 
+  /// When the person last asked, in words, to undo; spent by [takeUndo].
+  DateTime? _undoAsked;
+
+  /// How long such a request counts.
+  static const undoAskWindow = Duration(seconds: 15);
+
+  /// How long the card of a cancelled confirmation stays.
+  static const cancelledStay = Duration(seconds: 6);
+
+  final _cancelled = <String, AgentCancelledConfirmation>{};
+  final _cancelledTokens = <String>{};
+
   /// A press on a card of this ledger decided [request].
   void Function(AgentConsentRequest request, bool yes)? onTapped;
 
@@ -170,12 +212,22 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
     ];
   }
 
+  /// The cards of confirmations the app cancelled, still on screen.
+  List<AgentCancelledConfirmation> get cancelledCards {
+    _prune();
+    return List.unmodifiable(_cancelled.values);
+  }
+
   /// When the next confirmation runs out, for a timer that clears the card.
-  DateTime? get nextExpiry => _entries.values.isEmpty
-      ? null
-      : _entries.values
-            .map((e) => e.request.expires)
-            .reduce((a, b) => a.isBefore(b) ? a : b);
+  DateTime? get nextExpiry {
+    final times = [
+      for (final e in _entries.values) e.request.expires,
+      for (final c in _cancelled.values) c.until,
+    ];
+    return times.isEmpty
+        ? null
+        : times.reduce((a, b) => a.isBefore(b) ? a : b);
+  }
 
   bool _prune() {
     final now = _now();
@@ -186,7 +238,55 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
     for (final k in gone) {
       _entries.remove(k);
     }
-    return gone.isNotEmpty;
+    final faded = [
+      for (final e in _cancelled.entries)
+        if (!now.isBefore(e.value.until)) e.key,
+    ];
+    for (final k in faded) {
+      _cancelled.remove(k);
+    }
+    return gone.isNotEmpty || faded.isNotEmpty;
+  }
+
+  /// The app cancels the confirmation of [token] (the person went on to
+  /// something unrelated): its card turns into "已取消" for a moment, and the
+  /// model's `confirm` for it is answered "declined". False when there is no
+  /// live confirmation for it.
+  bool cancel(String token) {
+    _prune();
+    final entry = _entries.remove(token);
+    if (entry == null) return false;
+    _cancelledTokens.add(token);
+    _cancelled[token] = AgentCancelledConfirmation(
+      entry.cardId,
+      entry.request,
+      _now().add(cancelledStay),
+    );
+    notifyListeners();
+    return true;
+  }
+
+  /// The card of a cancelled confirmation was dismissed.
+  void dismissCancelled(String cardId) {
+    final key = _cancelled.entries
+        .where((e) => e.value.cardId == cardId)
+        .map((e) => e.key)
+        .firstOrNull;
+    if (key == null) return;
+    _cancelled.remove(key);
+    notifyListeners();
+  }
+
+  /// A cancelled confirmation lives again (the new turn went on from the old
+  /// one after all): its card and its token are back, undecided.
+  bool restore(String token) {
+    final c = _cancelled.remove(token);
+    if (c == null) return false;
+    _cancelledTokens.remove(token);
+    final entry = _Entry(c.cardId, c.request, _utterance);
+    _entries[token] = entry;
+    notifyListeners();
+    return true;
   }
 
   /// Drops what ran out; tells the card tray.
@@ -248,6 +348,7 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
       _said = '';
     }
     _said += text;
+    if (isUndoRequest(_said)) _undoAsked = _now();
     _prune();
     final eligible = [
       for (final e in _entries.values)
@@ -276,7 +377,9 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
     final changed = _prune();
     final entry = _entries[token];
     AgentConsentVerdict verdict;
-    if (entry == null) {
+    if (entry == null && _cancelledTokens.contains(token)) {
+      verdict = AgentConsentVerdict.declined;
+    } else if (entry == null) {
       verdict = AgentConsentVerdict.pending;
     } else if (entry.declined) {
       _entries.remove(token);
@@ -291,8 +394,19 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
     return verdict;
   }
 
+  @override
+  bool takeUndo() {
+    final at = _undoAsked;
+    if (at == null || _now().difference(at) > undoAskWindow) return false;
+    _undoAsked = null;
+    return true;
+  }
+
   /// Forgets everything (the session ended).
   void clear() {
+    _undoAsked = null;
+    _cancelled.clear();
+    _cancelledTokens.clear();
     if (_entries.isEmpty) return;
     _entries.clear();
     notifyListeners();

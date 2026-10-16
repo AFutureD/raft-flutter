@@ -124,6 +124,12 @@ void main() {
     return (await tools.run('confirm', {'token': previewed['confirmToken']}))!;
   }
 
+  /// The person says 撤销, then the model calls the undo tool.
+  Future<Map<String, Object?>> undoSaid() async {
+    ledger.userSaid('撤销');
+    return (await tools.run('undo', {}))!;
+  }
+
   List<String> changes(Map<String, Object?> r) =>
       ((r['preview'] as Map)['changes'] as List).cast<String>();
 
@@ -224,8 +230,9 @@ void main() {
       expect(sent.mentions, [
         {'type': 'agent', 'id': 'a-cody', 'name': 'cody'},
       ]);
-      // The channel was selected the way the page does, without opening it.
-      expect(w.selected.single, 'ch-general:quiet:stay');
+      // Sent to the channel by id: nothing was selected, not even briefly.
+      expect(w.selected, isEmpty);
+      expect(w.channel, isNull);
       // The card turned into the result, with the message it made.
       final card = board.records.single;
       expect(card.phase, AgentActionPhase.done);
@@ -243,12 +250,12 @@ void main() {
       expect(w.sent.single.channel, 'dm-1');
     });
 
-    test('the channel the person had open is put back', () async {
+    test('the channel the person has open is never changed', () async {
       w.channel = w.channels.firstWhere((c) => c.id == 'ch-design');
       await approve(
         await ask('send_message', {'channel': 'general', 'text': '你好'}),
       );
-      expect(w.selected, ['ch-general:quiet:stay', 'ch-design:quiet:stay']);
+      expect(w.selected, isEmpty);
       expect(w.sent.single.channel, 'ch-general');
       expect(w.channel?.id, 'ch-design');
     });
@@ -311,12 +318,16 @@ void main() {
       });
     });
 
-    test('opens the thread, sends into it, closes it', () async {
+    test('sends into the thread without opening it', () async {
+      w.channel = w.channels.firstWhere((c) => c.id == 'ch-design');
       final done = await approve(
         await ask('reply_in_thread', {'message': 'm-1', 'text': '可以'}),
       );
       expect(done['status'], 'done');
-      expect(w.threads, ['m-1:stay', 'closed']);
+      // The open thread, the open channel and the selection are untouched.
+      expect(w.threads, isEmpty);
+      expect(w.selected, isEmpty);
+      expect(w.channel?.id, 'ch-design');
       final sent = w.sent.single;
       expect(sent.thread, isTrue);
       expect(sent.parent, 'm-1');
@@ -350,8 +361,8 @@ void main() {
         await ask('react', {'message': 'm-1', 'emoji': '🎉'}),
       );
       expect(done['undo'], containsPair('seconds', 30));
-      final undone = await tools.run('undo', {});
-      expect(undone!['status'], 'undone');
+      final undone = await undoSaid();
+      expect(undone['status'], 'undone');
       expect(w.toggles, ['m-1:🎉', 'm-1:🎉']);
       expect(board.records.single.undone, isTrue);
       expect(board.records.single.undoLabel, isNull);
@@ -397,7 +408,7 @@ void main() {
       expect(w.commands.single.$2, '/channels/inbox/read-all');
       expect(done.containsKey('undo'), isFalse);
       expect(board.records.single.undoLabel, isNull);
-      expect((await tools.run('undo', {}))!['error'], contains('没有能撤销'));
+      expect((await undoSaid())['error'], contains('没有能撤销'));
     });
 
     test('nothing unread is said, not previewed', () async {
@@ -566,8 +577,8 @@ void main() {
         await ask('set_task_status', {'task': 't3', 'status': 'done'}),
       );
       final consented = ledger.active.length;
-      final undone = await tools.run('undo', {});
-      expect(undone!['status'], 'undone');
+      final undone = await undoSaid();
+      expect(undone['status'], 'undone');
       expect(w.commands.last.$3, {'status': 'in_progress'});
       expect(ledger.active.length, consented);
       expect(board.records.single.text, '已改回 进行中');
@@ -686,6 +697,38 @@ void main() {
   });
 
   group('undo', () {
+    test('the model cannot undo on its own: the person must say so', () async {
+      await approve(await ask('react', {'message': 'm-1', 'emoji': '🎉'}));
+      final refused = await tools.run('undo', {});
+      expect(refused!['error'], 'needs_user_consent');
+      expect(w.toggles, ['m-1:🎉'], reason: 'nothing was taken back');
+      expect(board.records.single.undone, isFalse);
+      // Words that are not an undo, or only a question about one, do not count.
+      ledger.userSaid('好的');
+      ledger.userSaid('可以撤销吗');
+      expect((await tools.run('undo', {}))!['error'], 'needs_user_consent');
+      // Their own words do, once.
+      ledger.userSaid('刚才那个撤销一下');
+      expect((await tools.run('undo', {}))!['status'], 'undone');
+      expect(w.toggles, ['m-1:🎉', 'm-1:🎉']);
+    });
+
+    test('words said long ago do not count, and are spent by use', () async {
+      await approve(await ask('react', {'message': 'm-1', 'emoji': '🎉'}));
+      ledger.userSaid('撤销');
+      // Still inside the 30 s the operation can be taken back, but the
+      // person's words are no longer what the model is acting on.
+      clock = clock.add(const Duration(seconds: 20));
+      expect((await tools.run('undo', {}))!['error'], 'needs_user_consent');
+    });
+
+    test('the press on the card is the person: no words needed', () async {
+      await approve(await ask('react', {'message': 'm-1', 'emoji': '🎉'}));
+      final undone = await tools.undoAction(board.records.single.id);
+      expect(undone['status'], 'undone');
+      expect(w.toggles, ['m-1:🎉', 'm-1:🎉']);
+    });
+
     test('only within 30 s, and only once', () async {
       final r = await approve(
         await ask('set_task_status', {'task': '9', 'status': 'done'}),
@@ -705,15 +748,15 @@ void main() {
         await ask('set_task_status', {'task': '9', 'status': 'in_review'}),
       );
       expect(second['status'], 'done');
-      expect((await tools.run('undo', {}))!['status'], 'undone');
-      expect((await tools.run('undo', {}))!['error'], contains('没有能撤销'));
+      expect((await undoSaid())['status'], 'undone');
+      expect((await undoSaid())['error'], contains('没有能撤销'));
     });
 
     test('a failed undo keeps the card and says so', () async {
       await approve(await ask('react', {'message': 'm-1', 'emoji': '👍'}));
       w.toggleError = const RaftApiException('offline');
-      final r = await tools.run('undo', {});
-      expect(r!['error'], contains('撤销没成功'));
+      final r = await undoSaid();
+      expect(r['error'], contains('撤销没成功'));
       expect(board.records.single.phase, AgentActionPhase.done);
       expect(board.records.single.text, contains('撤销没成功'));
       expect(board.records.single.undoLabel, isNotNull);
@@ -729,7 +772,7 @@ void main() {
       await approve(
         await ask('set_task_status', {'task': '9', 'status': 'done'}),
       );
-      await tools.run('undo', {});
+      await undoSaid();
       w.commandError = const RaftApiException('nope');
       await approve(await ask('join_channel', {'channel': 'random'}));
       w.commandError = null;

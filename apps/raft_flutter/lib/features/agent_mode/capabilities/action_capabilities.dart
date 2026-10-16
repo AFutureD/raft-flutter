@@ -44,33 +44,6 @@ String _emoji(String raw) {
   return _emojiNames[key] ?? raw.trim();
 }
 
-/// Runs [body] with [target] selected (the way the page sends into a
-/// channel), then puts the previous channel back. Nothing is navigated and
-/// no read receipt is sent.
-Future<T> _inChannel<T>(
-  WorkspaceController w,
-  RaftChannel target,
-  Future<T> Function() body, {
-  bool closeThread = false,
-}) async {
-  final previous = w.channel;
-  if (previous?.id != target.id) {
-    await w.selectChannel(target, autoRead: false, navigate: false);
-  }
-  try {
-    return await body();
-  } finally {
-    if (closeThread) w.closeThread(navigate: false);
-    if (previous != null && previous.id != target.id) {
-      try {
-        await w.selectChannel(previous, autoRead: false, navigate: false);
-      } on Object {
-        // The selection stays where the send left it.
-      }
-    }
-  }
-}
-
 final actionCapabilities = <AgentCapability>[
   AgentCapability(
     id: 'messages.send',
@@ -121,10 +94,12 @@ final actionCapabilities = <AgentCapability>[
       final c = sendableChannel(w, '${args['channel']}');
       final m = await mentionsIn(w, '${args['text']}');
       final randomId = w.client.newRandomId();
-      final ok = await _inChannel(
-        w,
+      // To the channel by id: what the person has open stays open.
+      final ok = await w.sendToChannel(
         c,
-        () => w.send(m.text, mentions: m.mentions, randomId: randomId),
+        m.text,
+        mentions: m.mentions,
+        randomId: randomId,
       );
       if (!ok) {
         throw AgentCapabilityError(w.error ?? '消息没有发出去');
@@ -194,17 +169,14 @@ final actionCapabilities = <AgentCapability>[
       final m = await mentionsIn(w, '${args['text']}');
       final randomId = w.client.newRandomId();
       String? threadId;
-      final ok = await _inChannel(w, where, () async {
-        await w.openThread(parent, navigate: false);
-        final sent = await w.send(
-          m.text,
-          thread: true,
-          mentions: m.mentions,
-          randomId: randomId,
-        );
-        threadId = w.threadChannelId;
-        return sent;
-      }, closeThread: true);
+      // Into the thread by id: the open thread and channel stay as they are.
+      final ok = await w.sendThreadReply(
+        parent,
+        m.text,
+        mentions: m.mentions,
+        randomId: randomId,
+        resolved: (id) => threadId = id,
+      );
       if (!ok) throw AgentCapabilityError(w.error ?? '回复没有发出去');
       return actionResult(
         '已回复',

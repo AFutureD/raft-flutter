@@ -4726,6 +4726,173 @@ class WorkspaceController extends ChangeNotifier {
     );
   }
 
+  /// Sends [text] to [target] without selecting it: the open channel, the open
+  /// thread, the drafts and the read state of the page are not touched. It is
+  /// the same send as [send] (the composer's session, the optimistic row, the
+  /// receipt, the retry identity under [randomId]); only the destination is
+  /// named instead of read from the selection. For callers that act for the
+  /// person while they look at something else (agent mode).
+  Future<bool> sendToChannel(
+    RaftChannel target,
+    String text, {
+    List<Map<String, dynamic>>? mentions,
+    String? randomId,
+  }) {
+    final source = presentationSource;
+    if (source != null) {
+      return source.sendToChannel(
+        target,
+        text,
+        mentions: mentions,
+        randomId: randomId,
+      );
+    }
+    return _sendTo(
+      scope: target.id,
+      channelId: target.id,
+      parentChannelId: target.id,
+      blocked: channelConversionBlocksSending(target.json),
+      resolve: () async => target.id,
+      text: text,
+      mentions: mentions,
+      randomId: randomId,
+    );
+  }
+
+  /// Replies in the thread of [parent] without opening it (see
+  /// [sendToChannel]); the thread is created when the message has none yet.
+  Future<bool> sendThreadReply(
+    RaftMessage parent,
+    String text, {
+    List<Map<String, dynamic>>? mentions,
+    String? randomId,
+    void Function(String threadChannelId)? resolved,
+  }) {
+    final source = presentationSource;
+    if (source != null) {
+      return source.sendThreadReply(
+        parent,
+        text,
+        mentions: mentions,
+        randomId: randomId,
+        resolved: resolved,
+      );
+    }
+    final parentChannel = channelById(parent.channelId);
+    return _sendTo(
+      scope: 'thread:${parent.id}',
+      channelId: null,
+      parentChannelId: parent.channelId,
+      blocked:
+          parentChannel != null &&
+          channelConversionBlocksSending(parentChannel.json),
+      resolve: () async {
+        final known = threadParentMessageId == parent.id
+            ? threadChannelId
+            : null;
+        if (known != null) {
+          resolved?.call(known);
+          return known;
+        }
+        try {
+          final info = await client.get(
+            '/channels/${parent.channelId}/threads/${parent.id}',
+          );
+          final id = info['threadChannelId'];
+          if (id is String && id.isNotEmpty) {
+            resolved?.call(id);
+            return id;
+          }
+        } on RaftApiException catch (e) {
+          if (!isThreadAbsentLookupError(e)) rethrow;
+        }
+        final created = await client.post(
+          '/channels/${parent.channelId}/threads',
+          data: {'parentMessageId': parent.id},
+        );
+        final id = created['threadChannelId'];
+        if (id is! String || id.isEmpty) return null;
+        client.joinChannel(id);
+        resolved?.call(id);
+        return id;
+      },
+      text: text,
+      mentions: mentions,
+      randomId: randomId,
+    );
+  }
+
+  Future<bool> _sendTo({
+    required String scope,
+    required String? channelId,
+    required String parentChannelId,
+    required bool blocked,
+    required Future<String?> Function() resolve,
+    required String text,
+    List<Map<String, dynamic>>? mentions,
+    String? randomId,
+  }) async {
+    if (_disposed) return false;
+    if (blocked) {
+      error = 'Channel conversion in progress';
+      notifyListeners();
+      return false;
+    }
+    error = null;
+    // What the person has attached to that draft is theirs to send.
+    if (composer.uploads.byScope[scope]?.isNotEmpty ?? false) {
+      error = 'That draft has attachments waiting: send it from the channel.';
+      notifyListeners();
+      return false;
+    }
+    final role = server?.string('role');
+    bool current() => !_disposed && role == server?.string('role');
+    return composer.sends.send(
+      text,
+      client: client,
+      attachments: const [],
+      mentions: [
+        for (final mention in mentions ?? <Map<String, dynamic>>[])
+          Map<String, dynamic>.unmodifiable({
+            'type': mention['type'],
+            'id': mention['id'],
+            'name': mention['name'],
+          }),
+      ],
+      randomId: randomId,
+      attachmentsOnlyBody: (count) => '[$count attachments]',
+      visit: ComposerSendVisit(
+        scope: scope,
+        channelId: channelId,
+        parentChannelId: parentChannelId,
+        displaySeq: ledger.watermark,
+        author: {
+          'senderId': client.user?.id ?? '',
+          'senderType': 'user',
+          'senderName':
+              client.user?.firstNonEmpty(const ['displayName', 'name']) ?? '',
+        },
+        current: current,
+        prepare: () async => current() ? await resolve() : null,
+        limit: uploadLimitBytes,
+        transfer: (file) async {},
+        started: () {
+          _composerNotices.clear(scope);
+          sendWarnings.remove(scope);
+        },
+        failed: (cause) {
+          error = userErrorText(
+            cause,
+            fallback: 'Failed to send message',
+            where: 'send message',
+          );
+          notifyListeners();
+        },
+        received: (sent) {},
+      ),
+    );
+  }
+
   /// Project session delivery into each existing accepted window. This does
   /// not create another ledger or move a page's current selection.
   void _sendChanged(String scope, RaftMessage? accepted) {

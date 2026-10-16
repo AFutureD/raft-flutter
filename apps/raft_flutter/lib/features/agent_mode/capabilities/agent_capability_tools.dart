@@ -84,8 +84,8 @@ const capabilityToolDeclarations = <Map<String, Object?>>[
   {
     'name': 'undo',
     'description':
-        '撤销刚刚执行完的操作（标已读、改状态、表情、指派等能撤销的）。只在用户说“撤销/改回去/刚才那个不要了”时调用；'
-        '执行后 30 秒内有效，不需要再确认。token 省略就是最近一次能撤销的。',
+        '撤销刚刚执行完的操作（标已读、改状态、表情、指派等能撤销的）。只在用户亲口说了“撤销/改回去/刚才那个不要了”之后调用；'
+        '他点结果卡上的撤销按钮不用你调用。你自己不能决定撤销：用户没有说过，会返回 needs_user_consent，什么都不做。执行后 30 秒内有效。token 省略就是最近一次能撤销的。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -273,7 +273,7 @@ class AgentCapabilityTools {
       case 'confirm':
         return _confirm(args);
       case 'undo':
-        return undoAction('${args['token'] ?? ''}'.trim());
+        return _undoByModel('${args['token'] ?? ''}'.trim());
       case 'resolve':
         return _resolve(args);
     }
@@ -556,7 +556,7 @@ class AgentCapabilityTools {
           'undo': {
             'label': plan.label,
             'seconds': undoWindow.inSeconds,
-            'how': '用户说撤销时调用 undo，30 秒内有效；卡上也有撤销按钮',
+            'how': '用户亲口说了撤销之后才调用 undo（30 秒内有效）；卡上也有撤销按钮，他点了就不用你调用',
           },
       };
     } on Object catch (e) {
@@ -589,22 +589,46 @@ class AgentCapabilityTools {
     return _execute(id, ran.capability, ran.args, ran.preview);
   }
 
-  /// Takes back the operation [id] (the latest one that can be, when empty),
-  /// by the card's 撤销 button or the `undo` tool. Within [undoWindow] it
-  /// needs no confirmation: it only restores what the person had agreed to
-  /// change.
+  /// The `undo` tool: the model asks to take something back. That is the
+  /// person's decision, never the model's: it runs only when they just said
+  /// so in their own words ("撤销", "改回去"). The card's 撤销 button does not
+  /// come here (see [undoAction]).
+  Future<Map<String, Object?>> _undoByModel(String id) async {
+    if (_undoKey(id) == null) return {'error': '没有能撤销的操作'};
+    if (!(userConsent?.takeUndo() ?? false)) {
+      return {
+        'error': 'needs_user_consent',
+        'message':
+            '撤销要用户自己决定：他点结果卡上的“撤销”，或亲口说“撤销/改回去”之后才能撤销。'
+            '你不能自己撤销，什么都没有做；告诉他可以点卡上的撤销，或说一声“撤销”',
+      };
+    }
+    return undoAction(id);
+  }
+
+  String? _undoKey(String id) {
+    final now = _now();
+    final key = id.isEmpty ? null : id;
+    return key ??
+        _ran.entries
+            .where(
+              (e) =>
+                  e.value.plan != null &&
+                  !e.value.undone &&
+                  (e.value.until?.isAfter(now) ?? false),
+            )
+            .map((e) => e.key)
+            .lastOrNull;
+  }
+
+  /// Takes back the operation [id] (the latest one that can be, when empty).
+  /// This is what the person's own press on the card's 撤销 button runs, so
+  /// it needs no further consent; the `undo` tool goes through
+  /// [_undoByModel], which asks for it. Within [undoWindow] it only restores
+  /// what the person had agreed to change.
   Future<Map<String, Object?>> undoAction(String id) async {
     final now = _now();
-    String? key = id.isEmpty ? null : id;
-    key ??= _ran.entries
-        .where(
-          (e) =>
-              e.value.plan != null &&
-              !e.value.undone &&
-              (e.value.until?.isAfter(now) ?? false),
-        )
-        .map((e) => e.key)
-        .lastOrNull;
+    final String? key = _undoKey(id);
     final ran = key == null ? null : _ran[key];
     final plan = ran?.plan;
     if (ran == null || plan == null || ran.undone) {

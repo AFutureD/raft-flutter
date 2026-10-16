@@ -111,8 +111,11 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
   @override
   Widget build(BuildContext context) {
     final pending = widget.ledger.active;
+    final cancelled = widget.ledger.cancelledCards;
     final records = widget.board?.records ?? const <AgentActionRecord>[];
-    if (pending.isEmpty && records.isEmpty) return const SizedBox.shrink();
+    if (pending.isEmpty && records.isEmpty && cancelled.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final compact = MediaQuery.sizeOf(context).width < 700;
     final now = _now();
     // A card with the thing it is about is tall: the tray never takes more
@@ -190,6 +193,24 @@ class _AgentConsentTrayState extends State<AgentConsentTray> {
                         widget.ledger.cardTapped(p.cardId, yes: false),
                   ),
                 ),
+            // What the person moved on from: the card says so for a moment.
+            for (final c in cancelled)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: GestureDetector(
+                  onTap: () => widget.ledger.dismissCancelled(c.cardId),
+                  child: AgentConfirmCardView(
+                    key: ValueKey('agent-consent-${c.cardId}'),
+                    title: c.request.preview.summary,
+                    changes: c.request.preview.changes,
+                    risk: c.request.sensitive
+                        ? AgentConfirmRisk.sensitive
+                        : AgentConfirmRisk.change,
+                    compact: compact,
+                    result: AgentConfirmResult.cancelled,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
