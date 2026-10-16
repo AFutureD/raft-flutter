@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_audio.dart';
+import 'agent_live_guard.dart';
 import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
 
@@ -38,10 +39,16 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     this.onModelSpoke,
     this.onModelTurnComplete,
     this.muted,
+    Duration liveIdleLimit = agentLiveIdleLimit,
     AgentAudio? audio,
     AgentVoiceKey? key,
   }) : audio = audio ?? AgentAudio.instance,
        key = key ?? AgentVoiceKey.instance {
+    _guard = AgentLiveGuard(
+      limit: liveIdleLimit,
+      onIdle: _liveIdle,
+      busy: () => _toolsRunning > 0 || state == AgentMicState.speaking,
+    );
     this.audio.onPlaybackIdle = _playbackIdle;
     AgentVoiceSettings.instance.addListener(_settingsChanged);
     unawaited(AgentVoiceSettings.instance.applyOutput());
@@ -101,6 +108,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     final old = _session;
     _session = null;
     _stopMic();
+    _guard.stop();
     _live = _holding = false;
     await old?.close();
     unawaited(audio.stopPlayback());
@@ -138,6 +146,9 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   final lines = <(AgentSpeaker, String)>[];
   AgentMicState state = AgentMicState.idle;
   String? notice;
+
+  late final AgentLiveGuard _guard;
+  int _toolsRunning = 0;
 
   GeminiLiveSession? _session;
   Future<GeminiLiveSession?>? _connecting;
@@ -227,9 +238,17 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         if (!_live && !_holding && state != AgentMicState.speaking) {
           _set(AgentMicState.thinking);
         }
-        return onToolCall(name, args);
+        _toolsRunning++;
+        _guard.touch();
+        try {
+          return await onToolCall(name, args);
+        } finally {
+          _toolsRunning--;
+          _guard.touch();
+        }
       },
       onAudio: (pcm) {
+        _guard.touch();
         onModelSpoke?.call();
         if (muted?.call() ?? false) return;
         if (!audio.supported) return;
@@ -239,6 +258,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         }
       },
       onInputText: (text) {
+        _guard.touch();
         onUserSaid?.call(text, fresh: _youLine == null);
         // The person speaking starts a new reply.
         if (saying.value.isNotEmpty) saying.value = '';
@@ -246,6 +266,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         _append(AgentSpeaker.you, text);
       },
       onOutputText: (text) {
+        _guard.touch();
         onModelSpoke?.call();
         if (muted?.call() ?? false) return;
         saying.value += text;
@@ -253,6 +274,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         _append(AgentSpeaker.agent, text);
       },
       onTurnComplete: () {
+        _guard.touch();
         _youLine = _agentLine = null;
         if (state == AgentMicState.thinking) _set(AgentMicState.idle);
         onModelTurnComplete?.call();
@@ -266,6 +288,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         _endSession();
         _session = null;
         _stopMic();
+        _guard.stop();
         _live = _holding = false;
         _set(AgentMicState.idle, note: '语音连接断开：$reason');
       },
@@ -300,6 +323,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       },
       onError: (Object e) {
         _stopMic();
+        _guard.stop();
         _live = _holding = false;
         _set(AgentMicState.idle, note: '麦克风不可用：$e');
       },
@@ -328,6 +352,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     unawaited(audio.stopPlayback());
     _holding = _pressed;
     _live = early == true;
+    if (_live) _guard.start();
     _pending.clear();
     _startMic();
     onListening?.call();
@@ -339,6 +364,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     final session = await _ensureSession();
     if (session == null) {
       _stopMic();
+      _guard.stop();
       _holding = false;
       return;
     }
@@ -373,6 +399,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     _holding = false;
     if (held < tapLimit) {
       _live = true;
+      _guard.start();
       _set(AgentMicState.live);
       return;
     }
@@ -386,7 +413,19 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     );
   }
 
+  /// Nobody spoke for [agentLiveIdleLimit]: the microphone stops (the model
+  /// is told the audio ended) and the person is told why.
+  void _liveIdle() {
+    if (!_live || _disposed) return;
+    _live = false;
+    _stopMic();
+    _session?.endAudio();
+    onListeningEnded?.call();
+    _set(AgentMicState.idle, note: agentLiveIdleNotice);
+  }
+
   void stopLive() {
+    _guard.stop();
     _live = false;
     _stopMic();
     _session?.endAudio();
@@ -440,6 +479,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   @override
   void dispose() {
     _disposed = true;
+    _guard.stop();
     _endSession();
     saying.dispose();
     AgentVoiceSettings.instance.removeListener(_settingsChanged);
