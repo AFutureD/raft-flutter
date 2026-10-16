@@ -84,7 +84,7 @@ class WorkspaceGridSessions extends ChangeNotifier {
     if (row == null) return null;
     final child = WorkspaceController(
       parent.client,
-      cache: parent.cache,
+      cache: parent.deviceStore.cache,
       ownsClient: false,
       entityDirectory: parent.entityDirectory,
       followedThreads: parent.followedThreads,

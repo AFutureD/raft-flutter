@@ -21,12 +21,12 @@ class MessageHistoryPositions {
     while (w.presentationSource != null) {
       w = w.presentationSource!;
     }
-    if (!w.cacheWritable) return;
+    if (!w.deviceStore.writable) return;
     if (id == w.channel?.id && w.channelLoading ||
         id == w.threadChannelId && w.threadLoading) {
       return;
     }
-    final storage = MessageHistoryPages.storage(w.cache),
+    final storage = MessageHistoryPages.storage(w.deviceStore.cache),
         scope = MessageHistoryPages.scope(
           w,
           id,
@@ -58,7 +58,7 @@ class MessageHistoryPositions {
     MessageHistoryScope? boundScope,
     bool Function()? current,
   }) async {
-    final storage = MessageHistoryPages.storage(w.cache),
+    final storage = MessageHistoryPages.storage(w.deviceStore.cache),
         scope =
             boundScope ??
             MessageHistoryPages.scope(
@@ -82,7 +82,7 @@ class MessageHistoryPositions {
   }) async {
     MessageHistoryPages.opened(w, id).ignore();
     if (!request.current) return null;
-    final storage = MessageHistoryPages.storage(w.cache),
+    final storage = MessageHistoryPages.storage(w.deviceStore.cache),
         scope = MessageHistoryPages.scope(
           w,
           id,
@@ -92,7 +92,7 @@ class MessageHistoryPositions {
     if (storage == null ||
         scope == null ||
         !request.current ||
-        !w.cacheWritable) {
+        !w.deviceStore.writable) {
       return null;
     }
     if (cached is CachedHistoryWindow && cached.provesNoPosition(scope)) {
@@ -105,7 +105,7 @@ class MessageHistoryPositions {
         for (final row in w.ledger.messages(id)) row['id'] as String: row,
       };
       final local = await storage.readContext(scope, position.messageId);
-      if (local == null || !request.current || !w.cacheWritable) return null;
+      if (local == null || !request.current || !w.deviceStore.writable) return null;
       final target = (local['messages'] as List)
           .whereType<Map>()
           .where((row) => row['id'] == position.messageId)

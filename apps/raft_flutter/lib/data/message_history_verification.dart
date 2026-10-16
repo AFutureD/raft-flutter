@@ -25,10 +25,10 @@ class MessageHistoryVerification {
   }
 
   static void _resume(WorkspaceController w) {
-    final db = MessageHistoryPages.storage(w.cache);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
     if (db == null ||
         !w.foreground ||
-        !w.cacheWritable ||
+        !w.deviceStore.writable ||
         w.client.user == null ||
         w.client.serverId == null) {
       return;
@@ -47,13 +47,13 @@ class MessageHistoryVerification {
           job.again = false;
           complete = await _saved(w);
         } while (job.again &&
-            w.cacheWritable &&
+            w.deviceStore.writable &&
             w.foreground &&
             !db.reads.closed);
       } finally {
         job.running = false;
         if (identical(_jobs[w], job)) {
-          if (complete || !w.cacheWritable || db.reads.closed) {
+          if (complete || !w.deviceStore.writable || db.reads.closed) {
             job.retry.cancel();
             _jobs[w] = null;
           } else if (w.connected && w.foreground) {
@@ -95,7 +95,7 @@ class MessageHistoryVerification {
     WorkspaceController w,
     MessageHistoryScope scope,
   ) {
-    final db = MessageHistoryPages.storage(w.cache)!;
+    final db = MessageHistoryPages.storage(w.deviceStore.cache)!;
     return HistoryRangeReads.of(w).scope(_context(w, db), (
       scope.origin,
       scope.principal,
@@ -115,7 +115,7 @@ class MessageHistoryVerification {
     BigInt? before,
     required HistoryReadReason reason,
   }) {
-    final db = MessageHistoryPages.storage(w.cache)!;
+    final db = MessageHistoryPages.storage(w.deviceStore.cache)!;
     final context = _context(w, db), range = ranges(w, scope);
     final ticket = w.messageHistoryTicket(scope.parentChannel);
     final guarded = w.messageWindows.request(
@@ -142,7 +142,7 @@ class MessageHistoryVerification {
   }
 
   static Future<bool> _saved(WorkspaceController w) async {
-    final db = MessageHistoryPages.storage(w.cache)!;
+    final db = MessageHistoryPages.storage(w.deviceStore.cache)!;
     final user = w.client.user!.id,
         server = w.client.serverId!,
         origin = w.client.origin;
@@ -151,7 +151,7 @@ class MessageHistoryVerification {
     final pass = reads.generation;
     final ticket = w.messageHistoryTicket(''), generation = w.ledger.generation;
     bool current() =>
-        w.cacheWritable &&
+        w.deviceStore.writable &&
         !db.reads.closed &&
         w.foreground &&
         w.client.user?.id == user &&
@@ -207,7 +207,7 @@ class MessageHistoryVerification {
     MessageWindowRequest request,
     MessageHistoryScope scope,
   ) {
-    final storage = MessageHistoryPages.storage(w.cache);
+    final storage = MessageHistoryPages.storage(w.deviceStore.cache);
     if (storage == null) return;
     final ticket = w.messageHistoryTicket(scope.parentChannel);
     storage.reads.background(
@@ -220,8 +220,8 @@ class MessageHistoryVerification {
     MessageWindowRequest request,
     MessageHistoryPage page,
   ) {
-    final db = MessageHistoryPages.storage(w.cache);
-    if (db == null || !request.current || !w.foreground || !w.cacheWritable) {
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
+    if (db == null || !request.current || !w.foreground || !w.deviceStore.writable) {
       return;
     }
     final ticket = w.messageHistoryTicket(page.scope.parentChannel);
@@ -247,7 +247,7 @@ class MessageHistoryVerification {
     MessageWindowRequest request,
     MessageHistoryPage fresh,
   ) {
-    final db = MessageHistoryPages.storage(w.cache);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
     if (db == null || !request.current || !w.foreground) return;
     final raw = (fresh.remotePage?['messages'] as List? ?? const []);
     if (raw.isEmpty || fresh['historyLimited'] == true) return;
@@ -291,7 +291,7 @@ class MessageHistoryVerification {
     String id,
     String target,
   ) {
-    final db = MessageHistoryPages.storage(w.cache);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
     final scope = MessageHistoryPages.scope(w, id);
     if (db == null || scope == null || !request.current) return;
     db.reads.background(() async {
@@ -324,8 +324,8 @@ class MessageHistoryVerification {
   /// Refreshes the visible saved rows and the latest page while preserving
   /// the existing timeline and context. Gap repair keeps its existing route.
   static Future<bool> refresh(WorkspaceController w) async {
-    final db = MessageHistoryPages.storage(w.cache);
-    if (db == null || !w.cacheWritable) return false;
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
+    if (db == null || !w.deviceStore.writable) return false;
     await w.syncVisibleScopes();
     var complete = true;
     for (final thread in [false, true]) {
@@ -342,7 +342,7 @@ class MessageHistoryVerification {
       final request = w.messageWindows.request(
         thread: thread,
         allowed: () =>
-            w.cacheWritable &&
+            w.deviceStore.writable &&
             ticket == w.messageHistoryTicket(scope.parentChannel) &&
             w.messageWindows.notRevoked(id) &&
             w.messageWindows.notRevoked(scope.parentChannel) &&

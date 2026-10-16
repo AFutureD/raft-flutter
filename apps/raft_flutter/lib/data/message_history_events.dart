@@ -31,7 +31,7 @@ class MessageHistoryEvents {
         server = w.client.serverId,
         role = w.server?.string('role');
     return () =>
-        w.cacheWritable &&
+        w.deviceStore.writable &&
         seal == w.messageHistoryTicket('') &&
         tickets.entries.every(
           (e) => e.value == w.messageHistoryTicket(e.key),
@@ -58,7 +58,7 @@ class MessageHistoryEvents {
     Map<String, dynamic> row, {
     bool updateOnly = false,
   }) {
-    final db = MessageHistoryPages.storage(w.cache);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
     if (db == null || w.client.user == null || w.client.serverId == null) {
       return;
     }
@@ -317,7 +317,7 @@ class MessageHistoryEvents {
   static Future<void> resume(WorkspaceController w) async {
     MessageHistoryVerification.reconnect(w);
     if (w.client.user == null || w.client.serverId == null) return;
-    final db = MessageHistoryPages.storage(w.cache), current = _current(w);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache), current = _current(w);
     if (db == null) {
       if (w.ledger.watermark > BigInt.zero) w.client.resume(w.ledger.watermark);
       return;
@@ -346,7 +346,7 @@ class MessageHistoryEvents {
     required void Function() refreshUnread,
   }) async {
     if (w.client.user == null || w.client.serverId == null) return;
-    final db = MessageHistoryPages.storage(w.cache);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
     final rows = (payload['messages'] as List? ?? const [])
         .whereType<Map>()
         .map((m) => Map<String, dynamic>.from(m))

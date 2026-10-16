@@ -274,7 +274,7 @@ class TaskSurfaceController extends ChangeNotifier {
     }
     final c = WorkspaceController(
       parent.client,
-      cache: parent.cache,
+      cache: parent.deviceStore.cache,
       ownsClient: false,
       entityDirectory: parent.entityDirectory,
       followedThreads: parent.followedThreads,

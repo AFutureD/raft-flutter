@@ -18,7 +18,7 @@ class MessageHistorySettings extends StatefulWidget {
   final HistoryAccount account;
 
   static Widget forWorkspace(WorkspaceController w) {
-    final db = MessageHistoryPages.storage(w.cache), user = w.client.user?.id;
+    final db = MessageHistoryPages.storage(w.deviceStore.cache), user = w.client.user?.id;
     if (db == null || user == null) return const SizedBox.shrink();
     final account = HistoryAccount(w.client.origin, user);
     return MessageHistorySettings(

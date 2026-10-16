@@ -69,7 +69,7 @@ class MessageHistoryNavigation {
         w.hasMore = hasMore;
       }
       if (!thread) summaries(id, page['threadSummariesByParentMessageId']);
-      MessageHistoryPages.storage(w.cache)?.memory
+      MessageHistoryPages.storage(w.deviceStore.cache)?.memory
           .direction(w, id, older: !newer);
       await w.saveHistoryWindow(id, thread: thread);
       return true;
@@ -112,12 +112,12 @@ class MessageHistoryNavigation {
     final request = w.messageWindows.request(
       thread: thread,
       allowed: () =>
-          w.cacheWritable &&
+          w.deviceStore.writable &&
           revision == w.navigationRevision &&
           seal == w.messageHistoryTicket('') &&
           selectedId == (thread ? w.threadChannelId : w.channel?.id),
     );
-    MessageHistoryPages.storage(w.cache)?.memory
+    MessageHistoryPages.storage(w.deviceStore.cache)?.memory
         .direction(w, selectedId, older: false);
     try {
       await MessageHistoryPositions.clear(

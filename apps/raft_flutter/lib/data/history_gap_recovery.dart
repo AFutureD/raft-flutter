@@ -47,7 +47,7 @@ class HistoryGapRecovery extends ChangeNotifier {
 
   void start(Object view) {
     if (!_views.add(view) || _views.length > 1) return;
-    _source = MessageHistoryPages.storage(w.cache)?.gaps;
+    _source = MessageHistoryPages.storage(w.deviceStore.cache)?.gaps;
     w.addListener(refresh);
     _source?.addListener(refresh);
     refresh();
@@ -71,7 +71,7 @@ class HistoryGapRecovery extends ChangeNotifier {
       _again = true;
       return;
     }
-    final db = MessageHistoryPages.storage(w.cache);
+    final db = MessageHistoryPages.storage(w.deviceStore.cache);
     if (db == null) return;
     _running = true;
     db.reads.background(() async {
@@ -89,7 +89,7 @@ class HistoryGapRecovery extends ChangeNotifier {
   Future<void> _scan(MessageHistoryStorage db) async {
     final id = thread ? w.threadChannelId : w.channel?.id;
     final visible = thread ? w.threadWindow?.visible : w.messageWindow?.visible;
-    if (id == null || visible != true || !w.foreground || !w.cacheWritable) {
+    if (id == null || visible != true || !w.foreground || !w.deviceStore.writable) {
       if (_gaps.isNotEmpty && !_closed) {
         _gaps.clear();
         notifyListeners();
@@ -126,7 +126,7 @@ class HistoryGapRecovery extends ChangeNotifier {
     final request = w.messageWindows.request(
       thread: thread,
       allowed: () =>
-          w.cacheWritable &&
+          w.deviceStore.writable &&
           ticket == w.messageHistoryTicket(scope.parentChannel) &&
           id == (thread ? w.threadChannelId : w.channel?.id),
     );
