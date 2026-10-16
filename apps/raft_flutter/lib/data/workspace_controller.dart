@@ -2395,10 +2395,12 @@ class WorkspaceController extends ChangeNotifier
     // user is idle it stays unread (Activity keeps its indicator). Phone
     // (owner decision 2026-10-12, docs/parity.md): a foreground page whose
     // timeline sits at the latest end reads it with no tap.
+    // Web addMessage: only while the timeline sits at the latest end
+    // (`isNearBottom`); a reader scrolled above it keeps the arrival unread.
     if ((id == channel?.id || id == threadChannelId) &&
         _mayMarkRead(id) &&
-        (RaftUserActivity.recent ||
-            mobileNavigation && !_scrolledAway.contains(id))) {
+        !_scrolledAway.contains(id) &&
+        (RaftUserActivity.recent || mobileNavigation)) {
       unawaited(markRead(id));
       return;
     }
@@ -2937,7 +2939,8 @@ class WorkspaceController extends ChangeNotifier
           final seq = RaftMessage(row).seq;
           if (seq > next) next = seq;
         }
-        if (_mayMarkRead(id)) {
+        // Web syncGap: a filled gap is read only at the latest end.
+        if (_mayMarkRead(id) && !_scrolledAway.contains(id)) {
           unawaited(markRead(id));
         } else {
           arrived.forEach(_receiveUnread);

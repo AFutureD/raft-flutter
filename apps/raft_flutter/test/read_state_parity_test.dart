@@ -29,6 +29,7 @@ class _Client extends RaftClient {
   bool failRead = false;
   int serverUnread = 1;
   List<Map<String, dynamic>> pageRows = [message('m', 1)];
+  List<Map<String, dynamic>> syncRows = [];
   final channelRows = [
     RaftChannel({'id': 'c', 'name': 'design', 'joined': true}),
   ];
@@ -76,6 +77,7 @@ class _Client extends RaftClient {
         'channels': {'c': serverUnread},
       };
     }
+    if (path == '/messages/sync') return syncRows;
     if (path == '/channels/c') {
       return {'id': 'c', 'serverId': 's', 'name': 'design', 'joined': true};
     }
@@ -308,6 +310,72 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     expect(c.reads, before + 1);
+  });
+
+  test('[BP-READ-016] desktop: a live append while scrolled above the bottom stays unread even with recent activity', () async {
+    final c = _Client();
+    final w = WorkspaceController(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await w.bootstrap();
+    w.setForeground(true);
+    await w.selectChannel(w.channels.single);
+    final before = c.reads;
+    w.setTimelineAtBottom('c', false);
+    RaftUserActivity.mark();
+    c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.reads, before);
+    expect(w.unread['c'], 1);
+    // Back at the latest end the same arrival is read.
+    w.setTimelineAtBottom('c', true);
+    RaftUserActivity.mark();
+    c.stream.add(RaftEvent('message:new', _Client.message('live2', 3)));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.reads, before + 1);
+  });
+
+  test('[BP-READ-024] a gap fill while scrolled above the bottom counts the arrivals instead of reading them', () async {
+    final c = _Client();
+    final w = WorkspaceController(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await w.bootstrap();
+    w.setForeground(true);
+    await w.selectChannel(w.channels.single);
+    final before = c.reads;
+    w.setTimelineAtBottom('c', false);
+    c.syncRows = [_Client.message('gap1', 2), _Client.message('gap2', 3)];
+    await w.syncVisibleScopes();
+    await Future<void>.delayed(Duration.zero);
+    expect(w.messages.map((m) => m.id), containsAll(['gap1', 'gap2']));
+    expect(c.reads, before, reason: 'the reader never reached these rows');
+    expect(w.unread['c'], 2);
+  });
+
+  test('[BP-READ-024] a gap fill at the latest end reads the arrivals', () async {
+    final c = _Client();
+    final w = WorkspaceController(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await w.bootstrap();
+    w.setForeground(true);
+    await w.selectChannel(w.channels.single);
+    final before = c.reads;
+    c.syncRows = [_Client.message('gap1', 2)];
+    await w.syncVisibleScopes();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.reads, before + 1);
+    expect(w.unread['c'] ?? 0, 0);
   });
 
   testWidgets(
