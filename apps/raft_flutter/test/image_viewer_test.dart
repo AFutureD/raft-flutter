@@ -647,12 +647,8 @@ void main() {
     ) async {
       final rig = await _mount(tester, size: _wide, count: 1, thumbnails: true);
       await _open(tester, 0);
-      // The stored original is gone (evicted): the files, not the index.
-      for (final entity in Directory(
-        '${rig.root.path}/cache',
-      ).listSync(recursive: true).whereType<File>()) {
-        entity.deleteSync();
-      }
+      // Let queued writes finish before evicting through the cache owner.
+      await _clearTestCache(tester, rig.w.attachmentDiskCache!);
       await tester.tap(find.byKey(const ValueKey('attachment-download')));
       await _settle(tester);
       expect(rig.client.attachmentSigned, ['img0']);
@@ -785,9 +781,7 @@ void main() {
       // again, but a page that was shown once never brings the chip back.
       viewer.goTo(2);
       await _settle(tester, 8);
-      for (final entry in rig.root.listSync(recursive: true)) {
-        if (entry is File && entry.path.contains('/cache/')) entry.deleteSync();
-      }
+      await _clearTestCache(tester, rig.w.attachmentDiskCache!);
       final again = Completer<void>();
       rig.files.hold = again;
       viewer.goTo(0);
