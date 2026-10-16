@@ -127,7 +127,9 @@ class MessageHistoryPages {
       before: before,
       after: after,
       limit: limit,
-      localFirst: localFirst,
+      // Explicit gap repair verifies the missing interval with the server;
+      // returning the same local page would leave its proof unchanged.
+      localFirst: localFirst && !gap,
       ticket: w.messageHistoryTicket(
         thread ? w.threadParentChannelId ?? id : id,
       ),
@@ -182,6 +184,21 @@ class MessageHistoryPages {
     try {
       if (!page.local) await device.acceptPage(page);
       if (!request.current || !w.cacheWritable) return false;
+      final remoteRows = (page.remotePage ?? page)['messages'];
+      if (!page.local && initial.isNotEmpty && remoteRows is List && remoteRows.isEmpty) {
+        // An empty response has no row IDs for the reconciliation loop below.
+        // Publish its committed deletions too, while preserving newer events.
+        final stored = await device.projections(page.scope, initial.keys.cast<String>());
+        if (!request.current || !w.cacheWritable) return false;
+        for (final key in initial.keys) {
+          if (stored.containsKey(key) && stored[key] == null &&
+              identical(initial[key], w.ledger.message(id, key)) &&
+              !device.receiver.hasRow(page.scope, key)) {
+            w.ledger.remove(id, key);
+            w.visibleIds[id]?.remove(key);
+          }
+        }
+      }
       // A stored edit can arrive after load reconciled but before admission.
       // Publish that projection only while no later in-memory event owns it.
       final merged = await device.reconcilePage(
