@@ -57,12 +57,13 @@ class HfData {
   }
 
   /// Vertical padding inside a row. A TV or a desktop window is only 540
-  /// s-units tall (a phone is 915): five rows and a pager must fit, and a
+  /// s-units tall (a phone is 915): three rows and a pager must fit, and a
   /// desktop also carries the dock, so its rows are packed closest.
-  double get rowPad => desktop ? 5 : (phone ? 9 : 6);
+  double get rowPad => phone ? 12 : 5;
 
-  /// Rows a page of a list holds.
-  int get listRows => 5;
+  /// Rows a page of a list holds, pager included: a phone is tall enough for
+  /// five, a TV or a desktop window (540 s-units) for three.
+  int get listRows => phone ? 5 : 3;
 
   /// Rows a page of the attention list holds (sections take room too).
   int get attentionRows => phone ? 4 : 3;

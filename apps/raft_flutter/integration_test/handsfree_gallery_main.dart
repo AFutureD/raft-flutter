@@ -279,6 +279,8 @@ class _AttentionScreen extends StatelessWidget {
           focusId: 'attention#${i + 1}',
           onTap: hf.interactive ? () {} : null,
           selected: hf.split && i == 0,
+          // A phone has room above the caption: let the four rows grow.
+          verticalPad: hf.phone ? 19 : null,
           badge: a.badge,
           meta: '#${a.channel} · ${a.reason}',
           title: a.headline,
@@ -291,11 +293,13 @@ class _AttentionScreen extends StatelessWidget {
         ),
       );
     }
-    if (_asks.length > shown.length) {
+    final pager = _asks.length > shown.length
+        ? HfPager(from: 1, to: shown.length, total: _asks.length, onNext: () {})
+        : null;
+    // Beside the detail the pager stays under the list; else under the body.
+    if (pager != null && hf.split) {
       rows.add(SizedBox(height: hf.sp(12)));
-      rows.add(
-        HfPager(from: 1, to: shown.length, total: _asks.length, onNext: () {}),
-      );
+      rows.add(pager);
     }
     final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -324,6 +328,7 @@ class _AttentionScreen extends StatelessWidget {
               ],
             )
           : list,
+      pager: hf.split ? null : pager,
       caption: foot.caption,
       dock: foot.dock,
     );
@@ -383,14 +388,13 @@ class _ListScreen extends StatelessWidget {
               detail: shown[i].fact,
             ),
           ],
-          SizedBox(height: hf.sp(hf.phone ? 12 : 6)),
-          HfPager(
-            from: 1,
-            to: shown.length,
-            total: _agents.length,
-            onNext: () {},
-          ),
         ],
+      ),
+      pager: HfPager(
+        from: 1,
+        to: shown.length,
+        total: _agents.length,
+        onNext: () {},
       ),
       caption: foot.caption,
       dock: foot.dock,

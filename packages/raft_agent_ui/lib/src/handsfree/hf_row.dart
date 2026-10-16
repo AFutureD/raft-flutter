@@ -13,7 +13,7 @@ import 'hf_tokens.dart';
 ///
 /// The title takes at most two lines, the others one. Narrow rows (a phone,
 /// a half window) use a 56 s bar and a 96 s stat block; wide ones (a TV, a
-/// full window) 78 s and 150 s, with the detail beside the title.
+/// full window) 78 s and 150 s. The three text layers stay stacked.
 class HfRow extends StatelessWidget {
   const HfRow({
     super.key,
@@ -27,6 +27,7 @@ class HfRow extends StatelessWidget {
     this.focusId,
     this.onTap,
     this.selected = false,
+    this.verticalPad,
   });
 
   /// The number on the bar, from 1.
@@ -37,7 +38,7 @@ class HfRow extends StatelessWidget {
   /// Small label above the title: "#app-dev · 等你验收".
   final String? meta;
 
-  /// One more fact under the title (beside it when wide).
+  /// One more fact under the title.
   final String? detail;
 
   /// A small black tag before the meta, such as "最急".
@@ -52,6 +53,10 @@ class HfRow extends StatelessWidget {
 
   /// The row whose detail is open beside the list.
   final bool selected;
+
+  /// Padding above and below the text, in s-units; null takes the screen's
+  /// ([HfData.rowPad]). A screen with room to spare lets its rows grow.
+  final double? verticalPad;
 
   /// Rows wider than this many s-units use the wide layout.
   static const wideFrom = 560.0;
@@ -89,7 +94,7 @@ class HfRow extends StatelessWidget {
     final color = HfColors.of(tone);
     final radius = BorderRadius.circular(hf.sp(16));
     final metaLine = (meta != null && meta!.isNotEmpty) || badge != null;
-    Widget titleBlock = Column(
+    final titleBlock = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -126,7 +131,7 @@ class HfRow extends StatelessWidget {
             ],
           ),
         AgentMarkText(title, maxLines: 2, style: hf.type(HfType.headline)),
-        if (detail != null && detail!.isNotEmpty && !wide)
+        if (detail != null && detail!.isNotEmpty)
           AgentMarkText(
             detail!,
             maxLines: 1,
@@ -134,22 +139,6 @@ class HfRow extends StatelessWidget {
           ),
       ],
     );
-    if (wide && detail != null && detail!.isNotEmpty) {
-      titleBlock = Row(
-        children: [
-          Expanded(flex: 5, child: titleBlock),
-          SizedBox(width: hf.sp(20)),
-          Expanded(
-            flex: 3,
-            child: AgentMarkText(
-              detail!,
-              maxLines: 2,
-              style: hf.type(HfType.body, color: HfColors.inkSoft),
-            ),
-          ),
-        ],
-      );
-    }
     return DecoratedBox(
       decoration: BoxDecoration(
         color: selected ? const Color(0xfffff7d6) : HfColors.card,
@@ -186,7 +175,7 @@ class HfRow extends StatelessWidget {
                   child: Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: hf.sp(wide ? 18 : 12),
-                      vertical: hf.sp(hf.rowPad),
+                      vertical: hf.sp(verticalPad ?? hf.rowPad),
                     ),
                     child: titleBlock,
                   ),
@@ -218,5 +207,6 @@ class HfEntityRow extends HfRow {
     super.focusId,
     super.onTap,
     super.selected,
+    super.verticalPad,
   }) : super(tone: tone ?? HfColors.toneOf(priority), meta: status);
 }

@@ -65,10 +65,15 @@ class HfScreen extends StatelessWidget {
     super.key,
     required this.header,
     required this.body,
+    this.pager,
     this.caption,
     this.dock,
   });
   final Widget header, body;
+
+  /// An [HfPager]. It is laid out under the body, outside its scroll, so it
+  /// is never cut off.
+  final Widget? pager;
   final Widget? caption, dock;
 
   @override
@@ -120,6 +125,7 @@ class HfScreen extends StatelessWidget {
                 child: body,
               ),
             ),
+            if (pager != null) ...[SizedBox(height: gap), pager!],
             if (foot != null) ...[SizedBox(height: gap), foot],
           ],
         ),
