@@ -164,6 +164,7 @@ class _AgentModePageState extends State<AgentModePage> {
       },
     ),
     references: _references,
+    compact: () => _compact,
     pointed: _pointed,
     screenTool: _dispatchScreenTool,
     screenSummary: () => '第 ${_stack.length} 层「${_peek(_stack.last)}」',

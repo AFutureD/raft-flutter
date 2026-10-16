@@ -7,6 +7,10 @@ import 'capability_support.dart';
 
 const taskStatuses = ['todo', 'in_progress', 'in_review', 'done', 'closed'];
 
+/// How a task can be "mine": assigned to the person, created by them, or
+/// (any_mine) either of those or @-mentioning them.
+const taskRelations = ['assigned', 'created', 'any_mine'];
+
 Map<String, Object?> taskRowOf(Map<String, dynamic> t) => compact({
   'id': t['id'],
   'number': t['taskNumber'],
@@ -67,12 +71,24 @@ Future<Map<String, Object?>> _board(
   final me = data.me;
   final assignee = text(args['assignee']), creator = text(args['creator']);
   final q = (text(args['q']) ?? '').toLowerCase();
+  final relation = text(args['relation']);
+  bool related(Map<String, dynamic> t) {
+    if (relation == null) return true;
+    final r = AgentModeData.relationOf(t, me);
+    return switch (relation) {
+      'assigned' => r.assigned,
+      'created' => r.created,
+      _ => r.created || r.assigned || r.mentioned,
+    };
+  }
+
   final rows =
       [
         for (final lane in lanes)
           if (lane != null)
             for (final t in lane.rows)
-              if ((assignee == null ||
+              if (related(t) &&
+                  (assignee == null ||
                       _is(t, 'claimedById', 'claimedByName', assignee, me)) &&
                   (creator == null ||
                       _is(t, 'createdById', 'createdByName', creator, me)) &&
@@ -81,13 +97,21 @@ Future<Map<String, Object?>> _board(
                           .toLowerCase()
                           .contains(q)))
                 t,
-      ]..sort(
-        (a, b) => (AgentModeData.timeOf(b['updatedAt']) ?? DateTime(0))
-            .compareTo(AgentModeData.timeOf(a['updatedAt']) ?? DateTime(0)),
-      );
+      ]..sort((a, b) {
+        final byTime = (AgentModeData.timeOf(b['updatedAt']) ?? DateTime(0))
+            .compareTo(AgentModeData.timeOf(a['updatedAt']) ?? DateTime(0));
+        if (byTime != 0) return byTime;
+        // The same moment: the higher number first, so the order is the same
+        // every time.
+        final byNumber = ((b['taskNumber'] as num?) ?? 0).compareTo(
+          (a['taskNumber'] as num?) ?? 0,
+        );
+        return byNumber != 0 ? byNumber : '${b['id']}'.compareTo('${a['id']}');
+      });
   env.facts?.learnTaskRows(rows);
   final limit = limitOf(args, dflt: 12);
   return compact({
+    'order': 'updated desc',
     'total': rows.length,
     'counts': {
       for (final s in statuses) s: rows.where((t) => t['status'] == s).length,
@@ -166,15 +190,19 @@ final taskCapabilities = <AgentCapability>[
       'channel': strArg('只看这个频道的任务（id 或名字）'),
       'assignee': strArg('负责人（名字或 id；me 是我自己，unassigned 是没人认领）'),
       'creator': strArg('创建人（名字或 id；me 是我自己）'),
+      'relation': strArg(
+        '和我的关系（“我的任务”用 any_mine）：assigned 派给我 / created 我创建的 / any_mine 我创建的、派给我的、或提到我的；不给就不按这个筛',
+        values: taskRelations,
+      ),
       'q': strArg('标题或描述里的字'),
       'limit': intArg('最多几个，默认 12', min: 1, max: 30, dflt: 12),
     }),
-    resultSummary: 'tasks[{id,number,title,status,owner,ownerId,creator,channel,channelId,threadId,updated}] 新到旧；total、counts 按状态；truncated 表示还有没读完的',
+    resultSummary: 'order: "updated desc"；tasks[{id,number,title,status,owner,ownerId,creator,channel,channelId,threadId,updated}] 按更新时间新到旧；total、counts 按状态；truncated 表示还有没读完的',
     run: _board,
   ),
   AgentCapability(
     id: 'tasks.mine',
-    title: '我的任务：派给我的、我创建的、或等我验收的',
+    title: '我的任务：我创建的、派给我的、或提到我的（可以只要其中一种）',
     kind: AgentCapabilityKind.query,
     risk: AgentCapabilityRisk.read,
     parity: 'GET /tasks/server',
@@ -190,8 +218,8 @@ final taskCapabilities = <AgentCapability>[
     ],
     paramsSchema: objectSchema({
       'role': strArg(
-        'assigned 派给我 / created 我创建的',
-        values: const ['assigned', 'created'],
+        'any_mine 我创建的、派给我的或提到我的（默认）/ assigned 只要派给我的 / created 只要我创建的',
+        values: taskRelations,
       ),
       'status': strArg(
         '状态，默认进行中+待验收+待办',
@@ -202,7 +230,7 @@ final taskCapabilities = <AgentCapability>[
     resultSummary: '同 tasks.board',
     run: (w, args, env) => _board(w, {
       'status': args['status'],
-      if (args['role'] == 'created') 'creator': 'me' else 'assignee': 'me',
+      'relation': args['role'] ?? 'any_mine',
       'limit': args['limit'],
     }, env),
   ),

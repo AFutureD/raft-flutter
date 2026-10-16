@@ -665,6 +665,22 @@ class AgentModeData {
     ].isNotEmpty;
   }
 
+  /// How a task row concerns [me]: created by them, assigned to them
+  /// (agents never are them), or @-mentioning them. The one ownership rule of
+  /// the attention layer and of "我的任务".
+  static ({bool created, bool assigned, bool mentioned}) relationOf(
+    Map<String, dynamic> t,
+    ({String? id, Set<String> names}) me,
+  ) {
+    bool isMe(Object? id, Object? type) =>
+        type != 'agent' && me.id != null && id == me.id;
+    return (
+      created: isMe(t['createdById'], t['createdByType']),
+      assigned: isMe(t['claimedById'], t['claimedByType']),
+      mentioned: _mentions(t, me.id, me.names),
+    );
+  }
+
   Future<AgentAttention> attention() async {
     final results = await Future.wait([
       _taskLane('in_review'),
@@ -686,12 +702,10 @@ class AgentModeData {
     final now = _now();
     final me = _me;
 
-    bool isMe(Object? id, Object? type) =>
-        type != 'agent' && me.id != null && id == me.id;
-    bool concerns(Map<String, dynamic> t) =>
-        isMe(t['createdById'], t['createdByType']) ||
-        isMe(t['claimedById'], t['claimedByType']) ||
-        _mentions(t, me.id, me.names);
+    bool concerns(Map<String, dynamic> t) {
+      final r = relationOf(t, me);
+      return r.created || r.assigned || r.mentioned;
+    }
 
     final decisions = <AgentAttentionItem>[];
     final blocked = <AgentAttentionItem>[];
@@ -701,9 +715,10 @@ class AgentModeData {
     final sources = <String, String>{};
 
     AgentAttentionItem build(Map<String, dynamic> t, {required bool stalled}) {
-      final createdByMe = isMe(t['createdById'], t['createdByType']);
-      final assigned = isMe(t['claimedById'], t['claimedByType']);
-      final mentioned = _mentions(t, me.id, me.names);
+      final relation = relationOf(t, me);
+      final createdByMe = relation.created;
+      final assigned = relation.assigned;
+      final mentioned = relation.mentioned;
 
       final at = _time(t['updatedAt']) ?? now;
       final wait = now.difference(at);

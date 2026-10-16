@@ -175,6 +175,7 @@ class AgentRuntime extends ChangeNotifier {
     DateTime Function()? now,
     AgentConsentLedger? consent,
     AgentActionBoard? actions,
+    this.compact,
   }) : _now = now ?? DateTime.now,
        consent = consent ?? AgentConsentLedger(now: now),
        actions = actions ?? AgentActionBoard(now: now) {
@@ -204,6 +205,7 @@ class AgentRuntime extends ChangeNotifier {
       host: _host,
       registry: registry,
       references: references,
+      compact: compact,
     );
     this.consent.addListener(_consentChanged);
     if (voice != null) {
@@ -234,6 +236,10 @@ class AgentRuntime extends ChangeNotifier {
 
   /// What is on the front screen, by handle (① ② ③ …).
   final AgentReferenceTable Function() references;
+
+  /// Whether the screen is a phone's (lists are drawn lighter there); null is
+  /// a wide screen.
+  final bool Function()? compact;
 
   /// The card the person tapped, for "这个".
   final AgentEntityRef? Function()? pointed;

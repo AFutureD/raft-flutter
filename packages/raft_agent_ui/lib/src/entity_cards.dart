@@ -223,8 +223,20 @@ _Parts _partsOf(
       final status = agentTaskStatusLabels[d.status] ?? d.status;
       p.semantics =
           '任务${d.number == null ? '' : ' ${d.number}'}，$status，${d.title}';
-      if (has('number') && d.number != null) p.lead = '#${d.number}';
-      if (has('status')) p.pills.add(_Pill(status, _taskFill(t, d.status)));
+      final number = has('number') && d.number != null ? '#${d.number}' : null;
+      if (detail) {
+        if (number != null) p.lead = number;
+        if (has('status')) p.pills.add(_Pill(status, _taskFill(t, d.status)));
+      } else {
+        // A headline and one meta line, as the level says: where the task
+        // stands is a coloured dot and a word, its number leads the meta.
+        // Stickers on a row of their own would double the card's height, and
+        // a phone shows four of these above the dock, not two.
+        if (has('status')) {
+          p.statusDot = _taskFill(t, d.status);
+          p.statusText = status;
+        }
+      }
       if (has('title')) p.headline = d.title;
       p.headlineLines = x.lines;
       final assignee = has('assignee') ? _some(d.assignee) : null;
@@ -237,10 +249,14 @@ _Parts _partsOf(
           ?(updated == null ? null : ('更新', updated)),
         ]);
       } else {
+        // One line, the most telling first: what is cut at the edge is the
+        // channel, not the number or when it last moved.
+        p.metaLines = 1;
         p.meta.addAll([
+          ?number,
+          ?updated,
           ?(assignee == null ? null : '负责人 $assignee'),
           ?(channel == null ? null : '#$channel'),
-          ?updated,
         ]);
       }
       if (has('description')) p.body = _some(d.description);
@@ -726,6 +742,11 @@ class _FoundCard extends StatelessWidget {
         key: ValueKey('entity-card-${data.kind.name}'),
         tone: tone,
         emphasis: emphasis,
+        // A card of a list (a headline and a line) is as tight as it can be:
+        // a phone shows four of them above the dock.
+        padding: detail
+            ? const EdgeInsets.fromLTRB(14, 11, 14, 12)
+            : const EdgeInsets.fromLTRB(14, 7, 14, 8),
         child: content,
       ),
     );

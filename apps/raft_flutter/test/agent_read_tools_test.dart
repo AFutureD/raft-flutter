@@ -30,9 +30,11 @@ void main() {
   late AgentRuntime rt;
   final begun = <AgentSurfaceDraft>[];
   var refs = AgentReferenceTable.empty;
+  var phone = false;
 
   setUp(() {
     begun.clear();
+    phone = false;
     refs = AgentReferenceTable.empty;
     final world = capabilityWorld();
     client = world.$1;
@@ -175,6 +177,7 @@ void main() {
         isOpen: begun.contains,
       ),
       references: () => refs,
+      compact: () => phone,
     );
   });
   tearDown(() async {
@@ -236,17 +239,14 @@ void main() {
       });
     }
 
-    test(
-      'a task list is grouped by where it stands, most urgent first',
-      () async {
-        await rt.runTool('show_list', {'kind': 'tasks'});
-        final sections = [
-          for (final n in begun.single.root.walk())
-            if (n.component == AgentComponents.section) n.string('title'),
-        ];
-        expect(sections, ['待验收 · 1', '进行中 · 1', '待办 · 1']);
-      },
-    );
+    test('a task list is one group, in the order of the result', () async {
+      await rt.runTool('show_list', {'kind': 'tasks'});
+      final sections = [
+        for (final n in begun.single.root.walk())
+          if (n.component == AgentComponents.section) n.string('title'),
+      ];
+      expect(sections, ['任务 · 3']);
+    });
 
     test(
       'filters reach the capability; what a kind cannot filter is said',
@@ -304,6 +304,273 @@ void main() {
         expect((await rt.runTool('show_list', {}))['error'], contains('kind'));
       },
     );
+  });
+
+  group('how dense a list is', () {
+    Future<Map<String, Object?>?> childDisplay(
+      Map<String, Object?> args, {
+      String tool = 'show_list',
+    }) async {
+      await rt.runTool(tool, {'kind': 'tasks', ...args});
+      return begun.last.root.props['childDisplay'] as Map<String, Object?>?;
+    }
+
+    test('medium on a phone, detail on a wide screen', () async {
+      phone = true;
+      expect(await childDisplay({}), {'level': 'medium'});
+      phone = false;
+      expect(await childDisplay({}), {'level': 'detail'});
+    });
+
+    test('every list kind and a search follow the width', () async {
+      phone = true;
+      for (final kind in agentListKinds) {
+        await rt.runTool('show_list', {'kind': kind});
+        expect(begun.last.root.props['childDisplay'], {'level': 'medium'});
+      }
+      await rt.runTool('search_messages', {'q': '上线'});
+      expect(begun.last.root.props['childDisplay'], {'level': 'medium'});
+      // One thing asked for by name is not a list: it is shown whole.
+      await rt.runTool('show_item', {'kind': 'agent', 'id': 'a-cody'});
+      expect(begun.last.root.props['childDisplay'], {'level': 'detail'});
+    });
+
+    test('what the model says is honored, on a phone too', () async {
+      phone = true;
+      expect(
+        await childDisplay({
+          'childDisplay': {'level': 'detail'},
+        }),
+        {'level': 'detail'},
+      );
+      expect(
+        await childDisplay({
+          'childDisplay': {'level': 'minimum'},
+        }),
+        {'level': 'minimum'},
+      );
+      // A look without a level keeps the width's level.
+      expect(
+        await childDisplay({
+          'childDisplay': {
+            'show': {'avatar': false},
+          },
+        }),
+        {
+          'level': 'medium',
+          'show': {'avatar': false},
+        },
+      );
+    });
+
+    test('"详细一点" is one update on the screen\'s root', () async {
+      phone = true;
+      final r = await rt.runTool('show_list', {'kind': 'tasks'});
+      final out = await rt.runTool('update_component', {
+        'surface_id': r['surface_id'],
+        'id': r['root'],
+        'props': jsonEncode({
+          'childDisplay': {'level': 'detail'},
+        }),
+      });
+      expect(out['error'], isNull, reason: '$out');
+      expect(begun.single.root.props['childDisplay'], {'level': 'detail'});
+    });
+  });
+
+  group('"my tasks" are the ones that concern the person', () {
+    Map<String, dynamic> row(
+      String id,
+      int number, {
+      String createdById = 'ada',
+      String? claimedById,
+      String? claimedByType,
+      String title = '任务',
+    }) => {
+      ...taskRow(
+        id,
+        number,
+        'in_progress',
+        title: title,
+        createdById: createdById,
+        createdByName: createdById,
+        claimedById: claimedById,
+        claimedByName: claimedById,
+      ),
+      'claimedByType': ?claimedByType,
+    };
+
+    setUp(() {
+      w.routes['/tasks/server'] = (q) => {
+        'tasks': [
+          if (q?['status'] == 'in_progress') ...[
+            // Kevin created it and gave it to an agent.
+            row('made', 1, createdById: 'kevin', claimedById: 'a-cody'),
+            // Somebody else's, assigned to Kevin.
+            row('given', 2, claimedById: 'kevin', claimedByType: 'user'),
+            // Somebody else's, assigned to an agent, that names him.
+            row('named', 3, claimedById: 'a-cody', title: '请 @Kevin 看一下'),
+            // Nothing to do with him.
+            row('other', 4, claimedById: 'a-cindy'),
+          ],
+        ],
+      };
+    });
+
+    Future<List<String?>> ids(Map<String, Object?> args) async {
+      final r = await rt.runTool('show_list', {'kind': 'tasks', ...args});
+      expect(r['ok'], isTrue, reason: '$r');
+      return [for (final n in cards(begun.last)) n.string('id')];
+    }
+
+    test('mine is created by me, assigned to me or mentioning me', () async {
+      expect(await ids({'mine': true}), unorderedEquals(['made', 'given', 'named']));
+      expect(
+        await ids({'relation': 'any_mine'}),
+        unorderedEquals(['made', 'given', 'named']),
+      );
+    });
+
+    test('an explicit relation narrows it', () async {
+      expect(await ids({'relation': 'assigned'}), ['given']);
+      expect(await ids({'relation': 'created'}), ['made']);
+      // The older way to ask, a literal assignee, still means just that.
+      expect(await ids({'assignee': 'me'}), ['given']);
+    });
+
+    test('without mine every task is listed', () async {
+      expect(await ids({}), hasLength(4));
+    });
+
+    test('tasks.mine and the attention layer share one rule', () async {
+      final mine = await rt.runTool('query', {
+        'capability': 'tasks.mine',
+        'args': <String, Object?>{},
+      });
+      expect((mine['result'] as Map)['total'], 3, reason: '$mine');
+      final only = await rt.runTool('query', {
+        'capability': 'tasks.mine',
+        'args': {'role': 'assigned'},
+      });
+      expect((only['result'] as Map)['total'], 1, reason: '$only');
+      final me = AgentModeData(w, now: () => worldNow).me;
+      final concerns = {
+        for (final t in [row('made', 1, createdById: 'kevin'), row('given', 2, claimedById: 'kevin', claimedByType: 'user'), row('named', 3, title: '请 @Kevin 看一下'), row('other', 4, claimedById: 'a-cindy')])
+          '${t['id']}': AgentModeData.relationOf(t, me),
+      };
+      expect(concerns['made']!.created, isTrue);
+      expect(concerns['given']!.assigned, isTrue);
+      expect(concerns['named']!.mentioned, isTrue);
+      expect(
+        [concerns['other']!.created, concerns['other']!.assigned, concerns['other']!.mentioned],
+        everyElement(isFalse),
+      );
+    });
+
+    test('the tool says what mine is', () {
+      final show = agentReadToolDeclarations.firstWhere(
+        (d) => d['name'] == 'show_list',
+      );
+      final props = (show['parameters'] as Map)['properties'] as Map;
+      expect(props.keys, containsAll(['mine', 'relation']));
+      expect(
+        (props['relation'] as Map)['enum'],
+        ['assigned', 'created', 'any_mine'],
+      );
+      expect(show['description'], contains('创建的、派给我的、或提到我的'));
+    });
+  });
+
+  group('the order said is the order drawn', () {
+    setUp(() {
+      // Numbers and ages that disagree: #2 is the oldest, #133 the newest.
+      w.routes['/tasks/server'] = (q) => {
+        'tasks': [
+          if (q?['status'] == 'in_progress') ...[
+            taskRow('t2', 2, 'in_progress', title: '最老', updated: 30),
+            taskRow('t133', 133, 'in_progress', title: '最新', updated: 1),
+          ],
+          if (q?['status'] == 'in_review')
+            taskRow('t50', 50, 'in_review', title: '中间', updated: 5),
+          if (q?['status'] == 'todo')
+            taskRow('t60', 60, 'todo', title: '同刻 60', updated: 9),
+          if (q?['status'] == 'todo')
+            taskRow('t61', 61, 'todo', title: '同刻 61', updated: 9),
+        ],
+      };
+    });
+
+    List<String?> drawn(AgentSurfaceDraft d) => [
+      for (final n in cards(d)) n.string('id'),
+    ];
+
+    test('tasks: updated desc, ties by number, cards in that order', () async {
+      final r = await rt.runTool('show_list', {'kind': 'tasks'});
+      expect(r['order'], 'updated desc');
+      final items = (r['items'] as List).cast<Map<String, Object?>>();
+      // What the model is told is what the screen draws, card for card.
+      expect([for (final i in items) i['id']], drawn(begun.single));
+      expect([for (final i in items) i['id']], [
+        't133',
+        't50',
+        't61',
+        't60',
+        't2',
+      ]);
+      expect([for (final i in items) i['handle']], ['①', '②', '③', '④', '⑤']);
+      expect([for (final i in items) i['n']], [1, 2, 3, 4, 5]);
+      expect(items.first['label'], startsWith('#133'));
+      expect(items.first['note'], contains('进行中'));
+      expect(r['say'], contains('编号'));
+    });
+
+    test('the order does not depend on how the server answered', () async {
+      await rt.runTool('show_list', {'kind': 'tasks'});
+      final first = drawn(begun.last);
+      final fixed = w.routes['/tasks/server']!;
+      w.routes['/tasks/server'] = (q) {
+        final body = fixed(q) as Map<String, dynamic>;
+        return {'tasks': (body['tasks'] as List).reversed.toList()};
+      };
+      await rt.runTool('show_list', {'kind': 'tasks'});
+      expect(drawn(begun.last), first);
+    });
+
+    test('a status filter keeps the same rule', () async {
+      final r = await rt.runTool('show_list', {
+        'kind': 'tasks',
+        'status': 'todo',
+      });
+      expect([for (final i in r['items'] as List) (i as Map)['id']], [
+        't61',
+        't60',
+      ]);
+      expect(drawn(begun.last), ['t61', 't60']);
+    });
+
+    test('other lists say their order too', () async {
+      final channels = await rt.runTool('show_list', {'kind': 'channels'});
+      expect(channels['order'], 'name asc');
+      final ids = [for (final i in channels['items'] as List) (i as Map)['id']];
+      expect(ids, drawn(begun.last));
+      final saved = await rt.runTool('show_list', {'kind': 'saved'});
+      expect(saved['order'], isA<String>());
+      expect((saved['items'] as List).first, containsPair('handle', '①'));
+    });
+
+    test('a search says its order and numbers its hits', () async {
+      final r = await rt.runTool('search_messages', {
+        'q': '上线',
+        'sort': 'recent',
+      });
+      expect(r['order'], 'newest first');
+      expect(w.queries['/messages/search']!['sort'], 'recent');
+      final items = (r['items'] as List).cast<Map<String, Object?>>();
+      expect([for (final i in items) i['id']], drawn(begun.last));
+      expect([for (final i in items) i['handle']], ['①', '②']);
+      final plain = await rt.runTool('search_messages', {'q': '上线'});
+      expect(plain['order'], 'relevance');
+    });
   });
 
   group('the other direct reads', () {
@@ -608,7 +875,7 @@ void main() {
         for (final n in draft.root.walk())
           if (n.component == AgentComponents.section) n,
       ];
-      expect(sections, hasLength(3));
+      expect(sections, hasLength(1));
       for (final section in sections) {
         expect(section.props['display'], {'level': 'minimum'});
       }

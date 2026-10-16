@@ -78,8 +78,11 @@ void main() {
     await client.dispose();
   });
 
-  Future<_Probe> open(WidgetTester t) async {
-    t.view.physicalSize = const Size(390, 844);
+  Future<_Probe> open(
+    WidgetTester t, {
+    Size size = const Size(390, 844),
+  }) async {
+    t.view.physicalSize = size;
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     final probe = _Probe();
@@ -130,6 +133,58 @@ void main() {
     }
     // The numbers are the person's handles: "第二个" can be said.
     expect(find.text('②'), findsWidgets);
+  });
+
+  testWidgets('a phone shows at least four task cards above the dock, '
+      'in the order the model was told', (t) async {
+    w.routes['/tasks/server'] = (q) => {
+      'tasks': [
+        for (var i = 1; i <= 8; i++)
+          if (q?['status'] == (i.isEven ? 'in_progress' : 'in_review'))
+            taskRow(
+              't$i',
+              i * 10,
+              i.isEven ? 'in_progress' : 'in_review',
+              title: '任务 $i',
+              claimedByName: 'Cody',
+              updated: 9 - i,
+            ),
+      ],
+    };
+    final probe = await open(t, size: const Size(360, 800));
+    late Map<String, Object?> shown;
+    await say(t, probe, '看所有任务', (call) async {
+      shown = await call('show_list', {'kind': 'tasks'});
+    });
+    expect(shown['order'], 'updated desc');
+    final told = [
+      for (final i in shown['items'] as List) (i as Map)['label'] as String,
+    ];
+    // The newest (#80, the smallest age) is first and ① on screen.
+    expect(told.first, startsWith('#80'));
+
+    await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+    await t.pumpAndSettle();
+    final dock = t.getRect(find.byType(AgentVoiceDock));
+    final visible = [
+      for (final e in find.byType(AgentEntityCard).evaluate())
+        if (t.getRect(find.byWidget(e.widget)).bottom <= dock.top) e.widget,
+    ];
+    // Four cards, with the transcript's two lines above the mic.
+    expect(visible.length, greaterThanOrEqualTo(4));
+
+    // Drawn top to bottom exactly as told: the cards' titles in the order of
+    // the result, and the badges ①, ②, ③ going down.
+    final tops = <double>[];
+    for (final glyph in ['①', '②', '③', '④']) {
+      tops.add(t.getTopLeft(find.text(glyph).first).dy);
+    }
+    expect(tops, [...tops]..sort());
+    final y = [
+      for (final label in told.take(4))
+        t.getTopLeft(find.textContaining(label.split(' ').last).first).dy,
+    ];
+    expect(y, [...y]..sort(), reason: told.take(4).join(', '));
   });
 
   testWidgets('a new request stops the screen being composed, marked 已停止', (
