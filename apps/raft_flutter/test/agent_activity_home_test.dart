@@ -345,6 +345,43 @@ void main() {
     });
   });
 
+  group('arrivals', () {
+    test('a new message in a conversation already listed moves it up, '
+        'tagged; the tag stays until something newer comes', () {
+      final data = _HomeData(w);
+      final before = AgentAttention(items: data.feed(_rows()));
+      final rows = _rows();
+      // A message in the channel that was third arrives.
+      final arrived = {
+        ...rows[2],
+        'lastMessageAt': _ago(0),
+        'unreadCount': 5,
+        'lastMessagePreview': '新的一句',
+      };
+      final next = before.withActivity(
+        data.feed([arrived, rows[0], rows[1], ...rows.skip(3)]),
+      );
+      expect(next.items.first.id, 'activity:channel:c2');
+      expect(next.items.first.arrived, isTrue);
+      expect(next.items.where((i) => i.arrived), hasLength(1));
+      // Another window with nothing newer: the tag stays.
+      final again = next.withActivity(
+        data.feed([arrived, rows[0], rows[1], ...rows.skip(3)]),
+      );
+      expect(again.items.first.arrived, isTrue);
+      // Read in the meantime: no tag.
+      final read = again.withActivity(
+        data.feed([
+          {...arrived, 'unreadCount': 0},
+          rows[0],
+          rows[1],
+          ...rows.skip(3),
+        ]),
+      );
+      expect(read.items.where((i) => i.arrived), isEmpty);
+    });
+  });
+
   group('stale tasks', () {
     testWidgets('are apart, collapsed, at the bottom; opening shows them', (
       t,
@@ -899,3 +936,17 @@ List<String> _ran(List<(String, Map<String, Object?>)> ran) => [
 ];
 
 String _c(String id, Map<String, Object?> args) => '$id ${jsonEncode(args)}';
+
+(ActivityClient, ActivityWorkspace) probeWorld() {
+  final (c, w) = activityFixture();
+  w.inbox = _rows();
+  w.channels = [RaftChannel({'id': 'c1', 'name': 'raft-flutter', 'joined': true})];
+  c.user = RaftRecord({'id': 'kevin'});
+  return (c, w);
+}
+
+AgentModeData probeData(WorkspaceController w) {
+  final d = _HomeData(w);
+  d.result = AgentAttention(items: d.feed(_rows()));
+  return d;
+}

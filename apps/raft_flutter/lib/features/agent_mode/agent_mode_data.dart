@@ -456,18 +456,22 @@ class AgentAttention {
         );
 
   /// The same result with a new Activity window: the feed is composed again
-  /// from [activity] and the decisions already read. Rows whose id was not in
-  /// [previous] wear the "刚到" tag.
-  AgentAttention withActivity(
-    List<AgentAttentionItem> activity, {
-    Set<String>? known,
-  }) {
-    final seen = known ?? {for (final i in items) i.id};
-    final fresh = seen.isEmpty
+  /// from [activity] and the decisions already read. A row that is new, or
+  /// has a message newer than the one this result had, wears the "刚到" tag;
+  /// it keeps it while it is unread and nothing newer came.
+  AgentAttention withActivity(List<AgentAttentionItem> activity) {
+    final before = {for (final i in items) i.id: i};
+    final fresh = before.isEmpty
         ? activity
         : [
             for (final i in activity)
-              if (!seen.contains(i.id) && i.unread > 0) i.asArrived() else i,
+              if (i.unread > 0 &&
+                  (before[i.id] == null ||
+                      i.at.isAfter(before[i.id]!.at) ||
+                      (before[i.id]!.arrived && i.at == before[i.id]!.at)))
+                i.asArrived()
+              else
+                i,
           ];
     return AgentAttention(
       items: AgentActivityFeed.compose(fresh, pool),

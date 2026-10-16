@@ -651,10 +651,10 @@ class _AgentModePageState extends State<AgentModePage> {
     final rows = data.storeRows();
     if (rows == null) return;
     final next = before.withActivity(data.activityItems(rows));
-    final known = {for (final i in before.items) i.id};
+    final was = {for (final i in before.items) i.id: i};
     final arrived = [
       for (final i in next.items)
-        if (i.arrived && !known.contains(i.id)) i,
+        if (i.arrived && !(was[i.id]?.arrived ?? false)) i,
     ];
     AgentModeData.remember(widget.controller, next);
     setState(() => _attention = next);
