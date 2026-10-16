@@ -18,6 +18,7 @@ import 'source_activity_unread_store.dart';
 import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
 import 'workspace_device_store.dart';
+import 'raft_api_gateway.dart';
 import 'workspace_composer.dart';
 import 'workspace_uploads.dart';
 import 'workspace_sends.dart';
@@ -103,6 +104,16 @@ class WorkspaceController extends ChangeNotifier {
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
   }) : _presentationAuthority = presentationSource?.navigationAuthority {
+    apiGateway =
+        presentationSource?.apiGateway ??
+        RaftApiGateway(
+          client,
+          savedChanged: () {
+            ++savedRevision;
+            notifyListeners();
+          },
+          refreshUnread: () => refreshUnread(),
+        );
     deviceStore = WorkspaceDeviceStore(
       client,
       cache: cache,
@@ -298,6 +309,7 @@ class WorkspaceController extends ChangeNotifier {
   /// membership recovery, server selection, socket resume, or client teardown.
   final bool ownsClient;
   final RaftClient client;
+  late final RaftApiGateway apiGateway;
   late final WorkspaceDeviceStore deviceStore;
   WorkspaceCache? get cache => deviceStore.cache;
 
@@ -5055,7 +5067,7 @@ class WorkspaceController extends ChangeNotifier {
 
   Future<dynamic> query(String path, {Map<String, dynamic>? query}) =>
       presentationSource?.sharedQuery(path, query: query) ??
-      client.get(path, query: query);
+      apiGateway.query(path, query: query);
 
   /// Compatibility facade; all presentations share [attachmentMedia].
   PlayerSessions get playerSessions => attachmentMedia.playerSessions;
@@ -5083,86 +5095,27 @@ class WorkspaceController extends ChangeNotifier {
 
   Future<bool> attachmentPreviewEnabled() => attachmentMedia.previewEnabled();
 
-  final _sharedReads = <String, Future<dynamic>>{};
-
-  /// Coalesce identical concurrent reads of the same window. The Activity
-  /// page and the Activity attention badge both reconcile the inbox 150 ms
-  /// after the same socket event; they now share one request. Every caller
-  /// receives its own copy of the decoded response.
-  Future<dynamic> sharedQuery(String path, {Map<String, dynamic>? query}) {
-    final params = query == null
-        ? null
-        : (query.keys.toList()..sort()).map((k) => [k, query[k]]).toList();
-    final key = jsonEncode([
-      client.origin,
-      client.generation,
-      client.user?.id,
-      client.serverId,
-      path,
-      params,
-    ]);
-    var pending = _sharedReads[key];
-    if (pending == null) {
-      final started = pending = this.query(path, query: query);
-      _sharedReads[key] = started;
-      unawaited(
-        started
-            .then<void>((_) {}, onError: (Object _, StackTrace _) {})
-            .whenComplete(() {
-              if (identical(_sharedReads[key], started)) {
-                _sharedReads.remove(key);
-              }
-            }),
+  /// Coalesce identical concurrent reads, retaining this facade's query
+  /// override and giving each caller its own copy of the decoded response.
+  Future<dynamic> sharedQuery(String path, {Map<String, dynamic>? query}) =>
+      apiGateway.sharedQuery(
+        path,
+        query: query,
+        readerKey: this,
+        scopeClient: client,
+        read: this.query,
       );
-    }
-    return pending.then(_copyDecoded);
-  }
 
   /// A deep copy of a decoded response, so consumers never share its maps.
-  static dynamic copyDecoded(dynamic value) => _copyDecoded(value);
+  static dynamic copyDecoded(dynamic value) =>
+      RaftApiGateway.copyDecoded(value);
 
-  static dynamic _copyDecoded(dynamic value) => switch (value) {
-    Map() => <String, dynamic>{
-      for (final MapEntry(:key, :value) in value.entries)
-        '$key': _copyDecoded(value),
-    },
-    List() => [for (final item in value) _copyDecoded(item)],
-    _ => value,
-  };
   int savedRevision = 0;
   Future<dynamic> command(String method, String path, {dynamic data}) async {
     if (presentationSource != null) {
       return presentationSource!.command(method, path, data: data);
     }
-    final generation = client.generation,
-        principal = client.user?.id,
-        serverId = client.serverId;
-    final value = await client.request(method, path, data: data);
-    if (generation == client.generation &&
-        principal == client.user?.id &&
-        serverId == client.serverId &&
-        ((method == 'POST' && path == '/channels/saved') ||
-            (method == 'DELETE' && path.startsWith('/channels/saved/')))) {
-      ++savedRevision;
-      notifyListeners();
-    }
-    if (_reconcilesUnread(path)) await refreshUnread();
-    return value;
-  }
-
-  /// Commands whose effect on unread counts is only known to the server
-  /// (read-all, mark unread, join/leave, notification preferences).
-  static bool _reconcilesUnread(String path) {
-    final segments = Uri.parse(path).pathSegments;
-    return segments.isNotEmpty &&
-        const {
-          'read',
-          'read-all',
-          'unread',
-          'join',
-          'leave',
-          'notification-settings',
-        }.contains(segments.last);
+    return apiGateway.command(method, path, data: data);
   }
 
   Future<void> hydrateReactionViewer(RaftMessage message) async {

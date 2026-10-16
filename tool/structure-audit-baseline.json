@@ -111,7 +111,7 @@
         "field.WorkspaceController._roomsJoinedPending": 1,
         "field.WorkspaceController._scopeVisits": 1,
         "field.WorkspaceController._scrolledAway": 1,
-        "field.WorkspaceController._sharedReads": 1,
+        "field.WorkspaceController._sharedReads": 0,
         "field.WorkspaceController._sidebarConfirmedVersion": 1,
         "field.WorkspaceController._sidebarRequest": 1,
         "field.WorkspaceController._sidebarSectionSeq": 1,
@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 6442,
-        "tokens": 36583
+        "lines": 6395,
+        "tokens": 36240
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
@@ -893,6 +893,14 @@
       "metric": "field.WorkspaceController.deviceStore",
       "limit": 1,
       "reason": "task #136 second slice requested by Cindy after Kevin approved the extraction method: replace cache, write-queue and retired fields with one WorkspaceDeviceStore owner; UI notices and authorization stay in the controller.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController.apiGateway",
+      "limit": 1,
+      "reason": "task #136 third composition-root slice authorized by Cindy: replace the shared-read map with one RaftApiGateway shared by borrowed presentations; preserve caller query overrides and leave UI revisions in the controller.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }
