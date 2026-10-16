@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
+import 'package:raft_flutter/features/agent_mode/agent_tools.dart';
 import 'package:raft_flutter/features/agent_mode/agent_voice.dart';
 import 'package:raft_flutter/features/agent_mode/agent_voice_settings.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
@@ -164,5 +165,12 @@ void main() {
     expect(await voice.hasKey, isFalse);
     AgentVoiceSettings.instance.provider = AgentVoiceProvider.openai;
     expect(await voice.hasKey, isTrue);
+  });
+
+  test('the prompt says to ask again on a garbled transcript, not to act', () {
+    final prompt = agentSystemPrompt(channels: 'general');
+    expect(prompt, contains('【没听清就问】'));
+    expect(prompt, contains('不要猜着回答'));
+    expect(prompt, contains('绝对不要调用任何工具'));
   });
 }
