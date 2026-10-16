@@ -15,8 +15,8 @@ import 'agent_capability_world.dart';
 /// capability tools with sensitive operations enabled. Shared by the tests of
 /// the operations added after phase 2.
 class ActionHarness {
-  ActionHarness({AgentCapabilityEnv? env}) {
-    final world = capabilityWorld();
+  ActionHarness({AgentCapabilityEnv? env, ActivityClient? withClient}) {
+    final world = capabilityWorld(client: withClient);
     client = world.$1;
     w = world.$2;
     w.ledger.switchServer('s1');

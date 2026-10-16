@@ -280,9 +280,9 @@ Map<String, dynamic> taskRow(
   'updatedAt': hoursAgo(updated),
 };
 
-(ActivityClient, CapabilityWorld) capabilityWorld() {
-  final client = ActivityClient()
-    ..user = RaftRecord({'id': 'kevin', 'displayName': 'Kevin'});
+(ActivityClient, CapabilityWorld) capabilityWorld({ActivityClient? client}) {
+  client ??= ActivityClient();
+  client.user = RaftRecord({'id': 'kevin', 'displayName': 'Kevin'});
   client.selectServer('s1');
   final w = CapabilityWorld(client)
     ..server = RaftRecord({'id': 's1', 'role': 'owner', 'name': 'Fixture HQ'})

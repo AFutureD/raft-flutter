@@ -4,6 +4,7 @@ import 'agent_capability.dart';
 import 'audit_capabilities.dart';
 import 'task_action_capabilities.dart';
 import 'agent_capabilities.dart';
+import 'channel_action_capabilities.dart';
 import 'channel_capabilities.dart';
 import 'fleet_capabilities.dart';
 import 'message_action_capabilities.dart';
@@ -28,6 +29,7 @@ final agentStandardCapabilities = AgentCapabilityRegistry([
   ...taskActionCapabilities,
   ...taskMoreCapabilities,
   ...taskFromMessageCapabilities,
+  ...channelActionCapabilities,
   ...messageActionCapabilities,
   ...approvalCapabilities,
   ...snoozeCapabilities,
