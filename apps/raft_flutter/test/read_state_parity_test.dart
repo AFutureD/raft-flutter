@@ -118,7 +118,7 @@ Future<WorkspaceController> _mobile(_Client c) async {
 }
 
 void main() {
-  test('opening a conversation clears its Home unread even when the user backs out before the receipt resolves', () async {
+  test('[BP-READ-001] opening a conversation clears its Home unread even when the user backs out before the receipt resolves', () async {
     final c = _Client();
     final w = await _mobile(c);
     addTearDown(() async {
@@ -223,7 +223,7 @@ void main() {
   });
 
   test(
-    'returning to the foreground with the conversation open sends the read',
+    '[BP-READ-054] returning to the foreground with the conversation open sends the read',
     () async {
       final c = _Client();
       final w = await _mobile(c);
@@ -248,7 +248,7 @@ void main() {
     },
   );
 
-  test('phone: a live append at the bottom is read with no pointer activity (owner decision 2026-10-12)', () async {
+  test('[BP-READ-015] phone: a live append at the bottom is read with no pointer activity (owner decision 2026-10-12)', () async {
     final c = _Client();
     final w = await _mobile(c);
     addTearDown(() async {
@@ -267,7 +267,7 @@ void main() {
   });
 
   test(
-    'phone: a live append while scrolled above the bottom stays unread',
+    '[BP-READ-016] phone: a live append while scrolled above the bottom stays unread',
     () async {
       final c = _Client();
       final w = await _mobile(c);
@@ -376,6 +376,26 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(c.reads, before + 1);
     expect(w.unread['c'] ?? 0, 0);
+  });
+
+  test('[BP-READ-078] a gap sync page takes numeric and decimal-string seq alike (v1.21.2 leaked strings from /messages/sync)', () async {
+    final c = _Client();
+    final w = WorkspaceController(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await w.bootstrap();
+    w.setForeground(true);
+    await w.selectChannel(w.channels.single);
+    c.syncRows = [
+      {..._Client.message('as-string', 2), 'seq': '2'},
+      {..._Client.message('as-number', 3), 'seq': 3},
+    ];
+    await w.syncVisibleScopes();
+    await Future<void>.delayed(Duration.zero);
+    expect(w.messages.map((m) => m.id), ['m', 'as-string', 'as-number']);
+    expect(w.ledger.watermark, BigInt.from(3));
   });
 
   testWidgets(

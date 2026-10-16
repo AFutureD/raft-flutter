@@ -438,7 +438,7 @@ void main() {
     );
 
     test(
-      '[BP-RT-062] machine:upgrade-request and a successful computer:restart:done re-read only the machine list',
+      '[BP-RT-061][BP-RT-062] machine:upgrade-request and a successful computer:restart:done re-read only the machine list',
       () async {
         await hydrate();
         events.add(const RaftEvent('machine:upgrade-request', {'machineId': 'c'}));
