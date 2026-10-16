@@ -464,17 +464,14 @@ void main() {
       // A system message is a note, not a bubble.
       expect(find.byKey(const ValueKey('hf-bubble-sys1'), skipOffstage: false), findsNothing);
       Color? fill(String id) =>
-          ((t.widget<DecoratedBox>(
-                        find
-                            .descendant(
-                              of: find.byKey(
-                                ValueKey('hf-bubble-$id'),
-                                skipOffstage: false,
-                              ),
-                              matching: find.byType(DecoratedBox),
-                            )
-                            .first,
-                      )).decoration
+          (t
+                      .widget<DecoratedBox>(
+                        find.byKey(
+                          ValueKey('hf-bubble-$id'),
+                          skipOffstage: false,
+                        ),
+                      )
+                      .decoration
                   as BoxDecoration)
               .color;
       expect(fill('u-th1'), const Color(0xfffff7d6));
@@ -563,7 +560,9 @@ void main() {
     }
 
     Future<void> current(WidgetTester t, String id) async {
-      await t.tap(find.byKey(ValueKey('attention-card-$id')));
+      final card = find.byKey(ValueKey('attention-card-$id'));
+      await t.ensureVisible(card);
+      await t.tap(card);
       await t.pumpAndSettle();
     }
 
