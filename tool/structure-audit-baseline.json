@@ -944,6 +944,14 @@
       "reason": "task #136 step 6c authorized by Cindy: replace five receiver-local attachment history retention index fields with one AttachmentRetentionIndex; preserve admission stamps, debug counters and the original source-captured media callback. Principle accepted; this concrete field and measured slice remain subject to reviewer acceptance.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController.conversationReads",
+      "limit": 1,
+      "reason": "task #136 step 7a approved by Cindy: replace seven receiver-local read state, projection, counter and timeline fields with one ConversationReadRepository; preserve the borrowed effective cursor, mutable aliases, dispatch and persistence/reset ordering.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
     }
   ]
 }
