@@ -28,6 +28,7 @@ import 'raft_api_gateway.dart';
 import 'workspace_composer.dart';
 import 'workspace_uploads.dart';
 import 'workspace_sends.dart';
+import 'conversation_read_repository.dart';
 import 'conversation_window.dart';
 import 'workspace_message_windows.dart';
 
@@ -102,6 +103,23 @@ class WorkspaceController extends ChangeNotifier
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
   }) : _presentationAuthority = presentationSource?.navigationAuthority {
+    conversationReads = ConversationReadRepository(
+      client,
+      readState: () => readState,
+      revokedChannels: () => _revokedChannels,
+      channelId: () => channel?.id,
+      threadChannelId: () => threadChannelId,
+      mobileNavigation: () => mobileNavigation,
+      mayMarkRead: _mayMarkRead,
+      markRead: (id) => markRead(id),
+      channelRows: () => [...channels, ...dms],
+      messages: (id) => ledger.messages(id),
+      isContext: (id) => messageWindows.isContext(id),
+      hasNewer: () => hasNewer,
+      save: (kind, id, value) => _save(kind, id, value),
+      changed: notifyListeners,
+      prefetch: () => prefetchLikelyChannels(),
+    );
     sessionScope = SessionScope(this, ownsMedia: presentationSource == null);
     channelRepository = ChannelRepository(
       client,
@@ -804,18 +822,8 @@ class WorkspaceController extends ChangeNotifier
 
   /// A thread summary carries the server's own per-thread unread count; it
   /// replaces only a count the unread snapshot already tracks.
-  void _applyThreadUnread(dynamic threadChannelId, dynamic summary) {
-    if (threadChannelId is! String ||
-        summary is! Map ||
-        !unread.containsKey(threadChannelId) ||
-        threadChannelId == this.threadChannelId) {
-      return;
-    }
-    final count = summary['unreadCount'];
-    if (count is! int || count < 0 || unread[threadChannelId] == count) return;
-    unread = {...unread, threadChannelId: count};
-    _persistUnread();
-  }
+  void _applyThreadUnread(dynamic threadChannelId, dynamic summary) =>
+      conversationReads.applyThreadUnread(threadChannelId, summary);
 
   void _consumeNotificationPrefs(dynamic payload) {
     _ensureSyncIdentity();
@@ -1678,7 +1686,8 @@ class WorkspaceController extends ChangeNotifier
     composer.uploads.remove(draft, _saveDraftScope);
   }
 
-  final _readState = ReadStateLedger();
+  late final ConversationReadRepository conversationReads;
+  ReadStateLedger get _readState => conversationReads.localReadState;
   @override
   ReadStateLedger get readState => presentationSource?.readState ?? _readState;
 
@@ -1706,17 +1715,20 @@ class WorkspaceController extends ChangeNotifier
   @override
   List<RaftChannel> get dms => channelRepository.dms;
   set dms(List<RaftChannel> value) => channelRepository.dms = value;
-  Map<String, int> unread = {};
+  Map<String, int> get unread => conversationReads.unread;
+  set unread(Map<String, int> value) => conversationReads.unread = value;
 
   /// Source messageStore `mentionFlags`: conversations whose unread messages
   /// mention the member (unread snapshot `hasMention`, a live `message:new`
   /// that mentions the member). Cleared with the unread count.
-  Set<String> mentions = {};
+  Set<String> get mentions => conversationReads.mentions;
+  set mentions(Set<String> value) => conversationReads.mentions = value;
 
   /// Unread summary `hasNew`: non-joined public channels with messages past
   /// the cursor (no exact count). Lights the quiet dot of a non-joined row;
   /// cleared with the unread count (Web `newFlags`).
-  Set<String> newFlags = {};
+  Set<String> get newFlags => conversationReads.newFlags;
+  set newFlags(Set<String> value) => conversationReads.newFlags = value;
   Map<String, dynamic> sidebarOrder = {};
   @override
   RaftRecord? server;
@@ -2360,175 +2372,38 @@ class WorkspaceController extends ChangeNotifier
     notifyListeners();
   }
 
-  void _persistReadState() {
-    final serverId = client.serverId, principal = client.user?.id;
-    if (serverId == null || principal == null) return;
-    _save('read-frontiers', '', readState.exportFor(serverId, principal));
-    _save('unread', '', Map.of(unread));
-  }
+  void _persistReadState() =>
+      conversationReads.persistReadState();
 
-  void _persistUnread() {
-    if (client.serverId == null || client.user == null) return;
-    _save('unread', '', Map.of(unread));
-  }
+  void _persistUnread() =>
+      conversationReads.persistUnread();
 
   /// Latest activity seq per scope from the last unread snapshot; live
   /// messages raise it. Lets a read receipt clear a count without a GET.
-  final Map<String, BigInt> _latestActivity = {};
+  Map<String, BigInt> get _latestActivity => conversationReads.latestActivity;
 
   /// Source messageStore `message:new`: +1 for a conversation the member is
   /// not reading, never for the member's own message. Counts only what the
   /// unread snapshot counts (joined channels, DMs, tracked threads).
-  void _receiveUnread(Map<String, dynamic> row) {
-    final id = row['channelId'];
-    if (id is! String || _revokedChannels.contains(id)) return;
-    final seq = canonicalWireSeq(row['seq']);
-    if (seq != null && seq > (_latestActivity[id] ?? BigInt.zero)) {
-      _latestActivity[id] = seq;
-    }
-    if ((id == channel?.id || id == threadChannelId) &&
-        _mayMarkRead(id) &&
-        _scrolledAway.readsLiveArrival(id, mobileNavigation)) {
-      unawaited(markRead(id));
-      return;
-    }
-    if (row['senderType'] == 'user' && row['senderId'] == client.user?.id) {
-      return;
-    }
-    final known = [...channels, ...dms].where((c) => c.id == id).firstOrNull;
-    final counted = known == null
-        ? unread.containsKey(id)
-        : known.type != 'channel' || known.joined;
-    if (!counted) return;
-    final serverId = client.serverId, principal = client.user?.id;
-    final frontier = serverId == null || principal == null
-        ? null
-        : readState.state(serverId, principal, id);
-    if (seq != null &&
-        frontier != null &&
-        BigInt.from(frontier['maxReadSeq']) >= seq) {
-      return;
-    }
-    unread = {...unread, id: (unread[id] ?? 0) + 1};
-    if (_mentionsMember(row)) mentions = {...mentions, id};
-    _persistUnread();
-    unawaited(prefetchLikelyChannels());
-  }
+  void _receiveUnread(Map<String, dynamic> row) =>
+      conversationReads.receiveUnread(row);
 
-  /// Source `mentionsCurrentUser`: a structured user mention of the member.
-  bool _mentionsMember(Map<String, dynamic> row) {
-    final me = client.user?.id, list = row['mentions'];
-    return me != null &&
-        list is List &&
-        list.any((m) => m is Map && m['type'] == 'user' && m['id'] == me);
-  }
-
-  void _clearMention(String id) {
-    if (mentions.contains(id)) mentions = {...mentions}..remove(id);
-    if (newFlags.contains(id)) newFlags = {...newFlags}..remove(id);
-  }
+  void _clearMention(String id) =>
+      conversationReads.clearMention(id);
 
   /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
   /// recounts the scope from held messages when they cover it, and clears
   /// it when it reaches the latest known activity. Otherwise the count
   /// waits for the next reconcile.
-  void _projectReadState(String id) {
-    final serverId = client.serverId, principal = client.user?.id;
-    if (serverId == null || principal == null || !unread.containsKey(id)) {
-      return;
-    }
-    final state = readState.state(serverId, principal, id);
-    if (state == null) return;
-    final maxRead = BigInt.from(state['maxReadSeq']);
-    final rows = ledger.messages(id);
-    var latest = _latestActivity[id];
-    if (rows.isNotEmpty) {
-      final last = RaftMessage(rows.last).seq;
-      if (latest == null || last > latest) latest = last;
-    }
-    int? count;
-    if (latest != null && maxRead >= latest) {
-      count = 0;
-    } else if (rows.isNotEmpty &&
-        !messageWindows.isContext(id) &&
-        !(id == channel?.id && hasNewer) &&
-        RaftMessage(rows.first).seq <= maxRead) {
-      count = rows
-          .where(
-            (row) =>
-                RaftMessage(row).seq > maxRead &&
-                !(row['senderType'] == 'user' && row['senderId'] == principal),
-          )
-          .length;
-    }
-    if (count == null || unread[id] == count) return;
-    unread = {...unread, id: count};
-    if (count == 0) _clearMention(id);
-  }
+  void _projectReadState(String id) =>
+      conversationReads.projectReadState(id);
 
   Future<void> refreshUnread() async {
     final source = presentationSource;
     if (source != null) {
       return source.refreshUnread();
     }
-    final requestGeneration = readState.generation;
-    final serverId = client.serverId, principal = client.user?.id;
-    if (serverId == null || principal == null) return;
-    try {
-      final value = await client.get('/channels/unread', query: {'summary': 1});
-      if (client.serverId != serverId || client.user?.id != principal) return;
-      final counts = value is Map ? value['channels'] ?? value : {};
-      if (counts is Map) {
-        final next = <String, int>{};
-        final nextMentions = <String>{};
-        final nextNew = <String>{};
-        for (final e in counts.entries) {
-          final id = e.key.toString(), entry = e.value;
-          if (entry is num) {
-            next[id] = entry.toInt();
-            continue;
-          }
-          if (entry is! Map) continue;
-          final frontier = entry['readState'];
-          final outcome = readState.consumeSnapshot(
-            frontier,
-            serverId: serverId,
-            principalId: principal,
-            scopeId: id,
-            generationAtRequest: requestGeneration,
-            // RisingWave projects this endpoint asynchronously. An absent row
-            // cannot erase a newer positive HTTP/socket acknowledgement.
-            authoritativeAbsence: false,
-          );
-          final state = readState.state(serverId, principal, id);
-          final latest = frontier is Map && frontier['latestActivity'] is Map
-              ? canonicalUint64(frontier['latestActivity']['seq'])
-              : null;
-          if (latest != null) _latestActivity[id] = latest;
-          final fullyRead =
-              state != null &&
-              latest != null &&
-              BigInt.from(state['maxReadSeq']) >= latest;
-          next[id] = fullyRead
-              ? 0
-              : outcome == 'corrupt'
-              ? (unread[id] ?? 0)
-              : ((entry['unreadCount'] ?? 0) as num).toInt();
-          if (entry['hasMention'] == true && next[id]! > 0) {
-            nextMentions.add(id);
-          }
-          if (entry['hasNew'] == true) nextNew.add(id);
-        }
-        unread = next;
-        mentions = nextMentions;
-        newFlags = nextNew;
-        _persistReadState();
-      }
-      notifyListeners();
-      unawaited(prefetchLikelyChannels());
-    } catch (_) {
-      /* Keep accepted counts through transient failures. */
-    }
+    return conversationReads.refreshUnread();
   }
 
   final _prefetched = <String>{};
@@ -2695,9 +2570,7 @@ class WorkspaceController extends ChangeNotifier
   void markUnreadLocally(String id) {
     final source = presentationSource;
     if (source != null) return source.markUnreadLocally(id);
-    if ((unread[id] ?? 0) > 0) return;
-    unread = {...unread, id: 1};
-    notifyListeners();
+    conversationReads.markUnreadLocally(id);
   }
 
   /// Full channel and DM list reload (Source `loadChannels` +
@@ -3462,7 +3335,7 @@ class WorkspaceController extends ChangeNotifier
 
   /// Open conversations whose timeline is scrolled above the latest end
   /// (reported by the chat view on the edge only, never per frame).
-  final _scrolledAway = RaftTimelineBottoms();
+  RaftTimelineBottoms get _scrolledAway => conversationReads.scrolledAway;
 
   void setTimelineAtBottom(String id, bool atBottom) =>
       _scrolledAway.set(id, atBottom);
@@ -3480,7 +3353,7 @@ class WorkspaceController extends ChangeNotifier
 
   /// Read receipts sent per scope: lets an optimistic open-time clear know
   /// whether the receipt that backs it was ever sent.
-  final Map<String, int> _readPosts = {};
+  Map<String, int> get _readPosts => conversationReads.readPosts;
 
   Future<void> markRead(String id) => _windowReceiver._markRead(id);
 

@@ -11649,10 +11649,10 @@
    "status": "covered",
    "webEntry": "messageStore.loadUnreadCounts (bootstrap/focus/resync, background)",
    "gate": "",
-   "flutterEntry": "workspace_controller.dart refreshUnread",
+   "flutterEntry": "conversation_read_repository.dart refreshUnread() via workspace_controller.dart facade",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/conversation_read_repository.dart",
      "needle": "'/channels/unread'"
     }
    ],
