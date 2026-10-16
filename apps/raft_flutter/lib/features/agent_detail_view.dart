@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/agent_migration_status.dart';
 import '../data/runtime_config.dart';
 import '../data/source_time_formatter.dart';
 import '../data/runtime_error.dart';
@@ -19,6 +20,7 @@ import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_apps_view.dart';
+import 'agent_migration_panel.dart' show MigrationInlineStatus;
 import 'agent_profile_rules.dart';
 import 'external_agent_setup.dart';
 import 'channel_form_fields.dart' show ChannelCandidateAvatar;
@@ -285,6 +287,29 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     super.initState();
     _adoptCachedExternalStatus();
     unawaited(loadExternalStatus());
+    _syncMigration();
+  }
+
+  /// Web `AgentMigrationSection`: the agent's migration, watched only where
+  /// the viewer can move it (the Move action is offered).
+  AgentMigrationStatus? _migration;
+
+  void _syncMigration() {
+    final id = '${a['id']}';
+    final want = widget.actions.onMigrate != null && !_bounded;
+    final held = _migration;
+    if (want && held != null && held.agentId == id) return;
+    held
+      ?..removeListener(_migrationChanged)
+      ..dispose();
+    _migration = want
+        ? (AgentMigrationStatus(widget.controller, id)
+            ..addListener(_migrationChanged))
+        : null;
+  }
+
+  void _migrationChanged() {
+    if (mounted) setState(() {});
   }
 
   /// A revisit shows the last accepted setup state at its first frame (the
@@ -300,6 +325,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   @override
   void didUpdateWidget(AgentDetailPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _syncMigration();
     if (oldWidget.agent['id'] != a['id'] ||
         oldWidget.agent['runtime'] != a['runtime'] ||
         oldWidget.agent['external'] != a['external']) {
@@ -347,6 +373,9 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   @override
   void dispose() {
     diagnosticTimer?.cancel();
+    _migration
+      ?..removeListener(_migrationChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -739,7 +768,10 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             tone: RaftButtonRecipeVariant.outline,
             size: RaftButtonRecipeSize.md,
             expand: true,
-            onPressed: widget.busy ? null : widget.actions.onMigrate,
+            // Web AgentMigrationSection: no new move while one runs.
+            onPressed: widget.busy || _migration?.active == true
+                ? null
+                : widget.actions.onMigrate,
           ),
         if (_canControlRuntime) ...[
           RaftButton(
@@ -1066,6 +1098,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
           RaftPanelSection(
             children: [
               RaftSectionEyebrow(raftText(context, 'Actions')),
+              if (_migration case final status? when status.migration.isNotEmpty)
+                MigrationInlineStatus(
+                  migration: status.migration,
+                  machines: widget.machines ?? const [],
+                  now: (widget.clock ?? DateTime.now)().toUtc(),
+                  formatTimestamp: agentTimeFormatter(
+                    context,
+                    widget.controller,
+                  ).shortDateTime,
+                  onOpen: widget.actions.onMigrate,
+                ),
               RaftGapColumn(children: buttons),
             ],
           ),
