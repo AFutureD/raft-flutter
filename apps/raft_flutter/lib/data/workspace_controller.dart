@@ -2372,11 +2372,9 @@ class WorkspaceController extends ChangeNotifier
     notifyListeners();
   }
 
-  void _persistReadState() =>
-      conversationReads.persistReadState();
+  void _persistReadState() => conversationReads.persistReadState();
 
-  void _persistUnread() =>
-      conversationReads.persistUnread();
+  void _persistUnread() => conversationReads.persistUnread();
 
   /// Latest activity seq per scope from the last unread snapshot; live
   /// messages raise it. Lets a read receipt clear a count without a GET.
@@ -2388,15 +2386,13 @@ class WorkspaceController extends ChangeNotifier
   void _receiveUnread(Map<String, dynamic> row) =>
       conversationReads.receiveUnread(row);
 
-  void _clearMention(String id) =>
-      conversationReads.clearMention(id);
+  void _clearMention(String id) => conversationReads.clearMention(id);
 
   /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
   /// recounts the scope from held messages when they cover it, and clears
   /// it when it reaches the latest known activity. Otherwise the count
   /// waits for the next reconcile.
-  void _projectReadState(String id) =>
-      conversationReads.projectReadState(id);
+  void _projectReadState(String id) => conversationReads.projectReadState(id);
 
   Future<void> refreshUnread() async {
     final source = presentationSource;
