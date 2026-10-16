@@ -26,18 +26,40 @@ Map<String, Object?> agentEntity(
 String? _s(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
 
 /// An attention card: the task, or the discussion a mention is in.
-Map<String, Object?> attentionEntity(AgentAttentionItem i) => agentEntity(
-  i.taskNumber != null ? AgentEntityTypes.task : AgentEntityTypes.thread,
-  i.taskNumber != null ? i.taskId : i.id,
-  i.headline,
-  [
+///
+/// An Activity row stands for the message it shows (so "给第二条点赞" and
+/// "回复这条" resolve to a message id); a row with no message id stands for
+/// its conversation.
+Map<String, Object?> attentionEntity(AgentAttentionItem i) {
+  final hints = [
     if (i.taskNumber != null) '#${i.taskNumber}',
     i.doer,
     ...i.waiters,
     i.channelName,
     i.threadTitle,
-  ],
-);
+  ];
+  if (i.isActivity && i.taskId == null) {
+    return i.messageId != null
+        ? agentEntity(
+            AgentEntityTypes.message,
+            i.messageId,
+            i.excerpt ?? i.headline,
+            hints,
+          )
+        : agentEntity(
+            AgentEntityTypes.channel,
+            i.threadChannelId ?? i.channelId,
+            i.headline,
+            hints,
+          );
+  }
+  return agentEntity(
+    i.taskNumber != null ? AgentEntityTypes.task : AgentEntityTypes.thread,
+    i.taskNumber != null ? i.taskId : i.id,
+    i.headline,
+    hints,
+  );
+}
 
 /// A task row of the server (summary or full).
 Map<String, Object?> taskRowEntity(Map<String, dynamic> t) =>

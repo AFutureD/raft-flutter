@@ -247,9 +247,21 @@ class _DashedOutline extends CustomPainter {
 /// a TV they are voice hints. [oneRow] keeps them side by side on a phone too
 /// (a stage under a row, which has little height to spare).
 class HfActions extends StatelessWidget implements HfDescribed {
-  const HfActions({super.key, required this.actions, this.oneRow = false});
+  const HfActions({
+    super.key,
+    required this.actions,
+    this.oneRow = false,
+    this.grid = false,
+  });
   final List<HfAction> actions;
   final bool oneRow;
+
+  /// Many actions (a feedback row): rows of equal buttons, as many to a row
+  /// as the width allows, the rows of about the same length.
+  final bool grid;
+
+  /// The narrowest a grid button is, in s-units.
+  static const gridCell = 104.0;
 
   @override
   HfDescription describe(HfDescribeEnv env) =>
@@ -269,6 +281,36 @@ class HfActions extends StatelessWidget implements HfDescribed {
         ],
       ],
     );
+    if (grid) {
+      return LayoutBuilder(
+        builder: (context, box) {
+          final fit = (box.maxWidth / hf.s / gridCell).floor().clamp(2, 8);
+          final rows = (actions.length / fit).ceil();
+          final per = (actions.length / rows).ceil();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var r = 0; r < rows; r++) ...[
+                if (r > 0) SizedBox(height: gap * .5),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < per; i++) ...[
+                      if (i > 0) SizedBox(width: gap),
+                      Expanded(
+                        child: r * per + i < actions.length
+                            ? actions[r * per + i]
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ],
+          );
+        },
+      );
+    }
     return LayoutBuilder(
       builder: (context, box) {
         // Three side by side need 340 s-units; a phone stacks them for the

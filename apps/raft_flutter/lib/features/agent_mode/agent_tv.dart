@@ -268,6 +268,8 @@ class AgentTvScreen extends StatelessWidget {
       final result = AgentAttention.fromJson(attention.cast<String, Object?>());
       // The TV always marks one row; the first, when the phone chose none.
       shown = n ?? 1;
+      final staleOpen = attention['staleOpen'] == true;
+      final listed = result.listed(open: staleOpen);
       view = AgentAttentionView(
         attention: result,
         focusPrefix: id,
@@ -275,14 +277,19 @@ class AgentTvScreen extends StatelessWidget {
         onOpen: (_) {},
         onLater: (_) {},
         current: n,
+        staleOpen: staleOpen,
       );
-      if (shown >= 1 && shown <= result.items.length) {
+      if (shown >= 1 && shown <= listed.length) {
         stage = AgentAttentionDetail(
-          item: result.items[shown - 1],
+          item: listed[shown - 1],
           number: shown,
           onApprove: (_) {},
           onOpen: (_) {},
           onLater: (_) {},
+          onReply: (_) {},
+          onLike: (_) {},
+          onDone: (_) {},
+          onAssign: (_) {},
         );
       }
     } else {

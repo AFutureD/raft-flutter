@@ -37,7 +37,7 @@ Future<AgentAttentionItem> attentionItemFor(
   final want = ref.trim();
   if (want.isEmpty) throw const AgentCapabilityError('需要 item：要稍后再看的那一件');
   List<AgentAttentionItem> hits(bool Function(AgentAttentionItem) test) => [
-    for (final i in all.items)
+    for (final i in all.all)
       if (test(i)) i,
   ];
   final number = int.tryParse(want.replaceAll(RegExp(r'^#'), ''));
@@ -45,7 +45,11 @@ Future<AgentAttentionItem> attentionItemFor(
     (i) => i.id == want,
     (i) => i.taskId == want,
     (i) => number != null && i.taskNumber == number,
-    (i) => i.id == 'mention:$want' || i.channelId == want,
+    (i) =>
+        i.id == 'mention:$want' ||
+        i.channelId == want ||
+        i.threadChannelId == want ||
+        i.messageId == want,
     (i) =>
         want.length >= 2 &&
         '${i.headline} ${i.channelName ?? ''}'.toLowerCase().contains(
@@ -69,7 +73,7 @@ Future<AgentAttentionItem> attentionItemFor(
       );
     }
   }
-  throw AgentCapabilityError('“现在需要你”里没有“$ref”这一件');
+  throw AgentCapabilityError('首页的动态里没有“$ref”这一件');
 }
 
 DateTime _until(Map<String, Object?> args, DateTime now) {
@@ -99,12 +103,12 @@ DateTime _checked(Map<String, Object?> args, DateTime now) {
   return at;
 }
 
-final _itemArg = strArg('要稍后再看的那一件：任务 id、任务编号（#98）、讨论所在频道，或它那句话里的几个字', max: 120);
+final _itemArg = strArg('要稍后再看的那一件：动态的 id（activity:…）、任务 id、任务编号（#98）、频道或讨论的 id，或它那句话里的几个字', max: 120);
 
 final snoozeCapabilities = <AgentCapability>[
   AgentCapability(
     id: 'attention.snooze',
-    title: '把“现在需要你”里的一件事稍后再看（今晚 / 明天早上 / 几小时后）：先从首页拿掉，到点再提醒；记在手机上，退出 Agent 模式也不丢',
+    title: '把首页（动态）里的一件事稍后再看（今晚 / 明天早上 / 几小时后）：先从首页拿掉，到点再提醒；记在手机上，退出 Agent 模式也不丢',
     kind: AgentCapabilityKind.action,
     risk: AgentCapabilityRisk.change,
     keywords: const [
@@ -141,11 +145,11 @@ final snoozeCapabilities = <AgentCapability>[
       final store = env.snoozeFor(w);
       final before = store.entry(item.id);
       return AgentUndoPlan(
-        label: before == null ? '放回现在需要你' : '改回 ${whenWord(before.until, env.snoozeFor(w).now())}',
+        label: before == null ? '放回首页' : '改回 ${whenWord(before.until, env.snoozeFor(w).now())}',
         run: () async {
           if (before == null) {
             store.unsnooze(item.id);
-            return '已放回“现在需要你”';
+            return '已放回首页';
           }
           store.snooze(item, before.until);
           return '已改回 ${whenWord(before.until, env.snoozeFor(w).now())} 再提醒';
@@ -162,7 +166,7 @@ final snoozeCapabilities = <AgentCapability>[
         summary: '把 $label 先放一放，${whenWord(at, now)}再提醒你',
         changes: [
           change(
-            '现在需要你',
+            '首页',
             held == null ? '待处理' : '稍后（${whenWord(held.until, now)}）',
             '稍后（${whenWord(at, now)}）',
           ),
@@ -188,7 +192,7 @@ final snoozeCapabilities = <AgentCapability>[
   ),
   AgentCapability(
     id: 'attention.unsnooze',
-    title: '把稍后再看的一件事马上放回“现在需要你”',
+    title: '把稍后再看的一件事马上放回首页',
     kind: AgentCapabilityKind.action,
     risk: AgentCapabilityRisk.change,
     keywords: const [
@@ -223,7 +227,7 @@ final snoozeCapabilities = <AgentCapability>[
       return AgentActionPreview(
         summary: '把稍后的“${quote(held.headline, 30)}”现在就放回来',
         changes: [
-          change('现在需要你', '稍后（${whenWord(held.until, now)}）', '待处理'),
+          change('首页', '稍后（${whenWord(held.until, now)}）', '待处理'),
         ],
         reversible: true,
       );
@@ -232,7 +236,7 @@ final snoozeCapabilities = <AgentCapability>[
       final held = _held(w, env, '${args['item']}');
       env.snoozeFor(w).unsnooze(held.id);
       return actionResult(
-        '已放回“现在需要你”',
+        '已放回首页',
         entity: _isTask(held.id) ? 'task' : null,
         id: _isTask(held.id) ? held.id : null,
       );

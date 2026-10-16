@@ -5,27 +5,31 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'agent_mode_data.dart';
 import 'references/agent_handle_tag.dart';
 
-/// The first layer: what needs the person now ("现在需要你"). The same screen
-/// on a phone, a desktop and a TV: a count line, the items in sections (等你
-/// 决定 / 卡住了 / 点名你) as numbered rows. All of them, in one page that
-/// scrolls as a whole (nothing inside scrolls on its own).
+/// The first layer: the App's Activity ("动态"), in real time. The same screen
+/// on a phone, a desktop and a TV: a count line, then the Activity rows
+/// newest first as numbered rows (who, where, the real words, how long ago,
+/// why it is here, unread), with the tasks that wait for a decision among
+/// them by recency, and at the end a collapsed group of tasks nobody touched
+/// for days ("可能需要收尾"). All of them, in one page that scrolls as a whole
+/// (nothing inside scrolls on its own).
 ///
 /// One row is the current item (a tap, a key, or the voice says so). Its
-/// detail, with its last progress and actions, is part of the same page: it
-/// stands beside the list at the height of the row on a window 1280 wide or
-/// more (and a TV) and opens under the row on a narrower one; the page scrolls
-/// to show both. A TV only shows: its actions are voice hints.
+/// detail, with the message in full and the feedback actions (回复, 点赞,
+/// 标记已处理, 稍后, 交给 Agent), is part of the same page: it stands beside
+/// the list at the height of the row on a window 1280 wide or more (and a
+/// TV) and opens under the row on a narrower one; the page scrolls to show
+/// both. A TV only shows: its actions are voice hints.
+///
 /// One thing the home layer lists, in order: a section label, a card, the
-/// "团队在推进" row and (when it is open) the team's own rows. The screen
-/// draws them and the description of the layer reads them, so the two lists
-/// are the same list.
+/// stale group's row (and its cards when it is open), the "团队在推进" row and
+/// (when it is open) the team's own rows. The screen draws them and the
+/// description of the layer reads them, so the two lists are the same list.
 sealed class AgentAttentionPart {
   const AgentAttentionPart();
 }
 
 class AgentAttentionSection extends AgentAttentionPart {
-  const AgentAttentionSection(this.priority, this.label);
-  final AgentPriority priority;
+  const AgentAttentionSection(this.label);
   final HfSectionLabel label;
 }
 
@@ -35,6 +39,12 @@ class AgentAttentionCard extends AgentAttentionPart {
   /// The number on the card, from 1.
   final int n;
   final AgentAttentionItem item;
+  final HfRow row;
+}
+
+/// The row that opens and closes the stale group.
+class AgentAttentionStaleRow extends AgentAttentionPart {
+  const AgentAttentionStaleRow(this.row);
   final HfRow row;
 }
 
@@ -61,6 +71,8 @@ class AgentAttentionView extends StatefulWidget {
     this.onCurrent,
     this.teamOpen = false,
     this.onTeam,
+    this.staleOpen = false,
+    this.onStale,
   });
 
   /// Null until the first result of this account was accepted.
@@ -82,28 +94,59 @@ class AgentAttentionView extends StatefulWidget {
   final bool teamOpen;
   final VoidCallback? onTeam;
 
-  static const layerTitle = '现在需要你';
-  static const layerMeta = '按紧急程度';
-  static const emptyHeadline = '现在没有需要你处理的事';
+  /// The stale tasks are open under the "可能需要收尾" row, which [onStale]
+  /// opens and closes.
+  final bool staleOpen;
+  final VoidCallback? onStale;
 
-  static HfTone _tone(AgentPriority p) => HfColors.toneOf(p);
+  static const layerTitle = '动态';
+  static const layerMeta = '最新在前';
+  static const emptyHeadline = '动态里现在没有新的消息';
+  static const staleTitle = '可能需要收尾';
+  static const staleNote = '很久没动的任务：可能已经做完，只是没改状态';
+  static const feedLabel = '最新动态';
 
-  static String _meta(AgentAttentionItem i) => [
-    if (i.channelName != null) '#${i.channelName}',
-    i.reason,
-  ].where((e) => e.isNotEmpty).join(' · ');
+  /// Why a row sits where it does, for a person who asks.
+  static String _meta(AgentAttentionItem i) {
+    if (i.isActivity) {
+      return [i.reason, i.place ?? ''].where((e) => e.isNotEmpty).join(' · ');
+    }
+    return [
+      if (i.channelName != null) '#${i.channelName}',
+      i.reason,
+    ].where((e) => e.isNotEmpty).join(' · ');
+  }
 
-  static String _sectionOf(AgentPriority p) => switch (p) {
-    AgentPriority.decision => '等你决定',
-    AgentPriority.blocked => '卡住了',
-    AgentPriority.mention => '点名你',
-    AgentPriority.progress => '进行中',
-  };
+  /// The task a row belongs to, when it has one: "任务 #12 待验收".
+  static String? taskChip(AgentAttentionItem i) {
+    if (i.taskNumber == null) return null;
+    final status = switch (i.taskStatus) {
+      'todo' => '待办',
+      'in_progress' => '进行中',
+      'in_review' => '待验收',
+      'done' => '已完成',
+      'closed' => '已关闭',
+      _ => null,
+    };
+    return '任务 #${i.taskNumber}${status == null ? '' : ' $status'}';
+  }
 
-  /// The two things that need a decision; the mentions are counted by their
-  /// own section.
+  /// Conversations with something unread, mentions, and the tasks that wait
+  /// for a decision or are stuck.
   static HfCountLine countOf(AgentAttention a) => HfCountLine(
     counts: [
+      HfCount(
+        HfTone.info,
+        a.unreadCount,
+        '个会话有未读',
+        key: const ValueKey('attention-count-unread'),
+      ),
+      HfCount(
+        HfTone.mention,
+        a.mentionCount,
+        '处点名你',
+        key: const ValueKey('attention-count-mention'),
+      ),
       HfCount(
         HfTone.decision,
         a.decisionCount,
@@ -126,24 +169,29 @@ class AgentAttentionView extends StatefulWidget {
     required bool split,
     required bool selected,
     VoidCallback? onTap,
-  }) => HfRow(
-    key: ValueKey(split ? 'attention-row-${i.id}' : 'attention-card-${i.id}'),
-    index: n,
-    tone: _tone(i.priority),
-    badge: n == 1 ? '最急' : null,
-    // Beside the detail, which has the whole sentence, a row keeps to one line.
-    titleLines: split ? 1 : 2,
-    meta: _meta(i),
-    title: i.headline,
-    detail: i.askText,
-    stat: HfStatBlock(
-      label: i.idle ? '没动' : '已等',
-      value: '${i.waitValue}',
-      unit: i.waitUnit,
-    ),
-    selected: selected,
-    onTap: onTap,
-  );
+  }) {
+    final chip = taskChip(i);
+    return HfRow(
+      key: ValueKey(split ? 'attention-row-${i.id}' : 'attention-card-${i.id}'),
+      index: n,
+      tone: i.tone,
+      badge: i.arrived ? '刚到' : null,
+      // Beside the detail, which has the whole sentence, a row keeps to one line.
+      titleLines: split ? 1 : 2,
+      meta: _meta(i),
+      title: i.headline,
+      detail: i.isActivity ? chip : i.askText,
+      stat: HfStatBlock(
+        label: i.isActivity
+            ? (i.unread > 0 ? '${i.unread} 条未读' : '已读')
+            : (i.idle ? '没动' : '已等'),
+        value: '${i.waitValue}',
+        unit: i.isActivity ? '${i.waitUnit}前' : i.waitUnit,
+      ),
+      selected: selected,
+      onTap: onTap,
+    );
+  }
 
   /// The frame of the layer: [a] not read yet is the spinner (or why it
   /// failed), an empty [a] says so, else [children] are the list.
@@ -169,7 +217,7 @@ class AgentAttentionView extends StatefulWidget {
     );
   }
 
-  /// What the layer says when there is nothing to do.
+  /// What the layer says when there is nothing in the feed.
   static List<Widget> emptyBody(HfData hf) => [
     Padding(
       padding: EdgeInsets.fromLTRB(0, hf.sp(8), 0, hf.sp(6)),
@@ -197,47 +245,70 @@ class AgentAttentionView extends StatefulWidget {
     ], block: true);
   }
 
-  /// The list of the layer: sections with their cards, then the team row
-  /// (and its rows when [teamOpen]). [selected] is the current card, from 1.
+  /// The list of the layer: the feed with its label, the stale group (its
+  /// cards when [staleOpen]), then the team row (and its rows when
+  /// [teamOpen]). [selected] is the current card, from 1.
   static List<AgentAttentionPart> partsOf(
     AgentAttention a, {
     required bool split,
     required bool interactive,
     bool teamOpen = false,
+    bool staleOpen = false,
     int? selected,
     void Function(int n)? onTap,
     VoidCallback? onTeam,
+    VoidCallback? onStale,
     Widget? teamIcon,
+    Widget? staleIcon,
   }) {
-    final items = a.items;
     final parts = <AgentAttentionPart>[];
-    for (var n = 0; n < items.length; n++) {
-      final i = items[n];
-      if (n == 0 || i.priority != items[n - 1].priority) {
-        parts.add(
-          AgentAttentionSection(
-            i.priority,
-            HfSectionLabel(
-              _sectionOf(i.priority),
-              tone: _tone(i.priority),
-              count: items.where((x) => x.priority == i.priority).length,
-            ),
-          ),
-        );
-      }
+    var n = 0;
+    void card(AgentAttentionItem i) {
+      n++;
+      final number = n;
       parts.add(
         AgentAttentionCard(
-          n + 1,
+          number,
           i,
           rowOf(
             i,
-            n + 1,
+            number,
             split: split,
-            selected: n + 1 == selected,
-            onTap: interactive && onTap != null ? () => onTap(n + 1) : null,
+            selected: number == selected,
+            onTap: interactive && onTap != null ? () => onTap(number) : null,
           ),
         ),
       );
+    }
+
+    if (a.items.isNotEmpty) {
+      parts.add(
+        AgentAttentionSection(
+          HfSectionLabel(
+            feedLabel,
+            tone: HfTone.progress,
+            count: a.items.length,
+          ),
+        ),
+      );
+      a.items.forEach(card);
+    }
+    if (a.stale.isNotEmpty) {
+      parts.add(
+        AgentAttentionStaleRow(
+          HfRow(
+            key: const ValueKey('attention-stale'),
+            index: null,
+            tone: HfTone.blocked,
+            title: '$staleTitle ${a.staleCount} 件',
+            titleLines: 1,
+            detail: staleNote,
+            trailing: staleIcon,
+            onTap: interactive ? onStale : null,
+          ),
+        ),
+      );
+      if (staleOpen) a.stale.forEach(card);
     }
     if (a.teamCount > 0 && interactive) {
       parts.add(
@@ -281,7 +352,8 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
   /// none.
   int _shown = -1;
 
-  List<AgentAttentionItem> get _items => widget.attention?.items ?? const [];
+  List<AgentAttentionItem> get _items =>
+      widget.attention?.listed(open: widget.staleOpen) ?? const [];
 
   AgentAttentionItem? get _currentItem {
     final items = _items;
@@ -327,11 +399,18 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
       split: split,
       interactive: hf.interactive,
       teamOpen: widget.teamOpen,
+      staleOpen: widget.staleOpen,
       selected: _shown + 1,
       onTap: widget.onCurrent,
       onTeam: widget.onTeam,
+      onStale: widget.onStale,
       teamIcon: Icon(
         widget.teamOpen ? Icons.expand_less : Icons.expand_more,
+        size: hf.sp(26),
+        color: HfColors.inkSoft,
+      ),
+      staleIcon: Icon(
+        widget.staleOpen ? Icons.expand_less : Icons.expand_more,
         size: hf.sp(26),
         color: HfColors.inkSoft,
       ),
@@ -352,7 +431,8 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
               child: AgentHandleTag(focusId: id, child: row),
             ),
           );
-        case AgentAttentionTeamRow(:final row) ||
+        case AgentAttentionStaleRow(:final row) ||
+            AgentAttentionTeamRow(:final row) ||
             AgentAttentionTeamItem(:final row):
           afterLabel = false;
           children.add(SizedBox(height: hf.rowGap));
@@ -369,7 +449,7 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final a = widget.attention;
-    if (a == null || a.isEmpty) {
+    if (a == null || (a.isEmpty && a.stale.isEmpty)) {
       return AgentAttentionView.frameOf(
         a,
         widget.error,
@@ -377,27 +457,33 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
         children: a == null ? const [] : AgentAttentionView.emptyBody(hf),
       );
     }
-    final items = a.items;
+    final items = a.listed(open: widget.staleOpen);
     final split = hf.split;
     final sel = widget.current;
     final hasSel = sel != null && sel >= 1 && sel <= items.length;
     // A wide window always marks one: the first row when nothing was chosen.
-    _shown = hasSel ? sel - 1 : (split ? 0 : -1);
+    _shown = hasSel ? sel - 1 : (split && items.isNotEmpty ? 0 : -1);
     final frame = AgentAttentionView.frameOf(
       a,
       widget.error,
       phone: hf.phone,
-      children: [_list(hf, a, split: split)],
+      children: [
+        if (a.isEmpty) ...AgentAttentionView.emptyBody(hf),
+        _list(hf, a, split: split),
+      ],
     );
     if (!split) return frame;
     return Focus(autofocus: true, onKeyEvent: _key, child: frame);
   }
 }
 
-/// One attention item in its detail rendering: what is asked, who, how long,
-/// the last progress and the three actions. The detail slot beside the list
-/// (a wide window, a TV) and under the row on a phone both show it;
-/// [trailing] is the small tools of a phone's stage.
+/// One item in its detail rendering: the message in full, who, where, how
+/// long ago, and what the person can do with it. For an Activity row those
+/// are the feedback actions: 回复, 点赞, 标记已处理, 稍后, 交给 Agent. The
+/// detail slot beside the list (a wide window, a TV) and under the row on a
+/// phone both show it; [trailing] is the small tools of a phone's stage.
+///
+/// An action whose callback is null is not offered (the TV has none).
 class AgentAttentionDetail extends StatelessWidget {
   const AgentAttentionDetail({
     super.key,
@@ -406,6 +492,10 @@ class AgentAttentionDetail extends StatelessWidget {
     required this.onApprove,
     required this.onOpen,
     required this.onLater,
+    this.onReply,
+    this.onLike,
+    this.onDone,
+    this.onAssign,
     this.trailing,
   });
   final AgentAttentionItem item;
@@ -413,10 +503,18 @@ class AgentAttentionDetail extends StatelessWidget {
   /// The number the item has on the screen.
   final int number;
   final void Function(AgentAttentionItem item) onApprove, onOpen, onLater;
+  final void Function(AgentAttentionItem item)? onReply, onLike, onDone, onAssign;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => view();
+
+  /// What 回复 says on the button.
+  static const replyLabel = '回复';
+  static const likeLabel = '点赞';
+  static const doneLabel = '标记已处理';
+  static const assignLabel = '交给 Agent';
+  static const openActivityLabel = '看完整对话';
 
   /// The detail as the screen draws it; the description of the current item
   /// is read from this same widget.
@@ -426,25 +524,51 @@ class AgentAttentionDetail extends StatelessWidget {
         ? const <AgentProgressLine>[]
         : [item.progress.last];
     final who = item.doer ?? (item.waiters.isEmpty ? null : item.waiters.first);
+    final activity = item.isActivity;
+    final chip = AgentAttentionView.taskChip(item);
+    VoidCallback? call(void Function(AgentAttentionItem)? f) =>
+        f == null ? null : () => f(item);
+    final HfAction? open = HfAction(
+      activity
+          ? openActivityLabel
+          : item.action == AgentAction.reply
+          ? '回复${who == null ? '' : ' $who'}'
+          : '打开讨论',
+      key: ValueKey('attention-open-${item.id}'),
+      kind: item.canApprove ? HfActionKind.secondary : HfActionKind.primary,
+      onPressed: () => onOpen(item),
+    );
     return HfDetail(
       key: const ValueKey('attention-detail'),
       trailing: trailing,
       // The tools are a phone's: its page has little height for stacked
       // buttons.
-      oneRowActions: trailing != null,
+      oneRowActions: trailing != null && !activity,
+      gridActions: activity,
       titleMode: HfDetailTitle.heading,
       index: n,
-      title: item.headline,
-      status: [
-        if (item.channelName != null) '#${item.channelName}',
-        item.reason,
-      ].join(' · '),
-      tone: HfColors.toneOf(item.priority),
-      facts: [
-        HfFact('要你做', item.askText),
-        if (who != null) HfFact('谁', who),
-        HfFact('多久', item.waitLabel),
-      ],
+      title: activity ? (item.place ?? item.headline) : item.headline,
+      status: activity
+          ? [item.reason, if (item.arrived) '刚到'].join(' · ')
+          : [
+              if (item.channelName != null) '#${item.channelName}',
+              item.reason,
+            ].join(' · '),
+      tone: item.tone,
+      facts: activity
+          ? [
+              if (who != null) HfFact('谁', who),
+              HfFact(
+                '多久',
+                '${item.agoLabel} · ${item.unread > 0 ? '${item.unread} 条未读' : '已读'}',
+              ),
+              if (chip != null) HfFact('任务', chip),
+            ]
+          : [
+              HfFact('要你做', item.askText),
+              if (who != null) HfFact('谁', who),
+              HfFact('多久', item.waitLabel),
+            ],
       progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
       actions: [
         if (item.canApprove)
@@ -455,20 +579,39 @@ class AgentAttentionDetail extends StatelessWidget {
             icon: Icons.check_rounded,
             onPressed: () => onApprove(item),
           ),
-        HfAction(
-          item.action == AgentAction.reply
-              ? '回复${who == null ? '' : ' $who'}'
-              : '打开讨论',
-          key: ValueKey('attention-open-${item.id}'),
-          kind: item.canApprove ? HfActionKind.secondary : HfActionKind.primary,
-          onPressed: () => onOpen(item),
-        ),
+        ?open,
+        if (activity && onReply != null)
+          HfAction(
+            replyLabel,
+            key: ValueKey('attention-reply-${item.id}'),
+            onPressed: call(onReply),
+          ),
+        if (activity && onLike != null && item.messageId != null)
+          HfAction(
+            likeLabel,
+            key: ValueKey('attention-like-${item.id}'),
+            onPressed: call(onLike),
+          ),
+        if (activity &&
+            onDone != null &&
+            item.rowKind != 'mention_action')
+          HfAction(
+            doneLabel,
+            key: ValueKey('attention-done-${item.id}'),
+            onPressed: call(onDone),
+          ),
         HfAction(
           '稍后',
           key: ValueKey('attention-later-${item.id}'),
           kind: HfActionKind.text,
           onPressed: () => onLater(item),
         ),
+        if (onAssign != null && (activity || item.taskId != null))
+          HfAction(
+            assignLabel,
+            key: ValueKey('attention-assign-${item.id}'),
+            onPressed: call(onAssign),
+          ),
       ],
     );
   }

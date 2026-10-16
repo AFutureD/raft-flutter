@@ -60,6 +60,7 @@ class HfDetail extends StatelessWidget implements HfDescribed {
     this.trailing,
     this.focusId,
     this.oneRowActions = false,
+    this.gridActions = false,
   });
 
   final String title;
@@ -85,6 +86,9 @@ class HfDetail extends StatelessWidget implements HfDescribed {
 
   /// Keep the actions in one row on a phone too (a stage with tools).
   final bool oneRowActions;
+
+  /// Lay many actions out as a grid of equal buttons.
+  final bool gridActions;
   final String? focusId;
 
   /// The heading of the progress rows.
@@ -328,7 +332,11 @@ class HfDetail extends StatelessWidget implements HfDescribed {
         card,
         if (actions.isNotEmpty) ...[
           actionGap,
-          HfActions(actions: actions, oneRow: oneRowActions),
+          HfActions(
+            actions: actions,
+            oneRow: oneRowActions,
+            grid: gridActions,
+          ),
         ],
       ],
     );

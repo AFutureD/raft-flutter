@@ -350,7 +350,7 @@ class AgentRuntime extends ChangeNotifier {
     ].join('；');
     unawaited(
       tell(
-        '（屏幕提示，不是用户说的）用户之前让你稍后再提醒的事到时间了，已经回到“现在需要你”：$what。'
+        '（屏幕提示，不是用户说的）用户之前让你稍后再提醒的事到时间了，已经回到首页的动态：$what。'
         '用一句话提醒他一下，不要展开。',
       ),
     );

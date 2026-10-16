@@ -348,7 +348,7 @@ final actionCapabilities = <AgentCapability>[
   ),
   AgentCapability(
     id: 'activity.mark_done',
-    title: '把动态（Activity）里的一个会话标为已处理（Done）',
+    title: '把动态（Activity）里的一个会话或讨论串标为已处理（Done）',
     kind: AgentCapabilityKind.action,
     risk: AgentCapabilityRisk.change,
     parity: 'POST /channels/inbox/done',
@@ -362,13 +362,16 @@ final actionCapabilities = <AgentCapability>[
       '动态里划掉',
     ],
     paramsSchema: objectSchema(
-      {'channel': strArg('频道或私信（id、名字）')},
+      {
+        'channel': strArg('频道或私信（id、名字）；标讨论串时是它所在的频道'),
+        'thread': strArg('动态里的讨论串（threadChannelId）；标整个频道或私信时省略', max: 80),
+      },
       required: const ['channel'],
     ),
     resultSummary: 'done, entity=channel, id',
     prepareUndo: (w, args, env) async {
       final c = channelByRef(w, '${args['channel']}');
-      final row = await _inboxRow(w, c);
+      final row = await _inboxRow(w, c, thread: text(args['thread']));
       final undone = row == null ? null : activityMutation(row, 'undone');
       if (undone == null) return null;
       return AgentUndoPlan(
@@ -376,21 +379,21 @@ final actionCapabilities = <AgentCapability>[
         run: () async {
           await w.command('POST', undone.path, data: undone.data);
           await w.refreshUnread();
-          return '已把 ${channelWord(c)} 放回动态';
+          return '已把 ${_doneWord(w, c, row)} 放回动态';
         },
       );
     },
     preview: (w, args, env) async {
       final c = channelByRef(w, '${args['channel']}');
-      final row = await _inboxRow(w, c);
+      final row = await _inboxRow(w, c, thread: text(args['thread']));
       if (row == null || activityMutation(row, 'done') == null) {
-        throw AgentCapabilityError('${channelWord(c)} 现在不在动态里，没有可以标为已处理的');
+        throw AgentCapabilityError('${_doneWord(w, c, row)} 现在不在动态里，没有可以标为已处理的');
       }
       final n = ((row['unreadCount'] as num?) ?? 0).toInt();
       return AgentActionPreview(
-        summary: '把${channelWord(c)}在动态里标为已处理',
+        summary: '把${_doneWord(w, c, row)}在动态里标为已处理',
         changes: [
-          change('${channelWord(c)} 动态', '待处理', '已处理'),
+          change('${_doneWord(w, c, row)} 动态', '待处理', '已处理'),
           if (n > 0) change('未读', '$n 条', '0 条'),
         ],
         reversible: true,
@@ -399,15 +402,15 @@ final actionCapabilities = <AgentCapability>[
     },
     run: (w, args, env) async {
       final c = channelByRef(w, '${args['channel']}');
-      final row = await _inboxRow(w, c);
+      final row = await _inboxRow(w, c, thread: text(args['thread']));
       final done = row == null ? null : activityMutation(row, 'done');
       if (done == null) {
-        throw AgentCapabilityError('${channelWord(c)} 现在不在动态里');
+        throw AgentCapabilityError('${_doneWord(w, c, row)} 现在不在动态里');
       }
       await w.command('POST', done.path, data: done.data);
       await w.refreshUnread();
       return actionResult(
-        '已把 ${channelWord(c)} 标为已处理',
+        '已把 ${_doneWord(w, c, row)} 标为已处理',
         entity: 'channel',
         id: c.id,
       );
@@ -455,17 +458,35 @@ RaftChannel _joinable(WorkspaceController w, String ref) {
   return c;
 }
 
-/// The Activity row of [c], read the way the Activity page reads it.
-Future<Map<String, dynamic>?> _inboxRow(
+/// What the Activity row is called in a sentence: the channel or DM, or the
+/// thread under it.
+String _doneWord(
   WorkspaceController w,
   RaftChannel c,
-) async {
+  Map<String, dynamic>? row,
+) => row != null && row['kind'] == 'thread'
+    ? '${channelWord(c)} 里的讨论串'
+    : channelWord(c);
+
+/// The Activity row of [c] (or of its thread [thread]), read the way the
+/// Activity page reads it.
+Future<Map<String, dynamic>?> _inboxRow(
+  WorkspaceController w,
+  RaftChannel c, {
+  String? thread,
+}) async {
   final filters = ResourceFilters()..channelId = c.id;
   final body = await w.sharedQuery(
     '/channels/inbox',
     query: filters.list('', limit: 30, filter: 'all'),
   );
-  return rowsOf(body, const [
-    'items',
-  ]).where((r) => r['kind'] != 'thread' && r['channelId'] == c.id).firstOrNull;
+  final rows = rowsOf(body, const ['items']);
+  if (thread != null) {
+    return rows
+        .where((r) => r['kind'] == 'thread' && r['threadChannelId'] == thread)
+        .firstOrNull;
+  }
+  return rows
+      .where((r) => r['kind'] != 'thread' && r['channelId'] == c.id)
+      .firstOrNull;
 }

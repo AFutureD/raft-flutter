@@ -7,6 +7,7 @@ import 'package:raft_agent_ui/raft_agent_ui.dart' hide AgentEntityRef;
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftTokens;
 
+import '../../data/source_activity_unread_store.dart';
 import '../../data/workspace_controller.dart';
 import 'agent_attention.dart';
 import 'agent_audio.dart';
@@ -42,6 +43,7 @@ import 'references/agent_entities.dart';
 import 'references/agent_handle_tag.dart';
 import 'references/agent_reference_table.dart';
 import 'runtime/agent_runtime.dart';
+import 'runtime/agent_stop_words.dart' show isStopUtterance;
 import 'runtime/agent_turn.dart' show AgentTurn;
 import 'runtime/agent_tool_set.dart';
 
@@ -442,22 +444,39 @@ class _AgentModePageState extends State<AgentModePage> {
   List<Map<String, dynamic>>? _tasks;
   Object? _tasksError;
 
+  /// The App's Activity: the inbox window its badge and its page read. The
+  /// home follows it live.
+  late final SourceActivityUnreadStore _activity =
+      widget.controller.activityUnreadIfBound ??
+      widget.controller.activityUnread;
+
   @override
   void initState() {
     super.initState();
     _loadAttention();
+    _activity.addListener(_activityChanged);
     final tv = AgentPresentation.instance;
     tv.onDisplaysChanged = () => unawaited(_attachTv());
     _voice.addListener(_voiceChanged);
     // The person pressed 确认 / 取消 on a preview: tell the model, which is
     // waiting for them (their words reach it as audio or text on their own).
-    _consent.onTapped = (request, yes) => unawaited(
-      _voice.tell(
-        yes
-            ? '（屏幕提示，不是用户说的）用户点了确认卡的“确认”（confirmToken ${request.token}）。现在可以调用 confirm 执行。'
-            : '（屏幕提示，不是用户说的）用户点了确认卡的“取消”（confirmToken ${request.token}）。不要执行，告诉他已经取消。',
-      ),
-    );
+    _consent.onTapped = (request, yes) {
+      // A preview the person's own tap started (点赞, 标记已处理 ...) has no
+      // model waiting for the answer: the app runs it.
+      if (_tapTokens.remove(request.token)) {
+        if (yes) {
+          unawaited(_runtime.runTool('confirm', {'token': request.token}));
+        }
+        return;
+      }
+      unawaited(
+        _voice.tell(
+          yes
+              ? '（屏幕提示，不是用户说的）用户点了确认卡的“确认”（confirmToken ${request.token}）。现在可以调用 confirm 执行。'
+              : '（屏幕提示，不是用户说的）用户点了确认卡的“取消”（confirmToken ${request.token}）。不要执行，告诉他已经取消。',
+        ),
+      );
+    };
     _mood.addListener(() {
       if (mounted) setState(() {});
     });
@@ -481,6 +500,7 @@ class _AgentModePageState extends State<AgentModePage> {
 
   @override
   void dispose() {
+    _activity.removeListener(_activityChanged);
     unawaited(AgentPresentation.instance.detach());
     _voice.removeListener(_voiceChanged);
     AgentVoiceSettings.instance.removeListener(_loadBrain);
@@ -569,6 +589,14 @@ class _AgentModePageState extends State<AgentModePage> {
   AgentAttention? get _visible =>
       _attention?.without(AgentModeData.hidden(widget.controller));
 
+  /// The stale tasks are open under the "可能需要收尾" row.
+  bool _staleOpen = false;
+
+  /// The items the home lists and numbers now: the feed, and the stale tasks
+  /// while their group is open.
+  List<AgentAttentionItem> get _listed =>
+      _visible?.listed(open: _staleOpen) ?? const [];
+
   Future<void> _loadAttention() async {
     try {
       final result = await data.attention();
@@ -596,6 +624,27 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   String _attentionSummary(AgentAttention a) => a.summary;
+
+  /// The App's Activity changed (a message arrived, a conversation was read
+  /// or set to done, the window was read again): the feed follows, through
+  /// the same window the Activity page reads. New unread rows wear "刚到".
+  void _activityChanged() {
+    final before = _attention;
+    if (!mounted || before == null) return;
+    final rows = data.storeRows();
+    if (rows == null) return;
+    final next = before.withActivity(data.activityItems(rows));
+    final known = {for (final i in before.items) i.id};
+    final arrived = [
+      for (final i in next.items)
+        if (i.arrived && !known.contains(i.id)) i,
+    ];
+    AgentModeData.remember(widget.controller, next);
+    setState(() => _attention = next);
+    if (arrived.isNotEmpty) {
+      _voice.say(AgentSpeaker.agent, '新动态：${arrived.first.urgent}');
+    }
+  }
 
   /// True when the task was set to done.
   Future<bool> _approve(AgentAttentionItem item) async {
@@ -659,6 +708,196 @@ class _AgentModePageState extends State<AgentModePage> {
     );
   }
 
+  // ---- feedback on an Activity item -------------------------------------
+
+  /// The previews the person's own taps started: their confirm card decides
+  /// them, and the app (not the model) then runs `confirm`.
+  final _tapTokens = <String>{};
+
+  /// 回复 was pressed: what the person says or types next is the reply.
+  AgentAttentionItem? _replying;
+
+  /// 交给 Agent was pressed: the Agents to choose from (null while they are
+  /// being read).
+  AgentAttentionItem? _assigning;
+  List<String>? _assignees;
+
+  /// One feedback action, through the tool the model would use for it: the
+  /// preview and its confirm card are the ones every operation has.
+  Future<void> _feedback(String tool, Map<String, Object?> args) async {
+    final r = await _runtime.runTool(tool, args);
+    if (!mounted) return;
+    final token = r['confirmToken'];
+    if (token is String) _tapTokens.add(token);
+    if (r['error'] != null) {
+      _voice.say(AgentSpeaker.agent, '${r['message'] ?? r['error']}');
+      return;
+    }
+    final summary = (r['preview'] as Map?)?['summary'];
+    if (summary != null) _voice.say(AgentSpeaker.agent, '$summary，确认吗？');
+    _showTray();
+  }
+
+  /// The confirm cards end the page: scroll there to show the one that
+  /// just came.
+  void _showTray() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final page = _pageOf(_stack.last);
+      if (!page.hasClients) return;
+      unawaited(
+        page.position.animateTo(
+          page.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
+  }
+
+  /// The tool and arguments that reply to [item] with [text]: a private
+  /// message is answered in its conversation, a discussion in its thread, a
+  /// message in a channel in the thread of that message.
+  static (String, Map<String, Object?>) replyCall(
+    AgentAttentionItem item,
+    String text,
+  ) {
+    final channel = item.channelId;
+    if (item.dm && channel != null) {
+      return ('send_message', {'channel': channel, 'text': text});
+    }
+    return (
+      'reply_in_thread',
+      {
+        'message': item.parentMessageId ?? item.messageId ?? '',
+        'text': text,
+        'channel': ?channel,
+      },
+    );
+  }
+
+  void _reply(AgentAttentionItem item) {
+    if (item.messageId == null && item.parentMessageId == null && !item.dm) {
+      _voice.say(AgentSpeaker.agent, '这条没有可以回复的消息。');
+      return;
+    }
+    setState(() {
+      _replying = item;
+      _assigning = null;
+    });
+    final to = item.doer == null ? '' : ' ${item.doer}';
+    _voice.say(AgentSpeaker.agent, '回复$to：说出或输入要回的话，我先给你看预览。');
+    final (tool, args) = replyCall(item, '<他说的话>');
+    unawaited(
+      _voice.tell(
+        '（屏幕提示，不是用户说的）用户点了“回复”：${item.headline}（${item.place ?? ''}）。'
+        '请他说出要回复的内容，他说完后调用 $tool 出预览，参数 ${jsonEncode(args)}（text 换成他说的话）。',
+      ),
+    );
+  }
+
+  /// Typed words while 回复 is pending are the reply itself.
+  bool _typedReply(String text) {
+    final item = _replying;
+    if (item == null || text.trim().isEmpty || isStopUtterance(text.trim())) {
+      return false;
+    }
+    setState(() => _replying = null);
+    _voice.say(AgentSpeaker.you, text);
+    final (tool, args) = replyCall(item, text.trim());
+    unawaited(_feedback(tool, args));
+    return true;
+  }
+
+  /// The conversation a message of [item] is in: its thread, else its channel.
+  static String? conversationOf(AgentAttentionItem item) =>
+      item.threadChannelId ?? item.channelId;
+
+  void _like(AgentAttentionItem item) {
+    final id = item.messageId;
+    if (id == null) {
+      _voice.say(AgentSpeaker.agent, '这条没有可以点赞的消息。');
+      return;
+    }
+    unawaited(
+      _feedback('react', {
+        'message': id,
+        'emoji': '👍',
+        'channel': ?conversationOf(item),
+      }),
+    );
+  }
+
+  void _done(AgentAttentionItem item) {
+    final channel = item.channelId ?? item.threadChannelId;
+    if (channel == null) {
+      _voice.say(AgentSpeaker.agent, '这条动态没法标为已处理。');
+      return;
+    }
+    unawaited(
+      _feedback('mark_done', {
+        'channel': channel,
+        if (item.rowKind == 'thread' && item.threadChannelId != null)
+          'thread': item.threadChannelId,
+      }),
+    );
+  }
+
+  /// 交给 Agent: choose which one, then a task is assigned to it (the item's
+  /// own task) or created for it from the message.
+  void _assign(AgentAttentionItem item) {
+    setState(() {
+      _assigning = item;
+      _assignees = null;
+      _replying = null;
+    });
+    _voice.say(AgentSpeaker.agent, '交给哪个 Agent？点一个，或者说名字。');
+    unawaited(() async {
+      List<AgentRuntimeInfo> agents;
+      try {
+        agents = await data.agents();
+      } on Object {
+        agents = const [];
+      }
+      if (!mounted || !identical(_assigning, item)) return;
+      setState(() {
+        _assignees = [
+          for (final a in agents)
+            if (a.state != AgentWorkState.offline) a.name,
+        ].take(6).toList();
+      });
+    }());
+  }
+
+  /// [item] goes to the Agent [name]: the preview of `assign_task` for a
+  /// task, of `create_task` (with the message as its description) for the
+  /// rest.
+  void _assignTo(AgentAttentionItem item, String name) {
+    setState(() {
+      _assigning = null;
+      _assignees = null;
+    });
+    final task = item.taskId;
+    if (task != null) {
+      unawaited(_feedback('assign_task', {'task': task, 'assignee': name}));
+      return;
+    }
+    final channel = item.channelId;
+    if (channel == null) {
+      _voice.say(AgentSpeaker.agent, '这条所在的频道不明确，交不出去。');
+      return;
+    }
+    final said = item.excerpt ?? item.headline;
+    unawaited(
+      _feedback('create_task', {
+        'channel': channel,
+        'title': said.length <= 60 ? said : '${said.substring(0, 60)}…',
+        'description': '来自动态（${item.place ?? ''}）：$said',
+        'assignee': name,
+      }),
+    );
+  }
+
   void _openItem(AgentAttentionItem item) {
     final c = _channelById(item.channelId);
     if (c == null) {
@@ -705,7 +944,7 @@ class _AgentModePageState extends State<AgentModePage> {
     if (c != null) return c;
     return _split &&
             _stack.last is _Attention &&
-            (_visible?.items.isNotEmpty ?? false)
+            _listed.isNotEmpty
         ? 1
         : null;
   }
@@ -775,7 +1014,7 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   int _rankOf(AgentAttentionItem item) {
-    final at = (_visible?.items ?? const <AgentAttentionItem>[]).indexWhere(
+    final at = _listed.indexWhere(
       (i) => i.id == item.id,
     );
     return at < 0 ? 1 : at + 1;
@@ -786,7 +1025,7 @@ class _AgentModePageState extends State<AgentModePage> {
   /// current one. A window with a detail beside its list shows it there and
   /// pushes no layer; a narrower one goes to the full detail page.
   Map<String, Object?> _expandNumber(int? number) {
-    final items = _visible?.items ?? const <AgentAttentionItem>[];
+    final items = _listed;
     if (items.isEmpty) return {'error': '现在没有需要你处理的事，没有可展开的'};
     final focused = RegExp(r'^attention#(\d+)$')
         .firstMatch(_spotlight.focused ?? '')?[1];
@@ -846,7 +1085,7 @@ class _AgentModePageState extends State<AgentModePage> {
   /// items, or back to the top after the last. (A TV scrolls the same way:
   /// see [_screens].)
   Map<String, Object?> _nextBatch() {
-    final cards = _visible?.items.length ?? 0;
+    final cards = _listed.length;
     final step = _pageOf(_stack.last).nextScreen();
     if (step == HfPageStep.none) {
       return {'error': '这一层已经全部显示在一屏里了，没有更多要翻的'};
@@ -1023,6 +1262,8 @@ class _AgentModePageState extends State<AgentModePage> {
   ].where((line) => line.isNotEmpty).join('\n');
 
   Future<void> _submit(String text) async {
+    // 回复 was pressed: the next words are the reply.
+    if (_typedReply(text)) return;
     // Typed words are the person's: they may answer a pending preview, or
     // only stop everything ("算了"), which needs no model.
     final turn = _runtime.submitText(text);
@@ -1222,6 +1463,10 @@ class _AgentModePageState extends State<AgentModePage> {
     final notes = [
       if (widget.controller.servers.length > 1)
         '工作区：${widget.controller.server?.name ?? ''}',
+      if (_replying != null)
+        '屏幕下方提示：正在回复${_replying!.doer == null ? '' : ' ${_replying!.doer}'}，等他说出或输入要回的话',
+      if (_assigning != null)
+        '屏幕下方提示：交给哪个 Agent？${_assignees == null ? '正在读取' : _assignees!.isEmpty ? '没有在线的 Agent' : _assignees!.join('、')}',
     ];
     AgentScreenSnapshot make(
       String kind,
@@ -1254,6 +1499,7 @@ class _AgentModePageState extends State<AgentModePage> {
             split: _split,
             interactive: true,
             teamOpen: _teamOpen,
+            staleOpen: _staleOpen,
             selected: current,
           )) {
             switch (part) {
@@ -1268,6 +1514,13 @@ class _AgentModePageState extends State<AgentModePage> {
                     actions: _attentionDetail(item, n).describe(env).actions,
                     view: views?[n],
                     entity: table.byIndex(n),
+                  ),
+                );
+              case AgentAttentionStaleRow(:final row):
+                parts.add(
+                  AgentScreenPart(
+                    row.describe(env),
+                    actions: [_staleOpen ? '收起' : '展开'],
                   ),
                 );
               case AgentAttentionTeamRow(:final row):
@@ -1355,7 +1608,7 @@ class _AgentModePageState extends State<AgentModePage> {
     final layer = _stack.last;
     if (n == null || n < 1 || !_stageAllowed) return null;
     if (layer is _Attention) {
-      final items = _visible?.items ?? const <AgentAttentionItem>[];
+      final items = _listed;
       if (n > items.length) return null;
       return AgentScreenPart(
         _attentionDetail(items[n - 1], n).describe(env),
@@ -1375,6 +1628,10 @@ class _AgentModePageState extends State<AgentModePage> {
         onApprove: (_) {},
         onOpen: (_) {},
         onLater: (_) {},
+        onReply: (_) {},
+        onLike: (_) {},
+        onDone: (_) {},
+        onAssign: (_) {},
       ).view();
 
   /// The stage of item [e] of a frame, as the screen draws it.
@@ -1403,6 +1660,10 @@ class _AgentModePageState extends State<AgentModePage> {
       '任务 #${i.taskNumber}${i.taskId == null ? '' : '（id ${i.taskId}）'}'
     else
       '来源 id ${i.id}',
+    if (i.messageId != null) '消息 id ${i.messageId}',
+    if (i.threadChannelId != null)
+      '讨论串 id ${i.threadChannelId}（父消息 ${i.parentMessageId}）',
+    if (i.isActivity) '动态来源：${i.place ?? ''}，${i.unread > 0 ? '${i.unread} 条未读' : '已读'}',
     if (i.doer != null) '负责人/发言人 ${i.doer}',
     if (i.waiters.isNotEmpty) '在等的人 ${i.waiters.join('、')}',
     if (i.threadTitle != null) '讨论「${i.threadTitle}」',
@@ -1728,8 +1989,8 @@ class _AgentModePageState extends State<AgentModePage> {
   /// One layer as data: drawn on the phone and sent unchanged to the TV.
   Map<String, Object?> _frame(_Layer l) => switch (l) {
     _Attention() => {
-      'title': '现在需要你',
-      'meta': '按紧急程度',
+      'title': AgentAttentionView.layerTitle,
+      'meta': AgentAttentionView.layerMeta,
       'loading': _attention == null && _attentionError == null,
       'summary': _attention == null
           ? (_attentionError == null ? null : '读取失败：$_attentionError')
@@ -1737,16 +1998,25 @@ class _AgentModePageState extends State<AgentModePage> {
       // What the voice agent sees and numbers: the cards, in rank order.
       'items': [
         for (final (n, i)
-            in (_visible?.items ?? const <AgentAttentionItem>[]).indexed)
+            in _listed.indexed)
           {
             'kind': 'priority',
             'priority': i.priority.name,
             'label': i.reason,
             'weight': n + 1,
             'title': i.headline,
-            'detail': '要你做：${i.askText} · ${i.waitLabel}',
+            'detail': i.isActivity
+                ? [
+                    ?i.place,
+                    i.waitLabel,
+                    i.unread > 0 ? '${i.unread} 条未读' : '已读',
+                  ].join(' · ')
+                : '要你做：${i.askText} · ${i.waitLabel}',
             'chips': [
-              if (i.channelName != null) '#${i.channelName}',
+              if (i.isActivity)
+                ?i.place
+              else if (i.channelName != null)
+                '#${i.channelName}',
               i.waitLabel,
             ],
             'channelId': i.channelId,
@@ -1754,7 +2024,8 @@ class _AgentModePageState extends State<AgentModePage> {
           },
       ],
       // The TV draws the same screen from the result itself.
-      if (_visible != null) 'attention': _visible!.toJson(),
+      if (_visible != null)
+        'attention': {..._visible!.toJson(), 'staleOpen': _staleOpen},
     },
     _Channel(:final channel) => () {
       final b = _briefs[channel.id];
@@ -1819,7 +2090,7 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   String _peek(_Layer l) => switch (l) {
-    _Attention() => '现在需要你',
+    _Attention() => AgentAttentionView.layerTitle,
     _Channel(:final channel) => '# ${channel.name}',
     _Tasks() => '进行中的任务',
     _Surface(:final spec) => spec.title,
@@ -2003,7 +2274,7 @@ class _AgentModePageState extends State<AgentModePage> {
       if (_split &&
           identical(l, _stack.last) &&
           _current == null &&
-          (_visible?.items.isNotEmpty ?? false)) {
+          _listed.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted &&
               _split &&
@@ -2024,6 +2295,8 @@ class _AgentModePageState extends State<AgentModePage> {
         onCurrent: _tapCurrent,
         teamOpen: _teamOpen,
         onTeam: () => setState(() => _teamOpen = !_teamOpen),
+        staleOpen: _staleOpen,
+        onStale: () => setState(() => _staleOpen = !_staleOpen),
       );
     }
     return AgentFrameView(
@@ -2041,7 +2314,7 @@ class _AgentModePageState extends State<AgentModePage> {
   Widget? _stage(_Layer layer, int? n, HfData hf, {Widget? tools}) {
     if (n == null || !_stageAllowed) return null;
     if (layer is _Attention) {
-      final items = _visible?.items ?? const <AgentAttentionItem>[];
+      final items = _listed;
       if (n < 1 || n > items.length) return null;
       return AgentItemScope(
         id: '${layer.id}#$n',
@@ -2051,6 +2324,10 @@ class _AgentModePageState extends State<AgentModePage> {
           onApprove: (i) => unawaited(_approve(i)),
           onOpen: _openItem,
           onLater: _later,
+          onReply: _reply,
+          onLike: _like,
+          onDone: _done,
+          onAssign: _assign,
           trailing: tools,
         ),
       );
@@ -2077,7 +2354,7 @@ class _AgentModePageState extends State<AgentModePage> {
   Widget _stageTools(_Layer layer, int? n) => HfStageTools(
     onExpand: layer is _Attention && n != null
         ? () {
-            final items = _visible?.items ?? const <AgentAttentionItem>[];
+            final items = _listed;
             if (n >= 1 && n <= items.length) _expandItem(items[n - 1]);
           }
         : null,
@@ -2094,6 +2371,82 @@ class _AgentModePageState extends State<AgentModePage> {
       onRetry: (id) => unawaited(_actionPressed(id, undo: false)),
     ),
   );
+
+  /// A small panel above the dock: what 回复 waits for, or who 交给 Agent
+  /// can go to.
+  List<Widget> _feedbackPanels(HfData hf) {
+    Widget box(Key key, List<Widget> children) => Padding(
+      padding: EdgeInsets.only(top: hf.sp(6)),
+      child: Container(
+        key: key,
+        padding: EdgeInsets.fromLTRB(hf.sp(12), hf.sp(8), hf.sp(8), hf.sp(8)),
+        decoration: BoxDecoration(
+          color: HfColors.cream,
+          borderRadius: BorderRadius.circular(hf.sp(14)),
+          border: Border.all(color: HfColors.ink, width: hf.sp(3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
+      ),
+    );
+    Widget head(String text, VoidCallback cancel, Key cancelKey) => Row(
+      children: [
+        Expanded(child: Text(text, style: hf.type(HfType.headline))),
+        GestureDetector(
+          key: cancelKey,
+          behavior: HitTestBehavior.opaque,
+          onTap: cancel,
+          child: Padding(
+            padding: EdgeInsets.all(hf.sp(6)),
+            child: Icon(Icons.close, size: hf.sp(22), color: HfColors.inkSoft),
+          ),
+        ),
+      ],
+    );
+    final replying = _replying, assigning = _assigning;
+    return [
+      if (replying != null)
+        box(const ValueKey('agent-reply-note'), [
+          head(
+            '回复${replying.doer == null ? '' : ' ${replying.doer}'}：说出或输入要回的话',
+            () => setState(() => _replying = null),
+            const ValueKey('agent-reply-cancel'),
+          ),
+        ]),
+      if (assigning != null)
+        box(const ValueKey('agent-assign-panel'), [
+          head(
+            _assignees == null
+                ? '交给哪个 Agent？正在读取'
+                : _assignees!.isEmpty
+                ? '现在没有在线的 Agent 可以交给'
+                : '交给哪个 Agent？',
+            () => setState(() {
+              _assigning = null;
+              _assignees = null;
+            }),
+            const ValueKey('agent-assign-cancel'),
+          ),
+          if (_assignees != null && _assignees!.isNotEmpty) ...[
+            SizedBox(height: hf.sp(4)),
+            HfActions(
+              grid: true,
+              actions: [
+                for (final name in _assignees!)
+                  HfAction(
+                    name,
+                    key: ValueKey('agent-assign-$name'),
+                    onPressed: () => _assignTo(assigning, name),
+                  ),
+              ],
+            ),
+          ],
+        ]),
+    ];
+  }
 
   Widget _frameScreen(BuildContext context, HfData hf) {
     // Room above the front layer only for the layers that peek out behind
@@ -2128,6 +2481,7 @@ class _AgentModePageState extends State<AgentModePage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          ..._feedbackPanels(hf),
           if (_surfaceError != null)
             Padding(
               padding: EdgeInsets.only(top: hf.sp(6)),

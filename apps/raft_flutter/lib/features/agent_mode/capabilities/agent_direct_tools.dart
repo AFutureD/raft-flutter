@@ -28,14 +28,14 @@ const _descriptions = <String, String>{
   'reply_in_thread': '在某条消息的讨论串里回复（要给消息 id，或屏幕上的编号）。',
   'react': '给一条消息加表情反应。',
   'mark_read': '把一个频道或私信标为已读，或全部已读。',
-  'mark_done': '把动态（Activity）里的一个会话标为已处理（Done），从动态里移走。',
+  'mark_done': '把动态（Activity）里的一个会话或讨论串标为已处理（Done），从动态里移走；讨论串要同时给 thread。',
   'create_task': '在一个频道里新建一个任务，可同时指派负责人。',
   'set_task_status': '改一个任务的状态（待办、进行中、待验收、已完成、已关闭）。',
   'assign_task': '把一个任务指派给某个成员或 Agent。',
   'unassign_task': '清掉一个任务的负责人。',
   'join_channel': '加入一个公开频道。',
   'reject_task': '把任务打回去（改回进行中或待办）并在讨论串里留言说明原因，一步完成。',
-  'snooze_item': '把“现在需要你”里的一件事稍后再看（今晚、明天早上、几小时后），到点再提醒。',
+  'snooze_item': '把首页（动态）里的一件事稍后再看（今晚、明天早上、几小时后），到点再提醒。',
 };
 
 const _suffix = '只生成预览和 confirmToken，屏幕上出现确认卡；用一句话说出预览，等用户确认后才 confirm。';
