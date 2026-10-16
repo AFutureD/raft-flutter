@@ -110,6 +110,7 @@ class HistoryMemoryPool {
   }
 
   void direction(Object owner, String channel, {required bool older}) {
+    if (_older[(owner, channel)] == older) return;
     _older[(owner, channel)] = older;
     changed();
   }

@@ -35,6 +35,9 @@ class MessageHistoryPositions {
               : null,
         );
     if (storage == null || scope == null) return;
+    // A null viewport anchor reports the latest end, including a manual drag.
+    // A previous older-page hint must not retain the opposite end afterward.
+    if (anchor == null) storage.memory.direction(w, id, older: false);
     SavedReadingPosition? position;
     if (anchor != null) {
       final row = w.messageWindows
