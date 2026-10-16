@@ -640,7 +640,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   /// presence patches never rebuild the shell.
   late WorkspaceEntitySelection shellIdentities;
   WorkspaceEntitySelection bindShellIdentities() =>
-      WorkspaceEntitySelection(w.entityDirectory, (d) => d.authorRevision);
+      WorkspaceEntitySelection(w.services.entityDirectory, (d) => d.authorRevision);
   void syncPresentation() {
     if (skipCoveredPage) return;
     unawaited(
@@ -2725,8 +2725,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
         computers: target.kind == DesktopContentKind.computer,
         initial:
             (target.kind == DesktopContentKind.computer
-                ? w.entityDirectory.computer(target.id)
-                : w.entityDirectory.agent(target.id)) ??
+                ? w.services.entityDirectory.computer(target.id)
+                : w.services.entityDirectory.agent(target.id)) ??
             {'id': target.id},
         onClose: !wide && target.kind == DesktopContentKind.computer
             ? dismissPanel
@@ -3406,13 +3406,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
       ...(w.sidebarOrder['pinned'] as List? ?? []),
       ...(w.sidebarOrder['sectionPlacements'] as List? ?? []),
     ].any((r) => r is Map && r['kind'] == 'agent');
-    if (pinnedAgent) w.entityDirectory.ensureAuthors();
+    if (pinnedAgent) w.services.entityDirectory.ensureAuthors();
   }
 
   List<Map<String, dynamic>>? sidebarAgentSource;
   List<Map<String, dynamic>> sidebarAgentRows = const [];
   List<Map<String, dynamic>> get sidebarAgents {
-    final source = w.entityDirectory.authorAgents;
+    final source = w.services.entityDirectory.authorAgents;
     if (!identical(source, sidebarAgentSource)) {
       sidebarAgentSource = source;
       sidebarAgentRows = [
@@ -3640,7 +3640,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   dmPeer(RaftChannel c, {double requestSize = 16}) {
     final agent = c.type == 'dm' && c.string('peerType') == 'agent';
     final profile = agent
-        ? w.entityDirectory.agent(c.string('peerId')) ??
+        ? w.services.entityDirectory.agent(c.string('peerId')) ??
               sidebarAgents
                   .where((a) => a['id'] == c.string('peerId'))
                   .firstOrNull

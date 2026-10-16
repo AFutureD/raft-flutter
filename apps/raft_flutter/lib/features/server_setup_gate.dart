@@ -122,7 +122,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
         scheduleReload();
       }
     });
-    _directory = w.entityDirectory..addListener(directoryChanged);
+    _directory = w.services.entityDirectory..addListener(directoryChanged);
     _seenRevisions = directoryRevisions();
     _signature = setupSignature();
   }
@@ -140,14 +140,14 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   /// The directory's scoped counters for what setup reads: computers and
   /// agents. Members, presence and activity never move them.
   (int, int) directoryRevisions() =>
-      (w.entityDirectory.computerRevision, w.entityDirectory.agentRevision);
+      (w.services.entityDirectory.computerRevision, w.services.entityDirectory.agentRevision);
 
   /// Source ServerSetupProjectionGate re-reads the projection when the
   /// machines' id/status/runtimes change. Agent creation moves the
   /// create-agent step, so the agent id set is part of the signature too.
   /// Activity, presence and session patches leave it unchanged.
   String setupSignature() {
-    final directory = w.entityDirectory;
+    final directory = w.services.entityDirectory;
     final machines = [
       for (final m in directory.rows(WorkspaceEntityKind.computers))
         '${m['id']}:${m['status']}:'

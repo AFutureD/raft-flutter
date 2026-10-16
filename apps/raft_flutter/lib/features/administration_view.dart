@@ -140,7 +140,7 @@ class _AdminsSection extends StatefulWidget {
 
 class _AdminsSectionState extends State<_AdminsSection> {
   WorkspaceController get w => widget.w;
-  WorkspaceEntityDirectory get directory => w.entityDirectory;
+  WorkspaceEntityDirectory get directory => w.services.entityDirectory;
   // ignore: raft_lints/avoid_imperative_notice_state -- error clears when the next role change starts (Web setError('') in handlePromote/handleDemote); the section is remounted on server/account change.
   String? selectedKey, savingKey, error;
   String selectedRole = 'admin';
@@ -898,8 +898,8 @@ class _OnboardingState extends State<_OnboardingSection>
   @override
   void initState() {
     super.initState();
-    w.entityDirectory.addListener(_changed);
-    w.entityDirectory.ensure(const [WorkspaceEntityKind.agents]);
+    w.services.entityDirectory.addListener(_changed);
+    w.services.entityDirectory.ensure(const [WorkspaceEntityKind.agents]);
     final snapshot = readSnapshot();
     if (snapshot != null) {
       agentId = savedAgentId = snapshot['agentId'] as String;
@@ -931,7 +931,7 @@ class _OnboardingState extends State<_OnboardingSection>
 
   @override
   void dispose() {
-    w.entityDirectory.removeListener(_changed);
+    w.services.entityDirectory.removeListener(_changed);
     super.dispose();
   }
 
@@ -997,7 +997,7 @@ class _OnboardingState extends State<_OnboardingSection>
   @override
   Widget build(BuildContext context) {
     final agents = [
-      for (final a in w.entityDirectory.authorAgents)
+      for (final a in w.services.entityDirectory.authorAgents)
         if (a['deletedAt'] == null && a['id'] is String)
           (
             a['id'] as String,
