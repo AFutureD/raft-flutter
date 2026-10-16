@@ -104,7 +104,13 @@ class MigrationProgressPanel extends StatelessWidget {
                     if (cancelRequested)
                       Text(
                         presentation.title.text(context),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: RaftTypography.body(
+                          t,
+                          size: 14,
+                          line: 20,
+                          weight: FontWeight.w700,
+                          color: t.muted,
+                        ),
                       ),
                     Text(body.text(context)),
                   ],
@@ -212,7 +218,7 @@ class MigrationSteps extends StatelessWidget {
                         horizontal: _connectorGap,
                       ),
                       child: Container(
-                        height: 1,
+                        height: t.border,
                         color: _statusOf(i - 1) == MigrationStepStatus.finish
                             ? t.accent
                             : t.line,
@@ -280,8 +286,11 @@ class _Step extends StatelessWidget {
             child: mark == null
                 ? Text(
                     '${index + 1}',
-                    style: style.copyWith(
-                      fontSize: 12,
+                    style: RaftTypography.body(
+                      t,
+                      size: 12,
+                      line: 12 * 20 / 14,
+                      weight: FontWeight.w500,
                       color: status == MigrationStepStatus.process
                           ? t.canvas
                           : t.muted,
@@ -311,6 +320,18 @@ class _Step extends StatelessWidget {
   }
 }
 
+/// [base] (the banner's inherited text style) in bold.
+TextStyle _bold(RaftTokens t, TextStyle base) {
+  final size = base.fontSize ?? 14;
+  return RaftTypography.body(
+    t,
+    size: size,
+    line: size * (base.height ?? 20 / 14),
+    weight: FontWeight.w700,
+    color: base.color,
+  );
+}
+
 /// Web MigrationErrorContent: where the agent is, what happened, the issues,
 /// and the collapsible technical details.
 class MigrationErrorContent extends StatelessWidget {
@@ -332,16 +353,16 @@ class MigrationErrorContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (placement != null) ...[
-            Text(
-              placement.text(context),
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
+            Text(placement.text(context), style: _bold(t, style)),
+            const SizedBox(height: RaftSpace.x1_5),
           ],
           Text(presentation.message.text(context)),
           for (final issue in presentation.issues)
             Padding(
-              padding: const EdgeInsets.only(left: 8, top: 4),
+              padding: const EdgeInsets.only(
+                left: RaftSpace.x2,
+                top: RaftSpace.x1,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -352,7 +373,7 @@ class MigrationErrorContent extends StatelessWidget {
             ),
           if (presentation.technicalCode != null ||
               presentation.diagnosticRef != null) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: RaftSpace.x1_5),
             _TechnicalDetails(
               technicalCode: presentation.technicalCode,
               diagnosticRef: presentation.diagnosticRef,
@@ -411,10 +432,10 @@ class _TechnicalDetailsState extends State<_TechnicalDetails> {
                     open ? RaftGlyph.chevronDown : RaftGlyph.chevronRight,
                     size: 12,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: RaftSpace.x1),
                   Text(
                     raftText(context, 'Technical details'),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: _bold(t, widget.style),
                   ),
                 ],
               ),
@@ -454,21 +475,28 @@ class _MigrationReferenceState extends State<MigrationReference> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final small = RaftTypography.body(t, size: 11, line: 16, color: t.muted);
     return Row(
       children: [
         Text(
           raftText(context, 'Migration ID'),
-          style: small.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: SelectableText(
-            widget.migrationRef,
-            style: RaftTypography.mono(t, size: 11, line: 16),
+          style: RaftTypography.body(
+            t,
+            size: 11,
+            line: 16,
+            weight: FontWeight.w700,
+            color: t.muted,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: RaftSpace.x1_5),
+        Flexible(
+          child: RaftSelectionArea(
+            child: Text(
+              widget.migrationRef,
+              style: RaftTypography.mono(t, size: 11, line: 16),
+            ),
+          ),
+        ),
+        const SizedBox(width: RaftSpace.x1_5),
         RaftIconButton(
           glyph: copied ? RaftGlyph.check : RaftGlyph.copy,
           visualSize: 20,
