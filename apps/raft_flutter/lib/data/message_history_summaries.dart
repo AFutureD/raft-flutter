@@ -1,3 +1,5 @@
+import 'package:raft_sync/raft_sync.dart' show ThreadRebaselineRequest;
+
 import 'message_history_pages.dart';
 import 'workspace_controller.dart';
 
@@ -45,5 +47,39 @@ class MessageHistorySummaries {
     final scope = MessageHistoryPages.scope(w, channelId);
     if (scope == null) return;
     device.saveSummaries(scope, summaries).ignore();
+  }
+
+  /// A rebaselined thread summary, persisted like a live reply.
+  static void rebaselined(
+    WorkspaceController w,
+    ThreadRebaselineRequest request,
+    Map<String, dynamic>? summary,
+  ) {
+    if (summary == null) return;
+    store(w, request.parentChannelId, {request.parentMessageId: summary});
+  }
+
+  /// The open channel's summaries after a fresh first page: held ones for
+  /// retained rows, except where the page decides for its own parents (a
+  /// page without the field, from an older server, decides nothing), plus
+  /// the page's own.
+  static void accept(
+    WorkspaceController w,
+    String channelId,
+    List<Map<String, dynamic>> retained,
+    List<Map<String, dynamic>> rows,
+    Map<String, dynamic> fresh,
+  ) {
+    final carried = fresh['threadSummariesByParentMessageId'];
+    final held = w.threadSummariesFor(channelId);
+    final Set<dynamic> answered = carried is Map
+        ? {for (final row in rows) row['id']}
+        : const {};
+    w.threadSummaries = {
+      for (final row in retained)
+        if (held[row['id']] != null && !answered.contains(row['id']))
+          row['id'] as String: held[row['id']],
+    };
+    w.mergeThreadSummaries(channelId, carried);
   }
 }

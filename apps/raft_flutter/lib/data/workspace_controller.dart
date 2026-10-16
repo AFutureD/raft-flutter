@@ -730,9 +730,7 @@ class WorkspaceController extends ChangeNotifier
         request.parentChannelId,
         () => {},
       )[request.parentMessageId] = result.summary;
-      MessageHistorySummaries.store(this, request.parentChannelId, {
-        request.parentMessageId: result.summary,
-      });
+      MessageHistorySummaries.rebaselined(this, request, result.summary);
       _applyThreadUnread(request.threadChannelId, result.summary);
       if (channel?.id == request.parentChannelId) _saveWindow(channel!.id);
       notifyListeners();
@@ -3371,23 +3369,7 @@ class WorkspaceController extends ChangeNotifier
           : reconcileTailWindow(retained, rows),
       replace: true,
     );
-    final held = _summariesByChannel[id] ?? const {};
-    // The fresh page decides for the parents it carries; a page without the
-    // field (older server) decides nothing.
-    final Set<dynamic> answered =
-        fresh['threadSummariesByParentMessageId'] is Map
-        ? {for (final row in rows) row['id']}
-        : const {};
-    _summariesByChannel[id] = {
-      for (final row in retained)
-        if (held[row['id']] != null && !answered.contains(row['id']))
-          row['id'] as String: held[row['id']],
-      ..._hydrateThreadSummaries(
-        fresh['threadSummariesByParentMessageId'],
-        id,
-        expectedToken: _replyToken(id),
-      ),
-    };
+    MessageHistorySummaries.accept(this, id, retained, rows, fresh);
     hasMore =
         fresh['historyLimited'] != true &&
         (visibleIds[id]!.length > rows.length
