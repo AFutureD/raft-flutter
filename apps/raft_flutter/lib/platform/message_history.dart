@@ -15,6 +15,7 @@ import 'history_capacity.dart';
 import 'history_positions.dart';
 import 'history_gaps.dart';
 import 'history_shadows.dart';
+import 'history_committed_reads.dart';
 import 'device_storage.dart';
 
 typedef HistoryOperationOrder = Future<T> Function<T>(
@@ -1515,4 +1516,28 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     );
     return await markerWindow() ?? Map<String, dynamic>.from(legacy);
   });
+
+  /// The single SELECT uses a read executor; it cannot observe partial writes.
+  Future<CommittedHistoryWindow?> peekCommittedWindow(
+    String origin, String principal, String server, String kind, String id,
+  ) async {
+    await _ready();
+    _scheduleMigration(MessageHistoryScope(origin: origin, principal: principal,
+      server: server, channel: id, parentChannel: id, authority: ''));
+    return SqliteCommittedHistoryReads.read(db, origin, principal, server, kind, id);
+  }
+
+  /// Retain IDs only while queued. LRU maintenance must not delay first paint.
+  void touchCommittedWindow(MessageHistoryScope scope, List<String> ids,
+      {required bool Function() current}) {
+    if (ids.isEmpty || _closed) return;
+    unawaited(order(() async {
+      if (_closed || !current()) return;
+      final stamp = now().millisecondsSinceEpoch;
+      await db.customStatement(
+        'UPDATE raft_history_rows SET touched=? WHERE $_where AND touched<? AND message_id IN (${List.filled(ids.length, '?').join(',')})',
+        [stamp, ...scope.key, stamp - const Duration(minutes: 1).inMilliseconds, ...ids],
+      );
+    }).catchError((Object _) { /* Best-effort LRU; the read is already accepted. */ }));
+  }
 }

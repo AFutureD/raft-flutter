@@ -17,6 +17,7 @@ import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
 import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
+import 'workspace_cache_reads.dart';
 import 'workspace_composer.dart';
 import 'workspace_uploads.dart';
 import 'workspace_sends.dart';
@@ -1533,13 +1534,10 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   Future<dynamic> _cached(String kind, String id, {String? server}) async {
-    if (cache == null || client.user == null) return null;
-    final origin = client.origin,
-        principal = client.user!.id,
-        serverId = server ?? client.serverId ?? '';
-    await _cacheWrites;
     try {
-      return await cache!.read(origin, principal, serverId, kind, id);
+      return await WorkspaceCacheReads.read(cache, client, _cacheWrites, kind, id,
+        server: server, active: () => cacheWritable, authority: messageHistoryTicket,
+        visible: (id) => !_revokedChannels.contains(id));
     } catch (_) {
       if (!_disposed) error ??= 'Local workspace history is unavailable.';
       return null;
