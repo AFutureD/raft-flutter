@@ -40,3 +40,4 @@
 - subagent 只跑与改动相关的测试、`tool/flutter analyze`、设计系统审计和 `tool/raft-lints --changed`（每轮编辑后跑，几秒出结果），不跑全量检查。
 - 每个 clone 首次使用时运行一次 `tool/install-git-hooks`：提交前自动 lint 暂存的 lib 文件，pull / rebase / 切分支后自动按 pubspec.lock 重跑 `pub get`。
 - 全量检查每个分支一次：负责人审核后用 `tool/prepare-handoff`（rebase + `tool/check-project`），通过后 fast-forward 推送到 cindy/integration，不再攒批次分支整批检查。
+- `tool/check-project` 只在失败项全是 Dart 测试文件（不超过 6 个）时，单独重跑这些文件最多 3 次（`RAFT_CHECK_RETRIES=0` 关闭）；重跑通过的算 flaky，列在最终 JSON 的 `flaky` 里，运行可通过。同一棵树（`git rev-parse HEAD^{tree}`）在干净工作区通过后会被记录，`tool/check-project --reuse` 对相同的干净树直接复用，不重跑。
