@@ -736,7 +736,9 @@ void main() {
 /// Stands in for reading the workspace: the feed is composed by the real
 /// code from the Activity rows it is given.
 class _HomeData extends AgentModeData {
-  _HomeData(WorkspaceController w) : super(w, now: () => _now);
+  _HomeData(WorkspaceController w) : super(w, now: () => _now) {
+    addTearDown(signal.dispose);
+  }
 
   late AgentAttention result;
   final convos = <String, AgentConversationRead>{};
