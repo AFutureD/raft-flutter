@@ -3,6 +3,31 @@ import 'package:flutter/widgets.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_controller.dart';
 
+/// Phone channel timeline and the thread opened from that page. Present only
+/// while that page is the direct-read visit. Desktop, grid, task discussion
+/// and agent chat do not wrap this.
+class MobileChatDirectRead extends InheritedWidget {
+  const MobileChatDirectRead({
+    super.key,
+    required this.channel,
+    required this.thread,
+    required super.child,
+  });
+
+  final bool channel, thread;
+
+  static MobileChatDirectRead? maybeOf(BuildContext context) {
+    final found = context
+        .getElementForInheritedWidgetOfExactType<MobileChatDirectRead>()
+        ?.widget;
+    return found is MobileChatDirectRead ? found : null;
+  }
+
+  @override
+  bool updateShouldNotify(MobileChatDirectRead oldWidget) =>
+      channel != oldWidget.channel || thread != oldWidget.thread;
+}
+
 /// Live cover flag for one phone route. Set in the route's listener, which
 /// runs before the page's listeners, so a covered chat does not apply the
 /// workspace's new channel during that same notification.
@@ -46,6 +71,20 @@ class MobileRouteGate extends InheritedWidget {
     final state = _state(context);
     return state == null ? null : _location[state];
   }
+
+  /// Covered phone routes pause. Desktop and grid have no gate, so a hidden
+  /// conversation there still publishes its window.
+  static bool paused(BuildContext context, WorkspaceController workspace) =>
+      holds(context, workspace);
+
+  /// The foreground phone page reads the shared window. A paused route keeps
+  /// the controller projection.
+  static bool sharedWindow(
+    BuildContext context,
+    WorkspaceController workspace, {
+    required bool direct,
+    required bool visible,
+  }) => direct && visible && !paused(context, workspace);
 
   /// Covered, or a channel or DM page whose workspace channel is still the
   /// previous one.
