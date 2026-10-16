@@ -95,7 +95,7 @@ class AgentMessageData extends AgentEntityData {
   @override
   AgentEntityKind get kind => AgentEntityKind.message;
   @override
-  String get label => '$author：${_clip(text, 24)}';
+  String get label => '$author：${_clip(text, 20)}';
 }
 
 class AgentTaskData extends AgentEntityData {

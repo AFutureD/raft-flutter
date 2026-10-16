@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
+import 'package:raft_agent_ui/raft_agent_ui.dart' as ui show AgentEntityRef;
 
 import 'agent_attention.dart' show agentWideBreakpoint;
 import 'agent_entity_binding.dart';
@@ -451,22 +453,113 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
   }
 }
 
-/// What a folded container says: its members in one run.
-String _foldedText(AgentCatalog catalog, SurfaceNode node) => [
-  for (final c in node.children) catalog.item(c.component)?.line?.call(c) ?? '',
+/// The kind of thing an entity card stands for, as a person says it
+/// ("消息"): what a folded row says for a card that is not read yet. Never
+/// the id.
+String _kindWord(SurfaceNode card) {
+  final kind = AgentEntityKind.values
+      .where((k) => k.name == card.string('entity'))
+      .firstOrNull;
+  return kind == null ? '' : agentEntityKindLabels[kind] ?? '';
+}
+
+/// What a folded container says: its members in one run. An entity card is
+/// worded by [labelOf] (the label the app reads for it, "#98 修复返回", the
+/// same one the card prints), else by its kind alone; never by the ids the
+/// model wrote.
+String _foldedText(
+  AgentCatalog catalog,
+  SurfaceNode node, {
+  String? Function(SurfaceNode card)? labelOf,
+}) => [
+  for (final c in node.children)
+    if (c.component == AgentEntityComponents.entity)
+      _entityPhrase(c, labelOf)
+    else
+      catalog.item(c.component)?.line?.call(c) ?? '',
 ].where((s) => s.isNotEmpty).join('、');
+
+String _entityPhrase(SurfaceNode card, String? Function(SurfaceNode)? labelOf) {
+  final label = labelOf?.call(card)?.trim();
+  return label == null || label.isEmpty ? _kindWord(card) : label;
+}
+
+/// The folded row of a container, kept up to date with what the cards in it
+/// say: it listens to the entity resolver, so a task that changes its title
+/// or an agent that goes busy shows in the row without a new surface.
+class _LiveSummaryRow extends StatefulWidget {
+  const _LiveSummaryRow({
+    required this.catalog,
+    required this.node,
+    required this.onTap,
+  });
+  final AgentCatalog catalog;
+  final SurfaceNode node;
+  final VoidCallback? onTap;
+
+  @override
+  State<_LiveSummaryRow> createState() => _LiveSummaryRowState();
+}
+
+class _LiveSummaryRowState extends State<_LiveSummaryRow> {
+  AgentEntityResolver? _resolver;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = AgentEntityScope.maybeOf(context)?.resolver;
+    if (next == _resolver) return;
+    _resolver?.removeListener(_changed);
+    _resolver = next?..addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    _resolver?.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    if (!mounted) return;
+    // The resolver may speak while a frame is being built.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(() {});
+    }
+  }
+
+  String? _label(SurfaceNode card) {
+    final kind = AgentEntityKind.values
+        .where((k) => k.name == card.string('entity'))
+        .firstOrNull;
+    final id = card.string('id');
+    if (kind == null || id == null) return null;
+    final r = _resolver?.resolve(ui.AgentEntityRef(kind, id));
+    return r is AgentEntityFound ? r.data.label : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final node = widget.node;
+    return AgentSummaryRow(
+      title: node.string('title') ?? '',
+      count: node.children.length,
+      text: _foldedText(widget.catalog, node, labelOf: _label),
+      state: node.string('state') == null ? null : _state(node.string('state')),
+      onTap: widget.onTap,
+    );
+  }
+}
 
 Widget _summaryRow(
   AgentCatalog catalog,
   SurfaceNode node, {
   VoidCallback? onTap,
-}) => AgentSummaryRow(
-  title: node.string('title') ?? '',
-  count: node.children.length,
-  text: _foldedText(catalog, node),
-  state: node.string('state') == null ? null : _state(node.string('state')),
-  onTap: onTap,
-);
+}) => _LiveSummaryRow(catalog: catalog, node: node, onTap: onTap);
 
 /// The surface as a serialized layer (see `AgentFrameView`): what the TV
 /// mirror draws and what the voice model reads as numbered screen items.
@@ -476,6 +569,7 @@ Map<String, Object?> agentSurfaceFrame(
   Set<String> expanded = const {},
   AgentCatalog? catalog,
   Map<String, Object?>? Function(SurfaceNode node)? entityOf,
+  String? Function(String kind, String id)? entityLabel,
 }) {
   final catalog0 = catalog ?? agentStandardCatalog;
   final folded = foldedPaths(
@@ -500,7 +594,7 @@ Map<String, Object?> agentSurfaceFrame(
         'label': n.string('title') ?? '',
         'weight': items.length + 1,
         'title':
-            '${n.string('title') ?? ''} ${n.children.length}：${_foldedText(catalog0, n)}',
+            '${n.string('title') ?? ''} ${n.children.length}：${_foldedText(catalog0, n, labelOf: (c) => entityLabel != null ? entityLabel(c.string('entity') ?? '', c.string('id') ?? '') : entityOf?.call(c)?['label'] as String?)}',
         'detail': '摘要，点开或说“展开”看全部',
       });
       return;

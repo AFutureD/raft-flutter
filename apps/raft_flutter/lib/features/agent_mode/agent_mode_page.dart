@@ -1268,6 +1268,7 @@ class _AgentModePageState extends State<AgentModePage> {
       l.spec,
       compact: _compact,
       expanded: l.expanded,
+      entityLabel: (kind, id) => agentEntityLabel(_entities, kind, id),
       entityOf: (n) => l.item != null && n.component == AgentComponents.taskCard
           ? attentionEntity(l.item!)
           : surfaceEntity(
