@@ -3,6 +3,7 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_attention.dart' show agentWideBreakpoint;
 import 'agent_surface.dart';
+import 'references/agent_handle_tag.dart';
 
 /// Names of the standard components, for code that composes surfaces.
 abstract final class AgentComponents {
@@ -406,7 +407,10 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
             ? built
             : AgentFocusable(
                 id: '${widget.focusPrefix}#${numbers[path]}',
-                child: built,
+                child: AgentHandleTag(
+                  focusId: '${widget.focusPrefix}#${numbers[path]}',
+                  child: built,
+                ),
               );
       }
       if (path == 'r') return drawn;
@@ -454,6 +458,7 @@ Map<String, Object?> agentSurfaceFrame(
   bool compact = false,
   Set<String> expanded = const {},
   AgentCatalog? catalog,
+  Map<String, Object?>? Function(SurfaceNode node)? entityOf,
 }) {
   final catalog0 = catalog ?? agentStandardCatalog;
   final folded = foldedPaths(
@@ -503,6 +508,7 @@ Map<String, Object?> agentSurfaceFrame(
             ?n.string('since'),
             if (n.string('channel') != null) '#${n.string('channel')}',
           ].join(' · '),
+          'entity': ?entityOf?.call(n),
         });
       case AgentComponents.taskCard:
         final status = n.string('status') ?? '';
@@ -524,6 +530,7 @@ Map<String, Object?> agentSurfaceFrame(
             if (q != null) formatQuote(q),
             if (n.string('ask') != null) '要你做：${n.string('ask')}',
           ].join(' · '),
+          'entity': ?entityOf?.call(n),
         });
       case AgentComponents.messageQuote:
         items.add({
@@ -531,6 +538,7 @@ Map<String, Object?> agentSurfaceFrame(
           'sender': n.string('author') ?? '',
           'time': n.string('time') ?? '',
           'text': n.string('text') ?? '',
+          'entity': ?entityOf?.call(n),
         });
       case AgentComponents.statRow:
         items.add({

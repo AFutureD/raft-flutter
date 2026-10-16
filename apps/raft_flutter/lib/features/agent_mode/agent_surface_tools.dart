@@ -7,6 +7,9 @@ import 'agent_catalog.dart';
 import 'agent_mode_data.dart';
 import 'agent_surface.dart';
 import 'agent_surface_stream.dart';
+import 'capabilities/agent_capability.dart';
+import 'capabilities/agent_capability_args.dart';
+import 'capabilities/agent_capability_standard.dart';
 
 /// What the model has read this session. A generated screen may only show
 /// facts that appear here: that is how "the model never invents" is enforced
@@ -19,6 +22,11 @@ class AgentFacts {
       <int, List<({String status, String? claimer, String? channel})>>{};
   final _said = <({String who, String text})>[];
 
+  // Ids of what was read, so a card made from it points at the real thing.
+  final _agentIds = <String, String>{};
+  final _taskIds = <int, List<({String id, String? channel})>>{};
+  final _messageIds = <({String who, String text, String id})>[];
+
   bool get hasAgents => _agents.isNotEmpty;
 
   void learnAgents(
@@ -29,6 +37,7 @@ class AgentFacts {
     _agents.clear();
     for (final a in agents) {
       final key = a.name.toLowerCase();
+      _agentIds[key] = a.id;
       _agents[key] = [if (keepPrevious && before[key] != null) before[key]!, a];
     }
   }
@@ -43,20 +52,58 @@ class AgentFacts {
         _s(t['claimedByName'] ?? t['owner']),
         _s(t['channelName'] ?? t['channel']),
       );
+      _noteId(n, _s(t['id']), _s(t['channelName'] ?? t['channel']));
       _hear(_s(t['claimedByName'] ?? t['owner']) ?? '', '${t['title'] ?? ''}');
     }
   }
 
   void learnTask(AgentTaskDetail t) {
     _note(t.number, t.status, t.claimer, t.channelName);
+    _noteId(t.number, _s(t.id), t.channelName);
     for (final l in t.thread) {
       _hear(l.who, l.text);
     }
     _hear(t.claimer ?? t.creator ?? '', t.description);
   }
 
-  /// Messages read from a channel.
-  void learnMessage(String who, String text) => _hear(who, text);
+  /// Messages read from a channel ([id] when the message has one).
+  void learnMessage(String who, String text, {String? id}) {
+    _hear(who, text);
+    if (id != null && id.isNotEmpty && text.trim().isNotEmpty) {
+      _messageIds.add((who: who.toLowerCase(), text: _norm(text), id: id));
+    }
+  }
+
+  void _noteId(int n, String? id, String? channel) {
+    if (id == null) return;
+    final known = (_taskIds[n] ??= []);
+    if (!known.any((k) => k.id == id)) known.add((id: id, channel: channel));
+  }
+
+  /// The id of the agent called [name] in the last agent read.
+  String? agentId(String name) => _agentIds[name.toLowerCase()];
+
+  /// The id of task [number] (in [channel] when numbers repeat); null when
+  /// it was not read or [channel] is needed to tell several apart.
+  String? taskId(int number, {String? channel}) {
+    final all = _taskIds[number] ?? const [];
+    final hits = channel == null
+        ? all
+        : all.where((k) => k.channel == channel).toList();
+    return hits.length == 1 ? hits.single.id : null;
+  }
+
+  /// The id of a message read from [who] whose words start with [text].
+  String? messageId(String who, String text) {
+    final w = who.toLowerCase(), t = _quoted(text);
+    if (t.isEmpty) return null;
+    for (final m in _messageIds.reversed) {
+      if (m.who == w && (m.text.startsWith(t) || t.startsWith(m.text))) {
+        return m.id;
+      }
+    }
+    return null;
+  }
 
   void _note(int n, String status, String? claimer, String? channel) =>
       (_tasks[n] ??= []).add((
@@ -222,7 +269,13 @@ class AgentGroundedTools {
     required this.host,
     AgentCatalog? catalog,
     this.onRejected,
-  }) : catalog = catalog ?? agentStandardCatalog;
+    AgentCapabilityRegistry? capabilities,
+  }) : catalog = catalog ?? agentStandardCatalog,
+       capabilities = capabilities ?? agentStandardCapabilities;
+
+  /// The capability registry `list_agents`, `get_task` and `search_tasks`
+  /// read through: the same reads `query` offers the model.
+  final AgentCapabilityRegistry capabilities;
 
   final AgentModeData data;
   final AgentCatalog catalog;
@@ -295,13 +348,25 @@ class AgentGroundedTools {
     }
   }
 
-  Map<String, Object?> _agentsResult(List<AgentRuntimeInfo> agents) {
-    int count(AgentWorkState s) => agents.where((a) => a.state == s).length;
-    return {
-      'total': agents.length,
-      'counts': {for (final s in AgentWorkState.values) s.name: count(s)},
-      'agents': [for (final a in agents.take(40)) a.toJson()],
-    };
+  /// Runs a registered read for one of the old per-feature tools; what it
+  /// reads also lands in [facts].
+  Future<Map<String, Object?>> _read(
+    String id,
+    Map<String, Object?> args, {
+    void Function(List<AgentRuntimeInfo>, {required bool cached})? onAgents,
+  }) async {
+    final capability = capabilities[id]!;
+    final checked = checkAgentArgs(capability.paramsSchema, args);
+    if (!checked.ok) return {'error': checked.problems.join('；')};
+    try {
+      return await capability.run(
+        data.w,
+        checked.args,
+        AgentCapabilityEnv(data: data, facts: facts, onAgents: onAgents),
+      );
+    } on AgentCapabilityError catch (e) {
+      return e.toJson();
+    }
   }
 
   /// Runs [name] when it is one of [names]; null for any other tool. The
@@ -315,49 +380,42 @@ class AgentGroundedTools {
         _lastRead = 'list_agents';
         _fresh = null;
         _cachedBase = null;
-        final cached = data.cachedAgents();
-        if (cached != null && cached.isNotEmpty) {
-          // Answer from what the app already has; the fresh read follows and
-          // corrects only the agents that changed, on the surfaces that
+        List<AgentRuntimeInfo>? read;
+        var fromCache = false;
+        final result = await _read(
+          'agents.list',
+          const {},
+          onAgents: (agents, {required cached}) {
+            read = agents;
+            fromCache = cached;
+          },
+        );
+        if (read == null) return result;
+        if (fromCache) {
+          // Answered from what the app already has; the fresh read follows
+          // and corrects only the agents that changed, on the surfaces that
           // came from this read.
-          facts.learnAgents(cached);
-          _cachedBase = {for (final a in cached) a.name.toLowerCase(): a};
+          _cachedBase = {for (final a in read!) a.name.toLowerCase(): a};
           agentsRefresh = _refreshAgents();
-          return {..._agentsResult(cached), 'source': 'cache'};
+        } else {
+          agentsRefresh = null;
+          _fresh = read;
         }
-        agentsRefresh = null;
-        final agents = await data.agents();
-        facts.learnAgents(agents);
-        _fresh = agents;
-        return _agentsResult(agents);
+        return result;
       case 'get_task':
         _lastRead = name;
         final number = _number(args['number']);
         if (number == null) return {'error': '需要任务编号 number'};
-        final found = await data.tasksNumbered(
-          number,
-          channel: args['channel'] as String?,
-        );
-        if (found.isEmpty) return {'error': '没有找到任务 #$number'};
-        if (found.length > 1) {
-          return {
-            'error': '多个频道都有任务 #$number，请带上 channel 再问',
-            'channels': [for (final t in found) t.channelName],
-          };
-        }
-        facts.learnTask(found.single);
-        return {'task': found.single.toJson()};
+        return _read('tasks.detail', {
+          'number': number,
+          'channel': args['channel'],
+        });
       case 'search_tasks':
         _lastRead = name;
-        final rows = await data.searchTasks(
-          '${args['query'] ?? ''}',
-          status: args['status'] as String?,
-        );
-        facts.learnTaskRows(rows);
-        return {
-          'count': rows.length,
-          'tasks': [for (final t in rows.take(12)) taskRow(t)],
-        };
+        return _read('tasks.search', {
+          'query': '${args['query'] ?? ''}',
+          'status': args['status'],
+        });
       case 'show_surface':
         return _showSurface(args);
       case 'begin_surface':

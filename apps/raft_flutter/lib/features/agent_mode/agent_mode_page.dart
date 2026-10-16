@@ -25,7 +25,12 @@ import 'agent_tools.dart';
 import 'agent_tv.dart';
 import 'agent_voice.dart';
 import 'agent_voice_settings.dart';
+import 'capabilities/agent_capability.dart' show AgentCapabilityEnv;
+import 'capabilities/agent_capability_tools.dart';
 import 'gemini_live.dart' show agentToolTimeout;
+import 'references/agent_entities.dart';
+import 'references/agent_handle_tag.dart';
+import 'references/agent_reference_table.dart';
 
 /// Opens agent mode above the workspace. A [PageRouteBuilder] (not a
 /// MaterialPageRoute) so a layout change adapts the page instead of closing it.
@@ -144,10 +149,33 @@ class _AgentModePageState extends State<AgentModePage> {
       if (mounted) setState(() => _surfaceError = problems.first);
     },
   );
+
+  /// The card the person tapped, for "这个".
+  final _pointer = AgentPointer();
+
+  /// `find` / `query` / `act` / `confirm` / `resolve`: every capability of
+  /// the app behind five tools. What they read is remembered in the same
+  /// facts the generated screens are checked against.
+  late final _capabilities = AgentCapabilityTools(
+    workspace: widget.controller,
+    env: AgentCapabilityEnv(data: data, facts: _grounded.facts),
+    references: _references,
+    pointed: _pointed,
+  );
+
+  /// What is on the front screen, by handle (① ② ③ …).
+  AgentReferenceTable _references() =>
+      AgentReferenceTable.fromFrame(_stack.last.id, _frame(_stack.last));
+
+  /// The tapped card, while it is still on the front screen.
+  AgentEntityRef? _pointed() =>
+      _pointer.layerId == _stack.last.id ? _pointer.entity : null;
+
   late final _voice = AgentVoiceController(
     tools: [
       ...agentToolDeclarations,
       ...groundedToolDeclarations(agentStandardCatalog),
+      ...capabilityToolDeclarations,
     ],
     onToolCall: _runTool,
     systemPrompt: _systemPrompt,
@@ -193,6 +221,8 @@ class _AgentModePageState extends State<AgentModePage> {
     'search_tasks',
     'read_channel',
     'read_tasks',
+    'find',
+    'query',
   };
 
   void _syncMood() {
@@ -290,6 +320,7 @@ class _AgentModePageState extends State<AgentModePage> {
     _voice.dispose();
     _spotlight.dispose();
     _marks.dispose();
+    _pointer.dispose();
     super.dispose();
   }
 
@@ -417,6 +448,10 @@ class _AgentModePageState extends State<AgentModePage> {
     final top = _stack.last;
     if (top is _Surface && top.item != null) _stack.removeLast();
     _push(_Surface.detail(attentionDetailSpec(item, _rankOf(item)), item));
+    // The card that was tapped (or spoken about) is the one "这个" means on
+    // the detail it opened.
+    final ref = _references().entries.firstOrNull;
+    if (ref != null) _pointer.point(_stack.last.id, ref);
   }
 
   int _rankOf(AgentAttentionItem item) {
@@ -639,7 +674,13 @@ class _AgentModePageState extends State<AgentModePage> {
 
   Future<void> _submit(String text) async {
     final stub = widget.model;
-    if (stub == null && await _voice.sendText(text)) return;
+    if (stub == null &&
+        await _voice.sendText(
+          text,
+          context: _references().contextText(pointed: _pointed()),
+        )) {
+      return;
+    }
     if (!mounted) return;
     _voice.say(AgentSpeaker.you, text);
     _mood.newTurn();
@@ -728,6 +769,7 @@ class _AgentModePageState extends State<AgentModePage> {
         if (i['kind'] != 'section')
           {
             'n': ++n,
+            ..._handleOf(i['entity'], n),
             if (i['kind'] == 'message') ...{
               'from': i['sender'],
               'time': i['time'],
@@ -745,6 +787,16 @@ class _AgentModePageState extends State<AgentModePage> {
     ];
   }
 
+  /// The handle and identity of a screen item, as the model reads them.
+  static Map<String, Object?> _handleOf(Object? entity, int n) {
+    final ref = AgentEntityRef.fromJson(entity);
+    if (ref == null) return const {};
+    return {
+      'handle': agentHandle(n),
+      'entity': {'type': ref.type, 'id': ?ref.id},
+    };
+  }
+
   /// The words of a screen item, to time its visual to the speech.
   static String _itemWords(Map<String, Object?> item) => [
     for (final k in const ['label', 'title', 'detail', 'from', 'text'])
@@ -754,11 +806,13 @@ class _AgentModePageState extends State<AgentModePage> {
   /// What the screen shows now; every screen tool returns this.
   Map<String, Object?> _screen() {
     final frame = _frame(_stack.last);
+    final refs = AgentReferenceTable.fromFrame(_stack.last.id, frame);
     return {
       'layer': _stack.length,
       'title': _peek(_stack.last),
       if (frame['loading'] == true) 'loading': true,
       'items': _screenItems().take(12).toList(),
+      if (!refs.isEmpty) 'refs': refs.contextText(pointed: _pointed()),
     };
   }
 
@@ -772,6 +826,7 @@ class _AgentModePageState extends State<AgentModePage> {
       _grounded.facts.learnMessage(
         '${m['senderName'] ?? ''}',
         '${m['content'] ?? ''}',
+        id: m['id'] is String ? m['id'] as String : null,
       );
     }
     return {
@@ -925,6 +980,8 @@ class _AgentModePageState extends State<AgentModePage> {
     }
     final grounded = await _grounded.run(name, args);
     if (grounded != null) return grounded;
+    final capability = await _capabilities.run(name, args);
+    if (capability != null) return capability;
     return {'error': 'unknown tool $name'};
   }
 
@@ -1034,6 +1091,7 @@ class _AgentModePageState extends State<AgentModePage> {
         if (where) '#${t['channelName'] ?? ''}',
       ].join(' · '),
       'channelId': where ? t['channelId'] : null,
+      'entity': taskRowEntity(t),
     };
   }
 
@@ -1062,6 +1120,7 @@ class _AgentModePageState extends State<AgentModePage> {
               i.waitLabel,
             ],
             'channelId': i.channelId,
+            'entity': attentionEntity(i),
           },
       ],
       if (_visible != null)
@@ -1092,6 +1151,7 @@ class _AgentModePageState extends State<AgentModePage> {
                 'sender': '${m['senderName'] ?? ''}',
                 'time': _hhmm(m['createdAt']),
                 'text': '${m['content'] ?? ''}',
+                'entity': messageRowEntity(m),
               },
           ],
         ],
@@ -1101,6 +1161,9 @@ class _AgentModePageState extends State<AgentModePage> {
       l.spec,
       compact: _compact,
       expanded: l.expanded,
+      entityOf: (n) => l.item != null && n.component == AgentComponents.taskCard
+          ? attentionEntity(l.item!)
+          : surfaceEntity(n, _grounded.facts),
     ),
     _Tasks() => {
       'title': '进行中的任务',
@@ -1145,7 +1208,13 @@ class _AgentModePageState extends State<AgentModePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AgentReferenceScope(
+    table: _references(),
+    pointer: _pointer,
+    child: _page(context),
+  );
+
+  Widget _page(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     final wide = MediaQuery.sizeOf(context).width >= agentWideBreakpoint;
     _compact = !wide;

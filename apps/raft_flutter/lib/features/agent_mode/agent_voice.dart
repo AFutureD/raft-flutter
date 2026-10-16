@@ -338,7 +338,9 @@ class AgentVoiceController extends ChangeNotifier {
   }
 
   /// Sends typed text to the voice session; false when there is no key.
-  Future<bool> sendText(String text) async {
+  /// [context] (what is on screen, the card just tapped) goes to the model
+  /// in front of the words, not into the captions.
+  Future<bool> sendText(String text, {String? context}) async {
     if (!await hasKey) return false;
     say(AgentSpeaker.you, text);
     saying.value = '';
@@ -346,7 +348,9 @@ class AgentVoiceController extends ChangeNotifier {
     _set(AgentMicState.thinking);
     final session = await _ensureSession();
     if (session == null) return true;
-    session.sendText(text);
+    session.sendText(
+      context == null || context.isEmpty ? text : '$context\n$text',
+    );
     return true;
   }
 

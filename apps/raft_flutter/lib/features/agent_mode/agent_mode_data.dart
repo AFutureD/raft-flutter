@@ -518,6 +518,25 @@ class AgentModeData {
   static DateTime? _time(Object? v) =>
       v is String ? DateTime.tryParse(v)?.toLocal() : null;
 
+  /// A server timestamp as local time (null when it is not one).
+  static DateTime? timeOf(Object? v) => _time(v);
+
+  /// How long ago [at] was, worded ("12 分钟前", "3 小时前", "2 天前").
+  String agoText(DateTime at) {
+    final a = _ago(at);
+    return '${a.value} ${a.unit}前';
+  }
+
+  /// The signed-in user as the task rows name people.
+  ({String? id, Set<String> names}) get me => _me;
+
+  /// One status lane of the server-wide (or one channel's) tasks, paged by
+  /// cursor as the Tasks page does. [truncated] is true when rows may remain.
+  Future<({List<Map<String, dynamic>> rows, bool truncated})> taskLane(
+    String status, {
+    String? channelId,
+  }) => _taskLane(status, channelId: channelId);
+
   static List<Map<String, dynamic>> _rows(Object? body, String key) {
     final list = body is Map ? body[key] : null;
     return [

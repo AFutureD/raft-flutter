@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import 'references/agent_handle_tag.dart';
+
 /// Phone side of agent mode on an external display (Android presentation
 /// display). The phone keeps input; the TV mirrors the layer stack.
 class AgentPresentation {
@@ -240,7 +242,10 @@ class AgentFrameView extends StatelessWidget {
       final prefix = focusPrefix;
       return prefix == null
           ? child
-          : AgentFocusable(id: '$prefix#$n', child: child);
+          : AgentFocusable(
+              id: '$prefix#$n',
+              child: AgentHandleTag(focusId: '$prefix#$n', child: child),
+            );
     }
 
     return AgentLayerFrame(
@@ -292,7 +297,11 @@ class AgentTvAttention extends StatelessWidget {
 
   static const ink = Color(0xff141110);
   static const _cream = Color(0xfffff0bd);
-  static const _rank = [Color(0xffff5a69), Color(0xff2ccbf0), Color(0xffffd441)];
+  static const _rank = [
+    Color(0xffff5a69),
+    Color(0xff2ccbf0),
+    Color(0xffffd441),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -304,10 +313,12 @@ class AgentTvAttention extends StatelessWidget {
           // 10-foot type: 22 logical px of headline per 540 px of height,
           // never below the phone sizes.
           final s = (size.maxHeight / 540).clamp(1.0, 3.0);
-          TextStyle heading(double v, [Color color = ink]) =>
-              t.heading(v * s, weight: FontWeight.w900).copyWith(color: color, height: 1.2);
-          TextStyle body(double v, [Color color = ink]) =>
-              t.body(v * s, weight: FontWeight.w800, color: color).copyWith(height: 1.2);
+          TextStyle heading(double v, [Color color = ink]) => t
+              .heading(v * s, weight: FontWeight.w900)
+              .copyWith(color: color, height: 1.2);
+          TextStyle body(double v, [Color color = ink]) => t
+              .body(v * s, weight: FontWeight.w800, color: color)
+              .copyWith(height: 1.2);
           final items = [
             for (final i in (frame['items'] as List?) ?? const [])
               if (i is Map) Map<String, Object?>.from(i),
@@ -461,9 +472,10 @@ class AgentTvAttention extends StatelessWidget {
                           alignment: Alignment.center,
                           child: Text(
                             'AGENT',
-                            style: body(9, Colors.white).copyWith(
-                              letterSpacing: 1.5 * s,
-                            ),
+                            style: body(
+                              9,
+                              Colors.white,
+                            ).copyWith(letterSpacing: 1.5 * s),
                           ),
                         ),
                         SizedBox(width: 14 * s),

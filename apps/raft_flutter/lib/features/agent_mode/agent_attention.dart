@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_mode_data.dart';
+import 'references/agent_handle_tag.dart';
 
 /// Screen width from which the attention layer becomes master-detail.
 const agentWideBreakpoint = 900.0;
@@ -179,10 +180,14 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
       for (var n = start; n < end; n++)
         AgentFocusable(
           id: '${widget.focusPrefix}#${n + 1}',
-          child: AgentAttentionCard(
-            data: agentCardFor(cards[n], n + 1),
-            lead: n == 0,
-            onTap: () => widget.onExpand(cards[n]),
+          child: AgentHandleTag(
+            showHandle: false,
+            focusId: '${widget.focusPrefix}#${n + 1}',
+            child: AgentAttentionCard(
+              data: agentCardFor(cards[n], n + 1),
+              lead: n == 0,
+              onTap: () => widget.onExpand(cards[n]),
+            ),
           ),
         ),
       if (cards.length > agentPhoneBatch)
@@ -225,13 +230,17 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
       final data = agentCardFor(i, n);
       return AgentFocusable(
         id: '${widget.focusPrefix}#$n',
-        child: KeyedSubtree(
-          key: _rowKeys.putIfAbsent(i.id, GlobalKey.new),
-          child: AgentAttentionRow(
-            key: ValueKey('attention-row-${i.id}'),
-            data: data,
-            selected: identical(i, current) || i.id == current?.id,
-            onTap: () => _select(n - 1),
+        child: AgentHandleTag(
+          showHandle: false,
+          focusId: '${widget.focusPrefix}#$n',
+          child: KeyedSubtree(
+            key: _rowKeys.putIfAbsent(i.id, GlobalKey.new),
+            child: AgentAttentionRow(
+              key: ValueKey('attention-row-${i.id}'),
+              data: data,
+              selected: identical(i, current) || i.id == current?.id,
+              onTap: () => _select(n - 1),
+            ),
           ),
         ),
       );
