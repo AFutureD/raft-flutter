@@ -819,7 +819,8 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
                                         Positioned(
                                           left: 0,
                                           right: 4,
-                                          top: 4,
+                                          top: 0,
+                                          bottom: 0,
                                           child: ExcludeSemantics(
                                             excluding: compact,
                                             child: RaftTooltip(
@@ -827,15 +828,23 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
                                               enabled:
                                                   fullTimestamp != gutterClock,
                                               excludeFromSemantics: compact,
-                                              child: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                alignment: Alignment.topRight,
-                                                child: Text(
-                                                  gutterClock,
-                                                  maxLines: 1,
-                                                  softWrap: false,
-                                                  style:
-                                                      recipe.continuationTime,
+                                              // Keep the tooltip anchor as tall
+                                              // as the gutter even when the
+                                              // clock scales down to its width.
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                ),
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment: Alignment.topRight,
+                                                  child: Text(
+                                                    gutterClock,
+                                                    maxLines: 1,
+                                                    softWrap: false,
+                                                    style:
+                                                        recipe.continuationTime,
+                                                  ),
                                                 ),
                                               ),
                                             ),
