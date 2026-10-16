@@ -12,6 +12,7 @@ import 'message_task_cache.dart';
 import 'message_translation_store.dart';
 import 'thread_agent_followers.dart';
 import 'thread_search.dart';
+import 'workspace_services.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
@@ -26,6 +27,7 @@ import 'conversation_window.dart';
 import 'workspace_message_windows.dart';
 
 export 'workspace_uploads.dart' show UploadDraft;
+export 'thread_search.dart' show WorkspaceThreadIdentity;
 export 'conversation_window.dart' show MessageContextLoadError;
 export 'workspace_message_windows.dart' show ReadingAnchor;
 import 'resource_snapshot_cache.dart';
@@ -55,18 +57,6 @@ import '../platform/attachment_player_sessions.dart';
 import 'upload_mime.dart';
 import 'feature_flag_client_facts.dart';
 
-/// Real URI identity, independent of the asynchronously accepted parent record.
-@immutable
-class WorkspaceThreadIdentity {
-  const WorkspaceThreadIdentity({
-    required this.parentChannelId,
-    required this.parentMessageId,
-    this.focusedMessageId,
-  });
-  final String parentChannelId, parentMessageId;
-  final String? focusedMessageId;
-}
-
 /// Web `isThreadAbsentLookupError` (threadStore.ts): only the route's explicit
 /// "no thread for this message" 404 means an empty thread. A 404 carrying a
 /// `code` is absent only for `THREAD_NOT_FOUND`; without a `code` the legacy
@@ -80,7 +70,8 @@ bool isThreadAbsentLookupError(Object? error) {
   return error.message == 'No thread found for this message';
 }
 
-class WorkspaceController extends ChangeNotifier {
+class WorkspaceController extends ChangeNotifier
+    implements WorkspaceServiceAuthority {
   /// High-frequency socket events that never change workspace state.
   static const presenceEvents = {
     'agent:activity',
@@ -170,32 +161,23 @@ class WorkspaceController extends ChangeNotifier {
           urls: attachmentUrls,
         );
     MessageHistoryPages.attach(this);
-    _ownsFollowedThreads = followedThreads == null;
-    this.followedThreads =
-        followedThreads ??
-        FollowedThreadsStore(
-          scope: _entityScope,
-          query: (path) => query(path),
-          command: (path, data) => command('POST', path, data: data),
-          authority: this,
-          events: client.events,
-          isOpen: (id) => threadChannelId == id,
-        );
-    _ownsEntityDirectory = entityDirectory == null;
-    this.entityDirectory =
-        entityDirectory ??
-        WorkspaceEntityDirectory(
-          scope: _entityScope,
-          query: (path) => query(path),
-          events: client.events,
-          readDevice: cache == null ? null : _readEntities,
-          writeDevice: cache == null ? null : _writeEntities,
-        );
+    services = WorkspaceServices(
+      this,
+      source: presentationSource,
+      isDisposed: () => _disposed,
+      entityScope: _entityScope,
+      panelIdentity: _panelCacheIdentity,
+      channelFilesAuthority: _channelFilesAuthority,
+      readEntities: cache == null ? null : _readEntities,
+      writeEntities: cache == null ? null : _writeEntities,
+      entityDirectory: entityDirectory,
+      followedThreads: followedThreads,
+    );
     // Directory changes are not forwarded to this notifier: agent heartbeats,
     // last-seen and machine status patches would rebuild every workspace
     // listener. Surfaces that render entities listen to [entityDirectory]
     // (or a [WorkspaceEntitySelection] of it) directly.
-    if (_ownsEntityDirectory) addListener(_entityAuthorityChanged);
+    if (services.ownsEntityDirectory) addListener(_entityAuthorityChanged);
     if (presentationSource == null) {
       this.composer.sends.attach(this, _sendChanged);
     }
@@ -308,9 +290,11 @@ class WorkspaceController extends ChangeNotifier {
   /// Borrowed editor controllers project messages but never own the session,
   /// membership recovery, server selection, socket resume, or client teardown.
   final bool ownsClient;
+  @override
   final RaftClient client;
   late final RaftApiGateway apiGateway;
   late final WorkspaceDeviceStore deviceStore;
+  @override
   WorkspaceCache? get cache => deviceStore.cache;
 
   /// Route-local presentation borrows the session and accepted stores. Only
@@ -326,49 +310,34 @@ class WorkspaceController extends ChangeNotifier {
     String? channel,
   )?
   discardSharedScope;
-  late final WorkspaceEntityDirectory entityDirectory;
-  late final bool _ownsEntityDirectory;
+  late final WorkspaceServices services;
+  WorkspaceEntityDirectory get entityDirectory => services.entityDirectory;
 
   /// Server-scoped followed threads, shared with borrowed controllers.
-  late final FollowedThreadsStore followedThreads;
-  late final bool _ownsFollowedThreads;
+  FollowedThreadsStore get followedThreads => services.followedThreads;
 
   /// Web `useTranslationStore`: translation settings and the in-memory
   /// translation cache, created on first use.
-  MessageTranslationStore get translations =>
-      presentationSource?.translations ??
-      (_translations ??= MessageTranslationStore(this));
-  MessageTranslationStore? _translations;
+  @override
+  MessageTranslationStore get translations => services.translations;
 
   /// Web ThreadPanel in-thread search state (bar, query, matches), created on
   /// first use; a presentation mirror shares its source's.
-  ThreadSearch get threadSearch =>
-      presentationSource?.threadSearch ??
-      (_threadSearch ??= ThreadSearch(this));
-  ThreadSearch? _threadSearch;
+  @override
+  ThreadSearch get threadSearch => services.threadSearch;
 
   /// Web `useThreadAgentFollowerStore`: the agents following each thread.
-  ThreadAgentFollowers get threadFollowers =>
-      presentationSource?.threadFollowers ??
-      (_threadFollowers ??= ThreadAgentFollowers(this));
-  ThreadAgentFollowers? _threadFollowers;
+  @override
+  ThreadAgentFollowers get threadFollowers => services.threadFollowers;
 
   /// Web `useAnnouncementStore`: the account-level announcement queue,
   /// living as long as this account session.
-  AnnouncementStore get announcements =>
-      presentationSource?.announcements ??
-      (_announcements ??= AnnouncementStore(
-        get: (path, {query}) => client.get(path, query: query),
-        post: (path) => client.post(path),
-        principal: () => client.user?.id,
-      ));
-  AnnouncementStore? _announcements;
+  @override
+  AnnouncementStore get announcements => services.announcements;
 
   /// Web `useOnboardingAnnouncementGateStore` (session memory per account).
-  AnnouncementOnboardingGate get announcementGate =>
-      presentationSource?.announcementGate ??
-      (_announcementGate ??= AnnouncementOnboardingGate());
-  AnnouncementOnboardingGate? _announcementGate;
+  @override
+  AnnouncementOnboardingGate get announcementGate => services.announcementGate;
   WorkspaceEntityScope? _entityScope() {
     final principal = client.user?.id;
     final serverId = client.serverId;
@@ -403,22 +372,26 @@ class WorkspaceController extends ChangeNotifier {
     Map<String, dynamic>? record,
   ) => deviceStore.writeEntities(scope, kind, record);
 
+  @override
   Future<List<Map<String, dynamic>>> readDeviceTranslations(String serverId) =>
       deviceStore.readDeviceTranslations(serverId);
 
+  @override
   void writeDeviceTranslations(
     String serverId,
     List<Map<String, dynamic>> entries,
   ) => deviceStore.writeDeviceTranslations(serverId, entries);
 
+  @override
   Future<dynamic> readTranslationGate(String serverId) =>
       deviceStore.readTranslationGate(serverId);
 
+  @override
   void saveTranslationGate(String serverId, Map<String, dynamic>? gate) =>
       deviceStore.saveTranslationGate(serverId, gate);
 
   void _entityAuthorityChanged() {
-    if (_disposed || !_ownsEntityDirectory) return;
+    if (_disposed || !services.ownsEntityDirectory) return;
     if (entityDirectory.synchronize() && entityDirectory.started) {
       // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
       scheduleMicrotask(() {
@@ -467,23 +440,11 @@ class WorkspaceController extends ChangeNotifier {
     ]);
   }
 
-  ServerBoundCache<String, Object> get agentTabCache =>
-      presentationSource?.agentTabCache ?? _agentTabCache;
-  late final _agentTabCache = ServerBoundCache<String, Object>(
-    _panelCacheIdentity,
-  );
+  @override
+  ServerBoundCache<String, Object> get agentTabCache => services.agentTabCache;
+  @override
   ServerBoundCache<String, TaskHistorySnapshot> get taskHistoryCache =>
-      presentationSource?.taskHistoryCache ?? _taskHistoryCache;
-  late final _taskHistoryCache = ServerBoundCache<String, TaskHistorySnapshot>(
-    _panelCacheIdentity,
-    limit: 128,
-  );
-  late final _channelFilesStores =
-      ServerBoundCache<String, SourceChannelFilesStore>(
-        _panelCacheIdentity,
-        limit: 24,
-        onEvict: (store) => store.retire(),
-      );
+      services.taskHistoryCache;
 
   /// Channel access behind a cached Files list: the server identity plus the
   /// member's current capabilities for that channel. null (nothing shown, list
@@ -503,30 +464,9 @@ class WorkspaceController extends ChangeNotifier {
   /// The controller-owned Files projection of [channelId]. The same store is
   /// returned on every visit, so a revisit paints the last list immediately
   /// and a refresh replaces it in place.
-  SourceChannelFilesStore channelFilesStore(String channelId) {
-    final source = presentationSource;
-    if (source != null) return source.channelFilesStore(channelId);
-    final store = _channelFilesStores.putIfAbsent(
-      channelId,
-      () => SourceChannelFilesStore(
-        channelId: channelId,
-        authority: () => _channelFilesAuthority(channelId),
-        get: (path, {query}) async {
-          try {
-            return await client.get(path, query: query);
-          } on RaftApiException catch (error) {
-            throw ChannelFilesRequestFailure(
-              [401, 403].contains(error.status)
-                  ? ChannelFilesFailure.unauthorized
-                  : ChannelFilesFailure.unavailable,
-            );
-          }
-        },
-      ),
-    );
-    store.syncAuthority();
-    return store;
-  }
+  @override
+  SourceChannelFilesStore channelFilesStore(String channelId) =>
+      services.channelFilesStore(channelId);
 
   bool _retainsAttachmentByHistory(AttachmentImageKey key) {
     final candidates =
@@ -1092,8 +1032,7 @@ class WorkspaceController extends ChangeNotifier {
     await MessageHistorySnapshots.flush(this);
     await MessageHistoryPages.storage(cache)?.receiver.settled;
     await MessageHistoryPages.storage(cache)?.positionsSettled;
-    if (_ownsEntityDirectory) entityDirectory.flushDevice();
-    _translations?.flushDevice();
+    services.flushDevice();
     await Future.wait([deviceStore.settled, composer.flushed]);
   }
 
@@ -1162,20 +1101,16 @@ class WorkspaceController extends ChangeNotifier {
     _mainPresented = _threadPresented = true;
   }
 
-  SourceActivityUnreadStore? _activityUnread;
-
   /// This session owns one window; pages and platform adapters only borrow it.
   /// Server selection creates it before UI; standalone views can borrow a
   /// passive projection before selection. Neither path starts work by reading.
-  SourceActivityUnreadStore get activityUnread => _disposed
-      ? throw StateError('Workspace session is disposed.')
-      : presentationSource?.activityUnread ??
-            (_activityUnread ??= SourceActivityUnreadStore(this));
+  @override
+  SourceActivityUnreadStore get activityUnread => services.activityUnread;
 
   /// The existing session projection; reading it never constructs or starts it.
-  SourceActivityUnreadStore? get activityUnreadIfBound => _disposed
-      ? null
-      : presentationSource?.activityUnreadIfBound ?? _activityUnread;
+  @override
+  SourceActivityUnreadStore? get activityUnreadIfBound =>
+      services.activityUnreadIfBound;
 
   final foregroundChanges = ValueNotifier<bool>(true);
 
@@ -1814,6 +1749,7 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   final _readState = ReadStateLedger();
+  @override
   ReadStateLedger get readState => presentationSource?.readState ?? _readState;
 
   /// Workspace-owned page snapshots (Activity, Saved) that survive
@@ -1822,7 +1758,9 @@ class WorkspaceController extends ChangeNotifier {
   ResourceSnapshotCache get resourceSnapshots =>
       presentationSource?.resourceSnapshots ?? _resourceSnapshots;
   Map<String, Set<String>> get visibleIds => messageWindows.visibleIds;
-  bool hasNewer = false, threadHasMore = false;
+  bool hasNewer = false;
+  @override
+  bool threadHasMore = false;
   bool threadHistoryLimited = false, historyLimited = false;
   String? highlightedMessageId;
 
@@ -1830,6 +1768,7 @@ class WorkspaceController extends ChangeNotifier {
   String? get pendingMessageContextChannelId =>
       messageWindows.pendingContextChannelId;
   List<RaftRecord> servers = [];
+  @override
   List<RaftChannel> channels = [], dms = [];
   Map<String, int> unread = {};
 
@@ -1843,6 +1782,7 @@ class WorkspaceController extends ChangeNotifier {
   /// cleared with the unread count (Web `newFlags`).
   Set<String> newFlags = {};
   Map<String, dynamic> sidebarOrder = {};
+  @override
   RaftRecord? server;
   bool can(String capability, {RaftChannel? resource}) => raftCan(
     server?.string('role'),
@@ -1858,6 +1798,7 @@ class WorkspaceController extends ChangeNotifier {
   // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a thread opens or closes and hidden whenever threadIdentity is stale.
   String? _threadResolutionError;
 
+  @override
   WorkspaceThreadIdentity? get threadIdentity =>
       _threadVisit?.current == true ? _threadIdentity : null;
   bool get threadResolutionLoading =>
@@ -1866,6 +1807,7 @@ class WorkspaceController extends ChangeNotifier {
       threadIdentity != null && _threadParentLoading;
   String? get threadResolutionError =>
       threadIdentity == null ? null : _threadResolutionError;
+  @override
   RaftMessage? get presentedThreadParent => _threadIdentity == null
       ? threadParent
       : threadIdentity != null &&
@@ -1896,6 +1838,7 @@ class WorkspaceController extends ChangeNotifier {
       _threadChannelResource(threadParentChannelId);
 
   RaftMessage? threadParent;
+  @override
   String? threadChannelId;
   bool loading = false,
       channelLoading = false,
@@ -2037,6 +1980,7 @@ class WorkspaceController extends ChangeNotifier {
   bool presentsReply(String? id) =>
       messageWindows.containsVisible(threadChannelId, id);
 
+  @override
   List<RaftMessage> get replies => messageWindows.rows(threadChannelId);
 
   /// Web display order uses server sequence, with a display-only coordinate
@@ -4360,6 +4304,7 @@ class WorkspaceController extends ChangeNotifier {
   /// Opens a real thread identity independently of its parent metadata.
   /// [initialThreadChannelId] is the accepted inbox row's existing channel;
   /// Source opens that channel immediately without a resolution lookup.
+  @override
   Future<void> openThreadIdentity({
     required String parentChannelId,
     required String parentMessageId,
@@ -5065,6 +5010,7 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   Future<dynamic> query(String path, {Map<String, dynamic>? query}) =>
       presentationSource?.sharedQuery(path, query: query) ??
       apiGateway.query(path, query: query);
@@ -5097,6 +5043,7 @@ class WorkspaceController extends ChangeNotifier {
 
   /// Coalesce identical concurrent reads, retaining this facade's query
   /// override and giving each caller its own copy of the decoded response.
+  @override
   Future<dynamic> sharedQuery(String path, {Map<String, dynamic>? query}) =>
       apiGateway.sharedQuery(
         path,
@@ -5111,6 +5058,7 @@ class WorkspaceController extends ChangeNotifier {
       RaftApiGateway.copyDecoded(value);
 
   int savedRevision = 0;
+  @override
   Future<dynamic> command(String method, String path, {dynamic data}) async {
     if (presentationSource != null) {
       return presentationSource!.command(method, path, data: data);
@@ -5542,23 +5490,16 @@ class WorkspaceController extends ChangeNotifier {
     if (presentationSource == null) messageWindows.dispose();
     composer.sends.detach(this);
     composer.disposeOwnedBy(this);
-    if (_ownsEntityDirectory) {
+    if (services.ownsEntityDirectory) {
       removeListener(_entityAuthorityChanged);
-      entityDirectory.dispose();
     }
-    if (_ownsFollowedThreads) followedThreads.dispose();
-    _translations?.dispose();
-    _threadSearch?.dispose();
-    _threadFollowers?.dispose();
-    _announcements?.dispose();
-    _announcementGate?.dispose();
+    services.disposeOwnedStores();
     _removeCacheClear?.call();
     _removeCacheClear = null;
     if (presentationSource == null) attachmentMedia.dispose();
-    _channelFilesStores.clear();
+    services.retireChannelFiles();
     subscription.cancel();
-    _activityUnread?.dispose();
-    _activityUnread = null;
+    services.disposeActivityUnread();
     foregroundChanges.dispose();
     resumes.dispose();
     if (ownsClient) client.dispose();
