@@ -665,7 +665,9 @@ class AgentTvLayer extends StatelessWidget {
       if (i is! Map) continue;
       final item = Map<String, Object?>.from(i);
       if (item['kind'] == 'section') {
-        section = '${item['text'] ?? ''}';
+        // A section that only repeats the title says nothing.
+        final text = '${item['text'] ?? ''}';
+        section = text == '${frame['title'] ?? ''}' ? null : text;
         continue;
       }
       entries.add((section: section, item: item, n: ++n));
@@ -829,13 +831,16 @@ class _TvItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final i = entry.item;
     final message = i['kind'] == 'message';
+    final label = '${i['label'] ?? ''}';
     final meta = [
       ?entry.section,
-      if (message) '${i['sender'] ?? ''}' else '${i['label'] ?? ''}',
+      if (message) '${i['sender'] ?? ''}' else label,
       if (message) '${i['time'] ?? ''}',
     ].where((e) => e.isNotEmpty).join(' · ');
     final title = message ? '${i['text'] ?? ''}' : '${i['title'] ?? ''}';
-    final detail = message ? '' : '${i['detail'] ?? ''}';
+    final detail = message || i['detail'] == label
+        ? ''
+        : '${i['detail'] ?? ''}';
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,

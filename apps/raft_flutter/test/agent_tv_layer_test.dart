@@ -134,4 +134,38 @@ void main() {
     expect(find.text('第 1 项'), findsNothing);
     expect(find.text('6–10 / 12'), findsOneWidget);
   });
+
+  testWidgets('a row does not repeat its title or status', (t) async {
+    t.view.physicalSize = const Size(1920, 1080);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: Scaffold(
+          body: AgentTvLayer(
+            frame: {
+              'id': 'surface-3',
+              'title': 'Agent · 2',
+              'items': [
+                {'kind': 'section', 'text': 'Agent · 2'},
+                {
+                  'kind': 'priority',
+                  'priority': 'mention',
+                  'label': '空闲',
+                  'title': 'Aria',
+                  'detail': '空闲',
+                },
+              ],
+            },
+            caption: '',
+            mood: '',
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('Agent · 2'), findsOneWidget);
+    expect(find.text('空闲'), findsOneWidget);
+  });
 }
