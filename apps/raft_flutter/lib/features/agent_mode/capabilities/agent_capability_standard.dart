@@ -9,6 +9,7 @@ import 'message_capabilities.dart';
 import 'open_page_capabilities.dart';
 import 'snooze_capabilities.dart';
 import 'task_capabilities.dart';
+import 'task_more_capabilities.dart';
 
 /// Every capability the app registers: the reads, the audit log and the
 /// high-frequency operations. Adding a domain or an operation is one entry
@@ -23,6 +24,7 @@ final agentStandardCapabilities = AgentCapabilityRegistry([
   ...auditCapabilities,
   ...actionCapabilities,
   ...taskActionCapabilities,
+  ...taskMoreCapabilities,
   ...snoozeCapabilities,
   ...openPageCapabilities,
 ]);

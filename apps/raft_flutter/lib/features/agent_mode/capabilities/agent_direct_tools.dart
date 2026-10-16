@@ -18,6 +18,8 @@ const agentDirectActionTools = <String, String>{
   'assign_task': 'tasks.assign',
   'unassign_task': 'tasks.unassign',
   'join_channel': 'channels.join',
+  'reject_task': 'tasks.reject_with_reason',
+  'snooze_item': 'attention.snooze',
 };
 
 /// What the model reads for each; short, and no two overlap.
@@ -32,6 +34,8 @@ const _descriptions = <String, String>{
   'assign_task': '把一个任务指派给某个成员或 Agent。',
   'unassign_task': '清掉一个任务的负责人。',
   'join_channel': '加入一个公开频道。',
+  'reject_task': '把任务打回去（改回进行中或待办）并在讨论串里留言说明原因，一步完成。',
+  'snooze_item': '把“现在需要你”里的一件事稍后再看（今晚、明天早上、几小时后），到点再提醒。',
 };
 
 const _suffix = '只生成预览和 confirmToken，屏幕上出现确认卡；用一句话说出预览，等用户确认后才 confirm。';

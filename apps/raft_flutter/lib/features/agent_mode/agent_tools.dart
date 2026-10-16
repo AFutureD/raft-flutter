@@ -159,7 +159,7 @@ String agentSystemPrompt({
     '想听频道里聊了什么 → open_channel 加 read_channel。\n'
     '做事（只生成预览，要他确认）：「在 #general 说…」→ send_message；「回复这条」→ reply_in_thread；「点个赞」→ react；「标已读」→ mark_read；'
     '「这条动态处理掉」→ mark_done；「新建任务」→ create_task；「把 #98 改成进行中」→ set_task_status；「指派给 Cody」→ assign_task；'
-    '「取消指派」→ unassign_task；「加入 #design」→ join_channel。\n'
+    '「取消指派」→ unassign_task；「加入 #design」→ join_channel；「打回去，因为…」→ reject_task（改状态和留言原因是一个动作）；「这个稍后再看」「明天再提醒我」→ snooze_item。\n'
     '以上都没有的长尾（成员资料、电脑详情、提醒……）才用 find 找能力，读用 query，改用 act。'
     '“这个”“第二个”“③”“Cody 那个任务”先 resolve 成具体的一个，resolve 返回 candidates 或找不到时问用户是哪一个，不要自己猜；id 只能来自工具结果，不要编 id。\n'
     '\n'

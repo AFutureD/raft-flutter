@@ -94,6 +94,10 @@ class ActionHarness {
   List<String> changes(Map<String, Object?> r) =>
       ((r['preview'] as Map)['changes'] as List).cast<String>();
 
+  /// Whether a confirm-card line has the shape `字段: 原值 → 新值`.
+  static bool lineOk(String line) =>
+      RegExp(r'^[^:：]+[:：].* → .*$').hasMatch(line);
+
   String summary(Map<String, Object?> r) =>
       '${(r['preview'] as Map)['summary']}';
 }

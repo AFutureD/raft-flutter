@@ -94,6 +94,8 @@ const agentOnlyActionTools = {
   'assign_task',
   'unassign_task',
   'join_channel',
+  'reject_task',
+  'snooze_item',
 };
 
 /// [tools] with the two turn parameters added to the ones that start a

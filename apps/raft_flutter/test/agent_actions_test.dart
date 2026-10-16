@@ -846,6 +846,8 @@ void main() {
           'assign_task',
           'unassign_task',
           'join_channel',
+          'reject_task',
+          'snooze_item',
         ],
       );
       expect({for (final d in decls) d['description']}.length, decls.length);
