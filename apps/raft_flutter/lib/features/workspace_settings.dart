@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_updater/raft_updater.dart';
@@ -291,7 +291,9 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               group: WorkspaceSettings.workspace,
               scroll: false,
             ),
-          if (widget.labsEnabled)
+          // Debug and profile builds always list Labs: it hosts the device-local
+          // agent mode demo card even where the server Labs flag is off.
+          if (widget.labsEnabled || !kReleaseMode)
             RaftSettingsDestination(
               'labs',
               'Labs',
