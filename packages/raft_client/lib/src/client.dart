@@ -1541,7 +1541,11 @@ class RaftClient {
       // again; a revoked session is then told apart by the handshake, which
       // asks the refresh endpoint, not by this event.
       if (reason == 'io server disconnect' && _session != null) {
-        _scheduleSocketRetry(socket, epoch);
+        _scheduleSocketRetry(
+          socket,
+          epoch,
+          delay: serverDisconnectReconnectDelay(),
+        );
       }
     });
     socket.onConnectError((error) async {
@@ -1586,9 +1590,24 @@ class RaftClient {
     socket.connect();
   }
 
-  void _scheduleSocketRetry(io.Socket socket, int epoch) {
+  /// Web `scheduleServerDisconnectReconnect`: a deploy drains every socket at
+  /// once, so the first reconnect after a server-initiated disconnect is
+  /// spread over 1-5 s (0.5x to 2.5x the first backoff step) instead of every
+  /// client returning at the same instant.
+  Duration serverDisconnectReconnectDelay() {
+    final base = recoveryBackoff.isEmpty
+        ? const Duration(seconds: 2)
+        : recoveryBackoff.first;
+    return Duration(
+      microseconds:
+          (base.inMicroseconds * (0.5 + 2 * governor.random.nextDouble()))
+              .round(),
+    );
+  }
+
+  void _scheduleSocketRetry(io.Socket socket, int epoch, {Duration? delay}) {
     _authRetry?.cancel();
-    final delay = recoveryBackoff.isEmpty
+    delay ??= recoveryBackoff.isEmpty
         ? const Duration(seconds: 2)
         : recoveryBackoff[math.min(_socketRetries, recoveryBackoff.length - 1)];
     _socketRetries++;
