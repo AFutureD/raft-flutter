@@ -564,7 +564,7 @@ class AgentAttentionDetail extends StatelessWidget {
       tone: item.tone,
       facts: activity
           ? [
-              if (who != null) HfFact('谁', who),
+              // Who said it is in the words below.
               HfFact(
                 '多久',
                 '${item.agoLabel} · ${item.unread > 0 ? '${item.unread} 条未读' : '已读'}',
