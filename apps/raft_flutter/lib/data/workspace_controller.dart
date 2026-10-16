@@ -13,6 +13,7 @@ import 'message_translation_store.dart';
 import 'thread_agent_followers.dart';
 import 'thread_search.dart';
 import 'workspace_services.dart';
+import 'session_scope.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
@@ -72,7 +73,7 @@ bool isThreadAbsentLookupError(Object? error) {
 }
 
 class WorkspaceController extends ChangeNotifier
-    implements WorkspaceServiceAuthority {
+    implements WorkspaceServiceAuthority, SessionScopeBinding {
   /// High-frequency socket events that never change workspace state.
   static const presenceEvents = {
     'agent:activity',
@@ -96,6 +97,7 @@ class WorkspaceController extends ChangeNotifier
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
   }) : _presentationAuthority = presentationSource?.navigationAuthority {
+    sessionScope = SessionScope(this, ownsMedia: presentationSource == null);
     apiGateway =
         presentationSource?.apiGateway ??
         RaftApiGateway(
@@ -210,8 +212,11 @@ class WorkspaceController extends ChangeNotifier
   }
 
   VoidCallback? _removeCacheClear;
+  late final SessionScope sessionScope;
+  @override
   late final WorkspaceComposer composer;
   late final SidebarRepository sidebarRepository;
+  @override
   late final WorkspaceMessageWindows messageWindows =
       presentationSource?.messageWindows ??
       WorkspaceMessageWindows(
@@ -310,6 +315,7 @@ class WorkspaceController extends ChangeNotifier
   @override
   final RaftClient client;
   late final RaftApiGateway apiGateway;
+  @override
   late final WorkspaceDeviceStore deviceStore;
   @override
   WorkspaceCache? get cache => deviceStore.cache;
@@ -320,6 +326,7 @@ class WorkspaceController extends ChangeNotifier
   final String? _presentationAuthority;
   bool presentationActive = true;
   final RestoreSharedDraftAttachment? restoreSharedAttachment;
+  @override
   final Future<void> Function(
     String origin,
     String principal,
@@ -418,6 +425,7 @@ class WorkspaceController extends ChangeNotifier
   }
 
   /// One media owner for the session and all borrowed presentations.
+  @override
   late final AttachmentMedia attachmentMedia;
 
   /// Compatibility facade while attachment surfaces move to [attachmentMedia].
@@ -605,6 +613,7 @@ class WorkspaceController extends ChangeNotifier
   /// Set by the host from its actual logical width before bootstrap. Home
   /// retains selection/drafts, but is not an open conversation/read surface.
   bool mobileNavigation;
+  @override
   final messageSync = MessageSync();
   final threadRepliesSync = ThreadRepliesSync();
   final notificationPrefsSync = NotificationPrefsSync();
@@ -944,6 +953,7 @@ class WorkspaceController extends ChangeNotifier
     if (channel != null) channel = patch(channel!);
   }
 
+  @override
   bool syncCoreMessagesEnabled = false;
 
   /// Web serverFeatureFlags `remote_computer_upgrade_v2`: whether the
@@ -1064,8 +1074,8 @@ class WorkspaceController extends ChangeNotifier
       !composer.ownedBy(this) && (server == null || _disposed)
       ? const {}
       : composer.drafts;
-  final Set<String> _revokedChannels = {};
-  final Set<String> _revokedServers = {};
+  Set<String> get _revokedChannels => sessionScope.revokedChannels;
+  Set<String> get _revokedServers => sessionScope.revokedServers;
   Object? _presentationOwner;
   bool _mainPresented = true, _threadPresented = true;
   Object? _tabPresentationOwner;
@@ -1145,9 +1155,8 @@ class WorkspaceController extends ChangeNotifier
     }
   }
 
-  /// A workspace switch and loss of the active workspace retire the same
-  /// accepted windows and session projections before another read can publish.
-  void _resetServerWindows(String? id) {
+  @override
+  void resetServerProjection() {
     historyLimited = threadHistoryLimited = false;
     channel = null;
     channels = [];
@@ -1160,43 +1169,23 @@ class WorkspaceController extends ChangeNotifier
     threadChannelId = null;
     _summariesByChannel.clear();
     highlightedMessageId = null;
-    messageWindows.channelGeneration++;
-    messageWindows.threadGeneration++;
-    messageWindows.switchServer(id);
-    readState.reset();
-    resourceSnapshots.clear();
-    _prefetched.clear();
-    reactionViewer.reset();
-    messageSync.reset();
-    syncCoreMessagesEnabled = false;
   }
 
-  void revokeServer(String id) {
-    final principal = client.user?.id;
-    if (principal == null) return;
-    _revokedServers.add(id);
-    servers.removeWhere((s) => s.id == id);
-    final origin = client.origin;
-    unawaited(discardSharedScope?.call(origin, principal, id, null));
-    // Everything cached for that server on this device is revoked with it.
-    if (presentationSource == null) {
-      attachmentMedia.purgeIdentity(origin, principal, id);
-    }
-    if (client.serverId == id) {
-      composer.clearOwnedBy(this);
-      _resetServerWindows(null);
-      server = null;
-      sidebarOrder = {};
-      error = null;
-      _messageFlagRequest++;
-      if (ownsClient) client.selectServer(null);
-      loading = false;
-      channelLoading = false;
-      threadLoading = false;
-    }
-    deviceStore.revokeServer(origin, principal, id);
-    _save('servers', '', servers.map((s) => s.json).toList(), server: '');
-    notifyListeners();
+  @override
+  void clearSessionPrefetch() => _prefetched.clear();
+
+  void revokeServer(String id) => sessionScope.revokeServer(id);
+
+  @override
+  void closeRevokedServerProjection() {
+    server = null;
+    sidebarOrder = {};
+    error = null;
+    _messageFlagRequest++;
+    if (ownsClient) client.selectServer(null);
+    loading = false;
+    channelLoading = false;
+    threadLoading = false;
   }
 
   Future<dynamic> _cached(String kind, String id, {String? server}) =>
@@ -1350,6 +1339,7 @@ class WorkspaceController extends ChangeNotifier
   late final StreamSubscription<RaftEvent> subscription;
   MessageLedger get ledger => messageWindows.ledger;
   final _reactionViewer = ReactionViewerLedger();
+  @override
   ReactionViewerLedger get reactionViewer =>
       presentationSource?.reactionViewer ?? _reactionViewer;
   final Map<String, Future<void>> _reactionWrites = {};
@@ -1772,6 +1762,7 @@ class WorkspaceController extends ChangeNotifier
   /// Workspace-owned page snapshots (Activity, Saved) that survive
   /// navigation; dropped on every server or account switch.
   final _resourceSnapshots = ResourceSnapshotCache();
+  @override
   ResourceSnapshotCache get resourceSnapshots =>
       presentationSource?.resourceSnapshots ?? _resourceSnapshots;
   Map<String, Set<String>> get visibleIds => messageWindows.visibleIds;
@@ -1784,6 +1775,7 @@ class WorkspaceController extends ChangeNotifier
   /// Pending unknown context; cross-channel cached tails are not that context.
   String? get pendingMessageContextChannelId =>
       messageWindows.pendingContextChannelId;
+  @override
   List<RaftRecord> servers = [];
   @override
   List<RaftChannel> channels = [], dms = [];
@@ -2279,7 +2271,7 @@ class WorkspaceController extends ChangeNotifier
     unawaited(entityDirectory.preload());
     followedThreads.start();
     composer.clearOwnedBy(this);
-    _resetServerWindows(next.id);
+    sessionScope.resetServer(next.id);
     refreshMessageSyncFlag();
     loadSidebar();
     _revokedChannels.clear();
@@ -5395,6 +5387,7 @@ class WorkspaceController extends ChangeNotifier
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    sessionScope.dispose();
     MessageHistoryPages.detach(this);
     if (presentationSource == null) messageWindows.dispose();
     composer.sends.detach(this);
