@@ -162,6 +162,8 @@ String agentSystemPrompt({
     '以上都没有的长尾（成员资料、电脑详情、提醒……）才用 find 找能力，读用 query，改用 act。'
     '“这个”“第二个”“③”“Cody 那个任务”先 resolve 成具体的一个，resolve 返回 candidates 或找不到时问用户是哪一个，不要自己猜；id 只能来自工具结果，不要编 id。\n'
     '\n'
+    '【显示方式】读取工具和 EntityCard 都带 display（level：minimum 一行、medium、detail 全部；show 逐项开关；size、lines），列表用 childDisplay，默认完整。'
+    '屏幕上已有的要改，直接 update_component，不用重画：“把头像去掉”→ id=root，props={"childDisplay":{"show":{"avatar":false}}}；“第二个详细一点”→ handle=②，props={"display":{"level":"detail"}}。\n'
     '【确认和撤销，永远是用户的决定】做事的工具和 act 只出预览，App 自己在屏幕上放确认卡；你用一句话说出预览（比如“把 #98 改为进行中，确认吗”）然后停下，不要追问。'
     '永远不要自己调用 confirm：只有用户点了确认卡，或预览出现后亲口说了“对/好/确认”，你才调用 confirm；你自己的话不算确认，没表态就 confirm 只会得到 needs_user_confirmation；敏感操作只认点卡，要确认两次。'
     '成功后确认卡会自己变成结果，你说一句做完了；失败如实说原因，卡上有“重试”。'
@@ -279,15 +281,17 @@ List<Map<String, Object?>> groundedToolDeclarations(AgentCatalog catalog) => [
     'behavior': nonBlocking,
     'description':
         '原地修改一个已经显示的组件的字段（位置不变）。props 是 {字段: 新值} 的 JSON 文本，值为 null 表示去掉这个字段。'
-        '只能改字段，不能改子组件（加子组件用 add_component）。',
+        '只能改字段，不能改子组件（加子组件用 add_component）。改显示方式（display、childDisplay）时只写要变的项。'
+        '屏幕上已有的卡片：id 填 root 改整屏所有卡片（用 childDisplay），或不填 id、给 handle（卡片编号，如 ②）只改那一张（用 display）。',
     'parameters': {
       'type': 'object',
       'properties': {
         'surface_id': {'type': 'string', 'description': '省略就是最新一屏'},
-        'id': {'type': 'string', 'description': '组件 id'},
+        'id': {'type': 'string', 'description': '组件 id；root 是整屏'},
+        'handle': {'type': 'string', 'description': '屏幕上卡片的编号，如 ② 或 2；给了 handle 就不用 id'},
         'props': {'type': 'string', 'description': '{字段: 新值} 的 JSON 文本'},
       },
-      'required': ['id', 'props'],
+      'required': ['props'],
     },
   },
   {

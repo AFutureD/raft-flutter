@@ -4,12 +4,14 @@ import 'dart:convert';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_catalog.dart';
+import 'agent_entity_binding.dart' show AgentEntityComponents;
 import 'agent_mode_data.dart';
 import 'agent_surface.dart';
 import 'agent_surface_stream.dart';
 import 'capabilities/agent_capability.dart';
 import 'capabilities/agent_capability_args.dart';
 import 'capabilities/agent_capability_standard.dart';
+import 'references/agent_reference_table.dart';
 
 /// What the model has read this session. A generated screen may only show
 /// facts that appear here: that is how "the model never invents" is enforced
@@ -270,6 +272,7 @@ class AgentGroundedTools {
     AgentCatalog? catalog,
     this.onRejected,
     AgentCapabilityRegistry? capabilities,
+    this.references,
   }) : catalog = catalog ?? agentStandardCatalog,
        capabilities = capabilities ?? agentStandardCapabilities;
 
@@ -281,6 +284,10 @@ class AgentGroundedTools {
   final AgentCatalog catalog;
   final AgentSurfaceHost host;
   final AgentFacts facts = AgentFacts();
+
+  /// What is on the front screen by handle (① ② …), so a component can be
+  /// named the way the person says it.
+  final AgentReferenceTable Function()? references;
 
   /// A surface or component was refused (for the small caption on screen).
   final void Function(List<String> problems)? onRejected;
@@ -549,9 +556,11 @@ class AgentGroundedTools {
   }
 
   AgentSurfaceDraft? _draftOf(Map<String, Object?> args, List<String> out) {
-    final id = args['surface_id'] ?? args['id'];
-    final draft = id is String
-        ? drafts[id]
+    // `id` names the surface only for end_surface; in update_component it is
+    // the component, and the screen is the latest one still open.
+    final named = args['surface_id'] ?? (drafts[args['id']] != null ? args['id'] : null);
+    final draft = named is String
+        ? drafts[named]
         : drafts.values.where(host.isOpen).lastOrNull;
     if (draft == null) {
       out.add('没有这一屏：先调用 begin_surface');
@@ -630,9 +639,29 @@ class AgentGroundedTools {
     final draft = _draftOf(args, out);
     if (draft == null) return {'error': out.first};
     final id = args['id'] ?? args['component_id'];
-    final node = id is String ? draft.find(id) : null;
+    final handle = args['handle'];
+    SurfaceNode? node = id is String ? draft.find(id) : null;
+    // "root" is the whole screen; a handle is the card the person points at.
+    if (node == null && id == 'root') node = draft.root;
+    if (node == null && id == null && handle is String) {
+      final ref = references?.call().byHandle(handle);
+      node = ref == null
+          ? null
+          : draft.root
+                .walk()
+                .where(
+                  (n) =>
+                      n.component == AgentEntityComponents.entity &&
+                      n.string('entity') == ref.type &&
+                      n.string('id') == ref.id,
+                )
+                .firstOrNull;
+      if (node == null) {
+        return _refused('没有改。', ['屏幕上的 $handle 不在这一屏里：问用户是哪一个']);
+      }
+    }
     if (node == null) {
-      return _refused('没有改。', ['组件 "$id" 不在这一屏里']);
+      return _refused('没有改。', ['组件 "${id ?? handle}" 不在这一屏里']);
     }
     final raw = _json(args['props']);
     if (raw is! Map) {
@@ -648,14 +677,8 @@ class AgentGroundedTools {
         );
       }
     }
-    final merged = {...node.props};
-    for (final e in props.entries) {
-      if (e.value == null) {
-        merged.remove(e.key);
-      } else {
-        merged[e.key] = e.value;
-      }
-    }
+    // `display` and `childDisplay` change only what they name.
+    final merged = mergeNodeProps(node.props, props);
     if (problems.isEmpty) {
       problems.addAll(catalog.checkProps(item, merged, '<${node.component}>'));
     }

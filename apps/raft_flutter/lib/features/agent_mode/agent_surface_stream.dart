@@ -1,3 +1,5 @@
+import 'package:raft_agent_ui/raft_agent_ui.dart' show mergeNodeProps;
+
 import 'agent_surface.dart';
 
 /// A surface that is being composed piece by piece.
@@ -128,15 +130,7 @@ class AgentSurfaceDraft {
   /// Changes fields of [id] in place; a null value removes the field.
   void patch(String id, Map<String, Object?> props) {
     _root = _edit(_root, id, (n) {
-      final merged = {...n.props};
-      for (final e in props.entries) {
-        if (e.value == null) {
-          merged.remove(e.key);
-        } else {
-          merged[e.key] = e.value;
-        }
-      }
-      return n.copyWith(props: merged);
+      return n.copyWith(props: mergeNodeProps(n.props, props));
     });
     revision++;
   }

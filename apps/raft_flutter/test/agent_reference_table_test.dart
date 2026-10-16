@@ -409,5 +409,86 @@ void main() {
         't94',
       );
     });
+
+    testWidgets('a card whose handle badge is hidden is still pointed at', (
+      t,
+    ) async {
+      t.view.physicalSize = const Size(390, 1400);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final facts = AgentFacts()
+        ..learnTaskRows([
+          {
+            'id': 't94',
+            'taskNumber': 94,
+            'title': '历史上拉',
+            'status': 'in_progress',
+            'channelName': 'raft-flutter',
+            'claimedByName': 'Cody',
+          },
+        ]);
+      Map<String, Object?> task(Map<String, Object?>? display) => {
+        'component': 'TaskCard',
+        'title': '历史上拉',
+        'status': 'in_progress',
+        'number': 94,
+        'assignee': 'Cody',
+        'channel': 'raft-flutter',
+        'display': ?display,
+      };
+      final pointer = AgentPointer();
+      addTearDown(pointer.dispose);
+      for (final hidden in [false, true]) {
+        final spec = agentStandardCatalog.parse({
+          'title': '一屏',
+          'root': {
+            'component': 'Column',
+            'children': [
+              task(
+                hidden
+                    ? {
+                        'show': {'handle': false},
+                      }
+                    : null,
+              ),
+            ],
+          },
+        }).spec!;
+        final frame = agentSurfaceFrame(
+          spec,
+          entityOf: (n) => surfaceEntity(n, facts),
+        );
+        final table = AgentReferenceTable.fromFrame('surface:1', frame);
+        // The card is numbered either way.
+        expect(
+          [for (final e in table.entries) (e.handle, e.id)],
+          [('①', 't94')],
+        );
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(RaftFamily.elegant, dark: false),
+            home: AgentReferenceScope(
+              table: table,
+              pointer: pointer,
+              child: Scaffold(
+                body: AgentSurfaceView(
+                  spec: spec,
+                  focusPrefix: 'surface:1',
+                  compact: false,
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(
+          find.byKey(const ValueKey('agent-handle-1')),
+          hidden ? findsNothing : findsOneWidget,
+        );
+        pointer.clear();
+        await t.tap(find.textContaining('历史上拉').first);
+        await t.pump();
+        expect(pointer.entity?.id, 't94', reason: 'hidden: $hidden');
+      }
+    });
   });
 }

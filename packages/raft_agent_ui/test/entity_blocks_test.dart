@@ -277,7 +277,9 @@ void main() {
           ),
         ),
       );
-      // The same card: the buttons gave way to the result, the thing stays.
+      // The same card: the buttons gave way to the result, the thing stays
+      // (the card eases to its new height first).
+      await t.pumpAndSettle();
       expect(find.text('确认'), findsNothing);
       expect(find.text('已完成'), findsWidgets);
       expect(find.text('已改为 进行中 ✅'), findsOneWidget);
@@ -295,6 +297,7 @@ void main() {
           ),
         ),
       );
+      await t.pumpAndSettle();
       expect(find.text('没有成功 ⚠️'), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('confirm-card-retry')));
       expect(retried, 1);

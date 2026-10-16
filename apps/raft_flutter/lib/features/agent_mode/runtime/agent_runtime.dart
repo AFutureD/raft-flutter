@@ -185,6 +185,7 @@ class AgentRuntime extends ChangeNotifier {
       catalog: null,
       onRejected: onRejected,
       capabilities: registry,
+      references: references,
     );
     final env = AgentCapabilityEnv(data: data, facts: grounded.facts);
     capabilities = AgentCapabilityTools(
@@ -326,6 +327,8 @@ class AgentRuntime extends ChangeNotifier {
       final turn = _callTurn() ?? current;
       _owners[draft.id] = turn ?? _implicit();
       _drafts[draft.id] = draft;
+      // A screen the app drew (a direct read) can be changed in place too.
+      grounded.drafts.putIfAbsent(draft.id, () => draft);
       (_owners[draft.id]!).surfaces.add(draft.id);
       _owners[draft.id]!.rendered = true;
       return surfaces.begin(draft);

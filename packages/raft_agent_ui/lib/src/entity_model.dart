@@ -78,6 +78,14 @@ String _clip(String text, int max) {
   return one.characters.length <= max ? one : '${one.characters.take(max)}…';
 }
 
+/// One emoji and how many people used it.
+@immutable
+class AgentReaction {
+  const AgentReaction(this.emoji, this.count);
+  final String emoji;
+  final int count;
+}
+
 class AgentMessageData extends AgentEntityData {
   const AgentMessageData({
     required this.author,
@@ -86,11 +94,17 @@ class AgentMessageData extends AgentEntityData {
     this.channel,
     this.attachmentCount = 0,
     this.avatar,
+    this.reactions = const [],
+    this.threadCount = 0,
   });
   final String author, text;
   final String? time, channel;
   final int attachmentCount;
   final AgentAvatarBuilder? avatar;
+  final List<AgentReaction> reactions;
+
+  /// How many replies the message has in its thread.
+  final int threadCount;
 
   @override
   AgentEntityKind get kind => AgentEntityKind.message;
@@ -106,6 +120,8 @@ class AgentTaskData extends AgentEntityData {
     this.assignee,
     this.channel,
     this.updated,
+    this.description,
+    this.latestProgress,
   });
   final String title;
 
@@ -113,6 +129,10 @@ class AgentTaskData extends AgentEntityData {
   final String status;
   final int? number;
   final String? assignee, channel, updated;
+
+  /// What the task asks for, and the last thing said about it, already
+  /// worded ("Grok · 10:32  已修复").
+  final String? description, latestProgress;
 
   @override
   AgentEntityKind get kind => AgentEntityKind.task;
@@ -128,10 +148,15 @@ class AgentAgentData extends AgentEntityData {
     this.computer,
     this.since,
     this.avatar,
+    this.channel,
+    this.model,
   });
   final String name;
   final AgentWorkState state;
   final String? activity, computer, since;
+
+  /// The channel it is working in, and the model it runs.
+  final String? channel, model;
   final AgentAvatarBuilder? avatar;
 
   @override
@@ -147,6 +172,8 @@ class AgentChannelData extends AgentEntityData {
     this.mentioned = false,
     this.lastActivity,
     this.direct = false,
+    this.description,
+    this.memberCount,
   });
 
   /// Without the leading `#`.
@@ -159,6 +186,8 @@ class AgentChannelData extends AgentEntityData {
 
   /// A direct message: shown by name, without `#`.
   final bool direct;
+  final String? description;
+  final int? memberCount;
 
   @override
   AgentEntityKind get kind => AgentEntityKind.channel;
@@ -192,9 +221,11 @@ class AgentComputerData extends AgentEntityData {
     required this.online,
     this.runtimes = const [],
     this.agentCount = 0,
+    this.version,
   });
   final String name;
   final bool online;
+  final String? version;
   final List<String> runtimes;
   final int agentCount;
 
@@ -211,8 +242,12 @@ class AgentFileData extends AgentEntityData {
     this.size,
     this.isImage = false,
     this.thumbnail,
+    this.author,
   });
   final String name;
+
+  /// Who uploaded it.
+  final String? author;
 
   /// "PNG", "PDF".
   final String? type, size;

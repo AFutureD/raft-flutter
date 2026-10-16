@@ -1,3 +1,6 @@
+import 'package:raft_agent_ui/raft_agent_ui.dart'
+    show AgentEntityKind, DisplaySpec, agentDisplaySchema, mergeDisplayJson;
+
 import '../../../data/workspace_controller.dart';
 import '../agent_catalog.dart';
 import '../agent_entity_binding.dart' show AgentEntityComponents;
@@ -47,26 +50,33 @@ const agentItemKinds = [
   'message',
 ];
 
-const _display = {
-  'type': 'object',
-  'description':
-      '怎么画：level 是 detail（完整，用户要“看所有/列出”时用，默认）或 summary（一眼看完，只在你主动给概览时用）；'
-      'show 可选，要突出的几项',
-  'properties': {
-    'level': {
-      'type': 'string',
-      'enum': ['detail', 'summary'],
-    },
-    'show': {
-      'type': 'array',
-      'items': {'type': 'string'},
-    },
-  },
+final _entityKindNames = [for (final k in AgentEntityKind.values) k.name];
+
+/// The schema of a display field as the model is given it (the same words as
+/// the catalog's, without the catalog's own markers).
+Map<String, Object?> _plain(Map<String, Object?> schema) => {
+  for (final e in schema.entries)
+    if (e.key != 'x-describe')
+      e.key: e.value is Map
+          ? _plain((e.value as Map).cast<String, Object?>())
+          : e.value,
 };
+
+/// `display` of the one card a tool draws.
+final _cardDisplay = _plain(agentDisplaySchema(_entityKindNames));
+
+/// `display` of the list a tool draws (the group of cards, not the cards).
+final _listDisplay = _plain(agentDisplaySchema(['Section']));
+
+/// `childDisplay`: what every card of the list looks like. A list is drawn
+/// at `detail` unless this says otherwise.
+final _cardsDisplay = _plain(
+  agentDisplaySchema(_entityKindNames, childDisplay: true),
+);
 
 /// The declarations of the direct read tools. The descriptions are what the
 /// model chooses by, so each says when to use it and when not.
-const agentReadToolDeclarations = <Map<String, Object?>>[
+final agentReadToolDeclarations = <Map<String, Object?>>[
   {
     'name': 'show_list',
     'description':
@@ -74,7 +84,7 @@ const agentReadToolDeclarations = <Map<String, Object?>>[
         '例：“看所有任务”→kind=tasks；“有哪些频道”→channels；“谁在线/所有成员”→members；“有未读的频道”→channels+unread_only；'
         '“等验收的任务”→tasks+status=in_review；“提到我的”→mentions。'
         '不是搜关键词（那用 search_messages），也不是看某一个（那用 show_item）。'
-        '默认画完整（detail），不要自己改成 summary，除非是你主动给概览。',
+        '默认每张卡片画完整（detail）；用户要简单点、不要头像之类，才用 childDisplay 改。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -108,7 +118,8 @@ const agentReadToolDeclarations = <Map<String, Object?>>[
         },
         'limit': {'type': 'integer', 'description': '最多几个，默认 30'},
         'offset': {'type': 'integer', 'description': '往后翻：跳过几个'},
-        'display': _display,
+        'display': _listDisplay,
+        'childDisplay': _cardsDisplay,
       },
       'required': ['kind'],
     },
@@ -128,7 +139,7 @@ const agentReadToolDeclarations = <Map<String, Object?>>[
         'name': {'type': 'string', 'description': '名字：频道名、Agent 名、成员名、电脑名'},
         'number': {'type': 'integer', 'description': 'tasks：任务编号，不带 #'},
         'channel': {'type': 'string', 'description': '任务编号重复时的频道名'},
-        'display': _display,
+        'display': _cardDisplay,
       },
       'required': ['kind'],
     },
@@ -150,7 +161,8 @@ const agentReadToolDeclarations = <Map<String, Object?>>[
           'description': '从什么时候起：today、7d、30d，或日期 2026-10-15',
         },
         'limit': {'type': 'integer', 'description': '最多几条，默认 10'},
-        'display': _display,
+        'display': _listDisplay,
+        'childDisplay': _cardsDisplay,
       },
     },
   },
@@ -164,7 +176,8 @@ const agentReadToolDeclarations = <Map<String, Object?>>[
       'properties': {
         'message': {'type': 'string', 'description': '消息 id'},
         'handle': {'type': 'string', 'description': '屏幕上的编号，如 ② 或 2'},
-        'display': _display,
+        'display': _cardDisplay,
+        'childDisplay': _cardsDisplay,
       },
     },
   },
@@ -177,6 +190,7 @@ const agentReadToolDeclarations = <Map<String, Object?>>[
       'properties': {
         'agent': {'type': 'string', 'description': 'Agent 的名字或 id'},
         'limit': {'type': 'integer', 'description': '最近几条，默认 12'},
+        'display': _cardDisplay,
       },
       'required': ['agent'],
     },
@@ -192,6 +206,7 @@ const agentReadToolDeclarations = <Map<String, Object?>>[
         'task': {'type': 'string', 'description': '任务编号（#98 或 98）或任务 id'},
         'channel': {'type': 'string', 'description': '编号重复时的频道名'},
         'limit': {'type': 'integer', 'description': '最近几条，默认 12'},
+        'display': _cardDisplay,
       },
       'required': ['task'],
     },
@@ -387,7 +402,12 @@ class AgentReadTools {
         'problems': checked.problems,
       };
     }
+    final bad = _displayProblems(name, checked.args);
+    if (bad.isNotEmpty) {
+      return {'error': '参数不对：${bad.take(4).join('；')}', 'problems': bad};
+    }
     bool stale() => cancelled?.call() ?? false;
+    _drawn = null;
     try {
       final result = switch (name) {
         'show_list' => await _list(checked.args, stale),
@@ -399,7 +419,13 @@ class AgentReadTools {
       };
       if (result.containsKey('error') || stale()) return result;
       final refs = _references();
-      return refs.isEmpty ? result : {...result, 'refs': refs.contextText()};
+      final drawn = _drawn;
+      return {
+        ...result,
+        // To change how it looks later: update_component on these.
+        if (drawn != null) ...{'surface_id': drawn.id, 'root': drawn.root.id},
+        if (!refs.isEmpty) 'refs': refs.contextText(),
+      };
     } on AgentCapabilityError catch (e) {
       return e.toJson();
     }
@@ -422,57 +448,103 @@ class AgentReadTools {
 
   // ---- drawing ---------------------------------------------------------
 
-  /// The level cards are drawn at: `detail` unless the model asked for
-  /// `summary` (through `display.level`).
-  static String _level(Map<String, Object?> a) {
-    final d = a['display'];
-    final level = d is Map ? d['level'] : null;
-    return level == 'summary' ? 'summary' : 'detail';
+  /// A display the model wrote, as a map; null when it said nothing.
+  static Map<String, Object?>? _spec(Object? v) =>
+      v is Map && v.isNotEmpty ? v.cast<String, Object?>() : null;
+
+  /// What is wrong with the `display` and `childDisplay` the model gave, by
+  /// the catalog's own checks: the same words an `update_component` would be
+  /// refused with.
+  List<String> _displayProblems(String name, Map<String, Object?> a) {
+    final problems = <String>[];
+    final display = _spec(a['display']);
+    final children = _spec(a['childDisplay']);
+    final listy = name == 'show_list' || name == 'search_messages';
+    void check(String component, Map<String, Object?> props) {
+      final item = catalog.item(component);
+      if (item != null) problems.addAll(catalog.checkProps(item, props, '参数'));
+    }
+
+    if (display != null) {
+      if (listy) {
+        check(AgentComponents.section, {'title': 'x', 'display': display});
+      } else {
+        final kind = switch (name) {
+          'show_item' => '${a['kind']}',
+          'show_thread' => 'message',
+          'show_agent_activity' => 'agent',
+          _ => 'task',
+        };
+        check(AgentEntityComponents.entity, {
+          'entity': kind,
+          'id': 'x',
+          'display': display,
+        });
+        problems.addAll(DisplaySpec.problems(display, kind, '参数.display'));
+      }
+    }
+    if (children != null) {
+      check(AgentComponents.column, {'childDisplay': children});
+    }
+    return problems;
   }
 
   Map<String, Object?> _card(
     String entity,
-    String id,
-    Map<String, Object?> a, {
+    String id, {
     bool high = false,
-  }) {
-    final item = catalog.item(AgentEntityComponents.entity)!;
-    final d = a['display'];
-    final show = d is Map ? d['show'] : null;
-    return {
-      'component': AgentEntityComponents.entity,
-      'entity': entity,
-      'id': id,
-      'density': _level(a),
-      if (high) 'emphasis': 'high',
-      // The card's own display fields, when the catalog has them.
-      if (show is List && item.properties.containsKey('show')) 'show': show,
-    };
-  }
+    Map<String, Object?>? display,
+  }) => {
+    'component': AgentEntityComponents.entity,
+    'entity': entity,
+    'id': id,
+    if (high) 'emphasis': 'high',
+    'display': ?display,
+  };
 
+  /// A group of cards. Not folded (the person asked to see them); [display]
+  /// is the group's own look. The cards' look is the screen's `childDisplay`
+  /// (see [_show]), so one change to the screen reaches every group.
   Map<String, Object?> _section(
+    String title,
+    List<Map<String, Object?>> children, {
+    Map<String, Object?>? display,
+  }) => {
+    'component': AgentComponents.section,
+    'title': title.length > 40 ? title.substring(0, 40) : title,
+    'density': 'detail',
+    'display': ?display,
+    'children': children,
+  };
+
+  /// The group of a list tool: the model's `display` is the group's.
+  Map<String, Object?> _group(
     String title,
     List<Map<String, Object?>> children,
     Map<String, Object?> a,
-  ) => {
-    'component': AgentComponents.section,
-    'title': title.length > 40 ? title.substring(0, 40) : title,
-    'density': _level(a),
-    'children': children,
-  };
+  ) => _section(title, children, display: _spec(a['display']));
+
+  /// The surface drawn by the call being run (null before it draws).
+  AgentSurfaceDraft? _drawn;
 
   /// Puts [children] on the screen as one new layer. Null when the surface
   /// was refused (never for a valid id).
   Map<String, Object?>? _show(
     String title,
-    List<Map<String, Object?>> children,
-    Map<String, Object?> a,
-  ) {
+    List<Map<String, Object?>> children, [
+    Map<String, Object?>? childDisplay,
+  ]) {
     final parsed = catalog.parse({
       'title': title.length > 60 ? title.substring(0, 60) : title,
       'root': {
         'component': AgentComponents.column,
-        'density': _level(a),
+        'density': 'detail',
+        // Everything is drawn in full unless the model says less; what it
+        // says is the screen's, so `update_component` on the root changes
+        // every card at once.
+        'childDisplay': childDisplay == null
+            ? const {'level': 'detail'}
+            : mergeDisplayJson(const {'level': 'detail'}, childDisplay),
         'children': children,
       },
     });
@@ -492,6 +564,7 @@ class AgentReadTools {
       summary: spec.summary,
       root: probe.named(spec.root),
     )..ended = true;
+    _drawn = draft;
     host.begin(draft);
     return null;
   }
@@ -555,7 +628,7 @@ class AgentReadTools {
           'component': AgentEntityComponents.callout,
           'text': '没有符合条件的${kind.word}',
         },
-      ], a);
+      ]);
       return shown ??
           {
             'ok': true,
@@ -573,8 +646,8 @@ class AgentReadTools {
         final inLane = cards.where((c) => c.lane == status).toList();
         if (inLane.isEmpty) continue;
         children.add(
-          _section('$word · ${inLane.length}', [
-            for (final c in inLane) _card(c.entity, c.id, a),
+          _group('$word · ${inLane.length}', [
+            for (final c in inLane) _card(c.entity, c.id),
           ], a),
         );
       }
@@ -582,14 +655,14 @@ class AgentReadTools {
       final rest = cards.where((c) => !known.contains(c.lane)).toList();
       if (rest.isNotEmpty) {
         children.add(
-          _section('其他 · ${rest.length}', [
-            for (final c in rest) _card(c.entity, c.id, a),
+          _group('其他 · ${rest.length}', [
+            for (final c in rest) _card(c.entity, c.id),
           ], a),
         );
       }
     } else {
       children.add(
-        _section(title, [for (final c in cards) _card(c.entity, c.id, a)], a),
+        _group(title, [for (final c in cards) _card(c.entity, c.id)], a),
       );
     }
     if (total > cards.length) {
@@ -598,7 +671,7 @@ class AgentReadTools {
         'text': '还有 ${total - cards.length} 个没显示',
       });
     }
-    final refused = _show(title, children, a);
+    final refused = _show(title, children, _spec(a['childDisplay']));
     if (refused != null) return refused;
     return {
       'ok': true,
@@ -697,7 +770,9 @@ class AgentReadTools {
     }
     if (!_idFormat.hasMatch(id)) return {'error': 'id 不对：要取自读取工具的结果'};
     if (stale()) return const {};
-    final refused = _show(_titleOf(kind), [_card(kind, id, a, high: true)], a);
+    final refused = _show(_titleOf(kind), [
+      _card(kind, id, high: true, display: _spec(a['display'])),
+    ]);
     if (refused != null) return refused;
     return {
       'ok': true,
@@ -743,16 +818,16 @@ class AgentReadTools {
     if (rows.isEmpty) {
       _show(title, [
         {'component': AgentEntityComponents.callout, 'text': '没有找到符合的消息'},
-      ], a);
+      ]);
       return {'ok': true, 'shown': 0, 'say': '没有找到，如实说一句，可以建议换个关键词'};
     }
     final refused = _show(title, [
-      _section(title, [
-        for (final r in rows) _card('message', r['id']! as String, a),
+      _group(title, [
+        for (final r in rows) _card('message', r['id']! as String),
       ], a),
       if (result['hasMore'] == true)
         {'component': AgentEntityComponents.callout, 'text': '还有更多结果'},
-    ], a);
+    ], _spec(a['childDisplay']));
     if (refused != null) return refused;
     return {
       'ok': true,
@@ -818,14 +893,14 @@ class AgentReadTools {
     if (stale()) return const {};
     if (!_idFormat.hasMatch(parent.id)) return {'error': '消息 id 不对'};
     final refused = _show('讨论 · ${replies.length} 条回复', [
-      _card('message', parent.id, a, high: true),
+      _card('message', parent.id, high: true, display: _spec(a['display'])),
       if (replies.isNotEmpty)
         _section('回复 · ${replies.length}', [
-          for (final r in replies) _card('message', r['id']! as String, a),
-        ], a)
+          for (final r in replies) _card('message', r['id']! as String),
+        ])
       else
         {'component': AgentEntityComponents.callout, 'text': '这条消息下面还没有回复'},
-    ], a);
+    ], _spec(a['childDisplay']));
     if (refused != null) return refused;
     return {
       'ok': true,
@@ -868,12 +943,12 @@ class AgentReadTools {
     final shown = items.length > 12 ? items.sublist(items.length - 12) : items;
     final refused = _show('${result['agent'] ?? a['agent']} 最近在做什么', [
       if (agentId is String && _idFormat.hasMatch(agentId))
-        _card('agent', agentId, a, high: true),
+        _card('agent', agentId, high: true, display: _spec(a['display'])),
       if (shown.isEmpty)
         {'component': AgentEntityComponents.callout, 'text': '最近没有活动记录'}
       else
         {'component': AgentEntityComponents.timeline, 'items': shown},
-    ], a);
+    ]);
     if (refused != null) return refused;
     return {
       'ok': true,
@@ -913,12 +988,12 @@ class AgentReadTools {
     ];
     final refused = _show('任务历史', [
       if (taskId is String && _idFormat.hasMatch(taskId))
-        _card('task', taskId, a, high: true),
+        _card('task', taskId, high: true, display: _spec(a['display'])),
       if (items.isEmpty)
         {'component': AgentEntityComponents.callout, 'text': '这个任务还没有变更记录'}
       else
         {'component': AgentEntityComponents.timeline, 'items': items},
-    ], a);
+    ]);
     if (refused != null) return refused;
     return {
       'ok': true,

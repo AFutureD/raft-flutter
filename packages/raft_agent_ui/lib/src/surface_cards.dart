@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
 import 'attention_card.dart' show AgentCountBadge;
+import 'display_spec.dart';
 import 'enter.dart';
 import 'layer_frame.dart';
 import 'marks.dart';
@@ -73,7 +74,13 @@ class _Card extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
-          child: child,
+          // An element shown or hidden grows or shrinks the card smoothly.
+          child: AnimatedSize(
+            duration: agentResizeDuration,
+            curve: agentResizeCurve,
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
         ),
       ),
     );
@@ -81,9 +88,10 @@ class _Card extends StatelessWidget {
 }
 
 class _Sticker extends StatelessWidget {
-  const _Sticker(this.text, {required this.fill});
+  const _Sticker(this.text, {required this.fill, this.size = 12});
   final String text;
   final Color fill;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +114,7 @@ class _Sticker extends StatelessWidget {
             child: Text(
               text,
               style: t.body(
-                12,
+                size,
                 weight: FontWeight.w800,
                 color: t.stickerLabels ? t.line : t.foreground,
               ),
@@ -120,6 +128,9 @@ class _Sticker extends StatelessWidget {
 
 /// One agent and what it is doing: name, state sticker, the current
 /// activity, how long and where.
+///
+/// [display] says which of those are drawn (`name`, `state`, `activity`,
+/// `since`, `channel`); without it all of them are.
 class AgentStatusCardView extends StatelessWidget {
   const AgentStatusCardView({
     super.key,
@@ -128,6 +139,7 @@ class AgentStatusCardView extends StatelessWidget {
     this.activity,
     this.since,
     this.channel,
+    this.display,
   });
 
   final String name;
@@ -139,14 +151,23 @@ class AgentStatusCardView extends StatelessWidget {
   /// How long that has been so ("12 分钟").
   final String? since;
   final String? channel;
+  final DisplaySpec? display;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    final x = (display ?? DisplaySpec.none).resolve('AgentStatusCard');
+    final f = x.factor(surface: true);
     final tags = [
-      if (since != null && since!.isNotEmpty) since!,
-      if (channel != null && channel!.isNotEmpty) '#$channel',
+      if (x.has('since') && since != null && since!.isNotEmpty) since!,
+      if (x.has('channel') && channel != null && channel!.isNotEmpty)
+        '#$channel',
     ];
+    final showActivity = x.has('activity') && (activity ?? '').isNotEmpty;
+    final showState = x.has('state');
+    // Every element off still leaves the name.
+    final showName =
+        x.has('name') || (!showState && !showActivity && tags.isEmpty);
     return Semantics(
       container: true,
       label: '$name，${agentWorkStateLabels[state]}',
@@ -154,28 +175,34 @@ class AgentStatusCardView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: AgentMarkText(
-                    name,
-                    maxLines: 1,
-                    style: t.heading(17, weight: FontWeight.w800),
+            if (showName || showState)
+              Row(
+                children: [
+                  Expanded(
+                    child: showName
+                        ? AgentMarkText(
+                            name,
+                            maxLines: 1,
+                            style: t.heading(17 * f, weight: FontWeight.w800),
+                          )
+                        : const SizedBox.shrink(),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _Sticker(
-                  agentWorkStateLabels[state] ?? '',
-                  fill: agentWorkStateColor(t, state),
-                ),
-              ],
-            ),
-            if (activity != null && activity!.isNotEmpty) ...[
-              const SizedBox(height: 4),
+                  if (showState) ...[
+                    const SizedBox(width: 8),
+                    _Sticker(
+                      agentWorkStateLabels[state] ?? '',
+                      fill: agentWorkStateColor(t, state),
+                      size: 12 * f,
+                    ),
+                  ],
+                ],
+              ),
+            if (showActivity) ...[
+              if (showName || showState) const SizedBox(height: 4),
               AgentMarkText(
                 activity!,
-                maxLines: 2,
-                style: t.body(14, color: t.foreground),
+                maxLines: x.lines,
+                style: t.body(14 * f, color: t.foreground),
               ),
             ],
             if (tags.isNotEmpty) ...[
@@ -185,7 +212,10 @@ class AgentStatusCardView extends StatelessWidget {
                 runSpacing: 6,
                 children: [
                   for (final (i, tag) in tags.indexed)
-                    AgentPop(order: i + 1, child: AgentChip(tag)),
+                    AgentPop(
+                      order: i + 1,
+                      child: AgentChip(tag, size: 11 * f),
+                    ),
                 ],
               ),
             ],
@@ -196,7 +226,8 @@ class AgentStatusCardView extends StatelessWidget {
   }
 }
 
-/// A titled group of cards, coloured by what they have in common.
+/// A titled group of cards, coloured by what they have in common. [display]
+/// says whether the title and the count badge are drawn.
 class AgentStatusGroupView extends StatelessWidget {
   const AgentStatusGroupView({
     super.key,
@@ -204,6 +235,7 @@ class AgentStatusGroupView extends StatelessWidget {
     required this.children,
     this.state,
     this.count,
+    this.display,
   });
 
   final String title;
@@ -212,35 +244,49 @@ class AgentStatusGroupView extends StatelessWidget {
   /// Defaults to the number of [children].
   final int? count;
   final List<Widget> children;
+  final DisplaySpec? display;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    final x = (display ?? DisplaySpec.none).resolve('AgentStatusGroup');
+    final f = x.factor(surface: true);
     final n = count ?? children.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
-          child: Row(
-            children: [
-              Flexible(
-                child: AgentTypeText(
-                  title,
-                  at: .2,
-                  style: t.heading(15, weight: FontWeight.w900),
-                ),
-              ),
-              const SizedBox(width: 8),
-              AgentPop(
-                at: .5,
-                child: AgentCountBadge(
-                  '$n',
-                  priority: _priorityOf(state ?? AgentWorkState.busy),
-                ),
-              ),
-            ],
-          ),
+        AnimatedSize(
+          duration: agentResizeDuration,
+          curve: agentResizeCurve,
+          alignment: Alignment.topCenter,
+          child: x.has('title') || x.has('count')
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
+                  child: Row(
+                    children: [
+                      if (x.has('title'))
+                        Flexible(
+                          child: AgentTypeText(
+                            title,
+                            at: .2,
+                            style: t.heading(15 * f, weight: FontWeight.w900),
+                          ),
+                        ),
+                      if (x.has('title') && x.has('count'))
+                        const SizedBox(width: 8),
+                      if (x.has('count'))
+                        AgentPop(
+                          at: .5,
+                          child: AgentCountBadge(
+                            '$n',
+                            size: 15 * f,
+                            priority: _priorityOf(state ?? AgentWorkState.busy),
+                          ),
+                        ),
+                    ],
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
         ),
         ...children,
       ],
@@ -250,6 +296,9 @@ class AgentStatusGroupView extends StatelessWidget {
 
 /// One task as a sentence, its status and who has it, the last thing said
 /// about it and what is asked of the person.
+///
+/// [display] says which parts are drawn: `number`, `status`, `title`,
+/// `assignee`, `channel`, `latest_progress` and `ask`.
 class AgentTaskCardView extends StatelessWidget {
   const AgentTaskCardView({
     super.key,
@@ -260,6 +309,7 @@ class AgentTaskCardView extends StatelessWidget {
     this.channel,
     this.quote,
     this.ask,
+    this.display,
   });
 
   final String title;
@@ -272,14 +322,27 @@ class AgentTaskCardView extends StatelessWidget {
   /// The latest progress line, already formatted ("Cindy · 10:32  文字").
   final String? quote;
   final String? ask;
+  final DisplaySpec? display;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    final x = (display ?? DisplaySpec.none).resolve('TaskCard');
+    final f = x.factor(surface: true);
     final meta = [
-      if (assignee != null && assignee!.isNotEmpty) '负责人 $assignee',
-      if (channel != null && channel!.isNotEmpty) '#$channel',
+      if (x.has('assignee') && assignee != null && assignee!.isNotEmpty)
+        '负责人 $assignee',
+      if (x.has('channel') && channel != null && channel!.isNotEmpty)
+        '#$channel',
     ];
+    final showNumber = x.has('number') && number != null;
+    final showStatus = x.has('status');
+    final showQuote = x.has('latest_progress') && (quote ?? '').isNotEmpty;
+    final showAsk = x.has('ask') && (ask ?? '').isNotEmpty;
+    // Every element off still leaves the title.
+    final showTitle =
+        x.has('title') ||
+        (!showNumber && !showStatus && meta.isEmpty && !showQuote && !showAsk);
     return Semantics(
       container: true,
       label:
@@ -288,26 +351,31 @@ class AgentTaskCardView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                if (number != null)
-                  Text(
-                    '#$number',
-                    style: t.heading(14, weight: FontWeight.w900),
-                  ),
-                const Spacer(),
-                _Sticker(
-                  agentTaskStatusLabels[status] ?? status,
-                  fill: _statusColor(t, status),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            AgentMarkText(
-              title,
-              maxLines: 3,
-              style: t.heading(18, weight: FontWeight.w800),
-            ),
+            if (showNumber || showStatus)
+              Row(
+                children: [
+                  if (showNumber)
+                    Text(
+                      '#$number',
+                      style: t.heading(14 * f, weight: FontWeight.w900),
+                    ),
+                  const Spacer(),
+                  if (showStatus)
+                    _Sticker(
+                      agentTaskStatusLabels[status] ?? status,
+                      fill: _statusColor(t, status),
+                      size: 12 * f,
+                    ),
+                ],
+              ),
+            if (showTitle) ...[
+              if (showNumber || showStatus) const SizedBox(height: 6),
+              AgentMarkText(
+                title,
+                maxLines: x.lines,
+                style: t.heading(18 * f, weight: FontWeight.w800),
+              ),
+            ],
             if (meta.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
@@ -315,21 +383,24 @@ class AgentTaskCardView extends StatelessWidget {
                 runSpacing: 6,
                 children: [
                   for (final (i, m) in meta.indexed)
-                    AgentPop(order: i + 1, child: AgentChip(m)),
+                    AgentPop(
+                      order: i + 1,
+                      child: AgentChip(m, size: 11 * f),
+                    ),
                 ],
               ),
             ],
-            if (quote != null && quote!.isNotEmpty) ...[
+            if (showQuote) ...[
               const SizedBox(height: 10),
               _QuoteBar(
                 child: AgentMarkText(
                   quote!,
                   maxLines: 4,
-                  style: t.body(13, color: t.muted),
+                  style: t.body(13 * f, color: t.muted),
                 ),
               ),
             ],
-            if (ask != null && ask!.isNotEmpty) ...[
+            if (showAsk) ...[
               const SizedBox(height: 10),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,7 +420,7 @@ class AgentTaskCardView extends StatelessWidget {
                         child: Text(
                           '要你做',
                           style: t.body(
-                            11.5,
+                            11.5 * f,
                             weight: FontWeight.w800,
                             color: t.stickerLabels ? t.layer : t.canvas,
                           ),
@@ -362,7 +433,7 @@ class AgentTaskCardView extends StatelessWidget {
                     child: AgentMarkText(
                       ask!,
                       maxLines: 2,
-                      style: t.body(14, weight: FontWeight.w700),
+                      style: t.body(14 * f, weight: FontWeight.w700),
                     ),
                   ),
                 ],
@@ -376,8 +447,9 @@ class AgentTaskCardView extends StatelessWidget {
 }
 
 class _QuoteBar extends StatelessWidget {
-  const _QuoteBar({required this.child});
+  const _QuoteBar({required this.child, this.bar = true});
   final Widget child;
+  final bool bar;
 
   @override
   Widget build(BuildContext context) {
@@ -385,16 +457,22 @@ class _QuoteBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(left: 10),
       decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: t.line.withValues(alpha: .25), width: 4),
-        ),
+        border: bar
+            ? Border(
+                left: BorderSide(
+                  color: t.line.withValues(alpha: .25),
+                  width: 4,
+                ),
+              )
+            : null,
       ),
       child: child,
     );
   }
 }
 
-/// A line somebody wrote, quoted as it was said.
+/// A line somebody wrote, quoted as it was said. [display] says which parts
+/// are drawn: `author`, `time`, `channel`, `text` and the `bar` at the left.
 class AgentMessageQuoteView extends StatelessWidget {
   const AgentMessageQuoteView({
     super.key,
@@ -402,39 +480,58 @@ class AgentMessageQuoteView extends StatelessWidget {
     required this.text,
     this.time,
     this.channel,
+    this.display,
   });
 
   final String author, text;
   final String? time, channel;
+  final DisplaySpec? display;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    final x = (display ?? DisplaySpec.none).resolve('MessageQuote');
+    final f = x.factor(surface: true);
     final head = [
-      author,
-      if (time != null && time!.isNotEmpty) time!,
-      if (channel != null && channel!.isNotEmpty) '#$channel',
+      if (x.has('author')) author,
+      if (x.has('time') && time != null && time!.isNotEmpty) time!,
+      if (x.has('channel') && channel != null && channel!.isNotEmpty)
+        '#$channel',
     ].join(' · ');
+    // Every element off still leaves the words.
+    final showText = x.has('text') || head.isEmpty;
     return Semantics(
       container: true,
       label: '$author 说：$text',
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-        child: _QuoteBar(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                head,
-                style: t.body(12.5, color: t.muted, weight: FontWeight.w800),
-              ),
-              const SizedBox(height: 2),
-              AgentMarkText(
-                text,
-                maxLines: 5,
-                style: t.body(14.5, color: t.foreground),
-              ),
-            ],
+        child: AnimatedSize(
+          duration: agentResizeDuration,
+          curve: agentResizeCurve,
+          alignment: Alignment.topCenter,
+          child: _QuoteBar(
+            bar: x.has('bar'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (head.isNotEmpty)
+                  Text(
+                    head,
+                    style: t.body(
+                      12.5 * f,
+                      color: t.muted,
+                      weight: FontWeight.w800,
+                    ),
+                  ),
+                if (head.isNotEmpty && showText) const SizedBox(height: 2),
+                if (showText)
+                  AgentMarkText(
+                    text,
+                    maxLines: x.lines,
+                    style: t.body(14.5 * f, color: t.foreground),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -449,62 +546,106 @@ class AgentStatData {
 }
 
 /// Label/value pairs as big numbers in a row (wraps on a narrow screen).
+/// [display] says whether the `label` under each number is drawn.
 class AgentStatRowView extends StatelessWidget {
-  const AgentStatRowView({super.key, required this.stats});
+  const AgentStatRowView({super.key, required this.stats, this.display});
   final List<AgentStatData> stats;
+  final DisplaySpec? display;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
+    final x = (display ?? DisplaySpec.none).resolve('StatRow');
+    final f = x.factor(surface: true);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-      child: Wrap(
-        spacing: 22,
-        runSpacing: 10,
-        children: [
-          for (final s in stats)
-            Semantics(
-              container: true,
-              label: '${s.label} ${s.value}',
-              excludeSemantics: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AgentCountUp(
-                    s.value,
-                    style: t
-                        .heading(
-                          t.stickerLabels ? 30 : 24,
-                          weight: FontWeight.w900,
-                        )
-                        .copyWith(height: 1.1),
-                  ),
-                  Text(s.label, style: t.body(11.5, color: t.hint)),
-                ],
+      child: AnimatedSize(
+        duration: agentResizeDuration,
+        curve: agentResizeCurve,
+        alignment: Alignment.topCenter,
+        child: Wrap(
+          spacing: 22,
+          runSpacing: 10,
+          children: [
+            for (final s in stats)
+              Semantics(
+                container: true,
+                label: '${s.label} ${s.value}',
+                excludeSemantics: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AgentCountUp(
+                      s.value,
+                      style: t
+                          .heading(
+                            (t.stickerLabels ? 30 : 24) * f,
+                            weight: FontWeight.w900,
+                          )
+                          .copyWith(height: 1.1),
+                    ),
+                    if (x.has('label'))
+                      Text(s.label, style: t.body(11.5 * f, color: t.hint)),
+                  ],
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// A labelled run of children.
+/// A labelled run of children. [display] says whether the `title` and the
+/// `count` badge are drawn.
 class AgentSurfaceSectionView extends StatelessWidget {
   const AgentSurfaceSectionView({
     super.key,
     required this.title,
     required this.children,
+    this.display,
   });
   final String title;
   final List<Widget> children;
+  final DisplaySpec? display;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [AgentSectionLabel(title), ...children],
-  );
+  Widget build(BuildContext context) {
+    final x = (display ?? DisplaySpec.none).resolve('Section');
+    final f = x.factor(surface: true);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSize(
+          duration: agentResizeDuration,
+          curve: agentResizeCurve,
+          alignment: Alignment.topCenter,
+          child: x.has('title') || x.has('count')
+              ? Row(
+                  children: [
+                    if (x.has('title'))
+                      Flexible(child: AgentSectionLabel(title, scale: f)),
+                    if (x.has('count'))
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: x.has('title') ? 0 : 18,
+                          top: 14,
+                        ),
+                        child: AgentCountBadge(
+                          '${children.length}',
+                          size: 12 * f,
+                          priority: AgentPriority.progress,
+                        ),
+                      ),
+                  ],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+        ...children,
+      ],
+    );
+  }
 }
 
 /// A group or section folded to one entry: "在忙 1：Cindy 在做 #119". Tapping
@@ -517,10 +658,18 @@ class AgentSummaryRow extends StatelessWidget {
     required this.text,
     this.state,
     this.onTap,
+    this.display,
+    this.displayKind = 'AgentStatusGroup',
   });
 
   final String title;
   final int count;
+
+  /// What of the row is drawn: `title`, `count` and the `collapse` arrow, as
+  /// for [displayKind], the group (`AgentStatusGroup`) or `Section` it
+  /// stands for. The members' [text] is always there.
+  final DisplaySpec? display;
+  final String displayKind;
 
   /// The members in one run: "Cindy 在做 #119、Bo 在做 #7".
   final String text;
@@ -536,6 +685,12 @@ class AgentSummaryRow extends StatelessWidget {
         ? (t.cardFills?[AgentPriority.progress] ??
               t.priority(AgentPriority.progress))
         : agentWorkStateColor(t, state!);
+    final x = (display ?? DisplaySpec.none).resolve(displayKind);
+    final f = x.factor(surface: true);
+    final head = [
+      if (x.has('title')) title,
+      if (x.has('count')) '$count',
+    ].join(' ');
     final line = '$title $count${text.isEmpty ? '' : '：$text'}';
     return Semantics(
       button: onTap != null,
@@ -582,14 +737,18 @@ class AgentSummaryRow extends StatelessWidget {
                           child: Text.rich(
                             TextSpan(
                               children: [
-                                TextSpan(
-                                  text: '$title $count',
-                                  style: t.heading(15, weight: FontWeight.w900),
-                                ),
+                                if (head.isNotEmpty)
+                                  TextSpan(
+                                    text: head,
+                                    style: t.heading(
+                                      15 * f,
+                                      weight: FontWeight.w900,
+                                    ),
+                                  ),
                                 if (text.isNotEmpty)
                                   TextSpan(
-                                    text: '：$text',
-                                    style: t.body(14, color: t.foreground),
+                                    text: head.isEmpty ? text : '：$text',
+                                    style: t.body(14 * f, color: t.foreground),
                                   ),
                               ],
                             ),
@@ -598,12 +757,12 @@ class AgentSummaryRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (onTap != null)
+                      if (onTap != null && x.has('collapse'))
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: Icon(
                             Icons.expand_more,
-                            size: 20,
+                            size: 20 * f,
                             color: t.hint,
                           ),
                         ),

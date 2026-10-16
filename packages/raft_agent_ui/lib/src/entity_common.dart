@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'agent_theme.dart';
+import 'display_spec.dart';
 import 'enter.dart';
 import 'entity_model.dart';
 
@@ -76,10 +77,17 @@ class AgentHandleBadge extends StatelessWidget {
 
 /// A coloured status word ("进行中", "在忙", "未读 3").
 class AgentEntityPill extends StatelessWidget {
-  const AgentEntityPill(this.text, {super.key, required this.fill, this.order});
+  const AgentEntityPill(
+    this.text, {
+    super.key,
+    required this.fill,
+    this.order,
+    this.size = entityMinText,
+  });
   final String text;
   final Color fill;
   final int? order;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +106,7 @@ class AgentEntityPill extends StatelessWidget {
           child: Text(
             text,
             style: t.body(
-              entityMinText,
+              size,
               weight: FontWeight.w800,
               color: t.stickerLabels ? t.line : t.foreground,
             ),
@@ -182,28 +190,36 @@ class AgentEntityFrame extends StatelessWidget {
             ),
             // Without a strip nothing needs the intrinsic height, and a block
             // that measures its own width (a table) must not be asked for it.
-            child: strip == null
-                ? Padding(padding: padding, child: child)
-                : IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          key: const ValueKey('entity-strip'),
-                          width: 10,
-                          decoration: BoxDecoration(
-                            color: strip,
-                            border: Border(
-                              right: BorderSide(color: t.line, width: border),
+            // A property change that makes the card taller or shorter
+            // (an element shown or hidden, another level) grows or shrinks
+            // it instead of jumping.
+            child: AnimatedSize(
+              duration: agentResizeDuration,
+              curve: agentResizeCurve,
+              alignment: Alignment.topCenter,
+              child: strip == null
+                  ? Padding(padding: padding, child: child)
+                  : IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            key: const ValueKey('entity-strip'),
+                            width: 10,
+                            decoration: BoxDecoration(
+                              color: strip,
+                              border: Border(
+                                right: BorderSide(color: t.line, width: border),
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Padding(padding: padding, child: child),
-                        ),
-                      ],
+                          Expanded(
+                            child: Padding(padding: padding, child: child),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+            ),
           ),
         ),
       ),

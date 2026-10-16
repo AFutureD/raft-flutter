@@ -1,4 +1,10 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_agent_ui/raft_agent_ui.dart' hide AgentEntityRef;
+import 'package:raft_agent_ui/raft_agent_ui.dart' as ui show AgentEntityRef;
+import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/features/agent_mode/agent_catalog.dart';
 import 'package:raft_flutter/features/agent_mode/agent_entity_binding.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
@@ -23,9 +29,11 @@ void main() {
   late CapabilityWorld w;
   late AgentRuntime rt;
   final begun = <AgentSurfaceDraft>[];
+  var refs = AgentReferenceTable.empty;
 
   setUp(() {
     begun.clear();
+    refs = AgentReferenceTable.empty;
     final world = capabilityWorld();
     client = world.$1;
     w = world.$2;
@@ -166,7 +174,7 @@ void main() {
         changed: (d, {added}) => const {},
         isOpen: begun.contains,
       ),
-      references: () => AgentReferenceTable.empty,
+      references: () => refs,
     );
   });
   tearDown(() async {
@@ -215,10 +223,12 @@ void main() {
         ];
         expect(shown, unorderedEquals(expected[kind]!));
         expect(r['shown'], shown.length);
-        // Full, not a summary: every card detailed, nothing folded on a phone.
+        // Full: the cards inherit detail from the screen and none of them
+        // says less; nothing is folded on a phone.
+        expect(draft.root.props['childDisplay'], {'level': 'detail'});
         expect([
-          for (final n in cards(draft)) n.string('density'),
-        ], everyElement('detail'));
+          for (final n in cards(draft)) n.props['display'],
+        ], everyElement(isNull));
         expect(folded(draft), isEmpty);
         // The model has one sentence to say, and nothing to read out.
         expect(r['say'], contains('一句话'));
@@ -260,16 +270,15 @@ void main() {
       },
     );
 
-    test('a summary is only given when asked for', () async {
+    test('a lighter list is only given when asked for', () async {
       await rt.runTool('show_list', {
         'kind': 'agents',
-        'display': {'level': 'summary'},
+        'childDisplay': {'level': 'minimum'},
       });
       final draft = begun.single;
-      expect([
-        for (final n in cards(draft)) n.string('density'),
-      ], everyElement('summary'));
-      expect(folded(draft), isNotEmpty, reason: 'the phone folds it');
+      expect(draft.root.props['childDisplay'], {'level': 'minimum'});
+      // The list itself is still shown whole, not folded into one row.
+      expect(folded(draft), isEmpty);
     });
 
     test('nothing to list is said on screen too', () async {
@@ -559,4 +568,287 @@ void main() {
       }
     });
   });
+
+  group('display: how the cards look, asked for and changed on screen', () {
+    setUp(() {
+      w.routes['/channels/saved'] = (_) => {
+        'saved': [
+          for (final id in ['m9', 'm10'])
+            {
+              'messageId': id,
+              'channelId': 'ch-general',
+              'channelName': 'general',
+              'senderName': 'Ada',
+              'content': 'keep $id',
+              'createdAt': hoursAgo(1),
+            },
+        ],
+        'total': 2,
+      };
+    });
+
+    Future<Map<String, Object?>> update(Map<String, Object?> args) =>
+        rt.runTool('update_component', {
+          ...args,
+          'props': jsonEncode(args['props']),
+        });
+
+    test('show_list passes display and childDisplay to what it draws', () async {
+      final r = await rt.runTool('show_list', {
+        'kind': 'tasks',
+        'display': {'level': 'minimum'},
+        'childDisplay': {
+          'level': 'medium',
+          'show': {'assignee': false},
+        },
+      });
+      expect(r['ok'], isTrue, reason: '$r');
+      final draft = begun.single;
+      final sections = [
+        for (final n in draft.root.walk())
+          if (n.component == AgentComponents.section) n,
+      ];
+      expect(sections, hasLength(3));
+      for (final section in sections) {
+        expect(section.props['display'], {'level': 'minimum'});
+      }
+      // The cards' look is the screen's: one change reaches every group.
+      expect(draft.root.props['childDisplay'], {
+        'level': 'medium',
+        'show': {'assignee': false},
+      });
+      // The screen says where to change it later.
+      expect(r['surface_id'], draft.id);
+      expect(r['root'], draft.root.id);
+    });
+
+    test('one card tools take display for the card itself', () async {
+      await rt.runTool('show_item', {
+        'kind': 'agent',
+        'id': 'a-cody',
+        'display': {
+          'show': {'avatar': false},
+          'size': 'large',
+        },
+      });
+      expect(cards(begun.last).single.props['display'], {
+        'show': {'avatar': false},
+        'size': 'large',
+      });
+      await rt.runTool('show_agent_activity', {
+        'agent': 'cody',
+        'display': {'level': 'minimum'},
+      });
+      expect(cards(begun.last).single.props['display'], {'level': 'minimum'});
+      await rt.runTool('show_task_history', {
+        'task': '94',
+        'display': {'lines': 2},
+      });
+      expect(cards(begun.last).single.props['display'], {'lines': 2});
+      // A thread: display is the message, childDisplay the replies.
+      final r = await rt.runTool('show_thread', {
+        'message': 'm-1',
+        'display': {'level': 'detail'},
+        'childDisplay': {
+          'show': {'avatar': false},
+        },
+      });
+      expect(r['ok'], isTrue, reason: '$r');
+      final thread = cards(begun.last);
+      expect(thread.first.props['display'], {'level': 'detail'});
+      expect(begun.last.root.props['childDisplay'], {
+        'level': 'detail',
+        'show': {'avatar': false},
+      });
+    });
+
+    test('search_messages takes them like the other lists', () async {
+      await rt.runTool('search_messages', {
+        'q': '上线',
+        'childDisplay': {
+          'show': {'avatar': false},
+        },
+      });
+      expect(begun.last.root.props['childDisplay'], {
+        'level': 'detail',
+        'show': {'avatar': false},
+      });
+    });
+
+    test('a wrong display is refused with the names that exist', () async {
+      final before = begun.length;
+      final list = await rt.runTool('show_list', {
+        'kind': 'saved',
+        'childDisplay': {
+          'show': {'nope': true},
+        },
+      });
+      expect('$list', contains('nope'));
+      expect(list['error'], isNotNull);
+      final item = await rt.runTool('show_item', {
+        'kind': 'agent',
+        'id': 'a-cody',
+        'display': {
+          'show': {'thread_count': true},
+        },
+      });
+      expect('${item['error']}', contains('thread_count'));
+      expect('${item['error']}', contains('avatar'));
+      final level = await rt.runTool('show_list', {
+        'kind': 'saved',
+        'childDisplay': {'level': 'loud'},
+      });
+      expect(level['error'], isNotNull);
+      expect(begun, hasLength(before), reason: 'nothing was shown');
+    });
+
+    test('the model is given the same display schema as the catalog', () {
+      final declared = {
+        for (final d in agentModeToolDeclarations()) '${d['name']}': d,
+      };
+      for (final name in [
+        'show_list',
+        'show_item',
+        'search_messages',
+        'show_thread',
+        'show_agent_activity',
+        'show_task_history',
+      ]) {
+        final p = (declared[name]!['parameters'] as Map)['properties'] as Map;
+        final display = p['display'] as Map;
+        expect((display['properties'] as Map).keys, contains('show'));
+        expect(jsonEncode(display), isNot(contains('x-describe')));
+      }
+      for (final name in ['show_list', 'search_messages', 'show_thread']) {
+        final p = (declared[name]!['parameters'] as Map)['properties'] as Map;
+        expect(p, contains('childDisplay'), reason: name);
+      }
+      final update =
+          (declared['update_component']!['parameters'] as Map)['properties']
+              as Map;
+      expect(update, contains('handle'));
+    });
+
+    testWidgets('a list without avatars, then an update brings them back in '
+        'place, one card at a time too', (t) async {
+      await t.runAsync(() async {
+        final r = await rt.runTool('show_list', {
+          'kind': 'saved',
+          'childDisplay': {
+            'show': {'avatar': false},
+          },
+        });
+        expect(r['ok'], isTrue, reason: '$r');
+      });
+      final draft = begun.single;
+      t.view.physicalSize = const Size(390, 1600);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      Future<void> draw() async {
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(RaftFamily.brutal),
+            home: Scaffold(
+              body: AgentEntityScope(
+                resolver: _MessageResolver(),
+                child: AgentSurfaceView(
+                  spec: draft.spec,
+                  focusPrefix: 's',
+                  compact: true,
+                ),
+              ),
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull);
+      }
+
+      await draw();
+      expect(find.textContaining('keep m9'), findsOneWidget);
+      expect(find.textContaining('keep m10'), findsOneWidget);
+      expect(find.byType(AgentEntityAvatar), findsNothing);
+      final card = find.byKey(const ValueKey('entity-card-message')).first;
+      final element = card.evaluate().single;
+
+      // Everything: avatars back, through the screen's root.
+      late Map<String, Object?> r;
+      await t.runAsync(() async {
+        r = await update({
+          'id': 'root',
+          'props': {
+            'childDisplay': {
+              'show': {'avatar': true},
+            },
+          },
+        });
+      });
+      expect(r['ok'], isTrue, reason: '$r');
+      // Only what was named changed: the screen's detail level stays.
+      expect(draft.root.props['childDisplay'], {
+        'level': 'detail',
+        'show': {'avatar': true},
+      });
+      await draw();
+      expect(find.byType(AgentEntityAvatar), findsNWidgets(2));
+      expect(
+        find.byKey(const ValueKey('entity-card-message')).first.evaluate().single,
+        same(element),
+        reason: 'the same card, changed in place',
+      );
+
+      // One card, by the number the person sees.
+      refs = AgentReferenceTable('s', [
+        const AgentEntityRef(
+          type: 'message',
+          id: 'm10',
+          label: 'Ada',
+          handle: '②',
+          index: 2,
+        ),
+      ]);
+      await t.runAsync(() async {
+        r = await update({
+          'handle': '②',
+          'props': {
+            'display': {
+              'show': {'avatar': false},
+            },
+          },
+        });
+      });
+      expect(r['ok'], isTrue, reason: '$r');
+      await draw();
+      expect(find.byType(AgentEntityAvatar), findsOneWidget);
+      expect(
+        cards(draft).map((n) => n.string('id')),
+        ['m9', 'm10'],
+        reason: 'nothing moved',
+      );
+
+      // A handle that is not on this screen is refused, nothing changes.
+      await t.runAsync(() async {
+        r = await update({
+          'handle': '⑦',
+          'props': {
+            'display': {'level': 'minimum'},
+          },
+        });
+      });
+      expect(r['error'], isNotNull);
+    });
+  });
+}
+
+class _MessageResolver implements AgentEntityResolver {
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
+
+  @override
+  AgentEntityResolution resolve(ui.AgentEntityRef ref) => AgentEntityFound(
+    AgentMessageData(author: 'Ada', text: 'keep ${ref.id}', time: '10:32'),
+  );
 }
