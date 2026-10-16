@@ -237,3 +237,4 @@ export 'src/mobile_page_header.dart';
 export 'src/product_empty_state.dart';
 export 'src/task_timeline.dart';
 export 'src/app_icon_choices.dart';
+export 'src/composer_expand_prototype.dart';
