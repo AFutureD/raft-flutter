@@ -673,7 +673,7 @@ void main() {
     final probe = await open(t, data: _HomeData.new);
     final seen = await given(t, probe, 'go_home');
     _expectParity(_shown(t, attentionRoots()), seen, 'activity home');
-    for (final word in ['Cody', '#general', '检测首片什么时候出？', '点名了你', '2 条未读', '私信 · Alice Chen', '私信你', '已读']) {
+    for (final word in ['Cody', '#general', '检测首片什么时候出？', '点名了你', '2 条未读', '私信 · alice', 'Alice Chen', '私信你', '已读']) {
       expect(seen, contains(word), reason: word);
     }
     // The stale tasks are one collapsed row, and the model is told so.
@@ -683,7 +683,9 @@ void main() {
 
   testWidgets('the Activity home with its feedback actions open', (t) async {
     final probe = await open(t, data: _HomeData.new);
-    await t.tap(find.textContaining('首片 12 张里'));
+    await t.tap(
+      find.byKey(const ValueKey('attention-card-activity:thread:th-m7')),
+    );
     await t.pumpAndSettle();
     expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
     final seen = await given(t, probe, 'go_home');
@@ -720,12 +722,11 @@ void main() {
 
   testWidgets('a conversation opened from an item of the home', (t) async {
     final probe = await open(t, data: _HomeData.new);
-    late Map<String, Object?> result;
     await say(t, probe, (call) async {
-      result = await call('open_item', {'number': 1});
+      await call('open_item', {'number': 1});
     });
     expect(find.text('第 2 层'), findsOneWidget);
-    final seen = _flatten(result);
+    final seen = await given(t, probe, 'read_screen');
     _expectParity(_shown(t, conversationRoots()), seen, 'opened conversation');
     expect(seen, contains('你是从这一条打开的'));
   });

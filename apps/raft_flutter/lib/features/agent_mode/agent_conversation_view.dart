@@ -121,8 +121,13 @@ class AgentConversationView extends StatelessWidget {
     this.onTasks,
     this.onTapMessage,
     this.imageBuilder,
+    this.now,
   });
   final AgentConversationData data;
+
+  /// Today, for "今天" and "昨天" (default: the clock). The words about the
+  /// screen are made with the same day.
+  final DateTime? now;
   final String focusPrefix;
   final VoidCallback? onTasks;
   final void Function(int n, HfMessageData message)? onTapMessage;
@@ -154,6 +159,7 @@ class AgentConversationView extends StatelessWidget {
           messages: data.messages,
           highlightId: data.highlightId,
           hasMoreAbove: data.hasMoreAbove,
+          now: now,
           focusPrefix: focusPrefix,
           onTapMessage: onTapMessage,
           imageBuilder: imageBuilder,

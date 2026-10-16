@@ -2456,6 +2456,7 @@ class _AgentModePageState extends State<AgentModePage> {
     if (l is _Channel) {
       return AgentConversationView(
         data: _conversationOf(l),
+        now: data.now(),
         focusPrefix: l.id,
         onTasks: () => unawaited(_showTasks(channel: l.channel)),
         onTapMessage: (n, _) => _tapCurrent(n),
