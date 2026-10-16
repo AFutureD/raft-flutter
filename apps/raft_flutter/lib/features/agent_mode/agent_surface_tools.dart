@@ -648,14 +648,8 @@ class AgentGroundedTools {
         );
       }
     }
-    final merged = {...node.props};
-    for (final e in props.entries) {
-      if (e.value == null) {
-        merged.remove(e.key);
-      } else {
-        merged[e.key] = e.value;
-      }
-    }
+    // `display` and `childDisplay` change only what they name.
+    final merged = mergeNodeProps(node.props, props);
     if (problems.isEmpty) {
       problems.addAll(catalog.checkProps(item, merged, '<${node.component}>'));
     }

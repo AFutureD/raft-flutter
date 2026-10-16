@@ -173,7 +173,12 @@ void main() {
                 'handle': '②',
                 'emphasis': 'high',
                 'tone': 'warn',
-                'density': 'detail',
+                'display': {
+                  'level': 'detail',
+                  'show': {'handle': false},
+                  'lines': 3,
+                  'size': 'regular',
+                },
               },
             ),
           ),

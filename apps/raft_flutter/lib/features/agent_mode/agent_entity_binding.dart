@@ -127,8 +127,11 @@ class WorkspaceEntityResolver extends ChangeNotifier
   final _messageFailed = <String>{}, _messageReading = <String>{};
 
   /// Attachments of the held messages by id, rebuilt when the ledger changes.
-  Map<String, ({Map<String, dynamic> metadata, String channelId})> _files =
-      const {};
+  Map<
+    String,
+    ({Map<String, dynamic> metadata, String channelId, String? author})
+  >
+  _files = const {};
   int _filesRevision = -1;
   String? _filesServer;
 
@@ -248,6 +251,7 @@ class WorkspaceEntityResolver extends ChangeNotifier
           activity: info?.activity ?? '已停用',
           since: info?.since,
           computer: _s(machine?['name']),
+          model: _s(row['model']),
           avatar: _avatar(name, true, _s(row['avatarUrl'])),
         );
       },
@@ -303,6 +307,11 @@ class WorkspaceEntityResolver extends ChangeNotifier
               if (r is String) r,
         ],
         agentCount: agents,
+        version: _s(
+          row['isComputer'] == true
+              ? row['computerVersion']
+              : row['daemonVersion'],
+        ),
       );
     },
   );
@@ -324,6 +333,10 @@ class WorkspaceEntityResolver extends ChangeNotifier
         unread: w.unread[id] ?? 0,
         mentioned: w.mentions.contains(id),
         lastActivity: last == null ? null : _ago(last),
+        description: direct ? null : _s(c.json['description']),
+        memberCount: c.json['memberCount'] is num
+            ? (c.json['memberCount'] as num).toInt()
+            : null,
       ),
     );
   }
@@ -385,6 +398,23 @@ class WorkspaceEntityResolver extends ChangeNotifier
         row['senderType'] == 'agent',
         _s(row['senderAvatarUrl']),
       ),
+      reactions: [
+        for (final r in row['reactions'] as List? ?? const [])
+          if (r is Map && r['emoji'] is String)
+            AgentReaction(
+              r['emoji'] as String,
+              r['reactorIds'] is List
+                  ? (r['reactorIds'] as List).length
+                  : (r['count'] as num?)?.toInt() ?? 1,
+            ),
+      ],
+      threadCount:
+          (w.threadSummaries[m.id] is Map
+              ? int.tryParse(
+                  '${(w.threadSummaries[m.id] as Map)['replyCount']}',
+                )
+              : null) ??
+          0,
     );
   }
 
@@ -465,8 +495,16 @@ class WorkspaceEntityResolver extends ChangeNotifier
       channel:
           _s(row['channelName']) ?? _channelById(_s(row['channelId']))?.name,
       updated: at == null ? null : _ago(at),
+      description: _some(
+        AgentHeadlines.plain(
+          '${row['description'] ?? row['descriptionPreview'] ?? ''}',
+          max: 300,
+        ),
+      ),
     );
   }
+
+  static String? _some(String s) => s.isEmpty ? null : s;
 
   void _event(RaftEvent event) {
     if (!event.name.startsWith('task:') || _disposed) return;
@@ -502,7 +540,10 @@ class WorkspaceEntityResolver extends ChangeNotifier
     _filesRevision = revision;
     _filesServer = w.ledger.serverId;
     final found =
-        <String, ({Map<String, dynamic> metadata, String channelId})>{};
+        <
+          String,
+          ({Map<String, dynamic> metadata, String channelId, String? author})
+        >{};
     final channels = {
       for (final c in [..._allChannels, ?w.channel]) c.id,
       ?w.threadChannelId,
@@ -516,6 +557,8 @@ class WorkspaceEntityResolver extends ChangeNotifier
             found[a['id'] as String] = (
               metadata: Map<String, dynamic>.from(a),
               channelId: channelId,
+              author:
+                  _s(message['senderDisplayName']) ?? _s(message['senderName']),
             );
           }
         }
@@ -538,6 +581,7 @@ class WorkspaceEntityResolver extends ChangeNotifier
         name: name,
         type: _fileType(name, '${metadata['mimeType'] ?? ''}'),
         size: _size(metadata['sizeBytes']),
+        author: hit.author,
         isImage: image,
         thumbnail: image
             ? (context, size) => AgentAttachmentThumb(
@@ -836,15 +880,24 @@ AgentEntityRef _refOf(String entity, String id) => AgentEntityRef(
   id,
 );
 
-AgentCardDensity _density(BuildContext context, SurfaceNode n) =>
-    switch (n.string('density')) {
-      'detail' => AgentCardDensity.detail,
-      'summary' => AgentCardDensity.compact,
-      _ =>
-        MediaQuery.sizeOf(context).width < agentWideBreakpoint
-            ? AgentCardDensity.compact
-            : AgentCardDensity.detail,
-    };
+/// The screen's default for a card that says nothing about its level: the
+/// one-glance card on a phone, more on a wide screen.
+AgentCardDensity _density(BuildContext context) =>
+    MediaQuery.sizeOf(context).width < agentWideBreakpoint
+    ? AgentCardDensity.compact
+    : AgentCardDensity.detail;
+
+/// The `display` field of a component (see [agentDisplayKinds] for the
+/// element names of each).
+Map<String, Object?> _displayField(Iterable<String> kinds) =>
+    agentDisplaySchema(kinds);
+
+DisplaySpec? _spec(SurfaceNode n) {
+  final d = agentDisplayOf(n.props);
+  return d.isEmpty ? null : d;
+}
+
+final _entityKindNames = [for (final k in AgentEntityKind.values) k.name];
 
 bool _phone(BuildContext context) =>
     MediaQuery.sizeOf(context).width < agentWideBreakpoint;
@@ -864,7 +917,11 @@ int _lineCount(String code) {
 final List<AgentCatalogItem> agentEntityCatalogItems = [
   AgentCatalogItem(
     name: AgentEntityComponents.entity,
-    description: '按 id 显示 App 里的一个东西（消息、任务、Agent、频道、成员、电脑、文件/图片）。你只给种类和 id，内容由 App 从自己的数据画出来，所以不会出错；id 必须来自读取工具的结果',
+    description:
+        '按 id 显示 App 里的一个东西（消息、任务、Agent、频道、成员、电脑、文件/图片）。你只给种类和 id，内容由 App 从自己的数据画出来，所以不会出错；id 必须来自读取工具的结果。'
+        '怎么显示由 display 决定：level 选预设，show 逐项增减元素（只能写这个种类有的元素，没有数据的元素不会画）。各种类的元素和预设——'
+        '${agentDisplayGuide(_entityKindNames).replaceAll('\n', '；')}。'
+        '一个列表里的卡片要统一，就在列表（Column、Section、AgentStatusGroup）上写 childDisplay，如不要头像：childDisplay.show.avatar=false；用 update_component 改 display 时只写要变的项，show 里写 null 恢复预设。',
     schema: {
       'type': 'object',
       'properties': {
@@ -877,11 +934,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
           'description': 'high 把这一张突出出来，只给最重要的一张',
         },
         'tone': _toneField,
-        'density': {
-          'type': 'string',
-          'enum': agentDensities,
-          'description': 'summary 一眼看完（手机默认）；detail 多显示几项',
-        },
+        'display': _displayField(_entityKindNames),
       },
       'required': ['entity', 'id'],
     },
@@ -893,12 +946,21 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
       'emphasis': 'high',
     },
     line: (n) => '${n.string('entity') ?? ''} ${n.string('id') ?? ''}',
-    validate: (n, path) => entityRefProblems(
-      n.string('entity'),
-      n.string('id'),
-      n.string('handle'),
-      path,
-    ),
+    validate: (n, path) {
+      final refs = entityRefProblems(
+        n.string('entity'),
+        n.string('id'),
+        n.string('handle'),
+        path,
+      );
+      if (refs.isNotEmpty) return refs;
+      // The elements are the kind's own: a model card has no `avatar`.
+      return DisplaySpec.problems(
+        n.props['display'],
+        n.string('entity')!,
+        '$path.display',
+      );
+    },
     build: (context, n, _) => AgentEntityCard(
       entity: _refOf(n.string('entity')!, n.string('id')!),
       handle: n.string('handle'),
@@ -906,7 +968,8 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
           ? AgentEmphasis.high
           : AgentEmphasis.normal,
       tone: _tone(n.string('tone')),
-      density: _density(context, n),
+      density: _density(context),
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -934,6 +997,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
             },
           },
         },
+        'display': _displayField(['Table']),
       },
       'required': ['columns', 'rows'],
     },
@@ -987,6 +1051,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
                   AgentTableCell.text('$cell'),
             ],
       ],
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -1012,6 +1077,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
             'required': ['time', 'title'],
           },
         },
+        'display': _displayField(['Timeline']),
       },
       'required': ['items'],
     },
@@ -1059,6 +1125,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
               handle: item['handle'] as String?,
             ),
       ],
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -1075,6 +1142,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
           'description': 'text 普通代码（默认）；diff 差异',
         },
         'title': _string('文件名或语言，可不写', 40),
+        'display': _displayField(['CodeBlock']),
       },
       'required': ['code'],
     },
@@ -1097,6 +1165,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
       code: n.string('code') ?? '',
       diff: n.string('format') == 'diff',
       title: n.string('title'),
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -1105,7 +1174,11 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
     focusable: false,
     schema: {
       'type': 'object',
-      'properties': {'text': _string('一句话，不超过 80 字', 80), 'tone': _toneField},
+      'properties': {
+        'text': _string('一句话，不超过 80 字', 80),
+        'tone': _toneField,
+        'display': _displayField(['Callout']),
+      },
       'required': ['text'],
     },
     example: {'component': 'Callout', 'tone': 'good', 'text': '全量检查通过，可以合。'},
@@ -1124,6 +1197,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
     build: (context, n, _) => AgentCalloutView(
       text: n.string('text') ?? '',
       tone: _tone(n.string('tone')),
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -1145,6 +1219,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
           'enum': ['change', 'sensitive'],
           'description': 'change 普通修改（默认）；sensitive 敏感操作',
         },
+        'display': _displayField(['ConfirmCard']),
       },
       'required': ['title', 'changes'],
     },
@@ -1172,6 +1247,7 @@ final List<AgentCatalogItem> agentEntityCatalogItems = [
             ? AgentConfirmRisk.sensitive
             : AgentConfirmRisk.change,
         compact: _phone(context),
+        display: _spec(n),
         onConfirm: () => report(true),
         onCancel: () => report(false),
       );

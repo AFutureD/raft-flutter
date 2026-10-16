@@ -48,6 +48,27 @@ String formatQuote(Map<String, Object?> q) {
   return head.isEmpty ? '${q['text']}' : '$head  ${q['text']}';
 }
 
+/// The `display` field of a component: a preset level and which of its
+/// elements are shown (see [agentDisplayKinds] for the names).
+Map<String, Object?> _display(String kind) => agentDisplaySchema([kind]);
+
+/// The `childDisplay` field of a list: the display of every child that does
+/// not say its own. [kinds] are the components it may hold.
+Map<String, Object?> _childDisplay([Iterable<String>? kinds]) =>
+    agentDisplaySchema(kinds ?? agentDisplayKinds.keys, childDisplay: true);
+
+DisplaySpec? _spec(SurfaceNode n, [String key = 'display']) {
+  final d = agentDisplayOf(n.props, key);
+  return d.isEmpty ? null : d;
+}
+
+/// The key of [n]'s element inventory in [agentDisplayKinds]: the kind for an
+/// entity card, else the component.
+String displayKindOf(SurfaceNode n) =>
+    n.component == AgentEntityComponents.entity
+    ? (n.string('entity') ?? n.component)
+    : n.component;
+
 AgentCatalog _standard() => AgentCatalog([
   AgentCatalogItem(
     name: AgentComponents.statusCard,
@@ -64,6 +85,7 @@ AgentCatalog _standard() => AgentCatalog([
         'activity': _string('正在做什么，一句话，取自 list_agents 的 activity'),
         'since': _string('持续多久，取自 list_agents 的 since', 30),
         'channel': _string('所在频道名，不带 #', 60),
+        'display': _display('AgentStatusCard'),
       },
       'required': ['name', 'state'],
     },
@@ -87,6 +109,7 @@ AgentCatalog _standard() => AgentCatalog([
       activity: n.string('activity'),
       since: n.string('since'),
       channel: n.string('channel'),
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -105,6 +128,8 @@ AgentCatalog _standard() => AgentCatalog([
           'enum': _states,
           'description': '这一组的状态，决定颜色',
         },
+        'display': _display('AgentStatusGroup'),
+        'childDisplay': _childDisplay(['AgentStatusCard']),
       },
       'required': ['title'],
     },
@@ -119,6 +144,7 @@ AgentCatalog _standard() => AgentCatalog([
     build: (context, n, children) => AgentStatusGroupView(
       title: n.string('title') ?? '',
       state: n.string('state') == null ? null : _state(n.string('state')),
+      display: _spec(n),
       children: children,
     ),
   ),
@@ -148,6 +174,7 @@ AgentCatalog _standard() => AgentCatalog([
           'required': ['text'],
         },
         'ask': _string('要用户做什么，如“验收这个任务”', 80),
+        'display': _display('TaskCard'),
       },
       'required': ['title', 'status'],
     },
@@ -175,6 +202,7 @@ AgentCatalog _standard() => AgentCatalog([
         channel: n.string('channel'),
         quote: q == null ? null : formatQuote(q),
         ask: n.string('ask'),
+        display: _spec(n),
       );
     },
   ),
@@ -188,6 +216,7 @@ AgentCatalog _standard() => AgentCatalog([
         'text': _string('原话，可以截取开头，不要改写', 400),
         'time': _string('什么时候', 40),
         'channel': _string('哪个频道，不带 #', 60),
+        'display': _display('MessageQuote'),
       },
       'required': ['author', 'text'],
     },
@@ -204,6 +233,7 @@ AgentCatalog _standard() => AgentCatalog([
       text: n.string('text') ?? '',
       time: n.string('time'),
       channel: n.string('channel'),
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -225,6 +255,7 @@ AgentCatalog _standard() => AgentCatalog([
             'required': ['label', 'value'],
           },
         },
+        'display': _display('StatRow'),
       },
       'required': ['stats'],
     },
@@ -244,6 +275,7 @@ AgentCatalog _standard() => AgentCatalog([
         for (final s in n.list('stats'))
           if (s is Map) AgentStatData('${s['label']}', '${s['value']}'),
       ],
+      display: _spec(n),
     ),
   ),
   AgentCatalogItem(
@@ -252,7 +284,10 @@ AgentCatalog _standard() => AgentCatalog([
     container: true,
     schema: {
       'type': 'object',
-      'properties': {'density': agentDensityField},
+      'properties': {
+        'density': agentDensityField,
+        'childDisplay': _childDisplay(),
+      },
     },
     example: {
       'component': 'Column',
@@ -277,7 +312,12 @@ AgentCatalog _standard() => AgentCatalog([
     fold: true,
     schema: {
       'type': 'object',
-      'properties': {'title': _string('小标题', 40), 'density': agentDensityField},
+      'properties': {
+        'title': _string('小标题', 40),
+        'density': agentDensityField,
+        'display': _display('Section'),
+        'childDisplay': _childDisplay(),
+      },
       'required': ['title'],
     },
     example: {
@@ -289,6 +329,7 @@ AgentCatalog _standard() => AgentCatalog([
     },
     build: (context, n, children) => AgentSurfaceSectionView(
       title: n.string('title') ?? '',
+      display: _spec(n),
       children: children,
     ),
   ),
@@ -387,9 +428,14 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
       expanded: widget.expanded,
     );
     final numbers = focusNumbers(catalog, spec.root, folded);
-    Widget draw(SurfaceNode node, String path) {
+    // [inherited] is what the lists above say every child looks like
+    // (`childDisplay`): the nearest list that says something wins, and a
+    // child's own `display` wins over all of it, element by element.
+    Widget draw(SurfaceNode node, String path, DisplaySpec? inherited) {
       final item = catalog.item(node.component);
       if (item == null) return const SizedBox.shrink();
+      final own = agentDisplayOf(node.props).over(inherited);
+      final below = agentDisplayOf(node.props, 'childDisplay').over(inherited);
       final Widget drawn;
       if (folded.contains(path)) {
         drawn = AgentFocusable(
@@ -397,13 +443,14 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
           child: _summaryRow(
             catalog,
             node,
+            display: own,
             onTap: () => widget.onExpand?.call(path),
           ),
         );
       } else {
         final children = [
           for (final (i, c) in node.children.indexed)
-            draw(c, surfaceChildPath(path, i)),
+            draw(c, surfaceChildPath(path, i), below.isEmpty ? null : below),
         ];
         // An entity card wears the number of its place on the screen (the
         // handle "第二个" and "②" mean), never one the model wrote.
@@ -412,20 +459,26 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
             numbers[path] != null;
         final built = item.build(
           context,
-          entityCard
-              ? node.copyWith(
-                  props: {...node.props, 'handle': agentHandle(numbers[path]!)},
-                )
-              : node,
+          node.copyWith(
+            props: {
+              ...node.props,
+              if (entityCard) 'handle': agentHandle(numbers[path]!),
+              // What the card draws: its own display over the lists'.
+              if (!own.isEmpty) 'display': own.toJson(),
+            },
+          ),
           children,
         );
+        // The handle badge is an element like any other; the card is
+        // numbered and can be pointed at whether it is drawn or not.
+        final handleShown = own.resolve(displayKindOf(node)).has('handle');
         drawn = item.container || !item.focusable
             ? built
             : AgentFocusable(
                 id: '${widget.focusPrefix}#${numbers[path]}',
                 child: AgentHandleTag(
                   focusId: '${widget.focusPrefix}#${numbers[path]}',
-                  showHandle: !entityCard,
+                  showHandle: !entityCard && handleShown,
                   child: built,
                 ),
               );
@@ -438,7 +491,7 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
       );
     }
 
-    final body = draw(spec.root, 'r');
+    final body = draw(spec.root, 'r', null);
     return AgentEnterPacing(
       pacer: _pacer,
       child: AgentLayerFrame(
@@ -459,12 +512,17 @@ String _foldedText(AgentCatalog catalog, SurfaceNode node) => [
 Widget _summaryRow(
   AgentCatalog catalog,
   SurfaceNode node, {
+  DisplaySpec? display,
   VoidCallback? onTap,
 }) => AgentSummaryRow(
   title: node.string('title') ?? '',
   count: node.children.length,
   text: _foldedText(catalog, node),
   state: node.string('state') == null ? null : _state(node.string('state')),
+  display: display == null || display.isEmpty ? null : display,
+  displayKind: node.component == AgentComponents.section
+      ? 'Section'
+      : 'AgentStatusGroup',
   onTap: onTap,
 );
 

@@ -459,7 +459,14 @@ class AgentCatalog {
           problems.add('$path 只能是 ${choices.join('、')} 之一，不能是 "$value"');
         }
       case 'integer':
-        if (value is! int) problems.add('$path 必须是整数');
+        if (value is! int) {
+          problems.add('$path 必须是整数');
+          return;
+        }
+        final min = schema['minimum'] as int?, max = schema['maximum'] as int?;
+        if ((min != null && value < min) || (max != null && value > max)) {
+          problems.add('$path 要在 ${min ?? '-∞'} 到 ${max ?? '∞'} 之间，不能是 $value');
+        }
       case 'number':
         if (value is! num) problems.add('$path 必须是数字');
       case 'boolean':
@@ -537,6 +544,12 @@ class AgentCatalog {
     if (schema['type'] == 'array') {
       final items = schema['items'];
       return '[${items is Map ? _typeOf(items.cast<String, Object?>()) : 'any'}]';
+    }
+    if (schema['type'] == 'object' && schema['x-describe'] == true) {
+      // A field the model must know every word of (the `display` of a
+      // component): the names and values of what is inside.
+      final props = (schema['properties'] as Map).cast<String, Object?>();
+      return '{${props.entries.map((e) => '${e.key}:${_typeOf((e.value as Map).cast<String, Object?>())}').join(',')}}';
     }
     if (schema['type'] == 'object') {
       final props = (schema['properties'] as Map?)?.keys ?? const [];
