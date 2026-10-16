@@ -128,8 +128,9 @@ void main() {
             final held = w.ledger.messages(id);
             expect(held.length, lessThanOrEqualTo(active ? 500 : 50));
             expect(held.last['id'], '$id-1000');
-            if (active)
+            if (active) {
               expect(thread ? w.threadWindow!.hasNewer : w.hasNewer, isFalse);
+            }
           } finally {
             await w.flushCache();
             w.dispose();
