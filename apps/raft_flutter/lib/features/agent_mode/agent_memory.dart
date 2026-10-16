@@ -29,7 +29,8 @@ class AgentBrain {
         : null;
     return [
       for (final r in rows is List ? rows : const [])
-        if (r is Map && r['id'] is String)
+        // Archived agents keep their name but their workspace is closed.
+        if (r is Map && r['id'] is String && r['deletedAt'] == null)
           (
             id: r['id'] as String,
             name: '${r['displayName'] ?? r['name'] ?? r['id']}',
