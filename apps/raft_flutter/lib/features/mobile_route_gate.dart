@@ -99,4 +99,20 @@ class MobileRouteGate extends InheritedWidget {
     }
     return workspace.channel?.id != location.entityId;
   }
+
+  /// The shell keeps a covered channel page on its last frame. The page that
+  /// owns the current location still rebuilds when that channel is missing,
+  /// so loading can become the explicit unavailable state.
+  static bool staleChannel(
+    RaftLocation location,
+    WorkspaceController workspace,
+  ) {
+    if (location.route != RaftRoute.channel && location.route != RaftRoute.dm) {
+      return false;
+    }
+    if (workspace.missingConversationChannelId == location.entityId) {
+      return false;
+    }
+    return workspace.channel?.id != location.entityId;
+  }
 }

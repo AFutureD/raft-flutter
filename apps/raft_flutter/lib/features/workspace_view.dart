@@ -228,13 +228,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
     return pageRoute != null && !pageRoute.active;
   }
 
-  bool _pageChannelMismatch(_MobileWorkspaceRouteState pageRoute) {
-    final location = pageRoute.widget.location;
-    if (location.route != RaftRoute.channel && location.route != RaftRoute.dm) {
-      return false;
-    }
-    return w.channel?.id != location.entityId;
-  }
   PageStorageBucket mobilePageStorage = PageStorageBucket();
   String? mobileStorageAuthority;
   _MobileNavigationSelection? _mobileNavigationSelection;
@@ -1385,7 +1378,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
           : null;
       if (pageRoute != null &&
           pageRoute.content != null &&
-          (!pageRoute.active || _pageChannelMismatch(pageRoute))) {
+          (!pageRoute.active ||
+              MobileRouteGate.staleChannel(pageRoute.widget.location, w))) {
         return pageRoute.content!;
       }
       if (pageRoute != null && !pageRoute.active) return const SizedBox.shrink();
@@ -2126,6 +2120,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 widget.mobileRoutePage && location.channelPage != null
                     ? const SizedBox.expand()
                     : workspace(dockWidth, onEscape),
+                location,
               ),
       );
       if (RouteFrameDiagnostics.enabled) {
@@ -4013,8 +4008,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.notifyListeners();
   }
 
-  Widget channelPageHost(Widget child) {
-    final page = w.location.channelPage;
+  Widget channelPageHost(Widget child, RaftLocation location) {
+    final page = location.channelPage;
     final channel = page == null
         ? null
         : [
@@ -4073,7 +4068,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           controller: w,
                           channel: channel,
                           page: true,
-                          startInAdd: w.location.query('channelPageAdd') == '1',
+                          startInAdd: location.query('channelPageAdd') == '1',
                           onClose: dismissPanel,
                         ),
                       ),
