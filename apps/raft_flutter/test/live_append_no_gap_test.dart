@@ -1,11 +1,13 @@
-import 'dart:async';
-
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/history_gap_recovery.dart';
 import 'package:raft_flutter/data/history_read_policy.dart';
+import 'package:raft_flutter/data/message_history.dart';
 import 'package:raft_flutter/data/message_history_pages.dart';
+import 'package:raft_flutter/platform/workspace_cache.dart';
 
+import 'history_memory_test.dart' show HistoryClient, receiver, row;
 import 'support/history_automatic_fixture.dart';
 
 /// Message n of the channel carries server sequence n * stride: the server
@@ -15,6 +17,7 @@ class _WireClient extends HistoryAuditClient {
   _WireClient(this.stride);
   final int stride;
   final wire = <String>[];
+  String? lastRandomId;
   Future<void> Function(String randomId)? echo;
 
   Map<String, dynamic> message(int n, {String by = 'alice'}) => {
@@ -69,6 +72,7 @@ class _WireClient extends HistoryAuditClient {
   Future<dynamic> post(String path, {dynamic data}) async {
     if (path != '/v2/messages') return super.post(path, data: data);
     await echo?.call(data['randomId']);
+    lastRandomId = data['randomId'];
     return {
       'message': {
         ...message(total + 1, by: 'alice'),
@@ -191,8 +195,8 @@ void main() {
           c.client.incoming.add(
             RaftEvent('message:new', {
               ...c.client.message(101, by: 'alice'),
-              'id': 'sent-${c.w.messages.last.json['randomId']}',
-              'randomId': c.w.messages.last.json['randomId'],
+              'id': 'sent-${c.client.lastRandomId}',
+              'randomId': c.client.lastRandomId,
               'content': 'Hello',
             }),
           );
@@ -308,5 +312,68 @@ void main() {
         },
       );
     }
+  });
+
+  group('saved tail proof', () {
+    Future<(DriftWorkspaceCache, MessageHistoryScope)> cached(
+      List<int> proved,
+    ) async {
+      final cache = DriftWorkspaceCache(NativeDatabase.memory());
+      addTearDown(cache.close);
+      final w = receiver(HistoryClient(), cache);
+      addTearDown(() async {
+        await w.flushCache();
+        w.dispose();
+      });
+      final scope = MessageHistoryPages.scope(w, 'chat')!;
+      final store = cache.messageHistory;
+      // The latest page: a full page proves everything from its first row up.
+      await store.acceptPage(
+        MessageHistoryPage(
+          {
+            'messages': [for (final n in proved) row('chat', n)],
+          },
+          scope: scope,
+          revision: await store.revision(scope),
+          before: null,
+          after: null,
+          limit: proved.length,
+          local: false,
+        ),
+      );
+      return (cache, scope);
+    }
+
+    Future<int> gapsAfter(
+      DriftWorkspaceCache cache,
+      MessageHistoryScope scope,
+      List<int> seqs,
+    ) async => (await cache.messageHistory.gaps.read(scope, [
+      for (final n in seqs) ('chat-$n', BigInt.from(n)),
+    ])).length;
+
+    test('a live row extends the proof; an unmarked one does not', () async {
+      final (cache, scope) = await cached([
+        for (var n = 51; n <= 100; n++) n * 3,
+      ]);
+      final store = cache.messageHistory;
+      await store.acceptEvents(scope, [row('chat', 301)], live: true);
+      expect(await gapsAfter(cache, scope, [300, 301]), 0);
+      await store.acceptEvents(scope, [row('chat', 450)], live: true);
+      expect(await gapsAfter(cache, scope, [301, 450]), 0);
+      await store.acceptEvents(scope, [row('chat', 600)]);
+      expect(await gapsAfter(cache, scope, [450, 600]), 1);
+    });
+
+    test('a live row after an unproved row leaves the older gap', () async {
+      final (cache, scope) = await cached([
+        for (var n = 51; n <= 100; n++) n * 3,
+      ]);
+      final store = cache.messageHistory;
+      await store.acceptEvents(scope, [row('chat', 450)]);
+      await store.acceptEvents(scope, [row('chat', 460)], live: true);
+      expect(await gapsAfter(cache, scope, [450, 460]), 0);
+      expect(await gapsAfter(cache, scope, [300, 450]), 1);
+    });
   });
 }

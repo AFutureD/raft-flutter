@@ -221,11 +221,14 @@ abstract interface class MessageHistoryStorage {
 
   /// Commit after the receiver admitted the response through its scope ticket.
   Future<void> acceptPage(MessageHistoryPage page);
+  /// [live] marks rows that arrived on a connected socket: each one extends
+  /// the saved tail it follows instead of leaving a gap before it.
   Future<bool> acceptEvents(
     MessageHistoryScope scope,
     Iterable<Map<String, dynamic>> rows, {
     bool updateOnly = false,
     int? requestedRevision,
+    bool live = false,
   });
 
   /// Compatibility snapshots are imported without inventing continuity.

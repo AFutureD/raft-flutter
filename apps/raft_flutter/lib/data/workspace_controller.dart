@@ -4911,7 +4911,7 @@ class WorkspaceController extends ChangeNotifier
             ? messageSync.consumeNew(row)
             : row;
         if (projection == null) return;
-        if (!duplicate) MessageHistoryEvents.store(this, projection);
+        MessageHistoryEvents.store(this, projection);
         ledger.ingest([projection], expectedGeneration: ledger.generation);
       }
       final id = row['channelId'];

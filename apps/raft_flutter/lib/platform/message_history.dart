@@ -766,6 +766,7 @@ class SqliteMessageHistory implements MessageHistoryStorage {
     Iterable<Map<String, dynamic>> rows, {
     bool updateOnly = false,
     int? requestedRevision,
+    bool live = false,
   }) => order(() async {
     await _ready();
     return db.transaction(() async {
@@ -800,9 +801,16 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       }
       if (!updateOnly && materialized.length != values.length) return false;
       await _put(scope, materialized, revision, updateOnly: updateOnly);
+      var tail = BigInt.tryParse('${marker['tailSequence']}') ?? BigInt.zero;
+      final follow = live && !updateOnly && marker['windowKind'] == 'tail';
       for (final row in materialized) {
-        final seq = historySequenceKey(row['seq']);
-        await _range(scope, seq, seq);
+        final next = BigInt.parse('${row['seq']}');
+        if (follow && next > tail) {
+          tail = await _extendTail(scope, tail, row);
+        } else {
+          final key = historySequenceKey(next);
+          await _range(scope, key, key);
+        }
       }
       if (!updateOnly && materialized.isNotEmpty) {
         final highest = materialized
@@ -823,6 +831,35 @@ class SqliteMessageHistory implements MessageHistoryStorage {
       return true;
     });
   });
+
+  /// A row that arrives live after the saved tail. Sequences are server-wide,
+  /// so a channel's own numbers are sparse, and its live room delivers every
+  /// one of its messages in order: when the tail is proved through its own
+  /// row, nothing else can sit between it and the new row, so the proof grows
+  /// to cover it instead of leaving a gap for history to fill.
+  Future<BigInt> _extendTail(
+    MessageHistoryScope scope,
+    BigInt tail,
+    Map<String, dynamic> row,
+  ) async {
+    final next = BigInt.parse('${row['seq']}');
+    // A row the device declined to keep cannot be covered by the proof.
+    final flush =
+        (await _query(
+          'SELECT 1 FROM raft_history_rows WHERE $_where AND message_id=? AND tombstone=0',
+          [...scope.key, row['id']],
+        )).isNotEmpty &&
+        (await _query(
+          'SELECT 1 FROM raft_history_ranges WHERE $_where AND upper_key=?',
+          [...scope.key, historySequenceKey(tail)],
+        )).isNotEmpty;
+    await _range(
+      scope,
+      historySequenceKey(flush ? tail + BigInt.one : next),
+      historySequenceKey(next),
+    );
+    return next;
+  }
 
   Future<void> _range(
     MessageHistoryScope scope,

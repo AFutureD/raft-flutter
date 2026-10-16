@@ -70,6 +70,7 @@ class MessageHistoryEvents {
     final probe = _probe(w);
     final channel = '${row['channelId']}', id = '${row['id']}';
     final unheld = !w.ledger.contains(channel, id);
+    final live = !updateOnly && w.connected;
     final rowReceipt = db.receiver.beginRow(probe, channel, id);
     final receipt = updateOnly ? null : db.receiver.begin(probe, [row]);
     Future<void> apply(Map<String, dynamic> value, int revision) async {
@@ -82,6 +83,7 @@ class MessageHistoryEvents {
           [value],
           current,
           updateOnly: updateOnly,
+          live: live,
           requestedRevision: revision,
           written: () => receipt?.finish(true, resolved: true),
           unresolved: () => unresolved = true,
@@ -255,6 +257,7 @@ class MessageHistoryEvents {
     List<Map<String, dynamic>> rows,
     bool Function() current, {
     bool updateOnly = false,
+    bool live = false,
     BigInt? through,
     required int requestedRevision,
     required void Function() written,
@@ -289,6 +292,7 @@ class MessageHistoryEvents {
         scope,
         entry.value,
         updateOnly: updateOnly,
+        live: live,
         requestedRevision: requestedRevision,
       )) {
         return false;
