@@ -3,6 +3,7 @@
 Every subprocess is faked: nothing here runs git against a real remote, Flutter or the audits.
 """
 import importlib.machinery
+import pathlib
 import importlib.util
 import io
 import json
@@ -352,3 +353,40 @@ class SummaryTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FormatDebtTests(unittest.TestCase):
+    """A file that was already unformatted at the merge-base is format debt, not a regression."""
+
+    def run_with(self, clean_now, clean_before, new=()):
+        changes = pf.Changes('base', sorted(clean_now), set(new))
+        texts = {}
+
+        def fake_clean(dart, path, text):
+            return clean_before[path] if text == f'before:{path}' else clean_now[path]
+
+        def fake_git(*args):
+            path = args[1].split(':', 1)[1]
+            return f'before:{path}'
+
+        original_clean, original_git = pf.dart_format_clean, pf.git
+        original_read = pathlib.Path.read_text
+        pf.dart_format_clean, pf.git = fake_clean, fake_git
+        pathlib.Path.read_text = lambda self, **kw: texts.setdefault(str(self), f'now:{self.name}')
+        try:
+            return pf.format_regressions('dart', changes, sorted(clean_now))
+        finally:
+            pf.dart_format_clean, pf.git = original_clean, original_git
+            pathlib.Path.read_text = original_read
+
+    def test_untouched_formatting_passes(self):
+        self.assertEqual(self.run_with({'a.dart': True}, {'a.dart': True}), ([], []))
+
+    def test_breaking_a_formatted_file_fails(self):
+        self.assertEqual(self.run_with({'a.dart': False}, {'a.dart': True}), (['a.dart'], []))
+
+    def test_inherited_debt_is_reported_not_failed(self):
+        self.assertEqual(self.run_with({'a.dart': False}, {'a.dart': False}), ([], ['a.dart']))
+
+    def test_a_new_unformatted_file_fails(self):
+        self.assertEqual(self.run_with({'n.dart': False}, {'n.dart': False}, new={'n.dart'}), (['n.dart'], []))

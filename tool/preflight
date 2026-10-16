@@ -159,6 +159,37 @@ def collect_changes(base):
     return Changes(merge_base, files, {*added, *untracked})
 
 
+def dart_format_clean(dart_exe, path, text):
+    """True when `text` (the content of repo file `path`) is already `dart format`ted."""
+    try:
+        proc = subprocess.run([dart_exe, 'format', '--output=none', '--set-exit-if-changed', '--stdin-name', path],
+                              input=text, text=True, capture_output=True, cwd=root)
+    except OSError:
+        return False
+    return proc.returncode == 0
+
+
+def format_regressions(dart_exe, changes, files):
+    """(files this change left unformatted, files that were already unformatted at the merge-base).
+
+    A file that was unformatted before the change is format debt the change did not
+    introduce, so it is reported but does not fail; a new file must be formatted."""
+    regressed, inherited = [], []
+    for path in files:
+        if dart_format_clean(dart_exe, path, (root / path).read_text(encoding='utf-8')):
+            continue
+        if path not in changes.new:
+            try:
+                before = git('show', f'{changes.merge_base}:{path}')
+            except PreflightError:
+                before = None
+            if before is not None and not dart_format_clean(dart_exe, path, before):
+                inherited.append(path)
+                continue
+        regressed.append(path)
+    return regressed, inherited
+
+
 HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', re.M)
 
 
@@ -354,8 +385,19 @@ def run_steps(runner, changes, max_tests):
             return runner.skip('format', 'no changed Dart files')
         if dart_exe is None:
             return Result('format', 'fail', 0.0, dart_error)
-        return runner.command('format', [dart_exe, 'format', '--output=none', '--set-exit-if-changed', *format_files],
-                              ok_detail=f'{len(format_files)} files', fail_detail='files need `dart format`', requires_workspace=False)
+        result = runner.command('format', [dart_exe, 'format', '--output=none', '--set-exit-if-changed', *format_files],
+                                ok_detail=f'{len(format_files)} files', fail_detail='files need `dart format`', requires_workspace=False)
+        if result.status != 'fail':
+            return result
+        # Only what this change left unformatted counts; debt from the base is reported.
+        regressed, inherited = format_regressions(dart_exe, changes, format_files)
+        result.tail = [f'needs dart format: {f}' for f in regressed] + [f'already unformatted at the base (not counted): {f}' for f in inherited]
+        if not regressed:
+            result.status = 'pass'
+            result.detail = f'{len(format_files)} files; {len(inherited)} already unformatted at the base'
+        else:
+            result.detail = f'{len(regressed)} files need `dart format`' + (f' ({len(inherited)} more were unformatted at the base)' if inherited else '')
+        return result
 
     def tests():
         """One lane, not two: guard tests, then the affected tests (two `flutter test` at once only fight over the build)."""
