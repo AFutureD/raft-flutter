@@ -26,6 +26,20 @@ class _MigrationTransport implements HttpClientAdapter {
 
   /// Answer `POST /agents/a1/migrate` with MIGRATION_PRO_PLAN_REQUIRED.
   bool startDenied = false;
+
+  /// Answer `POST /agents/a1/migrate` with this error body (status 409).
+  Map<String, dynamic>? startError;
+
+  /// Fields merged into the served migration (timestamps, failure reason...).
+  Map<String, dynamic> extra = {};
+
+  /// How many cancel requests are refused as stale before one is accepted;
+  /// each refusal bumps the revision, as a running migration does.
+  int staleCancels = 99;
+
+  /// Answer `GET /agents/a1/migration` with a 500 instead.
+  bool statusFails = false;
+  final posted = <String>[];
   final calls = <String>[];
   int count(String route) => calls.where((c) => c == route).length;
   @override
@@ -65,24 +79,37 @@ class _MigrationTransport implements HttpClientAdapter {
         status = plan == null ? 404 : 200;
         data = plan == null ? {'error': 'Not found'} : {'plan': plan};
       case 'POST /agents/a1/migrate':
-        status = startDenied ? 403 : 200;
+        posted.add('${o.data['targetComputer']}');
+        status = startDenied
+            ? 403
+            : startError != null
+            ? 409
+            : 200;
         data = startDenied
             ? {
                 'error': 'Agent migration requires a Pro plan',
                 'code': 'MIGRATION_PRO_PLAN_REQUIRED',
               }
-            : {'migration': {}};
+            : startError ?? {'migration': {}};
       case 'GET /servers/s1/machines':
         data = {
           'machines': [
-            {'id': 'c1', 'name': 'Source', 'status': 'online'},
-            {'id': 'c2', 'name': 'Target', 'status': 'online'},
+            {'id': 'c1', 'name': 'Source', 'status': 'online', 'isComputer': true},
+            {'id': 'c2', 'name': 'Target', 'status': 'online', 'isComputer': true},
+            {'id': 'c3', 'name': 'Sleepy', 'status': 'offline', 'isComputer': true},
+            {'id': 'c4', 'name': 'Legacy', 'status': 'online'},
           ],
         };
       case 'GET /agents/a1/migration':
-        status = disabled ? 403 : 200;
+        status = disabled
+            ? 403
+            : statusFails
+            ? 500
+            : 200;
         data = disabled
             ? {'error': 'Agent migration UI is not enabled on this server'}
+            : statusFails
+            ? {'error': 'Boom internal detail'}
             : {
                 'migration': {
                   'migrationRef': 'fixture-ref',
@@ -90,16 +117,24 @@ class _MigrationTransport implements HttpClientAdapter {
                   'state': state,
                   'sourceMachineId': 'c1',
                   'targetMachineId': 'c2',
+                  ...extra,
                 },
               };
       case 'POST /agents/a1/migration/cancel':
         requests.add(Map<String, dynamic>.from(o.data));
-        revision = 3;
-        status = 409;
-        data = {
-          'error': 'Migration changed; refresh before retrying',
-          'code': 'MIGRATION_REVISION_STALE',
-        };
+        if (staleCancels > 0) {
+          staleCancels--;
+          revision++;
+          status = 409;
+          data = {
+            'error': 'Migration changed; refresh before retrying',
+            'code': 'MIGRATION_REVISION_STALE',
+          };
+        } else {
+          state = 'cancel_requested_pre_flip';
+          revision++;
+          data = {'migration': {}};
+        }
       default:
         data = {'error': 'Unexpected endpoint'};
         status = 404;
@@ -156,50 +191,18 @@ void main() {
       expect(find.text('Assign computer'), findsNothing);
     },
   );
-  testWidgets(
-    'cancel carries the displayed revision and a stale write stays open for review',
-    (tester) async {
-      final t = _MigrationTransport();
-      final w = (await tester.runAsync(() => _fixture(t)))!;
-      addTearDown(w.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
-          home: AgentMigrationView(controller: w, agentId: 'a1'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Cancel migration'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(RaftButton, 'Cancel migration'));
-      await tester.pumpAndSettle();
-      expect(t.requests, [
-        {'migrationRef': 'fixture-ref', 'expectedRevision': 2},
-      ]);
-      expect(find.byType(RaftFormDialog), findsOneWidget);
-      // Web AgentMigrationCancelDialog: the stale code picks catalog copy, the
-      // server's sentence is not shown.
-      expect(
-        find.textContaining(
-          'The migration moved on before your request went through',
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('refresh before retrying'), findsNothing);
-      expect(find.text('Move agent'), findsNothing);
-    },
-  );
-
   Future<(_MigrationTransport, WorkspaceController)> mount(
     WidgetTester tester, {
     String state = 'in_transit',
     String? plan = 'pro',
     DateTime Function()? now,
     Locale? locale,
+    void Function(_MigrationTransport t)? setup,
   }) async {
     final t = _MigrationTransport()
       ..state = state
       ..plan = plan;
+    setup?.call(t);
     final w = (await tester.runAsync(() => _fixture(t)))!;
     addTearDown(() async {
       w.dispose();
@@ -224,7 +227,7 @@ void main() {
     ) async {
       final (t, _) = await mount(tester);
       final first = t.count('GET /agents/a1/migration');
-      expect(find.textContaining('In progress'), findsOneWidget);
+      expect(find.text('Migrating to Target'), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
       expect(t.count('GET /agents/a1/migration'), first);
       await tester.pump(const Duration(seconds: 1, milliseconds: 100));
@@ -233,7 +236,7 @@ void main() {
       t.state = 'completed';
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Complete'), findsOneWidget);
+      expect(find.text('Migrated to Target'), findsOneWidget);
       final settled = t.count('GET /agents/a1/migration');
       await tester.pump(const Duration(seconds: 10));
       expect(t.count('GET /agents/a1/migration'), settled);
@@ -293,12 +296,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.textContaining('In progress'), findsOneWidget);
+        expect(find.text('Migrating to Target'), findsOneWidget);
         final reads = t.count('GET /agents');
         t.state = 'completed';
         await tester.pump(const Duration(seconds: 2));
         await tester.pumpAndSettle();
-        expect(find.textContaining('Complete'), findsOneWidget);
+        expect(find.text('Migrated to Target'), findsOneWidget);
         await tester.pump(const Duration(seconds: 1));
         await tester.runAsync(() => Future<void>.delayed(Duration.zero));
         expect(t.count('GET /agents'), greaterThan(reads));
@@ -445,5 +448,412 @@ void main() {
         expect(t.count('GET /billing/subscription'), billingReads + 1);
       },
     );
+  });
+
+  group('progress panel (Web MigrationProgressPanel)', () {
+    testWidgets('an active run shows the five steps and the state notice', (
+      tester,
+    ) async {
+      await mount(tester);
+      expect(find.text('Migrating to Target'), findsOneWidget);
+      for (final step in [
+        'Stop agent',
+        'Pack workspace',
+        'Transfer files',
+        'Start on new computer',
+        'Migration complete',
+      ]) {
+        expect(find.text(step), findsOneWidget, reason: step);
+      }
+      expect(find.text('Transferring workspace to Target.'), findsOneWidget);
+      expect(find.textContaining('Migration status:'), findsNothing);
+      // The support reference only appears when something needs attention.
+      expect(find.text('Migration ID'), findsNothing);
+      expect(find.text('Cancel'), findsOneWidget);
+    });
+
+    testWidgets('packing shows the file count and size', (tester) async {
+      await mount(
+        tester,
+        state: 'provisioning',
+        setup: (t) => t.extra = {
+          'sourceQuiescedAt': '2026-10-16T11:00:00Z',
+          'sourceBuildProgress': {'files': 1234, 'bytes': 3 * 1024 * 1024},
+        },
+      );
+      expect(
+        find.text('Packing the workspace on Source: 1,234 files, 3.0 MB so far.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('packing shows the elapsed minutes without progress', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        state: 'provisioning',
+        now: () => DateTime.utc(2026, 10, 16, 11, 7),
+        setup: (t) => t.extra = {'sourceQuiescedAt': '2026-10-16T11:00:00Z'},
+      );
+      expect(
+        find.textContaining('(7 minutes so far)'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a failure before the flip says the agent is still on the source', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        state: 'failed',
+        setup: (t) => t.extra = {
+          'failureReason': 'MIGRATION_LEASE_EXPIRED',
+          'agentId': 'a1',
+        },
+      );
+      expect(find.text('Migration to Target needs attention'), findsOneWidget);
+      expect(find.text('Migration failed'), findsOneWidget);
+      expect(
+        find.text('The agent is still on Source and works as usual.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Something went wrong during the transfer. Try again.'),
+        findsOneWidget,
+      );
+      // Technical details are collapsed until opened.
+      expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsNothing);
+      await tester.tap(find.text('Technical details'));
+      await tester.pump();
+      expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsOneWidget);
+      // The reference shows on a failure, with a copy action.
+      expect(find.text('Migration ID'), findsOneWidget);
+      expect(find.text('fixture-ref'), findsOneWidget);
+      expect(find.text('Try migration again'), findsOneWidget);
+      expect(find.text('Cancel'), findsNothing);
+    });
+
+    testWidgets('a failure after the flip says the agent is on the target', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        state: 'failed',
+        setup: (t) => t.extra = {
+          'flippedAt': '2026-10-16T11:30:00Z',
+          'failureReason': 'MIGRATION_LEASE_EXPIRED',
+        },
+      );
+      expect(
+        find.textContaining('The agent moved to Target but could not start there.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('still on Source'), findsNothing);
+    });
+
+    testWidgets('an agent that did not start after the move is shown failed', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        state: 'starting',
+        setup: (t) => t.extra = {'failureReason': 'auto_start_failed'},
+      );
+      expect(find.text('Agent did not start'), findsOneWidget);
+      expect(
+        find.text(
+          'The workspace moved to Target, but the agent did not start automatically.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Migration ID'), findsOneWidget);
+    });
+
+    testWidgets('a requested cancellation reads as canceling, not attention', (
+      tester,
+    ) async {
+      await mount(tester, state: 'cancel_requested_post_flip');
+      expect(find.text('Canceling migration to Target'), findsOneWidget);
+      expect(find.text('Stopping the agent on the new computer'), findsOneWidget);
+      expect(find.text('Migration ID'), findsNothing);
+      expect(find.text('Cancel'), findsNothing);
+      expect(find.text('Move agent'), findsNothing);
+    });
+
+    testWidgets('cancellation attention shows the title, code and reference', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        state: 'cancel_requested_pre_flip',
+        setup: (t) => t.extra = {
+          'cancelNeedsAttention': true,
+          'cancelErrorCode': 'CLEANUP_TIMEOUT',
+        },
+      );
+      expect(find.text('Migration to Target needs attention'), findsOneWidget);
+      expect(find.text("Cancellation couldn't finish"), findsOneWidget);
+      await tester.tap(find.text('Technical details'));
+      await tester.pump();
+      expect(find.textContaining('CLEANUP_TIMEOUT'), findsOneWidget);
+      expect(find.text('Migration ID'), findsOneWidget);
+    });
+
+    testWidgets('canceled and completed runs show no reference or cancel', (
+      tester,
+    ) async {
+      await mount(tester, state: 'canceled_pre_flip');
+      expect(find.text('Migration to Target canceled'), findsOneWidget);
+      expect(find.text('Migration canceled'), findsNothing);
+      expect(
+        find.textContaining('canceled before the agent switched computers'),
+        findsOneWidget,
+      );
+      expect(find.text('Migration ID'), findsNothing);
+      expect(find.text('Move agent'), findsOneWidget);
+    });
+
+    testWidgets('the panel uses the Web zh-cn copy', (tester) async {
+      await mount(tester, locale: const Locale('zh'));
+      expect(find.text('正在迁移到 Target'), findsOneWidget);
+      expect(find.text('停止 Agent'), findsOneWidget);
+      expect(find.text('迁移完成'), findsOneWidget);
+      expect(find.text('正在将工作区传输到 Target。'), findsOneWidget);
+      expect(find.text('取消'), findsOneWidget);
+    });
+
+    testWidgets('the steps stack when the row does not fit', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await mount(tester);
+      final first = tester.getTopLeft(find.text('Stop agent'));
+      final second = tester.getTopLeft(find.text('Pack workspace'));
+      expect(second.dy, greaterThan(first.dy));
+      expect(second.dx, first.dx);
+    });
+  });
+
+  group('cancel (Web AgentMigrationCancelDialog)', () {
+    Future<void> openCancel(WidgetTester tester) async {
+      await tester.tap(find.widgetWithText(RaftButton, 'Cancel'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the dialog explains what cancelling does', (tester) async {
+      await mount(tester);
+      await openCancel(tester);
+      expect(find.text('CANCEL MIGRATION?'), findsOneWidget);
+      expect(find.text('Canceling is safe'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Raft will stop the migration from Source to Target and clean up on both computers.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('fixture-ref'), findsOneWidget);
+      expect(
+        find.text(
+          'Canceling finishes only after both computers confirm. Keep both computers online until then.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'), findsOneWidget);
+      expect(find.widgetWithText(RaftSettingsRecipeButton, 'Continue'), findsOneWidget);
+    });
+
+    testWidgets('Continue keeps the migration and sends nothing', (tester) async {
+      final (t, _) = await mount(tester);
+      await openCancel(tester);
+      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('CANCEL MIGRATION?'), findsNothing);
+      expect(t.requests, isEmpty);
+    });
+
+    testWidgets('a stale revision re-reads the status and retries', (
+      tester,
+    ) async {
+      final (t, _) = await mount(tester, setup: (t) => t.staleCancels = 2);
+      await openCancel(tester);
+      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'));
+      await tester.pumpAndSettle();
+      // The revision the dialog opened with, then each re-read revision.
+      expect(t.requests, [
+        {'migrationRef': 'fixture-ref', 'expectedRevision': 2},
+        {'migrationRef': 'fixture-ref', 'expectedRevision': 3},
+        {'migrationRef': 'fixture-ref', 'expectedRevision': 4},
+      ]);
+      expect(find.text('CANCEL MIGRATION?'), findsNothing);
+      expect(find.text('Canceling migration to Target'), findsOneWidget);
+    });
+
+    testWidgets('three stale attempts stop and keep the dialog open', (
+      tester,
+    ) async {
+      final (t, _) = await mount(tester);
+      await openCancel(tester);
+      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'));
+      await tester.pumpAndSettle();
+      expect(t.requests, hasLength(3));
+      expect(find.text('CANCEL MIGRATION?'), findsOneWidget);
+      expect(
+        find.text(
+          'The migration moved on before your request went through. Check the latest status and try again. (MIGRATION_REVISION_STALE)',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('refresh before retrying'), findsNothing);
+    });
+
+    testWidgets('a stale answer for another migration is not retried', (
+      tester,
+    ) async {
+      final (t, _) = await mount(tester, setup: (t) => t.staleCancels = 2);
+      await openCancel(tester);
+      t.extra = {'migrationRef': 'other-ref'};
+      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'));
+      await tester.pumpAndSettle();
+      expect(t.requests, hasLength(1));
+      expect(find.text('CANCEL MIGRATION?'), findsOneWidget);
+    });
+  });
+
+  group('start errors (Web AgentMigrationDialog)', () {
+    Future<void> submitMove(WidgetTester tester) async {
+      await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(RaftButton, 'Move'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('lists every other computer, offline ones included', (
+      tester,
+    ) async {
+      await mount(tester, state: 'completed');
+      await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+      await tester.pumpAndSettle();
+      // The first choice is selected; open the menu to see all of them.
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      // Completed moved the agent to c2: the source is Target now.
+      expect(find.text('Source'), findsWidgets);
+      expect(find.text('Sleepy'), findsWidgets);
+      expect(find.text('Legacy'), findsNothing);
+    });
+
+    testWidgets('an offline target is submitted and the server answers', (
+      tester,
+    ) async {
+      final (t, _) = await mount(
+        tester,
+        state: 'completed',
+        setup: (t) => t.startError = {
+          'error': 'offline',
+          'code': 'TARGET_COMPUTER_OFFLINE',
+        },
+      );
+      await submitMove(tester);
+      expect(t.posted, ['c1']);
+      expect(
+        find.text(
+          'The target computer is offline. Start Raft Computer on it and try again.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a capability failure names the computer and offers recovery', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        state: 'completed',
+        setup: (t) => t.startError = {
+          'error': 'capability',
+          'code': 'COMPUTER_CAPABILITY_INSUFFICIENT',
+          'details': {
+            'failures': [
+              {'side': 'target', 'reason': 'runtime_missing', 'runtime': 'codex'},
+            ],
+          },
+        },
+      );
+      await submitMove(tester);
+      expect(
+        find.text('Fix these computer requirements before starting the migration:'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Source does not support Codex CLI.'),
+        findsOneWidget,
+      );
+      expect(find.text('Open computer settings'), findsOneWidget);
+      // The submit action now reads Try again.
+      expect(find.widgetWithText(RaftButton, 'Try again'), findsOneWidget);
+      expect(find.widgetWithText(RaftButton, 'Move'), findsNothing);
+    });
+
+    testWidgets('a resumable capability gap names the computer to update', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        state: 'completed',
+        setup: (t) => t.startError = {
+          'error': 'resumable',
+          'code': 'MIGRATION_RESUMABLE_CAPABILITY_REQUIRED',
+          'details': {'side': 'both', 'reason': 'capability_missing'},
+        },
+      );
+      await submitMove(tester);
+      expect(
+        find.textContaining('Target and Source need a Raft Computer update'),
+        findsOneWidget,
+      );
+      expect(find.text('Open Computers'), findsOneWidget);
+    });
+
+    testWidgets('an error without details has no recovery', (tester) async {
+      await mount(
+        tester,
+        state: 'completed',
+        setup: (t) => t.startError = {'error': 'x', 'code': 'AGENT_NOT_FOUND'},
+      );
+      await submitMove(tester);
+      expect(
+        find.text('This agent is no longer available. Refresh and try again.'),
+        findsOneWidget,
+      );
+      expect(find.text('Open Computers'), findsNothing);
+      expect(find.widgetWithText(RaftButton, 'Move'), findsOneWidget);
+    });
+  });
+
+  group('availability (Web AgentMigrationSection)', () {
+    testWidgets('Move is hidden only while a migration is active', (
+      tester,
+    ) async {
+      await mount(tester);
+      expect(find.text('Move agent'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await mount(tester, state: 'failed');
+      expect(find.text('Try migration again'), findsOneWidget);
+    });
+
+    testWidgets('a status read failure is a banner and keeps Move', (
+      tester,
+    ) async {
+      await mount(tester, setup: (t) => t.statusFails = true);
+      expect(find.text("Can't load migration status"), findsOneWidget);
+      expect(
+        find.text('Migration status could not be loaded. Refresh and try again.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Boom internal detail'), findsNothing);
+      expect(find.text('Move agent'), findsOneWidget);
+    });
   });
 }

@@ -7,48 +7,16 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/migration_error.dart';
+import '../data/raft_location.dart';
+import '../data/user_error.dart' show logUserError;
 import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import 'agent_metadata_projection.dart' show nonEmptyOr;
+import 'agent_detail_view.dart' show agentTimeFormatter;
+import 'agent_migration_panel.dart';
+import 'agent_migration_presentation.dart';
 import 'billing_view.dart' show RaftBillingPlans;
 import 'management_support.dart';
-
-/// Web MigrationProgressPanel status word; an unknown state reads as its
-/// words ("in_transit_v2" -> "In transit v2") instead of the raw enum.
-String migrationStatusLabel(String? state) {
-  if (state != null && state.startsWith('cancel_requested_')) {
-    return 'Canceling';
-  }
-  switch (migrationPhase(state)) {
-    case 'completed':
-      return 'Complete';
-    case 'canceled':
-      return 'Canceled';
-    case 'failed':
-      return 'Needs attention';
-    case 'active':
-      return 'In progress';
-  }
-  final words = (state ?? '').replaceAll(RegExp(r'[_\-]+'), ' ').trim();
-  if (words.isEmpty) return 'Unknown';
-  return words[0].toUpperCase() + words.substring(1);
-}
-
-/// Web agent.detail.migrationAborted* copy for an `aborted` migration.
-String migrationAbortText(
-  String? reason, {
-  String source = 'the source computer',
-  String target = 'the target computer',
-}) => switch (reason) {
-  'prep-deadline' =>
-    'Preparing the workspace on $source stopped making progress before the deadline. $source may have gone offline, or packing stalled. Make sure $source is online, then try again.',
-  'transfer-deadline' =>
-    'The workspace transfer did not finish before the deadline. Make sure both Computers stay online and the target has enough free disk space, then try again.',
-  'arrival-deadline' =>
-    'The target Computer $target did not finish installing the workspace before the deadline. Make sure the target is running and has enough free disk space, then try again.',
-  _ =>
-    'The migration stopped before it completed. Review the technical reason, then try again.',
-};
 
 class AgentMigrationView extends StatefulWidget {
   const AgentMigrationView({
@@ -89,22 +57,12 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
   bool get manager =>
       w.can('migrateAgents') ||
       agent['creatorType'] == 'user' && agent['creatorId'] == w.client.user?.id;
-  static const cancellable = {
-    'provisioning',
-    'prep',
-    'ready',
-    'in_transit',
-    'arriving',
-    'starting',
-  };
-  static const terminal = {
-    'completed',
-    'aborted',
-    'failed',
-    'canceled_pre_flip',
-    'canceled_post_flip',
-  };
   StreamSubscription<RaftEvent>? _events;
+
+  /// The migration the cancel dialog shows and whether it can still be
+  /// cancelled: they follow every read while the dialog is open.
+  final _live = ValueNotifier<Map<String, dynamic>>({});
+  final _cancellable = ValueNotifier<bool>(true);
 
   /// Web realtime.ts `pollMs`: while a migration is active the status is
   /// re-read this often, so a missed push cannot leave the page stale.
@@ -142,6 +100,8 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     w.removeListener(_planChanged);
     _poll?.dispose();
     _poll = null;
+    _live.dispose();
+    _cancellable.dispose();
     super.dispose();
   }
 
@@ -189,6 +149,8 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
   /// leaves the agent on the target computer.
   void _observeMigration() {
     if (!mounted) return;
+    _live.value = migration;
+    _cancellable.value = canCancelMigration(migration);
     final phase = migrationPhase(migration['state'] as String?);
     final ref = migration['migrationRef'];
     if (phase == 'active') {
@@ -230,6 +192,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     migration = {};
     machines = [];
     billing = null;
+    statusFailed = false;
   }
 
   /// Web `migrationErrorPresentation`: the failure's `code` picks the
@@ -246,32 +209,49 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       if (e is RaftApiException && const [401, 403].contains(e.status)) {
         rethrow;
       }
-      throw RaftUserError(
-        context == MigrationErrorContext.cancel
-            ? migrationCancelErrorText(e)
-            : migrationErrorText(e, context),
-      );
+      throw RaftUserError(migrationErrorText(e, context));
     }
   }
 
-  @override
-  Future<void> loadData(int request, int generation) => _migration(
-    MigrationErrorContext.status,
-    () => _loadData(request, generation),
-  );
+  /// The last status read failed (Web `statusError`): shown as a banner that
+  /// leaves the move action available, unlike a failed agent or computers read.
+  bool statusFailed = false;
 
-  Future<void> _loadData(int request, int generation) async {
-    if (w.server == null) return;
-    final responses = await Future.wait([
-      w.query(base),
-      w.query('$base/migration'),
-      w.query('/servers/${w.server!.id}/machines'),
-    ]);
-    if (!accepts(generation, request)) return;
-    agent = managementMap(responses[0]);
-    migration = managementMap(managementMap(responses[1])['migration']);
-    machines = managementRows(managementMap(responses[2])['machines']);
-  }
+  @override
+  Future<void> loadData(int request, int generation) =>
+      _migration(MigrationErrorContext.status, () async {
+        if (w.server == null) return;
+        // Web reads the status on its own: a failed status read must not
+        // discard the agent and the computers.
+        Object? statusError;
+        final status = w
+            .query('$base/migration')
+            .then<dynamic>((value) => value)
+            .catchError((Object e) {
+              statusError = e;
+              return null;
+            });
+        final responses = await Future.wait([
+          w.query(base),
+          w.query('/servers/${w.server!.id}/machines'),
+          status,
+        ]);
+        if (!accepts(generation, request)) return;
+        final failure = statusError;
+        if (failure is RaftApiException &&
+            const [401, 403].contains(failure.status)) {
+          throw failure;
+        }
+        agent = managementMap(responses[0]);
+        machines = managementRows(managementMap(responses[1])['machines']);
+        if (failure != null) {
+          statusFailed = true;
+          // The accepted migration stays until a read succeeds.
+          throw failure;
+        }
+        statusFailed = false;
+        migration = managementMap(managementMap(responses[2])['migration']);
+      });
 
   /// Web AgentMigrationUpgradeDialog: "Upgrade" opens Plan & Billing.
   Future<void> _showUpgrade() async {
@@ -291,6 +271,39 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     w.setSection('billing');
   }
 
+  bool get active => migrationPhase(migration['state'] as String?) == 'active';
+
+  MigrationComputers _computers(Object? targetId) {
+    String? name(Object? id) =>
+        machines.where((m) => m['id'] == id).firstOrNull?['name'] as String?;
+    return MigrationComputers(
+      sourceName: name(agent['machineId']),
+      targetName: name(targetId),
+      sourceId: agent['machineId'] as String?,
+      targetId: targetId as String?,
+    );
+  }
+
+  /// Web AgentMigrationDialog "Open computer settings" / "Open Computers":
+  /// the migration page is a route over the workspace, so leave it for the
+  /// Computers surface (Web opens a new tab so the dialog stays).
+  void _openComputers(String? computerId) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (computerId != null && w.can('viewMachines')) {
+      w.navigation.navigate(
+        RaftLocation.at(
+          serverSlug: w.location.serverSlug,
+          route: RaftRoute.computer,
+          entityId: computerId,
+        ),
+      );
+      w.closeThread(navigate: false);
+      w.notifyListeners();
+    } else {
+      w.setSection('computers');
+    }
+  }
+
   Future<void> move() async {
     if (!manager || agent['runtime'] == 'external') return;
     // Web openMigration: a known non-Pro plan gets the upgrade prompt instead.
@@ -298,12 +311,10 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       await _showUpgrade();
       return;
     }
+    // Web AgentMigrationDialog: every other computer; an offline one is
+    // listed and the server answers TARGET_COMPUTER_OFFLINE.
     final targets = machines
-        .where(
-          (m) =>
-              m['id'] != agent['machineId'] &&
-              m['status'] == 'online',
-        )
+        .where((m) => m['isComputer'] == true && m['id'] != agent['machineId'])
         .toList();
     if (targets.isEmpty) {
       setState(
@@ -313,34 +324,45 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       return;
     }
     var proRequired = false;
-    await form(
-      'Move agent',
-      [
-        RaftFormField(
-          'target',
-          'Target computer',
-          required: true,
-          choices: {for (final m in targets) '${m['id']}': '${m['name']}'},
-        ),
-      ],
-      (values) => _migration(MigrationErrorContext.start, () async {
-        try {
-          await w.command(
-            'POST',
-            '$base/migrate',
-            data: {'targetComputer': values['target']},
-          );
-        } catch (e) {
-          // Web handleProRequired: the server is the authority on the plan.
-          // Closing the form without an error hands over to the upgrade
-          // prompt below.
-          if (!isMigrationProPlanRequiredError(e)) rethrow;
-          proRequired = true;
-        }
-      }),
-      description:
-          'The source agent will stop while its workspace moves. Check progress for completion.',
-      submit: 'Move',
+    final generation = w.client.generation, sourceAuthority = authority;
+    await scopedDialog<bool>(
+      (dialogContext) => _StartDialog(
+        targets: targets,
+        openComputers: _openComputers,
+        start: (target) async {
+          if (!accepts(generation) || sourceAuthority != authority) {
+            throw StateError('The active workspace changed. Reopen this form.');
+          }
+          try {
+            await w.command(
+              'POST',
+              '$base/migrate',
+              data: {'targetComputer': target},
+            );
+          } catch (e) {
+            if (accepts(generation) &&
+                sourceAuthority == authority &&
+                invalidateDeniedMutation(e) &&
+                dialogContext.mounted) {
+              Navigator.of(dialogContext).pop(false);
+            }
+            // Web handleProRequired: the server is the authority on the
+            // plan. Closing the form without an error hands over to the
+            // upgrade prompt below.
+            if (isMigrationProPlanRequiredError(e)) {
+              proRequired = true;
+              return;
+            }
+            if (e is RaftApiException && const [401, 403].contains(e.status)) {
+              rethrow;
+            }
+            logUserError(e, where: 'agent migration start');
+            throw _StartFailure(
+              migrationStartErrorPresentation(e, _computers(target)),
+            );
+          }
+        },
+      ),
     );
     if (proRequired) {
       unawaited(loadBilling());
@@ -380,30 +402,135 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     await reload();
   }
 
-  Future<void> cancel() async {
-    final ref = migration['migrationRef'], revision = migration['revision'];
-    if (!manager ||
-        !cancellable.contains(migration['state']) ||
-        ref is! String ||
-        revision is! int ||
-        revision < 1) {
-      return;
+  /// Web AgentMigrationCancelDialog `MAX_CANCEL_ATTEMPTS`: a running migration
+  /// bumps its revision at every step, so the revision the dialog opened with
+  /// is often stale by the time it is confirmed.
+  static const maxCancelAttempts = 3;
+
+  /// Submits the cancellation for the migration shown in the dialog. A stale
+  /// rejection re-reads the status and retries for the same migration while it
+  /// is still cancellable; anything else refreshes and is surfaced.
+  Future<void> _submitCancel(
+    int generation,
+    String sourceAuthority,
+  ) async {
+    if (!accepts(generation) || sourceAuthority != authority) {
+      throw StateError('The active workspace changed. Reopen this form.');
     }
-    await form(
-      'Cancel migration?',
-      [],
-      (values) => _migration(MigrationErrorContext.cancel, () async {
+    final opened = _live.value;
+    if (!canCancelMigration(opened)) return;
+    final ref = opened['migrationRef'];
+    var revision = opened['revision'];
+    for (var attempt = 1; ; attempt++) {
+      try {
         await w.command(
           'POST',
           '$base/migration/cancel',
           data: {'migrationRef': ref, 'expectedRevision': revision},
         );
-      }),
-      description:
-          'Request a coordinated cancellation. The computers must acknowledge it before the migration is safely stopped.',
-      submit: 'Cancel migration',
-      destructive: true,
-    );
+        await reload();
+        return;
+      } catch (e) {
+        if (accepts(generation) &&
+            sourceAuthority == authority &&
+            invalidateDeniedMutation(e)) {
+          rethrow;
+        }
+        final code = e is RaftApiException ? e.details['code'] : null;
+        if (code == 'MIGRATION_REVISION_STALE' &&
+            attempt < maxCancelAttempts) {
+          Map<String, dynamic>? latest;
+          try {
+            latest = managementMap(
+              managementMap(await w.query('$base/migration'))['migration'],
+            );
+          } catch (_) {}
+          if (latest != null &&
+              latest['migrationRef'] == ref &&
+              canCancelMigration(latest)) {
+            revision = latest['revision'];
+            continue;
+          }
+        }
+        await reload();
+        throw migrationCancelUserError(e);
+      }
+    }
+  }
+
+  Future<void> cancel() async {
+    if (!manager || !canCancelMigration(migration)) return;
+    final generation = w.client.generation, sourceAuthority = authority;
+    _live.value = migration;
+    _cancellable.value = true;
+    await scopedDialog<bool>(
+        (_) => ValueListenableBuilder<Map<String, dynamic>>(
+          valueListenable: _live,
+          builder: (context, current, _) {
+            final source = MigrationText('{name}', {
+              'name': migrationComputerLabel(
+                machines,
+                current['sourceMachineId'],
+              ),
+            }).text(context);
+            final target = MigrationText('{name}', {
+              'name': migrationComputerLabel(
+                machines,
+                current['targetMachineId'],
+              ),
+            }).text(context);
+            final t = RaftTokens.of(context);
+            return RaftConfirmDialog(
+              title: 'Cancel migration?',
+              confirmLabel: 'Stop',
+              cancelLabel: 'Continue',
+              loadingLabel: 'Canceling…',
+              confirmVariant: RaftButtonRecipeVariant.warning,
+              confirmEnabled: _cancellable,
+              maxWidth: 448,
+              onConfirm: () => _submitCancel(generation, sourceAuthority),
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    raftText(context, 'Canceling is safe'),
+                    style: RaftTypography.body(
+                      t,
+                      size: 14,
+                      line: 14 * 1.625,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    raftFormat(
+                      context,
+                      'Raft will stop the migration from {source} to {target} and clean up on both computers. Your agent and its workspace stay on whichever computer has them now.',
+                      {'source': source, 'target': target},
+                    ),
+                    style: RaftTypography.body(
+                      t,
+                      size: 14,
+                      line: 14 * 1.625,
+                      color: t.strong,
+                    ),
+                  ),
+                  const SizedBox(height: RaftSpace.x3),
+                  MigrationReference(
+                    migrationRef: '${current['migrationRef']}',
+                  ),
+                  const SizedBox(height: RaftSpace.x3),
+                  Text(
+                    raftText(
+                      context,
+                      'Canceling finishes only after both computers confirm. Keep both computers online until then.',
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
     await reload();
   }
 
@@ -412,101 +539,173 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       id?.toString() ??
       'Unassigned';
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: raftPageAppBar(
-      context,
-      title: raftText(context, 'Agent migration'),
-      actions: [
-        RaftTooltip(
-          message: raftText(context, 'Refresh'),
-          child: IconButton(
-            onPressed: busy ? null : reload,
-            icon: const Icon(Icons.refresh),
+  Widget build(BuildContext context) {
+    final formatter = agentTimeFormatter(context, w);
+    final failedPhase = migrationPhase(migration['state'] as String?) == 'failed';
+    // Web AgentMigrationSection: the action is hidden only while a migration
+    // runs; a status read error does not hide it.
+    final canMove = manager && agent.isNotEmpty && !active;
+    return Scaffold(
+      appBar: raftPageAppBar(
+        context,
+        title: raftText(context, 'Agent migration'),
+        actions: [
+          RaftTooltip(
+            message: raftText(context, 'Refresh'),
+            child: IconButton(
+              onPressed: busy ? null : reload,
+              icon: const Icon(Icons.refresh),
+            ),
           ),
-        ),
-      ],
-    ),
-    body: loading
-        ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            padding: raftScrollPadding(context, const EdgeInsets.all(24)),
-            children: [
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: RaftSpace.x3),
-                  child: RaftErrorBanner(error!, small: true),
-                ),
-              if (agent.isNotEmpty) ...[
-                Text(
-                  nonEmptyOr(agent['displayName'], agent['name']),
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  '${raftText(context, 'Computer')}: ${computerName(agent['machineId'])}',
-                ),
-              ],
-              if (migration.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  '${raftText(context, 'Migration status')}: ${raftText(context, migrationStatusLabel(migration['state'] as String?))}',
-                ),
-                Text(
-                  '${computerName(migration['sourceMachineId'])} → ${computerName(migration['targetMachineId'])}',
-                ),
-                // Web MigrationProgressPanel: failure copy chosen by code (an
-                // aborted run names its computers); never the server's sentence.
-                if (migration['state'] == 'aborted')
+        ],
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: raftScrollPadding(context, const EdgeInsets.all(24)),
+              children: [
+                if (error != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: RaftSpace.x2),
-                    child: RaftErrorBanner(
-                      migrationAbortText(
-                        migration['abortReason'] as String?,
-                        source: computerName(migration['sourceMachineId']),
-                        target: computerName(migration['targetMachineId']),
-                      ),
-                      small: true,
-                    ),
-                  )
-                else if (migrationFailureText(migration) case final failure?)
-                  Padding(
-                    padding: const EdgeInsets.only(top: RaftSpace.x2),
-                    child: RaftErrorBanner(failure, small: true),
+                    padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+                    child: statusFailed
+                        ? RaftBanner(
+                            status: RaftBannerRecipeStatus.warning,
+                            size: RaftBannerRecipeSize.sm,
+                            title: "Can't load migration status",
+                            description: error!,
+                          )
+                        : RaftErrorBanner(error!, small: true),
                   ),
-                if (migration['cancelNeedsAttention'] == true)
-                  Padding(
-                    padding: const EdgeInsets.only(top: RaftSpace.x2),
-                    child: RaftBanner(
-                      status: RaftBannerRecipeStatus.warning,
-                      size: RaftBannerRecipeSize.sm,
-                      title: "Cancellation couldn't finish",
-                      description: migrationCancelAttentionText(migration),
-                    ),
+                if (agent.isNotEmpty) ...[
+                  Text(
+                    nonEmptyOr(agent['displayName'], agent['name']),
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                if (migration['migrationRef'] is String)
-                  SelectableText('${migration['migrationRef']}'),
-                if (manager &&
-                    cancellable.contains(migration['state']) &&
-                    migration['revision'] is int)
+                  Text(
+                    '${raftText(context, 'Computer')}: ${computerName(agent['machineId'])}',
+                  ),
+                ],
+                if (migration.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  MigrationProgressPanel(
+                    migration: migration,
+                    machines: machines,
+                    now: (widget.now ?? DateTime.now)().toUtc(),
+                    formatTimestamp: formatter.shortDateTime,
+                    onCancel: manager ? () => run(cancel) : null,
+                  ),
+                ],
+                if (canMove) ...[
+                  const SizedBox(height: 20),
+                  RaftButton(
+                    label: raftText(
+                      context,
+                      failedPhase ? 'Try migration again' : 'Move agent',
+                    ),
+                    onPressed: busy || billingChecking ? null : () => run(move),
+                  ),
                   TextButton(
-                    onPressed: busy ? null : () => run(cancel),
-                    child: Text(raftText(context, 'Cancel migration')),
+                    onPressed: busy ? null : () => run(assign),
+                    child: Text(raftText(context, 'Assign computer')),
                   ),
+                ],
               ],
-              if (manager &&
-                  error == null &&
-                  (migration.isEmpty ||
-                      terminal.contains(migration['state']))) ...[
-                const SizedBox(height: 20),
-                RaftButton(
-                  label: raftText(context, 'Move agent'),
-                  onPressed: busy || billingChecking ? null : () => run(move),
-                ),
-                TextButton(
-                  onPressed: busy ? null : () => run(assign),
-                  child: Text(raftText(context, 'Assign computer')),
-                ),
-              ],
-            ],
-          ),
+            ),
+    );
+  }
+}
+
+/// Web AgentMigrationDialog: the target choice and, after a refused start, the
+/// error block with its recovery; the submit action reads "Try again" once the
+/// refusal asks for a fix on the computers.
+class _StartDialog extends StatefulWidget {
+  const _StartDialog({
+    required this.targets,
+    required this.start,
+    required this.openComputers,
+  });
+  final List<Map<String, dynamic>> targets;
+  final Future<void> Function(String target) start;
+  final void Function(String? computerId) openComputers;
+  @override
+  State<_StartDialog> createState() => _StartDialogState();
+}
+
+class _StartDialogState extends State<_StartDialog> {
+  MigrationPresentation? failure;
+
+  @override
+  Widget build(BuildContext context) => RaftFormDialog(
+    title: 'Move agent',
+    fields: [
+      RaftFormField(
+        'target',
+        'Target computer',
+        required: true,
+        choices: {for (final m in widget.targets) '${m['id']}': '${m['name']}'},
+        localizeChoices: false,
+      ),
+    ],
+    description:
+        'The source agent will stop while its workspace moves. Check progress for completion.',
+    submitLabel: failure?.recoveryOpenComputers == true ? 'Try again' : 'Move',
+    errorContent: (context, error) => error is _StartFailure
+        ? _StartFailureView(error.presentation, widget.openComputers)
+        : null,
+    onSubmit: (values) async {
+      try {
+        await widget.start(values['target'] ?? '');
+      } on _StartFailure catch (e) {
+        if (mounted) setState(() => failure = e.presentation);
+        rethrow;
+      }
+    },
   );
+}
+
+/// A failed start request, carried from the form's submit to its error slot.
+class _StartFailure implements Exception {
+  const _StartFailure(this.presentation);
+  final MigrationPresentation presentation;
+}
+
+/// Web AgentMigrationDialog error block: the warning banner with the issues
+/// and technical details, and the link to the computers that need a fix.
+class _StartFailureView extends StatelessWidget {
+  const _StartFailureView(this.presentation, this.openComputers);
+  final MigrationPresentation presentation;
+  final void Function(String? computerId) openComputers;
+
+  @override
+  Widget build(BuildContext context) {
+    final recovery = presentation.recoveryOpenComputers;
+    final computerId = presentation.recoveryComputerId;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RaftBanner(
+          status: RaftBannerRecipeStatus.warning,
+          size: RaftBannerRecipeSize.sm,
+          descriptionBuilder: (style) =>
+              MigrationErrorContent(presentation: presentation, style: style),
+        ),
+        if (recovery)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: RaftButton(
+              label: raftText(
+                context,
+                computerId != null
+                    ? 'Open computer settings'
+                    : 'Open Computers',
+              ),
+              glyph: RaftGlyph.externalLink,
+              tone: RaftButtonRecipeVariant.link,
+              size: RaftButtonRecipeSize.sm,
+              onPressed: () => openComputers(computerId),
+            ),
+          ),
+      ],
+    );
+  }
 }

@@ -72,29 +72,6 @@ void main() {
         endsWith('(MIGRATION_CANCEL_FAILED)'),
       );
     });
-
-    test('failed and aborted migrations use code and reason copy', () {
-      expect(
-        migrationFailureText({
-          'state': 'failed',
-          'transportErrorCode': 'MIGRATION_TARGET_IMPORT_ARRIVED_FAILED:503',
-          'failureReason': 'MIGRATION_TRANSPORT_LOST',
-        }),
-        startsWith('The connection between the two computers dropped'),
-      );
-      expect(
-        migrationFailureText({'state': 'failed', 'failureReason': 'weird'}),
-        'Something went wrong during the transfer. Try again.',
-      );
-      expect(
-        migrationFailureText({
-          'state': 'aborted',
-          'abortReason': 'prep-deadline',
-        }),
-        startsWith('Preparing the workspace on the source computer'),
-      );
-      expect(migrationFailureText({'state': 'in_transit'}), isNull);
-    });
   });
 
   group('runtime error classification', () {
