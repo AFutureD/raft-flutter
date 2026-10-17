@@ -7,72 +7,12 @@
       "rootIdentifiers": 1,
       "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
     },
-    "apps/raft_flutter/lib/data/history_gap_recovery.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 3,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
     "apps/raft_flutter/lib/data/incoming_share_targets.dart": {
       "rootEdges": 1,
       "rootIdentifiers": 1,
       "reason": "Existing D5 share-target projection dependency; lower/remove as the file migrates."
     },
-    "apps/raft_flutter/lib/data/message_history_events.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 8,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_memory.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 6,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_navigation.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 2,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_pages.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 9,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_positions.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 6,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_reconciliation.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 1,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_snapshots.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 3,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_summaries.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 5,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_history_verification.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 13,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/message_task_cache.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 8,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
     "apps/raft_flutter/lib/data/source_server_unread.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 1,
-      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/source_task_bucket.dart": {
       "rootEdges": 1,
       "rootIdentifiers": 1,
       "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."

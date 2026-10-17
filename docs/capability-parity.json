@@ -112,14 +112,14 @@
    "status": "covered",
    "webEntry": "ChatPanel / ThreadPanel timeline scroll (load older/newer, Back to bottom, reconnect), ThreadPanel 'Scroll to first message' and 'Search in thread', ReportIssueDialog submit",
    "gate": "channel read access (viewChannel)",
-   "flutterEntry": "workspace_controller.dart channel/thread window loads; raft_client messages(); report_issue.dart",
+   "flutterEntry": "workspace_message_replies.dart thread rebaseline; workspace_message_selection.dart / workspace_message_navigation.dart window loads; raft_client messages(); report_issue.dart",
    "flutterRefs": [
     {
      "file": "packages/raft_client/lib/src/client.dart",
      "needle": "'/messages/channel/$id'"
     },
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_message_replies.dart",
      "needle": "'/messages/channel/${request.threadChannelId}'"
     }
    ],
@@ -184,10 +184,10 @@
    "status": "covered",
    "webEntry": "messageStore.syncGap (automatic on reconnect / seq gap)",
    "gate": "none",
-   "flutterEntry": "workspace_controller.dart gap fill loop",
+   "flutterEntry": "workspace_message_navigation.dart gap fill loop",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_message_navigation.dart",
      "needle": "'/messages/sync'"
     }
    ],
@@ -1775,10 +1775,10 @@
    "status": "covered",
    "webEntry": "threadStore.openThread / openTaskModal (opening a thread from the reply badge, hover toolbar, menu, task chip)",
    "gate": "channel read access",
-   "flutterEntry": "workspace_controller.dart openThread / thread window resolve",
+   "flutterEntry": "workspace_message_commands.dart openThread / thread window resolve; workspace_message_replies.dart rebaseline",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_message_replies.dart",
      "needle": "'/channels/${request.parentChannelId}/threads/${request.parentMessageId}'"
     }
    ],
@@ -1839,10 +1839,10 @@
    "status": "covered",
    "webEntry": "ThreadPanel first reply (ensureOpenThreadChannel) from hover toolbar 'Reply in thread' / context menu 'Open Thread'",
    "gate": "channel post access",
-   "flutterEntry": "workspace_controller.dart ensureThreadChannel",
+   "flutterEntry": "workspace_message_commands.dart ensureThread / createThread",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_message_commands.dart",
      "needle": "'/channels/$parentChannelId/threads'"
     }
    ],
@@ -2334,7 +2334,7 @@
    "flutterEntry": "chat_view.dart RaftChannelJoinFooter (w.joinOpenChannel); forward picker joins",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_message_selection.dart",
      "needle": "'/channels/${c.id}/join'"
     },
     {

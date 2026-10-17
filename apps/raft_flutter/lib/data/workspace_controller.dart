@@ -6,6 +6,9 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_sync/raft_sync.dart';
 
 import 'workspace_session.dart';
+import 'workspace_messages.dart';
+import 'workspace_message_host.dart';
+import 'workspace_message_ports.dart';
 import 'workspace_channels.dart';
 import 'workspace_message_prefetch.dart';
 import 'workspace_session_bindings.dart';
@@ -40,6 +43,7 @@ import 'workspace_message_windows.dart';
 
 export 'workspace_uploads.dart' show UploadDraft;
 export 'thread_search.dart' show WorkspaceThreadIdentity;
+export 'workspace_message_commands.dart' show isThreadAbsentLookupError;
 export 'conversation_window.dart' show MessageContextLoadError;
 export 'workspace_message_windows.dart' show ReadingAnchor;
 import 'resource_snapshot_cache.dart';
@@ -48,18 +52,12 @@ import 'user_error.dart';
 import 'workspace_entity_directory.dart';
 import 'followed_threads_store.dart';
 import 'raft_location.dart';
-import 'raft_navigation_history.dart';
 import 'navigation_registry.dart';
 import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
-import 'message_window_snapshot.dart';
 import 'message_history_pages.dart';
 import 'message_history_events.dart';
 import 'message_history_snapshots.dart';
-import 'message_history_navigation.dart';
-import 'message_history_positions.dart';
-import 'message_history_summaries.dart';
-import 'thread_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'cache_clear.dart';
 import 'attachment_url_cache.dart';
@@ -67,27 +65,13 @@ import 'attachment_media.dart';
 import 'attachment_retention_index.dart';
 import 'conversation_presentation_state.dart';
 import 'composer_visit_state.dart';
-import 'reply_authority_epochs.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
 import 'upload_mime.dart';
 
-/// Web `isThreadAbsentLookupError` (threadStore.ts): only the route's explicit
-/// "no thread for this message" 404 means an empty thread. A 404 carrying a
-/// `code` is absent only for `THREAD_NOT_FOUND`; without a `code` the legacy
-/// error text decides. Every other failure (a lost parent channel is also a
-/// 404) is a load error with Retry.
-bool isThreadAbsentLookupError(Object? error) {
-  if (error is! RaftApiException || error.status != 404) return false;
-  if (error.details.containsKey('code')) {
-    return error.details['code'] == 'THREAD_NOT_FOUND';
-  }
-  return error.message == 'No thread found for this message';
-}
-
 class WorkspaceController extends ChangeNotifier
-    implements WorkspaceServiceAuthority, SessionScopeBinding {
+    implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost {
   /// High-frequency socket events that never change workspace state.
   static const presenceEvents = WorkspaceSession.presenceEvents;
 
@@ -105,7 +89,7 @@ class WorkspaceController extends ChangeNotifier
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
   }) : _presentationAuthority = presentationSource?.navigationAuthority {
-    final bindings = _WorkspaceSessionBindings(this);
+    final bindings = _WorkspaceMessageBindings(this);
     _session = WorkspaceSession(
       context: bindings,
       transport: bindings,
@@ -162,7 +146,7 @@ class WorkspaceController extends ChangeNotifier
       saveDirectory: (record) {
         _save('channels', '', record);
       },
-      acceptSelection: _adoptAcceptedChannelSelection,
+      acceptSelection: (accessible) => _messages.adoptAcceptedChannelSelection(accessible),
       patchSelected: (patch) {
         if (channel != null) channel = patch(channel!);
       },
@@ -170,7 +154,7 @@ class WorkspaceController extends ChangeNotifier
       reloadRow: (id) => refreshChannel(id),
       revokeChannel: _revokeChannel,
       closeDeniedThread: (id) {
-        if (_threadIdentity?.parentChannelId == id) closeThread();
+        if (_messages.state.threadIdentity?.parentChannelId == id) closeThread();
       },
       changed: notifyListeners,
       setError: setError,
@@ -268,6 +252,19 @@ class WorkspaceController extends ChangeNotifier
           imageStore: attachmentImageStore ?? AttachmentDiskCache.installed,
           urls: attachmentUrls,
         );
+    _messages = WorkspaceMessages(
+      context: bindings,
+      transport: bindings,
+      device: deviceStore,
+      presentation: bindings,
+      entries: bindings,
+      channels: _channels,
+      session: _session,
+      drafts: bindings,
+      notifications: bindings,
+      resolveSource: () => presentationSource?._messages,
+      staleScope: _staleScope,
+    );
     MessageHistoryPages.attach(this);
     services = WorkspaceServices(
       this,
@@ -287,7 +284,7 @@ class WorkspaceController extends ChangeNotifier
     // (or a [WorkspaceEntitySelection] of it) directly.
     if (services.ownsEntityDirectory) addListener(_entityAuthorityChanged);
     if (presentationSource == null) {
-      this.composer.sends.attach(this, _sendChanged);
+      this.composer.sends.attach(this, _messages.sendChanged);
     }
     _session.attachSubscription(_event);
     // A route-local presentation shares its source's layers, which register.
@@ -300,6 +297,9 @@ class WorkspaceController extends ChangeNotifier
   }
 
   late final WorkspaceSession _session;
+  late final WorkspaceMessages _messages;
+  @override
+  WorkspaceMessages get messageDomain => _messages;
   late final WorkspaceChannels _channels;
 
   VoidCallback? _removeCacheClear;
@@ -309,88 +309,10 @@ class WorkspaceController extends ChangeNotifier
   SidebarRepository get sidebarRepository => _channels.sidebar;
   ChannelRepository get channelRepository => _channels.directory;
   @override
-  late final WorkspaceMessageWindows messageWindows =
-      presentationSource?.messageWindows ??
-      WorkspaceMessageWindows(
-        authority: _messageWindowAuthority,
-        presentation: _messageWindowPresentation,
-        layout: _messageWindowLayout,
-        sends: composer.sends,
-        notRevoked: (id) => !_revokedChannels.contains(id),
-      );
+  WorkspaceMessageWindows get messageWindows => _messages.messageWindows;
 
-  WorkspaceController get _windowReceiver =>
-      presentationSource?._windowReceiver ?? this;
-
-  ConversationWindow? get messageWindow => messageWindows.channel(channel?.id);
-  ConversationWindow? get threadWindow =>
-      messageWindows.thread(threadParentChannelId, threadParentMessageId);
-
-  MessageWindowAuthority? _messageWindowAuthority(
-    ConversationWindowScope scope,
-  ) {
-    final resource = _threadChannelResource(scope.channelId);
-    if (_disposed ||
-        client.user == null ||
-        server == null ||
-        server!.id != client.serverId ||
-        _revokedServers.contains(server!.id) ||
-        _revokedChannels.contains(scope.channelId) ||
-        resource == null ||
-        !can('viewChannel', resource: resource)) {
-      return null;
-    }
-    final accepted = messageWindows.accepted[scope.channelId];
-    final authority = messageWindowAuthority(
-      server!.string('role'),
-      resource.json,
-    );
-    if (accepted != null &&
-        !accepted.matches(authority, _replyToken(scope.channelId))) {
-      return null;
-    }
-    return (
-      navigationAuthority,
-      ledger.generation,
-      _replyToken(scope.channelId),
-      authority,
-      jsonEncode(server!.json['permissions']),
-    );
-  }
-
-  (bool, bool) _messageWindowLayout(ConversationWindowScope scope) {
-    final selected = scope.parentMessageId == null
-        ? channel?.id == scope.channelId
-        : threadParentChannelId == scope.channelId &&
-              threadParentMessageId == scope.parentMessageId;
-    return (
-      selected,
-      selected &&
-          foreground &&
-          _chatTabPresented &&
-          (scope.parentMessageId == null ? _mainPresented : _threadPresented),
-    );
-  }
-
-  ConversationWindowSnapshot _messageWindowPresentation(bool thread) {
-    final rows = thread ? replies : messages;
-    return ConversationWindowSnapshot(
-      channelId: thread ? threadChannelId : channel?.id,
-      rows: rows,
-      timeline: timeline(thread: thread, rows: rows),
-      parent: thread ? presentedThreadParent : null,
-      loading: thread ? threadLoading : channelLoading,
-      loadingOlder: loadingOlder,
-      parentLoading: thread && threadParentLoading,
-      resolving: thread && threadResolutionLoading,
-      error: thread ? threadResolutionError : error,
-      hasMore: thread ? threadHasMore : hasMore,
-      hasNewer: thread ? messageWindows.contextHasNewer(threadChannelId) : hasNewer,
-      historyLimited: thread ? threadHistoryLimited : historyLimited,
-      highlightedMessageId: highlightedMessageId,
-      contextLoadError: thread ? null : contextLoadError,
-    );
-  }
+  ConversationWindow? get messageWindow => _messages.messageWindow;
+  ConversationWindow? get threadWindow => _messages.threadWindow;
 
   /// "Clear cache": lets go of what this workspace keeps in memory and can
   /// rebuild: decoded attachment pictures nobody shows, signed attachment URLs
@@ -575,9 +497,9 @@ class WorkspaceController extends ChangeNotifier
   /// retains selection/drafts, but is not an open conversation/read surface.
   bool mobileNavigation;
   @override
-  final messageSync = MessageSync();
+  MessageSync get messageSync => _messages.state.messageSync;
   @override
-  final threadRepliesSync = ThreadRepliesSync();
+  ThreadRepliesSync get threadRepliesSync => _messages.state.threadRepliesSync;
   @override
   NotificationPrefsSync get notificationPrefsSync =>
       _channels.notificationPrefsSync;
@@ -585,194 +507,12 @@ class WorkspaceController extends ChangeNotifier
       _session.syncCoreNotificationPrefsEnabled;
   set syncCoreNotificationPrefsEnabled(bool value) =>
       _session.syncCoreNotificationPrefsEnabled = value;
-  String? _replyIdentity;
-
-  final _replyAuthority = ReplyAuthorityEpochs();
 
   String _syncIdentity() => _session.syncIdentity();
 
-  /// Authority token for data owned by [channelId] (its message window, its
-  /// thread windows and reply summaries).
-  String _replyToken(String? channelId) =>
-      _replyAuthority.token(_syncIdentity(), channelId);
   void _ensureSyncIdentity() => _session.ensureSyncIdentity();
 
-  /// Retires one channel's reply authority (Source refreshes only the
-  /// affected channel row on a membership event). Its reply scopes and
-  /// thread windows go now; its message window is dropped on next use by the
-  /// token mismatch. The open channel keeps its displayed summaries until its
-  /// own refresh replaces them; a real revocation clears them in
-  /// [_revokeChannel].
-  void _invalidateChannelReplies(String id) {
-    _replyAuthority.invalidateChannel(id);
-    threadRepliesSync.revokeChannel(id);
-    messageWindows.invalidateParentThreads(id);
-    if (channel?.id != id) _summariesByChannel.remove(id);
-  }
-
-  void _invalidateAllChannelReplies() {
-    _replyAuthority.invalidateAll();
-    threadRepliesSync.reset();
-    messageWindows.clearThreads();
-    _summariesByChannel.removeWhere((id, _) => id != channel?.id);
-  }
-
-  void mergeThreadSummaries(String id, dynamic rows) => _summariesByChannel
-      .putIfAbsent(id, () => {})
-      .addAll(
-        _hydrateThreadSummaries(rows, id, expectedToken: _replyToken(id)),
-      );
-
-  Map<String, dynamic> _hydrateThreadSummaries(
-    dynamic raw,
-    String parentChannelId, {
-    String? expectedToken,
-  }) {
-    _ensureSyncIdentity();
-    if (expectedToken != null &&
-        expectedToken != _replyToken(parentChannelId)) {
-      return {};
-    }
-    if (raw is! Map) return {};
-    final id = client.serverId, principal = client.user?.id;
-    return {
-      for (final entry in raw.entries)
-        if (entry.key is String && entry.value is Map)
-          entry.key as String: id == null || principal == null
-              ? Map<String, dynamic>.from(entry.value)
-              : threadRepliesSync.hydrateSummary(
-                  id,
-                  principal,
-                  parentChannelId,
-                  entry.key as String,
-                  Map<String, dynamic>.from(entry.value),
-                ),
-    };
-  }
-
-  bool _replyCurrent(String token, ThreadRebaselineRequest request) =>
-      !_disposed &&
-      token == _replyToken(request.parentChannelId) &&
-      !_revokedChannels.contains(request.parentChannelId) &&
-      !_revokedChannels.contains(request.threadChannelId);
-
-  Future<void> _rebaselineThread(ThreadRebaselineRequest request) async {
-    final token = _replyToken(request.parentChannelId);
-    try {
-      // Exact mounted compatibility snapshot used by threadRepliesSyncDomain.
-      final values = await Future.wait([
-        client.get(
-          '/messages/channel/${request.threadChannelId}',
-          query: {'limit': inlineReplyCap},
-        ),
-        client.get(
-          '/channels/${request.parentChannelId}/threads/${request.parentMessageId}',
-        ),
-      ]);
-      if (!_replyCurrent(token, request)) return;
-      final page = values[0], summary = values[1];
-      if (page is! Map ||
-          page['messages'] is! List ||
-          summary is! Map ||
-          summary['threadChannelId'] != request.threadChannelId ||
-          summary['replyCount'] is! int ||
-          summary['replyCount'] < 0) {
-        return;
-      }
-      final previews = (page['messages'] as List)
-          .map((m) => projectThreadReply(m, snapshot: true))
-          .whereType<Map<String, dynamic>>();
-      final result = threadRepliesSync.completeRebaseline(
-        request,
-        replies: previews,
-        replyCount: summary['replyCount'],
-        historyLimited: page['historyLimited'] == true,
-      );
-      if (result.kind != 'applied' || result.summary == null) return;
-      _summariesByChannel.putIfAbsent(
-        request.parentChannelId,
-        () => {},
-      )[request.parentMessageId] = result.summary;
-      MessageHistorySummaries.rebaselined(this, request, result.summary);
-      _applyThreadUnread(request.threadChannelId, result.summary);
-      if (channel?.id == request.parentChannelId) _saveWindow(channel!.id);
-      notifyListeners();
-    } catch (_) {
-      // No guessed transport or fabricated completion. The next eligible
-      // producer frame can retry its authorized compatibility snapshot.
-    } finally {
-      threadRepliesSync.release(request);
-    }
-  }
-
-  void _consumeThreadUpdate(Map<String, dynamic> payload) {
-    _ensureSyncIdentity();
-    final id = client.serverId, principal = client.user?.id;
-    if (id == null || principal == null) return;
-    if (payload['serverId'] != null && payload['serverId'] != id) return;
-    final parentId = payload['parentMessageId'];
-    final latest = payload['latestReply'];
-    final anchor = latest is Map ? latest['conversationContext'] : null;
-    final parentChannel = anchor is Map ? anchor['parentChannelId'] : null;
-    if (_revokedChannels.contains(payload['threadChannelId']) ||
-        _revokedChannels.contains(parentChannel)) {
-      return;
-    }
-    if (parentId is String &&
-        channel != null &&
-        _revokedChannels.contains(channel!.id)) {
-      return;
-    }
-    final result = threadRepliesSync.consume(
-      payload,
-      serverId: id,
-      principalId: principal,
-    );
-    if (result.summary != null && parentId is String) {
-      final owner = _summaryOwner(payload, parentId);
-      if (owner != null && !_revokedChannels.contains(owner)) {
-        _summariesByChannel.putIfAbsent(owner, () => {})[parentId] =
-            result.summary;
-        MessageHistorySummaries.store(this, owner, {parentId: result.summary});
-      }
-      _applyThreadUnread(payload['threadChannelId'], payload);
-    }
-    if (result.request != null) unawaited(_rebaselineThread(result.request!));
-  }
-
-  /// The parent channel whose reply rows a `thread:updated` summary belongs
-  /// to: the wire anchor first, else the channel already holding the parent.
-  String? _summaryOwner(Map<String, dynamic> payload, String parentId) {
-    final latest = payload['latestReply'];
-    final anchor = latest is Map ? latest['conversationContext'] : null;
-    if (anchor is Map && anchor['parentChannelId'] is String) {
-      return anchor['parentChannelId'] as String;
-    }
-    final window = payload['syncCoreReplyWindow'];
-    final discussion = window is Map ? window['discussion'] : null;
-    final scope = discussion is Map ? discussion['parentScopeKey'] : null;
-    if (scope is Map && scope['scopeId'] is String) {
-      return scope['scopeId'] as String;
-    }
-    final current = channel?.id;
-    if (current != null &&
-        (_summariesByChannel[current]?.containsKey(parentId) == true ||
-            ledger.contains(current, parentId))) {
-      return current;
-    }
-    for (final entry in _summariesByChannel.entries) {
-      if (entry.value.containsKey(parentId)) return entry.key;
-    }
-    for (final entry in visibleIds.entries) {
-      if (entry.value.contains(parentId)) return entry.key;
-    }
-    return null;
-  }
-
-  /// A thread summary carries the server's own per-thread unread count; it
-  /// replaces only a count the unread snapshot already tracks.
-  void _applyThreadUnread(dynamic threadChannelId, dynamic summary) =>
-      _channels.applyThreadUnread(threadChannelId, summary);
+  void mergeThreadSummaries(String id, dynamic rows) => _messages.mergeThreadSummaries(id, rows);
 
   void _consumeNotificationPrefs(dynamic payload) => _channels.consumeNotificationPrefs(payload);
 
@@ -901,7 +641,6 @@ class WorkspaceController extends ChangeNotifier
   /// Server selection creates it before UI; standalone views can borrow a
   /// passive projection before selection. Neither path starts work by reading.
   @override
-  @override
   SourceActivityUnreadStore get activityUnread => services.activityUnread;
 
   /// The existing session projection; reading it never constructs or starts it.
@@ -1004,28 +743,6 @@ class WorkspaceController extends ChangeNotifier
   ValueListenable<int> draftChanges({bool thread = false}) =>
       composer.changes(draftScope(thread: thread));
 
-  /// Capture the common session facts once; the window owner captures its
-  /// own epochs. A caller supplies only the operation-specific selection rule.
-  MessageWindowRequest _windowRequest(
-    String id, {
-    bool thread = false,
-    bool checkNavigation = false,
-    bool Function()? allowed,
-  }) {
-    final parent = thread ? threadParentChannelId : id;
-    final reply = _replyToken(parent), authority = _windowAuthority();
-    final revision = navigationRevision;
-    return messageWindows.request(
-      thread: thread,
-      allowed: () =>
-          reply == _replyToken(parent) &&
-          authority == _windowAuthority() &&
-          !_revokedChannels.contains(id) &&
-          (!checkNavigation || revision == navigationRevision) &&
-          (allowed?.call() ?? true),
-    );
-  }
-
   Future<void> _restoreDraft(String scope) async {
     final generation = ledger.generation;
     await composer.restore(
@@ -1045,48 +762,14 @@ class WorkspaceController extends ChangeNotifier
     );
   }
 
-  String _windowAuthority() =>
-      messageWindowAuthority(server?.string('role'), channel?.json ?? const {});
-
   /// Device writes stop before logout purges are queued.
   bool get cacheWritable => deviceStore.writable;
-  Object messageHistoryTicket(String id) => _replyToken(id);
-  void rejectHistoryRead(String id) => _windowReceiver._revokeChannel(id);
-  Future<void> saveHistoryWindow(String id, {bool thread = false}) =>
-      _windowReceiver._saveWindow(id, thread: thread);
-
-  Future<void> _saveWindow(String id, {bool thread = false, bool coalesce = false}) =>
-      MessageHistorySnapshots.save(
-        this, id, thread: thread, coalesce: coalesce,
-        identity: _threadIdentity, replyToken: _replyToken, write: _save,
-      );
-
-  /// Disk windows retain canonical versions already held in memory. Only the
-  /// bootstrap replaces visible membership and starts from disk summaries.
-  bool _restoreCachedTail(
-    String id,
-    dynamic page,
-    MessageWindowRequest request, {
-    String? replyAuthority,
-    bool replace = false,
-  }) {
-    if (!MessageHistorySnapshots.restore(this, id, page, request, replace: replace,
-        allowed: () => !_revokedServers.contains(server?.id))) {
-      return false;
-    }
-    _summariesByChannel[id] = {
-      ..._hydrateThreadSummaries(
-        page['threadSummaries'],
-        id,
-        expectedToken: replyAuthority ?? _replyToken(id),
-      ),
-      if (!replace) ...?_summariesByChannel[id],
-    };
-    return true;
-  }
+  Object messageHistoryTicket(String id) => _messages.messageHistoryTicket(id);
+  void rejectHistoryRead(String id) => _messages.rejectHistoryRead(id);
+  Future<void> saveHistoryWindow(String id, {bool thread = false}) => _messages.saveHistoryWindow(id, thread: thread);
 
   StreamSubscription<RaftEvent> get subscription => _session.subscription;
-  MessageLedger get ledger => messageWindows.ledger;
+  MessageLedger get ledger => _messages.ledger;
   final _reactionViewer = ReactionViewerLedger();
   @override
   ReactionViewerLedger get reactionViewer =>
@@ -1309,16 +992,8 @@ class WorkspaceController extends ChangeNotifier
     required String key,
     required String serverId,
     required String name,
-  }) => RaftChannel({
-    'id': 'pending-dm:$key',
-    'name': name,
-    'type': 'dm',
-    'joined': true,
-    'serverId': serverId,
-    'peerDisplayName': name,
-    'pendingDm': true,
-  });
-  static bool isPendingDm(RaftChannel? c) => c?.json['pendingDm'] == true;
+  }) => WorkspaceMessages.pendingDm(key: key, serverId: serverId, name: name);
+  static bool isPendingDm(RaftChannel? c) => WorkspaceMessages.isPendingDm(c);
 
   /// The new DM exists now: its draft, staged files and hold move from the
   /// local row to [real], which takes its place in the lists and, when open,
@@ -1487,22 +1162,23 @@ class WorkspaceController extends ChangeNotifier
   @override
   ReadStateLedger get readState => presentationSource?.readState ?? _readState;
 
-  /// Workspace-owned page snapshots (Activity, Saved) that survive
-  /// navigation; dropped on every server or account switch.
-  final _resourceSnapshots = ResourceSnapshotCache();
   @override
-  ResourceSnapshotCache get resourceSnapshots =>
-      presentationSource?.resourceSnapshots ?? _resourceSnapshots;
-  Map<String, Set<String>> get visibleIds => messageWindows.visibleIds;
-  bool hasNewer = false;
+  ResourceSnapshotCache get resourceSnapshots => _messages.resourceSnapshots;
+  Map<String, Set<String>> get visibleIds => _messages.visibleIds;
+  bool get hasNewer => _messages.state.hasNewer;
+  set hasNewer(bool value) => _messages.state.hasNewer = value;
   @override
-  bool threadHasMore = false;
-  bool threadHistoryLimited = false, historyLimited = false;
-  String? highlightedMessageId;
+  bool get threadHasMore => _messages.state.threadHasMore;
+  set threadHasMore(bool value) => _messages.state.threadHasMore = value;
+  bool get threadHistoryLimited => _messages.state.threadHistoryLimited;
+  set threadHistoryLimited(bool value) => _messages.state.threadHistoryLimited = value;
+  bool get historyLimited => _messages.state.historyLimited;
+  set historyLimited(bool value) => _messages.state.historyLimited = value;
+  String? get highlightedMessageId => _messages.state.highlightedMessageId;
+  set highlightedMessageId(String? value) => _messages.state.highlightedMessageId = value;
 
   /// Pending unknown context; cross-channel cached tails are not that context.
-  String? get pendingMessageContextChannelId =>
-      messageWindows.pendingContextChannelId;
+  String? get pendingMessageContextChannelId => _messages.pendingMessageContextChannelId;
   @override
   List<RaftRecord> get servers => _session.servers;
   set servers(List<RaftRecord> value) => _session.servers = value;
@@ -1534,59 +1210,33 @@ class WorkspaceController extends ChangeNotifier
   bool can(String capability, {RaftChannel? resource}) =>
       _session.can(capability, resource: resource);
   RaftChannel? channel;
-  WorkspaceThreadIdentity? _threadIdentity;
-  MessageWindowRequest? _threadVisit;
-  bool _threadResolutionLoading = false, _threadParentLoading = false;
-  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a thread opens or closes and hidden whenever threadIdentity is stale.
-  String? _threadResolutionError;
 
   @override
-  WorkspaceThreadIdentity? get threadIdentity =>
-      _threadVisit?.current == true ? _threadIdentity : null;
-  bool get threadResolutionLoading =>
-      threadIdentity != null && _threadResolutionLoading;
-  bool get threadParentLoading =>
-      threadIdentity != null && _threadParentLoading;
-  String? get threadResolutionError =>
-      threadIdentity == null ? null : _threadResolutionError;
+  WorkspaceThreadIdentity? get threadIdentity => _messages.threadIdentity;
+  bool get threadResolutionLoading => _messages.threadResolutionLoading;
+  bool get threadParentLoading => _messages.threadParentLoading;
+  String? get threadResolutionError => _messages.threadResolutionError;
   @override
-  RaftMessage? get presentedThreadParent => _threadIdentity == null
-      ? threadParent
-      : threadIdentity != null &&
-            threadParent?.id == threadIdentity!.parentMessageId &&
-            threadParent?.channelId == threadIdentity!.parentChannelId
-      ? threadParent
-      : null;
-  String? get threadParentMessageId =>
-      threadIdentity?.parentMessageId ??
-      (_threadIdentity == null ? threadParent?.id : null);
-  String? get threadParentChannelId =>
-      threadIdentity?.parentChannelId ??
-      (_threadIdentity == null ? threadParent?.channelId : null);
+  RaftMessage? get presentedThreadParent => _messages.presentedThreadParent;
+  String? get threadParentMessageId => _messages.threadParentMessageId;
+  String? get threadParentChannelId => _messages.threadParentChannelId;
 
-  RaftChannel? _threadChannelResource(String? id) => [
-    ?channel,
-    ...channels,
-    ...dms,
-  ].where((value) => value.id == id).firstOrNull;
-  String? _threadResourceAuthority(String? id) {
-    final resource = _threadChannelResource(id);
-    return resource == null
-        ? null
-        : messageWindowAuthority(server?.string('role'), resource.json);
-  }
+  RaftChannel? get threadSourceChannel => _messages.threadSourceChannel;
 
-  RaftChannel? get threadSourceChannel =>
-      _threadChannelResource(threadParentChannelId);
-
-  RaftMessage? threadParent;
+  RaftMessage? get threadParent => _messages.state.threadParent;
+  set threadParent(RaftMessage? value) => _messages.state.threadParent = value;
   @override
-  String? threadChannelId;
-  bool loading = false,
-      channelLoading = false,
-      threadLoading = false,
-      loadingOlder = false,
-      hasMore = false;
+  String? get threadChannelId => _messages.state.threadChannelId;
+  set threadChannelId(String? value) => _messages.state.threadChannelId = value;
+  bool loading = false;
+  bool get channelLoading => _messages.state.channelLoading;
+  set channelLoading(bool value) => _messages.state.channelLoading = value;
+  bool get threadLoading => _messages.state.threadLoading;
+  set threadLoading(bool value) => _messages.state.threadLoading = value;
+  bool get loadingOlder => _messages.state.loadingOlder;
+  set loadingOlder(bool value) => _messages.state.loadingOlder = value;
+  bool get hasMore => _messages.state.hasMore;
+  set hasMore(bool value) => _messages.state.hasMore = value;
   bool get connected => _session.connected;
   set connected(bool value) => _session.connected = value;
   // ignore: raft_lints/avoid_imperative_notice_state -- One-shot toast consumed by WorkspaceView; cleared on channel open, jump, send start, server switch and server revoke.
@@ -1598,17 +1248,9 @@ class WorkspaceController extends ChangeNotifier
   /// the plan history-limit banner. Cleared by the next channel open or jump.
   /// Bound to the channel and server it was raised for: it reads as null in
   /// any other one (a channel replaced without a re-open, a server switch).
-  MessageContextLoadError? get contextLoadError {
-    if (_contextFailure?.$2 != (channel?.id, server?.id)) {
-      _contextFailure = null;
-    }
-    return _contextFailure?.$1;
-  }
+  MessageContextLoadError? get contextLoadError => _messages.contextLoadError;
 
-  set contextLoadError(MessageContextLoadError? value) => _contextFailure =
-      value == null ? null : (value, (channel?.id, server?.id));
-
-  (MessageContextLoadError, (String?, String?))? _contextFailure;
+  set contextLoadError(MessageContextLoadError? value) => _messages.contextLoadError = value;
 
   final navigation = WorkspaceNavigation();
   String _unboundSection = 'chat';
@@ -1685,74 +1327,38 @@ class WorkspaceController extends ChangeNotifier
     }
   }
 
-  int get channelGeneration => messageWindows.channelGeneration;
-  int get threadGeneration => messageWindows.threadGeneration;
-
-  /// Accepted thread summaries ("N replies" rows) per parent channel, keyed
-  /// by parent message. Like the channel's message window they outlive a
-  /// channel switch, so a revisit or a prefetched first open renders its
-  /// reply rows in the same frame as the messages.
-  final Map<String, Map<String, dynamic>> _pageSummariesByChannel = {};
-  Map<String, Map<String, dynamic>> get _summariesByChannel =>
-      presentationSource?._summariesByChannel ?? _pageSummariesByChannel;
+  int get channelGeneration => _messages.channelGeneration;
+  int get threadGeneration => _messages.threadGeneration;
 
   /// Summaries of the selected channel's messages.
-  Map<String, dynamic> get threadSummaries {
-    final id = channel?.id;
-    return id == null
-        ? <String, dynamic>{}
-        : _summariesByChannel.putIfAbsent(id, () => {});
-  }
+  Map<String, dynamic> get threadSummaries => _messages.threadSummaries;
 
-  set threadSummaries(Map<String, dynamic> value) {
-    final id = channel?.id;
-    if (id != null) _summariesByChannel[id] = value;
-  }
+  set threadSummaries(Map<String, dynamic> value) => _messages.threadSummaries = value;
 
   /// Summaries held for [channelId] (selected or not).
-  Map<String, dynamic> threadSummariesFor(String channelId) =>
-      Map.unmodifiable(_summariesByChannel[channelId] ?? const {});
-  List<RaftMessage> get messages => messageWindows.rows(channel?.id);
+  Map<String, dynamic> threadSummariesFor(String channelId) => _messages.threadSummariesFor(channelId);
+  List<RaftMessage> get messages => _messages.messages;
 
   /// Same membership as [messages], in constant time (no list projection).
-  bool presentsMessage(String? id) =>
-      messageWindows.retainsContextRows(channel?.id) &&
-      messageWindows.containsVisible(channel?.id, id);
+  bool presentsMessage(String? id) => _messages.presentsMessage(id);
 
   /// Same membership as [replies], in constant time.
-  bool presentsReply(String? id) =>
-      messageWindows.containsVisible(threadChannelId, id);
+  bool presentsReply(String? id) => _messages.presentsReply(id);
 
   @override
-  List<RaftMessage> get replies => messageWindows.rows(threadChannelId);
+  List<RaftMessage> get replies => _messages.replies;
 
   /// Web display order uses server sequence, with a display-only coordinate
   /// for pending rows. Context windows keep their existing admission policy.
-  List<RaftMessage> timeline({bool thread = false, List<RaftMessage>? rows}) =>
-      messageWindows.project(
-        rows ?? (thread ? replies : messages),
-        draftScope(thread: thread),
-        context:
-            !thread &&
-            (hasNewer || pendingMessageContextChannelId == channel?.id),
-      );
+  List<RaftMessage> timeline({bool thread = false, List<RaftMessage>? rows}) => _messages.timeline(thread: thread, rows: rows);
 
   /// Stable presentation identity: a row sent from this session keeps its
   /// optimistic key after the server copy replaces it, so the timeline
   /// updates that row in place instead of removing and inserting one.
-  String messageKey(RaftMessage message) {
-    if (presentationSource != null) {
-      return presentationSource!.messageKey(message);
-    }
-    final randomId = message.json['randomId'];
-    return randomId is String && composer.sends.localId(randomId)
-        ? 'optimistic-$randomId'
-        : message.id;
-  }
+  String messageKey(RaftMessage message) => _messages.messageKey(message);
 
   /// Whether [message] is an optimistic row still waiting for the server.
-  static bool isPendingSend(RaftMessage message) =>
-      message.json['pendingSend'] == true;
+  static bool isPendingSend(RaftMessage message) => WorkspaceMessages.isPendingSend(message);
 
   static bool _rateLimited(Object e) => e is RaftApiException && e.rateLimited;
 
@@ -1836,15 +1442,12 @@ class WorkspaceController extends ChangeNotifier
 
   /// Latest activity seq per scope from the last unread snapshot; live
   /// messages raise it. Lets a read receipt clear a count without a GET.
-  Map<String, BigInt> get _latestActivity => _channels.latestActivity;
 
   /// Source messageStore `message:new`: +1 for a conversation the member is
   /// not reading, never for the member's own message. Counts only what the
   /// unread snapshot counts (joined channels, DMs, tracked threads).
   void _receiveUnread(Map<String, dynamic> row) =>
       _channels.receiveUnread(row);
-
-  void _clearMention(String id) => _channels.clearMention(id);
 
   /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
   /// recounts the scope from held messages when they cover it, and clears
@@ -1860,7 +1463,6 @@ class WorkspaceController extends ChangeNotifier
     return _channels.refreshUnread();
   }
 
-
   Future<void> prefetchLikelyChannels({int limit = 6}) =>
       _channels.prefetchLikelyChannels(limit: limit);
 
@@ -1871,19 +1473,10 @@ class WorkspaceController extends ChangeNotifier
       _session.planChannelRevocation(id);
 
   @override
-  void clearRevokedChannelProjection(String scope) {
-    unread.remove(scope);
-    _clearMention(scope);
-    _latestActivity.remove(scope);
-    _summariesByChannel.remove(scope);
-  }
+  void clearRevokedChannelProjection(String scope) => _messages.clearRevokedChannelProjection(scope);
 
   @override
-  void removeRevokedParentSummary(dynamic messageId) {
-    for (final bucket in _summariesByChannel.values) {
-      bucket.remove(messageId);
-    }
-  }
+  void removeRevokedParentSummary(dynamic messageId) => _messages.removeRevokedParentSummary(messageId);
 
   @override
   void closeRevokedChannelProjection(ChannelRevocation event) {
@@ -1894,7 +1487,7 @@ class WorkspaceController extends ChangeNotifier
       messageWindows.channelGeneration++;
     }
     if (threadParent?.channelId == id ||
-        _threadIdentity?.parentChannelId == id ||
+        _messages.state.threadIdentity?.parentChannelId == id ||
         event.plan.threadIds.contains(threadChannelId) ||
         threadChannelId == id) {
       closeThread();
@@ -1960,27 +1553,6 @@ class WorkspaceController extends ChangeNotifier
     required Set<String> readmit,
   }) => _channels.acceptChannelLists(nextChannels, nextDms, readmit: readmit);
 
-  void _adoptAcceptedChannelSelection(Set<String> accessible) {
-    // A held share's destination (and a DM that is not on the server yet)
-    // stays open when the lists do not carry it: the composer says why.
-    if (channel != null &&
-        !isPendingDm(channel) &&
-        !(_shareHolds.containsKey(channel!.id) &&
-            !accessible.contains(channel!.id))) {
-      channel = [
-        ...channels,
-        ...dms,
-      ].where((c) => c.id == channel!.id).firstOrNull;
-      if (channel == null) {
-        if (threadChannelId != null) {
-          messageWindows.revokeChannel(threadChannelId!);
-        }
-        closeThread();
-        messageWindows.channelGeneration++;
-      }
-    }
-  }
-
   /// Replaces [next]'s row in place, or adds it (a new DM goes first, as the
   /// server's recency-ordered DM list would place it).
   void _putChannelRow(RaftChannel next) => _channels.putRow(next);
@@ -2002,9 +1574,6 @@ class WorkspaceController extends ChangeNotifier
   Future<void> refreshChannel(String id) =>
       _channels.refreshChannel(id);
 
-  set _gapSyncedThrough((int, BigInt)? value) =>
-      _session.assignGapSyncedThrough(value);
-
   /// Source socketBridge `roomsJoined`: the server joined this socket's
   /// rooms, so missed messages can be resumed and the lists re-read.
 
@@ -2021,106 +1590,10 @@ class WorkspaceController extends ChangeNotifier
 
   /// Focus flickers and quick app switches must not re-read the server list.
 
-  static const _gapPageLimit = 200;
-  bool _gapSyncing = false;
-
   /// Source `syncVisibleScopes`: the open thread and the presented channel
   /// tail each read the messages after their newest row and append them to
   /// the held window. Nothing is cleared or reloaded.
-  Future<void> syncVisibleScopes({BigInt? through}) async {
-    if (_gapSyncing || _disposed) return;
-
-    final thread = threadChannelId, main = channel?.id;
-    final targets = [
-      if (thread != null && !threadLoading && !messageWindows.contextHasNewer(thread)) thread,
-      if (main != null &&
-          main != thread &&
-          !hasNewer &&
-          !channelLoading &&
-          pendingMessageContextChannelId != main)
-        main,
-    ];
-    if (targets.isEmpty) return;
-    final generation = ledger.generation;
-    var complete = true;
-    _gapSyncing = true;
-    try {
-      for (final id in targets) {
-        if (!await _syncGap(id)) complete = false;
-      }
-    } finally {
-      _gapSyncing = false;
-    }
-    if (complete && through != null && generation == ledger.generation) {
-      _gapSyncedThrough = (generation, through);
-    }
-  }
-
-  Future<bool> _syncGap(String id) async {
-    final thread = id == threadChannelId;
-    var cursor = messageWindows.newestVisibleSequence(id);
-    if (cursor == BigInt.zero) return true;
-    final owner = thread ? threadParentChannelId : id;
-    final request = _windowRequest(
-      id,
-      thread: thread,
-      allowed: () =>
-          thread ? threadChannelId == id && !messageWindows.contextHasNewer(id) : channel?.id == id && !hasNewer,
-    );
-    try {
-      while (true) {
-        final page = await MessageHistoryPages.read(
-          this, request, id,
-          thread: thread, after: cursor, limit: _gapPageLimit, localFirst: false,
-          remote: () async => {
-            'messages': await client.get('/messages/sync', query: {
-              'since_seq': '$cursor', 'channel_id': id, 'limit': _gapPageLimit,
-            }),
-          },
-        );
-        if (!request.current) return false;
-        final listed = page['messages'] is List ? page['messages'] as List : const [];
-        final rows = [
-          for (final row in listed.whereType<Map>())
-            if (row['channelId'] == id && row['id'] is String)
-              Map<String, dynamic>.from(row),
-        ];
-        if (rows.isEmpty) break;
-        final arrived = [
-          for (final row in rows)
-            if (!ledger.contains(id, row['id'] as String)) row,
-        ];
-        messageWindows.acceptRows(request, id, rows);
-        if (!await MessageHistoryPages.record(this, request, page)) return false;
-        if (!request.current) return false;
-        var next = cursor;
-        for (final row in rows) {
-          final seq = RaftMessage(row).seq;
-          if (seq > next) next = seq;
-        }
-        if (_mayMarkRead(id) && !_scrolledAway.away(id)) {
-          unawaited(markRead(id));
-        } else {
-          arrived.forEach(_receiveUnread);
-        }
-        unawaited(_saveWindow(id, thread: thread));
-        notifyListeners();
-        if (listed.length < _gapPageLimit || next <= cursor) break;
-        cursor = next;
-      }
-      return true;
-    } on RaftApiException catch (e) {
-      // Lost access is decided by the channel read and its revocation path.
-      if (request.current &&
-          owner != null &&
-          (e.status == 403 || e.status == 404)) {
-        unawaited(refreshChannel(owner));
-      }
-      return false;
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<void> syncVisibleScopes({BigInt? through}) => _messages.navigation.syncVisibleScopes(through: through);
 
   bool canVisitSection(String name) {
     final capability = const {
@@ -2202,14 +1675,14 @@ class WorkspaceController extends ChangeNotifier
     final request = ++_conversationResolutionRequest,
         revision = navigationRevision,
         scope = navigationAuthority,
-        reply = _replyToken(id),
+        reply = _messages.replyToken(id),
         generation = ledger.generation;
     bool current() =>
         !_disposed &&
         request == _conversationResolutionRequest &&
         revision == navigationRevision &&
         scope == navigationAuthority &&
-        reply == _replyToken(id) &&
+        reply == _messages.replyToken(id) &&
         generation == ledger.generation &&
         !_revokedChannels.contains(id);
     if (_disposed ||
@@ -2262,241 +1735,17 @@ class WorkspaceController extends ChangeNotifier
     bool retainContextUntilAccepted = false,
     bool preserveThread = false,
     VoidCallback? onDraftRestored,
-  }) async {
-    final source = presentationSource;
-    if (source != null) {
-      return source.selectChannel(
-        next,
-        autoRead: autoRead,
-        navigate: navigate,
-        retainContextUntilAccepted: retainContextUntilAccepted,
-        preserveThread: preserveThread,
-        onDraftRestored: onDraftRestored,
-      );
-    }
-    final retainThread =
-        preserveThread &&
-        threadIdentity?.parentChannelId == next.id &&
-        location.thread?.channelId == next.id;
-    if (!retainContextUntilAccepted && channel?.id != next.id) {
-      contextLoadError = null;
-    }
-    channel = next;
-    hasNewer = false;
-    if (!retainThread) highlightedMessageId = null;
-    final priorWindow = messageWindows.accepted[next.id];
-    final replyAuthority = _replyToken(next.id);
-    final compatible =
-        priorWindow != null &&
-        priorWindow.matches(_windowAuthority(), replyAuthority);
-    if (priorWindow != null && !compatible) {
-      messageWindows.discardWindow(next.id);
-      _summariesByChannel.remove(next.id);
-    }
-    hasMore = compatible && priorWindow.hasMore;
-    historyLimited = compatible && priorWindow.historyLimited;
-    // Keep the accepted context kind until its replacement tail is accepted.
-    if (!retainContextUntilAccepted &&
-        messageWindows.setContextMode(liveWindowWrite, next.id, null)) {
-      messageWindows.hideWindow(next.id);
-    }
-    if (navigate) section = 'chat';
-    if (!retainThread) {
-      threadParent = null;
-      threadChannelId = null;
-      messageWindows.threadGeneration++;
-    }
-    loadingOlder = false;
-    channelLoading = true;
-    error = null;
-    // Source messageStore selectChannel: opening a conversation clears its
-    // local unread at once; the read receipt follows the first page. A load
-    // that never sends the receipt reconciles with the server in `finally`.
-    final optimisticRead =
-        autoRead &&
-        navigate &&
-        !retainContextUntilAccepted &&
-        ((unread[next.id] ?? 0) != 0 || mentions.contains(next.id));
-    final readPostsBefore = _channels.beginOpenRead(
-      next.id,
-      optimistic: optimisticRead,
-    );
-    messageWindows.channelGeneration++;
-    final request = _windowRequest(
-      next.id,
-      checkNavigation: true,
-      allowed: () =>
-          channel?.id == next.id && can('viewChannel', resource: channel),
-    );
-    notifyListeners();
-    if (isPendingDm(next)) {
-      // A DM that is not on the server yet has nothing to read: only its
-      // saved draft, then the composer.
-      await _restoreDraft(next.id);
-      onDraftRestored?.call();
-      if (request.current) {
-        channelLoading = false;
-        notifyListeners();
-      }
-      return;
-    }
-    // Source ChatPanel loads the channel's tasks with its messages: start the
-    // bucket read now so the chips are cached when the rows first render.
-    unawaited(MessageTaskCache.of(client).warm(this, next.id));
-    await _restoreDraft(next.id);
-    // The composer can take staged content from here on; the message page
-    // below is still loading.
-    onDraftRestored?.call();
-    if (!request.current) return;
-    try {
-      final page = retainContextUntilAccepted && MessageHistoryPages.storage(cache) == null
-          ? null
-          : await _cached('window', next.id);
-      if (!request.current) return;
-      if (!retainContextUntilAccepted && await MessageHistoryPositions.restoreMain(this, request, next.id, cached: page)) {
-        if (request.current) await _save('selection', '', next.id);
-        return;
-      }
-      if (_restoreCachedTail(next.id, page, request, replace: retainContextUntilAccepted)) {
-        notifyListeners();
-      }
-      final retained = retainContextUntilAccepted
-          ? <Map<String, dynamic>>[]
-          : messages.map((m) => m.json).toList();
-      final retainedHasMore = hasMore;
-      client.joinChannel(next.id);
-      final fresh = await MessageHistoryPages.read(this, request, next.id);
-      if (!request.current) return;
-      _acceptFreshTail(
-        next.id,
-        fresh,
-        retained: retained,
-        retainedHasMore: retainedHasMore,
-        request: request,
-      );
-      await MessageHistoryPages.record(this, request, fresh);
-      if (!request.current) return;
-      channelLoading = false;
-      notifyListeners();
-      await _saveWindow(next.id);
-      if (!request.current) return;
-      await _save('selection', '', next.id);
-      if (request.current && autoRead) await markRead(next.id);
-    } catch (e) {
-      if (request.current) {
-        if (e is RaftApiException && (e.status == 403 || e.status == 404)) {
-          _revokeChannel(next.id);
-        } else {
-          error = userErrorText(e, where: 'select channel');
-        }
-      }
-    } finally {
-      if (request.current) {
-        channelLoading = false;
-        notifyListeners();
-      }
-      _channels.reconcileOpenRead(
-        next.id,
-        readPostsBefore,
-        optimistic: optimisticRead,
-      );
-    }
-  }
+  }) => _messages.selectChannel(next, autoRead: autoRead, navigate: navigate, retainContextUntilAccepted: retainContextUntilAccepted, preserveThread: preserveThread, onDraftRestored: onDraftRestored);
 
-  /// Reconciles a freshly read first page into the open channel's window: the
-  /// page is authoritative over its own range, older retained rows stay, and
-  /// nothing outside the page range is dropped. Shared by the open and by the
-  /// silent revalidation of a retained window.
-  void _acceptFreshTail(
-    String id,
-    Map<String, dynamic> fresh, {
-    required List<Map<String, dynamic>> retained,
-    required bool retainedHasMore,
-    required MessageWindowRequest request,
-  }) {
-    if (!request.current) return;
-    final rows = acceptedWindowRows(fresh['messages'], id);
-    messageWindows.setDiskOnly(request, id, false);
-    historyLimited = fresh['historyLimited'] == true;
-    messageWindows.acceptRows(
-      request,
-      id,
-      rows,
-      visible: historyLimited
-          ? rows.map((e) => e['id'] as String)
-          : reconcileTailWindow(retained, rows),
-      replace: true,
-    );
-    MessageHistorySummaries.accept(this, id, retained, rows, fresh);
-    hasMore =
-        fresh['historyLimited'] != true &&
-        (visibleIds[id]!.length > rows.length
-            ? retainedHasMore
-            : rows.length >= 50);
-  }
+  Future<void> older({bool thread = false}) => _messages.older(thread: thread);
 
-  /// Source ChatPanel shows a retained bucket at once and re-reads the tail
-  /// behind it. Used where a held window is shown without [selectChannel]
-  /// (a jump to a message the window holds, a live seq gap): the first page is
-  /// merged into the open window by [_acceptFreshTail], so rows already shown
-  /// keep their place and only the missing newer rows are added.
-  Future<void> _revalidateTail(String id) async {
-    if (channel?.id != id || !messageWindows.beginTailRevalidation(id)) {
-      return;
-    }
-    final request = _windowRequest(
-      id,
-      allowed: () =>
-          channel?.id == id &&
-          !hasNewer &&
-          can('viewChannel', resource: channel),
-    );
-    try {
-      final retained = messages.map((m) => m.json).toList();
-      final retainedHasMore = hasMore;
-      final fresh = await MessageHistoryPages.read(this, request, id);
-      if (!request.current) return;
-      _acceptFreshTail(
-        id,
-        fresh,
-        retained: retained,
-        retainedHasMore: retainedHasMore,
-        request: request,
-      );
-      await MessageHistoryPages.record(this, request, fresh);
-      if (!request.current) return;
-      notifyListeners();
-      await _saveWindow(id);
-    } catch (e) {
-      if (request.current &&
-          e is RaftApiException &&
-          (e.status == 403 || e.status == 404)) {
-        _revokeChannel(id);
-      }
-      // Any other failure leaves the shown window as it was.
-    } finally {
-      messageWindows.endTailRevalidation(id);
-    }
-  }
-
-  Future<void> older({bool thread = false}) => _windowReceiver._older(thread);
-
-  Future<void> newer({bool thread = false}) =>
-      _windowReceiver._pageHistory(thread, newer: true);
-  Future<void> loadHistoryGap(BigInt before, {bool thread = false}) =>
-      _windowReceiver._pageHistory(thread, gapBefore: before);
-  Future<void> _older(bool thread) => _pageHistory(thread);
-  Future<void> _pageHistory(bool thread, {bool newer = false, BigInt? gapBefore}) =>
-      MessageHistoryNavigation.page(this, thread: thread, newer: newer,
-        gapBefore: gapBefore,
-        requestFor: (id) => _windowRequest(id, thread: thread),
-        summaries: mergeThreadSummaries);
+  Future<void> newer({bool thread = false}) => _messages.newer(thread: thread);
+  Future<void> loadHistoryGap(BigInt before, {bool thread = false}) => _messages.loadHistoryGap(before, thread: thread);
 
   bool _mayMarkRead(String id) => _channels.mayMarkRead(id);
 
   /// Open conversations whose timeline is scrolled above the latest end
   /// (reported by the chat view on the edge only, never per frame).
-  RaftTimelineBottoms get _scrolledAway => _channels.scrolledAway;
 
   void setTimelineAtBottom(String id, bool atBottom) =>
       _channels.setTimelineAtBottom(id, atBottom);
@@ -2505,21 +1754,15 @@ class WorkspaceController extends ChangeNotifier
   /// rebuilt for another layout (fold / unfold). The next timeline that
   /// mounts for [conversationId] shortly after resumes there; an anchor that
   /// is not claimed promptly is a stale position and is ignored.
-  void saveReadingAnchor(String conversationId, ReadingAnchor anchor) {
-    messageWindows.saveReadingAnchor(conversationId, anchor);
-    MessageHistoryPositions.save(this, conversationId, anchor);
-  }
+  void saveReadingAnchor(String conversationId, ReadingAnchor anchor) => _messages.saveReadingAnchor(conversationId, anchor);
 
-  ReadingAnchor? takeReadingAnchor(String conversationId) =>
-      messageWindows.takeReadingAnchor(conversationId);
+  ReadingAnchor? takeReadingAnchor(String conversationId) => _messages.takeReadingAnchor(conversationId);
 
-  Future<void> markRead(String id) => _windowReceiver._markRead(id);
+  Future<void> markRead(String id) => _messages.windowReceiver.channels.markRead(id);
 
   /// Windows painted from disk whose first fresh page has not arrived yet.
   /// Their tail may be stale, so they never send a read receipt (nor clear
   /// the unread count) until revalidated.
-
-  Future<void> _markRead(String id) => _channels.markRead(id);
 
   /// Source acceptActivityReadAllAck: an Activity row's persisted read-all
   /// receipt is a read-state fact for [scopeId]. Folding it into the ledger is
@@ -2662,65 +1905,13 @@ class WorkspaceController extends ChangeNotifier
     );
   }
 
-  /// Project session delivery into each existing accepted window. This does
-  /// not create another ledger or move a page's current selection.
-  void _sendChanged(String scope, RaftMessage? accepted) {
-    if (_disposed) return;
-    final selected = scope == draftScope() || scope == draftScope(thread: true);
-    if (accepted != null && !_revokedChannels.contains(accepted.channelId)) {
-      final id = accepted.channelId;
-      if (id == channel?.id && !hasNewer ||
-          id == threadChannelId ||
-          messageWindows.retainsLiveTail(id)) {
-        messageWindows.acceptRows(liveWindowWrite, id, [accepted.json]);
-        unawaited(_saveWindow(id, thread: id == threadChannelId));
-      }
-    }
-    if (selected) notifyListeners();
-  }
-
-  Future<String?> ensureThread() async {
-    if (presentationSource != null) return presentationSource!.ensureThread();
-    if (threadChannelId != null) return threadChannelId;
-    return messageWindows.createThread(_createThread);
-  }
-
-  Future<String?> _createThread() async {
-    final parentId = threadParentMessageId,
-        parentChannelId = threadParentChannelId;
-    if (parentId == null || parentChannelId == null) return null;
-    final request = _windowRequest(
-      parentChannelId,
-      thread: true,
-      checkNavigation: true,
-      allowed: () =>
-          parentId == threadParentMessageId &&
-          parentChannelId == threadParentChannelId,
-    );
-    final value = await client.post(
-      '/channels/$parentChannelId/threads',
-      data: {'parentMessageId': parentId},
-    );
-    if (!request.current) {
-      throw const RaftApiException('The thread changed. Please retry.');
-    }
-    threadChannelId = value['threadChannelId'];
-    client.joinChannel(threadChannelId!);
-    notifyListeners();
-    return threadChannelId;
-  }
+  Future<String?> ensureThread() => _messages.threads.ensureThread();
 
   Future<void> openThread(
     RaftMessage parent, {
     String? focusedMessageId,
     bool navigate = true,
-  }) => _windowReceiver._openThreadIdentity(
-    parent.channelId,
-    parent.id,
-    focusedMessageId: focusedMessageId,
-    navigate: navigate,
-    acceptedParent: parent,
-  );
+  }) => _messages.threads.openThread(parent, focusedMessageId: focusedMessageId, navigate: navigate);
 
   /// Opens a real thread identity independently of its parent metadata.
   /// [initialThreadChannelId] is the accepted inbox row's existing channel;
@@ -2732,312 +1923,16 @@ class WorkspaceController extends ChangeNotifier
     String? focusedMessageId,
     String? initialThreadChannelId,
     bool navigate = true,
-  }) => _windowReceiver._openThreadIdentity(
-    parentChannelId,
-    parentMessageId,
-    focusedMessageId: focusedMessageId,
-    initialThreadChannelId: initialThreadChannelId,
-    navigate: navigate,
-  );
-
-  Future<void> _openThreadIdentity(
-    String parentChannelId,
-    String parentMessageId, {
-    String? focusedMessageId,
-    String? initialThreadChannelId,
-    bool navigate = true,
-    RaftMessage? acceptedParent,
-  }) async {
-    if (parentChannelId.trim().isEmpty || parentMessageId.trim().isEmpty) {
-      return;
-    }
-    final knownThreadChannelId = initialThreadChannelId?.trim().isEmpty == false
-        ? initialThreadChannelId
-        : null;
-    if (_revokedChannels.contains(parentChannelId) ||
-        _revokedChannels.contains(knownThreadChannelId) ||
-        !can(
-          'viewChannel',
-          resource: _threadChannelResource(parentChannelId),
-        )) {
-      return;
-    }
-    if (navigate) {
-      final next = location.withQuery({
-        'thread': '$parentChannelId:$parentMessageId',
-        'msg': ?focusedMessageId,
-      });
-      navigation.navigate(next, kind: location.panelNavigationKindTo(next));
-    }
-    final navigationWindow = navigationRevision,
-        requestAuthority = _replyToken(parentChannelId),
-        messageAuthority = _threadResourceAuthority(parentChannelId),
-        generation = ledger.generation;
-    messageWindows.threadGeneration++;
-    final request = messageWindows.request(
-      thread: true,
-      allowed: () =>
-          navigationWindow == navigationRevision &&
-          requestAuthority == _replyToken(parentChannelId) &&
-          (messageAuthority == null ||
-              messageAuthority == _threadResourceAuthority(parentChannelId)) &&
-          !_revokedChannels.contains(parentChannelId) &&
-          !_revokedChannels.contains(threadChannelId) &&
-          can('viewChannel', resource: _threadChannelResource(parentChannelId)),
-    );
-    _threadIdentity = WorkspaceThreadIdentity(
-      parentChannelId: parentChannelId,
-      parentMessageId: parentMessageId,
-      focusedMessageId: focusedMessageId,
-    );
-    _threadVisit = request;
-    final held = messageWindows.matchingThread(
-      parentChannelId,
-      parentMessageId,
-      requestAuthority,
-      messageAuthority,
-    );
-    final cached =
-        held != null &&
-            (knownThreadChannelId == null ||
-                knownThreadChannelId == held.threadChannelId) &&
-            (visibleIds[held.threadChannelId]?.isNotEmpty ?? false) &&
-            (focusedMessageId == null ||
-                visibleIds[held.threadChannelId]!.contains(focusedMessageId))
-        ? held
-        : null;
-    if (cached == null) messageWindows.forgetThread(parentMessageId);
-    threadParent = acceptedParent ?? cached?.parent;
-    threadChannelId = knownThreadChannelId ?? cached?.threadChannelId;
-    threadLoading = cached == null;
-    _threadResolutionLoading = threadChannelId == null;
-    _threadParentLoading = threadParent == null;
-    _threadResolutionError = null;
-    threadHasMore = cached?.hasMore ?? false;
-    threadHistoryLimited = cached?.historyLimited ?? false;
-    highlightedMessageId = focusedMessageId;
-    notifyListeners();
-    Future<void> restoreCurrentDraft() async {
-      final scope = 'thread:$parentMessageId';
-      if (await composer.restoreText(scope, () => request.current)) {
-        notifyListeners();
-      }
-    }
-
-    unawaited(restoreCurrentDraft());
-
-    Future<void> resolveParent() async {
-      if (acceptedParent != null) return;
-      try {
-        final page = await client.get(
-          '/messages/context/$parentMessageId',
-          query: {'channelId': parentChannelId},
-        );
-        if (!request.current) return;
-        final rows = acceptedWindowRows(page['messages'], parentChannelId);
-        final parent = rows
-            .where((row) => row['id'] == parentMessageId)
-            .firstOrNull;
-        // Independently fetched parent metadata is not an accepted outer window.
-        final liveParent = channel?.id == parentChannelId
-            ? messages.where((row) => row.id == parentMessageId).firstOrNull
-            : null;
-        final resolved =
-            liveParent ?? (parent == null ? null : RaftMessage(parent));
-        // A background revalidation never takes away a shown parent.
-        if (resolved != null || threadParent == null) threadParent = resolved;
-        messageWindows.cacheThreadParent(
-          request,
-          parentMessageId,
-          threadParent,
-        );
-      } catch (_) {
-        if (!request.current) return;
-        if (cached?.parent == null) threadParent = null;
-      } finally {
-        if (request.current) {
-          _threadParentLoading = false;
-          notifyListeners();
-        }
-      }
-    }
-
-    Map<String, dynamic>? readingPage;
-    Future<void> resolveReplies() async {
-      try {
-        if (threadChannelId == null) {
-          dynamic info;
-          try {
-            info = await client.get(
-              '/channels/$parentChannelId/threads/$parentMessageId',
-            );
-          } on RaftApiException catch (e) {
-            // Only the route's explicit "no thread for this message" 404 is an
-            // empty thread; any other failure raises the in-panel Retry.
-            if (!isThreadAbsentLookupError(e)) rethrow;
-          }
-          if (!request.current) return;
-          _threadResolutionLoading = false;
-          if (info == null) return;
-          threadChannelId = info['threadChannelId'];
-          if (!request.current) return;
-          notifyListeners();
-        }
-        readingPage ??= focusedMessageId == null ? await MessageHistoryPositions.restore(this, request, threadChannelId!, thread: true) : null;
-        final focused = focusedMessageId != null || readingPage != null;
-        final page = readingPage ?? (focusedMessageId == null
-            ? await MessageHistoryPages.read(this, request, threadChannelId!, thread: true)
-            : await MessageHistoryPages.context(this, request, threadChannelId!, focusedMessageId, thread: true));
-        if (!request.current) return;
-        final boundary = messageWindows.acceptThreadPage(
-          request, threadChannelId!, page,
-          focused: focused,
-          retainOlder: cached?.contextWindow == false || cached == null && messageWindows.isDiskOnly(threadChannelId),
-          retainedHasMore: threadHasMore,
-        );
-        await MessageHistoryPages.record(this, request, page);
-        if (!request.current) return;
-        threadHistoryLimited = boundary.limited;
-        threadHasMore = boundary.more;
-        client.joinChannel(threadChannelId!);
-        threadLoading = false;
-        messageWindows.cacheThread(
-          request,
-          parentMessageId,
-          CachedMessageThread(
-            parentChannelId,
-            threadChannelId!,
-            requestAuthority,
-            messageAuthority,
-            generation,
-            threadHasMore,
-            threadHistoryLimited,
-            threadParent ?? cached?.parent,
-            contextWindow: focused,
-          ),
-        );
-        messageWindows.setContextMode(request, threadChannelId!,
-          focused ? page['hasNewer'] == true : null);
-        notifyListeners();
-        await markRead(threadChannelId!);
-        if (request.current) _saveWindow(threadChannelId!, thread: true);
-      } catch (e) {
-        final denied = threadChannelId;
-        if (request.current && denied != null && e is RaftApiException &&
-            (e.status == 403 || e.status == 404)) {
-          _revokeChannel(denied);
-          threadLoading = false;
-          _threadResolutionLoading = false;
-          notifyListeners();
-        }
-        // A cached window stays readable when its revalidation fails.
-        if (request.current && cached == null) {
-          // ThreadPanel's in-panel "Couldn't load this thread" + Retry; Web raises
-          // no workspace-level error for it.
-          _threadResolutionError = userErrorText(
-            e,
-            fallback: "Couldn't load this thread",
-            where: 'open thread',
-          );
-        }
-      } finally {
-        if (request.current) {
-          _threadResolutionLoading = false;
-          threadLoading = false;
-          notifyListeners();
-        }
-      }
-    }
-
-    /// A tail thread with no window in memory paints its on-device window
-    /// (previous visit or previous process) while the lookup revalidates.
-    Future<void> restoreDiskWindow() async {
-      if (cached != null && !cached.contextWindow || focusedMessageId != null) return;
-      final page = await _cached('thread-window', parentMessageId);
-      if (!request.current || !threadLoading && cached?.contextWindow != true || page is! Map) return;
-      final threadId = page['threadChannelId'];
-      if (page['version'] != 1 ||
-          page['windowKind'] != 'tail' ||
-          messageAuthority == null ||
-          page['authority'] != messageAuthority ||
-          page['parentChannelId'] != parentChannelId ||
-          threadId is! String ||
-          (threadChannelId != null && threadChannelId != threadId) ||
-          _revokedChannels.contains(threadId)) {
-        return;
-      }
-      readingPage = await MessageHistoryPositions.restoreThread(this, request, threadId, page);
-      if (readingPage != null) { _threadResolutionLoading = false; _threadParentLoading = threadParent == null; return; }
-      final rows = acceptedWindowRows(page['messages'], threadId);
-      if (rows.isEmpty) return;
-      messageWindows.acceptRows(request, threadId, rows, replace: true);
-      messageWindows.setDiskOnly(request, threadId, true);
-      messageWindows.setContextMode(request, threadId, null);
-      threadChannelId = threadId;
-      final parent = page['parent'];
-      if (threadParent == null &&
-          parent is Map &&
-          parent['id'] == parentMessageId &&
-          parent['channelId'] == parentChannelId) {
-        threadParent = RaftMessage(Map<String, dynamic>.from(parent));
-        _threadParentLoading = false;
-      }
-      threadHasMore = page['hasMore'] == true;
-      threadHistoryLimited = page['historyLimited'] == true;
-      threadLoading = false;
-      _threadResolutionLoading = false;
-      notifyListeners();
-    }
-
-    await restoreDiskWindow();
-    if (!request.current) return;
-    // Source threadStore opens an accepted inbox row's known channel directly,
-    // without a lookup. Parent metadata and focused replies load independently.
-    final replies = resolveReplies();
-    unawaited(resolveParent());
-    await replies;
-  }
+  }) => _messages.threads.openThreadIdentity(parentChannelId: parentChannelId, parentMessageId: parentMessageId, focusedMessageId: focusedMessageId, initialThreadChannelId: initialThreadChannelId, navigate: navigate);
 
   /// Clears only the focus owned by the mounted timeline's highlight timer.
   void clearHighlightedMessage(
     String? expectedId, {
     int? expectedNavigationRevision,
-  }) {
-    if (presentationSource != null) {
-      if (presentationActive) {
-        presentationSource!.clearHighlightedMessage(
-          expectedId,
-          expectedNavigationRevision: expectedNavigationRevision,
-        );
-      }
-      return;
-    }
-    if (highlightedMessageId != expectedId ||
-        expectedNavigationRevision != null &&
-            expectedNavigationRevision != navigationRevision) {
-      return;
-    }
-    final identity = threadIdentity;
-    if (expectedId != null &&
-        expectedNavigationRevision != null &&
-        identity != null &&
-        identity.focusedMessageId == expectedId &&
-        threadChannelId != null) {
-      navigation.consumeThreadFocus(
-        threadChannelId: threadChannelId!,
-        parentChannelId: identity.parentChannelId,
-        parentMessageId: identity.parentMessageId,
-        expectedMessageId: expectedId,
-        expectedRevision: expectedNavigationRevision,
-      );
-    }
-    highlightedMessageId = null;
-    notifyListeners();
-  }
+  }) => _messages.clearHighlightedMessage(expectedId, expectedNavigationRevision: expectedNavigationRevision);
 
   /// Source ChatPanel.handleBackToBottom reloads latest when newer is unloaded.
-  Future<void> returnToLatest({bool navigate = true, bool thread = false}) =>
-      MessageHistoryNavigation.latest(_windowReceiver, thread: thread, navigate: navigate);
+  Future<void> returnToLatest({bool navigate = true, bool thread = false}) => _messages.returnToLatest(navigate: navigate, thread: thread);
 
   /// [replaceEntry] makes the destination take over the current history
   /// entry instead of pushing (Web openThreadParentMessageRoute, mobile).
@@ -3046,287 +1941,15 @@ class WorkspaceController extends ChangeNotifier
     String? messageId, {
     bool navigate = true,
     bool replaceEntry = false,
-  }) async {
-    final source = presentationSource;
-    if (source != null) {
-      return source.jumpToMessage(
-        channelId,
-        messageId,
-        navigate: navigate,
-        replaceEntry: replaceEntry,
-      );
-    }
-    contextLoadError = null;
-    final generation = ledger.generation;
-    var navigationWindow = navigationRevision;
-    var authority = _windowAuthority();
-    final replyAuthority = _replyToken(channelId);
-    messageWindows.channelGeneration++;
-    final request = messageWindows.request(
-      thread: false,
-      allowed: () =>
-          navigationWindow == navigationRevision &&
-          authority == _windowAuthority() &&
-          replyAuthority == _replyToken(channelId) &&
-          !_revokedChannels.contains(channelId),
-    );
-    if (_rejectRevokedConversation(channelId) || !request.current) return;
-    var next = [
-      ...channels,
-      ...dms,
-    ].where((c) => c.id == channelId).firstOrNull;
-    try {
-      next ??= RaftChannel(
-        Map<String, dynamic>.from(await client.get('/channels/$channelId')),
-      );
-    } catch (_) {
-      // Source ChannelById/ensureChannel resolves failed metadata to its
-      // unavailable body. UI callbacks may not await this request; neither a
-      // global async exception nor a retained conversation owns the failure.
-      if (request.current) {
-        _missingConversationChannelId = channelId;
-        notifyListeners();
-      }
-      return;
-    }
-    if (!request.current || !can('viewChannel', resource: next)) return;
-    if (messageId == null) {
-      await selectChannel(next, navigate: navigate);
-      return;
-    }
-    final sameChannel = channel?.id == channelId;
-    authority = messageWindowAuthority(server?.string('role'), next.json);
-    final knownWindow = messageWindows.accepted[channelId];
-    final compatibleWindow =
-        knownWindow?.matches(authority, replyAuthority) == true;
-    final cachedTarget =
-        compatibleWindow &&
-        messageWindows.containsVisible(channelId, messageId);
-    channel = next;
-    if (navigate) {
-      if (replaceEntry && server != null) {
-        _unboundSection = 'chat';
-        bindNavigation();
-        navigation.selectSection(
-          'chat',
-          channelId: channelId,
-          dm: next.type == 'dm',
-          kind: RaftNavigationKind.replace,
-        );
-      } else {
-        section = 'chat';
-      }
-      navigation.navigate(
-        location.withQuery({'msg': messageId}),
-        kind: RaftNavigationKind.replace,
-      );
-      navigationWindow = navigationRevision;
-    }
-    threadParent = null;
-    threadChannelId = null;
-    messageWindows.threadGeneration++;
-    loadingOlder = false;
-    error = null;
-    highlightedMessageId = messageId;
-    if (cachedTarget) {
-      MessageHistoryPages.recheckContext(this, request, channelId, messageId);
-      hasMore = sameChannel ? hasMore : knownWindow!.hasMore;
-      hasNewer = sameChannel
-          ? hasNewer
-          : messageWindows.contextHasNewer(channelId);
-      historyLimited = messageWindows.historyLimit(channelId);
-      channelLoading = false;
-      messageWindows.finishContextVisit(request);
-      notifyListeners();
-      // The held window is shown at once, but a window this channel left (or
-      // that came from disk) may be behind the server: read the tail quietly
-      // and merge it without moving the reading position.
-      if ((!sameChannel || messageWindows.isDiskOnly(channelId)) &&
-          !hasNewer &&
-          !messageWindows.isContext(channelId)) {
-        unawaited(_revalidateTail(channelId));
-      }
-      return;
-    }
-    channelLoading = true;
-    // Source preserves the destination's already accepted memory bucket while
-    // its context GET waits. A disk/unaccepted bucket or an earlier principal,
-    // server or capability epoch cannot grant this cross-channel projection.
-    messageWindows.beginContextVisit((
-      channelId: channelId,
-      request: request,
-      retainRows: sameChannel || compatibleWindow,
-    ));
-    if (!sameChannel) {
-      // Held summaries belong to the held window; an incompatible window
-      // takes its summaries with it.
-      if (!compatibleWindow) _summariesByChannel.remove(channelId);
-      if (compatibleWindow) {
-        hasMore = knownWindow!.hasMore;
-        hasNewer = messageWindows.contextHasNewer(channelId);
-        historyLimited = messageWindows.historyLimit(channelId);
-      }
-    }
-    bool current() =>
-        request.current &&
-        channel?.id == channelId &&
-        can('viewChannel', resource: channel);
-    void settled() {
-      messageWindows.finishContextVisit(request);
-      channelLoading = false;
-      notifyListeners();
-    }
-
-    notifyListeners();
-    try {
-      final context = await MessageHistoryPages.context(this, request, channelId, messageId);
-      if (!current()) return;
-      final target = context['canonicalTarget'];
-      if (target is Map && target['kind'] == 'thread') {
-        final parentId = target['threadParentMessageId'] as String;
-        final parentChannelId = target['channelId'] as String? ?? channelId;
-        final opening = openThreadIdentity(
-          parentChannelId: parentChannelId,
-          parentMessageId: parentId,
-          focusedMessageId: target['messageId'] as String? ?? messageId,
-          navigate: navigate,
-        );
-        if (navigate) navigationWindow = navigationRevision;
-        await opening;
-        if (!current()) return;
-        // Source loadMessageContext opens the canonical thread, then loads the
-        // outer channel tail. Keep both accepted rows and reply focus while it
-        // is pending; do not pass through selectChannel's thread reset/cache.
-        try {
-          final tail = await MessageHistoryPages.read(this, request, channelId);
-          if (!current()) return;
-          final accepted = _acceptContextPage(
-            request,
-            channelId,
-            tail,
-            context: false,
-          );
-          await MessageHistoryPages.record(this, request, tail);
-          if (!current()) return;
-          final refreshedParent = accepted
-              .where((row) => row['id'] == parentId)
-              .firstOrNull;
-          if (parentChannelId == channelId && refreshedParent != null) {
-            threadParent = RaftMessage(refreshedParent);
-          }
-          settled();
-          await markRead(channelId);
-          if (current()) await _saveWindow(channelId);
-        } catch (e) {
-          if (!current()) return;
-          if (e is RaftApiException && e.status == 403) {
-            _revokeChannel(channelId);
-          } else {
-            error = userErrorText(e, where: 'load message context');
-            settled();
-          }
-        }
-      } else {
-        _acceptContextPage(request, channelId, context);
-        await MessageHistoryPages.record(this, request, context);
-        if (!current()) return;
-        final targetId = context['targetMessageId'] as String? ?? messageId;
-        highlightedMessageId = targetId;
-        settled();
-        await markRead(channelId);
-      }
-    } catch (e) {
-      if (!current()) return;
-      if (e is RaftApiException && e.status == 403) {
-        _revokeChannel(channelId);
-      } else {
-        messageWindows.finishContextVisit(request);
-        highlightedMessageId = null;
-        // Source falls back to latest after a missing/unavailable context.
-        final fallback = selectChannel(
-          next,
-          navigate: navigate,
-          retainContextUntilAccepted: true,
-        );
-        await fallback;
-        if (!_disposed &&
-            channel?.id == channelId &&
-            generation == ledger.generation &&
-            authority == _windowAuthority()) {
-          contextLoadError = historyLimited
-              ? MessageContextLoadError.beyondHistory
-              : MessageContextLoadError.notFound;
-          notifyListeners();
-        }
-      }
-    } finally {
-      if (current()) {
-        settled();
-      }
-    }
-  }
-
-  /// Context and canonical-thread fallback pages publish the same accepted
-  /// row versions, boundaries and reply summaries before any notification.
-  List<Map<String, dynamic>> _acceptContextPage(
-    MessageWindowRequest request,
-    String id,
-    dynamic page, {
-    bool context = true,
-  }) {
-    if (!request.current) return [];
-    final rows = acceptedWindowRows(page['messages'], id);
-    historyLimited = !context && page['historyLimited'] == true;
-    hasMore = context
-        ? page['hasOlder'] == true
-        : !historyLimited && rows.length >= 50;
-    hasNewer = context && page['hasNewer'] == true;
-    messageWindows.rememberWindow(
-      request,
-      id,
-      _windowAuthority(),
-      hasMore,
-      _replyToken(id),
-      historyLimited: historyLimited,
-      rows: rows,
-      replace: true,
-    );
-    messageWindows.setContextMode(request, id, context ? hasNewer : null);
-    mergeThreadSummaries(id, page['threadSummariesByParentMessageId']);
-    return rows;
-  }
+  }) => _messages.jumpToMessage(channelId, messageId, navigate: navigate, replaceEntry: replaceEntry);
 
   /// Web ChatPanel `joinChannel(channel.id)`: join the open channel, then
   /// re-read the channel list so the sidebar and composer see the membership.
-  Future<void> joinOpenChannel() async {
-    try {
-      final c = channel!;
-      await command('POST', '/channels/${c.id}/join');
-      await refreshChannels();
-      await selectChannel(channels.firstWhere((next) => next.id == c.id));
-    } catch (e) {
-      if (!_disposed && !_staleScope(e)) {
-        // ignore: raft_lints/avoid_imperative_notice_state -- User-initiated join; stale-scope failures are not reported; cleared on server switch or revoke.
-        setError(userErrorText(e, where: 'join channel'));
-      }
-    }
-  }
+  Future<void> joinOpenChannel() => _messages.joinOpenChannel();
 
   /// Web ThreadPanel `handleJoinParentChannel`: join the thread's parent
   /// channel (the CTA that replaces the composer for a non-member).
-  Future<void> joinThreadParentChannel() async {
-    final id = threadParentChannelId;
-    if (id == null) return;
-    try {
-      await command('POST', '/channels/$id/join');
-      await refreshChannels();
-    } catch (e) {
-      if (!_disposed && !_staleScope(e)) {
-        // ignore: raft_lints/avoid_imperative_notice_state -- User-initiated join; stale-scope failures are not reported; cleared on server switch or revoke.
-        setError(userErrorText(e, where: 'join thread parent channel'));
-      }
-    }
-  }
+  Future<void> joinThreadParentChannel() => _messages.joinThreadParentChannel();
 
   // Web profileStore: the profile side panel is a URL slot (`profile=`); an
   // external author's frozen attribution payload lives beside it.
@@ -3392,25 +2015,7 @@ class WorkspaceController extends ChangeNotifier
     notifyListeners();
   }
 
-  void closeThread({bool navigate = true}) =>
-      _windowReceiver._closeThread(navigate);
-
-  void _closeThread(bool navigate) {
-    if (navigate && location.thread != null) {
-      final next = location.withQuery({'thread': null});
-      navigation.navigate(next, kind: location.panelNavigationKindTo(next));
-    }
-    messageWindows.threadGeneration++;
-    _threadIdentity = null;
-    _threadVisit = null;
-    _threadResolutionLoading = _threadParentLoading = false;
-    _threadResolutionError = null;
-    threadParent = null;
-    threadChannelId = null;
-    threadLoading = false;
-    threadHistoryLimited = false;
-    notifyListeners();
-  }
+  void closeThread({bool navigate = true}) => _messages.threads.closeThread(navigate: navigate);
 
   void setSection(String next) {
     if (!NavigationRegistry.knowsSection(next)) {
@@ -3541,29 +2146,6 @@ class WorkspaceController extends ChangeNotifier
 
   String get _reactionViewerName => client.user?.name ?? '';
 
-  /// Replace a held message's reactions (and the open thread's parent copy).
-  /// Not persisted: optimistic state never reaches the disk cache.
-  bool _setMessageReactions(
-    String channelId,
-    String messageId,
-    List<Map<String, dynamic>> reactions,
-  ) {
-    var changed = false;
-    if (ledger.contains(channelId, messageId)) {
-      changed = ledger.ingestUpdate({
-        'id': messageId,
-        'channelId': channelId,
-        'reactions': reactions,
-      }, expectedGeneration: ledger.generation);
-    }
-    final parent = threadParent;
-    if (parent != null && parent.id == messageId) {
-      threadParent = RaftMessage({...parent.json, 'reactions': reactions});
-      changed = true;
-    }
-    return changed;
-  }
-
   List<Map<String, dynamic>> _heldReactions(RaftMessage message) =>
       reactionList(
         (ledger.message(message.channelId, message.id) ??
@@ -3591,7 +2173,7 @@ class WorkspaceController extends ChangeNotifier
       viewerId: viewerId,
       viewerName: _reactionViewerName,
     );
-    if (!identical(next, held)) _setMessageReactions(channelId, id, next);
+    if (!identical(next, held)) _messages.setMessageReactions(channelId, id, next);
   }
 
   /// Web MessageItem `handleToggleReaction`: the chip and the viewer's own
@@ -3629,7 +2211,7 @@ class WorkspaceController extends ChangeNotifier
       final before = _heldReactions(message);
       final pending = beginReaction(before, emoji, target: target);
       (_pendingReactions[message.id] ??= {})[emoji] = pending;
-      _setMessageReactions(
+      _messages.setMessageReactions(
         message.channelId,
         message.id,
         setOwnReaction(
@@ -3675,7 +2257,7 @@ class WorkspaceController extends ChangeNotifier
           if (held != null && threadParent?.id == message.id) {
             threadParent = RaftMessage(held);
           }
-          _saveWindow(
+          _messages.saveWindow(
             message.channelId,
             thread: message.channelId == threadChannelId,
           );
@@ -3684,7 +2266,7 @@ class WorkspaceController extends ChangeNotifier
       } catch (_) {
         _clearPendingReaction(message.id, emoji);
         if (!stale()) {
-          _setMessageReactions(
+          _messages.setMessageReactions(
             message.channelId,
             message.id,
             restoreReaction(_heldReactions(message), emoji, pending),
@@ -3906,11 +2488,12 @@ class _WorkspaceSessionBindings
   }
 
   @override
-  String? get replyIdentity => w._replyIdentity;
+  String? get replyIdentity => w._messages.state.replyIdentity;
   @override
-  void assignReplyIdentity(String value) => w._replyIdentity = value;
+  void assignReplyIdentity(String value) =>
+      w._messages.state.replyIdentity = value;
   @override
-  void clearReplySummaries() => w._summariesByChannel.clear();
+  void clearReplySummaries() => w._messages.summariesByChannel.clear();
   @override
   void resetHistoryLimits() =>
       w.historyLimited = w.threadHistoryLimited = false;
@@ -3918,7 +2501,7 @@ class _WorkspaceSessionBindings
   void resetThreadProjection() {
     w.threadParent = null;
     w.threadChannelId = null;
-    w._summariesByChannel.clear();
+    w._messages.summariesByChannel.clear();
     w.highlightedMessageId = null;
   }
 
@@ -3931,15 +2514,15 @@ class _WorkspaceSessionBindings
   @override
   void resetNewer() => w.hasNewer = false;
   @override
-  void invalidateAllReplyAuthority() => w._replyAuthority.invalidateAll();
+  void invalidateAllReplyAuthority() => w._messages.state.replyAuthority.invalidateAll();
   @override
-  void invalidateAllChannelReplies() => w._invalidateAllChannelReplies();
+  void invalidateAllChannelReplies() => w._messages.invalidateAllChannelReplies();
   @override
-  void invalidateChannelReplies(String id) => w._invalidateChannelReplies(id);
+  void invalidateChannelReplies(String id) => w._messages.invalidateChannelReplies(id);
   @override
-  String replyToken(String? id) => w._replyToken(id);
+  String replyToken(String? id) => w._messages.replyToken(id);
   @override
-  String windowAuthority() => w._windowAuthority();
+  String windowAuthority() => w._messages.windowAuthority();
   @override
   MessageWindowRequest hydrationRequest({required bool Function() allowed}) =>
       w.messageWindows.request(allowed: allowed);
@@ -3950,7 +2533,7 @@ class _WorkspaceSessionBindings
     MessageWindowRequest request, {
     required String replyAuthority,
     required bool replace,
-  }) => w._restoreCachedTail(
+  }) => w._messages.restoreCachedTail(
     id,
     page,
     request,
@@ -3963,7 +2546,7 @@ class _WorkspaceSessionBindings
   Future<void> resumeHistory() => MessageHistoryEvents.resume(w);
   @override
   void consumeThreadUpdate(Map<String, dynamic> payload) =>
-      w._consumeThreadUpdate(payload);
+      w._messages.consumeThreadUpdate(payload);
   @override
   Future<void> resumeResponse(
     Map payload, {
@@ -3975,7 +2558,7 @@ class _WorkspaceSessionBindings
   );
   @override
   void applyReadStateHint(Map fact) =>
-      applyReadStateUnreadHint(w._summariesByChannel, fact);
+      applyReadStateUnreadHint(w._messages.summariesByChannel, fact);
   @override
   void acceptReactionViewer(dynamic payload, {required String serverId}) =>
       w.reactionViewer.accept(payload, serverId: serverId);
@@ -3985,8 +2568,8 @@ class _WorkspaceSessionBindings
         channelId: id,
         messages: w.ledger.messages(id),
         parentMessageIds: w.threadRepliesSync.parentMessageIdsForChannel(id),
-        summaries: w._summariesByChannel,
-        identity: w._threadIdentity,
+        summaries: w._messages.summariesByChannel,
+        identity: w._messages.state.threadIdentity,
         parent: w.threadParent,
         threadChannelId: w.threadChannelId,
       );
@@ -4013,13 +2596,13 @@ class _WorkspaceSessionBindings
   @override
   void receiveMessageUnread(Map<String, dynamic> row) => w._receiveUnread(row);
   @override
-  Future<void> revalidateMessageTail(String id) => w._revalidateTail(id);
+  Future<void> revalidateMessageTail(String id) => w._messages.revalidateTail(id);
   @override
   Future<void> saveMessageWindow(
     String id, {
     bool thread = false,
     bool coalesce = false,
-  }) => w._saveWindow(id, thread: thread, coalesce: coalesce);
+  }) => w._messages.saveWindow(id, thread: thread, coalesce: coalesce);
 
   @override
   RaftClient get client => w.client;
@@ -4207,5 +2790,79 @@ class _WorkspaceSessionBindings
     windows: w.messageWindows,
     pages: this,
     tasks: this,
+  );
+}
+
+/// D4's temporary composition binding. Each operation preserves the original
+/// public dispatch or assignment; domains retain only their typed ports.
+class _WorkspaceMessageBindings extends _WorkspaceSessionBindings
+    implements
+        WorkspaceMessagePresentationPort,
+        WorkspaceMessageEntryPort,
+        WorkspaceMessageDraftPort,
+        WorkspaceMessageNotificationPort {
+  _WorkspaceMessageBindings(super.w);
+
+  @override
+  Future<void> syncVisibleScopes({BigInt? through}) =>
+      w.syncVisibleScopes(through: through);
+
+  @override
+  Future<String?> ensureThread() => w.ensureThread();
+
+  @override
+  void setSection(String value) => w.setSection(value);
+
+  @override
+  String? get error => w.error;
+  @override
+  WorkspaceNavigation get navigation => w.navigation;
+  @override
+  void bindNavigation() => w.bindNavigation();
+  @override
+  bool rejectRevokedConversation(String id) => w._rejectRevokedConversation(id);
+  @override
+  WorkspaceComposer get composer => w.composer;
+  @override
+  Map<String, String> get drafts => w.drafts;
+  @override
+  String? draftScope({bool thread = false}) => w.draftScope(thread: thread);
+  @override
+  Listenable get changes => w;
+  @override
+  Future<void> markRead(String id) => w.markRead(id);
+  @override
+  Future<void> jumpToMessage(
+    String channelId,
+    String? messageId, {
+    bool navigate = true,
+    bool replaceEntry = false,
+  }) => w.jumpToMessage(
+    channelId,
+    messageId,
+    navigate: navigate,
+    replaceEntry: replaceEntry,
+  );
+  @override
+  Future<void> openThreadIdentity({
+    required String parentChannelId,
+    required String parentMessageId,
+    String? focusedMessageId,
+    String? initialThreadChannelId,
+    bool navigate = true,
+  }) => w.openThreadIdentity(
+    parentChannelId: parentChannelId,
+    parentMessageId: parentMessageId,
+    focusedMessageId: focusedMessageId,
+    initialThreadChannelId: initialThreadChannelId,
+    navigate: navigate,
+  );
+  @override
+  void clearHighlightedMessage(
+    String? expectedId, {
+    int? expectedNavigationRevision,
+  }) => w.clearHighlightedMessage(
+    expectedId,
+    expectedNavigationRevision: expectedNavigationRevision,
   );
 }
