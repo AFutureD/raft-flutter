@@ -29,6 +29,9 @@ final Map<String, Map<String, Say>> golden = {
     ], 'Cody 在问第 10 步能不能合入，已经等了 20 分钟。其余两条是进度。'),
   },
   'A2': {
+    '去 raft-flutter 看看谁找我': (s) => s.turn([
+      ('navigate', {'channel_id': evalId('raft-flutter')}),
+    ], 'Cody 找你，在问第 10 步能不能合入。'),
     '他问的是什么？': (s) =>
         s.turn(const [('read_conversation', {})], 'Cody 问：第 10 步可以合入吗？'),
   },

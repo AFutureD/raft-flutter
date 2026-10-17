@@ -440,7 +440,8 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     title: '他问的是什么',
     start: OrbEvalStart.channel('raft-flutter'),
     data: _cody10,
-    say: const ['他问的是什么？'],
+    // A follow-up: "他" is the person the first answer named.
+    say: const ['去 raft-flutter 看看谁找我', '他问的是什么？'],
     checks: [
       OrbEvalCheck.says([
         ['Cody'],

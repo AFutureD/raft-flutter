@@ -372,6 +372,17 @@ void main() {
 
     // Kevin: give it ASD-STE100 so it knows how to say things. The rules,
     // not the English word list.
+    // Eval round 2 (G100): in a discussion "大家意见是什么" jumped to the
+    // Activity; "谁找我" named Cody but not what he asked; with nothing to do
+    // it said six sentences.
+    test('deixis looks at the current page; who-wants-me says what they '
+        'want; nothing to do is two sentences', () {
+      expect(prompt, contains('先调 describe_page 看当前页面'));
+      expect(prompt, contains('不要先跳到别的页面'));
+      expect(prompt, contains('不能只报名字'));
+      expect(prompt, contains('最多两句'));
+    });
+
     // Kevin wanted the big-text-and-cards briefing on screen.
     test('a briefing request navigates with show; a plain move does not', () {
       expect(prompt, contains('navigate 带上 show: true'));
