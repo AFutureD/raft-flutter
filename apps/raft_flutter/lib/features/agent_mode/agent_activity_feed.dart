@@ -125,7 +125,9 @@ class AgentActivityFeed {
     // System events ("🔄 Cody moved #136 …") name their actor in the text,
     // so they get no sender prefix.
     final event =
-        senderType == 'system' || senderId == 'system' || senderId == null;
+        senderType == 'system' ||
+        senderId == 'system' ||
+        senderId == null && named == null;
     final who = mine ? '你' : (event ? null : (named ?? (action ? null : '有人')));
     final raw =
         '${(thread ? row['latestActivityPreview'] : row['lastMessagePreview']) ?? row['messagePreview'] ?? ''}';
