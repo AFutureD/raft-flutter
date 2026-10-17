@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../data/workspace_controller.dart';
 import 'briefing/orb_briefing_models.dart';
 import 'briefing/orb_briefing_service.dart';
@@ -31,5 +33,13 @@ OrbArrivalBrief orbArrivalBrief({
   if (scope == null) return null;
   final briefing = await (serviceFor ?? OrbBriefingService.of)(ctx.workspace)
       .brief(scope, full: true, modelWait: orbArrivalModelWait);
+  if (!kReleaseMode) {
+    for (final i in briefing.needsYou) {
+      debugPrint(
+        'orb-brief needsYou ${i.reason.name} who=${i.who} '
+        'where=${i.where} title=${i.title}',
+      );
+    }
+  }
   return briefing.toJson();
 };
