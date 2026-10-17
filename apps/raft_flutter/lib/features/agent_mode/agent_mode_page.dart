@@ -1010,6 +1010,9 @@ class _AgentModePageState extends State<AgentModePage> {
       highlight: highlight,
     );
     _push(layer);
+    // The tools that open a conversation wait for this (see [_settledScreen]).
+    final loaded = Completer<void>();
+    _loads[layer.id] = loaded.future;
     try {
       await data.authors();
       final read = await data.conversation(
@@ -1048,7 +1051,39 @@ class _AgentModePageState extends State<AgentModePage> {
     } catch (e) {
       if (mounted) setState(() => _convoErrors[layer.id] = e);
       rethrow;
+    } finally {
+      if (identical(_loads[layer.id], loaded.future)) _loads.remove(layer.id);
+      loaded.complete();
     }
+  }
+
+  /// The conversations being read (by layer id): complete when the first page
+  /// is in, or the read failed (see [_convoErrors]).
+  final _loads = <String, Future<void>>{};
+
+  /// How long a tool waits for the first page of a conversation before it
+  /// tells the model the conversation is still loading.
+  static const _loadWait = Duration(seconds: 5);
+
+  /// [_screen] once the front conversation has its first page, a definite
+  /// failure, or [_loadWait] has passed (the answer then says it is still
+  /// loading, which is not the same as empty). The model is given a screen
+  /// that has the messages, not the moment before they arrived.
+  Future<Map<String, Object?>> _settledScreen() async {
+    final top = _stack.last;
+    final load = top is _Channel ? _loads[top.id] : null;
+    if (load != null) {
+      try {
+        await load.timeout(_loadWait);
+      } on TimeoutException {
+        // Still loading: [_screen] says so.
+      }
+    }
+    if (!mounted) return {'error': 'closed'};
+    final screen = _screen();
+    final failed =
+        _stack.last is _Channel && _convoErrors[_stack.last.id] != null;
+    return failed ? {'error': '这个对话没能读出来（不是空的）', ...screen} : screen;
   }
 
   String _channelSummary(AgentChannelBrief b) {
@@ -1274,10 +1309,22 @@ class _AgentModePageState extends State<AgentModePage> {
       _stack.last.id,
       _frame(_stack.last),
     );
+    final top = _stack.last;
+    final convo = top is _Channel ? _conversationOf(top) : null;
     return {
       'layer': _stack.length,
       'title': _peek(_stack.last),
       if (snap.loading) 'loading': true,
+      if (snap.loading)
+        'loadingNote':
+            '这一层还在读取，现在没有内容只是因为还没读到，不是空的：不要说“没有内容”“是空的”，'
+            '先说在读取，稍后用 read_screen 再看。',
+      // A conversation that was read and has no message: really empty.
+      if (convo != null &&
+          !convo.loading &&
+          convo.error == null &&
+          convo.messages.isEmpty)
+        'empty': true,
       if (snap.current != null) 'current': snap.current,
       'snapshot': snap.text(),
       'items': snap.itemsJson(),
@@ -1617,9 +1664,9 @@ class _AgentModePageState extends State<AgentModePage> {
         if (top is! _Channel || top.thread != null || top.channel.id != c.id) {
           _openChannel(c, announce: false).ignore();
         }
-        return _screen();
+        return _settledScreen();
       case 'read_screen':
-        return _screen();
+        return _settledScreen();
       case 'next_batch':
         final moved = _nextBatch();
         // The page scrolls for a moment; what is in view is told after it.
@@ -1646,7 +1693,7 @@ class _AgentModePageState extends State<AgentModePage> {
           }
           _currentOf[_stack.first.id] = n;
           _openItem(listed[n - 1]);
-          return _screen();
+          return _settledScreen();
         }
         final items = (_frame(_stack.last)['items'] as List? ?? const [])
             .cast<Map<String, Object?>>()
@@ -1658,7 +1705,7 @@ class _AgentModePageState extends State<AgentModePage> {
         final c = _channelById(items[n - 1]['channelId'] as String?);
         if (c == null) return {'error': '第 $n 条没有可以打开的详情', ..._screen()};
         _openChannel(c, announce: false).ignore();
-        return _screen();
+        return _settledScreen();
       case 'spotlight':
         final n = (args['number'] as num?)?.toInt() ?? 0;
         final items = _screenItems();

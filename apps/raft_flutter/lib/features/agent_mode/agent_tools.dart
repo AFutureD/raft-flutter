@@ -22,7 +22,9 @@ const agentToolDeclarations = <Map<String, Object?>>[
   },
   {
     'name': 'open_channel',
-    'description': '在屏幕上打开一个频道。立即生效，只返回屏幕状态；要讲频道内容时再调用 read_channel。',
+    'description':
+        '在屏幕上打开一个频道。会等频道的消息读出来再返回（最多约 5 秒），返回屏幕状态；要讲频道内容时再调用 read_channel。'
+        '返回里 loading 为 true 是消息还没读到，不是空的，不要说“没有内容”；empty 为 true 才是这个频道真的没有消息。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -33,7 +35,7 @@ const agentToolDeclarations = <Map<String, Object?>>[
   },
   {
     'name': 'open_item',
-    'description': '打开当前屏幕上的第 N 条（从 1 开始），比如“第二条”“这个”。在首页上就是打开那条动态所在的整段对话（“看完整对话”）：这个频道、私信或讨论里的全部消息，那一条高亮。立即生效。',
+    'description': '打开当前屏幕上的第 N 条（从 1 开始），比如“第二条”“这个”。在首页上就是打开那条动态所在的整段对话（“看完整对话”）：这个频道、私信或讨论里的全部消息，那一条高亮。会等消息读出来再返回（最多约 5 秒）；loading 为 true 是还没读到，不是空的，empty 为 true 才是真的没有消息。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -196,8 +198,8 @@ String agentSystemPrompt({
     '这条没有按钮：通过、回复、点赞、标已处理、稍后、交给 Agent 靠用户说，你调工具出预览。\n'
     '卡片右上角有编号 ① ② ③ …，refs 写明编号对应的类型和 id。\n'
     '【屏幕】每轮开头的上下文和每个改变屏幕的工具结果里的【屏幕】，写着这一层每张卡片上的每个字（频道、负责人、等多久……）、⟨⟩ 里没印出来的 id、各条的“可做”、当前这一条的详情、哪些在眼前。'
-    '他问屏幕上有的，直接从里面答，不要猜，不要为此再调工具；同名频道看 id。“…(N chars omitted)…”是中间省略了 N 个字。屏幕可能已变（他滚动、点了别的）而你拿不准时，调用 read_screen（只读）。里面没有的就说屏幕上没有。\n'
-    '【心情】set_mood 只在真有感觉时用：事情都处理完 🎉，卡住了 😟，读取失败 😅；每一轮最多一次，不要念出来。\n'
+    '他问屏幕上有的，直接从里面答，不要猜；loading 为 true（屏幕写“还在读取”）是没读到，不是空的；empty 才是没有；同名频道看 id。“…(N chars omitted)…”是省略了 N 个字。拿不准屏幕是否变了（他滚动、点了别的）时，调用 read_screen（只读）。\n'
+    '【心情】set_mood 只在真有感觉时用，每轮最多一次，不要念出来。\n'
     '\n'
     '【自己组屏幕，仅限上面装不下的】要把几类内容拼在一屏时：先读（list_agents、get_task、search_tasks、query），再 begin_surface 给骨架（Column、Section、AgentStatusGroup、StatRow），'
     '然后一边说结论一边逐个 add_component（一条一次，从上往下，改内容用 update_component），最后 end_surface；内容很少时用 show_surface 一次给出。'
