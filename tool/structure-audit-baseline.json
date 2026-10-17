@@ -1089,6 +1089,14 @@
       "reason": "One reference to the existing SessionScope implements its four frozen transition commands; no duplicate state, handlers or notifications. Approved by Cindy in Raft fdc8ac23-11c2-424f-9197-e5c50a16d0eb.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController._channels",
+      "limit": 1,
+      "reason": "task #161 D2 replaces five receiver-local projections and three duplicate repository references with one WorkspaceChannels owner. Original receiver/source dispatch and repository identities are preserved; eight old ceilings are zero and three old reference exceptions are removed. Approved by Cindy in Raft 76c62ba8-a7c1-48e9-9051-161a927aa2b8.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
     }
   ]
 }
