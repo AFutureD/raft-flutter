@@ -292,7 +292,9 @@ void main() {
       final f = OrbFixture(t);
       await f.setUp();
       addTearDown(f.tearDown);
-      await f.pump();
+      // Without the Labs card: its nine controls would fill the short list
+      // of what can be tapped before the page behind the layer.
+      await f.pump(labsCard: false);
       await f.openLayer();
       unawaited(f.controller.sendText('这个页面能做什么'));
       for (var i = 0; i < 8; i++) {

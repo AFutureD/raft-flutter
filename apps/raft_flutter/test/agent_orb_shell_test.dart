@@ -270,6 +270,7 @@ class OrbFixture {
     double textScale = 1.0,
     bool enabled = true,
     bool composer = false,
+    bool labsCard = true,
     RaftFamily family = RaftFamily.brutal,
     List<OrbTool> tools = const [],
   }) async {
@@ -302,7 +303,12 @@ class OrbFixture {
             bottom: false,
             child: Column(
               children: [
-                const AgentOrbLabsCard(),
+                // The Labs card has grown tall (switches and two controls): at
+                // a big text scale it scrolls rather than push the page out.
+                if (labsCard)
+                  const Flexible(
+                    child: SingleChildScrollView(child: AgentOrbLabsCard()),
+                  ),
                 Expanded(
                   child: GestureDetector(
                     key: const ValueKey('page-content'),
