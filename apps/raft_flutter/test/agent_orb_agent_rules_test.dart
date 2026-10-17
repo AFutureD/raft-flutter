@@ -84,10 +84,14 @@ void main() {
   /// What the stand-in `navigate` answers (a test sets it).
   Map<String, Object?>? navigateResult;
 
+  /// Answers given first, in order, before [navigateResult].
+  final navigateQueue = <Map<String, Object?>>[];
+
   OrbTool navigateStub([Map<String, Object?>? result]) => OrbTool(
     declaration: const {'name': 'navigate'},
     handler: (args, ctx) async {
       navigated.add(args);
+      if (navigateQueue.isNotEmpty) return navigateQueue.removeAt(0);
       return navigateResult ??
           result ??
           {'route': '/s/s1/task/136', 'title': '#136 重构第 10 步', 'page': 'task'};
@@ -103,6 +107,7 @@ void main() {
       gemini = FakeGemini();
       navigated.clear();
       navigateResult = null;
+      navigateQueue.clear();
       f = ActionOrbFixture(t)
         ..agentLayer = true
         ..sessionFactory =
@@ -142,6 +147,11 @@ void main() {
       await f.tearDown();
     });
   }
+
+  String jsonEncodeParts(Map content) => [
+    for (final p in (content['parts'] as List))
+      if ((p as Map)['text'] is String) '${p['text']}',
+  ].join('\n');
 
   OrbController orb() => f.controller;
 
@@ -429,10 +439,12 @@ void main() {
     ],
   );
 
-  orbTest('the model navigates for a plain "go": the arrival is told from '
-      'what was brought, no second call', (t) async {
+  orbTest('the app\'s navigate gave no sentence, the model\'s does: told from '
+      'what it brought, no answer step', (t) async {
+    navigateQueue.add({'title': '#general', 'briefingNote': '没读出来'});
     gemini.replies.add(_call('navigate', {'channel_id': 'ch-general'}));
-    await say(t, '我想看看 general');
+    await say(t, '去 general');
+    expect(navigated, hasLength(2));
     expect(gemini.requests, hasLength(1));
     expect(
       agentLines().single,
@@ -451,11 +463,11 @@ void main() {
     ]);
     // A fuzzy match: the model may ask.
     navigateResult = channelArrived(score: .8);
-    await say(t, '我想看看 genral');
+    await say(t, '去 genral');
     expect(agentLines().last, '是 general 吗？');
     // A question beside the order.
     navigateResult = channelArrived();
-    await say(t, '我想看看 general 有什么新的');
+    await say(t, '去 general 有什么新的');
     expect(agentLines().last, startsWith('Cody 问周五上线。'));
     expect(gemini.requests, hasLength(4));
   }, tools: [navigateStub()]);
@@ -831,6 +843,197 @@ void main() {
     });
   });
 
+  group('the fast path does what the model path did', () {
+    OrbBriefItem item(String who, String title) => OrbBriefItem(
+      id: 'msg:$who',
+      title: title,
+      who: who,
+      where: '#general',
+      since: '已等 5 分钟',
+      link: '/s/s1/channel/ch-general',
+      sourceIds: const [],
+      reason: OrbReason.mentionAsk,
+      why: '点名你',
+    );
+
+    final deck = [
+      item('Cody', 'Cody 问你：上线吗？'),
+      item('Alice', '周五能来评审吗？'),
+      item('Grok', 'Grok 问你：接口确认吗？'),
+    ];
+
+    /// `get_briefing` as the real one does with show: the deck is laid out.
+    OrbTool getBriefing({
+      List<OrbBriefItem>? items,
+      Map<String, Object?>? raw,
+    }) => OrbTool(
+      declaration: const {'name': 'get_briefing'},
+      handler: (args, ctx) async {
+        if (raw != null) return raw;
+        final b = OrbBriefing(
+          scope: OrbBriefScope.activity,
+          overview: '',
+          needsYou: items ?? deck,
+          progress: const [],
+          routineCount: 3,
+        );
+        if (args['show'] == true) orb().showBriefing(b);
+        return b.toJson();
+      },
+    );
+
+    orbTest('D1: 开始驾驶模式 lays out the cards and says the first', (t) async {
+      await say(t, '开始驾驶模式');
+      expect(gemini.requests, isEmpty);
+      expect(orb().driving, isTrue);
+      // The deck is up, the first card is a message.
+      expect(orb().drivingItems.map((i) => i.who), ['Cody', 'Alice', 'Grok']);
+      expect(orb().drivingIndex, 0);
+      expect(agentLines().single, '好，驾驶模式。第 1 件，共 3 件：Cody 问你：上线吗，已等 5 分钟。');
+      expect(orb().fastPath, 'drive');
+    }, tools: [getBriefing()]);
+
+    orbTest('D2: 下一件 after it names the card now shown, and who', (t) async {
+      await say(t, '开始驾驶模式');
+      await say(t, '下一件');
+      expect(orb().drivingIndex, 1);
+      // The title of this one does not name the sender: the sentence does.
+      expect(agentLines().last, '第 2 件，共 3 件：Alice：周五能来评审吗，已等 5 分钟。');
+      await say(t, '下一件');
+      expect(agentLines().last, contains('Grok'));
+    }, tools: [getBriefing()]);
+
+    orbTest('nothing for the user: said so, and the routine count', (t) async {
+      await say(t, '开始驾驶模式');
+      expect(agentLines().single, '好，驾驶模式。没有要你处理的。其余 3 条是常规进度。');
+    }, tools: [getBriefing(items: const [])]);
+
+    orbTest(
+      'a briefing that did not read: driving mode, and no claim',
+      (t) async {
+        await say(t, '开始驾驶模式');
+        expect(orb().driving, isTrue);
+        expect(agentLines().single, '好，驾驶模式。');
+      },
+      tools: [
+        getBriefing(raw: {'error': '简报没读出来'}),
+      ],
+    );
+
+    orbTest(
+      'C1: "看看 Cody 私信" is a look, not an order: the model answers '
+      'after its navigate, and "到了主页" is never said',
+      (t) async {
+        gemini.replies.addAll([
+          _call('navigate', {'page': 'home', 'target': 'Ada', 'kind': 'dm'}),
+          _say('Ada 在等你，要回她吗？'),
+        ]);
+        await say(t, '看看 Ada 私信');
+        expect(gemini.requests, hasLength(2));
+        expect(agentLines().last, contains('Ada'));
+        expect(agentLines().last, isNot(contains('到了主页')));
+      },
+      tools: [
+        navigateStub({
+          'title': '主页',
+          'matched': {'kind': 'page', 'id': 'home', 'score': 1.0},
+          'page': {'page': 'other'},
+        }),
+      ],
+    );
+
+    orbTest(
+      '"打开 Ada 私信": the DM in a sentence: who, what, answer?',
+      (t) async {
+        await say(t, '打开 Ada 私信');
+        expect(navigated, [
+          {'dm_id': 'dm-1'},
+        ]);
+        expect(agentLines().single, 'Ada 问你：周五评审吗，已等 15 分钟，要回吗？');
+      },
+      tools: [
+        navigateStub({
+          'title': 'Ada',
+          'matched': {'kind': 'dm', 'id': 'dm-1', 'score': 1.0},
+          'briefing': {
+            'needsYou': [
+              {'who': 'Ada', 'title': 'Ada 问你：周五评审吗？', 'since': '已等 15 分钟'},
+            ],
+          },
+        }),
+      ],
+    );
+
+    orbTest(
+      'a model\'s navigate to somewhere else than the words name is '
+      'not told as "arrived"',
+      (t) async {
+        gemini.replies.addAll([
+          _call('navigate', {'page': 'home'}),
+          _say('我在主页。'),
+        ]);
+        await say(t, '带我去 general');
+        // The model went to the home page: not what was asked; no app sentence.
+        expect(gemini.requests, hasLength(2));
+        expect(agentLines().last, '我在主页。');
+      },
+      tools: [
+        navigateStub({
+          'title': '主页',
+          'matched': {'kind': 'page', 'id': 'home', 'score': 1.0},
+        }),
+      ],
+    );
+
+    orbTest(
+      'B6: a briefing read while the inbox has not come is not kept as '
+      'an empty one: the model is not told "nothing"',
+      (t) async {
+        gemini.replies.addAll([
+          _call('get_briefing', {}),
+          _say('动态还在加载。'),
+          _say('嗯'),
+        ]);
+        await say(t, '有什么新的');
+        await say(t, '再看一眼');
+        final c = (gemini.requests.last['contents'] as List).last as Map;
+        final text = [
+          for (final p in (c['parts'] as List))
+            if ((p as Map)['text'] is String) '${p['text']}',
+        ].join('\n');
+        expect(text, isNot(contains('没有等用户处理')));
+      },
+      tools: [
+        getBriefing(
+          raw: {
+            'scope': 'activity',
+            'needsYou': <Object?>[],
+            'progress': <Object?>[],
+            'routineCount': 0,
+          },
+        ),
+      ],
+    );
+
+    orbTest('an empty briefing shown before the Activity is read is a blank', (
+      t,
+    ) async {
+      orb().showBriefing(
+        OrbBriefing(
+          scope: OrbBriefScope.activity,
+          overview: '',
+          needsYou: const [],
+          progress: const [],
+          routineCount: 0,
+        ),
+      );
+      gemini.replies.add(_say('好'));
+      await say(t, '你好');
+      final c = (gemini.requests.single['contents'] as List).last as Map;
+      expect(jsonEncodeParts(c), isNot(contains('没有等用户处理')));
+    });
+  });
+
   group('what the agent is told before each ask', () {
     OrbBriefItem item(String who, String title, String since) => OrbBriefItem(
       id: 'msg:$who',
@@ -844,13 +1047,14 @@ void main() {
       why: '点名你',
     );
 
-    OrbBriefing briefing(List<OrbBriefItem> items) => OrbBriefing(
-      scope: OrbBriefScope.activity,
-      overview: '',
-      needsYou: items,
-      progress: const [],
-      routineCount: 0,
-    );
+    OrbBriefing briefing(List<OrbBriefItem> items, {int routine = 0}) =>
+        OrbBriefing(
+          scope: OrbBriefScope.activity,
+          overview: '',
+          needsYou: items,
+          progress: const [],
+          routineCount: routine,
+        );
 
     List<String> context(int request) {
       final c = (gemini.requests[request]['contents'] as List).last as Map;
@@ -885,7 +1089,7 @@ void main() {
       await say(t, '你好');
       expect(context(0).join(), isNot(contains('等用户处理')));
       expect(context(0).join(), isNot(contains('没有等用户处理')));
-      orb().showBriefing(briefing(const []));
+      orb().showBriefing(briefing(const [], routine: 2));
       await say(t, '再说一句');
       expect(context(1).join('\n'), contains('现在没有等用户处理的消息'));
     });

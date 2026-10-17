@@ -102,10 +102,33 @@ String? orbDrivingSay(Map result, {OrbBriefing? briefing}) {
   }
   final item = result['item'];
   if (item is! Map) return null;
+  return '第 ${result['index']} 件，共 ${result['total']} 件：${_cardLine(item)}。';
+}
+
+/// A card in a line: who first (the title may not name them), what, how long.
+String _cardLine(Map item) {
+  final who = '${item['who'] ?? ''}'.trim();
+  var title = _tidy('${item['title'] ?? ''}'.trim());
+  if (title.isEmpty) title = who;
+  if (who.isNotEmpty && !title.contains(who)) title = '$who：$title';
   final since = '${item['since'] ?? ''}'.trim();
-  return '第 ${result['index']} 件，共 ${result['total']} 件：'
-      '${_tidy('${item['title'] ?? item['who']}')}'
-      '${since.isEmpty ? '' : '，$since'}。';
+  return since.isEmpty ? title : '$title，$since';
+}
+
+/// Driving mode is on and the deck is laid out (`get_briefing` with show): the
+/// first card, or that nothing needs the person. Null when it did not read.
+String? orbDriveSay(Map briefing) {
+  if (briefing['error'] != null || briefing['loading'] == true) return null;
+  final items = [
+    for (final i in (briefing['needsYou'] as List? ?? const []))
+      if (i is Map) i,
+  ];
+  if (items.isEmpty) {
+    final routine = briefing['routineCount'];
+    return '好，驾驶模式。没有要你处理的。'
+        '${routine is int && routine > 0 ? '其余 $routine 条是常规进度。' : ''}';
+  }
+  return '好，驾驶模式。第 1 件，共 ${items.length} 件：${_cardLine(items.first)}。';
 }
 
 /// A task of the pass over the stale tasks.
@@ -147,6 +170,10 @@ String? orbArrivalSay(Map result, {String said = ''}) {
   final b = result['briefing'];
   final where = title.isEmpty ? '到了。' : '到了$title。';
   if (b is! Map) return where;
+  final matched = result['matched'];
+  if (matched is Map && matched['kind'] == 'dm') {
+    return _dmArrival(title, result, b);
+  }
   final items = [
     for (final i in (b['needsYou'] as List? ?? const []))
       if (i is Map) i,
@@ -165,6 +192,29 @@ String? orbArrivalSay(Map result, {String said = ''}) {
   return '$where有 ${items.length} 件事在等你：${shown.map(one).join('；')}。'
       '${items.length > shown.length ? '还有 ${items.length - shown.length} 件。' : ''}'
       '$tail';
+}
+
+/// A private conversation: who, what they asked, and whether to answer.
+String _dmArrival(String name, Map result, Map briefing) {
+  final items = [
+    for (final i in (briefing['needsYou'] as List? ?? const []))
+      if (i is Map) i,
+  ];
+  if (items.isNotEmpty) return '${_cardLine(items.first)}，要回吗？';
+  final page = result['page'];
+  String? last;
+  if (page is Map) {
+    for (final m in (page['messages'] as List? ?? const []).reversed) {
+      if (m is Map && '${m['from']}' == name && m['fromMe'] != true) {
+        last = '${m['text'] ?? ''}'.trim();
+        break;
+      }
+    }
+  }
+  if (last == null || last.isEmpty) return '到了$name的私信。没有要你处理的。';
+  final one = last.replaceAll(RegExp(r'\s+'), ' ');
+  final clip = one.length <= 40 ? one : '${one.substring(0, 40)}…';
+  return '$name 说：${_tidy(clip)}，不用回。';
 }
 
 /// The opened item of the Activity.

@@ -891,7 +891,11 @@ class OrbController extends ChangeNotifier {
   ) {
     // What the briefing a tool brought says is kept for the next ask.
     final brought = orbBriefingOf([AgentToolRun(name, args, result)]);
-    if (brought != null) _keepBriefing(brought);
+    if (brought != null &&
+        result['loading'] != true &&
+        (brought['scope'] != 'activity' || _activityRead)) {
+      _keepBriefing(brought);
+    }
     // What the answer must convey, said by the app.
     if (_factReads.contains(name) && result['error'] == null) {
       final facts = orbKeyFactStrings(
@@ -908,15 +912,14 @@ class OrbController extends ChangeNotifier {
     if (name == 'navigate' &&
         result['error'] == null &&
         result[agentAppSays] == null &&
-        actions.pending == null &&
-        orbJustGo(_turnSaid)) {
-      // "带我去 X": the person asked only to go. When the place is surely the
-      // one they named, the arrival is told from what was brought, and the
-      // model is not asked again for it.
-      final match = result['matched'];
-      final sure =
-          match is Map && match['score'] is num && match['score'] >= .99;
-      final line = sure ? orbArrivalSay(result, said: _turnSaid) : null;
+        actions.pending == null) {
+      // "带我去 X": the person asked only to go, and the place they named is
+      // surely the one it went to: the arrival is told from what was brought,
+      // and the model is not asked again for it.
+      final want = orbOpenArgs(_turnSaid, orbDirectoryOf(workspace));
+      final line = want != null && _isPlace(want, result['matched'])
+          ? orbArrivalSay(result, said: _turnSaid)
+          : null;
       if (line != null) result = {...result, agentAppSays: line};
     }
     if (name == 'list_tasks' && _driving && result['error'] == null) {
@@ -1262,7 +1265,11 @@ class OrbController extends ChangeNotifier {
   /// Shows [briefing] as cards in the layer, opening it when it is closed.
   void showBriefing(OrbBriefing briefing) {
     shownBriefing = briefing;
-    _keepBriefing(briefing.toJson(ordered: true));
+    // (An Activity briefing with nothing at all in it, before the Activity has
+    // been read, is a blank, not an empty inbox.)
+    if (!briefing.scope.isActivity || _activityRead || !briefing.isEmpty) {
+      _keepBriefing(briefing.toJson(ordered: true));
+    }
     _drivingIndex = 0;
     // What the briefing holds is not new when it comes live later.
     if (_driving) {
@@ -1383,6 +1390,21 @@ class OrbController extends ChangeNotifier {
     return _fast(said, run);
   }
 
+  /// Whether what `navigate` matched is the place [want] names.
+  static bool _isPlace(Map<String, Object?> want, Object? matched) {
+    if (matched is! Map || matched['score'] is! num || matched['score'] < .99) {
+      return false;
+    }
+    final id = '${matched['id']}';
+    return switch (matched['kind']) {
+      'page' => want['page'] == id,
+      'channel' => want['channel_id'] == id,
+      'dm' => want['dm_id'] == id,
+      'task' => '#${want['task_number']}' == id,
+      _ => false,
+    };
+  }
+
   /// The command of the last turn the app did without the model (an
   /// evaluation records it); null when the model had it.
   String? fastPath;
@@ -1423,11 +1445,18 @@ class OrbController extends ChangeNotifier {
       case 'park':
         line = result['error'] == null ? '好，退出驾驶模式。' : null;
       case 'drive':
-        line = result['error'] == null ? '好，驾驶模式。' : null;
+        // What the model did: lay out the briefing's cards (Activity first),
+        // then say the first.
+        if (result['error'] != null) break;
+        final deck = await run('get_briefing', const {'show': true});
+        line = orbDriveSay(deck) ?? '好，驾驶模式。';
       case 'item':
         line = orbItemSay(result, cmd.args['n'] as int);
       case 'open':
-        line = orbArrivalSay(result, said: said);
+        // Only if it landed where the words name.
+        line = _isPlace(cmd.args, result['matched'])
+            ? orbArrivalSay(result, said: said)
+            : null;
     }
     if (line != null) fastPath = cmd.kind;
     return line;
@@ -1529,6 +1558,11 @@ class OrbController extends ChangeNotifier {
     if (scope is String) _briefs[scope] = (json: json, at: _now());
   }
 
+  /// The Activity has been read: a briefing of it before that says "nothing"
+  /// because nothing has come yet, and must not be kept as an empty inbox.
+  bool get _activityRead =>
+      workspace.activityUnreadIfBound?.hasAcceptedWindow ?? false;
+
   Map<String, Object?>? _freshBriefing(String scope) {
     final held = _briefs[scope];
     if (held == null || _now().difference(held.at) > _briefFresh) return null;
@@ -1542,6 +1576,7 @@ class OrbController extends ChangeNotifier {
     if (!agentLayer ||
         brief == null ||
         _preloadWarming ||
+        !_activityRead ||
         _freshBriefing('activity') != null) {
       return;
     }

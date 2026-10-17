@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_resolver.dart';
 import 'package:raft_flutter/features/agent_orb/orb_fast_path.dart';
-import 'package:raft_flutter/features/agent_orb/orb_open.dart';
 
 /// Commands the app does by itself: unambiguous words, one tool, a sentence
 /// made from what it returned. No model call.
@@ -93,17 +92,26 @@ void main() {
       }
     });
 
-    test('a bare "go" is told from a question', () {
+    test('"go" in its several ways; a look or a question is not one', () {
       for (final said in [
-        '带我去 general',
-        '我想看看 general',
-        '打开 design',
+        '带我去 raft-flutter',
+        '我想去 raft-flutter',
+        '我要去 raft-flutter',
+        '切换到动态',
+        '带我进入动态',
         '去 raft-flutter',
       ]) {
-        expect(orbJustGo(said), isTrue, reason: said);
+        expect(parse(said), isNotNull, reason: said);
       }
-      for (final said in ['去 general 有什么新的', '去 general 看看谁找我', '确认', '打开了吗']) {
-        expect(orbJustGo(said), isFalse, reason: said);
+      for (final said in [
+        '看看 Cody 私信',
+        '看看 raft-flutter',
+        '看一下动态',
+        '去 raft-flutter 有什么新的',
+        '去 raft-flutter 看看谁找我',
+        '打开了吗',
+      ]) {
+        expect(parse(said), isNull, reason: said);
       }
     });
   });
@@ -131,6 +139,81 @@ void main() {
           },
         }),
         '第 2 件，共 3 件：Alice 问你：周五能来评审吗，已等 15 分钟。',
+      );
+    });
+
+    test('who is in the sentence even when the title does not name them', () {
+      expect(
+        orbDrivingSay({
+          'index': 2,
+          'total': 3,
+          'item': {'who': 'Alice', 'title': '周五能来评审吗？', 'since': '已等 15 分钟'},
+        }),
+        '第 2 件，共 3 件：Alice：周五能来评审吗，已等 15 分钟。',
+      );
+      expect(
+        orbDrivingSay({
+          'index': 1,
+          'total': 1,
+          'item': {'who': 'Grok', 'title': 'Grok 问你：好吗？'},
+        }),
+        '第 1 件，共 1 件：Grok 问你：好吗。',
+      );
+    });
+
+    test('driving mode on: the first card, or nothing for the user', () {
+      expect(
+        orbDriveSay({
+          'needsYou': [
+            {'who': 'Cody', 'title': 'Cody 问你：上线吗？', 'since': '已等 5 分钟'},
+            {'who': 'Ada', 'title': 'Ada 问你'},
+          ],
+        }),
+        '好，驾驶模式。第 1 件，共 2 件：Cody 问你：上线吗，已等 5 分钟。',
+      );
+      expect(
+        orbDriveSay({'needsYou': <Object?>[], 'routineCount': 4}),
+        '好，驾驶模式。没有要你处理的。其余 4 条是常规进度。',
+      );
+      // Did not read: no claim.
+      expect(orbDriveSay({'error': 'x'}), isNull);
+      expect(orbDriveSay({'loading': true, 'needsYou': <Object?>[]}), isNull);
+    });
+
+    test('a private conversation: who, what they asked, and answer or not', () {
+      expect(
+        orbArrivalSay({
+          'title': 'Cody',
+          'matched': {'kind': 'dm', 'id': 'd1', 'score': 1.0},
+          'briefing': {
+            'needsYou': [
+              {'who': 'Cody', 'title': 'Cody 问你：需要我补什么吗？', 'since': '已等 15 分钟'},
+            ],
+          },
+        }),
+        'Cody 问你：需要我补什么吗，已等 15 分钟，要回吗？',
+      );
+      expect(
+        orbArrivalSay({
+          'title': 'Cody',
+          'matched': {'kind': 'dm', 'id': 'd1', 'score': 1.0},
+          'briefing': {'needsYou': <Object?>[]},
+          'page': {
+            'messages': [
+              {'from': 'Cody', 'text': '收到，我接着做。'},
+              {'from': 'Sam', 'fromMe': true, 'text': '好'},
+            ],
+          },
+        }),
+        'Cody 说：收到，我接着做，不用回。',
+      );
+      expect(
+        orbArrivalSay({
+          'title': 'Cody',
+          'matched': {'kind': 'dm', 'id': 'd1', 'score': 1.0},
+          'briefing': {'needsYou': <Object?>[]},
+        }),
+        '到了Cody的私信。没有要你处理的。',
       );
     });
 
