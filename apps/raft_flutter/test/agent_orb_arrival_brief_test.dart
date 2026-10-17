@@ -354,6 +354,17 @@ void main() {
 
     // Kevin: give it ASD-STE100 so it knows how to say things. The rules,
     // not the English word list.
+    // Kevin: "读动态的内容" got tasks; reading the Activity is its rows.
+    test(
+      'reading the Activity reads its rows in page order, not the briefing',
+      () {
+        expect(prompt, contains('读一下动态'));
+        expect(prompt, contains('describe_page'));
+        expect(prompt, contains('按页面上的顺序'));
+        expect(prompt, contains('不要拿简报代替'));
+      },
+    );
+
     // On the G100 Flash wrote "Cindy 在等你处理…任务" for an agent that was
     // stuck: a blocked agent is not waiting for the person.
     test('a blocked agent is stuck, not waiting for the person', () {
