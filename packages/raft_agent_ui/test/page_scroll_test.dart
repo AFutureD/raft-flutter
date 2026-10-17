@@ -138,9 +138,8 @@ void main() {
         expect(find.byKey(const ValueKey('detail')), findsOneWidget);
       });
 
-      testWidgets('the header stays, the dock stays: only the page moves', (
-        t,
-      ) async {
+      testWidgets('the dock stays, and the header too except on a phone, '
+          'where it is the first part of the page', (t) async {
         _size(t, size);
         final spotlight = AgentSpotlightController();
         addTearDown(spotlight.dispose);
@@ -149,7 +148,12 @@ void main() {
         final title = t.getRect(find.text('房间里的事'));
         spotlight.focus('room#14');
         await t.pumpAndSettle();
-        expect(t.getRect(find.text('房间里的事')), title);
+        if (size == _phone) {
+          // The small bar floats; the heading scrolls up with the rows.
+          expect(t.getRect(find.text('房间里的事')).top, lessThan(title.top));
+        } else {
+          expect(t.getRect(find.text('房间里的事')), title);
+        }
         expect(
           t.state<ScrollableState>(find.byType(Scrollable)).position.pixels,
           greaterThan(0),
@@ -214,7 +218,8 @@ void main() {
     final page = HfPageController();
     addTearDown(spotlight.dispose);
     addTearDown(page.dispose);
-    await t.pumpWidget(_layer(spotlight, page: page));
+    // Enough rows that the end is more than two screens away.
+    await t.pumpWidget(_layer(spotlight, rows: 30, page: page));
     await t.pumpAndSettle();
     final view = _viewport(t).height;
     expect(page.nextScreen(), HfPageStep.moved);

@@ -146,6 +146,8 @@ class AgentConversationView extends StatelessWidget {
         : null,
     loading: data.loading && data.messages.isEmpty,
     error: data.error,
+    // The tasks chip is pressed: the header stays under the bar.
+    scrollHeader: false,
     children: children,
   );
 

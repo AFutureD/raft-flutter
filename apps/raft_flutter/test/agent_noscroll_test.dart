@@ -176,9 +176,8 @@ void main() {
         expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
       });
 
-      testWidgets('the header and the dock stay while the page moves', (
-        t,
-      ) async {
+      testWidgets('the dock stays while the page moves, and the heading '
+          'moves with it on a phone (the bar floats)', (t) async {
         await open(t, size);
         // (The keyboard button opens the input bar above the dock.)
         await t.tap(find.byKey(const ValueKey('agent-keyboard')));
@@ -187,7 +186,11 @@ void main() {
         final dock = t.getRect(find.byType(AgentVoiceDock));
         await say(t, '看看第十一个');
         expect(scroll(t).position.pixels, greaterThan(0));
-        expect(t.getRect(find.text('动态').first), title);
+        if (size.width >= 1280) {
+          expect(t.getRect(find.text('动态').first), title);
+        } else {
+          expect(t.getRect(find.text('动态').first).top, lessThan(title.top));
+        }
         expect(t.getRect(find.byType(AgentVoiceDock)), dock);
       });
 
@@ -295,5 +298,181 @@ void main() {
     expect(s.position.pixels, s.position.maxScrollExtent);
     await say(t, '下一批');
     expect(s.position.pixels, 0);
+  });
+
+  group('the top bar and the dock float over the page', () {
+    // A status bar and a gesture bar, as a phone has.
+    const safe = 24.0;
+    const phone = Size(412, 915);
+
+    Future<void> openInsets(WidgetTester t) async {
+      t.view.physicalSize = phone;
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: const EdgeInsets.only(top: safe, bottom: safe),
+              viewPadding: const EdgeInsets.only(top: safe, bottom: safe),
+            ),
+            child: child!,
+          ),
+          home: AgentModePage(
+            controller: w,
+            data: _Data(w),
+            model: const AgentScriptedModel(streamDelay: Duration.zero),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+    }
+
+    Rect bar(WidgetTester t) =>
+        t.getRect(find.byKey(const ValueKey('agent-mode-bar')));
+    Rect dockRect(WidgetTester t) => t.getRect(find.byType(AgentVoiceDock));
+    Rect card(WidgetTester t, int n) =>
+        t.getRect(find.byKey(ValueKey('attention-card-t$n')));
+    double fadeOpacity(WidgetTester t, String key) => t
+        .widget<AnimatedOpacity>(
+          find.ancestor(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(AnimatedOpacity),
+          ),
+        )
+        .opacity;
+
+    testWidgets('at rest the first row is whole below the bar and the last '
+        'can be scrolled whole above the dock', (t) async {
+      await openInsets(t);
+      expect(card(t, 1).top, greaterThanOrEqualTo(bar(t).bottom));
+      expect(find.text('动态'), findsWidgets);
+      final page = scroll(t);
+      page.position.jumpTo(page.position.maxScrollExtent);
+      await t.pumpAndSettle();
+      expect(card(t, 12).bottom, lessThanOrEqualTo(dockRect(t).top + .5));
+      // Nothing is permanently hidden: the same row is whole in the window.
+      expect(card(t, 12).top, greaterThanOrEqualTo(bar(t).bottom));
+    });
+
+    testWidgets('rows pass behind the bar and the dock while it scrolls', (
+      t,
+    ) async {
+      await openInsets(t);
+      final page = scroll(t);
+      var behindDock = false, behindBar = false;
+      for (var y = 0.0; y < page.position.maxScrollExtent; y += 40) {
+        page.position.jumpTo(y);
+        await t.pump();
+        for (var n = 1; n <= 12; n++) {
+          final r = card(t, n);
+          if (r.overlaps(dockRect(t))) behindDock = true;
+          if (r.overlaps(bar(t))) behindBar = true;
+        }
+      }
+      expect(behindDock, isTrue);
+      expect(behindBar, isTrue);
+    });
+
+    testWidgets('the fades are behind the bars, ignore pointers and show only '
+        'while content is behind them', (t) async {
+      await openInsets(t);
+      const dockFade = ValueKey('hf-dock-fade'),
+          topFade = ValueKey('hf-top-fade');
+      for (final key in [dockFade, topFade]) {
+        expect(find.byKey(key), findsOneWidget, reason: '$key');
+        expect(find.byKey(key).hitTestable(), findsNothing, reason: '$key');
+        final ignore = t.widget<IgnorePointer>(
+          find
+              .ancestor(
+                of: find.byKey(key),
+                matching: find.byType(IgnorePointer),
+              )
+              .first,
+        );
+        expect(ignore.ignoring, isTrue, reason: '$key');
+      }
+      // From the page colour at the bar's edge to nothing, and the reverse.
+      final canvas = RaftAgentTheme.of(t.element(find.byType(AgentModePage)))
+          .canvas;
+      LinearGradient gradient(Key key) =>
+          ((t.widget<DecoratedBox>(find.byKey(key))).decoration
+                      as BoxDecoration)
+                  .gradient!
+              as LinearGradient;
+      expect(gradient(dockFade).colors.last, canvas);
+      expect(gradient(dockFade).colors.first.a, 0);
+      expect(gradient(topFade).colors.first, canvas);
+      expect(gradient(topFade).colors.last.a, 0);
+      // The fade is under the whole dock.
+      final fade = t.getRect(find.byKey(dockFade));
+      expect(fade.top, lessThanOrEqualTo(dockRect(t).top));
+      expect(fade.bottom, greaterThanOrEqualTo(dockRect(t).bottom));
+
+      // At rest more list is below the dock; nothing is above the bar.
+      expect(fadeOpacity(t, 'hf-dock-fade'), 1);
+      expect(fadeOpacity(t, 'hf-top-fade'), 0);
+      final page = scroll(t);
+      page.position.jumpTo(page.position.maxScrollExtent / 2);
+      await t.pumpAndSettle();
+      expect(fadeOpacity(t, 'hf-dock-fade'), 1);
+      expect(fadeOpacity(t, 'hf-top-fade'), 1);
+      page.position.jumpTo(page.position.maxScrollExtent);
+      await t.pumpAndSettle();
+      expect(fadeOpacity(t, 'hf-dock-fade'), 0);
+      expect(fadeOpacity(t, 'hf-top-fade'), 1);
+    });
+
+    testWidgets('a tap on the fade reaches the row under it', (t) async {
+      await openInsets(t);
+      final page = scroll(t);
+      final y = dockRect(t).top - 3;
+      // Scroll until a row is under the point just above the dock's
+      // controls, in the fade.
+      int? under;
+      for (var off = 100.0; off < page.position.maxScrollExtent; off += 7) {
+        page.position.jumpTo(off);
+        await t.pump();
+        for (var n = 1; n <= 12; n++) {
+          final r = card(t, n);
+          if (r.top < y && y < r.bottom) under = n;
+        }
+        if (under != null) break;
+      }
+      expect(under, isNotNull);
+      expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
+      await t.tapAt(Offset(card(t, under!).center.dx, y));
+      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
+    });
+
+    testWidgets('a focused row and its detail end up between the bars', (
+      t,
+    ) async {
+      await openInsets(t);
+      for (final n in [12, 3, 9]) {
+        await say(t, '看看第${const {12: '十二', 3: '三', 9: '九'}[n]}个');
+        final r = card(t, n);
+        final d = t.getRect(find.byKey(const ValueKey('attention-detail')));
+        expect(
+          r.top,
+          greaterThanOrEqualTo(bar(t).bottom - 1),
+          reason: 'row $n',
+        );
+        expect(
+          r.bottom,
+          lessThanOrEqualTo(dockRect(t).top + 1),
+          reason: 'row $n',
+        );
+        if (d.expandToInclude(r).height <= dockRect(t).top - bar(t).bottom) {
+          expect(
+            d.bottom,
+            lessThanOrEqualTo(dockRect(t).top + 1),
+            reason: 'detail $n',
+          );
+        }
+      }
+    });
   });
 }

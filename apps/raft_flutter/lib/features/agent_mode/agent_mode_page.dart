@@ -2144,6 +2144,7 @@ class _AgentModePageState extends State<AgentModePage> {
   Widget _chrome(HfData hf, {required bool bar}) {
     final ink = HfColors.inkSoft;
     return SizedBox(
+      key: bar ? const ValueKey('agent-mode-bar') : null,
       height: hf.sp(bar ? 40 : 36),
       child: Row(
         mainAxisSize: bar ? MainAxisSize.max : MainAxisSize.min,
@@ -2327,28 +2328,44 @@ class _AgentModePageState extends State<AgentModePage> {
     final peeks = (_stack.length - 1).clamp(0, 2);
     return HfScreenFrame(
       top: hf.phone ? _chrome(hf, bar: true) : null,
-      content: AgentRevealSyncScope(
-        sync: _reveal,
-        child: AgentSpotlight(
-          controller: _spotlight,
-          child: ZLayerStack(
-            padding: EdgeInsets.only(top: hf.sp(40) * peeks),
-            onReveal: _revealTo,
-            layers: [
-              for (final l in _stack)
-                ZLayer(
-                  key: ValueKey(l.id),
-                  peek: _peek(l),
-                  child: !hf.phone && identical(l, _stack.last)
-                      ? HfChrome(
-                          trailing: _chrome(hf, bar: false),
-                          child: _layerView(l, hf),
-                        )
-                      : _layerView(l, hf),
-                ),
-            ],
-          ),
-        ),
+      content: Builder(
+        builder: (context) {
+          // The top bar floats over the page. The layers that peek out behind
+          // the front one start below it; with none the page itself scrolls
+          // under the bar.
+          final over = HfOverlayInsets.maybeOf(context);
+          final below = peeks > 0 ? (over?.top ?? 0) : 0.0;
+          final stack = AgentRevealSyncScope(
+            sync: _reveal,
+            child: AgentSpotlight(
+              controller: _spotlight,
+              child: ZLayerStack(
+                padding: EdgeInsets.only(top: below + hf.sp(40) * peeks),
+                onReveal: _revealTo,
+                layers: [
+                  for (final l in _stack)
+                    ZLayer(
+                      key: ValueKey(l.id),
+                      peek: _peek(l),
+                      child: !hf.phone && identical(l, _stack.last)
+                          ? HfChrome(
+                              trailing: _chrome(hf, bar: false),
+                              child: _layerView(l, hf),
+                            )
+                          : _layerView(l, hf),
+                    ),
+                ],
+              ),
+            ),
+          );
+          return peeks > 0 && over != null
+              ? HfOverlayInsets(
+                  bottom: over.bottom,
+                  behind: over.behind,
+                  child: stack,
+                )
+              : stack;
+        },
       ),
       above: Column(
         mainAxisSize: MainAxisSize.min,

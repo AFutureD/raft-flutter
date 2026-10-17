@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftSpace;
 
 import '../agent_theme.dart';
 import 'hf_basics.dart';
@@ -107,10 +110,15 @@ class HfHeader extends StatelessWidget {
 /// The gap between the parts of a screen.
 double hfScreenGap(HfData hf) => hf.sp(hf.phone ? 12 : 10);
 
-/// A header and, under it, the layer's page: everything else is one scroll
-/// (the summary line, the [body], the stage of the current item and the
-/// [HfPageTail]). Only the header stays where it is. This is the content of
-/// one layer.
+/// A header and the layer's page: everything else is one scroll (the summary
+/// line, the [body], the stage of the current item and the [HfPageTail]).
+/// This is the content of one layer.
+///
+/// On a desktop or a TV the header stays where it is, above the page. A
+/// phone's header is by default the first part of the page: the small bar over
+/// the page floats and the heading scrolls up under it with the rest. A layer
+/// whose header has something to press (a conversation's tasks) sets
+/// [scrollHeader] false: its header stays, under the bar.
 ///
 /// The current item's stage goes where the item is, in the same page: beside
 /// the list at the height of the current row on a wide window or a TV
@@ -122,16 +130,21 @@ class HfLayerBody extends StatelessWidget {
     required this.header,
     required this.body,
     this.summary,
+    this.scrollHeader = true,
   });
   final Widget header, body;
 
   /// One line of what the layer says, under the header.
   final Widget? summary;
 
+  /// Whether a phone's header scrolls with the page.
+  final bool scrollHeader;
+
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final gap = hfScreenGap(hf);
+    final scrolls = hf.phone && scrollHeader;
     final stage = HfStageScope.maybeOf(context);
     final tail = HfPageTail.of(context);
     final content = hf.split
@@ -142,33 +155,51 @@ class HfLayerBody extends StatelessWidget {
             snap: hf.sp(70),
           )
         : body;
+    final page = HfPage(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (scrolls) ...[header, SizedBox(height: gap)],
+          if (summary != null) ...[summary!, SizedBox(height: gap)],
+          content,
+          if (tail != null) tail,
+        ],
+      ),
+    );
+    if (scrolls) return page;
+    // A fixed header sits under the floating bar, and the page under it.
+    final over = HfOverlayInsets.maybeOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SizedBox(height: over?.top ?? 0),
         header,
         SizedBox(height: gap),
         Expanded(
-          child: HfPage(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (summary != null) ...[summary!, SizedBox(height: gap)],
-                content,
-                if (tail != null) tail,
-              ],
-            ),
-          ),
+          child: over == null
+              ? page
+              : HfOverlayInsets(
+                  bottom: over.bottom,
+                  behind: over.behind,
+                  child: page,
+                ),
         ),
       ],
     );
   }
 }
 
-/// The frame of every screen: canvas, margins by the spec, [content], what
-/// goes [above] the foot (a notice, a tray of cards), the caption strip and
-/// (phone, desktop) the dock. A TV has no dock; its caption strip carries
-/// the mood.
-class HfScreenFrame extends StatelessWidget {
+/// The frame of every screen: canvas, margins, [content], what goes [above]
+/// the foot (a notice, a tray of cards), the caption strip and (phone,
+/// desktop) the dock. A TV has no dock; its caption strip carries the mood.
+///
+/// The top bar ([top]) and the foot float over the content: the page scrolls
+/// under them (see [HfOverlayInsets]), and behind each is a fade from the
+/// canvas colour that shows only while content is behind it. Taps on the part
+/// of an overlay that is only fade reach the page. The margins are the
+/// device's safe area, which the screen puts around the frame, and one small
+/// spacing token (see [HfData.margin]).
+class HfScreenFrame extends StatefulWidget {
   const HfScreenFrame({
     super.key,
     required this.content,
@@ -181,7 +212,7 @@ class HfScreenFrame extends StatelessWidget {
   });
   final Widget content;
 
-  /// Chrome over the content (close, settings), small.
+  /// Chrome over the content (close, settings), small. It floats.
   final Widget? top;
 
   /// Between the content and the foot, with its own spacing (it may be
@@ -198,49 +229,202 @@ class HfScreenFrame extends StatelessWidget {
   final Widget? foot;
 
   @override
-  Widget build(BuildContext context) {
-    final hf = HandsFree.of(context);
-    final gap = hfScreenGap(hf);
-    Widget? foot = this.foot;
-    if (foot != null) {
-      // as given
-    } else if (caption != null && dock != null && !hf.tv) {
-      foot = hf.phone
+  State<HfScreenFrame> createState() => _HfScreenFrameState();
+}
+
+class _HfScreenFrameState extends State<HfScreenFrame> {
+  /// The heights of the floating top bar and foot, as laid out.
+  double _topH = 0, _footH = 0;
+  final _behind = ValueNotifier<HfBehind>((top: false, bottom: false));
+
+  @override
+  void dispose() {
+    _behind.dispose();
+    super.dispose();
+  }
+
+  void _measured({double? top, double? foot}) {
+    if (!mounted) return;
+    if ((top == null || top == _topH) && (foot == null || foot == _footH)) {
+      return;
+    }
+    setState(() {
+      _topH = top ?? _topH;
+      _footH = foot ?? _footH;
+    });
+  }
+
+  Widget? _foot(HfData hf) {
+    final w = widget;
+    if (w.foot != null) return w.foot;
+    if (w.caption != null && w.dock != null && !hf.tv) {
+      return hf.phone
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                caption!,
+                w.caption!,
                 SizedBox(height: hf.sp(14)),
-                dock!,
+                w.dock!,
               ],
             )
           : Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(child: caption!),
+                Expanded(child: w.caption!),
                 SizedBox(width: hf.sp(28)),
-                dock!,
+                w.dock!,
               ],
             );
-    } else {
-      foot = caption ?? (hf.tv ? null : dock);
     }
-    return HfCanvas(
-      child: Padding(
-        padding: hf.margin,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ?top,
-            Expanded(
-              child: HfPageTail(tail: tail, child: content),
+    return w.caption ?? (hf.tv ? null : w.dock);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hf = HandsFree.of(context);
+    final gap = hfScreenGap(hf);
+    final m = hf.margin;
+    final foot = _foot(hf);
+    final top = widget.top;
+    final above = widget.above;
+    final fade = hf.sp(RaftSpace.x3);
+    final canvas = RaftAgentTheme.of(context).canvas;
+    final clear = canvas.withValues(alpha: 0);
+
+    Widget fadeLayer(Key key, bool towardsTop) => Positioned.fill(
+      child: IgnorePointer(
+        child: ValueListenableBuilder<HfBehind>(
+          valueListenable: _behind,
+          builder: (context, b, _) => AnimatedOpacity(
+            opacity: (towardsTop ? b.top : b.bottom) ? 1 : 0,
+            duration: const Duration(milliseconds: 160),
+            child: DecoratedBox(
+              key: key,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: towardsTop ? [canvas, clear] : [clear, canvas],
+                ),
+              ),
             ),
-            ?above,
-            if (foot != null) ...[SizedBox(height: gap), foot],
-          ],
+          ),
         ),
       ),
     );
+
+    // The top bar floats at the very top, the foot at the very bottom; the
+    // page under them is padded by their heights.
+    final topBar = top == null
+        ? null
+        : Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: _SizeReporter(
+              onSize: (s) => _measured(top: s.height),
+              child: Stack(
+                children: [
+                  fadeLayer(const ValueKey('hf-top-fade'), true),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(m.left, m.top, m.right, fade),
+                    child: top,
+                  ),
+                ],
+              ),
+            ),
+          );
+    final bottomBar = foot == null && above == null
+        ? null
+        : Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _SizeReporter(
+              onSize: (s) => _measured(foot: s.height),
+              child: Stack(
+                children: [
+                  fadeLayer(const ValueKey('hf-dock-fade'), false),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      m.left,
+                      fade,
+                      m.right,
+                      m.bottom,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ?above,
+                        if (foot != null) ...[
+                          if (above != null) SizedBox(height: gap),
+                          foot,
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+
+    return HfCanvas(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Padding(
+            // What has no overlay keeps the margin as plain padding.
+            padding: EdgeInsets.fromLTRB(
+              m.left,
+              top == null ? m.top : 0,
+              m.right,
+              bottomBar == null ? m.bottom : 0,
+            ),
+            child: HfOverlayInsets(
+              top: _topH,
+              bottom: bottomBar == null ? 0 : _footH,
+              behind: _behind,
+              child: HfPageTail(tail: widget.tail, child: widget.content),
+            ),
+          ),
+          ?topBar,
+          ?bottomBar,
+        ],
+      ),
+    );
+  }
+}
+
+/// Reports the size its child is laid out at (after the frame, so the owner
+/// can rebuild with it).
+class _SizeReporter extends SingleChildRenderObjectWidget {
+  const _SizeReporter({required this.onSize, required super.child});
+  final ValueChanged<Size> onSize;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSizeReporter(onSize);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderSizeReporter renderObject,
+  ) => renderObject.onSize = onSize;
+}
+
+class _RenderSizeReporter extends RenderProxyBox {
+  _RenderSizeReporter(this.onSize);
+  ValueChanged<Size> onSize;
+  Size? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (size == _last) return;
+    _last = size;
+    final reported = size;
+    SchedulerBinding.instance.addPostFrameCallback((_) => onSize(reported));
   }
 }
 
@@ -311,8 +495,12 @@ class HfLayerFrame extends StatelessWidget implements HfDescribed {
     this.loading = false,
     this.error,
     this.enterTitle = false,
+    this.scrollHeader = true,
   });
   final String title;
+
+  /// Whether a phone's header scrolls with the page (see [HfLayerBody]).
+  final bool scrollHeader;
 
   /// A small note at the right of the title.
   final String? meta;
@@ -341,6 +529,7 @@ class HfLayerFrame extends StatelessWidget implements HfDescribed {
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     return HfLayerBody(
+      scrollHeader: scrollHeader,
       header: HfHeader(
         title: title,
         count: count,

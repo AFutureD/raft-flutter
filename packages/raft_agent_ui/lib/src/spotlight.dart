@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
+import 'handsfree/hf_page.dart';
 import 'handsfree/hf_scope.dart';
 import 'handsfree/hf_split.dart';
 import 'handsfree/hf_stage.dart';
@@ -275,9 +276,15 @@ void revealInPage(BuildContext context, {Rect? stage}) {
     r.right,
     r.bottom + hf.sp(12),
   );
-  // The offsets that put [r] at the top and at the bottom of the page.
-  double lead(Rect r) => viewport.getOffsetToReveal(box, 0, rect: r).offset;
-  double trail(Rect r) => viewport.getOffsetToReveal(box, 1, rect: r).offset;
+  // The page scrolls under the bars that float over it (the top bar of a
+  // phone, the dock): the part of it that is seen starts under the one and
+  // ends over the other.
+  final over = HfOverlayInsets.of(context);
+  // The offsets that put [r] at the top and at the bottom of what is seen.
+  double lead(Rect r) =>
+      viewport.getOffsetToReveal(box, 0, rect: r).offset - over.top;
+  double trail(Rect r) =>
+      viewport.getOffsetToReveal(box, 1, rect: r).offset + over.bottom;
   bool fits(Rect r) => trail(r) <= lead(r);
   bool seen(Rect r) =>
       fits(r) &&

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'hf_scope.dart';
 
@@ -76,10 +77,51 @@ class HfPageTail extends InheritedWidget {
   bool updateShouldNotify(HfPageTail old) => old.tail != tail;
 }
 
-/// A layer's page: the one scroll of the layer, below its fixed header. A
-/// phone and a desktop scroll it by hand; a TV cannot, so the layer scrolls
-/// it to the current item. Nothing inside scrolls on its own and nothing
-/// fades or is cut off at an edge.
+/// Which edges of the front layer's page have content behind an overlay: the
+/// page has been scrolled ([top]), or more of it lies below what is seen
+/// ([bottom]). The screen frame shows the fade behind an overlay only then.
+typedef HfBehind = ({bool top, bool bottom});
+
+/// The bars that float over the front layer's page: the small top bar of a
+/// phone and the dock. The page scrolls under them, so it pads its content by
+/// their heights (everything can be scrolled clear of them), and the
+/// scroll-to-reveal code keeps the current item out from under them.
+///
+/// The screen frame provides it; without one the insets are zero.
+class HfOverlayInsets extends InheritedWidget {
+  const HfOverlayInsets({
+    super.key,
+    this.top = 0,
+    this.bottom = 0,
+    this.behind,
+    required super.child,
+  });
+
+  /// The heights of the overlays at the top and at the bottom of the page.
+  final double top, bottom;
+
+  /// Where the page tells which edges have content behind an overlay.
+  final ValueNotifier<HfBehind>? behind;
+
+  static HfOverlayInsets? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<HfOverlayInsets>();
+
+  /// The top and bottom insets in effect (zero outside a frame).
+  static ({double top, double bottom}) of(BuildContext context) {
+    final o = maybeOf(context);
+    return (top: o?.top ?? 0, bottom: o?.bottom ?? 0);
+  }
+
+  @override
+  bool updateShouldNotify(HfOverlayInsets old) =>
+      old.top != top || old.bottom != bottom || old.behind != behind;
+}
+
+/// A layer's page: the one scroll of the layer. A phone and a desktop scroll
+/// it by hand; a TV cannot, so the layer scrolls it to the current item.
+/// Nothing inside scrolls on its own and nothing is cut off at an edge. What
+/// floats over it (see [HfOverlayInsets]) is padded for, so the first and the
+/// last item can be scrolled clear of it.
 class HfPage extends StatefulWidget {
   const HfPage({super.key, required this.child});
   final Widget child;
@@ -90,33 +132,81 @@ class HfPage extends StatefulWidget {
 
 class _HfPageState extends State<HfPage> {
   HfPageController? _own;
+  HfPageController? _listening;
+  bool _scheduled = false;
 
   HfPageController _controller(BuildContext context) =>
       HfPageControllerScope.maybeOf(context) ?? (_own ??= HfPageController());
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final c = _controller(context);
+    if (!identical(c, _listening)) {
+      _listening?.removeListener(_report);
+      _listening = c..addListener(_report);
+    }
+    _schedule();
+  }
+
+  @override
   void dispose() {
+    _listening?.removeListener(_report);
     _own?.dispose();
     super.dispose();
+  }
+
+  void _schedule() {
+    if (_scheduled) return;
+    _scheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (mounted) _report();
+    });
+  }
+
+  /// Tells the frame which edges have content behind an overlay.
+  void _report() {
+    final sink = HfOverlayInsets.maybeOf(context)?.behind;
+    final c = _listening;
+    if (sink == null || c == null || !c.hasClients) return;
+    final p = c.position;
+    if (!p.hasContentDimensions) return;
+    sink.value = (
+      top: p.pixels > .5,
+      bottom: p.maxScrollExtent - p.pixels > .5,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final hf = HandsFree.of(context);
     final controller = _controller(context);
+    final inset = HfOverlayInsets.of(context);
     final page = SingleChildScrollView(
       key: const ValueKey('hf-page'),
       controller: controller,
       physics: hf.interactive
           ? const ClampingScrollPhysics()
           : const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.only(bottom: hf.sp(10), right: hf.sp(8)),
+      padding: EdgeInsets.only(
+        top: inset.top,
+        bottom: hf.sp(10) + inset.bottom,
+        right: hf.sp(8),
+      ),
       child: widget.child,
     );
     // A desktop with a pointer gets a bar that stays in view, so a stage taller
     // than the window says there is more under it; a finger needs none.
-    return hf.interactive && !hf.phone
+    final bar = hf.interactive && !hf.phone
         ? Scrollbar(controller: controller, thumbVisibility: true, child: page)
         : page;
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (_) {
+        _schedule();
+        return false;
+      },
+      child: bar,
+    );
   }
 }
