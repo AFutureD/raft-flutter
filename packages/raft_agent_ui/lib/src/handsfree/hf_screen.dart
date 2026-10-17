@@ -298,15 +298,27 @@ class _HfScreenFrameState extends State<HfScreenFrame> {
           builder: (context, b, _) => AnimatedOpacity(
             opacity: (towardsTop ? b.top : b.bottom) ? 1 : 0,
             duration: const Duration(milliseconds: 160),
-            child: DecoratedBox(
-              key: key,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: towardsTop ? [canvas, clear] : [clear, canvas],
-                ),
-              ),
+            // Solid behind the bar itself, so a row passing under it never
+            // shows through its text; only the [fade] band at the inner edge
+            // turns transparent.
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final h = c.maxHeight;
+                final band = h > 0 ? (fade / h).clamp(0.0, 1.0) : 1.0;
+                return DecoratedBox(
+                  key: key,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: towardsTop
+                          ? [canvas, canvas, clear]
+                          : [clear, canvas, canvas],
+                      stops: towardsTop ? [0, 1 - band, 1] : [0, band, 1],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
