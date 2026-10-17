@@ -245,7 +245,7 @@ class OrbCallStatus extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: RaftSpace.x2,
-                      vertical: RaftSpace.x1 / 2,
+                      vertical: RaftSpace.x1,
                     ),
                     child: Text(
                       '点球挂断 · 点标签展开',
