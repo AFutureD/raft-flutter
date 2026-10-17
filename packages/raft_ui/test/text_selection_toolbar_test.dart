@@ -130,14 +130,21 @@ void main() {
         );
         expect(style.fontFamily, tokens.bodyFont);
         expect(
-          MediaQuery.textScalerOf(tester.element(copy)).scale(style.fontSize!),
+          MediaQuery.textScalerOf(tester.element(copy)).scale(style.fontSize!) *
+              (tester
+                          .renderObject<RenderBox>(copy)
+                          .localToGlobal(const Offset(1, 0)) -
+                      tester
+                          .renderObject<RenderBox>(copy)
+                          .localToGlobal(Offset.zero))
+                  .distance,
           closeTo(style.fontSize! * scale, .01),
         );
         await tester.tap(copy);
         expect(actions, [0]);
         final more = find.byWidgetPredicate(
           (w) =>
-              w is RaftInteractive &&
+              w is IconButton &&
               w.tooltip ==
                   MaterialLocalizations.of(tester.element(menu))
                       .moreButtonTooltip,
@@ -160,8 +167,11 @@ void main() {
         await tester.tap(share);
         expect(actions, [0, 4]);
         expect(
-          find.descendant(of: menu, matching: find.byType(Tooltip)),
-          findsNothing,
+          find.descendant(
+            of: menu,
+            matching: find.byType(TextSelectionToolbar),
+          ),
+          findsOneWidget,
         );
         expect(tester.takeException(), isNull);
       });
@@ -366,16 +376,7 @@ void main() {
         disabled.getSemanticsData().hasAction(SemanticsAction.tap),
         isFalse,
       );
-      final focus = tester
-          .widget<FocusableActionDetector>(
-            find
-                .ancestor(
-                  of: find.text('Copy selection'),
-                  matching: find.byType(FocusableActionDetector),
-                )
-                .first,
-          )
-          .focusNode!;
+      final focus = Focus.of(tester.element(find.text('Copy selection')));
       focus.requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -462,6 +463,60 @@ void main() {
       expect(style.decoration, TextDecoration.none);
       expect(style.fontFamily, theme.extension<RaftTokens>()!.bodyFont);
       expect(style.fontSize, 12);
+    },
+  );
+  testWidgets(
+    'overflow keeps the original narrow panel and start-aligned labels',
+    (tester) async {
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      });
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant)
+              .copyWith(platform: TargetPlatform.android),
+          home: Scaffold(
+            body: RaftTextSelectionToolbar.buttonItems(
+              anchors: const TextSelectionToolbarAnchors(
+                primaryAnchor: Offset(160, 300),
+              ),
+              buttonItems: [
+                for (final label in [
+                  'Cut',
+                  'Copy',
+                  'Paste',
+                  'Select all',
+                  'Ask Gemini',
+                ])
+                  ContextMenuButtonItem(label: label, onPressed: () {}),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final surface = find.byType(RaftRecipeBox).first;
+      final closed = tester.getRect(surface);
+      final more = find.byWidgetPredicate(
+        (w) =>
+            (w is RaftInteractive && w.tooltip == 'Show menu') ||
+            (w is IconButton && w.tooltip == 'Show menu') ||
+            (w is RaftInteractive && w.tooltip == 'More') ||
+            (w is IconButton && w.tooltip == 'More'),
+      );
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      final expanded = tester.getRect(surface);
+      expect(expanded.width, lessThan(closed.width - 40));
+      expect(
+        tester.getRect(find.text('Ask Gemini')).left - expanded.left,
+        lessThan(24),
+      );
     },
   );
 }

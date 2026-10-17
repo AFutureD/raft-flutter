@@ -1,23 +1,17 @@
 import 'dart:math' as math;
-import 'dart:ui' show SemanticsRole;
 
-import 'package:flutter/cupertino.dart' show CupertinoTextSelectionToolbar;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'control_typography.dart';
-import 'design_primitives.dart';
-import 'icons.dart';
 import 'recipe_surface.dart';
 import 'recipes/message_text_selection_toolbar.g.dart';
 import 'theme.dart';
 
-/// Android text selection actions painted with the current Raft theme.
+/// Raft's Android selection menu skin, using Flutter's original toolbar layout.
 ///
-/// The caller supplies Flutter's actions and selection anchors. Other platforms
-/// keep their adaptive toolbar. Unlike Material's fixed 44dp row, this toolbar
-/// grows with text and scrolls its overflow page at large system font sizes.
-class RaftTextSelectionToolbar extends StatefulWidget {
+/// Flutter owns anchoring, row measurement, overflow, back navigation and button
+/// padding. The caller's editing actions and platform extension items are kept.
+class RaftTextSelectionToolbar extends StatelessWidget {
   const RaftTextSelectionToolbar.buttonItems({
     super.key,
     required this.anchors,
@@ -27,8 +21,8 @@ class RaftTextSelectionToolbar extends StatefulWidget {
   final TextSelectionToolbarAnchors anchors;
   final List<ContextMenuButtonItem> buttonItems;
 
-  /// Shared builder for fields and [SelectableText], including the system
-  /// context menu on platforms that support it.
+  /// Shared builder for fields and [SelectableText], retaining supported native
+  /// system menus on other platforms.
   static Widget editableText(BuildContext context, EditableTextState state) =>
       SystemContextMenu.isSupportedByField(state)
       ? SystemContextMenu.editableText(editableTextState: state)
@@ -46,255 +40,170 @@ class RaftTextSelectionToolbar extends StatefulWidget {
   );
 
   @override
-  State<RaftTextSelectionToolbar> createState() =>
-      _RaftTextSelectionToolbarState();
-}
-
-class _RaftTextSelectionToolbarState extends State<RaftTextSelectionToolbar> {
-  bool overflowOpen = false;
-
-  @override
-  void didUpdateWidget(RaftTextSelectionToolbar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.buttonItems != widget.buttonItems) overflowOpen = false;
-  }
-
-  @override
   Widget build(BuildContext context) {
     if (Theme.of(context).platform != TargetPlatform.android) {
       return AdaptiveTextSelectionToolbar.buttonItems(
-        anchors: widget.anchors,
-        buttonItems: widget.buttonItems,
+        anchors: anchors,
+        buttonItems: buttonItems,
       );
     }
-    if (widget.buttonItems.isEmpty) return const SizedBox.shrink();
+    if (buttonItems.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
     final t = RaftTokens.of(context), rt = t.recipeTokens;
-    final recipe = RaftMessageTextSelectionToolbarRecipe.resolve(
+    RaftMessageTextSelectionToolbarRecipeStyle recipe(
+      Set<WidgetState> states,
+    ) => RaftMessageTextSelectionToolbarRecipe.resolve(
       theme: t.recipeTheme,
-      states: t.recipeStates(),
+      states: t.recipeStates(
+        hovered: states.contains(WidgetState.hovered),
+        pressed: states.contains(WidgetState.pressed),
+        focusVisible: states.contains(WidgetState.focused),
+        disabled: states.contains(WidgetState.disabled),
+      ),
       tokens: rt,
     );
-    // A selection overlay can inherit a link, code span or fallback text
-    // style. Menu labels always start from the application's control font.
-    final baseStyle = Theme.of(context).textTheme.labelLarge!
-        .copyWith(decoration: TextDecoration.none);
-    final textStyle = RaftControlTypography.of(
-      context,
-      recipe.button.text(rt, base: recipe.toolbar.text(rt, base: baseStyle)),
-    );
-    final labels = [
-      for (final item in widget.buttonItems)
-        AdaptiveTextSelectionToolbar.getButtonLabel(context, item),
-    ];
-    const screenGap = CupertinoTextSelectionToolbar.kToolbarScreenPadding;
-    final safe = MediaQuery.paddingOf(context);
-    final insets = EdgeInsets.fromLTRB(
-      safe.left + screenGap,
-      safe.top + screenGap,
-      safe.right + screenGap,
-      math.max(safe.bottom, MediaQuery.viewInsetsOf(context).bottom) +
-          screenGap,
-    );
-    final adjustment = Offset(insets.left, insets.top);
-    final above =
-        widget.anchors.primaryAnchor - adjustment - const Offset(0, 8);
-    final below =
-        (widget.anchors.secondaryAnchor ?? widget.anchors.primaryAnchor) -
-        adjustment +
-        const Offset(0, TextSelectionToolbar.kToolbarContentDistanceBelow);
-    return Padding(
-      padding: insets,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final border = recipe.toolbar.borderWidth;
-          final inset = recipe.toolbar.padding + border;
-          final width = math.max(0.0, constraints.maxWidth - inset.horizontal);
-          final widths = [
-            for (final label in labels)
-              _labelWidth(
-                context,
-                label,
-                textStyle,
-                recipe.button.padding,
-                width,
-              ),
-          ];
-          final gap = recipe.toolbar.columnGap ?? 0;
-          final navigationWidth = math.min(RaftMetrics.touchTarget, width);
-          var count = widths.length;
-          final fullWidth =
-              widths.fold(0.0, (sum, w) => sum + w) + gap * (widths.length - 1);
-          if (fullWidth > width) {
-            count = 0;
-            var used = navigationWidth;
-            while (count < widths.length &&
-                used + gap + widths[count] <= width) {
-              used += gap + widths[count++];
-            }
-          }
-          final hasOverflow = count < widths.length;
-          final open = hasOverflow && overflowOpen;
-          final rowWidth =
-              widths.take(count).fold(0.0, (sum, w) => sum + w) +
-              gap * math.max(0, count - 1) +
-              (hasOverflow ? navigationWidth + (count > 0 ? gap : 0) : 0);
-          final menuWidth = open
-              ? math.max(rowWidth, widths.skip(count).reduce(math.max))
-              : rowWidth;
-          final aboveSpace = above.dy.clamp(0.0, constraints.maxHeight);
-          final belowSpace = (constraints.maxHeight - below.dy).clamp(
-            0.0,
-            constraints.maxHeight,
-          );
-          // The SDK delegate uses the actual child height to choose its side.
-          // Constrain scrolling to the larger free side so it also fits below.
-          final height = math.max(aboveSpace, belowSpace);
-          return CustomSingleChildLayout(
-            delegate: TextSelectionToolbarLayoutDelegate(
-              anchorAbove: above,
-              anchorBelow: below,
-            ),
-            child: CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.escape):
-                    ContextMenuController.removeAny,
-              },
-              child: DefaultTextStyle(
-                style: baseStyle,
-                child: FocusTraversalGroup(
-                  child: Semantics(
-                    role: SemanticsRole.menu,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: height),
-                      child: RaftRecipeBox(
-                        style: recipe.toolbar,
-                        tokens: rt,
-                        clip: true,
-                        child: SizedBox(
-                          width: menuWidth,
-                          child: SingleChildScrollView(
-                            child: open
-                                ? Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Align(
-                                        alignment:
-                                            AlignmentDirectional.centerEnd,
-                                        child: navigation(context, back: true),
-                                      ),
-                                      for (
-                                        var i = count;
-                                        i < labels.length;
-                                        i++
-                                      )
-                                        _SelectionButton(
-                                          label: labels[i],
-                                          onPressed:
-                                              widget.buttonItems[i].onPressed,
-                                        ),
-                                    ],
-                                  )
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    spacing: gap,
-                                    children: [
-                                      for (var i = 0; i < count; i++)
-                                        SizedBox(
-                                          width: widths[i],
-                                          child: _SelectionButton(
-                                            label: labels[i],
-                                            onPressed:
-                                                widget.buttonItems[i].onPressed,
-                                          ),
-                                        ),
-                                      if (hasOverflow) navigation(context),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+    final skin = recipe({});
+    // Selection overlays may inherit a link/code/fallback style from the text.
+    final base = skin.toolbar.text(
+      rt,
+      base: theme.textTheme.labelLarge!.copyWith(
+        decoration: TextDecoration.none,
       ),
     );
-  }
-
-  Widget navigation(BuildContext context, {bool back = false}) => SizedBox(
-    width: RaftMetrics.touchTarget,
-    child: _SelectionButton(
-      label: back
-          ? MaterialLocalizations.of(context).backButtonTooltip
-          : MaterialLocalizations.of(context).moreButtonTooltip,
-      glyph: back ? RaftGlyph.arrowLeft : RaftGlyph.ellipsis,
-      onPressed: () => setState(() => overflowOpen = !back),
-    ),
-  );
-}
-
-double _labelWidth(
-  BuildContext context,
-  String label,
-  TextStyle style,
-  EdgeInsets padding,
-  double available,
-) {
-  final painter = TextPainter(
-    text: TextSpan(text: label, style: style),
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-    locale: Localizations.localeOf(context),
-  )..layout();
-  final width = painter.width + padding.horizontal;
-  painter.dispose();
-  return width.clamp(math.min(RaftMetrics.touchTarget, available), available);
-}
-
-class _SelectionButton extends StatelessWidget {
-  const _SelectionButton({required this.label, this.onPressed, this.glyph});
-  final String label;
-  final VoidCallback? onPressed;
-  final RaftGlyph? glyph;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context), rt = t.recipeTokens;
-    return RaftInteractive(
-      onPressed: onPressed,
-      focusOnPointer: false,
-      button: false,
-      semanticRole: SemanticsRole.menuItem,
-      semanticLabel: glyph == null ? null : label,
-      tooltip: glyph == null ? null : label,
-      builder: (context, state) => RaftRecipeBox(
-        style: RaftMessageTextSelectionToolbarRecipe.resolve(
-          theme: t.recipeTheme,
-          states: t.recipeStates(
-            hovered: state.hovered,
-            pressed: state.pressed,
-            focusVisible: state.focusVisible,
-            disabled: onPressed == null,
-          ),
-          tokens: rt,
-        ).button,
-        tokens: rt,
-        height: RaftMetrics.touchTarget,
-        controlLabel: true,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: RaftMetrics.touchTarget),
-          child: Align(
-            widthFactor: 1,
-            heightFactor: 1,
-            child: glyph == null ? Text(label) : RaftIcon(glyph!),
+    TextStyle labelStyle(Set<WidgetState> states) => RaftControlTypography.of(
+      context,
+      recipe(states).button.text(rt, base: base),
+    );
+    final labels = [
+      for (final item in buttonItems)
+        AdaptiveTextSelectionToolbar.getButtonLabel(context, item),
+    ];
+    final scale = _toolbarScale(context, labels, labelStyle({}));
+    Widget toolbar(TextSelectionToolbarAnchors localAnchors) => Theme(
+      data: theme.copyWith(
+        iconButtonTheme: IconButtonThemeData(
+          style: ButtonStyle(
+            foregroundColor: WidgetStatePropertyAll(labelStyle({}).color),
           ),
         ),
       ),
+      child: TextSelectionToolbar(
+        anchorAbove: localAnchors.primaryAnchor,
+        anchorBelow: localAnchors.secondaryAnchor ?? localAnchors.primaryAnchor,
+        toolbarBuilder: (context, child) => RaftRecipeBox(
+          style: skin.toolbar,
+          tokens: rt,
+          applyText: false,
+          clip: true,
+          child: Material(type: MaterialType.transparency, child: child),
+        ),
+        children: [
+          for (var i = 0; i < buttonItems.length; i++)
+            TextButton(
+              onPressed: buttonItems[i].onPressed,
+              style: ButtonStyle(
+                // The same geometry as TextSelectionToolbarTextButton.
+                minimumSize: const WidgetStatePropertyAll(
+                  Size(kMinInteractiveDimension, kMinInteractiveDimension),
+                ),
+                padding: WidgetStatePropertyAll(
+                  TextSelectionToolbarTextButton.getPadding(
+                    i,
+                    buttonItems.length,
+                  ),
+                ),
+                alignment: AlignmentDirectional.centerStart,
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: skin.button.borderRadius ?? BorderRadius.zero,
+                  ),
+                ),
+                textStyle: WidgetStateProperty.resolveWith(labelStyle),
+                foregroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.disabled)
+                      ? theme.disabledColor
+                      : labelStyle(states).color,
+                ),
+                backgroundColor: WidgetStateProperty.resolveWith(
+                  (states) =>
+                      recipe(states).button.backgroundColor?.resolve(rt),
+                ),
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+              child: Text(labels[i]),
+            ),
+        ],
+      ),
+    );
+    if (scale == 1) return toolbar(anchors);
+    // Material's closed row is fixed at 44dp. At exceptional accessibility
+    // sizes, scale its coordinate space and inversely scale its text so the
+    // actual glyph size is unchanged. The SDK still owns every layout decision.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final media = MediaQuery.of(context);
+        final size = constraints.biggest / scale;
+        return OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: size.width,
+          maxWidth: size.width,
+          minHeight: size.height,
+          maxHeight: size.height,
+          child: Transform.scale(
+            scale: scale,
+            alignment: Alignment.topLeft,
+            child: MediaQuery(
+              data: media.copyWith(
+                size: size,
+                padding: media.padding / scale,
+                viewPadding: media.viewPadding / scale,
+                viewInsets: media.viewInsets / scale,
+                textScaler: _ToolbarTextScaler(media.textScaler, scale),
+              ),
+              child: toolbar(
+                TextSelectionToolbarAnchors(
+                  primaryAnchor: anchors.primaryAnchor / scale,
+                  secondaryAnchor: anchors.secondaryAnchor == null
+                      ? null
+                      : anchors.secondaryAnchor! / scale,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
+}
+
+double _toolbarScale(
+  BuildContext context,
+  List<String> labels,
+  TextStyle style,
+) {
+  var height = 0.0;
+  for (final label in labels) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.localeOf(context),
+      maxLines: 1,
+    )..layout();
+    height = math.max(height, painter.height);
+    painter.dispose();
+  }
+  // Flutter 3.47.6 TextSelectionToolbar's closed row height.
+  return math.max(1, height / 44);
+}
+
+class _ToolbarTextScaler extends TextScaler {
+  const _ToolbarTextScaler(this.original, this.viewportScale);
+  final TextScaler original;
+  final double viewportScale;
+  @override
+  double scale(double fontSize) => original.scale(fontSize) / viewportScale;
+  // Required framework compatibility estimate; rendering only uses scale().
+  @override
+  double get textScaleFactor => scale(17) / 17;
 }
