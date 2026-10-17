@@ -9,6 +9,8 @@ import '../../../data/workspace_controller.dart';
 import '../../activity_destination.dart';
 import '../../agent_mode/agent_mode_data.dart';
 import '../orb_tool.dart';
+import '../screen/orb_screen.dart';
+import '../screen/orb_screen_contract.dart';
 import 'orb_choice.dart';
 import 'orb_fuzzy.dart';
 import 'orb_page_description.dart';
@@ -160,6 +162,12 @@ Future<Map<String, Object?>> _openItem(
     'title': item.place ?? item.excerpt ?? '那一条',
     'route': w.location.toString(),
     'note': '已经打开；要说内容就调 describe_page 或 read_conversation',
+    // What can be done on the page it opened (a conversation: its text is
+    // read with describe_page, so the controls only).
+    'screen': await OrbScreen.of(w).contract(
+      ctx.navigatorContext,
+      detail: OrbScreenDetail.arrival,
+    ),
   };
 }
 

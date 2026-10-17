@@ -8,6 +8,8 @@ import '../../../data/workspace_navigation.dart';
 import '../../agent_mode/agent_activity_feed.dart';
 import '../../agent_mode/agent_mode_data.dart';
 import '../orb_tool.dart';
+import '../screen/orb_screen.dart';
+import '../screen/orb_screen_contract.dart';
 import 'orb_resolver.dart';
 import 'orb_vocabulary.dart';
 import 'orb_wait.dart';
@@ -16,8 +18,10 @@ import 'orb_wait.dart';
 /// rows, windows and stores the screen paints), never from pixels.
 ///
 /// Phase-1 pages are described in full: Activity, a channel or DM
-/// conversation, a thread and a task. Every other page gets its route, title
-/// and a summary of its Semantics (the labels and texts the page exposes).
+/// conversation, a thread and a task. Every page also carries its `screen`:
+/// the app's Semantics read as a screen reader reads them (the visible text
+/// and the actions with ids `screen_action` takes). A page with a data
+/// description gets the actions only; its text is the data.
 /// Output is bounded: [orbMaxActivityItems] rows, [orbMaxMessages] messages,
 /// at most [orbMessageTextCap] characters of one message's full text, and
 /// [orbTextBudget] characters of message text in all.
@@ -25,7 +29,6 @@ const orbMaxActivityItems = 20;
 const orbMaxMessages = 30;
 const orbMessageTextCap = 1500;
 const orbTextBudget = 16000;
-const orbMaxSemanticsLines = 40;
 
 /// Names of the pages in the result's `page` field.
 abstract final class OrbPage {
@@ -192,13 +195,19 @@ Future<Map<String, Object?>> describeOrbPage(
     } else if (loc.route == RaftRoute.channel || loc.route == RaftRoute.dm) {
       body = await _conversation(w, loc, budget, clock);
     } else {
-      body = _other(ctx, loc);
+      body = _other();
     }
     final title = body.remove('title');
+    final hasData =
+        body['page'] != OrbPage.other && body['page'] != OrbPage.profile;
     return {
       ...head,
       if (title is String && title.isNotEmpty) 'title': title,
       ...body,
+      'screen': await OrbScreen.of(w).contract(
+        ctx.navigatorContext,
+        detail: hasData ? OrbScreenDetail.arrival : OrbScreenDetail.full,
+      ),
     };
   } on Object catch (e) {
     return {
@@ -655,57 +664,7 @@ Future<Map<String, Object?>> _profile(
       'status': ?s(row?['status']),
       'runtime': ?s(row?['runtime']),
     },
-    'semantics': ctx.navigatorContext.mounted
-        ? orbSemanticsLines(ctx.navigatorContext)
-        : const <String>[],
   };
 }
 
-Map<String, Object?> _other(OrbToolContext ctx, RaftLocation loc) => {
-  'page': OrbPage.other,
-  'loading': false,
-  'semantics': orbSemanticsLines(ctx.navigatorContext),
-};
-
-/// A summary of the page's Semantics: the labels and texts the current page
-/// exposes to a screen reader, in tree order, without covered pages and
-/// without duplicates. The fallback for pages that have no data description.
-List<String> orbSemanticsLines(
-  BuildContext context, {
-  int max = orbMaxSemanticsLines,
-}) {
-  final element = context as Element;
-  if (!element.mounted) return const [];
-  final start =
-      element.findAncestorStateOfType<NavigatorState>()?.context ?? element;
-  final lines = <String>[];
-  void add(String? raw) {
-    final text = raw?.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (text == null || text.isEmpty || lines.length >= max) return;
-    if (lines.isNotEmpty && lines.last == text) return;
-    if (lines.contains(text)) return;
-    lines.add(orbClip(text, 160).text);
-  }
-
-  void visit(Element e) {
-    if (lines.length >= max) return;
-    final widget = e.widget;
-    if (widget is Offstage && widget.offstage) return;
-    if (widget is ExcludeSemantics && widget.excluding) return;
-    if (widget is Visibility && !widget.visible && !widget.maintainSemantics) {
-      return;
-    }
-    if (widget is Semantics) {
-      final p = widget.properties;
-      add(p.label ?? p.value);
-    } else if (widget is Text) {
-      add(widget.data ?? widget.textSpan?.toPlainText());
-    } else if (widget is RichText) {
-      add(widget.text.toPlainText());
-    }
-    e.visitChildren(visit);
-  }
-
-  (start as Element).visitChildren(visit);
-  return lines;
-}
+Map<String, Object?> _other() => {'page': OrbPage.other, 'loading': false};
