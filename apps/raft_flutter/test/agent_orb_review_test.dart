@@ -100,6 +100,51 @@ void main() {
       );
     });
 
+    test('"nothing" about an Activity that was not read is loading', () {
+      const loading = AgentReview(text: '动态还在加载，稍后再看。');
+      // No tool read anything and the Activity has not come.
+      final none = orbReviewReply(
+        '什么都没有。',
+        const [],
+        cardUp: false,
+        said: '有什么新的',
+        inboxUnread: true,
+      );
+      expect(none?.text, loading.text);
+      // A read that said loading is the same.
+      final read = orbReviewReply(
+        '没有新消息。',
+        [
+          run('describe_page', {'loading': true}),
+        ],
+        cardUp: false,
+        said: '有什么新的',
+      );
+      expect(read?.text, loading.text);
+      // Read and empty: the empty line, not loading.
+      expect(
+        orbReviewReply(
+          '什么都没有。',
+          [run('get_briefing', briefing())],
+          cardUp: false,
+          said: '有什么新的',
+          inboxUnread: true,
+        )?.text,
+        isNot(loading.text),
+      );
+      // Not asked what is new: not this rule's business.
+      expect(
+        orbReviewReply(
+          '什么都没有。',
+          const [],
+          cardUp: false,
+          said: '你好',
+          inboxUnread: true,
+        ),
+        isNull,
+      );
+    });
+
     test('a briefing that failed to read says nothing', () {
       expect(
         orbReviewReply('没读到。', [

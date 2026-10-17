@@ -385,6 +385,20 @@ void main() {
       await fx.f.close(t);
     });
 
+    testWidgets('a target wins over the page the model sends along', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'navigate', {
+        'target': 'Cody',
+        'page': 'home',
+        'kind': 'dm',
+      });
+      expect(r['error'], isNull, reason: '$r');
+      expect(r['route'], '/s/alpha/dm/dc');
+      expect(r['title'], 'Cody');
+      await fx.f.close(t);
+    });
+
     testWidgets('to task 136; Back returns', (t) async {
       final fx = Fixture();
       await fx.mount(t);

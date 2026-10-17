@@ -163,7 +163,7 @@ void main() {
       expect(line, contains('点名你的'));
     });
 
-    test('the free-text path is only a fallback', () {
+    test('the name the user said is a destination, and wins over page', () {
       expect(params['required'], isNull);
       for (final id in [
         'page',
@@ -176,8 +176,8 @@ void main() {
       ]) {
         expect(props.containsKey(id), isTrue, reason: id);
       }
-      expect((props['target']! as Map)['description'], contains('最后的办法'));
-      expect(tool.declaration['description'], contains('target 是最后的办法'));
+      expect((props['target']! as Map)['description'], contains('不要再给 page'));
+      expect(tool.declaration['description'], contains('给了 target 就不要再给 page'));
     });
 
     test('the table stays bounded', () {

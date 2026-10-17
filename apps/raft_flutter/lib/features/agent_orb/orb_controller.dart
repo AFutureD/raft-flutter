@@ -1634,6 +1634,10 @@ class OrbController extends ChangeNotifier {
       parts.add('等用户处理的事：\n${lines.join('\n')}');
     } else if (known) {
       parts.add('现在没有等用户处理的消息。');
+    } else if (!_activityRead) {
+      // Not read is not empty: without this line the model took the missing
+      // list for an empty one and said "nothing".
+      parts.add('动态页还没有读到内容（在加载），不知道有没有新的。问到动态时先用工具读，读不出来就说还在加载。');
     }
     final driving = _drivingLine();
     if (driving.isNotEmpty) parts.add(driving);
@@ -1734,14 +1738,21 @@ class OrbController extends ChangeNotifier {
       said: _turnSaid,
       screen: _screenScope,
       cached: (scope) => _freshBriefing(scope.key),
-      brief: (scope) => OrbBriefingService.of(workspace)
-          .brief(
-            scope,
-            full: true,
-            remember: false,
-            modelWait: const Duration(seconds: 3),
-          )
-          .timeout(const Duration(seconds: 8)),
+      brief: (scope) async {
+        // The Activity that has not come: asking for it only waits (the inbox
+        // that never answers cost ten seconds), and answers "nothing".
+        if (scope.isActivity && !_activityRead) {
+          throw StateError('the Activity is not read');
+        }
+        return OrbBriefingService.of(workspace)
+            .brief(
+              scope,
+              full: true,
+              remember: false,
+              modelWait: const Duration(seconds: 3),
+            )
+            .timeout(const Duration(seconds: 8));
+      },
     );
     return orbReviewReply(
       reply,
@@ -1750,6 +1761,7 @@ class OrbController extends ChangeNotifier {
       driving: _driving,
       said: _turnSaid,
       retries: !layeredVoice,
+      inboxUnread: !_activityRead,
     );
   }
 

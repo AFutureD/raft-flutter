@@ -184,7 +184,7 @@ final _navigateDeclaration = <String, Object?>{
       '带用户去 App 里的某个地方，用 App 自己的路由（和用户点一下是同一条路，返回键能回去）。'
       '你来选目的地，不要传原话：去页面就从 page 的列表里选 id；去频道、私信、某人的资料、讨论，用 list_targets 或提示里的列表给的 id（channel_id / dm_id / person_id / thread_id）；'
       '去任务给 task_number（任务编号，可以再给 channel_id 限定哪个频道）。一次只给一个目的地。'
-      'target 是最后的办法：只有用户说的名字在列表里找不到（语音识别常听错名字，如“Roughslutter”“RA flutter”）时，才把原话原样传给 target，App 会按读音模糊匹配。'
+      'target 是用户说的名字（人、频道、私信、任务，如“Cody”“RA flutter”）：列表里找不到、或来不及查时就把原话原样传给 target，App 会按读音模糊匹配；可以再给 kind（dm、channel、person、task）说明是哪一类。给了 target 就不要再给 page。'
       '给了不存在的 id 会返回 {error, valid}，valid 是最接近的 id，照着改一次就行。'
       '会等页面的第一批数据读出来再返回（最多约 5 秒），返回 {route, title, page, briefing}：page 就是 describe_page 的内容，不用再调 describe_page；'
       '到动态、频道、私信、讨论时还有 briefing（和 get_briefing 同一份：needsYou 谁需要用户处理什么、progress、routineCount），先据它开口：谁、什么事、到哪一步、要用户做什么，常规的只说条数，不要再调 get_briefing。'
@@ -223,7 +223,8 @@ final _navigateDeclaration = <String, Object?>{
       'task_number': {'type': 'integer', 'description': '任务编号，比如 136'},
       'target': {
         'type': 'string',
-        'description': '最后的办法：用户说的、在列表里找不到的名字，原样传，不要改写；其他情况不要用',
+        'description':
+            '用户说的名字，原样传，不要改写（人、频道、私信、任务都行）；和 kind 一起用更准；给了它就不要再给 page 或其他 id',
       },
       'kind': {
         'type': 'string',
@@ -342,6 +343,11 @@ Future<Map<String, Object?>> _navigate(
 ) async {
   final w = ctx.workspace;
   final target = _str(args['target']) ?? _str(args['name']);
+  // A name that was given is the destination. The page the model sends along
+  // with it ("home", a default it adds) is not a second one, and used to win.
+  if (target != null && args['page'] != null) {
+    args = {...args}..remove('page');
+  }
   final hasId = orbIdParams.any((p) => _str(args[p]) != null || args[p] is num);
   if (target == null && !hasId) {
     return {

@@ -1089,9 +1089,19 @@ void main() {
       await say(t, '你好');
       expect(context(0).join(), isNot(contains('等用户处理')));
       expect(context(0).join(), isNot(contains('没有等用户处理')));
+      // Not read is said as not read, never as empty.
+      expect(context(0).join(), contains('动态页还没有读到内容'));
       orb().showBriefing(briefing(const [], routine: 2));
       await say(t, '再说一句');
       expect(context(1).join('\n'), contains('现在没有等用户处理的消息'));
+    });
+
+    orbTest('"nothing" from an Activity that was not read is "loading", '
+        'without waiting for it', (t) async {
+      gemini.replies.add(_say('什么都没有。'));
+      await say(t, '有什么新的');
+      expect(agentLines().single, '动态还在加载，稍后再看。');
+      expect(gemini.requests, hasLength(1));
     });
 
     orbTest('a card that waits and the driving card are in it', (t) async {

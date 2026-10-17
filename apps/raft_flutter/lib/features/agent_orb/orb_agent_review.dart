@@ -117,7 +117,10 @@ AgentReview? orbReviewReply(
   bool driving = false,
   String said = '',
   bool retries = true,
+  bool inboxUnread = false,
 }) {
+  final loading = _stillLoading(reply, runs, said, inboxUnread);
+  if (loading != null) return loading;
   final r = _reviewReply(
     reply,
     runs,
@@ -131,6 +134,30 @@ AgentReview? orbReviewReply(
     return AgentReview(text: r.text);
   }
   return r;
+}
+
+/// The reply says there is nothing, but what it was told by is a page that is
+/// still loading, or nothing has been read of the Activity yet ([inboxUnread],
+/// no tool read anything): "not read" is not "empty". The app says it is
+/// loading.
+final _claimsEmpty = RegExp(
+  r'没有(?:任何)?(?:新|消息|内容|要你处理|需要你处理|动态)|什么都没有|空空|静悄悄|没什么(?:新|事)|都在偷懒',
+);
+
+AgentReview? _stillLoading(
+  String reply,
+  List<AgentToolRun> runs,
+  String said,
+  bool inboxUnread,
+) {
+  if (!orbAsksWhatMatters.hasMatch(said) || !_claimsEmpty.hasMatch(reply)) {
+    return null;
+  }
+  if (_saysLoading.hasMatch(reply)) return null;
+  final loading =
+      runs.any((r) => r.result['loading'] == true) ||
+      (inboxUnread && runs.isEmpty);
+  return loading ? const AgentReview(text: '动态还在加载，稍后再看。') : null;
 }
 
 AgentReview? _reviewReply(
