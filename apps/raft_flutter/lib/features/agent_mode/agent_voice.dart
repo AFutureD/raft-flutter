@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
@@ -186,6 +187,10 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   /// What the agent has said so far in its current reply (from the live
   /// transcript), for visuals that wait for their words.
   final saying = ValueNotifier<String>('');
+
+  /// How loud the person is right now, 0..1, from the microphone's chunks
+  /// (0 when the microphone is off). The orb's rings follow it.
+  final micLevel = ValueNotifier<double>(0);
 
   final lines = <(AgentSpeaker, String)>[];
   AgentMicState state = AgentMicState.idle;
@@ -410,6 +415,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   void _startMic() {
     _mic ??= audio.microphone().listen(
       (chunk) {
+        _measure(chunk);
         final s = _session;
         if (s != null && s.connected) {
           s.sendAudio(chunk);
@@ -430,6 +436,22 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   void _stopMic() {
     unawaited(_mic?.cancel());
     _mic = null;
+    if (!_disposed) micLevel.value = 0;
+  }
+
+  /// The loudness of a PCM16 little-endian chunk, eased down so the rings do
+  /// not flicker between chunks.
+  void _measure(Uint8List chunk) {
+    final samples = chunk.lengthInBytes ~/ 2;
+    if (samples == 0 || _disposed) return;
+    final data = ByteData.sublistView(chunk);
+    var sum = 0.0;
+    for (var i = 0; i < samples; i++) {
+      final v = data.getInt16(i * 2, Endian.little).toDouble();
+      sum += v * v;
+    }
+    final rms = math.sqrt(sum / samples) / 6000;
+    micLevel.value = math.max(rms.clamp(0.0, 1.0), micLevel.value * .6);
   }
 
   /// A call is on: connecting, listening (live), or the model is speaking. A
@@ -608,6 +630,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     _guard.stop();
     _endSession();
     saying.dispose();
+    micLevel.dispose();
     AgentVoiceSettings.instance.removeListener(_settingsChanged);
     _stopMic();
     unawaited(_session?.close());
