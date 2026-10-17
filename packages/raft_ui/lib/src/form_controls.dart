@@ -111,7 +111,9 @@ class RaftField extends StatelessWidget {
                 ),
         ),
         SizedBox(height: gap),
-        child,
+        // The control is named by the label above it (a screen reader, and
+        // the Agent orb, read the control, not the text next to it).
+        Semantics(label: label, child: child),
         if (message != null) ...[
           SizedBox(height: gap + 4), // gap + `mt-1`
           Semantics(

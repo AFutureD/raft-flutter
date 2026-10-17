@@ -238,7 +238,8 @@ class RaftSettingsField extends StatelessWidget {
       children: [
         Text(raftText(context, label), style: style),
         SizedBox(height: (f.root.rowGap ?? 4) + 4),
-        child,
+        // The control is named by the label above it.
+        Semantics(label: raftText(context, label), child: child),
       ],
     );
   }
