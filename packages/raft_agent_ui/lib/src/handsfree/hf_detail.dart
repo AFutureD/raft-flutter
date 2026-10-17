@@ -61,6 +61,7 @@ class HfDetail extends StatelessWidget implements HfDescribed {
     this.focusId,
     this.oneRowActions = false,
     this.gridActions = false,
+    this.actionsBeforeProgress = false,
     this.progressLabel = progressHeading,
   });
 
@@ -90,6 +91,11 @@ class HfDetail extends StatelessWidget implements HfDescribed {
 
   /// Lay many actions out as a grid of equal buttons.
   final bool gridActions;
+
+  /// Put the actions right under the card of the heading and facts, and the
+  /// [progress] under them in a card of its own: nothing is cut, and the
+  /// actions do not move with the length of the words.
+  final bool actionsBeforeProgress;
   final String? focusId;
 
   /// The heading of the progress rows, unless [progressLabel] says another.
@@ -183,6 +189,11 @@ class HfDetail extends StatelessWidget implements HfDescribed {
       mainAxisSize: MainAxisSize.min,
       children: [for (final f in facts) factRow(f)],
     );
+    // The words of the progress go under the actions when asked (a phone's
+    // detail: the actions stay in view whatever the words' length).
+    final cardProgress = actionsBeforeProgress
+        ? const <HfProgressLine>[]
+        : progress;
     Widget progress_() => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -202,7 +213,7 @@ class HfDetail extends StatelessWidget implements HfDescribed {
             children: [
               Expanded(flex: 5, child: facts_()),
               SizedBox(width: hf.sp(24)),
-              if (progress.isNotEmpty) Expanded(flex: 6, child: progress_()),
+              if (cardProgress.isNotEmpty) Expanded(flex: 6, child: progress_()),
             ],
           );
         } else {
@@ -211,9 +222,9 @@ class HfDetail extends StatelessWidget implements HfDescribed {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (facts.isNotEmpty) facts_(),
-              if (facts.isNotEmpty && progress.isNotEmpty)
+              if (facts.isNotEmpty && cardProgress.isNotEmpty)
                 SizedBox(height: hf.sp(4)),
-              if (progress.isNotEmpty) progress_(),
+              if (cardProgress.isNotEmpty) progress_(),
             ],
           );
         }
@@ -284,10 +295,10 @@ class HfDetail extends StatelessWidget implements HfDescribed {
                   ],
                 ],
               ),
-              if (facts.isNotEmpty || progress.isNotEmpty)
+              if (facts.isNotEmpty || cardProgress.isNotEmpty)
                 SizedBox(height: hf.sp(10)),
             ],
-            if (facts.isNotEmpty || progress.isNotEmpty) content,
+            if (facts.isNotEmpty || cardProgress.isNotEmpty) content,
           ],
         );
         return Container(
@@ -338,6 +349,21 @@ class HfDetail extends StatelessWidget implements HfDescribed {
         if (actions.isNotEmpty) ...[
           actionGap,
           HfActions(actions: actions, oneRow: oneRowActions, grid: gridActions),
+        ],
+        if (actionsBeforeProgress && progress.isNotEmpty) ...[
+          SizedBox(height: hf.sp(beside ? 10 : 18)),
+          Container(
+            padding: EdgeInsets.fromLTRB(hf.sp(16), hf.sp(12), hf.sp(16), hf.sp(6)),
+            decoration: BoxDecoration(
+              color: HfColors.card,
+              borderRadius: BorderRadius.circular(hf.sp(16)),
+              border: Border.all(color: HfColors.ink, width: hf.sp(3)),
+              boxShadow: [
+                BoxShadow(color: color, offset: Offset(0, hf.sp(6))),
+              ],
+            ),
+            child: progress_(),
+          ),
         ],
       ],
     );

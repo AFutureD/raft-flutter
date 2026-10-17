@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
@@ -604,44 +605,59 @@ void main() {
 
   group('the current row on a phone', () {
     for (final length in [20, 120, 400]) {
-      testWidgets(
-        'its actions are in view with a quote of $length characters',
-        (t) async {
-          final data = _HomeData(w);
-          final rows = _rows();
-          rows[0] = {
-            ...rows[0],
-            'latestActivityPreview': '每日工作方法复盘：${'今天做了三件事，' * (length ~/ 8)}',
-          };
-          data.result = AgentAttention(items: data.feed(rows));
-          t.view.physicalSize = const Size(412, 915);
-          t.view.devicePixelRatio = 1;
-          addTearDown(t.view.reset);
-          await t.pumpWidget(
-            MaterialApp(
-              theme: raftTheme(RaftFamily.brutal),
-              home: AgentModePage(controller: w, data: data),
-            ),
-          );
-          await t.pumpAndSettle();
-          await t.tap(
-            find.byKey(const ValueKey('attention-card-activity:thread:th1')),
-          );
-          await t.pumpAndSettle();
-          final page = t.getRect(find.byKey(const ValueKey('hf-page')));
-          for (final key in [
-            'attention-open-activity:thread:th1',
-            'attention-reply-activity:thread:th1',
-            'attention-done-activity:thread:th1',
-            'attention-later-activity:thread:th1',
-            'attention-assign-activity:thread:th1',
-          ]) {
-            final r = t.getRect(find.byKey(ValueKey(key)));
-            expect(r.top, greaterThanOrEqualTo(page.top - 1), reason: key);
-            expect(r.bottom, lessThanOrEqualTo(page.bottom + 1), reason: key);
-          }
-        },
-      );
+      testWidgets('its actions are in view with a quote of $length characters '
+          'and the whole quote is there', (t) async {
+        final data = _HomeData(w);
+        final rows = _rows();
+        final quote = '今天做了三件事，' * (length ~/ 8);
+        rows[0] = {...rows[0], 'latestActivityPreview': quote};
+        data.result = AgentAttention(items: data.feed(rows));
+        t.view.physicalSize = const Size(412, 915);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(RaftFamily.brutal),
+            home: AgentModePage(controller: w, data: data),
+          ),
+        );
+        await t.pumpAndSettle();
+        await t.tap(
+          find.byKey(const ValueKey('attention-card-activity:thread:th1')),
+        );
+        await t.pumpAndSettle();
+        final page = t.getRect(find.byKey(const ValueKey('hf-page')));
+        for (final key in [
+          'attention-open-activity:thread:th1',
+          'attention-reply-activity:thread:th1',
+          'attention-done-activity:thread:th1',
+          'attention-later-activity:thread:th1',
+          'attention-assign-activity:thread:th1',
+        ]) {
+          final r = t.getRect(find.byKey(ValueKey(key)));
+          expect(r.top, greaterThanOrEqualTo(page.top - 1), reason: key);
+          expect(r.bottom, lessThanOrEqualTo(page.bottom + 1), reason: key);
+        }
+        // The whole quote is in the detail, under the actions: no clip, no
+        // ellipsis.
+        final detail = find.byKey(const ValueKey('attention-detail'));
+        final said = find.descendant(
+          of: detail,
+          matching: find.textContaining(quote, findRichText: true),
+        );
+        expect(said, findsOneWidget);
+        for (final p in t.renderObjectList<RenderParagraph>(
+          find.descendant(of: detail, matching: find.byType(RichText)),
+        )) {
+          expect(p.didExceedMaxLines, isFalse, reason: p.text.toPlainText());
+        }
+        expect(
+          t.getTopLeft(said).dy,
+          greaterThan(
+            t.getBottomLeft(find.byKey(const ValueKey('attention-later-activity:thread:th1'))).dy - 1,
+          ),
+        );
+      });
     }
   });
 
