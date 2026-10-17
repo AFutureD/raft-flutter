@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/workspace_settings.dart';
+import 'package:raft_flutter/platform/app_update.dart';
 import 'package:raft_flutter/platform/client_release_notes.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -85,6 +87,9 @@ Future<WorkspaceController> _mount(
   ClientReleaseNotes source, {
   Size size = const Size(412, 915),
   RaftFamily family = RaftFamily.elegant,
+  String? installedTag,
+  String? installedVersion,
+  Locale? locale,
 }) async {
   final (w, _) = await pageFixture(t, section: 'chat');
   t.view.physicalSize = size;
@@ -92,10 +97,18 @@ Future<WorkspaceController> _mount(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
+      locale: locale,
+      supportedLocales: const [Locale('en'), Locale('zh')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: raftTheme(family).copyWith(platform: TargetPlatform.android),
       home: Scaffold(
         body: SizedBox.expand(
-          child: ReleaseNotesView(controller: w, source: source),
+          child: ReleaseNotesView(
+            controller: w,
+            source: source,
+            installedTag: installedTag,
+            installedVersion: installedVersion,
+          ),
         ),
       ),
     ),
@@ -262,5 +275,130 @@ void main() {
     await t.pumpAndSettle();
     expect(net.requests, hasLength(1));
     await t.pumpWidget(const SizedBox());
+  });
+
+  group('which release is Current', () {
+    Finder badge(String tag, String label) => find.descendant(
+      of: find.byKey(ValueKey('release-entry-$tag')),
+      matching: find.text(label),
+    );
+
+    Future<void> open(
+      WidgetTester t, {
+      String? tag,
+      String? version,
+      Size size = const Size(412, 915),
+      RaftFamily family = RaftFamily.elegant,
+      Locale? locale,
+    }) async {
+      final net = _Net()..respond = () async => _newer;
+      await _mount(
+        t,
+        _source(net, _cached(_newer)),
+        size: size,
+        family: family,
+        installedTag: tag,
+        installedVersion: version,
+        locale: locale,
+      );
+      await t.pumpAndSettle();
+    }
+
+    for (final size in _sizes) {
+      for (final (name, family) in _themes) {
+        testWidgets(
+          '${size.width.toInt()} $name: the installed release is Current, '
+          'newer ones are New',
+          (t) async {
+            await open(
+              t,
+              tag: 'v0.1.0+6',
+              version: '0.1.0',
+              size: size,
+              family: family,
+            );
+            expect(badge('v0.1.0+6', 'Current'), findsOneWidget);
+            expect(badge('v0.1.0+7', 'New version'), findsOneWidget);
+            expect(badge('v0.1.0+7', 'Current'), findsNothing);
+            expect(badge('v0.1.0+5', 'Current'), findsNothing);
+            expect(badge('v0.1.0+5', 'New version'), findsNothing);
+            expect(badge('v0.1.0+6', 'New version'), findsNothing);
+            expect(find.text('Current'), findsOneWidget);
+            await t.pumpWidget(const SizedBox());
+          },
+        );
+      }
+    }
+
+    testWidgets('the badges speak Chinese', (t) async {
+      await open(
+        t,
+        tag: 'v0.1.0+6',
+        version: '0.1.0',
+        locale: const Locale('zh'),
+      );
+      expect(badge('v0.1.0+6', '当前'), findsOneWidget);
+      expect(badge('v0.1.0+7', '新版本'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a build without a compiled-in tag learns it from the update '
+        'manifest and remembers it', (t) async {
+      final storage = MemoryStorage();
+      AppUpdateService make(Future<String?> Function(Uri) fetch) =>
+          AppUpdateService(
+            currentVersion: '0.1.0',
+            currentBuild: 37,
+            platformKey: 'android-arm64',
+            storage: storage,
+            scheduleTimer: false,
+            fetch: fetch,
+          );
+      final first = make(
+        (_) async => jsonEncode([
+          {
+            'platform': 'android',
+            'arch': 'arm64',
+            'version': '0.1.0',
+            'buildNumber': '37',
+            'releaseTag': 'v0.1.0+6',
+            'artifact': 'raft-flutter-0.1.0+6-android-arm64.apk',
+          },
+        ]),
+      );
+      addTearDown(first.dispose);
+      expect(first.installedTag, '');
+      await t.runAsync(first.start);
+      // The latest release is the running build: that is its tag.
+      expect(first.installedTag, 'v0.1.0+6');
+      // A later run, when a newer build is already published, still knows.
+      final later = make((_) async => throw StateError('offline'));
+      addTearDown(later.dispose);
+      await t.runAsync(later.start);
+      expect(later.installedTag, 'v0.1.0+6');
+      await open(t, tag: later.installedTag, version: later.currentVersion);
+      expect(badge('v0.1.0+6', 'Current'), findsOneWidget);
+      expect(badge('v0.1.0+7', 'New version'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('without a tag, the one release of the app version is the '
+        'installed one', (t) async {
+      // _newer lists three builds of 0.1.0, so no unique match: unchanged.
+      await open(t, tag: '', version: '0.1.0');
+      expect(badge('v0.1.0+7', 'Current'), findsOneWidget);
+      expect(find.text('New version'), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('an unknown installed release keeps the newest as Current', (
+      t,
+    ) async {
+      await open(t, tag: 'v9.9.9+1', version: '9.9.9');
+      expect(badge('v0.1.0+7', 'Current'), findsOneWidget);
+      expect(find.text('Current'), findsOneWidget);
+      expect(find.text('New version'), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
   });
 }

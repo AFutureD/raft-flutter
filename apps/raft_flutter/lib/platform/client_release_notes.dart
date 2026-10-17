@@ -200,6 +200,44 @@ int _compareCore(String a, String b) {
   return 0;
 }
 
+/// [notes] with the installed release marked [RaftReleaseNote.current] and the
+/// releases above it (newer, not installed) [RaftReleaseNote.isNew].
+///
+/// The installed release is [installedTag]; without it, the one release of
+/// [installedVersion] when there is exactly one (a build number alone says
+/// nothing about the tag, see [AppUpdateService.installedTag]). When the
+/// installed release cannot be found, [notes] are returned unchanged: the
+/// newest published release stays Current, as [parseClientReleaseNotes] marks it.
+List<RaftReleaseNote> markInstalled(
+  List<RaftReleaseNote> notes, {
+  required String? installedTag,
+  required String installedVersion,
+}) {
+  var at = installedTag == null || installedTag.isEmpty
+      ? -1
+      : notes.indexWhere((n) => n.id == installedTag);
+  if (at < 0) {
+    final same = [
+      for (var i = 0; i < notes.length; i++)
+        if (!notes[i].retracted && notes[i].version == installedVersion) i,
+    ];
+    if (same.length == 1) at = same.single;
+  }
+  if (at < 0) return notes;
+  return [
+    for (final (i, n) in notes.indexed)
+      RaftReleaseNote(
+        id: n.id,
+        date: n.date,
+        version: n.version,
+        current: i == at,
+        isNew: i < at && !n.retracted,
+        retracted: n.retracted,
+        entries: n.entries,
+      ),
+  ];
+}
+
 enum UpdateNotesStatus { loading, ready, empty, failed }
 
 /// The notes of the release the update prompt offers: one read per offered

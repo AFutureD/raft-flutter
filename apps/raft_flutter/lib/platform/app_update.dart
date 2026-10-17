@@ -366,6 +366,11 @@ class AppUpdateService extends ChangeNotifier {
   final void Function(String message) _log;
 
   AppRelease? _remote;
+
+  /// CI build number -> release tag of every release the manifest has shown,
+  /// newest last (a few remembered). Builds made before [currentTag] existed
+  /// learn their own tag here once a check sees their release as the latest.
+  final _tags = <int, String>{};
   int _seen = 0;
   DateTime? _checkedAt, _attemptedAt;
   bool _failedLast = false, _loaded = false, _checking = false;
@@ -419,6 +424,23 @@ class AppUpdateService extends ChangeNotifier {
     final remote = _remote, build = currentBuild;
     if (!enabled || remote == null || build == null) return null;
     return remote.buildNumber > build ? remote : null;
+  }
+
+  /// The release tag of the running build: the compiled-in [currentTag], else
+  /// the one a manifest paired with [currentBuild]; empty when unknown.
+  String get installedTag {
+    if (currentTag.isNotEmpty) return currentTag;
+    final build = currentBuild;
+    return build == null ? '' : _tags[build] ?? '';
+  }
+
+  void _learn(AppRelease release) {
+    _tags
+      ..remove(release.buildNumber)
+      ..[release.buildNumber] = release.releaseTag;
+    while (_tags.length > 20) {
+      _tags.remove(_tags.keys.first);
+    }
   }
 
   /// The red dot: a newer release the user has not looked at yet.
@@ -477,7 +499,10 @@ class AppUpdateService extends ChangeNotifier {
       _checkedAt = _attemptedAt;
       // A release without this platform's manifest (or an unusable one) is
       // not an update; keep what was known before.
-      if (release != null) _remote = release;
+      if (release != null) {
+        _remote = release;
+        _learn(release);
+      }
       await _save();
     } catch (error) {
       _failedLast = true;
@@ -517,6 +542,15 @@ class AppUpdateService extends ChangeNotifier {
       final data = raw == null ? null : jsonDecode(raw);
       if (data is Map) {
         _remote = AppRelease.fromJson(data['remote']);
+        final remembered = data['tags'];
+        if (remembered is Map) {
+          for (final MapEntry(:key, :value) in remembered.entries) {
+            final build = int.tryParse('$key');
+            if (build != null && value is String) _tags[build] = value;
+          }
+        }
+        final remote = _remote;
+        if (remote != null) _learn(remote);
         final seen = data['seen'];
         if (seen is int && seen > 0) _seen = seen;
         final at = data['checkedAt'];
@@ -539,6 +573,7 @@ class AppUpdateService extends ChangeNotifier {
         jsonEncode({
           'checkedAt': _checkedAt?.millisecondsSinceEpoch,
           'remote': _remote?.toJson(),
+          'tags': {for (final e in _tags.entries) '${e.key}': e.value},
           'seen': _seen,
         }),
       );

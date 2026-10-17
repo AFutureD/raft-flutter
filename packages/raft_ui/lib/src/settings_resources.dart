@@ -373,12 +373,16 @@ class RaftReleaseNote {
     required this.date,
     this.version,
     this.current = false,
+    this.isNew = false,
     this.retracted = false,
     this.entries = const [],
   });
   final String id, date;
   final String? version;
-  final bool current, retracted;
+
+  /// [current] is the installed release; [isNew] a release newer than the
+  /// installed one (not installed yet).
+  final bool current, isNew, retracted;
   final List<RaftReleaseNoteEntry> entries;
 }
 
@@ -526,6 +530,11 @@ class RaftReleaseNoteCard extends StatelessWidget {
                   label: raftText(context, 'Current'),
                   variant: RaftBadgeRecipeVariant.success,
                 ),
+              if (release.isNew)
+                RaftBadge(
+                  label: raftText(context, 'New version'),
+                  variant: RaftBadgeRecipeVariant.information,
+                ),
               if (release.retracted)
                 RaftBadge(label: raftText(context, 'Retracted')),
             ],
@@ -603,15 +612,43 @@ class RaftReleaseNoteEntryGroups extends StatelessWidget {
   }
 }
 
-/// The notes section of the Updates card.
-class _UpdateNotes extends StatelessWidget {
+/// The notes section of the Updates card: the offered (newest) release in
+/// full, the older skipped releases behind one toggle row.
+class _UpdateNotes extends StatefulWidget {
   const _UpdateNotes(this.notes);
   final RaftAboutUpdateNotes notes;
 
   @override
+  State<_UpdateNotes> createState() => _UpdateNotesState();
+}
+
+class _UpdateNotesState extends State<_UpdateNotes> {
+  bool expanded = false;
+
+  Widget _release(RaftReleaseNote release, RaftSettingsText text) =>
+      KeyedSubtree(
+        key: ValueKey('update-notes-${release.id}'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              release.version == null
+                  ? release.date
+                  : '${release.version} (${release.date})',
+              style: text.title,
+            ),
+            const SizedBox(height: 6),
+            RaftReleaseNoteEntryGroups(release: release),
+          ],
+        ),
+      );
+
+  @override
   Widget build(BuildContext context) {
+    final notes = widget.notes;
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
+    final older = notes.releases.skip(1).toList();
     return Column(
       key: const ValueKey('settings-about-update-notes'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -648,24 +685,30 @@ class _UpdateNotes extends StatelessWidget {
           RaftAboutUpdateNotesStatus.ready => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final (i, release) in notes.releases.indexed) ...[
-                if (i > 0) const SizedBox(height: 12),
-                KeyedSubtree(
-                  key: ValueKey('update-notes-${release.id}'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        release.version == null
-                            ? release.date
-                            : '${release.version} (${release.date})',
-                        style: text.title,
-                      ),
-                      const SizedBox(height: 6),
-                      RaftReleaseNoteEntryGroups(release: release),
-                    ],
+              _release(notes.releases.first, text),
+              if (older.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: RaftButton(
+                    key: const ValueKey('settings-about-update-notes-toggle'),
+                    label: expanded
+                        ? 'Show fewer'
+                        : older.length == 1
+                        ? '1 more update'
+                        : raftFormat(context, '{count} more updates', {
+                            'count': older.length,
+                          }),
+                    variant: RaftControlVariant.ghost,
+                    size: RaftButtonRecipeSize.sm,
+                    onPressed: () => setState(() => expanded = !expanded),
                   ),
                 ),
+                if (expanded)
+                  for (final release in older) ...[
+                    const SizedBox(height: 12),
+                    _release(release, text),
+                  ],
               ],
             ],
           ),

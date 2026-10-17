@@ -363,4 +363,86 @@ void main() {
       );
     });
   });
+
+  group('markInstalled', () {
+    List<RaftReleaseNote> notes(List<(String, String)> rows) => [
+      for (final (tag, version) in rows)
+        RaftReleaseNote(id: tag, date: '2026-10-13', version: version),
+    ];
+    List<String> flags(List<RaftReleaseNote> list) => [
+      for (final n in list)
+        n.current
+            ? 'current'
+            : n.isNew
+            ? 'new'
+            : '-',
+    ];
+
+    test('the installed tag is Current and newer releases are New', () {
+      final all = notes([
+        ('v0.2.0+1', '0.2.0'),
+        ('v0.1.0+9', '0.1.0'),
+        ('v0.1.0+8', '0.1.0'),
+        ('v0.1.0+7', '0.1.0'),
+      ]);
+      expect(
+        flags(
+          markInstalled(
+            all,
+            installedTag: 'v0.1.0+8',
+            installedVersion: '0.1.0',
+          ),
+        ),
+        ['new', 'new', 'current', '-'],
+      );
+    });
+
+    test('a retracted newer release is not New', () {
+      final all = [
+        const RaftReleaseNote(
+          id: 'v1+2',
+          date: 'd',
+          version: '1',
+          retracted: true,
+        ),
+        ...notes([('v1+1', '1')]),
+      ];
+      expect(
+        flags(markInstalled(all, installedTag: 'v1+1', installedVersion: '1')),
+        ['-', 'current'],
+      );
+    });
+
+    test('without the tag, the only release of the app version is the '
+        'installed one', () {
+      final all = notes([
+        ('v0.2.0+1', '0.2.0'),
+        ('v0.1.0+9', '0.1.0'),
+        ('v0.1.0-rc+1', '0.1.0-rc'),
+      ]);
+      expect(
+        flags(markInstalled(all, installedTag: '', installedVersion: '0.1.0')),
+        ['new', 'current', '-'],
+      );
+    });
+
+    test('when the installed release cannot be found the list is unchanged '
+        '(the newest stays Current)', () {
+      final all = parseClientReleaseNotes(
+        _page([_item('v0.1.0+9'), _item('v0.1.0+8')]),
+      );
+      for (final (tag, version) in [
+        (null, '0.1.0'),
+        ('', '0.1.0'),
+        ('v9+1', '9.0.0'),
+        ('', ''),
+      ]) {
+        expect(
+          markInstalled(all, installedTag: tag, installedVersion: version),
+          same(all),
+        );
+      }
+      expect(all.map((n) => n.current), [true, false]);
+    });
+  });
 }

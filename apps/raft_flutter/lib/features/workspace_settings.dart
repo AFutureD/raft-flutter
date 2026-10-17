@@ -404,6 +404,8 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           (_) => ReleaseNotesView(
             controller: w,
             source: widget.appUpdate?.releaseNotes,
+            installedTag: widget.appUpdate?.installedTag,
+            installedVersion: widget.appUpdate?.currentVersion,
           ),
           group: WorkspaceSettings.resources,
           // /release-notes renders outside SettingsPanel's attached Panel.
@@ -484,7 +486,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
     final notes = _notes!
       ..show(
         release,
-        installedTag: service.currentTag,
+        installedTag: service.installedTag,
         installedVersion: service.currentVersion,
       );
     return RaftAboutUpdateNotes(
@@ -813,8 +815,19 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
 /// the first published release is Current. Intended difference from Web,
 /// which lists the server's release notes.
 class ReleaseNotesView extends StatefulWidget {
-  const ReleaseNotesView({super.key, required this.controller, this.source});
+  const ReleaseNotesView({
+    super.key,
+    required this.controller,
+    this.source,
+    this.installedTag,
+    this.installedVersion,
+  });
   final WorkspaceController controller;
+
+  /// The running build's release tag and app version: that release is marked
+  /// Current and newer ones New. Unknown (null/empty): the newest release
+  /// stays Current.
+  final String? installedTag, installedVersion;
 
   /// Where the notes come from: the client's own release notes (GitHub
   /// release asset). Null (tests, previews) shows the unavailable state.
@@ -906,7 +919,11 @@ class _ReleaseNotesViewState extends State<ReleaseNotesView>
               : failed
               ? RaftReleaseNotesStatus.error
               : RaftReleaseNotesStatus.loading,
-          releases: releases ?? const [],
+          releases: markInstalled(
+            releases ?? const [],
+            installedTag: widget.installedTag,
+            installedVersion: widget.installedVersion ?? '',
+          ),
           onRetry: () {
             setState(() => failed = false);
             unawaited(refresh());
