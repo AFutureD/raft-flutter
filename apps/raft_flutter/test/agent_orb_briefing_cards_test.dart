@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_service.dart';
-import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_sheet.dart';
+import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_cards.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_tools.dart';
 import 'package:raft_flutter/features/agent_orb/orb_tool.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -13,8 +13,8 @@ import 'agent_orb_briefing_service_test.dart'
     show channelRow, dmRow, msg, threadRow;
 import 'support/agent_capability_world.dart';
 
-/// The briefing sheet (design frame 03) at phone size, brutal theme, and the
-/// `get_briefing` tool that opens it.
+/// The briefing cards (design frames 05 and 06) at phone size, brutal theme,
+/// and the `get_briefing` tool that hands them to the orb's immersive layer.
 
 const _scales = [1.0, 1.3, 3.1];
 
@@ -105,32 +105,25 @@ void main() {
     );
   }
 
-  Widget opener(OrbBriefing b) => Builder(
-    builder: (context) => Center(
-      child: TextButton(
-        key: const Key('open'),
-        onPressed: () => OrbBriefingSheet.show(
-          context,
-          b,
+  Future<void> show(WidgetTester t, OrbBriefing b, {double scale = 1.0}) async {
+    await mount(
+      t,
+      scale: scale,
+      home: (_) => SingleChildScrollView(
+        child: OrbBriefingCards(
+          briefing: b,
           onOpen: opened.add,
           onAction: (i, a) => actions.add((i, a)),
         ),
-        child: const Text('open'),
       ),
-    ),
-  );
-
-  Future<void> show(WidgetTester t, OrbBriefing b, {double scale = 1.0}) async {
-    await mount(t, home: (_) => opener(b), scale: scale);
-    await t.tap(find.byKey(const Key('open')));
+    );
     await t.pumpAndSettle();
   }
 
-  group('the sheet', () {
+  group('the cards', () {
     testWidgets('renders the overview, the needs-you card, the progress rows '
         'and the routine count', (t) async {
       await show(t, briefing());
-      expect(find.text('简报'), findsOneWidget);
       expect(find.text('3 条新动态，1 件需要你处理'), findsOneWidget);
       expect(find.text('需要你'), findsOneWidget);
       expect(find.text('1'), findsOneWidget, reason: 'the count badge');
@@ -174,13 +167,6 @@ void main() {
       expect(opened, isEmpty);
     });
 
-    testWidgets('the close button closes the sheet', (t) async {
-      await show(t, briefing());
-      await t.tap(find.byType(RaftIconButton));
-      await t.pumpAndSettle();
-      expect(find.text('简报'), findsNothing);
-    });
-
     testWidgets('an empty briefing is just its overview', (t) async {
       await show(
         t,
@@ -217,7 +203,7 @@ void main() {
         );
         expect(t.takeException(), isNull);
         // Scroll to the end: the routine line is reachable.
-        await t.drag(find.byType(CustomScrollView), const Offset(0, -800));
+        await t.drag(find.byType(SingleChildScrollView), const Offset(0, -800));
         await t.pumpAndSettle();
         expect(t.takeException(), isNull);
         expect(find.text('其余 5 条是常规进度'), findsOneWidget);
@@ -296,9 +282,9 @@ void main() {
       expect(props.keys, containsAll(['scope', 'show', 'full']));
     });
 
-    testWidgets('returns the briefing JSON and, with show, opens the sheet; '
-        'tapping an item opens its link and closes the sheet', (t) async {
-      final opens = <String>[];
+    testWidgets('returns the briefing JSON and, with show, hands the cards to '
+        'the layer; the item link is the controller\'s to open', (t) async {
+      final shownBriefings = <OrbBriefing>[];
       late BuildContext navigator;
       await mount(
         t,
@@ -308,7 +294,7 @@ void main() {
         },
       );
       final tool = orbBriefingTools(
-        openLink: (item, ctx) => opens.add(item.link),
+        showBriefing: (b, ctx) => shownBriefings.add(b),
         serviceFor: (w) => OrbBriefingService(w, now: () => worldNow),
       ).single;
       final operating = ValueNotifier(false);
@@ -323,8 +309,7 @@ void main() {
         () => tool.handler({'scope': 'activity'}, ctx),
       ))!;
       expect(quiet['shown'], false);
-      await t.pump();
-      expect(find.text('简报'), findsNothing);
+      expect(shownBriefings, isEmpty);
 
       final out = (await t.runAsync(
         () => tool.handler({
@@ -333,7 +318,6 @@ void main() {
           'full': true,
         }, ctx),
       ))!;
-      await t.pumpAndSettle();
       expect(out['shown'], true);
       expect(out['overview'], '3 条新动态，2 件需要你处理');
       final needs = out['needsYou']! as List;
@@ -345,12 +329,34 @@ void main() {
       expect((out['progress']! as List).single['who'], 'CodexMac');
       expect(out['routineCount'], 0);
 
-      expect(find.text('简报'), findsOneWidget);
-      expect(find.text('其余 0 条是常规进度'), findsNothing);
-      await t.tap(find.textContaining('Cody 在等你批准'));
-      await t.pumpAndSettle();
-      expect(opens, [cody['link']]);
-      expect(find.text('简报'), findsNothing);
+      expect(shownBriefings.single.overview, out['overview']);
+      expect(shownBriefings.single.needsYou, hasLength(2));
+    });
+
+    testWidgets('without a layer to show them in, show is not claimed', (
+      t,
+    ) async {
+      late BuildContext navigator;
+      await mount(
+        t,
+        home: (c) {
+          navigator = c;
+          return const SizedBox.shrink();
+        },
+      );
+      final operating = ValueNotifier(false);
+      addTearDown(operating.dispose);
+      final ctx = OrbToolContext(
+        workspace: w,
+        navigatorContext: navigator,
+        operating: operating,
+      );
+      final out = (await t.runAsync(
+        () => orbBriefingTools(
+          serviceFor: (w) => OrbBriefingService(w, now: () => worldNow),
+        ).single.handler({'scope': 'activity', 'show': true}, ctx),
+      ))!;
+      expect(out['shown'], false);
     });
 
     testWidgets('a named conversation that does not exist is an error, not '

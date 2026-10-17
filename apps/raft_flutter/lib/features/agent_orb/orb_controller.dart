@@ -3,16 +3,17 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart'
     show AgentMicState, AgentSpeaker;
-import 'package:raft_ui/raft_ui.dart';
 
 import '../../data/workspace_controller.dart';
 import '../agent_mode/agent_audio.dart';
+import '../agent_mode/agent_live_guard.dart' show agentLiveIdleLimit;
 import '../agent_mode/agent_memory.dart';
 import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
 import '../agent_mode/voice_provider.dart';
-import 'briefing/orb_briefing_models.dart' show OrbBriefItem, OrbBriefScope;
+import 'briefing/orb_briefing_models.dart'
+    show OrbBriefItem, OrbBriefScope, OrbBriefing;
 import 'briefing/orb_briefing_service.dart';
 import 'briefing/orb_briefing_tools.dart'
     show defaultOrbOpenLink, orbBriefingTools;
@@ -21,7 +22,7 @@ import 'nav/orb_nav_tools.dart'
 import 'orb_arrival_brief.dart';
 import 'orb_operating.dart';
 import 'orb_prompt.dart';
-import 'orb_sheet.dart';
+import 'orb_layer.dart';
 import 'orb_state.dart';
 import 'orb_summary.dart';
 import 'orb_tool.dart';
@@ -56,9 +57,17 @@ class OrbEntry {
   String text;
 }
 
+/// What the subtitle bubble says: the person's words as they are recognised,
+/// then the agent's current line.
+class OrbSubtitle {
+  const OrbSubtitle(this.text, {required this.agent});
+  final String text;
+  final bool agent;
+}
+
 /// The orb's session: one conversation with the model (voice through
 /// [AgentVoiceController], typed text through the same session), the tool
-/// registry, the transcript and the sheet.
+/// registry, the transcript, the call's clock and the immersive layer.
 ///
 /// The model and provider, keys, voice and reasoning effort are the Agent mode
 /// settings ([AgentVoiceSettings]); a session summary goes to the shared
@@ -73,8 +82,13 @@ class OrbController extends ChangeNotifier {
     AgentVoiceKey? voiceKey,
     this.summarySender,
     this.operatingLinger = const Duration(milliseconds: 2500),
+    this.endedLinger = const Duration(seconds: 3),
+    this.subtitleLinger = const Duration(seconds: 2),
+    Duration liveIdleLimit = agentLiveIdleLimit,
+    DateTime Function()? now,
     Future<void> Function(WorkspaceController w)? warmUp,
-  }) : _warmUp =
+  }) : _now = now ?? DateTime.now,
+       _warmUp =
            warmUp ??
            (appTools == null
                ? (w) => OrbBriefingService.of(w).warm(OrbBriefScope.activity)
@@ -84,7 +98,10 @@ class OrbController extends ChangeNotifier {
       ...?appTools,
       if (appTools == null)
         ...orbNavigationTools(arrivalBrief: orbArrivalBrief()),
-      if (appTools == null) ...orbBriefingTools(openLink: openBriefItem),
+      if (appTools == null)
+        ...orbBriefingTools(
+          showBriefing: (briefing, ctx) => showBriefing(briefing),
+        ),
     ];
     tools = {for (final tool in all) tool.name: tool};
     voice = AgentVoiceController(
@@ -97,10 +114,11 @@ class OrbController extends ChangeNotifier {
       onModelSpoke: _modelSpoke,
       onModelTurnComplete: _modelTurnComplete,
       onModelInterrupted: _modelInterrupted,
+      liveIdleLimit: liveIdleLimit,
       audio: audio,
       key: voiceKey,
       sessionFactory: sessionFactory,
-    )..addListener(notifyListeners);
+    )..addListener(_voiceChanged);
     voice.saying.addListener(_sayingChanged);
     operating.addListener(_operatingChanged);
   }
@@ -126,8 +144,16 @@ class OrbController extends ChangeNotifier {
   /// How long "Agent is operating" stays after the model's turn ends.
   final Duration operatingLinger;
 
-  /// What the person is typing in the sheet's input. It lives as long as the
-  /// orb, not the sheet: the keyboard going down, the sheet closing or being
+  /// How long the grey "hung up" pill stays after a call.
+  final Duration endedLinger;
+
+  /// How long a subtitle stays after its last change.
+  final Duration subtitleLinger;
+
+  final DateTime Function() _now;
+
+  /// What the person is typing in the layer's input. It lives as long as the
+  /// orb, not the layer: the keyboard going down, the layer closing or being
   /// rebuilt never takes it away.
   final draft = TextEditingController();
 
@@ -175,31 +201,108 @@ class OrbController extends ChangeNotifier {
     }
     return switch (voice.state) {
       AgentMicState.idle => OrbState.idle,
-      AgentMicState.connecting || AgentMicState.thinking => OrbState.thinking,
+      AgentMicState.connecting => OrbState.connecting,
+      AgentMicState.thinking => OrbState.thinking,
       AgentMicState.holding || AgentMicState.live => OrbState.listening,
       AgentMicState.speaking => OrbState.speaking,
     };
   }
 
-  /// What the person is saying right now (for the pill by the orb): the last
-  /// line of the transcript while the mic is open and it is theirs.
-  String? get listeningText {
-    if (state != OrbState.listening || _entries.isEmpty) return null;
-    final last = _entries.last;
-    return last.kind == OrbEntryKind.user ? last.text : null;
+  // ---- the call's clock and the subtitle ------------------------------------
+
+  /// The seconds of the live call, once a second (the pill's timer listens).
+  final callSeconds = ValueNotifier<int>(0);
+
+  DateTime? _callStart;
+  bool _wasInCall = false;
+  bool _hadVoice = false;
+  Duration? _endedLength;
+  Timer? _tick;
+  Timer? _endedTimer;
+
+  /// How long the live call has lasted (zero while it connects).
+  Duration get callLength {
+    final start = _callStart;
+    return start == null ? Duration.zero : _now().difference(start);
+  }
+
+  /// The length of the call that was just hung up, for [endedLinger]; null
+  /// when no voice call has just ended.
+  Duration? get endedCallLength => _endedLength;
+
+  /// The line under the pill, or null once it has faded.
+  OrbSubtitle? subtitle;
+  Timer? _subtitleTimer;
+
+  void _subtitleIs(String text, {required bool agent}) {
+    subtitle = OrbSubtitle(text, agent: agent);
+    _subtitleTimer?.cancel();
+    _subtitleTimer = Timer(subtitleLinger, () {
+      if (_disposed) return;
+      subtitle = null;
+      notifyListeners();
+    });
+  }
+
+  void _voiceChanged() {
+    _syncCall();
+    notifyListeners();
+  }
+
+  /// Follows the call: it starts when the voice session is being set up, its
+  /// clock runs from the moment it is connected, and when it ends a voice
+  /// call leaves its length for a moment.
+  void _syncCall() {
+    final now = inCall;
+    if (now && !_wasInCall) {
+      _callStart = null;
+      _hadVoice = false;
+      _endedLength = null;
+      _endedTimer?.cancel();
+      callSeconds.value = 0;
+    } else if (!now && _wasInCall) {
+      _finishCall();
+    }
+    _wasInCall = now;
+    if (!now) return;
+    if (voice.live) _hadVoice = true;
+    if (_callStart == null && voice.state != AgentMicState.connecting) {
+      _callStart = _now();
+      callSeconds.value = 0;
+      _tick?.cancel();
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Runs once a second only while a connected call is on; cancelled when the call ends or the orb is disposed.
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        callSeconds.value = callLength.inSeconds;
+      });
+    }
+  }
+
+  void _finishCall() {
+    _tick?.cancel();
+    _tick = null;
+    final start = _callStart;
+    _callStart = null;
+    if (!_hadVoice || start == null) return;
+    _endedLength = _now().difference(start);
+    _endedTimer?.cancel();
+    _endedTimer = Timer(endedLinger, () {
+      if (_disposed) return;
+      _endedLength = null;
+      notifyListeners();
+    });
   }
 
   // ---- gestures -----------------------------------------------------------
 
-  /// A tap on the orb: hang up when a call is on, else open the sheet.
+  /// A tap on the orb: hang up when a call is on, else open the layer.
   Future<void> tapOrb() async {
     if (inCall) {
       await hangUp();
       return;
     }
-    if (sheetOpen) return;
+    if (layerOpen) return;
     _warm();
-    await openSheet();
+    await openLayer();
   }
 
   /// A long-press on the orb: start a live voice conversation.
@@ -208,7 +311,7 @@ class OrbController extends ChangeNotifier {
     _warm();
     if (!await voice.hasKey) {
       _note('还没有语音 Key：在 设置 > Labs 里扫码填入（和 Agent 模式共用）');
-      await openSheet();
+      await openLayer();
       return;
     }
     // Down and up at once: a call that stays live until a tap hangs it up.
@@ -216,7 +319,7 @@ class OrbController extends ChangeNotifier {
     voice.micUp(Duration.zero);
   }
 
-  /// Ends the call at once; the sheet stays as it is.
+  /// Ends the call at once; the layer stays as it is.
   Future<void> hangUp() async {
     _modelSpeaking = false;
     operating.takeOver();
@@ -263,6 +366,7 @@ class OrbController extends ChangeNotifier {
     } else {
       _add(OrbEntryKind.user, text.trimLeft());
     }
+    _subtitleIs(_entries.last.text, agent: false);
   }
 
   /// What the agent says arrives in `voice.saying`, chunk by chunk.
@@ -284,6 +388,7 @@ class OrbController extends ChangeNotifier {
       _agentOpen = true;
       _add(OrbEntryKind.agent, delta.trimLeft());
     }
+    _subtitleIs(_entries.last.text, agent: true);
   }
 
   void _modelSpoke() {
@@ -334,8 +439,9 @@ class OrbController extends ChangeNotifier {
     }
     // The toast names what was opened; a tool may say it better.
     if (!operating.value) operating.label = _labelOf(args);
+    final labelFromArgs = operating.label;
     // A tool that moves the app holds `operating` while it does or changes
-    // the location: the sheet then steps aside to show the page.
+    // the location: the layer then steps aside to show the page.
     var movedScreen = false;
     void watch() {
       if (operating.value) movedScreen = true;
@@ -358,6 +464,14 @@ class OrbController extends ChangeNotifier {
     } finally {
       operating.removeListener(watch);
     }
+    // What was opened, in the tool's own words, for the pill.
+    final opened = result['title'];
+    if (opened is String &&
+        opened.trim().isNotEmpty &&
+        operating.value &&
+        operating.label == labelFromArgs) {
+      operating.label = opened.trim();
+    }
     final failed =
         result['error'] != null ||
         result['cancelled'] == true ||
@@ -365,7 +479,7 @@ class OrbController extends ChangeNotifier {
     if (!failed &&
         !_disposed &&
         (movedScreen || workspace.location.toString() != before)) {
-      unawaited(peekSheet());
+      collapseLayer();
     }
     final line = _activityLine(name, result);
     if (line != null && !_disposed) {
@@ -376,11 +490,25 @@ class OrbController extends ChangeNotifier {
   }
 
   /// An item of the briefing card was tapped: the app goes there, and the
-  /// sheet steps aside so the page shows.
+  /// layer steps aside so the page shows.
   @visibleForTesting
   void openBriefItem(OrbBriefItem item, OrbToolContext ctx) {
     defaultOrbOpenLink(item, ctx);
-    unawaited(peekSheet());
+    collapseLayer();
+  }
+
+  /// A card of the briefing in the layer was tapped.
+  void openBriefItemTapped(OrbBriefItem item) {
+    final context = navigatorContext();
+    if (context == null || !context.mounted) return;
+    openBriefItem(
+      item,
+      OrbToolContext(
+        workspace: workspace,
+        navigatorContext: context,
+        operating: operating,
+      ),
+    );
   }
 
   static String? _labelOf(Map<String, Object?> args) {
@@ -421,57 +549,51 @@ class OrbController extends ChangeNotifier {
     OrbTool(
       declaration: const {
         'name': 'show_orb_sheet',
-        'description': '打开悬浮球的对话面板（看对话记录、打字）。用户说“打开面板”“看看记录”时用。立即生效。',
+        'description': '打开悬浮球的全屏对话层（看对话记录、打字）。用户说“打开面板”“看看记录”时用。立即生效。',
       },
-      handler: (args, ctx) async => {'ok': await openSheet()},
+      handler: (args, ctx) async => {'ok': await openLayer()},
     ),
     OrbTool(
       declaration: const {
         'name': 'hide_orb_sheet',
-        'description': '收起悬浮球的对话面板，回到页面。用户说“收起来”“关掉面板”时用。立即生效。',
+        'description': '收起悬浮球的全屏对话层，回到页面。用户说“收起来”“关掉面板”时用。立即生效。',
       },
       handler: (args, ctx) async {
-        closeSheet();
+        closeLayer();
         return {'ok': true};
       },
     ),
   ];
 
-  // ---- the sheet ----------------------------------------------------------
+  // ---- the immersive layer ------------------------------------------------
 
-  RaftPresentedRoute<void>? _sheetRoute;
+  OrbLayerRoute? _layerRoute;
   bool _orbTouch = false;
 
-  /// Moves the open sheet between its detents: lowered to a peek when a tool
-  /// changed the screen, raised again by the person.
-  final detents = RaftSheetDetents(peekSize: .3);
+  bool get layerOpen => _layerRoute != null;
 
-  bool get sheetOpen => _sheetRoute != null;
+  /// The briefing the layer shows as cards (`get_briefing` with `show`),
+  /// until the layer closes.
+  OrbBriefing? shownBriefing;
 
-  /// Opens the orb sheet (the transcript and the text input). False when the
-  /// app has no Navigator yet.
-  Future<bool> openSheet() async {
-    if (_sheetRoute != null) return true;
+  /// Opens the immersive layer (the transcript and the text input). False
+  /// when the app has no Navigator yet.
+  Future<bool> openLayer() async {
+    if (_layerRoute != null) return true;
     final context = navigatorContext();
     if (context == null || !context.mounted) return false;
     // A word left half-composed has no keyboard to finish it now.
     if (draft.value.composing.isValid) {
       draft.value = draft.value.copyWith(composing: TextRange.empty);
     }
-    final route = raftPresentedRoute<void>(
-      context,
-      policy: _sheetPolicy,
-      sheetInitialSize: .65,
-      sheetDetents: detents,
-      label: 'Agent',
-      content: (context, form) => OrbSheet(controller: this),
-    );
-    _sheetRoute = route;
+    final route = OrbLayerRoute(orb: this);
+    _layerRoute = route;
     notifyListeners();
     unawaited(
       Navigator.of(context, rootNavigator: true).push(route).whenComplete(() {
-        if (identical(_sheetRoute, route) && !_disposed) {
-          _sheetRoute = null;
+        if (identical(_layerRoute, route) && !_disposed) {
+          _layerRoute = null;
+          shownBriefing = null;
           notifyListeners();
         }
       }),
@@ -479,28 +601,24 @@ class OrbController extends ChangeNotifier {
     return true;
   }
 
-  /// Lowers the sheet to a small peek (the last of the transcript and the
-  /// input) so the page the agent opened shows; the keyboard goes down with
-  /// it. Nothing when the sheet is not open.
-  Future<void> peekSheet() async {
-    if (_sheetRoute == null) return;
+  /// Shows [briefing] as cards in the layer, opening it when it is closed.
+  void showBriefing(OrbBriefing briefing) {
+    shownBriefing = briefing;
+    notifyListeners();
+    unawaited(openLayer());
+  }
+
+  /// The layer steps aside so the page the agent opened shows; the keyboard
+  /// goes down with it. The call, if one is on, is not touched.
+  void collapseLayer() {
+    if (_layerRoute == null) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    await detents.peek();
+    closeLayer();
   }
 
-  /// Raises a peeking sheet to the size it opens at (the person tapped the
-  /// transcript or the input).
-  Future<void> expandSheet() async {
-    if (_sheetRoute == null || !detents.peeking) return;
-    await detents.restore();
-  }
-
-  /// Whether the sheet is lowered to the peek.
-  bool get sheetPeeking => _sheetRoute != null && detents.peeking;
-
-  /// Closes the orb sheet, if it is open.
-  void closeSheet() {
-    final route = _sheetRoute;
+  /// Closes the immersive layer, if it is open. Never hangs up.
+  void closeLayer() {
+    final route = _layerRoute;
     if (route == null) return;
     final navigator = route.navigator;
     if (navigator == null || !route.isActive) return;
@@ -511,20 +629,13 @@ class OrbController extends ChangeNotifier {
     }
   }
 
-  /// The orb's sheet is a sheet on every phone width.
-  static const _sheetPolicy = RaftPresentationPolicy(
-    compact: RaftSurfaceForm.sheet,
-    medium: RaftSurfaceForm.sheet,
-    wide: RaftSurfaceForm.sheet,
-  );
-
   // ---- touches ------------------------------------------------------------
 
-  /// A pointer went down on the orb's own surface (the sheet): not the app.
+  /// A pointer went down on the orb's own surface (the layer): not the app.
   void markOrbTouch() => _orbTouch = true;
 
   /// A pointer went down on the app content. Takes the screen back from the
-  /// agent, unless the touch was on the orb's sheet.
+  /// agent, unless the touch was on the orb's layer.
   void appTouched() {
     if (_orbTouch) {
       _orbTouch = false;
@@ -582,9 +693,13 @@ class OrbController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _linger?.cancel();
+    _tick?.cancel();
+    _endedTimer?.cancel();
+    _subtitleTimer?.cancel();
     operating.removeListener(_operatingChanged);
     voice.saying.removeListener(_sayingChanged);
-    voice.removeListener(notifyListeners);
+    voice.removeListener(_voiceChanged);
+    callSeconds.dispose();
     voice.dispose();
     operating.dispose();
     draft.dispose();

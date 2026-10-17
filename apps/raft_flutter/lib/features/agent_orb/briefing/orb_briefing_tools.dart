@@ -1,7 +1,3 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart' show Navigator;
-
 import '../../../data/raft_location.dart';
 import '../../../data/workspace_controller.dart';
 import '../../agent_mode/capabilities/agent_capability.dart'
@@ -11,24 +7,9 @@ import '../../agent_mode/capabilities/capability_support.dart'
 import '../orb_tool.dart';
 import 'orb_briefing_models.dart';
 import 'orb_briefing_service.dart';
-import 'orb_briefing_sheet.dart';
 
-/// Opens an item's [OrbBriefItem.link] in the app. The host decides how: the
-/// default only moves the app's navigation to the location.
-typedef OrbOpenLink = FutureOr<void> Function(
-  OrbBriefItem item,
-  OrbToolContext ctx,
-);
-
-/// A suggested-action chip was tapped. Phase 1: the host receives it and
-/// confirms with the person before anything is sent.
-typedef OrbActionHandler = FutureOr<void> Function(
-  OrbBriefItem item,
-  OrbSuggestedAction action,
-  OrbToolContext ctx,
-);
-
-/// The default [OrbOpenLink]: the app's navigation goes to the item's route.
+/// Opens an item's [OrbBriefItem.link] in the app: the app's navigation goes
+/// to the item's route. The orb's layer calls it when a card is tapped.
 void defaultOrbOpenLink(OrbBriefItem item, OrbToolContext ctx) {
   try {
     ctx.workspace.navigation.navigate(RaftLocation.parse(item.link));
@@ -36,6 +17,12 @@ void defaultOrbOpenLink(OrbBriefItem item, OrbToolContext ctx) {
     // A route that is not in the bound server cannot be opened from here.
   }
 }
+
+/// Shows a briefing as cards in the orb's immersive layer.
+typedef OrbShowBriefing = void Function(
+  OrbBriefing briefing,
+  OrbToolContext ctx,
+);
 
 const orbBriefingToolName = 'get_briefing';
 
@@ -66,13 +53,12 @@ const orbBriefingDeclaration = <String, Object?>{
 
 /// The briefing tools of the orb: `get_briefing`.
 ///
-/// [openLink] opens a tapped item in the app (default: the workspace
-/// navigation to its route); [onAction] receives the suggested-action chip;
+/// [showBriefing] puts the cards in the orb's immersive layer (without it
+/// `show` is not claimed);
 /// [serviceFor] gives the service of a workspace (tests pass one with a fake
 /// model).
 List<OrbTool> orbBriefingTools({
-  OrbOpenLink? openLink,
-  OrbActionHandler? onAction,
+  OrbShowBriefing? showBriefing,
   OrbBriefingService Function(WorkspaceController w)? serviceFor,
 }) => [
   OrbTool(
@@ -98,21 +84,12 @@ List<OrbTool> orbBriefingTools({
         return {'error': '简报没读出来，稍后再试'};
       }
       var shown = false;
-      final navigator = ctx.navigatorContext;
-      if (args['show'] == true && navigator.mounted) {
+      if (args['show'] == true &&
+          showBriefing != null &&
+          ctx.navigatorContext.mounted) {
         shown = true;
-        // The sheet stays up while the model speaks: not awaited.
-        unawaited(
-          OrbBriefingSheet.show(
-            navigator,
-            briefing,
-            onOpen: (item) {
-              Navigator.of(navigator, rootNavigator: true).maybePop();
-              (openLink ?? defaultOrbOpenLink)(item, ctx);
-            },
-            onAction: (item, action) => onAction?.call(item, action, ctx),
-          ),
-        );
+        // The layer stays up while the model speaks: nothing to await.
+        showBriefing(briefing, ctx);
       }
       return {...briefing.toJson(), 'shown': shown};
     },

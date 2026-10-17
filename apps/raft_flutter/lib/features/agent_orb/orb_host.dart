@@ -11,6 +11,7 @@ import 'orb_avoidance.dart';
 import 'orb_controller.dart';
 import 'orb_preference.dart';
 import 'orb_state.dart';
+import 'orb_status.dart';
 import 'orb_widget.dart';
 
 /// Builds the orb's session for a workspace. [navigatorContext] is a context
@@ -117,10 +118,10 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
 
   void _retire(OrbController? c) {
     if (c == null) return;
-    // Its listeners (the layers) go away in this frame; close its sheet and
+    // Its listeners (the layers) go away in this frame; close its layer and
     // dispose after it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      c.closeSheet();
+      c.closeLayer();
       c.dispose();
     });
   }
@@ -269,52 +270,12 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
     final x = _drag?.dx ?? (_onRight ? width - _margin - orbSize : _margin);
     final state = c.state;
     final operating = c.operating.value;
-    final chip = orbStatusChip(context, state, connecting: c.connecting);
-    final pill = c.listeningText ?? (state == OrbState.idle ? c.notice : null);
     final accent = t.brutal ? t.product.brutalCyan : t.accent;
-    final side = _onRight ? Alignment.centerRight : Alignment.centerLeft;
-    final maxWide = math.min(300.0, width - _margin * 2);
-    final besideRoom = width - orbSize - _margin * 3;
-
-    final above = <Widget>[
-      if (pill != null)
-        ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWide),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: RaftSpace.x3,
-              vertical: RaftSpace.x2,
-            ),
-            decoration: orbSurface(t, radius: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (c.listeningText != null) ...[
-                  OrbWaveBars(
-                    color: t.brutal ? t.product.brutalPink : t.accent,
-                    height: 16,
-                  ),
-                  const SizedBox(width: RaftSpace.x2),
-                ],
-                Flexible(
-                  child: Text(
-                    c.listeningText == null ? pill : '“$pill”',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: RaftTypography.body(
-                      t,
-                      size: 14,
-                      line: 20,
-                      weight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      if (state == OrbState.operating && chip != null) chip,
-    ];
+    final notice = state == OrbState.idle ? c.notice : null;
+    // The pill sits beside the orb, out of the rings' way; the room it has is
+    // what the orb leaves of the width.
+    final ringGap = state == OrbState.idle ? RaftSpace.x3 : 28.0;
+    final beside = width - orbSize - _margin * 2 - ringGap;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -330,68 +291,62 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
               ),
             ),
           ),
-        if (operating)
+        if (!c.layerOpen) ...[
+          // The subtitle, then a notice (no key, no microphone), above the orb.
           Positioned(
-            top: media.padding.top + 56,
-            left: _margin,
-            right: _margin,
-            child: IgnorePointer(
-              child: Semantics(
-                liveRegion: true,
-                child: Center(
-                  child: RaftToast(
-                    key: const ValueKey('orb-operating-toast'),
-                    title: c.operating.label == null
-                        ? 'Agent 正在操作 · 点屏幕即可接管'
-                        : 'Agent 打开了 ${c.operating.label} · 点屏幕即可接管',
-                    tone: RaftToastRecipeTone.info,
-                    icon: true,
+            bottom: height - y + 30,
+            left: _onRight ? null : _margin,
+            right: _onRight ? _margin : null,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: _onRight
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                if (notice != null)
+                  ConstrainedBox(
+                    // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+                    constraints: BoxConstraints(maxWidth: width - _margin * 2),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: RaftSpace.x3,
+                        vertical: RaftSpace.x2,
+                      ),
+                      decoration: orbSurface(t, radius: 16),
+                      child: Text(
+                        notice,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: RaftTypography.body(
+                          t,
+                          size: 14,
+                          line: 20,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                OrbSubtitleBubble(controller: c, maxWidth: width - _margin * 2),
+              ],
             ),
           ),
-        if (!c.sheetOpen) ...[
-          if (above.isNotEmpty)
-            Positioned(
-              bottom: height - y + RaftSpace.x2,
-              left: _onRight ? null : _margin,
-              right: _onRight ? _margin : null,
-              child: Align(
-                alignment: side,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: _onRight
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
-                  children: [
-                    for (final (i, w) in above.indexed) ...[
-                      if (i > 0) const SizedBox(height: RaftSpace.x2),
-                      w,
-                    ],
-                  ],
-                ),
-              ),
+          // The call pill, level with the orb on its inner side.
+          Positioned(
+            top: y + (orbSize - orbPillHeight) / 2,
+            left: _onRight ? null : x + orbSize + ringGap,
+            right: _onRight ? width - x + ringGap : null,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: beside),
+              child: OrbCallStatus(controller: c, alignEnd: _onRight),
             ),
-          if (chip != null && state != OrbState.operating)
-            Positioned(
-              top: y + (orbSize - 28) / 2,
-              left: _onRight ? null : x + orbSize + _margin,
-              right: _onRight ? width - x + _margin : null,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: besideRoom),
-                child: chip,
-              ),
-            ),
+          ),
           AnimatedPositioned(
             duration: _drag == null ? _glide : Duration.zero,
             curve: Curves.easeOut,
             left: x,
             top: y,
             child: OrbBall(
-              state: state,
-              onTap: c.tapOrb,
-              onLongPress: c.longPressOrb,
+              controller: c,
               onPanStart: (d) => _panStart(d, Offset(x, y)),
               onPanUpdate: (d) => _panUpdate(d, media),
               onPanEnd: (_) => _panEnd(media),

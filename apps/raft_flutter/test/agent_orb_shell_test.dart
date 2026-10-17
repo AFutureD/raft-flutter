@@ -19,12 +19,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'activity_incremental_refresh_test.dart' show ActivityClient;
 
 /// Shell of the Agent orb: the Labs switch, the floating orb above every phone
-/// page, its sheet, its drag and the operating indicator. Fake audio and fake
+/// page, its immersive layer, its drag and the operating indicator. Fake audio and fake
 /// voice sessions; real taps, long presses and drags.
 
 class FakeAudio extends AgentAudio {
   FakeAudio() : super.forTesting();
   int micStarts = 0, micStops = 0;
+
+  /// The microphone's streams, so a test can speak into them.
+  final mics = <StreamController<Uint8List>>[];
 
   @override
   bool get supported => true;
@@ -36,6 +39,7 @@ class FakeAudio extends AgentAudio {
       onListen: () => micStarts++,
       onCancel: () => micStops++,
     );
+    mics.add(c);
     return c.stream;
   }
 
@@ -146,6 +150,10 @@ class OrbFixture {
   /// Takes the summary of a session instead of the shared agent's DM.
   OrbSummarySender? summarySender;
 
+  /// The orb's clock (the call timer reads it); [advance] moves it together
+  /// with the test's fake time.
+  DateTime clock = DateTime(2026, 1, 1, 9);
+
   Future<void> setUp() async {
     SharedPreferences.setMockInitialValues({});
     AgentOrbPreference.instance.resetForTest();
@@ -172,6 +180,9 @@ class OrbFixture {
       controller = OrbController(
         warmUp: (w) async => warmed.add(w),
         workspace: w,
+        now: () => clock,
+        // A long call in a test is not a call nobody speaks in.
+        liveIdleLimit: const Duration(hours: 1),
         navigatorContext: () => navKey.currentState?.overlay?.context,
         appTools: tools,
         audio: audio,
@@ -216,6 +227,7 @@ class OrbFixture {
     double textScale = 1.0,
     bool enabled = true,
     bool composer = false,
+    RaftFamily family = RaftFamily.brutal,
     List<OrbTool> tools = const [],
   }) async {
     t.view.physicalSize = Size(width, 915);
@@ -231,7 +243,7 @@ class OrbFixture {
     await t.pumpWidget(
       MaterialApp(
         navigatorKey: navKey,
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(family),
         builder: (context, child) => AgentOrbHost(
           workspace: w,
           navigatorKey: navKey,
@@ -268,6 +280,39 @@ class OrbFixture {
   static final orbFinder = find.byKey(const ValueKey('agent-orb'));
 
   Rect orbRect() => t.getRect(orbFinder);
+
+  /// Lets [d] of the call go by: the clock and the test's fake time together.
+  Future<void> advance(Duration d) async {
+    clock = clock.add(d);
+    await t.pump(d);
+  }
+
+  /// A tap on the idle orb: the immersive layer opens.
+  Future<void> openLayer() async {
+    await t.tap(orbFinder);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+  }
+
+  /// The agent opens the layer in a call (a tap on the live orb hangs up).
+  Future<void> openLayerInCall() async {
+    final shown = controller.dispatch('show_orb_sheet', const {});
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+    await shown;
+  }
+
+  /// A long-press starts the call; the fake session connects.
+  Future<void> startCall() async {
+    await t.longPress(orbFinder);
+    for (var i = 0; i < 4; i++) {
+      await t.pump();
+    }
+    sessions.last.connectGate.complete();
+    for (var i = 0; i < 4; i++) {
+      await t.pump();
+    }
+  }
 }
 
 void main() {
@@ -319,36 +364,29 @@ void main() {
     });
   });
 
-  group('orb sheet', () {
-    testWidgets('a tap opens the sheet and the orb docks into its footer', (
+  group('immersive layer', () {
+    testWidgets('a tap opens the layer, not a sheet, and the orb docks in it', (
       t,
     ) async {
       await fixture(t);
       await f.pump();
       expect(f.warmed, isEmpty);
-      await t.tap(OrbFixture.orbFinder);
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 400));
-      expect(find.byKey(const ValueKey('orb-sheet')), findsOneWidget);
+      await f.openLayer();
+      expect(find.byKey(const ValueKey('orb-layer')), findsOneWidget);
+      expect(find.byType(RaftSheet), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
       // The briefing is read while the person is still typing.
       expect(f.warmed, [f.w]);
-      expect(f.controller.sheetOpen, isTrue);
-      // One orb at a time: the floating one docks into the sheet footer.
+      expect(f.controller.layerOpen, isTrue);
+      // One orb at a time: the floating one docks into the layer.
       expect(OrbFixture.orbFinder, findsOneWidget);
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey('orb-sheet-footer')),
+          of: find.byKey(const ValueKey('orb-layer-dock')),
           matching: OrbFixture.orbFinder,
         ),
         findsOneWidget,
       );
-      // Closing the sheet puts the orb back.
-      await t.tap(find.byKey(const ValueKey('orb-sheet-close')));
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 400));
-      expect(find.byKey(const ValueKey('orb-sheet')), findsNothing);
-      expect(f.controller.sheetOpen, isFalse);
-      expect(OrbFixture.orbFinder, findsOneWidget);
     });
   });
 
@@ -409,9 +447,7 @@ void main() {
   });
 
   group('operating indicator', () {
-    testWidgets('shows the frame and the toast, and a touch ends it', (
-      t,
-    ) async {
+    testWidgets('shows the frame and the pill, and a touch ends it', (t) async {
       await fixture(t);
       await f.pump();
       expect(find.byKey(const ValueKey('orb-operating-frame')), findsNothing);
@@ -420,7 +456,9 @@ void main() {
         ..value = true;
       await t.pump();
       expect(find.byKey(const ValueKey('orb-operating-frame')), findsOneWidget);
-      expect(find.text('Agent 打开了 #raft-flutter · 点屏幕即可接管'), findsOneWidget);
+      // The pill says what the agent opened; there is no toast.
+      expect(find.text('打开了 #raft-flutter'), findsOneWidget);
+      expect(find.byType(RaftToast), findsNothing);
       expect(OrbFixture.orbFinder, findsOneWidget);
 
       // A pointer down on the page content takes over (and the page still
@@ -433,15 +471,13 @@ void main() {
       expect(f.pageTaps, hasLength(1));
     });
 
-    testWidgets('a touch on the orb sheet does not take over', (t) async {
+    testWidgets('a touch on the immersive layer does not take over', (t) async {
       await fixture(t);
       await f.pump();
-      await t.tap(OrbFixture.orbFinder);
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 400));
+      await f.openLayer();
       f.controller.operating.value = true;
       await t.pump();
-      await t.tap(find.byKey(const ValueKey('orb-sheet-input')));
+      await t.tap(find.byKey(const ValueKey('orb-input')));
       await t.pump();
       expect(f.controller.operating.value, isTrue);
       expect(f.controller.operating.takeovers, 0);
@@ -461,15 +497,13 @@ void main() {
       await t.pump();
       expect(t.takeException(), isNull);
       f.controller.operating.value = false;
-      // The orb sheet with a transcript.
-      await t.tap(OrbFixture.orbFinder);
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 400));
+      // The immersive layer with a transcript.
+      await f.openLayer();
       await t.enterText(
-        find.byKey(const ValueKey('orb-sheet-input')),
+        find.byKey(const ValueKey('orb-input')),
         '看看动态里什么要我处理，顺便告诉我 raft-flutter 频道的情况',
       );
-      await t.tap(find.byKey(const ValueKey('orb-sheet-send')));
+      await t.tap(find.byKey(const ValueKey('orb-send')));
       await t.pump();
       await t.pump();
       f.sessions.single.connectGate.complete();

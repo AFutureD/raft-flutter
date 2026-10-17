@@ -14,118 +14,57 @@ typedef OrbItemAction = void Function(
   OrbSuggestedAction action,
 );
 
-/// The briefing as a sheet over the app (design frame 03): the overview, what
-/// needs the person, the progress, and how many are routine. Items are the
-/// Activity row recipe ([RaftConversationCard]); tapping one opens the real
-/// conversation, the chip under a needs-you item runs its suggested action.
-class OrbBriefingSheet extends StatelessWidget {
-  const OrbBriefingSheet({
+/// The briefing as cards (design frames 05 and 06), inside the orb's
+/// immersive layer: what needs the person, the progress, and how many are
+/// routine. Items are the Activity row recipe ([RaftConversationCard]);
+/// tapping one opens the real conversation, the chip under a needs-you item
+/// runs its suggested action.
+///
+/// The layer is dark, so the text that sits on it (not in a card) is light
+/// when [onDark] is set. The [OrbBriefing.overview] is the layer's big
+/// sentence when [showOverview] is false, else the first line here.
+class OrbBriefingCards extends StatelessWidget {
+  const OrbBriefingCards({
     super.key,
     required this.briefing,
     this.onOpen,
     this.onAction,
-    this.onClose,
+    this.onDark = false,
+    this.showOverview = true,
   });
 
   final OrbBriefing briefing;
   final OrbOpenItem? onOpen;
   final OrbItemAction? onAction;
-
-  /// Defaults to popping the sheet's route.
-  final VoidCallback? onClose;
-
-  /// Shows [briefing] in a sheet (a dialog on a wide window) and completes
-  /// when it closes.
-  static Future<void> show(
-    BuildContext context,
-    OrbBriefing briefing, {
-    OrbOpenItem? onOpen,
-    OrbItemAction? onAction,
-    double initialSize = .65,
-  }) => showRaftPresented<void>(
-    context,
-    policy: RaftPresentationPolicy.picker,
-    sheetInitialSize: initialSize,
-    label: '简报',
-    content: (context, form) => OrbBriefingSheet(
-      briefing: briefing,
-      onOpen: onOpen,
-      onAction: onAction,
-    ),
-  );
-
-  static const _padding = EdgeInsets.only(
-    left: RaftSpace.x4,
-    right: RaftSpace.x4,
-    bottom: RaftSpace.x4,
-  );
-
-  @override
-  Widget build(BuildContext context) => RaftSheet(
-    header: _Header(onClose: onClose ?? () => Navigator.of(context).maybePop()),
-    headerExtent: 44,
-    body: Padding(
-      padding: _padding,
-      child: _Body(briefing: briefing, onOpen: onOpen, onAction: onAction),
-    ),
-  );
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onClose});
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: RaftSpace.x4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              '简报',
-              style: RaftTypography.heading(t, size: 20, line: 28),
-            ),
-          ),
-          RaftIconButton(
-            glyph: RaftGlyph.x,
-            tooltip: '关闭',
-            visualSize: 32,
-            onPressed: onClose,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Body extends StatelessWidget {
-  const _Body({required this.briefing, this.onOpen, this.onAction});
-  final OrbBriefing briefing;
-  final OrbOpenItem? onOpen;
-  final OrbItemAction? onAction;
+  final bool onDark;
+  final bool showOverview;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final b = briefing;
+    // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
+    final quiet = onDark ? Colors.white.withValues(alpha: .65) : t.muted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          b.overview,
-          key: const Key('orb-briefing-overview'),
-          style: RaftTypography.body(
-            t,
-            size: 15,
-            line: 22,
-            weight: FontWeight.w600,
+        if (showOverview)
+          Text(
+            b.overview,
+            key: const Key('orb-briefing-overview'),
+            style: RaftTypography.body(
+              t,
+              size: 15,
+              line: 22,
+              weight: FontWeight.w600,
+              // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
+              color: onDark ? Colors.white : null,
+            ),
           ),
-        ),
         if (b.needsYou.isNotEmpty) ...[
           _SectionLabel(
             '需要你',
+            color: quiet,
             trailing: RaftResourceBadge(
               label: '${b.needsYou.length}',
               variant: RaftBadgeRecipeVariant.danger,
@@ -137,7 +76,7 @@ class _Body extends StatelessWidget {
           ],
         ],
         if (b.progress.isNotEmpty) ...[
-          const _SectionLabel('进展'),
+          _SectionLabel('进展', color: quiet),
           for (final (i, item) in b.progress.indexed) ...[
             if (i > 0) const SizedBox(height: RaftSpace.x2),
             _ProgressRow(item: item, onOpen: onOpen),
@@ -149,7 +88,7 @@ class _Body extends StatelessWidget {
             key: const Key('orb-briefing-routine'),
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RaftIcon(RaftGlyph.check, size: 14, color: t.muted),
+              RaftIcon(RaftGlyph.check, size: 14, color: quiet),
               const SizedBox(width: RaftSpace.x2),
               Expanded(
                 child: Text(
@@ -158,7 +97,7 @@ class _Body extends StatelessWidget {
                     t,
                     size: 13,
                     line: 18,
-                    color: t.muted,
+                    color: quiet,
                   ),
                 ),
               ),
@@ -171,8 +110,9 @@ class _Body extends StatelessWidget {
 }
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label, {this.trailing});
+  const _SectionLabel(this.label, {required this.color, this.trailing});
   final String label;
+  final Color color;
   final Widget? trailing;
 
   @override
@@ -189,7 +129,7 @@ class _SectionLabel extends StatelessWidget {
               size: 12,
               line: 16,
               weight: FontWeight.w700,
-              color: t.muted,
+              color: color,
             ),
           ),
           if (trailing != null) ...[

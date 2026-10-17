@@ -48,11 +48,7 @@ void main() {
     await t.pump(const Duration(milliseconds: 300));
   }
 
-  Future<void> openSheet(WidgetTester t) async {
-    await t.tap(OrbFixture.orbFinder);
-    await t.pump();
-    await t.pump(const Duration(milliseconds: 400));
-  }
+  Future<void> openLayer(WidgetTester t) => f.openLayer();
 
   Future<void> settleSession(WidgetTester t) async {
     for (var i = 0; i < 4; i++) {
@@ -68,14 +64,11 @@ void main() {
   group('text turns', () {
     testWidgets('typed text goes to the model and the reply shows', (t) async {
       await fixture(t);
-      await openSheet(t);
+      await openLayer(t);
       expect(find.text('说点什么，或者长按球直接对话'), findsOneWidget);
 
-      await t.enterText(
-        find.byKey(const ValueKey('orb-sheet-input')),
-        '看看动态里什么要我处理',
-      );
-      await t.tap(find.byKey(const ValueKey('orb-sheet-send')));
+      await t.enterText(find.byKey(const ValueKey('orb-input')), '看看动态里什么要我处理');
+      await t.tap(find.byKey(const ValueKey('orb-send')));
       await settleSession(t);
       // The input is cleared and the person's turn is in the transcript.
       expect(find.text('看看动态里什么要我处理'), findsOneWidget);
@@ -103,9 +96,9 @@ void main() {
           fakeTool('fake_open', (a, c) async => {'ok': true}),
         ],
       );
-      await openSheet(t);
-      await t.enterText(find.byKey(const ValueKey('orb-sheet-input')), '你好');
-      await t.tap(find.byKey(const ValueKey('orb-sheet-send')));
+      await openLayer(t);
+      await t.enterText(find.byKey(const ValueKey('orb-input')), '你好');
+      await t.tap(find.byKey(const ValueKey('orb-send')));
       await settleSession(t);
       await connected(t);
       final s = f.sessions.single;
@@ -123,22 +116,22 @@ void main() {
   group('without a voice key', () {
     testWidgets('typed text says there is no key and sends nothing', (t) async {
       await fixture(t, apiKey: null);
-      await openSheet(t);
-      await t.enterText(find.byKey(const ValueKey('orb-sheet-input')), '你好');
-      await t.tap(find.byKey(const ValueKey('orb-sheet-send')));
+      await openLayer(t);
+      await t.enterText(find.byKey(const ValueKey('orb-input')), '你好');
+      await t.tap(find.byKey(const ValueKey('orb-send')));
       await settleSession(t);
       expect(f.sessions, isEmpty);
       expect(find.text('你好'), findsOneWidget);
       expect(find.textContaining('还没有语音 Key'), findsOneWidget);
     });
 
-    testWidgets('a long-press opens the sheet with the same note', (t) async {
+    testWidgets('a long-press opens the layer with the same note', (t) async {
       await fixture(t, apiKey: null);
       await t.longPress(OrbFixture.orbFinder);
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect(f.sessions, isEmpty);
-      expect(f.controller.sheetOpen, isTrue);
+      expect(f.controller.layerOpen, isTrue);
       expect(find.textContaining('还没有语音 Key'), findsOneWidget);
     });
   });
@@ -162,12 +155,12 @@ void main() {
           }),
         ],
       );
-      await openSheet(t);
+      await openLayer(t);
       await t.enterText(
-        find.byKey(const ValueKey('orb-sheet-input')),
+        find.byKey(const ValueKey('orb-input')),
         '去 raft-flutter',
       );
-      await t.tap(find.byKey(const ValueKey('orb-sheet-send')));
+      await t.tap(find.byKey(const ValueKey('orb-send')));
       await settleSession(t);
       await connected(t);
 
@@ -203,22 +196,22 @@ void main() {
       );
     });
 
-    testWidgets('show_orb_sheet and hide_orb_sheet open and close the sheet', (
+    testWidgets('show_orb_sheet and hide_orb_sheet open and close the layer', (
       t,
     ) async {
       await fixture(t);
-      expect(f.controller.sheetOpen, isFalse);
+      expect(f.controller.layerOpen, isFalse);
       final shown = f.controller.dispatch('show_orb_sheet', const {});
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect((await shown)['ok'], isTrue);
-      expect(f.controller.sheetOpen, isTrue);
+      expect(f.controller.layerOpen, isTrue);
       final hidden = f.controller.dispatch('hide_orb_sheet', const {});
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect((await hidden)['ok'], isTrue);
-      expect(f.controller.sheetOpen, isFalse);
-      expect(find.byKey(const ValueKey('orb-sheet')), findsNothing);
+      expect(f.controller.layerOpen, isFalse);
+      expect(find.byKey(const ValueKey('orb-layer')), findsNothing);
     });
 
     testWidgets('a touch on the page cancels the tool in flight', (t) async {
@@ -238,8 +231,8 @@ void main() {
       final call = f.controller.dispatch('fake_nav', {'target': '动态'});
       await t.pump();
       expect(f.controller.operating.value, isTrue);
-      // The default toast label comes from the tool call's own words.
-      expect(find.text('Agent 打开了 动态 · 点屏幕即可接管'), findsOneWidget);
+      // The default pill label comes from the tool call's own words.
+      expect(find.text('打开了 动态'), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('page-content')));
       await t.pump();
       gate.complete();
@@ -257,8 +250,8 @@ void main() {
       expect(f.controller.voice.state, AgentMicState.connecting);
       expect(f.audio.micStarts, 1);
       expect(f.warmed, [f.w], reason: 'briefed while the call connects');
-      // The sheet did not open: a long-press talks.
-      expect(f.controller.sheetOpen, isFalse);
+      // The layer did not open: a long-press talks.
+      expect(f.controller.layerOpen, isFalse);
       await connected(t);
       expect(f.controller.voice.state, AgentMicState.live);
     });
@@ -273,7 +266,7 @@ void main() {
       expect(f.controller.voice.state, AgentMicState.idle);
       expect(f.sessions.single.closes, 1);
       expect(f.audio.micStops, f.audio.micStarts);
-      expect(f.controller.sheetOpen, isFalse);
+      expect(f.controller.layerOpen, isFalse);
       // The connection in flight finishes late and must not revive.
       await connected(t);
       expect(f.controller.voice.state, AgentMicState.idle);
@@ -288,7 +281,7 @@ void main() {
       await settleSession(t);
       expect(f.controller.voice.state, AgentMicState.idle);
       expect(f.sessions.single.closes, 1);
-      expect(f.controller.sheetOpen, isFalse);
+      expect(f.controller.layerOpen, isFalse);
     });
 
     testWidgets('a tap hangs up while the model speaks', (t) async {
@@ -303,27 +296,27 @@ void main() {
       expect(f.controller.voice.state, AgentMicState.idle);
       expect(f.controller.state.name, 'idle');
       expect(f.sessions.single.closes, 1);
-      expect(f.controller.sheetOpen, isFalse);
+      expect(f.controller.layerOpen, isFalse);
     });
 
-    testWidgets('the same taps hang up from the docked orb in the sheet', (
+    testWidgets('the same taps hang up from the docked orb in the layer', (
       t,
     ) async {
       await fixture(t);
-      await openSheet(t);
+      await openLayer(t);
       await t.longPress(OrbFixture.orbFinder);
       await connected(t);
       expect(f.controller.voice.state, AgentMicState.live);
       await t.tap(OrbFixture.orbFinder);
       await settleSession(t);
       expect(f.controller.voice.state, AgentMicState.idle);
-      // The sheet stays open: only the call ended.
-      expect(f.controller.sheetOpen, isTrue);
+      // The layer stays open: only the call ended.
+      expect(f.controller.layerOpen, isTrue);
     });
 
     testWidgets('what the person says shows in the transcript', (t) async {
       await fixture(t);
-      await openSheet(t);
+      await openLayer(t);
       await t.longPress(OrbFixture.orbFinder);
       await connected(t);
       f.sessions.single.onInputText!('看看动态');
