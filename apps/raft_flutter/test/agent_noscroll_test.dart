@@ -425,12 +425,11 @@ void main() {
       expect(gradient(dockFade).colors.first.a, 0);
       expect(gradient(topFade).colors.first, canvas);
       expect(gradient(topFade).colors.last.a, 0);
-      // Solid behind the bars themselves: a row passing under never shows
-      // through the bar's text, only the inner edge band turns clear.
+      // Solid behind the top bar's text; only its lower edge band is clear.
+      // Behind the dock rows stay visible, fading out.
       expect(gradient(topFade).colors[1], canvas);
       expect(gradient(topFade).stops![1], greaterThan(0.5));
-      expect(gradient(dockFade).colors[1], canvas);
-      expect(gradient(dockFade).stops![1], lessThan(0.5));
+      expect(gradient(dockFade).colors, hasLength(2));
       // The fade is under the whole dock.
       final fade = t.getRect(find.byKey(dockFade));
       expect(fade.top, lessThanOrEqualTo(dockRect(t).top));

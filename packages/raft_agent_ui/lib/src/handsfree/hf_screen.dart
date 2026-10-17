@@ -298,9 +298,9 @@ class _HfScreenFrameState extends State<HfScreenFrame> {
           builder: (context, b, _) => AnimatedOpacity(
             opacity: (towardsTop ? b.top : b.bottom) ? 1 : 0,
             duration: const Duration(milliseconds: 160),
-            // Solid behind the bar itself, so a row passing under it never
-            // shows through its text; only the [fade] band at the inner edge
-            // turns transparent.
+            // The top bar is solid behind its text, so a row passing under it
+            // never shows through; only the [fade] band at its lower edge
+            // turns clear. Rows stay visible, fading out, behind the dock.
             child: LayoutBuilder(
               builder: (context, c) {
                 final h = c.maxHeight;
@@ -313,8 +313,8 @@ class _HfScreenFrameState extends State<HfScreenFrame> {
                       end: Alignment.bottomCenter,
                       colors: towardsTop
                           ? [canvas, canvas, clear]
-                          : [clear, canvas, canvas],
-                      stops: towardsTop ? [0, 1 - band, 1] : [0, band, 1],
+                          : [clear, canvas],
+                      stops: towardsTop ? [0, 1 - band, 1] : null,
                     ),
                   ),
                 );
