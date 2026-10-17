@@ -33,6 +33,7 @@ import 'agent_tv.dart';
 import 'agent_voice.dart';
 import 'agent_voice_settings.dart';
 import 'capabilities/agent_capability.dart' show AgentCapabilityRegistry;
+import 'capabilities/action_support.dart' show messageById;
 import 'capabilities/agent_snooze.dart' show AgentSnoozeStore;
 import 'capabilities/agent_action_board.dart';
 import 'capabilities/agent_capability_tools.dart';
@@ -1057,6 +1058,66 @@ class _AgentModePageState extends State<AgentModePage> {
     }
   }
 
+  /// The most of one message given to the model whole; a longer one is cut
+  /// and says so.
+  static const _bodyLimit = 4000;
+
+  /// The whole message behind the card [item] of the home. A card carries only
+  /// a preview of its message (cut by the server, code blocks left out), so
+  /// the message is read by its id: from a conversation already on screen, the
+  /// workspace's own copy, or the server. The answer is `message` (everything
+  /// it says), or a `messageNote` that says why the model has none: still
+  /// being read, or could not be read. Either way the model is told the
+  /// preview is not the text. Empty for a card with no message (a task).
+  Future<Map<String, Object?>> _bodyOf(AgentAttentionItem item) async {
+    final id = item.messageId ?? item.focusMessageId;
+    if (id == null || !item.isActivity) return const {};
+    RaftMessage? found;
+    for (final read in _convos.values) {
+      final row = read.rows.where((m) => m['id'] == id).firstOrNull;
+      if (row != null) found = RaftMessage(Map<String, dynamic>.from(row));
+    }
+    var waiting = false;
+    if (found == null) {
+      try {
+        found = await messageById(widget.controller, id).timeout(_loadWait);
+      } on TimeoutException {
+        waiting = true;
+      } catch (_) {
+        // Told below.
+      }
+    }
+    if (!mounted) return const {};
+    if (found == null) {
+      return {
+        'messageNote': waiting
+            ? '这条消息的全文还在读取，progress 里只是预览，不是全文：不要当成全文念，也不要说读不到，稍后再试一次。'
+            : '没能读到这条消息的全文（读取失败，或已删除、没有权限），progress 里只是预览，不是全文：如实告诉用户。',
+      };
+    }
+    return {'message': _messageFact(found)};
+  }
+
+  /// Everything [m] says, for the model; a very long one is cut and says so.
+  Map<String, Object?> _messageFact(RaftMessage m) {
+    final raw = m.content.trim();
+    final text = raw.isEmpty
+        ? '（没有文字）'
+        : raw.length <= _bodyLimit
+        ? raw
+        : '${raw.substring(0, _bodyLimit)}…';
+    // What the model was given may be quoted.
+    _grounded.facts.learnMessage(m.author, text, id: m.id);
+    return {
+      'id': m.id,
+      'from': m.author,
+      'time': _hhmm(m.json['createdAt']),
+      'text': text,
+      'complete': raw.length <= _bodyLimit,
+      if (raw.length > _bodyLimit) 'totalChars': raw.length,
+    };
+  }
+
   /// The conversations being read (by layer id): complete when the first page
   /// is in, or the read failed (see [_convoErrors]).
   final _loads = <String, Future<void>>{};
@@ -1679,8 +1740,17 @@ class _AgentModePageState extends State<AgentModePage> {
         final expanded = _expandNumber(
           ((args['index'] ?? args['number']) as num?)?.toInt(),
         );
+        final at = (expanded['item'] as Map?)?['index'] as int?;
+        final shown = at == null || at > _listed.length
+            ? null
+            : _listed[at - 1];
+        // The card has a preview; the model gets the message itself.
+        final body = shown == null
+            ? const <String, Object?>{}
+            : await _bodyOf(shown);
         return _withRefs({
           ...expanded,
+          ...body,
           if (expanded['error'] == null) 'snapshot': _snapshot().text(),
         });
       case 'open_item':
@@ -1692,8 +1762,39 @@ class _AgentModePageState extends State<AgentModePage> {
             return {'error': '屏幕上没有第 $n 条', ..._screen()};
           }
           _currentOf[_stack.first.id] = n;
-          _openItem(listed[n - 1]);
-          return _settledScreen();
+          final item = listed[n - 1];
+          _openItem(item);
+          // The conversation and the card's whole message are read together.
+          final body = _bodyOf(item);
+          return {...await _settledScreen(), ...await body};
+        }
+        final here = _stack.last;
+        if (here is _Channel) {
+          // A message of the conversation on screen: it becomes the current
+          // one, and the model gets all of it (the screen clips a long one).
+          // The conversation is not opened again.
+          final convo = _conversationOf(here);
+          final part = HfConversation.partsOf(
+            convo.messages,
+            highlightId: convo.highlightId,
+            hasMoreAbove: convo.hasMoreAbove,
+            now: data.now(),
+          ).whereType<HfMessagePart>().where((p) => p.n == n).firstOrNull;
+          if (part == null) return {'error': '屏幕上没有第 $n 条', ..._screen()};
+          _setCurrent(n);
+          final row = _convos[here.id]?.rows
+              .where((m) => m['id'] == part.message.id)
+              .firstOrNull;
+          return {
+            ...await _settledScreen(),
+            'message': row == null
+                ? {
+                    'id': part.message.id,
+                    'from': part.message.senderName,
+                    'text': part.message.text,
+                  }
+                : _messageFact(RaftMessage(Map<String, dynamic>.from(row))),
+          };
         }
         final items = (_frame(_stack.last)['items'] as List? ?? const [])
             .cast<Map<String, Object?>>()

@@ -35,7 +35,7 @@ const agentToolDeclarations = <Map<String, Object?>>[
   },
   {
     'name': 'open_item',
-    'description': '打开当前屏幕上的第 N 条（从 1 开始），比如“第二条”“这个”。在首页上就是打开那条动态所在的整段对话（“看完整对话”）：这个频道、私信或讨论里的全部消息，那一条高亮。会等消息读出来再返回（最多约 5 秒）；loading 为 true 是还没读到，不是空的，empty 为 true 才是真的没有消息。',
+    'description': '打开当前屏幕上的第 N 条（从 1 开始），比如“第二条”“这个”。在首页上就是打开那条动态所在的整段对话（“看完整对话”）：这个频道、私信或讨论里的全部消息，那一条高亮。会等消息读出来再返回（最多约 5 秒）；loading 为 true 是还没读到，不是空的，empty 为 true 才是真的没有消息。返回的 message 是那一条的全文（首页的卡片只有预览），要念内容就念它；messageNote 说没拿到全文时，如实告诉用户，不要把预览当全文。在已经打开的对话里，第 N 条就是第 N 条消息，打开不会重新加载。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -56,7 +56,7 @@ const agentToolDeclarations = <Map<String, Object?>>[
         '去首页第 N 条（卡片左边的数字，从 1 开始）的完整详情页：有那条消息的原话、谁、在哪、多久，它也成为当前这一条。详情（列表旁、手机下半屏和整页）上没有按钮：通过、看完整对话、回复、点赞、标记已处理、稍后、交给 Agent 都靠用户说出来，你调对应的工具出预览。'
         '宽屏（桌面、电视）左边是列表、右边就是这一条的详情，所以只是切到这一条，不会新开一层；窄屏（手机）才新开整页，返回后仍停在这一条。'
         '用户说“讲讲第一条”“展开第 2 条”“详细说说这个”时用；说“这个”没有序号就不传 index，会用当前这一条，没有就用最上面那条。'
-        '立即生效，并返回这一条的事实（headline、ask、wait、channel、progress 原话）和整屏现在的样子（snapshot）：之后只用一两句话讲清楚发生了什么、要他做什么，引用只能用 progress 里的原话。',
+        '立即生效，并返回这一条的事实（headline、ask、wait、channel、progress 原话）、整屏现在的样子（snapshot）和 message（那条消息的全文，progress 里可能只是预览）：之后只用一两句话讲清楚发生了什么、要他做什么，引用只能用 progress 或 message 里的原话；messageNote 说没拿到全文时如实告诉用户。',
     'parameters': {
       'type': 'object',
       'properties': {
@@ -199,7 +199,7 @@ String agentSystemPrompt({
     '卡片右上角有编号 ① ② ③ …，refs 写明编号对应的类型和 id。\n'
     '【屏幕】每轮开头的上下文和每个改变屏幕的工具结果里的【屏幕】，写着这一层每张卡片上的每个字（频道、负责人、等多久……）、⟨⟩ 里没印出来的 id、各条的“可做”、当前这一条的详情、哪些在眼前。'
     '他问屏幕上有的，直接从里面答，不要猜；loading 为 true（屏幕写“还在读取”）是没读到，不是空的；empty 才是没有；同名频道看 id。“…(N chars omitted)…”是省略了 N 个字。拿不准屏幕是否变了（他滚动、点了别的）时，调用 read_screen（只读）。\n'
-    '【心情】set_mood 只在真有感觉时用，每轮最多一次，不要念出来。\n'
+    '【心情】set_mood 只在真有感觉时用，每一轮最多一次，不要念出来。\n'
     '\n'
     '【自己组屏幕，仅限上面装不下的】要把几类内容拼在一屏时：先读（list_agents、get_task、search_tasks、query），再 begin_surface 给骨架（Column、Section、AgentStatusGroup、StatRow），'
     '然后一边说结论一边逐个 add_component（一条一次，从上往下，改内容用 update_component），最后 end_surface；内容很少时用 show_surface 一次给出。'
