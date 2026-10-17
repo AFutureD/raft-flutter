@@ -106,6 +106,10 @@ class GeminiAgentSession implements VoiceSession {
 
   static const _host = 'generativelanguage.googleapis.com';
 
+  /// The agent layer runs on Flash Lite (Kevin): one model call per tool
+  /// step, so the faster model keeps a two-step turn short.
+  static const lite = true;
+
   String? _model;
   String? _apiKey;
   bool _connected = false;
@@ -155,7 +159,7 @@ class GeminiAgentSession implements VoiceSession {
       null,
     );
     if (reply.status != 200) throw HttpException('models ${reply.status}');
-    _model = GeminiText.pickModelFrom(reply.body);
+    _model = GeminiText.pickModelFrom(reply.body, lite: lite);
     _closed = false;
     _connected = true;
   }
