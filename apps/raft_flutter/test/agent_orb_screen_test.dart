@@ -286,6 +286,32 @@ void main() {
     });
   });
 
+  group('the page note', () {
+    testWidgets('a typed turn tells the model the page and its top controls', (
+      t,
+    ) async {
+      final f = OrbFixture(t);
+      await f.setUp();
+      addTearDown(f.tearDown);
+      await f.pump();
+      await f.openLayer();
+      unawaited(f.controller.sendText('这个页面能做什么'));
+      for (var i = 0; i < 8; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      f.sessions.last.connectGate.complete();
+      for (var i = 0; i < 12; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      final note = f.sessions.single.contexts.single;
+      expect(note, contains('用户现在在'));
+      expect(note, contains('屏幕上能点的：'));
+      expect(note, contains('page'), reason: 'the page behind the layer');
+      expect(note, isNot(contains('向下划收起')), reason: 'not the layer');
+      expect(note, isNot(matches(RegExp(r'\ba\d+\b'))), reason: 'no ids');
+    });
+  });
+
   group('the tools', () {
     late Fixture fx;
     late OrbScreen screen;
