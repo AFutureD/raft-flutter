@@ -157,8 +157,9 @@ class AgentOrbPreference extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// How the voice of the agent layer speaks: the app reads the agent's words
-  /// aloud (the default), or Live relays them. A change builds the orb again.
+  /// How the voice of the agent layer speaks: Live tells the agent's answer in
+  /// its own natural voice (the default), or the app reads the agent's words
+  /// aloud. A change builds the orb again.
   static const voiceModeKey = 'raft.agentOrb.voiceMode';
   LayeredVoiceMode? _voiceModeOverride;
 
@@ -168,9 +169,9 @@ class AgentOrbPreference extends ChangeNotifier {
       return LayeredVoiceMode.parse(
             DevicePreferences.current?.getString(voiceModeKey),
           ) ??
-          LayeredVoiceMode.appSpeaks;
+          LayeredVoiceMode.liveRelays;
     } catch (_) {
-      return LayeredVoiceMode.appSpeaks;
+      return LayeredVoiceMode.liveRelays;
     }
   }
 
@@ -399,8 +400,8 @@ class AgentOrbLabsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: RaftSpace.x1),
                 RaftCssText(
-                  'App 朗读：Live 只听，App 把话交给 Agent，再用手机自带的声音一字不差地读出来。'
-                  'Live 转述：Live 听到后自己交给 Agent，再由 Live 说，用来对比。下一次对话生效。',
+                  'Live 转述：Live 听到后交给 Agent，再用自然的声音说出来；要你确认的那句话，App 会核对，漏了就自己再说一遍。'
+                  'App 朗读：Live 只听，App 把话交给 Agent，再用手机自带的声音读出来。下一次对话生效。',
                   style: RaftTypography.body(
                     t,
                     size: 13,

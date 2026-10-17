@@ -282,9 +282,9 @@ class OrbEvalRunner {
         voice: voice,
         reasoning: reasoning,
         mode: _voiceMode,
-        speech: _voiceMode == LayeredVoiceMode.appSpeaks
-            ? recorder.speech
-            : null,
+        // Also with Live relaying: the app says a confirmation line itself
+        // when Live's words for it miss something.
+        speech: recorder.speech,
         listen: _voiceMode != LayeredVoiceMode.appSpeaks,
         onAudio: onAudio,
         onInputText: onInputText,
@@ -435,10 +435,7 @@ class OrbEvalRunner {
     // The voice layer is held to one thing in every scenario.
     final checks = [
       ...s.checks,
-      if (harness == OrbEvalHarness.layered)
-        _voiceMode == LayeredVoiceMode.appSpeaks
-            ? OrbEvalCheck.appSpokeAgentWords()
-            : OrbEvalCheck.liveSpokeAgentWords(),
+      if (harness == OrbEvalHarness.layered) OrbEvalCheck.keyInfoSpoken(),
     ];
     for (final check in checks) {
       String? reason;
@@ -800,6 +797,7 @@ class _Recorder {
       made
         ..onAsk = _ask
         ..onSpoken = ((sentence) => _turn?.spoken.add(sentence))
+        ..onCorrection = ((say, missing) => _turn?.corrections.add(missing))
         ..addAskingListener(_askingChanged);
     }
     return made;

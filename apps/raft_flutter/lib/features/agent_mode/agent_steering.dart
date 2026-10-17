@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'gemini_live.dart' show AgentToolHandler;
+import 'key_info.dart';
 
 /// What a text agent is given for one model request: the instruction and the
 /// tools. They are decided again for every request, so the app can narrow
@@ -49,6 +50,7 @@ class AgentSteering {
     this.intercept,
     this.review,
     this.preload,
+    this.confirmation,
   });
 
   /// Asked before every model request of a turn (also the second and third
@@ -66,6 +68,13 @@ class AgentSteering {
   /// own), and returns the words to say, or null to leave the turn to the
   /// model.
   final Future<String?> Function(String said, AgentToolHandler run)? intercept;
+
+  /// Asked when the agent has given the words of a turn for the voice layer
+  /// to speak: when they ask the person to confirm an action card, what the
+  /// speech has to carry (the verb, to whom, the words, the numbers, that it
+  /// is a question); null for every other answer. The voice layer checks what
+  /// its voice said against it, for these answers only.
+  final KeyInfo? Function()? confirmation;
 
   /// Offered the words a turn ends with (and the tools it ran) before they
   /// are said. See [AgentReview]. [run] calls a tool the way the model's own

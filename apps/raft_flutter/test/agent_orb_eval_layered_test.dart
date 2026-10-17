@@ -337,7 +337,7 @@ void main() {
     final s = (json['scenarios'] as List).single as Map;
     expect(s['outcome'], 'failed');
     final failed = (s['failedChecks'] as List).map((c) => (c as Map)['check']);
-    expect(failed, anyElement(startsWith('Live 调用 ask_agent，并说出 say')));
+    expect(failed, anyElement(startsWith('说出了 Agent 那句话的关键信息')));
   });
 
   testWidgets('Live that puts the agent\'s words in its own fails the check', (
@@ -348,7 +348,7 @@ void main() {
     expect(s['outcome'], 'failed');
     final result = (s['results'] as List).single as Map;
     final reason = ((result['failures'] as List).single as Map)['reason'];
-    expect(reason, contains('说的和 say 不一样'));
+    expect(reason, contains('漏了：数字 10'));
     expect(reason, contains(agentSays));
   });
 
@@ -491,28 +491,6 @@ void main() {
       expect(md, contains('语音 appSpeaks'));
       expect(md, contains('App 朗读：$agentSays'));
     });
-
-    OrbEvalRun runOf(String say, List<String> spoken) {
-      final t = OrbEvalTurn('x');
-      t.asks.add(OrbEvalAsk(request: 'x', say: say, millis: 1));
-      t.spoken.addAll(spoken);
-      return OrbEvalRun(ids: {})..turns.add(t);
-    }
-
-    test('the check: exactly the say, sentence by sentence', () {
-      final check = OrbEvalCheck.appSpokeAgentWords();
-      expect(
-        check.test(runOf('把 #136 标成完成。下一件。', ['把 #136 标成完成。', '下一件。'])),
-        isNull,
-      );
-      // A word dropped, or one added, or nothing said.
-      expect(check.test(runOf('把 #136 标成完成。', ['把 #136。'])), contains('不一样'));
-      expect(check.test(runOf('好。', ['好。', '嗯。'])), contains('不一样'));
-      expect(check.test(runOf('好。', const [])), contains('不一样'));
-      // Not asked at all.
-      final none = OrbEvalRun(ids: {})..turns.add(OrbEvalTurn('x'));
-      expect(check.test(none), contains('没有交给 Agent'));
-    });
   });
 
   group('filler and fast path in the record', () {
@@ -546,123 +524,6 @@ void main() {
       final t = turn('好', [])..fastPath = 'next';
       expect(t.toJson()['fastPath'], 'next');
       expect(turn('好', []).toJson().containsKey('fastPath'), isFalse);
-    });
-  });
-
-  group('the check on its own', () {
-    OrbEvalRun runOf(List<OrbEvalTurn> turns) =>
-        OrbEvalRun(ids: {})..turns.addAll(turns);
-    OrbEvalTurn turn(String line, String text, List<OrbEvalAsk> asks) {
-      final t = OrbEvalTurn(line)..addText(text);
-      t.asks.addAll(asks);
-      return t;
-    }
-
-    final check = OrbEvalCheck.liveSpokeAgentWords();
-
-    test('every user turn needs an ask whose say is in what Live said', () {
-      expect(
-        check.test(
-          runOf([
-            turn('开始驾驶模式', '好，驾驶模式。', [
-              const OrbEvalAsk(request: '开始驾驶模式', say: '好，驾驶模式。', millis: 5),
-            ]),
-            turn('下一件', '稍等。Alice 问你周五。', [
-              const OrbEvalAsk(request: '下一件', say: 'Alice 问你周五', millis: 5),
-            ]),
-          ]),
-        ),
-        isNull,
-      );
-    });
-
-    test('an empty say needs no words; an event turn needs no ask', () {
-      expect(
-        check.test(
-          runOf([
-            turn('确认', '', [
-              const OrbEvalAsk(request: '确认', say: '', millis: 5),
-            ]),
-            turn('（事件）', '', []),
-          ]),
-        ),
-        isNull,
-      );
-    });
-
-    test('no ask, or other words, fail with the line', () {
-      expect(check.test(runOf([turn('下一件', 'Alice。', [])])), contains('下一件'));
-      expect(
-        check.test(
-          runOf([
-            turn('下一件', 'Alice 找你。', [
-              const OrbEvalAsk(request: '下一件', say: 'Alice 问你周五', millis: 5),
-            ]),
-          ]),
-        ),
-        contains('说的和 say 不一样'),
-      );
-    });
-
-    test('a transcript that drops or changes a character still matches', () {
-      const say = 'Cody 在问第 10 步能不能合入，等了 20 分钟。';
-      for (final heard in [
-        'Cody 在问第 10 步能不能合入，等 20 分钟。',
-        '好的。Cody 在问第10步能不能合入，等了20分钟。',
-        'Cody在问第 10 步能不能和入，等了 20 分钟',
-      ]) {
-        expect(
-          check.test(
-            runOf([
-              turn('去看看', heard, [
-                const OrbEvalAsk(request: '去看看', say: say, millis: 5),
-              ]),
-            ]),
-          ),
-          isNull,
-          reason: heard,
-        );
-      }
-    });
-
-    test('a lost number or name, or other words, fail with both strings', () {
-      const say = 'Cody 在问第 10 步能不能合入，等了 20 分钟。';
-      for (final heard in [
-        'Cody 在问第 10 步能不能合入，等了一会儿。',
-        '在问第 10 步能不能合入，等了 20 分钟。',
-        'Cody 找你，问能不能合入。',
-      ]) {
-        final reason = check.test(
-          runOf([
-            turn('去看看', heard, [
-              const OrbEvalAsk(request: '去看看', say: say, millis: 5),
-            ]),
-          ]),
-        );
-        expect(reason, contains('say「$say」'), reason: heard);
-        expect(reason, contains('Live「$heard」'), reason: heard);
-      }
-    });
-
-    test('similarity: best stretch, edits over the say\'s length', () {
-      expect(orbEvalSimilarity('abcdef', 'xxabcdefyy'), 1);
-      expect(orbEvalSimilarity('abcdef', 'xxabcdyy'), closeTo(4 / 6, .001));
-      expect(orbEvalSimilarity('', 'abc'), 1);
-      expect(orbEvalSimilarity('abc', ''), 0);
-    });
-
-    test('every say of a turn with several asks must be spoken', () {
-      expect(
-        check.test(
-          runOf([
-            turn('x', '甲。乙。', [
-              const OrbEvalAsk(request: 'x', say: '甲', millis: 1),
-              const OrbEvalAsk(request: 'x', say: '丙', millis: 1),
-            ]),
-          ]),
-        ),
-        contains('丙'),
-      );
     });
   });
 }

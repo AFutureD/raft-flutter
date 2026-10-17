@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/widgets.dart' show SizedBox;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/actions/orb_reply.dart';
@@ -98,6 +99,8 @@ void main() {
     },
   );
 
+  AgentSteering? lastSteering;
+
   void orbTest(
     String name,
     Future<void> Function(WidgetTester t) body, {
@@ -127,18 +130,21 @@ void main() {
               onClosed,
               playbackPending,
               steering,
-            }) => GeminiAgentSession(
-              apiKey: 'test-key',
-              systemPrompt: systemPrompt,
-              tools: tools,
-              steering: steering,
-              transport: gemini.call,
-              retryDelay: Duration.zero,
-              onToolCall: onToolCall,
-              onOutputText: onOutputText,
-              onTurnComplete: onTurnComplete,
-              onClosed: onClosed,
-            );
+            }) {
+              lastSteering = steering;
+              return GeminiAgentSession(
+                apiKey: 'test-key',
+                systemPrompt: systemPrompt,
+                tools: tools,
+                steering: steering,
+                transport: gemini.call,
+                retryDelay: Duration.zero,
+                onToolCall: onToolCall,
+                onOutputText: onOutputText,
+                onTurnComplete: onTurnComplete,
+                onClosed: onClosed,
+              );
+            };
       await f.setUp();
       await f.pump(tools: tools);
       await t.pump(const Duration(milliseconds: 300));
@@ -189,6 +195,19 @@ void main() {
     ];
     expect(tools(gemini.requests.single), contains('screen_action'));
     expect(tools(gemini.requests.single), isNot(contains('confirm')));
+  });
+
+  orbTest('the voice layer is told what the confirmation has to carry, for '
+      'the turn that put the card up only', (t) async {
+    gemini.replies.addAll([_call('reply_in_thread', reply), _say('好')]);
+    await say(t, '回他可以');
+    final info = lastSteering!.confirmation!();
+    expect(info, isNotNull);
+    expect(info!.missingIn('我替你回复 Cody，说可以，要发吗？'), isEmpty);
+    expect(info.missingIn('好的。'), isNotEmpty);
+    // The next turn is not about the card.
+    await say(t, '这是什么');
+    expect(lastSteering!.confirmation!(), isNull);
   });
 
   void toCody() {

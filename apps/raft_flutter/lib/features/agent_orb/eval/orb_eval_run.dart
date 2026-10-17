@@ -89,6 +89,10 @@ class OrbEvalTurn {
   /// The sentences the app's voice was asked to speak, in order (the layered
   /// harness, where the app speaks).
   final spoken = <String>[];
+
+  /// The times the app said a confirmation line itself because Live's words
+  /// for it missed something: what was missing each time.
+  final corrections = <List<String>>[];
   final _text = StringBuffer();
 
   /// From the person's text sent to the end of the model's turn.
@@ -138,6 +142,7 @@ class OrbEvalTurn {
     'tools': [for (final t in tools) t.toJson()],
     if (asks.isNotEmpty) 'asks': [for (final a in asks) a.toJson()],
     if (spoken.isNotEmpty) 'spoken': spoken,
+    if (corrections.isNotEmpty) 'corrections': corrections,
     'completed': completed,
     if (timedOut) 'timedOut': true,
     'writesAfter': writesAfter,

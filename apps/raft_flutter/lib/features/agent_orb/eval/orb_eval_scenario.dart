@@ -1,6 +1,14 @@
+import '../orb_key_info.dart';
 import 'orb_eval_data.dart';
 import 'orb_eval_run.dart';
 import 'orb_eval_world.dart' show OrbEvalWrite;
+
+/// The names of the fixture's people (but the person themself): another one
+/// in what was spoken is a person the answer did not have.
+final orbEvalPeople = [
+  for (final p in evalPeople)
+    if (p != evalMe && !p.system) p.name,
+];
 
 /// Where a scenario starts: the page the person is on when they speak.
 class OrbEvalStart {
@@ -179,65 +187,46 @@ class OrbEvalCheck {
     return null;
   });
 
-  /// The layered harness: the voice model hands every turn about Raft to the
-  /// agent (`ask_agent`) and says what comes back. What is heard is Live's
-  /// transcript of its own speech, which drops or changes a character now and
-  /// then, so the words are compared by similarity: the best-matching stretch
-  /// of what Live said is at least [similarity] like the `say` (spaces and
-  /// punctuation aside), and every number and every Latin name of the `say` is
-  /// in it. Applied to every scenario of that harness.
-  factory OrbEvalCheck.liveSpokeAgentWords({double similarity = .9}) =>
-      OrbEvalCheck('Live 调用 ask_agent，并说出 say', (run) {
-        final problems = <String>[];
-        for (final t in run.turns) {
-          if (t.line == '（事件）') continue;
-          if (t.asks.isEmpty) {
-            problems.add('「${t.line}」没有调用 ask_agent');
-            continue;
-          }
-          final spoken = orbEvalWords(t.text);
-          for (final a in t.asks) {
-            final say = orbEvalWords(a.say);
-            if (say.isEmpty) continue;
-            final like = orbEvalSimilarity(say, spoken);
-            final lost = orbEvalFacts(say).where((f) => !spoken.contains(f));
-            if (like < similarity || lost.isNotEmpty) {
-              problems.add(
-                '「${t.line}」Live 说的和 say 不一样'
-                '（相似度 ${(like * 100).round()}%'
-                '${lost.isEmpty ? '' : '，少了 ${lost.join('、')}'}）：'
-                'say「${a.say}」；Live「${t.text}」',
-              );
-            }
-          }
+  /// The layered harness: what was spoken carries the key information of what
+  /// the agent said, in whatever words: every number, every Latin name and,
+  /// for a confirmation card, what it does, to whom, the exact words and that
+  /// it asks for a yes (taken from the card's preview, not from the text). A
+  /// paraphrase, another order, filler words are fine; a missing fact or a
+  /// number or a person the answer does not have is not. What was spoken is
+  /// the voice's transcript and the sentences the app's own voice was asked
+  /// for. Applied to every scenario of that harness.
+  factory OrbEvalCheck.keyInfoSpoken() => OrbEvalCheck(
+    '说出了 Agent 那句话的关键信息（数字、人名、确认卡的动作、对象、内容、要不要确认），措辞不限',
+    (run) {
+      final problems = <String>[];
+      for (final t in run.turns) {
+        if (t.line == '（事件）') continue;
+        if (t.asks.isEmpty) {
+          problems.add('「${t.line}」没有交给 Agent');
+          continue;
         }
-        return problems.isEmpty ? null : problems.join('；');
-      });
-
-  /// The layered harness with the app speaking: the person's words went to the
-  /// agent, and the voice was asked to speak exactly what the agent said
-  /// (sentence by sentence, nothing added, dropped or changed). Applied to
-  /// every scenario of that harness.
-  factory OrbEvalCheck.appSpokeAgentWords() =>
-      OrbEvalCheck('App 的声音读出 Agent 的 say，一字不差', (run) {
-        final problems = <String>[];
-        for (final t in run.turns) {
-          if (t.line == '（事件）') continue;
-          if (t.asks.isEmpty) {
-            problems.add('「${t.line}」没有交给 Agent');
-            continue;
-          }
-          final say = orbEvalCompact(t.asks.map((a) => a.say).join());
-          final spoken = orbEvalCompact(t.spoken.join());
-          if (say != spoken) {
-            problems.add(
-              '「${t.line}」读出的和 say 不一样：'
-              'say「${t.asks.map((a) => a.say).join()}」；读出「${t.spoken.join()}」',
-            );
-          }
+        final say = t.asks.map((a) => a.say).join(' ');
+        if (say.trim().isEmpty) continue;
+        var info = orbSayKeyInfo(say);
+        for (final c in t.tools) {
+          final card = orbCardKeyInfoOfResult(c.name, c.args, c.result);
+          if (card != null) info += card;
         }
-        return problems.isEmpty ? null : problems.join('；');
-      });
+        final spoken = '${t.text} ${t.spoken.join(' ')}';
+        final missing = info.missingIn(spoken);
+        final wrong = info.contradictionsIn(spoken, knownNames: orbEvalPeople);
+        if (missing.isEmpty && wrong.isEmpty) continue;
+        problems.add(
+          '「${t.line}」'
+          '${missing.isEmpty ? '' : '漏了：${missing.join('、')}'}'
+          '${missing.isNotEmpty && wrong.isNotEmpty ? '；' : ''}'
+          '${wrong.isEmpty ? '' : '不对：${wrong.join('、')}'}'
+          '（say「$say」；说出「${spoken.trim()}」）',
+        );
+      }
+      return problems.isEmpty ? null : problems.join('；');
+    },
+  );
 
   /// The app sent no write (reads the app posts by itself do not count).
   factory OrbEvalCheck.noWrites() => OrbEvalCheck('不发出任何写操作', (run) {

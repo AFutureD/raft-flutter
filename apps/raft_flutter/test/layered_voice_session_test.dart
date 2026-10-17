@@ -211,7 +211,8 @@ void main() {
     expect(live.parts.tools, [askAgentDeclaration]);
     expect(live.parts.systemPrompt, layeredVoicePrompt);
     expect(layeredVoicePrompt, contains('ask_agent'));
-    expect(layeredVoicePrompt, contains('一字不差'));
+    expect(layeredVoicePrompt, contains('如实、自然'));
+    expect(layeredVoicePrompt, isNot(contains('一字不差')));
     // The voice model says nothing before or while the agent works.
     expect(layeredVoicePrompt, contains('不要先说话'));
     expect(layeredVoicePrompt, isNot(contains('可以先说一句')));

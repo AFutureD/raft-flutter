@@ -11,6 +11,7 @@ import '../agent_mode/agent_live_guard.dart' show agentLiveIdleLimit;
 import '../agent_mode/agent_memory.dart';
 import '../agent_mode/agent_steering.dart';
 import '../agent_mode/gemini_live.dart' show AgentToolHandler;
+import '../agent_mode/key_info.dart' show KeyInfo;
 import '../agent_mode/layered_voice.dart' show createLayeredSession;
 import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
@@ -39,6 +40,7 @@ import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
 import 'orb_fast_path.dart';
 import 'orb_key_facts.dart';
+import 'orb_key_info.dart' show orbCardKeyInfo;
 import 'orb_open.dart';
 import 'orb_scope.dart';
 import 'orb_layer.dart';
@@ -177,6 +179,7 @@ class OrbController extends ChangeNotifier {
               intercept: _intercept,
               review: _review,
               preload: _preload,
+              confirmation: _confirmation,
             )
           : null,
       beforeConnect: _loadBrain,
@@ -631,6 +634,7 @@ class OrbController extends ChangeNotifier {
       operating.removeListener(watch);
     }
     if (agentLayer) result = _afterTool(name, args, result);
+    if (result['status'] == 'needs_confirmation') _cardAsked = true;
     // What was opened, in the tool's own words, for the pill.
     final opened = result['title'];
     if (opened is String &&
@@ -1356,6 +1360,15 @@ class OrbController extends ChangeNotifier {
 
   // ---- model --------------------------------------------------------------
 
+  /// A turn put a confirm card up: the words that ask about it are the ones
+  /// the voice layer checks its voice against.
+  bool _cardAsked = false;
+
+  KeyInfo? _confirmation() {
+    final card = actions.pending;
+    return _cardAsked && card != null ? orbCardKeyInfo(card) : null;
+  }
+
   String _systemPrompt() => orbSystemPrompt(
     style: AgentVoiceSettings.instance.styleNote,
     memory: _brainContext,
@@ -1367,6 +1380,7 @@ class OrbController extends ChangeNotifier {
   /// answered, both said by the app. Anything else is left to the model (null).
   Future<String?> _intercept(String said, AgentToolHandler run) async {
     _turnSaid = said;
+    _cardAsked = false;
     fastPath = null;
     _deferNote = null;
     _replyAsked = false;

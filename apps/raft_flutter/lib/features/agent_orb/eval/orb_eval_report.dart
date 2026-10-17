@@ -136,8 +136,11 @@ String orbEvalMarkdown(OrbEvalReport report) {
           b.writeln('  - 快速通道（没有调用模型）：${t.fastPath}');
         }
         if (t.liveFiller) b.writeln('  - Live 说了垫话（和 say 不像）');
+        for (final c in t.corrections) {
+          b.writeln('  - Live 的话漏了：${c.join('、')}；App 自己把确认的话说了一遍');
+        }
         b.writeln(
-          '  - ${t.asks.isEmpty ? 'Agent' : (t.spoken.isEmpty ? 'Live 说' : 'App 朗读')}：'
+          '  - ${t.asks.isEmpty ? 'Agent' : (t.spoken.isEmpty || t.corrections.isNotEmpty ? 'Live 说' : 'App 朗读')}：'
           '${t.text.isEmpty ? '（没有说话）' : t.text}'
           '${t.millis > 0 ? '（${(t.millis / 1000).toStringAsFixed(1)}s）' : ''}',
         );

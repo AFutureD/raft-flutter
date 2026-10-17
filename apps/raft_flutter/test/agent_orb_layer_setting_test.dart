@@ -188,31 +188,31 @@ void main() {
   });
 
   group('how the voice of the agent layer speaks', () {
-    test('the app reads by default; a choice is kept and read back', () async {
+    test('Live relays by default; a choice is kept and read back', () async {
       SharedPreferences.setMockInitialValues({});
       AgentOrbPreference.instance.resetForTest();
       expect(
         AgentOrbPreference.instance.layeredVoiceMode,
-        LayeredVoiceMode.appSpeaks,
+        LayeredVoiceMode.liveRelays,
       );
       AgentOrbPreference.instance.setLayeredVoiceMode(
-        LayeredVoiceMode.liveRelays,
+        LayeredVoiceMode.appSpeaks,
       );
       await pumpEventQueue();
       final stored = await SharedPreferences.getInstance();
-      expect(stored.getString(AgentOrbPreference.voiceModeKey), 'liveRelays');
+      expect(stored.getString(AgentOrbPreference.voiceModeKey), 'appSpeaks');
 
       AgentOrbPreference.instance.resetForTest();
       DevicePreferences.adopt(stored);
       addTearDown(DevicePreferences.reset);
       expect(
         AgentOrbPreference.instance.layeredVoiceMode,
-        LayeredVoiceMode.liveRelays,
+        LayeredVoiceMode.appSpeaks,
       );
       stored.setString(AgentOrbPreference.voiceModeKey, 'nonsense');
       expect(
         AgentOrbPreference.instance.layeredVoiceMode,
-        LayeredVoiceMode.appSpeaks,
+        LayeredVoiceMode.liveRelays,
       );
       AgentOrbPreference.instance.resetForTest();
     });
@@ -228,16 +228,14 @@ void main() {
       expect(find.text('App 朗读'), findsOneWidget);
       expect(find.text('Live 转述'), findsOneWidget);
 
-      final relay = find.byKey(
-        const ValueKey('agent-orb-voice-mode-liveRelays'),
-      );
-      await t.ensureVisible(relay);
+      final app = find.byKey(const ValueKey('agent-orb-voice-mode-appSpeaks'));
+      await t.ensureVisible(app);
       await t.pump();
-      await t.tap(relay);
+      await t.tap(app);
       await t.pump();
       expect(
         AgentOrbPreference.instance.layeredVoiceMode,
-        LayeredVoiceMode.liveRelays,
+        LayeredVoiceMode.appSpeaks,
       );
       final layer = find.byKey(const ValueKey('agent-orb-layer-switch'));
       await t.ensureVisible(layer);
@@ -252,7 +250,7 @@ void main() {
       await f.pump();
       expect(f.builds, 1);
       AgentOrbPreference.instance.setLayeredVoiceMode(
-        LayeredVoiceMode.liveRelays,
+        LayeredVoiceMode.appSpeaks,
       );
       await t.pump();
       await t.pump();

@@ -11,6 +11,7 @@ import 'app_speech.dart';
 import 'gemini_agent.dart';
 import 'genkit_agent.dart';
 import 'gemini_live.dart';
+import 'key_info.dart';
 import 'layered_listen.dart';
 import 'layered_voice_mode.dart';
 import 'voice_provider.dart';
@@ -20,7 +21,7 @@ const askAgentDeclaration = <String, Object?>{
   'name': 'ask_agent',
   'description':
       '把用户的话交给 Agent，由它去 Raft 里读、去页面、回复、改任务、驾驶模式。request 填用户的原话。'
-      '返回 say：就是要对用户说的话，一字不差地说出来。say 是空的就不说话。',
+      '返回 say：就是要对用户说的话，把它的意思如实、自然地说给用户。say 是空的就不说话。',
   'parameters': {
     'type': 'object',
     'properties': {
@@ -34,7 +35,7 @@ const askAgentDeclaration = <String, Object?>{
 /// person's ear.
 const _appNote = '（App';
 
-/// What the voice model is asked to say word for word.
+/// What the voice model is asked to tell the person: the app's own words.
 String layeredVerbatim(String text) => '（App 请你说）$text';
 
 /// The instruction of the voice layer: it listens and speaks, and gives
@@ -45,12 +46,13 @@ const layeredVoicePrompt =
     '【交给 Agent】用户说的任何和 Raft、App、消息、任务、频道、简报、驾驶模式有关的话——读、查、去哪里、回复、改、"下一件"，'
     '包括只说"确认""好""取消""算了"——都调用 ask_agent，request 填他的原话，不要改写，不要自己回答，不要自己判断做没做。\n'
     '\n'
-    '【说出来】ask_agent 返回 say 之后，一字不差地把 say 说出来：不加、不删、不解释、不换说法。say 是空的就不说话。\n'
+    '【说出来】ask_agent 返回 say 之后，把 say 的意思如实、自然地说给用户，像朋友说话那样：'
+    '人名、数字、要做的事、要他确认的问题都要说到，不要漏，也不要加 say 里没有的信息；措辞可以口语一点，不用逐字照念。say 是空的就不说话。\n'
     '\n'
     '【不要先说话】调用 ask_agent 之前、等它的时候，都不要说任何话，一个字也不要说：马上调用。等的时候 App 自己会提示用户。'
     '你只说 ask_agent 返回的 say。\n'
     '\n'
-    '【App 请你说】收到以“（App 请你说）”开头的话，一字不差地说出后面的话，什么都不要加，不要调用工具。\n'
+    '【App 请你说】收到以“（App 请你说）”开头的话，把后面的意思如实、自然地说给用户，不要加别的信息，不要调用工具。\n'
     '\n'
     '【闲聊】打招呼、问你是谁、谢谢这类和 Raft 无关的话，自己用一两句简短回答，不调用工具。\n'
     '\n'
@@ -98,6 +100,8 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.mode = LayeredVoiceMode.liveRelays,
     this.speech,
     this.listen = true,
+    this.confirmGrace = const Duration(milliseconds: 700),
+    this.confirmWait = const Duration(seconds: 3),
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -149,9 +153,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
                     reasoning: reasoning,
                     onAudio: onAudio,
                     onInputText: onInputText,
-                    onOutputText: onOutputText,
-                    onTurnComplete: onTurnComplete,
-                    onInterrupted: onInterrupted,
+                    onOutputText: _relayOutput,
+                    onTurnComplete: _relayTurnComplete,
+                    onInterrupted: _relayInterrupted,
                     onClosed: onClosed,
                   ),
           );
@@ -243,6 +247,11 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   /// The app's voice ([LayeredVoiceMode.appSpeaks]).
   final SpeechOut? speech;
+
+  /// With Live relaying: how long after its turn is over the words it said
+  /// are checked against a confirmation card (late transcripts), and how long
+  /// it is waited for when it has said nothing yet.
+  final Duration confirmGrace, confirmWait;
 
   /// Whether Live is connected and listened to. An evaluation types the
   /// person's words instead of speaking them: the same path, without a
@@ -401,7 +410,88 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (name != 'ask_agent') return {'error': '没有这个工具：$name'};
     final request = '${args['request'] ?? ''}'.trim();
     if (request.isEmpty) return {'say': ''};
-    return {'say': await _ask(request) ?? ''};
+    final say = await _ask(request) ?? '';
+    // The answer that asks the person to confirm a card is the one thing
+    // whose speech is checked.
+    final info = say.isEmpty ? null : steering.confirmation?.call();
+    _watch = info == null ? null : _Watch(say, info);
+    return {'say': say};
+  }
+
+  // ---- Live relays: the safety net for a confirmation ----------------------
+
+  _Watch? _watch;
+  Timer? _watchTimer;
+
+  /// Told when the voice's words for a card missed something and the app
+  /// said the line itself: the line and what was missing.
+  void Function(String say, List<String> missing)? onCorrection;
+
+  void _relayOutput(String text) {
+    _watch?.heard.write(text);
+    onOutputText?.call(text);
+  }
+
+  void _relayInterrupted() {
+    // The person spoke over it: nothing is corrected.
+    final waiting = _watch?.waiting ?? false;
+    _watch = null;
+    _watchTimer?.cancel();
+    onInterrupted?.call();
+    if (waiting) onTurnComplete?.call();
+  }
+
+  void _relayTurnComplete() {
+    final w = _watch;
+    if (w == null) {
+      onTurnComplete?.call();
+      return;
+    }
+    // Its turn is over: its last words may still be on the way.
+    w.waiting = true;
+    _scheduleCheck(w, confirmGrace);
+  }
+
+  void _scheduleCheck(_Watch w, Duration after) {
+    _watchTimer?.cancel();
+    _watchTimer = Timer(after, () => unawaited(_checkWatch(w)));
+  }
+
+  Future<void> _checkWatch(_Watch w) async {
+    if (_closed || !identical(_watch, w)) return;
+    // Said nothing yet: the turn that ended may have been an earlier one
+    // (a filler); the real one gets its time.
+    if (w.heard.isEmpty && !w.extended) {
+      w.extended = true;
+      _scheduleCheck(w, confirmWait);
+      return;
+    }
+    _watch = null;
+    final missing = w.info.missingIn('${w.heard}');
+    if (missing.isNotEmpty) {
+      onCorrection?.call(w.say, missing);
+      await _correct(w.say);
+    }
+    if (!_closed) onTurnComplete?.call();
+  }
+
+  /// The app says the confirmation line itself: deterministic. Without a
+  /// voice of its own, Live is asked to say it once more.
+  Future<void> _correct(String say) async {
+    final voice = speech;
+    if (voice == null) {
+      _live!.sendText(layeredVerbatim(say));
+      return;
+    }
+    // What of Live's voice is still playing is cut.
+    onInterrupted?.call();
+    final generation = _speechGeneration;
+    for (final sentence in orbSentences(say)) {
+      if (_closed || generation != _speechGeneration) return;
+      onSpoken?.call(sentence);
+      await voice.speak(sentence, onStart: () => _speakingIs(true));
+    }
+    _speakingIs(false);
   }
 
   // ---- the app speaks -----------------------------------------------------
@@ -504,7 +594,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   void stopSpeech() {
     _speechGeneration++;
     _speakingIs(false);
-    if (_appSpeaks) unawaited(speech!.stop());
+    unawaited(speech?.stop());
   }
 
   /// The person speaks over the app: the voice stops, and an ask the agent
@@ -584,11 +674,22 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     _closed = true;
     _forwarder.dispose();
     _echoTail?.cancel();
+    _watchTimer?.cancel();
     stopSpeech();
     _askingIs(0);
     _agentClosed('closed');
     await Future.wait([if (listen) _live!.close(), _agent.close()]);
   }
+}
+
+/// A confirmation line given to Live to say, and what it said of it.
+class _Watch {
+  _Watch(this.say, this.info);
+  final String say;
+  final KeyInfo info;
+  final heard = StringBuffer();
+  bool waiting = false;
+  bool extended = false;
 }
 
 /// An ask the person spoke over.
@@ -679,10 +780,13 @@ VoiceSession createLayeredSession({
   Future<Duration> Function()? playbackPending,
   AgentSteering? steering,
 }) => LayeredVoiceSession(
-  // The app speaks where the platform has a voice for it; else Live relays.
+  // Live relays unless the person chose the app's own voice (and the platform
+  // has one).
   mode: appSpeechSupported
       ? AgentOrbPreference.instance.layeredVoiceMode
       : LayeredVoiceMode.liveRelays,
+  // Also while Live relays: the line that asks to confirm a card is said by
+  // the app when Live's words for it miss something.
   speech: appSpeechSupported ? FlutterTtsSpeech() : null,
   apiKey: apiKey,
   systemPrompt: systemPrompt,
