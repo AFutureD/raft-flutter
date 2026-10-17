@@ -254,6 +254,16 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
     content: [gk.TextPart(text: text)],
   );
 
+  /// One tool, with the timeout and the size guard of a Live session's tools.
+  Future<Map<String, Object?>> _callOne(
+    String name,
+    Map<String, Object?> args,
+  ) async {
+    final r = await runAgentTool(onToolCall, name, args);
+    _runs.add(AgentToolRun(name, args, r));
+    return r;
+  }
+
   /// One turn: the model and its tools until it answers with words only, or
   /// a tool brings the app's own words ([agentAppSays]). Those words, or null
   /// when the session was closed meanwhile.
@@ -264,13 +274,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
     _history.add(_user([...context, text]));
     final intercept = steering?.intercept;
     if (intercept != null) {
-      final answer = await intercept(
-        text,
-        (name, args) => runAgentTool(onToolCall, name, args).then((r) {
-          _runs.add(AgentToolRun(name, args, r));
-          return r;
-        }),
-      );
+      final answer = await intercept(text, _callOne);
       if (_closed) return null;
       if (answer != null) {
         _history.add(_model(answer));
@@ -297,7 +301,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
       if (calls.isEmpty) {
         final review = await steering?.review?.call(said.join('\n'), [
           ..._runs,
-        ]);
+        ], _callOne);
         if (_closed) return null;
         final retry = review?.retry;
         if (retry != null && !retried && step < maxSteps) {

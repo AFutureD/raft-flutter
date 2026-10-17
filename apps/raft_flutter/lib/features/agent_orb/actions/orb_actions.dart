@@ -427,7 +427,9 @@ class OrbActions extends ChangeNotifier {
       return title == null ? '这件事' : '“${title.split('：').first}”';
     }
     final said = _text(args['text']);
-    if (said != null && orbRiskyWords.hasMatch(said)) {
+    // A nudge asks how a task is going: its words carry the task's title
+    // ("整理发布说明"), which is not an order to release anything.
+    if (id != 'tasks.nudge' && said != null && orbRiskyWords.hasMatch(said)) {
       return '批准、合并、删除、发布这类事';
     }
     return null;

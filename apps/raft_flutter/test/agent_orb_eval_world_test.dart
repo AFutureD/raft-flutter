@@ -8,6 +8,7 @@ import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenario.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenarios.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_world.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_nav_tools.dart';
+import 'package:raft_flutter/features/agent_orb/orb_open.dart';
 import 'package:raft_flutter/features/agent_orb/orb_tool.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -172,6 +173,33 @@ void main() {
       ], reason: id);
     }
   });
+
+  test(
+    '"打开 X" is a navigate when X is one place the resolver is sure of',
+    () async {
+      final world = await OrbEvalWorld.create(scenario('C1').data());
+      addTearDown(world.dispose);
+      final directory = orbDirectoryOf(world.workspace);
+      Map<String, Object?>? of(String said) => orbOpenArgs(said, directory);
+
+      expect(of('打开 task 136'), {'task_number': 136});
+      expect(of('打开任务 136'), {'task_number': 136});
+      expect(of('帮我打开 #136'), {'task_number': 136});
+      expect(of('进入动态'), {'page': 'activity'});
+      expect(of('去 raft-flutter'), {'channel_id': evalId('raft-flutter')});
+      expect(of('打开 Cody 私信'), {'dm_id': evalId('dm:cody')});
+
+      // Not an order to open one place: more is asked, or nothing is named.
+      expect(of('打开动态，什么需要我处理'), isNull);
+      expect(of('去 raft-flutter 看看谁找我'), isNull);
+      expect(of('去 Roughslutter'), isNull);
+      expect(of('任务 136 怎么样了'), isNull);
+      expect(of('打开动态里的第一条消息'), isNull);
+      expect(of('确认'), isNull);
+      expect(of('看看 Cody 私信'), isNull);
+      expect(of(''), isNull);
+    },
+  );
 
   testWidgets('the real navigation tool moves the real phone shell over the '
       'fixture', (t) async {

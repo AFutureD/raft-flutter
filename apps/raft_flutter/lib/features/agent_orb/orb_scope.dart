@@ -80,7 +80,12 @@ const orbToolModes = <String, Set<OrbMode>>{
 };
 
 /// The tools that ask for a change, by name.
-final Set<String> _changing = {...orbActionCapabilities.keys, 'act', 'reply'};
+/// Every tool that asks for a change.
+final Set<String> orbChangeTools = {
+  ...orbActionCapabilities.keys,
+  'act',
+  'reply',
+};
 
 /// What `reply` replaces for the text agent: it never gets these two (the
 /// realtime model does).
@@ -99,7 +104,7 @@ bool orbToolIn(String name, OrbMode mode, {required bool driving}) {
   if (orbAgentReplaced.contains(name)) return false;
   final modes = orbToolModes[name];
   if (modes != null && !modes.contains(mode)) return false;
-  if (driving && _changing.contains(name)) {
+  if (driving && orbChangeTools.contains(name)) {
     return orbDrivingChangeTools.contains(name);
   }
   // While driving, nothing that moves the app by touch or hides the layer.

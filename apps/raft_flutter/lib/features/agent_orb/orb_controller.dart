@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart'
@@ -37,6 +38,7 @@ import 'orb_driving.dart' show orbSayHint;
 import 'orb_operating.dart';
 import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
+import 'orb_open.dart';
 import 'orb_scope.dart';
 import 'orb_layer.dart';
 import 'orb_state.dart';
@@ -564,6 +566,17 @@ class OrbController extends ChangeNotifier {
       final held = _holdToTheWords(args);
       if (held.error != null) return held.error!;
       args = held.args;
+    } else if (agentLayer && orbChangeTools.contains(name)) {
+      // The person said what to reply: nothing else is done with it.
+      final words = _sureWords();
+      if (words != null) {
+        _blockedWrite = true;
+        return {
+          'error':
+              '用户要的是回复：他的原话是“${_turnSaid.trim()}”，回复内容是“${words.text}”。'
+              '用 reply(text) 回复，不要调用 $name。',
+        };
+      }
     }
     final context = navigatorContext();
     if (context == null || !context.mounted) {
@@ -1268,6 +1281,7 @@ class OrbController extends ChangeNotifier {
     _turnSaid = said;
     _deferNote = null;
     _replyAsked = false;
+    _blockedWrite = false;
     final card = actions.pending;
     if (card != null) {
       if (!orbPlainYes(said) || card.sensitive) return null;
@@ -1341,6 +1355,16 @@ class OrbController extends ChangeNotifier {
     return (args: {...args, 'text': want}, error: null);
   }
 
+  /// The model called another write tool in a turn where the person said what
+  /// to reply: it was not run.
+  bool _blockedWrite = false;
+
+  /// What the person said the reply should say, when the reading is sure.
+  OrbReplyWords? _sureWords() {
+    final words = orbReplyWords(_turnSaid, known: _knownName);
+    return words != null && words.sure ? words : null;
+  }
+
   /// Whether [name] is a person, Agent or private conversation the App has.
   bool _knownName(String name) {
     final want = name.trim().toLowerCase();
@@ -1352,6 +1376,85 @@ class OrbController extends ChangeNotifier {
 
   /// The person's words of the turn under way (what the review asks about).
   String _turnSaid = '';
+
+  bool _cardMade(List<AgentToolRun> runs) =>
+      runs.any((r) => r.result['status'] == 'needs_confirmation');
+
+  /// The person said what to reply, the model reached for another write and
+  /// was not let: the app asks for the reply itself (to whom is its to find).
+  Future<AgentReview?> _replyInstead(
+    List<AgentToolRun> runs,
+    AgentToolHandler run,
+  ) async {
+    final words = _sureWords();
+    if (!_blockedWrite ||
+        words == null ||
+        actions.pending != null ||
+        _cardMade(runs)) {
+      return null;
+    }
+    final line = (await run('reply', {'text': words.text}))[agentAppSays];
+    return line is String ? AgentReview(text: line) : null;
+  }
+
+  /// "打开 task 136" is navigate. The model read instead of opening (or did
+  /// nothing): the app opens the place, and the model answers from what has
+  /// arrived.
+  Future<AgentReview?> _openFirst(
+    List<AgentToolRun> runs,
+    AgentToolHandler run,
+  ) async {
+    if (actions.pending != null) return null;
+    final args = orbOpenArgs(_turnSaid, orbDirectoryOf(workspace));
+    if (args == null) return null;
+    const moves = {'navigate', 'open_item', 'screen_action'};
+    if (runs.any((r) => moves.contains(r.name))) return null;
+    final result = await run('navigate', args);
+    if (result['error'] != null || result['candidates'] != null) return null;
+    var seen = jsonEncode(result);
+    if (seen.length > 4000) seen = '${seen.substring(0, 4000)}…';
+    return AgentReview(
+      retry:
+          '（App 提示，不是用户的话：用户说的是“${_turnSaid.trim()}”，是要打开，不是只读。'
+          'App 已经替你调用 navigate 打开了：$seen。据此回答，不要再调用 navigate。）',
+    );
+  }
+
+  static final _goThrough = RegExp(r'处理掉|全部处理|都处理|一个一个|逐个|挨个');
+
+  /// "全部处理掉" while driving: the model read the tasks and proposed no
+  /// card for the one the queue is on; the app proposes the plain action, a
+  /// nudge to whoever has it.
+  Future<AgentReview?> _nextTaskCard(
+    List<AgentToolRun> runs,
+    AgentToolHandler run,
+  ) async {
+    if (!_driving ||
+        actions.pending != null ||
+        _cardMade(runs) ||
+        !_goThrough.hasMatch(_turnSaid)) {
+      return null;
+    }
+    Map? current;
+    for (final r in runs.reversed) {
+      if (r.name != 'list_tasks') continue;
+      final queue = r.result['queue'];
+      current = queue is Map && queue['current'] is Map
+          ? queue['current'] as Map
+          : null;
+      break;
+    }
+    if (current == null || current['number'] == null) return null;
+    final owner = current['assignee'];
+    if (owner is! String || owner.isEmpty) return null;
+    final channel = current['channel'];
+    final result = await run('nudge_task', {
+      'task': current['number'],
+      if (channel is String && channel.isNotEmpty) 'channel': channel,
+    });
+    final line = result[agentAppSays];
+    return line is String ? AgentReview(text: line) : null;
+  }
 
   /// The briefing scope of the page the person is on.
   OrbBriefScope? _screenScope() {
@@ -1365,7 +1468,16 @@ class OrbController extends ChangeNotifier {
     return null;
   }
 
-  Future<AgentReview?> _review(String reply, List<AgentToolRun> runs) async {
+  Future<AgentReview?> _review(
+    String reply,
+    List<AgentToolRun> runs,
+    AgentToolHandler run,
+  ) async {
+    final proposed =
+        await _replyInstead(runs, run) ??
+        await _openFirst(runs, run) ??
+        await _nextTaskCard(runs, run);
+    if (proposed != null) return proposed;
     // Whichever tool the model read the page with, what the person is told
     // about "nothing for you" and about tasks follows the briefing's data.
     final seen = await orbWithBriefing(

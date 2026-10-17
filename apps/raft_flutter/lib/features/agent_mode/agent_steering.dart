@@ -57,8 +57,13 @@ class AgentSteering {
   final Future<String?> Function(String said, AgentToolHandler run)? intercept;
 
   /// Offered the words a turn ends with (and the tools it ran) before they
-  /// are said. See [AgentReview].
-  final FutureOr<AgentReview?> Function(String reply, List<AgentToolRun> runs)?
+  /// are said. See [AgentReview]. [run] calls a tool the way the model's own
+  /// calls go (so the app's calls are seen like them).
+  final FutureOr<AgentReview?> Function(
+    String reply,
+    List<AgentToolRun> runs,
+    AgentToolHandler run,
+  )?
   review;
 }
 

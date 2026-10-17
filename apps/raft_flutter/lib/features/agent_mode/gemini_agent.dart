@@ -321,7 +321,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
       if (calls.isEmpty) {
         final review = await steering?.review?.call(said.join('\n'), [
           ..._runs,
-        ]);
+        ], _callOne);
         if (_closed) return null;
         final retry = review?.retry;
         if (retry != null && !retried && step < maxSteps) {

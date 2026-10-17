@@ -79,6 +79,20 @@ void main() {
   late ActionOrbFixture f;
   late FakeGemini gemini;
 
+  final navigated = <Map<String, Object?>>[];
+
+  OrbTool navigateStub() => OrbTool(
+    declaration: const {'name': 'navigate'},
+    handler: (args, ctx) async {
+      navigated.add(args);
+      return {
+        'route': '/s/s1/task/136',
+        'title': '#136 重构第 10 步',
+        'page': 'task',
+      };
+    },
+  );
+
   void orbTest(
     String name,
     Future<void> Function(WidgetTester t) body, {
@@ -86,6 +100,7 @@ void main() {
   }) {
     testWidgets(name, (t) async {
       gemini = FakeGemini();
+      navigated.clear();
       f = ActionOrbFixture(t)
         ..agentLayer = true
         ..sessionFactory =
@@ -259,6 +274,100 @@ void main() {
     expect(agentLines().single, isNot(contains('可以')));
   });
 
+  orbTest('the person said what to reply and the model reached for snooze: '
+      'not run; the app asks for the reply itself', (t) async {
+    toCody();
+    gemini.replies.addAll([
+      _call('snooze_item', {'item': 'msg:m-1', 'when': 'later'}),
+      _say('好的。'),
+    ]);
+    await say(t, '回他“晚上看”');
+
+    final blocked =
+        (((gemini.requests[1]['contents'] as List).last as Map)['parts']
+                    as List)
+                .single['functionResponse']['response']
+            as Map;
+    expect(blocked['error'], contains('用 reply'));
+    expect(blocked['error'], contains('“晚上看”'));
+    expect(agentLines(), ['回复 Cody：晚上看，要发吗？']);
+    await say(t, '确认');
+    expect(f.world.sent.single.text, '晚上看');
+  });
+
+  orbTest('the same, and the model then replies itself: its call is used', (
+    t,
+  ) async {
+    toCody();
+    gemini.replies.addAll([
+      _call('snooze_item', {'item': 'msg:m-1'}),
+      _call('reply', {'text': '晚上看'}),
+    ]);
+    await say(t, '回他“晚上看”');
+    expect(gemini.requests, hasLength(2));
+    expect(agentLines(), ['回复 Cody：晚上看，要发吗？']);
+  });
+
+  orbTest('a write is not blocked when no words were given', (t) async {
+    toCody();
+    gemini.replies.add(_call('react', {'message': 'm-1', 'emoji': '👍'}));
+    await say(t, '给他点个赞');
+    expect(agentLines().single, contains('👍'));
+  });
+
+  orbTest('"打开 task 136": the model read, the app opened the task and the '
+      'model answers from it', (t) async {
+    gemini.replies.addAll([
+      _call('task_detail', {'number': 136}),
+      _say('任务 136 在等验收。'),
+      _say('到了任务 136，Cody 做的，等你验收。'),
+    ]);
+    await say(t, '打开 task 136');
+
+    expect(navigated, [
+      {'task_number': 136},
+    ]);
+    expect(gemini.requests, hasLength(3));
+    final note = jsonEncode((gemini.requests.last['contents'] as List).last);
+    expect(note, contains('打开 task 136'));
+    expect(note, contains('已经替你调用 navigate'));
+    expect(agentLines(), ['到了任务 136，Cody 做的，等你验收。']);
+  }, tools: [navigateStub()]);
+
+  orbTest('"打开 task 136": when the model navigates itself, the app does '
+      'nothing more', (t) async {
+    gemini.replies.addAll([
+      _call('navigate', {'task_number': 136}),
+      _say('到了任务 136。'),
+    ]);
+    await say(t, '打开 task 136');
+    expect(navigated, hasLength(1));
+    expect(gemini.requests, hasLength(2));
+  }, tools: [navigateStub()]);
+
+  orbTest(
+    'something that is not an order to open one place is not '
+    'opened for the model',
+    (t) async {
+      gemini.replies.addAll([_call('describe_page', {}), _say('这是动态。')]);
+      await say(t, '打开动态，什么需要我处理');
+      expect(navigated, isEmpty);
+      await say(t, '任务 136 怎么样了');
+      expect(navigated, isEmpty);
+    },
+    tools: [
+      navigateStub(),
+      OrbTool(
+        declaration: const {'name': 'describe_page'},
+        handler: (args, ctx) async => {
+          'page': 'activity',
+          'loading': false,
+          'items': <Object?>[],
+        },
+      ),
+    ],
+  );
+
   orbTest('send_message and reply_in_thread are held to the words too', (
     t,
   ) async {
@@ -422,6 +531,58 @@ void main() {
       expect(next['index'], 2);
       final done = await orb().dispatch('next_task', const {});
       expect(done['done'], isTrue);
+      await orb().setDriving(false);
+    });
+
+    orbTest('the model read the tasks and proposed nothing: the app proposes '
+        'the nudge for the one the queue is on', (t) async {
+      tasks();
+      await orb().setDriving(true);
+      await t.pump(const Duration(milliseconds: 300));
+      gemini.replies.addAll([
+        _call('list_tasks', {'stale': true}),
+        _say('这个等你停车后再做。'),
+      ]);
+      await say(t, '全部处理掉');
+
+      expect(gemini.requests, hasLength(2));
+      final line = agentLines().single;
+      expect(line, startsWith('「己」在等你验收，要停车后再验收。'));
+      expect(line, endsWith('要催吗？'));
+      expect(orb().actions.pending, isNotNull);
+      await say(t, '确认');
+      expect(f.world.sent, hasLength(1));
+      expect(agentLines().last, '已催 Cody。还有 1 个，说“下一个”继续。');
+      await orb().setDriving(false);
+    });
+
+    orbTest('a nudge whose words carry a task title with 发布 is not '
+        'refused as a release', (t) async {
+      tasks();
+      await orb().setDriving(true);
+      await t.pump(const Duration(milliseconds: 300));
+      gemini.replies.add(
+        _call('nudge_task', {'task': '12', 'text': '整理发布说明现在到哪了？'}),
+      );
+      await say(t, '催一下丁');
+      expect(orb().actions.pending, isNotNull);
+      expect(agentLines().single, contains('要催吗？'));
+      await orb().setDriving(false);
+    });
+
+    orbTest('a plain request that is not "处理掉" is left to the model', (
+      t,
+    ) async {
+      tasks();
+      await orb().setDriving(true);
+      await t.pump(const Duration(milliseconds: 300));
+      gemini.replies.addAll([
+        _call('list_tasks', {'stale': true}),
+        _say('共 3 个任务。'),
+      ]);
+      await say(t, '看看那些任务');
+      expect(orb().actions.pending, isNull);
+      expect(agentLines().single, '共 3 个任务。');
       await orb().setDriving(false);
     });
 

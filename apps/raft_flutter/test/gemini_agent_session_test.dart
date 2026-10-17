@@ -445,7 +445,8 @@ void main() {
   group('the app\'s own words', () {
     AgentSteering rules({
       Future<String?> Function(String, AgentToolHandler)? intercept,
-      AgentReview? Function(String, List<AgentToolRun>)? review,
+      AgentReview? Function(String, List<AgentToolRun>, AgentToolHandler)?
+      review,
     }) => AgentSteering(
       scope: () => const AgentScope(systemPrompt: 's', tools: _tools),
       intercept: intercept,
@@ -566,7 +567,7 @@ void main() {
           api,
           heard,
           steering: rules(
-            review: (reply, runs) {
+            review: (reply, runs, run) {
               reviews++;
               return reply == '要发吗？' ? const AgentReview(retry: '先调用工具') : null;
             },
@@ -597,7 +598,7 @@ void main() {
           api,
           heard,
           steering: rules(
-            review: (reply, runs) => reply == 'a'
+            review: (reply, runs, run) => reply == 'a'
                 ? const AgentReview(retry: 'again')
                 : const AgentReview(retry: 'again', text: '改过的'),
           ),
@@ -623,7 +624,7 @@ void main() {
         heard,
         tool: (_, _) => {'title': 'X'},
         steering: rules(
-          review: (reply, runs) {
+          review: (reply, runs, run) {
             seen = runs;
             return null;
           },
