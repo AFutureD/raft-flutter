@@ -14,6 +14,7 @@ import '../data/activity_attention.dart';
 import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
+import '../features/agent_orb/eval/orb_eval_launcher.dart';
 import '../features/invite_accept_view.dart';
 import 'app_window.dart';
 import 'content_target.dart';
@@ -273,6 +274,8 @@ class NativeContentCoordinator with WidgetsBindingObserver {
 
   void receiveLink(Uri uri) {
     if (_closed || uri.scheme == 'raft' && uri.host == 'oauth') return;
+    // Debug builds only: raft://orb-eval/run starts the Agent evaluation.
+    if (OrbEvalLauncher.instance.receiveLink(uri)) return;
     if (NativeSharing.isIncomingShareLink(uri)) {
       onIncomingShare?.call();
       return;

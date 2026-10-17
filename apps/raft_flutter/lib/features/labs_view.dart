@@ -6,6 +6,7 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'agent_mode/agent_mode_preference.dart';
+import 'agent_orb/eval/orb_eval_launcher.dart';
 import 'agent_orb/orb_preference.dart';
 
 /// Settings > Labs (SettingsPanel.tsx LabsSection, gated by
@@ -204,6 +205,7 @@ class _LabsViewState extends ManagementState<LabsView> {
       children: [
         AgentModeLabsCard(controller: w),
         const AgentOrbLabsCard(),
+        const OrbEvalLabsCard(),
         section,
       ],
     );

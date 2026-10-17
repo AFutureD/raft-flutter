@@ -216,12 +216,12 @@ bool _argsMatch(Map<String, Object?> actual, Map<String, Object?> wanted) {
 
 String _squash(String s) => s.replaceAll(RegExp(r'\s+'), '').toLowerCase();
 
-/// How many sentences [text] has (ends: 。！？.!? and line breaks).
-int orbEvalSentences(String text) =>
-    RegExp(r'[^。！？!?.\n]+[。！？!?.]?')
-        .allMatches(text)
-        .where((m) => m.group(0)!.trim().length > 1)
-        .length;
+/// How many sentences [text] has (ends: 。！？!? and line breaks, and a
+/// period that ends a word, not the one inside `v1.4`).
+int orbEvalSentences(String text) => text
+    .split(RegExp(r'[。！？!?\n]+|\.(?=\s|$)'))
+    .where((part) => part.trim().isNotEmpty)
+    .length;
 
 /// One scenario of scenarios-v1.md: where the person is, what the workspace
 /// holds, what they say, and what must come of it.

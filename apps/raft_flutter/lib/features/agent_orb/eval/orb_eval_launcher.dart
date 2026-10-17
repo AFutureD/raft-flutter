@@ -35,9 +35,14 @@ class OrbEvalRequest {
 /// In any other build mode it does nothing: no link is taken and no page is
 /// opened.
 class OrbEvalLauncher {
-  OrbEvalLauncher({bool? debug}) : debug = debug ?? kDebugMode;
+  OrbEvalLauncher({bool? debug, this.pageBuilder})
+    : debug = debug ?? kDebugMode;
 
-  static final instance = OrbEvalLauncher();
+  /// The launcher the app uses; tests put their own here and put it back.
+  static OrbEvalLauncher instance = OrbEvalLauncher();
+
+  /// What the page is (tests give a stand-in that does not run).
+  final Widget Function(OrbEvalRequest request)? pageBuilder;
 
   /// Whether this launcher works at all (debug builds).
   final bool debug;
@@ -93,7 +98,9 @@ class OrbEvalLauncher {
     state
         .push(
           MaterialPageRoute<void>(
-            builder: (_) => OrbEvalPage(only: request.only, runs: request.runs),
+            builder: (_) =>
+                pageBuilder?.call(request) ??
+                OrbEvalPage(only: request.only, runs: request.runs),
           ),
         )
         .whenComplete(() => _open = false);
@@ -143,12 +150,10 @@ class OrbEvalLabsCard extends StatelessWidget {
             RaftButton(
               key: const ValueKey('orb-eval-open'),
               label: '运行评测',
-              onPressed: () {
-                final navigator = Navigator.of(context);
-                navigator.push(
-                  MaterialPageRoute<void>(builder: (_) => const OrbEvalPage()),
-                );
-              },
+              onPressed: () => (launcher ?? OrbEvalLauncher.instance).openOn(
+                Navigator.of(context),
+                const OrbEvalRequest(),
+              ),
             ),
           ],
         ),

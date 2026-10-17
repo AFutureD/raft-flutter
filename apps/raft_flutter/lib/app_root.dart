@@ -19,6 +19,7 @@ import 'data/workspace_cache.dart';
 import 'data/raft_location.dart';
 import 'data/shared_draft_attachment.dart';
 import 'data/incoming_share_targets.dart';
+import 'features/agent_orb/eval/orb_eval_launcher.dart';
 import 'features/agent_orb/orb_host.dart';
 import 'features/incoming_share_picker.dart';
 import 'features/incoming_share_review.dart';
@@ -279,6 +280,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       onRootBack: returnFromSelector,
       observers: [privateRoutes],
     );
+    OrbEvalLauncher.instance.attach(appRouter.navigatorKey);
     routeInformation = RaftAppRouteInformationProvider(
       initialRouteInformation: RouteInformation(uri: requestedLocation),
       consumeReplacement: appRouter.consumeReplacement,
