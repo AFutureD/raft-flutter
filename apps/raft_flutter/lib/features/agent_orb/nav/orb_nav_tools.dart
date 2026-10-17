@@ -122,14 +122,36 @@ Future<Map<String, Object?>> _openItem(
   final item = items[index];
   final key = item.id.startsWith('activity:') ? item.id.substring(9) : item.id;
   final row = rows.where((r) => activityItemKey(r) == key).firstOrNull;
-  final destination = row == null
+  // The phone's own tap (WorkspaceView.openCanonicalActivity, single): the
+  // route, then the thread's or the message's data. Navigating alone left
+  // a thread page with nothing in it (G100).
+  final target = row == null
       ? null
-      : ActivityDestination.fromRow(row, canonical: false);
-  if (destination == null) return {'error': '这一条打不开'};
-  final slug = w.location.serverSlug;
+      : ActivityDestination.fromRow(row, canonical: false, mobile: true);
+  if (target == null) return {'error': '这一条打不开'};
   ctx.operating.value = true;
   try {
-    w.navigation.navigate(destination.canonicalLocation(slug));
+    w.navigation.navigate(target.canonicalLocation(w.location.serverSlug));
+    w.closeThread(navigate: false);
+    if (target.thread) {
+      unawaited(
+        w
+            .resolveConversationChannel(target.channelId, preserveThread: true)
+            .catchError((Object _) {}),
+      );
+      await w.openThreadIdentity(
+        parentChannelId: target.channelId,
+        parentMessageId: target.parentMessageId!,
+        focusedMessageId: target.messageId,
+        navigate: false,
+      );
+    } else {
+      await w.jumpToMessage(
+        target.channelId,
+        target.messageId,
+        navigate: false,
+      );
+    }
   } on Object {
     return {'error': '这一条打不开'};
   }

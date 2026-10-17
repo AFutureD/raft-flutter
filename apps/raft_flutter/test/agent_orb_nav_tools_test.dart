@@ -1120,6 +1120,9 @@ void main() {
       expect(r['error'], isNull, reason: '$r');
       expect(fx.path, contains('/channel/ca'));
       expect(fx.path, contains('tt136'));
+      // The thread itself is opened, as a tap does: a route alone left an
+      // empty thread page on the G100.
+      expect(fx.ctx.workspace.threadIdentity?.parentMessageId, 'ca-m1');
       await fx.f.close(t);
     });
 
