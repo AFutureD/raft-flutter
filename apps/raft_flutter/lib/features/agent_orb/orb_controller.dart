@@ -29,6 +29,7 @@ import 'nav/orb_nav_tools.dart'
 import 'nav/orb_page_description.dart' show orbPageTitle;
 import 'actions/orb_card_words.dart' show orbPlainNo, orbPlainYes;
 import 'actions/orb_reply.dart' show OrbReplyContext;
+import 'actions/orb_reply_content.dart';
 import 'orb_agent_review.dart';
 import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
@@ -559,6 +560,11 @@ class OrbController extends ChangeNotifier {
   ) async {
     final tool = tools[name];
     if (tool == null) return {'error': '没有这个工具：$name'};
+    if (agentLayer && _replyTools.contains(name)) {
+      final held = _holdToTheWords(args);
+      if (held.error != null) return held.error!;
+      args = held.args;
+    }
     final context = navigatorContext();
     if (context == null || !context.mounted) {
       return {'error': '界面还没准备好，稍后再试'};
@@ -1261,6 +1267,7 @@ class OrbController extends ChangeNotifier {
   Future<String?> _intercept(String said, AgentToolHandler run) async {
     _turnSaid = said;
     _deferNote = null;
+    _replyAsked = false;
     final card = actions.pending;
     if (card != null) {
       if (!orbPlainYes(said) || card.sensitive) return null;
@@ -1298,6 +1305,38 @@ class OrbController extends ChangeNotifier {
       return b.needsYou;
     },
   );
+
+  static const _replyTools = {'reply', 'send_message', 'reply_in_thread'};
+
+  /// The model was already sent back this turn for words that were not the
+  /// person's.
+  bool _replyAsked = false;
+
+  /// When the person said what the reply should say, the card carries those
+  /// words (agent layer). A reply with other words is sent back once, with no
+  /// card; if it still differs the app puts the person's words in itself (it
+  /// already finds who it goes to).
+  ({Map<String, Object?> args, Map<String, Object?>? error}) _holdToTheWords(
+    Map<String, Object?> args,
+  ) {
+    final want = orbReplyContent(_turnSaid);
+    final text = args['text'];
+    if (want == null || (text is String && orbSameContent(text, want))) {
+      return (args: args, error: null);
+    }
+    if (!_replyAsked) {
+      _replyAsked = true;
+      return (
+        args: args,
+        error: {
+          'error':
+              '回复的内容不是用户说的：他的原话是“${_turnSaid.trim()}”，要回复的话是“$want”。'
+              '重新调用，text 就填“$want”，不要改写，也不要自己编。',
+        },
+      );
+    }
+    return (args: {...args, 'text': want}, error: null);
+  }
 
   /// The person's words of the turn under way (what the review asks about).
   String _turnSaid = '';

@@ -159,6 +159,78 @@ void main() {
     expect(tools(gemini.requests.single), isNot(contains('confirm')));
   });
 
+  void toCody() {
+    orb().actions.replyContext = () => OrbReplyContext(
+      needsYou: () async => const [
+        OrbBriefItem(
+          id: 'msg:m-1',
+          title: 'Cody 问你：周五上线可以吗？',
+          who: 'Cody',
+          where: '#general',
+          since: '已等 5 分钟',
+          link: '/s/s1/channel/ch-general',
+          sourceIds: ['msg:m-1', 'm-1'],
+          channelId: 'ch-general',
+          reason: OrbReason.mentionAsk,
+          why: '点名你',
+        ),
+      ],
+    );
+  }
+
+  orbTest('words the person gave: an invented reply is sent back with no '
+      'card, and the right one is shown', (t) async {
+    toCody();
+    gemini.replies.addAll([
+      _call('reply', {'text': '马上看'}),
+      _call('reply', {'text': '可以'}),
+    ]);
+    await say(t, '回他可以');
+
+    expect(gemini.requests, hasLength(2));
+    final answer =
+        (((gemini.requests[1]['contents'] as List).last as Map)['parts']
+                    as List)
+                .single['functionResponse']['response']
+            as Map;
+    expect(answer['error'], contains('回复的内容不是用户说的'));
+    expect(answer['error'], contains('“可以”'));
+    expect(agentLines(), ['回复 Cody：可以，要发吗？']);
+  });
+
+  orbTest('still not the person\'s words: the app puts them in itself', (
+    t,
+  ) async {
+    toCody();
+    gemini.replies.addAll([
+      _call('reply', {'text': '马上看'}),
+      _call('reply', {'text': '收到'}),
+    ]);
+    await say(t, '回他可以');
+    expect(agentLines(), ['回复 Cody：可以，要发吗？']);
+    await say(t, '确认');
+    expect(f.world.sent.single.text, '可以');
+  });
+
+  orbTest('no words given ("回他一下"): the model\'s are used', (t) async {
+    toCody();
+    gemini.replies.add(_call('reply', {'text': '稍等'}));
+    await say(t, '回他一下');
+    expect(gemini.requests, hasLength(1));
+    expect(agentLines(), ['回复 Cody：稍等，要发吗？']);
+  });
+
+  orbTest('send_message and reply_in_thread are held to the words too', (
+    t,
+  ) async {
+    gemini.replies.addAll([
+      _call('send_message', {'channel': 'general', 'text': '随便'}),
+      _call('send_message', {'channel': 'general', 'text': '随便'}),
+    ]);
+    await say(t, '跟他说我马上到');
+    expect(agentLines().single, contains('我马上到'));
+  });
+
   orbTest('reply with nobody named is the person the app finds, and the card '
       'says who', (t) async {
     orb().actions.replyContext = () => OrbReplyContext(
