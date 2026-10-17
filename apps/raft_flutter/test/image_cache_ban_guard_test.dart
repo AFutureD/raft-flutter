@@ -55,15 +55,12 @@ void main() {
   test(
     'the scan reads the app sources (an empty scan would pass anything)',
     () {
-      final files = appSources();
-      expect(
-        files.where(
-          (f) => f.path.contains(
-            '${Platform.pathSeparator}lib${Platform.pathSeparator}',
-          ),
-        ),
-        hasLength(greaterThan(100)),
-      );
+      // Windows paths can mix both slashes; compare in one form.
+      final sources = [
+        for (final f in appSources())
+          if (f.path.replaceAll(r'\', '/').contains('/lib/')) f,
+      ];
+      expect(sources, hasLength(greaterThan(100)));
     },
   );
 
