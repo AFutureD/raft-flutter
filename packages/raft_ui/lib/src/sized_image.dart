@@ -23,6 +23,9 @@ import 'avatar_image_cache.dart';
 /// one source pixel per device pixel.
 const double raftZoomableImageScale = 2.5;
 
+/// Decode-size bucket (physical pixels) of [RaftSizedImage.bucket].
+const int raftImageBucketStep = 64;
+
 /// The one sanctioned raw network provider (public URL, no auth headers).
 /// Always hand it to [RaftSizedImage] / [raftSizedImage]; never to `Image`.
 // ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.
@@ -51,6 +54,11 @@ int raftPhysicalExtent(double logical, double devicePixelRatio) =>
 /// [avatar] is for small, constantly reused pictures (avatars, icons): the
 /// decode extent rounds up to a shared bucket ([raftBucketExtent]) so near
 /// sizes share one bitmap, and the decoded image is kept by [RaftHotImages].
+///
+/// [bucket] rounds the decode extent up to a multiple of
+/// [raftImageBucketStep] physical pixels (as the attachment images do) without
+/// keeping the bitmap hot: a bubble resized by a few pixels reuses its bitmap
+/// instead of decoding a new one, and the shared `ImageCache` still owns it.
 ImageProvider<Object> raftSizedImage(
   ImageProvider<Object> provider, {
   double? logicalWidth,
@@ -59,11 +67,17 @@ ImageProvider<Object> raftSizedImage(
   BoxFit fit = BoxFit.cover,
   double zoom = 1,
   bool avatar = false,
+  bool bucket = false,
 }) {
   int? extent(double? logical) {
     if (logical == null || !logical.isFinite || logical <= 0) return null;
     final px = raftPhysicalExtent(logical * zoom, devicePixelRatio);
-    return avatar ? raftBucketExtent(px) : px;
+    if (avatar) return raftBucketExtent(px);
+    return bucket
+        ? (px + raftImageBucketStep - 1) ~/
+              raftImageBucketStep *
+              raftImageBucketStep
+        : px;
   }
 
   final w = extent(logicalWidth), h = extent(logicalHeight);
@@ -269,6 +283,7 @@ class RaftSizedImage extends StatefulWidget {
     this.zoom = 1,
     this.evictOnDispose = false,
     this.avatar = false,
+    this.bucket = false,
     this.alignment = Alignment.center,
     this.filterQuality = FilterQuality.medium,
     this.gaplessPlayback = false,
@@ -319,6 +334,7 @@ class RaftSizedImage extends StatefulWidget {
     double? height,
     BoxFit? fit,
     double zoom = 1,
+    bool bucket = false,
     Alignment alignment = Alignment.center,
     FilterQuality filterQuality = FilterQuality.medium,
     bool gaplessPlayback = false,
@@ -334,6 +350,7 @@ class RaftSizedImage extends StatefulWidget {
          height: height,
          fit: fit,
          zoom: zoom,
+         bucket: bucket,
          alignment: alignment,
          filterQuality: filterQuality,
          gaplessPlayback: gaplessPlayback,
@@ -352,6 +369,7 @@ class RaftSizedImage extends StatefulWidget {
     BoxFit? fit,
     double zoom = 1,
     bool evictOnDispose = false,
+    bool bucket = false,
     Alignment alignment = Alignment.center,
     FilterQuality filterQuality = FilterQuality.medium,
     bool gaplessPlayback = false,
@@ -368,6 +386,7 @@ class RaftSizedImage extends StatefulWidget {
          fit: fit,
          zoom: zoom,
          evictOnDispose: evictOnDispose,
+         bucket: bucket,
          alignment: alignment,
          filterQuality: filterQuality,
          gaplessPlayback: gaplessPlayback,
@@ -385,6 +404,9 @@ class RaftSizedImage extends StatefulWidget {
 
   /// Decode at a bucketed size and keep the bitmap hot ([raftSizedImage]).
   final bool avatar;
+
+  /// Round the decode extent up to [raftImageBucketStep] ([raftSizedImage]).
+  final bool bucket;
   final Alignment alignment;
   final FilterQuality filterQuality;
   final bool gaplessPlayback, excludeFromSemantics;
@@ -475,6 +497,7 @@ class _RaftSizedImageState extends State<RaftSizedImage> {
       fit: fit,
       zoom: widget.zoom,
       avatar: widget.avatar,
+      bucket: widget.bucket,
     );
     if (widget.evictOnDispose) _built.add(provider);
     _lastProvider = provider;

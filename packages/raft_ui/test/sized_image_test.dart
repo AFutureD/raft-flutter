@@ -104,6 +104,21 @@ void main() {
         (width: 200, height: 100),
       );
     });
+    test('bucket rounds the decode extent up to 64 physical pixels', () {
+      final base = MemoryImage(Uint8List.fromList([1, 2, 3]));
+      int? widthOf(double logical, {bool bucket = true}) => (raftSizedImage(
+        base,
+        logicalWidth: logical,
+        devicePixelRatio: 2,
+        fit: BoxFit.scaleDown,
+        bucket: bucket,
+      ) as RaftSizedImageProvider).width;
+      expect(widthOf(400), 832);
+      expect(widthOf(410), 832);
+      expect(widthOf(416), 832);
+      expect(widthOf(416.5), 896);
+      expect(widthOf(400, bucket: false), 800);
+    });
     test('cache key carries the decode box', () async {
       final bytes = Uint8List.fromList([1, 2, 3]);
       final base = MemoryImage(bytes);

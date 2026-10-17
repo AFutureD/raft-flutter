@@ -61,6 +61,7 @@ import 'lru_cache.dart';
 import 'message_list_marker.dart';
 import 'message_content_tokens.dart';
 import 'raft_underline.dart';
+import 'sized_image.dart';
 import 'mermaid_fullscreen.dart';
 import 'diagram_theme.dart';
 import 'design_primitives.dart';
@@ -882,6 +883,89 @@ class _RaftMarkdown extends MarkdownBody {
   State<MarkdownWidget> createState() => _RaftMarkdownState();
 }
 
+/// Every Markdown image goes through [RaftSizedImage]: the package default
+/// (`Image.network`) decodes the whole source bitmap into the shared
+/// `ImageCache`, however small the bubble that shows it is. Only `http(s)` and
+/// `data:` images are shown (same as before for a message; local files and app
+/// resources are not read for a remote author), and a failed load is blank.
+Widget _markdownImage(Uri uri, String? title, String? alt) =>
+    _MarkdownImage(uri: uri, alt: alt);
+
+class _MarkdownImage extends StatefulWidget {
+  const _MarkdownImage({required this.uri, required this.alt});
+  final Uri uri;
+  final String? alt;
+
+  @override
+  State<_MarkdownImage> createState() => _MarkdownImageState();
+}
+
+class _MarkdownImageState extends State<_MarkdownImage> {
+  // A `data:` image is one MemoryImage per decoded payload, not per build.
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = _dataBytes();
+  }
+
+  @override
+  void didUpdateWidget(_MarkdownImage old) {
+    super.didUpdateWidget(old);
+    if (old.uri != widget.uri) _bytes = _dataBytes();
+  }
+
+  Uint8List? _dataBytes() {
+    final data = widget.uri.data;
+    if (data == null || !data.mimeType.startsWith('image/')) return null;
+    return data.contentAsBytes();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uri = widget.uri;
+    final alt = widget.alt;
+    final label = alt == null || alt.isEmpty ? null : alt;
+    Widget failed(BuildContext _, Object _, StackTrace? _) =>
+        const SizedBox.shrink();
+    final Widget image;
+    if (uri.scheme == 'http' || uri.scheme == 'https') {
+      image = RaftSizedImage.network(
+        uri.toString(),
+        bucket: true,
+        gaplessPlayback: true,
+        semanticLabel: label,
+        excludeFromSemantics: label == null,
+        errorBuilder: failed,
+      );
+    } else if (_bytes != null) {
+      image = RaftSizedImage.memory(
+        _bytes!,
+        bucket: true,
+        gaplessPlayback: true,
+        semanticLabel: label,
+        excludeFromSemantics: label == null,
+        errorBuilder: failed,
+      );
+    } else {
+      return const SizedBox.shrink();
+    }
+    // An unbounded axis (a shrink-wrapped table cell) would not limit the
+    // decode: bound it by the window like a bubble would be.
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.hasBoundedWidth
+          ? image
+          : ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.sizeOf(context).width,
+              ),
+              child: image,
+            ),
+    );
+  }
+}
+
 class _RaftMarkdownState extends State<MarkdownWidget>
     implements MarkdownBuilderDelegate {
   _RaftMarkdown get markdown => widget as _RaftMarkdown;
@@ -928,7 +1012,7 @@ class _RaftMarkdownState extends State<MarkdownWidget>
           selectable: false,
           styleSheet: markdown.resolvedStyleSheet,
           imageDirectory: null,
-          imageBuilder: null,
+          imageBuilder: _markdownImage,
           checkboxBuilder: null,
           bulletBuilder: widget.bulletBuilder,
           builders: {
