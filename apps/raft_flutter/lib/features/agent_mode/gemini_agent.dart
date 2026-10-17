@@ -47,6 +47,29 @@ Future<({int status, String body})> geminiHttpTransport(
   }
 }
 
+/// One tool run through [handler] with the timeout and the size guard of a
+/// Live session's tools; an `error` map when it returned nothing. The text
+/// agents (`GeminiAgentSession`, `GenkitAgentSession`) both call tools so.
+Future<Map<String, Object?>> runAgentTool(
+  AgentToolHandler handler,
+  String name,
+  Map<String, Object?> args,
+) async {
+  Map<String, Object?>? result;
+  // The call ids are not passed on: the responder skips an id it has
+  // seen, and these are only unique within one reply.
+  await AgentToolResponder(
+    handler: handler,
+    send: (response) {
+      result = (response['response'] as Map).cast<String, Object?>();
+      return true;
+    },
+  ).answer([
+    {'name': name, 'args': args},
+  ]);
+  return result ?? {'error': '工具没有返回'};
+}
+
 /// The orb's model as a text agent: a Gemini Flash model that answers by
 /// plain `generateContent` calls, with the same system prompt and the same
 /// function declarations as a [GeminiLiveSession], in a loop of its own
@@ -64,6 +87,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
     required this.onToolCall,
     this.steering,
     this.thinking = AgentThinking.low,
+    this.modelName,
     this.apiKey,
     AgentVoiceKey? key,
     GeminiTransport? transport,
@@ -85,6 +109,10 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
   /// How hard the model thinks (a model that refuses a `thinkingConfig` gets
   /// none).
   final AgentThinking thinking;
+
+  /// The model to use (`gemini-3.5-flash-lite`, `models/...` or
+  /// `googleai/...`); the app picks a Flash Lite one from the list when null.
+  final String? modelName;
   @override
   final AgentToolHandler onToolCall;
 
@@ -173,7 +201,10 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
       null,
     );
     if (reply.status != 200) throw HttpException('models ${reply.status}');
-    _model = GeminiText.pickModelFrom(reply.body, lite: lite);
+    final want = modelName?.trim();
+    _model = want == null || want.isEmpty
+        ? GeminiText.pickModelFrom(reply.body, lite: lite)
+        : 'models/${want.replaceFirst(RegExp('^(models|googleai)/'), '')}';
     _closed = false;
     _connected = true;
   }
@@ -359,19 +390,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
     String name,
     Map<String, Object?> args,
   ) async {
-    Map<String, Object?>? result;
-    // The call ids are not passed on: the responder skips an id it has
-    // seen, and these are only unique within one reply.
-    await AgentToolResponder(
-      handler: onToolCall,
-      send: (response) {
-        result = (response['response'] as Map).cast<String, Object?>();
-        return true;
-      },
-    ).answer([
-      {'name': name, 'args': args},
-    ]);
-    final answer = result ?? {'error': '工具没有返回'};
+    final answer = await runAgentTool(onToolCall, name, args);
     _runs.add(AgentToolRun(name, args, answer));
     return answer;
   }
