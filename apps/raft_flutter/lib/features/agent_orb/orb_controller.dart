@@ -1374,6 +1374,7 @@ class OrbController extends ChangeNotifier {
       seen,
       cardUp: actions.pending != null,
       driving: _driving,
+      said: _turnSaid,
     );
   }
 

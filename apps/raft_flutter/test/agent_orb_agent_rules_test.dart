@@ -8,6 +8,7 @@ import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/actions/orb_reply.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/orb_controller.dart';
+import 'package:raft_flutter/features/agent_orb/orb_tool.dart';
 
 import 'support/agent_capability_world.dart' show hoursAgo, taskRow;
 import 'support/orb_action_world.dart';
@@ -78,7 +79,11 @@ void main() {
   late ActionOrbFixture f;
   late FakeGemini gemini;
 
-  void orbTest(String name, Future<void> Function(WidgetTester t) body) {
+  void orbTest(
+    String name,
+    Future<void> Function(WidgetTester t) body, {
+    List<OrbTool> tools = const [],
+  }) {
     testWidgets(name, (t) async {
       gemini = FakeGemini();
       f = ActionOrbFixture(t)
@@ -113,7 +118,7 @@ void main() {
               onClosed: onClosed,
             );
       await f.setUp();
-      await f.pump();
+      await f.pump(tools: tools);
       await t.pump(const Duration(milliseconds: 300));
       await body(t);
       await t.pumpWidget(const SizedBox());
@@ -391,6 +396,40 @@ void main() {
       expect(r['error'], isNotNull);
     });
   });
+
+  orbTest(
+    '"读一下动态" read out as one item: sent back, then the app reads the list',
+    (t) async {
+      gemini.replies.addAll([
+        _call('describe_page', {}),
+        _say('Alice 问你周五能不能来评审。'),
+        _say('Alice 问评审。'),
+      ]);
+      await say(t, '读一下动态');
+
+      expect(gemini.requests, hasLength(3), reason: 'sent back once');
+      expect(agentLines().single, startsWith('共 2 条：Alice，@Alice'));
+      expect(agentLines().single, contains('Cody，#raft-flutter'));
+    },
+    tools: [
+      OrbTool(
+        declaration: const {'name': 'describe_page'},
+        handler: (args, ctx) async => {
+          'page': 'activity',
+          'loading': false,
+          'items': [
+            {'n': 1, 'who': 'Alice', 'where': '@Alice', 'preview': '周五能来评审吗？'},
+            {
+              'n': 2,
+              'who': 'Cody',
+              'where': '#raft-flutter',
+              'preview': '可以合入吗？',
+            },
+          ],
+        },
+      ),
+    ],
+  );
 
   orbTest('a plain 确认 runs confirm in code and the app says the result', (
     t,

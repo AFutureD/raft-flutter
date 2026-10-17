@@ -100,6 +100,7 @@ AgentReview? orbReviewReply(
   List<AgentToolRun> runs, {
   required bool cardUp,
   bool driving = false,
+  String said = '',
 }) {
   final text = reply.trim();
   // A turn that ended without a word after a tool: told once, and when that
@@ -107,7 +108,9 @@ AgentReview? orbReviewReply(
   if (text.isEmpty && runs.isNotEmpty) {
     return AgentReview(
       retry: '（App 提示，不是用户的话：你调用了工具，但还没有回答用户。根据工具返回的结果，用一两句话回答他。）',
-      text: orbSummarize(runs, driving: driving),
+      text:
+          orbSummarize(runs, driving: driving) ??
+          (orbAsksToReadList(said) ? _listRead('', runs, said)?.text : null),
     );
   }
   final madeCard = runs.any((r) => r.result['status'] == 'needs_confirmation');
@@ -129,6 +132,8 @@ AgentReview? orbReviewReply(
           '用户明确同意了就调用 confirm；还没有，就如实说还没发，再问他一次。）',
     );
   }
+  final listed = _listRead(text, runs, said);
+  if (listed != null) return listed;
   final polished = _polish(text, runs);
   return polished == null ? null : AgentReview(text: polished);
 }
@@ -237,4 +242,98 @@ String _taskLine(Map t) {
     if (waits.isNotEmpty) waits else if (owner.isEmpty) '没人认领',
     if (idle.isNotEmpty) '$idle没动',
   ].join('，');
+}
+
+/// The person asks to have the list read ("读一下动态", "念一下", "都有什么").
+/// A request for one thing ("读 Alice 那条原文", "最新那条") is not.
+bool orbAsksToReadList(String said) =>
+    _readsList.hasMatch(said) && !_oneThing.hasMatch(said);
+
+final _readsList = RegExp(
+  r'(?:读|念)(?:一下|一遍|读|念)?\s*(?:动态|活动|通知|消息|收件箱)|动态里(?:都)?有(?:什么|哪些)|都有什么|有哪些(?:消息|动态|通知)|逐条|每一条',
+);
+final _oneThing = RegExp(
+  r'那条|那封|这条|第\s*[0-9一二三四五六七八九十]+\s*[条件个]|最新|原文|最后一条|哪条',
+);
+
+/// The Activity items the turn read, when there are at least two.
+List<Map<String, Object?>>? _activityItems(List<AgentToolRun> runs) {
+  for (final r in runs.reversed) {
+    if (r.name != 'describe_page') continue;
+    if (r.result['error'] != null ||
+        r.result['loading'] == true ||
+        r.result['page'] != 'activity') {
+      return null;
+    }
+    final items = [
+      for (final i in (r.result['items'] as List? ?? const []))
+        if (i is Map) Map<String, Object?>.from(i),
+    ];
+    return items.length >= 2 ? items : null;
+  }
+  return null;
+}
+
+String _whoOf(Map<String, Object?> item) {
+  final who = item['who'];
+  if (who is String && who.isNotEmpty) return who;
+  final where = item['where'];
+  return where is String ? where : '';
+}
+
+/// Reading the Activity out: every item (the first five), in the page's order,
+/// is named. The model that stops after the first is sent back once; if it
+/// still falls short the app reads the list itself.
+AgentReview? _listRead(String reply, List<AgentToolRun> runs, String said) {
+  if (!orbAsksToReadList(said)) return null;
+  final items = _activityItems(runs);
+  if (items == null) return null;
+  final shown = items.take(5).toList();
+  var at = 0;
+  var all = true;
+  for (final item in shown) {
+    final who = _whoOf(item);
+    if (who.isEmpty) continue;
+    final i = reply.indexOf(who, at);
+    if (i < 0) {
+      all = false;
+      break;
+    }
+    at = i + who.length;
+  }
+  if (all) return null;
+  return AgentReview(
+    retry:
+        '（App 提示，不是用户的话：用户要听动态里的每一条，共 ${items.length} 条。'
+        '按页面顺序一条条说，每条说谁、在哪、说了什么，最多 5 条，不要只说第一条。）',
+    text: _compactList(items, shown),
+  );
+}
+
+String _compactList(
+  List<Map<String, Object?>> all,
+  List<Map<String, Object?>> shown,
+) {
+  String one(Map<String, Object?> i) {
+    final who = _whoOf(i);
+    final where = i['where'] is String ? i['where'] as String : '';
+    final p = i['preview'];
+    var what = p is String
+        ? p
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAll(RegExp(r'[。！？.!?]+$'), '')
+              .trim()
+        : '';
+    if (what.length > 24) what = '${what.substring(0, 24)}…';
+    return [
+      who,
+      if (where.isNotEmpty && where != who) where,
+      if (what.isNotEmpty) what,
+    ].join('，');
+  }
+
+  final more = all.length > shown.length
+      ? '还有 ${all.length - shown.length} 条。'
+      : '';
+  return '共 ${all.length} 条：${[for (final i in shown) one(i)].join('；')}。$more';
 }

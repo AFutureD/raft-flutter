@@ -462,6 +462,113 @@ void main() {
     });
   });
 
+  group('reading the Activity out', () {
+    Map<String, Object?> item(
+      int n,
+      String who,
+      String where,
+      String preview,
+    ) => {'n': n, 'who': who, 'where': where, 'preview': preview};
+
+    final page = run('describe_page', {
+      'page': 'activity',
+      'loading': false,
+      'items': [
+        item(1, 'Alice', '@Alice', '周五能来评审吗？'),
+        item(2, 'Cody', '#raft-flutter', '@Sam 第 10 步可以合入吗？'),
+        item(3, 'Grok', '#swift-workflow', '构建通过了。'),
+        item(4, 'Cody', '#raft-flutter', '第一部分写完了。'),
+        item(5, 'Cody', '@Cody', '第 9 步已经合入了。'),
+        item(6, 'Bajie', '#x', '第六条'),
+      ],
+    });
+
+    test('who asks: the list, not one thing', () {
+      for (final said in ['读一下动态', '念一下动态', '动态里都有什么', '读读消息', '都有什么']) {
+        expect(orbAsksToReadList(said), isTrue, reason: said);
+      }
+      for (final said in [
+        '读 Alice 那条原文',
+        '最新那条说了什么',
+        '打开动态里的第一条消息',
+        '什么要紧',
+        '去动态',
+      ]) {
+        expect(orbAsksToReadList(said), isFalse, reason: said);
+      }
+    });
+
+    test('everyone named in the page\'s order passes', () {
+      expect(
+        orbReviewReply(
+          'Alice 问评审。Cody 问合入。Grok 构建通过。Cody 写完了。Cody 已合入。',
+          [page],
+          cardUp: false,
+          said: '读一下动态',
+        ),
+        isNull,
+      );
+    });
+
+    test('only the first: sent back once, with the list ready', () {
+      final r = orbReviewReply(
+        'Alice 问你周五能不能来评审。',
+        [page],
+        cardUp: false,
+        said: '读一下动态',
+      );
+      expect(r?.retry, contains('一条条说'));
+      expect(r?.retry, contains('共 6 条'));
+      expect(
+        r?.text,
+        '共 6 条：Alice，@Alice，周五能来评审吗；'
+        'Cody，#raft-flutter，@Sam 第 10 步可以合入吗；'
+        'Grok，#swift-workflow，构建通过了；'
+        'Cody，#raft-flutter，第一部分写完了；'
+        'Cody，@Cody，第 9 步已经合入了。还有 1 条。',
+      );
+    });
+
+    test('out of order counts as short', () {
+      final r = orbReviewReply(
+        'Cody 问合入。Alice 问评审。Grok 构建通过。Cody 写完了。Cody 已合入。',
+        [page],
+        cardUp: false,
+        said: '读一下动态',
+      );
+      expect(r?.retry, isNotNull);
+    });
+
+    test('one item, another question, another page: not held', () {
+      expect(
+        orbReviewReply(
+          'Alice 问评审。',
+          [page],
+          cardUp: false,
+          said: '读 Alice 那条原文',
+        ),
+        isNull,
+      );
+      expect(
+        orbReviewReply('Alice 问评审。', [page], cardUp: false, said: '什么要紧'),
+        isNull,
+      );
+      final one = run('describe_page', {
+        'page': 'activity',
+        'items': [item(1, 'Alice', '@Alice', '好')],
+      });
+      expect(
+        orbReviewReply('Alice 说好。', [one], cardUp: false, said: '读一下动态'),
+        isNull,
+      );
+    });
+
+    test('no words at all: the list is the fallback', () {
+      final r = orbReviewReply('', [page], cardUp: false, said: '读一下动态');
+      expect(r?.text, startsWith('共 6 条：Alice，@Alice'));
+    });
+  });
+
   test('no briefing, no card, nothing to say about it', () {
     expect(orbReviewReply('你好。', const [], cardUp: false), isNull);
   });
