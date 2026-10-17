@@ -57,4 +57,25 @@ void main() {
       expect(l.messages('general'), hasLength(1));
     },
   );
+
+  test('later revisions keep an incremental record until it is discarded', () {
+    final l = MessageLedger()..switchServer('a');
+    final base = l.revision;
+    l.ingest([
+      row('a', '1'),
+      row('b', '2', channel: 'other'),
+    ], expectedGeneration: l.generation);
+    final changes = l.changesAfter(base);
+    expect(changes?.map((change) => change.messageId), ['a', 'b']);
+    l.discardChangesThrough(l.revision);
+    expect(l.changesAfter(l.revision), isEmpty);
+    final marked = l.revision;
+    l.remove('general', 'a');
+    final removed = l.changesAfter(marked);
+    expect(removed, hasLength(1));
+    expect(removed!.single.removed, isTrue);
+    expect(removed.single.messageId, 'a');
+    l.switchServer('b');
+    expect(l.changesAfter(marked), isNull);
+  });
 }

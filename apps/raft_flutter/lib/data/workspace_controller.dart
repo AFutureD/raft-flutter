@@ -462,6 +462,21 @@ class WorkspaceController extends ChangeNotifier
         revokedChannels: () => _revokedChannels,
         canView: (row) => can('viewChannel', resource: row),
         messages: (id) => ledger.messages(id),
+        ledgerChanges: (since) {
+          final changes = ledger.changesAfter(since);
+          if (changes == null) return null;
+          return [
+            for (final change in changes)
+              (
+                revision: change.revision,
+                channelId: change.channelId,
+                messageId: change.messageId,
+                removed: change.removed,
+              ),
+          ];
+        },
+        message: ledger.message,
+        discardLedgerChanges: ledger.discardChangesThrough,
       );
 
   bool _retainsAttachmentByHistory(AttachmentImageKey key) =>

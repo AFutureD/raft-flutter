@@ -265,7 +265,28 @@ void main() {
       f.ingest('channel', 'host', '4');
       f.w.notifyListeners();
       expect(f.ready(key), isFalse);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans + 1);
+      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+    },
+  );
+
+  test(
+    'one remaining parent keeps the thread image without another history scan',
+    () async {
+      final f = _Fixture();
+      f.ingest('channel', 'host', '2', thread: 'thread');
+      f.ingest('channel', 'second', '3', thread: 'thread');
+      f.ingest('thread', 'reply', '4', attachments: [_metadata]);
+      final key = f.key(channel: 'thread');
+      await f.load(key);
+      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      f.ingest('channel', 'host', '5');
+      f.w.notifyListeners();
+      expect(f.ready(key), isTrue);
+      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      f.ingest('channel', 'second', '6');
+      f.w.notifyListeners();
+      expect(f.ready(key), isFalse);
+      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
     },
   );
 
@@ -288,22 +309,24 @@ void main() {
       expect(f.w.retainedImageCount, 2);
       expect(f.ready(f.key()), isTrue);
       expect(f.ready(f.key(metadata: next, rendition: 'thumbnail')), isTrue);
+      final scans = f.w.debugRetainedAttachmentIndexBuilds;
       f.ingest('channel', 'host', '3');
       f.w.notifyListeners();
       expect(f.ready(f.key()), isFalse);
       expect(f.ready(f.key(metadata: next, rendition: 'thumbnail')), isTrue);
+      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
     },
   );
 
   test(
-    'unrelated ledger revisions still invalidate the original global stamp',
+    'a message outside admission keeps the image and does not rescan history',
     () async {
       final f = _Fixture();
       await f.load(f.key());
       final scans = f.w.debugRetainedAttachmentIndexBuilds;
       f.ingest('not-admitted', 'other', '2');
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans + 1);
+      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
     },
   );
 }

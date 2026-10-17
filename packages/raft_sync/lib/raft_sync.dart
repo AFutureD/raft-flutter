@@ -11,6 +11,23 @@ export 'src/notification_prefs.dart';
 
 import 'src/messages.dart';
 
+/// One mutation a reader can apply without walking the retained history.
+///
+/// A null [messageId] clears every row recorded for [channelId].
+class MessageLedgerChange {
+  const MessageLedgerChange({
+    required this.revision,
+    required this.channelId,
+    this.messageId,
+    this.removed = false,
+  });
+
+  final int revision;
+  final String channelId;
+  final String? messageId;
+  final bool removed;
+}
+
 class MessageLedger {
   String? _serverId;
   int generation = 0;
@@ -22,6 +39,10 @@ class MessageLedger {
   final Map<String, List<Map<String, dynamic>>> _sorted = {};
   final Map<String, DateTime?> _latestCreatedAt = {};
   final _releasedLatest = <String, (String, DateTime)>{};
+  final List<MessageLedgerChange> _changes = [];
+
+  /// Revisions at or below this floor are not described incrementally.
+  int _changeFloor = 0;
   String? get serverId => _serverId;
   Iterable<String> get channelIds => List.unmodifiable(_channels.keys);
   void switchServer(String? id) {
@@ -34,6 +55,34 @@ class MessageLedger {
     _sorted.clear();
     _latestCreatedAt.clear();
     _releasedLatest.clear();
+    _changes.clear();
+    _changeFloor = revision;
+  }
+
+  /// Mutations with a revision greater than [since], in apply order.
+  ///
+  /// Null means [since] is outside the retained window, including after a
+  /// server switch. The caller rebuilds from the current rows in that case.
+  List<MessageLedgerChange>? changesAfter(int since) {
+    if (since < _changeFloor || since > revision) return null;
+    var start = 0;
+    while (start < _changes.length && _changes[start].revision <= since) {
+      start++;
+    }
+    if (start == _changes.length) return const [];
+    if (start == 0) return List<MessageLedgerChange>.unmodifiable(_changes);
+    return List<MessageLedgerChange>.unmodifiable(_changes.sublist(start));
+  }
+
+  /// Drops the incremental record of revisions at or below [through].
+  void discardChangesThrough(int through) {
+    if (through <= _changeFloor) return;
+    _changeFloor = through;
+    var start = 0;
+    while (start < _changes.length && _changes[start].revision <= through) {
+      start++;
+    }
+    if (start > 0) _changes.removeRange(0, start);
   }
 
   List<Map<String, dynamic>> messages(String channelId) {
@@ -84,10 +133,23 @@ class MessageLedger {
   Map<String, dynamic>? message(String channelId, String messageId) =>
       _channels[channelId]?[messageId];
 
-  void _changed(String channelId) {
+  void _changed(
+    String channelId, {
+    String? messageId,
+    bool removed = false,
+    bool clearChannel = false,
+  }) {
     revision++;
     _sorted.remove(channelId);
     _latestCreatedAt.remove(channelId);
+    _changes.add(
+      MessageLedgerChange(
+        revision: revision,
+        channelId: channelId,
+        messageId: clearChannel ? null : messageId,
+        removed: removed || clearChannel,
+      ),
+    );
   }
 
   static BigInt _seq(Map<String, dynamic> m) =>
@@ -105,7 +167,7 @@ class MessageLedger {
       bucket[id] = complete
           ? Map<String, dynamic>.from(message)
           : mergeMessageProjection(bucket[id], message);
-      _changed(channelId);
+      _changed(channelId, messageId: id);
       final seq = _seq(message);
       if (seq > watermark) watermark = seq;
     }
@@ -128,7 +190,7 @@ class MessageLedger {
       _channels[channelId]![id],
       message,
     );
-    _changed(channelId);
+    _changed(channelId, messageId: id);
     return true;
   }
 
@@ -137,7 +199,7 @@ class MessageLedger {
     if (_releasedLatest[channelId]?.$1 == messageId) {
       _releasedLatest.remove(channelId);
     }
-    _changed(channelId);
+    _changed(channelId, messageId: messageId, removed: true);
   }
 
   /// Drops reconstructable bodies without moving the receiver's generation,
@@ -154,15 +216,29 @@ class MessageLedger {
       }
     }
     latestCreatedAt(channelId);
+    final removed = [
+      for (final id in ids)
+        if (rows.containsKey(id)) id,
+    ];
     rows.removeWhere((id, _) => ids.contains(id));
     if (rows.isEmpty) _channels.remove(channelId);
     _sorted.remove(channelId);
     revision++;
+    for (final id in removed) {
+      _changes.add(
+        MessageLedgerChange(
+          revision: revision,
+          channelId: channelId,
+          messageId: id,
+          removed: true,
+        ),
+      );
+    }
   }
 
   void revokeChannel(String id) {
     _channels.remove(id);
     _releasedLatest.remove(id);
-    _changed(id);
+    _changed(id, clearChannel: true);
   }
 }
