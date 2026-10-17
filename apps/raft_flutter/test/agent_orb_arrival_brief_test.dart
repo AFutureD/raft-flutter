@@ -241,7 +241,13 @@ void main() {
           'scope': 'conversation:ca',
           'needsYou': <Object?>[],
         });
-        expect(r['page'], isA<Map>(), reason: 'the page is still there');
+        final page = r['page']! as Map;
+        expect(page['route'], contains('/channel/ca'));
+        // The briefing says what matters: the page's own list (every item
+        // with its id, ~15 KB on a real Activity) stays out, so the model
+        // neither waits on it nor reads ids from it aloud.
+        expect(page.values.whereType<List>(), isEmpty);
+        expect(page['itemsNote'], contains('describe_page'));
         await fx.f.close(t);
       },
     );
@@ -309,6 +315,7 @@ void main() {
       await fx.mount(t);
       final r = await go(t, fx, null, 'raft-flutter');
       expect(r.containsKey('briefing'), isFalse);
+      expect((r['page']! as Map).values.whereType<List>(), isNotEmpty);
       expect(r.containsKey('briefingNote'), isFalse);
       await fx.f.close(t);
     });

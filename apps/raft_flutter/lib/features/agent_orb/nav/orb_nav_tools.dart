@@ -333,7 +333,16 @@ Future<Map<String, Object?>> _navigate(
       'loading': loading,
       if (loading && !budget.interrupted)
         'note': '等了约 5 秒，页面的数据还没读完：这是还在加载，不是空的。稍后可以调 describe_page 再看',
-      'page': page,
+      // With a briefing, what matters is said there: the page's lists (every
+      // item with its id) would only slow the answer and get ids read aloud.
+      'page': briefing == null
+          ? page
+          : {
+              for (final e in page.entries)
+                if (e.value is! List) e.key: e.value,
+              'itemsNote':
+                  '页面条目没有附上，要说的在 briefing 里；用户要逐条看或读原文时再调 describe_page',
+            },
       'briefing': ?briefing,
       if (briefingFailed)
         'briefingNote':
