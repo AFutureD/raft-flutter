@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
+import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_service.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_data.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_run.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenario.dart';
@@ -152,6 +154,22 @@ void main() {
         reason: '${s.id}: ids look like uuids',
       );
       await world.dispose();
+    }
+  });
+
+  test('driving scenarios: the Activity puts Cody\'s question first, so '
+      '"回他" means him', () async {
+    for (final id in ['D1', 'D3', 'D8']) {
+      final world = await OrbEvalWorld.create(scenario(id).data());
+      addTearDown(world.dispose);
+      // The rules' own words: no model, the same order as the app has.
+      final b = await OrbBriefingService(world.workspace)
+          .brief(OrbBriefScope.activity, full: true, remember: false);
+      expect(b.needsYou.map((i) => i.who).take(3), [
+        'Cody',
+        'Alice',
+        'Grok',
+      ], reason: id);
     }
   });
 

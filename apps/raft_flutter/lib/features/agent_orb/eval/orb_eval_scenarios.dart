@@ -27,9 +27,11 @@ final _asksFirst = RegExp(
   r'要发吗|要不要发|发吗|要改吗|要不要改|要催吗|确认吗|要我发|要我改|要记下吗|要不要记|点(一下)?确认|说[“"]?确认|确认就行|你确认',
 );
 
-/// Afterwards it says it is done.
+/// Afterwards it says it is done. 已回复 / 发好啦 / 发出去啦 / 改好啦 / 标好啦
+/// are the same thing said another way (the app says "已回复" for a thread
+/// reply; a model says "发好啦").
 final _saysDone = RegExp(
-  r'已发|发出去了|发好了|已经发|发了|已改|改好了|已经改|已标|标好了|已催|催了|记下了|已记|放一放|提醒你',
+  r'已发|发出去了|发出去啦|发好了|发好啦|已经发|发了|已回复|已改|改好了|改好啦|已经改|已标|标好了|标好啦|已催|催了|记下了|已记|放一放|提醒你',
 );
 
 bool Function(Object?) _has(String word) =>
@@ -365,14 +367,17 @@ OrbEvalData _opinions() {
   return d;
 }
 
-/// Three things that need Sam: Cody's question, Alice's, Grok's.
+/// Three things that need Sam: Cody's question, Alice's, Grok's. The
+/// Activity puts the newest question first, so Cody's (10 minutes) is the card
+/// on the screen when driving starts, and "回他" means him; Alice (15) and Grok
+/// (30) follow.
 OrbEvalData _urgentThree({String? codyAsk}) {
   final d = OrbEvalData.cast();
   final ask = d.say(
     'raft-flutter',
     evalCody,
     codyAsk ?? '@Sam 第 10 步可以合入吗？',
-    ago: 20,
+    ago: 10,
     mentions: [evalMe],
   );
   final alice = d.say('dm:alice', evalAlice, '周五能来评审吗？', ago: 15);
@@ -389,7 +394,7 @@ OrbEvalData _urgentThree({String? codyAsk}) {
     message: ask,
     preview: codyAsk ?? '@Sam 第 10 步可以合入吗？',
     from: evalCody,
-    ago: 20,
+    ago: 10,
   );
   final grok = d.say(
     'swift-workflow',
@@ -881,6 +886,12 @@ final List<OrbEvalScenario> orbEvalScenarios = [
         write: (w) => _posted(w, '可以'),
       ),
       OrbEvalCheck.screen('驾驶模式还开着', (s, _) => s.driving),
+      OrbEvalCheck.screen(
+        '屏幕上的那一件是 Cody 的（“回他”指他）',
+        (s, _) =>
+            s.drivingIndex < s.cards.length &&
+            s.cards[s.drivingIndex]['who'] == 'Cody',
+      ),
       OrbEvalCheck.noIds(),
     ],
   ),
