@@ -71,7 +71,11 @@ AgentCapability _runtimeAction({
           return AgentUndoPlan(
             label: undoLabel!,
             run: () async {
-              await w.command('POST', '/agents/${row['id']}/$undoPath', data: {});
+              await w.command(
+                'POST',
+                '/agents/${row['id']}/$undoPath',
+                data: {},
+              );
               return '${agentRowName(row)} $undoText';
             },
           );
@@ -109,7 +113,15 @@ final agentOpsCapabilities = <AgentCapability>[
   _runtimeAction(
     id: 'agents.stop',
     title: '停掉一个 Agent（它不再处理消息，直到再启动）；敏感，要确认两次',
-    keywords: const ['停掉agent', '让他停下', '停止agent', '关掉agent', '别让他跑了', '停一下cody', 'stop agent'],
+    keywords: const [
+      '停掉agent',
+      '让他停下',
+      '停止agent',
+      '关掉agent',
+      '别让他跑了',
+      '停一下cody',
+      'stop agent',
+    ],
     parity: 'POST /agents/:id/stop',
     say: (n) => '停掉 $n',
     path: 'stop',
@@ -124,7 +136,14 @@ final agentOpsCapabilities = <AgentCapability>[
   _runtimeAction(
     id: 'agents.start',
     title: '启动一个已经停掉的 Agent；敏感，要确认两次',
-    keywords: const ['启动agent', '开始运行', '把他开起来', '重新启动agent', '启动cody', 'start agent'],
+    keywords: const [
+      '启动agent',
+      '开始运行',
+      '把他开起来',
+      '重新启动agent',
+      '启动cody',
+      'start agent',
+    ],
     parity: 'POST /agents/:id/start',
     say: (n) => '启动 $n',
     path: 'start',
@@ -138,7 +157,14 @@ final agentOpsCapabilities = <AgentCapability>[
   _runtimeAction(
     id: 'agents.restart',
     title: '重启一个 Agent 的运行时（会打断它手上正在做的事）；敏感，要确认两次',
-    keywords: const ['重启agent', '重启一下', '重启grok', '重启cody', '让他重新跑', 'restart agent'],
+    keywords: const [
+      '重启agent',
+      '重启一下',
+      '重启grok',
+      '重启cody',
+      '让他重新跑',
+      'restart agent',
+    ],
     parity: 'POST /agents/:id/reset',
     say: (n) => '重启 $n',
     path: 'reset',
@@ -151,7 +177,14 @@ final agentOpsCapabilities = <AgentCapability>[
   _runtimeAction(
     id: 'agents.reset_session',
     title: '重置一个 Agent 的会话（它忘掉当前对话上下文，工作区文件保留）；敏感，要确认两次',
-    keywords: const ['重置会话', '重置agent的会话', '清掉上下文', '忘掉对话', 'reset session', '开个新会话'],
+    keywords: const [
+      '重置会话',
+      '重置agent的会话',
+      '清掉上下文',
+      '忘掉对话',
+      'reset session',
+      '开个新会话',
+    ],
     parity: 'POST /agents/:id/reset',
     say: (n) => '重置 $n 的会话',
     field: '的会话',
@@ -227,7 +260,8 @@ final agentOpsCapabilities = <AgentCapability>[
     preview: (w, args, env) async {
       final c = _sosChannel(w, '${args['channel']}');
       return AgentActionPreview(
-        summary: '让 #${c.name} 里的 Agent 继续，并告诉它们：“${quote('${args['guidance']}', 40)}”',
+        summary:
+            '让 #${c.name} 里的 Agent 继续，并告诉它们：“${quote('${args['guidance']}', 40)}”',
         changes: [
           change('#${c.name} 的 Agent', '已停止', '继续运行'),
           change('新指示', '', '${args['guidance']}'),
@@ -278,7 +312,8 @@ final agentOpsCapabilities = <AgentCapability>[
       },
       required: const ['agent'],
     ),
-    resultSummary: '列目录：files[{name,path,kind,size}]；读文件：content（过长会截断，truncated=true）',
+    resultSummary:
+        '列目录：files[{name,path,kind,size}]；读文件：content（过长会截断，truncated=true）',
     run: (w, args, env) async {
       final row = await agentByRef(w, '${args['agent']}');
       final base = '/agents/${row['id']}/workspace-files';
@@ -290,7 +325,9 @@ final agentOpsCapabilities = <AgentCapability>[
         return compact({
           'agent': agentRowName(row),
           'file': file,
-          'content': content.length <= limit ? content : content.substring(0, limit),
+          'content': content.length <= limit
+              ? content
+              : content.substring(0, limit),
           'truncated': content.length > limit ? true : null,
           'length': content.length,
           'message': content.trim().isEmpty ? '这个文件是空的' : null,
@@ -299,10 +336,7 @@ final agentOpsCapabilities = <AgentCapability>[
       final dir = text(args['dir']);
       final body = await w.query(
         base,
-        query: {
-          'dirPath': ?dir,
-          'includeHidden': '${args['hidden'] == true}',
-        },
+        query: {'dirPath': ?dir, 'includeHidden': '${args['hidden'] == true}'},
       );
       final rows = rowsOf(body, const ['files']);
       return compact({

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'agent_tool_output.dart';
 import 'gemini_live.dart';
 import 'voice_provider.dart';
 
@@ -387,6 +388,9 @@ class OpenAiRealtimeSession implements VoiceSession {
       socket = await WebSocket.connect(
         endpoint.toString(),
         headers: {'Authorization': 'Bearer $apiKey'},
+        // Events are small next to the audio (base64 does not compress), and
+        // a deflate stream that goes wrong ends in a protocol close (1002).
+        compression: CompressionOptions.compressionOff,
       ).timeout(const Duration(seconds: 15));
     } on WebSocketException catch (e) {
       // ignore: raft_lints/avoid_caught_exception_text -- Matched to pick a message; the rest is the socket's own text (host and path, never the key).
@@ -409,7 +413,12 @@ class OpenAiRealtimeSession implements VoiceSession {
         final Map<String, dynamic> event;
         try {
           final text = raw is String ? raw : utf8.decode(raw as List<int>);
+          _receivedBytes += text.length;
           event = jsonDecode(text) as Map<String, dynamic>;
+          _lastReceived = '${event['type']}';
+          if (text.length > _bigEvent) {
+            _log('recv ${event['type']} ${text.length} chars');
+          }
         } catch (_) {
           _log('unreadable frame ignored');
           return;
@@ -441,12 +450,25 @@ class OpenAiRealtimeSession implements VoiceSession {
         final reason = (socket.closeReason?.isNotEmpty ?? false)
             ? socket.closeReason!
             : '连接已断开（${socket.closeCode ?? '-'}）';
+        // What the next device run needs to tell who ended it: dart:io closes
+        // with 1002 itself when a frame from the server breaks the protocol,
+        // and the server closes with 1002 when ours does. The key is never in
+        // any of this.
+        _log(
+          'socket done code=${socket.closeCode} '
+          'reason="${socket.closeReason ?? ''}" '
+          'lastSent=$_lastSent lastReceived=$_lastReceived '
+          'sent=${_sentEvents}ev/${_sentBytes}B '
+          'audioFramesSent=$_audioFrames received=${_receivedBytes}B '
+          'open=${_open.elapsed.inSeconds}s',
+        );
         final closed = OpenAiRealtimeException(reason);
         if (!created.isCompleted) created.completeError(closed);
         if (!ready.isCompleted) ready.completeError(closed);
         if (remote && established) onClosed?.call(reason);
       },
       onError: (Object e) {
+        _log('socket error ${e.runtimeType} lastSent=$_lastSent');
         if (!created.isCompleted) created.completeError(e);
         if (!ready.isCompleted) ready.completeError(e);
       },
@@ -466,6 +488,8 @@ class OpenAiRealtimeSession implements VoiceSession {
   }
 
   void _resetConversation() {
+    _lastSent = _lastReceived = '-';
+    _sentEvents = _sentBytes = _audioFrames = _receivedBytes = 0;
     _responseActive = _awaitingCreated = _userSpeaking = false;
     _wantResponse = _continuation = false;
     _outstanding = 0;
@@ -690,16 +714,13 @@ class OpenAiRealtimeSession implements VoiceSession {
   /// Gives the model the result of one call, intact.
   bool _sendToolResult(Map<String, Object?> response) {
     final name = '${response['name']}';
-    var result = Map<String, Object?>.from(response['response'] as Map);
+    final result = Map<String, Object?>.from(response['response'] as Map);
     // `scheduling` is Gemini's way to hush an answer; nothing here reads it.
     if (_quiet.contains(name)) result.remove('scheduling');
-    String output;
-    try {
-      output = jsonEncode(result);
-    } catch (_) {
-      result = {'error': '$name 的结果无法编码'};
-      output = jsonEncode(result);
-    }
+    // Valid JSON of a safe size, whatever the tool returned (the responder
+    // already guarded it; this keeps the error paths and any other caller to
+    // the same rule).
+    final output = guardToolOutput(result).json;
     final sent = _send({
       'type': 'conversation.item.create',
       'item': {
@@ -812,12 +833,34 @@ class OpenAiRealtimeSession implements VoiceSession {
 
   // ---- sending -------------------------------------------------------------
 
+  /// Events bigger than this many characters are logged when they arrive.
+  static const _bigEvent = 8000;
+
+  // What went over the socket, for the log line at its close.
+  String _lastSent = '-';
+  String _lastReceived = '-';
+  int _sentEvents = 0;
+  int _sentBytes = 0;
+  int _audioFrames = 0;
+  int _receivedBytes = 0;
+
   /// False when there was no open socket (the message is lost).
   bool _send(Map<String, Object?> message) {
     final socket = _socket;
     if (socket == null) return false;
     _sinceActivity.reset();
-    socket.add(jsonEncode(message));
+    final text = jsonEncode(message);
+    final type = '${message['type']}';
+    _sentEvents++;
+    _sentBytes += text.length;
+    if (type == 'input_audio_buffer.append') {
+      _audioFrames++;
+    } else {
+      // Type and size only: never the content, never the key.
+      _lastSent = type;
+      _log('send $type ${utf8.encode(text).length}B');
+    }
+    socket.add(text);
     return true;
   }
 

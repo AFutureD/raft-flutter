@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'agent_tool_output.dart';
 import 'voice_provider.dart';
 
 /// A tool the model may call: [declaration] is a Gemini FunctionDeclaration.
@@ -256,6 +257,11 @@ class GeminiLiveSession implements VoiceSession {
         final reason = (socket.closeReason?.isNotEmpty ?? false)
             ? socket.closeReason!
             : '连接已断开（${socket.closeCode ?? '-'}）';
+        _debug(
+          'socket done code=${socket.closeCode} '
+          'reason="${socket.closeReason ?? ''}" lastSent=$_lastSent '
+          'sent=${_sentEvents}ev/${_sentBytes}B',
+        );
         if (!ready.isCompleted) {
           ready.completeError(GeminiLiveException(reason));
         }
@@ -366,11 +372,30 @@ class GeminiLiveSession implements VoiceSession {
     await connect();
   }
 
+  // What went over the socket, for the log line at its close.
+  String _lastSent = '-';
+  int _sentEvents = 0;
+  int _sentBytes = 0;
+
+  static void _debug(String message) {
+    if (!kReleaseMode) debugPrint('agent-gemini $message');
+  }
+
   /// False when there was no open socket (the message is lost).
   bool _send(Map<String, Object?> message) {
     final socket = _socket;
     if (socket == null) return false;
-    socket.add(jsonEncode(message));
+    final text = jsonEncode(message);
+    _sentEvents++;
+    _sentBytes += text.length;
+    final type = message.keys.first;
+    if (type != 'realtimeInput' ||
+        !(message['realtimeInput'] as Map).containsKey('audio')) {
+      // Type and size only: never the content, never the key.
+      _lastSent = type;
+      _debug('send $type ${utf8.encode(text).length}B');
+    }
+    socket.add(text);
     return true;
   }
 
@@ -517,6 +542,9 @@ class AgentToolResponder {
       log('response id=$id dropped (cancelled)');
       return;
     }
+    // Whatever the tool returned, only valid JSON of a safe size goes out.
+    final guarded = guardToolOutput(result);
+    result = guarded.result;
     final delivered = send({
       'id': id,
       'name': name,
@@ -526,7 +554,9 @@ class AgentToolResponder {
     });
     log(
       'response $name id=$id ${result['error'] == null ? 'ok' : 'error'} '
-      '${watch.elapsedMilliseconds}ms${delivered ? '' : ' NOT SENT (no socket)'}',
+      '${watch.elapsedMilliseconds}ms ${guarded.bytes}B'
+      '${guarded.truncated ? ' (cut from ${guarded.originalBytes}B)' : ''}'
+      '${delivered ? '' : ' NOT SENT (no socket)'}',
     );
   }
 }

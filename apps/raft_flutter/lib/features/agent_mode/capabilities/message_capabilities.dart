@@ -175,16 +175,18 @@ final messageCapabilities = <AgentCapability>[
         // files fit. A reply that carries no file information at all cannot
         // be filtered, and saying "none" would be false.
         if (rows.isNotEmpty && !rows.any((m) => m.containsKey('attachments'))) {
-          throw const AgentCapabilityError('这次搜索的结果里没有附件信息，按图片 / 文件筛不了：改用 channels.files 看某个频道的文件');
+          throw const AgentCapabilityError(
+            '这次搜索的结果里没有附件信息，按图片 / 文件筛不了：改用 channels.files 看某个频道的文件',
+          );
         }
         bool image(Object? a) =>
-            a is Map &&
-            '${a['mimeType']}'.toLowerCase().startsWith('image/');
+            a is Map && '${a['mimeType']}'.toLowerCase().startsWith('image/');
         rows = [
           for (final m in rows)
             if (m['attachments'] is List &&
                 (m['attachments'] as List).any(
-                  (a) => attachment == 'image' ? image(a) : a is Map && !image(a),
+                  (a) =>
+                      attachment == 'image' ? image(a) : a is Map && !image(a),
                 ))
               m,
         ].take(limitOf(args)).toList();
@@ -199,7 +201,9 @@ final messageCapabilities = <AgentCapability>[
       return compact({
         'count': rows.length,
         'hasMore': body is Map ? body['hasMore'] : null,
-        'filteredBy': attachment == null ? null : '带${attachment == 'image' ? '图片' : '文件'}的消息（在搜索结果里筛的，可能漏掉更早的）',
+        'filteredBy': attachment == null
+            ? null
+            : '带${attachment == 'image' ? '图片' : '文件'}的消息（在搜索结果里筛的，可能漏掉更早的）',
         'messages': [for (final m in rows) messageRow(m)],
       });
     },

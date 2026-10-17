@@ -442,9 +442,7 @@ final channelCapabilities = <AgentCapability>[
       final limit = limitOf(args, dflt: 10);
       final kind = text(args['kind']);
       final senderRef = text(args['sender']);
-      final sender = senderRef == null
-          ? null
-          : await senderByRef(w, senderRef);
+      final sender = senderRef == null ? null : await senderByRef(w, senderRef);
       final filtering = kind != null || sender != null;
       final body = await w.query(
         '/channels/${Uri.encodeComponent(channel.id)}/files',
@@ -453,7 +451,9 @@ final channelCapabilities = <AgentCapability>[
       var rows = rowsOf(body, const ['files']);
       if (kind != null) {
         bool image(Map<String, dynamic> f) =>
-            '${f['mimeType'] ?? f['contentType']}'.toLowerCase().startsWith('image/');
+            '${f['mimeType'] ?? f['contentType']}'.toLowerCase().startsWith(
+              'image/',
+            );
         rows = [
           for (final f in rows)
             if (kind == 'image' ? image(f) : !image(f)) f,
@@ -493,7 +493,11 @@ final channelCapabilities = <AgentCapability>[
         'hasMore': body is Map && body['nextCursor'] != null ? true : null,
         'filteredBy': filtering
             ? [
-                ?(kind == null ? null : kind == 'image' ? '图片' : '其它文件'),
+                ?(kind == null
+                    ? null
+                    : kind == 'image'
+                    ? '图片'
+                    : '其它文件'),
                 ?(sender == null ? null : '${sender.label} 发的（只查了最近 25 个文件）'),
               ].join('，')
             : null,
