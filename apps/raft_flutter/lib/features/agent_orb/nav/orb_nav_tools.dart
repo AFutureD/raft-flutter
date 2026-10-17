@@ -344,7 +344,10 @@ Future<Map<String, Object?>> _navigate(
         'note': '等了约 5 秒，页面的数据还没读完：这是还在加载，不是空的。稍后可以调 describe_page 再看',
       // With a briefing, what matters is said there: the page's lists (every
       // item with its id) would only slow the answer and get ids read aloud.
-      'page': briefing == null
+      // Already there, the person likely wants what is on the page: its
+      // rows come along (and how to read them), not only the briefing.
+      if (moved.already && briefing != null) 'readNote': '已经在这个页面：用户要“读”内容时，按 page.items 的顺序逐条说谁、在哪、说了什么，不要拿 briefing 代替；问“什么需要我处理”才说 briefing',
+      'page': briefing == null || moved.already
           ? page
           : {
               for (final e in page.entries)

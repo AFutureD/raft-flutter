@@ -338,6 +338,24 @@ void main() {
       await fx.f.close(t);
     });
 
+    // Eval B2: on the Activity, "读一下动态" made the model call navigate
+    // (already there) and it read the briefing, tasks and all, instead of
+    // the rows. Already there, the rows come along with a note.
+    testWidgets('already there: the page keeps its rows and says how to read '
+        'them', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      Future<Map<String, Object?>?> brief(OrbToolContext c, OrbMatch m) async =>
+          {'scope': 'conversation:${m.id}'};
+      await go(t, fx, brief, 'raft-flutter');
+      final again = await go(t, fx, brief, 'raft-flutter');
+      expect(again['alreadyThere'], isTrue);
+      final page = again['page']! as Map;
+      expect(page.values.whereType<List>(), isNotEmpty);
+      expect(again['readNote'], contains('按 page'));
+      await fx.f.close(t);
+    });
+
     testWidgets('without a briefer navigate is what it was', (t) async {
       final fx = Fixture();
       await fx.mount(t);
