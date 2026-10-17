@@ -8,7 +8,6 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/resource_row_reconcile.dart'
     show activityItemKey;
 import 'package:raft_flutter/data/source_activity_unread_store.dart';
-import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_mode/agent_activity_feed.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
