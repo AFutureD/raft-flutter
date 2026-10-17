@@ -605,7 +605,7 @@ void main() {
         final rows = _rows();
         rows[0] = {
           ...rows[0],
-          'latestActivityPreview': '每日工作方法复盘：${'今天做了三件事，' * length ~/ 8}',
+          'latestActivityPreview': '每日工作方法复盘：${'今天做了三件事，' * (length ~/ 8)}',
         };
         data.result = AgentAttention(items: data.feed(rows));
         t.view.physicalSize = const Size(412, 915);
