@@ -455,20 +455,36 @@ class _OrbLayerState extends State<OrbLayer>
 
   /// Driving: the one item, its big button and the hints; "就这些" at the end.
   Widget _drivingCard(OrbBriefing briefing) {
+    final badge = c.drivingNewCount > 0
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+            child: OrbDrivingNewBadge(count: c.drivingNewCount),
+          )
+        : null;
     if (c.drivingDone) {
-      return OrbDrivingDone(
-        routineCount: briefing.routineCount,
-        waitingTasks: briefing.waitingTasks,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ?badge,
+          OrbDrivingDone(
+            routineCount: briefing.routineCount,
+            waitingTasks: briefing.waitingTasks,
+          ),
+        ],
       );
     }
     final item = c.drivingItems[c.drivingIndex];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        ?badge,
         OrbDrivingCard(
+          // A new card is a new widget, so its flash plays once.
+          key: ValueKey('orb-driving-card-${item.id}@${item.versionKey}'),
           item: item,
           index: c.drivingIndex,
           total: c.drivingItems.length,
+          fresh: c.drivingItemIsNew(item),
           onAct: () => c.openBriefItemTapped(item),
         ),
         const SizedBox(height: RaftSpace.x3),

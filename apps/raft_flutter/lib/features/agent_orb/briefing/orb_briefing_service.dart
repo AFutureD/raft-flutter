@@ -78,15 +78,20 @@ class OrbBriefingService {
   /// [modelWait] caps how long the model may take to word the items (the
   /// writer's own wait when null); past it the rules' sentences are used, so
   /// who, where and what is asked are the same either way.
+  ///
+  /// With [remember] false the briefing is not what the person was told: what
+  /// is told stays as it was (driving mode re-reads the Activity to follow it
+  /// live, and the model still has the new items to say).
   Future<OrbBriefing> brief(
     OrbBriefScope scope, {
     bool full = false,
     Duration? modelWait,
+    bool remember = true,
   }) async {
     // A warm-up in flight is asking the model already: wait for its words.
     final warming = _warming[scope.key];
     if (warming != null) await warming;
-    return _brief(scope, full: full, modelWait: modelWait);
+    return _brief(scope, full: full, modelWait: modelWait, remember: remember);
   }
 
   Future<OrbBriefing> _brief(

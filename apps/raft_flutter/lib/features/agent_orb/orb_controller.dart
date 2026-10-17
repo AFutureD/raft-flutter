@@ -12,6 +12,7 @@ import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
 import '../agent_mode/voice_provider.dart';
+import 'briefing/orb_activity_watch.dart';
 import 'briefing/orb_briefing_models.dart'
     show OrbBriefItem, OrbBriefScope, OrbBriefing;
 import 'briefing/orb_briefing_service.dart';
@@ -20,6 +21,7 @@ import 'briefing/orb_briefing_tools.dart'
 import 'nav/orb_nav_tools.dart'
     show orbChannelsLine, orbDirectoryOf, orbNavigationTools;
 import 'orb_arrival_brief.dart';
+import 'orb_driving_queue.dart';
 import 'orb_operating.dart';
 import 'orb_prompt.dart';
 import 'orb_layer.dart';
@@ -35,6 +37,24 @@ typedef OrbSummarySender = Future<bool> Function(
   List<AgentToolOutcome> outcomes,
   String header,
 );
+
+/// Watches the Activity of [w] for driving mode (null: nothing to watch). The
+/// orb disposes what it gets when driving ends.
+typedef OrbActivityWatcher = OrbActivityWatch? Function(WorkspaceController w);
+
+/// Reads the Activity briefing again for driving mode: the whole picture, not
+/// what the person was told ("full"), and without marking it told.
+typedef OrbLiveBriefer = Future<OrbBriefing> Function(WorkspaceController w);
+
+OrbActivityWatch? _defaultWatcher(WorkspaceController w) {
+  final store = w.activityUnreadIfBound;
+  if (store == null) return null;
+  return OrbActivityWatch(source: store, rows: () => store.acceptedRows);
+}
+
+Future<OrbBriefing> _defaultBriefer(WorkspaceController w) =>
+    OrbBriefingService.of(w)
+        .brief(OrbBriefScope.activity, full: true, remember: false);
 
 /// One line of the orb's transcript.
 enum OrbEntryKind {
@@ -87,7 +107,15 @@ class OrbController extends ChangeNotifier {
     Duration liveIdleLimit = agentLiveIdleLimit,
     DateTime Function()? now,
     Future<void> Function(WorkspaceController w)? warmUp,
+    OrbActivityWatcher? activityWatcher,
+    OrbLiveBriefer? liveBriefer,
+    this.liveDebounce = const Duration(seconds: 3),
+    this.newBadgeLinger = const Duration(seconds: 5),
   }) : _now = now ?? DateTime.now,
+       _activityWatcher =
+           activityWatcher ?? (appTools == null ? _defaultWatcher : null),
+       _liveBriefer =
+           liveBriefer ?? (appTools == null ? _defaultBriefer : null),
        _warmUp =
            warmUp ??
            (appTools == null
@@ -635,6 +663,7 @@ class OrbController extends ChangeNotifier {
           // Closing the layer is leaving driving mode.
           _driving = false;
           _drivingIndex = 0;
+          _stopLive();
           notifyListeners();
         }
       }),
@@ -646,6 +675,15 @@ class OrbController extends ChangeNotifier {
 
   bool _driving = false;
   int _drivingIndex = 0;
+
+  /// How long the Activity must be quiet before driving mode reads it again.
+  final Duration liveDebounce;
+
+  /// How long "新的 N 件" stays on the layer.
+  final Duration newBadgeLinger;
+
+  final OrbActivityWatcher? _activityWatcher;
+  final OrbLiveBriefer? _liveBriefer;
 
   /// Driving mode: the layer stays open when the agent moves the app, shows
   /// one item at a time and leaves the risky actions for when the car is
@@ -668,6 +706,11 @@ class OrbController extends ChangeNotifier {
     if (on == _driving) return;
     _driving = on;
     _drivingIndex = 0;
+    if (on) {
+      _startLive();
+    } else {
+      _stopLive();
+    }
     notifyListeners();
     if (on) await openLayer();
   }
@@ -675,7 +718,11 @@ class OrbController extends ChangeNotifier {
   /// Goes to the next item (the model's `driving_next` and the chips).
   Map<String, Object?> drivingNext() {
     final items = drivingItems;
-    if (_drivingIndex < items.length) _drivingIndex++;
+    if (_drivingIndex < items.length) {
+      // The new card has been seen: its mark goes with it.
+      _newKeys.remove(orbItemKey(items[_drivingIndex]));
+      _drivingIndex++;
+    }
     notifyListeners();
     final done = drivingDone;
     return {
@@ -686,6 +733,166 @@ class OrbController extends ChangeNotifier {
       if (!done) 'item': items[drivingIndex].toJson(),
       if (done) 'note': '没有了：只说“就这些”，再说常规进度的条数',
     };
+  }
+
+  // ---- driving mode: live push ---------------------------------------------
+
+  OrbActivityWatch? _watch;
+  Timer? _liveTimer, _badgeTimer;
+  int _liveGen = 0;
+  bool _liveBusy = false, _liveAgain = false;
+  Future<void>? _baseline;
+
+  /// The items (by id and version) this driving session has queued or knew
+  /// of when it began: what a re-brief finds beyond them is new.
+  final _seen = <String>{};
+
+  /// The new items the person has not been on yet (they get a mark).
+  final _newKeys = <String>{};
+
+  int _newCount = 0;
+
+  /// How many new items the layer announces ("新的 N 件"); 0 when it does not.
+  int get drivingNewCount => _newCount;
+
+  /// Whether [item] came in live and the person has not been on it yet.
+  bool drivingItemIsNew(OrbBriefItem item) =>
+      _newKeys.contains(orbItemKey(item));
+
+  /// Driving began: watch the Activity. The briefing as it is now is the
+  /// baseline, so that what was told before is not announced as new.
+  void _startLive() {
+    _stopLive();
+    final make = _activityWatcher;
+    final brief = _liveBriefer;
+    if (make == null || brief == null) return;
+    final watch = make(workspace);
+    if (watch == null) return;
+    _watch = watch..addListener(_liveSourceChanged);
+    _seen.addAll([
+      for (final i in shownBriefing?.needsYou ?? const <OrbBriefItem>[])
+        orbItemKey(i),
+    ]);
+    final gen = _liveGen;
+    _baseline = brief(workspace)
+        .then((b) {
+          if (gen == _liveGen) {
+            _seen.addAll([for (final i in b.needsYou) orbItemKey(i)]);
+          }
+        })
+        .catchError((Object _) {});
+  }
+
+  /// Driving ended (or the orb goes): nothing is watched, nothing waits.
+  void _stopLive() {
+    _liveGen++;
+    _liveTimer?.cancel();
+    _liveTimer = null;
+    _liveBusy = _liveAgain = false;
+    _baseline = null;
+    _watch?.removeListener(_liveSourceChanged);
+    _watch?.dispose();
+    _watch = null;
+    _seen.clear();
+    _newKeys.clear();
+    _clearBadge();
+  }
+
+  void _clearBadge() {
+    _badgeTimer?.cancel();
+    _badgeTimer = null;
+    _newCount = 0;
+  }
+
+  void _liveSourceChanged() {
+    if (!_driving || _disposed) return;
+    _liveTimer?.cancel();
+    _liveTimer = Timer(liveDebounce, _liveRefresh);
+  }
+
+  Future<void> _liveRefresh() async {
+    final brief = _liveBriefer;
+    if (!_driving || _disposed || brief == null) return;
+    // One at a time; what changed meanwhile is read once more after it.
+    if (_liveBusy) {
+      _liveAgain = true;
+      return;
+    }
+    _liveBusy = true;
+    final gen = _liveGen;
+    try {
+      await _baseline;
+      final fresh = await brief(workspace);
+      if (gen != _liveGen || !_driving || _disposed) return;
+      _mergeLive(fresh);
+    } catch (_) {
+      // A read that failed changes nothing; the next change reads again.
+    } finally {
+      if (gen == _liveGen) {
+        _liveBusy = false;
+        if (_liveAgain) {
+          _liveAgain = false;
+          unawaited(_liveRefresh());
+        }
+      }
+    }
+  }
+
+  /// Puts [fresh] into the queue: the card the person is on stays, the new
+  /// items follow it, and the layer and the model hear about them.
+  void _mergeLive(OrbBriefing fresh) {
+    final shown = shownBriefing;
+    if (shown == null) return;
+    final merge = mergeDrivingQueue(
+      queue: shown.needsYou,
+      index: drivingIndex,
+      seen: _seen,
+      fresh: fresh.needsYou,
+    );
+    final before = orbQueueSignature(shown.needsYou);
+    final changed =
+        before != orbQueueSignature(merge.items) ||
+        merge.index != drivingIndex ||
+        shown.routineCount != fresh.routineCount ||
+        shown.waitingTasks != fresh.waitingTasks ||
+        shown.overview != fresh.overview;
+    _seen.addAll([for (final i in merge.items) orbItemKey(i)]);
+    shownBriefing = OrbBriefing(
+      scope: shown.scope,
+      overview: fresh.overview,
+      needsYou: merge.items,
+      progress: fresh.progress,
+      routineCount: fresh.routineCount,
+      waitingTasks: fresh.waitingTasks,
+      waitingTaskTitles: fresh.waitingTaskTitles,
+      writtenByModel: fresh.writtenByModel,
+    );
+    _drivingIndex = merge.index;
+    if (merge.added.isNotEmpty) {
+      _newKeys.addAll([for (final i in merge.added) orbItemKey(i)]);
+      _newCount += merge.added.length;
+      _badgeTimer?.cancel();
+      _badgeTimer = Timer(newBadgeLinger, () {
+        if (_disposed) return;
+        _newCount = 0;
+        notifyListeners();
+      });
+      // Said to the model only in a call; whether to speak is its call.
+      if (inCall) unawaited(voice.tell(_liveNote(merge.added)));
+    }
+    if (changed) notifyListeners();
+  }
+
+  /// The one note to the model about [added]: what is new, and not to cut the
+  /// person off for it.
+  static String _liveNote(List<OrbBriefItem> added) {
+    final first = added.first;
+    final what = first.title.contains(first.who)
+        ? first.title
+        : '${first.who}：${first.title}';
+    return '有新的 ${added.length} 件：$what。'
+        '先别打断，等用户说完当前这件或问“还有吗”时再说；'
+        '如果是有人被卡住或构建失败，可以简短提一句。';
   }
 
   /// "下一件" or "稍后" on the card: the item is set aside (it stays in the
@@ -707,6 +914,12 @@ class OrbController extends ChangeNotifier {
   void showBriefing(OrbBriefing briefing) {
     shownBriefing = briefing;
     _drivingIndex = 0;
+    // What the briefing holds is not new when it comes live later.
+    if (_driving) {
+      _seen.addAll([for (final i in briefing.needsYou) orbItemKey(i)]);
+    }
+    _newKeys.clear();
+    _clearBadge();
     notifyListeners();
     unawaited(openLayer());
   }
@@ -799,6 +1012,7 @@ class OrbController extends ChangeNotifier {
     _tick?.cancel();
     _endedTimer?.cancel();
     _subtitleTimer?.cancel();
+    _stopLive();
     operating.removeListener(_operatingChanged);
     voice.saying.removeListener(_sayingChanged);
     voice.removeListener(_voiceChanged);

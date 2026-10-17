@@ -176,8 +176,19 @@ class OrbFixture {
   /// The scopes the orb asked to brief ahead of time.
   final warmed = <WorkspaceController>[];
 
+  /// Driving mode's live push: the Activity watch and the briefing it
+  /// re-runs (null: no live push), and the two clocks (tests shorten them).
+  OrbActivityWatcher? activityWatcher;
+  OrbLiveBriefer? liveBriefer;
+  Duration liveDebounce = const Duration(seconds: 3);
+  Duration newBadgeLinger = const Duration(seconds: 5);
+
   OrbController build({List<OrbTool> tools = const []}) =>
       controller = OrbController(
+        activityWatcher: activityWatcher,
+        liveBriefer: liveBriefer,
+        liveDebounce: liveDebounce,
+        newBadgeLinger: newBadgeLinger,
         warmUp: (w) async => warmed.add(w),
         workspace: w,
         now: () => clock,

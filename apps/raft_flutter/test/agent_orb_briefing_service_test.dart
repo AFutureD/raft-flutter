@@ -289,6 +289,54 @@ void main() {
       },
     );
 
+    test('driving mode re-reads live: a new row shows, nothing is marked '
+        'read, and what was told stays', () async {
+      final s = service();
+      final first = await s.brief(OrbBriefScope.activity);
+      expect(first.needsYou, hasLength(2));
+      // A new question arrives in a private conversation.
+      inbox.add({
+        ...dmRow(),
+        'channelId': 'dm-2',
+        'peerName': 'Bob',
+        'lastMessageId': 'dm-n1',
+        'lastMessageSenderId': 'bob',
+        'lastMessageSenderName': 'Bob',
+        'lastMessageAt': ago(2).toIso8601String(),
+      });
+      client.responses['GET /messages/channel/dm-2'] = {
+        'messages': [
+          msg(
+            'dm-n1',
+            3,
+            '你能看一下这个吗？',
+            from: 'Bob',
+            fromId: 'bob',
+            type: 'user',
+            minutes: 2,
+          ),
+        ],
+        'hasMore': false,
+      };
+      client.posts.clear();
+      final unread = {...w.unread};
+      final live = await s.brief(
+        OrbBriefScope.activity,
+        full: true,
+        remember: false,
+      );
+      expect(live.needsYou.map((i) => i.who), contains('Bob'));
+      expect(live.needsYou, hasLength(3));
+      expect(client.posts.every((p) => p.startsWith('GET ')), isTrue);
+      expect(w.commands, isEmpty);
+      expect(w.readAcks, isEmpty);
+      expect(w.unread, unread);
+      // The person was not told it: the next ordinary briefing has it.
+      final delta = await s.brief(OrbBriefScope.activity);
+      expect(delta.isDelta, isTrue);
+      expect(delta.needsYou.map((i) => i.who), ['Bob']);
+    });
+
     test('reading does not mark anything read', () async {
       final unread = {...w.unread};
       await service().brief(OrbBriefScope.activity);

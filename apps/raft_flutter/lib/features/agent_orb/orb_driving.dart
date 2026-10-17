@@ -75,8 +75,13 @@ class OrbDrivingCard extends StatelessWidget {
     required this.index,
     required this.total,
     required this.onAct,
+    this.fresh = false,
   });
   final OrbBriefItem item;
+
+  /// The item came in while driving and has not been on screen before: it
+  /// gets a mark and a short flash around the card.
+  final bool fresh;
 
   /// Counted from 0.
   final int index;
@@ -108,58 +113,65 @@ class OrbDrivingCard extends StatelessWidget {
         const SizedBox(height: RaftSpace.x2),
         _Bar(count: total, at: index),
         const SizedBox(height: RaftSpace.x3),
-        Container(
-          key: const ValueKey('orb-driving-card'),
-          padding: const EdgeInsets.all(RaftSpace.x4),
-          decoration: orbSurface(t, radius: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                meta,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: RaftTypography.body(
-                  t,
-                  size: 15,
-                  line: 20,
-                  weight: FontWeight.w600,
-                  color: t.muted,
+        _Flash(
+          fresh: fresh,
+          child: Container(
+            key: const ValueKey('orb-driving-card'),
+            padding: const EdgeInsets.all(RaftSpace.x4),
+            decoration: orbSurface(t, radius: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (fresh) ...[
+                  const _NewMark(),
+                  const SizedBox(height: RaftSpace.x2),
+                ],
+                Text(
+                  meta,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: RaftTypography.body(
+                    t,
+                    size: 15,
+                    line: 20,
+                    weight: FontWeight.w600,
+                    color: t.muted,
+                  ),
                 ),
-              ),
-              const SizedBox(height: RaftSpace.x2),
-              Text(
-                item.title,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: RaftTypography.heading(
-                  t,
-                  size: orbDrivingTitleSize,
-                  line: orbDrivingTitleSize * 1.25,
-                ),
-              ),
-              if (item.since.isNotEmpty) ...[
                 const SizedBox(height: RaftSpace.x2),
-                Row(
-                  children: [
-                    RaftIcon(RaftGlyph.clock, size: 16, color: t.muted),
-                    const SizedBox(width: RaftSpace.x1),
-                    Expanded(
-                      child: Text(
-                        item.since,
-                        style: RaftTypography.body(
-                          t,
-                          size: 16,
-                          line: 22,
-                          weight: FontWeight.w600,
-                          color: t.muted,
+                Text(
+                  item.title,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: RaftTypography.heading(
+                    t,
+                    size: orbDrivingTitleSize,
+                    line: orbDrivingTitleSize * 1.25,
+                  ),
+                ),
+                if (item.since.isNotEmpty) ...[
+                  const SizedBox(height: RaftSpace.x2),
+                  Row(
+                    children: [
+                      RaftIcon(RaftGlyph.clock, size: 16, color: t.muted),
+                      const SizedBox(width: RaftSpace.x1),
+                      Expanded(
+                        child: Text(
+                          item.since,
+                          style: RaftTypography.body(
+                            t,
+                            size: 16,
+                            line: 22,
+                            weight: FontWeight.w600,
+                            color: t.muted,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         const SizedBox(height: RaftSpace.x4),
@@ -170,6 +182,112 @@ class OrbDrivingCard extends StatelessWidget {
           primary: true,
         ),
       ],
+    );
+  }
+}
+
+/// "新的 3 件": what came in while driving, for a few seconds above the card.
+class OrbDrivingNewBadge extends StatelessWidget {
+  const OrbDrivingNewBadge({super.key, required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        key: const ValueKey('orb-driving-new'),
+        padding: const EdgeInsets.symmetric(
+          horizontal: RaftSpace.x3,
+          vertical: RaftSpace.x1_5,
+        ),
+        decoration: orbSurface(
+          t,
+          fill: t.brutal ? t.product.brutalLime : t.accent,
+          radius: 16,
+        ),
+        child: Text(
+          '新的 $count 件',
+          style: RaftTypography.heading(
+            t,
+            size: 16,
+            line: 22,
+            color: t.brutal ? t.product.brutalBlack : t.canvas,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The small "新" on a card that came in live.
+class _NewMark extends StatelessWidget {
+  const _NewMark();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        key: const ValueKey('orb-driving-card-new'),
+        padding: const EdgeInsets.symmetric(
+          horizontal: RaftSpace.x2,
+          vertical: RaftSpace.half,
+        ),
+        decoration: orbSurface(
+          t,
+          fill: t.brutal ? t.product.brutalLime : t.accent,
+          radius: 8,
+        ),
+        child: Text(
+          '新',
+          style: RaftTypography.body(
+            t,
+            size: 13,
+            line: 18,
+            weight: FontWeight.w700,
+            color: t.brutal ? t.product.brutalBlack : t.canvas,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A ring that flashes once around a card that came in live, then fades.
+class _Flash extends StatelessWidget {
+  const _Flash({required this.fresh, required this.child});
+  final bool fresh;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!fresh) return child;
+    final t = RaftTokens.of(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1, end: 0),
+      // ds-allow: layer and spinner motion timing from the approved design frames
+      duration: const Duration(milliseconds: 1400),
+      curve: Curves.easeOut,
+      child: child,
+      builder: (context, glow, child) => DecoratedBox(
+        decoration: BoxDecoration(
+          // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: (t.brutal ? t.product.brutalLime : t.accent).withValues(
+                alpha: glow,
+              ),
+              // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+              spreadRadius: 6 * glow,
+            ),
+          ],
+        ),
+        child: child,
+      ),
     );
   }
 }
