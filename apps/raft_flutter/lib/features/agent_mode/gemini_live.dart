@@ -26,6 +26,7 @@ class GeminiLiveSession implements VoiceSession {
     required this.onToolCall,
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
+    this.fast = false,
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -129,21 +130,51 @@ class GeminiLiveSession implements VoiceSession {
   @override
   final void Function(String reason)? onClosed;
 
+  /// The voice layer only relays: take the quickest Live model, without
+  /// extended thinking.
+  final bool fast;
+
   static String? _model;
+  static String? _fastModel;
   WebSocket? _socket;
   String? _resumeHandle;
 
   @override
   bool get connected => _socket != null;
   @override
-  String? get model => _model;
+  String? get model => fast ? _fastModel : _model;
 
   /// The model chosen for this key, once known.
   static String? get pickedModel => _model;
 
+  /// The Live models in the order they are preferred: native audio and "live"
+  /// first, stable before preview, newest first. For a [fast] session (it
+  /// only relays) a model with "thinking" in its name is left out when any
+  /// other is there, and a Flash one comes first.
+  static List<String> sortModels(Iterable<String> names, {bool fast = false}) {
+    var models = [...names];
+    if (fast) {
+      final quick = [
+        for (final m in models)
+          if (!m.contains('thinking')) m,
+      ];
+      if (quick.isNotEmpty) models = quick;
+    }
+    int rank(String name) =>
+        (name.contains('native-audio') || name.contains('live') ? 2 : 0) +
+        (name.contains('preview') || name.contains('exp') ? 0 : 1) +
+        (fast && name.contains('flash') ? 4 : 0);
+    models.sort((a, b) {
+      final r = rank(b) - rank(a);
+      return r != 0 ? r : b.compareTo(a);
+    });
+    return models;
+  }
+
   /// Picks the newest model that supports Live sessions for this key.
-  static Future<String> _pickModel(String key) async {
-    if (_model != null) return _model!;
+  static Future<String> _pickModel(String key, {bool fast = false}) async {
+    if (fast && _fastModel != null) return _fastModel!;
+    if (!fast && _model != null) return _model!;
     // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
     final client = HttpClient();
     try {
@@ -166,14 +197,9 @@ class GeminiLiveSession implements VoiceSession {
       if (models.isEmpty) {
         throw const GeminiLiveException('这个 Key 没有可用的实时语音模型');
       }
-      int rank(String name) =>
-          (name.contains('native-audio') || name.contains('live') ? 2 : 0) +
-          (name.contains('preview') || name.contains('exp') ? 0 : 1);
-      models.sort((a, b) {
-        final r = rank(b) - rank(a);
-        return r != 0 ? r : b.compareTo(a);
-      });
-      return _model = models.first;
+      final sorted = sortModels(models, fast: fast);
+      _debug('live model ${sorted.first}${fast ? ' (relay: fast)' : ''}');
+      return fast ? _fastModel = sorted.first : _model = sorted.first;
     } finally {
       client.close();
     }
@@ -229,7 +255,7 @@ class GeminiLiveSession implements VoiceSession {
     required bool nonBlocking,
   }) async {
     _declaredNonBlocking = nonBlocking;
-    final model = await _pickModel(apiKey);
+    final model = await _pickModel(apiKey, fast: fast);
     // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
     final socket = await WebSocket.connect(
       Uri(

@@ -87,6 +87,47 @@ Map<String, Object?> _call(String name) => {
   ],
 };
 
+/// An agent that takes [delay] to answer.
+class SlowAgent implements VoiceSession {
+  SlowAgent(this.parts, this.delay);
+  final AgentParts parts;
+  final Duration delay;
+
+  @override
+  bool get connected => true;
+  @override
+  String? get model => 'slow';
+  @override
+  AgentToolHandler get onToolCall => parts.onToolCall;
+  @override
+  void Function(Uint8List)? get onAudio => null;
+  @override
+  void Function(String)? get onInputText => null;
+  @override
+  void Function(String)? get onOutputText => parts.onOutputText;
+  @override
+  void Function()? get onTurnComplete => parts.onTurnComplete;
+  @override
+  void Function()? get onInterrupted => null;
+  @override
+  void Function(String)? get onClosed => parts.onClosed;
+  @override
+  Future<void> connect() async {}
+  @override
+  void sendAudio(Uint8List pcm16k) {}
+  @override
+  void endAudio() {}
+  @override
+  void addContext(String text) {}
+  @override
+  Future<void> close() async {}
+  @override
+  void sendText(String text) => Future<void>.delayed(delay, () {
+    parts.onOutputText('好了。');
+    parts.onTurnComplete();
+  });
+}
+
 class FakeApi {
   final replies = <Object>[];
   final requests = <Map<String, Object?>>[];
@@ -171,7 +212,9 @@ void main() {
     expect(live.parts.systemPrompt, layeredVoicePrompt);
     expect(layeredVoicePrompt, contains('ask_agent'));
     expect(layeredVoicePrompt, contains('一字不差'));
-    expect(layeredVoicePrompt, contains('我看一下'));
+    // The voice model says nothing before or while the agent works.
+    expect(layeredVoicePrompt, contains('不要先说话'));
+    expect(layeredVoicePrompt, isNot(contains('可以先说一句')));
     expect(layeredVoicePrompt.length, lessThan(900));
     expect(s.connected, isFalse);
     await s.connect();
@@ -293,6 +336,89 @@ void main() {
     expect((await waiting)['say'], isNotNull);
     expect(live.closes, 1);
     expect(s.connected, isFalse);
+  });
+
+  test('the voice layer says nothing before or while it waits: the app cues '
+      'when the agent is slow, and says how many asks are out', () async {
+    final inFlight = <int>[];
+    var cues = 0;
+    final s = LayeredVoiceSession(
+      apiKey: 'k',
+      systemPrompt: 'p',
+      tools: const [],
+      onToolCall: (n, a) async => {},
+      steering: AgentSteering(
+        scope: () => const AgentScope(systemPrompt: 's', tools: []),
+      ),
+      slowAfter: const Duration(milliseconds: 30),
+      liveBuilder: (parts) => live = FakeLive(parts),
+      agentBuilder: (p) => SlowAgent(p, const Duration(milliseconds: 120)),
+    )..onSlow = () => cues++;
+    s.addAskingListener(inFlight.add);
+    await s.connect();
+
+    final answer = live.onToolCall('ask_agent', {'request': '去动态'});
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(s.asking, 1);
+    expect(cues, 1, reason: 'slow: the app cues once');
+    expect(await answer, {'say': '好了。'});
+    expect(s.asking, 0);
+    expect(inFlight, [1, 0]);
+
+    // A quick ask gives no cue.
+    cues = 0;
+    final quick = LayeredVoiceSession(
+      apiKey: 'k',
+      systemPrompt: 'p',
+      tools: const [],
+      onToolCall: (n, a) async => {},
+      steering: AgentSteering(
+        scope: () => const AgentScope(systemPrompt: 's', tools: []),
+      ),
+      slowAfter: const Duration(milliseconds: 200),
+      liveBuilder: (parts) => live = FakeLive(parts),
+      agentBuilder: (p) => SlowAgent(p, const Duration(milliseconds: 5)),
+    )..onSlow = () => cues++;
+    await quick.connect();
+    await live.onToolCall('ask_agent', {'request': '去动态'});
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    expect(cues, 0);
+  });
+
+  test('the Live model: the app\'s pick as before; for the relaying voice '
+      'layer the quickest without extended thinking', () {
+    const models = [
+      'models/gemini-3.8-live-extended-thinking',
+      'models/gemini-3.8-live',
+      'models/gemini-3.5-flash-live-preview',
+      'models/gemini-2.5-flash-native-audio-preview-09-2025',
+    ];
+    // As before: what the device picked.
+    expect(
+      GeminiLiveSession.sortModels(models).first,
+      'models/gemini-3.8-live-extended-thinking',
+    );
+    final fast = GeminiLiveSession.sortModels(models, fast: true);
+    expect(fast.first, 'models/gemini-3.5-flash-live-preview');
+    expect(fast, isNot(contains('models/gemini-3.8-live-extended-thinking')));
+    // Nothing else to take: the thinking one is still better than none.
+    expect(
+      GeminiLiveSession.sortModels([
+        'models/gemini-3.8-live-extended-thinking',
+      ], fast: true),
+      ['models/gemini-3.8-live-extended-thinking'],
+    );
+    // And the session says which it uses.
+    expect(
+      GeminiLiveSession(
+        apiKey: 'k',
+        systemPrompt: 'p',
+        tools: const [],
+        onToolCall: (n, a) async => {},
+        fast: true,
+      ).fast,
+      isTrue,
+    );
   });
 
   test('the agent behind the voice thinks as asked', () {

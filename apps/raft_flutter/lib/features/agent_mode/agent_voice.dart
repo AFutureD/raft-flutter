@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_audio.dart';
@@ -10,6 +11,7 @@ import 'agent_steering.dart';
 import 'agent_summary.dart';
 import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
+import 'layered_voice.dart' show LayeredVoiceSession;
 import 'voice_provider.dart';
 
 /// What the runtime needs of the model's side: to tell it something the app
@@ -37,6 +39,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     this.beforeConnect,
     this.steering,
     this.provider,
+    this.slowCue = platformSlowCue,
     this.onSessionEnd,
     this.onUserSaid,
     this.onListening,
@@ -80,6 +83,26 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   /// The voice service to use whatever the settings say (the layered voice
   /// needs Gemini); null: the one in the settings.
   final AgentVoiceProvider? provider;
+
+  /// The cue the person gets when the agent behind a layered voice is slow:
+  /// the voice model says nothing while it waits, so the app does.
+  final void Function() slowCue;
+
+  /// A silent tap and the system click: no speech, nothing to load.
+  static void platformSlowCue() {
+    unawaited(HapticFeedback.lightImpact());
+    unawaited(SystemSound.play(SystemSoundType.click));
+  }
+
+  /// The layered voice has asked its agent and waits for the answer.
+  bool get asking => _asking;
+  bool _asking = false;
+
+  void _askingIs(bool now) {
+    if (_asking == now) return;
+    _asking = now;
+    if (!_disposed) notifyListeners();
+  }
 
   /// The transcript of what the person said, chunk by chunk. [fresh] is true
   /// for the first chunk of a new utterance. Never called with what the
@@ -399,6 +422,11 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         _set(AgentMicState.idle, note: '语音连接断开：$reason');
       },
     );
+    if (session is LayeredVoiceSession) {
+      session
+        ..addAskingListener((n) => _askingIs(n > 0))
+        ..onSlow = slowCue;
+    }
     _building = session;
     try {
       await session.connect();

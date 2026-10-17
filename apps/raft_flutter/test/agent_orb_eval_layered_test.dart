@@ -23,7 +23,13 @@ import 'support/orb_eval_scripted.dart';
 /// Live, typed to: it asks the agent for the text (or answers itself) and
 /// "speaks" [speak] of what came back.
 class FakeLive implements VoiceSession {
-  FakeLive(this.parts, {required this.ask, required this.speak});
+  FakeLive(
+    this.parts, {
+    required this.ask,
+    required this.speak,
+    this.filler = false,
+    this.midComplete = false,
+  });
   final LiveParts parts;
 
   /// Whether it hands the text to the agent.
@@ -31,6 +37,13 @@ class FakeLive implements VoiceSession {
 
   /// What it says, given the agent's say.
   final String Function(String say) speak;
+
+  /// It says "我看一下。" and ends that turn before it asks (what the real
+  /// model did).
+  final bool filler;
+
+  /// It ends a turn while the ask is still out.
+  final bool midComplete;
 
   @override
   bool get connected => true;
@@ -66,7 +79,20 @@ class FakeLive implements VoiceSession {
 
   Future<void> _turn(String text) async {
     var say = '我自己答的。';
+    if (filler) {
+      parts.onOutputText?.call('我看一下。');
+      parts.onTurnComplete?.call();
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
     if (ask) {
+      if (midComplete) {
+        unawaited(
+          Future<void>.delayed(
+            const Duration(milliseconds: 100),
+            () => parts.onTurnComplete?.call(),
+          ),
+        );
+      }
       final r = await parts.onToolCall('ask_agent', {'request': text});
       say = '${r['say']}';
     }
@@ -78,9 +104,18 @@ class FakeLive implements VoiceSession {
 /// The agent behind Live: it opens the channel with the orb's own `navigate`
 /// and says [words].
 class FakeAgent implements VoiceSession {
-  FakeAgent(this.parts, this.words);
+  FakeAgent(
+    this.parts,
+    this.words, {
+    this.delay = Duration.zero,
+    this.hang = false,
+  });
   final AgentParts parts;
   final String words;
+  final Duration delay;
+
+  /// It never answers.
+  final bool hang;
 
   @override
   bool get connected => true;
@@ -113,6 +148,8 @@ class FakeAgent implements VoiceSession {
 
   @override
   void sendText(String text) => unawaited(() async {
+    if (hang) await Completer<void>().future;
+    await Future<void>.delayed(delay);
     await parts.onToolCall('navigate', {'channel_id': evalId('raft-flutter')});
     parts.onOutputText.call(words);
     parts.onTurnComplete.call();
@@ -134,6 +171,10 @@ void main() {
   VoiceSessionFactory layered({
     bool ask = true,
     String Function(String)? speak,
+    bool filler = false,
+    bool midComplete = false,
+    Duration agentDelay = Duration.zero,
+    bool hang = false,
   }) =>
       ({
         required provider,
@@ -161,9 +202,15 @@ void main() {
         onOutputText: onOutputText,
         onTurnComplete: onTurnComplete,
         onClosed: onClosed,
-        liveBuilder: (p) =>
-            FakeLive(p, ask: ask, speak: speak ?? (say) => '我看一下。$say'),
-        agentBuilder: (p) => FakeAgent(p, agentSays),
+        liveBuilder: (p) => FakeLive(
+          p,
+          ask: ask,
+          speak: speak ?? (say) => '我看一下。$say',
+          filler: filler,
+          midComplete: midComplete,
+        ),
+        agentBuilder: (p) =>
+            FakeAgent(p, agentSays, delay: agentDelay, hang: hang),
       );
 
   OrbEvalScenario scenario({List<OrbEvalCheck> checks = const []}) =>
@@ -193,14 +240,16 @@ void main() {
 
   Future<Map<String, dynamic>> run(
     WidgetTester t,
-    VoiceSessionFactory factory,
-  ) async {
+    VoiceSessionFactory factory, {
+    Duration turnTimeout = const Duration(seconds: 45),
+  }) async {
     await mountEvalPage(
       t,
       reports: reports,
       scenarios: [scenario()],
       sessionFactory: factory,
       runs: 1,
+      turnTimeout: turnTimeout,
       harness: OrbEvalHarness.layered,
     );
     await finishEvalRun(t);
@@ -280,6 +329,55 @@ void main() {
     final reason = ((result['failures'] as List).single as Map)['reason'];
     expect(reason, contains('没有原样说出'));
     expect(reason, contains(agentSays));
+  });
+
+  testWidgets('a filler and its turn end before the ask do not end the '
+      'turn: the ask is waited for', (t) async {
+    final json = await run(
+      t,
+      layered(filler: true, agentDelay: const Duration(seconds: 1)),
+    );
+    final s = (json['scenarios'] as List).single as Map;
+    expect(s['outcome'], 'passed');
+    final turn =
+        (((s['results'] as List).single as Map)['turns'] as List).single as Map;
+    expect((turn['asks'] as List), hasLength(1));
+    expect(turn['text'], contains(agentSays));
+    expect((turn['tools'] as List).map((c) => (c as Map)['name']), [
+      'navigate',
+    ]);
+  });
+
+  testWidgets('a turn end while the ask is out is not the end', (t) async {
+    final json = await run(
+      t,
+      layered(midComplete: true, agentDelay: const Duration(seconds: 1)),
+    );
+    final s = (json['scenarios'] as List).single as Map;
+    expect(s['outcome'], 'passed');
+    final turn =
+        (((s['results'] as List).single as Map)['turns'] as List).single as Map;
+    expect(turn['text'], contains(agentSays));
+  });
+
+  testWidgets('an ask that never comes back: the turn fails with that '
+      'reason, after the time', (t) async {
+    final json = await run(
+      t,
+      layered(hang: true),
+      turnTimeout: const Duration(seconds: 3),
+    );
+    final s = (json['scenarios'] as List).single as Map;
+    expect(s['outcome'], 'failed');
+    final result = (s['results'] as List).single as Map;
+    expect(result['error'], contains('ask_agent 发起了 1 次，还有 1 个没回来'));
+  });
+
+  testWidgets('the header names Gemini and the Live model, not the voice '
+      'settings', (t) async {
+    final json = await run(t, layered());
+    expect(json['provider'], 'gemini');
+    expect(json['model'], 'live-fake');
   });
 
   group('the check on its own', () {

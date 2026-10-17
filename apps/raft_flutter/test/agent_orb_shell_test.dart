@@ -203,6 +203,9 @@ class OrbFixture {
   /// The orb runs on the text agent (`agentLayer`): its sessions get a steering.
   bool agentLayer = false;
 
+  /// Told when the agent behind a layered voice is slow.
+  void Function()? slowCue;
+
   /// Builds the sessions instead of [FakeSession] (a test that runs the text
   /// agent on a fake transport).
   VoiceSessionFactory? sessionFactory;
@@ -213,6 +216,7 @@ class OrbFixture {
   OrbController build({List<OrbTool> tools = const []}) =>
       controller = OrbController(
         agentLayer: agentLayer,
+        slowCue: slowCue,
         actions: actions,
         activityWatcher: activityWatcher,
         liveBriefer: liveBriefer,

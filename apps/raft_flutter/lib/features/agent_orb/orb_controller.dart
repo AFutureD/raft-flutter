@@ -131,6 +131,7 @@ class OrbController extends ChangeNotifier {
     this.newBadgeLinger = const Duration(seconds: 5),
     this.agentLayer = false,
     this.layeredVoice = false,
+    this.slowCue,
   }) : _now = now ?? DateTime.now,
        _activityWatcher =
            activityWatcher ?? (appTools == null ? _defaultWatcher : null),
@@ -187,6 +188,7 @@ class OrbController extends ChangeNotifier {
       audio: audio,
       key: voiceKey,
       provider: agentLayer && layeredVoice ? AgentVoiceProvider.gemini : null,
+      slowCue: slowCue ?? AgentVoiceController.platformSlowCue,
       sessionFactory:
           sessionFactory ??
           (agentLayer && layeredVoice ? createLayeredSession : null),
@@ -217,6 +219,10 @@ class OrbController extends ChangeNotifier {
   /// False: the agent is typed to and its words are shown, not spoken (the
   /// evaluation).
   final bool layeredVoice;
+
+  /// The cue the person gets when the agent behind the voice is slow (the
+  /// platform's tap and click unless a test gives one).
+  final void Function()? slowCue;
 
   /// What the model may do for the person (reply, react, change a task ...):
   /// the confirm card, the person's answer, the driving rules.
@@ -293,6 +299,9 @@ class OrbController extends ChangeNotifier {
   /// What the orb shows.
   OrbState get state {
     if (operating.value) return OrbState.operating;
+    // The voice layer has handed the person's words to the agent and waits:
+    // the orb is thinking, whatever the microphone is doing.
+    if (voice.asking) return OrbState.thinking;
     if (_modelSpeaking || voice.state == AgentMicState.speaking) {
       return OrbState.speaking;
     }

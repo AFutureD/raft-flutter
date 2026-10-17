@@ -85,6 +85,7 @@ class OrbEvalRunner {
     this.thinking,
     this.model,
     this.engine,
+    this.layeredGrace = const Duration(seconds: 4),
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
     this.voiceKey,
@@ -112,6 +113,10 @@ class OrbEvalRunner {
   /// The layered harness: what makes the agent's model calls; the Labs setting
   /// when null.
   final AgentEngine? engine;
+
+  /// The layered harness: how long after a Live turn that asked nothing the
+  /// turn is called over (an ask may still follow a filler).
+  final Duration layeredGrace;
 
   Duration get _turnLimit =>
       turnTimeout ??
@@ -198,7 +203,8 @@ class OrbEvalRunner {
       startedAt: started,
       runsPerScenario: runs,
       results: results,
-      provider: agent ? null : settings.provider.name,
+      // The voice layer is Gemini whatever the voice settings name.
+      provider: agent ? null : (layered ? 'gemini' : settings.provider.name),
       reasoning: agent ? null : settings.reasoning.name,
       harness: harness.name,
       model: _model,
@@ -341,7 +347,10 @@ class OrbEvalRunner {
       if (problem != null) throw StateError(problem);
       await _warm(world);
       await _start(s, world, shown);
-      final recorder = _recorder = _Recorder(run);
+      final recorder = _recorder = _Recorder(
+        run,
+        grace: harness == OrbEvalHarness.layered ? layeredGrace : null,
+      );
       orb = OrbController(
         workspace: world.workspace,
         navigatorContext: () => shown.navigatorContext(),
@@ -545,8 +554,16 @@ class OrbEvalRunner {
 /// Watches the session the orb builds: the tool calls and their answers, the
 /// reply's words and the end of the turn.
 class _Recorder {
-  _Recorder(this.run);
+  _Recorder(this.run, {this.grace});
   final OrbEvalRun run;
+
+  /// The layered harness: how long Live may have said its turn complete
+  /// without having asked the agent before that is taken for its answer (it
+  /// is often a filler; the ask can follow).
+  final Duration? grace;
+  int _asking = 0;
+  int _turnAsks = 0;
+  Timer? _graceTimer;
   OrbEvalTurn? _turn;
   Completer<String?>? _done;
   Timer? _timeout;
@@ -559,6 +576,8 @@ class _Recorder {
     final turn = OrbEvalTurn(line, scored: scored);
     run.turns.add(turn);
     _turn = turn;
+    _turnAsks = 0;
+    _graceTimer?.cancel();
     return turn;
   }
 
@@ -573,7 +592,10 @@ class _Recorder {
     _timeout?.cancel();
     _timeout = Timer(limit, () {
       _turn?.timedOut = true;
-      finish('超过 ${limit.inSeconds} 秒没有结束');
+      finish(
+        '超过 ${limit.inSeconds} 秒没有结束'
+        '${grace == null ? '' : '（ask_agent 发起了 $_turnAsks 次，还有 $_asking 个没回来）'}',
+      );
     });
     // A session that never opens or closes under the turn leaves a note.
     void changed() {
@@ -603,9 +625,34 @@ class _Recorder {
   void _turnComplete() {
     final turn = _turn;
     if (turn == null) return;
+    if (grace != null) {
+      // Live's turn ends when it has the agent's answer and has spoken it:
+      // not while an ask is out, and not at a filler said before the ask.
+      if (_asking > 0) return;
+      if (_turnAsks == 0) {
+        _graceTimer?.cancel();
+        _graceTimer = Timer(grace!, _finish);
+        return;
+      }
+    }
+    _finish();
+  }
+
+  void _finish() {
+    _graceTimer?.cancel();
+    final turn = _turn;
+    if (turn == null) return;
     turn.completed = true;
     final done = _done;
     if (done != null && !done.isCompleted) done.complete(null);
+  }
+
+  void _askingChanged(int inFlight) {
+    if (inFlight > _asking) {
+      _turnAsks++;
+      _graceTimer?.cancel();
+    }
+    _asking = inFlight;
   }
 
   /// Wraps a session builder so the session reports to this recorder.
@@ -685,7 +732,11 @@ class _Recorder {
 
   /// A layered session reports each ask of the voice model to the agent.
   VoiceSession _track(VoiceSession made) {
-    if (made is LayeredVoiceSession) made.onAsk = _ask;
+    if (made is LayeredVoiceSession) {
+      made
+        ..onAsk = _ask
+        ..addAskingListener(_askingChanged);
+    }
     return made;
   }
 

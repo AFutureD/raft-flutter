@@ -44,8 +44,8 @@ const layeredVoicePrompt =
     '\n'
     '【说出来】ask_agent 返回 say 之后，一字不差地把 say 说出来：不加、不删、不解释、不换说法。say 是空的就不说话。\n'
     '\n'
-    '【等的时候】要读或要去哪里的事，调用之前可以先说一句很短的“我看一下”；用户只是答“确认”“好”“取消”时不要说，直接调用。'
-    '一次只说这一句。\n'
+    '【不要先说话】调用 ask_agent 之前、等它的时候，都不要说任何话，一个字也不要说：马上调用。等的时候 App 自己会提示用户。'
+    '你只说 ask_agent 返回的 say。\n'
     '\n'
     '【App 请你说】收到以“（App 请你说）”开头的话，一字不差地说出后面的话，什么都不要加，不要调用工具。\n'
     '\n'
@@ -74,6 +74,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.thinking = AgentThinking.low,
     this.engine = AgentEngine.genkit,
     this.agentModelId,
+    this.slowAfter = const Duration(milliseconds: 800),
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.onAudio,
@@ -118,6 +119,8 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     onTurnComplete: p.onTurnComplete,
     onInterrupted: p.onInterrupted,
     onClosed: p.onClosed,
+    // Live only relays here: the quickest model, no extended thinking.
+    fast: true,
   );
 
   /// The agent on the engine of the setting: Genkit, or the direct calls.
@@ -153,6 +156,32 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// The agent's, when it has no steering to give another.
   final String systemPrompt;
   final List<Map<String, Object?>> tools;
+
+  /// How long an ask may take before [onSlow] is told.
+  final Duration slowAfter;
+
+  /// The agent is taking its time: the app gives the person a cue of its own
+  /// (the voice model says nothing while it waits).
+  void Function()? onSlow;
+
+  /// How many asks to the agent are in flight. The orb is thinking while it is
+  /// above zero, and an evaluation does not call a turn over before it is
+  /// back to zero.
+  int get asking => _asking;
+  int _asking = 0;
+  final _askingListeners = <void Function(int inFlight)>[];
+
+  /// Told each time the number of asks in flight changes.
+  void addAskingListener(void Function(int inFlight) listener) =>
+      _askingListeners.add(listener);
+
+  void _askingIs(int n) {
+    if (n == _asking) return;
+    _asking = n;
+    for (final f in [..._askingListeners]) {
+      f(n);
+    }
+  }
 
   /// The app's tools: the agent's, never Live's.
   @override
@@ -270,13 +299,20 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     final request = '${args['request'] ?? ''}'.trim();
     if (request.isEmpty) return {'say': ''};
     final watch = Stopwatch()..start();
+    _askingIs(_asking + 1);
+    final slow = Timer(slowAfter, () => onSlow?.call());
     String say;
     try {
       say = await _runAgent(request);
     } catch (_) {
       say = '我这边出了点问题，你再说一次。';
+    } finally {
+      slow.cancel();
     }
     onAsk?.call(request, say, watch.elapsedMilliseconds);
+    // Out of flight as the answer goes back to Live, which can only say its
+    // turn is over after it has it.
+    if (!_closed) _askingIs(_asking - 1);
     return {'say': say};
   }
 
@@ -317,6 +353,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   @override
   Future<void> close() async {
     _closed = true;
+    _askingIs(0);
     _agentClosed('closed');
     await Future.wait([_live.close(), _agent.close()]);
   }
