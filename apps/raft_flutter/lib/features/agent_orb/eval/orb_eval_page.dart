@@ -168,25 +168,35 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
     );
   }
 
-  /// The app's phone shell over the scenario's workspace, in its own
-  /// Navigator. (The orb's layer opens on the app's root Navigator, above
-  /// this page.)
-  Widget _fixtureApp(WorkspaceController workspace) => MaterialApp(
+  /// The app's phone shell over the scenario's workspace, in a Navigator of
+  /// its own. It is not a MaterialApp on purpose: a MaterialApp's Navigator
+  /// reports its routes to the platform and follows its route pushes, and
+  /// this one must stay invisible to the app it runs in. (The orb's layer
+  /// opens on the app's root Navigator, above this page.)
+  Widget _fixtureApp(WorkspaceController workspace) => Theme(
     key: const ValueKey('orb-eval-app'),
-    navigatorKey: _navigator,
-    debugShowCheckedModeBanner: false,
-    theme: raftTheme(RaftFamily.brutal),
-    locale: const Locale('zh', 'CN'),
-    supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    home: AppServicesScope(
-      services: const AppServices.updatesDisabledForTestOrPreview(),
-      child: WorkspaceView(
-        key: ValueKey(workspace),
-        controller: workspace,
-        appearance: RaftAppearance(light: RaftFamily.brutal),
-        onAppearance: (_) async {},
-        onLogout: () async {},
+    data: raftTheme(RaftFamily.brutal),
+    child: Localizations(
+      locale: const Locale('zh', 'CN'),
+      delegates: GlobalMaterialLocalizations.delegates,
+      child: HeroControllerScope.none(
+        child: Navigator(
+          key: _navigator,
+          reportsRouteUpdateToEngine: false,
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => AppServicesScope(
+              services: const AppServices.updatesDisabledForTestOrPreview(),
+              child: WorkspaceView(
+                key: ValueKey(workspace),
+                controller: workspace,
+                ownNavigator: true,
+                appearance: RaftAppearance(light: RaftFamily.brutal),
+                onAppearance: (_) async {},
+                onLogout: () async {},
+              ),
+            ),
+          ),
+        ),
       ),
     ),
   );

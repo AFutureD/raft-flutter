@@ -51,5 +51,6 @@ class _MobileWorkspaceContent extends WorkspaceView {
     super.railSide,
     super.onChooseServer,
     super.onSwitchServer,
+    super.ownNavigator,
   }) : super(mobileRoutePage: true);
 }

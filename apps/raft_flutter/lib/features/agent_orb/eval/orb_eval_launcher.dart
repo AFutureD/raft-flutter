@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../../private_route_guard.dart' show PrivateRouteGuard;
 import 'orb_eval_page.dart';
 
 /// What a start request asks for.
@@ -132,6 +133,12 @@ class OrbEvalLauncher {
     state
         .push(
           MaterialPageRoute<void>(
+            // The page is not the signed-in workspace's: a change of the real
+            // workspace's authority (its channel list refreshing) must not
+            // close it under a running evaluation.
+            settings: const RouteSettings(
+              name: PrivateRouteGuard.rootOwnedRoute,
+            ),
             builder: (_) =>
                 pageBuilder?.call(request) ??
                 OrbEvalPage(only: request.only, runs: request.runs),

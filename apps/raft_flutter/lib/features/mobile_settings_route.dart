@@ -60,6 +60,7 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
     final page = _MobileWorkspaceContent(
       controller: source,
       mobileHost: host,
+      ownNavigator: host.widget.ownNavigator,
       appearance: host.widget.appearance,
       onAppearance: host.widget.onAppearance,
       onLogout: host.widget.onLogout,

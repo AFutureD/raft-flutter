@@ -110,8 +110,14 @@ class WorkspaceView extends StatefulWidget {
     this.onSwitchServer,
     this.mobileRoutePage = false,
     this.mobileHost,
+    this.ownNavigator = false,
   });
   final WorkspaceController controller;
+
+  /// The view lives in a Navigator of its own inside another app (the Agent
+  /// evaluation's fixture): its page cleanup and authority changes touch that
+  /// Navigator, not the outermost one of the host app.
+  final bool ownNavigator;
 
   final bool mobileRoutePage;
   final Object? mobileHost;
@@ -398,7 +404,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     if (route == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).popUntil(
+      Navigator.of(context, rootNavigator: !widget.ownNavigator).popUntil(
         (candidate) =>
             candidate == route ||
             candidate.isFirst ||
@@ -1289,7 +1295,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
       conversationInstance = null;
       clearWorkspaceSettingsCache(this);
       lastAuthority = authority;
-      final navigator = Navigator.of(context, rootNavigator: true);
+      final navigator = Navigator.of(
+        context,
+        rootNavigator: !widget.ownNavigator,
+      );
       for (final observer
           in navigator.widget.observers.whereType<PrivateRouteGuard>()) {
         observer.scopeChanged(authority);
