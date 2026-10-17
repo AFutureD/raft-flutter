@@ -41,6 +41,7 @@ Map<String, dynamic> _thread(
   bool mention = false,
   String preview = '首片出了，两张误检',
   String who = 'Cody',
+  String senderId = 'a-cody',
   int? task,
   String? status,
 }) => {
@@ -55,7 +56,7 @@ Map<String, dynamic> _thread(
   'latestActivityMessageId': 'l-$id',
   'latestActivityPreview': preview,
   'latestActivitySenderName': who,
-  'latestActivitySenderId': 'a-cody',
+  'latestActivitySenderId': senderId,
   'latestActivitySenderType': 'agent',
   'firstUnreadMessageId': unread > 0 ? 'u-$id' : null,
   'lastActivityAt': _ago(minutes),
@@ -369,6 +370,7 @@ void main() {
               minutes: 3,
               unread: 2,
               mention: true,
+              senderId: 'a-cindy',
               preview: '每日工作方法复盘：今天的三条',
             ),
           ),
@@ -391,7 +393,6 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      debugPrint('TEXTS ${t.widgetList<Text>(find.byType(Text)).map((e) => e.data).whereType<String>().toList()} DIR ${named.entityDirectory.authorAgents} ${named.entityDirectory.authorsLoading}');
       expect(find.text('Cindy：每日工作方法复盘：今天的三条'), findsOneWidget);
       expect(find.text('Alice Chen：周五的评审你能来吗？'), findsOneWidget);
       expect(find.textContaining('有人'), findsNothing);
