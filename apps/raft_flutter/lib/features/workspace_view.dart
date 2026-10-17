@@ -1822,7 +1822,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                     Expanded(
                       child: ProfileOutsideTapDismiss(
                         controller: w,
-                        panelKey: profilePanelKey,
+                        panelKey: profilePanelKeyFor(w),
                         // Wide layouts only: a phone / folded profile is a page.
                         enabled: wide && !gridActive,
                         onDismiss: w.closeProfile,
@@ -2155,8 +2155,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
     }
   }
 
-  final profilePanelKey = GlobalKey();
-
   Widget _phoneThreadChat() => RaftChatView(
     controller: w,
     thread: true,
@@ -2168,7 +2166,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   Widget profileSidePanel(RaftProfileLocation profile, {bool page = false}) =>
       ProfileSidePanel(
-        key: profilePanelKey,
+        key: profilePanelKeyFor(w),
         controller: w,
         profile: profile,
         agentTab: w.location.agentTab,

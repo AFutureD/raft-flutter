@@ -35,7 +35,6 @@ class _Form {
     this.open,
     this.prepare,
     this.field,
-    this.resizes = true,
     this.tall = false,
     this.fill = const {},
     this.submit,
@@ -59,11 +58,6 @@ class _Form {
 
   /// The field the checks type into (the first editable one by default).
   final Finder Function()? field;
-
-  /// False when the page that hosts the form is rebuilt by the resize and
-  /// drops its own dialogs (the agent profile panel); the form itself is not
-  /// the cause.
-  final bool resizes;
 
   /// More content than a phone sheet with the keyboard up can show.
   final bool tall;
@@ -228,7 +222,6 @@ final _forms = <_Form>[
       await t.tap(_key('agent-edit-display-name'));
     },
     field: () => _key('agent-profile-edit-display-name'),
-    resizes: false,
     routes: (api) {
       api.routes['PATCH /agents/a1'] = (_) => {'id': 'a1'};
     },
@@ -301,7 +294,7 @@ void main() {
         expect(find.byType(RaftSheet), findsNothing);
       });
 
-      if (form.resizes && (form.field != null || form.id == 'create channel')) {
+      if (form.field != null || form.id == 'create channel') {
         testWidgets('keeps the input, the focus and the window across 768', (
           t,
         ) async {
