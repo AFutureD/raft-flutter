@@ -13,8 +13,8 @@ void main() {
       MaterialApp(
         theme: raftTheme(RaftFamily.brutal),
         home: Scaffold(
-          body: RaftDensityScope(
-            density: RaftDensity.touch,
+          body: RaftHoverScope(
+            enabled: false,
             child: Center(
               child: RaftInteractive(
                 onPressed: () => presses++,
@@ -51,8 +51,8 @@ void main() {
         MaterialApp(
           theme: raftTheme(RaftFamily.brutal),
           home: Scaffold(
-            body: RaftDensityScope(
-              density: RaftDensity.touch,
+            body: RaftHoverScope(
+              enabled: false,
               child: Center(
                 child: surface == 'tooltip'
                     ? const RaftTooltip(

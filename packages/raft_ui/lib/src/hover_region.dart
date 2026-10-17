@@ -2,11 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import 'input_density.dart';
-
 /// The host's pointer capability, independent of the viewport width. Native
 /// touch hosts disable hover for their entire navigator, including overlays.
-/// Explicit touch-density previews use the same policy without a host scope.
+/// Layout density does not change pointer capability. Previews opt in explicitly.
 class RaftHoverScope extends InheritedWidget {
   const RaftHoverScope({
     super.key,
@@ -27,10 +25,8 @@ class RaftHoverScope extends InheritedWidget {
   final bool enabled;
 
   static bool of(BuildContext context) =>
-      (context.dependOnInheritedWidgetOfExactType<RaftHoverScope>()?.enabled ??
-          true) &&
-      context.dependOnInheritedWidgetOfExactType<RaftDensityScope>()?.density !=
-          RaftDensity.touch;
+      context.dependOnInheritedWidgetOfExactType<RaftHoverScope>()?.enabled ??
+      true;
 
   /// Preserve the Material default for fine input and suppress only its hover
   /// overlay on touch hosts. Focus and pressed overlays keep their defaults.

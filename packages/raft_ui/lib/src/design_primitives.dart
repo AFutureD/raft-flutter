@@ -1,6 +1,4 @@
 import 'hover_region.dart';
-import 'input_density.dart';
-export 'input_density.dart';
 import 'raft_underline.dart';
 import 'anchored_popup.dart';
 import 'dismiss_scope.dart';
@@ -30,6 +28,29 @@ import 'control_typography.dart';
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
+
+enum RaftDensity { desktop, touch }
+
+/// Input density changes hit/layout bounds, never the source visual recipe.
+class RaftDensityScope extends InheritedWidget {
+  const RaftDensityScope({
+    super.key,
+    required this.density,
+    required super.child,
+  });
+  final RaftDensity density;
+  static RaftDensity of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RaftDensityScope>()?.density ??
+      switch (Theme.of(context).platform) {
+        TargetPlatform.android ||
+        TargetPlatform.iOS ||
+        TargetPlatform.fuchsia => RaftDensity.touch,
+        _ => RaftDensity.desktop,
+      };
+  @override
+  bool updateShouldNotify(RaftDensityScope oldWidget) =>
+      density != oldWidget.density;
+}
 
 @immutable
 class RaftControlBounds {
@@ -1820,12 +1841,11 @@ enum RaftDropdownSide { bottom, top, right }
 enum RaftDropdownAlign { start, end }
 
 /// The popup retains ownership of its trigger focus and dismissal callbacks.
-typedef RaftDropdownTriggerBuilder =
-    Widget Function(
-      BuildContext context,
-      FocusNode focusNode,
-      VoidCallback? onPressed,
-    );
+typedef RaftDropdownTriggerBuilder = Widget Function(
+  BuildContext context,
+  FocusNode focusNode,
+  VoidCallback? onPressed,
+);
 
 class RaftDropdownMenu extends StatefulWidget {
   const RaftDropdownMenu({
