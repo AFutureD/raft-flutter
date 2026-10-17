@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../../private_route_guard.dart' show PrivateRouteGuard;
+import '../../agent_mode/agent_engine.dart';
 import '../../agent_mode/agent_thinking.dart';
 import 'orb_eval_page.dart';
 import 'orb_eval_result.dart' show OrbEvalHarness;
@@ -15,6 +16,7 @@ class OrbEvalRequest {
     this.harness = OrbEvalHarness.realtime,
     this.thinking,
     this.model,
+    this.engine,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -31,6 +33,10 @@ class OrbEvalRequest {
   /// `model=gemini-3.5-flash-lite` (or `provider/model` for `harness=genkit`)
   /// for the text agent, for this run only; null: the app picks a Flash Lite.
   final String? model;
+
+  /// `engine=genkit|direct` for `harness=layered`, for this run only; null:
+  /// the Labs setting.
+  final AgentEngine? engine;
 
   /// The request a `raft://orb-eval/run?only=A1,B2&runs=3&harness=agent` link
   /// makes; null for any other link.
@@ -54,6 +60,7 @@ class OrbEvalRequest {
       harness: harness,
       thinking: AgentThinking.parse(uri.queryParameters['thinking']),
       model: _modelParam(uri.queryParameters['model']),
+      engine: AgentEngine.parse(uri.queryParameters['engine']),
     );
   }
 }
@@ -184,6 +191,7 @@ class OrbEvalLauncher {
                   harness: request.harness,
                   thinking: request.thinking,
                   model: request.model,
+                  engine: request.engine,
                 ),
           ),
         )

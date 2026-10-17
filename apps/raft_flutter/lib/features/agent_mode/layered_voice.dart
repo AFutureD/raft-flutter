@@ -73,6 +73,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     required this.steering,
     this.thinking = AgentThinking.low,
     this.engine = AgentEngine.genkit,
+    this.agentModelId,
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.onAudio,
@@ -123,6 +124,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   static VoiceSession _agentGemini(AgentParts p) => switch (p.engine) {
     AgentEngine.genkit => GenkitAgentSession(
       apiKey: p.apiKey,
+      modelId: p.model,
       systemPrompt: p.systemPrompt,
       tools: p.tools,
       steering: p.steering,
@@ -134,6 +136,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     ),
     AgentEngine.direct => GeminiAgentSession(
       apiKey: p.apiKey,
+      modelName: p.model,
       systemPrompt: p.systemPrompt,
       tools: p.tools,
       steering: p.steering,
@@ -161,6 +164,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   /// What makes the agent's model calls.
   final AgentEngine engine;
+
+  /// The agent's model, when one is asked for (else its own discovery).
+  final String? agentModelId;
   final String voice;
   final AgentReasoning reasoning;
   @override
@@ -198,6 +204,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       steering: steering,
       thinking: thinking,
       engine: engine,
+      model: agentModelId,
       onToolCall: onToolCall,
       onOutputText: _words.write,
       onTurnComplete: _agentFinished,
@@ -224,6 +231,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   @override
   String? get model => _live.model;
+
+  /// The agent's model, once it is known.
+  String? get agentModel => _agent.model;
+
+  /// Told each time Live asked the agent: what it asked, what came back to
+  /// say, how long it took (the evaluation records it).
+  void Function(String request, String say, int millis)? onAsk;
 
   @override
   Future<void> connect() async {
@@ -255,12 +269,15 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (name != 'ask_agent') return {'error': '没有这个工具：$name'};
     final request = '${args['request'] ?? ''}'.trim();
     if (request.isEmpty) return {'say': ''};
+    final watch = Stopwatch()..start();
+    String say;
     try {
-      final say = await _runAgent(request);
-      return {'say': say};
+      say = await _runAgent(request);
     } catch (_) {
-      return {'say': '我这边出了点问题，你再说一次。'};
+      say = '我这边出了点问题，你再说一次。';
     }
+    onAsk?.call(request, say, watch.elapsedMilliseconds);
+    return {'say': say};
   }
 
   @override
@@ -343,6 +360,7 @@ class AgentParts {
     required this.steering,
     required this.thinking,
     required this.engine,
+    this.model,
     required this.onToolCall,
     required this.onOutputText,
     required this.onTurnComplete,
@@ -354,6 +372,7 @@ class AgentParts {
   final AgentSteering steering;
   final AgentThinking thinking;
   final AgentEngine engine;
+  final String? model;
   final AgentToolHandler onToolCall;
   final void Function(String text) onOutputText;
   final void Function() onTurnComplete;

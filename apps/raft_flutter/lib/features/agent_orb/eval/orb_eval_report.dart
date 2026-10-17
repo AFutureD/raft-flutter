@@ -55,6 +55,9 @@ String orbEvalMarkdown(OrbEvalReport report) {
       '${report.harness == null ? '' : ' · 通道 ${report.harness}'}'
       '${report.model == null ? '' : ' · 模型 ${report.model}'}'
       '${report.thinking == null ? '' : ' · 推理强度 ${report.thinking}'}'
+      '${report.engine == null ? '' : ' · 引擎 ${report.engine}'}'
+      '${report.agentModel == null ? '' : ' · Agent 模型 ${report.agentModel}'}'
+      '${report.latencyP50 == null ? '' : ' · 时延 p50 ${(report.latencyP50! / 1000).toStringAsFixed(1)}s'}'
       '${report.cancelled ? ' · 中途停止' : ''}'
       '${report.abortReason == null ? '' : '（${report.abortReason}）'}',
     )
@@ -114,7 +117,17 @@ String orbEvalMarkdown(OrbEvalReport report) {
             '  - 工具：${_call(c)} → ${_short(_brief(orbEvalTrim(c.result, text: 80, items: 4)), 200)}',
           );
         }
-        b.writeln('  - Agent：${t.text.isEmpty ? '（没有说话）' : t.text}');
+        for (final a in t.asks) {
+          b.writeln(
+            '  - ask_agent(request=${_short(a.request, 80)}) → say：${_short(a.say, 200)}'
+            '（${(a.millis / 1000).toStringAsFixed(1)}s）',
+          );
+        }
+        b.writeln(
+          '  - ${t.asks.isEmpty ? 'Agent' : 'Live 说'}：'
+          '${t.text.isEmpty ? '（没有说话）' : t.text}'
+          '${t.millis > 0 ? '（${(t.millis / 1000).toStringAsFixed(1)}s）' : ''}',
+        );
       }
       if (run.run.writes.isNotEmpty) {
         b.writeln('- 写操作：${run.run.writes.map(_brief).join('、')}');

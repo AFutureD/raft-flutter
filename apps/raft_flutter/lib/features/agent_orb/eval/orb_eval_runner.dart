@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -7,11 +8,13 @@ import 'package:raft_agent_ui/raft_agent_ui.dart' show AgentMicState;
 
 import '../../../data/workspace_controller.dart';
 import '../../agent_mode/agent_audio.dart';
+import '../../agent_mode/agent_engine.dart';
 import '../../agent_mode/agent_thinking.dart';
 import '../../agent_mode/agent_voice.dart';
 import '../../agent_mode/agent_voice_settings.dart';
 import '../../agent_mode/gemini_agent.dart';
 import '../../agent_mode/genkit_agent.dart';
+import '../../agent_mode/layered_voice.dart';
 import '../../agent_mode/voice_provider.dart';
 import '../nav/orb_nav_tools.dart' show orbNavigationTools;
 import '../orb_controller.dart';
@@ -81,6 +84,7 @@ class OrbEvalRunner {
     this.harness = OrbEvalHarness.realtime,
     this.thinking,
     this.model,
+    this.engine,
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
     this.voiceKey,
@@ -105,6 +109,10 @@ class OrbEvalRunner {
   /// The text agent's model; the app picks a Flash Lite when null.
   final String? model;
 
+  /// The layered harness: what makes the agent's model calls; the Labs setting
+  /// when null.
+  final AgentEngine? engine;
+
   Duration get _turnLimit =>
       turnTimeout ??
       (harness.isTextAgent
@@ -128,6 +136,7 @@ class OrbEvalRunner {
   String? _abortReason;
   _Recorder? _recorder;
   String? _model;
+  String? _agentModel;
 
   /// Stops after the run under way.
   void stop() => _stop = true;
@@ -146,6 +155,7 @@ class OrbEvalRunner {
     _stop = false;
     _abortReason = null;
     _model = null;
+    _agentModel = null;
     final started = DateTime.now();
     final results = <OrbEvalScenarioResult>[];
     for (final (i, s) in scenarios.indexed) {
@@ -182,7 +192,8 @@ class OrbEvalRunner {
     }
     final settings = AgentVoiceSettings.instance;
     // The agent harness ignores the voice settings: they would only mislead.
-    final agent = harness.isTextAgent;
+    final agent = harness.isTextAgent && harness != OrbEvalHarness.layered;
+    final layered = harness == OrbEvalHarness.layered;
     final report = OrbEvalReport(
       startedAt: started,
       runsPerScenario: runs,
@@ -191,9 +202,13 @@ class OrbEvalRunner {
       reasoning: agent ? null : settings.reasoning.name,
       harness: harness.name,
       model: _model,
-      thinking: agent
+      thinking: agent || layered
           ? (thinking ?? AgentOrbPreference.instance.agentThinking).name
           : null,
+      engine: layered
+          ? (engine ?? AgentOrbPreference.instance.agentEngine).name
+          : null,
+      agentModel: layered ? _agentModel : null,
       cancelled: _stop,
       abortReason: _abortReason,
     );
@@ -212,6 +227,42 @@ class OrbEvalRunner {
   /// What builds the session when a test gave none.
   VoiceSessionFactory _defaultFactory() => switch (harness) {
     OrbEvalHarness.realtime => createVoiceSession,
+    // Live is typed to; the agent behind its one tool is the app's own.
+    OrbEvalHarness.layered =>
+      ({
+        required provider,
+        required apiKey,
+        required systemPrompt,
+        required tools,
+        required onToolCall,
+        required voice,
+        reasoning = AgentReasoning.low,
+        onAudio,
+        onInputText,
+        onOutputText,
+        onTurnComplete,
+        onInterrupted,
+        onClosed,
+        playbackPending,
+        steering,
+      }) => LayeredVoiceSession(
+        apiKey: apiKey,
+        systemPrompt: systemPrompt,
+        tools: tools,
+        onToolCall: onToolCall,
+        steering: steering!,
+        thinking: thinking ?? AgentOrbPreference.instance.agentThinking,
+        engine: engine ?? AgentOrbPreference.instance.agentEngine,
+        agentModelId: model,
+        voice: voice,
+        reasoning: reasoning,
+        onAudio: onAudio,
+        onInputText: onInputText,
+        onOutputText: onOutputText,
+        onTurnComplete: onTurnComplete,
+        onInterrupted: onInterrupted,
+        onClosed: onClosed,
+      ),
     // The text agent has its own key reading (the stored Gemini key, or the
     // one a test gave): provider, voice and reasoning do not apply to it.
     OrbEvalHarness.agent =>
@@ -296,6 +347,7 @@ class OrbEvalRunner {
         navigatorContext: () => shown.navigatorContext(),
         sessionFactory: recorder.wrap(sessionFactory ?? _defaultFactory()),
         agentLayer: harness.isTextAgent,
+        layeredVoice: harness == OrbEvalHarness.layered,
         audio: _SilentAudio(),
         voiceKey: voiceKey,
         // The summary of a session would be a write to the shared agent.
@@ -321,6 +373,8 @@ class OrbEvalRunner {
       problem = '运行出错：${e is StateError ? e.message : e.runtimeType}';
     } finally {
       _model ??= _recorder?.session?.model;
+      final made = _recorder?.session;
+      if (made is LayeredVoiceSession) _agentModel ??= made.agentModel;
       run.writes = world?.writes.toList() ?? const [];
       try {
         // The layer opens on the app's root Navigator and outlives the
@@ -340,7 +394,12 @@ class OrbEvalRunner {
       } catch (_) {}
     }
     final failures = <OrbEvalFailure>[];
-    for (final check in s.checks) {
+    // The voice layer is held to one thing in every scenario.
+    final checks = [
+      ...s.checks,
+      if (harness == OrbEvalHarness.layered) OrbEvalCheck.liveSpokeAgentWords(),
+    ];
+    for (final check in checks) {
       String? reason;
       try {
         reason = check.test(run);
@@ -425,9 +484,12 @@ class OrbEvalRunner {
     required bool scored,
   }) async {
     final turn = recorder.begin(line, scored: scored);
+    final watch = Stopwatch()..start();
     final outcome = recorder.waitForTurn(orb.voice, _turnLimit);
     await orb.sendText(line);
     final error = await outcome;
+    // Text sent to the end of the model's turn (the settling is not in it).
+    turn.millis = math.max(1, watch.elapsedMilliseconds);
     return _finish(orb, world, turn, error);
   }
 
@@ -564,60 +626,71 @@ class _Recorder {
         onClosed,
         playbackPending,
         steering,
-      }) => session = inner(
-        provider: provider,
-        apiKey: apiKey,
-        systemPrompt: systemPrompt,
-        tools: tools,
-        voice: voice,
-        reasoning: reasoning,
-        onAudio: onAudio,
-        onInputText: onInputText,
-        onInterrupted: onInterrupted,
-        playbackPending: playbackPending,
-        steering: steering,
-        onToolCall: (name, args) async {
-          final watch = Stopwatch()..start();
-          Map<String, Object?> result;
-          try {
-            result = await onToolCall(name, args);
-          } catch (e) {
+      }) => _track(
+        session = inner(
+          provider: provider,
+          apiKey: apiKey,
+          systemPrompt: systemPrompt,
+          tools: tools,
+          voice: voice,
+          reasoning: reasoning,
+          onAudio: onAudio,
+          onInputText: onInputText,
+          onInterrupted: onInterrupted,
+          playbackPending: playbackPending,
+          steering: steering,
+          onToolCall: (name, args) async {
+            final watch = Stopwatch()..start();
+            Map<String, Object?> result;
+            try {
+              result = await onToolCall(name, args);
+            } catch (e) {
+              _turn?.tools.add(
+                OrbEvalToolCall(
+                  name: name,
+                  args: args,
+                  result: {'error': 'threw ${e.runtimeType}'},
+                  millis: watch.elapsedMilliseconds,
+                ),
+              );
+              rethrow;
+            }
             _turn?.tools.add(
               OrbEvalToolCall(
                 name: name,
                 args: args,
-                result: {'error': 'threw ${e.runtimeType}'},
+                result: result,
                 millis: watch.elapsedMilliseconds,
               ),
             );
-            rethrow;
-          }
-          _turn?.tools.add(
-            OrbEvalToolCall(
-              name: name,
-              args: args,
-              result: result,
-              millis: watch.elapsedMilliseconds,
-            ),
-          );
-          return result;
-        },
-        onOutputText: (text) {
-          _turn?.addText(text);
-          onOutputText?.call(text);
-        },
-        onTurnComplete: () {
-          onTurnComplete?.call();
-          _turnComplete();
-        },
-        onClosed: (reason) {
-          onClosed?.call(reason);
-          final done = _done;
-          if (done != null && !done.isCompleted) {
-            done.complete('连接断开：$reason');
-          }
-        },
+            return result;
+          },
+          onOutputText: (text) {
+            _turn?.addText(text);
+            onOutputText?.call(text);
+          },
+          onTurnComplete: () {
+            onTurnComplete?.call();
+            _turnComplete();
+          },
+          onClosed: (reason) {
+            onClosed?.call(reason);
+            final done = _done;
+            if (done != null && !done.isCompleted) {
+              done.complete('连接断开：$reason');
+            }
+          },
+        ),
       );
+
+  /// A layered session reports each ask of the voice model to the agent.
+  VoiceSession _track(VoiceSession made) {
+    if (made is LayeredVoiceSession) made.onAsk = _ask;
+    return made;
+  }
+
+  void _ask(String request, String say, int millis) =>
+      _turn?.asks.add(OrbEvalAsk(request: request, say: say, millis: millis));
 }
 
 /// No sound: the model's speech is dropped (its words arrive as text).

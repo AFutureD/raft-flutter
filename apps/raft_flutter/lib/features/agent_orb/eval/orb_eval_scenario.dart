@@ -179,6 +179,29 @@ class OrbEvalCheck {
     return null;
   });
 
+  /// The layered harness: the voice model hands every turn about Raft to the
+  /// agent (`ask_agent`) and says what comes back, word for word (spaces and
+  /// punctuation aside). Applied to every scenario of that harness.
+  factory OrbEvalCheck.liveSpokeAgentWords() =>
+      OrbEvalCheck('Live 调用 ask_agent，并一字不差地说出 say', (run) {
+        final problems = <String>[];
+        for (final t in run.turns) {
+          if (t.line == '（事件）') continue;
+          if (t.asks.isEmpty) {
+            problems.add('「${t.line}」没有调用 ask_agent');
+            continue;
+          }
+          final spoken = orbEvalWords(t.text);
+          for (final a in t.asks) {
+            final say = orbEvalWords(a.say);
+            if (say.isNotEmpty && !spoken.contains(say)) {
+              problems.add('「${t.line}」Live 没有原样说出 say：「${a.say}」');
+            }
+          }
+        }
+        return problems.isEmpty ? null : problems.join('；');
+      });
+
   /// The app sent no write (reads the app posts by itself do not count).
   factory OrbEvalCheck.noWrites() => OrbEvalCheck('不发出任何写操作', (run) {
     final writes = run.realWrites;
@@ -336,3 +359,10 @@ class OrbEvalScenario {
 
   String get group => id.substring(0, 1);
 }
+
+/// [text] for comparing what was said: lower case, without spaces and
+/// punctuation (a spoken transcript and a written line differ in those).
+String orbEvalWords(String text) => text.toLowerCase().replaceAll(
+  RegExp(r'[\s,，.。!！?？、;；:：“”"\x27‘’「」『』（）()\[\]【】~～…—-]+'),
+  '',
+);

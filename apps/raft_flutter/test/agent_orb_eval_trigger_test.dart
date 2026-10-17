@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/agent_engine.dart';
 import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_launcher.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_result.dart'
@@ -96,6 +97,21 @@ void main() {
       expect(of('?model=a%20b').model, isNull);
       expect(of('?model=x?y%26z').model, isNull);
       expect(of('?model=').model, isNull);
+    });
+
+    test('harness=layered drives the voice layer; engine= picks its agent\'s '
+        'engine for that run', () {
+      OrbEvalRequest of(String q) =>
+          OrbEvalRequest.fromLink(Uri.parse('raft://orb-eval/run$q'))!;
+      expect(of('?harness=layered').harness, OrbEvalHarness.layered);
+      expect(of('?harness=layered').engine, isNull);
+      expect(of('?harness=layered&engine=direct').engine, AgentEngine.direct);
+      expect(of('?harness=layered&engine=Genkit').engine, AgentEngine.genkit);
+      expect(of('?engine=other').engine, isNull);
+      expect(
+        of('?harness=layered&model=gemini-3.5-flash-lite').model,
+        'gemini-3.5-flash-lite',
+      );
     });
 
     test('no other link is an evaluation link', () {

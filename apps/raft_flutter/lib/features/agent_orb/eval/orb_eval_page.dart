@@ -9,6 +9,7 @@ import '../../../data/workspace_controller.dart';
 import '../../../platform/app_services.dart';
 import '../../agent_mode/voice_provider.dart';
 import '../../agent_mode/agent_audio.dart';
+import '../../agent_mode/agent_engine.dart';
 import '../../agent_mode/agent_thinking.dart';
 import '../../workspace_view.dart';
 import 'orb_eval_report.dart';
@@ -45,6 +46,7 @@ class OrbEvalPage extends StatefulWidget {
     this.harness = OrbEvalHarness.realtime,
     this.thinking,
     this.model,
+    this.engine,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -69,6 +71,10 @@ class OrbEvalPage extends StatefulWidget {
 
   /// The text agent's model for this run (null: the app picks one).
   final String? model;
+
+  /// What makes the agent's model calls in the layered harness (null: the
+  /// setting).
+  final AgentEngine? engine;
 
   @override
   State<OrbEvalPage> createState() => _OrbEvalPageState();
@@ -111,6 +117,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       harness: widget.harness,
       thinking: widget.thinking,
       model: widget.model,
+      engine: widget.engine,
       sessionFactory: widget.sessionFactory,
       voiceKey: widget.voiceKey,
       onProgress: (p) {

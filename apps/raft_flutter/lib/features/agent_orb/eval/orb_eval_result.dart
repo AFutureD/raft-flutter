@@ -108,7 +108,12 @@ enum OrbEvalHarness {
 
   /// The same text agent with its model calls made by Genkit
   /// (`GenkitAgentSession`): the model is a `provider/model` string.
-  genkit;
+  genkit,
+
+  /// The whole voice layer in text: a Gemini Live session whose only tool is
+  /// `ask_agent`, with the Genkit (or direct) agent behind it. Live is typed to
+  /// and its spoken words are read from its transcript.
+  layered;
 
   /// Whether a text agent (and the app's rules around it) drives the orb.
   bool get isTextAgent => this != realtime;
@@ -125,6 +130,8 @@ class OrbEvalReport {
     this.harness,
     this.model,
     this.thinking,
+    this.engine,
+    this.agentModel,
     this.cancelled = false,
     this.abortReason,
   });
@@ -145,11 +152,27 @@ class OrbEvalReport {
   /// harness.
   final String? thinking;
 
+  /// The layered harness: what made the agent's model calls (`genkit`,
+  /// `direct`), and the model it ran (`model` is then the Live model).
+  final String? engine, agentModel;
+
   /// The run was stopped before every scenario was through.
   final bool cancelled;
 
   /// Why the evaluation was ended from outside (`page gone`).
   final String? abortReason;
+
+  /// The median time, in milliseconds, from the person's text to the end of
+  /// the model's turn, over every scored turn that was timed.
+  int? get latencyP50 {
+    final ms = [
+      for (final r in results)
+        for (final run in r.runs)
+          for (final t in run.run.scoredTurns)
+            if (t.millis > 0) t.millis,
+    ]..sort();
+    return ms.isEmpty ? null : ms[ms.length ~/ 2];
+  }
 
   int count(OrbEvalOutcome o) => results.where((r) => r.outcome == o).length;
 
@@ -164,6 +187,9 @@ class OrbEvalReport {
     if (harness != null) 'harness': harness,
     if (model != null) 'model': model,
     if (thinking != null) 'thinking': thinking,
+    if (engine != null) 'engine': engine,
+    if (agentModel != null) 'agentModel': agentModel,
+    if (latencyP50 != null) 'latencyP50Ms': latencyP50,
     if (cancelled) 'cancelled': true,
     if (abortReason != null) 'abortReason': abortReason,
     'ok': ok,

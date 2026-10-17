@@ -21,6 +21,24 @@ class OrbEvalToolCall {
   };
 }
 
+/// One time the voice model asked the agent (the layered harness): the words
+/// it passed on, what the agent answered to say, and how long that took.
+class OrbEvalAsk {
+  const OrbEvalAsk({
+    required this.request,
+    required this.say,
+    required this.millis,
+  });
+  final String request, say;
+  final int millis;
+
+  Map<String, Object?> toJson() => {
+    'request': request,
+    'say': say,
+    'ms': millis,
+  };
+}
+
 /// What the screen and the orb looked like when a turn ended.
 class OrbEvalSnapshot {
   const OrbEvalSnapshot({
@@ -64,7 +82,13 @@ class OrbEvalTurn {
   final bool scored;
 
   final tools = <OrbEvalToolCall>[];
+
+  /// The asks of the voice model to the agent (the layered harness).
+  final asks = <OrbEvalAsk>[];
   final _text = StringBuffer();
+
+  /// From the person's text sent to the end of the model's turn.
+  int millis = 0;
 
   /// The model finished its turn.
   bool completed = false;
@@ -86,7 +110,9 @@ class OrbEvalTurn {
     'line': line,
     'scored': scored,
     'text': text,
+    if (millis > 0) 'ms': millis,
     'tools': [for (final t in tools) t.toJson()],
+    if (asks.isNotEmpty) 'asks': [for (final a in asks) a.toJson()],
     'completed': completed,
     if (timedOut) 'timedOut': true,
     'writesAfter': writesAfter,

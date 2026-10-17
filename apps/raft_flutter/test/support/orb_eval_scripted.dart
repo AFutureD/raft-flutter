@@ -9,6 +9,8 @@ import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_page.dart';
+import 'package:raft_flutter/features/agent_orb/eval/orb_eval_result.dart'
+    show OrbEvalHarness;
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenario.dart';
 
 /// A session that answers by script instead of a model: when the person's
@@ -132,6 +134,7 @@ Future<void> mountEvalPage(
   AgentVoiceKey? key,
   int runs = 2,
   Duration turnTimeout = const Duration(seconds: 45),
+  OrbEvalHarness harness = OrbEvalHarness.realtime,
 }) async {
   t.view.physicalSize = const Size(412, 915);
   t.view.devicePixelRatio = 1;
@@ -146,6 +149,7 @@ Future<void> mountEvalPage(
         reportRoot: () async => reports,
         settle: const Duration(milliseconds: 50),
         turnTimeout: turnTimeout,
+        harness: harness,
       ),
     ),
   );
