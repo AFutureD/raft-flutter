@@ -474,8 +474,10 @@ class OrbController extends ChangeNotifier {
         result['error'] != null ||
         result['cancelled'] == true ||
         result['candidates'] != null;
+    // While driving the layer stays: the person cannot be asked to tap.
     if (!failed &&
         !_disposed &&
+        !_driving &&
         (movedScreen || workspace.location.toString() != before)) {
       collapseLayer();
     }
@@ -497,7 +499,7 @@ class OrbController extends ChangeNotifier {
   @visibleForTesting
   void openBriefItem(OrbBriefItem item, OrbToolContext ctx) {
     defaultOrbOpenLink(item, ctx);
-    collapseLayer();
+    if (!_driving) collapseLayer();
   }
 
   /// A card of the briefing in the layer was tapped.
@@ -566,6 +568,39 @@ class OrbController extends ChangeNotifier {
         return {'ok': true};
       },
     ),
+    OrbTool(
+      declaration: const {
+        'name': 'set_driving_mode',
+        'description':
+            '进入或退出驾驶模式。用户说“我在开车”“进入驾驶模式”“开车模式”时 on 设为 true（全屏对话层会一直开着，一次只显示一件事）；'
+            '说“停车了”“退出驾驶模式”时 on 设为 false。立即生效。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'on': {'type': 'boolean', 'description': 'true 进入，false 退出'},
+          },
+          'required': ['on'],
+        },
+      },
+      handler: (args, ctx) async {
+        final on = args['on'] != false;
+        await setDriving(on);
+        return {'ok': true, 'driving': _driving};
+      },
+    ),
+    OrbTool(
+      declaration: const {
+        'name': 'driving_next',
+        'description':
+            '驾驶模式下，用户说“下一件”“下一个”“稍后再说这件”时调用：屏幕换到简报里的下一件。'
+            '返回 index（第几件）、total（共几件）、item（这一件的内容；说完就停）、done（true 表示已经没有了，只说“就这些”和常规的条数）。'
+            '只在驾驶模式下可用。',
+      },
+      handler: (args, ctx) async {
+        if (!_driving) return {'error': '现在不在驾驶模式'};
+        return drivingNext();
+      },
+    ),
   ];
 
   // ---- the immersive layer ------------------------------------------------
@@ -597,6 +632,9 @@ class OrbController extends ChangeNotifier {
         if (identical(_layerRoute, route) && !_disposed) {
           _layerRoute = null;
           shownBriefing = null;
+          // Closing the layer is leaving driving mode.
+          _driving = false;
+          _drivingIndex = 0;
           notifyListeners();
         }
       }),
@@ -604,9 +642,71 @@ class OrbController extends ChangeNotifier {
     return true;
   }
 
+  // ---- driving mode -------------------------------------------------------
+
+  bool _driving = false;
+  int _drivingIndex = 0;
+
+  /// Driving mode: the layer stays open when the agent moves the app, shows
+  /// one item at a time and leaves the risky actions for when the car is
+  /// parked. A swipe down, Back, a tap on the backdrop or closing the layer
+  /// leaves it; hanging up does not.
+  bool get driving => _driving;
+
+  /// What the person is driven through: the items that need them.
+  List<OrbBriefItem> get drivingItems => shownBriefing?.needsYou ?? const [];
+
+  /// The item on the card, counted from 0; [drivingItems].length when all are
+  /// through.
+  int get drivingIndex => _drivingIndex.clamp(0, drivingItems.length);
+
+  /// All the items are through (also when there were none).
+  bool get drivingDone => drivingIndex >= drivingItems.length;
+
+  /// Turns driving mode on (opening the layer) or off (the layer stays).
+  Future<void> setDriving(bool on) async {
+    if (on == _driving) return;
+    _driving = on;
+    _drivingIndex = 0;
+    notifyListeners();
+    if (on) await openLayer();
+  }
+
+  /// Goes to the next item (the model's `driving_next` and the chips).
+  Map<String, Object?> drivingNext() {
+    final items = drivingItems;
+    if (_drivingIndex < items.length) _drivingIndex++;
+    notifyListeners();
+    final done = drivingDone;
+    return {
+      'ok': true,
+      'index': done ? items.length : drivingIndex + 1,
+      'total': items.length,
+      'done': done,
+      if (!done) 'item': items[drivingIndex].toJson(),
+      if (done) 'note': '没有了：只说“就这些”，再说常规进度的条数',
+    };
+  }
+
+  /// "下一件" or "稍后" on the card: the item is set aside (it stays in the
+  /// Activity) and the model, if a call is on, is told so that it speaks the
+  /// next one.
+  void drivingNextTapped() {
+    if (!_driving) return;
+    final result = drivingNext();
+    if (!inCall) return;
+    final item = result['item'];
+    final line = item is Map
+        ? '我点了下一件：现在是第 ${result['index']} 件，共 ${result['total']} 件，${item['title']}。'
+              '不要再调 driving_next，只说这一件。'
+        : '我点了下一件：已经没有了。只说“就这些”，再说常规的条数。';
+    unawaited(voice.tell(line));
+  }
+
   /// Shows [briefing] as cards in the layer, opening it when it is closed.
   void showBriefing(OrbBriefing briefing) {
     shownBriefing = briefing;
+    _drivingIndex = 0;
     notifyListeners();
     unawaited(openLayer());
   }
