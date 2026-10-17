@@ -598,7 +598,7 @@ void main() {
         expect(r['error'], isNull, reason: '$r');
         expect(r['route'], '/s/alpha/settings/appearance');
         expect(_map(r['page'])['page'], 'other');
-        expect(_map(r['page'])['semantics'], isA<List>());
+        expect(_map(_map(r['page'])['screen'])['text'], isA<List>());
         await fx.back(t);
         r = await fx.call(t, 'navigate', {'target': 'Dana 的资料'});
         expect(r['error'], isNull, reason: '$r');
@@ -1082,7 +1082,7 @@ void main() {
       await fx.f.close(t);
     });
 
-    testWidgets('another page: route, title and a Semantics summary', (
+    testWidgets('another page: route, title and its screen', (
       t,
     ) async {
       final fx = Fixture();
@@ -1092,9 +1092,9 @@ void main() {
       expect(d['page'], 'other');
       expect(d['route'], '/s/alpha/settings');
       expect(d['title'], '设置');
-      final lines = (d['semantics']! as List).cast<String>();
-      expect(lines, isNotEmpty);
-      expect(lines.length, lessThanOrEqualTo(40));
+      final screen = _map(d['screen']);
+      expect((screen['text']! as List), isNotEmpty);
+      expect((screen['actions']! as List), isNotEmpty);
       await fx.f.close(t);
     });
   });

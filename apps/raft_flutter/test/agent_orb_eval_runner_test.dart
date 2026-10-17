@@ -329,9 +329,9 @@ void main() {
       expect(run['error'], isNull, reason: '$id did not start');
       final turns = (run['turns'] as List).cast<Map>();
       final where = turns.last['after']['location'] as String;
-      if (const {'A2', 'A3', 'A4', 'A5'}.contains(id)) {
+      if (const {'A2', 'A3', 'A4', 'A5', 'F1'}.contains(id)) {
         expect(where, '/s/fixture/channel/$raft', reason: id);
-      } else if (id.startsWith('B') && id != 'B1') {
+      } else if ((id.startsWith('B') && id != 'B1') || id == 'F2') {
         expect(where, '/s/fixture/activity', reason: id);
       } else if (id == 'C2') {
         expect(where, contains('/dm/'), reason: id);
