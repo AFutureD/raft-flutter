@@ -1,12 +1,14 @@
 import 'orb_eval_data.dart';
 import 'orb_eval_scenario.dart';
+import 'orb_eval_world.dart' show OrbEvalWrite;
 
 /// The scenarios of scenarios-v1: A (a channel), B (the Activity), C
 /// (discussions, private conversations, tasks), D (driving: messages) and E
 /// (driving: idle tasks). Fictional data only.
 ///
-/// ✍️ scenarios need the action tools (reply, set a task's status, remind
-/// later): they are listed and skipped. D5-D7 (live push while driving) and
+/// ✍️ scenarios (A3, C2, C4, D3, D8, E4) run the action tools: the model
+/// asks, a card is up, nothing is written until the person says 确认, and
+/// while driving what must wait for parking is refused. D5-D7 (live push while driving) and
 /// E1/E5 (the idle task prompt) are not built: they run once and report
 /// without failing the run.
 
@@ -15,6 +17,29 @@ final _codyDm = evalId('dm:cody');
 
 /// Checks every scenario carries: no id said out loud, no write sent.
 List<OrbEvalCheck> _std() => [OrbEvalCheck.noIds(), OrbEvalCheck.noWrites()];
+
+// ---- checks of the actions -----------------------------------------------
+
+/// The model asks "要发吗" (or "要改吗") before it does anything.
+final _asksFirst = RegExp(r'要发吗|要不要发|发吗|要改吗|要不要改|要催吗|确认吗|要我发|要我改|要记下吗|要不要记');
+
+/// Afterwards it says it is done.
+final _saysDone = RegExp(
+  r'已发|发出去了|发好了|已经发|发了|已改|改好了|已经改|已标|标好了|已催|催了|记下了|已记|放一放|提醒你',
+);
+
+bool Function(Object?) _has(String word) =>
+    (Object? v) => '$v'.contains(word);
+
+/// A POST that carries [text] (a message or a thread reply).
+bool _posted(OrbEvalWrite w, String text) =>
+    w.method == 'POST' && '${w.body}'.contains(text);
+
+/// Nothing changed a task's status.
+final _noStatusChange = OrbEvalCheck.custom('驾驶中没有改任务状态', (run) {
+  final changed = run.realWrites.where((w) => w.method == 'PATCH').toList();
+  return changed.isEmpty ? null : '改了：${changed.join('、')}';
+});
 
 final _saysNothingToDo = RegExp(r'没有.{0,8}(处理|回复|找你|新的|要紧)');
 
@@ -456,9 +481,26 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     title: '回复他说可以合',
     start: OrbEvalStart.channel('raft-flutter'),
     data: _cody10,
-    say: const ['回复他说可以合'],
-    status: OrbEvalStatus.skipped,
-    note: 'needs actions',
+    say: const ['回复他说可以合', '确认'],
+    checks: [
+      OrbEvalCheck.anyTool(
+        ['reply_in_thread', 'send_message'],
+        args: {'text': _has('可以')},
+        label: '调用 reply_in_thread 或 send_message(text 含“可以”)',
+      ),
+      OrbEvalCheck.says([
+        ['Cody'],
+        ['可以'],
+      ], label: '先复述：回复 Cody：可以'),
+      OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要发'),
+      OrbEvalCheck.confirmedWrite(
+        label: '确认卡在前，确认后才发出，只发一次',
+        actionTools: ['reply_in_thread', 'send_message'],
+        write: (w) => _posted(w, '可以'),
+      ),
+      OrbEvalCheck.saysMatching(_saysDone, '说已发出'),
+      OrbEvalCheck.noIds(),
+    ],
   ),
   OrbEvalScenario(
     id: 'A4',
@@ -673,9 +715,26 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     title: '回他“晚上看”',
     start: OrbEvalStart.dm('dm:cody'),
     data: _codyDmUnread,
-    say: const ['回他“晚上看”'],
-    status: OrbEvalStatus.skipped,
-    note: 'needs actions',
+    say: const ['回他“晚上看”', '确认'],
+    checks: [
+      OrbEvalCheck.anyTool(
+        ['send_message', 'reply_in_thread'],
+        args: {'text': _has('晚上看')},
+        label: '调用 send_message(text 含“晚上看”)',
+      ),
+      OrbEvalCheck.says([
+        ['Cody'],
+        ['晚上看'],
+      ], label: '先复述：回复 Cody：晚上看'),
+      OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要发'),
+      OrbEvalCheck.confirmedWrite(
+        label: '确认卡在前，确认后才发出，只发一次',
+        actionTools: ['send_message', 'reply_in_thread'],
+        write: (w) => _posted(w, '晚上看'),
+      ),
+      OrbEvalCheck.saysMatching(_saysDone, '说已发出'),
+      OrbEvalCheck.noIds(),
+    ],
   ),
   OrbEvalScenario(
     id: 'C3',
@@ -701,9 +760,29 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     title: '这个可以了，标完成',
     start: OrbEvalStart.task(136),
     data: _task136,
-    say: const ['这个可以了，标完成'],
-    status: OrbEvalStatus.skipped,
-    note: 'needs actions',
+    say: const ['这个可以了，标完成', '确认'],
+    checks: [
+      OrbEvalCheck.tool(
+        'set_task_status',
+        args: {'status': 'done', 'task': _has('136')},
+        label: 'set_task_status(task: 136, status: done)',
+      ),
+      OrbEvalCheck.says([
+        ['136'],
+        ['完成'],
+      ], label: '先复述：把 136 标成完成'),
+      OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要改'),
+      OrbEvalCheck.confirmedWrite(
+        label: '确认卡在前，确认后才改，只改一次',
+        actionTools: ['set_task_status'],
+        write: (w) =>
+            w.method == 'PATCH' &&
+            w.path.endsWith('/status') &&
+            '${w.body}'.contains('done'),
+      ),
+      OrbEvalCheck.saysMatching(_saysDone, '说已改'),
+      OrbEvalCheck.noIds(),
+    ],
   ),
   OrbEvalScenario(
     id: 'C5',
@@ -769,9 +848,26 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     start: OrbEvalStart.home,
     data: _urgentThree,
     setup: const ['开始驾驶模式'],
-    say: const ['回他可以'],
-    status: OrbEvalStatus.skipped,
-    note: 'needs actions',
+    say: const ['回他可以', '确认'],
+    checks: [
+      OrbEvalCheck.anyTool(
+        ['reply_in_thread', 'send_message'],
+        args: {'text': _has('可以')},
+        label: '调用 reply_in_thread 或 send_message(text 含“可以”)',
+      ),
+      OrbEvalCheck.says([
+        ['Cody'],
+        ['可以'],
+      ], label: '先复述：回复 Cody：可以'),
+      OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要发'),
+      OrbEvalCheck.confirmedWrite(
+        label: '确认卡在前，确认后才发出，只发一次',
+        actionTools: ['reply_in_thread', 'send_message'],
+        write: (w) => _posted(w, '可以'),
+      ),
+      OrbEvalCheck.screen('驾驶模式还开着', (s, _) => s.driving),
+      OrbEvalCheck.noIds(),
+    ],
   ),
   OrbEvalScenario(
     id: 'D4',
@@ -873,9 +969,20 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     start: OrbEvalStart.home,
     data: _urgentThree,
     setup: const ['开始驾驶模式'],
-    say: const ['稍后提醒我'],
-    status: OrbEvalStatus.skipped,
-    note: 'needs actions',
+    say: const ['稍后提醒我', '确认'],
+    checks: [
+      OrbEvalCheck.tool('snooze_item'),
+      OrbEvalCheck.saysMatching(RegExp(r'提醒|稍后|晚点|放一放'), '复述：稍后提醒你这一件'),
+      OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要记下'),
+      // A reminder is kept on the phone: no request goes to the server.
+      OrbEvalCheck.confirmedWrite(
+        label: '确认卡在前，确认后才记下（只在本机）',
+        actionTools: ['snooze_item'],
+        count: 0,
+        write: (_) => false,
+      ),
+      OrbEvalCheck.noIds(),
+    ],
   ),
   OrbEvalScenario(
     id: 'D9',
@@ -920,6 +1027,7 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     setup: const ['开始驾驶模式'],
     say: const ['好，看看那几个放了好几天的任务'],
     checks: [
+      OrbEvalCheck.anyTool(['list_tasks', 'task_detail']),
       OrbEvalCheck.says([
         ['整理发布说明', '迁移旧的缓存', '补充设计评审记录'],
         ['八戒', 'Cody', 'Grok'],
@@ -935,6 +1043,7 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     setup: const ['开始驾驶模式'],
     say: const ['看看这些任务现在什么状态'],
     checks: [
+      OrbEvalCheck.tool('list_tasks'),
       OrbEvalCheck.says([
         ['验收'],
         ['在做', '进行中', '做中'],
@@ -949,9 +1058,27 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     start: OrbEvalStart.home,
     data: _staleTasks,
     setup: const ['开始驾驶模式'],
-    say: const ['全部处理掉'],
-    status: OrbEvalStatus.skipped,
-    note: 'needs actions',
+    say: const ['全部处理掉', '确认'],
+    checks: [
+      OrbEvalCheck.anyTool(['list_tasks', 'task_detail']),
+      OrbEvalCheck.anyTool(['nudge_task', 'assign_task', 'send_message']),
+      OrbEvalCheck.saysMatching(_asksFirst, '一个一个问，先问要不要'),
+      OrbEvalCheck.confirmedWrite(
+        label: '确认卡在前，确认后才发出，只发一次',
+        actionTools: ['nudge_task', 'assign_task', 'send_message'],
+        write: (w) => w.method == 'POST',
+      ),
+      // Marking a task done is an approval: it waits for parking.
+      OrbEvalCheck.custom('改完成的动作被拒绝，或者不做', (run) {
+        final calls = run.tools.where((c) => c.name == 'set_task_status');
+        return calls.every((c) => c.result['refused'] == true)
+            ? null
+            : '驾驶中改了任务状态';
+      }),
+      OrbEvalCheck.saysMatching(RegExp(r'停车'), '说验收类的停车后再做'),
+      _noStatusChange,
+      OrbEvalCheck.noIds(),
+    ],
   ),
   OrbEvalScenario(
     id: 'E5',

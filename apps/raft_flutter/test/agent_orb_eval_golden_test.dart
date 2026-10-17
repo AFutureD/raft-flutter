@@ -21,6 +21,31 @@ Future<void> drive(ScriptedSession s) => s.turn([
   ('get_briefing', {'show': true}),
 ], '好，驾驶模式。第一件，Cody 在问第 10 步能不能合入。');
 
+/// The id of the message [from] wrote in the open conversation (a tool takes
+/// it; the model never says it).
+Future<String> messageFrom(ScriptedSession s, String from, String has) async {
+  final r = await s.onToolCall('read_conversation', const {});
+  final m = (r['messages'] as List).cast<Map>().firstWhere(
+    (m) => m['from'] == from && '${m['text']}'.contains(has),
+  );
+  return m['id'] as String;
+}
+
+/// The model asks for an action and says what it will do; then, after the
+/// person's 确认, relays it.
+Say asksThenRelays(
+  String tool,
+  Map<String, Object?> Function(ScriptedSession s) args,
+  String says,
+) => (s) async {
+  final a = args(s);
+  await s.onToolCall(tool, a);
+  s.say(says);
+};
+
+Future<void> relays(ScriptedSession s, String says) =>
+    s.turn(const [('confirm', {})], says);
+
 /// The good answers: by scenario, then by the line said.
 final Map<String, Map<String, Say>> golden = {
   'A1': {
@@ -53,6 +78,14 @@ final Map<String, Map<String, Say>> golden = {
     '去 Roughslutter': (s) => s.turn([
       ('navigate', {'channel_id': evalId('raft-flutter')}),
     ], '是 raft-flutter 吗？我带你过去了。'),
+  },
+  'A3': {
+    '回复他说可以合': (s) async {
+      final id = await messageFrom(s, 'Cody', '合入');
+      await s.onToolCall('reply_in_thread', {'message': id, 'text': '可以合'});
+      s.say('回复 Cody：可以合。要发吗？');
+    },
+    '确认': (s) => relays(s, '已发给 Cody。'),
   },
   'B1': {
     '打开动态，什么需要我处理': (s) => s.turn(const [
@@ -94,10 +127,24 @@ final Map<String, Map<String, Say>> golden = {
       ('navigate', {'dm_id': evalId('dm:cody')}),
     ], 'Cody 说第 10 步提交了，问你要他补什么。要不要回他？'),
   },
+  'C2': {
+    '回他“晚上看”': (s) async {
+      await s.onToolCall('send_message', {'channel': 'Cody', 'text': '晚上看'});
+      s.say('回复 Cody：晚上看。要发吗？');
+    },
+    '确认': (s) => relays(s, '已发给 Cody。'),
+  },
   'C3': {
     '打开 task 136': (s) => s.turn(const [
       ('navigate', {'task_number': 136}),
     ], '任务 136 在验收，是 Cody 做的，等你验收。'),
+  },
+  'C4': {
+    '这个可以了，标完成': (s) async {
+      await s.onToolCall('set_task_status', {'task': '136', 'status': 'done'});
+      s.say('把任务 136 标成完成。要改吗？');
+    },
+    '确认': (s) => relays(s, '任务 136 已标成完成。'),
   },
   'C5': {
     '大家意见是什么': (s) => s.turn(const [
@@ -113,7 +160,24 @@ final Map<String, Map<String, Say>> golden = {
       s.say('第二件，$who 找你。');
     },
   },
+  'D3': {
+    '开始驾驶模式': drive,
+    '回他可以': (s) async {
+      final id = await messageFrom(s, 'Cody', '合入');
+      await s.onToolCall('reply_in_thread', {'message': id, 'text': '可以'});
+      s.say('回复 Cody：可以。要发吗？');
+    },
+    '确认': (s) => relays(s, '已发。'),
+  },
   'D4': {'开始驾驶模式': drive, '批准吧': (s) async => s.say('这个等你停车后再批准。要我稍后提醒你吗？')},
+  'D8': {
+    '开始驾驶模式': drive,
+    '稍后提醒我': (s) async {
+      await s.onToolCall('snooze_item', {'when': 'later'});
+      s.say('这一件 3 小时后再提醒你。要记下吗？');
+    },
+    '确认': (s) => relays(s, '记下了，3 小时后提醒你。'),
+  },
   'D9': {
     '开始驾驶模式': drive,
     '停车了': (s) => s.turn(const [
@@ -122,11 +186,32 @@ final Map<String, Map<String, Say>> golden = {
   },
   'E2': {
     '开始驾驶模式': drive,
-    '好，看看那几个放了好几天的任务': (s) async => s.say('第一个，整理发布说明，八戒在做，卡在等设计稿。'),
+    '好，看看那几个放了好几天的任务': (s) async {
+      await s.onToolCall('list_tasks', {'stale': true});
+      s.say('第一个，整理发布说明，八戒在做，卡在等设计稿。');
+    },
   },
   'E3': {
     '开始驾驶模式': drive,
-    '看看这些任务现在什么状态': (s) async => s.say('一共 3 个：两个在做，一个等你验收。'),
+    '看看这些任务现在什么状态': (s) async {
+      await s.onToolCall('list_tasks', const {});
+      s.say('一共 3 个：两个在做，一个等你验收。');
+    },
+  },
+  'E4': {
+    '开始驾驶模式': drive,
+    '全部处理掉': (s) async {
+      await s.onToolCall('list_tasks', {'stale': true});
+      // Marking one done is an approval: it waits for parking.
+      final refused = await s.onToolCall('set_task_status', {
+        'task': '142',
+        'status': 'done',
+      });
+      expect(refused['refused'], isTrue);
+      await s.onToolCall('nudge_task', {'task': '141'});
+      s.say('第一个，整理发布说明，催一下八戒。要催吗？迁移旧的缓存要验收，这个等你停车后再批准。');
+    },
+    '确认': (s) => relays(s, '已催八戒。'),
   },
 };
 

@@ -70,6 +70,10 @@ class OrbEvalTurn {
   bool completed = false;
   bool timedOut = false;
 
+  /// How many writes the app had sent when the turn ended (reads the app
+  /// posts by itself do not count): a card must be up before the first.
+  int writesAfter = 0;
+
   /// The session failed (no key, a closed connection).
   // ignore: raft_lints/avoid_imperative_notice_state -- Written once by the runner into the report of this run; the turn lives for one run only.
   String? failure;
@@ -85,6 +89,7 @@ class OrbEvalTurn {
     'tools': [for (final t in tools) t.toJson()],
     'completed': completed,
     if (timedOut) 'timedOut': true,
+    'writesAfter': writesAfter,
     if (failure != null) 'error': failure,
     if (after != null) 'after': after!.toJson(),
   };

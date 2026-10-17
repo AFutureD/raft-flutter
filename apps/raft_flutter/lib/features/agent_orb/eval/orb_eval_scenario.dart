@@ -1,5 +1,6 @@
 import 'orb_eval_data.dart';
 import 'orb_eval_run.dart';
+import 'orb_eval_world.dart' show OrbEvalWrite;
 
 /// Where a scenario starts: the page the person is on when they speak.
 class OrbEvalStart {
@@ -182,6 +183,76 @@ class OrbEvalCheck {
   factory OrbEvalCheck.noWrites() => OrbEvalCheck('不发出任何写操作', (run) {
     final writes = run.realWrites;
     return writes.isEmpty ? null : '发出了：${writes.join('、')}';
+  });
+
+  /// An action the app asks the person about first: one of [actionTools]
+  /// answered `needs_confirmation` (the card is up) and no write had been sent
+  /// by then; after that `confirm` was done, and the fixture recorded
+  /// exactly [count] writes, all of them matching [write].
+  factory OrbEvalCheck.confirmedWrite({
+    required String label,
+    required List<String> actionTools,
+    required bool Function(OrbEvalWrite write) write,
+    int count = 1,
+  }) => OrbEvalCheck(label, (run) {
+    final turns = run.scoredTurns.toList();
+    final asked = turns.indexWhere(
+      (t) => t.tools.any(
+        (c) =>
+            (actionTools.contains(c.name) || c.name == 'act') &&
+            c.result['status'] == 'needs_confirmation',
+      ),
+    );
+    if (asked < 0) {
+      return '没有出确认卡（${actionTools.join('、')} 没有返回 needs_confirmation）';
+    }
+    if (turns[asked].writesAfter != 0) {
+      return '确认之前就有写操作：${run.realWrites.join('、')}';
+    }
+    final confirmed = turns
+        .skip(asked)
+        .expand((t) => t.tools)
+        .any((c) => c.name == 'confirm' && c.result['status'] == 'done');
+    if (!confirmed) return '用户确认后没有成功调用 confirm';
+    // Opening the thread a reply goes into is part of the reply.
+    final sent = [
+      for (final w in run.realWrites)
+        if (!(w.method == 'POST' && w.path.endsWith('/threads'))) w,
+    ];
+    final hits = sent.where(write).toList();
+    if (hits.length != count) {
+      return '期望 $count 次写入，实际 ${hits.length}：${sent.join('、')}';
+    }
+    if (sent.length != hits.length) {
+      return '还有别的写入：${sent.join('、')}';
+    }
+    return null;
+  });
+
+  /// The card is up and the person never confirmed: nothing was written.
+  factory OrbEvalCheck.cardWithoutWrite(
+    List<String> actionTools, {
+    String? label,
+  }) => OrbEvalCheck(label ?? '出确认卡，没确认前不写', (run) {
+    final asked = run.tools.any(
+      (c) =>
+          (actionTools.contains(c.name) || c.name == 'act') &&
+          c.result['status'] == 'needs_confirmation',
+    );
+    if (!asked) return '没有出确认卡';
+    return run.realWrites.isEmpty ? null : '发出了：${run.realWrites.join('、')}';
+  });
+
+  /// A tool answered "停车后再做": the action was refused and nothing went out.
+  factory OrbEvalCheck.refused(
+    String tool,
+  ) => OrbEvalCheck('$tool 驾驶中被拒绝（停车后再做）', (run) {
+    final calls = run.tools.where((c) => c.name == tool).toList();
+    if (calls.isEmpty) return '没有调用 $tool';
+    if (!calls.every((c) => c.result['refused'] == true)) {
+      return '$tool 没有被拒绝：${calls.map((c) => orbEvalTrim(c.result)).join(' | ')}';
+    }
+    return null;
   });
 
   /// A check on what the screen and the orb looked like at the end.

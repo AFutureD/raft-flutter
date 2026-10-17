@@ -86,6 +86,13 @@ class OrbEvalClient extends RaftClient {
     }
     if (verb != 'GET') {
       writes.add(OrbEvalWrite(verb, path, data));
+      // Opening a thread to reply in answers with the thread's channel.
+      final opened = RegExp(r'^/channels/[^/]+/threads$').hasMatch(path);
+      if (verb == 'POST' && opened && data is Map) {
+        return {
+          'threadChannelId': evalId('thread-of:${data['parentMessageId']}'),
+        };
+      }
       return <String, dynamic>{'ok': true};
     }
     return _read(path, query ?? const {});

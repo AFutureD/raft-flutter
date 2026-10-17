@@ -357,6 +357,9 @@ class OrbEvalRunner {
     if (error != null) turn.failure = error;
     // Late transcript words and the screen's last frames.
     await Future<void>.delayed(settle);
+    turn.writesAfter = world.writes
+        .where((w) => !orbEvalIsBenignWrite(w))
+        .length;
     turn.after = OrbEvalSnapshot(
       location: world.workspace.location.toString(),
       layerOpen: orb.layerOpen,

@@ -213,7 +213,7 @@ void main() {
     await t.runAsync(world.dispose);
   });
 
-  test('the catalog is scenarios-v1: ids in order, writes skipped, unbuilt '
+  test('the catalog is scenarios-v1: ids in order, every writing scenario runs, unbuilt '
       'features expected to fail', () {
     final ids = orbEvalScenarios.map((s) => s.id).toList();
     expect(ids.toSet(), hasLength(ids.length));
@@ -230,14 +230,8 @@ void main() {
       for (final s in orbEvalScenarios)
         if (s.status == st) s.id,
     ];
-    expect(withStatus(OrbEvalStatus.skipped), [
-      'A3',
-      'C2',
-      'C4',
-      'D3',
-      'D8',
-      'E4',
-    ]);
+    // The ✍️ scenarios run now that the orb has actions.
+    expect(withStatus(OrbEvalStatus.skipped), isEmpty);
     expect(withStatus(OrbEvalStatus.expectedFail), [
       'D5',
       'D6',
