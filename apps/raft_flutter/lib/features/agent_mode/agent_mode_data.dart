@@ -1467,9 +1467,15 @@ class AgentModeData {
               '${task['title'] ?? ''}\n${task['description'] ?? ''}',
               max: 30,
             );
-      final taskText = taskNumber == null
+      final named = taskTitle == null || taskTitle.isEmpty
+          ? ''
+          : '「$taskTitle」';
+      // A task without a number still reads as a task, never "null".
+      final taskText = task == null
           ? null
-          : '#$taskNumber${taskTitle == null || taskTitle.isEmpty ? '' : '「$taskTitle」'}';
+          : taskNumber == null
+          ? (named.isEmpty ? '任务' : named)
+          : '#$taskNumber$named';
       final detail = AgentHeadlines.plain(display.detail, max: 60);
       final lastSeen = _time(row['lastSeenAt']);
       final AgentWorkState state;
