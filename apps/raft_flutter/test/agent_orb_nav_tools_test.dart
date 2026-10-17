@@ -931,6 +931,30 @@ void main() {
       await fx.f.close(t);
     });
 
+    // Eval A5: Alice's message had 8 replies but no thread summary was
+    // loaded; the page said nothing of them and the model answered "还没定".
+    testWidgets('a message that says it has replies shows them and how to '
+        'read its discussion, without a loaded summary', (t) async {
+      final fx = Fixture();
+      fx.f.overrides['GET /messages/channel/ca'] = (_) => {
+        ..._page([
+          {
+            ..._message('ca', 1, '移动端的缓存策略怎么定？', id: 'ca-m1'),
+            'replyCount': 8,
+            'threadChannelId': 'th-cache',
+          },
+        ]),
+      };
+      await fx.mount(t);
+      await fx.call(t, 'navigate', {'target': 'raft-flutter'});
+      final d = await fx.call(t, 'describe_page');
+      final m = _list(d['messages']).single;
+      expect(m['replies'], 8);
+      expect(m['thread'], 'thread:th-cache');
+      expect('${d['repliesNote']}', contains('read_conversation'));
+      await fx.f.close(t);
+    });
+
     testWidgets(
       'a conversation: sender names, full text, time, replies, system rows',
       (t) async {

@@ -314,7 +314,17 @@ Map<String, Object?> orbMessageJson(
   final mine = senderId != null && senderId == w.client.user?.id;
   final text = orbClip(m.content, cap);
   final created = m.createdAt;
-  final replies = int.tryParse('${summaries?[m.id]?['replyCount']}') ?? 0;
+  // The loaded summary, else what the message says of itself (eval A5: no
+  // summary was loaded and 8 replies went unseen).
+  final replies =
+      int.tryParse('${summaries?[m.id]?['replyCount']}') ??
+      int.tryParse('${m.json['replyCount'] ?? m.json['threadReplyCount']}') ??
+      0;
+  final thread = s(
+    summaries?[m.id]?['threadChannelId'] ??
+        m.json['threadChannelId'] ??
+        m.json['threadId'],
+  );
   final attachments = m.attachments;
   return {
     'id': m.id,
@@ -328,6 +338,7 @@ Map<String, Object?> orbMessageJson(
     if (text.truncated) 'truncated': true,
     if (text.truncated) 'fullLength': m.content.length,
     if (replies > 0) 'replies': replies,
+    if (replies > 0 && thread != null) 'thread': 'thread:$thread',
     if (attachments.isNotEmpty)
       'attachments': [
         for (final a in attachments.take(5))
@@ -420,6 +431,7 @@ Future<Map<String, Object?>> _conversation(
     if (bounded.omitted > 0) 'omitted': bounded.omitted,
     'focusMessageId': ?snap?.highlightedMessageId,
     'messages': bounded.messages,
+    if (bounded.messages.any((m) => m['thread'] != null)) 'repliesNote': '有 replies 的消息下面有讨论：问“讨论/结论/大家意见”时用 read_conversation(conversation: 该消息的 thread) 读回复，不要只看这一条',
   };
 }
 
