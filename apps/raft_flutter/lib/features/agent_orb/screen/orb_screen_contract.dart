@@ -55,10 +55,21 @@ Map<String, Object?> orbScreenContract(
           ? orbScreenBudgetFull
           : orbScreenBudgetArrival);
   final labelMax = detail == OrbScreenDetail.full ? 160 : 60;
+  // A row that only takes a long press is a message of a conversation: the
+  // page's data has it (with the whole text), so the controls do not repeat it.
+  final listed = detail == OrbScreenDetail.arrival
+      ? [
+          for (final n in s.nodes)
+            if (!(n.role == 'row' &&
+                n.actions.length == 1 &&
+                n.actions.first == 'longPress'))
+              n,
+        ]
+      : s.nodes;
   final nodes = [
-    ...s.nodes.where((n) => n.focused && n.visible),
-    ...s.nodes.where((n) => !n.focused && n.visible),
-    ...s.nodes.where((n) => !n.visible),
+    ...listed.where((n) => n.focused && n.visible),
+    ...listed.where((n) => !n.focused && n.visible),
+    ...listed.where((n) => !n.visible),
   ];
   final lines = detail == OrbScreenDetail.full
       ? [for (final l in s.text) _clip(l, 200)]

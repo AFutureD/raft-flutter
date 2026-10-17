@@ -116,8 +116,11 @@ OrbScreenSnapshot readOrbScreen(
         label.isEmpty &&
         node.hasChildren &&
         !node.mergeAllDescendantsIntoThisNode;
+    // Selectable text (an e-mail address you can copy) is text, not a field.
+    final readOnlyText = f.isTextField && f.isReadOnly;
     final actionable =
         !wrapper &&
+        !readOnlyText &&
         ((acts.isNotEmpty && !(dismissOnly && label.isEmpty)) ||
             (control && disabled));
 
