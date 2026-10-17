@@ -74,12 +74,13 @@ class _RaftTextSelectionToolbarState extends State<RaftTextSelectionToolbar> {
       states: t.recipeStates(),
       tokens: rt,
     );
+    // A selection overlay can inherit a link, code span or fallback text
+    // style. Menu labels always start from the application's control font.
+    final baseStyle = Theme.of(context).textTheme.labelLarge!
+        .copyWith(decoration: TextDecoration.none);
     final textStyle = RaftControlTypography.of(
       context,
-      recipe.button.text(
-        rt,
-        base: recipe.toolbar.text(rt, base: DefaultTextStyle.of(context).style),
-      ),
+      recipe.button.text(rt, base: recipe.toolbar.text(rt, base: baseStyle)),
     );
     final labels = [
       for (final item in widget.buttonItems)
@@ -158,52 +159,60 @@ class _RaftTextSelectionToolbarState extends State<RaftTextSelectionToolbar> {
                 const SingleActivator(LogicalKeyboardKey.escape):
                     ContextMenuController.removeAny,
               },
-              child: FocusTraversalGroup(
-                child: Semantics(
-                  role: SemanticsRole.menu,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: height),
-                    child: RaftRecipeBox(
-                      style: recipe.toolbar,
-                      tokens: rt,
-                      clip: true,
-                      child: SizedBox(
-                        width: menuWidth,
-                        child: SingleChildScrollView(
-                          child: open
-                              ? Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Align(
-                                      alignment: AlignmentDirectional.centerEnd,
-                                      child: navigation(context, back: true),
-                                    ),
-                                    for (var i = count; i < labels.length; i++)
-                                      _SelectionButton(
-                                        label: labels[i],
-                                        onPressed:
-                                            widget.buttonItems[i].onPressed,
+              child: DefaultTextStyle(
+                style: baseStyle,
+                child: FocusTraversalGroup(
+                  child: Semantics(
+                    role: SemanticsRole.menu,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: height),
+                      child: RaftRecipeBox(
+                        style: recipe.toolbar,
+                        tokens: rt,
+                        clip: true,
+                        child: SizedBox(
+                          width: menuWidth,
+                          child: SingleChildScrollView(
+                            child: open
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Align(
+                                        alignment:
+                                            AlignmentDirectional.centerEnd,
+                                        child: navigation(context, back: true),
                                       ),
-                                  ],
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  spacing: gap,
-                                  children: [
-                                    for (var i = 0; i < count; i++)
-                                      SizedBox(
-                                        width: widths[i],
-                                        child: _SelectionButton(
+                                      for (
+                                        var i = count;
+                                        i < labels.length;
+                                        i++
+                                      )
+                                        _SelectionButton(
                                           label: labels[i],
                                           onPressed:
                                               widget.buttonItems[i].onPressed,
                                         ),
-                                      ),
-                                    if (hasOverflow) navigation(context),
-                                  ],
-                                ),
+                                    ],
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    spacing: gap,
+                                    children: [
+                                      for (var i = 0; i < count; i++)
+                                        SizedBox(
+                                          width: widths[i],
+                                          child: _SelectionButton(
+                                            label: labels[i],
+                                            onPressed:
+                                                widget.buttonItems[i].onPressed,
+                                          ),
+                                        ),
+                                      if (hasOverflow) navigation(context),
+                                    ],
+                                  ),
+                          ),
                         ),
                       ),
                     ),

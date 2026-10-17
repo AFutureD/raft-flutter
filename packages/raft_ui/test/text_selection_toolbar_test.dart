@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import 'dart:ui' show SemanticsAction;
-
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -424,4 +422,46 @@ void main() {
       expect(copies, 1);
     });
   }
+  testWidgets(
+    'Android menu does not inherit selected content decoration or font',
+    (tester) async {
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      });
+      final theme = raftTheme(RaftFamily.brutal)
+          .copyWith(platform: TargetPlatform.android);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: DefaultTextStyle(
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                decoration: TextDecoration.underline,
+                fontSize: 40,
+              ),
+              child: RaftTextSelectionToolbar.buttonItems(
+                anchors: const TextSelectionToolbarAnchors(
+                  primaryAnchor: Offset(300, 300),
+                ),
+                buttonItems: [
+                  ContextMenuButtonItem(
+                    type: ContextMenuButtonType.copy,
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final style = DefaultTextStyle.of(tester.element(find.text('Copy')))
+          .style;
+      expect(style.decoration, TextDecoration.none);
+      expect(style.fontFamily, theme.extension<RaftTokens>()!.bodyFont);
+      expect(style.fontSize, 12);
+    },
+  );
 }
