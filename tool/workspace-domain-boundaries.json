@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "baseline": "0c0b5a3b2adeae731f8036d0023eb71d569f0c5e",
+  "legacyDomains": {
+    "apps/raft_flutter/lib/data/agent_migration_status.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 1,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/history_gap_recovery.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 3,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/incoming_share_targets.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 1,
+      "reason": "Existing D5 share-target projection dependency; lower/remove as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_events.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 8,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_memory.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 6,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_navigation.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 2,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_pages.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 9,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_positions.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 6,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_reconciliation.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 1,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_snapshots.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 3,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_summaries.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 5,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_history_verification.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 13,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/message_task_cache.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 8,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/source_server_unread.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 1,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/source_task_bucket.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 1,
+      "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
+    },
+    "apps/raft_flutter/lib/data/workspace_mode_store.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 1,
+      "reason": "Existing D3 page/mode view model dependency; lower/remove as the file migrates."
+    }
+  },
+  "compositionHosts": {
+    "apps/raft_flutter/lib/data/workspace_grid_sessions.dart": {
+      "rootEdges": 1,
+      "rootIdentifiers": 6,
+      "reason": "Host constructs workspace presentations; not a domain owner."
+    }
+  }
+}
