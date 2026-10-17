@@ -110,6 +110,39 @@ void main() {
   );
 
   test(
+    'plain arrivals keep the retained image without a complete history scan',
+    () async {
+      final f = _Fixture();
+      final image = await f.retain();
+      final builds = f.w.debugRetainedAttachmentIndexBuilds;
+      for (var i = 0; i < 20; i++) {
+        f.w.ledger.ingest([
+          {
+            'id': 'plain-$i',
+            'channelId': 'channel',
+            'seq': '${i + 2}',
+            'content': 'An ordinary message without attachments.',
+          },
+        ], expectedGeneration: f.w.ledger.generation);
+        f.w.notifyListeners();
+        final lease = f.w.peekAttachmentImage(
+          f.imageKey,
+          authorized: () => true,
+        );
+        expect(lease, isNotNull);
+        expect(lease!.lease.value, same(image));
+        lease.release();
+      }
+      expect(f.loads, 1);
+      expect(
+        f.w.debugRetainedAttachmentIndexBuilds,
+        builds,
+        reason: 'no attachment or admission changed in these arrivals',
+      );
+    },
+  );
+
+  test(
     'replacing channel records with the same admission retains the index',
     () async {
       final f = _Fixture();
