@@ -569,6 +569,278 @@ void main() {
     });
   });
 
+  group('what needs the user: every one is named', () {
+    Map<String, Object?> item(String who, String title, String since) => {
+      'who': who,
+      'title': title,
+      'since': since,
+    };
+    final navigated = run('navigate', {
+      'title': '动态',
+      'briefing': briefing(
+        needsYou: [
+          item('Alice', 'Alice 问你：周五能来评审吗？', '已等 5 分钟'),
+          item('Cody', 'Cody 问你：第 10 步可以合入吗？', '已等 12 分钟'),
+        ],
+        waiting: 1,
+        titles: ['重构第 10 步'],
+      ),
+    });
+
+    test('asked "什么需要我处理": both named in order passes', () {
+      expect(
+        orbReviewReply(
+          'Alice 问评审，等了 5 分钟。Cody 问合入。另外有 1 个任务在等你验收，不急。',
+          [navigated],
+          cardUp: false,
+          said: '打开动态，什么需要我处理',
+        ),
+        isNull,
+      );
+    });
+
+    test('one left out: sent back once, then the app says all of them', () {
+      final r = orbReviewReply(
+        '有两件事在等你处理。Alice 问你周五能不能去评审。',
+        [navigated],
+        cardUp: false,
+        said: '打开动态，什么需要我处理',
+      );
+      expect(r?.retry, contains('2 件事'));
+      expect(
+        r?.text,
+        '有 2 件事在等你：Alice 问你：周五能来评审吗，已等 5 分钟；'
+        'Cody 问你：第 10 步可以合入吗，已等 12 分钟。'
+        '另外有 1 个任务在等你验收，不急。',
+      );
+    });
+
+    test('a hallucinated reply instead of the list is not an answer', () {
+      final r = orbReviewReply(
+        '发给 Alice：可以合入，要发吗？',
+        [navigated],
+        cardUp: false,
+        said: '什么要紧',
+      );
+      expect(r?.retry, isNotNull);
+    });
+
+    test('five at most; another question is not held', () {
+      final many = run('get_briefing', {
+        ...briefing(
+          needsYou: [
+            for (var i = 0; i < 7; i++) item('P$i', 'P$i 问你', '已等 $i 分钟'),
+          ],
+        ),
+      });
+      final r = orbReviewReply(
+        'P0 P1 P2 P3 P4',
+        [many],
+        cardUp: false,
+        said: '有什么要我处理的',
+      );
+      expect(r, isNull);
+      expect(
+        orbReviewReply('P0', [many], cardUp: false, said: '有什么要我处理的')?.text,
+        endsWith('还有 2 件。'),
+      );
+      expect(
+        orbReviewReply(
+          'Cody 在等。',
+          [navigated],
+          cardUp: false,
+          said: '全部处理掉',
+        )?.retry,
+        isNull,
+      );
+    });
+  });
+
+  group('a private conversation: the person, and whether to reply', () {
+    Map<String, Object?> dmPage(List<Map<String, Object?>> messages) => {
+      'conversation': {'id': 'd1', 'type': 'dm', 'name': 'Cody'},
+      'messages': messages,
+    };
+    final asked = [
+      {'from': 'Cody', 'text': '第 10 步的改动我提交了。'},
+      {'from': 'Cody', 'text': '你看一下，需要我补什么吗？'},
+    ];
+    run_(List<Map<String, Object?>> ms, {Map<String, Object?>? b}) => [
+      run('navigate', {
+        'title': 'Cody',
+        'matched': {'kind': 'dm', 'id': 'd1'},
+        'page': dmPage(ms),
+        'briefing': ?b,
+      }),
+    ];
+
+    test('the name and "要回他吗" pass', () {
+      expect(
+        orbReviewReply(
+          'Cody 在问你要不要补充，要回他吗？',
+          run_(asked),
+          cardUp: false,
+          said: '看看 Cody 私信',
+        ),
+        isNull,
+      );
+      expect(
+        orbReviewReply(
+          'Cody 说提交了，不用回。',
+          run_(asked),
+          cardUp: false,
+          said: '看看 Cody 私信',
+        ),
+        isNull,
+      );
+    });
+
+    test('no name, or no word on replying: sent back, then "X 问你：…，要回吗？"', () {
+      for (final reply in ['要我帮你回复他吗？', 'Cody 已经等了 15 分钟了，他问你看看行不行。']) {
+        final r = orbReviewReply(
+          reply,
+          run_(asked),
+          cardUp: false,
+          said: '看看 Cody 私信',
+        );
+        expect(r?.retry, contains('Cody'), reason: reply);
+        expect(r?.text, 'Cody 问你：你看一下，需要我补什么吗，要回吗？', reason: reply);
+      }
+    });
+
+    test('the briefing decides; without it a question does', () {
+      final quiet = briefing();
+      expect(
+        orbReviewReply(
+          '好的。',
+          run_([
+            {'from': 'Cody', 'text': '收到，我接着做。'},
+          ], b: quiet),
+          cardUp: false,
+          said: '看看 Cody 私信',
+        )?.text,
+        'Cody 说：收到，我接着做，不用回。',
+      );
+      expect(
+        orbReviewReply(
+          '好的。',
+          run_([
+            {'from': 'Cody', 'text': '收到，我接着做。'},
+          ]),
+          cardUp: false,
+          said: '看看 Cody 私信',
+        )?.text,
+        'Cody 说：收到，我接着做，不用回。',
+      );
+    });
+
+    test('a DM read with read_conversation, and other requests', () {
+      final read = [run('read_conversation', dmPage(asked))];
+      expect(
+        orbReviewReply('他在问。', read, cardUp: false, said: '看看 Cody 私信')?.text,
+        startsWith('Cody 问你：'),
+      );
+      expect(
+        orbReviewReply('他在问。', read, cardUp: false, said: '读 Cody 那条原文'),
+        isNull,
+      );
+      expect(
+        orbReviewReply('他在问。', read, cardUp: false, said: '他问的是什么'),
+        isNull,
+      );
+    });
+  });
+
+  group('a request to see the tasks: each one is named with its owner', () {
+    final tasks = run('list_tasks', {
+      'total': 4,
+      'tasks': [
+        {
+          'number': 142,
+          'title': '迁移旧的缓存',
+          'assignee': 'Cody',
+          'waitsFor': '等你验收',
+          'idle': '5 天',
+        },
+        {
+          'number': 141,
+          'title': '整理发布说明',
+          'assignee': '八戒',
+          'waitsFor': '八戒 在做',
+          'idle': '4 天',
+        },
+        {
+          'number': 143,
+          'title': '补充设计评审记录',
+          'assignee': 'Grok',
+          'waitsFor': 'Grok 在做',
+          'idle': '3 天',
+        },
+        {'number': 144, 'title': '第四个', 'assignee': 'Cody'},
+      ],
+    });
+    const said = '好，看看那几个放了好几天的任务';
+
+    test('all three named with their owners passes while driving', () {
+      expect(
+        orbReviewReply(
+          '迁移旧的缓存是 Cody 的，整理发布说明是八戒的，补充设计评审记录是 Grok 的。',
+          [tasks],
+          cardUp: false,
+          driving: true,
+          said: said,
+        ),
+        isNull,
+      );
+    });
+
+    test(
+      'one only: sent back, then the app lists three (five when parked)',
+      () {
+        final r = orbReviewReply(
+          'Cody 的缓存迁移等了 5 天。',
+          [tasks],
+          cardUp: false,
+          driving: true,
+          said: said,
+        );
+        expect(r?.retry, contains('最多 3 个'));
+        expect(r?.text, contains('整理发布说明，八戒 在做'));
+        expect(r?.text, isNot(contains('第四个')));
+        final parked = orbReviewReply(
+          'Cody 的缓存迁移等了 5 天。',
+          [tasks],
+          cardUp: false,
+          said: said,
+        );
+        expect(parked?.text, contains('第四个'));
+      },
+    );
+
+    test('a title but no owner is short too', () {
+      expect(
+        orbReviewReply(
+          '迁移旧的缓存，整理发布说明，补充设计评审记录。',
+          [tasks],
+          cardUp: false,
+          driving: true,
+          said: said,
+        )?.retry,
+        isNotNull,
+      );
+    });
+
+    test('counting or acting on them is not listing them', () {
+      for (final s in ['看看这些任务现在什么状态', '全部处理掉', '打开 task 136', '把 142 标成完成']) {
+        expect(
+          orbReviewReply('共 4 个。', [tasks], cardUp: false, said: s),
+          isNull,
+          reason: s,
+        );
+      }
+    });
+  });
+
   test('no briefing, no card, nothing to say about it', () {
     expect(orbReviewReply('你好。', const [], cardUp: false), isNull);
   });

@@ -47,7 +47,8 @@ Future<List<AgentToolRun>> orbWithBriefing(
   required Future<OrbBriefing> Function(OrbBriefScope scope) brief,
   OrbBriefScope? Function()? screen,
 }) async {
-  if (!orbAsksWhatMatters.hasMatch(said) || orbBriefingOf(runs) != null) {
+  if (!(orbAsksWhatMatters.hasMatch(said) || orbLooksAtDm.hasMatch(said)) ||
+      orbBriefingOf(runs) != null) {
     return runs;
   }
   // What it read; failing that (it answered from what it knew), the place the
@@ -132,7 +133,11 @@ AgentReview? orbReviewReply(
           '用户明确同意了就调用 confirm；还没有，就如实说还没发，再问他一次。）',
     );
   }
-  final listed = _listRead(text, runs, said);
+  final listed =
+      _listRead(text, runs, said) ??
+      _needsRead(text, runs, said) ??
+      _dmGlance(text, runs, said) ??
+      _taskListRead(text, runs, said, driving);
   if (listed != null) return listed;
   final polished = _polish(text, runs);
   return polished == null ? null : AgentReview(text: polished);
@@ -336,4 +341,194 @@ String _compactList(
       ? '还有 ${all.length - shown.length} 条。'
       : '';
   return '共 ${all.length} 条：${[for (final i in shown) one(i)].join('；')}。$more';
+}
+
+// ---- the answers that must be complete ---------------------------------------
+
+/// Each of [names] appears in [reply], in this order (a name that comes up
+/// again later is found again later).
+bool _inOrder(String reply, Iterable<String> names) {
+  var at = 0;
+  for (final name in names) {
+    if (name.isEmpty) continue;
+    final i = reply.indexOf(name, at);
+    if (i < 0) return false;
+    at = i + name.length;
+  }
+  return true;
+}
+
+/// The person asks what needs them.
+final orbAsksNeeds = RegExp(
+  r'什么(?:需要|要|该)(?:我)?(?:处理|紧|做)|有什么(?:要|需要)(?:我)?(?:处理|做)|要紧|谁(?:找|在等)我|有什么(?:新的|事)|需要我|等我处理|简报',
+);
+
+/// What needs the person, as the briefing the turn read has it: every one (the
+/// first five) is named, in the briefing's order. A reply that leaves one out
+/// is sent back once; if it still does, the app says them.
+AgentReview? _needsRead(String reply, List<AgentToolRun> runs, String said) {
+  if (!orbAsksNeeds.hasMatch(said)) return null;
+  final b = orbBriefingOf(runs);
+  if (b == null) return null;
+  final items = [
+    for (final i in (b['needsYou'] as List))
+      if (i is Map) Map<String, Object?>.from(i),
+  ];
+  if (items.isEmpty) return null;
+  final shown = items.take(5).toList();
+  if (_inOrder(reply, [for (final i in shown) '${i['who'] ?? ''}'])) {
+    return null;
+  }
+  String one(Map<String, Object?> i) {
+    final title = '${i['title'] ?? i['who']}'.replaceAll(
+      RegExp(r'[。！？.!?]+$'),
+      '',
+    );
+    final since = i['since'];
+    return since is String && since.isNotEmpty ? '$title，$since' : title;
+  }
+
+  final waiting = b['waitingTasks'];
+  final tail = waiting is int && waiting > 0
+      ? '${OrbBriefing.waitingTasksTail(waiting)}。'
+      : '';
+  return AgentReview(
+    retry:
+        '（App 提示，不是用户的话：有 ${items.length} 件事需要用户处理。按顺序逐件说：谁、要他做什么，'
+        '一件一句，最多 5 件，不要漏掉任何一个人。）',
+    text:
+        '有 ${items.length} 件事在等你：${[for (final i in shown) one(i)].join('；')}。'
+        '${items.length > shown.length ? '还有 ${items.length - shown.length} 件。' : ''}$tail',
+  );
+}
+
+/// "看看 Cody 私信": a private conversation is to be looked at.
+final orbLooksAtDm = RegExp(
+  r'(?:看看|看下|看一下|看一眼|查看|打开|读读?|读一下|念一下).*私信|私信.*(?:怎么样|说了什么|有什么)',
+);
+
+/// Whether the reply says a reply is (or is not) needed.
+final _saysReplyNeed = RegExp(
+  r'要回|回他|回她|回复|回一下|回一句|回吗|不用回|不需要回|不必回|要不要回|需要你回|要你回|等你回|该回',
+);
+
+({String name, List<Map<String, Object?>> messages})? _dmRead(
+  List<AgentToolRun> runs,
+) {
+  for (final r in runs.reversed) {
+    Map? page;
+    switch (r.name) {
+      case 'navigate':
+        final m = r.result['matched'];
+        if (m is Map && m['kind'] == 'dm') {
+          final p = r.result['page'];
+          page = p is Map ? p : {'conversation': {}};
+          final name = r.result['title'];
+          if (name is String && name.isNotEmpty) {
+            return (name: name, messages: _messagesOf(page));
+          }
+        }
+      case 'describe_page' || 'read_conversation':
+        page = r.result;
+    }
+    final c = page?['conversation'];
+    if (page != null && c is Map && c['type'] == 'dm' && c['name'] is String) {
+      return (name: c['name'] as String, messages: _messagesOf(page));
+    }
+  }
+  return null;
+}
+
+List<Map<String, Object?>> _messagesOf(Map page) => [
+  for (final m in (page['messages'] as List? ?? const []))
+    if (m is Map) Map<String, Object?>.from(m),
+];
+
+final _asks = RegExp(r'[？?]|吗|呢|能不能|可不可以|行不行|好不好|怎么|什么|哪');
+
+/// Looking at somebody's private conversation: the reply names the person
+/// and says whether a reply is wanted. The briefing of the conversation says
+/// it (an unanswered ask to the user); without one, a question as the last
+/// thing they said. Short of either, the model is sent back once and then the
+/// app says it: "Cody 问你：…，要回吗？" / "Cody 说：…，不用回。"
+AgentReview? _dmGlance(String reply, List<AgentToolRun> runs, String said) {
+  if (!orbLooksAtDm.hasMatch(said)) return null;
+  final dm = _dmRead(runs);
+  if (dm == null) return null;
+  if (reply.contains(dm.name) && _saysReplyNeed.hasMatch(reply)) return null;
+  Map<String, Object?>? last;
+  for (final m in dm.messages.reversed) {
+    if ('${m['from']}' == dm.name) {
+      last = m;
+      break;
+    }
+  }
+  final b = orbBriefingOf(runs);
+  final asked = b != null && (b['needsYou'] as List).isNotEmpty;
+  final said_ = last == null ? '' : '${last['text'] ?? ''}'.trim();
+  final needs = b != null ? asked : _asks.hasMatch(said_);
+  String clip(String t) {
+    final one = t
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[。！？.!?]+$'), '');
+    return one.length <= 40 ? one : '${one.substring(0, 40)}…';
+  }
+
+  return AgentReview(
+    retry:
+        '（App 提示，不是用户的话：用户要看 ${dm.name} 的私信。回答要说出 ${dm.name} 的名字，'
+        '他说了什么，以及用户要不要回他。）',
+    text: said_.isEmpty
+        ? null
+        : needs
+        ? '${dm.name} 问你：${clip(said_)}，要回吗？'
+        : '${dm.name} 说：${clip(said_)}，不用回。',
+  );
+}
+
+/// "看看那些任务": the tasks are to be listed, not counted.
+final _listsTasks = RegExp(
+  r'(?:看看|看下|看一下|说说|讲讲|念念|列出|有哪些|查看)[^，。]*任务|任务.*(?:有哪些|都有)',
+);
+final _notAList = RegExp(r'状态|多少|几个任务|打开|处理掉|全部处理|催|通过|标');
+
+/// After a task list, on a request to see the tasks: each one listed (three
+/// while driving, five otherwise) is named by its title, and its owner is said.
+/// What leaves one out is sent back once; if it still does, the app lists them.
+AgentReview? _taskListRead(
+  String reply,
+  List<AgentToolRun> runs,
+  String said,
+  bool driving,
+) {
+  if (!_listsTasks.hasMatch(said) || _notAList.hasMatch(said)) return null;
+  Map<String, Object?>? result;
+  for (final r in runs.reversed) {
+    if (r.name == 'list_tasks' && r.result['error'] == null) {
+      result = r.result;
+      break;
+    }
+  }
+  final tasks = [
+    for (final t in (result?['tasks'] as List? ?? const []))
+      if (t is Map) t,
+  ];
+  if (tasks.isEmpty) return null;
+  final shown = tasks.take(driving ? 3 : 5).toList();
+  var complete = true;
+  for (final t in shown) {
+    final title = '${t['title'] ?? ''}';
+    final owner = t['assignee'];
+    if (title.isNotEmpty && !reply.contains(title)) complete = false;
+    if (owner is String && owner.isNotEmpty && !reply.contains(owner)) {
+      complete = false;
+    }
+  }
+  if (complete) return null;
+  return AgentReview(
+    retry:
+        '（App 提示，不是用户的话：用户要看任务。把列出的每个任务都说到，说清标题、谁在做、卡在哪，'
+        '${driving ? '最多 3 个' : '最多 5 个'}，不要只说一个。）',
+    text: orbSummarize(runs, driving: driving),
+  );
 }

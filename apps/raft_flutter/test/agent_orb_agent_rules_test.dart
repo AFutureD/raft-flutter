@@ -198,6 +198,38 @@ void main() {
     );
   }
 
+  orbTest('a reply nobody asked for ("什么需要我处理") is not shown as a card', (
+    t,
+  ) async {
+    toCody();
+    gemini.replies.addAll([
+      _call('reply', {'text': '可以合入'}),
+      _say('Cody 在等你。'),
+    ]);
+    await say(t, '什么需要我处理');
+    final blocked =
+        (((gemini.requests[1]['contents'] as List).last as Map)['parts']
+                    as List)
+                .single['functionResponse']['response']
+            as Map;
+    expect(blocked['error'], contains('用户没有让你回复'));
+    expect(orb().actions.pending, isNull);
+    expect(agentLines(), ['Cody 在等你。']);
+  });
+
+  orbTest('a card is up: a reply that changes it needs no verb of its own', (
+    t,
+  ) async {
+    toCody();
+    gemini.replies.addAll([
+      _call('reply', {'text': '可以'}),
+      _call('reply', {'text': '改成这样'}),
+    ]);
+    await say(t, '回他可以');
+    await say(t, '改成这样');
+    expect(agentLines().last, '回复 Cody：改成这样，要发吗？');
+  });
+
   orbTest('words the person gave: an invented reply is sent back with no '
       'card, and the right one is shown', (t) async {
     toCody();
@@ -430,9 +462,13 @@ void main() {
 
   orbTest('no words after a tool, then words after the nudge: the model\'s '
       'words are said', (t) async {
-    gemini.replies.addAll([_call('list_tasks', {}), _say(''), _say('有一个任务。')]);
+    gemini.replies.addAll([
+      _call('list_tasks', {}),
+      _say(''),
+      _say('丁，Cody 负责。'),
+    ]);
     await say(t, '看看任务');
-    expect(agentLines(), ['有一个任务。']);
+    expect(agentLines(), ['丁，Cody 负责。']);
   });
 
   group('"全部处理掉" while driving', () {
@@ -578,11 +614,11 @@ void main() {
       await t.pump(const Duration(milliseconds: 300));
       gemini.replies.addAll([
         _call('list_tasks', {'stale': true}),
-        _say('共 3 个任务。'),
+        _say('己，Cody 负责。丁，Cody 负责。戊，八戒 负责。'),
       ]);
       await say(t, '看看那些任务');
       expect(orb().actions.pending, isNull);
-      expect(agentLines().single, '共 3 个任务。');
+      expect(agentLines().single, '己，Cody 负责。丁，Cody 负责。戊，八戒 负责。');
       await orb().setDriving(false);
     });
 

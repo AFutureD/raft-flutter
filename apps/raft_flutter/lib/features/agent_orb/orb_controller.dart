@@ -562,6 +562,16 @@ class OrbController extends ChangeNotifier {
   ) async {
     final tool = tools[name];
     if (tool == null) return {'error': '没有这个工具：$name'};
+    if (agentLayer &&
+        _replyTools.contains(name) &&
+        actions.pending == null &&
+        _turnSaid.trim().isNotEmpty &&
+        !_replyIntent.hasMatch(_turnSaid)) {
+      // B1: "什么需要我处理" came back as a reply to Alice nobody asked for.
+      return {
+        'error': '用户没有让你回复或发消息：他说的是“${_turnSaid.trim()}”。只回答他的问题，不要调用 $name。',
+      };
+    }
     if (agentLayer && _replyTools.contains(name)) {
       final held = _holdToTheWords(args);
       if (held.error != null) return held.error!;
@@ -1321,6 +1331,9 @@ class OrbController extends ChangeNotifier {
   );
 
   static const _replyTools = {'reply', 'send_message', 'reply_in_thread'};
+
+  /// The person's words ask for a message to be sent.
+  static final _replyIntent = RegExp(r'回|复|发|告诉|说|跟|通知|答|写|问|留言|转告|@');
 
   /// The model was already sent back this turn for words that were not the
   /// person's.
