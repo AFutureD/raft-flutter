@@ -11,6 +11,7 @@ import '../../agent_mode/agent_thinking.dart';
 import '../../agent_mode/agent_voice.dart';
 import '../../agent_mode/agent_voice_settings.dart';
 import '../../agent_mode/gemini_agent.dart';
+import '../../agent_mode/genkit_agent.dart';
 import '../../agent_mode/voice_provider.dart';
 import '../nav/orb_nav_tools.dart' show orbNavigationTools;
 import '../orb_controller.dart';
@@ -79,6 +80,7 @@ class OrbEvalRunner {
     this.turnTimeout,
     this.harness = OrbEvalHarness.realtime,
     this.thinking,
+    this.model,
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
     this.voiceKey,
@@ -100,9 +102,12 @@ class OrbEvalRunner {
   /// The text agent's thinking level; the Labs setting when null.
   final AgentThinking? thinking;
 
+  /// The text agent's model; the app picks a Flash Lite when null.
+  final String? model;
+
   Duration get _turnLimit =>
       turnTimeout ??
-      (harness == OrbEvalHarness.agent
+      (harness.isTextAgent
           ? const Duration(seconds: 120)
           : const Duration(seconds: 45));
 
@@ -177,7 +182,7 @@ class OrbEvalRunner {
     }
     final settings = AgentVoiceSettings.instance;
     // The agent harness ignores the voice settings: they would only mislead.
-    final agent = harness == OrbEvalHarness.agent;
+    final agent = harness.isTextAgent;
     final report = OrbEvalReport(
       startedAt: started,
       runsPerScenario: runs,
@@ -229,6 +234,36 @@ class OrbEvalRunner {
       }) => GeminiAgentSession(
         key: voiceKey,
         thinking: thinking ?? AgentOrbPreference.instance.agentThinking,
+        modelName: model,
+        steering: steering,
+        systemPrompt: systemPrompt,
+        tools: tools,
+        onToolCall: onToolCall,
+        onOutputText: onOutputText,
+        onTurnComplete: onTurnComplete,
+        onClosed: onClosed,
+      ),
+    OrbEvalHarness.genkit =>
+      ({
+        required provider,
+        required apiKey,
+        required systemPrompt,
+        required tools,
+        required onToolCall,
+        required voice,
+        reasoning = AgentReasoning.low,
+        onAudio,
+        onInputText,
+        onOutputText,
+        onTurnComplete,
+        onInterrupted,
+        onClosed,
+        playbackPending,
+        steering,
+      }) => GenkitAgentSession(
+        key: voiceKey,
+        thinking: thinking ?? AgentOrbPreference.instance.agentThinking,
+        modelId: model,
         steering: steering,
         systemPrompt: systemPrompt,
         tools: tools,
@@ -260,7 +295,7 @@ class OrbEvalRunner {
         workspace: world.workspace,
         navigatorContext: () => shown.navigatorContext(),
         sessionFactory: recorder.wrap(sessionFactory ?? _defaultFactory()),
-        agentLayer: harness == OrbEvalHarness.agent,
+        agentLayer: harness.isTextAgent,
         audio: _SilentAudio(),
         voiceKey: voiceKey,
         // The summary of a session would be a write to the shared agent.

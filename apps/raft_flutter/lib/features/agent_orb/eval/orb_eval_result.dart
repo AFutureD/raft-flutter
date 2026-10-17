@@ -105,6 +105,13 @@ enum OrbEvalHarness {
   /// A Gemini text model in a function-calling loop: the same prompt and
   /// tools, answered by plain `generateContent` calls.
   agent,
+
+  /// The same text agent with its model calls made by Genkit
+  /// (`GenkitAgentSession`): the model is a `provider/model` string.
+  genkit;
+
+  /// Whether a text agent (and the app's rules around it) drives the orb.
+  bool get isTextAgent => this != realtime;
 }
 
 /// All scenarios of one evaluation.

@@ -14,6 +14,7 @@ class OrbEvalRequest {
     this.runs = 2,
     this.harness = OrbEvalHarness.realtime,
     this.thinking,
+    this.model,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -26,6 +27,10 @@ class OrbEvalRequest {
   /// `thinking=minimal|low|medium|high` for the text agent, for this run only;
   /// null: the Labs setting.
   final AgentThinking? thinking;
+
+  /// `model=gemini-3.5-flash-lite` (or `provider/model` for `harness=genkit`)
+  /// for the text agent, for this run only; null: the app picks a Flash Lite.
+  final String? model;
 
   /// The request a `raft://orb-eval/run?only=A1,B2&runs=3&harness=agent` link
   /// makes; null for any other link.
@@ -48,8 +53,17 @@ class OrbEvalRequest {
       runs: runs.clamp(1, 5),
       harness: harness,
       thinking: AgentThinking.parse(uri.queryParameters['thinking']),
+      model: _modelParam(uri.queryParameters['model']),
     );
   }
+}
+
+/// A model id from a link: letters, digits and `. - _ : /` only, so nothing
+/// else rides into a request path.
+String? _modelParam(String? value) {
+  final id = value?.trim();
+  if (id == null || id.isEmpty || id.length > 80) return null;
+  return RegExp(r'^[A-Za-z0-9._:/-]+$').hasMatch(id) ? id : null;
 }
 
 /// How the evaluation is started in a debug build: from the Labs card or from
@@ -169,6 +183,7 @@ class OrbEvalLauncher {
                   runs: request.runs,
                   harness: request.harness,
                   thinking: request.thinking,
+                  model: request.model,
                 ),
           ),
         )

@@ -44,6 +44,7 @@ class OrbEvalPage extends StatefulWidget {
     this.turnTimeout,
     this.harness = OrbEvalHarness.realtime,
     this.thinking,
+    this.model,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -65,6 +66,9 @@ class OrbEvalPage extends StatefulWidget {
 
   /// The text agent's thinking level for this run (null: the setting).
   final AgentThinking? thinking;
+
+  /// The text agent's model for this run (null: the app picks one).
+  final String? model;
 
   @override
   State<OrbEvalPage> createState() => _OrbEvalPageState();
@@ -106,6 +110,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       turnTimeout: widget.turnTimeout,
       harness: widget.harness,
       thinking: widget.thinking,
+      model: widget.model,
       sessionFactory: widget.sessionFactory,
       voiceKey: widget.voiceKey,
       onProgress: (p) {

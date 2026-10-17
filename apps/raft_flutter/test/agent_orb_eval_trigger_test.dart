@@ -76,6 +76,28 @@ void main() {
       expect(of('?thinking=extreme'), isNull);
     });
 
+    test('harness=genkit picks the Genkit text agent; model= names the model '
+        'for the text agents, and only a plain id', () {
+      OrbEvalRequest of(String query) =>
+          OrbEvalRequest.fromLink(Uri.parse('raft://orb-eval/run$query'))!;
+      expect(of('?harness=genkit').harness, OrbEvalHarness.genkit);
+      expect(OrbEvalHarness.genkit.isTextAgent, isTrue);
+      expect(OrbEvalHarness.agent.isTextAgent, isTrue);
+      expect(OrbEvalHarness.realtime.isTextAgent, isFalse);
+      expect(of('').model, isNull);
+      expect(
+        of('?harness=genkit&model=gemini-3.5-flash-lite').model,
+        'gemini-3.5-flash-lite',
+      );
+      expect(
+        of('?model=googleai/gemini-3-flash-preview').model,
+        'googleai/gemini-3-flash-preview',
+      );
+      expect(of('?model=a%20b').model, isNull);
+      expect(of('?model=x?y%26z').model, isNull);
+      expect(of('?model=').model, isNull);
+    });
+
     test('no other link is an evaluation link', () {
       for (final link in [
         'raft://v1/servers/s1/channels/c1',
