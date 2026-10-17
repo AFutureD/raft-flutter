@@ -107,7 +107,15 @@ class OrbBriefingService {
     var routine = <(String, String)>[];
     final requests = <String, OrbCandidate>{};
     for (final c in read.candidates) {
-      final signal = OrbSignals.classify(c, me: me, now: now);
+      var signal = OrbSignals.classify(c, me: me, now: now);
+      // The Activity is the conversations: a task there only when it needs
+      // the person (its talk is in its thread's row). In a channel its
+      // progress stays.
+      if (scope.isActivity &&
+          c.source == OrbSource.task &&
+          signal.bucket == OrbBucket.progress) {
+        signal = OrbSignal.routine;
+      }
       if (signal.bucket == OrbBucket.routine) {
         routine.add((c.id, _version(c)));
         continue;

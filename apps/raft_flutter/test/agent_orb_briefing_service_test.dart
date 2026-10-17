@@ -404,6 +404,40 @@ void main() {
     );
   });
 
+  // Kevin: asked to read the Activity, it kept talking about tasks. Every
+  // task he created that moved in a day was "progress" in the Activity
+  // briefing, and he creates most of them.
+  test('in the Activity a task that does not need me is not progress; in its '
+      'channel it is', () async {
+    w.routes['/tasks/server'] = (q) => {
+      'tasks': [
+        if (q?['status'] == 'in_progress')
+          taskRow(
+            't95',
+            95,
+            'in_progress',
+            title: '重构第 11 步',
+            claimedById: 'a-cody',
+            claimedByName: 'Cody',
+            updated: 1,
+          ),
+      ],
+    };
+    w.routes['/tasks/channel/ch-general'] = w.routes['/tasks/server']!;
+    final activity = await service().brief(OrbBriefScope.activity);
+    expect(
+      [...activity.needsYou, ...activity.progress].map((i) => i.title),
+      isNot(contains(contains('重构第 11 步'))),
+    );
+    final channel = await service().brief(
+      const OrbBriefScope.conversation('ch-general'),
+    );
+    expect(
+      channel.progress.map((i) => i.title),
+      contains(contains('重构第 11 步')),
+    );
+  });
+
   group('the model', () {
     test('writes the titles and the overview; ambiguous items are decided '
         'by it', () async {
