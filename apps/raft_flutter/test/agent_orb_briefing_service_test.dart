@@ -140,6 +140,12 @@ class FakeGemini implements GeminiText {
       });
 }
 
+int _rank(OrbReason r) => switch (r) {
+  OrbReason.buildFailure => 0,
+  OrbReason.mentionAsk || OrbReason.replyAsk || OrbReason.dmAsk => 1,
+  _ => 2,
+};
+
 void main() {
   late ActivityClient client;
   late CapabilityWorld w;
@@ -270,7 +276,7 @@ void main() {
         expect(ada.link, contains('/dm/dm-1'));
         expect(b.needsYou.length, 2);
 
-        // The longest wait first.
+        // Asks before the rest (Ada's question before Cody's approval).
         expect(b.needsYou.first.who, 'Ada');
 
         expect(b.progress.single.who, 'CodexMac');
@@ -342,66 +348,214 @@ void main() {
     );
   });
 
+  // Kevin: "驾驶模式怎么还是死盯着那些任务不放呢？这个任务不代表我们现在就要处理。
+  // 我们通常最高优先级是处理动态里的消息". In the Activity a task (or a blocked
+  // agent) is never a card: it is counted, and said at the end.
   group('tasks and agents', () {
-    test(
-      'a task I created that is in review, and a blocked agent I manage',
-      () async {
-        inbox = [];
-        w.routes['/tasks/server'] = (q) => {
-          'tasks': [
-            if (q?['status'] == 'in_review')
+    void inReviewTask({int hours = 2, String title = '选型'}) {
+      w.routes['/tasks/server'] = (q) => {
+        'tasks': [
+          if (q?['status'] == 'in_review')
+            taskRow(
+              't94',
+              94,
+              'in_review',
+              title: title,
+              claimedById: 'a-cody',
+              claimedByName: 'Cody',
+              updated: hours,
+            )..['messageId'] = 'tm94',
+        ],
+      };
+      w.routes['/tasks/channel/ch-general'] = w.routes['/tasks/server']!;
+    }
+
+    Map<String, dynamic> agentRow(String id, String name, String creator) => {
+      'id': id,
+      'name': name.toLowerCase(),
+      'displayName': name,
+      'status': 'active',
+      'runtime': 'codex',
+      'activity': 'error',
+      'activityDetail': '{"message":"quota exceeded"}',
+      'creatorType': 'user',
+      'creatorId': creator,
+    };
+
+    test('a task I created that is in review, and a blocked agent I manage, '
+        'are counted and not cards', () async {
+      inbox = [];
+      inReviewTask();
+      w.routes['/agents'] = (_) => [
+        agentRow('a-cody', 'Cody', 'kevin'),
+        agentRow('a-other', 'Other', 'someone-else'),
+      ];
+      final b = await service().brief(OrbBriefScope.activity);
+      expect(b.needsYou, isEmpty);
+      expect(b.progress, isEmpty);
+      expect(b.waitingTasks, 2);
+      expect(b.waitingTaskTitles, contains(contains('选型')));
+      expect(b.overview, contains('另外有 2 个任务在等你验收，不急'));
+      expect(b.toJson()['waitingTasks'], 2);
+      expect(b.toJson()['waitingTaskTitles'], contains(contains('选型')));
+    });
+
+    test('a task waiting four days never outranks a fresh message', () async {
+      inbox = [dmRow()];
+      inReviewTask(hours: 96);
+      final b = await service().brief(OrbBriefScope.activity);
+      expect(b.needsYou.map((i) => i.who), ['Ada']);
+      expect(b.needsYou.single.reason, OrbReason.dmAsk);
+      expect(b.waitingTasks, 1);
+      expect(b.overview, contains('1 件需要你处理'));
+      expect(b.overview, contains('不急'));
+    });
+
+    test('a blocked agent is not in needsYou', () async {
+      inbox = [dmRow()];
+      w.routes['/agents'] = (_) => [agentRow('a-cody', 'Cody', 'kevin')];
+      final b = await service().brief(OrbBriefScope.activity);
+      expect(
+        b.needsYou.map((i) => i.reason),
+        isNot(contains(OrbReason.agentBlocked)),
+      );
+      expect(b.needsYou.map((i) => i.who), ['Ada']);
+      expect(b.waitingTasks, 1);
+    });
+
+    test('no waiting task: no tail and nothing in the JSON', () async {
+      final b = await service().brief(OrbBriefScope.activity);
+      expect(b.waitingTasks, 0);
+      expect(b.overview, isNot(contains('不急')));
+      expect(b.toJson().containsKey('waitingTasks'), isFalse);
+    });
+
+    test('the titles are at most three', () async {
+      inbox = [];
+      w.routes['/tasks/server'] = (q) => {
+        'tasks': [
+          if (q?['status'] == 'in_review')
+            for (var n = 1; n <= 5; n++)
               taskRow(
-                't94',
-                94,
+                't$n',
+                n,
                 'in_review',
-                title: '选型',
+                title: '任务$n',
                 claimedById: 'a-cody',
                 claimedByName: 'Cody',
-                updated: 2,
-              )..['messageId'] = 'tm94',
-          ],
-        };
-        w.routes['/agents'] = (_) => [
-          {
-            'id': 'a-cody',
-            'name': 'cody',
-            'displayName': 'Cody',
-            'status': 'active',
-            'runtime': 'codex',
-            'activity': 'error',
-            'activityDetail': '{"message":"quota exceeded"}',
-            'creatorType': 'user',
-            'creatorId': 'kevin',
-          },
-          {
-            'id': 'a-other',
-            'name': 'other',
-            'displayName': 'Other',
-            'status': 'active',
-            'runtime': 'codex',
-            'activity': 'error',
-            'activityDetail': 'x',
-            'creatorType': 'user',
-            'creatorId': 'someone-else',
-          },
-        ];
-        final b = await service().brief(OrbBriefScope.activity);
-        final task = b.needsYou.firstWhere(
-          (i) => i.reason == OrbReason.awaitingApproval,
+                updated: n,
+              )..['messageId'] = 'tm$n',
+        ],
+      };
+      final b = await service().brief(OrbBriefScope.activity);
+      expect(b.waitingTasks, 5);
+      expect(b.waitingTaskTitles, hasLength(3));
+      expect(b.overview, contains('5 个任务'));
+    });
+
+    test(
+      'the model overview gets the tail too, and counts messages only',
+      () async {
+        inbox = [dmRow()];
+        inReviewTask(hours: 96);
+        final gemini = FakeGemini(FakeGemini.echo(overview: '模型总览。'));
+        final b = await service(model: gemini).brief(OrbBriefScope.activity);
+        expect(b.overview, startsWith('模型总览'));
+        expect(b.overview, endsWith('另外有 1 个任务在等你验收，不急'));
+        final req = jsonDecode(gemini.prompts.single) as Map<String, dynamic>;
+        expect((req['counts'] as Map)['needsYou'], 1);
+        expect(
+          (req['items'] as List).map((i) => (i as Map)['id']),
+          isNot(contains('t94')),
         );
-        expect(task.title, contains('选型'));
-        expect(task.since, '已等 2 小时');
-        expect(task.link, contains('/channel/ch-general'));
-        expect(task.link, contains('task=ch-general%3Atm94'));
-        final agent = b.needsYou.firstWhere(
-          (i) => i.reason == OrbReason.agentBlocked,
-        );
-        expect(agent.who, 'Cody');
-        expect(agent.title, contains('quota exceeded'));
-        expect(agent.link, contains('/agent/a-cody'));
-        expect(b.needsYou.any((i) => i.who == 'Other'), isFalse);
       },
     );
+
+    test('a repeated briefing says the waiting tasks once', () async {
+      inbox = [];
+      inReviewTask();
+      final s = service();
+      final first = await s.brief(OrbBriefScope.activity);
+      expect(first.waitingTasks, 1);
+      final second = await s.brief(OrbBriefScope.activity);
+      expect(second.isDelta, isTrue);
+      expect(second.waitingTasks, 0);
+      expect(second.overview, isNot(contains('不急')));
+      final full = await s.brief(OrbBriefScope.activity, full: true);
+      expect(full.waitingTasks, 1);
+    });
+
+    test('a conversation briefing still lists its tasks', () async {
+      inReviewTask();
+      final b = await service().brief(
+        const OrbBriefScope.conversation('ch-general'),
+      );
+      expect(b.waitingTasks, 0);
+      expect(
+        b.needsYou.where((i) => i.reason == OrbReason.awaitingApproval),
+        isNotEmpty,
+      );
+    });
+  });
+
+  group('the order of the Activity', () {
+    test(
+      'a build failure, then asks, then the rest; the newest first',
+      () async {
+        channelMessages['ch-design'] = [
+          msg(
+            'dz1',
+            5,
+            '构建失败了：flutter test 红了',
+            from: 'CI',
+            fromId: 'ci',
+            type: 'user',
+            minutes: 200,
+          ),
+        ];
+        client.responses['GET /messages/channel/ch-design'] = {
+          'messages': channelMessages['ch-design'],
+        };
+        final b = await service().brief(OrbBriefScope.activity);
+        final order = b.needsYou.map((i) => i.reason).toList();
+        expect(order.first, OrbReason.buildFailure);
+        final rank = {for (final r in OrbReason.values) r: _rank(r)};
+        final ranks = order.map((r) => rank[r]!).toList();
+        expect([...ranks]..sort(), ranks);
+      },
+    );
+
+    test('newest first within a group', () async {
+      inbox = [
+        dmRow(),
+        {
+          ...dmRow(),
+          'channelId': 'dm-2',
+          'peerName': 'Bob',
+          'lastMessageId': 'dm-n1',
+          'lastMessageSenderId': 'bob',
+          'lastMessageSenderName': 'Bob',
+          'lastMessageAt': ago(5).toIso8601String(),
+        },
+      ];
+      client.responses['GET /messages/channel/dm-2'] = {
+        'messages': [
+          msg(
+            'dm-n1',
+            3,
+            '你能看一下这个吗？',
+            from: 'Bob',
+            fromId: 'bob',
+            type: 'user',
+            minutes: 5,
+          ),
+        ],
+        'hasMore': false,
+      };
+      final b = await service().brief(OrbBriefScope.activity);
+      final asks = b.needsYou.where((i) => i.reason == OrbReason.dmAsk);
+      expect(asks.map((i) => i.who), ['Bob', 'Ada']);
+    });
   });
 
   // Kevin: asked to read the Activity, it kept talking about tasks. Every

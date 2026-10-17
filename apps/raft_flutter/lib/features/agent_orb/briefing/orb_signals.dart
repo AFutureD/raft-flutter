@@ -123,6 +123,7 @@ class OrbSignal {
     this.since,
     this.who,
     this.whoKind = 'user',
+    this.viaTask = false,
   });
 
   final OrbBucket bucket;
@@ -138,6 +139,21 @@ class OrbSignal {
   final DateTime? since;
   final String? who;
   final String whoKind;
+
+  /// The verdict rests on the task behind the conversation, not on what was
+  /// said in it.
+  final bool viaTask;
+
+  OrbSignal markedViaTask() => OrbSignal(
+    bucket: bucket,
+    reason: reason,
+    ambiguous: ambiguous,
+    request: request,
+    since: since,
+    who: who,
+    whoKind: whoKind,
+    viaTask: true,
+  );
 
   static const routine = OrbSignal(
     bucket: OrbBucket.routine,
@@ -226,7 +242,9 @@ abstract final class OrbSignals {
         // A thread that is a task's own: the task may wait for the person
         // even when the new messages say nothing about it.
         final waits = _task(c, now);
-        return waits.bucket == OrbBucket.needsYou ? waits : read;
+        return waits.bucket == OrbBucket.needsYou
+            ? waits.markedViaTask()
+            : read;
     }
   }
 

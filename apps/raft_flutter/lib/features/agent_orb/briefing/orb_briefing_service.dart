@@ -105,6 +105,8 @@ class OrbBriefingService {
     // Deterministic verdicts and sentences.
     var items = <OrbBriefItem>[];
     var routine = <(String, String)>[];
+    // Activity: tasks and blocked agents wait here, counted, never cards.
+    final waiting = <(String, String, String)>[];
     final requests = <String, OrbCandidate>{};
     for (final c in read.candidates) {
       var signal = OrbSignals.classify(c, me: me, now: now);
@@ -120,7 +122,16 @@ class OrbBriefingService {
         routine.add((c.id, _version(c)));
         continue;
       }
-      items.add(_item(c, signal, now));
+      final item = _item(c, signal, now);
+      if (scope.isActivity &&
+          signal.bucket == OrbBucket.needsYou &&
+          (c.source == OrbSource.task ||
+              c.source == OrbSource.agent ||
+              signal.viaTask)) {
+        waiting.add((c.id, _version(c), c.topic ?? item.title));
+        continue;
+      }
+      items.add(item);
       requests[c.id] = c;
     }
     // Rows beyond the read cap are only counted.
@@ -167,7 +178,7 @@ class OrbBriefingService {
     final needs = [
       for (final i in items)
         if (_needs(i)) i,
-    ]..sort(_byWaiting);
+    ]..sort(scope.isActivity ? _byUrgency : _byWaiting);
     final progress =
         [
           for (final i in items)
@@ -190,6 +201,7 @@ class OrbBriefingService {
     final nowTold = <String, String>{
       for (final i in [...shownNeeds, ...shownProgress]) i.id: i.versionKey,
       for (final r in routine) r.$1: r.$2,
+      for (final t in waiting) t.$1: t.$2,
     };
     if (remember) _told[scope.key] = _Told(nowTold);
 
@@ -206,6 +218,11 @@ class OrbBriefingService {
     final newRoutine = delta
         ? routine.where((r) => before.versions[r.$1] != r.$2).length
         : routineCount;
+    final newWaiting = [
+      for (final t in waiting)
+        if (!delta || before.versions[t.$1] != t.$2) t,
+    ];
+    final tail = OrbBriefing.waitingTasksTail(newWaiting.length);
     final carried =
         (shownNeeds.length - newNeeds.length) +
         (shownProgress.length - newProgress.length);
@@ -227,7 +244,11 @@ class OrbBriefingService {
 
     return OrbBriefing(
       scope: scope,
-      overview: overview,
+      overview: _withTail(overview, tail),
+      waitingTasks: newWaiting.length,
+      waitingTaskTitles: [
+        for (final t in newWaiting.take(OrbBriefing.maxWaitingTaskTitles)) t.$3,
+      ],
       needsYou: newNeeds,
       progress: newProgress,
       routineCount: newRoutine,
@@ -256,6 +277,27 @@ class OrbBriefingService {
   /// What waited longest first: someone is blocked on the person.
   int _byWaiting(OrbBriefItem a, OrbBriefItem b) =>
       (a.sinceAt ?? DateTime.now()).compareTo(b.sinceAt ?? DateTime.now());
+
+  /// Activity: a build failure first, then a question put to the person,
+  /// then the rest; the newest first in each group. A task's wait is no
+  /// urgency here.
+  int _byUrgency(OrbBriefItem a, OrbBriefItem b) {
+    int rank(OrbBriefItem i) => switch (i.reason) {
+      OrbReason.buildFailure => 0,
+      OrbReason.mentionAsk || OrbReason.replyAsk || OrbReason.dmAsk => 1,
+      _ => 2,
+    };
+    final byRank = rank(a).compareTo(rank(b));
+    if (byRank != 0) return byRank;
+    return (b.sinceAt ?? DateTime(0)).compareTo(a.sinceAt ?? DateTime(0));
+  }
+
+  /// [overview] and, after a comma, the tail about waiting tasks.
+  static String _withTail(String overview, String? tail) {
+    if (tail == null) return overview;
+    final head = overview.replaceFirst(RegExp(r'[。.！!\s]+$'), '');
+    return head.isEmpty ? tail : '$head，$tail';
+  }
 
   String _version(OrbCandidate c) =>
       c.versionKey ?? c.latest?.id ?? c.sourceIds.join(',');

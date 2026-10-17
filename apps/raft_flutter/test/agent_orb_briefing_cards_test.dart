@@ -55,6 +55,7 @@ OrbBriefing briefing({
   List<OrbBriefItem>? needs,
   List<OrbBriefItem>? prog,
   int routine = 5,
+  int waitingTasks = 0,
 }) => OrbBriefing(
   scope: OrbBriefScope.activity,
   overview: '3 条新动态，1 件需要你处理',
@@ -67,6 +68,7 @@ OrbBriefing briefing({
         progress('系统', 'Cody 把 #136 交审', kind: 'system'),
       ],
   routineCount: routine,
+  waitingTasks: waitingTasks,
 );
 
 void main() {

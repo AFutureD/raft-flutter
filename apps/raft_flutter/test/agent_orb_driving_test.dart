@@ -373,7 +373,52 @@ void main() {
     });
   });
 
+  group('waiting tasks are not urgent', () {
+    testWidgets('就这些 ends with the tail about the tasks, in one line', (
+      t,
+    ) async {
+      await fixture(t);
+      await driveInCall(t);
+      f.controller.showBriefing(briefing(needs: const [], waitingTasks: 2));
+      await settle(t);
+      expect(done, findsOneWidget);
+      expect(find.text('另外有 2 个任务在等你验收，不急'), findsOneWidget);
+      expect(find.text('其余 5 条是常规进度'), findsOneWidget);
+    });
+
+    testWidgets('no waiting tasks: no tail', (t) async {
+      await fixture(t);
+      await driveInCall(t);
+      f.controller.showBriefing(briefing(needs: const []));
+      await settle(t);
+      expect(find.textContaining('不急'), findsNothing);
+    });
+
+    testWidgets('a task is not a card: the first card is the message', (
+      t,
+    ) async {
+      await fixture(t);
+      await driveInCall(t);
+      f.controller.showBriefing(
+        briefing(needs: [replyItem('Alice 问你周五有没有空')], waitingTasks: 1),
+      );
+      await settle(t);
+      expect(find.text('第 1 件 / 共 1 件'), findsOneWidget);
+      expect(find.text('Alice 问你周五有没有空'), findsOneWidget);
+    });
+  });
+
   group('the prompt', () {
+    test(
+      'waiting tasks are said at the end, in one sentence, or when asked',
+      () {
+        final p = orbSystemPrompt(channels: '');
+        expect(p, contains('waitingTasks'));
+        expect(p, contains('不急'));
+        expect(p, contains('最后'));
+      },
+    );
+
     test('has the triggers, one item per turn and the low-risk rule', () {
       final p = orbSystemPrompt(channels: '');
       for (final phrase in ['我在开车', '进入驾驶模式', '开车模式', '停车了', '退出驾驶模式']) {

@@ -456,7 +456,10 @@ class _OrbLayerState extends State<OrbLayer>
   /// Driving: the one item, its big button and the hints; "就这些" at the end.
   Widget _drivingCard(OrbBriefing briefing) {
     if (c.drivingDone) {
-      return OrbDrivingDone(routineCount: briefing.routineCount);
+      return OrbDrivingDone(
+        routineCount: briefing.routineCount,
+        waitingTasks: briefing.waitingTasks,
+      );
     }
     final item = c.drivingItems[c.drivingIndex];
     return Column(

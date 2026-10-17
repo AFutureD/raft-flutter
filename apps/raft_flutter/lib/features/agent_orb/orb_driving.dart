@@ -176,8 +176,15 @@ class OrbDrivingCard extends StatelessWidget {
 
 /// "就这些": every item is through; the routine count is all that is left.
 class OrbDrivingDone extends StatelessWidget {
-  const OrbDrivingDone({super.key, required this.routineCount});
+  const OrbDrivingDone({
+    super.key,
+    required this.routineCount,
+    this.waitingTasks = 0,
+  });
   final int routineCount;
+
+  /// Tasks that wait for the person: one quiet line, "不急".
+  final int waitingTasks;
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +228,20 @@ class OrbDrivingDone extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+        if (waitingTasks > 0) ...[
+          const SizedBox(height: RaftSpace.x2),
+          Text(
+            OrbBriefing.waitingTasksTail(waitingTasks)!,
+            key: const ValueKey('orb-driving-waiting-tasks'),
+            style: RaftTypography.body(
+              t,
+              size: 16,
+              line: 22,
+              // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
+              color: Colors.white.withValues(alpha: .65),
+            ),
           ),
         ],
       ],

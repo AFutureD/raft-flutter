@@ -219,6 +219,8 @@ class OrbBriefing {
     this.isDelta = false,
     this.carriedOver = 0,
     this.writtenByModel = false,
+    this.waitingTasks = 0,
+    this.waitingTaskTitles = const [],
   });
 
   final OrbBriefScope scope;
@@ -239,7 +241,23 @@ class OrbBriefing {
   /// The sentences came from the model (false: from the rules).
   final bool writtenByModel;
 
-  bool get isEmpty => needsYou.isEmpty && progress.isEmpty && routineCount == 0;
+  /// In the Activity: the tasks (and blocked agents) that wait for the person.
+  /// They are never cards: the Activity is for its messages, a task is "不急",
+  /// so they are only counted and said at the end.
+  final int waitingTasks;
+
+  /// Up to [maxWaitingTaskTitles] of their titles.
+  final List<String> waitingTaskTitles;
+  static const maxWaitingTaskTitles = 3;
+
+  /// "另外有 2 个任务在等你验收，不急", or null when none wait.
+  static String? waitingTasksTail(int n) => n > 0 ? '另外有 $n 个任务在等你验收，不急' : null;
+
+  bool get isEmpty =>
+      needsYou.isEmpty &&
+      progress.isEmpty &&
+      routineCount == 0 &&
+      waitingTasks == 0;
 
   Map<String, Object?> toJson() => {
     'scope': scope.key,
@@ -249,5 +267,8 @@ class OrbBriefing {
     'routineCount': routineCount,
     if (isDelta) 'sinceLastTime': true,
     if (carriedOver > 0) 'alreadyBriefed': carriedOver,
+    if (waitingTasks > 0) 'waitingTasks': waitingTasks,
+    if (waitingTasks > 0 && waitingTaskTitles.isNotEmpty)
+      'waitingTaskTitles': waitingTaskTitles,
   };
 }
