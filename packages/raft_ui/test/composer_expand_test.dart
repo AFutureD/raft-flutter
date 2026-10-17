@@ -278,8 +278,12 @@ void main() {
       final rig = _Rig();
       await tester.pumpWidget(_host(rig.composer(draft: _three)));
       _setValue(tester, _three, 4, 7);
+      final inline = _inline(tester);
       await _open(tester);
-      final inline = _inline(tester), expanded = _expandedField(tester);
+      // Only the expanded field is attached to the draft now; it is the
+      // composer's own controller and undo controller.
+      expect(_fields, findsOneWidget);
+      final expanded = _expandedField(tester);
       expect(expanded.controller, same(inline.controller));
       expect(expanded.undoController, same(inline.undoController));
       expect(expanded.focusNode, isNot(same(inline.focusNode)));
@@ -894,7 +898,7 @@ void main() {
     });
 
     testWidgets(
-      'phone: a full-screen page, write/preview switch, toolbar over the keyboard',
+      'phone: a bottom sheet, write/preview switch, toolbar over the keyboard',
       (tester) async {
         _size(tester, _phone);
         final rig = _Rig();
@@ -902,7 +906,9 @@ void main() {
           _host(rig.composer(draft: _three), keyboard: 300),
         );
         await _open(tester);
-        expect(tester.getSize(_expandedView), _phone);
+        // A bottom sheet: full width, tall, with a drag handle.
+        expect(tester.getSize(find.byType(BottomSheet)).width, _phone.width);
+        expect(find.byKey(const ValueKey('raft-sheet-handle')), findsOneWidget);
         // No preview toggle button on the phone; the Write | Preview switch is there.
         expect(
           find.byKey(const ValueKey('composer-preview-toggle')),
