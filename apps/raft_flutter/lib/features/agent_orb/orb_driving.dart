@@ -15,11 +15,12 @@ bool orbNeedsParking(OrbBriefItem item) {
   return _risky.hasMatch('${action?.label ?? ''} ${action?.text ?? ''}');
 }
 
-/// The label of the big button: the item's suggested action, else "打开";
-/// "停车后批准" for what waits until parked.
+/// The label of the big button: "停车后批准" for what waits until parked,
+/// else "打开" — the button opens the item; the orb cannot send a reply yet,
+/// so a suggested "回复：收到" would promise what it does not do.
 String orbDrivingButtonLabel(OrbBriefItem item) {
   if (orbNeedsParking(item)) return '停车后批准';
-  return item.suggestedAction?.label ?? '打开';
+  return '打开';
 }
 
 /// The big type of the driving card (a phone in a holder is read at arm's

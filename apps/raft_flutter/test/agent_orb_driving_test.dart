@@ -306,7 +306,9 @@ void main() {
       f.controller.showBriefing(briefing(needs: [replyItem('Alice 问你周五有没有空')]));
       await settle(t);
       expect(find.text('第 1 件 / 共 1 件'), findsOneWidget);
-      expect(find.text('回复：收到'), findsOneWidget);
+      // The orb cannot send a reply yet: the button says what it does.
+      expect(find.text('回复：收到'), findsNothing);
+      expect(find.text('打开'), findsOneWidget);
       await t.tap(primary);
       await settle(t);
       expect(layer, findsOneWidget);
