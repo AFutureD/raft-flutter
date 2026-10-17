@@ -16,7 +16,7 @@ String orbClock(Duration d) {
 }
 
 /// What the call pill says and how it looks (design frame 09).
-enum _PillKind { connecting, thinking, live, ended }
+enum _PillKind { connecting, thinking, live, ended, driving }
 
 /// The pill next to the orb: cyan "连接中…" while a call is set up, black
 /// "● 通话中 0:42 · 在听" while it is live (the dot is red while it listens,
@@ -47,7 +47,7 @@ class OrbCallPill extends StatelessWidget {
     final ended = c.endedCallLength;
     final clock = orbClock(c.callLength);
     final inCall = c.inCall;
-    final String text;
+    String text;
     final _PillKind kind;
     switch (state) {
       case OrbState.connecting:
@@ -57,7 +57,12 @@ class OrbCallPill extends StatelessWidget {
         kind = _PillKind.thinking;
         text = '在想…';
       case OrbState.idle:
-        if (ended == null) return const SizedBox.shrink();
+        if (ended == null) {
+          if (!c.driving) return const SizedBox.shrink();
+          kind = _PillKind.driving;
+          text = '驾驶中';
+          break;
+        }
         kind = _PillKind.ended;
         text = '已挂断 · 通话 ${orbClock(ended)}';
       case OrbState.listening:
@@ -73,6 +78,8 @@ class OrbCallPill extends StatelessWidget {
         final what = label == null ? '正在操作' : '打开了 $label';
         text = inCall ? '通话中 $clock · $what' : what;
     }
+    // Driving mode is on the pill whatever else it says.
+    if (c.driving && kind != _PillKind.driving) text = '$text · 驾驶中';
     final ink = t.brutal ? t.product.brutalBlack : t.strong;
     final body = RaftTypography.body(
       t,
@@ -102,6 +109,9 @@ class OrbCallPill extends StatelessWidget {
       case _PillKind.ended:
         // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
         lead = Icon(Icons.call_end_rounded, size: 15, color: ink);
+      case _PillKind.driving:
+        // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+        lead = Icon(Icons.directions_car_rounded, size: 15, color: ink);
       case _PillKind.live:
         final dot = state == OrbState.listening ? orbLiveRed : orbLiveGreen;
         lead = Container(
@@ -145,6 +155,10 @@ class OrbCallPill extends StatelessWidget {
         fill: t.brutal ? t.product.brutalCyan : null,
       ),
       _PillKind.thinking => orbSurface(t),
+      _PillKind.driving => orbSurface(
+        t,
+        fill: t.brutal ? t.product.brutalLime : null,
+      ),
       _PillKind.ended => orbSurface(
         t,
         fill: t.brutal ? t.product.brutalStone : null,
@@ -162,6 +176,20 @@ class OrbCallPill extends StatelessWidget {
           const SizedBox(width: RaftSpace.x2),
           label,
           if (tail != null) ...[const SizedBox(width: RaftSpace.x2), tail],
+          if (c.driving && kind != _PillKind.driving) ...[
+            const SizedBox(width: RaftSpace.x2),
+            Icon(
+              // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+              Icons.directions_car_rounded,
+              key: const ValueKey('orb-driving-mark'),
+              // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+              size: 15,
+              color: kind == _PillKind.live
+                  // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
+                  ? (t.brutal ? Colors.white : t.canvas)
+                  : ink,
+            ),
+          ],
         ],
       ),
     );

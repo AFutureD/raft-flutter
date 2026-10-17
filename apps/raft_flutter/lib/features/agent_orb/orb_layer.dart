@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'briefing/orb_briefing_cards.dart';
+import 'briefing/orb_briefing_models.dart' show OrbBriefing;
 import 'orb_controller.dart';
+import 'orb_driving.dart';
 import 'orb_state.dart';
 import 'orb_status.dart';
 import 'orb_widget.dart';
@@ -265,14 +267,17 @@ class _OrbLayerState extends State<OrbLayer>
       ? media.viewInsets.bottom + RaftSpace.x2
       : media.padding.bottom + RaftSpace.x2;
 
+  /// No pill while the orb is idle, unless it is driving.
+  bool get _pillHidden =>
+      c.state == OrbState.idle && c.endedCallLength == null && !c.driving;
+
   Widget _dock(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.end,
     children: [
       ListenableBuilder(
         listenable: c,
-        builder: (context, _) =>
-            c.state == OrbState.idle && c.endedCallLength == null
+        builder: (context, _) => _pillHidden
             ? const SizedBox.shrink()
             : Padding(
                 // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
@@ -317,15 +322,28 @@ class _OrbLayerState extends State<OrbLayer>
                   ),
                 ),
                 const SizedBox(height: RaftSpace.x1_5),
-                Text(
-                  '向下划收起',
-                  style: RaftTypography.body(
-                    t,
-                    size: 12,
-                    line: 16,
-                    weight: FontWeight.w600,
-                    color: quiet,
-                  ),
+                ListenableBuilder(
+                  listenable: c,
+                  builder: (context, _) {
+                    final hint = Text(
+                      c.driving ? '向下划退出' : '向下划收起',
+                      style: RaftTypography.body(
+                        t,
+                        size: 12,
+                        line: 16,
+                        weight: FontWeight.w600,
+                        color: quiet,
+                      ),
+                    );
+                    if (!c.driving) return hint;
+                    return Row(
+                      children: [
+                        const OrbDrivingTag(),
+                        const SizedBox(width: RaftSpace.x2),
+                        Expanded(child: hint),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -341,8 +359,7 @@ class _OrbLayerState extends State<OrbLayer>
                   padding: EdgeInsets.only(
                     right: RaftSpace.x2,
                     // Room for the call pill that sits over the orb.
-                    bottom:
-                        c.state == OrbState.idle && c.endedCallLength == null
+                    bottom: _pillHidden
                         ? RaftSpace.x2
                         : orbPillHeight + RaftSpace.x6 + RaftSpace.x3,
                   ),
@@ -362,9 +379,10 @@ class _OrbLayerState extends State<OrbLayer>
   Widget _lines(BuildContext context, RaftTokens t, Color quiet) {
     final entries = c.entries;
     final briefing = c.shownBriefing;
+    final driving = c.driving;
     // The agent's latest line, unless the person has spoken since.
     OrbEntry? headline;
-    if (briefing == null) {
+    if (briefing == null || driving) {
       for (final e in entries.reversed) {
         if (e.kind == OrbEntryKind.user) break;
         if (e.kind == OrbEntryKind.agent) {
@@ -373,14 +391,18 @@ class _OrbLayerState extends State<OrbLayer>
         }
       }
     }
-    final big = briefing?.overview ?? headline?.text;
+    // Driving: the agent's line, else the overview; one card, no transcript.
+    final big = driving
+        ? (headline?.text ?? briefing?.overview)
+        : (briefing?.overview ?? headline?.text);
     final rest = [
-      for (final e in entries.reversed)
-        if (!identical(e, headline)) e,
+      if (!driving)
+        for (final e in entries.reversed)
+          if (!identical(e, headline)) e,
     ];
     if (big == null && rest.isEmpty && briefing == null) {
       return Text(
-        '说点什么，或者长按球直接对话',
+        driving ? '驾驶模式：直接说就行，我一次只说一件' : '说点什么，或者长按球直接对话',
         style: RaftTypography.body(t, size: 15, line: 22, color: quiet),
       );
     }
@@ -392,19 +414,27 @@ class _OrbLayerState extends State<OrbLayer>
             padding: const EdgeInsets.only(bottom: RaftSpace.x4),
             child: Text(
               big,
-              key: briefing != null
+              // The card and its buttons must stay on the screen.
+              maxLines: driving ? 2 : null,
+              overflow: driving ? TextOverflow.ellipsis : null,
+              key: briefing != null && !driving
                   ? const Key('orb-briefing-overview')
                   : const ValueKey('orb-layer-headline'),
               style: RaftTypography.heading(
                 t,
-                size: _bigSize(big, briefing != null),
-                line: _bigSize(big, briefing != null) * 1.25,
+                size: _bigSize(big, briefing != null && !driving),
+                line: _bigSize(big, briefing != null && !driving) * 1.25,
                 // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
                 color: Colors.white,
               ),
             ),
           ),
-        if (briefing != null)
+        if (briefing != null && driving)
+          Padding(
+            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+            child: _drivingCard(briefing),
+          ),
+        if (briefing != null && !driving)
           Padding(
             padding: const EdgeInsets.only(bottom: RaftSpace.x3),
             child: OrbBriefingCards(
@@ -419,6 +449,30 @@ class _OrbLayerState extends State<OrbLayer>
             padding: const EdgeInsets.only(bottom: RaftSpace.x3),
             child: _EntryView(entry: entry, quiet: quiet),
           ),
+      ],
+    );
+  }
+
+  /// Driving: the one item, its big button and the hints; "就这些" at the end.
+  Widget _drivingCard(OrbBriefing briefing) {
+    if (c.drivingDone) {
+      return OrbDrivingDone(routineCount: briefing.routineCount);
+    }
+    final item = c.drivingItems[c.drivingIndex];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OrbDrivingCard(
+          item: item,
+          index: c.drivingIndex,
+          total: c.drivingItems.length,
+          onAct: () => c.openBriefItemTapped(item),
+        ),
+        const SizedBox(height: RaftSpace.x3),
+        OrbDrivingHints(
+          onNext: c.drivingNextTapped,
+          onLater: c.drivingNextTapped,
+        ),
       ],
     );
   }
