@@ -1,0 +1,967 @@
+import 'orb_eval_data.dart';
+import 'orb_eval_scenario.dart';
+
+/// The scenarios of scenarios-v1: A (a channel), B (the Activity), C
+/// (discussions, private conversations, tasks), D (driving: messages) and E
+/// (driving: idle tasks). Fictional data only.
+///
+/// ✍️ scenarios need the action tools (reply, set a task's status, remind
+/// later): they are listed and skipped. D5-D7 (live push while driving) and
+/// E1/E5 (the idle task prompt) are not built: they run once and report
+/// without failing the run.
+
+final _raft = evalId('raft-flutter');
+final _codyDm = evalId('dm:cody');
+
+/// Checks every scenario carries: no id said out loud, no write sent.
+List<OrbEvalCheck> _std() => [OrbEvalCheck.noIds(), OrbEvalCheck.noWrites()];
+
+final _saysNothingToDo = RegExp(r'没有.{0,8}(处理|回复|找你|新的|要紧)');
+
+// ---- data ------------------------------------------------------------------
+
+/// #raft-flutter with 3 unread; Cody asks Sam whether step 10 may go in.
+OrbEvalData _cody10() {
+  final d = OrbEvalData.cast();
+  final first = d.say('raft-flutter', evalGrok, '第 9 步的测试都过了。', ago: 50);
+  final ask = d.say(
+    'raft-flutter',
+    evalCody,
+    '@Sam 第 10 步可以合入吗？',
+    ago: 20,
+    mentions: [evalMe],
+  );
+  final last = d.say('raft-flutter', evalAlice, '我看过了，没有问题。', ago: 8);
+  d.inboxChannel(
+    'raft-flutter',
+    name: 'raft-flutter',
+    preview: '我看过了，没有问题。',
+    from: evalAlice,
+    message: last,
+    unread: 3,
+    ago: 8,
+    mention: true,
+    firstUnread: first,
+    firstMention: ask,
+  );
+  return d;
+}
+
+/// #raft-flutter, all read, nobody mentioned Sam.
+OrbEvalData _quietChannel() {
+  final d = OrbEvalData.cast();
+  d.say('raft-flutter', evalGrok, '第 9 步已经合入了。', ago: 200);
+  final last = d.say('raft-flutter', evalCody, '收到，我接着做第 10 步。', ago: 180);
+  d.inboxChannel(
+    'raft-flutter',
+    name: 'raft-flutter',
+    preview: '收到，我接着做第 10 步。',
+    from: evalCody,
+    message: last,
+    unread: 0,
+    ago: 180,
+  );
+  return d;
+}
+
+final _cacheParent = evalId('msg:cache-parent');
+
+/// A discussion under Alice's question with 8 replies; the last one settles it.
+OrbEvalData _decidedThread() {
+  final d = OrbEvalData.cast();
+  d.say(
+    'raft-flutter',
+    evalAlice,
+    '移动端的缓存策略怎么定？',
+    id: _cacheParent,
+    ago: 240,
+    replies: 8,
+    thread: 'thread:cache',
+  );
+  d.say('thread:cache', evalCody, '我倾向方案 A：只缓存最近一页，改动小。', ago: 200);
+  d.say('thread:cache', evalGrok, '方案 B 会缓存整个会话，离线也能看。', ago: 190);
+  d.say('thread:cache', evalCody, '方案 B 的内存占用要先测一下。', ago: 170);
+  d.say('thread:cache', evalGrok, '我测了，两百条消息大概 3 MB。', ago: 150);
+  d.say('thread:cache', evalAlice, '3 MB 可以接受。', ago: 120);
+  d.say('thread:cache', evalCody, '那旧数据怎么清理？', ago: 100);
+  d.say('thread:cache', evalGrok, '超过七天的自动清掉。', ago: 90);
+  d.say('thread:cache', evalAlice, '好，就这样定了：改用方案 B。', ago: 60);
+  d.inboxThread(
+    thread: 'thread:cache',
+    parentConversation: 'raft-flutter',
+    parentName: 'raft-flutter',
+    parentMessage: _cacheParent,
+    parentPreview: '移动端的缓存策略怎么定？',
+    parentFrom: evalAlice,
+    latestMessage: evalId('msg:thread:cache:9'),
+    latestPreview: '好，就这样定了：改用方案 B。',
+    latestFrom: evalAlice,
+    unread: 0,
+    ago: 60,
+  );
+  return d;
+}
+
+/// The Activity: Alice's private question, Cody's @, three pieces of progress.
+OrbEvalData _activityFive() {
+  final d = OrbEvalData.cast();
+  final alice = d.say('dm:alice', evalAlice, '周五能来评审吗？', ago: 5);
+  d.inboxDm(
+    'dm:alice',
+    peer: evalAlice,
+    preview: '周五能来评审吗？',
+    message: alice,
+    ago: 5,
+  );
+  final g = d.say('raft-flutter', evalGrok, '第 9 步测试通过了。', ago: 30);
+  final ask = d.say(
+    'raft-flutter',
+    evalCody,
+    '@Sam 第 10 步可以合入吗？',
+    ago: 12,
+    mentions: [evalMe],
+  );
+  d.inboxChannel(
+    'raft-flutter',
+    name: 'raft-flutter',
+    preview: '@Sam 第 10 步可以合入吗？',
+    from: evalCody,
+    message: ask,
+    unread: 2,
+    ago: 12,
+    mention: true,
+    firstUnread: g,
+    firstMention: ask,
+  );
+  final build = d.say('swift-workflow', evalGrok, '构建通过了。', ago: 25);
+  d.inboxChannel(
+    'swift-workflow',
+    name: 'swift-workflow',
+    preview: '构建通过了。',
+    from: evalGrok,
+    message: build,
+    unread: 1,
+    ago: 25,
+  );
+  _progressThread(d, ago: 40);
+  final merged = d.say('dm:cody', evalCody, '第 9 步已经合入了。', ago: 55);
+  d.inboxDm(
+    'dm:cody',
+    peer: evalCody,
+    preview: '第 9 步已经合入了。',
+    message: merged,
+    ago: 55,
+  );
+  return d;
+}
+
+/// A discussion Sam started that moves along without him.
+void _progressThread(OrbEvalData d, {required int ago}) {
+  final parent = d.say(
+    'raft-flutter',
+    evalMe,
+    '整理发布说明的进度怎么样？',
+    id: evalId('msg:notes-parent'),
+    ago: ago + 60,
+    replies: 1,
+    thread: 'thread:notes',
+  );
+  final reply = d.say('thread:notes', evalCody, '第一部分写完了。', ago: ago);
+  d.inboxThread(
+    thread: 'thread:notes',
+    parentConversation: 'raft-flutter',
+    parentName: 'raft-flutter',
+    parentMessage: parent,
+    parentPreview: '整理发布说明的进度怎么样？',
+    parentFrom: evalMe,
+    latestMessage: reply,
+    latestPreview: '第一部分写完了。',
+    latestFrom: evalCody,
+    unread: 1,
+    ago: ago,
+    following: true,
+  );
+}
+
+/// The Activity with only system events and progress: nothing asks Sam.
+OrbEvalData _activityQuiet() {
+  final d = OrbEvalData.cast();
+  final build = d.say('swift-workflow', evalSystem, '构建 #214 通过了。', ago: 10);
+  d.inboxChannel(
+    'swift-workflow',
+    name: 'swift-workflow',
+    preview: '构建 #214 通过了。',
+    from: evalSystem,
+    message: build,
+    unread: 1,
+    ago: 10,
+  );
+  _progressThread(d, ago: 30);
+  final done = d.say('raft-flutter', evalGrok, '第 9 步的测试都过了。', ago: 50);
+  d.inboxChannel(
+    'raft-flutter',
+    name: 'raft-flutter',
+    preview: '第 9 步的测试都过了。',
+    from: evalGrok,
+    message: done,
+    unread: 1,
+    ago: 50,
+  );
+  return d;
+}
+
+/// The Activity: a task waiting four days for Sam's review, and a reply that
+/// has just come in.
+OrbEvalData _activityOldTask() {
+  final d = OrbEvalData.cast();
+  final mine = d.say(
+    'raft-flutter',
+    evalMe,
+    '能把缓存的测试补上吗？',
+    id: evalId('msg:tests-parent'),
+    ago: 90,
+    replies: 1,
+    thread: 'thread:tests',
+  );
+  final reply = d.say('thread:tests', evalGrok, '测试补好了，你看一下。', ago: 4);
+  d.inboxThread(
+    thread: 'thread:tests',
+    parentConversation: 'raft-flutter',
+    parentName: 'raft-flutter',
+    parentMessage: mine,
+    parentPreview: '能把缓存的测试补上吗？',
+    parentFrom: evalMe,
+    latestMessage: reply,
+    latestPreview: '测试补好了，你看一下。',
+    latestFrom: evalGrok,
+    unread: 1,
+    ago: 4,
+    mention: true,
+  );
+  final taskMessage = d.say('raft-flutter', evalMe, '请重构第 10 步。', ago: 7000);
+  d.task(
+    136,
+    '重构第 10 步',
+    'in_review',
+    by: evalCody,
+    ageMinutes: 5760,
+    message: taskMessage,
+    description: '改动已经提交，等你验收。',
+  );
+  return d;
+}
+
+/// Cody's private conversation with 2 unread.
+OrbEvalData _codyDmUnread() {
+  final d = OrbEvalData.cast();
+  d.say('dm:cody', evalCody, '第 10 步的改动我提交了。', ago: 18);
+  final last = d.say('dm:cody', evalCody, '你看一下，需要我补什么吗？', ago: 15);
+  d.inboxDm(
+    'dm:cody',
+    peer: evalCody,
+    preview: '你看一下，需要我补什么吗？',
+    message: last,
+    unread: 2,
+    ago: 15,
+  );
+  return d;
+}
+
+/// Task #136 in review, done by Cody.
+OrbEvalData _task136() {
+  final d = OrbEvalData.cast();
+  final message = d.say('raft-flutter', evalMe, '请重构第 10 步。', ago: 300);
+  d.task(
+    136,
+    '重构第 10 步',
+    'in_review',
+    by: evalCody,
+    ageMinutes: 45,
+    thread: 'thread:t136',
+    message: message,
+    description: '改动已经提交，等你验收。',
+  );
+  d.say('thread:t136', evalCody, '改动提交了，测试都过了，请验收。', ago: 45);
+  return d;
+}
+
+final _opinionParent = evalId('msg:opinion-parent');
+
+/// A discussion where Alice asks Sam, and Cody and Grok disagree.
+OrbEvalData _opinions() {
+  final d = OrbEvalData.cast();
+  d.say(
+    'raft-flutter',
+    evalAlice,
+    '新手引导用哪个方案？',
+    id: _opinionParent,
+    ago: 120,
+    replies: 3,
+    thread: 'thread:opinions',
+  );
+  d.say('thread:opinions', evalCody, '我支持方案 A，上线最快。', ago: 100);
+  d.say('thread:opinions', evalGrok, '我支持方案 B，留存更好。', ago: 90);
+  final ask = d.say(
+    'thread:opinions',
+    evalAlice,
+    '@Sam 你怎么看？',
+    ago: 80,
+    mentions: [evalMe],
+  );
+  d.inboxThread(
+    thread: 'thread:opinions',
+    parentConversation: 'raft-flutter',
+    parentName: 'raft-flutter',
+    parentMessage: _opinionParent,
+    parentPreview: '新手引导用哪个方案？',
+    parentFrom: evalAlice,
+    latestMessage: ask,
+    latestPreview: '@Sam 你怎么看？',
+    latestFrom: evalAlice,
+    unread: 3,
+    ago: 80,
+    mention: true,
+  );
+  return d;
+}
+
+/// Three things that need Sam: Cody's question, Alice's, Grok's.
+OrbEvalData _urgentThree({String? codyAsk}) {
+  final d = OrbEvalData.cast();
+  final ask = d.say(
+    'raft-flutter',
+    evalCody,
+    codyAsk ?? '@Sam 第 10 步可以合入吗？',
+    ago: 20,
+    mentions: [evalMe],
+  );
+  final alice = d.say('dm:alice', evalAlice, '周五能来评审吗？', ago: 15);
+  d.inboxDm(
+    'dm:alice',
+    peer: evalAlice,
+    preview: '周五能来评审吗？',
+    message: alice,
+    ago: 15,
+  );
+  d.inboxMention(
+    'raft-flutter',
+    name: 'raft-flutter',
+    message: ask,
+    preview: codyAsk ?? '@Sam 第 10 步可以合入吗？',
+    from: evalCody,
+    ago: 20,
+  );
+  final grok = d.say(
+    'swift-workflow',
+    evalGrok,
+    '@Sam 方案 B 的接口你确认一下？',
+    ago: 30,
+    mentions: [evalMe],
+  );
+  d.inboxChannel(
+    'swift-workflow',
+    name: 'swift-workflow',
+    preview: '@Sam 方案 B 的接口你确认一下？',
+    from: evalGrok,
+    message: grok,
+    unread: 1,
+    ago: 30,
+    mention: true,
+  );
+  return d;
+}
+
+/// Three tasks nobody has touched for days; no message waits for Sam.
+OrbEvalData _staleTasks({int ageDays = 4}) {
+  final d = OrbEvalData.cast();
+  final minutes = ageDays * 24 * 60;
+  d.task(
+    141,
+    '整理发布说明',
+    'in_progress',
+    by: evalBajie,
+    ageMinutes: minutes,
+    description: '卡在等设计稿。',
+  );
+  d.task(
+    142,
+    '迁移旧的缓存',
+    'in_review',
+    by: evalCody,
+    ageMinutes: minutes + 1440,
+    channel: 'swift-workflow',
+    description: '改动已完成，等你验收。',
+  );
+  d.task(
+    143,
+    '补充设计评审记录',
+    'in_progress',
+    by: evalGrok,
+    ageMinutes: minutes - 1440,
+    channel: 'design',
+    description: '在等 Alice 回复。',
+  );
+  return d;
+}
+
+// ---- checks used more than once -------------------------------------------
+
+final _firstCardIsAMessage = OrbEvalCheck.screen(
+  '第 1 张卡是消息，不是任务',
+  (s, _) => s.cards.isNotEmpty && !s.cards.first['id']!.startsWith('task:'),
+);
+
+/// Everything the scenarios list, in scenarios-v1 order.
+final List<OrbEvalScenario> orbEvalScenarios = [
+  // ---- A. a channel (#raft-flutter) ----------------------------------------
+  OrbEvalScenario(
+    id: 'A1',
+    title: '去频道看谁找我',
+    start: OrbEvalStart.home,
+    data: _cody10,
+    say: const ['去 raft-flutter 看看谁找我'],
+    checks: [
+      OrbEvalCheck.tool(
+        'navigate',
+        args: {'channel_id': _raft},
+        label: 'navigate(channel_id: #raft-flutter)',
+      ),
+      OrbEvalCheck.says([
+        ['Cody'],
+        ['第 10 步', '10 步'],
+        ['合入', '合并'],
+      ]),
+      OrbEvalCheck.saysMatching(RegExp(r'\d+\s*(分钟|小时)|刚刚|刚才|半小时'), '说了等了多久'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'A2',
+    title: '他问的是什么',
+    start: OrbEvalStart.channel('raft-flutter'),
+    data: _cody10,
+    say: const ['他问的是什么？'],
+    checks: [
+      OrbEvalCheck.says([
+        ['Cody'],
+        ['第 10 步', '10 步'],
+        ['合入', '合并'],
+      ]),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'A3',
+    title: '回复他说可以合',
+    start: OrbEvalStart.channel('raft-flutter'),
+    data: _cody10,
+    say: const ['回复他说可以合'],
+    status: OrbEvalStatus.skipped,
+    note: 'needs actions',
+  ),
+  OrbEvalScenario(
+    id: 'A4',
+    title: '没有未读时问有什么新的',
+    start: OrbEvalStart.channel('raft-flutter'),
+    data: _quietChannel,
+    say: const ['这里有什么新的吗'],
+    checks: [
+      OrbEvalCheck.saysMatching(_saysNothingToDo, '说“没有要你处理的”'),
+      OrbEvalCheck.shortReply(3),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'A5',
+    title: '讨论最后定了什么',
+    start: OrbEvalStart.channel('raft-flutter'),
+    data: _decidedThread,
+    say: const ['这个讨论最后定了什么'],
+    checks: [
+      OrbEvalCheck.anyTool(['navigate', 'read_conversation']),
+      OrbEvalCheck.says([
+        ['方案 B', '方案B'],
+        ['Alice'],
+      ]),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'A6',
+    title: '去没加入的频道',
+    start: OrbEvalStart.home,
+    say: const ['去 design 频道'],
+    checks: [
+      OrbEvalCheck.anyTool(['navigate', 'list_targets']),
+      OrbEvalCheck.custom('能打开，或说明没加入', (run) {
+        final opened = run.tools.any(
+          (c) => c.name == 'navigate' && c.result['error'] == null,
+        );
+        final explained = RegExp(r'没加入|未加入|还没加入|加入').hasMatch(run.text);
+        return opened || explained ? null : '没打开，也没说明没加入';
+      }),
+      OrbEvalCheck.avoids(RegExp(r'出错|失败|没成功|报错'), '报错的话'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'A7',
+    title: '频道名被听错',
+    start: OrbEvalStart.home,
+    say: const ['去 Roughslutter'],
+    checks: [
+      OrbEvalCheck.anyTool(['navigate', 'list_targets']),
+      OrbEvalCheck.custom('去了 raft-flutter，或问是不是 raft-flutter', (run) {
+        final there = run.last?.location.contains(_raft) ?? false;
+        final asked = run.text.contains('raft-flutter');
+        return there || asked ? null : '没去 raft-flutter，也没问是不是它';
+      }),
+      ..._std(),
+    ],
+  ),
+
+  // ---- B. the Activity -----------------------------------------------------
+  OrbEvalScenario(
+    id: 'B1',
+    title: '打开动态，什么需要我处理',
+    start: OrbEvalStart.home,
+    data: _activityFive,
+    say: const ['打开动态，什么需要我处理'],
+    checks: [
+      OrbEvalCheck.tool(
+        'navigate',
+        args: {'page': 'activity', 'show': true},
+        label: 'navigate(page: activity, show: true)',
+      ),
+      OrbEvalCheck.says([
+        ['Alice'],
+        ['周五', '评审'],
+        ['Cody'],
+      ]),
+      OrbEvalCheck.screen(
+        '卡片里有 Alice 的私信和 @我，没有任务',
+        (s, _) =>
+            s.cards.any((c) => c['who'] == 'Alice') &&
+            s.cards.any((c) => c['who'] == 'Cody') &&
+            s.cards.every((c) => !c['id']!.startsWith('task:')),
+      ),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'B2',
+    title: '读一下动态',
+    start: OrbEvalStart.activity,
+    data: _activityFive,
+    say: const ['读一下动态'],
+    checks: [
+      OrbEvalCheck.tool('describe_page'),
+      OrbEvalCheck.inOrder([
+        ['Alice'],
+        ['Cody'],
+      ], label: '按页面顺序说：Alice 在前，Cody 在后'),
+      OrbEvalCheck.avoids(RegExp('任务'), '念任务'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'B3',
+    title: '读 Alice 那条原文',
+    start: OrbEvalStart.activity,
+    data: _activityFive,
+    say: const ['读 Alice 那条原文'],
+    checks: [
+      OrbEvalCheck.tool('read_conversation'),
+      OrbEvalCheck.says([
+        ['周五'],
+        ['评审'],
+      ]),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'B4',
+    title: '最新那条说了什么',
+    start: OrbEvalStart.activity,
+    data: _activityFive,
+    say: const ['最新那条说了什么'],
+    checks: [
+      OrbEvalCheck.says([
+        ['Alice'],
+        ['周五', '评审'],
+      ]),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'B5',
+    title: '只有进度时问有什么要处理的',
+    start: OrbEvalStart.activity,
+    data: _activityQuiet,
+    say: const ['有什么要我处理的'],
+    checks: [
+      OrbEvalCheck.saysMatching(_saysNothingToDo, '说“没有要你处理的”'),
+      OrbEvalCheck.shortReply(4),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'B6',
+    title: '动态还在加载',
+    start: OrbEvalStart.activity,
+    data: () => _activityFive()..holdInbox = true,
+    say: const ['有什么新的'],
+    checks: [
+      OrbEvalCheck.avoids(RegExp(r'没有内容|没有任何内容|是空的|什么都没有|没有新的'), '“没有内容”'),
+      OrbEvalCheck.saysMatching(RegExp(r'加载|稍后|稍等|等一下|等等|再看|还没'), '说还在加载或稍后再读'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'B7',
+    title: '旧任务和新回复，先说什么',
+    start: OrbEvalStart.activity,
+    data: _activityOldTask,
+    say: const ['什么要紧'],
+    checks: [
+      OrbEvalCheck.inOrder([
+        ['Grok', '回复', '测试'],
+        ['验收'],
+      ], label: '先说回复，任务（验收）放最后'),
+      ..._std(),
+    ],
+  ),
+
+  // ---- C. discussions, private conversations, tasks ------------------------
+  OrbEvalScenario(
+    id: 'C1',
+    title: '看看 Cody 私信',
+    start: OrbEvalStart.home,
+    data: _codyDmUnread,
+    say: const ['看看 Cody 私信'],
+    checks: [
+      OrbEvalCheck.tool(
+        'navigate',
+        args: {'dm_id': _codyDm},
+        label: 'navigate(dm_id: Cody 的私信)',
+      ),
+      OrbEvalCheck.says([
+        ['Cody'],
+      ]),
+      OrbEvalCheck.saysMatching(
+        RegExp(r'回复|回他|回一下|需要你|要你|不用回|不需要回|要不要回'),
+        '说需不需要回',
+      ),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'C2',
+    title: '回他“晚上看”',
+    start: OrbEvalStart.dm('dm:cody'),
+    data: _codyDmUnread,
+    say: const ['回他“晚上看”'],
+    status: OrbEvalStatus.skipped,
+    note: 'needs actions',
+  ),
+  OrbEvalScenario(
+    id: 'C3',
+    title: '打开 task 136',
+    start: OrbEvalStart.home,
+    data: _task136,
+    say: const ['打开 task 136'],
+    checks: [
+      OrbEvalCheck.tool(
+        'navigate',
+        args: {'task_number': 136},
+        label: 'navigate(task_number: 136)',
+      ),
+      OrbEvalCheck.says([
+        ['Cody'],
+        ['验收', '评审', 'review', '审阅'],
+      ]),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'C4',
+    title: '这个可以了，标完成',
+    start: OrbEvalStart.task(136),
+    data: _task136,
+    say: const ['这个可以了，标完成'],
+    status: OrbEvalStatus.skipped,
+    note: 'needs actions',
+  ),
+  OrbEvalScenario(
+    id: 'C5',
+    title: '讨论里大家的意见',
+    start: OrbEvalStart.thread((d) => _opinionParent),
+    data: _opinions,
+    say: const ['大家意见是什么'],
+    checks: [
+      OrbEvalCheck.says([
+        ['Cody'],
+        ['Grok'],
+        ['方案 A', '方案A'],
+        ['方案 B', '方案B'],
+      ]),
+      ..._std(),
+    ],
+  ),
+
+  // ---- D. driving: messages ------------------------------------------------
+  OrbEvalScenario(
+    id: 'D1',
+    title: '开始驾驶模式',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    say: const ['开始驾驶模式'],
+    checks: [
+      OrbEvalCheck.tool(
+        'set_driving_mode',
+        args: {'on': true},
+        label: 'set_driving_mode(on: true)',
+      ),
+      OrbEvalCheck.screen(
+        '驾驶模式开着，卡片已铺开',
+        (s, _) => s.driving && s.cards.isNotEmpty,
+      ),
+      _firstCardIsAMessage,
+      OrbEvalCheck.shortReply(2),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'D2',
+    title: '下一件',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    setup: const ['开始驾驶模式'],
+    say: const ['下一件'],
+    checks: [
+      OrbEvalCheck.tool('driving_next'),
+      OrbEvalCheck.custom('说的是第 2 件', (run) {
+        final cards = run.last?.cards ?? const [];
+        if (cards.length < 2) return '界面上不到 2 张卡';
+        final who = cards[1]['who']!;
+        return run.text.contains(who) ? null : '没有说到第 2 件的发送人（$who）';
+      }),
+      OrbEvalCheck.shortReply(2),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'D3',
+    title: '驾驶中回他可以',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    setup: const ['开始驾驶模式'],
+    say: const ['回他可以'],
+    status: OrbEvalStatus.skipped,
+    note: 'needs actions',
+  ),
+  OrbEvalScenario(
+    id: 'D4',
+    title: '驾驶中批准发布',
+    start: OrbEvalStart.home,
+    data: () => _urgentThree(codyAsk: '@Sam 发布 v1.4 在等你批准。'),
+    setup: const ['开始驾驶模式'],
+    say: const ['批准吧'],
+    checks: [
+      OrbEvalCheck.saysMatching(RegExp(r'停车|停好车|停下来'), '说停车后再批准'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'D5',
+    title: '驾驶中新来一条 @我',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    setup: const ['开始驾驶模式'],
+    events: [
+      OrbEvalEvent(
+        'message:new',
+        (d) => d.incoming(
+          'swift-workflow',
+          evalAlice,
+          '@Sam 发布脚本报错了，你能看一眼吗？',
+          mentions: [evalMe],
+        ),
+      ),
+    ],
+    checks: [
+      OrbEvalCheck.custom('卡片插到下一张，计数出“新的 1 件”', (run) {
+        final before = run.turns.first.after?.cards.length ?? 0;
+        final after = run.last?.cards.length ?? 0;
+        return after > before ? null : '卡片数没有增加（$before → $after）';
+      }),
+      ..._std(),
+    ],
+    status: OrbEvalStatus.expectedFail,
+    note: 'not built: live push while driving',
+  ),
+  OrbEvalScenario(
+    id: 'D6',
+    title: '刚提醒过，又来普通进度',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    setup: const ['开始驾驶模式'],
+    events: [
+      OrbEvalEvent(
+        'message:new',
+        (d) => d.incoming('swift-workflow', evalGrok, '构建进度 60%。'),
+      ),
+    ],
+    checks: [
+      OrbEvalCheck.custom('不开口', (run) {
+        final said = run.scoredTurns.map((t) => t.text).join().trim();
+        return said.isEmpty ? null : '开口说了：$said';
+      }),
+      OrbEvalCheck.custom('只更新计数', (run) {
+        final before = run.turns.first.after?.cards.length ?? 0;
+        final after = run.last?.cards.length ?? 0;
+        return after > before ? null : '计数没有更新（$before → $after）';
+      }),
+      ..._std(),
+    ],
+    status: OrbEvalStatus.expectedFail,
+    note: 'not built: interruption rules while driving',
+  ),
+  OrbEvalScenario(
+    id: 'D7',
+    title: '驾驶中构建失败',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    setup: const ['开始驾驶模式'],
+    events: [
+      OrbEvalEvent(
+        'message:new',
+        (d) => d.incoming(
+          'swift-workflow',
+          evalSystem,
+          '构建失败：swift-workflow #215。',
+        ),
+      ),
+    ],
+    checks: [
+      OrbEvalCheck.says([
+        ['构建'],
+        ['失败'],
+      ]),
+      OrbEvalCheck.shortReply(2),
+      ..._std(),
+    ],
+    status: OrbEvalStatus.expectedFail,
+    note: 'not built: urgent interruption while driving',
+  ),
+  OrbEvalScenario(
+    id: 'D8',
+    title: '稍后提醒我',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    setup: const ['开始驾驶模式'],
+    say: const ['稍后提醒我'],
+    status: OrbEvalStatus.skipped,
+    note: 'needs actions',
+  ),
+  OrbEvalScenario(
+    id: 'D9',
+    title: '停车了',
+    start: OrbEvalStart.home,
+    data: _urgentThree,
+    setup: const ['开始驾驶模式'],
+    say: const ['停车了'],
+    checks: [
+      OrbEvalCheck.tool(
+        'set_driving_mode',
+        args: {'on': false},
+        label: 'set_driving_mode(on: false)',
+      ),
+      OrbEvalCheck.screen('驾驶模式已退出', (s, _) => !s.driving),
+      ..._std(),
+    ],
+  ),
+
+  // ---- E. driving: idle tasks ----------------------------------------------
+  OrbEvalScenario(
+    id: 'E1',
+    title: '消息处理完，主动问旧任务',
+    start: OrbEvalStart.home,
+    data: _staleTasks,
+    say: const ['开始驾驶模式'],
+    checks: [
+      OrbEvalCheck.says([
+        ['3 个任务', '三个任务', '3个任务'],
+        ['要不要', '看一下', '看看'],
+      ]),
+      ..._std(),
+    ],
+    status: OrbEvalStatus.expectedFail,
+    note: 'not built: idle task prompt',
+  ),
+  OrbEvalScenario(
+    id: 'E2',
+    title: '好，看看那些任务',
+    start: OrbEvalStart.home,
+    data: _staleTasks,
+    setup: const ['开始驾驶模式'],
+    say: const ['好，看看那几个放了好几天的任务'],
+    checks: [
+      OrbEvalCheck.says([
+        ['整理发布说明', '迁移旧的缓存', '补充设计评审记录'],
+        ['八戒', 'Cody', 'Grok'],
+      ]),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'E3',
+    title: '这些任务现在什么状态',
+    start: OrbEvalStart.home,
+    data: _staleTasks,
+    setup: const ['开始驾驶模式'],
+    say: const ['看看这些任务现在什么状态'],
+    checks: [
+      OrbEvalCheck.says([
+        ['验收'],
+        ['在做', '进行中', '做中'],
+      ]),
+      OrbEvalCheck.saysMatching(RegExp(r'[123一二三两]\s*个'), '说了几个'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'E4',
+    title: '全部处理掉',
+    start: OrbEvalStart.home,
+    data: _staleTasks,
+    setup: const ['开始驾驶模式'],
+    say: const ['全部处理掉'],
+    status: OrbEvalStatus.skipped,
+    note: 'needs actions',
+  ),
+  OrbEvalScenario(
+    id: 'E5',
+    title: '任务都很新，不主动问',
+    start: OrbEvalStart.home,
+    data: () => _staleTasks(ageDays: 0),
+    say: const ['开始驾驶模式'],
+    checks: [OrbEvalCheck.avoids(RegExp('任务'), '主动问任务'), ..._std()],
+    status: OrbEvalStatus.expectedFail,
+    note: 'not built: idle task prompt',
+  ),
+];
+
+/// The scenarios named by [only] (ids like `A1`, groups like `B`), in
+/// scenarios-v1 order; all of them when [only] is empty.
+List<OrbEvalScenario> orbEvalSelect(Iterable<String> only) {
+  final wanted = {
+    for (final s in only)
+      if (s.trim().isNotEmpty) s.trim().toUpperCase(),
+  };
+  if (wanted.isEmpty) return orbEvalScenarios;
+  return [
+    for (final s in orbEvalScenarios)
+      if (wanted.contains(s.id) || wanted.contains(s.group)) s,
+  ];
+}

@@ -1,0 +1,158 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:raft_ui/raft_ui.dart';
+
+import 'orb_eval_page.dart';
+
+/// What a start request asks for.
+class OrbEvalRequest {
+  const OrbEvalRequest({this.only = const [], this.runs = 2});
+
+  /// Scenario ids or groups (`B2`, `C`); all when empty.
+  final List<String> only;
+  final int runs;
+
+  /// The request a `raft://orb-eval/run?only=A1,B2&runs=3` link makes; null
+  /// for any other link.
+  static OrbEvalRequest? fromLink(Uri uri) {
+    if (uri.scheme != 'raft' || uri.host != 'orb-eval') return null;
+    final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.length != 1 || segments.single != 'run') return null;
+    final only = (uri.queryParameters['only'] ?? '')
+        .split(RegExp('[,\\s]+'))
+        .where((s) => s.isNotEmpty)
+        .take(60)
+        .toList();
+    final runs = int.tryParse(uri.queryParameters['runs'] ?? '') ?? 2;
+    return OrbEvalRequest(only: only, runs: runs.clamp(1, 5));
+  }
+}
+
+/// How the evaluation is started in a debug build: from the Labs card or from
+/// adb, with an explicit-component intent that carries a `raft://orb-eval/run`
+/// link (the app's link stream hands it to [receiveLink]).
+///
+/// In any other build mode it does nothing: no link is taken and no page is
+/// opened.
+class OrbEvalLauncher {
+  OrbEvalLauncher({bool? debug}) : debug = debug ?? kDebugMode;
+
+  static final instance = OrbEvalLauncher();
+
+  /// Whether this launcher works at all (debug builds).
+  final bool debug;
+
+  GlobalKey<NavigatorState>? _navigator;
+  OrbEvalRequest? _pending;
+  bool _open = false;
+
+  /// The request waiting for the app's Navigator.
+  @visibleForTesting
+  OrbEvalRequest? get pending => _pending;
+
+  /// Whether the evaluation page is on screen.
+  bool get isOpen => _open;
+
+  /// Gives the launcher the app's Navigator; a request that came before it
+  /// is opened now.
+  void attach(GlobalKey<NavigatorState> navigator) {
+    if (!debug) return;
+    _navigator = navigator;
+    final waiting = _pending;
+    if (waiting == null) return;
+    _pending = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) => open(waiting));
+  }
+
+  /// A link the app received. True when it was an evaluation link and was
+  /// taken (the app then ignores it).
+  bool receiveLink(Uri uri) {
+    if (!debug) return false;
+    final request = OrbEvalRequest.fromLink(uri);
+    if (request == null) return false;
+    open(request);
+    return true;
+  }
+
+  /// Opens the page and starts the run. False when it cannot yet (no
+  /// Navigator: it waits for [attach]) or is already open.
+  bool open(OrbEvalRequest request) {
+    if (!debug || _open) return false;
+    final state = _navigator?.currentState;
+    if (state == null) {
+      _pending = request;
+      return false;
+    }
+    return openOn(state, request);
+  }
+
+  /// Opens the page on [state] (the Labs card has its own context).
+  bool openOn(NavigatorState state, OrbEvalRequest request) {
+    if (!debug || _open) return false;
+    _open = true;
+    state
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => OrbEvalPage(only: request.only, runs: request.runs),
+          ),
+        )
+        .whenComplete(() => _open = false);
+    return true;
+  }
+}
+
+/// Labs card "Agent 评测（开发）": runs the whole evaluation. Debug builds
+/// only.
+class OrbEvalLabsCard extends StatelessWidget {
+  const OrbEvalLabsCard({super.key, this.debug, this.launcher});
+
+  static const title = 'Agent 评测（开发）';
+
+  /// Overrides `kDebugMode` (tests).
+  final bool? debug;
+  final OrbEvalLauncher? launcher;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!(debug ?? kDebugMode)) return const SizedBox.shrink();
+    final t = RaftTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: RaftSpace.x4),
+      child: RaftRecipeCard(
+        padding: const EdgeInsets.all(RaftSpace.x4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RaftCssText(
+              title,
+              style: RaftTypography.body(
+                t,
+                size: 14,
+                line: 20,
+                weight: FontWeight.w600,
+                color: t.ink,
+              ),
+            ),
+            const SizedBox(height: RaftSpace.x1),
+            RaftCssText(
+              '用真模型和测试数据跑一遍 Agent 悬浮球的场景并自动打分，'
+              '报告存在应用文档目录的 orb-eval 里。需要已经填好语音 Key。',
+              style: RaftTypography.body(t, size: 13, line: 18, color: t.muted),
+            ),
+            const SizedBox(height: RaftSpace.x3),
+            RaftButton(
+              key: const ValueKey('orb-eval-open'),
+              label: '运行评测',
+              onPressed: () {
+                final navigator = Navigator.of(context);
+                navigator.push(
+                  MaterialPageRoute<void>(builder: (_) => const OrbEvalPage()),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

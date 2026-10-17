@@ -1,0 +1,150 @@
+import 'orb_eval_world.dart';
+
+/// One tool the model called: what it asked for and what the app answered.
+class OrbEvalToolCall {
+  const OrbEvalToolCall({
+    required this.name,
+    required this.args,
+    required this.result,
+    required this.millis,
+  });
+  final String name;
+  final Map<String, Object?> args;
+  final Map<String, Object?> result;
+  final int millis;
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'args': orbEvalTrim(args),
+    'result': orbEvalTrim(result),
+    'ms': millis,
+  };
+}
+
+/// What the screen and the orb looked like when a turn ended.
+class OrbEvalSnapshot {
+  const OrbEvalSnapshot({
+    required this.location,
+    required this.layerOpen,
+    required this.driving,
+    required this.drivingIndex,
+    required this.cards,
+  });
+
+  /// The app's route (`/s/fixture/activity`).
+  final String location;
+  final bool layerOpen;
+  final bool driving;
+
+  /// The card in front, counted from 0.
+  final int drivingIndex;
+
+  /// The briefing cards in the layer (`needsYou`), in order: id, who, where,
+  /// title. Empty when no briefing is shown.
+  final List<Map<String, String>> cards;
+
+  Map<String, Object?> toJson() => {
+    'location': location,
+    'layerOpen': layerOpen,
+    'driving': driving,
+    'drivingIndex': drivingIndex,
+    'cards': cards,
+  };
+}
+
+/// One turn of the conversation: the line the person said, then what the
+/// model did.
+class OrbEvalTurn {
+  OrbEvalTurn(this.line, {this.scored = true});
+
+  /// What was said (empty for a turn started by an event).
+  final String line;
+
+  /// False for the setup lines of a scenario (entering driving mode first).
+  final bool scored;
+
+  final tools = <OrbEvalToolCall>[];
+  final _text = StringBuffer();
+
+  /// The model finished its turn.
+  bool completed = false;
+  bool timedOut = false;
+
+  /// The session failed (no key, a closed connection).
+  // ignore: raft_lints/avoid_imperative_notice_state -- Written once by the runner into the report of this run; the turn lives for one run only.
+  String? failure;
+  OrbEvalSnapshot? after;
+
+  String get text => _text.toString().trim();
+  void addText(String chunk) => _text.write(chunk);
+
+  Map<String, Object?> toJson() => {
+    'line': line,
+    'scored': scored,
+    'text': text,
+    'tools': [for (final t in tools) t.toJson()],
+    'completed': completed,
+    if (timedOut) 'timedOut': true,
+    if (failure != null) 'error': failure,
+    if (after != null) 'after': after!.toJson(),
+  };
+}
+
+/// Everything one run of a scenario produced; the checks read this.
+class OrbEvalRun {
+  OrbEvalRun({required this.ids});
+
+  /// Every id the fixture holds: said out loud, it is a leak.
+  final Set<String> ids;
+  final turns = <OrbEvalTurn>[];
+  var writes = <OrbEvalWrite>[];
+
+  Iterable<OrbEvalTurn> get scoredTurns => turns.where((t) => t.scored);
+  Iterable<OrbEvalToolCall> get tools => scoredTurns.expand((t) => t.tools);
+  Iterable<OrbEvalToolCall> get allTools => turns.expand((t) => t.tools);
+
+  /// What the model said in the scored turns.
+  String get text => scoredTurns.map((t) => t.text).join('\n');
+  String get allText => turns.map((t) => t.text).join('\n');
+
+  /// How the last turn ended.
+  OrbEvalSnapshot? get last => turns.lastOrNull?.after;
+
+  /// The writes that matter: not the reads the app posts by itself (read
+  /// receipts, feature flags).
+  List<OrbEvalWrite> get realWrites => [
+    for (final w in writes)
+      if (!orbEvalIsBenignWrite(w)) w,
+  ];
+}
+
+/// Requests the app sends on its own when a page opens: marking what was seen
+/// as read, asking for feature flags. They change nothing the person would
+/// call an action.
+bool orbEvalIsBenignWrite(OrbEvalWrite w) =>
+    w.method == 'POST' &&
+    (w.path == '/feature-flags/evaluate' ||
+        RegExp(r'^/channels/[^/]+/read$').hasMatch(w.path) ||
+        w.path == '/channels/read-all');
+
+/// Keeps a tool argument or result short enough for a report: long strings
+/// and long lists are cut.
+Object? orbEvalTrim(Object? value, {int text = 240, int items = 12}) {
+  if (value is String) {
+    return value.length <= text ? value : '${value.substring(0, text)}…';
+  }
+  if (value is Map) {
+    return {
+      for (final e in value.entries)
+        '${e.key}': orbEvalTrim(e.value, text: text, items: items),
+    };
+  }
+  if (value is List) {
+    return [
+      for (final e in value.take(items))
+        orbEvalTrim(e, text: text, items: items),
+      if (value.length > items) '…(${value.length - items} more)',
+    ];
+  }
+  return value;
+}

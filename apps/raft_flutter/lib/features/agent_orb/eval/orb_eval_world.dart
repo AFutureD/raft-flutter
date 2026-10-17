@@ -71,6 +71,19 @@ class OrbEvalClient extends RaftClient {
     Duration? receiveTimeout,
   }) async {
     final verb = method.toUpperCase();
+    if (path == '/auth/login') {
+      // The fixture's own sign-in: a made-up session that opens nothing.
+      return {
+        'accessToken': 'fixture-only',
+        'refreshToken': 'fixture-only',
+        'user': {
+          'id': evalMe.id,
+          'name': evalMe.name,
+          'displayName': evalMe.name,
+          'email': 'sam@example.invalid',
+        },
+      };
+    }
     if (verb != 'GET') {
       writes.add(OrbEvalWrite(verb, path, data));
       return <String, dynamic>{'ok': true};
@@ -186,13 +199,8 @@ class OrbEvalWorld {
   final WorkspaceController workspace;
 
   static Future<OrbEvalWorld> create(OrbEvalData data) async {
-    final client = OrbEvalClient(data)
-      ..user = RaftRecord({
-        'id': evalMe.id,
-        'name': evalMe.name,
-        'displayName': evalMe.name,
-        'email': 'sam@example.invalid',
-      });
+    final client = OrbEvalClient(data);
+    await client.login('sam@example.invalid', 'fixture');
     client.selectServer(evalServerId);
     final server = RaftRecord(client._server);
     final workspace = WorkspaceController(client, mobileNavigation: true)
