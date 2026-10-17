@@ -969,6 +969,14 @@
       "reason": "task #136 step 9 approved by Cindy: one receiver-local ComposerVisitState replaces the three local visit counter and channel/thread slot fields; three mutable states and one source-warning cleanup callback preserve visit, source and synchronous ordering. Measured root fields 95 to 93, production source +17 lines.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController._replyAuthority",
+      "limit": 1,
+      "reason": "Replacement reference for receiver-local reply authority epochs: two state fields, zero callbacks or dependency ports, and reads and writes together; root fields 93 to 92; total production growth 13 lines and 67 tokens.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
     }
   ]
 }
