@@ -47,13 +47,14 @@ class ResourceListUpdates {
     required bool indexedActivity,
     ScrollPosition? position,
   }) {
+    final rowsView = (view, indexedActivity);
     if (indexedActivity && rows is IndexedActivityRows) {
       _rowKeys = rows.rowKeys;
-    } else if (!identical(rows, _rows) || view != _rowsView) {
+    } else if (!identical(rows, _rows) || rowsView != _rowsView) {
       _rowKeys = [for (final row in rows) keyOf(row)];
     }
     _rows = rows;
-    _rowsView = view;
+    _rowsView = rowsView;
     return observe(view: view, keys: _rowKeys, position: position);
   }
 

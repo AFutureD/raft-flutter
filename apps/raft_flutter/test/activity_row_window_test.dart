@@ -25,6 +25,32 @@ bool unmuted(Map<String, dynamic> _) => false;
 
 void main() {
   test(
+    'changing the identity mode invalidates a retained window key cache',
+    () {
+      final rows = ActivityRowWindow.from([
+        {...row(1), 'savedMessageId': 'saved1'},
+      ]);
+      final updates = ResourceListUpdates();
+      String? savedKey(Map item) => 'saved:${item['savedMessageId']}';
+      updates.observeRows(
+        view: 'same-view',
+        rows: rows,
+        keyOf: savedKey,
+        indexedActivity: true,
+      );
+      expect(updates.indexOf(const ResourceRowListKey('channel:c1')), 0);
+      updates.observeRows(
+        view: 'same-view',
+        rows: rows,
+        keyOf: savedKey,
+        indexedActivity: false,
+      );
+      expect(updates.indexOf(const ResourceRowListKey('saved:saved1')), 0);
+      expect(updates.indexOf(const ResourceRowListKey('channel:c1')), isNull);
+    },
+  );
+
+  test(
     'moving rows preserves old snapshots, random access and unique indexes',
     () {
       var reference = [for (var i = 0; i < 301; i++) row(i)];
