@@ -355,7 +355,7 @@ void main() {
       await tester.pumpWidget(
         _host(_body('hi @Cindy and [a link](https://example.org/x) `code`')),
       );
-      expect(find.byType(AdaptiveTextSelectionToolbar), findsNothing);
+      expect(find.byType(RaftTextSelectionToolbar), findsNothing);
       // Nested selection containers publish their geometry one frame per level.
       for (var i = 0; i < 8; i++) {
         await tester.pump();
@@ -363,7 +363,7 @@ void main() {
       await tester.longPressAt(_rectOf(tester, 'hi').center);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.byType(AdaptiveTextSelectionToolbar), findsOneWidget);
+      expect(find.byType(RaftTextSelectionToolbar), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Select all'), findsOneWidget);
 
@@ -412,6 +412,7 @@ void main() {
       await tester.pump();
       expect(host, 1);
       expect(find.byType(AdaptiveTextSelectionToolbar), findsNothing);
+      expect(find.byType(RaftTextSelectionToolbar), findsNothing);
       expect(find.text('Copy'), findsNothing);
     },
   );

@@ -65,6 +65,7 @@ import 'package:raft_ui/surface_progress_previews.dart';
 import 'package:raft_ui/switch_previews.dart';
 import 'package:raft_ui/task_section_previews.dart';
 import 'package:raft_ui/task_surface_previews.dart';
+import 'package:raft_ui/text_selection_toolbar_previews.dart';
 import 'package:raft_ui/thread_composition_previews.dart';
 import 'package:raft_ui/thread_reply_previews.dart';
 import 'package:raft_ui/timeline_composition_previews.dart';
@@ -848,6 +849,18 @@ final auditSurfaces = <AuditSurface>[
     'Source selection toolbar',
     selectionToolbarPreview,
     Size(390, 320),
+  ),
+  AuditSurface(
+    'textSelectionToolbarPreview',
+    'Android text selection',
+    textSelectionToolbarPreview,
+    Size(390, 520),
+  ),
+  AuditSurface(
+    'largeTextSelectionToolbarPreview',
+    'Android text selection · large text',
+    largeTextSelectionToolbarPreview,
+    Size(320, 520),
   ),
   AuditSurface(
     'administrationAdminsPreview',
