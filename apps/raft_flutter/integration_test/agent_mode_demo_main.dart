@@ -727,8 +727,8 @@ final _registry = AgentCapabilityRegistry([
     'messages.react',
     '给一条消息加表情反应',
     {'message': '消息 id', 'emoji': '表情', 'channel': '频道'},
-    summary: (a) => '给 Cody 的消息加 ${a['emoji']}',
-    changes: (a) => ['表情: → ${a['emoji']}', '消息: Cody：@Kevin 首片 12 张里 2 张误检…'],
+    summary: (a) => '给 Bo 的消息加 ${a['emoji']}',
+    changes: (a) => ['表情: → ${a['emoji']}', '消息: Bo：@Kevin 暗色稿改好了…'],
     done: '已加 👍',
     required: const ['message', 'emoji'],
   ),
@@ -736,8 +736,8 @@ final _registry = AgentCapabilityRegistry([
     'messages.reply_thread',
     '在讨论串里回复',
     {'message': '消息 id', 'text': '内容', 'channel': '频道'},
-    summary: (a) => '回复 Cody 的消息：“${a['text']}”',
-    changes: (a) => ['回复: Cody：@Kevin 首片 12 张里 2 张误检…', '内容: → ${a['text']}'],
+    summary: (a) => '回复 Bo 的消息：“${a['text']}”',
+    changes: (a) => ['回复: Bo：@Kevin 暗色稿改好了…', '内容: → ${a['text']}'],
     done: '已回复',
     required: const ['message', 'text'],
   ),
@@ -914,9 +914,11 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await _type('raft-flutter 现在什么情况？');
     await wait(4000);
     await mark('channel');
-    await _type('下一批');
-    await wait(2500);
-    await mark('channel-next');
+    // A message far up: the page scrolls to it, the notes and the task
+    // events around it with it.
+    await _type('看看第三个');
+    await wait(3500);
+    await mark('channel-kinds');
     await _type('返回');
     await wait(2500);
     // The group of tasks nobody touched for days, opened.

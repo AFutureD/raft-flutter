@@ -631,7 +631,7 @@ class _AgentModePageState extends State<AgentModePage> {
           AgentSpeaker.agent,
           urgent == null
               ? _attentionSummary(visible)
-              : '${_attentionSummary(visible)}最急的：$urgent。',
+              : '${_attentionSummary(visible)}最新的：$urgent。',
         );
       }
     } catch (e) {
