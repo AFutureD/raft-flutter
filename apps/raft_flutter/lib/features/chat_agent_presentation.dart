@@ -37,6 +37,13 @@ class ChatAgentPresentation extends ChangeNotifier {
   bool ended = false;
   List<LiveAgentWork> items = [];
   final sequences = <String, BigInt>{};
+  LiveAgentWork? _publishedLatest;
+
+  void _publish() {
+    _publishedLatest = latest;
+    notifyListeners();
+  }
+
   Map<String, dynamic>? agent(String id) =>
       directory.agents.where((a) => a['id'] == id).firstOrNull;
   String? modelLabel(String id) {
@@ -85,7 +92,7 @@ class ChatAgentPresentation extends ChangeNotifier {
         .toList();
     if (kept.length != items.length) dirty = true;
     items = kept;
-    if (dirty) notifyListeners();
+    if (dirty) _publish();
   }
 
   void event(RaftEvent event) {
@@ -152,7 +159,7 @@ class ChatAgentPresentation extends ChangeNotifier {
         prune,
       );
     }
-    notifyListeners();
+    _publish();
   }
 
   void prune() {
@@ -168,7 +175,9 @@ class ChatAgentPresentation extends ChangeNotifier {
         prune,
       );
     }
-    notifyListeners();
+    // `latest` already filters by the clock, so reading it just before pruning
+    // would miss the change when the displayed item itself has expired.
+    if (latest != _publishedLatest) _publish();
   }
 
   @override
@@ -179,6 +188,7 @@ class ChatAgentPresentation extends ChangeNotifier {
     w.removeListener(changed);
     directory.removeListener(changed);
     items = [];
+    _publishedLatest = null;
     sequences.clear();
     super.dispose();
   }
