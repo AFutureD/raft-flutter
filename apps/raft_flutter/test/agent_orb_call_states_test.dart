@@ -42,7 +42,7 @@ void main() {
       expect(pill, findsNothing);
       expect(dot, findsNothing);
       expect(find.textContaining('通话'), findsNothing);
-      expect(find.text('点球挂断'), findsNothing);
+      expect(find.text('点球挂断 · 点标签展开'), findsNothing);
       for (final name in ['connecting', 'listening', 'speaking', 'operating']) {
         expect(rings(name), findsNothing, reason: name);
       }
@@ -90,7 +90,7 @@ void main() {
       await f.startCall();
       await t.pump(const Duration(milliseconds: 100));
       expect(find.text('通话中 0:00 · 在听'), findsOneWidget);
-      expect(find.text('点球挂断'), findsOneWidget);
+      expect(find.text('点球挂断 · 点标签展开'), findsOneWidget);
       expect(rings('listening'), findsOneWidget);
       expect(rings('connecting'), findsNothing);
       expect(dot, findsOneWidget);
@@ -225,7 +225,7 @@ void main() {
       f.sessions.single.onOutputText!('你好呀');
       await t.pump();
       expect(find.textContaining('通话中'), findsNothing);
-      expect(find.text('点球挂断'), findsNothing);
+      expect(find.text('点球挂断 · 点标签展开'), findsNothing);
       expect(find.text('正在回答…'), findsOneWidget);
       f.sessions.single.onTurnComplete!();
       await t.pump();
@@ -247,7 +247,7 @@ void main() {
       }
       expect(f.controller.inCall, isFalse);
       expect(find.text('已挂断 · 通话 0:42'), findsOneWidget);
-      expect(find.text('点球挂断'), findsNothing);
+      expect(find.text('点球挂断 · 点标签展开'), findsNothing);
       expect(dot, findsNothing);
       expect(rings('listening'), findsNothing);
 

@@ -125,6 +125,20 @@ void main() {
   });
 
   group('closing it lightly', () {
+    // A tap on the orb hangs up; in a call the pill is the way back in.
+    testWidgets('in a call a tap on the pill opens the layer and the call '
+        'goes on', (t) async {
+      await fixture(t);
+      await f.startCall();
+      expect(f.controller.layerOpen, isFalse);
+      await t.tap(find.byKey(const ValueKey('orb-call-pill')));
+      await settle(t);
+      expect(layer, findsOneWidget);
+      expect(f.controller.layerOpen, isTrue);
+      expect(f.controller.voice.state, AgentMicState.live);
+      expect(f.sessions.single.closes, 0);
+    });
+
     testWidgets('a swipe down closes it and the call goes on', (t) async {
       await fixture(t);
       await f.startCall();

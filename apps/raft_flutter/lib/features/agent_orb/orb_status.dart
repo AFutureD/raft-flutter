@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -193,12 +195,19 @@ class OrbCallStatus extends StatelessWidget {
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
-            OrbCallPill(controller: controller),
+            // A tap on the orb hangs up; in a call the pill opens the layer.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: live && !controller.layerOpen
+                  ? () => unawaited(controller.openLayer())
+                  : null,
+              child: OrbCallPill(controller: controller),
+            ),
             if (live)
               Padding(
                 padding: const EdgeInsets.only(top: RaftSpace.x1),
                 child: Text(
-                  '点球挂断',
+                  '点球挂断 · 点标签展开',
                   style: RaftTypography.body(
                     t,
                     size: 11,
