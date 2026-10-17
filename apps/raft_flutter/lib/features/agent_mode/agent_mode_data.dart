@@ -1040,9 +1040,7 @@ class AgentModeData {
     final directory = w.entityDirectory;
     final rows = type == 'agent'
         ? directory.authorAgents.where((a) => a['id'] == id)
-        : directory.authorMembers.where(
-            (m) => (m['userId'] ?? m['id']) == id,
-          );
+        : directory.authorMembers.where((m) => (m['userId'] ?? m['id']) == id);
     final row = rows.firstOrNull;
     if (row == null) return null;
     final name = _str(row['displayName']) ?? _str(row['name']);

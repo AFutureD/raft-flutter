@@ -116,7 +116,9 @@ class AgentActivityFeed {
       row[thread ? 'latestActivitySenderType' : 'lastMessageSenderType'],
     );
     final named =
-        _s(row[thread ? 'latestActivitySenderName' : 'lastMessageSenderName']) ??
+        _s(
+          row[thread ? 'latestActivitySenderName' : 'lastMessageSenderName'],
+        ) ??
         (senderId == null || senderType == null
             ? null
             : _s(nameOf?.call(senderId, senderType)));

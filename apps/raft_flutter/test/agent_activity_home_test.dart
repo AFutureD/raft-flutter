@@ -381,7 +381,9 @@ void main() {
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
       late Map<String, Object?> screen;
-      final probe = _Probe((call) async => screen = await call('read_screen', {}));
+      final probe = _Probe(
+        (call) async => screen = await call('read_screen', {}),
+      );
       await t.pumpWidget(
         MaterialApp(
           theme: raftTheme(RaftFamily.brutal),
@@ -478,9 +480,13 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      await t.tap(find.byKey(const ValueKey('attention-card-activity:thread:th1')));
+      await t.tap(
+        find.byKey(const ValueKey('attention-card-activity:thread:th1')),
+      );
       await t.pumpAndSettle();
-      final open = find.byKey(const ValueKey('attention-open-activity:thread:th1'));
+      final open = find.byKey(
+        const ValueKey('attention-open-activity:thread:th1'),
+      );
       await t.ensureVisible(open);
       await t.tap(open);
       await t.pumpAndSettle();
@@ -598,43 +604,44 @@ void main() {
 
   group('the current row on a phone', () {
     for (final length in [20, 120, 400]) {
-      testWidgets('its actions are in view with a quote of $length characters', (
-        t,
-      ) async {
-        final data = _HomeData(w);
-        final rows = _rows();
-        rows[0] = {
-          ...rows[0],
-          'latestActivityPreview': '每日工作方法复盘：${'今天做了三件事，' * (length ~/ 8)}',
-        };
-        data.result = AgentAttention(items: data.feed(rows));
-        t.view.physicalSize = const Size(412, 915);
-        t.view.devicePixelRatio = 1;
-        addTearDown(t.view.reset);
-        await t.pumpWidget(
-          MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
-            home: AgentModePage(controller: w, data: data),
-          ),
-        );
-        await t.pumpAndSettle();
-        await t.tap(
-          find.byKey(const ValueKey('attention-card-activity:thread:th1')),
-        );
-        await t.pumpAndSettle();
-        final page = t.getRect(find.byKey(const ValueKey('hf-page')));
-        for (final key in [
-          'attention-open-activity:thread:th1',
-          'attention-reply-activity:thread:th1',
-          'attention-done-activity:thread:th1',
-          'attention-later-activity:thread:th1',
-          'attention-assign-activity:thread:th1',
-        ]) {
-          final r = t.getRect(find.byKey(ValueKey(key)));
-          expect(r.top, greaterThanOrEqualTo(page.top - 1), reason: key);
-          expect(r.bottom, lessThanOrEqualTo(page.bottom + 1), reason: key);
-        }
-      });
+      testWidgets(
+        'its actions are in view with a quote of $length characters',
+        (t) async {
+          final data = _HomeData(w);
+          final rows = _rows();
+          rows[0] = {
+            ...rows[0],
+            'latestActivityPreview': '每日工作方法复盘：${'今天做了三件事，' * (length ~/ 8)}',
+          };
+          data.result = AgentAttention(items: data.feed(rows));
+          t.view.physicalSize = const Size(412, 915);
+          t.view.devicePixelRatio = 1;
+          addTearDown(t.view.reset);
+          await t.pumpWidget(
+            MaterialApp(
+              theme: raftTheme(RaftFamily.brutal),
+              home: AgentModePage(controller: w, data: data),
+            ),
+          );
+          await t.pumpAndSettle();
+          await t.tap(
+            find.byKey(const ValueKey('attention-card-activity:thread:th1')),
+          );
+          await t.pumpAndSettle();
+          final page = t.getRect(find.byKey(const ValueKey('hf-page')));
+          for (final key in [
+            'attention-open-activity:thread:th1',
+            'attention-reply-activity:thread:th1',
+            'attention-done-activity:thread:th1',
+            'attention-later-activity:thread:th1',
+            'attention-assign-activity:thread:th1',
+          ]) {
+            final r = t.getRect(find.byKey(ValueKey(key)));
+            expect(r.top, greaterThanOrEqualTo(page.top - 1), reason: key);
+            expect(r.bottom, lessThanOrEqualTo(page.bottom + 1), reason: key);
+          }
+        },
+      );
     }
   });
 

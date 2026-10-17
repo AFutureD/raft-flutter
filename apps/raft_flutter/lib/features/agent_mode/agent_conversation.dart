@@ -34,13 +34,7 @@ List<HfMessageData> hfMessagesFrom(
   };
   return [
     for (final r in sorted)
-      _message(
-        r,
-        byId,
-        myUserId: myUserId,
-        fallback: fallback,
-        nameOf: nameOf,
-      ),
+      _message(r, byId, myUserId: myUserId, fallback: fallback, nameOf: nameOf),
   ];
 }
 
