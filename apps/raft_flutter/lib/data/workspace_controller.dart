@@ -37,6 +37,7 @@ export 'thread_search.dart' show WorkspaceThreadIdentity;
 export 'conversation_window.dart' show MessageContextLoadError;
 export 'workspace_message_windows.dart' show ReadingAnchor;
 import 'resource_snapshot_cache.dart';
+import 'task_discussion_read.dart';
 import 'user_activity.dart';
 import 'user_error.dart';
 import 'workspace_entity_directory.dart';
@@ -3322,12 +3323,11 @@ class WorkspaceController extends ChangeNotifier
               content?.id == channel?.id;
     }
     // The initial admission guard already restricted this id to the open thread.
-    return current.thread != null &&
+    return isTaskDiscussion(this) ||
+        current.thread != null &&
             current.thread?.channelId == threadParentChannelId &&
             current.thread?.itemId == threadParentMessageId ||
-        previewMounted &&
-            content?.kind == RaftContentKind.thread &&
-            content?.id == threadChannelId;
+        previewMounted && current.knownThreadChannelId == threadChannelId;
   }
 
   /// Open conversations whose timeline is scrolled above the latest end
