@@ -69,6 +69,10 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
   final _pref = AgentOrbPreference.instance;
   OrbController? _controller;
   WorkspaceController? _controllerFor;
+
+  /// The agent-layer setting the controller was made with: a change builds it
+  /// again.
+  bool _layerSeen = false;
   late OrbAvoidance _avoidance = widget.avoidance ?? OrbAvoidance.app();
   List<Rect> _obstacles = const [];
   bool _measureQueued = false;
@@ -144,17 +148,22 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
       }
       return null;
     }
-    if (_controller == null || !identical(_controllerFor, w)) {
+    if (_controller == null ||
+        !identical(_controllerFor, w) ||
+        _layerSeen != _pref.agentLayer) {
+      _layerSeen = _pref.agentLayer;
       _controllerFor?.removeListener(_workspaceChanged);
       _retire(_controller);
       final nav = widget.navigatorKey;
       BuildContext? navigatorContext() => nav.currentState?.overlay?.context;
       _controller =
           (widget.createController ??
-          (w, nav) => OrbController(workspace: w, navigatorContext: nav))(
-            w,
-            navigatorContext,
-          );
+          (w, nav) => OrbController(
+            workspace: w,
+            navigatorContext: nav,
+            agentLayer: _pref.agentLayer,
+            layeredVoice: _pref.agentLayer,
+          ))(w, navigatorContext);
       _controllerFor = w..addListener(_workspaceChanged);
       _measureAfterFrame();
     }

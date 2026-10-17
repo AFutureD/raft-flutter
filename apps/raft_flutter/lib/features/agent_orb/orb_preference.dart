@@ -44,8 +44,46 @@ class AgentOrbPreference extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the orb runs on the agent layer (a text agent behind a voice that
+  /// only listens and speaks) rather than on the realtime voice model alone.
+  /// On by default in debug builds, off in release.
+  static const layerKey = 'raft.agentOrb.layer';
+  bool? _layerOverride;
+
+  bool get agentLayer {
+    if (_layerOverride != null) return _layerOverride!;
+    try {
+      return DevicePreferences.current?.getBool(layerKey) ?? kDebugMode;
+    } catch (_) {
+      return kDebugMode;
+    }
+  }
+
+  void setAgentLayer(bool next) {
+    if (next == agentLayer) return;
+    _layerOverride = next;
+    Future<void> write(SharedPreferences prefs) async {
+      try {
+        await prefs.setBool(layerKey, next);
+      } catch (_) {
+        /* optional local storage */
+      }
+    }
+
+    final loaded = DevicePreferences.current;
+    if (loaded != null) {
+      write(loaded);
+    } else {
+      SharedPreferences.getInstance().then(write, onError: (_) {});
+    }
+    notifyListeners();
+  }
+
   @visibleForTesting
-  void resetForTest() => _override = null;
+  void resetForTest() {
+    _override = null;
+    _layerOverride = null;
+  }
 }
 
 /// Labs control for the orb: a switch. Phone layout only, and in debug and
@@ -54,6 +92,7 @@ class AgentOrbLabsCard extends StatelessWidget {
   const AgentOrbLabsCard({super.key});
 
   static const title = 'Agent 悬浮球（手机）';
+  static const layerTitle = 'Agent 层';
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +136,40 @@ class AgentOrbLabsCard extends StatelessWidget {
               RaftCssText(
                 '悬浮在每个页面上的 Agent：点一下打开对话，长按直接说话，再点一下挂断。'
                 '和 Agent 模式共用语音 Key 与声音设置。',
+                style: RaftTypography.body(
+                  t,
+                  size: 13,
+                  line: 18,
+                  color: t.muted,
+                ),
+              ),
+              const SizedBox(height: RaftSpace.x3),
+              Row(
+                children: [
+                  Expanded(
+                    child: RaftCssText(
+                      layerTitle,
+                      style: RaftTypography.body(
+                        t,
+                        size: 14,
+                        line: 20,
+                        weight: FontWeight.w600,
+                        color: t.ink,
+                      ),
+                    ),
+                  ),
+                  RaftSwitch(
+                    key: const ValueKey('agent-orb-layer-switch'),
+                    value: pref.agentLayer,
+                    semanticLabel: layerTitle,
+                    onChanged: pref.setAgentLayer,
+                  ),
+                ],
+              ),
+              const SizedBox(height: RaftSpace.x1),
+              RaftCssText(
+                '用文字模型当 Agent，语音只负责听和说，确认和结果由 App 来说。需要 Gemini Key。'
+                '关掉就用实时语音模型直接做。',
                 style: RaftTypography.body(
                   t,
                   size: 13,

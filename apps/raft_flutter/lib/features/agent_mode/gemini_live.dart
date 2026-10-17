@@ -463,6 +463,8 @@ const agentToolTimeout = Duration(seconds: 8);
 const agentSlowToolTimeouts = <String, Duration>{
   'navigate': Duration(seconds: 20),
   'get_briefing': Duration(seconds: 25),
+  // The voice layer's only tool: a whole turn of the text agent.
+  'ask_agent': Duration(seconds: 90),
 };
 
 void _toolLog(String message) {

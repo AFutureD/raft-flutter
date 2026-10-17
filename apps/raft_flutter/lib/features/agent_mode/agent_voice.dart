@@ -36,6 +36,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     required this.systemPrompt,
     this.beforeConnect,
     this.steering,
+    this.provider,
     this.onSessionEnd,
     this.onUserSaid,
     this.onListening,
@@ -75,6 +76,10 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   /// How the app steers a text agent session (the realtime ones ignore it).
   final AgentSteering? steering;
+
+  /// The voice service to use whatever the settings say (the layered voice
+  /// needs Gemini); null: the one in the settings.
+  final AgentVoiceProvider? provider;
 
   /// The transcript of what the person said, chunk by chunk. [fresh] is true
   /// for the first chunk of a new utterance. Never called with what the
@@ -285,7 +290,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   /// The key of the voice service chosen in the settings.
   Future<String?> _activeKey() =>
-      switch (AgentVoiceSettings.instance.provider) {
+      switch (provider ?? AgentVoiceSettings.instance.provider) {
         AgentVoiceProvider.gemini => key.read(),
         AgentVoiceProvider.openai => OpenAiVoiceKey.instance.read(),
         AgentVoiceProvider.grok => GrokVoiceKey.instance.read(),
@@ -307,7 +312,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     await beforeConnect?.call();
     if (epoch != _epoch || _disposed) return null;
     final settings = AgentVoiceSettings.instance;
-    final provider = settings.provider;
+    final provider = this.provider ?? settings.provider;
     final apiKey = await _activeKey();
     if (epoch != _epoch || _disposed) return null;
     if (apiKey == null) {

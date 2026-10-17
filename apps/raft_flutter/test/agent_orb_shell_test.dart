@@ -207,6 +207,9 @@ class OrbFixture {
   /// agent on a fake transport).
   VoiceSessionFactory? sessionFactory;
 
+  /// How many controllers the host asked for.
+  int builds = 0;
+
   OrbController build({List<OrbTool> tools = const []}) =>
       controller = OrbController(
         agentLayer: agentLayer,
@@ -288,7 +291,10 @@ class OrbFixture {
           workspace: w,
           navigatorKey: navKey,
           avoidance: OrbAvoidance.byType(const [FakeTabBar, FakeComposer]),
-          createController: (w, navigatorContext) => build(tools: tools),
+          createController: (w, navigatorContext) {
+            builds++;
+            return build(tools: tools);
+          },
           child: child!,
         ),
         home: Scaffold(

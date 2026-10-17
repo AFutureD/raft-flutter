@@ -10,6 +10,7 @@ import '../agent_mode/agent_live_guard.dart' show agentLiveIdleLimit;
 import '../agent_mode/agent_memory.dart';
 import '../agent_mode/agent_steering.dart';
 import '../agent_mode/gemini_live.dart' show AgentToolHandler;
+import '../agent_mode/layered_voice.dart' show createLayeredSession;
 import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
@@ -123,6 +124,7 @@ class OrbController extends ChangeNotifier {
     this.liveDebounce = const Duration(seconds: 3),
     this.newBadgeLinger = const Duration(seconds: 5),
     this.agentLayer = false,
+    this.layeredVoice = false,
   }) : _now = now ?? DateTime.now,
        _activityWatcher =
            activityWatcher ?? (appTools == null ? _defaultWatcher : null),
@@ -177,7 +179,10 @@ class OrbController extends ChangeNotifier {
       liveIdleLimit: liveIdleLimit,
       audio: audio,
       key: voiceKey,
-      sessionFactory: sessionFactory,
+      provider: agentLayer && layeredVoice ? AgentVoiceProvider.gemini : null,
+      sessionFactory:
+          sessionFactory ??
+          (agentLayer && layeredVoice ? createLayeredSession : null),
     )..addListener(_voiceChanged);
     voice.saying.addListener(_sayingChanged);
     // A risky press on the screen asks through the same confirm card.
@@ -199,6 +204,12 @@ class OrbController extends ChangeNotifier {
   /// and `AgentSteering`): its instruction and tools follow the state of the
   /// conversation. False: the realtime session, with the whole instruction.
   final bool agentLayer;
+
+  /// With [agentLayer]: the voice is a Gemini Live session that only listens
+  /// and speaks and hands everything to the agent (`LayeredVoiceSession`).
+  /// False: the agent is typed to and its words are shown, not spoken (the
+  /// evaluation).
+  final bool layeredVoice;
 
   /// What the model may do for the person (reply, react, change a task ...):
   /// the confirm card, the person's answer, the driving rules.
