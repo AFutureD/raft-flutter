@@ -9,6 +9,7 @@ import 'package:raft_flutter/features/agent_orb/actions/orb_reply.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/orb_controller.dart';
 
+import 'support/agent_capability_world.dart' show hoursAgo, taskRow;
 import 'support/orb_action_world.dart';
 
 /// The app's own rules in the agent layer, end to end: the orb on the text
@@ -212,6 +213,111 @@ void main() {
     gemini.replies.addAll([_call('list_tasks', {}), _say(''), _say('有一个任务。')]);
     await say(t, '看看任务');
     expect(agentLines(), ['有一个任务。']);
+  });
+
+  group('"全部处理掉" while driving', () {
+    // #12 and #13 are stuck, #14 waits for the user's review (the user made
+    // it): the first two can be worked on in the car, the third waits.
+    void tasks() {
+      f.world.routes['/tasks/server'] = (q) => {
+        'tasks': [
+          if (q?['status'] == 'in_progress') ...[
+            {
+              ...taskRow(
+                't12',
+                12,
+                'in_progress',
+                title: '丁',
+                claimedById: 'a-cody',
+                claimedByName: 'Cody',
+              ),
+              'updatedAt': hoursAgo(200),
+              'messageId': 'm-task-12',
+            },
+            {
+              ...taskRow(
+                't13',
+                13,
+                'in_progress',
+                title: '戊',
+                claimedById: 'a-bajie',
+                claimedByName: '八戒',
+              ),
+              'updatedAt': hoursAgo(100),
+            },
+          ],
+          if (q?['status'] == 'in_review')
+            {
+              ...taskRow(
+                't14',
+                14,
+                'in_review',
+                title: '己',
+                claimedById: 'a-cody',
+                claimedByName: 'Cody',
+              ),
+              'updatedAt': hoursAgo(300),
+            },
+        ],
+      };
+    }
+
+    orbTest('the app holds the queue: the first task to work on, the review '
+        'left for parking, and "下一个" goes on', (t) async {
+      tasks();
+      await orb().setDriving(true);
+      await t.pump(const Duration(milliseconds: 300));
+      gemini.replies.addAll([
+        _call('list_tasks', {'stale': true}),
+        _call('nudge_task', {'task': '12'}),
+      ]);
+      await say(t, '全部处理掉');
+
+      // One card, for the first task that can be worked on, and the app says
+      // what waits for parking before it.
+      final line = agentLines().single;
+      expect(line, startsWith('「己」在等你验收，要停车后再验收。'));
+      expect(line, endsWith('要催吗？'));
+      expect(orb().actions.pending, isNotNull);
+      // The list the model read has the queue.
+      final list = (gemini.requests[1]['contents'] as List).last as Map;
+      final answer =
+          ((list['parts'] as List).single
+                  as Map)['functionResponse']['response']
+              as Map;
+      expect((answer['queue'] as Map)['current']['number'], 12);
+      expect((answer['queue'] as Map)['waitForParking'], ['己']);
+
+      // After the yes: what is left.
+      await say(t, '确认');
+      expect(f.world.sent, hasLength(1));
+      expect(agentLines().last, '已催 Cody。还有 1 个，说“下一个”继续。');
+
+      // The model is told where the pass is, and has next_task.
+      gemini.replies.add(_say('嗯'));
+      await say(t, '下一个');
+      final last = gemini.requests.last;
+      final system =
+          ((last['systemInstruction'] as Map)['parts'] as List).single['text']
+              as String;
+      expect(system, contains('【任务队列】'));
+      expect(system, contains('#12「丁」'));
+      expect(system, contains('next_task'));
+      expect(system, contains('【逐个处理任务】'));
+
+      final next = await orb().dispatch('next_task', const {});
+      expect(next['done'], isFalse);
+      expect((next['current'] as Map)['number'], 13);
+      expect(next['index'], 2);
+      final done = await orb().dispatch('next_task', const {});
+      expect(done['done'], isTrue);
+      await orb().setDriving(false);
+    });
+
+    orbTest('next_task is for driving only', (t) async {
+      final r = await orb().dispatch('next_task', const {});
+      expect(r['error'], isNotNull);
+    });
   });
 
   orbTest('a plain 确认 runs confirm in code and the app says the result', (

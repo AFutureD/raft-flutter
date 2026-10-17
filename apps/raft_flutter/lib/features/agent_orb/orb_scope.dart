@@ -56,6 +56,7 @@ const orbToolModes = <String, Set<OrbMode>>{
   // Driving.
   'set_driving_mode': _all,
   'driving_next': {OrbMode.driving},
+  'next_task': {OrbMode.driving},
   // Asking for a change (one card at a time; a new ask replaces the card).
   'reply': _all,
   'send_message': _all,
@@ -119,6 +120,7 @@ AgentScope orbAgentScope({
   String style = '',
   String? memory,
   String? pending,
+  String? extra,
 }) => AgentScope(
   systemPrompt: orbAgentPrompt(
     mode: mode,
@@ -127,6 +129,7 @@ AgentScope orbAgentScope({
     style: style,
     memory: memory,
     pending: pending,
+    extra: extra,
   ),
   tools: [
     for (final d in declarations)
@@ -144,6 +147,7 @@ String orbAgentPrompt({
   String style = '',
   String? memory,
   String? pending,
+  String? extra,
 }) {
   final b = StringBuffer(orbPromptIdentity);
   if (memory != null) b.write('\n$memory\n\n');
@@ -174,7 +178,9 @@ String orbAgentPrompt({
         ..write(orbActionBasicsAgent)
         ..write(orbActionReplyAgent)
         ..write(orbActionConfirmAgent)
-        ..write(orbActionDriving);
+        ..write(orbActionDriving)
+        ..write('\n')
+        ..write(orbActionTaskPassAgent);
     case OrbMode.confirming:
       b
         ..write(orbPromptFacts)
@@ -182,6 +188,7 @@ String orbAgentPrompt({
         ..write(orbActionConfirming(pending ?? '一项操作'))
         ..write(driving ? orbActionDriving : '');
   }
+  if (extra != null) b.write('\n$extra');
   b
     ..write('\n')
     ..write(orbPromptListening)

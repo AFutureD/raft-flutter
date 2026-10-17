@@ -588,6 +588,7 @@ class OrbController extends ChangeNotifier {
     } finally {
       operating.removeListener(watch);
     }
+    if (agentLayer) result = _afterTool(name, args, result);
     // What was opened, in the tool's own words, for the pill.
     final opened = result['title'];
     if (opened is String &&
@@ -729,7 +730,136 @@ class OrbController extends ChangeNotifier {
         return drivingNext();
       },
     ),
+    if (agentLayer)
+      OrbTool(
+        declaration: const {
+          'name': 'next_task',
+          'description':
+              '驾驶中逐个处理任务时（“全部处理掉”之后）用户说“下一个”“继续”：换到任务队列里的下一个。'
+              '返回 current（这一个任务，只对它提一个动作）、index、total；done 为 true 就是没有了，只说“就这些”。只在驾驶模式下可用。',
+        },
+        handler: (args, ctx) async {
+          if (!_driving) return {'error': '现在不在驾驶模式'};
+          return _nextTask();
+        },
+      ),
   ];
+
+  // ---- driving: going through the stale tasks ---------------------------------
+
+  /// The tasks "全部处理掉" goes through one by one: the ones the person can
+  /// act on while driving, oldest first. The ones that wait for the person's
+  /// review are not in it: they wait for parking, and the app says so.
+  var _taskQueue = <Map<String, Object?>>[];
+  var _taskAt = 0;
+
+  /// What the app says in front of the first card of the turn: the tasks that
+  /// wait for parking.
+  String? _deferNote;
+
+  /// The card now up is for the task the queue is on.
+  bool _queueCard = false;
+
+  void _clearQueue() {
+    _taskQueue = [];
+    _taskAt = 0;
+    _deferNote = null;
+    _queueCard = false;
+  }
+
+  /// `list_tasks` while driving: a queue the app holds, with the first task
+  /// as `queue.current`.
+  Map<String, Object?> _queueTasks(Map<String, Object?> result) {
+    final rows = [
+      for (final t in (result['tasks'] as List? ?? const []))
+        if (t is Map) Map<String, Object?>.from(t),
+    ];
+    final deferred = [
+      for (final t in rows)
+        if (t['waitingOnMe'] == true) t,
+    ];
+    _taskQueue = [
+      for (final t in rows)
+        if (t['waitingOnMe'] != true) t,
+    ];
+    _taskAt = 0;
+    _queueCard = false;
+    _deferNote = deferred.isEmpty
+        ? null
+        : '${[for (final t in deferred) '「${t['title']}」'].join('、')}在等你验收，要停车后再验收。';
+    return {
+      ...result,
+      'queue': {
+        'total': _taskQueue.length,
+        'current': _taskQueue.firstOrNull,
+        'waitForParking': [for (final t in deferred) t['title']],
+        'note': _taskQueue.isEmpty
+            ? '没有可以现在处理的任务：只说“这些都要停车后再验收”'
+            : '逐个处理：只对 current 提一个动作（卡住了 nudge_task，没人认领 assign_task）；'
+                  'waitForParking 的任务 App 会说，你不用提，也不要改它们的状态',
+      },
+    };
+  }
+
+  Map<String, Object?> _nextTask() {
+    if (_taskAt + 1 >= _taskQueue.length) {
+      _taskAt = _taskQueue.length;
+      _queueCard = false;
+      return {'ok': true, 'done': true, 'note': '没有了：只说“就这些”'};
+    }
+    _taskAt++;
+    _queueCard = false;
+    return {
+      'ok': true,
+      'done': false,
+      'index': _taskAt + 1,
+      'total': _taskQueue.length,
+      'current': _taskQueue[_taskAt],
+    };
+  }
+
+  /// The line that tells the model where the pass over the tasks is.
+  String? _queueLine() {
+    if (!_driving || _taskQueue.isEmpty || _taskAt >= _taskQueue.length) {
+      return null;
+    }
+    final t = _taskQueue[_taskAt];
+    return '【任务队列】正在逐个处理任务，共 ${_taskQueue.length} 个，现在是第 ${_taskAt + 1} 个：'
+        '#${t['number']}「${t['title']}」。用户说“下一个”“继续”就调用 next_task（不是 driving_next）。\n';
+  }
+
+  /// What the app adds to a tool's own words while it goes through the tasks:
+  /// the ones that wait for parking, and what is left.
+  Map<String, Object?> _afterTool(
+    String name,
+    Map<String, Object?> args,
+    Map<String, Object?> result,
+  ) {
+    if (name == 'list_tasks' && _driving && result['error'] == null) {
+      return _queueTasks(result);
+    }
+    final line = result[agentAppSays];
+    if (line is! String) return result;
+    if (name == 'confirm' || name == 'cancel_action') {
+      final ok = result['status'] == 'done' || result['status'] == 'cancelled';
+      if (!_queueCard || !ok) return result;
+      _queueCard = false;
+      final left = _taskQueue.length - _taskAt - 1;
+      return {
+        ...result,
+        agentAppSays: left > 0 ? '$line还有 $left 个，说“下一个”继续。' : '$line就这些了。',
+      };
+    }
+    if (result['status'] != 'needs_confirmation') return result;
+    final current = _taskAt < _taskQueue.length ? _taskQueue[_taskAt] : null;
+    final asked = RegExp(r'\d+').firstMatch('${args['task'] ?? ''}')?.group(0);
+    if (_driving && current != null && asked == '${current['number']}') {
+      _queueCard = true;
+    }
+    final note = _deferNote;
+    _deferNote = null;
+    return note == null ? result : {...result, agentAppSays: '$note$line'};
+  }
 
   // ---- the immersive layer ------------------------------------------------
 
@@ -806,6 +936,7 @@ class OrbController extends ChangeNotifier {
     if (on == _driving) return;
     _driving = on;
     _drivingIndex = 0;
+    _clearQueue();
     if (on) {
       _startLive();
     } else {
@@ -1128,6 +1259,7 @@ class OrbController extends ChangeNotifier {
   /// answered, both said by the app. Anything else is left to the model (null).
   Future<String?> _intercept(String said, AgentToolHandler run) async {
     _turnSaid = said;
+    _deferNote = null;
     final card = actions.pending;
     if (card != null) {
       if (!orbPlainYes(said) || card.sensitive) return null;
@@ -1204,6 +1336,7 @@ class OrbController extends ChangeNotifier {
       memory: _brainContext,
       channels: orbChannelsLine(orbDirectoryOf(workspace)),
       pending: pending?.summary,
+      extra: _queueLine(),
     );
   }
 

@@ -48,6 +48,15 @@ const orbActionReplyAgent =
     '“回复他”“回他说……”“跟他说……”都用 reply(text)：to 省略，App 会找到该回的那条消息（驾驶中是屏幕上这一件）；'
     '要回别人才写 to（人名）；只有用户说发到某个频道才写 to: "#频道名"。不要自己去找消息，也不要为了回复先调用 find 或 query。\n';
 
+/// "全部处理掉" while driving, as a procedure: one task at a time, one action
+/// each, the reviews left for the parked car.
+const orbActionTaskPassAgent =
+    '【逐个处理任务】驾驶中用户说“全部处理掉”“把这些任务处理掉”“一个一个来”：不是批量，也不是不做，更不是说“等停车”就结束。'
+    '先调用 list_tasks（stale 为 true），返回里 queue.current 是第一个。只对它提一个动作，调用动作工具出确认卡：'
+    '卡住或没进展就 nudge_task，没人认领就 assign_task，要说话就 reply。出了卡就结束这一轮，App 会复述并问用户。'
+    '用户确认、做完之后说“下一个”，调用 next_task，再对新的 current 提一个动作。'
+    '在等用户验收的任务（queue.waitForParking）要停车后才能验收，App 会说，你不用提，也不要调用 set_task_status。next_task 返回 done 就只说“就这些”。\n';
+
 /// The state with a card on the screen: [summary] is what it will do.
 String orbActionConfirming(String summary) =>
     '【等着确认】屏幕上有一张确认卡：$summary。App 已经向用户复述过，也问过他了。'
