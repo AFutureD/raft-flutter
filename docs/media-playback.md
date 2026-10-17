@@ -1,5 +1,11 @@
 # Attachment media playback
 
+Current timeline contract (owner decision 2026-10-17): every platform and window size displays a video poster.
+Only opening the full-screen viewer creates video playback; closing it releases playback. See [Video cards](#video-cards)
+for poster loading, bounded first-frame extraction and the unified viewer entry. The older inline-card measurements,
+handoff descriptions and interaction tables below document the previous implementation and are retained as history;
+they are superseded by this contract. Inline audio playback remains supported.
+
 Inline video cards, the media viewer and audio attachments play through one interface,
 `AttachmentPlayer` (`apps/raft_flutter/lib/platform/attachment_player.dart`). The engine depends on the platform;
 `createAttachmentPlayer` (`attachment_player_factory.dart`) chooses it.
