@@ -131,13 +131,13 @@ class OrbEvalCheck {
   factory OrbEvalCheck.saysMatching(RegExp pattern, String label) =>
       OrbEvalCheck(
         label,
-        (run) => pattern.hasMatch(run.text) ? null : '没有说到：$label',
+        (run) => orbEvalMatches(pattern, run.text) ? null : '没有说到：$label',
       );
 
   /// The text (of every turn) must not match [pattern].
   factory OrbEvalCheck.avoids(RegExp pattern, String label) =>
       OrbEvalCheck('不能出现 $label', (run) {
-        final m = pattern.firstMatch(run.allText);
+        final m = orbEvalFirstMatch(pattern, run.allText);
         return m == null ? null : '出现了 $label：「${m.group(0)}」';
       });
 
@@ -320,7 +320,48 @@ bool _argsMatch(Map<String, Object?> actual, Map<String, Object?> wanted) {
   return true;
 }
 
-String _squash(String s) => s.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+/// [s] for comparing words: no spaces at all (a transcript puts them between
+/// words: "要发 吗？"), full-width letters, digits and punctuation as
+/// half-width, lower case.
+String _squash(String s) => orbEvalCompact(s, punctuation: true).toLowerCase();
+
+/// [s] without any space (also the ideographic and no-break ones), and the
+/// full-width letters and digits as ordinary ones; with [punctuation] the
+/// full-width punctuation too ("？" as "?", "，" as ",").
+String orbEvalCompact(String s, {bool punctuation = false}) {
+  final out = StringBuffer();
+  for (final r in s.runes) {
+    if (r == 0x20 || r == 0x3000 || r == 0xA0 || (r >= 0x09 && r <= 0x0D)) {
+      continue;
+    }
+    final wide = r >= 0xFF01 && r <= 0xFF5E;
+    final letterOrDigit =
+        (r >= 0xFF10 && r <= 0xFF19) ||
+        (r >= 0xFF21 && r <= 0xFF3A) ||
+        (r >= 0xFF41 && r <= 0xFF5A);
+    out.writeCharCode(wide && (punctuation || letterOrDigit) ? r - 0xFEE0 : r);
+  }
+  return out.toString();
+}
+
+/// The first match of [pattern] in [text] as it was said, without spaces, or
+/// with the punctuation made half-width or full-width: a pattern written with
+/// "?" or "？" finds either.
+RegExpMatch? orbEvalFirstMatch(RegExp pattern, String text) {
+  final compact = orbEvalCompact(text);
+  return pattern.firstMatch(compact) ??
+      pattern.firstMatch(orbEvalCompact(text, punctuation: true)) ??
+      // A pattern written with the full-width mark finds the half-width one.
+      pattern.firstMatch(
+        compact.replaceAllMapped(
+          RegExp(r'[,!?:;()]'),
+          (m) => String.fromCharCode(m[0]!.codeUnitAt(0) + 0xFEE0),
+        ),
+      );
+}
+
+bool orbEvalMatches(RegExp pattern, String text) =>
+    orbEvalFirstMatch(pattern, text) != null;
 
 /// How many sentences [text] has (ends: 。！？!? and line breaks, and a
 /// period that ends a word, not the one inside `v1.4`).

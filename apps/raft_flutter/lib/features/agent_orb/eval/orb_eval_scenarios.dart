@@ -560,7 +560,7 @@ final List<OrbEvalScenario> orbEvalScenarios = [
         final opened = run.tools.any(
           (c) => c.name == 'navigate' && c.result['error'] == null,
         );
-        final explained = RegExp(r'没加入|未加入|还没加入|加入').hasMatch(run.text);
+        final explained = orbEvalMatches(RegExp(r'没加入|未加入|还没加入|加入'), run.text);
         return opened || explained ? null : '没打开，也没说明没加入';
       }),
       OrbEvalCheck.avoids(RegExp(r'出错|失败|没成功|报错'), '报错的话'),
@@ -576,7 +576,7 @@ final List<OrbEvalScenario> orbEvalScenarios = [
       OrbEvalCheck.anyTool(['navigate', 'list_targets']),
       OrbEvalCheck.custom('去了 raft-flutter，或问是不是 raft-flutter', (run) {
         final there = run.last?.location.contains(_raft) ?? false;
-        final asked = run.text.contains('raft-flutter');
+        final asked = orbEvalCompact(run.text).contains('raft-flutter');
         return there || asked ? null : '没去 raft-flutter，也没问是不是它';
       }),
       ..._std(),
@@ -865,7 +865,9 @@ final List<OrbEvalScenario> orbEvalScenarios = [
         final cards = run.last?.cards ?? const [];
         if (cards.length < 2) return '界面上不到 2 张卡';
         final who = cards[1]['who']!;
-        return run.text.contains(who) ? null : '没有说到第 2 件的发送人（$who）';
+        return orbEvalCompact(run.text).contains(orbEvalCompact(who))
+            ? null
+            : '没有说到第 2 件的发送人（$who）';
       }),
       OrbEvalCheck.shortReply(2),
       ..._std(),
