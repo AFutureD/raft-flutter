@@ -504,9 +504,9 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     say: const ['回复他说可以合', '确认'],
     checks: [
       OrbEvalCheck.anyTool(
-        ['reply_in_thread', 'send_message'],
+        ['reply', 'reply_in_thread', 'send_message'],
         args: {'text': _has('可以')},
-        label: '调用 reply_in_thread 或 send_message(text 含“可以”)',
+        label: '调用 reply、reply_in_thread 或 send_message(text 含“可以”)',
       ),
       OrbEvalCheck.says([
         ['Cody'],
@@ -515,7 +515,7 @@ final List<OrbEvalScenario> orbEvalScenarios = [
       OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要发'),
       OrbEvalCheck.confirmedWrite(
         label: '确认卡在前，确认后才发出，只发一次',
-        actionTools: ['reply_in_thread', 'send_message'],
+        actionTools: ['reply', 'reply_in_thread', 'send_message'],
         write: (w) => _posted(w, '可以'),
       ),
       OrbEvalCheck.saysMatching(_saysDone, '说已发出'),
@@ -715,11 +715,20 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     data: _codyDmUnread,
     say: const ['看看 Cody 私信'],
     checks: [
-      OrbEvalCheck.tool(
-        'navigate',
-        args: {'dm_id': _codyDm},
-        label: 'navigate(dm_id: Cody 的私信)',
-      ),
+      // By id, or by the name "Cody" (navigate resolves a person to the
+      // private conversation): what counts is where it went.
+      OrbEvalCheck.custom('navigate 到 Cody 的私信（dm_id，或名字落在这个私信）', (run) {
+        for (final c in run.tools.where((c) => c.name == 'navigate')) {
+          final matched = c.result['matched'];
+          if (c.args['dm_id'] == _codyDm ||
+              (matched is Map &&
+                  matched['kind'] == 'dm' &&
+                  matched['id'] == _codyDm)) {
+            return null;
+          }
+        }
+        return 'navigate 没有到 Cody 的私信：${run.tools.where((c) => c.name == 'navigate').map((c) => c.args).join('、')}';
+      }),
       OrbEvalCheck.says([
         ['Cody'],
       ]),
@@ -738,9 +747,9 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     say: const ['回他“晚上看”', '确认'],
     checks: [
       OrbEvalCheck.anyTool(
-        ['send_message', 'reply_in_thread'],
+        ['reply', 'send_message', 'reply_in_thread'],
         args: {'text': _has('晚上看')},
-        label: '调用 send_message(text 含“晚上看”)',
+        label: '调用 reply 或 send_message(text 含“晚上看”)',
       ),
       OrbEvalCheck.says([
         ['Cody'],
@@ -749,7 +758,7 @@ final List<OrbEvalScenario> orbEvalScenarios = [
       OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要发'),
       OrbEvalCheck.confirmedWrite(
         label: '确认卡在前，确认后才发出，只发一次',
-        actionTools: ['send_message', 'reply_in_thread'],
+        actionTools: ['reply', 'send_message', 'reply_in_thread'],
         write: (w) => _posted(w, '晚上看'),
       ),
       OrbEvalCheck.saysMatching(_saysDone, '说已发出'),
@@ -871,9 +880,9 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     say: const ['回他可以', '确认'],
     checks: [
       OrbEvalCheck.anyTool(
-        ['reply_in_thread', 'send_message'],
+        ['reply', 'reply_in_thread', 'send_message'],
         args: {'text': _has('可以')},
-        label: '调用 reply_in_thread 或 send_message(text 含“可以”)',
+        label: '调用 reply、reply_in_thread 或 send_message(text 含“可以”)',
       ),
       OrbEvalCheck.says([
         ['Cody'],
@@ -882,7 +891,7 @@ final List<OrbEvalScenario> orbEvalScenarios = [
       OrbEvalCheck.saysMatching(_asksFirst, '问一句要不要发'),
       OrbEvalCheck.confirmedWrite(
         label: '确认卡在前，确认后才发出，只发一次',
-        actionTools: ['reply_in_thread', 'send_message'],
+        actionTools: ['reply', 'reply_in_thread', 'send_message'],
         write: (w) => _posted(w, '可以'),
       ),
       OrbEvalCheck.screen('驾驶模式还开着', (s, _) => s.driving),
@@ -1087,11 +1096,16 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     say: const ['全部处理掉', '确认'],
     checks: [
       OrbEvalCheck.anyTool(['list_tasks', 'task_detail']),
-      OrbEvalCheck.anyTool(['nudge_task', 'assign_task', 'send_message']),
+      OrbEvalCheck.anyTool([
+        'nudge_task',
+        'assign_task',
+        'reply',
+        'send_message',
+      ]),
       OrbEvalCheck.saysMatching(_asksFirst, '一个一个问，先问要不要'),
       OrbEvalCheck.confirmedWrite(
         label: '确认卡在前，确认后才发出，只发一次',
-        actionTools: ['nudge_task', 'assign_task', 'send_message'],
+        actionTools: ['nudge_task', 'assign_task', 'reply', 'send_message'],
         write: (w) => w.method == 'POST',
       ),
       // Marking a task done is an approval: it waits for parking.
