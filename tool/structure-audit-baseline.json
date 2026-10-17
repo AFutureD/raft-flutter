@@ -1231,6 +1231,14 @@
       "reason": "task #161 D4 moves 24 receiver-local message/thread projections and the existing window reference into WorkspaceMessages, replacing them with one domain reference. Root forwarding getters remain on the temporary-forward list and are removed when callers move to messageDomain; this allowance permits no new forwards. Approved by Cindy in Raft b3bf6a3d-ffbd-4bd9-a79d-cffe34275fb6.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController._editor",
+      "limit": 1,
+      "reason": "D5 replaces six receiver-local editor states with one owner; Root fields 41 to 36. Approved by Cindy in Raft fa9cd784-0543-409b-bb0c-4789b4738c2d. The 38 temporary compatibility declarations (168 lines), static alias, root reference and this exception must be removed by 2026-10-30 through the agreed caller migration and composition cleanup.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
     }
   ]
 }
