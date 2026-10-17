@@ -159,6 +159,8 @@ abstract final class OrbSignals {
     caseSensitive: false,
   );
 
+  static final _question = RegExp(r'[?？]');
+
   // An explicit "waiting for you" request.
   static final _approval = RegExp(
     r'等你(?:来)?(?:批准|决定|拍板|确认|审批|点头|同意|验收|review)|'
@@ -327,11 +329,16 @@ abstract final class OrbSignals {
       if (asked != null) return needs(OrbReason.mentionAsk, asked);
     }
 
-    if (parentMine || dm) {
+    if (dm) {
       final asked = newestWhere((m) => asksSomething(m.text));
-      if (asked != null) {
-        return needs(dm ? OrbReason.dmAsk : OrbReason.replyAsk, asked);
-      }
+      if (asked != null) return needs(OrbReason.dmAsk, asked);
+    }
+    // In a thread the person started, replies are mostly reports to them,
+    // and request words (批准, 确认, review) are often about someone else:
+    // only a question is a definite ask; the rest is for the model.
+    if (parentMine) {
+      final asked = newestWhere((m) => _question.hasMatch(m.text));
+      if (asked != null) return needs(OrbReason.replyAsk, asked);
     }
 
     // Addressed to the person, with nothing that reads as a request: only the

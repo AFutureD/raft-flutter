@@ -272,6 +272,24 @@ void main() {
       expect(s.bucket, OrbBucket.progress);
     });
 
+    // On the G100 two progress reports in Kevin's threads were read as
+    // asking him: "例外已按批准范围记录…" and a status line with 确认. In a
+    // reply, only a question is a definite ask; request words alone go to the
+    // model.
+    for (final text in [
+      '例外已按批准范围记录，最终预检正在运行',
+      '已经换成 Flash Lite 了，装好后我实测一下再告诉你',
+      'Rebased; final preflight is running, then ready for review',
+    ]) {
+      test('a status reply with request words is for the model: $text', () {
+        final s = classify(
+          cand([msg(text)], parentMine: true, parent: mine('这个怎么样')),
+        );
+        expect(s.ambiguous, isTrue);
+        expect(s.bucket, OrbBucket.progress);
+      });
+    }
+
     test('a reply to me without a question', () {
       final s = classify(
         cand([msg('收到，我来改')], parentMine: true, parent: mine('改一下')),
