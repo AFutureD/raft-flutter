@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 
 import 'settings_layout.dart' show RaftSpace;
@@ -92,9 +91,10 @@ class RaftSheetScope extends InheritedWidget {
   });
   final ScrollController? scrollController;
 
-  /// Moves the sheet for a drag the scroll view does not take: a mouse on a
-  /// desktop window narrowed to phone width (scroll views ignore mouse drags
-  /// on desktop). Null when the sheet moves another way.
+  /// Moves the sheet for a drag on the handle or the header, which the scroll
+  /// view cannot be trusted with: it ignores a mouse on desktop, and turns a
+  /// finger into scrolling once the body is scrolled. Null when the sheet
+  /// moves another way.
   final RaftSheetPointerDrag? pointerDrag;
 
   static RaftSheetScope? maybeOf(BuildContext context) =>
@@ -112,8 +112,8 @@ abstract interface class RaftSheetPointerDrag {
   void end(double velocityDy);
 }
 
-/// The handle and the header take a mouse drag and move the sheet with it,
-/// as a finger does through the scroll view.
+/// The handle and the header move the sheet with any pointer, whatever the
+/// body's scroll offset.
 class _PointerDragArea extends StatelessWidget {
   const _PointerDragArea({required this.child});
   final Widget child;
@@ -123,13 +123,9 @@ class _PointerDragArea extends StatelessWidget {
     final drag = RaftSheetScope.maybeOf(context)?.pointerDrag;
     if (drag == null) return child;
     return GestureDetector(
+      // Every device: the handle sits in the body's scroll view, and once
+      // the body is scrolled a finger there would scroll the text instead.
       behavior: HitTestBehavior.translucent,
-      // Touch keeps going through the scroll view; only devices it ignores.
-      supportedDevices: const {
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.invertedStylus,
-      },
       onVerticalDragUpdate: (d) => drag.update(d.delta.dy),
       onVerticalDragEnd: (d) => drag.end(d.velocity.pixelsPerSecond.dy),
       child: MouseRegion(cursor: SystemMouseCursors.grab, child: child),
