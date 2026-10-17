@@ -125,6 +125,8 @@ void main() {
       ('open task number 7', OrbKind.task, '#7'),
       // Pages.
       ('动态', OrbKind.page, 'activity'),
+      ('活动', OrbKind.page, 'activity'),
+      ('去活动页', OrbKind.page, 'activity'),
       ('打开动态', OrbKind.page, 'activity'),
       ('收件箱', OrbKind.page, 'activity'),
       ('设置', OrbKind.page, 'settings'),
