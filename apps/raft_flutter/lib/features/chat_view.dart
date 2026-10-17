@@ -35,7 +35,6 @@ import '../platform/file_selection.dart';
 import 'attachment_preview_dialog.dart' show attachmentPreviewKind;
 import 'attachment_view.dart';
 import 'media_items.dart';
-import 'media_video_page.dart' show MediaBrowserFlags;
 import 'attachment_shape.dart';
 import 'message_presentation.dart';
 import 'message_preparation.dart';
@@ -1892,10 +1891,7 @@ class _RaftChatViewState extends State<RaftChatView>
     // when the browser pages through those too.
     final media = [
       for (final a in all)
-        if (raster(a) ||
-            (MediaBrowserFlags.videoPages(context) &&
-                attachmentPreviewKind(a) == 'video'))
-          a,
+        if (raster(a) || attachmentPreviewKind(a) == 'video') a,
     ];
     // Web MessageItem: images, then videos, then audio (each `space-y-2`),
     // then every other attachment as a card.
@@ -1922,9 +1918,7 @@ class _RaftChatViewState extends State<RaftChatView>
         metadata: a,
         messageId: messageId,
         mediaMessage: mediaMessage(message),
-        galleryItems: MediaBrowserFlags.videoPages(context) && !pending
-            ? media
-            : null,
+        galleryItems: pending ? null : media,
       ),
     );
     return RaftAttachmentStack(

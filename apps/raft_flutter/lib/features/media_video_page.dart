@@ -16,35 +16,18 @@ import '../platform/mp4_hdr_probe.dart';
 import 'attachment_preview_dialog.dart' show HdrDetector;
 import 'media_failure_text.dart';
 
-/// Whether the media browser pages through videos as well as images. Off
-/// until the device suite is green: `--dart-define=RAFT_MEDIA_BROWSER_VIDEO=true`
-/// turns it on (docs/media-playback.md, "Media browser").
+/// Responsive layout overrides for media tests.
 abstract final class MediaBrowserFlags {
-  static const _define = bool.fromEnvironment('RAFT_MEDIA_BROWSER_VIDEO');
-
-  /// Tests set it.
-  @visibleForTesting
-  static bool? override;
-
-  static bool get video => override ?? _define;
-
   /// Forces the phone layout on (true) or off (false) for a suite that mounts
-  /// the real cards (the parity suite compares the inline card with Web's, the
-  /// player suite exercises the inline player on a phone-sized device). Null in
-  /// the product.
+  /// the real cards and viewer chrome. It never selects a timeline player.
+  /// Null in the product.
   @visibleForTesting
   static bool? phoneLayout;
-
-  /// Whether the browser pages through videos for the layout of [context]: a
-  /// phone always does (its video card has no player of its own, the viewer is
-  /// where a video plays), the other layouts follow the flag.
-  static bool videoPages(BuildContext context) =>
-      video || phoneMediaLayout(context);
 }
 
 /// A phone: a touch device whose short side is under 600 dp (also a phone held
 /// sideways). Its video cards show the poster only and open the viewer to play;
-/// a narrow desktop window is not a phone and keeps the inline player.
+/// a narrow desktop window keeps desktop viewer chrome.
 bool phoneMediaLayout(BuildContext context) =>
     MediaBrowserFlags.phoneLayout ??
     (RaftDensityScope.of(context) == RaftDensity.touch &&
@@ -588,7 +571,8 @@ class _MediaVideoPageState extends State<MediaVideoPage> {
             !natural.isEmpty &&
             bound.isFinite &&
             !bound.isEmpty) {
-          final scale = bound.width / natural.width < bound.height / natural.height
+          final scale =
+              bound.width / natural.width < bound.height / natural.height
               ? bound.width / natural.width
               : bound.height / natural.height;
           box = Size(natural.width * scale, natural.height * scale);

@@ -22,10 +22,6 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/external_identity.dart';
-import 'package:raft_flutter/features/inline_attachment_media.dart';
-import 'package:raft_flutter/features/media_video_page.dart' show MediaBrowserFlags;
-import 'package:raft_flutter/platform/attachment_player.dart';
-import 'package:raft_flutter/platform/media_failure.dart';
 import 'package:raft_flutter/features/profile_preview.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -740,79 +736,13 @@ ParityCase _rowCase({
   },
 );
 
-/// The message video card without a decoder: the inline card's player
-/// come from [InlineMediaTestHooks]. The fake player draws the fixture clip's
-/// flat first frame (the Web case plays the same colour as a 360x640 WebM) with
-/// `object-contain`, so the pillarbox geometry is the real card's.
-class _ParityVideoPlayer implements AttachmentPlayer {
-  _ParityVideoPlayer({this.fail = false});
-  final bool fail;
-  final events = StreamController<AttachmentPlayback>.broadcast();
-  var playing = false;
-  AttachmentPlayback get state => AttachmentPlayback(
-    playing: playing,
-    position: Duration.zero,
-    duration: const Duration(seconds: 20),
-    hasFrame: true,
-  );
-  @override
-  Stream<AttachmentPlayback> get changes => events.stream;
-  @override
-  AttachmentPlayback get playback => state;
-  @override
-  bool get usesPlatformView => false;
-  @override
-  Widget video() => Center(
-    child: AspectRatio(
-      aspectRatio: 360 / 640,
-      child: const ColoredBox(color: Color(0xFF3D5A79)),
-    ),
-  );
-  @override
-  Future<void> open(AttachmentSource source) async {
-    // The case Web shows: a file the browser cannot decode (the codec
-    // warning and Download). Other causes have their own message and actions
-    // (media_failure_ui_test).
-    if (fail) {
-      throw const MediaPlaybackException(
-        MediaFailure(MediaFailureKind.unsupported),
-      );
-    }
-    events.add(state);
-  }
-
-  @override
-  Future<void> toggle() async {
-    playing = !playing;
-    events.add(state);
-  }
-
-  @override
-  Future<void> pause() async {
-    playing = false;
-    events.add(state);
-  }
-
-  @override
-  Future<void> seek(Duration value) async {}
-  @override
-  Future<void> volume(double value) async {}
-  @override
-  Future<void> dispose() async {
-    unawaited(events.close());
-  }
-}
-
-/// A message-row case whose video card is prepared by the fake decoder; [act]
-/// runs after the card has loaded, and the hooks are always released.
-ParityCase _videoCase({
-  bool fail = false,
-  Future<void> Function(WidgetTester t)? act,
-}) {
+/// Web keeps playback/error states inside the row; all Flutter timeline
+/// variants intentionally remain posters. Playback is covered in the viewer.
+ParityCase _videoCase({Future<void> Function(WidgetTester t)? act}) {
   final base = _rowCase(
     widgets: const [
       'raft_flutter:InlineVideoAttachment',
-      'raft_ui:RaftInlineVideo',
+      'raft_ui:RaftVideoPosterCard',
     ],
     act: (t, ctx, stage) async {
       await _pumpFrames(t, 12);
@@ -822,23 +752,11 @@ ParityCase _videoCase({
   );
   return ParityCase(
     widgets: base.widgets,
-    notes: base.notes,
+    notes:
+        '${base.notes} Intentional: timeline videos are poster-only on every platform (owner decision 2026-10-17); playback/error UI lives in the viewer, unlike Web.',
     settle: base.settle,
-    build: (ctx) {
-      InlineMediaTestHooks.playerFactory = () => _ParityVideoPlayer(fail: fail);
-      // Web's inline card at every width: the phone card is an intentional
-      // difference (docs/parity.md, "Video cards").
-      MediaBrowserFlags.phoneLayout = false;
-      return base.build(ctx);
-    },
-    interact: (t, ctx) async {
-      try {
-        await base.interact!(t, ctx);
-      } finally {
-        InlineMediaTestHooks.playerFactory = null;
-        MediaBrowserFlags.phoneLayout = null;
-      }
-    },
+    build: base.build,
+    interact: base.interact,
   );
 }
 
@@ -968,19 +886,10 @@ final Map<String, ParityCase> extConversationCases = () {
   }
   for (final platform in const ['desktop', 'mobile']) {
     add('attach', platform, 'video-poster', _videoCase());
-    add('attach', platform, 'video-error', _videoCase(fail: true));
+    add('attach', platform, 'video-error', _videoCase());
   }
   add('attach', 'desktop', 'video-hover', _videoCase(act: _hoverVideo));
-  add(
-    'attach',
-    'desktop',
-    'video-playing',
-    _videoCase(
-      // The pointer is parked after a click (Playwright and the harness), so
-      // the playing picture carries no hover controls.
-      act: (t) => t.tap(find.byKey(const Key('inline-video-surface'))),
-    ),
-  );
+  add('attach', 'desktop', 'video-playing', _videoCase());
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const [
       'translating',

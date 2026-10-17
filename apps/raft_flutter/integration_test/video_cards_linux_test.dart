@@ -1,6 +1,6 @@
 // The real Linux build: a desktop video card without a thumbnail or a size
 // shows the video's own first frame (read through libmpv by MpvVideoFrameProbe
-// from a few ranged bytes) and the inline player still plays.
+// from a few ranged bytes) and a click opens playback only in the viewer.
 //
 //   xvfb-run -a tool/flutter test integration_test/video_cards_linux_test.dart -d linux
 //
@@ -14,6 +14,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
+import 'package:raft_flutter/features/attachment_preview_dialog.dart';
 import 'package:raft_flutter/platform/video_frame_probe.dart';
 import 'package:raft_flutter/platform/video_frame_probe_mpv.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -33,9 +34,11 @@ class _LoggingProbe implements VideoFrameProbe {
     // ignore: avoid_print
     print('VIDEO-CARDS-LINUX probe ${url.path} maxEdge=$maxEdge');
     try {
-      final info = await inner.probe(id: id, url: url, headers: headers, maxEdge: maxEdge, timeout: timeout, maxBytes: maxBytes);
+      final info = await inner.probe(id: id, url: url, headers: headers, maxEdge: maxEdge, timeout: timeout, maxBytes: maxBytes,
+      );
       // ignore: avoid_print
-      print('VIDEO-CARDS-LINUX probe ${url.path} -> ${info.width}x${info.height} jpeg=${info.jpeg?.length}');
+      print('VIDEO-CARDS-LINUX probe ${url.path} -> ${info.width}x${info.height} jpeg=${info.jpeg?.length}',
+      );
       return info;
     } on Object catch (error) {
       // ignore: avoid_print
@@ -50,7 +53,8 @@ class _LoggingProbe implements VideoFrameProbe {
 
 class _Client extends RaftClient {
   _Client(this.base)
-    : super(origin: 'https://example.invalid', sessionStore: MemorySessionStore());
+    : super(origin: 'https://example.invalid', sessionStore: MemorySessionStore(),
+      );
   final String base;
   @override
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
@@ -65,7 +69,7 @@ class _Client extends RaftClient {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('no thumbnail, no size: first frame from ranged reads; inline player plays', (tester) async {
+  testWidgets('no thumbnail, no size: bounded posters; only the opened viewer plays', (tester) async {
     final dir = Directory.systemTemp.createTempSync('raft-video-cards-linux');
     addTearDown(() => dir.deleteSync(recursive: true));
     Future<void> make(String name, String size) async {
@@ -84,7 +88,8 @@ void main() {
     final sent = <String, int>{};
     final requests = <String, int>{};
     final ranges = <String, List<String>>{};
-    final server = (await tester.runAsync(() => HttpServer.bind(InternetAddress.loopbackIPv4, 0)))!;
+    final server = (await tester.runAsync(() => HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+      ))!;
     server.listen((request) async {
       final name = request.uri.pathSegments.last;
       final file = File('${dir.path}/$name');
@@ -108,7 +113,9 @@ void main() {
         ..headers.set('accept-ranges', 'bytes')
         ..headers.contentType = ContentType('video', 'mp4')
         ..contentLength = end - start + 1;
-      if (status == 206) request.response.headers.set('content-range', 'bytes $start-$end/$size');
+      if (status == 206) {
+        request.response.headers.set('content-range', 'bytes $start-$end/$size');
+      }
       // A small send buffer, so the count is what the client read. An
       // open-ended range would otherwise fill the kernel buffer with the file.
       final socket = await request.response.detachSocket(writeHeaders: true);
@@ -175,9 +182,11 @@ void main() {
     addTearDown(tester.view.reset);
 
     final probe = _LoggingProbe();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          theme: raftTheme(RaftFamily.elegant),
         home: Scaffold(
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +199,18 @@ void main() {
                   channelId: 'channel',
                   authorized: () => true,
                   pending: false,
-                  onOpenPreview: () {},
+                  onOpenPreview: () => navigator.currentState!.push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => AttachmentPreviewDialog(
+                          controller: w,
+                          metadata: clip(name),
+                          authorized: () => true,
+                          onClose: () => navigator.currentState!.pop(),
+                          onDownload: () async {},
+                          hdrDetector: (_) async => false,
+                        ),
+                      ),
+                    ),
                   frameProbe: probe,
                 ),
             ],
@@ -205,56 +225,77 @@ void main() {
     final clock = Stopwatch()..start();
     while ((poster('portrait').evaluate().isEmpty || poster('landscape').evaluate().isEmpty) &&
         clock.elapsed < const Duration(seconds: 60)) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
       await tester.pump(const Duration(milliseconds: 100));
     }
     // ignore: avoid_print
-    print('VIDEO-CARDS-LINUX after ${clock.elapsedMilliseconds} ms: images=${find.byType(Image).evaluate().length} raw=${find.byType(RawImage).evaluate().length} cards=${find.byType(RaftInlineVideo).evaluate().length} sessions.failed=${w.playerSessions.frameFailed.length} shapes=${w.playerSessions.shapes.length} stored=${await tester.runAsync(() => store.entryCount(namespace: AttachmentCacheNamespace.attachments))}');
-    expect(poster('portrait'), findsOneWidget, reason: 'the first frame of the portrait clip');
+    print('VIDEO-CARDS-LINUX after ${clock.elapsedMilliseconds} ms: images=${find.byType(Image).evaluate().length} raw=${find.byType(RawImage).evaluate().length} cards=${find.byType(RaftVideoPosterCard).evaluate().length} sessions.failed=${w.playerSessions.frameFailed.length} shapes=${w.playerSessions.shapes.length} stored=${await tester.runAsync(() => store.entryCount(namespace: AttachmentCacheNamespace.attachments))}',
+      );
+    expect(poster('portrait'), findsOneWidget, reason: 'the first frame of the portrait clip',
+      );
     expect(poster('landscape'), findsOneWidget);
     final bytes = {for (final e in sent.entries) e.key: e.value};
     final sizes = {
       for (final name in ['portrait', 'landscape']) '$name.mp4': File('${dir.path}/$name.mp4').lengthSync(),
     };
     // ignore: avoid_print
-    print('VIDEO-CARDS-LINUX posters after ${clock.elapsedMilliseconds} ms; bytes $bytes of $sizes; requests $requests; ranges $ranges');
+    print('VIDEO-CARDS-LINUX posters after ${clock.elapsedMilliseconds} ms; bytes $bytes of $sizes; requests $requests; ranges $ranges',
+      );
     for (final name in sizes.keys) {
-      expect(bytes[name] ?? 0, lessThan(sizes[name]! ~/ 4), reason: '$name: ranged reads, not the file');
-    }
-    // Desktop keeps the inline player. The centre Play disc is hover-only
-    // (the widget test: paused, the bar is up, the big Play is not); a click
-    // on the picture plays.
-    expect(find.byType(RaftInlineVideo), findsNWidgets(2));
-    expect(find.byType(RaftVideoPosterCard), findsNothing);
-    final surface = find.descendant(
-      of: find.byKey(const ValueKey('landscape')),
-      matching: find.byKey(const Key('inline-video-surface')),
-    );
-    expect(surface, findsOneWidget);
-    expect(
+      expect(bytes[name] ?? 0, lessThan(sizes[name]! ~/ 4), reason: '$name: ranged reads, not the file',
+        );
+      }
+      expect(find.byType(RaftInlineVideo), findsNothing);
+      expect(find.byType(RaftVideoPosterCard), findsNWidgets(2));
+      expect(w.playerSessions.created, 0);
+      expect(w.playerSessions.length, 0);
+      await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('landscape')),
-        matching: find.byKey(const Key('inline-video-play')),
-      ),
-      findsNothing,
-    );
-    await tester.tap(surface);
-    final card = find.descendant(
-      of: find.byKey(const ValueKey('landscape')),
-      matching: find.byType(RaftInlineVideo),
+        matching: find.byKey(const Key('inline-video-poster-card')),
+        ),
     );
     final playClock = Stopwatch()..start();
+      while (playClock.elapsed < const Duration(seconds: 40) &&
+          find.byType(RaftVideoViewer).evaluate().isEmpty) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(RaftVideoViewer), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(RaftVideoViewer),
+          matching: find.byKey(const Key('inline-video-play')),
+        ),
+      );
     while (playClock.elapsed < const Duration(seconds: 40)) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
       await tester.pump(const Duration(milliseconds: 100));
-      final video = tester.widget<RaftInlineVideo>(card);
+      final video = tester.widget<RaftVideoViewer>(
+          find.byType(RaftVideoViewer),
+        );
       if (video.playing && video.position > const Duration(seconds: 1)) break;
     }
-    final video = tester.widget<RaftInlineVideo>(card);
-    // ignore: avoid_print
-    print('VIDEO-CARDS-LINUX inline playing=${video.playing} position=${video.position}');
+    final video = tester.widget<RaftVideoViewer>(
+        find.byType(RaftVideoViewer),
+      );
     expect(video.playing, isTrue);
     expect(video.position, greaterThan(const Duration(seconds: 1)));
-    await tester.pumpWidget(const SizedBox());
-  });
+      expect(w.playerSessions.created, 1);
+      navigator.currentState!.pop();
+      while (playClock.elapsed < const Duration(seconds: 45) &&
+          w.playerSessions.length != 0) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(w.playerSessions.length, 0);
+      await tester.pumpWidget(const SizedBox());
+  },
+  );
 }

@@ -11013,7 +11013,7 @@
    "status": "partial",
    "webEntry": "MessageItem inline players + MediaPreviewHost",
    "gate": "browser codec limits show 'Download to view'",
-   "flutterEntry": "inline_attachment_media.dart (desktop: inline player; phone: RaftVideoPosterCard, poster + play, opens media_browser which autoplays), video_card_poster.dart (first frame without a server thumbnail), platform/attachment_player.dart, raft_ui video_viewer.dart",
+   "flutterEntry": "inline_attachment_media.dart (all platforms: RaftVideoPosterCard, poster + play, opens media_browser which autoplays), video_card_poster.dart (first frame without a server thumbnail), platform/attachment_player.dart, raft_ui video_viewer.dart",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/inline_attachment_media.dart",
@@ -11028,7 +11028,7 @@
      "needle": "class RaftVideoPosterCard"
     }
    ],
-   "justification": "Intentional difference (owner decision 2026-10-14, docs/parity.md 'Video cards'): on a phone the message card has no inline player; it shows the poster at the video's real shape with a play button and the length, and a tap anywhere opens the media viewer, which plays. Desktop keeps Web's inline player.",
+   "justification": "Intentional difference (owner decision 2026-10-17, docs/parity.md 'Video cards'): every platform shows a shaped video poster with no inline playback session; clicking opens and plays in the media viewer. Bounded first-frame extraction remains when no server thumbnail exists; closing releases playback.",
    "impact": "Phone users start a video with one tap into the viewer instead of playing in the message list; no player (decoder) is held while scrolling.",
    "size": "S"
   },

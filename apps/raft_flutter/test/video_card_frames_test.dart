@@ -29,7 +29,7 @@ import 'attachment_thumbnail_restart_test.dart'
 class _Player implements AttachmentPlayer {
   final events = StreamController<AttachmentPlayback>.broadcast();
   final calls = <String>[];
-  bool playing = false;
+  bool playing = false, disposed = false;
   AttachmentPlayback get state => AttachmentPlayback(
     playing: playing,
     duration: const Duration(seconds: 83),
@@ -68,7 +68,10 @@ class _Player implements AttachmentPlayer {
   @override
   Future<void> volume(double value) async {}
   @override
-  Future<void> dispose() async => events.close();
+  Future<void> dispose() async {
+    disposed = true;
+    await events.close();
+  }
 }
 
 class FakeProbe implements VideoFrameProbe {
@@ -216,7 +219,6 @@ void main() {
   Widget card(
     WorkspaceController w,
     Map<String, dynamic> metadata, {
-    required bool phone,
     FakeProbe? frames,
     VideoFrameScheduler? scheduler,
     CountingFiles? files,
@@ -231,7 +233,6 @@ void main() {
     channelId: 'channel',
     authorized: () => true,
     pending: false,
-    phone: phone,
     frameProbe: frames ?? probe,
     frameScheduler: scheduler,
     onOpenPreview: onOpen ?? () {},
@@ -248,7 +249,6 @@ void main() {
   Future<(CountingClient, WorkspaceController)> mount(
     WidgetTester tester,
     Map<String, dynamic> metadata, {
-    required bool phone,
     Size window = const Size(390, 844),
     AttachmentDiskCache? store,
     FakeProbe? frames,
@@ -259,12 +259,11 @@ void main() {
     addTearDown(tester.view.reset);
     final (client, w) = workspace(
       store ?? AttachmentDiskCache(root),
-      metadata,
-    );
+      metadata);
     mounted.add((client, w));
     addTearDown(() => done(tester));
     await tester.pumpWidget(
-      host(card(w, metadata, phone: phone, frames: frames, files: files)),
+      host(card(w, metadata, frames: frames, files: files)),
     );
     return (client, w);
   }
@@ -279,8 +278,7 @@ void main() {
 
   group('phone card', () {
     testWidgets('has no player: poster at the real shape, play button, length', (
-      tester,
-    ) async {
+      tester) async {
       picture = (await tester.runAsync(() => png(180, 320)))!;
       probe = FakeProbe(picture, size: const Size(720, 1280));
       final players = _Players();
@@ -288,13 +286,13 @@ void main() {
       addTearDown(() => InlineMediaTestHooks.playerFactory = null);
       final (_, w) = await mount(
         tester,
-        {...noThumbnail, 'width': 720, 'height': 1280},
-        phone: true,
-      );
+        {...noThumbnail, 'width': 720, 'height': 1280,
+        });
       // Before the frame: the neutral placeholder at the declared shape, with
       // the play button already there (never black, never a spinner).
       expect(find.byType(RaftInlineVideo), findsNothing);
-      expect(find.byKey(const Key('inline-video-placeholder')), findsOneWidget);
+      expect(find.byKey(const Key('inline-video-placeholder')), findsOneWidget,
+        );
       expect(find.byKey(const Key('inline-video-play')), findsOneWidget);
       final first = boxOf(tester);
       expect(first.width / first.height, closeTo(720 / 1280, .01));
@@ -306,7 +304,8 @@ void main() {
       expect(players.made, 0);
       expect(w.playerSessions.created, 0);
       await done(tester);
-    });
+    },
+    );
 
     for (final (name, width, height) in [
       ('landscape', 1920, 1080),
@@ -318,9 +317,7 @@ void main() {
         probe = FakeProbe(picture, size: Size(width * 1.0, height * 1.0));
         await mount(
           tester,
-          {...noThumbnail, 'width': width, 'height': height},
-          phone: true,
-        );
+          {...noThumbnail, 'width': width, 'height': height});
         final box = boxOf(tester);
         expect(box.width, 278, reason: 'the card width on a 390 dp screen');
         expect(box.width / box.height, closeTo(width / height, .01));
@@ -335,9 +332,7 @@ void main() {
       probe = FakeProbe(picture, size: const Size(450, 1600));
       await mount(
         tester,
-        {...noThumbnail, 'width': 450, 'height': 1600},
-        phone: true,
-      );
+        {...noThumbnail, 'width': 450, 'height': 1600});
       final box = boxOf(tester);
       expect(box.height, closeTo(844 * .6, 1));
       expect(box.width, 278);
@@ -356,7 +351,7 @@ void main() {
     ) async {
       picture = (await tester.runAsync(() => png(64, 64)))!;
       probe = FakeProbe(picture, size: const Size(720, 1280));
-      await mount(tester, noThumbnail, phone: true);
+      await mount(tester, noThumbnail);
       final sizes = <Size>[boxOf(tester)];
       expect(sizes.single.width / sizes.single.height, closeTo(16 / 9, .02));
       await tester.pump(const Duration(milliseconds: 300));
@@ -389,7 +384,7 @@ void main() {
         await client.dispose();
       });
       await tester.pumpWidget(
-        host(card(w, noThumbnail, phone: true, onOpen: () => opened++)),
+        host(card(w, noThumbnail, onOpen: () => opened++)),
       );
       final rect = tester.getRect(find.byKey(const Key('inline-video')));
       for (final spot in [
@@ -418,8 +413,7 @@ void main() {
         await client.dispose();
       });
       Future<void> show(bool active) => tester.pumpWidget(
-        host(card(w, noThumbnail, phone: true, heroActive: active)),
-      );
+        host(card(w, noThumbnail, heroActive: active)));
       await show(false);
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       RaftMediaHero hero() => tester.widget<RaftMediaHero>(
@@ -437,24 +431,22 @@ void main() {
   });
 
   group('desktop card', () {
-    testWidgets('keeps the inline player and shows the extracted first frame', (
+    testWidgets('shows the extracted first frame without an inline player', (
       tester,
     ) async {
       picture = (await tester.runAsync(() => png(320, 180)))!;
       probe = FakeProbe(picture, size: const Size(1280, 720));
       await mount(
         tester,
-        noThumbnail,
-        phone: false,
-        window: const Size(900, 700),
-      );
-      expect(find.byType(RaftInlineVideo), findsOneWidget);
-      expect(find.byType(RaftVideoPosterCard), findsNothing);
+        noThumbnail, window: const Size(900, 700));
+      expect(find.byType(RaftInlineVideo), findsNothing);
+      expect(find.byType(RaftVideoPosterCard), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => find.byType(Image).evaluate().isNotEmpty);
       expect(probe.calls, hasLength(1));
       final box = boxOf(tester);
-      expect(box.width / box.height, closeTo(16 / 9, .02), reason: 'Web parity');
+      expect(box.width / box.height, closeTo(16 / 9, .02), reason: 'landscape poster keeps its shape',
+      );
       await done(tester);
     });
   });
@@ -468,15 +460,14 @@ void main() {
       final files = CountingFiles(picture);
       await mount(
         tester,
-        {...noThumbnail, 'thumbnailUrl': thumbnailUrl},
-        phone: true,
-        files: files,
-      );
+        {...noThumbnail, 'thumbnailUrl': thumbnailUrl,
+      }, files: files);
       await tester.pump(const Duration(milliseconds: 400));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       await tester.pump(const Duration(milliseconds: 500));
       expect(files.urls, [thumbnailUrl]);
-      expect(probe.calls, isEmpty, reason: 'extraction only without a thumbnail');
+      expect(probe.calls, isEmpty, reason: 'extraction only without a thumbnail',
+      );
       await done(tester);
     });
 
@@ -490,7 +481,7 @@ void main() {
       addTearDown(tester.view.reset);
       final store = AttachmentDiskCache(root);
       final (firstClient, first) = workspace(store, noThumbnail);
-      await tester.pumpWidget(host(card(first, noThumbnail, phone: true)));
+      await tester.pumpWidget(host(card(first, noThumbnail)));
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       await storedEntries(tester, store, 2);
@@ -503,11 +494,11 @@ void main() {
       final (client, w) = workspace(AttachmentDiskCache(root), withThumbnail);
       final files = CountingFiles(picture);
       await tester.pumpWidget(
-        host(card(w, withThumbnail, phone: true, files: files)),
-      );
+        host(card(w, withThumbnail, files: files)));
       await tester.pump(const Duration(milliseconds: 400));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
-      expect(files.urls, [thumbnailUrl], reason: 'the server thumbnail is used');
+      expect(files.urls, [thumbnailUrl,
+      ], reason: 'the server thumbnail is used');
       expect(probe.calls, hasLength(1), reason: 'no second frame read');
       await tester.pumpWidget(const SizedBox());
       w.dispose();
@@ -517,8 +508,7 @@ void main() {
 
   group('the shape is remembered', () {
     testWidgets('a second view in the session has its final box in the first frame', (
-      tester,
-    ) async {
+      tester) async {
       picture = (await tester.runAsync(() => png(64, 64)))!;
       probe = FakeProbe(picture, size: const Size(720, 1280));
       tester.view.physicalSize = const Size(390, 844);
@@ -529,22 +519,22 @@ void main() {
         w.dispose();
         await client.dispose();
       });
-      await tester.pumpWidget(host(card(w, noThumbnail, phone: true)));
+      await tester.pumpWidget(host(card(w, noThumbnail)));
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       final settled = boxOf(tester);
       await tester.pumpWidget(const SizedBox());
-      await tester.pumpWidget(host(card(w, noThumbnail, phone: true, id: 'again')));
+      await tester.pumpWidget(host(card(w, noThumbnail, id: 'again')));
       expect(boxOf(tester), settled, reason: 'no 16:9 flash, no layout jump');
       expect(find.text('1:23'), findsOneWidget);
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       expect(probe.calls, hasLength(1), reason: 'not read again');
       await tester.pumpWidget(const SizedBox());
-    });
+    },
+    );
 
     testWidgets('after a restart the stored shape and frame are used, nothing read', (
-      tester,
-    ) async {
+      tester) async {
       picture = (await tester.runAsync(() => png(64, 64)))!;
       probe = FakeProbe(picture, size: const Size(720, 1280));
       tester.view.physicalSize = const Size(390, 844);
@@ -552,7 +542,7 @@ void main() {
       addTearDown(tester.view.reset);
       final store = AttachmentDiskCache(root);
       final (firstClient, first) = workspace(store, noThumbnail);
-      await tester.pumpWidget(host(card(first, noThumbnail, phone: true)));
+      await tester.pumpWidget(host(card(first, noThumbnail)));
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       await storedEntries(tester, store, 2);
@@ -563,8 +553,7 @@ void main() {
       final restarted = FakeProbe(picture, size: const Size(1, 1));
       final (client, w) = workspace(AttachmentDiskCache(root), noThumbnail);
       await tester.pumpWidget(
-        host(card(w, noThumbnail, phone: true, frames: restarted)),
-      );
+        host(card(w, noThumbnail, frames: restarted)));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       await pumpUntil(tester, () {
         final box = boxOf(tester);
@@ -577,13 +566,13 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       w.dispose();
       await client.dispose();
-    });
+    },
+    );
   });
 
   group('failures', () {
     testWidgets('a failed read keeps the neutral placeholder and is not retried', (
-      tester,
-    ) async {
+      tester) async {
       picture = (await tester.runAsync(() => png(64, 64)))!;
       probe = FakeProbe(picture)
         ..failWith = const VideoFrameException(VideoFrameFailure.failed);
@@ -595,7 +584,7 @@ void main() {
         w.dispose();
         await client.dispose();
       });
-      await tester.pumpWidget(host(card(w, noThumbnail, phone: true)));
+      await tester.pumpWidget(host(card(w, noThumbnail)));
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => probe.calls.isNotEmpty);
       for (var i = 0; i < 20; i++) {
@@ -604,7 +593,8 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 300));
       }
-      expect(find.byKey(const Key('inline-video-placeholder')), findsOneWidget);
+      expect(find.byKey(const Key('inline-video-placeholder')), findsOneWidget,
+        );
       expect(find.byKey(const Key('inline-video-play')), findsOneWidget);
       final placeholder = tester.widget<ColoredBox>(
         find.byKey(const Key('inline-video-placeholder')),
@@ -613,22 +603,25 @@ void main() {
       expect(posterImage(), findsNothing);
       // Built again (the list drops and rebuilds rows): still one read.
       await tester.pumpWidget(const SizedBox());
-      await tester.pumpWidget(host(card(w, noThumbnail, phone: true, id: 'b')));
+      await tester.pumpWidget(host(card(w, noThumbnail, id: 'b')));
       await tester.pump(const Duration(seconds: 2));
       expect(probe.calls, hasLength(1), reason: 'no retry loop');
-      expect(find.byKey(const Key('inline-video-placeholder')), findsOneWidget);
+      expect(find.byKey(const Key('inline-video-placeholder')), findsOneWidget,
+        );
       await tester.pumpWidget(const SizedBox());
-    });
+    },
+    );
 
     testWidgets('an expired signature is signed again once', (tester) async {
       picture = (await tester.runAsync(() => png(64, 64)))!;
       probe = FakeProbe(picture)
         ..failWith = const VideoFrameException(VideoFrameFailure.expired);
-      final (client, _) = await mount(tester, noThumbnail, phone: true);
+      final (client, _) = await mount(tester, noThumbnail);
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => probe.calls.length >= 2);
       await tester.pump(const Duration(seconds: 1));
-      expect(probe.calls, hasLength(2), reason: 'first signature, then a new one');
+      expect(probe.calls, hasLength(2), reason: 'first signature, then a new one',
+      );
       expect(client.resolutions, 2);
     });
   });
@@ -655,8 +648,10 @@ void main() {
       expect(order, [0, 1], reason: 'free slots go to the first at hand');
       wanted = false;
       jobs[4].cancel();
-      expect(await jobs[4].result.then<Object>((_) => 'ran', onError: (Object e) => e),
-          isA<VideoFrameException>());
+      expect(await jobs[4].result.then<Object>((_) => 'ran', onError: (Object e) => e,
+          ),
+          isA<VideoFrameException>(),
+        );
       gates[0].complete();
       await Future<void>.delayed(Duration.zero);
       // Newest first: 4 was cancelled, 3 is unwanted now, so 2 starts.
@@ -669,7 +664,8 @@ void main() {
       expect(order, [0, 1, 2], reason: 'the unwanted job never starts');
       expect(scheduler.running, 0);
       expect(scheduler.queued, 0);
-    });
+    },
+    );
 
     test('cancelling a running job tells the work to stop', () async {
       final scheduler = VideoFrameScheduler();
@@ -692,8 +688,7 @@ void main() {
     });
 
     testWidgets('a column of cards reads two frames at a time; scrolling away cancels', (
-      tester,
-    ) async {
+      tester) async {
       picture = (await tester.runAsync(() => png(64, 64)))!;
       probe = FakeProbe(picture, size: const Size(1280, 720))
         ..hold = Completer<void>();
@@ -722,11 +717,8 @@ void main() {
                 for (final clip in clips)
                   card(
                     w,
-                    clip,
-                    phone: true,
-                    id: '${clip['id']}',
-                    scheduler: scheduler,
-                  ),
+                    clip, id: '${clip['id']}',
+                    scheduler: scheduler),
               ],
             ),
           ),
@@ -752,7 +744,8 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
       await tester.pump(const Duration(milliseconds: 400));
-      expect(probe.cancelled, hasLength(2), reason: 'the two reads left behind');
+      expect(probe.cancelled, hasLength(2), reason: 'the two reads left behind',
+        );
       expect(probe.peak, lessThanOrEqualTo(2));
       probe.hold!.complete();
       await tester.pump(const Duration(milliseconds: 400));
@@ -761,13 +754,13 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 400));
       expect(probe.peak, lessThanOrEqualTo(2));
-    });
+    },
+    );
   });
 
   group('private cache', () {
     testWidgets('the poster and the shape live in the private namespace; Clear cache and sign-out remove them', (
-      tester,
-    ) async {
+      tester) async {
       picture = (await tester.runAsync(() => png(64, 64)))!;
       probe = FakeProbe(picture, size: const Size(720, 1280));
       tester.view.physicalSize = const Size(390, 844);
@@ -775,7 +768,7 @@ void main() {
       addTearDown(tester.view.reset);
       final store = AttachmentDiskCache(root);
       final (client, w) = workspace(store, noThumbnail);
-      await tester.pumpWidget(host(card(w, noThumbnail, phone: true)));
+      await tester.pumpWidget(host(card(w, noThumbnail)));
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
       await storedEntries(tester, store, 2);
@@ -785,11 +778,13 @@ void main() {
       final publicBytes = await tester.runAsync(
         () => store.sizeBytes(namespace: AttachmentCacheNamespace.public),
       );
-      expect(privateBytes, greaterThan(0), reason: 'counted in Settings > Storage');
+      expect(privateBytes, greaterThan(0), reason: 'counted in Settings > Storage',
+        );
       expect(publicBytes, 0, reason: 'never in the public namespace');
       expect(
         await tester.runAsync(
-          () => store.entryCount(namespace: AttachmentCacheNamespace.attachments),
+          () => store.entryCount(namespace: AttachmentCacheNamespace.attachments,
+            ),
         ),
         2,
         reason: 'the frame and the shape',
@@ -804,14 +799,15 @@ void main() {
       expect(result!.ok, isTrue);
       expect(
         await tester.runAsync(
-          () => store.entryCount(namespace: AttachmentCacheNamespace.attachments),
+          () => store.entryCount(namespace: AttachmentCacheNamespace.attachments,
+            ),
         ),
         0,
       );
 
       // The card reads the frame again after it was cleared.
       w.clearRebuildableMemory();
-      await tester.pumpWidget(host(card(w, noThumbnail, phone: true, id: 'b')));
+      await tester.pumpWidget(host(card(w, noThumbnail, id: 'b')));
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => probe.calls.length == 2);
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
@@ -824,19 +820,22 @@ void main() {
       );
       expect(
         await tester.runAsync(
-          () => store.entryCount(namespace: AttachmentCacheNamespace.attachments),
+          () => store.entryCount(namespace: AttachmentCacheNamespace.attachments,
+            ),
         ),
         0,
       );
       w.dispose();
       await client.dispose();
-    });
+    },
+    );
   });
 
   group('tap opens the viewer', () {
-    testWidgets('the viewer plays at once, and the card flies its poster', (
-      tester,
-    ) async {
+    for (final width in [390.0, 1100.0]) {
+      testWidgets(
+        '$width: the viewer plays at once, and the card flies its poster', (
+      tester) async {
       picture = (await tester.runAsync(() => png(180, 320)))!;
       probe = FakeProbe(picture, size: const Size(720, 1280));
       final players = <_Player>[];
@@ -846,7 +845,7 @@ void main() {
         return player;
       };
       addTearDown(() => InlineMediaTestHooks.playerFactory = null);
-      tester.view.physicalSize = const Size(390, 844);
+      tester.view.physicalSize = Size(width, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final video = {...noThumbnail, 'width': 720, 'height': 1280};
@@ -872,7 +871,8 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => posterImage().evaluate().isNotEmpty);
-      expect(players, isEmpty, reason: 'a card on a phone never has a player');
+      expect(players, isEmpty, reason: 'a timeline card never has a player',
+          );
       expect(find.byType(RaftInlineVideo), findsNothing);
 
       await tester.tap(find.byKey(const Key('inline-video-poster-card')));
@@ -885,7 +885,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
       }
       expect(find.byType(MediaBrowser), findsOneWidget);
-      expect(shuttle, findsOneWidget, reason: 'the poster flies from the card');
+      expect(shuttle, findsOneWidget, reason: 'the poster flies from the card',
+          );
       for (var i = 0; i < 30; i++) {
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 15)),
@@ -893,8 +894,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 60));
       }
       expect(shuttle, findsNothing);
-      expect(players, hasLength(1), reason: 'the viewer made the only player');
-      expect(players.single.calls, ['open', 'toggle'], reason: 'plays at once');
+      expect(players, hasLength(1), reason: 'the viewer made the only player',
+          );
+      expect(players.single.calls, ['open', 'toggle',
+          ], reason: 'plays at once');
       expect(players.single.playing, isTrue);
       final heroes = tester
           .widgetList<RaftMediaHero>(
@@ -910,9 +913,13 @@ void main() {
         await tester.pump(const Duration(milliseconds: 60));
       }
       expect(find.byType(MediaBrowser), findsNothing);
-      await tester.pumpWidget(const SizedBox());
+          expect(players.single.disposed, isTrue);
+          expect(w.playerSessions.length, 0);
+          await tester.pumpWidget(const SizedBox());
       w.dispose();
       await client.dispose();
-    });
+    },
+      );
+    }
   });
 }

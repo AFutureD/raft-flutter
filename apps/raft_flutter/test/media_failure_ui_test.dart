@@ -145,137 +145,6 @@ void main() {
     }
   }
 
-  group('video card', () {
-    for (final kind in MediaFailureKind.values) {
-      testWidgets('${kind.name}: message and actions', (tester) async {
-        var downloads = 0, network = 0;
-        await mount(
-          tester,
-          (w) => InlineVideoAttachment(
-            controller: w,
-            metadata: const {'id': 'a1', 'filename': 'walkthrough.mp4'},
-            authorized: () => true,
-            pending: false,
-            onDownload: () => downloads++,
-            onNetworkSettings: () => network++,
-            playerFactory: () => _FailingPlayer(_byKind[kind]!),
-          ),
-        );
-        expect(find.text(_videoText[kind]!), findsOneWidget);
-        // Only the codec class may talk about a codec.
-        expect(
-          find.textContaining('codec'),
-          kind == MediaFailureKind.unsupported
-              ? findsOneWidget
-              : findsNothing,
-        );
-        final (retry, settings) = _actions[kind]!;
-        expect(
-          find.byKey(const Key('inline-video-retry')),
-          retry ? findsOneWidget : findsNothing,
-        );
-        expect(
-          find.byKey(const Key('inline-video-network-settings')),
-          settings ? findsOneWidget : findsNothing,
-        );
-        expect(find.byKey(const Key('inline-video-download')), findsOneWidget);
-        if (settings) {
-          await tester.tap(
-            find.byKey(const Key('inline-video-network-settings')),
-          );
-          expect(network, 1);
-        }
-        await tester.tap(find.byKey(const Key('inline-video-download')));
-        expect(downloads, 1);
-        // A proxy is named by host:port only.
-        expect(find.textContaining('@'), findsNothing);
-        await unmount(tester);
-      });
-    }
-
-    testWidgets('Retry opens a new player (the failed one is dropped)', (
-      tester,
-    ) async {
-      final made = <_FailingPlayer>[];
-      await mount(
-        tester,
-        (w) => InlineVideoAttachment(
-          controller: w,
-          metadata: const {'id': 'a1', 'filename': 'walkthrough.mp4'},
-          authorized: () => true,
-          pending: false,
-          onNetworkSettings: () {},
-          playerFactory: () {
-            final next = made.isEmpty
-                ? _FailingPlayer(_byKind[MediaFailureKind.proxyUnreachable]!)
-                : _OkPlayer();
-            made.add(next);
-            return next;
-          },
-        ),
-      );
-      expect(find.byKey(const Key('inline-video-retry')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('inline-video-retry')));
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-      expect(made, hasLength(2));
-      expect(made.first.disposed, isTrue);
-      expect(find.byKey(const Key('inline-video-retry')), findsNothing);
-      expect(find.textContaining(_proxy), findsNothing);
-      await unmount(tester);
-    });
-
-    testWidgets('an exception from open carries its class', (tester) async {
-      await mount(
-        tester,
-        (w) => InlineVideoAttachment(
-          controller: w,
-          metadata: const {'id': 'a1', 'filename': 'walkthrough.mp4'},
-          authorized: () => true,
-          pending: false,
-          playerFactory: () => _FailingPlayer(
-            _byKind[MediaFailureKind.proxyAuth]!,
-            throwOnOpen: true,
-          ),
-        ),
-      );
-      expect(find.text(_videoText[MediaFailureKind.proxyAuth]!), findsOneWidget);
-      await unmount(tester);
-    });
-
-    testWidgets('a phone-width card still fits message and three actions', (
-      tester,
-    ) async {
-      await mount(
-        tester,
-        (w) => InlineVideoAttachment(
-          controller: w,
-          metadata: const {'id': 'a1', 'filename': 'walkthrough.mp4'},
-          authorized: () => true,
-          pending: false,
-          onDownload: () {},
-          onNetworkSettings: () {},
-          playerFactory: () =>
-              _FailingPlayer(_byKind[MediaFailureKind.proxyUnreachable]!),
-        ),
-        size: const Size(360, 640),
-      );
-      final card = tester.getRect(find.byKey(const Key('inline-video')));
-      for (final key in const [
-        'inline-video-retry',
-        'inline-video-network-settings',
-        'inline-video-download',
-      ]) {
-        final r = tester.getRect(find.byKey(Key(key)));
-        expect(card.contains(r.topLeft) && card.contains(r.bottomRight), isTrue,
-            reason: '$key $r inside $card');
-      }
-      expect(tester.takeException(), isNull);
-      await unmount(tester);
-    });
-  });
-
   group('audio card', () {
     for (final kind in MediaFailureKind.values) {
       testWidgets('${kind.name}: message and actions', (tester) async {
@@ -324,6 +193,7 @@ void main() {
       required void Function() onDownload,
       List<AttachmentPlayer>? made,
       String file = 'clip.mp4',
+      bool throwOnOpen = false,
     }) async {
       final client = _ViewerClient();
       final w = WorkspaceController(client);
@@ -343,7 +213,7 @@ void main() {
             onNetworkSettings: onNetwork,
             playerFactory: () {
               final next = (made?.isEmpty ?? true)
-                  ? _FailingPlayer(failure)
+                  ? _FailingPlayer(failure, throwOnOpen: throwOnOpen)
                   : _OkPlayer();
               made?.add(next);
               return next;
@@ -385,6 +255,26 @@ void main() {
       });
     }
 
+    testWidgets('a thrown open failure keeps its cause and retry actions', (
+      tester,
+    ) async {
+      await openViewer(
+        tester,
+        _byKind[MediaFailureKind.proxyAuth]!,
+        onNetwork: () {},
+        onDownload: () {},
+        throwOnOpen: true,
+      );
+      expect(
+        find.text(_videoText[MediaFailureKind.proxyAuth]!),
+        findsOneWidget,
+      );
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.byKey(const Key('viewer-network-settings')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    });
+
     testWidgets('Retry opens a fresh player', (tester) async {
       final made = <AttachmentPlayer>[];
       await openViewer(
@@ -418,4 +308,3 @@ class _ViewerClient extends RaftClient {
     'url': 'https://media.invalid/signed',
   };
 }
-

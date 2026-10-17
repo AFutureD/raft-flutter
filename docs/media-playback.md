@@ -286,20 +286,15 @@ without counter and strip.
 
 ## Video cards
 
-**Desktop (and a touch device with a short side of 600 dp or more)** keep Web's inline card: a 16:9 box with the player
-under it (`RaftInlineVideo`). **A phone** (touch density, short side under 600 dp, also held sideways) has no inline
-player: its card is `RaftVideoPosterCard` (`packages/raft_ui/lib/src/inline_media.dart`), an intentional difference from
-Web recorded in `docs/parity.md` ("Video cards").
+All platforms use the same `RaftVideoPosterCard` timeline presentation. This is an intentional difference from Web's
+inline player, recorded in `docs/parity.md` (owner decision 2026-10-17).
 
-* **Phone card.** The poster at the video's own shape (the message's `width` / `height`, else the shape read from the file,
-  else 16:9) at the card width (at most 448 dp, screen width - 112), capped at 60 % of the screen height and cropped to
-  fill (cover) beyond it; a play button in the middle, the length in the bottom-right corner (when known), a neutral
-  placeholder (never black) while there is no poster. No `AttachmentPlayer`, no `PlayerSessions` entry, no stream, nothing
-  to release when the card scrolls away. A tap anywhere opens the media viewer (`media_browser.dart`), whose first video
-  page autoplays (`MediaBrowser.autoplay` -> `MediaVideoStage.enter(autoplay: true)`: prepares at once whatever the size
-  and plays when ready), with the card-to-viewer Hero flying the poster (`RaftMediaHero` on the card and on the video
-  page; the page's end is laid out at the video's shape so the flight lands on the picture). Videos page in the viewer on
-  a phone without `RAFT_MEDIA_BROWSER_VIDEO` (`MediaBrowserFlags.videoPages`); the flag still gates desktop.
+* **Timeline card.** The poster follows the video's declared or remembered shape (otherwise 16:9), at most 448 dp
+  wide and 60 % of the screen height. There is a central play affordance and a duration when known. The card owns
+  no `AttachmentPlayer` or `PlayerSessions` hold, including for small files. Clicking anywhere opens the existing
+  media browser and starts that video. Images and videos of the same message remain pages in message order;
+  the old `RAFT_MEDIA_BROWSER_VIDEO` gate is removed. Closing the viewer releases playback rather than continuing
+  inside the timeline. The poster can still read original video bytes through the bounded first-frame fallback below.
 * **Poster source.** `VideoCardPoster` (`features/video_card_poster.dart`): the server `thumbnail` rendition first (a
   message with a `thumbnailUrl`, or one already stored); a message with none (CLI uploads have neither a thumbnail nor
   `width` / `height`) falls back to the first frame of the video, read through `VideoFrameProbe`

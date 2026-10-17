@@ -26,7 +26,6 @@ import 'attachment_shape.dart';
 import 'inline_attachment_media.dart';
 import 'media_browser.dart';
 import 'media_items.dart';
-import 'media_video_page.dart' show MediaBrowserFlags, phoneMediaLayout;
 import 'private_route_guard.dart';
 
 bool _isSvgMime(String mime) =>
@@ -138,7 +137,7 @@ class _AttachmentViewState extends State<AttachmentView> {
   /// can appear twice in a route, e.g. in a thread's parent).
   bool heroActive = false;
 
-  /// The poster of this attachment's video card (a phone card), for the viewer
+  /// The poster of this attachment's video poster card, for the viewer
   /// that opens from it.
   final videoPoster = ValueNotifier<ImageProvider?>(null);
   double devicePixelRatio = 1;
@@ -421,7 +420,10 @@ class _AttachmentViewState extends State<AttachmentView> {
     if (!authorized) return false;
     final WorkspaceAttachmentImageLease? lease;
     try {
-      lease = w.attachmentMedia.peekImage(imageKey, authorized: () => authorized);
+      lease = w.attachmentMedia.peekImage(
+        imageKey,
+        authorized: () => authorized,
+      );
     } catch (_) {
       return false;
     }
@@ -678,8 +680,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         }
       }
       if (!mounted || !current()) return;
-      if (MediaBrowserFlags.videoPages(context) &&
-          attachmentPreviewKind(widget.metadata) == 'video') {
+      if (attachmentPreviewKind(widget.metadata) == 'video') {
         await openBrowser(page: page, current: current);
         return;
       }
@@ -774,9 +775,8 @@ class _AttachmentViewState extends State<AttachmentView> {
     final hero = !MediaQuery.disableAnimationsOf(context);
     final opener = imageProvider ?? videoPoster.value;
     if (hero && opener != null) setState(() => heroActive = true);
-    // A tap on a phone's video card is a tap on Play: the viewer starts it.
+    // A video poster is a Play affordance on every platform.
     final autoplay =
-        phone &&
         start >= 0 &&
         siblings[start]['id'] == widget.metadata['id'] &&
         attachmentPreviewKind(widget.metadata) == 'video' &&
@@ -958,9 +958,6 @@ class _AttachmentViewState extends State<AttachmentView> {
         authorized: () => authorized,
         pending: widget.messageId == null,
         onOpenPreview: open,
-        onDownload: download,
-        onNetworkSettings: kIsWeb ? null : openNetworkSettings,
-        phone: phoneMediaLayout(context),
         frameProbe: widget.frameProbe,
         heroActive: heroActive,
         posterListenable: videoPoster,

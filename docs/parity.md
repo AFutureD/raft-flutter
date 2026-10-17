@@ -1789,22 +1789,21 @@ similarity at 1280x800 (brutal / elegant / elegant-dark): index 1 of 3 99.71 / 9
 99.71 / 99.43 / 99.50 % and 99.72 / 99.44 / 99.51 %, so the arrows cost the elegant themes about 0.2 points (just under the 99.5 bar) and nothing visible in brutal; the
 phone-width gallery cases (~96 %, hairline bucket on the stage image) are unchanged by this.
 
-## Video cards: no inline player on a phone (owner decision 2026-10-14)
+## Video cards: posters on every platform (owner decision 2026-10-17)
 
 Web's `InlineVideoAttachmentCard` is a `<video preload="metadata" controls>` in a 16:9 box: the browser decodes the
-first frame at once and plays in place. Flutter keeps that on desktop (and on a touch device whose short side is
-600 dp or more) and differs on a phone (touch density, short side under 600 dp, also a phone held sideways):
+first frame at once and plays in place. Flutter intentionally uses the same poster-only timeline card on desktop,
+tablet and phone:
 
 * the message card is `RaftVideoPosterCard`: the poster at the video's own shape (width / height of the message,
   else the shape read from the file; 16:9 until either is known), a play button in the middle, the length in the
   bottom-right corner, never black. A video taller than 60 % of the screen is cropped to fill (cover), not squeezed.
-* no player, decoder or stream exists for a card: a tap anywhere on it opens the media viewer
+* no playback player or session exists for a card: a tap anywhere on it opens the media viewer
   (`media_browser.dart`), which plays at once, with the card-to-viewer Hero flying the poster.
-* the viewer's video pages are on for phones without `RAFT_MEDIA_BROWSER_VIDEO` (the flag still gates them on
-  desktop).
+* the viewer pages through message images and videos on every platform, without `RAFT_MEDIA_BROWSER_VIDEO`.
 
-Why: a column of inline players holds one decoder and one stream per card; on a phone that costs scroll frames and
-battery, and a muted 16:9 player with its own controls is a second, smaller viewer next to the real one. The decision
+Why: a column of inline players holds one decoder and one stream per card; that costs scroll frames and
+resources, and a muted 16:9 player with its own controls is a second, smaller viewer next to the real one. The decision
 is recorded in `capability-parity.json` (`ui:files.video-audio-preview`, partial).
 
 Poster without a server thumbnail (CLI uploads carry no `thumbnailUrl`, no width and no height; Web does not need

@@ -34,7 +34,8 @@ class _Platform extends VideoPlayerPlatform {
   @override
   Future<int?> createWithOptions(VideoCreationOptions options) async {
     types.add(options.viewType);
-    sources.add('${options.dataSource.sourceType.name}:${options.dataSource.uri}');
+    sources.add('${options.dataSource.sourceType.name}:${options.dataSource.uri}',
+    );
     final id = types.length - 1;
     _streams[id] = StreamController<VideoEvent>()
       ..add(
@@ -109,7 +110,8 @@ class _Client extends RaftClient {
 
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
-  leakDebt(const ['ValueNotifier<VideoPlayerController?>', 'VideoPlayerController']);
+  leakDebt(const ['ValueNotifier<VideoPlayerController?>', 'VideoPlayerController',
+  ]);
   late _Platform fake;
   late VideoPlayerPlatform previous;
   setUp(() {
@@ -155,8 +157,7 @@ void main() {
   }
 
   testWidgets('an SDR video in the viewer streams its URL on the shared texture', (
-    tester,
-  ) async {
+    tester) async {
     final w = await mountViewer(tester, 'clip.mp4');
     expect(fake.types, [VideoViewType.textureView]);
     // Streamed from the signed URL: nothing was downloaded to a local file.
@@ -173,7 +174,8 @@ void main() {
     }
     expect(fake.disposed, 1);
     expect(w.playerSessions.length, 0);
-  }, variant: system);
+  }, variant: system,
+  );
 
   testWidgets('an HDR video gets a native-view player at the shared position', (
     tester,
@@ -198,8 +200,7 @@ void main() {
   }, variant: system);
 
   testWidgets('an audio attachment in the viewer plays the cached file, no picture', (
-    tester,
-  ) async {
+    tester) async {
     final dir = Directory.systemTemp.createTempSync('viewer-audio');
     addTearDown(() {
       if (dir.existsSync()) dir.deleteSync(recursive: true);
@@ -241,11 +242,12 @@ void main() {
       await tester.pump();
     }
     expect(present, false);
-  }, variant: system);
+  }, variant: system,
+  );
 
-  testWidgets('a card and its viewer share one player and one stream', (
-    tester,
-  ) async {
+  testWidgets(
+    'only the viewer creates a player and closing it releases that player',
+    (tester) async {
     tester.view.physicalSize = const Size(600, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -290,22 +292,35 @@ void main() {
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    expect(fake.types, [VideoViewType.textureView]);
-    await tester.tap(find.byKey(const Key('inline-video-expand')));
+    expect(fake.types,
+        isEmpty,
+        reason: 'a timeline card never opens a player',
+      );
+      expect(w.playerSessions.created, 0);
+    await tester.tap(find.byKey(const Key('inline-video-poster-card')));
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
     expect(find.byType(RaftVideoViewer), findsOneWidget);
-    expect(fake.types, [VideoViewType.textureView], reason: 'the viewer made its own player');
+    expect(fake.types, [VideoViewType.textureView,
+      ], reason: 'only the viewer creates a playback session');
     expect(w.playerSessions.created, 1);
-    // Close at once, mid-way and fully: still one player, nothing disposed.
+    // Close at once, mid-way and fully: the viewer releases its only hold.
     context.currentState!.pop();
     await tester.pump(const Duration(milliseconds: 40));
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(RaftVideoViewer), findsNothing);
-    expect(fake.disposed, 0);
+      for (var i = 0; i < 50 && fake.disposed == 0; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      expect(fake.disposed, 1);
+      expect(w.playerSessions.length, 0);
     await tester.pumpWidget(const SizedBox());
     w.playerSessions.clear();
     await tester.pump(const Duration(milliseconds: 50));
-  }, variant: system);
+  }, variant: system,
+  );
 }

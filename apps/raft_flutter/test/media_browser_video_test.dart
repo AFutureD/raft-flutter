@@ -917,15 +917,6 @@ void main() {
       expect(find.byKey(const Key('fake-native-view')), findsNothing);
     });
   });
-
-  group('flag', () {
-    test('off by default, on by override', () {
-      expect(MediaBrowserFlags.video, isFalse);
-      MediaBrowserFlags.override = true;
-      addTearDown(() => MediaBrowserFlags.override = null);
-      expect(MediaBrowserFlags.video, isTrue);
-    });
-  });
 }
 
 /// A card's hold on the attachment's session (it opens the player).
