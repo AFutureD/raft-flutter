@@ -62,6 +62,7 @@ import 'attachment_media.dart';
 import 'attachment_retention_index.dart';
 import 'conversation_presentation_state.dart';
 import 'composer_visit_state.dart';
+import 'reply_authority_epochs.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
@@ -618,13 +619,7 @@ class WorkspaceController extends ChangeNotifier
   bool syncCoreNotificationPrefsEnabled = false;
   String? _replyIdentity;
 
-  /// Fail-closed fallback for an authority event without a channel id.
-  int _replyAuthorityEpoch = 0;
-
-  /// Per-channel authority epochs. A membership/authority change for one
-  /// channel retires only that channel's windows, thread windows, reply
-  /// scopes and in-flight loads; every other channel keeps its cache.
-  final Map<String, int> _channelReplyEpochs = {};
+  final _replyAuthority = ReplyAuthorityEpochs();
 
   String _syncIdentity() => jsonEncode([
     client.origin,
@@ -636,12 +631,8 @@ class WorkspaceController extends ChangeNotifier
 
   /// Authority token for data owned by [channelId] (its message window, its
   /// thread windows and reply summaries).
-  String _replyToken(String? channelId) => jsonEncode([
-    _syncIdentity(),
-    _replyAuthorityEpoch,
-    channelId,
-    _channelReplyEpochs[channelId] ?? 0,
-  ]);
+  String _replyToken(String? channelId) =>
+      _replyAuthority.token(_syncIdentity(), channelId);
   void _ensureSyncIdentity() {
     final next = _syncIdentity();
     if (_replyIdentity == next) return;
@@ -661,14 +652,14 @@ class WorkspaceController extends ChangeNotifier
   /// own refresh replaces them; a real revocation clears them in
   /// [_revokeChannel].
   void _invalidateChannelReplies(String id) {
-    _channelReplyEpochs[id] = (_channelReplyEpochs[id] ?? 0) + 1;
+    _replyAuthority.invalidateChannel(id);
     threadRepliesSync.revokeChannel(id);
     messageWindows.invalidateParentThreads(id);
     if (channel?.id != id) _summariesByChannel.remove(id);
   }
 
   void _invalidateAllChannelReplies() {
-    _replyAuthorityEpoch++;
+    _replyAuthority.invalidateAll();
     threadRepliesSync.reset();
     messageWindows.clearThreads();
     _summariesByChannel.removeWhere((id, _) => id != channel?.id);
@@ -2857,7 +2848,7 @@ class WorkspaceController extends ChangeNotifier
     ];
     if (server?.id == id) {
       if (server?.string('role') != role) {
-        _replyAuthorityEpoch++;
+        _replyAuthority.invalidateAll();
       }
       server = RaftRecord({...server!.json, 'role': role});
       _ensureSyncIdentity();
