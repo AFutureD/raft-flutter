@@ -1742,6 +1742,7 @@ class _AgentModePageState extends State<AgentModePage> {
         onLike: (_) {},
         onDone: (_) {},
         onAssign: (_) {},
+        compact: _compact,
       ).view();
 
   /// The stage of item [e] of a frame, as the screen draws it.
@@ -2504,6 +2505,7 @@ class _AgentModePageState extends State<AgentModePage> {
           onLike: _like,
           onDone: _done,
           onAssign: _assign,
+          compact: hf.phone,
           trailing: tools,
         ),
       );

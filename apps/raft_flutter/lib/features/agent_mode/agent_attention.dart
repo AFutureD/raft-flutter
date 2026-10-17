@@ -498,6 +498,7 @@ class AgentAttentionDetail extends StatelessWidget {
     this.onDone,
     this.onAssign,
     this.trailing,
+    this.compact = false,
   });
   final AgentAttentionItem item;
 
@@ -509,6 +510,12 @@ class AgentAttentionDetail extends StatelessWidget {
       onDone,
       onAssign;
   final Widget? trailing;
+
+  /// A phone's stage: it has little height. What an Activity row said keeps
+  /// to [phoneQuoteLines] there (the whole of it is behind 看完整对话), so the
+  /// stage and its actions fit the page and the focus scroll shows them all.
+  final bool compact;
+  static const phoneQuoteLines = 4;
 
   @override
   Widget build(BuildContext context) => view();
@@ -578,6 +585,7 @@ class AgentAttentionDetail extends StatelessWidget {
             ],
       // An Activity row shows what was said, a task its last progress.
       progressLabel: activity ? messageLabel : HfDetail.progressHeading,
+      progressLines: activity && compact ? phoneQuoteLines : null,
       progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
       actions: [
         if (item.canApprove)
