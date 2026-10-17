@@ -769,7 +769,7 @@
         "field._RaftAppState.startupReady": 1,
         "field._RaftAppState.workspace": 1,
         "field._RaftAppState.workspaceRootInputs": 1,
-        "lines": 2217,
+        "lines": 2214,
         "tokens": 11939
       }
     },
@@ -1095,6 +1095,14 @@
       "metric": "field.WorkspaceController._channels",
       "limit": 1,
       "reason": "task #161 D2 replaces five receiver-local projections and three duplicate repository references with one WorkspaceChannels owner. Original receiver/source dispatch and repository identities are preserved; eight old ceilings are zero and three old reference exceptions are removed. Approved by Cindy in Raft 76c62ba8-a7c1-48e9-9051-161a927aa2b8.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "app_root",
+      "metric": "tokens",
+      "limit": 11946,
+      "reason": "PR #216: one navigator-wide native hover policy wrapper (+7 tokens, no new fields); approved by Cindy in 1759c092-c736-4932-b550-e8337263704f.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }
