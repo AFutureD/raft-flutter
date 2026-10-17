@@ -453,30 +453,14 @@ class WorkspaceController extends ChangeNotifier
 
   // Per receiver, even when its media owner is borrowed from another page.
   late final AttachmentRetentionIndex attachmentRetentionIndex =
-      AttachmentRetentionIndex(
-        ledgerRevision: () => ledger.revision,
+      AttachmentRetentionIndex.forLedger(
+        ledger: ledger,
         stateStamp: () => _stateStamp,
         scope: () => attachmentImageScope,
         channels: () => channels,
         dms: () => dms,
         revokedChannels: () => _revokedChannels,
         canView: (row) => can('viewChannel', resource: row),
-        messages: (id) => ledger.messages(id),
-        ledgerChanges: (since) {
-          final changes = ledger.changesAfter(since);
-          if (changes == null) return null;
-          return [
-            for (final change in changes)
-              (
-                revision: change.revision,
-                channelId: change.channelId,
-                messageId: change.messageId,
-                removed: change.removed,
-              ),
-          ];
-        },
-        message: ledger.message,
-        discardLedgerChanges: ledger.discardChangesThrough,
       );
 
   bool _retainsAttachmentByHistory(AttachmentImageKey key) =>

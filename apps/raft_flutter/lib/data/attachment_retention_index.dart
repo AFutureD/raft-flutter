@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_sync/raft_sync.dart' show MessageLedger;
 
 import 'attachment_image_repository.dart';
 
@@ -33,6 +34,30 @@ class AttachmentRetentionIndex {
     this._message,
     this._discardLedgerChanges,
   });
+
+  /// Reads one ledger directly, including its unread change record.
+  /// The caller still supplies admission.
+  AttachmentRetentionIndex.forLedger({
+    required MessageLedger ledger,
+    required int Function() stateStamp,
+    required AttachmentImageScope Function() scope,
+    required List<RaftChannel> Function() channels,
+    required List<RaftChannel> Function() dms,
+    required Set<String> Function() revokedChannels,
+    required bool Function(RaftChannel) canView,
+  }) : this(
+         ledgerRevision: () => ledger.revision,
+         stateStamp: stateStamp,
+         scope: scope,
+         channels: channels,
+         dms: dms,
+         revokedChannels: revokedChannels,
+         canView: canView,
+         messages: ledger.messages,
+         ledgerChanges: (since) => _attachmentLedgerChanges(ledger, since),
+         message: ledger.message,
+         discardLedgerChanges: ledger.discardChangesThrough,
+       );
 
   final int Function() _ledgerRevision, _stateStamp;
   final AttachmentImageScope Function() _scope;
@@ -303,4 +328,21 @@ class AttachmentRetentionIndex {
       _index[channelId] = {};
     }
   }
+}
+
+List<AttachmentLedgerChange>? _attachmentLedgerChanges(
+  MessageLedger ledger,
+  int since,
+) {
+  final changes = ledger.changesAfter(since);
+  if (changes == null) return null;
+  return [
+    for (final change in changes)
+      (
+        revision: change.revision,
+        channelId: change.channelId,
+        messageId: change.messageId,
+        removed: change.removed,
+      ),
+  ];
 }
