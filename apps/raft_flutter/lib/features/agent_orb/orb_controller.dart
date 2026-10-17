@@ -1184,7 +1184,12 @@ class OrbController extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 8)),
     );
-    return orbReviewReply(reply, seen, cardUp: actions.pending != null);
+    return orbReviewReply(
+      reply,
+      seen,
+      cardUp: actions.pending != null,
+      driving: _driving,
+    );
   }
 
   /// What the text agent is given for its next request: the state decides

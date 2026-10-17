@@ -92,8 +92,17 @@ AgentReview? orbReviewReply(
   String reply,
   List<AgentToolRun> runs, {
   required bool cardUp,
+  bool driving = false,
 }) {
   final text = reply.trim();
+  // A turn that ended without a word after a tool: told once, and when that
+  // gets nothing either, the app says what the tool found.
+  if (text.isEmpty && runs.isNotEmpty) {
+    return AgentReview(
+      retry: '（App 提示，不是用户的话：你调用了工具，但还没有回答用户。根据工具返回的结果，用一两句话回答他。）',
+      text: orbSummarize(runs, driving: driving),
+    );
+  }
   final madeCard = runs.any((r) => r.result['status'] == 'needs_confirmation');
   if (!cardUp && !madeCard && orbAsksToConfirm.hasMatch(text)) {
     return const AgentReview(
@@ -170,4 +179,55 @@ String _tasksLast(String text, List<String> titles, int waiting) {
   return [
     for (final s in [...others, ...tail]) end(s),
   ].join();
+}
+
+/// What the last tool of a turn found, in words, for when the model said
+/// nothing: a task list (how many, and for each who has it and what it waits
+/// for), one task, or the briefing's overview. At most two sentences, and
+/// three tasks while [driving]. Null when there is nothing to say.
+String? orbSummarize(List<AgentToolRun> runs, {bool driving = false}) {
+  for (final r in runs.reversed) {
+    if (r.result['error'] != null) continue;
+    switch (r.name) {
+      case 'list_tasks':
+        final tasks = [
+          for (final t in (r.result['tasks'] as List? ?? const []))
+            if (t is Map) t,
+        ];
+        final total = r.result['total'];
+        if (tasks.isEmpty) return '没有符合的任务。';
+        final waiting = r.result['waitingOnMe'];
+        final head =
+            '共 ${total ?? tasks.length} 个任务'
+            '${waiting is int && waiting > 0 ? '，其中 $waiting 个在等你验收' : ''}。';
+        final lines = [
+          for (final t in tasks.take(driving ? 3 : 5)) _taskLine(t),
+        ];
+        return '$head${lines.join('；')}。';
+      case 'task_detail':
+        final t = r.result['task'];
+        if (t is! Map) continue;
+        final n = t['number'];
+        return '任务${n == null ? '' : ' #$n'}：${_taskLine(t)}。';
+      case 'get_briefing':
+        final o = r.result['overview'];
+        if (o is String && o.trim().isNotEmpty) {
+          return o.trim().endsWith('。') ? o.trim() : '${o.trim()}。';
+        }
+    }
+  }
+  return null;
+}
+
+String _taskLine(Map t) {
+  final owner = t['assignee'] is String ? t['assignee'] as String : '';
+  final waits = t['waitsFor'] is String ? t['waitsFor'] as String : '';
+  final idle = t['idle'] is String ? t['idle'] as String : '';
+  return [
+    '${t['title']}',
+    // "八戒 在做" already says who; "等你验收" does not.
+    if (owner.isNotEmpty && !waits.contains(owner)) '$owner 负责',
+    if (waits.isNotEmpty) waits else if (owner.isEmpty) '没人认领',
+    if (idle.isNotEmpty) '$idle没动',
+  ].join('，');
 }

@@ -303,6 +303,88 @@ void main() {
     });
   });
 
+  group('a turn that ends without a word after a tool', () {
+    final tasks = run('list_tasks', {
+      'total': 3,
+      'waitingOnMe': 1,
+      'tasks': [
+        {
+          'number': 142,
+          'title': '迁移旧的缓存',
+          'assignee': 'Cody',
+          'waitsFor': '等你验收',
+          'idle': '5 天',
+        },
+        {
+          'number': 141,
+          'title': '整理发布说明',
+          'assignee': '八戒',
+          'waitsFor': '八戒 在做',
+          'idle': '4 天',
+        },
+        {'number': 143, 'title': '补充设计评审记录', 'waitsFor': '没人认领'},
+        {'number': 144, 'title': '第四个', 'assignee': 'Grok'},
+      ],
+    });
+
+    test('the model is asked once, and the app has the words ready', () {
+      final r = orbReviewReply('', [tasks], cardUp: false, driving: true);
+      expect(r?.retry, contains('还没有回答'));
+      expect(
+        r?.text,
+        '共 3 个任务，其中 1 个在等你验收。'
+        '迁移旧的缓存，Cody 负责，等你验收，5 天没动；'
+        '整理发布说明，八戒 在做，4 天没动；'
+        '补充设计评审记录，没人认领。',
+      );
+    });
+
+    test('while driving it is two sentences and three tasks', () {
+      final said = orbSummarize([tasks], driving: true)!;
+      expect(said.split('。').where((s) => s.isNotEmpty), hasLength(2));
+      expect(said, isNot(contains('第四个')));
+      expect(orbSummarize([tasks]), contains('第四个'));
+    });
+
+    test('one task, an empty list, a briefing', () {
+      expect(
+        orbSummarize([
+          run('task_detail', {
+            'task': {
+              'number': 136,
+              'title': '重构第 10 步',
+              'assignee': 'Cody',
+              'waitsFor': '等你验收',
+              'idle': '45 分钟',
+            },
+          }),
+        ]),
+        '任务 #136：重构第 10 步，Cody 负责，等你验收，45 分钟没动。',
+      );
+      expect(
+        orbSummarize([
+          run('list_tasks', {'total': 0, 'tasks': <Object?>[]}),
+        ]),
+        '没有符合的任务。',
+      );
+      expect(
+        orbSummarize([
+          run('get_briefing', {'overview': '2 条新的'}),
+        ]),
+        '2 条新的。',
+      );
+    });
+
+    test('a tool that found nothing to say leaves nothing to say', () {
+      final r = orbReviewReply('', [
+        run('navigate', {'title': 'X'}),
+      ], cardUp: false);
+      expect(r?.retry, isNotNull);
+      expect(r?.text, isNull);
+      expect(orbReviewReply('', const [], cardUp: false), isNull);
+    });
+  });
+
   test('no briefing, no card, nothing to say about it', () {
     expect(orbReviewReply('你好。', const [], cardUp: false), isNull);
   });

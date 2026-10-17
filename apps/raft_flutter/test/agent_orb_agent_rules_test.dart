@@ -196,6 +196,24 @@ void main() {
     expect(names, isNot(contains('reply_in_thread')));
   });
 
+  orbTest('no words after a tool: asked once more, then the app says what '
+      'the tool found', (t) async {
+    gemini.replies.addAll([_call('list_tasks', {}), _say(''), _say('')]);
+    await say(t, '看看任务');
+
+    expect(gemini.requests, hasLength(3), reason: 'asked once more');
+    expect(agentLines(), hasLength(1));
+    expect(agentLines().single, startsWith('共 1 个任务'));
+    expect(agentLines().single, contains('丁'));
+  });
+
+  orbTest('no words after a tool, then words after the nudge: the model\'s '
+      'words are said', (t) async {
+    gemini.replies.addAll([_call('list_tasks', {}), _say(''), _say('有一个任务。')]);
+    await say(t, '看看任务');
+    expect(agentLines(), ['有一个任务。']);
+  });
+
   orbTest('a plain 确认 runs confirm in code and the app says the result', (
     t,
   ) async {
