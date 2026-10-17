@@ -27,6 +27,7 @@ import 'nav/orb_nav_tools.dart'
     show orbChannelsLine, orbDirectoryOf, orbNavigationTools;
 import 'nav/orb_page_description.dart' show orbPageTitle;
 import 'actions/orb_card_words.dart' show orbPlainNo, orbPlainYes;
+import 'actions/orb_reply.dart' show OrbReplyContext;
 import 'orb_agent_review.dart';
 import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
@@ -142,6 +143,7 @@ class OrbController extends ChangeNotifier {
       ..driving = (() => _driving)
       ..card = _cardIds
       ..appSpeaks = agentLayer
+      ..replyContext = _replyContext
       ..onSay = ((line) => unawaited(voice.speak(line)));
     final all = [
       ..._shellTools(),
@@ -1144,6 +1146,25 @@ class OrbController extends ChangeNotifier {
     }
     return null;
   }
+
+  /// Who "他" is for `reply`: the card on the screen while driving, else what
+  /// needs the person (the cards the layer shows, or the Activity's).
+  OrbReplyContext _replyContext() => OrbReplyContext(
+    card: _driving && !drivingDone ? drivingItems[drivingIndex] : null,
+    needsYou: () async {
+      final shown = shownBriefing?.needsYou;
+      if (shown != null && shown.isNotEmpty) return shown;
+      final b = await OrbBriefingService.of(workspace)
+          .brief(
+            OrbBriefScope.activity,
+            full: true,
+            remember: false,
+            modelWait: const Duration(seconds: 3),
+          )
+          .timeout(const Duration(seconds: 8));
+      return b.needsYou;
+    },
+  );
 
   /// The person's words of the turn under way (what the review asks about).
   String _turnSaid = '';

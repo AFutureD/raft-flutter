@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart' show SizedBox;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
+import 'package:raft_flutter/features/agent_orb/actions/orb_reply.dart';
+import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/orb_controller.dart';
 
 import 'support/orb_action_world.dart';
@@ -154,6 +156,44 @@ void main() {
     ];
     expect(tools(gemini.requests.single), contains('screen_action'));
     expect(tools(gemini.requests.single), isNot(contains('confirm')));
+  });
+
+  orbTest('reply with nobody named is the person the app finds, and the card '
+      'says who', (t) async {
+    orb().actions.replyContext = () => OrbReplyContext(
+      needsYou: () async => const [
+        OrbBriefItem(
+          id: 'msg:m-1',
+          title: 'Cody 问你：周五上线可以吗？',
+          who: 'Cody',
+          where: '#general',
+          since: '已等 5 分钟',
+          link: '/s/s1/channel/ch-general',
+          sourceIds: ['msg:m-1', 'm-1'],
+          channelId: 'ch-general',
+          reason: OrbReason.mentionAsk,
+          why: '点名你',
+        ),
+      ],
+    );
+    gemini.replies.add(_call('reply', {'text': '可以'}));
+    await say(t, '回复他说可以');
+
+    expect(agentLines(), ['回复 Cody：可以，要发吗？']);
+    await say(t, '确认');
+    expect(f.world.sent.single.text, '可以');
+    expect(agentLines().last, '已回复。');
+    // The model's tools: `reply`, not the two it replaces.
+    final names = [
+      for (final d
+          in ((gemini.requests.first['tools'] as List).single
+                  as Map)['functionDeclarations']
+              as List)
+        '${(d as Map)['name']}',
+    ];
+    expect(names, contains('reply'));
+    expect(names, isNot(contains('send_message')));
+    expect(names, isNot(contains('reply_in_thread')));
   });
 
   orbTest('a plain 确认 runs confirm in code and the app says the result', (

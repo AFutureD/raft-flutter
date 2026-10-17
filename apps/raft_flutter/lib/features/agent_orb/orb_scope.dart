@@ -57,6 +57,7 @@ const orbToolModes = <String, Set<OrbMode>>{
   'set_driving_mode': _all,
   'driving_next': {OrbMode.driving},
   // Asking for a change (one card at a time; a new ask replaces the card).
+  'reply': _all,
   'send_message': _all,
   'reply_in_thread': _all,
   'react': _all,
@@ -78,17 +79,23 @@ const orbToolModes = <String, Set<OrbMode>>{
 };
 
 /// The tools that ask for a change, by name.
-final Set<String> _changing = {...orbActionCapabilities.keys, 'act'};
+final Set<String> _changing = {...orbActionCapabilities.keys, 'act', 'reply'};
+
+/// What `reply` replaces for the text agent: it never gets these two (the
+/// realtime model does).
+const orbAgentReplaced = {'send_message', 'reply_in_thread'};
 
 /// The change tools that are fine while the car moves.
 final Set<String> orbDrivingChangeTools = {
   for (final e in orbActionCapabilities.entries)
     if (orbDrivingCapabilities.contains(e.value)) e.key,
+  'reply',
 };
 
 /// Whether the tool [name] is given in [mode] ([driving]: the car is moving,
 /// also while a card waits).
 bool orbToolIn(String name, OrbMode mode, {required bool driving}) {
+  if (orbAgentReplaced.contains(name)) return false;
   final modes = orbToolModes[name];
   if (modes != null && !modes.contains(mode)) return false;
   if (driving && _changing.contains(name)) {
@@ -152,7 +159,7 @@ String orbAgentPrompt({
         ..write(orbPromptOperating)
         ..write(orbPromptDrivingEnter)
         ..write('\n')
-        ..write(orbActionBasics)
+        ..write(orbActionBasicsAgent)
         ..write(orbActionReplyAgent)
         ..write(orbActionConfirmAgent)
         ..write('\n')
@@ -164,7 +171,7 @@ String orbAgentPrompt({
         ..write(orbPromptDrivingEnter)
         ..write(orbPromptDrivingRules)
         ..write('\n')
-        ..write(orbActionBasics)
+        ..write(orbActionBasicsAgent)
         ..write(orbActionReplyAgent)
         ..write(orbActionConfirmAgent)
         ..write(orbActionDriving);

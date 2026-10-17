@@ -14,6 +14,7 @@ import '../../agent_mode/agent_steering.dart' show agentAppSays;
 import 'orb_action_declarations.dart';
 import 'orb_card_words.dart';
 import 'orb_nudge.dart';
+import 'orb_reply.dart';
 
 /// One line of a confirm card: `发到  #general`. [from] is what it was before,
 /// when it changes something that was there.
@@ -127,6 +128,9 @@ class OrbActions extends ChangeNotifier {
   /// "稍后提醒我" without saying which.
   List<String> Function() card;
 
+  /// Who "他" is, for `reply` (the agent layer); null: nobody in particular.
+  OrbReplyContext Function()? replyContext;
+
   /// How long the result stays on the layer.
   final Duration outcomeLinger;
 
@@ -200,12 +204,18 @@ class OrbActions extends ChangeNotifier {
   /// What happened to the last card, for a few seconds.
   OrbActionOutcome? get outcome => _outcome;
 
-  /// The tools the model gets.
+  /// The tools the model gets. The agent layer ([appSpeaks]) also gets
+  /// `reply`, which finds the message itself.
   late final List<OrbTool> tools = [
     for (final d in orbActionDeclarations(registry))
       OrbTool(
         declaration: d,
         handler: (args, ctx) => call('${d['name']}', args),
+      ),
+    if (appSpeaks)
+      OrbTool(
+        declaration: orbReplyDeclaration,
+        handler: (args, ctx) => call('reply', args),
       ),
   ];
 
@@ -216,6 +226,7 @@ class OrbActions extends ChangeNotifier {
   ) async {
     try {
       return switch (name) {
+        'reply' => await reply(args),
         'confirm' => await confirm(),
         'cancel_action' => await cancel(),
         'find' => await _find(args),
@@ -253,6 +264,26 @@ class OrbActions extends ChangeNotifier {
       return {...r, 'activity': text};
     }
     return r;
+  }
+
+  /// "回复他说 X": the app finds the message (see [orbResolveReply]) and asks
+  /// for the reply, which comes up as a card naming the person.
+  Future<Map<String, Object?>> reply(Map<String, Object?> args) async {
+    final text = _text(args['text']);
+    if (text == null) return {'error': '要回复什么？需要 text'};
+    final OrbReplyPlan plan;
+    try {
+      plan = await orbResolveReply(
+        workspace,
+        replyContext?.call() ??
+            OrbReplyContext(card: null, needsYou: () async => const []),
+        to: _text(args['to']),
+        text: text,
+      );
+    } on AgentCapabilityError catch (e) {
+      return e.toJson();
+    }
+    return request(plan.tool, plan.args);
   }
 
   // ---- asking -----------------------------------------------------------------

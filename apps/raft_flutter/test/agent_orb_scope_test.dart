@@ -126,10 +126,7 @@ void main() {
 
     test('normal: the app, without the card and driving tools', () {
       final n = _names(OrbMode.normal, all: all);
-      expect(
-        n,
-        containsAll(['navigate', 'screen_action', 'send_message', 'undo']),
-      );
+      expect(n, containsAll(['navigate', 'screen_action', 'reply', 'undo']));
       expect(n, containsAll(['set_driving_mode', 'describe_page', 'find']));
       expect(n, isNot(contains('confirm')));
       expect(n, isNot(contains('cancel_action')));
@@ -145,8 +142,7 @@ void main() {
           'set_driving_mode',
           'navigate',
           'list_tasks',
-          'send_message',
-          'reply_in_thread',
+          'reply',
           'react',
           'snooze_item',
           'assign_task',
@@ -170,15 +166,31 @@ void main() {
     test('confirming: answer the card, read, or change the ask', () {
       final c = _names(OrbMode.confirming, all: all);
       expect(c, containsAll(['confirm', 'cancel_action', 'describe_page']));
-      expect(c, containsAll(['send_message', 'set_task_status']));
+      expect(c, containsAll(['reply', 'set_task_status']));
       expect(c, isNot(contains('navigate')));
       expect(c, isNot(contains('screen_action')));
       expect(c, isNot(contains('driving_next')));
       // Driving while a card waits: the asks are the low-risk ones again.
       final cd = _names(OrbMode.confirming, driving: true, all: all);
-      expect(cd, containsAll(['confirm', 'cancel_action', 'send_message']));
+      expect(cd, containsAll(['confirm', 'cancel_action', 'reply']));
       expect(cd, isNot(contains('set_task_status')));
     });
+
+    test(
+      'the text agent answers people with reply, not the two it replaces',
+      () {
+        for (final mode in OrbMode.values) {
+          final n = _names(
+            mode,
+            driving: mode == OrbMode.driving,
+            all: [...all, 'reply'],
+          );
+          expect(n, contains('reply'), reason: '$mode');
+          expect(n, isNot(contains('send_message')), reason: '$mode');
+          expect(n, isNot(contains('reply_in_thread')), reason: '$mode');
+        }
+      },
+    );
 
     test('a tool the table does not know is given in every state', () {
       for (final mode in OrbMode.values) {
@@ -229,6 +241,7 @@ void main() {
       'every tool of the orb is in a state, and each state is reachable',
       (t) async {
         final names = f.controller.tools.keys.toSet();
+        expect(names, contains('reply'));
         for (final n in names) {
           expect(
             orbToolModes,
@@ -236,7 +249,8 @@ void main() {
             reason: '$n has no place in orbToolModes',
           );
         }
-        for (final n in names) {
+        // The two that `reply` replaces are the realtime model's.
+        for (final n in names.difference(orbAgentReplaced)) {
           final reachable = [
             for (final mode in OrbMode.values)
               if (orbToolIn(n, mode, driving: mode == OrbMode.driving)) mode,
@@ -259,10 +273,7 @@ void main() {
       expect(steering.scope().systemPrompt, contains('【屏幕】'));
 
       // A card waits: the confirming state, with what it will do.
-      final asked = await call(t, 'send_message', {
-        'channel': 'general',
-        'text': '可以合',
-      });
+      final asked = await call(t, 'reply', {'to': '#general', 'text': '可以合'});
       expect(asked['status'], 'needs_confirmation');
       expect(tools(), containsAll(['confirm', 'cancel_action']));
       expect(tools(), isNot(contains('navigate')));

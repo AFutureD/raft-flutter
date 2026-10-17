@@ -128,3 +128,23 @@ List<Map<String, Object?>> orbActionDeclarations(
     'description': '用户说取消、算了、不发了之后调用：丢掉屏幕上等着确认的那一项，什么都不做。没有参数。',
   },
 ];
+
+/// The one tool for answering somebody, in the agent layer: the app finds the
+/// message, so the model never handles a message id and the card names the
+/// person. (The realtime model keeps `send_message` and `reply_in_thread`.)
+const orbReplyDeclaration = <String, Object?>{
+  'name': 'reply',
+  'description':
+      '回复一个人。text 是要发的话；to 一般省略：省略（或写“他/她”）就是回复现在这件事里的那个人——'
+      '驾驶中是卡片上那一件，在频道里是最近点名用户的那条消息，在动态里是最要紧的那件，在私信里就是这个私信。'
+      'to 填人名就回复那个人；填 #频道名（如 #general）才是发到那个频道。'
+      '不用自己找消息，也不要念 id。不会马上发：屏幕上先出确认卡（谁、说什么），App 会复述并问用户。',
+  'parameters': {
+    'type': 'object',
+    'properties': {
+      'text': {'type': 'string', 'description': '要发的话，要 @ 谁就写 @名字'},
+      'to': {'type': 'string', 'description': '可省略：人名，或 #频道名'},
+    },
+    'required': ['text'],
+  },
+};
