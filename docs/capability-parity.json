@@ -14849,7 +14849,7 @@
    "flutterEntry": "AppUpdateService build-manifest check drives a red dot; macOS/Windows 'Update now' (Sparkle/WinSparkle), Linux AppImage 'Update now' (zsync delta download, restart to finish), other platforms 'View release' opens the release page",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/workspace_settings.dart",
+     "file": "apps/raft_flutter/lib/features/app_updates_presentation.dart",
      "needle": "'View release'"
     },
     {

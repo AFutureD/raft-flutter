@@ -52,6 +52,7 @@ import 'platform/system_fonts.dart';
 import 'platform/app_update.dart';
 import 'platform/app_services.dart';
 import 'platform/app_window.dart';
+import 'platform/linux_application_menu.dart';
 import 'platform/app_update_smoke.dart';
 import 'platform/background_notifications.dart';
 import 'platform/cache_exit.dart';
@@ -622,15 +623,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final membership = c.servers();
       unawaited(membership.then<void>((_) {}, onError: (Object _) {}));
       if (pending) {
-        final created =
-            await c.post(
-                  '/channels/dm',
-                  data: {
-                    if (target.agentId != null) 'agentId': target.agentId,
-                    if (target.userId != null) 'userId': target.userId,
-                  },
-                )
-                as Map;
+        final created = await c.post(
+          '/channels/dm',
+          data: {
+            if (target.agentId != null) 'agentId': target.agentId,
+            if (target.userId != null) 'userId': target.userId,
+          },
+        ) as Map;
         if (!stillHere()) return;
         final row = await c.get('/channels/${created['id']}');
         if (!stillHere()) return;
@@ -2170,28 +2169,32 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       builder: (context, child) => RaftHoverScope.forPlatform(
-        child: AppWindowCommands(
+        child: LinuxApplicationMenu(
           navigatorKey: appRouter.navigatorKey,
-          openSection: workspace?.setSection,
-          child: AppServicesHost(
-            services: widget.services,
-            ownsAppUpdate: widget.ownsAppUpdate,
-            child: RaftTextScaling(
-              child: RepaintBoundary(
-                key: raftScreenshotKey,
-                child: DesktopTitleBar(
-                  child: RaftTooltipProvider(
-                    delay: const Duration(milliseconds: 600),
-                    child: RaftViewportBreakpointScope(
-                      // Resolves the theme's font combinations once the app is idle.
-                      child: RaftFontWarmUpScope(
-                        child: RaftSystemBars(
-                          child: RaftErrorScope(
-                            format: raftAppErrorFormatter,
-                            child: RaftToastHost(
-                              child: KeyboardInsetGuard(
-                                imeVisible: platformImeVisibility,
-                                child: child!,
+          appUpdate: widget.services.appUpdate,
+          child: AppWindowCommands(
+            navigatorKey: appRouter.navigatorKey,
+            openSection: workspace?.setSection,
+            child: AppServicesHost(
+              services: widget.services,
+              ownsAppUpdate: widget.ownsAppUpdate,
+              child: RaftTextScaling(
+                child: RepaintBoundary(
+                  key: raftScreenshotKey,
+                  child: DesktopTitleBar(
+                    child: RaftTooltipProvider(
+                      delay: const Duration(milliseconds: 600),
+                      child: RaftViewportBreakpointScope(
+                        // Resolves the theme's font combinations once the app is idle.
+                        child: RaftFontWarmUpScope(
+                          child: RaftSystemBars(
+                            child: RaftErrorScope(
+                              format: raftAppErrorFormatter,
+                              child: RaftToastHost(
+                                child: KeyboardInsetGuard(
+                                  imeVisible: platformImeVisibility,
+                                  child: child!,
+                                ),
                               ),
                             ),
                           ),

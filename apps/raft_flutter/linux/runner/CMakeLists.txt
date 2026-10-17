@@ -9,6 +9,7 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME}
   "main.cc"
   "my_application.cc"
+  "application_menu.cc"
   "vsync_driver.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
