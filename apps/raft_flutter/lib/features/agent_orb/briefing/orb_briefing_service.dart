@@ -55,6 +55,7 @@ class OrbBriefingService {
   void forgetTold() => _told.clear();
 
   final _warming = <String, Future<void>>{};
+  late final _reads = OrbReadCache(now: _now);
 
   /// Reads [scope] and has the model word it ahead of time, so a briefing
   /// asked for soon after finds the words cached. It is not a briefing: what
@@ -94,7 +95,7 @@ class OrbBriefingService {
     Duration? modelWait,
     bool remember = true,
   }) async {
-    final reader = OrbBriefingReader(w, now: _now);
+    final reader = OrbBriefingReader(w, now: _now, cache: _reads);
     final read = scope.isActivity
         ? await reader.activity()
         : await reader.conversation(scope.conversationId!);

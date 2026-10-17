@@ -629,6 +629,59 @@ void main() {
       },
     );
 
+    // The reading was the other half of the wait: a briefing right after a
+    // warm-up reuses what it read while nothing changed.
+    test('a briefing after a warm-up reads no conversation again', () async {
+      final s = service();
+      await s.warm(OrbBriefScope.activity);
+      final read = [
+        for (final p in client.posts)
+          if (p.startsWith('GET /messages/channel/')) p,
+      ];
+      expect(read, isNotEmpty);
+      client.posts.clear();
+      final b = await s.brief(OrbBriefScope.activity, full: true);
+      expect(b.needsYou, hasLength(2));
+      expect(
+        client.posts.where((p) => p.startsWith('GET /messages/channel/')),
+        isEmpty,
+      );
+    });
+
+    test(
+      'a row with a newer message is read again, the rest are not',
+      () async {
+        final s = service();
+        await s.warm(OrbBriefScope.activity);
+        channelMessages['dm-1'] = [
+          ...channelMessages['dm-1']!,
+          msg(
+            'dm-m2',
+            4,
+            '另外你有空吗？',
+            from: 'Ada',
+            fromId: 'ada',
+            type: 'user',
+            minutes: 1,
+          ),
+        ];
+        client.responses['GET /messages/channel/dm-1'] = {
+          'messages': channelMessages['dm-1'],
+        };
+        inbox[2] = {...dmRow(), 'lastMessageId': 'dm-m2'};
+        client.posts.clear();
+        final b = await s.brief(OrbBriefScope.activity, full: true);
+        expect(
+          client.posts.where((p) => p.startsWith('GET /messages/channel/')),
+          ['GET /messages/channel/dm-1'],
+        );
+        expect(
+          b.needsYou.where((i) => i.who == 'Ada').single.title,
+          contains('有空'),
+        );
+      },
+    );
+
     test('a failing warm-up is quiet', () async {
       final gemini = FakeGemini(FakeGemini.echo())..error = StateError('boom');
       final s = service(model: gemini);

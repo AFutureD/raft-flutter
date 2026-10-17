@@ -17,6 +17,37 @@ import 'orb_signals.dart';
 /// message and the newest replies), because an Activity row is only a
 /// template ("X said …, N replies").
 ///
+/// Conversation reads a briefing reuses while the Activity row they were
+/// read for is unchanged (same newest message, same unread count), for at
+/// most [maxAge]: the warm-up reads, the briefing right after does not.
+class OrbReadCache {
+  OrbReadCache({required this.now, this.maxAge = const Duration(minutes: 2)});
+  final DateTime Function() now;
+  final Duration maxAge;
+  final _reads = <String, (DateTime, String, List<Map<String, dynamic>>)>{};
+
+  List<Map<String, dynamic>>? get(String id, String version) {
+    final hit = _reads[id];
+    if (hit == null || hit.$2 != version) return null;
+    if (now().difference(hit.$1) > maxAge) return null;
+    return hit.$3;
+  }
+
+  void put(String id, String version, List<Map<String, dynamic>> rows) =>
+      _reads[id] = (now(), version, rows);
+
+  /// What an Activity row says about its newest content; null when it says
+  /// nothing (such a row is always read).
+  static String? versionOf(Map<String, dynamic> row) {
+    final latest =
+        row['latestActivityMessageId'] ??
+        row['lastMessageId'] ??
+        row['latestMessageId'];
+    if (latest == null) return null;
+    return '$latest|${row['unreadCount']}|${row['replyCount']}';
+  }
+}
+
 /// Everything here is a GET: nothing is marked read, nothing is written.
 class OrbBriefingReader {
   OrbBriefingReader(
@@ -24,7 +55,11 @@ class OrbBriefingReader {
     required this.now,
     this.fetchTimeout = const Duration(seconds: 6),
     this.maxFetched = 14,
+    this.cache,
   }) : data = AgentModeData(w, now: now);
+
+  /// Reads kept between briefings (null: every read goes to the server).
+  final OrbReadCache? cache;
 
   final WorkspaceController w;
   final AgentModeData data;
@@ -240,24 +275,38 @@ class OrbBriefingReader {
     var contentRead = false;
     if (readId != null) {
       try {
-        final read = await data
-            .conversation(
-              readId,
-              limit: thread ? 8 : 10,
-              withTasks: false,
-              parentChannelId: thread ? _s(row['parentChannelId']) : null,
-              parentMessageId: thread ? _s(row['parentMessageId']) : null,
-            )
-            .timeout(fetchTimeout);
+        final version = OrbReadCache.versionOf(row);
+        final cached = version == null ? null : cache?.get(readId, version);
+        final List<Map<String, dynamic>> fetched;
+        if (cached != null) {
+          fetched = cached;
+        } else {
+          fetched =
+              (await data
+                      .conversation(
+                        readId,
+                        limit: thread ? 8 : 10,
+                        withTasks: false,
+                        parentChannelId: thread
+                            ? _s(row['parentChannelId'])
+                            : null,
+                        parentMessageId: thread
+                            ? _s(row['parentMessageId'])
+                            : null,
+                      )
+                      .timeout(fetchTimeout))
+                  .rows;
+          if (version != null) cache?.put(readId, version, fetched);
+        }
         final parentId = thread ? _s(row['parentMessageId']) : null;
         final rows = [
-          for (final m in read.rows)
+          for (final m in fetched)
             if (m['id'] != parentId) m,
         ];
         parent = parentId == null
             ? null
             : _messages([
-                for (final m in read.rows)
+                for (final m in fetched)
                   if (m['id'] == parentId) m,
               ]).firstOrNull;
         messages = _messages(rows);
