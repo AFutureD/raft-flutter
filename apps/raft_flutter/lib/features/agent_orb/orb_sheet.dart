@@ -217,8 +217,8 @@ class OrbSheetFooter extends StatefulWidget {
 }
 
 class _OrbSheetFooterState extends State<OrbSheetFooter> {
-  final text = TextEditingController();
   final focus = FocusNode();
+  TextEditingController get text => widget.controller.draft;
 
   @override
   void initState() {
@@ -229,13 +229,14 @@ class _OrbSheetFooterState extends State<OrbSheetFooter> {
   /// Going to type raises a sheet that was lowered to a peek.
   void _focusChanged() {
     if (focus.hasFocus) widget.controller.expandSheet();
+    // Whether Back is the keyboard's (see the PopScope).
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     focus.removeListener(_focusChanged);
     focus.dispose();
-    text.dispose();
     super.dispose();
   }
 
@@ -249,6 +250,18 @@ class _OrbSheetFooterState extends State<OrbSheetFooter> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // Back with the input focused is for the keyboard: it goes down and the
+    // sheet and the text stay; the next Back closes the sheet.
+    return PopScope(
+      canPop: !focus.hasFocus,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) focus.unfocus();
+      },
+      child: _footer(context, t),
+    );
+  }
+
+  Widget _footer(BuildContext context, RaftTokens t) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {

@@ -110,6 +110,11 @@ class OrbController extends ChangeNotifier {
   /// How long "Agent is operating" stays after the model's turn ends.
   final Duration operatingLinger;
 
+  /// What the person is typing in the sheet's input. It lives as long as the
+  /// orb, not the sheet: the keyboard going down, the sheet closing or being
+  /// rebuilt never takes it away.
+  final draft = TextEditingController();
+
   /// The voice session (also the typed text path).
   late final AgentVoiceController voice;
 
@@ -430,6 +435,10 @@ class OrbController extends ChangeNotifier {
     if (_sheetRoute != null) return true;
     final context = navigatorContext();
     if (context == null || !context.mounted) return false;
+    // A word left half-composed has no keyboard to finish it now.
+    if (draft.value.composing.isValid) {
+      draft.value = draft.value.copyWith(composing: TextRange.empty);
+    }
     final route = raftPresentedRoute<void>(
       context,
       policy: _sheetPolicy,
@@ -563,6 +572,7 @@ class OrbController extends ChangeNotifier {
     voice.removeListener(notifyListeners);
     voice.dispose();
     operating.dispose();
+    draft.dispose();
     super.dispose();
   }
 }
