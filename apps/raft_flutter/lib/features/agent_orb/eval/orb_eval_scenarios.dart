@@ -41,6 +41,17 @@ final _noStatusChange = OrbEvalCheck.custom('驾驶中没有改任务状态', (r
   return changed.isEmpty ? null : '改了：${changed.join('、')}';
 });
 
+/// A `screen_action` that was done ("ok") on a control named [label].
+OrbEvalCheck _pressedOk(RegExp label) =>
+    OrbEvalCheck.custom('按下了「${label.pattern}」', (run) {
+      for (final c in run.tools.where((c) => c.name == 'screen_action')) {
+        if (c.result['ok'] == true && label.hasMatch('${c.result['did']}')) {
+          return null;
+        }
+      }
+      return '没有成功按下「${label.pattern}」';
+    });
+
 final _saysNothingToDo = RegExp(r'没有.{0,8}(处理|回复|找你|新的|要紧)');
 
 // ---- data ------------------------------------------------------------------
@@ -1089,6 +1100,45 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     checks: [OrbEvalCheck.avoids(RegExp('任务'), '主动问任务'), ..._std()],
     status: OrbEvalStatus.expectedFail,
     note: 'not built: idle task prompt',
+  ),
+
+  // ---- F. the screen: no tool of its own for the page, only what it shows ---
+  OrbEvalScenario(
+    id: 'F1',
+    title: '点一下右上角的搜索',
+    start: OrbEvalStart.channel('raft-flutter'),
+    data: _quietChannel,
+    say: const ['点一下右上角的搜索'],
+    checks: [
+      OrbEvalCheck.tool('screen_action', args: {'action': 'tap'}),
+      _pressedOk(RegExp('Search|搜索')),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'F2',
+    title: '把视图切到未读',
+    start: OrbEvalStart.activity,
+    data: _activityFive,
+    say: const ['把视图切到未读'],
+    checks: [
+      OrbEvalCheck.tool('screen_action', args: {'action': 'tap'}),
+      OrbEvalCheck.custom('未读已选中', (run) {
+        for (final c in run.tools.where((c) => c.name == 'screen_action')) {
+          final after = c.result['snapshot'];
+          final actions = after is Map ? after['actions'] : null;
+          if (actions is! List) continue;
+          for (final a in actions.whereType<Map>()) {
+            if (RegExp('Unread|未读').hasMatch('${a['label']}') &&
+                a['checked'] == true) {
+              return null;
+            }
+          }
+        }
+        return '操作之后的屏幕上，“未读”没有被选中';
+      }),
+      ..._std(),
+    ],
   ),
 ];
 

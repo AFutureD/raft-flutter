@@ -151,6 +151,34 @@ final Map<String, Map<String, Say>> golden = {
       ('describe_page', {}),
     ], 'Cody 支持方案 A，Grok 支持方案 B，Alice 在问你怎么看。'),
   },
+  'F1': {
+    '点一下右上角的搜索': (s) async {
+      final page = await s.onToolCall('describe_page', const {});
+      final screen = (page['screen']! as Map)['actions']! as List;
+      final search = screen.cast<Map>().firstWhere(
+        (a) => RegExp('Search|搜索').hasMatch('${a['label']}') && a['at'] == '右上',
+      );
+      await s.onToolCall('screen_action', {
+        'id': search['id'],
+        'action': 'tap',
+      });
+      s.say('点了，搜索打开了。');
+    },
+  },
+  'F2': {
+    '把视图切到未读': (s) async {
+      final page = await s.onToolCall('describe_page', const {});
+      final screen = (page['screen']! as Map)['actions']! as List;
+      final unread = screen.cast<Map>().firstWhere(
+        (a) => RegExp('^(Unread|未读)\$').hasMatch('${a['label']}'),
+      );
+      await s.onToolCall('screen_action', {
+        'id': unread['id'],
+        'action': 'tap',
+      });
+      s.say('切到未读了。');
+    },
+  },
   'D1': {'开始驾驶模式': drive},
   'D2': {
     '开始驾驶模式': drive,
