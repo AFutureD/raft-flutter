@@ -14695,7 +14695,7 @@
    "flutterEntry": "Flutter evaluates flags per surface via featureFlagEvaluateBody",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_session.dart",
      "needle": "/feature-flags/evaluate"
     },
     {
