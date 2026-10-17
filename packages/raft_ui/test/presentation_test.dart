@@ -531,6 +531,35 @@ void main() {
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
 
+    // The handle sits in the body's scroll view: once the body was scrolled
+    // (a chat transcript that follows its newest line), a finger on the
+    // handle scrolled the text and the sheet never grew (the Agent orb on
+    // the G100).
+    testWidgets('a finger drag on the handle moves the sheet even when the '
+        'body is scrolled', (tester) async {
+      _size(tester, phone);
+      await tester.pumpWidget(
+        _app(policy: RaftPresentationPolicy.form, content: tall, initialSize: .6),
+      );
+      await _open(tester);
+      scroll(tester).position.jumpTo(200);
+      await tester.pump();
+      final opened = tester.getTopLeft(_sheet).dy;
+      final finger = await tester.startGesture(tester.getCenter(_handle));
+      for (var i = 0; i < 10; i++) {
+        await finger.moveBy(const Offset(0, -20));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(tester.getTopLeft(_sheet).dy, lessThan(opened - 100));
+      await finger.up();
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(_sheet).height,
+        closeTo(phone.height * RaftSheetMetrics.largeDetent, 2),
+      );
+      expect(scroll(tester).position.pixels, 200);
+    });
+
     group('closing asks the route (Back, drag and scrim alike)', () {
       final popped = <bool>[];
       // The same tall sheet, optionally vetoing every pop.
