@@ -1101,8 +1101,16 @@
     {
       "module": "app_root",
       "metric": "tokens",
-      "limit": 11946,
-      "reason": "PR #216: one navigator-wide native hover policy wrapper (+7 tokens, no new fields); approved by Cindy in 1759c092-c736-4932-b550-e8337263704f.",
+      "limit": 11969,
+      "reason": "PR #223 registers the login-independent Linux update menu at the root navigator. No new root fields (65). Bounded growth approved by Cindy in Raft b6e62d88-284f-48f4-bf12-273321717c1f; includes the existing native-hover wrapper allowance.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "app_root",
+      "metric": "lines",
+      "limit": 2217,
+      "reason": "PR #223 registers the login-independent Linux update menu at the root navigator. No new root fields (65). Bounded growth approved by Cindy in Raft b6e62d88-284f-48f4-bf12-273321717c1f; includes the existing native-hover wrapper allowance.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }
