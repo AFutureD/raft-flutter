@@ -41,6 +41,8 @@ class _Workspace extends ActivityWorkspace {
     _dmThread(),
   ];
   Completer<void>? holdDms;
+  Completer<void>? holdNextUnscoped;
+  bool rejectNextUnscoped = false;
 
   List<Map<String, dynamic>> get dmQueries => [
     for (final query in inboxQueries)
@@ -95,7 +97,7 @@ class _Workspace extends ActivityWorkspace {
       'activeUnreadCount': unread,
       'hasMore': offset + page.length < source.length,
       'groups': [
-        if (!scoped)
+        if (!scoped && serverRows.any((row) => row['channelId'] == 'ch0'))
           {
             'channelId': 'ch0',
             'channelName': 'Channel 0',
@@ -111,8 +113,12 @@ class _Workspace extends ActivityWorkspace {
           },
       ],
     };
-    final gate = scoped ? holdDms : null;
+    final gate = scoped ? holdDms : holdNextUnscoped;
+    final reject = !scoped && rejectNextUnscoped;
+    if (!scoped) rejectNextUnscoped = false;
+    if (!scoped) holdNextUnscoped = null;
     if (gate != null) await gate.future;
+    if (reject) throw const RaftApiException('Offline fixture');
     return response;
   }
 }
@@ -139,6 +145,7 @@ void main() {
     late ActivityClient client;
     late _Workspace workspace;
     late List<int?> acceptedUnread;
+    late List<Map?> acceptedWindows;
 
     setUp(() {
       client = ActivityClient()..user = RaftRecord({'id': 'alice'});
@@ -166,6 +173,7 @@ void main() {
           }),
         ];
       acceptedUnread = [];
+      acceptedWindows = [];
     });
     tearDown(() async {
       workspace.dispose();
@@ -189,6 +197,8 @@ void main() {
               activitySidebarEnabled: true,
               compactActivitySidebar: compact,
               onActivityUnreadAccepted: acceptedUnread.add,
+              onActivityWindowAccepted: (value, {bool firstPage = false}) =>
+                  acceptedWindows.add(value),
               onMessage: (_, _) async {},
             ),
           ),
@@ -205,7 +215,10 @@ void main() {
               .evaluate()
               .isEmpty) {
         await tester.tap(find.byKey(const ValueKey('activity-scope-switcher')));
-        await tester.pumpAndSettle();
+        // Wait only for route layout/animation: a held first list read has a
+        // repeating loading animation and deliberately cannot settle.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
       }
     }
 
@@ -230,6 +243,9 @@ void main() {
         await tester.pumpAndSettle();
       } else {
         await tester.pump();
+        // Finish the picker's exit transition while the network gate stays
+        // held; a closing route is still findable but cannot receive taps.
+        await tester.pump(const Duration(milliseconds: 300));
       }
     }
 
@@ -324,7 +340,6 @@ void main() {
         final dynamic state = await mount(tester);
         await select(tester, 'dms');
         expect(state.rows, hasLength(30));
-        expect(find.text('Load more'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.text('Load more'),
           500,
@@ -336,6 +351,7 @@ void main() {
               )
               .first,
         );
+        expect(find.text('Load more'), findsOneWidget);
         await tester.tap(find.text('Load more'));
         await tester.pumpAndSettle();
         expect(workspace.dmQueries.last, containsPair('offset', 30));
@@ -391,6 +407,7 @@ void main() {
         try {
           await select(tester, 'dms', settle: false);
           expect(workspace.dmQueries, hasLength(1));
+          expect(state.directMessagesTotal, 0);
           await select(tester, 'all');
           expect(shown('Preview 0'), findsOneWidget);
         } finally {
@@ -405,6 +422,122 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    _testActivityWidgets(
+      '$width returning to DMs paints its cached window before revalidation',
+      (tester) async {
+        final dynamic state = await mount(tester);
+        await select(tester, 'dms');
+        await select(tester, 'all');
+        expect(state.directMessagesTotal, 2);
+        final held = Completer<void>();
+        workspace.holdDms = held;
+        try {
+          await select(tester, 'dms', settle: false);
+          expect(shown('Direct preview 0'), findsOneWidget);
+          expect(shown('Direct thread reply'), findsOneWidget);
+          expect(skeleton, findsNothing);
+          expect(state.totalUnreadCount, 17);
+        } finally {
+          held.complete();
+          workspace.holdDms = null;
+          await tester.pumpAndSettle();
+        }
+        expect(state.directMessagesTotal, 2);
+        // Only the unscoped facets may be published to the shared store.
+        expect(acceptedWindows.whereType<Map>(), isNotEmpty);
+        expect(
+          acceptedWindows.whereType<Map>().every(
+            (value) =>
+                value['totalCount'] == 34 &&
+                (value['groups'] as List).any(
+                  (dynamic group) => group['channelId'] == 'ch0',
+                ),
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    _testActivityWidgets(
+      '$width a role change retires DMs rows, counts and an older response',
+      (tester) async {
+        final dynamic state = await mount(tester);
+        await select(tester, 'dms');
+        final held = Completer<void>();
+        workspace.holdDms = held;
+        client.emit('message:updated', {'id': 'stale', 'channelId': 'dm0'});
+        await tester.pump(const Duration(seconds: 1));
+        workspace.serverRows = [];
+        workspace.server = RaftRecord({'id': 's1', 'role': 'member'});
+        workspace.notifyListeners();
+        await tester.pump();
+        expect(shown('Direct preview 0'), findsNothing);
+        held.complete();
+        workspace.holdDms = null;
+        await tester.pumpAndSettle();
+        expect(state.rows, isEmpty);
+        expect(state.directMessagesTotal, 0);
+        expect(state.activityGroups, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    if (compact) {
+      _testActivityWidgets(
+        '$width DMs keeps source filters and clearing a channel restores its rows',
+        (tester) async {
+          final dynamic state = await mount(tester);
+          await select(tester, 'dms');
+          await openViews(tester);
+          await tester.tap(
+            find.byKey(const ValueKey('activity-switcher-group-ch0')),
+          );
+          await tester.pumpAndSettle();
+          expect(state.rows, isEmpty);
+          expect(workspace.dmQueries.last, containsPair('channelId', 'ch0'));
+          expect(workspace.dmQueries.last, containsPair('scope', 'dms'));
+          expect(find.text('No activity in Channel 0'), findsOneWidget);
+          await openViews(tester);
+          expect(
+            find.byKey(const ValueKey('activity-switcher-group-dm0')),
+            findsOneWidget,
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('activity-clear-channel-filter')),
+          );
+          await tester.pumpAndSettle();
+          expect(workspace.dmQueries.last.containsKey('channelId'), isFalse);
+          expect(shown('Direct preview 0'), findsOneWidget);
+          expect(find.text('No activity in Channel 0'), findsNothing);
+        },
+      );
+    }
+
+    for (final reject in [false, true]) {
+      _testActivityWidgets(
+        '$width old background facets (failure=$reject) cannot replace a newer All response',
+        (tester) async {
+          final dynamic state = await mount(tester);
+          final held = Completer<void>();
+          workspace.holdNextUnscoped = held;
+          workspace.rejectNextUnscoped = reject;
+          await select(tester, 'dms');
+          workspace.serverRows = [channelRow(0, unread: 9)];
+          await select(tester, 'all');
+          expect(state.totalCount, 1);
+          expect(state.totalUnreadCount, 9);
+          final published = acceptedWindows.length;
+          held.complete();
+          await tester.pumpAndSettle();
+          expect(state.totalCount, 1);
+          expect(state.totalUnreadCount, 9);
+          expect(acceptedWindows.length, published);
+          expect(state.error, isNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
 
     _testActivityWidgets(
       '$width control: All has its full count and never loads DMs eagerly',

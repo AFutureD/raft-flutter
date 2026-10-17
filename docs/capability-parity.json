@@ -11576,16 +11576,20 @@
    "kind": "endpoint",
    "id": "GET /channels/inbox",
    "area": "notifications",
-   "capability": "Load the Activity list (all/unread/mentions, search, sort, channel filter, paging) and unread totals",
+   "capability": "Load the Activity list (all/unread/mentions and independent DMs scope, search, sort, channel filter, paging) and unread totals",
    "background": false,
    "status": "covered",
-   "webEntry": "Activity page / rail > ThreadsInbox (filters All/Unread/Mentions, search, sort Newest/Oldest, channel group filter, infinite scroll; also badge refresh)",
+   "webEntry": "Activity page / rail > ThreadsInbox (All/Unread/Mentions; Web 1.21.12 adds DMs with filter=all and scope=dms; search, Newest/Oldest, channel group filter, paging; also unscoped badge refresh)",
    "gate": "any member",
-   "flutterEntry": "resource_view.dart Activity (all views); source_activity_unread_store.dart; background_inbox.dart",
+   "flutterEntry": "channel_activity_scope.dart mounted query contracts; ResourceFilters/ResourceView Activity wiring; source_activity_unread_store.dart keeps the unscoped badge separate",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/resource_view.dart",
+     "file": "apps/raft_flutter/lib/data/channel_activity_scope.dart",
      "needle": "_ => '/channels/inbox',"
+    },
+    {
+     "file": "apps/raft_flutter/lib/data/channel_activity_scope.dart",
+     "needle": "if (directMessages) 'scope': 'dms'"
     },
     {
      "file": "apps/raft_flutter/lib/data/source_activity_unread_store.dart",
@@ -11605,10 +11609,10 @@
    "status": "covered",
    "webEntry": "Activity > 'Done' view (ThreadsInbox loadDoneItems; rows show a Restore button)",
    "gate": "any member",
-   "flutterEntry": "resource_view.dart Activity filter 'done'",
+   "flutterEntry": "channel_activity_scope.dart Done endpoint, wired by ResourceView",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/resource_view.dart",
+     "file": "apps/raft_flutter/lib/data/channel_activity_scope.dart",
      "needle": "'done' => '/channels/inbox/done'"
     }
    ],
