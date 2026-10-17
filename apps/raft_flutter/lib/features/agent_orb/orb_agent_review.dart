@@ -1,4 +1,5 @@
 import '../agent_mode/agent_steering.dart';
+import 'orb_key_facts.dart';
 import 'briefing/orb_briefing_models.dart' show OrbBriefScope, OrbBriefing;
 
 /// The model asked "要发吗？" (or the like) as a question to the person.
@@ -139,6 +140,17 @@ AgentReview? orbReviewReply(
       _dmGlance(text, runs, said) ??
       _taskListRead(text, runs, said, driving);
   if (listed != null) return listed;
+  // Whatever the person asked about: its key facts are in the answer.
+  final missing = orbMissingFacts(orbKeyFacts(runs, said: said), text);
+  if (missing.isNotEmpty) {
+    final added = '${_ended(text)}${orbFactsSentence(missing)}';
+    return AgentReview(
+      retry:
+          '（App 提示，不是用户的话：你的回答里还没有说到：${missing.map((f) => f.shown).join('、')}。'
+          '补上，别的不用改。）',
+      text: _polish(added, runs) ?? added,
+    );
+  }
   final polished = _polish(text, runs);
   return polished == null ? null : AgentReview(text: polished);
 }
@@ -532,3 +544,7 @@ AgentReview? _taskListRead(
     text: orbSummarize(runs, driving: driving),
   );
 }
+
+/// [text] with an end to its last sentence.
+String _ended(String text) =>
+    RegExp(r'[。！？.!?]$').hasMatch(text) ? text : '$text。';

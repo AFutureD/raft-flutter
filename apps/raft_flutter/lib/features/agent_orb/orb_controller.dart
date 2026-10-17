@@ -38,6 +38,7 @@ import 'orb_driving.dart' show orbSayHint;
 import 'orb_operating.dart';
 import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
+import 'orb_key_facts.dart';
 import 'orb_open.dart';
 import 'orb_scope.dart';
 import 'orb_layer.dart';
@@ -865,6 +866,19 @@ class OrbController extends ChangeNotifier {
     Map<String, Object?> args,
     Map<String, Object?> result,
   ) {
+    // What the answer must convey, said by the app.
+    if (_factReads.contains(name) && result['error'] == null) {
+      final facts = orbKeyFactStrings(
+        orbKeyFacts([AgentToolRun(name, args, result)], said: _turnSaid),
+      );
+      if (facts.isNotEmpty) {
+        result = {
+          ...result,
+          'keyFacts': facts,
+          'keyFactsNote': '回答要说到这些，用自己的话，别漏。',
+        };
+      }
+    }
     if (name == 'list_tasks' && _driving && result['error'] == null) {
       return _queueTasks(result);
     }
@@ -1331,6 +1345,14 @@ class OrbController extends ChangeNotifier {
   );
 
   static const _replyTools = {'reply', 'send_message', 'reply_in_thread'};
+
+  static const _factReads = {
+    'navigate',
+    'describe_page',
+    'read_conversation',
+    'task_detail',
+    'get_briefing',
+  };
 
   /// The person's words ask for a message to be sent.
   static final _replyIntent = RegExp(r'回|复|发|告诉|说|跟|通知|答|写|问|留言|转告|@');

@@ -590,7 +590,7 @@ void main() {
     test('asked "什么需要我处理": both named in order passes', () {
       expect(
         orbReviewReply(
-          'Alice 问评审，等了 5 分钟。Cody 问合入。另外有 1 个任务在等你验收，不急。',
+          'Alice 周五问评审，等了 5 分钟。Cody 问第 10 步合入，等了 12 分钟。另外有 1 个任务在等你验收，不急。',
           [navigated],
           cardUp: false,
           said: '打开动态，什么需要我处理',
@@ -628,9 +628,7 @@ void main() {
     test('five at most; another question is not held', () {
       final many = run('get_briefing', {
         ...briefing(
-          needsYou: [
-            for (var i = 0; i < 7; i++) item('P$i', 'P$i 问你', '已等 $i 分钟'),
-          ],
+          needsYou: [for (var i = 0; i < 7; i++) item('P$i', 'P$i 问你', '刚刚')],
         ),
       });
       final r = orbReviewReply(
