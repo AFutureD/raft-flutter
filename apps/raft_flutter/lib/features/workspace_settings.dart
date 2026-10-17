@@ -408,6 +408,8 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           group: WorkspaceSettings.resources,
           // /release-notes renders outside SettingsPanel's attached Panel.
           attached: false,
+          // The view scrolls itself so a pull can refresh it.
+          scroll: false,
         ),
       ],
     );
@@ -462,6 +464,52 @@ class WorkspaceAboutSection extends StatefulWidget {
 }
 
 class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
+  UpdateReleaseNotes? _notes;
+  ClientReleaseNotes? _notesSource;
+
+  /// The notes of the offered [release] for the Updates card, read once per
+  /// offered release; null where this build has no notes source.
+  RaftAboutUpdateNotes? _updateNotes(
+    AppUpdateService service,
+    AppRelease release,
+  ) {
+    final source = service.releaseNotes;
+    if (source == null) return null;
+    if (!identical(_notesSource, source)) {
+      _notes?.removeListener(_notesChanged);
+      _notes?.dispose();
+      _notesSource = source;
+      _notes = UpdateReleaseNotes(source)..addListener(_notesChanged);
+    }
+    final notes = _notes!
+      ..show(
+        release,
+        installedTag: service.currentTag,
+        installedVersion: service.currentVersion,
+      );
+    return RaftAboutUpdateNotes(
+      status: switch (notes.status) {
+        UpdateNotesStatus.loading => RaftAboutUpdateNotesStatus.loading,
+        UpdateNotesStatus.ready => RaftAboutUpdateNotesStatus.ready,
+        UpdateNotesStatus.empty => RaftAboutUpdateNotesStatus.empty,
+        UpdateNotesStatus.failed => RaftAboutUpdateNotesStatus.failed,
+      },
+      releases: notes.releases,
+      onRetry: notes.retry,
+    );
+  }
+
+  void _notesChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _notes?.removeListener(_notesChanged);
+    _notes?.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -576,6 +624,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
             {'version': release.version, 'build': release.buildNumber},
           ),
           detail: _lastChecked(context, service),
+          notes: _updateNotes(service, release),
           actionLabel: inPlace
               ? 'Update now'
               : android
@@ -620,6 +669,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
           state: RaftAboutUpdateState.available,
           message: label,
           detail: _lastChecked(context, service),
+          notes: _updateNotes(service, release),
           actionLabel: 'Update now',
           onAction: () => unawaited(() async {
             // A release remembered by an older app version has no checksum or
@@ -773,28 +823,60 @@ class ReleaseNotesView extends StatefulWidget {
   State<ReleaseNotesView> createState() => _ReleaseNotesViewState();
 }
 
-class _ReleaseNotesViewState extends State<ReleaseNotesView> {
+class _ReleaseNotesViewState extends State<ReleaseNotesView>
+    with WidgetsBindingObserver {
   List<RaftReleaseNote>? releases;
+
+  /// The last refresh failed (with [releases] shown, a quiet retry; without,
+  /// the unavailable banner).
   bool failed = false;
   int attempt = 0;
   static const snapshotKey = 'release-notes';
 
+  /// Coming back to the app refreshes, but not twice in quick succession.
+  static const resumeAge = Duration(seconds: 30);
+
   @override
   void initState() {
     super.initState();
-    // Revisit: the accepted list renders at once and revalidates quietly.
+    WidgetsBinding.instance.addObserver(this);
+    // Revisit: the accepted list renders at once; otherwise the stored copy
+    // does. Either way the page then refreshes in the background.
     releases =
         readPageSnapshot(widget.controller, snapshotKey)?['releases']
             as List<RaftReleaseNote>?;
-    load();
+    if (releases == null) unawaited(_showStored());
+    unawaited(refresh());
   }
 
-  Future<void> load() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(refresh(minAge: resumeAge));
+    }
+  }
+
+  Future<void> _showStored() async {
+    final stored = await widget.source?.cached();
+    if (stored != null && mounted && releases == null) {
+      setState(() => releases = stored);
+    }
+  }
+
+  /// Downloads the notes. A failure keeps what is shown; it only marks the
+  /// page so the quiet retry (or, with nothing to show, the banner) appears.
+  Future<void> refresh({Duration minAge = Duration.zero}) async {
     final w = widget.controller;
     final identity = pageIdentity(w);
     final ticket = ++attempt;
     try {
-      final next = await widget.source?.load();
+      final next = await widget.source?.refresh(minAge: minAge);
       if (next == null) throw const FormatException('no release notes source');
       if (identity != pageIdentity(w) || ticket != attempt) return;
       writePageSnapshot(w, snapshotKey, identity, {'releases': next});
@@ -805,26 +887,36 @@ class _ReleaseNotesViewState extends State<ReleaseNotesView> {
         });
       }
     } catch (_) {
-      // A failed revalidation keeps the accepted list; only a cold read
-      // shows the unavailable banner.
-      if (mounted && ticket == attempt && releases == null) {
-        setState(() => failed = true);
-      }
+      if (mounted && ticket == attempt) setState(() => failed = true);
     }
   }
 
   @override
-  Widget build(BuildContext context) => RaftReleaseNotesView(
-    status: failed
-        ? RaftReleaseNotesStatus.error
-        : releases == null
-        ? RaftReleaseNotesStatus.loading
-        : RaftReleaseNotesStatus.ready,
-    releases: releases ?? const [],
-    onRetry: () {
-      setState(() => failed = false);
-      load();
-    },
+  Widget build(BuildContext context) => RaftPullToRefresh(
+    onRefresh: refresh,
+    child: ListView(
+      key: const PageStorageKey('settings-page-release-notes'),
+      primary: false,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: raftScrollPadding(context, RaftSettingsPanelFrame.contentInset),
+      children: [
+        RaftReleaseNotesView(
+          status: releases != null
+              ? RaftReleaseNotesStatus.ready
+              : failed
+              ? RaftReleaseNotesStatus.error
+              : RaftReleaseNotesStatus.loading,
+          releases: releases ?? const [],
+          onRetry: () {
+            setState(() => failed = false);
+            unawaited(refresh());
+          },
+          onRefreshRetry: failed && releases != null
+              ? () => unawaited(refresh())
+              : null,
+        ),
+      ],
+    ),
   );
 }
 

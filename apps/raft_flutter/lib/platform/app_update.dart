@@ -287,6 +287,7 @@ class AppUpdateService extends ChangeNotifier {
     required this.currentBuild,
     required this.platformKey,
     required this.fetch,
+    this.currentTag = '',
     this.target,
     SearchMemoryStorage? storage,
     DateTime Function()? clock,
@@ -306,6 +307,7 @@ class AppUpdateService extends ChangeNotifier {
   factory AppUpdateService.forThisBuild({
     String version = const String.fromEnvironment('RAFT_APP_VERSION'),
     String buildNumber = const String.fromEnvironment('RAFT_BUILD_NUMBER'),
+    String tag = const String.fromEnvironment('RAFT_RELEASE_TAG'),
     String? platformKey,
     AppUpdateFetcher fetch = fetchManifestOverHttp,
     SearchMemoryStorage? storage,
@@ -318,9 +320,14 @@ class AppUpdateService extends ChangeNotifier {
               '/${AppRelease.repository.substring('https://github.com/'.length)}'
               '/releases/latest/download',
     target: target,
-    releaseNotes: ClientReleaseNotes(fetch: fetch, storage: storage),
+    releaseNotes: ClientReleaseNotes(
+      fetch: fetch,
+      storage: storage,
+      appBuild: int.tryParse(buildNumber),
+    ),
     currentVersion: version,
     currentBuild: int.tryParse(buildNumber),
+    currentTag: tag,
     platformKey: platformKey ?? appUpdatePlatformKey(),
     fetch: fetch,
     storage: storage,
@@ -336,6 +343,12 @@ class AppUpdateService extends ChangeNotifier {
 
   final String currentVersion;
   final int? currentBuild;
+
+  /// The release tag this build was published under (`v0.1.0+5`), compiled in
+  /// by the release build as `RAFT_RELEASE_TAG`; empty for builds made before
+  /// that and for local builds. The update prompt uses it to list exactly the
+  /// releases between this one and the offered one.
+  final String currentTag;
   final String? platformKey;
 
   /// The platform this build runs on; only used to explain [unsupported].

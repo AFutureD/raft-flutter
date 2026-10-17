@@ -73,6 +73,7 @@ class RaftAboutUpdate {
     this.checkLabel = 'Check for updates',
     this.onCheck,
     this.progress,
+    this.notes,
   });
   final RaftAboutUpdateState state;
   final String message;
@@ -82,6 +83,27 @@ class RaftAboutUpdate {
   final String checkLabel;
   final VoidCallback? onCheck;
   final double? progress;
+
+  /// What the offered release changes, shown above the buttons so the user
+  /// can read it before updating; null hides the section.
+  final RaftAboutUpdateNotes? notes;
+}
+
+enum RaftAboutUpdateNotesStatus { loading, ready, empty, failed }
+
+/// The release notes under an available update: every release between the
+/// installed one and the offered one, newest first. A failure shows [onRetry]
+/// and never blocks the update button.
+@immutable
+class RaftAboutUpdateNotes {
+  const RaftAboutUpdateNotes({
+    required this.status,
+    this.releases = const [],
+    this.onRetry,
+  });
+  final RaftAboutUpdateNotesStatus status;
+  final List<RaftReleaseNote> releases;
+  final VoidCallback? onRetry;
 }
 
 /// AboutSection: `space-y-4` of `space-y-2` sections (SectionHeader +
@@ -128,6 +150,10 @@ class RaftSettingsAbout extends StatelessWidget {
           if (detail != null) ...[
             const SizedBox(height: 4),
             Text(detail, style: text.description),
+          ],
+          if (update.notes != null) ...[
+            const SizedBox(height: 12),
+            _UpdateNotes(update.notes!),
           ],
           if (update.progress != null) ...[
             const SizedBox(height: 8),
@@ -367,10 +393,15 @@ class RaftReleaseNotesView extends StatelessWidget {
     required this.status,
     this.releases = const [],
     this.onRetry,
+    this.onRefreshRetry,
   });
   final RaftReleaseNotesStatus status;
   final List<RaftReleaseNote> releases;
   final VoidCallback? onRetry;
+
+  /// Set when a refresh failed while [releases] are shown: a quiet one-line
+  /// "couldn't refresh" with a retry above the list, instead of the banner.
+  final VoidCallback? onRefreshRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -412,6 +443,27 @@ class RaftReleaseNotesView extends StatelessWidget {
           RaftReleaseNotesStatus.ready => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (onRefreshRetry != null) ...[
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        raftText(context, "Couldn't refresh release notes."),
+                        style: text.bodyMuted,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    RaftButton(
+                      key: const ValueKey('release-notes-refresh-retry'),
+                      label: 'Try again',
+                      variant: RaftControlVariant.ghost,
+                      size: RaftButtonRecipeSize.sm,
+                      onPressed: onRefreshRetry,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
               for (final (i, release) in releases.indexed) ...[
                 if (i > 0) const SizedBox(height: 16),
                 RaftReleaseNoteCard(
@@ -439,7 +491,6 @@ class RaftReleaseNoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final rt = t.recipeTokens;
-    final text = RaftSettingsText(t);
     final root = RaftCardRecipe.resolve(
       theme: t.recipeTheme,
       states: t.recipeStates(),
@@ -448,26 +499,6 @@ class RaftReleaseNoteCard extends StatelessWidget {
     final label = release.version == null
         ? release.date
         : '${release.version} (${release.date})';
-    // `text-sm`; emphasis `font-bold text-foreground-strong
-    // theme-brutal:text-black`, else `text-foreground-muted
-    // theme-brutal:text-black/80`.
-    TextStyle entryStyle(bool emphasis) => RaftTypography.body(
-      t,
-      size: 14,
-      line: 20,
-      weight: emphasis ? FontWeight.w700 : FontWeight.w400,
-      color: emphasis
-          ? text.strong
-          : t.brutal
-          ? Colors.black.withValues(alpha: .8)
-          : t.muted,
-    );
-    final marker = t.brutal ? Colors.black.withValues(alpha: .7) : t.muted;
-    final groups = [
-      for (final kind in RaftReleaseNoteKind.values)
-        if (release.entries.any((e) => e.kind == kind))
-          (kind, release.entries.where((e) => e.kind == kind).toList()),
-    ];
     return RaftRecipeBox(
       style: root,
       tokens: rt,
@@ -500,37 +531,146 @@ class RaftReleaseNoteCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          for (final (i, (kind, entries)) in groups.indexed) ...[
-            if (i > 0) const SizedBox(height: 12),
-            // The badge is inline-flex in a block div: it sits on the div's
-            // strut line (16px / 1.5), baseline aligned.
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  '\u200B',
-                  style: RaftTypography.body(t, size: 16, line: 24),
-                ),
-                RaftBadge(
-                  label: raftText(context, kind.label),
-                  appearance: RaftBadgeRecipeAppearance.soft,
-                  variant: kind.badge,
-                  uppercase: true,
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            for (final (j, entry) in entries.indexed) ...[
-              if (j > 0) const SizedBox(height: 6),
-              _DiscItem(
-                marker: marker,
-                child: Text(entry.text, style: entryStyle(entry.emphasis)),
-              ),
-            ],
-          ],
+          RaftReleaseNoteEntryGroups(release: release),
         ],
       ),
+    );
+  }
+}
+
+/// The categories of one release (each non-empty one as a soft uppercase
+/// badge over a `list-disc` list, emphasised entries bold and strong): the body
+/// of [RaftReleaseNoteCard], also used under an available update.
+class RaftReleaseNoteEntryGroups extends StatelessWidget {
+  const RaftReleaseNoteEntryGroups({super.key, required this.release});
+  final RaftReleaseNote release;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final text = RaftSettingsText(t);
+    // `text-sm`; emphasis `font-bold text-foreground-strong
+    // theme-brutal:text-black`, else `text-foreground-muted
+    // theme-brutal:text-black/80`.
+    TextStyle entryStyle(bool emphasis) => RaftTypography.body(
+      t,
+      size: 14,
+      line: 20,
+      weight: emphasis ? FontWeight.w700 : FontWeight.w400,
+      color: emphasis
+          ? text.strong
+          : t.brutal
+          ? Colors.black.withValues(alpha: .8)
+          : t.muted,
+    );
+    final marker = t.brutal ? Colors.black.withValues(alpha: .7) : t.muted;
+    final groups = [
+      for (final kind in RaftReleaseNoteKind.values)
+        if (release.entries.any((e) => e.kind == kind))
+          (kind, release.entries.where((e) => e.kind == kind).toList()),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (i, (kind, entries)) in groups.indexed) ...[
+          if (i > 0) const SizedBox(height: 12),
+          // The badge is inline-flex in a block div: it sits on the div's
+          // strut line (16px / 1.5), baseline aligned.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text('\u200B', style: RaftTypography.body(t, size: 16, line: 24)),
+              RaftBadge(
+                label: raftText(context, kind.label),
+                appearance: RaftBadgeRecipeAppearance.soft,
+                variant: kind.badge,
+                uppercase: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (final (j, entry) in entries.indexed) ...[
+            if (j > 0) const SizedBox(height: 6),
+            _DiscItem(
+              marker: marker,
+              child: Text(entry.text, style: entryStyle(entry.emphasis)),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+/// The notes section of the Updates card.
+class _UpdateNotes extends StatelessWidget {
+  const _UpdateNotes(this.notes);
+  final RaftAboutUpdateNotes notes;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final text = RaftSettingsText(t);
+    return Column(
+      key: const ValueKey('settings-about-update-notes'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RaftSectionEyebrow(raftText(context, "What's new in this update")),
+        const SizedBox(height: 8),
+        switch (notes.status) {
+          RaftAboutUpdateNotesStatus.loading => Text(
+            raftText(context, "Loading what's new…"),
+            style: text.description,
+          ),
+          RaftAboutUpdateNotesStatus.empty => Text(
+            raftText(context, 'No release notes for this update.'),
+            style: text.description,
+          ),
+          RaftAboutUpdateNotesStatus.failed => Row(
+            children: [
+              Flexible(
+                child: Text(
+                  raftText(context, "Couldn't load what's new."),
+                  style: text.description,
+                ),
+              ),
+              const SizedBox(width: 8),
+              RaftButton(
+                key: const ValueKey('settings-about-update-notes-retry'),
+                label: 'Try again',
+                variant: RaftControlVariant.ghost,
+                size: RaftButtonRecipeSize.sm,
+                onPressed: notes.onRetry,
+              ),
+            ],
+          ),
+          RaftAboutUpdateNotesStatus.ready => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, release) in notes.releases.indexed) ...[
+                if (i > 0) const SizedBox(height: 12),
+                KeyedSubtree(
+                  key: ValueKey('update-notes-${release.id}'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        release.version == null
+                            ? release.date
+                            : '${release.version} (${release.date})',
+                        style: text.title,
+                      ),
+                      const SizedBox(height: 6),
+                      RaftReleaseNoteEntryGroups(release: release),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        },
+      ],
     );
   }
 }
