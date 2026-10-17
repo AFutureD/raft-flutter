@@ -96,7 +96,6 @@ class WorkspaceGridSessions extends ChangeNotifier {
     child.channels = [...parent.channels];
     child.dms = [...parent.dms];
     child.connected = parent.connected;
-    child.syncCoreMessagesEnabled = parent.syncCoreMessagesEnabled;
     child.ledger.switchServer(parent.server!.id);
     child.foreground = false;
     child.setConversationPresentation(

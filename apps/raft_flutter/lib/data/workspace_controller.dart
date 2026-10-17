@@ -800,11 +800,6 @@ class WorkspaceController extends ChangeNotifier
   void _consumeMessageDisplayPrefs(dynamic payload) =>
       _channels.consumeMessageDisplayPrefs(payload);
 
-  bool get syncCoreMessagesEnabled => _session.syncCoreMessagesEnabled;
-  @override
-  set syncCoreMessagesEnabled(bool value) =>
-      _session.syncCoreMessagesEnabled = value;
-
   /// Web serverFeatureFlags `remote_computer_upgrade_v2`: whether the
   /// Computer detail may offer the one-click upgrade (fail-closed).
   static const remoteComputerUpgradeFlag =
@@ -4005,7 +4000,6 @@ class _WorkspaceSessionBindings
     presentation: this,
     ledger: w.ledger,
     windows: w.messageWindows,
-    messageSync: w.messageSync,
   );
   @override
   void confirmMessageSend(Map<String, dynamic> row) =>
@@ -4151,8 +4145,6 @@ class _WorkspaceSessionBindings
   String? get threadChannelId => w.threadChannelId;
   @override
   bool get hasNewer => w.hasNewer;
-  @override
-  bool get syncCoreMessagesEnabled => w.syncCoreMessagesEnabled;
 
   @override
   BigInt get watermark => w.ledger.watermark;

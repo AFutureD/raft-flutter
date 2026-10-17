@@ -225,8 +225,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 5037,
-        "tokens": 26997,
+        "lines": 5029,
+        "tokens": 26958,
         "field.WorkspaceController.conversationReads": 0,
         "field.WorkspaceController._conversationPresentation": 0,
         "field.WorkspaceController.channelRepository": 0,
@@ -890,8 +890,8 @@
         "field.WorkspaceSession.revocations": 1,
         "field.WorkspaceSession.subscription": 1,
         "field.WorkspaceSession.transport": 1,
-        "lines": 554,
-        "tokens": 3153
+        "lines": 551,
+        "tokens": 3132
       }
     },
     "workspace_server_directory": {
@@ -930,11 +930,11 @@
         "field.WorkspaceSessionFeatures.messages": 1,
         "field.WorkspaceSessionFeatures.remoteComputerUpgradeEnabled": 1,
         "field.WorkspaceSessionFeatures.runtimeFormV2WebEnabled": 1,
-        "field.WorkspaceSessionFeatures.syncCoreMessagesEnabled": 1,
+        "field.WorkspaceSessionFeatures.syncCoreMessagesEnabled": 0,
         "field.WorkspaceSessionFeatures.syncCoreNotificationPrefsEnabled": 1,
         "field.WorkspaceSessionFeatures.transport": 1,
-        "lines": 126,
-        "tokens": 704
+        "lines": 116,
+        "tokens": 624
       }
     },
     "workspace_channels": {
