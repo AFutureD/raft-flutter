@@ -15,6 +15,8 @@ class RaftUserActivity {
   static DateTime? _last;
   static DateTime Function() clock = DateTime.now;
 
+  /// Listens for a pointer or key. Startup and window focus call this.
+  /// Reading [recent] does not.
   static void install() {
     if (_installed) return;
     try {
@@ -37,7 +39,6 @@ class RaftUserActivity {
   static void forget() => _last = null;
 
   static bool get recent {
-    install();
     final last = _last;
     return last != null && clock().difference(last) <= window;
   }
