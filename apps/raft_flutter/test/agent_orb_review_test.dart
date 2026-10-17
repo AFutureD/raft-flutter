@@ -316,6 +316,37 @@ void main() {
       expect(asked, isNull);
     });
 
+    test('asked what needs the user with nothing read: the Activity, from '
+        'what the app already holds', () async {
+      var read = false;
+      final held = briefing(
+        needsYou: [
+          {'who': 'Cody', 'title': 'Cody 问你', 'since': '已等 5 分钟'},
+        ],
+      );
+      final seen = await orbWithBriefing(
+        const [],
+        said: '什么需要我处理',
+        cached: (scope) => scope == OrbBriefScope.activity ? held : null,
+        brief: (scope) async {
+          read = true;
+          return quiet;
+        },
+      );
+      expect(read, isFalse);
+      expect(seen.single.result, held);
+      // Another question, or nothing held: not claimed.
+      expect(
+        await orbWithBriefing(
+          const [],
+          said: '你好',
+          cached: (scope) => held,
+          brief: (scope) async => quiet,
+        ),
+        isEmpty,
+      );
+    });
+
     test('a question about the content does not read one', () async {
       var read = false;
       final seen = await orbWithBriefing(
@@ -836,6 +867,45 @@ void main() {
           reason: s,
         );
       }
+    });
+  });
+
+  group('a voice does not wait for a second round trip', () {
+    final page = run('describe_page', {
+      'page': 'activity',
+      'loading': false,
+      'items': [
+        {'n': 1, 'who': 'Alice', 'where': '@Alice', 'preview': '周五能来评审吗？'},
+        {'n': 2, 'who': 'Cody', 'where': '#raft-flutter', 'preview': '可以吗'},
+      ],
+    });
+
+    test('text mode: asked again first, then the app\'s words', () {
+      final r = orbReviewReply(
+        'Alice 问评审。',
+        [page],
+        cardUp: false,
+        said: '读一下动态',
+      );
+      expect(r?.retry, isNotNull);
+      expect(r?.text, startsWith('共 2 条：'));
+    });
+
+    test('voice mode: the app\'s words at once', () {
+      final r = orbReviewReply(
+        'Alice 问评审。',
+        [page],
+        cardUp: false,
+        said: '读一下动态',
+        retries: false,
+      );
+      expect(r?.retry, isNull);
+      expect(r?.text, startsWith('共 2 条：'));
+    });
+
+    test('a retry with no words of its own stays a retry', () {
+      final r = orbReviewReply('要发吗？', const [], cardUp: false, retries: false);
+      expect(r?.retry, contains('动作工具'));
     });
   });
 

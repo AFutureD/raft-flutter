@@ -264,6 +264,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// The agent's model, once it is known.
   String? get agentModel => _agent.model;
 
+  /// The thinking the voice model runs with (the least it accepts), once
+  /// connected.
+  String? get liveThinking {
+    final live = _live;
+    return live is GeminiLiveSession ? live.thinkingUsed : null;
+  }
+
   /// Told each time Live asked the agent: what it asked, what came back to
   /// say, how long it took (the evaluation records it).
   void Function(String request, String say, int millis)? onAsk;

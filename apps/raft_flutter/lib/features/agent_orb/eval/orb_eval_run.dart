@@ -90,6 +90,14 @@ class OrbEvalTurn {
   /// From the person's text sent to the end of the model's turn.
   int millis = 0;
 
+  /// From the person's text sent to the first sound or word of the voice
+  /// after the last answer of the agent came back (what the person waits
+  /// for); 0 when there was none.
+  int firstAudioMs = 0;
+
+  /// The time the asks to the agent took, in all.
+  int get askMs => asks.fold(0, (sum, a) => sum + a.millis);
+
   /// The model finished its turn.
   bool completed = false;
   bool timedOut = false;
@@ -111,6 +119,8 @@ class OrbEvalTurn {
     'scored': scored,
     'text': text,
     if (millis > 0) 'ms': millis,
+    if (firstAudioMs > 0) 'firstAudioMs': firstAudioMs,
+    if (asks.isNotEmpty) 'askMs': askMs,
     'tools': [for (final t in tools) t.toJson()],
     if (asks.isNotEmpty) 'asks': [for (final a in asks) a.toJson()],
     'completed': completed,

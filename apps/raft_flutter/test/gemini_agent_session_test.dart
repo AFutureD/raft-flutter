@@ -519,6 +519,43 @@ void main() {
     );
 
     test(
+      'preload rides with the person\'s words of each turn, as context',
+      () async {
+        final api = Api()..replies.addAll([_say('好'), _say('嗯')]);
+        final heard = Heard();
+        var n = 0;
+        final s = session(
+          api,
+          heard,
+          steering: AgentSteering(
+            scope: () => const AgentScope(systemPrompt: 's', tools: _tools),
+            preload: () => '（情况 ${++n}）',
+          ),
+        );
+        await s.connect();
+        s.addContext('（先前的提示）');
+        s.sendText('第一句');
+        await pumpEventQueue();
+        s.sendText('第二句');
+        await pumpEventQueue();
+
+        List<String> texts(Map<String, Object?> request, int turn) {
+          final c = (request['contents'] as List)[turn] as Map;
+          return [
+            for (final p in (c['parts'] as List))
+              if ((p as Map)['text'] is String) '${p['text']}',
+          ];
+        }
+
+        expect(texts(api.requests.first, 0), ['（先前的提示）', '（情况 1）', '第一句']);
+        // Asked again for the next turn.
+        final last = api.requests.last;
+        expect((last['contents'] as List).length, 3);
+        expect(texts(last, 2), ['（情况 2）', '第二句']);
+      },
+    );
+
+    test(
       'intercept answers a turn itself, through the tools the model has',
       () async {
         final api = Api();

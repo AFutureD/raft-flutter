@@ -44,11 +44,22 @@ const agentAppSays = 'app_say';
 /// sessions know nothing of it. The model decides what to look at and which
 /// tools to call; the app decides what is said for the rules it owns.
 class AgentSteering {
-  const AgentSteering({required this.scope, this.intercept, this.review});
+  const AgentSteering({
+    required this.scope,
+    this.intercept,
+    this.review,
+    this.preload,
+  });
 
   /// Asked before every model request of a turn (also the second and third
   /// of the same turn, when a tool has changed the state).
   final AgentScope Function() scope;
+
+  /// Asked at the start of every turn: what the app already knows that the
+  /// answer may need (the screen, what needs the person, the card waiting),
+  /// short. It rides with the person's words as context, so the model can
+  /// answer in one call instead of reading first.
+  final String? Function()? preload;
 
   /// Offered each person's turn before the model: the app may answer it
   /// itself, calling tools through [run] (so they are seen like the model's

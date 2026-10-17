@@ -176,6 +176,7 @@ class OrbController extends ChangeNotifier {
               scope: _agentScope,
               intercept: _intercept,
               review: _review,
+              preload: _preload,
             )
           : null,
       beforeConnect: _loadBrain,
@@ -235,6 +236,7 @@ class OrbController extends ChangeNotifier {
   void _warm() {
     final warmUp = _warmUp;
     if (warmUp != null) unawaited(warmUp(workspace).catchError((Object _) {}));
+    _warmPreload();
   }
 
   /// Where a session's summary goes (the shared agent's DM unless a test
@@ -875,6 +877,9 @@ class OrbController extends ChangeNotifier {
     Map<String, Object?> args,
     Map<String, Object?> result,
   ) {
+    // What the briefing a tool brought says is kept for the next ask.
+    final brought = orbBriefingOf([AgentToolRun(name, args, result)]);
+    if (brought != null) _keepBriefing(brought);
     // What the answer must convey, said by the app.
     if (_factReads.contains(name) && result['error'] == null) {
       final facts = orbKeyFactStrings(
@@ -1215,6 +1220,7 @@ class OrbController extends ChangeNotifier {
   /// Shows [briefing] as cards in the layer, opening it when it is closed.
   void showBriefing(OrbBriefing briefing) {
     shownBriefing = briefing;
+    _keepBriefing(briefing.toJson(ordered: true));
     _drivingIndex = 0;
     // What the briefing holds is not new when it comes live later.
     if (_driving) {
@@ -1418,6 +1424,102 @@ class OrbController extends ChangeNotifier {
         directory.dms.any((d) => d.name.trim().toLowerCase() == want);
   }
 
+  // ---- what the agent is told before each ask ------------------------------
+
+  /// The briefings the app has seen, by scope, as JSON.
+  final _briefs = <String, ({Map<String, Object?> json, DateTime at})>{};
+  bool _preloadWarming = false;
+  static const _briefFresh = Duration(minutes: 5);
+
+  void _keepBriefing(Map<String, Object?> json) {
+    final scope = json['scope'];
+    if (scope is String) _briefs[scope] = (json: json, at: _now());
+  }
+
+  Map<String, Object?>? _freshBriefing(String scope) {
+    final held = _briefs[scope];
+    if (held == null || _now().difference(held.at) > _briefFresh) return null;
+    return held.json;
+  }
+
+  /// Reads the Activity briefing in the background when there is none, so
+  /// that the first ask of a call has it too.
+  void _warmPreload() {
+    final brief = _liveBriefer;
+    if (!agentLayer ||
+        brief == null ||
+        _preloadWarming ||
+        _freshBriefing('activity') != null) {
+      return;
+    }
+    _preloadWarming = true;
+    unawaited(
+      brief(workspace)
+          .then((b) {
+            if (!_disposed) _keepBriefing(b.toJson(ordered: true));
+          })
+          .catchError((Object _) {})
+          .whenComplete(() => _preloadWarming = false),
+    );
+  }
+
+  /// The most characters of it.
+  static const _preloadBudget = 1500;
+
+  /// What the app already knows that an answer may need, put in front of every
+  /// ask: the page, what needs the person with the key facts of each, the card
+  /// of driving mode and the card that waits. With it most answers take one
+  /// model call.
+  String? _preload() {
+    if (_disposed) return null;
+    _warmPreload();
+    final parts = <String>[
+      '用户现在在「${orbPageTitle(workspace, workspace.location)}」页面。',
+    ];
+    final loc = workspace.location;
+    final scopes = [
+      'activity',
+      if ((loc.route == RaftRoute.channel || loc.route == RaftRoute.dm) &&
+          loc.thread == null &&
+          loc.entityId != null)
+        'conversation:${loc.entityId}',
+    ];
+    final lines = <String>[];
+    final seen = <String>{};
+    var known = false;
+    for (final scope in scopes) {
+      final json = _freshBriefing(scope);
+      if (json == null) continue;
+      known = true;
+      for (final i in (json['needsYou'] as List? ?? const [])) {
+        if (i is! Map || lines.length >= 4 || !seen.add('${i['id']}')) continue;
+        final since = i['since'];
+        final facts = [for (final f in orbItemFacts(i)) f.say];
+        lines.add(
+          '- ${i['title']}'
+          '${since is String && since.isNotEmpty ? '（$since）' : ''}'
+          '${facts.isEmpty ? '' : '。要点：${facts.join('、')}'}',
+        );
+      }
+    }
+    if (lines.isNotEmpty) {
+      parts.add('等用户处理的事：\n${lines.join('\n')}');
+    } else if (known) {
+      parts.add('现在没有等用户处理的消息。');
+    }
+    final driving = _drivingLine();
+    if (driving.isNotEmpty) parts.add(driving);
+    final queue = _queueLine();
+    if (queue != null) parts.add(queue.trim());
+    final card = actions.pending;
+    if (card != null) parts.add('屏幕上有一张等用户确认的卡：${card.summary}。');
+    var text = parts.join('\n');
+    if (text.length > _preloadBudget) {
+      text = '${text.substring(0, _preloadBudget)}…';
+    }
+    return '（App 提示，不是用户的话。你已经知道的情况，够回答就直接答，不够再用工具读：\n$text）';
+  }
+
   /// The person's words of the turn under way (what the review asks about).
   String _turnSaid = '';
 
@@ -1528,6 +1630,7 @@ class OrbController extends ChangeNotifier {
       runs,
       said: _turnSaid,
       screen: _screenScope,
+      cached: (scope) => _freshBriefing(scope.key),
       brief: (scope) => OrbBriefingService.of(workspace)
           .brief(
             scope,
@@ -1543,6 +1646,7 @@ class OrbController extends ChangeNotifier {
       cardUp: actions.pending != null,
       driving: _driving,
       said: _turnSaid,
+      retries: !layeredVoice,
     );
   }
 

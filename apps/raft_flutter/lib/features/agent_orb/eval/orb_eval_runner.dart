@@ -142,6 +142,7 @@ class OrbEvalRunner {
   _Recorder? _recorder;
   String? _model;
   String? _agentModel;
+  String? _liveThinking;
 
   /// Stops after the run under way.
   void stop() => _stop = true;
@@ -161,6 +162,7 @@ class OrbEvalRunner {
     _abortReason = null;
     _model = null;
     _agentModel = null;
+    _liveThinking = null;
     final started = DateTime.now();
     final results = <OrbEvalScenarioResult>[];
     for (final (i, s) in scenarios.indexed) {
@@ -205,7 +207,11 @@ class OrbEvalRunner {
       results: results,
       // The voice layer is Gemini whatever the voice settings name.
       provider: agent ? null : (layered ? 'gemini' : settings.provider.name),
-      reasoning: agent ? null : settings.reasoning.name,
+      // The voice layer runs Live with the least thinking it takes, whatever
+      // the voice settings say.
+      reasoning: agent
+          ? null
+          : (layered ? _liveThinking : settings.reasoning.name),
       harness: harness.name,
       model: _model,
       thinking: agent || layered
@@ -383,7 +389,10 @@ class OrbEvalRunner {
     } finally {
       _model ??= _recorder?.session?.model;
       final made = _recorder?.session;
-      if (made is LayeredVoiceSession) _agentModel ??= made.agentModel;
+      if (made is LayeredVoiceSession) {
+        _agentModel ??= made.agentModel;
+        _liveThinking ??= made.liveThinking;
+      }
       run.writes = world?.writes.toList() ?? const [];
       try {
         // The layer opens on the app's root Navigator and outlives the
@@ -563,6 +572,8 @@ class _Recorder {
   final Duration? grace;
   int _asking = 0;
   int _turnAsks = 0;
+  final _clock = Stopwatch();
+  bool _askBack = false;
   Timer? _graceTimer;
   OrbEvalTurn? _turn;
   Completer<String?>? _done;
@@ -577,6 +588,10 @@ class _Recorder {
     run.turns.add(turn);
     _turn = turn;
     _turnAsks = 0;
+    _askBack = false;
+    _clock
+      ..reset()
+      ..start();
     _graceTimer?.cancel();
     return turn;
   }
@@ -650,9 +665,24 @@ class _Recorder {
   void _askingChanged(int inFlight) {
     if (inFlight > _asking) {
       _turnAsks++;
+      _askBack = false;
       _graceTimer?.cancel();
+      // The voice that came before this ask is not what the person waited for.
+      _turn?.firstAudioMs = 0;
+    } else if (inFlight == 0) {
+      _askBack = true;
     }
     _asking = inFlight;
+  }
+
+  /// A sound or a word of the voice: the first one after the last answer of
+  /// the agent (or the first at all, when it asked nothing) is when the
+  /// person starts to hear.
+  void _heard() {
+    final turn = _turn;
+    if (turn == null || turn.firstAudioMs > 0 || _asking > 0) return;
+    if (_turnAsks > 0 && !_askBack) return;
+    turn.firstAudioMs = math.max(1, _clock.elapsedMilliseconds);
   }
 
   /// Wraps a session builder so the session reports to this recorder.
@@ -681,7 +711,10 @@ class _Recorder {
           tools: tools,
           voice: voice,
           reasoning: reasoning,
-          onAudio: onAudio,
+          onAudio: (pcm) {
+            _heard();
+            onAudio?.call(pcm);
+          },
           onInputText: onInputText,
           onInterrupted: onInterrupted,
           playbackPending: playbackPending,
@@ -713,6 +746,7 @@ class _Recorder {
             return result;
           },
           onOutputText: (text) {
+            _heard();
             _turn?.addText(text);
             onOutputText?.call(text);
           },

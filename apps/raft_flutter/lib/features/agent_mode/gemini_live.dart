@@ -50,6 +50,42 @@ class GeminiLiveSession implements VoiceSession {
     AgentReasoning.low => null,
   };
 
+  /// What a relaying ([fast]) session asks for, the least first, whatever the
+  /// voice settings say: the minimal level, then low, then no thinking budget,
+  /// then no setting at all. A model that refuses one gets the next.
+  static const relayThinking = <Map<String, Object?>?>[
+    {'thinkingLevel': 'minimal'},
+    {'thinkingLevel': 'low'},
+    {'thinkingBudget': 0},
+    null,
+  ];
+  int _relayStep = 0;
+
+  Map<String, Object?>? get _thinkingConfig => fast
+      ? relayThinking[_relayStep]
+      : (_level == null ? null : {'thinkingLevel': _level!.name});
+
+  /// The thinking this session asks for now, as a word for a report.
+  String get thinkingUsed {
+    final c = _thinkingConfig;
+    if (c == null) return 'none';
+    return c['thinkingLevel'] as String? ?? 'budget ${c['thinkingBudget']}';
+  }
+
+  /// The model refused the thinking setting: the next lower one. False when
+  /// there is none lower.
+  @visibleForTesting
+  bool lowerThinkingSetting() {
+    if (fast) {
+      if (_relayStep >= relayThinking.length - 1) return false;
+      _relayStep++;
+      return true;
+    }
+    if (_level == null) return false;
+    _level = lowerThinking(_level!);
+    return true;
+  }
+
   static const _host = 'generativelanguage.googleapis.com';
   static String _path(String version) =>
       '/ws/google.ai.generativelanguage.$version.GenerativeService.BidiGenerateContent';
@@ -235,8 +271,8 @@ class GeminiLiveSession implements VoiceSession {
           r'thinking|thought',
           caseSensitive: false,
         ).hasMatch(refusal);
-        if (thinking && _level != null) {
-          _level = lowerThinking(_level!);
+        if (thinking && lowerThinkingSetting()) {
+          // Tried again with the next lower setting.
         } else if (nb && behavior) {
           _nonBlocking = false;
         } else if (_affective) {
@@ -323,7 +359,7 @@ class GeminiLiveSession implements VoiceSession {
         // Gemini 3 Live models want a level (low keeps replies quick, and is
         // what is sent unless the person chose another in the voice
         // settings).
-        if (_level != null) 'thinkingConfig': {'thinkingLevel': _level!.name},
+        if (_thinkingConfig != null) 'thinkingConfig': _thinkingConfig,
         'speechConfig': {
           'voiceConfig': {
             'prebuiltVoiceConfig': {'voiceName': voice},

@@ -47,6 +47,7 @@ Future<List<AgentToolRun>> orbWithBriefing(
   required String said,
   required Future<OrbBriefing> Function(OrbBriefScope scope) brief,
   OrbBriefScope? Function()? screen,
+  Map<String, Object?>? Function(OrbBriefScope scope)? cached,
 }) async {
   if (!(orbAsksWhatMatters.hasMatch(said) || orbLooksAtDm.hasMatch(said)) ||
       orbBriefingOf(runs) != null) {
@@ -57,8 +58,20 @@ Future<List<AgentToolRun>> orbWithBriefing(
   final read = runs.any(
     (r) => r.name == 'describe_page' || r.name == 'read_conversation',
   );
-  final scope = orbPageScope(runs) ?? (read ? null : screen?.call());
+  // Asked what needs the person, with no read and no page that says: it is
+  // the Activity.
+  final scope =
+      orbPageScope(runs) ??
+      (read
+          ? null
+          : (screen?.call() ??
+                (orbAsksNeeds.hasMatch(said) ? OrbBriefScope.activity : null)));
   if (scope == null) return runs;
+  // What the app already holds of that place is as good as a new read.
+  final held = cached?.call(scope);
+  if (held != null) {
+    return [...runs, AgentToolRun('get_briefing', const {}, held)];
+  }
   try {
     final b = await brief(scope);
     return [
@@ -103,6 +116,29 @@ AgentReview? orbReviewReply(
   required bool cardUp,
   bool driving = false,
   String said = '',
+  bool retries = true,
+}) {
+  final r = _reviewReply(
+    reply,
+    runs,
+    cardUp: cardUp,
+    driving: driving,
+    said: said,
+  );
+  // A voice does not wait for a second round trip to the model when the app
+  // has the words ready: they are said at once.
+  if (!retries && r != null && r.retry != null && r.text != null) {
+    return AgentReview(text: r.text);
+  }
+  return r;
+}
+
+AgentReview? _reviewReply(
+  String reply,
+  List<AgentToolRun> runs, {
+  required bool cardUp,
+  required bool driving,
+  required String said,
 }) {
   final text = reply.trim();
   // A turn that ended without a word after a tool: told once, and when that
@@ -143,13 +179,10 @@ AgentReview? orbReviewReply(
   // Whatever the person asked about: its key facts are in the answer.
   final missing = orbMissingFacts(orbKeyFacts(runs, said: said), text);
   if (missing.isNotEmpty) {
+    // Added at once: a round trip to the model costs seconds, and the app
+    // knows the fact.
     final added = '${_ended(text)}${orbFactsSentence(missing)}';
-    return AgentReview(
-      retry:
-          '（App 提示，不是用户的话：你的回答里还没有说到：${missing.map((f) => f.shown).join('、')}。'
-          '补上，别的不用改。）',
-      text: _polish(added, runs) ?? added,
-    );
+    return AgentReview(text: _polish(added, runs) ?? added);
   }
   final polished = _polish(text, runs);
   return polished == null ? null : AgentReview(text: polished);

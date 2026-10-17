@@ -214,7 +214,9 @@ void main() {
             as Map;
     expect(blocked['error'], contains('用户没有让你回复'));
     expect(orb().actions.pending, isNull);
-    expect(agentLines(), ['Cody 在等你。']);
+    // (The app also reads the Activity here, and puts "nothing for you" and
+    // the waiting task around the model's words.)
+    expect(agentLines().single, contains('Cody 在等你。'));
   });
 
   orbTest('a card is up: a reply that changes it needs no verb of its own', (
@@ -661,6 +663,97 @@ void main() {
       ),
     ],
   );
+
+  group('what the agent is told before each ask', () {
+    OrbBriefItem item(String who, String title, String since) => OrbBriefItem(
+      id: 'msg:$who',
+      title: title,
+      who: who,
+      where: '#general',
+      since: since,
+      link: '/s/s1/channel/ch-general',
+      sourceIds: const [],
+      reason: OrbReason.mentionAsk,
+      why: '点名你',
+    );
+
+    OrbBriefing briefing(List<OrbBriefItem> items) => OrbBriefing(
+      scope: OrbBriefScope.activity,
+      overview: '',
+      needsYou: items,
+      progress: const [],
+      routineCount: 0,
+    );
+
+    List<String> context(int request) {
+      final c = (gemini.requests[request]['contents'] as List).last as Map;
+      return [
+        for (final p in (c['parts'] as List))
+          if ((p as Map)['text'] is String) '${p['text']}',
+      ];
+    }
+
+    orbTest('the page and what needs the user, with the key facts, ride with '
+        'the words; the answer can be one call', (t) async {
+      orb().showBriefing(
+        briefing([item('Cody', 'Cody 问你：第 10 步可以合入吗？', '已等 20 分钟')]),
+      );
+      gemini.replies.add(_say('Cody 在等你。'));
+      await say(t, '什么需要我处理');
+
+      expect(gemini.requests, hasLength(1), reason: 'no read first');
+      final c = context(0).join('\n');
+      expect(c, contains('用户现在在'));
+      expect(c, contains('等用户处理的事'));
+      expect(c, contains('Cody 问你：第 10 步可以合入吗？（已等 20 分钟）'));
+      expect(c, contains('要点：Cody、第 10 步、合入、等了 20 分钟'));
+      expect(c, contains('什么需要我处理'));
+      // And the answer is still held to the facts: the app adds the rest.
+      expect(agentLines().single, 'Cody 在等你。补充：第 10 步，合入，等了 20 分钟。');
+    });
+
+    orbTest('no needs-you item known is said so; nothing known, nothing '
+        'claimed', (t) async {
+      gemini.replies.addAll([_say('好'), _say('嗯')]);
+      await say(t, '你好');
+      expect(context(0).join(), isNot(contains('等用户处理')));
+      expect(context(0).join(), isNot(contains('没有等用户处理')));
+      orb().showBriefing(briefing(const []));
+      await say(t, '再说一句');
+      expect(context(1).join('\n'), contains('现在没有等用户处理的消息'));
+    });
+
+    orbTest('a card that waits and the driving card are in it', (t) async {
+      toCody();
+      gemini.replies.addAll([
+        _call('reply', {'text': '可以'}),
+        _say('嗯'),
+      ]);
+      await say(t, '回他可以');
+      gemini.replies.add(_say('好'));
+      await say(t, '这是什么');
+      final c = (gemini.requests.last['contents'] as List).last as Map;
+      final texts = [
+        for (final p in (c['parts'] as List))
+          if ((p as Map)['text'] is String) '${p['text']}',
+      ].join('\n');
+      expect(texts, contains('屏幕上有一张等用户确认的卡'));
+      expect(texts, contains('回复 Cody'));
+    });
+
+    orbTest('short: at most about 1500 characters', (t) async {
+      orb().showBriefing(
+        briefing([
+          for (var i = 0; i < 6; i++)
+            item('P$i', '很长的事 ${'字' * 400}', '已等 $i 分钟'),
+        ]),
+      );
+      gemini.replies.add(_say('好'));
+      await say(t, '你好');
+      final c = context(0).where((x) => x.contains('等用户处理的事')).single;
+      expect(c.length, lessThan(1700));
+    });
+  });
 
   orbTest('a plain 确认 runs confirm in code and the app says the result', (
     t,

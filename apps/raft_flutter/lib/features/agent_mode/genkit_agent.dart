@@ -268,7 +268,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
   /// a tool brings the app's own words ([agentAppSays]). Those words, or null
   /// when the session was closed meanwhile.
   Future<String?> _loop(String text) async {
-    final context = [..._context];
+    final context = [..._context, ?steering?.preload?.call()];
     _context.clear();
     _runs.clear();
     _history.add(_user([...context, text]));

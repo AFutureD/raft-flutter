@@ -275,6 +275,18 @@ void main() {
             as Map);
     expect(turn['text'], '我看一下。$agentSays');
     expect(turn['ms'], greaterThan(0));
+    // What the person waits for: the first word after the agent's answer.
+    expect(turn['firstAudioMs'], greaterThan(0));
+    expect(turn['askMs'], isNotNull);
+    for (final k in [
+      'latencyP90Ms',
+      'firstAudioP50Ms',
+      'firstAudioP90Ms',
+      'askP50Ms',
+      'askP90Ms',
+    ]) {
+      expect(json[k], isNotNull, reason: k);
+    }
     final ask = (turn['asks'] as List).single as Map;
     expect(ask['request'], '去 raft-flutter 看看谁找我');
     expect(ask['say'], agentSays);
@@ -292,6 +304,9 @@ void main() {
     expect(md, contains('引擎 genkit'));
     expect(md, contains('Agent 模型 agent-fake'));
     expect(md, contains('时延 p50'));
+    expect(md, contains('p90'));
+    expect(md, contains('首声 p50'));
+    expect(md, contains('Agent 耗时 p50'));
     expect(
       md,
       contains('ask_agent(request=去 raft-flutter 看看谁找我) → say：$agentSays'),
@@ -316,7 +331,7 @@ void main() {
     final s = (json['scenarios'] as List).single as Map;
     expect(s['outcome'], 'failed');
     final failed = (s['failedChecks'] as List).map((c) => (c as Map)['check']);
-    expect(failed, anyElement(startsWith('Live 调用 ask_agent，并一字不差地说出 say')));
+    expect(failed, anyElement(startsWith('Live 调用 ask_agent，并说出 say')));
   });
 
   testWidgets('Live that puts the agent\'s words in its own fails the check', (
@@ -327,7 +342,7 @@ void main() {
     expect(s['outcome'], 'failed');
     final result = (s['results'] as List).single as Map;
     final reason = ((result['failures'] as List).single as Map)['reason'];
-    expect(reason, contains('没有原样说出'));
+    expect(reason, contains('说的和 say 不一样'));
     expect(reason, contains(agentSays));
   });
 
@@ -431,8 +446,55 @@ void main() {
             ]),
           ]),
         ),
-        contains('没有原样说出'),
+        contains('说的和 say 不一样'),
       );
+    });
+
+    test('a transcript that drops or changes a character still matches', () {
+      const say = 'Cody 在问第 10 步能不能合入，等了 20 分钟。';
+      for (final heard in [
+        'Cody 在问第 10 步能不能合入，等 20 分钟。',
+        '好的。Cody 在问第10步能不能合入，等了20分钟。',
+        'Cody在问第 10 步能不能和入，等了 20 分钟',
+      ]) {
+        expect(
+          check.test(
+            runOf([
+              turn('去看看', heard, [
+                const OrbEvalAsk(request: '去看看', say: say, millis: 5),
+              ]),
+            ]),
+          ),
+          isNull,
+          reason: heard,
+        );
+      }
+    });
+
+    test('a lost number or name, or other words, fail with both strings', () {
+      const say = 'Cody 在问第 10 步能不能合入，等了 20 分钟。';
+      for (final heard in [
+        'Cody 在问第 10 步能不能合入，等了一会儿。',
+        '在问第 10 步能不能合入，等了 20 分钟。',
+        'Cody 找你，问能不能合入。',
+      ]) {
+        final reason = check.test(
+          runOf([
+            turn('去看看', heard, [
+              const OrbEvalAsk(request: '去看看', say: say, millis: 5),
+            ]),
+          ]),
+        );
+        expect(reason, contains('say「$say」'), reason: heard);
+        expect(reason, contains('Live「$heard」'), reason: heard);
+      }
+    });
+
+    test('similarity: best stretch, edits over the say\'s length', () {
+      expect(orbEvalSimilarity('abcdef', 'xxabcdefyy'), 1);
+      expect(orbEvalSimilarity('abcdef', 'xxabcdyy'), closeTo(4 / 6, .001));
+      expect(orbEvalSimilarity('', 'abc'), 1);
+      expect(orbEvalSimilarity('abc', ''), 0);
     });
 
     test('every say of a turn with several asks must be spoken', () {

@@ -152,14 +152,14 @@ void main() {
   });
 
   group('the answer that leaves one out', () {
-    test('A1: "第 10 步" missing: told, then the app adds it in a sentence', () {
+    test('A1: "第 10 步" missing: the app adds it in a sentence, at once', () {
       final r = orbReviewReply(
         'Cody 在 #raft-flutter 等了 20 分钟，想让你批准合并。要回复他吗？',
         [arrived()],
         cardUp: false,
         said: '去 raft-flutter 看看谁找我',
       );
-      expect(r?.retry, contains('第 10 步'));
+      expect(r?.retry, isNull, reason: 'no round trip to the model');
       expect(r?.text, endsWith('要回复他吗？补充：第 10 步。'));
     });
 
@@ -170,7 +170,7 @@ void main() {
         cardUp: false,
         said: '打开 task 136',
       );
-      expect(r?.retry, contains('验收'));
+      expect(r?.retry, isNull);
       expect(r?.text, endsWith('要现在通过吗？补充：等验收。'));
     });
 

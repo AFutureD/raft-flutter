@@ -158,7 +158,8 @@ String orbAgentPrompt({
   if (memory != null) b.write('\n$memory\n\n');
   b
     ..write(orbPromptPersona)
-    ..write(orbPromptSpeaking);
+    ..write(orbPromptSpeaking)
+    ..write(orbPromptContextAgent);
   switch (mode) {
     case OrbMode.normal:
       b

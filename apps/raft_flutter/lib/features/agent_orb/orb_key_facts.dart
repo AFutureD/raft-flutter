@@ -103,7 +103,8 @@ OrbFact? _timeFact(Object? since) {
 }
 
 /// The facts of one thing that needs the person: who, what, how long.
-List<OrbFact> _itemFacts(Map item) {
+/// (public: the context given to the agent before each ask carries them)
+List<OrbFact> orbItemFacts(Map item) {
   final who = '${item['who'] ?? ''}'.trim();
   final text = '${item['title'] ?? ''} ${item['ask'] ?? ''}';
   final facts = <OrbFact>[
@@ -209,7 +210,7 @@ List<OrbFact> orbKeyFacts(List<AgentToolRun> runs, {required String said}) {
         if (i is Map) i,
     ];
     if (items.isNotEmpty) {
-      return [for (final i in items.take(3)) ..._itemFacts(i)];
+      return [for (final i in items.take(3)) ...orbItemFacts(i)];
     }
   }
   AgentToolRun? last;

@@ -23,6 +23,12 @@ String orbEvalStamp(DateTime at) =>
     '${at.year}${_two(at.month)}${_two(at.day)}-'
     '${_two(at.hour)}${_two(at.minute)}${_two(at.second)}';
 
+/// " · 时延 p50 8.7s p90 16.0s", or nothing when nothing was timed.
+String _percentiles(String name, int? p50, int? p90) => p50 == null
+    ? ''
+    : ' · $name p50 ${(p50 / 1000).toStringAsFixed(1)}s'
+          ' p90 ${((p90 ?? p50) / 1000).toStringAsFixed(1)}s';
+
 String _cell(String text) =>
     text.replaceAll('|', r'\|').replaceAll(RegExp(r'\s*\n\s*'), '<br>');
 
@@ -57,7 +63,9 @@ String orbEvalMarkdown(OrbEvalReport report) {
       '${report.thinking == null ? '' : ' · 推理强度 ${report.thinking}'}'
       '${report.engine == null ? '' : ' · 引擎 ${report.engine}'}'
       '${report.agentModel == null ? '' : ' · Agent 模型 ${report.agentModel}'}'
-      '${report.latencyP50 == null ? '' : ' · 时延 p50 ${(report.latencyP50! / 1000).toStringAsFixed(1)}s'}'
+      '${_percentiles('时延', report.latencyP50, report.latencyP90)}'
+      '${_percentiles('首声', report.firstAudioP50, report.firstAudioP90)}'
+      '${_percentiles('Agent 耗时', report.askP50, report.askP90)}'
       '${report.cancelled ? ' · 中途停止' : ''}'
       '${report.abortReason == null ? '' : '（${report.abortReason}）'}',
     )

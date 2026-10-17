@@ -180,10 +180,14 @@ class OrbEvalCheck {
   });
 
   /// The layered harness: the voice model hands every turn about Raft to the
-  /// agent (`ask_agent`) and says what comes back, word for word (spaces and
-  /// punctuation aside). Applied to every scenario of that harness.
-  factory OrbEvalCheck.liveSpokeAgentWords() =>
-      OrbEvalCheck('Live 调用 ask_agent，并一字不差地说出 say', (run) {
+  /// agent (`ask_agent`) and says what comes back. What is heard is Live's
+  /// transcript of its own speech, which drops or changes a character now and
+  /// then, so the words are compared by similarity: the best-matching stretch
+  /// of what Live said is at least [similarity] like the `say` (spaces and
+  /// punctuation aside), and every number and every Latin name of the `say` is
+  /// in it. Applied to every scenario of that harness.
+  factory OrbEvalCheck.liveSpokeAgentWords({double similarity = .9}) =>
+      OrbEvalCheck('Live 调用 ask_agent，并说出 say', (run) {
         final problems = <String>[];
         for (final t in run.turns) {
           if (t.line == '（事件）') continue;
@@ -194,8 +198,16 @@ class OrbEvalCheck {
           final spoken = orbEvalWords(t.text);
           for (final a in t.asks) {
             final say = orbEvalWords(a.say);
-            if (say.isNotEmpty && !spoken.contains(say)) {
-              problems.add('「${t.line}」Live 没有原样说出 say：「${a.say}」');
+            if (say.isEmpty) continue;
+            final like = orbEvalSimilarity(say, spoken);
+            final lost = orbEvalFacts(say).where((f) => !spoken.contains(f));
+            if (like < similarity || lost.isNotEmpty) {
+              problems.add(
+                '「${t.line}」Live 说的和 say 不一样'
+                '（相似度 ${(like * 100).round()}%'
+                '${lost.isEmpty ? '' : '，少了 ${lost.join('、')}'}）：'
+                'say「${a.say}」；Live「${t.text}」',
+              );
             }
           }
         }
@@ -366,3 +378,35 @@ String orbEvalWords(String text) => text.toLowerCase().replaceAll(
   RegExp(r'[\s,，.。!！?？、;；:：“”"\x27‘’「」『』（）()\[\]【】~～…—-]+'),
   '',
 );
+
+/// How like [needle] the most alike stretch of [haystack] is, 0 to 1: one
+/// minus the fewest edits that turn [needle] into some part of [haystack],
+/// over the length of [needle] (so words around it do not count against it).
+double orbEvalSimilarity(String needle, String haystack) {
+  final n = needle.runes.toList();
+  final h = haystack.runes.toList();
+  if (n.isEmpty) return 1;
+  // Row 0 is free along the haystack: the match may start anywhere.
+  var prev = List<int>.filled(h.length + 1, 0);
+  for (var i = 1; i <= n.length; i++) {
+    final cur = List<int>.filled(h.length + 1, 0)..[0] = i;
+    for (var j = 1; j <= h.length; j++) {
+      final cost = n[i - 1] == h[j - 1] ? 0 : 1;
+      cur[j] = [
+        prev[j - 1] + cost,
+        prev[j] + 1,
+        cur[j - 1] + 1,
+      ].reduce((a, b) => a < b ? a : b);
+    }
+    prev = cur;
+  }
+  final best = prev.reduce((a, b) => a < b ? a : b);
+  return 1 - best / n.length;
+}
+
+/// The numbers and the Latin names in [words] (already normalized): what a
+/// transcript must not lose.
+List<String> orbEvalFacts(String words) => [
+  for (final m in RegExp(r'\d+|[a-z][a-z\-]{1,}').allMatches(words))
+    m.group(0)!,
+];

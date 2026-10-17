@@ -421,6 +421,63 @@ void main() {
     );
   });
 
+  test('the relaying voice asks for the least thinking, whatever the voice '
+      'settings say, and steps down when the model refuses', () {
+    GeminiLiveSession session({required bool fast, AgentReasoning? r}) =>
+        GeminiLiveSession(
+          apiKey: 'k',
+          systemPrompt: 'p',
+          tools: const [],
+          onToolCall: (n, a) async => {},
+          reasoning: r ?? AgentReasoning.medium,
+          fast: fast,
+        );
+    Object? config(GeminiLiveSession s) =>
+        (s.setupMessage('m', affective: false, nonBlocking: false)['setup']
+            as Map)['generationConfig']['thinkingConfig'];
+
+    // The Agent-mode setting does not reach it.
+    for (final r in AgentReasoning.values) {
+      final relay = session(fast: true, r: r);
+      expect(config(relay), {'thinkingLevel': 'minimal'}, reason: '$r');
+      expect(relay.thinkingUsed, 'minimal');
+    }
+    // A model that does not take one: the next, then a zero budget, then none.
+    final relay = session(fast: true);
+    expect(relay.lowerThinkingSetting(), isTrue);
+    expect(config(relay), {'thinkingLevel': 'low'});
+    expect(relay.lowerThinkingSetting(), isTrue);
+    expect(config(relay), {'thinkingBudget': 0});
+    expect(relay.thinkingUsed, 'budget 0');
+    expect(relay.lowerThinkingSetting(), isTrue);
+    expect(config(relay), isNull);
+    expect(relay.thinkingUsed, 'none');
+    expect(relay.lowerThinkingSetting(), isFalse);
+
+    // The other sessions are as they were: the level of the settings.
+    final normal = session(fast: false, r: AgentReasoning.high);
+    expect(config(normal), {'thinkingLevel': 'high'});
+    expect(normal.thinkingUsed, 'high');
+    expect(normal.lowerThinkingSetting(), isTrue);
+    expect(config(normal), {'thinkingLevel': 'medium'});
+  });
+
+  test('the layered voice builds a relaying Live session and reports its '
+      'thinking', () {
+    final s = LayeredVoiceSession(
+      apiKey: 'k',
+      systemPrompt: 'p',
+      tools: const [],
+      onToolCall: (n, a) async => {},
+      reasoning: AgentReasoning.high,
+      steering: AgentSteering(
+        scope: () => const AgentScope(systemPrompt: 's', tools: []),
+      ),
+      agentBuilder: (p) => SlowAgent(p, Duration.zero),
+    );
+    expect(s.liveThinking, 'minimal', reason: 'not the settings\' high');
+  });
+
   test('the agent behind the voice thinks as asked', () {
     final seen = <AgentThinking>[];
     LayeredVoiceSession(

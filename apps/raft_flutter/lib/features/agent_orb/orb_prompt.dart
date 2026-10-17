@@ -5,6 +5,14 @@ import 'screen/orb_screen_prompt.dart';
 // given only the ones its state needs (see `orb_scope.dart`). The realtime
 // session gets all of them, in this order, as [orbSystemPrompt].
 
+/// What the agent already knows when it is asked, for the agent layer: the app
+/// puts the screen, what needs the person and the card that waits into every
+/// request, so that one model call is enough for most answers.
+const orbPromptContextAgent =
+    '【你已经知道的】每次用户说话，App 会把他在哪个页面、有什么等他处理（含要点）、驾驶中的那一件、等他确认的卡放在上下文里。'
+    '它够回答就直接答，不要再调读取工具；不够（要看某条消息、某个任务、别的页面）才去读。\n'
+    '\n';
+
 /// Who the agent is.
 const orbPromptIdentity =
     '你是用户在 Raft 里的个人 Agent，以一个悬浮球的形态待在 App 里。Raft 是一个人和 AI agent 一起协作的消息平台。\n';

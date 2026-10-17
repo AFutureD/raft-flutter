@@ -164,15 +164,28 @@ class OrbEvalReport {
 
   /// The median time, in milliseconds, from the person's text to the end of
   /// the model's turn, over every scored turn that was timed.
-  int? get latencyP50 {
-    final ms = [
-      for (final r in results)
-        for (final run in r.runs)
-          for (final t in run.run.scoredTurns)
-            if (t.millis > 0) t.millis,
-    ]..sort();
-    return ms.isEmpty ? null : ms[ms.length ~/ 2];
-  }
+  int? get latencyP50 => _percentile(_turnTimes((t) => t.millis), .5);
+  int? get latencyP90 => _percentile(_turnTimes((t) => t.millis), .9);
+
+  /// The time from the person's text to the voice's first sound after the
+  /// last answer of the agent.
+  int? get firstAudioP50 => _percentile(_turnTimes((t) => t.firstAudioMs), .5);
+  int? get firstAudioP90 => _percentile(_turnTimes((t) => t.firstAudioMs), .9);
+
+  /// The time the asks to the agent took in a turn.
+  int? get askP50 => _percentile(_turnTimes((t) => t.askMs), .5);
+  int? get askP90 => _percentile(_turnTimes((t) => t.askMs), .9);
+
+  List<int> _turnTimes(int Function(OrbEvalTurn t) of) => [
+    for (final r in results)
+      for (final run in r.runs)
+        for (final t in run.run.scoredTurns)
+          if (of(t) > 0) of(t),
+  ]..sort();
+
+  static int? _percentile(List<int> sorted, double p) => sorted.isEmpty
+      ? null
+      : sorted[((sorted.length - 1) * p).round().clamp(0, sorted.length - 1)];
 
   int count(OrbEvalOutcome o) => results.where((r) => r.outcome == o).length;
 
@@ -190,6 +203,11 @@ class OrbEvalReport {
     if (engine != null) 'engine': engine,
     if (agentModel != null) 'agentModel': agentModel,
     if (latencyP50 != null) 'latencyP50Ms': latencyP50,
+    if (latencyP90 != null) 'latencyP90Ms': latencyP90,
+    if (firstAudioP50 != null) 'firstAudioP50Ms': firstAudioP50,
+    if (firstAudioP90 != null) 'firstAudioP90Ms': firstAudioP90,
+    if (askP50 != null) 'askP50Ms': askP50,
+    if (askP90 != null) 'askP90Ms': askP90,
     if (cancelled) 'cancelled': true,
     if (abortReason != null) 'abortReason': abortReason,
     'ok': ok,
