@@ -791,6 +791,7 @@ class OrbController extends ChangeNotifier {
       _drivingIndex++;
     }
     notifyListeners();
+    _whereChanged();
     final done = drivingDone;
     return {
       'ok': true,
@@ -1004,6 +1005,7 @@ class OrbController extends ChangeNotifier {
     }
     _newKeys.clear();
     _clearBadge();
+    if (_driving) _whereChanged();
     notifyListeners();
     unawaited(openLayer());
   }
@@ -1135,7 +1137,18 @@ class OrbController extends ChangeNotifier {
   String _whereBase() {
     final loc = workspace.location;
     final title = orbPageTitle(workspace, loc);
-    return '用户现在在「$title」页面，路由 ${loc.uri}。';
+    return '用户现在在「$title」页面，路由 ${loc.uri}。${_drivingLine()}';
+  }
+
+  /// Driving: the card on screen is what "他/这件/回他" means (eval D3/D8:
+  /// the model read the page under the layer and asked who "他" was).
+  String _drivingLine() {
+    if (!driving || drivingDone) return '';
+    final items = drivingItems;
+    final item = items[drivingIndex];
+    return '驾驶中，屏幕上是第 ${drivingIndex + 1} 件 / 共 ${items.length} 件：'
+        '${item.who}，${item.title}（${item.where}）。'
+        '用户说“他”“这件”“回他”“稍后提醒我”指的就是这一件。';
   }
 
   /// The silent note for the model: the page and, short, what can be tapped
@@ -1150,7 +1163,8 @@ class OrbController extends ChangeNotifier {
     return '（App 提示，不是用户的话：$base$screen他说“这个”“这里”“大家”时指的就是这个页面。）';
   }
 
-  /// In a call, a move is told to the model once, without a turn.
+  /// In a call, a move (or a new card while driving) is told to the model
+  /// once, without a turn.
   void _whereChanged() {
     if (_disposed || !inCall) return;
     _whereTimer?.cancel();

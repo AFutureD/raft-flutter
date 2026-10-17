@@ -179,6 +179,26 @@ void main() {
     });
   });
 
+  // Eval D3/D8 on the G100: driving, "回他可以" — the model read the home
+  // page under the layer and asked who "他" was. The card on screen is what
+  // "他/这件" means; the model is told which card it is, and told again when
+  // it changes.
+  group('the card in view', () {
+    testWidgets('in a call the model is told the card on screen, and the '
+        'next one when it moves', (t) async {
+      await fixture(t);
+      await drive(t, [a, b], inCall: true);
+      final s = f.sessions.single;
+      await t.pump(const Duration(seconds: 1));
+      expect(s.contexts.last, contains('A 问你周五有没有空'));
+      expect(s.contexts.last, contains('第 1 件'));
+      await t.tap(next);
+      await t.pump(const Duration(seconds: 1));
+      expect(s.contexts.last, contains('B 想知道进度'));
+      expect(s.contexts.last, contains('第 2 件'));
+    });
+  });
+
   group('watching', () {
     testWidgets('starts when driving mode goes on, stops when it goes off', (
       t,
