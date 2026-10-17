@@ -94,7 +94,7 @@ final _negation = RegExp(
 );
 
 final _affirmation = RegExp(
-  r'对|好|行|嗯|确认|可以|是的|是啊|同意|做吧|执行|批准|没问题|'
+  r'对|好|行|嗯|确认|可以|是的|是啊|同意|做吧|发吧|发出去|执行|批准|没问题|'
   r'\b(?:yes|yeah|yep|yup|ok|okay|sure|confirm|confirmed|go ahead|do it|proceed|fine|agreed?)\b',
 );
 

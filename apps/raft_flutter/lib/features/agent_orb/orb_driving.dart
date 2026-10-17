@@ -4,15 +4,16 @@ import 'package:raft_ui/raft_ui.dart';
 import 'briefing/orb_briefing_models.dart';
 import 'orb_widget.dart';
 
-/// Words that make an action one for when the car is parked.
-final _risky = RegExp('批准|合并|删除|发布|approve|merge|delete|release');
+/// Words that make an action one for when the car is parked (also what the
+/// orb's action tools refuse to send as a reply while driving).
+final orbRiskyWords = RegExp('批准|合并|删除|发布|approve|merge|delete|release');
 
 /// Whether [item] has to wait until the car is parked: an approval, or an
 /// action that approves, merges, deletes or releases.
 bool orbNeedsParking(OrbBriefItem item) {
   if (item.reason == OrbReason.awaitingApproval) return true;
   final action = item.suggestedAction;
-  return _risky.hasMatch('${action?.label ?? ''} ${action?.text ?? ''}');
+  return orbRiskyWords.hasMatch('${action?.label ?? ''} ${action?.text ?? ''}');
 }
 
 /// The label of the big button: "停车后批准" for what waits until parked,

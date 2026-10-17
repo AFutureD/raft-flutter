@@ -12,6 +12,8 @@ import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
 import '../agent_mode/voice_provider.dart';
+import 'actions/orb_actions.dart';
+import 'actions/orb_task_tools.dart';
 import 'briefing/orb_activity_watch.dart';
 import 'briefing/orb_briefing_models.dart'
     show OrbBriefItem, OrbBriefScope, OrbBriefing;
@@ -99,6 +101,7 @@ class OrbController extends ChangeNotifier {
     required this.workspace,
     required this.navigatorContext,
     List<OrbTool>? appTools,
+    OrbActions? actions,
     VoiceSessionFactory? sessionFactory,
     AgentAudio? audio,
     AgentVoiceKey? voiceKey,
@@ -123,6 +126,12 @@ class OrbController extends ChangeNotifier {
            (appTools == null
                ? (w) => OrbBriefingService.of(w).warm(OrbBriefScope.activity)
                : null) {
+    // The orb's actions: its own, or the ones a test gives (then their tools
+    // join the fake ones).
+    this.actions = actions ?? OrbActions(workspace: workspace);
+    this.actions
+      ..driving = (() => _driving)
+      ..card = _cardIds;
     final all = [
       ..._shellTools(),
       ...?appTools,
@@ -132,6 +141,10 @@ class OrbController extends ChangeNotifier {
         ...orbBriefingTools(
           showBriefing: (briefing, ctx) => showBriefing(briefing),
         ),
+      if (appTools == null || actions != null) ...[
+        ...orbTaskTools(),
+        ...this.actions.tools,
+      ],
     ];
     tools = {for (final tool in all) tool.name: tool};
     voice = AgentVoiceController(
@@ -150,11 +163,19 @@ class OrbController extends ChangeNotifier {
       sessionFactory: sessionFactory,
     )..addListener(_voiceChanged);
     voice.saying.addListener(_sayingChanged);
+    this.actions
+      ..onTell = ((note) => unawaited(voice.tell(note)))
+      ..onTapped = _actionTapped
+      ..addListener(_actionsChanged);
     operating.addListener(_operatingChanged);
     workspace.addListener(_whereChanged);
   }
 
   final WorkspaceController workspace;
+
+  /// What the model may do for the person (reply, react, change a task ...):
+  /// the confirm card, the person's answer, the driving rules.
+  late final OrbActions actions;
 
   /// Reads the Activity briefing ahead of time when the person turns to the
   /// orb, so the briefing `navigate` brings is mostly written by then.
@@ -366,6 +387,8 @@ class OrbController extends ChangeNotifier {
     if (said.isEmpty) return;
     _agentOpen = false;
     _add(OrbEntryKind.user, said);
+    // The person's own words can agree to the card on the screen.
+    actions.userSaid(said);
     _whereTold = _whereLine();
     final sent = await voice.sendText(said, silentContext: _whereTold);
     if (!sent) _note('还没有语音 Key：在 设置 > Labs 里扫码填入（和 Agent 模式共用）');
@@ -391,6 +414,7 @@ class OrbController extends ChangeNotifier {
 
   void _userSaid(String text, {required bool fresh}) {
     _agentOpen = false;
+    actions.userSaid(text, fresh: fresh);
     final last = _entries.isEmpty ? null : _entries.last;
     if (!fresh && last != null && last.kind == OrbEntryKind.user) {
       last.text += text;
@@ -573,6 +597,8 @@ class OrbController extends ChangeNotifier {
       'describe_page' => '已查看当前页面',
       'read_conversation' => '已读取对话',
       'get_briefing' => '已准备简报',
+      'list_tasks' => '已查看任务',
+      'task_detail' => '已查看任务详情',
       _ => '已调用 $name',
     };
   }
@@ -966,6 +992,42 @@ class OrbController extends ChangeNotifier {
     }
   }
 
+  // ---- actions --------------------------------------------------------------
+
+  bool _hadPending = false;
+
+  /// The ids that name the card in front of the person while driving ("稍后
+  /// 提醒我" means this one).
+  List<String> _cardIds() {
+    if (!_driving || drivingDone) return const [];
+    final item = drivingItems[drivingIndex];
+    return [item.id, ?item.channelId, ...item.sourceIds];
+  }
+
+  /// A confirm card came up, went, or got its result: the layer redraws, and
+  /// a card that comes up while the layer is closed opens it.
+  void _actionsChanged() {
+    if (_disposed) return;
+    final pending = actions.pending != null;
+    final appeared = pending && !_hadPending;
+    _hadPending = pending;
+    notifyListeners();
+    if (appeared && !layerOpen) unawaited(openLayer());
+  }
+
+  /// The person pressed a button on the card: it is in the transcript too (a
+  /// model-asked action is, through `dispatch`).
+  void _actionTapped(OrbActionOutcome outcome) {
+    if (_disposed) return;
+    _agentOpen = false;
+    _add(
+      OrbEntryKind.activity,
+      outcome.kind == OrbOutcomeKind.failed
+          ? '没成功：${outcome.text}'
+          : outcome.text,
+    );
+  }
+
   // ---- touches ------------------------------------------------------------
 
   /// A pointer went down on the orb's own surface (the layer): not the app.
@@ -1065,6 +1127,9 @@ class OrbController extends ChangeNotifier {
     workspace.removeListener(_whereChanged);
     _whereTimer?.cancel();
     voice.saying.removeListener(_sayingChanged);
+    actions
+      ..removeListener(_actionsChanged)
+      ..dispose();
     voice.removeListener(_voiceChanged);
     callSeconds.dispose();
     voice.dispose();

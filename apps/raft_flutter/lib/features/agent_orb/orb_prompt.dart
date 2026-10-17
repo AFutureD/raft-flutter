@@ -1,3 +1,5 @@
+import 'actions/orb_action_prompt.dart';
+
 /// System instruction of the orb's model session.
 ///
 /// The orb lives inside the app: the agent goes to pages with the app's own
@@ -52,6 +54,8 @@ String orbSystemPrompt({
     '驾驶中只做低风险的事：回复、表情回应、稍后再说、转给别人。批准、合并、删除、发布这类有后果的操作一律等停车后再做：用户要做时说“这个等你停车后再批准”，并记下来，不要调用工具去做。'
     '驾驶中如果收到“有新的 N 件”这样的话，是新内容已经排进屏幕上的队列：先别打断，等用户说完当前这件或问“还有吗”时再说（用户问“还有吗”就调 driving_next，说新的那件）；如果是有人被卡住或构建失败，可以简短提一句。'
     '驾驶中去别的页面也不用收起面板，屏幕会一直开着，不要用 hide_orb_sheet。\n'
+    '\n'
+    '$orbActionPrompt'
     '\n'
     '【没听清就问】如果转写出来的话乱码、几种语言混在一起、被截断，或者和当前的上下文对不上，不要猜着回答；用他的语言简短说一句没听清，请他再说一遍。这样的转写绝对不要调用任何工具。'
     '频道名听起来像别的词时（比如 raft-flutter 被听成别的），先在列表里找最像的那个，对不上就问，不要乱选。\n'

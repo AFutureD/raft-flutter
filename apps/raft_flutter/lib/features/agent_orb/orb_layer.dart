@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import 'actions/orb_action_card.dart';
 import 'briefing/orb_briefing_cards.dart';
 import 'briefing/orb_briefing_models.dart' show OrbBriefing;
 import 'orb_controller.dart';
@@ -400,7 +401,13 @@ class _OrbLayerState extends State<OrbLayer>
         for (final e in entries.reversed)
           if (!identical(e, headline)) e,
     ];
-    if (big == null && rest.isEmpty && briefing == null) {
+    final pending = c.actions.pending;
+    final outcome = c.actions.outcome;
+    if (big == null &&
+        rest.isEmpty &&
+        briefing == null &&
+        pending == null &&
+        outcome == null) {
       return Text(
         driving ? '驾驶模式：直接说就行，我一次只说一件' : '说点什么，或者长按球直接对话',
         style: RaftTypography.body(t, size: 15, line: 22, color: quiet),
@@ -429,7 +436,24 @@ class _OrbLayerState extends State<OrbLayer>
               ),
             ),
           ),
-        if (briefing != null && driving)
+        if (outcome != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+            child: OrbActionOutcomeView(outcome: outcome, big: driving),
+          ),
+        // The card to confirm is the one thing on the screen while driving.
+        if (pending != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+            child: OrbConfirmCard(
+              action: pending,
+              busy: c.actions.busy,
+              big: driving,
+              onConfirm: c.actions.confirmTapped,
+              onCancel: c.actions.cancelTapped,
+            ),
+          ),
+        if (briefing != null && driving && pending == null)
           Padding(
             padding: const EdgeInsets.only(bottom: RaftSpace.x3),
             child: _drivingCard(briefing),

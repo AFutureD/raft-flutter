@@ -8,6 +8,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
+import 'package:raft_flutter/features/agent_orb/actions/orb_actions.dart';
 import 'package:raft_flutter/features/agent_orb/orb_avoidance.dart';
 import 'package:raft_flutter/features/agent_orb/orb_controller.dart';
 import 'package:raft_flutter/features/agent_orb/orb_host.dart';
@@ -189,8 +190,13 @@ class OrbFixture {
   Duration liveDebounce = const Duration(seconds: 3);
   Duration newBadgeLinger = const Duration(seconds: 5);
 
+  /// The orb's actions (reply, change a task ...) over the fixture's
+  /// workspace; null leaves the orb with the tools it is given.
+  OrbActions? actions;
+
   OrbController build({List<OrbTool> tools = const []}) =>
       controller = OrbController(
+        actions: actions,
         activityWatcher: activityWatcher,
         liveBriefer: liveBriefer,
         liveDebounce: liveDebounce,
