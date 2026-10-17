@@ -19,6 +19,7 @@ import 'data/workspace_cache.dart';
 import 'data/raft_location.dart';
 import 'data/shared_draft_attachment.dart';
 import 'data/incoming_share_targets.dart';
+import 'features/agent_orb/orb_host.dart';
 import 'features/incoming_share_picker.dart';
 import 'features/incoming_share_review.dart';
 import 'data/raft_navigation_history.dart';
@@ -2195,7 +2196,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
                           child: RaftToastHost(
                             child: KeyboardInsetGuard(
                               imeVisible: platformImeVisibility,
-                              child: child!,
+                              child: AgentOrbHost(
+                                workspace: workspace,
+                                navigatorKey: appRouter.navigatorKey,
+                                child: child!,
+                              ),
                             ),
                           ),
                         ),
