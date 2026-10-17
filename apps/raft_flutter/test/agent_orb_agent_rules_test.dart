@@ -401,7 +401,7 @@ void main() {
     expect(navigated, [
       {'task_number': 136},
     ]);
-    expect(agentLines(), ['任务 #136「重构第 10 步」，等验收，Cody 负责。']);
+    expect(agentLines(), ['任务 #136「重构第 10 步」在等你验收，由 Cody 负责。']);
     expect(orb().fastPath, 'open');
   }, tools: [navigateStub(taskArrived)]);
 
@@ -415,7 +415,7 @@ void main() {
     ]);
     expect(
       agentLines().single,
-      '到了#general。有 1 件事在等你：Cody 问你：周五上线可以吗，已等 5 分钟。',
+      '到了#general。有 1 件事在等你：Cody 问你：周五上线可以吗，已经等了 5 分钟。',
     );
   }, tools: [navigateStub(channelArrived())]);
 
@@ -448,7 +448,7 @@ void main() {
     expect(gemini.requests, hasLength(1));
     expect(
       agentLines().single,
-      '到了#general。有 1 件事在等你：Cody 问你：周五上线可以吗，已等 5 分钟。',
+      '到了#general。有 1 件事在等你：Cody 问你：周五上线可以吗，已经等了 5 分钟。',
     );
   }, tools: [navigateStub(channelArrived())]);
 
@@ -793,11 +793,11 @@ void main() {
     orbTest('下一件, 上一件 and the end of the cards: no model call', (t) async {
       await cards(t);
       await say(t, '下一件');
-      expect(agentLines().last, '第 2 件，共 2 件：Alice 问你：开会吗，已等 5 分钟。');
+      expect(agentLines().last, '第 2 件，共 2 件：Alice 问你：开会吗，已经等了 5 分钟。');
       expect(orb().fastPath, 'next');
       expect(orb().drivingIndex, 1);
       await say(t, '上一件');
-      expect(agentLines().last, '第 1 件，共 2 件：Cody 问你：上线吗，已等 5 分钟。');
+      expect(agentLines().last, '第 1 件，共 2 件：Cody 问你：上线吗，已经等了 5 分钟。');
       expect(orb().drivingIndex, 0);
       await say(t, '下一件');
       await say(t, '下一件');
@@ -889,7 +889,7 @@ void main() {
       // The deck is up, the first card is a message.
       expect(orb().drivingItems.map((i) => i.who), ['Cody', 'Alice', 'Grok']);
       expect(orb().drivingIndex, 0);
-      expect(agentLines().single, '好，驾驶模式。第 1 件，共 3 件：Cody 问你：上线吗，已等 5 分钟。');
+      expect(agentLines().single, '好，驾驶模式。第 1 件，共 3 件：Cody 问你：上线吗，已经等了 5 分钟。');
       expect(orb().fastPath, 'drive');
     }, tools: [getBriefing()]);
 
@@ -898,7 +898,7 @@ void main() {
       await say(t, '下一件');
       expect(orb().drivingIndex, 1);
       // The title of this one does not name the sender: the sentence does.
-      expect(agentLines().last, '第 2 件，共 3 件：Alice：周五能来评审吗，已等 5 分钟。');
+      expect(agentLines().last, '第 2 件，共 3 件：Alice：周五能来评审吗，已经等了 5 分钟。');
       await say(t, '下一件');
       expect(agentLines().last, contains('Grok'));
     }, tools: [getBriefing()]);
@@ -949,7 +949,7 @@ void main() {
         expect(navigated, [
           {'dm_id': 'dm-1'},
         ]);
-        expect(agentLines().single, 'Ada 问你：周五评审吗，已等 15 分钟，要回吗？');
+        expect(agentLines().single, 'Ada 问你：周五评审吗，已经等了 15 分钟。要回吗？');
       },
       tools: [
         navigateStub({

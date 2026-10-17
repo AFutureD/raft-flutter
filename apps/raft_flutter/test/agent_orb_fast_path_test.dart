@@ -138,7 +138,7 @@ void main() {
             'since': '已等 15 分钟',
           },
         }),
-        '第 2 件，共 3 件：Alice 问你：周五能来评审吗，已等 15 分钟。',
+        '第 2 件，共 3 件：Alice 问你：周五能来评审吗，已经等了 15 分钟。',
       );
     });
 
@@ -149,7 +149,7 @@ void main() {
           'total': 3,
           'item': {'who': 'Alice', 'title': '周五能来评审吗？', 'since': '已等 15 分钟'},
         }),
-        '第 2 件，共 3 件：Alice：周五能来评审吗，已等 15 分钟。',
+        '第 2 件，共 3 件：Alice：周五能来评审吗，已经等了 15 分钟。',
       );
       expect(
         orbDrivingSay({
@@ -169,7 +169,7 @@ void main() {
             {'who': 'Ada', 'title': 'Ada 问你'},
           ],
         }),
-        '好，驾驶模式。第 1 件，共 2 件：Cody 问你：上线吗，已等 5 分钟。',
+        '好，驾驶模式。第 1 件，共 2 件：Cody 问你：上线吗，已经等了 5 分钟。',
       );
       expect(
         orbDriveSay({'needsYou': <Object?>[], 'routineCount': 4}),
@@ -191,7 +191,7 @@ void main() {
             ],
           },
         }),
-        'Cody 问你：需要我补什么吗，已等 15 分钟，要回吗？',
+        'Cody 问你：需要我补什么吗，已经等了 15 分钟。要回吗？',
       );
       expect(
         orbArrivalSay({
@@ -205,7 +205,7 @@ void main() {
             ],
           },
         }),
-        'Cody 说：收到，我接着做，不用回。',
+        'Cody 说：收到，我接着做。不用回。',
       );
       expect(
         orbArrivalSay({
@@ -239,6 +239,25 @@ void main() {
         }),
         '第 2 个任务：#13「戊」，八戒 在做。',
       );
+      expect(
+        orbTaskPassSay({
+          'index': 1,
+          'current': {
+            'number': 14,
+            'title': '己',
+            'assignee': 'Cody',
+            'waitsFor': '等你验收',
+          },
+        }),
+        '第 1 个任务：#14「己」等你验收。',
+      );
+      expect(
+        orbTaskPassSay({
+          'index': 3,
+          'current': {'number': 15, 'title': '庚', 'assignee': 'Ada'},
+        }),
+        '第 3 个任务：#15「庚」，由 Ada 负责。',
+      );
       expect(orbTaskPassSay({'done': true}), '就这些。');
     });
 
@@ -253,7 +272,7 @@ void main() {
             ],
           },
         }),
-        '到了#general。有 2 件事在等你：Cody 问你：上线吗，已等 5 分钟；Ada 问你：开会吗，已等 9 分钟。',
+        '到了#general。有 2 件事在等你：Cody 问你：上线吗，已经等了 5 分钟；Ada 问你：开会吗，已经等了 9 分钟。',
       );
       expect(
         orbArrivalSay({
@@ -284,7 +303,7 @@ void main() {
             },
           },
         }),
-        '任务 #136「重构第 10 步」，等验收，Cody 负责。',
+        '任务 #136「重构第 10 步」在等你验收，由 Cody 负责。',
       );
     });
 

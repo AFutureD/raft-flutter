@@ -105,13 +105,20 @@ String? orbDrivingSay(Map result, {OrbBriefing? briefing}) {
   return '第 ${result['index']} 件，共 ${result['total']} 件：${_cardLine(item)}。';
 }
 
+/// How long a card has waited, as a clause: "已等 20 分钟" is said "已经等了
+/// 20 分钟".
+String _waited(String since) {
+  final s = since.trim();
+  return s.startsWith('已等') ? '已经等了${s.substring(2)}' : s;
+}
+
 /// A card in a line: who first (the title may not name them), what, how long.
 String _cardLine(Map item) {
   final who = '${item['who'] ?? ''}'.trim();
   var title = _tidy('${item['title'] ?? ''}'.trim());
   if (title.isEmpty) title = who;
   if (who.isNotEmpty && !title.contains(who)) title = '$who：$title';
-  final since = '${item['since'] ?? ''}'.trim();
+  final since = _waited('${item['since'] ?? ''}');
   return since.isEmpty ? title : '$title，$since';
 }
 
@@ -139,8 +146,11 @@ String? orbTaskPassSay(Map result) {
   if (t is! Map) return null;
   final owner = '${t['assignee'] ?? ''}';
   final waits = '${t['waitsFor'] ?? ''}';
-  return '第 ${result['index']} 个任务：#${t['number']}「${t['title']}」'
-      '${waits.isNotEmpty ? '，$waits' : (owner.isNotEmpty ? '，$owner 负责' : '')}。';
+  // "等你验收" goes on the task itself; "八戒 在做" is a clause of its own.
+  final tail = waits.isNotEmpty
+      ? (waits.startsWith('等') ? waits : '，$waits')
+      : (owner.isNotEmpty ? '，由 $owner 负责' : '');
+  return '第 ${result['index']} 个任务：#${t['number']}「${t['title']}」$tail。';
 }
 
 /// What `navigate` brought, as a sentence to say: where, then what needs the
@@ -162,7 +172,7 @@ String? orbArrivalSay(Map result, {String said = ''}) {
   if (page is Map && page['page'] == 'task') {
     final facts = orbKeyFacts([run], said: said);
     if (facts.isEmpty) return title.isEmpty ? null : '到了$title。';
-    return '${facts.map((f) => f.say).join('，')}。';
+    return orbFactsSentence(facts);
   }
   if (result['loading'] == true) {
     return title.isEmpty ? '页面还在加载。' : '到了$title，内容还在加载。';
@@ -184,7 +194,7 @@ String? orbArrivalSay(Map result, {String said = ''}) {
       : '';
   if (items.isEmpty) return '$where没有要你处理的。$tail';
   String one(Map i) {
-    final since = '${i['since'] ?? ''}'.trim();
+    final since = _waited('${i['since'] ?? ''}');
     return '${_tidy('${i['title'] ?? i['who']}')}${since.isEmpty ? '' : '，$since'}';
   }
 
@@ -200,7 +210,7 @@ String _dmArrival(String name, Map result, Map briefing) {
     for (final i in (briefing['needsYou'] as List? ?? const []))
       if (i is Map) i,
   ];
-  if (items.isNotEmpty) return '${_cardLine(items.first)}，要回吗？';
+  if (items.isNotEmpty) return '${_cardLine(items.first)}。要回吗？';
   final page = result['page'];
   String? last;
   if (page is Map) {
@@ -214,7 +224,7 @@ String _dmArrival(String name, Map result, Map briefing) {
   if (last == null || last.isEmpty) return '到了$name的私信。没有要你处理的。';
   final one = last.replaceAll(RegExp(r'\s+'), ' ');
   final clip = one.length <= 40 ? one : '${one.substring(0, 40)}…';
-  return '$name 说：${_tidy(clip)}，不用回。';
+  return '$name 说：${_tidy(clip)}。不用回。';
 }
 
 /// The opened item of the Activity.
