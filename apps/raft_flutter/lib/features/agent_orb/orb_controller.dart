@@ -9,6 +9,7 @@ import '../agent_mode/agent_audio.dart';
 import '../agent_mode/agent_live_guard.dart' show agentLiveIdleLimit;
 import '../agent_mode/agent_memory.dart';
 import '../agent_mode/agent_steering.dart';
+import '../agent_mode/gemini_live.dart' show AgentToolHandler;
 import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
@@ -24,6 +25,8 @@ import 'briefing/orb_briefing_tools.dart'
 import 'nav/orb_nav_tools.dart'
     show orbChannelsLine, orbDirectoryOf, orbNavigationTools;
 import 'nav/orb_page_description.dart' show orbPageTitle;
+import 'actions/orb_card_words.dart' show orbPlainNo, orbPlainYes;
+import 'orb_agent_review.dart';
 import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
 import 'orb_driving.dart' show orbSayHint;
@@ -135,7 +138,9 @@ class OrbController extends ChangeNotifier {
     this.actions = actions ?? OrbActions(workspace: workspace);
     this.actions
       ..driving = (() => _driving)
-      ..card = _cardIds;
+      ..card = _cardIds
+      ..appSpeaks = agentLayer
+      ..onSay = ((line) => unawaited(voice.speak(line)));
     final all = [
       ..._shellTools(),
       ...?appTools,
@@ -156,7 +161,13 @@ class OrbController extends ChangeNotifier {
       tools: [for (final tool in tools.values) tool.declaration],
       onToolCall: dispatch,
       systemPrompt: _systemPrompt,
-      steering: agentLayer ? AgentSteering(scope: _agentScope) : null,
+      steering: agentLayer
+          ? AgentSteering(
+              scope: _agentScope,
+              intercept: _intercept,
+              review: _review,
+            )
+          : null,
       beforeConnect: _loadBrain,
       onSessionEnd: _sessionEnded,
       onUserSaid: _userSaid,
@@ -495,12 +506,11 @@ class OrbController extends ChangeNotifier {
   /// the person's "确认" cannot send anything (eval A3/C4 on the G100). Told
   /// once per turn of the person.
   bool _askNudged = false;
-  static final _asksToConfirm = RegExp(
-    r'要发吗|要改吗|确认吗|要不要发|要我发|你确认|确认要|发吗[？?]|改吗[？?]',
-  );
+  static final _asksToConfirm = orbAsksToConfirm;
 
   void _nudgeIfAskedWithoutCard() {
-    if (_askNudged || _disposed) return;
+    // The agent layer is reviewed inside the turn (see [_review]).
+    if (agentLayer || _askNudged || _disposed) return;
     final last = _entries.isEmpty ? null : _entries.last;
     if (last == null || last.kind != OrbEntryKind.agent) return;
     if (actions.pending != null) return;
@@ -556,6 +566,7 @@ class OrbController extends ChangeNotifier {
       workspace: workspace,
       navigatorContext: context,
       operating: operating,
+      agentLayer: agentLayer,
     );
     try {
       result = await tool.handler(args, toolContext);
@@ -1098,6 +1109,32 @@ class OrbController extends ChangeNotifier {
     memory: _brainContext,
     channels: orbChannelsLine(orbDirectoryOf(workspace)),
   );
+
+  /// The person's words, before the model: a plain yes to a card they have
+  /// agreed to runs `confirm` in code and a plain no that cancelled it is
+  /// answered, both said by the app. Anything else is left to the model (null).
+  Future<String?> _intercept(String said, AgentToolHandler run) async {
+    final card = actions.pending;
+    if (card != null) {
+      if (!orbPlainYes(said) || card.sensitive) return null;
+      // A spoken yes reaches the ledger by the transcript, which may come a
+      // moment after the model's call.
+      for (var i = 0; i < 6 && actions.pending?.heard != true; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+      }
+      if (actions.pending?.heard != true) return null;
+      final line = (await run('confirm', const {}))[agentAppSays];
+      return line is String ? line : null;
+    }
+    if (orbPlainNo(said) && actions.takeCancelledByWords()) {
+      await run('cancel_action', const {});
+      return '好，已取消。';
+    }
+    return null;
+  }
+
+  AgentReview? _review(String reply, List<AgentToolRun> runs) =>
+      orbReviewReply(reply, runs, cardUp: actions.pending != null);
 
   /// What the text agent is given for its next request: the state decides
   /// the instruction and the tools.

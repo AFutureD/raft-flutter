@@ -10,7 +10,9 @@ import '../../agent_mode/capabilities/agent_capability_tools.dart';
 import '../../agent_mode/capabilities/agent_consent.dart';
 import '../orb_driving.dart' show orbRiskyWords;
 import '../orb_tool.dart';
+import '../../agent_mode/agent_steering.dart' show agentAppSays;
 import 'orb_action_declarations.dart';
+import 'orb_card_words.dart';
 import 'orb_nudge.dart';
 
 /// One line of a confirm card: `发到  #general`. [from] is what it was before,
@@ -135,6 +137,28 @@ class OrbActions extends ChangeNotifier {
   /// Told the model something the app saw (a tap on the card); the model is
   /// not the one who pressed it.
   void Function(String note)? onTell;
+
+  /// The agent layer: the app says the card aloud and the result itself.
+  /// Every answer to the model that ends something then carries the words
+  /// ([agentAppSays]), and a tap on the card is said through [onSay] instead
+  /// of being told to the model.
+  bool appSpeaks = false;
+
+  /// Says a line as the agent's own words (a tap on the card, when the app
+  /// speaks).
+  void Function(String line)? onSay;
+
+  /// The person's words cancelled the card (a plain no) and nobody has used
+  /// that yet: the app answers it. Spent by [takeCancelledByWords].
+  bool _cancelledByWords = false;
+
+  /// Whether the card that was waiting was just cancelled by the person's own
+  /// words; true once.
+  bool takeCancelledByWords() {
+    final was = _cancelledByWords;
+    _cancelledByWords = false;
+    return was;
+  }
 
   /// The person pressed a button on the card; this is what the layer shows.
   void Function(OrbActionOutcome outcome)? onTapped;
@@ -272,6 +296,7 @@ class OrbActions extends ChangeNotifier {
     final summary = '${(answer['preview'] as Map)['summary']}';
     final twice = answer['risk'] == AgentCapabilityRisk.sensitive.name;
     return {
+      if (appSpeaks && p != null) agentAppSays: orbRestate(p),
       'status': 'needs_confirmation',
       'preview': {
         'summary': summary,
@@ -368,7 +393,13 @@ class OrbActions extends ChangeNotifier {
     final token = _token;
     if (token == null) {
       final last = _last;
-      if (last != null) return {...last, 'already': true};
+      if (last != null) {
+        return {
+          for (final e in last.entries)
+            if (e.key != agentAppSays) e.key: e.value,
+          'already': true,
+        };
+      }
       return {'error': '没有等着确认的操作：先用动作工具提出来，用户同意后再 confirm_action'};
     }
     if (pending == null) {
@@ -398,24 +429,38 @@ class OrbActions extends ChangeNotifier {
     _setOutcome(cancelled);
     _changed();
     onTapped?.call(cancelled);
-    _tell('用户点了取消，什么都没做。用一句话回应，不要再问。');
+    _announce('用户点了取消，什么都没做。用一句话回应，不要再问。', '好，已取消。');
   }
 
   /// The model drops the card because the person changed their mind.
   Future<Map<String, Object?>> cancel() async {
     final token = _token;
-    if (token == null) return {'status': 'cancelled', 'message': '没有等着的操作'};
+    if (token == null) {
+      return {
+        if (appSpeaks) agentAppSays: '现在没有等着确认的操作。',
+        'status': 'cancelled',
+        'message': '没有等着的操作',
+      };
+    }
     _token = null;
     ledger.cancel(token, force: true);
     await _forget(token);
     _setOutcome(const OrbActionOutcome(OrbOutcomeKind.cancelled, '已取消'));
     _changed();
-    return {'status': 'cancelled', 'message': '已取消，什么都没做', 'activity': '已取消'};
+    return {
+      if (appSpeaks) agentAppSays: '好，已取消。',
+      'status': 'cancelled',
+      'message': '已取消，什么都没做',
+      'activity': '已取消',
+    };
   }
 
   /// The person's words, typed or spoken: they can agree or refuse.
-  void userSaid(String text, {bool fresh = true}) =>
-      ledger.userSaid(text, fresh: fresh);
+  void userSaid(String text, {bool fresh = true}) {
+    // A new utterance: what the last one cancelled is no longer news.
+    if (fresh) _cancelledByWords = false;
+    ledger.userSaid(text, fresh: fresh);
+  }
 
   Future<Map<String, Object?>> _run(String token, {required bool tapped}) {
     // Set before the capability layer takes the person's answer: the ledger
@@ -464,7 +509,12 @@ class OrbActions extends ChangeNotifier {
     final r = await capabilities.run('confirm', {'token': token}) ?? const {};
     if (r['error'] == 'needs_user_confirmation') {
       // Nothing was agreed yet: the card stays.
+      final waiting = pending;
       return {
+        if (appSpeaks && waiting != null)
+          agentAppSays: waiting.sensitive
+              ? orbRestate(waiting)
+              : '还没有确认。${orbRestate(waiting)}',
         'error': 'needs_user_confirmation',
         'message': pending?.sensitive ?? false
             ? '这是敏感操作，只认屏幕上确认卡的按钮，说话不算，什么都没做。请他点确认卡；你自己的话不算确认，不要重复调用。'
@@ -478,9 +528,13 @@ class OrbActions extends ChangeNotifier {
       _token = again;
       _watchExpiry(again);
       if (tapped) {
-        _tell('用户点了第一次确认。这是敏感操作，屏幕上出了第二张确认卡，请他再点一次确认；说话不算，不要替他确认。');
+        _announce(
+          '用户点了第一次确认。这是敏感操作，屏幕上出了第二张确认卡，请他再点一次确认；说话不算，不要替他确认。',
+          '这是敏感操作，请你再点一次屏幕上的确认。',
+        );
       }
       return {
+        if (appSpeaks) agentAppSays: '这是敏感操作，请你再点一次屏幕上的确认。',
         'status': 'needs_second_confirmation',
         'message': '这是敏感操作：第二张确认卡已经在屏幕上，请用户自己再点一次确认；你不要替他确认',
       };
@@ -493,6 +547,7 @@ class OrbActions extends ChangeNotifier {
         final done = '${(r['result'] as Map?)?['done'] ?? '已完成'}';
         _setOutcome(OrbActionOutcome(OrbOutcomeKind.done, done));
         answer = {
+          if (appSpeaks) agentAppSays: orbDoneLine(done),
           'status': 'done',
           'done': done,
           'activity': done,
@@ -502,11 +557,15 @@ class OrbActions extends ChangeNotifier {
         _last = answer;
         if (tapped) {
           onTapped?.call(_outcome!);
-          _tell('用户点了确认，已经执行：$summary（$done）。用一句话告诉他做完了。');
+          _announce(
+            '用户点了确认，已经执行：$summary（$done）。用一句话告诉他做完了。',
+            orbDoneLine(done),
+          );
         }
       case 'declined':
         _setOutcome(const OrbActionOutcome(OrbOutcomeKind.cancelled, '已取消'));
         answer = {
+          if (appSpeaks) agentAppSays: '好，已取消。',
           'status': 'cancelled',
           'message': '用户没有确认，什么都没做',
           'activity': '已取消',
@@ -515,6 +574,7 @@ class OrbActions extends ChangeNotifier {
         final why = '${r['error'] ?? r['message'] ?? '没有成功'}';
         _setOutcome(OrbActionOutcome(OrbOutcomeKind.failed, why));
         answer = {
+          if (appSpeaks) agentAppSays: '没成功：$why',
           'status': 'failed',
           'error': why,
           'activity': '没成功：$why',
@@ -522,7 +582,7 @@ class OrbActions extends ChangeNotifier {
         };
         if (tapped) {
           onTapped?.call(_outcome!);
-          _tell('用户点了确认，但没有成功：$why。如实告诉他原因，不要说成功了。');
+          _announce('用户点了确认，但没有成功：$why。如实告诉他原因，不要说成功了。', '没成功：$why');
         }
     }
     return answer;
@@ -552,6 +612,7 @@ class OrbActions extends ChangeNotifier {
     if (token != null && pending == null && _running == null) {
       // The card went by itself: the person said no, or it ran out.
       final said = ledger.cancelledCards.any((c) => c.request.token == token);
+      if (said) _cancelledByWords = true;
       _token = null;
       _expiry?.cancel();
       _setOutcome(
@@ -586,6 +647,17 @@ class OrbActions extends ChangeNotifier {
   }
 
   void _tell(String note) => onTell?.call('（App 提示，不是用户的话：$note）');
+
+  /// Something the person did on the card: the model is told [note], or, when
+  /// the app speaks, [line] is said as it stands.
+  void _announce(String note, String line) {
+    final say = onSay;
+    if (appSpeaks && say != null) {
+      say(line);
+    } else {
+      _tell(note);
+    }
+  }
 
   static String? _text(Object? v) {
     final s = v is String ? v.trim() : null;

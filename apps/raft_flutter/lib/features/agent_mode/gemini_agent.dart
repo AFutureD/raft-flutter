@@ -56,7 +56,7 @@ Future<({int status, String body})> geminiHttpTransport(
 /// Text only: nothing is heard or spoken, [sendAudio] and [endAudio] do
 /// nothing, and a turn's words arrive as one [onOutputText] before
 /// [onTurnComplete]. Turns run one at a time, in the order they were sent.
-class GeminiAgentSession implements VoiceSession {
+class GeminiAgentSession implements VoiceSession, AppSpeaker {
   GeminiAgentSession({
     required this.systemPrompt,
     required this.tools,
@@ -190,6 +190,19 @@ class GeminiAgentSession implements VoiceSession {
     if (!_closed) _context.add(text);
   }
 
+  /// The app's own words, as a turn of the agent: said after the turn under
+  /// way, and the next model turn is told of them.
+  @override
+  void speak(String text) {
+    if (_closed || text.isEmpty) return;
+    _tail = _tail.then((_) {
+      if (_closed || !_connected) return;
+      _context.add('（App 已经替你对用户说了：“$text”）');
+      onOutputText?.call(text);
+      onTurnComplete?.call();
+    });
+  }
+
   @override
   Future<void> close() async {
     _closed = true;
@@ -214,11 +227,16 @@ class GeminiAgentSession implements VoiceSession {
     }
   }
 
-  /// One turn: the model and its tools until it answers with words only.
-  /// Those words, or null when the session was closed meanwhile.
+  /// The tools one turn has run (what the steering's review is shown).
+  final _runs = <AgentToolRun>[];
+
+  /// One turn: the model and its tools until it answers with words only, or
+  /// a tool brings the app's own words ([agentAppSays]). Those words, or null
+  /// when the session was closed meanwhile.
   Future<String?> _loop(String text) async {
     final context = [..._context];
     _context.clear();
+    _runs.clear();
     _contents.add({
       'role': 'user',
       'parts': [
@@ -226,7 +244,23 @@ class GeminiAgentSession implements VoiceSession {
         {'text': text},
       ],
     });
+    // The app may answer the person's words itself.
+    final intercept = steering?.intercept;
+    if (intercept != null) {
+      final answer = await intercept(text, _callOne);
+      if (_closed) return null;
+      if (answer != null) {
+        _contents.add({
+          'role': 'model',
+          'parts': [
+            {'text': answer},
+          ],
+        });
+        return answer;
+      }
+    }
     final said = <String>[];
+    var retried = false;
     for (var step = 1; step <= maxSteps; step++) {
       final content = await _generate(step);
       if (_closed) return null;
@@ -245,12 +279,47 @@ class GeminiAgentSession implements VoiceSession {
           if (p['functionCall'] is Map)
             Map<String, Object?>.from(p['functionCall'] as Map),
       ];
-      if (calls.isEmpty) break;
+      if (calls.isEmpty) {
+        final review = steering?.review?.call(said.join('\n'), [..._runs]);
+        final retry = review?.retry;
+        if (retry != null && !retried && step < maxSteps) {
+          retried = true;
+          said.clear();
+          _contents.add({
+            'role': 'user',
+            'parts': [
+              {'text': retry},
+            ],
+          });
+          continue;
+        }
+        final replaced = review?.text;
+        if (replaced != null) return replaced;
+        break;
+      }
       final responses = step == maxSteps
           ? _refused(calls)
           : await _runTools(calls);
       if (_closed) return null;
+      // A tool brought the app's own words: they end the turn, the model is
+      // not asked again.
+      final own = <String>[];
+      for (final r in responses) {
+        final response = (r['functionResponse'] as Map)['response'] as Map;
+        final line = response.remove(agentAppSays);
+        if (line is String && line.isNotEmpty) own.add(line);
+      }
       _contents.add({'role': 'user', 'parts': responses});
+      if (own.isNotEmpty) {
+        final line = own.join('');
+        _contents.add({
+          'role': 'model',
+          'parts': [
+            {'text': line},
+          ],
+        });
+        return line;
+      }
       if (step == maxSteps) _debug('step cap $maxSteps reached');
     }
     return said.join('\n');
@@ -270,31 +339,51 @@ class GeminiAgentSession implements VoiceSession {
     'functionResponse': {
       if (call['id'] != null) 'id': call['id'],
       'name': call['name'],
-      'response': result,
+      'response': {...result},
     },
   };
 
-  /// Runs [calls] in order, each with the timeout and the size guard of a
-  /// Live session's tools; one response part per call.
+  /// One tool, with the timeout and the size guard of a Live session's tools.
+  Future<Map<String, Object?>> _callOne(
+    String name,
+    Map<String, Object?> args,
+  ) async {
+    Map<String, Object?>? result;
+    // The call ids are not passed on: the responder skips an id it has
+    // seen, and these are only unique within one reply.
+    await AgentToolResponder(
+      handler: onToolCall,
+      send: (response) {
+        result = (response['response'] as Map).cast<String, Object?>();
+        return true;
+      },
+    ).answer([
+      {'name': name, 'args': args},
+    ]);
+    final answer = result ?? {'error': '工具没有返回'};
+    _runs.add(AgentToolRun(name, args, answer));
+    return answer;
+  }
+
+  /// Runs [calls] in order; one response part per call. Once a tool has the
+  /// app's own words the rest are not run: the turn is over.
   Future<List<Map<String, Object?>>> _runTools(
     List<Map<String, Object?>> calls,
   ) async {
     final out = <Map<String, Object?>>[];
+    var over = false;
     for (final call in calls) {
       if (_closed) break;
-      Map<String, Object?>? result;
-      // The call ids are not passed on: the responder skips an id it has
-      // seen, and these are only unique within one reply.
-      await AgentToolResponder(
-        handler: onToolCall,
-        send: (response) {
-          result = (response['response'] as Map).cast<String, Object?>();
-          return true;
-        },
-      ).answer([
-        {'name': call['name'], 'args': call['args']},
-      ]);
-      out.add(_response(call, result ?? {'error': '工具没有返回'}));
+      if (over) {
+        out.add(_response(call, {'error': '这一轮已经结束，没有执行这个工具。'}));
+        continue;
+      }
+      final args = call['args'];
+      final result = await _callOne('${call['name']}', {
+        if (args is Map) ...Map<String, Object?>.from(args),
+      });
+      over = result[agentAppSays] is String;
+      out.add(_response(call, result));
     }
     return out;
   }

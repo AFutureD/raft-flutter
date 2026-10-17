@@ -153,6 +153,7 @@ String orbAgentPrompt({
         ..write(orbPromptDrivingEnter)
         ..write('\n')
         ..write(orbActionBasics)
+        ..write(orbActionReplyAgent)
         ..write(orbActionConfirmAgent)
         ..write('\n')
         ..write(orbScreenPrompt);
@@ -164,6 +165,7 @@ String orbAgentPrompt({
         ..write(orbPromptDrivingRules)
         ..write('\n')
         ..write(orbActionBasics)
+        ..write(orbActionReplyAgent)
         ..write(orbActionConfirmAgent)
         ..write(orbActionDriving);
     case OrbMode.confirming:

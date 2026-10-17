@@ -259,7 +259,10 @@ class OrbBriefing {
       routineCount == 0 &&
       waitingTasks == 0;
 
-  Map<String, Object?> toJson() => {
+  /// The briefing as the model reads it. For the agent layer ([ordered]) it
+  /// also says what comes first and last, so that the order is data rather
+  /// than a rule in the prompt.
+  Map<String, Object?> toJson({bool ordered = false}) => {
     'scope': scope.key,
     'overview': overview,
     'needsYou': [for (final i in needsYou) i.toJson()],
@@ -273,5 +276,10 @@ class OrbBriefing {
     // How much to say rides in the result, read right before speaking (the
     // full eval: with nothing to do the answer ran to four or five).
     if (needsYou.isEmpty) 'sayHint': '没有要用户处理的：最多两句，一句“没有要你处理的”，一句带过进展，不念条目',
+    if (ordered) ...{
+      if (needsYou.isEmpty) 'sayFirst': '没有要你处理的',
+      if (waitingTasks > 0) 'sayLast': waitingTasksTail(waitingTasks),
+      'order': '先说 needsYou 里的消息（最要紧的一两件），再用一句话带过 progress；任务不在其中，waitingTasks 只在最后用 sayLast 那一句带过。',
+    },
   };
 }

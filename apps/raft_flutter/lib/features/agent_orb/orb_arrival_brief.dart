@@ -42,5 +42,5 @@ OrbArrivalBrief orbArrivalBrief({
       );
     }
   }
-  return briefing.toJson();
+  return briefing.toJson(ordered: ctx.agentLayer);
 };

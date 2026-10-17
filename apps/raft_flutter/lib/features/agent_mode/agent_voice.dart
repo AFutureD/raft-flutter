@@ -635,6 +635,21 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     return true;
   }
 
+  /// Says [text] as the agent's own words, verbatim, when the session is one
+  /// the app can speak through (the text agent). False when it is not, or
+  /// when there is no session.
+  Future<bool> speak(String text) async {
+    if (_disposed || !await hasKey) return false;
+    final session = await _ensureSession();
+    if (session is AppSpeaker) {
+      // A new line of its own, not the end of the one before.
+      saying.value = '';
+      (session as AppSpeaker).speak(text);
+      return true;
+    }
+    return false;
+  }
+
   /// Context for the session that is open now (none is started for it):
   /// the model knows it, nothing is answered.
   void addContext(String text) => _session?.addContext(text);

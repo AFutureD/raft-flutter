@@ -203,6 +203,10 @@ class OrbFixture {
   /// The orb runs on the text agent (`agentLayer`): its sessions get a steering.
   bool agentLayer = false;
 
+  /// Builds the sessions instead of [FakeSession] (a test that runs the text
+  /// agent on a fake transport).
+  VoiceSessionFactory? sessionFactory;
+
   OrbController build({List<OrbTool> tools = const []}) =>
       controller = OrbController(
         agentLayer: agentLayer,
@@ -222,6 +226,7 @@ class OrbFixture {
         voiceKey: AgentVoiceKey.forTesting(apiKey),
         summarySender: summarySender,
         sessionFactory:
+            sessionFactory ??
             ({
               required provider,
               required apiKey,

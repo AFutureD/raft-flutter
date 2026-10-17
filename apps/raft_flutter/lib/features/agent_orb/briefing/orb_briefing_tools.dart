@@ -91,7 +91,7 @@ List<OrbTool> orbBriefingTools({
         // The layer stays up while the model speaks: nothing to await.
         showBriefing(briefing, ctx);
       }
-      return {...briefing.toJson(), 'shown': shown};
+      return {...briefing.toJson(ordered: ctx.agentLayer), 'shown': shown};
     },
   ),
 ];

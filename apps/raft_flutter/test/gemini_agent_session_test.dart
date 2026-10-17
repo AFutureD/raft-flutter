@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
+import 'package:raft_flutter/features/agent_mode/gemini_live.dart'
+    show AgentToolHandler;
 
 /// The text agent: the same prompt and tools as the realtime session, over
 /// plain generateContent calls with a function-calling loop. A fake transport
@@ -435,6 +437,230 @@ void main() {
     expect(names(api.requests[0]), ['navigate']);
     expect(system(api.requests[1]), 'a card waits');
     expect(names(api.requests[1]), ['confirm']);
+  });
+
+  group('the app\'s own words', () {
+    AgentSteering rules({
+      Future<String?> Function(String, AgentToolHandler)? intercept,
+      AgentReview? Function(String, List<AgentToolRun>)? review,
+    }) => AgentSteering(
+      scope: () => const AgentScope(systemPrompt: 's', tools: _tools),
+      intercept: intercept,
+      review: review,
+    );
+
+    test(
+      'a tool with app_say ends the turn with those words; the model '
+      'is not asked again and later calls in the reply are not run',
+      () async {
+        final api = Api()
+          ..replies.add(
+            _reply([
+              {
+                'functionCall': {'name': 'ask', 'args': <String, Object?>{}},
+              },
+              {
+                'functionCall': {
+                  'name': 'confirm',
+                  'args': <String, Object?>{},
+                },
+              },
+            ]),
+          );
+        final heard = Heard();
+        final s = session(
+          api,
+          heard,
+          steering: rules(),
+          tool: (name, _) => name == 'ask'
+              ? {'status': 'needs_confirmation', 'app_say': '回复 Cody：可以，要发吗？'}
+              : {'status': 'done'},
+        );
+        await s.connect();
+        s.sendText('回他可以');
+        await pumpEventQueue();
+
+        expect(heard.texts, ['回复 Cody：可以，要发吗？']);
+        expect(heard.turns, 1);
+        expect(api.requests, hasLength(1));
+        // The second call was answered without being run.
+        expect(heard.calls.map((c) => c.$1), ['ask']);
+
+        // The history stays valid: the calls are answered, the words are the
+        // model's turn, and the key itself is not shown to the model.
+        api.replies.add(_say('嗯'));
+        s.sendText('确认');
+        await pumpEventQueue();
+        final c = _contents(api.requests.last);
+        expect(c.map((e) => e['role']), [
+          'user',
+          'model',
+          'user',
+          'model',
+          'user',
+        ]);
+        final answers = (c[2]['parts'] as List).cast<Map>();
+        expect(answers, hasLength(2));
+        expect(answers.first['functionResponse']['response'], {
+          'status': 'needs_confirmation',
+        });
+        expect(
+          answers.last['functionResponse']['response']['error'],
+          contains('结束'),
+        );
+        expect(c[3]['parts'], [
+          {'text': '回复 Cody：可以，要发吗？'},
+        ]);
+      },
+    );
+
+    test(
+      'intercept answers a turn itself, through the tools the model has',
+      () async {
+        final api = Api();
+        final heard = Heard();
+        final s = session(
+          api,
+          heard,
+          tool: (_, _) => {'status': 'done'},
+          steering: rules(
+            intercept: (said, run) async {
+              if (said != '确认') return null;
+              final r = await run('confirm', const {});
+              return r['status'] == 'done' ? '已发送。' : null;
+            },
+          ),
+        );
+        await s.connect();
+        s.sendText('确认');
+        await pumpEventQueue();
+
+        expect(api.requests, isEmpty);
+        expect(heard.calls.map((c) => c.$1), ['confirm']);
+        expect(heard.texts, ['已发送。']);
+        expect(heard.turns, 1);
+
+        // Not intercepted: the model answers, and sees what went before.
+        api.replies.add(_say('在'));
+        s.sendText('你好');
+        await pumpEventQueue();
+        expect(heard.texts, ['已发送。', '在']);
+        final c = _contents(api.requests.single);
+        expect(c.map((e) => e['role']), ['user', 'model', 'user']);
+        expect((c[0]['parts'] as List).single, {'text': '确认'});
+        expect((c[1]['parts'] as List).single, {'text': '已发送。'});
+      },
+    );
+
+    test(
+      'review: told once to try again, and then the new words are said',
+      () async {
+        final api = Api()
+          ..replies.addAll([_say('要发吗？'), _call('navigate', {}), _say('好了')]);
+        final heard = Heard();
+        var reviews = 0;
+        final s = session(
+          api,
+          heard,
+          steering: rules(
+            review: (reply, runs) {
+              reviews++;
+              return reply == '要发吗？' ? const AgentReview(retry: '先调用工具') : null;
+            },
+          ),
+        );
+        await s.connect();
+        s.sendText('x');
+        await pumpEventQueue();
+
+        expect(heard.texts, ['好了']);
+        expect(heard.turns, 1);
+        expect(reviews, 2);
+        final c = _contents(api.requests.first);
+        expect(api.requests, hasLength(3));
+        expect(c, hasLength(1));
+        final second = _contents(api.requests[1]);
+        expect(second.map((e) => e['role']), ['user', 'model', 'user']);
+        expect((second[2]['parts'] as List).single, {'text': '先调用工具'});
+      },
+    );
+
+    test(
+      'review: a second retry is not allowed; replacement words win',
+      () async {
+        final api = Api()..replies.addAll([_say('a'), _say('b')]);
+        final heard = Heard();
+        final s = session(
+          api,
+          heard,
+          steering: rules(
+            review: (reply, runs) => reply == 'a'
+                ? const AgentReview(retry: 'again')
+                : const AgentReview(retry: 'again', text: '改过的'),
+          ),
+        );
+        await s.connect();
+        s.sendText('x');
+        await pumpEventQueue();
+        expect(api.requests, hasLength(2));
+        expect(heard.texts, ['改过的']);
+      },
+    );
+
+    test('review is shown the tools the turn ran', () async {
+      final api = Api()
+        ..replies.addAll([
+          _call('navigate', {'to': 'x'}),
+          _say('到了'),
+        ]);
+      final heard = Heard();
+      List<AgentToolRun>? seen;
+      final s = session(
+        api,
+        heard,
+        tool: (_, _) => {'title': 'X'},
+        steering: rules(
+          review: (reply, runs) {
+            seen = runs;
+            return null;
+          },
+        ),
+      );
+      await s.connect();
+      s.sendText('x');
+      await pumpEventQueue();
+      expect(seen!.map((r) => r.name), ['navigate']);
+      expect(seen!.single.args, {'to': 'x'});
+      expect(seen!.single.result, {'title': 'X'});
+    });
+
+    test(
+      'speak says the words after the turn under way and tells the model',
+      () async {
+        final api = Api();
+        final gate = Completer<Map<String, Object?>>();
+        api.replies.add(gate.future);
+        final heard = Heard();
+        final s = session(api, heard);
+        await s.connect();
+        s.sendText('x');
+        s.speak('已取消。');
+        await pumpEventQueue();
+        expect(heard.texts, isEmpty);
+        gate.complete(_say('好'));
+        await pumpEventQueue();
+        expect(heard.texts, ['好', '已取消。']);
+        expect(heard.turns, 2);
+
+        api.replies.add(_say('嗯'));
+        s.sendText('y');
+        await pumpEventQueue();
+        final parts = (_contents(api.requests.last).last['parts'] as List)
+            .map((p) => (p as Map)['text'])
+            .toList();
+        expect(parts, ['（App 已经替你对用户说了：“已取消。”）', 'y']);
+      },
+    );
   });
 
   test('generationConfig: low thinking for gemini-3, none budget for 2.5', () {

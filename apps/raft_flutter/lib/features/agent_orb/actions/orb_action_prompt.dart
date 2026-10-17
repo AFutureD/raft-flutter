@@ -36,6 +36,12 @@ const orbActionConfirmAgent =
     '敏感的操作（停 Agent、批准应用请求……）只认确认卡上的按钮，要点两次，说话不算。永远不能语音做的操作（删除、改角色、计费……）App 会直接带他去页面，你只说“已带你去那个页面，自己操作”。'
     '一次只有一件等着确认；用户又提了新的，旧的就作废。\n';
 
+/// Who a reply goes to, for the agent layer: the restatement names the person
+/// from the tool the model chose.
+const orbActionReplyAgent =
+    '“回复他”“回他”是回复那个人的那条消息：用 reply_in_thread，message 取他最近那条（读 describe_page 或 read_conversation 得到）；'
+    '在私信里，或者要发到一个频道，才用 send_message。\n';
+
 /// The state with a card on the screen: [summary] is what it will do.
 String orbActionConfirming(String summary) =>
     '【等着确认】屏幕上有一张确认卡：$summary。App 已经向用户复述过，也问过他了。'

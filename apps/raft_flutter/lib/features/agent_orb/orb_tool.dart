@@ -12,10 +12,15 @@ class OrbToolContext {
     required this.workspace,
     required this.navigatorContext,
     required this.operating,
+    this.agentLayer = false,
   });
   final WorkspaceController workspace;
   final BuildContext navigatorContext;
   final ValueNotifier<bool> operating;
+
+  /// The model is the app's text agent: the app owns the order and the empty
+  /// line, and the tool results say so.
+  final bool agentLayer;
 
   /// The briefing of the place a tool arrived at (set by `navigate`), for
   /// the orb to lay out as cards when the model asks it to show them.
