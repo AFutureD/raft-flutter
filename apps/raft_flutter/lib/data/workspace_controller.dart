@@ -371,9 +371,7 @@ class WorkspaceController extends ChangeNotifier
       resolving: thread && threadResolutionLoading,
       error: thread ? threadResolutionError : error,
       hasMore: thread ? threadHasMore : hasMore,
-      hasNewer: thread
-          ? messageWindows.contextHasNewer(threadChannelId)
-          : hasNewer,
+      hasNewer: thread ? messageWindows.contextHasNewer(threadChannelId) : hasNewer,
       historyLimited: thread ? threadHistoryLimited : historyLimited,
       highlightedMessageId: highlightedMessageId,
       contextLoadError: thread ? null : contextLoadError,
@@ -917,11 +915,7 @@ class WorkspaceController extends ChangeNotifier
     required bool main,
     required bool thread,
   }) {
-    _conversationPresentation.setConversation(
-      owner,
-      main: main,
-      thread: thread,
-    );
+    _conversationPresentation.setConversation(owner, main: main, thread: thread);
     if (presentationSource != null) {
       if (presentationActive) {
         presentationSource!.setConversationPresentation(
@@ -941,6 +935,7 @@ class WorkspaceController extends ChangeNotifier
   /// This session owns one window; pages and platform adapters only borrow it.
   /// Server selection creates it before UI; standalone views can borrow a
   /// passive projection before selection. Neither path starts work by reading.
+  @override
   @override
   SourceActivityUnreadStore get activityUnread => services.activityUnread;
 
@@ -1095,19 +1090,11 @@ class WorkspaceController extends ChangeNotifier
   Future<void> saveHistoryWindow(String id, {bool thread = false}) =>
       _windowReceiver._saveWindow(id, thread: thread);
 
-  Future<void> _saveWindow(
-    String id, {
-    bool thread = false,
-    bool coalesce = false,
-  }) => MessageHistorySnapshots.save(
-    this,
-    id,
-    thread: thread,
-    coalesce: coalesce,
-    identity: _threadIdentity,
-    replyToken: _replyToken,
-    write: _save,
-  );
+  Future<void> _saveWindow(String id, {bool thread = false, bool coalesce = false}) =>
+      MessageHistorySnapshots.save(
+        this, id, thread: thread, coalesce: coalesce,
+        identity: _threadIdentity, replyToken: _replyToken, write: _save,
+      );
 
   /// Disk windows retain canonical versions already held in memory. Only the
   /// bootstrap replaces visible membership and starts from disk summaries.
@@ -1118,14 +1105,8 @@ class WorkspaceController extends ChangeNotifier
     String? replyAuthority,
     bool replace = false,
   }) {
-    if (!MessageHistorySnapshots.restore(
-      this,
-      id,
-      page,
-      request,
-      replace: replace,
-      allowed: () => !_revokedServers.contains(server?.id),
-    )) {
+    if (!MessageHistorySnapshots.restore(this, id, page, request, replace: replace,
+        allowed: () => !_revokedServers.contains(server?.id))) {
       return false;
     }
     _summariesByChannel[id] = {
@@ -1466,8 +1447,6 @@ class WorkspaceController extends ChangeNotifier
   @visibleForTesting
   static String uploadErrorText(Object failure) =>
       WorkspaceUploads.uploadErrorText(failure);
-
-  /// A 403 whose reason is membership revocation (not a transient failure).
 
   ComposerUploadVisit _uploadVisit(bool thread) {
     final scope = draftScope(thread: thread)!;
@@ -2168,10 +2147,7 @@ class WorkspaceController extends ChangeNotifier
 
     final thread = threadChannelId, main = channel?.id;
     final targets = [
-      if (thread != null &&
-          !threadLoading &&
-          !messageWindows.contextHasNewer(thread))
-        thread,
+      if (thread != null && !threadLoading && !messageWindows.contextHasNewer(thread)) thread,
       if (main != null &&
           main != thread &&
           !hasNewer &&
@@ -2203,35 +2179,22 @@ class WorkspaceController extends ChangeNotifier
     final request = _windowRequest(
       id,
       thread: thread,
-      allowed: () => thread
-          ? threadChannelId == id && !messageWindows.contextHasNewer(id)
-          : channel?.id == id && !hasNewer,
+      allowed: () =>
+          thread ? threadChannelId == id && !messageWindows.contextHasNewer(id) : channel?.id == id && !hasNewer,
     );
     try {
       while (true) {
         final page = await MessageHistoryPages.read(
-          this,
-          request,
-          id,
-          thread: thread,
-          after: cursor,
-          limit: _gapPageLimit,
-          localFirst: false,
+          this, request, id,
+          thread: thread, after: cursor, limit: _gapPageLimit, localFirst: false,
           remote: () async => {
-            'messages': await client.get(
-              '/messages/sync',
-              query: {
-                'since_seq': '$cursor',
-                'channel_id': id,
-                'limit': _gapPageLimit,
-              },
-            ),
+            'messages': await client.get('/messages/sync', query: {
+              'since_seq': '$cursor', 'channel_id': id, 'limit': _gapPageLimit,
+            }),
           },
         );
         if (!request.current) return false;
-        final listed = page['messages'] is List
-            ? page['messages'] as List
-            : const [];
+        final listed = page['messages'] is List ? page['messages'] as List : const [];
         final rows = [
           for (final row in listed.whereType<Map>())
             if (row['channelId'] == id && row['id'] is String)
@@ -2243,9 +2206,7 @@ class WorkspaceController extends ChangeNotifier
             if (!ledger.contains(id, row['id'] as String)) row,
         ];
         messageWindows.acceptRows(request, id, rows);
-        if (!await MessageHistoryPages.record(this, request, page)) {
-          return false;
-        }
+        if (!await MessageHistoryPages.record(this, request, page)) return false;
         if (!request.current) return false;
         var next = cursor;
         for (final row in rows) {
@@ -2507,28 +2468,15 @@ class WorkspaceController extends ChangeNotifier
     onDraftRestored?.call();
     if (!request.current) return;
     try {
-      final page =
-          retainContextUntilAccepted &&
-              MessageHistoryPages.storage(cache) == null
+      final page = retainContextUntilAccepted && MessageHistoryPages.storage(cache) == null
           ? null
           : await _cached('window', next.id);
       if (!request.current) return;
-      if (!retainContextUntilAccepted &&
-          await MessageHistoryPositions.restoreMain(
-            this,
-            request,
-            next.id,
-            cached: page,
-          )) {
+      if (!retainContextUntilAccepted && await MessageHistoryPositions.restoreMain(this, request, next.id, cached: page)) {
         if (request.current) await _save('selection', '', next.id);
         return;
       }
-      if (_restoreCachedTail(
-        next.id,
-        page,
-        request,
-        replace: retainContextUntilAccepted,
-      )) {
+      if (_restoreCachedTail(next.id, page, request, replace: retainContextUntilAccepted)) {
         notifyListeners();
       }
       final retained = retainContextUntilAccepted
@@ -2657,18 +2605,11 @@ class WorkspaceController extends ChangeNotifier
   Future<void> loadHistoryGap(BigInt before, {bool thread = false}) =>
       _windowReceiver._pageHistory(thread, gapBefore: before);
   Future<void> _older(bool thread) => _pageHistory(thread);
-  Future<void> _pageHistory(
-    bool thread, {
-    bool newer = false,
-    BigInt? gapBefore,
-  }) => MessageHistoryNavigation.page(
-    this,
-    thread: thread,
-    newer: newer,
-    gapBefore: gapBefore,
-    requestFor: (id) => _windowRequest(id, thread: thread),
-    summaries: mergeThreadSummaries,
-  );
+  Future<void> _pageHistory(bool thread, {bool newer = false, BigInt? gapBefore}) =>
+      MessageHistoryNavigation.page(this, thread: thread, newer: newer,
+        gapBefore: gapBefore,
+        requestFor: (id) => _windowRequest(id, thread: thread),
+        summaries: mergeThreadSummaries);
 
   bool _mayMarkRead(String id) {
     if (!foreground ||
@@ -3098,40 +3039,16 @@ class WorkspaceController extends ChangeNotifier
           if (!request.current) return;
           notifyListeners();
         }
-        readingPage ??= focusedMessageId == null
-            ? await MessageHistoryPositions.restore(
-                this,
-                request,
-                threadChannelId!,
-                thread: true,
-              )
-            : null;
+        readingPage ??= focusedMessageId == null ? await MessageHistoryPositions.restore(this, request, threadChannelId!, thread: true) : null;
         final focused = focusedMessageId != null || readingPage != null;
-        final page =
-            readingPage ??
-            (focusedMessageId == null
-                ? await MessageHistoryPages.read(
-                    this,
-                    request,
-                    threadChannelId!,
-                    thread: true,
-                  )
-                : await MessageHistoryPages.context(
-                    this,
-                    request,
-                    threadChannelId!,
-                    focusedMessageId,
-                    thread: true,
-                  ));
+        final page = readingPage ?? (focusedMessageId == null
+            ? await MessageHistoryPages.read(this, request, threadChannelId!, thread: true)
+            : await MessageHistoryPages.context(this, request, threadChannelId!, focusedMessageId, thread: true));
         if (!request.current) return;
         final boundary = messageWindows.acceptThreadPage(
-          request,
-          threadChannelId!,
-          page,
+          request, threadChannelId!, page,
           focused: focused,
-          retainOlder:
-              cached?.contextWindow == false ||
-              cached == null && messageWindows.isDiskOnly(threadChannelId),
+          retainOlder: cached?.contextWindow == false || cached == null && messageWindows.isDiskOnly(threadChannelId),
           retainedHasMore: threadHasMore,
         );
         await MessageHistoryPages.record(this, request, page);
@@ -3155,19 +3072,14 @@ class WorkspaceController extends ChangeNotifier
             contextWindow: focused,
           ),
         );
-        messageWindows.setContextMode(
-          request,
-          threadChannelId!,
-          focused ? page['hasNewer'] == true : null,
-        );
+        messageWindows.setContextMode(request, threadChannelId!,
+          focused ? page['hasNewer'] == true : null);
         notifyListeners();
         await markRead(threadChannelId!);
         if (request.current) _saveWindow(threadChannelId!, thread: true);
       } catch (e) {
         final denied = threadChannelId;
-        if (request.current &&
-            denied != null &&
-            e is RaftApiException &&
+        if (request.current && denied != null && e is RaftApiException &&
             (e.status == 403 || e.status == 404)) {
           _revokeChannel(denied);
           threadLoading = false;
@@ -3196,15 +3108,9 @@ class WorkspaceController extends ChangeNotifier
     /// A tail thread with no window in memory paints its on-device window
     /// (previous visit or previous process) while the lookup revalidates.
     Future<void> restoreDiskWindow() async {
-      if (cached != null && !cached.contextWindow || focusedMessageId != null) {
-        return;
-      }
+      if (cached != null && !cached.contextWindow || focusedMessageId != null) return;
       final page = await _cached('thread-window', parentMessageId);
-      if (!request.current ||
-          !threadLoading && cached?.contextWindow != true ||
-          page is! Map) {
-        return;
-      }
+      if (!request.current || !threadLoading && cached?.contextWindow != true || page is! Map) return;
       final threadId = page['threadChannelId'];
       if (page['version'] != 1 ||
           page['windowKind'] != 'tail' ||
@@ -3216,17 +3122,8 @@ class WorkspaceController extends ChangeNotifier
           _revokedChannels.contains(threadId)) {
         return;
       }
-      readingPage = await MessageHistoryPositions.restoreThread(
-        this,
-        request,
-        threadId,
-        page,
-      );
-      if (readingPage != null) {
-        _threadResolutionLoading = false;
-        _threadParentLoading = threadParent == null;
-        return;
-      }
+      readingPage = await MessageHistoryPositions.restoreThread(this, request, threadId, page);
+      if (readingPage != null) { _threadResolutionLoading = false; _threadParentLoading = threadParent == null; return; }
       final rows = acceptedWindowRows(page['messages'], threadId);
       if (rows.isEmpty) return;
       messageWindows.acceptRows(request, threadId, rows, replace: true);
@@ -3296,11 +3193,7 @@ class WorkspaceController extends ChangeNotifier
 
   /// Source ChatPanel.handleBackToBottom reloads latest when newer is unloaded.
   Future<void> returnToLatest({bool navigate = true, bool thread = false}) =>
-      MessageHistoryNavigation.latest(
-        _windowReceiver,
-        thread: thread,
-        navigate: navigate,
-      );
+      MessageHistoryNavigation.latest(_windowReceiver, thread: thread, navigate: navigate);
 
   /// [replaceEntry] makes the destination take over the current history
   /// entry instead of pushing (Web openThreadParentMessageRoute, mobile).
@@ -3442,12 +3335,7 @@ class WorkspaceController extends ChangeNotifier
 
     notifyListeners();
     try {
-      final context = await MessageHistoryPages.context(
-        this,
-        request,
-        channelId,
-        messageId,
-      );
+      final context = await MessageHistoryPages.context(this, request, channelId, messageId);
       if (!current()) return;
       final target = context['canonicalTarget'];
       if (target is Map && target['kind'] == 'thread') {
