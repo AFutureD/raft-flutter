@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_flutter/features/agent_mode/agent_attention.dart';
 import 'package:raft_flutter/features/agent_mode/agent_catalog.dart';
+import 'package:raft_flutter/features/agent_mode/agent_conversation_view.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_surface.dart';
 import 'package:raft_flutter/features/agent_mode/agent_tv.dart';
@@ -221,6 +222,59 @@ void main() {
     expect(find.text('把 #98 标记为已完成？'), findsOneWidget);
     expect(find.textContaining('「对」确认'), findsOneWidget);
     expect(find.text('确认'), findsNothing);
+  });
+
+  testWidgets('a conversation is drawn as a chat on the TV, with no detail '
+      'pane, from the frame the phone sends', (t) async {
+    final convo = AgentConversationData(
+      title: '# raft-flutter',
+      taskCount: 2,
+      highlightId: 'm2',
+      messages: [
+        HfMessageData(
+          id: 'm1',
+          senderName: 'Cody',
+          isAgent: true,
+          time: DateTime(2026, 10, 15, 9, 30),
+          text: '首片出来了',
+        ),
+        HfMessageData(
+          id: 'm2',
+          senderName: 'Kevin',
+          isMine: true,
+          time: DateTime(2026, 10, 15, 9, 31),
+          text: '继续跑全量',
+        ),
+        HfMessageData(
+          id: 'n1',
+          kind: HfMessageKind.system,
+          time: DateTime(2026, 10, 15, 9, 32),
+          text: '频道设置已更新',
+        ),
+      ],
+    );
+    // What reaches the TV is JSON.
+    final layer = jsonDecode(
+      jsonEncode({
+        ...convo.toFrame(),
+        'id': 'channel:c1',
+        'items': [
+          {'kind': 'message', 'text': '首片出来了'},
+          {'kind': 'message', 'text': '继续跑全量'},
+        ],
+      }),
+    );
+    await tv(t, {
+      'spotlight': 'channel:c1#1',
+      'layers': [layer],
+    });
+    expect(find.byKey(const ValueKey('hf-bubble-m1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('hf-bubble-m2')), findsOneWidget);
+    expect(find.text('频道设置已更新'), findsOneWidget);
+    expect(find.text('任务 2'), findsOneWidget);
+    // Read, not picked from: pointing at a message opens no pane.
+    expect(find.byKey(const ValueKey('agent-frame-stage')), findsNothing);
+    expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
   });
 
   testWidgets('the page follows the row the agent points at', (t) async {

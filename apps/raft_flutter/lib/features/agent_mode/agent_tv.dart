@@ -316,7 +316,8 @@ class AgentTvScreen extends StatelessWidget {
           : convo != null
           ? AgentConversationView(data: convo, focusPrefix: id)
           : AgentFrameView(frame: layer, focusPrefix: id, focused: focused);
-      if (n != null && n >= 1 && n <= items.length) {
+      // A conversation is read, not picked from: it has no detail pane.
+      if (convo == null && n != null && n >= 1 && n <= items.length) {
         stage = AgentFrameStage(item: items[n - 1], number: n);
       }
     }
