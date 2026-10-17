@@ -961,6 +961,14 @@
       "reason": "One per-receiver presentation state replaces five local mutable fields; zero callback ports, source dispatch and read policies remain in WorkspaceController. Approved by Cindy in Raft 88b64bd1-8fc3-431c-aa2c-e772fff2de29.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController._composerVisits",
+      "limit": 1,
+      "reason": "task #136 step 9 approved by Cindy: one receiver-local ComposerVisitState replaces the three local visit counter and channel/thread slot fields; three mutable states and one source-warning cleanup callback preserve visit, source and synchronous ordering. Measured root fields 95 to 93, production source +17 lines.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
     }
   ]
 }
