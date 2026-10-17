@@ -15,6 +15,7 @@ import 'mounted_reaction_recipe.dart';
 import 'composer_recipe.dart';
 import 'system_inset.dart';
 import 'tap_slop.dart';
+import 'text_input_refresh.dart';
 import 'composer_suggestions.dart';
 import 'collapsible.dart';
 import 'sidebar_indicators.dart';
@@ -2395,6 +2396,7 @@ class _RaftComposerState extends State<RaftComposer> {
     );
     controller.addListener(changed);
     widget.handle?._bind(this, insertSender);
+    RaftTextInputRefresh.retain();
     updateSuggestionPortal(defer: true);
     toastHost = RaftToastHost.maybeOf(context)
       ?..avoid(toastAvoidKey, () => mounted && toastAvoidActive);
@@ -2558,6 +2560,7 @@ class _RaftComposerState extends State<RaftComposer> {
   void dispose() {
     toastHost?.unavoid(toastAvoidKey);
     widget.handle?._release(this);
+    RaftTextInputRefresh.release();
     closeExpandedAfterDispose();
     controller.dispose();
     focus.dispose();

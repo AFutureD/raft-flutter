@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -103,11 +104,50 @@ void main() {
           );
           expect(live.widget.controller.value, before);
           expect(live.widget.focusNode.hasFocus, isTrue);
+          final calls = [for (final c in t.testTextInput.log) c.method];
           expect(
-            [for (final c in t.testTextInput.log) c.method],
+            calls,
             isNot(contains('TextInput.clearClient')),
             reason: 'the input method connection was never dropped',
           );
+          expect(
+            calls,
+            isNot(contains('TextInput.setClient')),
+            reason: 'nothing else attached: the editor keeps its client',
+          );
+          // The macOS engine routes keystrokes to the input method only after
+          // `show` (it registers its key responder); a drag of the window may
+          // leave that behind, so the editor asks again once it moved.
+          expect(
+            calls,
+            contains('TextInput.show'),
+            reason: 'the input connection is shown again after the resize',
+          );
+          // Keystrokes then reach the editor the way the engine delivers them.
+          final controller = live.widget.controller;
+          final typed = controller.text.length;
+          t.testTextInput.updateEditingValue(
+            TextEditingValue(
+              text: '${controller.text}x',
+              selection: TextSelection.collapsed(offset: typed + 1),
+              composing: compose
+                  ? TextRange(start: _text.length, end: typed + 1)
+                  : TextRange.empty,
+            ),
+          );
+          await t.pump();
+          expect(controller.text.length, typed + 1);
+          for (final key in [
+            LogicalKeyboardKey.keyA,
+            LogicalKeyboardKey.space,
+          ]) {
+            expect(
+              await t.sendKeyDownEvent(key),
+              isFalse,
+              reason: 'not consumed',
+            );
+            await t.sendKeyUpEvent(key);
+          }
           expect(t.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.macOS),
