@@ -1125,6 +1125,7 @@ class OrbController extends ChangeNotifier {
   /// agreed to runs `confirm` in code and a plain no that cancelled it is
   /// answered, both said by the app. Anything else is left to the model (null).
   Future<String?> _intercept(String said, AgentToolHandler run) async {
+    _turnSaid = said;
     final card = actions.pending;
     if (card != null) {
       if (!orbPlainYes(said) || card.sensitive) return null;
@@ -1144,8 +1145,26 @@ class OrbController extends ChangeNotifier {
     return null;
   }
 
-  AgentReview? _review(String reply, List<AgentToolRun> runs) =>
-      orbReviewReply(reply, runs, cardUp: actions.pending != null);
+  /// The person's words of the turn under way (what the review asks about).
+  String _turnSaid = '';
+
+  Future<AgentReview?> _review(String reply, List<AgentToolRun> runs) async {
+    // Whichever tool the model read the page with, what the person is told
+    // about "nothing for you" and about tasks follows the briefing's data.
+    final seen = await orbWithBriefing(
+      runs,
+      said: _turnSaid,
+      brief: (scope) => OrbBriefingService.of(workspace)
+          .brief(
+            scope,
+            full: true,
+            remember: false,
+            modelWait: const Duration(seconds: 3),
+          )
+          .timeout(const Duration(seconds: 8)),
+    );
+    return orbReviewReply(reply, seen, cardUp: actions.pending != null);
+  }
 
   /// What the text agent is given for its next request: the state decides
   /// the instruction and the tools.

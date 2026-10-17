@@ -280,7 +280,10 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
             Map<String, Object?>.from(p['functionCall'] as Map),
       ];
       if (calls.isEmpty) {
-        final review = steering?.review?.call(said.join('\n'), [..._runs]);
+        final review = await steering?.review?.call(said.join('\n'), [
+          ..._runs,
+        ]);
+        if (_closed) return null;
         final retry = review?.retry;
         if (retry != null && !retried && step < maxSteps) {
           retried = true;

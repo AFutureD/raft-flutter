@@ -1,5 +1,5 @@
 import '../agent_mode/agent_steering.dart';
-import 'briefing/orb_briefing_models.dart' show OrbBriefing;
+import 'briefing/orb_briefing_models.dart' show OrbBriefScope, OrbBriefing;
 
 /// The model asked "要发吗？" (or the like) as a question to the person.
 final orbAsksToConfirm = RegExp(r'要发吗|要改吗|确认吗|要不要发|要我发|你确认|确认要|发吗[？?]|改吗[？?]');
@@ -12,6 +12,54 @@ final _claimsDone = RegExp(
 final _saysNothingToDo = RegExp(r'没有.{0,8}(处理|回复|找你|新的|要紧)');
 final _saysLoading = RegExp(r'加载|稍等|稍后|等一下|等等|还没读|读不到|没读出来');
 final _taskWords = RegExp(r'个任务|任务在等|等你验收|待验收|验收');
+
+/// The person is asking what is new, what matters, what waits for them.
+final orbAsksWhatMatters = RegExp(
+  r'新的|新消息|要紧|紧急|重要|处理|找我|等我|等着我|有什么事|有事吗|简报|最近|怎么样了|通知|待办',
+);
+
+/// The place a turn read with `describe_page`: the Activity, or one
+/// conversation. Null when it read neither, or the page was still loading or
+/// could not be read.
+OrbBriefScope? orbPageScope(List<AgentToolRun> runs) {
+  for (final r in runs.reversed) {
+    if (r.name != 'describe_page') continue;
+    if (r.result['error'] != null || r.result['loading'] == true) return null;
+    if (r.result['page'] == 'activity') return OrbBriefScope.activity;
+    final c = r.result['conversation'];
+    if (c is Map && c['id'] is String) {
+      return OrbBriefScope.conversation(c['id'] as String);
+    }
+    return null;
+  }
+  return null;
+}
+
+/// [runs] with the briefing of the page the model read, when it read the page
+/// instead of asking for the briefing and the person asked what is new or what
+/// matters: the empty line and the order are the app's whichever tool the model
+/// reached for. [brief] reads the briefing (the rules' sentences are enough);
+/// when it fails, [runs] come back as they are.
+Future<List<AgentToolRun>> orbWithBriefing(
+  List<AgentToolRun> runs, {
+  required String said,
+  required Future<OrbBriefing> Function(OrbBriefScope scope) brief,
+}) async {
+  if (!orbAsksWhatMatters.hasMatch(said) || orbBriefingOf(runs) != null) {
+    return runs;
+  }
+  final scope = orbPageScope(runs);
+  if (scope == null) return runs;
+  try {
+    final b = await brief(scope);
+    return [
+      ...runs,
+      AgentToolRun('get_briefing', const {}, b.toJson(ordered: true)),
+    ];
+  } on Object {
+    return runs;
+  }
+}
 
 /// The briefing a turn read, the last one: the map `get_briefing` returned or
 /// the one `navigate` brought along. Null when none, or when it was not read

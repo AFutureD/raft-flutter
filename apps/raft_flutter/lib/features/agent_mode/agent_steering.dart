@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'gemini_live.dart' show AgentToolHandler;
 
 /// What a text agent is given for one model request: the instruction and the
@@ -56,7 +58,8 @@ class AgentSteering {
 
   /// Offered the words a turn ends with (and the tools it ran) before they
   /// are said. See [AgentReview].
-  final AgentReview? Function(String reply, List<AgentToolRun> runs)? review;
+  final FutureOr<AgentReview?> Function(String reply, List<AgentToolRun> runs)?
+  review;
 }
 
 /// A session the app can speak through: [speak] says [text], verbatim, as the

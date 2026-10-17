@@ -178,6 +178,106 @@ void main() {
     });
   });
 
+  group('the page read instead of the briefing', () {
+    const quiet = OrbBriefing(
+      scope: OrbBriefScope.activity,
+      overview: '没有需要你处理的',
+      needsYou: [],
+      progress: [],
+      routineCount: 0,
+      waitingTasks: 1,
+      waitingTaskTitles: ['重构第 10 步'],
+    );
+    final channelPage = run('describe_page', {
+      'page': 'conversation',
+      'loading': false,
+      'conversation': {'id': 'c1', 'type': 'channel', 'name': 'raft-flutter'},
+      'messages': <Object?>[],
+    });
+
+    test('the scope is the Activity or the conversation on the page', () {
+      expect(
+        orbPageScope([
+          run('describe_page', {'page': 'activity'}),
+        ]),
+        OrbBriefScope.activity,
+      );
+      expect(
+        orbPageScope([channelPage]),
+        const OrbBriefScope.conversation('c1'),
+      );
+      expect(
+        orbPageScope([
+          run('describe_page', {'page': 'task'}),
+        ]),
+        isNull,
+      );
+      expect(
+        orbPageScope([
+          run('describe_page', {'page': 'activity', 'loading': true}),
+        ]),
+        isNull,
+      );
+      expect(orbPageScope([run('list_tasks', {})]), isNull);
+    });
+
+    test(
+      'asked what is new, the briefing of that page is read and used',
+      () async {
+        OrbBriefScope? asked;
+        final seen = await orbWithBriefing(
+          [channelPage],
+          said: '这里有什么新的吗',
+          brief: (scope) async {
+            asked = scope;
+            return quiet;
+          },
+        );
+        expect(asked, const OrbBriefScope.conversation('c1'));
+        final r = orbReviewReply('Cody 说他接着做第 10 步了。', seen, cardUp: false);
+        expect(r?.text, '没有要你处理的。Cody 说他接着做第 10 步了。另外有 1 个任务在等你验收，不急。');
+      },
+    );
+
+    test('a question about the content does not read one', () async {
+      var read = false;
+      final seen = await orbWithBriefing(
+        [channelPage],
+        said: '这个讨论最后定了什么',
+        brief: (scope) async {
+          read = true;
+          return quiet;
+        },
+      );
+      expect(read, isFalse);
+      expect(seen, hasLength(1));
+    });
+
+    test('a briefing the model already has is not read again', () async {
+      var read = false;
+      final runs = [channelPage, run('get_briefing', briefing())];
+      final seen = await orbWithBriefing(
+        runs,
+        said: '有什么新的',
+        brief: (scope) async {
+          read = true;
+          return quiet;
+        },
+      );
+      expect(read, isFalse);
+      expect(seen, runs);
+    });
+
+    test('a briefing that cannot be read leaves the reply alone', () async {
+      final seen = await orbWithBriefing(
+        [channelPage],
+        said: '有什么新的',
+        brief: (scope) async => throw StateError('no'),
+      );
+      expect(seen, [channelPage]);
+    });
+  });
+
   group('the briefing carries its own order for the agent layer', () {
     const quiet = OrbBriefing(
       scope: OrbBriefScope.activity,
