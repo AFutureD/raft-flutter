@@ -602,12 +602,18 @@ Future<Map<String, Object?>> _readConversation(
 ) async {
   final w = ctx.workspace;
   if (w.server == null) return {'error': '还没有进入工作区'};
-  final said =
+  var said =
       _str(args['conversation']) ??
       _str(args['channel']) ??
       _str(args['thread']) ??
       _str(args['id']) ??
       _str(args['name']);
+  // An Activity item's id as describe_page gives it ("thread:<id>",
+  // "channel:<id>", "dm:<id>") or a briefing scope ("conversation:<id>").
+  final prefixed = said == null
+      ? null
+      : RegExp(r'^(?:thread|channel|dm|conversation):(.+)$').firstMatch(said);
+  if (prefixed != null) said = prefixed[1];
   final since = _str(args['since']) == 'last_read' ? 'last_read' : 'recent';
   final limit = ((args['limit'] as num?)?.toInt() ?? 20).clamp(1, 50);
 

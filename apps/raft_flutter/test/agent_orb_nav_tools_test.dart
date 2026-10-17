@@ -1097,6 +1097,26 @@ void main() {
       },
     );
 
+    // On the G100 the model passed an Activity item's id from describe_page
+    // ("thread:<id>") and read_conversation said it found nothing.
+    testWidgets('takes the id of an Activity item as describe_page gives it', (
+      t,
+    ) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      for (final id in [
+        'channel:cb',
+        'dm:cb',
+        'thread:cb',
+        'conversation:cb',
+      ]) {
+        final r = await fx.call(t, 'read_conversation', {'conversation': id});
+        expect(r['error'], isNull, reason: '$id: $r');
+        expect(_map(r['conversation'])['id'], 'cb', reason: id);
+      }
+      await fx.f.close(t);
+    });
+
     testWidgets(
       'since last_read returns only the unread ones and sends no read receipt',
       (t) async {
