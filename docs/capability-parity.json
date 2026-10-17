@@ -9326,23 +9326,23 @@
    "area": "integrations-apps-mcp",
    "capability": "MCP editor: add several credential header rows with masked persisted values and per-row remove",
    "background": false,
-   "status": "partial",
+   "status": "covered",
    "webEntry": "AgentMcpTab KeyValueInputRow list + 'Add header'",
    "gate": "manageIntegrations",
-   "flutterEntry": "mcp_views.dart edit(): single 'Credential header name/value' + 'Remove a stored header' dropdown",
+   "flutterEntry": "McpServerEditor credential rows and explicit stored-header patches",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Credential header name"
+     "file": "apps/raft_flutter/lib/features/mcp_server_editor.dart",
+     "needle": "mcp-header-name-"
     },
     {
-     "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Remove a stored header"
+     "file": "apps/raft_flutter/lib/data/managed_mcp_credentials.dart",
+     "needle": "removeHeaderNames"
     }
    ],
-   "justification": "One header per save; stored headers are not listed with masked values.",
-   "impact": "Rare multi-header servers need repeated edits.",
-   "size": "S"
+   "justification": "One draft adds, renames and removes multiple headers while blank unchanged stored secrets remain on the server.",
+   "impact": "",
+   "size": ""
   },
   {
    "kind": "ui",
@@ -9350,23 +9350,23 @@
    "area": "integrations-apps-mcp",
    "capability": "MCP editor 'Test connection' before save showing tool count",
    "background": false,
-   "status": "partial",
+   "status": "covered",
    "webEntry": "AgentMcpTab editor 'Test connection' button",
    "gate": "manageIntegrations",
-   "flutterEntry": "mcp_views.dart testConfiguration() unreachable",
+   "flutterEntry": "McpServerEditor tests the current unsaved draft inline and clears stale results on edits",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "testConfiguration"
+     "file": "apps/raft_flutter/lib/features/mcp_server_editor.dart",
+     "needle": "mcp-editor-test"
     },
     {
      "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Connection test succeeded"
+     "needle": "/mcp/servers/test-configuration"
     }
    ],
-   "justification": "Implemented but never wired to a button.",
-   "impact": "See POST /mcp/servers/test-configuration.",
-   "size": "S"
+   "justification": "The editor exposes connection testing before save, with error, retry, tool count and draft-revision isolation.",
+   "impact": "",
+   "size": ""
   },
   {
    "kind": "ui",

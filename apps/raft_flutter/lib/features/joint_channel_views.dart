@@ -162,12 +162,17 @@ abstract class _JointState<T extends StatefulWidget>
   Future<V?> scopedRaftModal<V>(
     Widget Function(BuildContext) builder, {
     bool form = false,
+    double dialogMaxWidth = 560,
   }) async {
     try {
-      return await super.scopedRaftModal<V>(form: form, (context) {
-        _dialog = context;
-        return builder(context);
-      });
+      return await super.scopedRaftModal<V>(
+        form: form,
+        dialogMaxWidth: dialogMaxWidth,
+        (context) {
+          _dialog = context;
+          return builder(context);
+        },
+      );
     } finally {
       _dialog = null;
     }
