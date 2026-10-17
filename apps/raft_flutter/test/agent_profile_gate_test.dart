@@ -21,6 +21,11 @@ import '../../../tool/testing/system_fonts.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  // Chat widgets can initialize this memoized Future in a fake-clock zone.
+  // A later runAsync cannot finish callbacks queued on that retired clock.
+  // Match app startup: initialize once in the real zone before any widget.
+  setUpAll(initializeSourceTimeFormatting);
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('agent profile access', () {
