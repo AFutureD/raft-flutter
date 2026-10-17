@@ -61,6 +61,7 @@ import 'attachment_url_cache.dart';
 import 'attachment_media.dart';
 import 'attachment_retention_index.dart';
 import 'conversation_presentation_state.dart';
+import 'composer_visit_state.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
@@ -105,6 +106,10 @@ class WorkspaceController extends ChangeNotifier
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
   }) : _presentationAuthority = presentationSource?.navigationAuthority {
+    _composerVisits = ComposerVisitState((scope) {
+      // Web resets the delivery warnings with the channel.
+      (presentationSource?.sendWarnings ?? sendWarnings).remove(scope);
+    });
     conversationReads = ConversationReadRepository(
       client,
       readState: () => readState,
@@ -1437,31 +1442,16 @@ class WorkspaceController extends ChangeNotifier
   /// the open channel / thread until another one replaces it. Notices record
   /// the visit they were raised in and read as gone in a later one (Web
   /// MessageInput resets its banners on channel change).
-  final Map<String, int> _scopeVisits = {};
-  String? _visitedChannelScope, _visitedThreadScope;
+  late final ComposerVisitState _composerVisits;
 
   int _visitOf(String scope) {
     _syncScopeVisits();
-    return _scopeVisits[scope] ?? 0;
+    return _composerVisits.visitOf(scope);
   }
 
   void _syncScopeVisits() {
     final channelScope = draftScope(), threadScope = draftScope(thread: true);
-    if (channelScope != _visitedChannelScope) {
-      _leaveScope(_visitedChannelScope);
-      _visitedChannelScope = channelScope;
-    }
-    if (threadScope != _visitedThreadScope) {
-      _leaveScope(_visitedThreadScope);
-      _visitedThreadScope = threadScope;
-    }
-  }
-
-  void _leaveScope(String? scope) {
-    if (scope == null) return;
-    _scopeVisits[scope] = (_scopeVisits[scope] ?? 0) + 1;
-    // Web resets the delivery warnings with the channel.
-    (presentationSource?.sendWarnings ?? sendWarnings).remove(scope);
+    _composerVisits.synchronize(channelScope, threadScope);
   }
 
   /// Shared content hand-off (docs/sharing-evidence.md): the composer opens
