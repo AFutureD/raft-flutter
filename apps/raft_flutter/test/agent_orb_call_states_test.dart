@@ -91,6 +91,14 @@ void main() {
       await t.pump(const Duration(milliseconds: 100));
       expect(find.text('通话中 0:00 · 在听'), findsOneWidget);
       expect(find.text('点球挂断 · 点标签展开'), findsOneWidget);
+      // The hint sits on its own plate, readable over any page.
+      expect(
+        find.ancestor(
+          of: find.text('点球挂断 · 点标签展开'),
+          matching: find.byKey(const ValueKey('orb-call-hint')),
+        ),
+        findsOneWidget,
+      );
       expect(rings('listening'), findsOneWidget);
       expect(rings('connecting'), findsNothing);
       expect(dot, findsOneWidget);

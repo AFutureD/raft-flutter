@@ -206,14 +206,29 @@ class OrbCallStatus extends StatelessWidget {
             if (live)
               Padding(
                 padding: const EdgeInsets.only(top: RaftSpace.x1),
-                child: Text(
-                  '点球挂断 · 点标签展开',
-                  style: RaftTypography.body(
-                    t,
-                    size: 11,
-                    line: 14,
-                    weight: FontWeight.w600,
-                    color: t.muted,
+                // On its own plate: over a page of messages bare text was
+                // hard to read (G100).
+                child: DecoratedBox(
+                  key: const ValueKey('orb-call-hint'),
+                  decoration: BoxDecoration(
+                    color: t.panel.withValues(alpha: .92),
+                    borderRadius: BorderRadius.circular(RaftSpace.x1),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: RaftSpace.x2,
+                      vertical: RaftSpace.x1 / 2,
+                    ),
+                    child: Text(
+                      '点球挂断 · 点标签展开',
+                      style: RaftTypography.body(
+                        t,
+                        size: 11,
+                        line: 14,
+                        weight: FontWeight.w600,
+                        color: t.muted,
+                      ),
+                    ),
                   ),
                 ),
               ),
