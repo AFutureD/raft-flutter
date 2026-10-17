@@ -16,8 +16,12 @@ class Stand extends StatelessWidget {
       Scaffold(body: Text('eval:${request.only.join('+')}:${request.runs}'));
 }
 
-OrbEvalLauncher launcher({bool debug = true}) =>
-    OrbEvalLauncher(debug: debug, pageBuilder: (request) => Stand(request));
+OrbEvalLauncher launcher({bool debug = true, GlobalKey<NavigatorState>? key}) =>
+    OrbEvalLauncher(
+      debug: debug,
+      pageBuilder: (request) => Stand(request),
+      navigator: key == null ? null : () => key.currentState,
+    );
 
 void main() {
   group('the link', () {
@@ -57,11 +61,10 @@ void main() {
   group('the launcher', () {
     testWidgets('a link opens the page on the app\'s Navigator', (t) async {
       final key = GlobalKey<NavigatorState>();
-      final l = launcher();
+      final l = launcher(key: key);
       await t.pumpWidget(
         MaterialApp(navigatorKey: key, home: const SizedBox()),
       );
-      l.attach(key);
       expect(
         l.receiveLink(Uri.parse('raft://orb-eval/run?only=A1,B2&runs=3')),
         isTrue,
@@ -78,15 +81,30 @@ void main() {
       expect(l.isOpen, isFalse);
     });
 
-    testWidgets('a link before the Navigator waits for it', (t) async {
+    testWidgets('without a test Navigator it finds the app\'s outermost one', (
+      t,
+    ) async {
+      final l = OrbEvalLauncher(
+        debug: true,
+        pageBuilder: (request) => Stand(request),
+      );
+      await t.pumpWidget(const MaterialApp(home: SizedBox()));
+      l.receiveLink(Uri.parse('raft://orb-eval/run?only=F'));
+      await t.pumpAndSettle();
+      expect(find.text('eval:F:2'), findsOneWidget);
+    });
+
+    testWidgets('a link before the Navigator exists waits for it, frame by '
+        'frame', (t) async {
       final key = GlobalKey<NavigatorState>();
-      final l = launcher();
+      final l = launcher(key: key);
       expect(l.receiveLink(Uri.parse('raft://orb-eval/run?only=D')), isTrue);
       expect(l.pending?.only, ['D']);
+      await t.pump();
+      expect(l.pending, isNotNull, reason: 'still no Navigator');
       await t.pumpWidget(
         MaterialApp(navigatorKey: key, home: const SizedBox()),
       );
-      l.attach(key);
       await t.pumpAndSettle();
       expect(find.text('eval:D:2'), findsOneWidget);
       expect(l.pending, isNull);
@@ -96,11 +114,10 @@ void main() {
       t,
     ) async {
       final key = GlobalKey<NavigatorState>();
-      final l = launcher(debug: false);
+      final l = launcher(debug: false, key: key);
       await t.pumpWidget(
         MaterialApp(navigatorKey: key, home: const SizedBox()),
       );
-      l.attach(key);
       expect(l.receiveLink(Uri.parse('raft://orb-eval/run')), isFalse);
       expect(l.open(const OrbEvalRequest()), isFalse);
       expect(l.pending, isNull);
@@ -118,7 +135,7 @@ void main() {
     testWidgets('an evaluation link goes to the launcher, before anything '
         'else looks at it', (t) async {
       final key = GlobalKey<NavigatorState>();
-      OrbEvalLauncher.instance = launcher()..attach(key);
+      OrbEvalLauncher.instance = launcher(key: key);
       final coordinator = NativeContentCoordinator(
         notifications: NativeNotificationService(),
         links: const Stream.empty(),
@@ -134,7 +151,7 @@ void main() {
 
     testWidgets('in a release build the same link is ignored', (t) async {
       final key = GlobalKey<NavigatorState>();
-      OrbEvalLauncher.instance = launcher(debug: false)..attach(key);
+      OrbEvalLauncher.instance = launcher(debug: false, key: key);
       final coordinator = NativeContentCoordinator(
         notifications: NativeNotificationService(),
         links: const Stream.empty(),

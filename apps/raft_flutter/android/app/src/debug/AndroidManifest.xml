@@ -4,4 +4,15 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <application>
+        <activity android:name="app.raft.raft_flutter.MainActivity">
+            <!-- Debug builds only: raft://orb-eval/run starts the Agent
+                 evaluation (see features/agent_orb/eval). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="raft" android:host="orb-eval" />
+            </intent-filter>
+        </activity>
+    </application>
 </manifest>

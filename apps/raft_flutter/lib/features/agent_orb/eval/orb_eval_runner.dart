@@ -204,6 +204,12 @@ class OrbEvalRunner {
     } finally {
       run.writes = world?.writes.toList() ?? const [];
       try {
+        // The layer opens on the app's root Navigator and outlives the
+        // scenario's workspace unless it is closed.
+        if (orb != null && orb.layerOpen) {
+          orb.closeLayer();
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
         await orb?.hangUp();
       } catch (_) {}
       orb?.dispose();

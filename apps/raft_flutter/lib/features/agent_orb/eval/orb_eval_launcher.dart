@@ -35,7 +35,7 @@ class OrbEvalRequest {
 /// In any other build mode it does nothing: no link is taken and no page is
 /// opened.
 class OrbEvalLauncher {
-  OrbEvalLauncher({bool? debug, this.pageBuilder})
+  OrbEvalLauncher({bool? debug, this.pageBuilder, this.navigator})
     : debug = debug ?? kDebugMode;
 
   /// The launcher the app uses; tests put their own here and put it back.
@@ -44,29 +44,41 @@ class OrbEvalLauncher {
   /// What the page is (tests give a stand-in that does not run).
   final Widget Function(OrbEvalRequest request)? pageBuilder;
 
+  /// Where the page opens: the app's outermost Navigator unless a test gives
+  /// another.
+  final NavigatorState? Function()? navigator;
+
   /// Whether this launcher works at all (debug builds).
   final bool debug;
 
-  GlobalKey<NavigatorState>? _navigator;
+  /// How many frames a link waits for the app's Navigator to exist (a link
+  /// that starts the app arrives before it).
+  static const maxWaitFrames = 600;
+
   OrbEvalRequest? _pending;
   bool _open = false;
 
   /// The request waiting for the app's Navigator.
-  @visibleForTesting
   OrbEvalRequest? get pending => _pending;
 
   /// Whether the evaluation page is on screen.
   bool get isOpen => _open;
 
-  /// Gives the launcher the app's Navigator; a request that came before it
-  /// is opened now.
-  void attach(GlobalKey<NavigatorState> navigator) {
-    if (!debug) return;
-    _navigator = navigator;
-    final waiting = _pending;
-    if (waiting == null) return;
-    _pending = null;
-    WidgetsBinding.instance.addPostFrameCallback((_) => open(waiting));
+  NavigatorState? _navigator() {
+    final given = navigator;
+    if (given != null) return given();
+    NavigatorState? found;
+    void visit(Element element) {
+      if (found != null) return;
+      if (element is StatefulElement && element.state is NavigatorState) {
+        found = element.state as NavigatorState;
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    WidgetsBinding.instance.rootElement?.visitChildren(visit);
+    return found;
   }
 
   /// A link the app received. True when it was an evaluation link and was
@@ -80,15 +92,37 @@ class OrbEvalLauncher {
   }
 
   /// Opens the page and starts the run. False when it cannot yet (no
-  /// Navigator: it waits for [attach]) or is already open.
+  /// Navigator: it tries again every frame) or is already open.
   bool open(OrbEvalRequest request) {
     if (!debug || _open) return false;
-    final state = _navigator?.currentState;
+    final state = _navigator();
     if (state == null) {
-      _pending = request;
+      _wait(request, 0);
       return false;
     }
+    _pending = null;
     return openOn(state, request);
+  }
+
+  void _wait(OrbEvalRequest request, int frames) {
+    if (frames >= maxWaitFrames) {
+      _pending = null;
+      return;
+    }
+    _pending = request;
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
+      if (_open || !identical(_pending, request)) return;
+      final state = _navigator();
+      if (state == null) {
+        _wait(request, frames + 1);
+      } else {
+        _pending = null;
+        openOn(state, request);
+      }
+    });
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Debug builds only; one frame per retry, at most maxWaitFrames, and none once the Navigator exists or the page is open.
+    binding.scheduleFrame();
   }
 
   /// Opens the page on [state] (the Labs card has its own context).

@@ -153,6 +153,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
     final workspace = _workspace;
     return PopScope(
       canPop: !_running,
+      // ds-allow: developer-only page in debug builds, not product UI
       child: Scaffold(
         body: Stack(
           children: [
@@ -168,7 +169,8 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
   }
 
   /// The app's phone shell over the scenario's workspace, in its own
-  /// Navigator (the orb's layer opens on it).
+  /// Navigator. (The orb's layer opens on the app's root Navigator, above
+  /// this page.)
   Widget _fixtureApp(WorkspaceController workspace) => MaterialApp(
     key: const ValueKey('orb-eval-app'),
     navigatorKey: _navigator,
@@ -190,6 +192,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
   );
 
   Widget _banner(BuildContext context) {
+    final t = RaftTokens.of(context);
     final p = _progress;
     return Positioned(
       left: 0,
@@ -197,26 +200,34 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       top: 0,
       child: SafeArea(
         bottom: false,
-        child: Material(
-          color: Colors.black87,
+        child: ColoredBox(
+          color: t.ink,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(
+              horizontal: RaftSpace.x3,
+              vertical: RaftSpace.x1,
+            ),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: RaftCssText(
                     p == null
                         ? '评测准备中…'
                         : '评测 ${p.scenario.id} · 第 ${p.run}/${p.runs} 次 · '
                               '${p.index}/${p.total}',
                     key: const ValueKey('orb-eval-progress'),
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: RaftTypography.body(
+                      t,
+                      size: 13,
+                      line: 18,
+                      color: t.canvas,
+                    ),
                   ),
                 ),
-                TextButton(
+                RaftButton(
                   key: const ValueKey('orb-eval-stop'),
+                  label: '停止',
                   onPressed: _runner?.stop,
-                  child: const Text('停止'),
                 ),
               ],
             ),
@@ -227,34 +238,62 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
   }
 
   Widget _panel(BuildContext context) {
+    final t = RaftTokens.of(context);
     final report = _report;
+    TextStyle body({bool bold = false, bool muted = false}) =>
+        RaftTypography.body(
+          t,
+          size: 13,
+          line: 18,
+          weight: bold ? FontWeight.w600 : FontWeight.w400,
+          color: muted ? t.muted : t.ink,
+        );
+    const gap = SizedBox(height: RaftSpace.x2);
     final children = <Widget>[
-      Text('Agent 评测（开发）', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 8),
+      RaftCssText(
+        'Agent 评测（开发）',
+        style: RaftTypography.body(
+          t,
+          size: 16,
+          line: 22,
+          weight: FontWeight.w600,
+          color: t.ink,
+        ),
+      ),
+      gap,
     ];
     if (_running) {
       final p = _progress;
-      children.add(
-        Text(
-          p == null ? '评测准备中…' : '评测 ${p.scenario.id}（${p.index}/${p.total}）…',
-          key: const ValueKey('orb-eval-progress'),
-        ),
-      );
-      children.add(const SizedBox(height: 12));
-      children.add(
-        RaftButton(
-          key: const ValueKey('orb-eval-stop'),
-          label: '停止',
-          onPressed: _runner?.stop,
-        ),
-      );
-    } else if (report != null) {
-      children.addAll(_result(context, report));
-    } else {
-      if (_problem != null) children.add(Text(_problem!));
       children
-        ..add(const Text('用真模型和测试数据把场景跑一遍，自动打分。需要已经填好语音 Key。'))
-        ..add(const SizedBox(height: 12))
+        ..add(
+          RaftCssText(
+            p == null
+                ? '评测准备中…'
+                : '评测 ${p.scenario.id}（${p.index}/${p.total}）…',
+            key: const ValueKey('orb-eval-progress'),
+            style: body(),
+          ),
+        )
+        ..add(gap)
+        ..add(
+          RaftButton(
+            key: const ValueKey('orb-eval-stop'),
+            label: '停止',
+            onPressed: _runner?.stop,
+          ),
+        );
+    } else if (report != null) {
+      children.addAll(_result(report, body, gap));
+    } else {
+      if (_problem != null) children.add(RaftCssText(_problem, style: body()));
+      children
+        ..add(
+          RaftCssText(
+            '用真模型和测试数据把场景跑一遍，自动打分。需要已经填好语音 Key。',
+            style: body(muted: true),
+          ),
+        )
+        ..add(gap)
         ..add(
           RaftButton(
             key: const ValueKey('orb-eval-run'),
@@ -263,12 +302,22 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
           ),
         );
     }
-    return SafeArea(
-      child: ListView(padding: const EdgeInsets.all(16), children: children),
+    return ColoredBox(
+      color: t.canvas,
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(RaftSpace.x4),
+          children: children,
+        ),
+      ),
     );
   }
 
-  List<Widget> _result(BuildContext context, OrbEvalReport report) {
+  List<Widget> _result(
+    OrbEvalReport report,
+    TextStyle Function({bool bold, bool muted}) body,
+    Widget gap,
+  ) {
     String mark(OrbEvalOutcome o) => switch (o) {
       OrbEvalOutcome.passed => '通过',
       OrbEvalOutcome.flaky => '不稳定',
@@ -278,44 +327,35 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       OrbEvalOutcome.unexpectedPass => '意外通过',
     };
     return [
-      Text(
+      RaftCssText(
         report.ok ? '评测通过' : '评测有失败',
         key: const ValueKey('orb-eval-verdict'),
-        style: Theme.of(context).textTheme.titleMedium,
+        style: body(bold: true),
       ),
-      Text(
+      RaftCssText(
         '通过 ${report.count(OrbEvalOutcome.passed)} · '
         '不稳定 ${report.count(OrbEvalOutcome.flaky)} · '
         '失败 ${report.count(OrbEvalOutcome.failed)} · '
         '跳过 ${report.count(OrbEvalOutcome.skipped)} · '
         '预期失败 ${report.count(OrbEvalOutcome.expectedFail)}',
+        style: body(),
       ),
-      if (_folder != null) SelectableText('报告：${_folder!.path}'),
-      const SizedBox(height: 8),
-      for (final r in report.results)
-        ExpansionTile(
+      if (_folder != null)
+        RaftCssText('报告：${_folder!.path}', style: body(muted: true)),
+      gap,
+      for (final r in report.results) ...[
+        RaftCssText(
+          '${r.scenario.id} ${r.scenario.title} · ${mark(r.outcome)}'
+          '${r.runs.isEmpty ? '' : ' ${r.passes}/${r.runs.length}'}',
           key: ValueKey('orb-eval-${r.scenario.id}'),
-          title: Text('${r.scenario.id} ${r.scenario.title}'),
-          subtitle: Text(
-            r.runs.isEmpty
-                ? mark(r.outcome)
-                : '${mark(r.outcome)} · ${r.passes}/${r.runs.length}',
-          ),
-          children: [
-            for (final e in r.failedChecks.entries)
-              ListTile(dense: true, title: Text(e.key)),
-            if (r.runs.isNotEmpty)
-              ListTile(
-                dense: true,
-                title: Text(
-                  r.runs.first.run.text.isEmpty
-                      ? '（没有说话）'
-                      : r.runs.first.run.text,
-                ),
-              ),
-          ],
+          style: body(bold: true),
         ),
-      const SizedBox(height: 12),
+        for (final e in r.failedChecks.entries)
+          RaftCssText('· ${e.key}', style: body(muted: true)),
+        if (r.runs.isNotEmpty && r.runs.first.run.text.isNotEmpty)
+          RaftCssText(r.runs.first.run.text, style: body(muted: true)),
+        gap,
+      ],
       RaftButton(
         key: const ValueKey('orb-eval-again'),
         label: '再跑一次',

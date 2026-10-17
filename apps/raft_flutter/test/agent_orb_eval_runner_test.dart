@@ -1,119 +1,17 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
-import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_data.dart';
-import 'package:raft_flutter/features/agent_orb/eval/orb_eval_page.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenario.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenarios.dart';
 import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// A session that answers by script instead of a model: when the person's
-/// text arrives it calls tools through the orb's own dispatcher, says its
-/// words and ends the turn.
-class ScriptedSession implements VoiceSession {
-  ScriptedSession({
-    required this.onToolCall,
-    required this.onOutputText,
-    required this.onTurnComplete,
-    required this.script,
-  });
-
-  final Future<void> Function(ScriptedSession s, String text) script;
-  final sentTexts = <String>[];
-  int closes = 0;
-  bool _connected = false;
-
-  @override
-  final AgentToolHandler onToolCall;
-  @override
-  final void Function(String text)? onOutputText;
-  @override
-  final void Function()? onTurnComplete;
-
-  @override
-  bool get connected => _connected;
-  @override
-  String? get model => 'scripted';
-  @override
-  void Function(Uint8List pcm24k)? get onAudio => null;
-  @override
-  void Function(String text)? get onInputText => null;
-  @override
-  void Function()? get onInterrupted => null;
-  @override
-  void Function(String reason)? get onClosed => null;
-
-  @override
-  Future<void> connect() async => _connected = true;
-  @override
-  void sendAudio(Uint8List pcm16k) {}
-  @override
-  void endAudio() {}
-  @override
-  void sendText(String text) {
-    sentTexts.add(text);
-    unawaited(script(this, text));
-  }
-
-  /// The model's turn: the tools it calls, then its words.
-  Future<void> turn(
-    List<(String, Map<String, Object?>)> calls,
-    String words,
-  ) async {
-    for (final (name, args) in calls) {
-      await onToolCall(name, args);
-    }
-    onOutputText?.call(words);
-    onTurnComplete?.call();
-  }
-
-  @override
-  Future<void> close() async {
-    closes++;
-    _connected = false;
-  }
-}
-
-class Sessions {
-  final made = <ScriptedSession>[];
-
-  VoiceSessionFactory factory(
-    Future<void> Function(ScriptedSession s, String text) script,
-  ) =>
-      ({
-        required provider,
-        required apiKey,
-        required systemPrompt,
-        required tools,
-        required onToolCall,
-        required voice,
-        reasoning = AgentReasoning.low,
-        onAudio,
-        onInputText,
-        onOutputText,
-        onTurnComplete,
-        onInterrupted,
-        onClosed,
-        playbackPending,
-      }) {
-        final s = ScriptedSession(
-          onToolCall: onToolCall,
-          onOutputText: onOutputText,
-          onTurnComplete: onTurnComplete,
-          script: script,
-        );
-        made.add(s);
-        return s;
-      };
-}
+import 'support/orb_eval_scripted.dart';
 
 void main() {
   late Directory reports;
@@ -132,36 +30,17 @@ void main() {
     AgentVoiceKey? key,
     int runs = 2,
     Duration turnTimeout = const Duration(seconds: 45),
-  }) async {
-    t.view.physicalSize = const Size(412, 915);
-    t.view.devicePixelRatio = 1;
-    addTearDown(t.view.reset);
-    await t.pumpWidget(
-      MaterialApp(
-        home: OrbEvalPage(
-          scenarios: scenarios,
-          runs: runs,
-          sessionFactory: sessionFactory,
-          voiceKey: key ?? AgentVoiceKey.forTesting('test-key'),
-          reportRoot: () async => reports,
-          settle: const Duration(milliseconds: 50),
-          turnTimeout: turnTimeout,
-        ),
-      ),
-    );
-  }
+  }) => mountEvalPage(
+    t,
+    reports: reports,
+    scenarios: scenarios,
+    sessionFactory: sessionFactory,
+    key: key,
+    runs: runs,
+    turnTimeout: turnTimeout,
+  );
 
-  /// Lets the run go: frames and timers on the fake clock, files on the real.
-  Future<void> finish(WidgetTester t) async {
-    final verdict = find.byKey(const ValueKey('orb-eval-verdict'));
-    for (var i = 0; i < 600 && verdict.evaluate().isEmpty; i++) {
-      await t.pump(const Duration(milliseconds: 100));
-      await t.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 5)),
-      );
-    }
-    await t.pump();
-  }
+  Future<void> finish(WidgetTester t) => finishEvalRun(t);
 
   OrbEvalScenario simple({
     List<OrbEvalCheck> checks = const [],
@@ -327,6 +206,38 @@ void main() {
     final json = File('${folder.path}/report.json').readAsStringSync();
     expect(json, contains('"outcome": "skipped"'));
     expect(json, contains('"outcome": "expectedFail"'));
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('driving: the orb\'s layer opens over the page, the snapshot '
+      'shows it, and it is closed when the run ends', (t) async {
+    final sessions = Sessions();
+    final scenario = OrbEvalScenario(
+      id: 'D1',
+      title: 'driving',
+      start: OrbEvalStart.home,
+      say: const ['开始驾驶模式'],
+      checks: [
+        OrbEvalCheck.tool('set_driving_mode', args: {'on': true}),
+        OrbEvalCheck.screen('driving', (s, _) => s.driving && s.layerOpen),
+      ],
+    );
+    await mountPage(
+      t,
+      runs: 1,
+      scenarios: [scenario],
+      sessionFactory: sessions.factory((s, text) async {
+        await s.turn([
+          ('set_driving_mode', {'on': true}),
+        ], '好，驾驶模式。');
+      }),
+    );
+    await finish(t);
+    expect(find.text('评测通过'), findsOneWidget);
+    expect(find.byKey(const ValueKey('orb-layer')), findsNothing);
+    final folder = reports.listSync().whereType<Directory>().single;
+    final json = File('${folder.path}/report.json').readAsStringSync();
+    expect(json, contains('"driving": true'));
     await t.pumpWidget(const SizedBox());
   });
 

@@ -149,7 +149,9 @@ class OrbEvalData {
     String? thread,
   }) {
     final channelId = _key(conversation);
-    final seq = ++_seq;
+    // Newer messages have higher sequence numbers whatever the order they
+    // were declared in.
+    final seq = (1000000 - ago) * 100 + ++_seq;
     final messageId = id ?? _key('msg:$conversation:$seq');
     (messages[channelId] ??= []).add({
       'id': messageId,
