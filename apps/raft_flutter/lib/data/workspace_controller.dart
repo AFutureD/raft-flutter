@@ -69,10 +69,7 @@ export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
 
 class WorkspaceController extends ChangeNotifier
-    implements
-        WorkspaceServiceAuthority,
-        SessionScopeBinding,
-        WorkspaceMessageHost {
+    implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost {
   /// High-frequency socket events that never change workspace state.
   static const presenceEvents = WorkspaceSession.presenceEvents;
 
@@ -143,8 +140,7 @@ class WorkspaceController extends ChangeNotifier
       saveDirectory: (record) {
         _save('channels', '', record);
       },
-      acceptSelection: (accessible) =>
-          _messages.adoptAcceptedChannelSelection(accessible),
+      acceptSelection: (accessible) => _messages.adoptAcceptedChannelSelection(accessible),
       patchSelected: (patch) {
         if (channel != null) channel = patch(channel!);
       },
@@ -152,8 +148,7 @@ class WorkspaceController extends ChangeNotifier
       reloadRow: (id) => refreshChannel(id),
       revokeChannel: _revokeChannel,
       closeDeniedThread: (id) {
-        if (_messages.state.threadIdentity?.parentChannelId == id)
-          closeThread();
+        if (_messages.state.threadIdentity?.parentChannelId == id) closeThread();
       },
       changed: notifyListeners,
       setError: setError,
