@@ -14,12 +14,10 @@ Map<String, Object?> _quote(AgentProgressLine l) => {
   'text': _clip(l.text, 400),
 };
 
-String? _who(AgentAttentionItem i) =>
-    i.doer ?? (i.waiters.isEmpty ? null : i.waiters.first);
-
 /// The detail of one attention item as a surface, composed from the same
 /// catalog the model uses: the task (or the mention) with its latest
-/// progress, the lines before it as quotes, and the actions. It is what a
+/// progress and the lines before it as quotes. It has no buttons: what can be
+/// done with the item is said, and the model shows the preview. It is what a
 /// tap on a card and the voice tool `expand_item` both show, so the two can
 /// never differ.
 AgentSurfaceSpec attentionDetailSpec(AgentAttentionItem item, int rank) {
@@ -61,14 +59,6 @@ AgentSurfaceSpec attentionDetailSpec(AgentAttentionItem item, int rank) {
         'density': 'detail',
         'children': [for (final l in earlier) _quote(l)],
       },
-    {
-      'component': AgentComponents.actionRow,
-      'itemId': item.id,
-      'approve': item.canApprove,
-      'openLabel': item.action == AgentAction.reply
-          ? '回复${_who(item) == null ? '' : ' ${_clip(_who(item)!, 20)}'}'
-          : '打开讨论',
-    },
   ];
   final parsed = agentStandardCatalog.parse({
     'title': '第 $rank 条',
@@ -118,7 +108,7 @@ String explainAttention(Map<String, Object?> facts) {
       ? ''
       : '${last['who']} 最后说：「${clip('${last['text']}', 36)}」。';
   final ask = facts['canApprove'] == true
-      ? '没问题的话，点下面的“通过”。'
+      ? '没问题的话，说“通过”。'
       : '要你${facts['ask']}。';
   return '$head。$said$ask'.replaceAll('。。', '。');
 }

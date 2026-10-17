@@ -746,29 +746,20 @@ void main() {
       expect((folded[1] as Map)['title'], '在忙 1：Cindy 在做 #119');
     });
 
-    testWidgets(
-      'the actions are not a numbered item and carry no model field',
-      (t) async {
-        final s = catalog.parse({
-          'title': 'x',
-          'root': {
-            'component': 'Column',
-            'children': [
-              _card('A', 'busy'),
-              {'component': 'ActionRow', 'itemId': 'i1', 'approve': true},
-            ],
-          },
-        }).spec!;
-        final frame = agentSurfaceFrame(s);
-        expect((frame['items'] as List), hasLength(1));
-        await show(t, s);
-        expect(find.byType(AgentFocusable), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('attention-approve-i1')),
-          findsOneWidget,
-        );
-      },
-    );
+    test('there is no action row: a screen has no buttons to press', () {
+      final r = catalog.parse({
+        'title': 'x',
+        'root': {
+          'component': 'Column',
+          'children': [
+            _card('A', 'busy'),
+            {'component': 'ActionRow', 'itemId': 'i1', 'approve': true},
+          ],
+        },
+      });
+      expect(r.spec, isNull);
+      expect(r.problems.join(' '), contains('ActionRow'));
+    });
   });
 
   group('grounded tools', () {

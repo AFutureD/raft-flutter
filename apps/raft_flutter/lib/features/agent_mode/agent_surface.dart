@@ -671,23 +671,3 @@ Map<String, int> focusNumbers(
   visit(root, 'r');
   return numbers;
 }
-
-/// The actions a detail layer offers (通过 / 打开讨论 / 稍后), handed down to
-/// the `ActionRow` inside it. Nothing else may act, so a surface the model
-/// composes cannot carry them.
-class AgentActionScope extends InheritedWidget {
-  const AgentActionScope({
-    super.key,
-    required this.onAction,
-    required super.child,
-  });
-
-  /// `approve`, `open` or `later`.
-  final void Function(String action) onAction;
-
-  static AgentActionScope? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<AgentActionScope>();
-
-  @override
-  bool updateShouldNotify(AgentActionScope old) => false;
-}

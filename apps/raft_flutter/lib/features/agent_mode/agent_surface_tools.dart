@@ -135,10 +135,6 @@ class AgentFacts {
     final problems = <String>[];
     for (final n in root.walk()) {
       switch (n.component) {
-        case AgentComponents.actionRow:
-          problems.add(
-            'ActionRow（通过 / 打开讨论 / 稍后）只出现在展开的详情里，不能自己放；要展开某一条请调用 expand_item',
-          );
         case AgentComponents.statusCard:
           final name = n.string('name') ?? '';
           final known = _agents[name.toLowerCase()];
@@ -558,7 +554,8 @@ class AgentGroundedTools {
   AgentSurfaceDraft? _draftOf(Map<String, Object?> args, List<String> out) {
     // `id` names the surface only for end_surface; in update_component it is
     // the component, and the screen is the latest one still open.
-    final named = args['surface_id'] ?? (drafts[args['id']] != null ? args['id'] : null);
+    final named =
+        args['surface_id'] ?? (drafts[args['id']] != null ? args['id'] : null);
     final draft = named is String
         ? drafts[named]
         : drafts.values.where(host.isOpen).lastOrNull;

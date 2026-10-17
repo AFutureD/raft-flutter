@@ -881,33 +881,6 @@ class _AgentModePageState extends State<AgentModePage> {
     };
   }
 
-  /// 通过 / 打开讨论 / 稍后 on a detail layer: the only place they live.
-  void _detailAction(_Surface layer, String action) {
-    final item = layer.item;
-    if (item == null) return;
-    switch (action) {
-      case 'approve':
-        _approve(item).then((done) {
-          if (done) _dismiss(layer);
-        });
-      case 'open':
-        _openItem(item);
-      case 'later':
-        _later(item);
-        _dismiss(layer);
-    }
-  }
-
-  void _dismiss(_Layer layer) {
-    if (!mounted || !_stack.contains(layer)) return;
-    _choreo.newScreen();
-    setState(() {
-      _surfaceError = null;
-      _stack.remove(layer);
-    });
-    _restoreCurrent();
-  }
-
   /// `next_batch`: the front layer's page scrolls on by a screen to the next
   /// items, or back to the top after the last. (A TV scrolls the same way:
   /// see [_screens].)
@@ -2053,13 +2026,7 @@ class _AgentModePageState extends State<AgentModePage> {
       onExpand: (path) => _expandNode(l, path),
       interacted: l.interacted,
     );
-    // Only a detail layer carries actions.
-    final body = l.item == null
-        ? view
-        : AgentActionScope(
-            onAction: (action) => _detailAction(l, action),
-            child: view,
-          );
+    final body = view;
     final draft = l.draft;
     if (draft == null || !_runtime.surfaceStopped(draft.id)) return body;
     // A new request stopped this screen while it was being composed: what is

@@ -11,6 +11,8 @@ import 'package:raft_flutter/features/agent_mode/agent_attention.dart';
 import 'package:raft_flutter/features/agent_mode/agent_catalog.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
+import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart';
+import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability_standard.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_snooze.dart';
 import 'package:raft_flutter/features/agent_mode/agent_scripted_model.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
@@ -162,6 +164,7 @@ void main() {
     AgentModeData data, {
     Size size = const Size(390, 5000),
     AgentScriptedModel? model,
+    AgentCapabilityRegistry? registry,
   }) async {
     t.view.physicalSize = size;
     t.view.devicePixelRatio = 1;
@@ -169,7 +172,12 @@ void main() {
     await t.pumpWidget(
       MaterialApp(
         theme: raftTheme(RaftFamily.brutal),
-        home: AgentModePage(controller: w, data: data, model: model),
+        home: AgentModePage(
+          controller: w,
+          data: data,
+          model: model,
+          registry: registry,
+        ),
       ),
     );
     await t.pumpAndSettle();
@@ -187,6 +195,80 @@ void main() {
   }
 
   Finder card(String id) => find.byKey(ValueKey('attention-card-$id'));
+
+  /// The full-page detail of [id] has no action buttons.
+  void expectNoButtons(String id) {
+    for (final key in ['approve', 'open', 'reply', 'later']) {
+      expect(find.byKey(ValueKey('attention-$key-$id')), findsNothing);
+    }
+    expect(find.byType(HfActions), findsNothing);
+    expect(find.text('通过'), findsNothing);
+    expect(find.text('稍后'), findsNothing);
+    expect(find.text('打开讨论'), findsNothing);
+  }
+
+  /// A spy for `tasks.set_status`: what ran, or an error when [fail].
+  final ran = <Map<String, Object?>>[];
+  AgentCapabilityRegistry statusSpy({bool fail = false}) =>
+      AgentCapabilityRegistry([
+        AgentCapability(
+          id: 'tasks.set_status',
+          title: '测试：改任务状态',
+          kind: AgentCapabilityKind.action,
+          risk: AgentCapabilityRisk.change,
+          paramsSchema: {
+            'type': 'object',
+            'properties': {
+              'task': {'type': 'string', 'description': 'task'},
+              'status': {'type': 'string', 'description': 'status'},
+            },
+            'required': ['task', 'status'],
+          },
+          resultSummary: 'done',
+          keywords: const ['set_status'],
+          preview: (w, args, env) async => AgentActionPreview(
+            summary: '预览 ${args['task']} → ${args['status']}',
+            changes: ['status: → ${args['status']}'],
+          ),
+          run: (w, args, env) async {
+            if (fail) throw StateError('offline');
+            ran.add(Map<String, Object?>.of(args));
+            return {'status': 'done'};
+          },
+        ),
+        for (final c in agentStandardCapabilities.all)
+          if (c.id != 'tasks.set_status') c,
+      ]);
+
+  /// The person says something and the model answers with the tool [name].
+  Future<Map<String, Object?>> tool(
+    WidgetTester t,
+    _Script model,
+    String name,
+    Map<String, Object?> args,
+  ) async {
+    late Map<String, Object?> result;
+    model.script = (call) async {
+      result = await call(name, args);
+    };
+    await say(t, '随便');
+    return result;
+  }
+
+  /// The person presses 确认 on the card, then the model confirms.
+  Future<void> confirmByTool(
+    WidgetTester t,
+    _Script model,
+    Map<String, Object?> previewed,
+  ) async {
+    expect(previewed['status'], 'needs_confirmation', reason: '$previewed');
+    await t.tap(find.text('确认'));
+    await t.pumpAndSettle();
+    model.script = (call) async {
+      await call('confirm', {'token': previewed['confirmToken']});
+    };
+    await say(t, '随便');
+  }
 
   /// A tap on a card makes it the current item (its detail opens under it);
   /// the stage's 展开 goes to the full detail page.
@@ -556,10 +638,9 @@ void main() {
       await openDetail(t, 'm1');
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.byKey(const ValueKey('detail:m1')), findsOneWidget);
-      // A question to answer, not a task: no 通过, a reply button.
-      expect(find.byKey(const ValueKey('attention-approve-m1')), findsNothing);
-      expect(find.text('回复 Cody'), findsOneWidget);
-      expect(find.byKey(const ValueKey('attention-later-m1')), findsOneWidget);
+      // A question to answer, not a task; the detail has no buttons.
+      expectNoButtons('m1');
+      expect(find.text('回复 Cody'), findsNothing);
     });
 
     testWidgets('tapping a card opens its detail under it; 展开 goes to the '
@@ -589,13 +670,8 @@ void main() {
       expect(find.text('t1 进展一'), findsOneWidget);
       expect(find.text('t1 进展二'), findsOneWidget);
       expect(find.text('验收「甲方」'), findsOneWidget);
-      // The actions live here.
-      expect(
-        find.byKey(const ValueKey('attention-approve-t1')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const ValueKey('attention-open-t1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('attention-later-t1')), findsOneWidget);
+      // The actions are spoken: nothing to press here.
+      expectNoButtons('t1');
 
       // Back: the card is still the current one, so its detail is there.
       await t.binding.handlePopRoute();
@@ -699,9 +775,7 @@ void main() {
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.byKey(const ValueKey('detail:b1')), findsOneWidget);
       expect(find.byKey(const ValueKey('detail:t1')), findsNothing);
-      // A blocked task has nothing to approve.
-      expect(find.byKey(const ValueKey('attention-approve-b1')), findsNothing);
-      expect(find.byKey(const ValueKey('attention-open-b1')), findsOneWidget);
+      expectNoButtons('b1');
     });
 
     testWidgets('expand_item returns grounded facts and refuses a bad number', (
@@ -736,32 +810,34 @@ void main() {
       expect(find.text('第 2 层'), findsOneWidget);
     });
 
-    testWidgets('the detail actions: 通过 asks, 稍后 hides, 打开讨论 opens', (t) async {
-      await open(t, _Data(w, _three()));
-      client.posts.clear();
+    testWidgets('the detail actions are spoken: 通过 asks, 稍后 hides, 打开讨论 '
+        'opens', (t) async {
+      ran.clear();
+      final model = _Script();
+      await open(t, _Data(w, _three()), model: model, registry: statusSpy());
       await openDetail(t, 't2');
-      await t.tap(find.byKey(const ValueKey('attention-approve-t2')));
-      await t.pumpAndSettle();
-      expect(client.posts, isEmpty);
-      await t.tap(find.byKey(const ValueKey('attention-approve-confirm')));
-      await t.pumpAndSettle();
-      expect(client.posts, ['PATCH /tasks/t2/status']);
-      // Done: back on the list, the card gone and recounted.
-      expect(find.text('第 1 层'), findsOneWidget);
-      expect(card('t2'), findsNothing);
-      expect(countOf('decision', '2'), findsOneWidget);
+      expectNoButtons('t2');
+      var previewed = await tool(t, model, 'set_task_status', {
+        'task': 't2',
+        'status': 'done',
+      });
+      expect(ran, isEmpty);
+      await confirmByTool(t, model, previewed);
+      expect(ran, [
+        {'task': 't2', 'status': 'done'},
+      ]);
 
-      await openDetail(t, 't3');
-      await t.tap(find.byKey(const ValueKey('attention-later-t3')));
+      // Back on the list: 稍后 hides the card and recounts.
+      await t.binding.handlePopRoute();
       await t.pumpAndSettle();
-      expect(find.text('第 1 层'), findsOneWidget);
+      previewed = await tool(t, model, 'snooze_item', {'item': 't3'});
+      expect(card('t3'), findsOneWidget);
+      await confirmByTool(t, model, previewed);
       expect(card('t3'), findsNothing);
-      expect(countOf('decision', '1'), findsOneWidget);
 
-      await openDetail(t, 't1');
-      await t.tap(find.byKey(const ValueKey('attention-open-t1')));
-      await t.pumpAndSettle();
-      expect(find.text('第 3 层'), findsOneWidget);
+      // 看完整对话 / 打开讨论 opens the item's channel as a layer.
+      await tool(t, model, 'open_item', {'number': 1});
+      expect(find.text('第 2 层'), findsOneWidget);
       expect(find.text('# raft-flutter'), findsOneWidget);
     });
 
@@ -779,65 +855,53 @@ void main() {
     });
 
     testWidgets('通过 asks first; nothing is written until confirmed', (t) async {
-      await open(t, _Data(w, _three()));
-      client.posts.clear();
+      ran.clear();
+      final model = _Script();
+      await open(t, _Data(w, _three()), model: model, registry: statusSpy());
       await openDetail(t, 't2');
-      await t.tap(find.byKey(const ValueKey('attention-approve-t2')));
-      await t.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('attention-approve-confirm')),
-        findsOneWidget,
-      );
-      expect(client.posts, isEmpty);
+      var previewed = await tool(t, model, 'set_task_status', {
+        'task': 't2',
+        'status': 'done',
+      });
+      expect(find.textContaining('预览 t2'), findsWidgets);
+      expect(ran, isEmpty);
 
-      await t.tap(find.byKey(const ValueKey('attention-approve-cancel')));
+      await t.tap(find.text('取消'));
       await t.pumpAndSettle();
-      expect(client.posts, isEmpty);
+      expect(ran, isEmpty);
       // Still on the detail.
       expect(find.byKey(const ValueKey('detail:t2')), findsOneWidget);
 
-      await t.tap(find.byKey(const ValueKey('attention-approve-t2')));
-      await t.pumpAndSettle();
-      await t.tap(find.byKey(const ValueKey('attention-approve-confirm')));
-      await t.pumpAndSettle();
-      expect(client.posts, ['PATCH /tasks/t2/status']);
-      expect(client.bodies.last, {'status': 'done'});
-      // Done: the card leaves and the count follows.
-      expect(card('t2'), findsNothing);
-      expect(countOf('decision', '2'), findsOneWidget);
+      previewed = await tool(t, model, 'set_task_status', {
+        'task': 't2',
+        'status': 'done',
+      });
+      await confirmByTool(t, model, previewed);
+      expect(ran, [
+        {'task': 't2', 'status': 'done'},
+      ]);
     });
 
     testWidgets('a failed write keeps the card and says why', (t) async {
-      client.responses.clear();
-      final failing = _FailingClient()..user = RaftRecord({'id': 'kevin'});
-      failing.selectServer('s1');
-      final fw = WorkspaceController(failing)
-        ..server = RaftRecord({'id': 's1', 'role': 'owner'})
-        ..channels = [
-          RaftChannel({'id': 'c1', 'name': 'raft-flutter'}),
-        ];
-      addTearDown(() async {
-        fw.dispose();
-        await failing.dispose();
-      });
-      t.view.physicalSize = const Size(390, 5000);
-      t.view.devicePixelRatio = 1;
-      addTearDown(t.view.reset);
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
-          home: AgentModePage(controller: fw, data: _Data(fw, _three())),
-        ),
+      final model = _Script();
+      await open(
+        t,
+        _Data(w, _three()),
+        model: model,
+        registry: statusSpy(fail: true),
       );
-      await t.pumpAndSettle();
       await openDetail(t, 't1');
-      await t.tap(find.byKey(const ValueKey('attention-approve-t1')));
-      await t.pumpAndSettle();
-      await t.tap(find.byKey(const ValueKey('attention-approve-confirm')));
-      await t.pumpAndSettle();
-      // The detail stays; nothing was written.
+      final previewed = await tool(t, model, 'set_task_status', {
+        'task': 't1',
+        'status': 'done',
+      });
+      await confirmByTool(t, model, previewed);
+      // The card says it failed; the detail stays, nothing else moved.
+      expect(
+        find.byKey(const ValueKey('confirm-card-outcome-failed')),
+        findsOneWidget,
+      );
       expect(find.byKey(const ValueKey('detail:t1')), findsOneWidget);
-      expect(find.textContaining('没能通过'), findsWidgets);
     });
 
     testWidgets('稍后 (the tool snooze_item, behind a confirm card) hides the '
@@ -881,12 +945,17 @@ void main() {
       expect(find.byKey(const ValueKey('attention-card-t2')), findsOneWidget);
     });
 
-    testWidgets('打开讨论 opens the item\'s channel as a layer', (t) async {
-      await open(t, _Data(w, _three()));
+    testWidgets('打开讨论 (open_item) opens the item\'s channel as a layer', (
+      t,
+    ) async {
+      final model = _Script();
+      await open(t, _Data(w, _three()), model: model);
       await openDetail(t, 't3');
-      await t.tap(find.byKey(const ValueKey('attention-open-t3')));
+      expectNoButtons('t3');
+      await t.binding.handlePopRoute();
       await t.pumpAndSettle();
-      expect(find.text('第 3 层'), findsOneWidget);
+      await tool(t, model, 'open_item', {'number': 3});
+      expect(find.text('第 2 层'), findsOneWidget);
       expect(find.text('# raft-flutter'), findsOneWidget);
     });
 
@@ -1295,25 +1364,5 @@ class _Calls extends AgentScriptedModel {
       ..add(await call('expand_item', {'index': 9}))
       ..add(await call('expand_item', const {}));
     return true;
-  }
-}
-
-class _FailingClient extends ActivityClient {
-  @override
-  Future<dynamic> request(
-    String method,
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? query,
-    bool authorized = true,
-    bool retried = false,
-    UploadCancellation? cancellation,
-    void Function(int, int)? onSendProgress,
-    Map<String, dynamic>? headers,
-    bool acceptServerExit = false,
-    Duration? receiveTimeout,
-  }) async {
-    if (method == 'PATCH') throw StateError('offline');
-    return super.request(method, path, data: data, query: query);
   }
 }

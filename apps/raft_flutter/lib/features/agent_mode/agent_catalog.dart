@@ -18,7 +18,6 @@ abstract final class AgentComponents {
   static const section = 'Section';
 
   /// 通过 / 打开讨论 / 稍后: only the app puts this on a detail layer.
-  static const actionRow = 'ActionRow';
 }
 
 AgentWorkState _state(String? name) => AgentWorkState.values.firstWhere(
@@ -336,52 +335,6 @@ AgentCatalog _standard() => AgentCatalog([
       children: children,
     ),
   ),
-  AgentCatalogItem(
-    name: AgentComponents.actionRow,
-    description: '通过 / 打开讨论 / 稍后',
-    internal: true,
-    focusable: false,
-    schema: {
-      'type': 'object',
-      'properties': {
-        'itemId': _string('这一条的 id', 120),
-        'approve': {'type': 'boolean', 'description': '提供“通过”'},
-        'openLabel': _string('不能通过时主按钮的字', 30),
-      },
-      'required': ['itemId'],
-    },
-    build: (context, n, _) {
-      final scope = context == null ? null : AgentActionScope.maybeOf(context);
-      void Function()? act(String a) =>
-          scope == null ? null : () => scope.onAction(a);
-      final id = n.string('itemId') ?? '';
-      final approve = n.flag('approve') ?? false;
-      return HfActions(
-        actions: [
-          if (approve)
-            HfAction(
-              '通过',
-              key: ValueKey('attention-approve-$id'),
-              kind: HfActionKind.primary,
-              icon: Icons.check_rounded,
-              onPressed: act('approve'),
-            ),
-          HfAction(
-            n.string('openLabel') ?? '打开讨论',
-            key: ValueKey('attention-open-$id'),
-            kind: approve ? HfActionKind.secondary : HfActionKind.primary,
-            onPressed: act('open'),
-          ),
-          HfAction(
-            '稍后',
-            key: ValueKey('attention-later-$id'),
-            kind: HfActionKind.text,
-            onPressed: act('later'),
-          ),
-        ],
-      );
-    },
-  ),
   ...agentEntityCatalogItems,
 ]);
 
@@ -481,6 +434,7 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
           AgentFocusable(
             id: id,
             child: HfItemScope(
+              // ignore: raft_lints/avoid_render_index_assertion -- numbers is built from the same walk as the paths drawn
               index: numbers[path]!,
               focusId: id,
               child: _summaryRow(
@@ -524,6 +478,7 @@ class _AgentSurfaceViewState extends State<AgentSurfaceView> {
               child: AgentHandleTag(
                 focusId: id,
                 child: HfItemScope(
+                  // ignore: raft_lints/avoid_render_index_assertion -- numbers is built from the same walk as the paths drawn
                   index: numbers[path]!,
                   focusId: id,
                   child: built,
