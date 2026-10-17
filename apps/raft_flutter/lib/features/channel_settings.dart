@@ -437,9 +437,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   Future<void> editMetadata() async {
     final c = channel, identity = pageIdentity(w);
     if (c.archived || !cap('editChannelMetadata')) return;
-    await showRaftDialog<void>(
-      context: context,
-      barrierDismissible: false,
+    await showRaftForm<void>(
+      context,
       builder: (_) => RaftFormDialog(
         title: 'Edit channel',
         fields: [

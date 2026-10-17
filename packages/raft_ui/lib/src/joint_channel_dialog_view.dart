@@ -268,10 +268,9 @@ class RaftCreateJointChannelDialogView extends StatelessWidget {
                 onToggle: submitting ? null : onToggle,
               ),
             ),
-            gap,
-            actionButtons(),
           ],
         ),
+        footer: actionButtons(),
       ),
     );
   }

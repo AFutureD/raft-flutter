@@ -1265,6 +1265,7 @@ class _ResourceViewState extends State<ResourceView> {
     String scope,
     Widget Function(BuildContext) builder, {
     bool sourceModal = false,
+    bool form = false,
   }) async {
     if (!accepts(scope)) return null;
     ModalRoute<dynamic>? owned;
@@ -1281,14 +1282,12 @@ class _ResourceViewState extends State<ResourceView> {
     }
 
     try {
-      return sourceModal
-          ? await showRaftModal<V>(context, builder: buildOwned)
-          : await showDialog<V>(
-              context: context,
-              // Web `DialogCard` / `ConfirmDialog`: no scrim close.
-              barrierDismissible: false,
-              builder: buildOwned,
-            );
+      return await showRaftWindow<V>(
+        context,
+        buildOwned,
+        modal: sourceModal,
+        form: form,
+      );
     } finally {
       dialogs.remove(owned);
     }
@@ -5605,7 +5604,7 @@ class _ResourceViewState extends State<ResourceView> {
             if (accepts(scope)) await load(keep: rows.isNotEmpty);
           },
         ),
-        sourceModal: true,
+        form: true,
       );
       return;
     }
@@ -5616,6 +5615,7 @@ class _ResourceViewState extends State<ResourceView> {
     }
     await scopedDialog<bool>(
       scope,
+      form: true,
       (dialogContext) => RaftFormDialog(
         title: 'Create task',
         submitLabel: 'Create',

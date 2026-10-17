@@ -123,37 +123,30 @@ class RaftCreateChannelDialogView extends StatelessWidget {
                 onToggle: submitting ? null : onToggle,
               ),
             ),
-            gap,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                RaftRecipeButton(
-                  label: 'Cancel',
-                  variant: RaftButtonRecipeVariant.outline,
-                  size: RaftButtonRecipeSize.sm,
-                  // px-4 py-2 text-sm
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  textStep: RaftTextSteps.sm,
-                  disabled: submitting,
-                  onPressed: onClose,
-                ),
-                const SizedBox(width: 12), // gap-3
-                RaftRecipeButton(
-                  label: submitting ? 'Creating…' : 'Create Channel',
-                  variant: RaftButtonRecipeVariant.accent,
-                  size: RaftButtonRecipeSize.sm,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  textStep: RaftTextSteps.sm,
-                  disabled: submitting,
-                  onPressed: onSubmit,
-                ),
-              ],
+          ],
+        ),
+        footer: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            RaftRecipeButton(
+              label: 'Cancel',
+              variant: RaftButtonRecipeVariant.outline,
+              size: RaftButtonRecipeSize.sm,
+              // px-4 py-2 text-sm
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              textStep: RaftTextSteps.sm,
+              disabled: submitting,
+              onPressed: onClose,
+            ),
+            const SizedBox(width: 12), // gap-3
+            RaftRecipeButton(
+              label: submitting ? 'Creating…' : 'Create Channel',
+              variant: RaftButtonRecipeVariant.accent,
+              size: RaftButtonRecipeSize.sm,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              textStep: RaftTextSteps.sm,
+              disabled: submitting,
+              onPressed: onSubmit,
             ),
           ],
         ),

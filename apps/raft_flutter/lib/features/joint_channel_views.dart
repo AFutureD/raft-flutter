@@ -141,9 +141,12 @@ abstract class _JointState<T extends StatefulWidget>
   }
 
   @override
-  Future<V?> scopedDialog<V>(Widget Function(BuildContext) builder) async {
+  Future<V?> scopedDialog<V>(
+    Widget Function(BuildContext) builder, {
+    bool form = false,
+  }) async {
     try {
-      return await super.scopedDialog<V>((context) {
+      return await super.scopedDialog<V>(form: form, (context) {
         _dialog = context;
         final child = builder(context);
         _sharedForm = child is RaftFormDialog;
@@ -156,9 +159,12 @@ abstract class _JointState<T extends StatefulWidget>
 
   /// Product dialogs on the Web `Modal` layer track their route the same way.
   @override
-  Future<V?> scopedRaftModal<V>(Widget Function(BuildContext) builder) async {
+  Future<V?> scopedRaftModal<V>(
+    Widget Function(BuildContext) builder, {
+    bool form = false,
+  }) async {
     try {
-      return await super.scopedRaftModal<V>((context) {
+      return await super.scopedRaftModal<V>(form: form, (context) {
         _dialog = context;
         return builder(context);
       });
@@ -294,6 +300,7 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
         .where((u) => (u['userId'] ?? u['id']) != w.client.user?.id)
         .toList();
     final created = await scopedRaftModal<Map<String, dynamic>>(
+      form: true,
       (context) => CreateJointChannelDialog(
         agents: agents,
         users: users,
