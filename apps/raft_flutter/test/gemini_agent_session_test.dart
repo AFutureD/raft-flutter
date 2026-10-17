@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
 
 /// The text agent: the same prompt and tools as the realtime session, over
@@ -88,10 +89,12 @@ GeminiAgentSession session(
   Heard heard, {
   int maxSteps = 8,
   Map<String, Object?> Function(String, Map<String, Object?>)? tool,
+  AgentSteering? steering,
 }) => GeminiAgentSession(
   apiKey: 'test-key',
   systemPrompt: 'be the orb',
   tools: _tools,
+  steering: steering,
   transport: api.call,
   maxSteps: maxSteps,
   retryDelay: Duration.zero,
@@ -381,6 +384,57 @@ void main() {
       isFalse,
     );
     expect(heard.texts, ['ok']);
+  });
+
+  test('steering decides the instruction and tools of every request, also '
+      'the second of one turn', () async {
+    final api = Api()
+      ..replies.addAll([
+        _call('navigate', {'to': 'x'}),
+        _say('好'),
+      ]);
+    final heard = Heard();
+    var asked = 0;
+    var waiting = false;
+    final s = session(
+      api,
+      heard,
+      tool: (_, _) {
+        waiting = true;
+        return {'status': 'needs_confirmation'};
+      },
+      steering: AgentSteering(
+        scope: () {
+          asked++;
+          return waiting
+              ? const AgentScope(
+                  systemPrompt: 'a card waits',
+                  tools: [
+                    {'name': 'confirm', 'description': 'yes'},
+                  ],
+                )
+              : const AgentScope(systemPrompt: 'normal', tools: _tools);
+        },
+      ),
+    );
+    await s.connect();
+    s.sendText('x');
+    await pumpEventQueue();
+
+    expect(asked, 2);
+    String system(Map<String, Object?> r) =>
+        ((r['systemInstruction'] as Map)['parts'] as List).single['text']
+            as String;
+    List names(Map<String, Object?> r) => [
+      for (final d
+          in ((r['tools'] as List).single as Map)['functionDeclarations']
+              as List)
+        (d as Map)['name'],
+    ];
+    expect(system(api.requests[0]), 'normal');
+    expect(names(api.requests[0]), ['navigate']);
+    expect(system(api.requests[1]), 'a card waits');
+    expect(names(api.requests[1]), ['confirm']);
   });
 
   test('generationConfig: low thinking for gemini-3, none budget for 2.5', () {

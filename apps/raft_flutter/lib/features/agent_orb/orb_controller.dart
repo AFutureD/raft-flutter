@@ -8,6 +8,7 @@ import '../../data/workspace_controller.dart';
 import '../agent_mode/agent_audio.dart';
 import '../agent_mode/agent_live_guard.dart' show agentLiveIdleLimit;
 import '../agent_mode/agent_memory.dart';
+import '../agent_mode/agent_steering.dart';
 import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
@@ -29,6 +30,7 @@ import 'orb_driving.dart' show orbSayHint;
 import 'orb_operating.dart';
 import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
+import 'orb_scope.dart';
 import 'orb_layer.dart';
 import 'orb_state.dart';
 import 'orb_summary.dart';
@@ -117,6 +119,7 @@ class OrbController extends ChangeNotifier {
     OrbLiveBriefer? liveBriefer,
     this.liveDebounce = const Duration(seconds: 3),
     this.newBadgeLinger = const Duration(seconds: 5),
+    this.agentLayer = false,
   }) : _now = now ?? DateTime.now,
        _activityWatcher =
            activityWatcher ?? (appTools == null ? _defaultWatcher : null),
@@ -153,6 +156,7 @@ class OrbController extends ChangeNotifier {
       tools: [for (final tool in tools.values) tool.declaration],
       onToolCall: dispatch,
       systemPrompt: _systemPrompt,
+      steering: agentLayer ? AgentSteering(scope: _agentScope) : null,
       beforeConnect: _loadBrain,
       onSessionEnd: _sessionEnded,
       onUserSaid: _userSaid,
@@ -179,6 +183,11 @@ class OrbController extends ChangeNotifier {
   }
 
   final WorkspaceController workspace;
+
+  /// The model is a text agent behind the app's own rules (`GeminiAgentSession`
+  /// and `AgentSteering`): its instruction and tools follow the state of the
+  /// conversation. False: the realtime session, with the whole instruction.
+  final bool agentLayer;
 
   /// What the model may do for the person (reply, react, change a task ...):
   /// the confirm card, the person's answer, the driving rules.
@@ -1089,6 +1098,21 @@ class OrbController extends ChangeNotifier {
     memory: _brainContext,
     channels: orbChannelsLine(orbDirectoryOf(workspace)),
   );
+
+  /// What the text agent is given for its next request: the state decides
+  /// the instruction and the tools.
+  AgentScope _agentScope() {
+    final pending = actions.pending;
+    return orbAgentScope(
+      mode: orbModeOf(pending: pending != null, driving: _driving),
+      driving: _driving,
+      declarations: [for (final tool in tools.values) tool.declaration],
+      style: AgentVoiceSettings.instance.styleNote,
+      memory: _brainContext,
+      channels: orbChannelsLine(orbDirectoryOf(workspace)),
+      pending: pending?.summary,
+    );
+  }
 
   /// The shared agent's memory, as Agent mode reads it, before a session.
   Future<void> _loadBrain() async {

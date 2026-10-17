@@ -216,8 +216,10 @@ class OrbEvalRunner {
         onInterrupted,
         onClosed,
         playbackPending,
+        steering,
       }) => GeminiAgentSession(
         key: voiceKey,
+        steering: steering,
         systemPrompt: systemPrompt,
         tools: tools,
         onToolCall: onToolCall,
@@ -248,6 +250,7 @@ class OrbEvalRunner {
         workspace: world.workspace,
         navigatorContext: () => shown.navigatorContext(),
         sessionFactory: recorder.wrap(sessionFactory ?? _defaultFactory()),
+        agentLayer: harness == OrbEvalHarness.agent,
         audio: _SilentAudio(),
         voiceKey: voiceKey,
         // The summary of a session would be a write to the shared agent.
@@ -515,6 +518,7 @@ class _Recorder {
         onInterrupted,
         onClosed,
         playbackPending,
+        steering,
       }) => session = inner(
         provider: provider,
         apiKey: apiKey,
@@ -526,6 +530,7 @@ class _Recorder {
         onInputText: onInputText,
         onInterrupted: onInterrupted,
         playbackPending: playbackPending,
+        steering: steering,
         onToolCall: (name, args) async {
           final watch = Stopwatch()..start();
           Map<String, Object?> result;

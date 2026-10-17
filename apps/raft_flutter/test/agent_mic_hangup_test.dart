@@ -127,6 +127,7 @@ void main() {
             onInterrupted,
             onClosed,
             playbackPending,
+            steering,
           }) {
             final s = _Session(
               onAudio: onAudio,

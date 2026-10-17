@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'agent_audio.dart';
+import 'agent_steering.dart';
 import 'gemini_live.dart';
 import 'gemini_text.dart';
 import 'voice_provider.dart';
@@ -60,6 +61,7 @@ class GeminiAgentSession implements VoiceSession {
     required this.systemPrompt,
     required this.tools,
     required this.onToolCall,
+    this.steering,
     this.apiKey,
     AgentVoiceKey? key,
     GeminiTransport? transport,
@@ -73,6 +75,10 @@ class GeminiAgentSession implements VoiceSession {
 
   final String systemPrompt;
   final List<Map<String, Object?>> tools;
+
+  /// When given, every model request takes its instruction and tools from it
+  /// and [systemPrompt] and [tools] are not used.
+  final AgentSteering? steering;
   @override
   final AgentToolHandler onToolCall;
 
@@ -296,8 +302,9 @@ class GeminiAgentSession implements VoiceSession {
   /// The model's next content for the history so far; null when it sent none.
   Future<Map<String, Object?>?> _generate(int step) async {
     final model = _model!;
+    final scope = steering?.scope();
     final declarations = GeminiLiveSession.declarations(
-      tools,
+      scope?.tools ?? tools,
       nonBlocking: false,
     );
     for (var attempt = 0; ; attempt++) {
@@ -308,7 +315,7 @@ class GeminiAgentSession implements VoiceSession {
         {
           'systemInstruction': {
             'parts': [
-              {'text': systemPrompt},
+              {'text': scope?.systemPrompt ?? systemPrompt},
             ],
           },
           'contents': [..._contents],

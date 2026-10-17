@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
+import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/actions/orb_actions.dart';
@@ -64,10 +65,15 @@ class FakeSession implements VoiceSession {
     this.onOutputText,
     this.onTurnComplete,
     this.onClosed,
+    this.steering,
   });
 
   final String systemPrompt;
   final List<Map<String, Object?>> tools;
+
+  /// What the text agent would ask before each request (null: a realtime
+  /// session).
+  final AgentSteering? steering;
   final connectGate = Completer<void>();
   final sentTexts = <String>[];
 
@@ -194,8 +200,12 @@ class OrbFixture {
   /// workspace; null leaves the orb with the tools it is given.
   OrbActions? actions;
 
+  /// The orb runs on the text agent (`agentLayer`): its sessions get a steering.
+  bool agentLayer = false;
+
   OrbController build({List<OrbTool> tools = const []}) =>
       controller = OrbController(
+        agentLayer: agentLayer,
         actions: actions,
         activityWatcher: activityWatcher,
         liveBriefer: liveBriefer,
@@ -227,6 +237,7 @@ class OrbFixture {
               onInterrupted,
               onClosed,
               playbackPending,
+              steering,
             }) {
               final s = FakeSession(
                 systemPrompt: systemPrompt,
@@ -237,6 +248,7 @@ class OrbFixture {
                 onOutputText: onOutputText,
                 onTurnComplete: onTurnComplete,
                 onClosed: onClosed,
+                steering: steering,
               );
               sessions.add(s);
               return s;

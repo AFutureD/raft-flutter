@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'agent_audio.dart';
+import 'agent_steering.dart';
 import 'gemini_live.dart';
 import 'openai_realtime.dart';
 
@@ -84,11 +85,13 @@ typedef VoiceSessionFactory = VoiceSession Function({
   void Function()? onInterrupted,
   void Function(String reason)? onClosed,
   Future<Duration> Function()? playbackPending,
+  AgentSteering? steering,
 });
 
 /// Builds the session of [provider]. [playbackPending] says how much of the
 /// speech already received is still to be played (OpenAI needs it to cut the
-/// unheard part off when the person interrupts).
+/// unheard part off when the person interrupts). [steering] is for the text
+/// agent only; the realtime sessions ignore it.
 VoiceSession createVoiceSession({
   required AgentVoiceProvider provider,
   required String apiKey,
@@ -104,6 +107,7 @@ VoiceSession createVoiceSession({
   void Function()? onInterrupted,
   void Function(String reason)? onClosed,
   Future<Duration> Function()? playbackPending,
+  AgentSteering? steering,
 }) => switch (provider) {
   AgentVoiceProvider.gemini => GeminiLiveSession(
     apiKey: apiKey,

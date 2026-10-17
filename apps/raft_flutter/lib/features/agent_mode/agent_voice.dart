@@ -6,6 +6,7 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 
 import 'agent_audio.dart';
 import 'agent_live_guard.dart';
+import 'agent_steering.dart';
 import 'agent_summary.dart';
 import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
@@ -34,6 +35,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     required this.onToolCall,
     required this.systemPrompt,
     this.beforeConnect,
+    this.steering,
     this.onSessionEnd,
     this.onUserSaid,
     this.onListening,
@@ -70,6 +72,9 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   /// Awaited before a session is built (e.g. the shared memory still loading).
   final Future<void> Function()? beforeConnect;
+
+  /// How the app steers a text agent session (the realtime ones ignore it).
+  final AgentSteering? steering;
 
   /// The transcript of what the person said, chunk by chunk. [fresh] is true
   /// for the first chunk of a new utterance. Never called with what the
@@ -320,6 +325,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       playbackPending: audio.pending,
       systemPrompt: systemPrompt(),
       tools: tools,
+      steering: steering,
       onToolCall: (name, args) async {
         // A screen operation while the agent is talking (non-blocking) must
         // not turn "speaking" into "thinking".

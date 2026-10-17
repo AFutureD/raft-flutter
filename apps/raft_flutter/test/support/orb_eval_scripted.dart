@@ -109,6 +109,7 @@ class Sessions {
         onInterrupted,
         onClosed,
         playbackPending,
+        steering,
       }) {
         final s = ScriptedSession(
           onToolCall: onToolCall,
