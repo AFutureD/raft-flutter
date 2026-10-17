@@ -244,3 +244,5 @@ export 'src/form_presentation.dart';
 export 'src/sheet.dart';
 export 'src/composer_action_row.dart';
 export 'src/composer_tool_button.dart';
+
+export 'src/hover_region.dart';

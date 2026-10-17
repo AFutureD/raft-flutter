@@ -1,3 +1,5 @@
+import 'hover_region.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -267,6 +269,7 @@ class RaftAttachmentCard extends StatelessWidget {
                         label: '${raftText(context, 'Preview')} $filename',
                         button: !exportMode,
                         child: InkWell(
+                          hoverColor: RaftHoverScope.of(context) ? null : Colors.transparent,
                           onTap: exportMode ? null : onOpen,
                           child:
                               preview ??
@@ -447,7 +450,7 @@ class _AttachmentSurface extends StatefulWidget {
 class _AttachmentSurfaceState extends State<_AttachmentSurface> {
   bool hovered = false, focused = false;
   @override
-  Widget build(BuildContext context) => MouseRegion(
+  Widget build(BuildContext context) => RaftHoverRegion(
     onEnter: (_) => setState(() => hovered = true),
     onExit: (_) => setState(() => hovered = false),
     child: Focus(

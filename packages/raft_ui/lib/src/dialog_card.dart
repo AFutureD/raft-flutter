@@ -8,6 +8,8 @@
 //
 // Values come from the generated recipes (package:raft_ui/recipes.dart) and
 // tokens; Tailwind classes written in the Web JSX are resolved in comments.
+import 'hover_region.dart';
+
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
@@ -978,7 +980,7 @@ class _RecipeSegmentState extends State<_RecipeSegment> {
       selected: widget.checked,
       label: widget.label,
       excludeSemantics: true,
-      child: MouseRegion(
+      child: RaftHoverRegion(
         cursor: widget.onTap == null
             ? MouseCursor.defer
             : SystemMouseCursors.click,

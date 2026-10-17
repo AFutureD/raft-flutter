@@ -1,3 +1,5 @@
+import 'hover_region.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -280,7 +282,7 @@ class _NoEmojiRowState extends State<_NoEmojiRow> {
     final t = RaftTokens.of(context);
     return Semantics(
       button: true,
-      child: MouseRegion(
+      child: RaftHoverRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => hovered = true),
         onExit: (_) => setState(() => hovered = false),

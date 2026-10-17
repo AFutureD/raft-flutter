@@ -1,3 +1,6 @@
+import 'hover_region.dart';
+import 'input_density.dart';
+export 'input_density.dart';
 import 'raft_underline.dart';
 import 'anchored_popup.dart';
 import 'dismiss_scope.dart';
@@ -27,29 +30,6 @@ import 'control_typography.dart';
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
-
-enum RaftDensity { desktop, touch }
-
-/// Input density changes hit/layout bounds, never the source visual recipe.
-class RaftDensityScope extends InheritedWidget {
-  const RaftDensityScope({
-    super.key,
-    required this.density,
-    required super.child,
-  });
-  final RaftDensity density;
-  static RaftDensity of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<RaftDensityScope>()?.density ??
-      switch (Theme.of(context).platform) {
-        TargetPlatform.android ||
-        TargetPlatform.iOS ||
-        TargetPlatform.fuchsia => RaftDensity.touch,
-        _ => RaftDensity.desktop,
-      };
-  @override
-  bool updateShouldNotify(RaftDensityScope oldWidget) =>
-      density != oldWidget.density;
-}
 
 @immutable
 class RaftControlBounds {
@@ -291,9 +271,9 @@ class RaftAttachmentRecipe {
         : tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
   );
   BorderRadius get radius => RaftShapes.attachment(tokens);
-  TextStyle get title => RaftTypography.attachmentTitle(
-    tokens,
-  ).copyWith(fontWeight: FontWeight.w700);
+  TextStyle get title =>
+      RaftTypography.attachmentTitle(tokens)
+          .copyWith(fontWeight: FontWeight.w700);
   TextStyle get metadata => RaftTypography.attachmentMeta(tokens);
 }
 
@@ -1029,7 +1009,7 @@ class _RaftControlState extends State<RaftControl> {
           : null,
       enabled: inert ? null : enabled,
       onTap: enabled ? activateControl : null,
-      child: MouseRegion(
+      child: RaftHoverRegion(
         onEnter: enabled ? (_) => setState(() => hovered = true) : null,
         onExit: (_) => setState(() => hovered = false),
         child: FocusableActionDetector(
@@ -2162,7 +2142,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                       toRight: widget.side == RaftDropdownSide.right,
                       alignRight: right,
                       gap: gap,
-                      child: MouseRegion(
+                      child: RaftHoverRegion(
                         onEnter: (_) => hoverClose?.cancel(),
                         onExit: (_) => hoverExit(),
                         child: TapRegion(
@@ -2244,7 +2224,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                 ],
               ),
       ),
-      child: MouseRegion(
+      child: RaftHoverRegion(
         onEnter: (_) => hoverEnter(),
         onExit: (_) => hoverExit(),
         child: TapRegion(
@@ -2518,7 +2498,7 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
             },
           ),
         },
-        child: MouseRegion(
+        child: RaftHoverRegion(
           onEnter: (_) => setState(() => hovered = true),
           onExit: (_) => setState(() => hovered = false),
           child: GestureDetector(
@@ -3200,7 +3180,7 @@ class _RaftInteractiveState extends State<RaftInteractive> {
       checked: widget.checked,
       enabled: enabled,
       onTap: enabled ? activateControl : null,
-      child: MouseRegion(
+      child: RaftHoverRegion(
         onEnter: enabled ? (_) => setState(() => hovered = true) : null,
         onExit: (_) => setState(() => hovered = false),
         child: FocusableActionDetector(

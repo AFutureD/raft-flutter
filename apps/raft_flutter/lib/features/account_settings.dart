@@ -312,6 +312,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
       avatar: RaftTooltip(
         message: raftText(context, 'Change profile image'),
         child: InkWell(
+          hoverColor: RaftHoverScope.of(context) ? null : Colors.transparent,
           key: const Key('account-profile-image'),
           onTap: mediaBusy ? null : () => image(),
           child: Opacity(

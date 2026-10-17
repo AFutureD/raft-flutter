@@ -1,6 +1,8 @@
 // Form primitives painted from raft-ui recipes: Field (label / description /
 // error), Input, Textarea + counter, InputGroup (prefixed / slug input), and
 // the Web client's legacy `.input-brutal` chrome (packages/web/src/index.css).
+import 'hover_region.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -207,7 +209,7 @@ mixin _FieldInteraction<T extends StatefulWidget> on State<T> {
     super.dispose();
   }
 
-  Widget hoverRegion(Widget child) => MouseRegion(
+  Widget hoverRegion(Widget child) => RaftHoverRegion(
     cursor: SystemMouseCursors.text,
     onEnter: (_) => setState(() => hovered = true),
     onExit: (_) => setState(() => hovered = false),

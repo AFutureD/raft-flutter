@@ -1,3 +1,5 @@
+import 'hover_region.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -522,7 +524,7 @@ class _ResizeHandleState extends State<RaftPanelResizeHandle> {
           }
           return KeyEventResult.ignored;
         },
-        child: MouseRegion(
+        child: RaftHoverRegion(
           cursor: SystemMouseCursors.resizeColumn,
           onEnter: (_) => setState(() => hovering = true),
           onExit: (_) => setState(() => hovering = false),

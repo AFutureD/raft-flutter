@@ -1,3 +1,5 @@
+import 'hover_region.dart';
+
 import 'dart:async' show unawaited;
 
 import 'control_typography.dart';
@@ -3124,7 +3126,7 @@ class _RaftComposerSuggestionRowState
       button: true,
       selected: widget.highlighted,
       onTap: widget.onPressed,
-      child: MouseRegion(
+      child: RaftHoverRegion(
         onEnter: (_) => setState(() => hovered = true),
         onExit: (_) => setState(() => hovered = false),
         child: GestureDetector(

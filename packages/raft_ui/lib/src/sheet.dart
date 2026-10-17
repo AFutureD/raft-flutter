@@ -1,3 +1,5 @@
+import 'hover_region.dart';
+
 import 'package:flutter/material.dart';
 
 import 'settings_layout.dart' show RaftSpace;
@@ -128,7 +130,7 @@ class _PointerDragArea extends StatelessWidget {
       behavior: HitTestBehavior.translucent,
       onVerticalDragUpdate: (d) => drag.update(d.delta.dy),
       onVerticalDragEnd: (d) => drag.end(d.velocity.pixelsPerSecond.dy),
-      child: MouseRegion(cursor: SystemMouseCursors.grab, child: child),
+      child: RaftHoverRegion(cursor: SystemMouseCursors.grab, child: child),
     );
   }
 }

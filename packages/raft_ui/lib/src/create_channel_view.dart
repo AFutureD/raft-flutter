@@ -3,6 +3,8 @@
 // with Name, Description (optional), Visibility segmented control, Members
 // (optional) search + AGENTS/HUMANS picker and Cancel/Create Channel. The app
 // adapter owns loading, selection state and the create command.
+import 'hover_region.dart';
+
 import 'package:flutter/material.dart';
 
 import 'form_presentation.dart';
@@ -319,7 +321,7 @@ class _MemberRowState extends State<_MemberRow> {
     return Semantics(
       button: true,
       selected: widget.selected,
-      child: MouseRegion(
+      child: RaftHoverRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => hovered = true),
         onExit: (_) => setState(() => hovered = false),
