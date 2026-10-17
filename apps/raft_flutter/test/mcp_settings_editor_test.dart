@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
@@ -34,6 +33,9 @@ class _Client extends RaftClient {
   final calls = <(String, String, Map<String, dynamic>)>[];
   List<Map<String, dynamic>> catalogServers = [_server()];
   bool failTest = false;
+  bool denySave = false;
+  Completer<int>? testGate;
+  Completer<void>? saveGate;
 
   @override
   Future<dynamic> request(
@@ -57,15 +59,19 @@ class _Client extends RaftClient {
       return {'servers': catalogServers, 'recommendations': []};
     }
     if (path == '/mcp/servers/test-configuration') {
+      if (testGate case final gate?) {
+        final count = await gate.future;
+        return {
+          'tools': [
+            for (var i = 0; i < count; i++) {'name': 'tool$i'},
+          ],
+        };
+      }
       if (failTest) {
-        throw DioException(
-          requestOptions: RequestOptions(path: path),
-          response: Response(
-            requestOptions: RequestOptions(path: path),
-            statusCode: 502,
-            data: {'error': 'Fixture MCP is temporarily unavailable'},
-          ),
-          type: DioExceptionType.badResponse,
+        throw RaftApiException.response(
+          'Fixture MCP is temporarily unavailable',
+          status: 502,
+          body: {'error': 'Fixture MCP is temporarily unavailable'},
         );
       }
       return {
@@ -76,6 +82,14 @@ class _Client extends RaftClient {
       };
     }
     if (method == 'POST' && path == '/mcp/servers') {
+      if (denySave) {
+        throw RaftApiException.response(
+          'Permission changed',
+          status: 403,
+          body: {'error': 'Permission changed'},
+        );
+      }
+      if (saveGate case final gate?) await gate.future;
       catalogServers = [
         ...catalogServers,
         {
@@ -118,6 +132,7 @@ Finder _fields(String prefix) => find.byWidgetPredicate((widget) {
 });
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {
+  await tester.pump();
   await tester.ensureVisible(finder);
   await tester.tap(finder);
   await tester.pumpAndSettle();
@@ -170,7 +185,13 @@ void main() {
     Future<void> add(WidgetTester tester) async {
       await _tap(tester, _key('mcp-add-server'));
       expect(_key('mcp-server-editor'), findsOneWidget);
-      expect(find.text('New MCP server'), findsOneWidget);
+      if (width >= 768) {
+        expect(tester.getSize(_key('mcp-server-editor')).width, 672);
+      }
+      expect(
+        find.textContaining(RegExp(r'^New MCP server$', caseSensitive: false)),
+        findsOneWidget,
+      );
     }
 
     Future<void> nameAndUrl(WidgetTester tester) async {
@@ -365,6 +386,116 @@ void main() {
         expect(_key('mcp-server-editor'), findsNothing);
       },
     );
+
+    _widgetTest(
+      '$width an old connection test cannot approve an edited draft',
+      (tester) async {
+        await mount(tester);
+        await add(tester);
+        await nameAndUrl(tester);
+        final gate = Completer<int>();
+        client.testGate = gate;
+        try {
+          await _tap(tester, _key('mcp-editor-test'));
+          expect(
+            client.calls.where((c) => c.$2.endsWith('/test-configuration')),
+            hasLength(1),
+          );
+          await tester.enterText(
+            _key('mcp-endpoint'),
+            'https://changed.example.invalid/mcp',
+          );
+        } finally {
+          gate.complete(2);
+          client.testGate = null;
+          await tester.pumpAndSettle();
+        }
+        expect(find.text('Connection succeeded. Found 2 tools.'), findsNothing);
+        await _tap(tester, _key('mcp-editor-test'));
+        expect(
+          find.text('Connection succeeded. Found 2 tools.'),
+          findsOneWidget,
+        );
+        expect(
+          client.calls.last.$3['endpointUrl'],
+          'https://changed.example.invalid/mcp',
+        );
+      },
+    );
+
+    _widgetTest(
+      '$width authority change dismisses editor and retires a late save',
+      (tester) async {
+        await mount(tester);
+        await add(tester);
+        await nameAndUrl(tester);
+        final gate = Completer<void>();
+        client.saveGate = gate;
+        var reads = 0;
+        try {
+          await _tap(tester, _key('mcp-editor-save'));
+          expect(client.calls.where((c) => c.$1 == 'POST'), hasLength(1));
+          workspace.server = RaftRecord({'id': 's1', 'role': 'member'});
+          workspace.notifyListeners();
+          await tester.pumpAndSettle();
+          expect(_key('mcp-server-editor'), findsNothing);
+          reads = client.calls.where((c) => c.$1 == 'GET').length;
+        } finally {
+          gate.complete();
+          client.saveGate = null;
+          await tester.pumpAndSettle();
+        }
+        expect(client.calls.where((c) => c.$1 == 'GET'), hasLength(reads));
+        expect(find.text('New fixture MCP'), findsNothing);
+        expect(_key('mcp-add-server'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    _widgetTest(
+      '$width rejected permission clears private catalog and editor',
+      (tester) async {
+        await mount(tester);
+        await add(tester);
+        await nameAndUrl(tester);
+        client.denySave = true;
+        await _tap(tester, _key('mcp-editor-save'));
+        expect(_key('mcp-server-editor'), findsNothing);
+        expect(find.text('Fixture MCP'), findsNothing);
+        expect(find.text('Permission changed'), findsOneWidget);
+        client.denySave = false;
+        await add(tester);
+        await nameAndUrl(tester);
+        await _tap(tester, _key('mcp-editor-save'));
+        expect(find.text('Permission changed'), findsNothing);
+        expect(find.text('New fixture MCP'), findsOneWidget);
+      },
+    );
+
+    _widgetTest('$width resuming after OAuth refreshes connection actions', (
+      tester,
+    ) async {
+      client.catalogServers = [
+        {
+          ..._server(),
+          'authMode': 'oauth',
+          'provider': 'notion',
+          'oauthStatus': 'disconnected',
+        },
+      ];
+      await mount(tester);
+      expect(find.byTooltip('Connect Fixture MCP'), findsOneWidget);
+      expect(find.byTooltip('Disconnect Fixture MCP'), findsNothing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      client.catalogServers = [
+        {...client.catalogServers.single, 'oauthStatus': 'connected'},
+      ];
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Connect Fixture MCP'), findsNothing);
+      expect(find.byTooltip('Disconnect Fixture MCP'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
 
     // These controls also exercise the already shipped list and role policy.
     _widgetTest(

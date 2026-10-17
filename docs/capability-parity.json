@@ -8214,23 +8214,23 @@
    "area": "integrations-apps-mcp",
    "capability": "Edit a managed MCP server (name, description, URL, auth mode, credential headers)",
    "background": false,
-   "status": "partial",
+   "status": "covered",
    "webEntry": "Settings > MCP Servers > pencil 'Edit server' > editor dialog (provider/auth/URL locked unless provider=custom; multi-row credential header list with add/remove)",
    "gate": "canManageServer (manageIntegrations)",
-   "flutterEntry": "mcp_views.dart edit(server) via 'Edit server' action",
+   "flutterEntry": "McpServerEditor edits multiple headers, preserves unchanged stored secrets, patches renamed/removed names and locks the stored provider; mcp_views.dart scopes PATCH to the active manager",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "'/mcp/servers/${server['id']}'"
+     "needle": "w.client.patch('/mcp/servers/${server!['id']}'"
     },
     {
-     "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Edit MCP connection"
+     "file": "apps/raft_flutter/lib/data/managed_mcp_credentials.dart",
+     "needle": "credentialPatch"
     }
    ],
-   "justification": "Flutter form edits ONE credential header name/value per save plus a 'Remove a stored header' dropdown, instead of Web's multi-row header list; it does not lock provider/URL/auth fields for notion/linear providers and has no inline 'Test connection'.",
-   "impact": "Owners/admins rotating several credential headers on one MCP server must save repeatedly; rare.",
-   "size": "S"
+   "justification": "",
+   "impact": "",
+   "size": ""
   },
   {
    "kind": "endpoint",
@@ -8541,23 +8541,23 @@
    "area": "integrations-apps-mcp",
    "capability": "Add a managed MCP server (custom or recommended provider)",
    "background": false,
-   "status": "partial",
+   "status": "covered",
    "webEntry": "Settings > MCP Servers > 'Add server' (header + empty state) and Recommended list 'Add' > editor dialog",
    "gate": "canManageServer (manageIntegrations)",
-   "flutterEntry": "mcp_views.dart edit() via 'Add MCP connection' action and recommendation onAdd",
+   "flutterEntry": "mcp_views.dart edit() opens McpServerEditor for Add and recommendations; full multi-header create payload, provider defaults and inline draft testing",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "'/mcp/servers'"
+     "needle": "w.client.post('/mcp/servers', data: data)"
     },
     {
-     "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Add MCP connection"
+     "file": "apps/raft_flutter/lib/features/mcp_server_editor.dart",
+     "needle": "New MCP server"
     }
    ],
-   "justification": "Create form accepts a single credential header (Web allows several) and has no in-editor 'Test connection'.",
-   "impact": "Servers needing 2+ auth headers cannot be created in one step on mobile.",
-   "size": "S"
+   "justification": "",
+   "impact": "",
+   "size": ""
   },
   {
    "kind": "endpoint",
@@ -8613,23 +8613,23 @@
    "area": "integrations-apps-mcp",
    "capability": "Test an unsaved MCP server configuration from the editor and see tool count",
    "background": false,
-   "status": "partial",
+   "status": "covered",
    "webEntry": "Settings > MCP Servers > editor dialog > 'Test connection' button (shows 'Connection succeeded: N tools')",
    "gate": "canManageServer",
-   "flutterEntry": "mcp_views.dart testConfiguration() exists but is never invoked from any widget (dead code); no UI entry",
+   "flutterEntry": "McpServerEditor reachable inline Test connection submits the unsaved draft; result/error is cleared on edits and late responses are rejected",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/mcp_views.dart",
      "needle": "/mcp/servers/test-configuration"
     },
     {
-     "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Test MCP configuration"
+     "file": "apps/raft_flutter/lib/features/mcp_server_editor.dart",
+     "needle": "mcp-editor-test"
     }
    ],
-   "justification": "The call and a standalone dialog are implemented but nothing in the Flutter UI opens it; the edit dialog has no Test button. Only the saved-server 'Test and refresh tools' (POST /mcp/servers/:id/test) is reachable.",
-   "impact": "Owners/admins cannot validate an endpoint/credentials before saving on mobile; they must save first and then run the saved-server test.",
-   "size": "S"
+   "justification": "",
+   "impact": "",
+   "size": ""
   },
   {
    "kind": "endpoint",

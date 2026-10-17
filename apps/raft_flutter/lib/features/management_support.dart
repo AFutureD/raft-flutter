@@ -356,12 +356,19 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
   Future<V?> scopedRaftModal<V>(
     Widget Function(BuildContext) builder, {
     bool form = false,
-  }) => _scopedRoute<V>(builder, raft: true, form: form);
+    double dialogMaxWidth = 560,
+  }) => _scopedRoute<V>(
+    builder,
+    raft: true,
+    form: form,
+    dialogMaxWidth: dialogMaxWidth,
+  );
 
   Future<V?> _scopedRoute<V>(
     Widget Function(BuildContext) builder, {
     required bool raft,
     required bool form,
+    double dialogMaxWidth = 560,
   }) async {
     final sourceAuthority = _operationAuthority ?? authority;
     if (!mounted || sourceAuthority != authority) return null;
@@ -393,7 +400,11 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
       if (form) {
         // Esc, Back, a scrim press, a drag and the X ask; a changed form asks
         // before it discards.
-        return await showRaftForm<V>(context, builder: scoped);
+        return await showRaftForm<V>(
+          context,
+          builder: scoped,
+          dialogMaxWidth: dialogMaxWidth,
+        );
       }
       return await (raft
           ? showRaftModal<V>(context, builder: scoped)

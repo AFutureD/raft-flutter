@@ -453,7 +453,9 @@ class _RaftTextareaState extends State<RaftTextarea>
     final style = s
         .text(rt, base: DefaultTextStyle.of(context).style)
         .merge(widget.textStyle);
-    final line = (style.height ?? 1.5) * (style.fontSize ?? 14);
+    final line =
+        (style.height ?? 1.5) *
+        MediaQuery.textScalerOf(context).scale(style.fontSize ?? 14);
     final chrome = s.padding.vertical + s.borderWidth.vertical;
     final height = [
       s.minHeight ?? 0,
@@ -466,6 +468,9 @@ class _RaftTextareaState extends State<RaftTextarea>
           style: s,
           tokens: rt,
           height: height,
+          // This expanding input owns its scaled row height. Keeping that
+          // bound avoids an infinite editor in a scrolling form at large text.
+          applyText: false,
           child: TextField(
             key: widget.fieldKey,
             autofillHints: null,

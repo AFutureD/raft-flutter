@@ -2874,6 +2874,58 @@
      "justification": "Native-only saved message history; history_gaps_test.dart and message_history_gaps_test.dart verify indexed coverage, quiet loading/offline states, terminal-error retry and three themes at phone width; history_quiet_gap_view_test.dart verifies recovery and reopening."
     }
    ]
+  },
+  {
+   "id": "settings.mcp-editor",
+   "title": "Settings managed MCP connection editor",
+   "webEntry": "packages/web/src/components/agent/AgentMcpTab.tsx (server scope)",
+   "flutterEntry": "apps/raft_flutter/lib/features/mcp_server_editor.dart",
+   "states": [
+    {
+     "state": "loading",
+     "variant": "inline test and save pending",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "justification": "Fields remain mounted while draft testing or saving runs; the relevant action is disabled and shows Testing/Saving. Web 1.21.12 behavior is widget-tested on phone/desktop; no matched React/Flutter editor parity capture is registered.",
+     "size": "S",
+     "gapKind": "case-missing"
+    },
+    {
+     "state": "empty",
+     "variant": "credential header list",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "justification": "Removing every credential row shows the same No credential headers copy and Add Header action. Web 1.21.12 behavior is widget-tested on phone/desktop; no matched React/Flutter editor parity capture is registered.",
+     "size": "S",
+     "gapKind": "case-missing"
+    },
+    {
+     "state": "error",
+     "variant": "validation, connection and save failure",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "justification": "Validation and failed requests preserve the draft, show the error and allow correction/retry; stale test results and authority changes are fenced. Web 1.21.12 behavior is widget-tested on phone/desktop; no matched React/Flutter editor parity capture is registered.",
+     "size": "S",
+     "gapKind": "case-missing"
+    },
+    {
+     "state": "partial",
+     "variant": "stored credentials and OAuth provider",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "justification": "Catalogs expose header names only. Blank unchanged rows retain stored values, renamed/new rows need a value; OAuth providers keep their fixed URL/auth and hide draft testing. Web 1.21.12 behavior is widget-tested on phone/desktop; no matched React/Flutter editor parity capture is registered.",
+     "size": "S",
+     "gapKind": "case-missing"
+    }
+   ]
   }
  ],
  "navigationCoverage": {
@@ -2976,7 +3028,8 @@
     "settings.labs"
    ],
    "mcp": [
-    "agent.mcp"
+    "agent.mcp",
+    "settings.mcp-editor"
    ],
    "providers": [
     "settings.providers"
