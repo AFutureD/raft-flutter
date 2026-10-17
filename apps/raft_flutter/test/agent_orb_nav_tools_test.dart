@@ -1082,9 +1082,7 @@ void main() {
       await fx.f.close(t);
     });
 
-    testWidgets('another page: route, title and its screen', (
-      t,
-    ) async {
+    testWidgets('another page: route, title and its screen', (t) async {
       final fx = Fixture();
       await fx.mount(t);
       await fx.call(t, 'navigate', {'target': '设置'});
