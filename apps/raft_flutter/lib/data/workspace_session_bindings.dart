@@ -126,3 +126,18 @@ abstract interface class WorkspaceSessionRevocations {
   Set<String> get revokedChannels;
   Set<String> get revokedServers;
 }
+
+/// Temporary history boundary; receiver-sensitive helpers retain their original
+/// receiver in the composition adapter until the remaining D4 migration.
+abstract interface class WorkspacePrefetchPagesPort {
+  String replyToken(String? id);
+  Future<Map<String, dynamic>> readPrefetchPage(
+    MessageWindowRequest request,
+    String id,
+  );
+  Future<bool> recordPrefetchPage(
+    MessageWindowRequest request,
+    Map<String, dynamic> page,
+  );
+  void mergeThreadSummaries(String id, dynamic rows);
+}

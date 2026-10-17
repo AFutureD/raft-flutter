@@ -82,8 +82,8 @@
         "field.WorkspaceController._pageSummariesByChannel": 1,
         "field.WorkspaceController._pendingReactions": 1,
         "field.WorkspaceController._playerSessions": 0,
-        "field.WorkspaceController._prefetched": 1,
-        "field.WorkspaceController._prefetching": 1,
+        "field.WorkspaceController._prefetched": 0,
+        "field.WorkspaceController._prefetching": 0,
         "field.WorkspaceController._presentationAuthority": 1,
         "field.WorkspaceController._presentationOwner": 0,
         "field.WorkspaceController._previewGate": 0,
@@ -161,7 +161,7 @@
         "field.WorkspaceController.mobileNavigation": 1,
         "field.WorkspaceController.navigation": 1,
         "field.WorkspaceController.newFlags": 0,
-        "field.WorkspaceController.notificationPrefsSync": 1,
+        "field.WorkspaceController.notificationPrefsSync": 0,
         "field.WorkspaceController.ownsClient": 0,
         "field.WorkspaceController.pendingMentionActions": 1,
         "field.WorkspaceController.planRevision": 0,
@@ -171,11 +171,11 @@
         "field.WorkspaceController.restoreSharedAttachment": 1,
         "field.WorkspaceController.resumes": 0,
         "field.WorkspaceController.runtimeFormV2WebEnabled": 0,
-        "field.WorkspaceController.savedRevision": 1,
+        "field.WorkspaceController.savedRevision": 0,
         "field.WorkspaceController.sendWarnings": 1,
         "field.WorkspaceController.server": 0,
         "field.WorkspaceController.servers": 0,
-        "field.WorkspaceController.sidebarOrder": 1,
+        "field.WorkspaceController.sidebarOrder": 0,
         "field.WorkspaceController.subscription": 0,
         "field.WorkspaceController.syncCoreMessagesEnabled": 0,
         "field.WorkspaceController.syncCoreNotificationPrefsEnabled": 0,
@@ -225,10 +225,13 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 5125,
-        "tokens": 27530,
+        "lines": 5037,
+        "tokens": 26997,
         "field.WorkspaceController.conversationReads": 0,
-        "field.WorkspaceController._conversationPresentation": 0
+        "field.WorkspaceController._conversationPresentation": 0,
+        "field.WorkspaceController.channelRepository": 0,
+        "field.WorkspaceController.sidebarRepository": 0,
+        "field.WorkspaceController._channels": 0
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
@@ -933,6 +936,37 @@
         "lines": 126,
         "tokens": 704
       }
+    },
+    "workspace_channels": {
+      "root": "apps/raft_flutter/lib/data/workspace_channels.dart",
+      "metrics": {
+        "field.WorkspaceChannels._effectiveReadState": 1,
+        "field.WorkspaceChannels._prefetched": 1,
+        "field.WorkspaceChannels._prefetching": 1,
+        "field.WorkspaceChannels._refreshUnread": 1,
+        "field.WorkspaceChannels.context": 1,
+        "field.WorkspaceChannels.directory": 1,
+        "field.WorkspaceChannels.messagePrefetch": 1,
+        "field.WorkspaceChannels.messages": 1,
+        "field.WorkspaceChannels.notificationPrefsSync": 1,
+        "field.WorkspaceChannels.presentation": 1,
+        "field.WorkspaceChannels.reads": 1,
+        "field.WorkspaceChannels.savedRevision": 1,
+        "field.WorkspaceChannels.sessionEffects": 1,
+        "field.WorkspaceChannels.sidebar": 1,
+        "field.WorkspaceChannels.sidebarOrder": 1,
+        "field.WorkspaceChannels.transport": 1,
+        "field.WorkspaceChannels.windows": 1,
+        "lines": 320,
+        "tokens": 1870
+      }
+    },
+    "workspace_message_prefetch": {
+      "root": "apps/raft_flutter/lib/data/workspace_message_prefetch.dart",
+      "metrics": {
+        "lines": 63,
+        "tokens": 341
+      }
     }
   },
   "exceptions": [
@@ -986,14 +1020,6 @@
     },
     {
       "module": "workspace_controller",
-      "metric": "field.WorkspaceController.sidebarRepository",
-      "limit": 1,
-      "reason": "task #136 SidebarRepository slice requested by Cindy: replace five request, version and section-queue fields with one source-shared owner; keep the existing sidebarOrder projection and overridable controller entrypoints. Pending reviewer acceptance with this slice.",
-      "reviewer": "Cindy",
-      "expires": "2026-10-30"
-    },
-    {
-      "module": "workspace_controller",
       "metric": "field.WorkspaceController.sessionScope",
       "limit": 1,
       "reason": "task #136 step 5a authorized by Cindy: replace two receiver-local revocation sets with one SessionScope that dispatches server revocation and reset in fixed synchronous phases; preserve projection, borrowed/independent ownership and queued purge order. Pending exception approval with this concrete slice.",
@@ -1002,25 +1028,9 @@
     },
     {
       "module": "workspace_controller",
-      "metric": "field.WorkspaceController.channelRepository",
-      "limit": 1,
-      "reason": "task #136 step 6a requested by Cindy: replace five receiver-local channel read-order and in-flight fields with one ChannelRepository; retain controller list projections, original source delegation and overridable entrypoints. Principle accepted by Cindy; exact slice metrics and bounded replacement remain subject to PR review.",
-      "reviewer": "Cindy",
-      "expires": "2026-10-30"
-    },
-    {
-      "module": "workspace_controller",
       "metric": "field.WorkspaceController.attachmentRetentionIndex",
       "limit": 1,
       "reason": "task #136 step 6c authorized by Cindy: replace five receiver-local attachment history retention index fields with one AttachmentRetentionIndex; preserve admission stamps, debug counters and the original source-captured media callback. Principle accepted; this concrete field and measured slice remain subject to reviewer acceptance.",
-      "reviewer": "Cindy",
-      "expires": "2026-10-30"
-    },
-    {
-      "module": "workspace_controller",
-      "metric": "field.WorkspaceController.conversationReads",
-      "limit": 1,
-      "reason": "task #136 step 7a approved by Cindy: replace seven receiver-local read state, projection, counter and timeline fields with one ConversationReadRepository; preserve the borrowed effective cursor, mutable aliases, dispatch and persistence/reset ordering.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     },
