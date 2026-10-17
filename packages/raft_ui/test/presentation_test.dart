@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +45,7 @@ Widget _app({
   double keyboard = 0,
   bool fills = false,
   double initialSize = RaftSheetMetrics.largeDetent,
+  RaftSheetDetents? detents,
   RaftFamily family = RaftFamily.elegant,
   bool dark = false,
 }) => MaterialApp(
@@ -64,6 +67,7 @@ Widget _app({
             dialogMaxWidth: 400,
             sheetFillsHeight: fills,
             sheetInitialSize: initialSize,
+            sheetDetents: detents,
           ),
           child: const Text('open'),
         ),
@@ -335,6 +339,93 @@ void main() {
         closeTo(phone.height * RaftSheetMetrics.largeDetent, 2),
       );
       expect(_sheet, findsOneWidget);
+    });
+
+    group('detents controlled by the host', () {
+      testWidgets('peek lowers the sheet, restore raises it, it stays open', (
+        tester,
+      ) async {
+        _size(tester, phone);
+        final detents = RaftSheetDetents();
+        await tester.pumpWidget(
+          _app(
+            policy: RaftPresentationPolicy.form,
+            content: tall,
+            initialSize: RaftSheetMetrics.mediumDetent,
+            detents: detents,
+          ),
+        );
+        expect(detents.attached, isFalse);
+        expect(await detents.peek(), isFalse, reason: 'no sheet is open');
+        await _open(tester);
+        expect(detents.attached, isTrue);
+        expect(detents.peeking, isFalse);
+
+        unawaited(detents.peek());
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSize(_sheet).height,
+          closeTo(phone.height * detents.peekSize, 2),
+        );
+        expect(detents.peeking, isTrue);
+        expect(find.byType(RaftSheet), findsOneWidget, reason: 'not closed');
+
+        unawaited(detents.restore());
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSize(_sheet).height,
+          closeTo(phone.height * RaftSheetMetrics.mediumDetent, 2),
+        );
+        expect(detents.peeking, isFalse);
+      });
+
+      testWidgets('a drag up on the handle takes a peeking sheet up again', (
+        tester,
+      ) async {
+        _size(tester, phone);
+        final detents = RaftSheetDetents();
+        await tester.pumpWidget(
+          _app(
+            policy: RaftPresentationPolicy.form,
+            content: tall,
+            initialSize: RaftSheetMetrics.mediumDetent,
+            detents: detents,
+          ),
+        );
+        await _open(tester);
+        unawaited(detents.peek());
+        await tester.pumpAndSettle();
+        await tester.fling(_handle, const Offset(0, -300), 2000);
+        await tester.pumpAndSettle();
+        expect(detents.peeking, isFalse);
+        expect(
+          tester.getSize(_sheet).height,
+          greaterThan(phone.height * RaftSheetMetrics.mediumDetent - 2),
+        );
+        expect(find.byType(RaftSheet), findsOneWidget);
+      });
+
+      testWidgets('a fling down from the peek still closes the sheet', (
+        tester,
+      ) async {
+        _size(tester, phone);
+        final detents = RaftSheetDetents();
+        await tester.pumpWidget(
+          _app(
+            policy: RaftPresentationPolicy.form,
+            content: tall,
+            initialSize: RaftSheetMetrics.mediumDetent,
+            detents: detents,
+          ),
+        );
+        await _open(tester);
+        unawaited(detents.peek());
+        await tester.pumpAndSettle();
+        await tester.fling(_handle, const Offset(0, 300), 2000);
+        await tester.pumpAndSettle();
+        expect(find.byType(RaftSheet), findsNothing);
+        expect(detents.attached, isFalse);
+      });
     });
 
     testWidgets('never wider than 640 on a wide window', (tester) async {

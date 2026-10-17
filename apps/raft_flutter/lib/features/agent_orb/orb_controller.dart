@@ -12,12 +12,15 @@ import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
 import '../agent_mode/voice_provider.dart';
+import 'briefing/orb_briefing_models.dart' show OrbBriefItem;
+import 'briefing/orb_briefing_tools.dart'
+    show defaultOrbOpenLink, orbBriefingTools;
+import 'nav/orb_nav_tools.dart' show orbNavigationTools;
 import 'orb_operating.dart';
 import 'orb_prompt.dart';
 import 'orb_sheet.dart';
 import 'orb_state.dart';
 import 'orb_tool.dart';
-import 'stubs.dart';
 
 /// One line of the orb's transcript.
 enum OrbEntryKind {
@@ -61,7 +64,7 @@ class OrbController extends ChangeNotifier {
       ..._shellTools(),
       ...?appTools,
       if (appTools == null) ...orbNavigationTools(),
-      if (appTools == null) ...orbBriefingTools(),
+      if (appTools == null) ...orbBriefingTools(openLink: openBriefItem),
     ];
     tools = {for (final tool in all) tool.name: tool};
     voice = AgentVoiceController(
@@ -291,6 +294,15 @@ class OrbController extends ChangeNotifier {
     }
     // The toast names what was opened; a tool may say it better.
     if (!operating.value) operating.label = _labelOf(args);
+    // A tool that moves the app holds `operating` while it does or changes
+    // the location: the sheet then steps aside to show the page.
+    var movedScreen = false;
+    void watch() {
+      if (operating.value) movedScreen = true;
+    }
+
+    final before = workspace.location.toString();
+    operating.addListener(watch);
     Map<String, Object?> result;
     try {
       result = await tool.handler(
@@ -303,6 +315,17 @@ class OrbController extends ChangeNotifier {
       );
     } catch (_) {
       result = {'error': '工具出错：$name'};
+    } finally {
+      operating.removeListener(watch);
+    }
+    final failed =
+        result['error'] != null ||
+        result['cancelled'] == true ||
+        result['candidates'] != null;
+    if (!failed &&
+        !_disposed &&
+        (movedScreen || workspace.location.toString() != before)) {
+      unawaited(peekSheet());
     }
     final line = _activityLine(name, result);
     if (line != null && !_disposed) {
@@ -310,6 +333,14 @@ class OrbController extends ChangeNotifier {
       _add(OrbEntryKind.activity, line);
     }
     return result;
+  }
+
+  /// An item of the briefing card was tapped: the app goes there, and the
+  /// sheet steps aside so the page shows.
+  @visibleForTesting
+  void openBriefItem(OrbBriefItem item, OrbToolContext ctx) {
+    defaultOrbOpenLink(item, ctx);
+    unawaited(peekSheet());
   }
 
   static String? _labelOf(Map<String, Object?> args) {
@@ -370,6 +401,10 @@ class OrbController extends ChangeNotifier {
   RaftPresentedRoute<void>? _sheetRoute;
   bool _orbTouch = false;
 
+  /// Moves the open sheet between its detents: lowered to a peek when a tool
+  /// changed the screen, raised again by the person.
+  final detents = RaftSheetDetents(peekSize: .3);
+
   bool get sheetOpen => _sheetRoute != null;
 
   /// Opens the orb sheet (the transcript and the text input). False when the
@@ -382,6 +417,7 @@ class OrbController extends ChangeNotifier {
       context,
       policy: _sheetPolicy,
       sheetInitialSize: .65,
+      sheetDetents: detents,
       label: 'Agent',
       content: (context, form) => OrbSheet(controller: this),
     );
@@ -397,6 +433,25 @@ class OrbController extends ChangeNotifier {
     );
     return true;
   }
+
+  /// Lowers the sheet to a small peek (the last of the transcript and the
+  /// input) so the page the agent opened shows; the keyboard goes down with
+  /// it. Nothing when the sheet is not open.
+  Future<void> peekSheet() async {
+    if (_sheetRoute == null) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    await detents.peek();
+  }
+
+  /// Raises a peeking sheet to the size it opens at (the person tapped the
+  /// transcript or the input).
+  Future<void> expandSheet() async {
+    if (_sheetRoute == null || !detents.peeking) return;
+    await detents.restore();
+  }
+
+  /// Whether the sheet is lowered to the peek.
+  bool get sheetPeeking => _sheetRoute != null && detents.peeking;
 
   /// Closes the orb sheet, if it is open.
   void closeSheet() {

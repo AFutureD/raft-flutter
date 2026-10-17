@@ -159,6 +159,7 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
     bool dialogFillsHeight = false,
     bool sheetFillsHeight = false,
     double sheetInitialSize = RaftSheetMetrics.largeDetent,
+    RaftSheetDetents? sheetDetents,
     double sideWidth = 420,
   }) : this._(
          _SheetBuilder(),
@@ -176,6 +177,7 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
          dialogFillsHeight: dialogFillsHeight,
          sheetFillsHeight: sheetFillsHeight,
          sheetInitialSize: sheetInitialSize,
+         sheetDetents: sheetDetents,
          sideWidth: sideWidth,
        );
 
@@ -195,6 +197,7 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
     required this.dialogFillsHeight,
     required this.sheetFillsHeight,
     required this.sheetInitialSize,
+    required this.sheetDetents,
     required this.sideWidth,
   }) : super(
          builder: _sheetBuilder.call,
@@ -245,6 +248,10 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
   final bool sheetFillsHeight;
   final double sheetInitialSize;
 
+  /// Lets the host move the scrolling sheet between its detents (and adds a
+  /// peek detent to them); null for the usual two.
+  final RaftSheetDetents? sheetDetents;
+
   final contentKey = GlobalKey(debugLabel: 'presented content');
 
   /// The form the live width gives; a popover has no frame here.
@@ -277,6 +284,7 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
             )
           : _DetentSheet(
               initialSize: sheetInitialSize,
+              detents: sheetDetents,
               builder: (controller, drag) => RaftSheetScope(
                 scrollController: controller,
                 pointerDrag: drag,
@@ -355,6 +363,50 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
   }
 }
 
+/// Moves a presented scrolling sheet between its detents from outside: a host
+/// that did something on the screen behind the sheet (an agent opened a page)
+/// lowers the sheet to a peek so the page shows, and raises it again when the
+/// person asks. Give it to [showRaftPresented] / [raftPresentedRoute]; the
+/// sheet then also snaps at [peekSize]. The sheet's own dragging is unchanged.
+class RaftSheetDetents {
+  RaftSheetDetents({this.peekSize = .3})
+    : assert(peekSize > .25 && peekSize < RaftSheetMetrics.largeDetent);
+
+  /// The low detent: the sheet's top edge, as a fraction of the window.
+  final double peekSize;
+
+  _DetentSheetState? _sheet;
+
+  /// Whether a sheet is on screen to move.
+  bool get attached => (_sheet?.controller.isAttached ?? false);
+
+  /// The sheet's size now, as a fraction of the window; null when none.
+  double? get size => attached ? _sheet!.controller.size : null;
+
+  /// Whether the sheet is lowered to the peek (or dragged below its opening
+  /// size toward it).
+  bool get peeking => size != null && size! <= peekSize + .02;
+
+  /// Lowers the sheet to the peek detent. False when no sheet is open.
+  Future<bool> peek() => _moveTo(peekSize);
+
+  /// Raises the sheet to the size it opened at. False when no sheet is open.
+  Future<bool> restore() => _moveTo(_sheet?.widget.initialSize);
+
+  Future<bool> _moveTo(double? to) async {
+    final sheet = _sheet;
+    if (sheet == null || to == null || !sheet.controller.isAttached) {
+      return false;
+    }
+    await sheet.controller.animateTo(
+      to,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+    return true;
+  }
+}
+
 /// The scrolling sheet: draggable detents (the opening size and the large
 /// one) with one rule for closing it. A drag down to the bottom is a request
 /// to close, answered the way Back and Esc are: [Navigator.maybePop]. A route
@@ -362,8 +414,13 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
 /// hears `didPop: false` and the sheet slides back to its detent; the framework
 /// would close it with a raw `Navigator.pop` instead.
 class _DetentSheet extends StatefulWidget {
-  const _DetentSheet({required this.initialSize, required this.builder});
+  const _DetentSheet({
+    required this.initialSize,
+    required this.builder,
+    this.detents,
+  });
   final double initialSize;
+  final RaftSheetDetents? detents;
   final Widget Function(ScrollController controller, RaftSheetPointerDrag drag)
   builder;
 
@@ -380,10 +437,31 @@ class _DetentSheetState extends State<_DetentSheet>
   double extentHeight = 0;
   static const _minSize = .25;
 
+  @override
+  void initState() {
+    super.initState();
+    widget.detents?._sheet = this;
+  }
+
+  @override
+  void didUpdateWidget(_DetentSheet old) {
+    super.didUpdateWidget(old);
+    if (old.detents != widget.detents) {
+      if (old.detents?._sheet == this) old.detents?._sheet = null;
+      widget.detents?._sheet = this;
+    }
+  }
+
   List<double> get snapSizes => [
+    if (widget.detents case final detents?) detents.peekSize,
     if (widget.initialSize < RaftSheetMetrics.largeDetent) widget.initialSize,
     RaftSheetMetrics.largeDetent,
   ];
+
+  /// Below this a released drag is a request to close.
+  double get _closeBelow => widget.detents == null
+      ? widget.initialSize / 2
+      : (_minSize + widget.detents!.peekSize) / 2;
 
   @override
   void update(double dy) {
@@ -404,7 +482,7 @@ class _DetentSheetState extends State<_DetentSheet>
     final size = controller.size;
     // Flung down, or let go below half the opening size: a request to close,
     // answered the way a finger's drag to the bottom is.
-    if (velocityDy > 700 || size < widget.initialSize / 2) {
+    if (velocityDy > 700 || size < _closeBelow) {
       // Reaching the bottom asks the route (see [onExtent]).
       unawaited(
         controller.animateTo(
@@ -431,6 +509,7 @@ class _DetentSheetState extends State<_DetentSheet>
 
   @override
   void dispose() {
+    if (widget.detents?._sheet == this) widget.detents?._sheet = null;
     controller.dispose();
     super.dispose();
   }
@@ -503,6 +582,7 @@ Future<T?> showRaftPresented<T>(
   bool dialogFillsHeight = false,
   bool sheetFillsHeight = false,
   double sheetInitialSize = RaftSheetMetrics.largeDetent,
+  RaftSheetDetents? sheetDetents,
 }) {
   final navigator = Navigator.of(context, rootNavigator: true);
   return navigator.push(
@@ -518,6 +598,7 @@ Future<T?> showRaftPresented<T>(
       dialogFillsHeight: dialogFillsHeight,
       sheetFillsHeight: sheetFillsHeight,
       sheetInitialSize: sheetInitialSize,
+      sheetDetents: sheetDetents,
     ),
   );
 }
@@ -536,6 +617,7 @@ RaftPresentedRoute<T> raftPresentedRoute<T>(
   bool dialogFillsHeight = false,
   bool sheetFillsHeight = false,
   double sheetInitialSize = RaftSheetMetrics.largeDetent,
+  RaftSheetDetents? sheetDetents,
 }) {
   final navigator = Navigator.of(context, rootNavigator: true);
   final t = RaftTokens.of(context);
@@ -557,6 +639,7 @@ RaftPresentedRoute<T> raftPresentedRoute<T>(
     dialogFillsHeight: dialogFillsHeight,
     sheetFillsHeight: sheetFillsHeight,
     sheetInitialSize: sheetInitialSize,
+    sheetDetents: sheetDetents,
   );
 }
 

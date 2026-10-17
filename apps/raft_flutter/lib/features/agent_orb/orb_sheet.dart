@@ -76,6 +76,16 @@ class _OrbTranscriptState extends State<OrbTranscript> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final scroll = RaftSheetScope.maybeOf(context)?.scrollController;
+    // A tap on the conversation raises a sheet that was lowered to a peek.
+    return GestureDetector(
+      key: const ValueKey('orb-transcript'),
+      behavior: HitTestBehavior.translucent,
+      onTap: widget.controller.expandSheet,
+      child: _lines(context, t, scroll),
+    );
+  }
+
+  Widget _lines(BuildContext context, RaftTokens t, ScrollController? scroll) {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
@@ -208,9 +218,23 @@ class OrbSheetFooter extends StatefulWidget {
 
 class _OrbSheetFooterState extends State<OrbSheetFooter> {
   final text = TextEditingController();
+  final focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    focus.addListener(_focusChanged);
+  }
+
+  /// Going to type raises a sheet that was lowered to a peek.
+  void _focusChanged() {
+    if (focus.hasFocus) widget.controller.expandSheet();
+  }
 
   @override
   void dispose() {
+    focus.removeListener(_focusChanged);
+    focus.dispose();
     text.dispose();
     super.dispose();
   }
@@ -250,6 +274,7 @@ class _OrbSheetFooterState extends State<OrbSheetFooter> {
                     child: RaftTextInput(
                       key: const ValueKey('orb-sheet-input'),
                       controller: text,
+                      focusNode: focus,
                       hintText: '问点什么，或者说“去 raft-flutter”',
                       semanticLabel: 'Agent',
                       textInputAction: TextInputAction.send,
