@@ -1815,7 +1815,7 @@
    "status": "covered",
    "webEntry": "ThreadAgentFollowers header button 'N followers' popover",
    "gate": "visible to thread members; remove controls need roster.canManage",
-   "flutterEntry": "thread_agent_followers_view.dart in thread header (workspace_view.dart / workspace_grid_view.dart)",
+   "flutterEntry": "thread_agent_followers_view.dart in thread header (workspace_view.dart)",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/data/thread_agent_followers.dart",
@@ -10464,7 +10464,7 @@
    "gate": "",
    "flutterEntry": "",
    "flutterRefs": [],
-   "justification": "Web multi-panel grid and browser tab mechanics; Flutter uses its own desktop layout (docs/parity.md desktop sections).",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
    "impact": "",
    "size": ""
   },
@@ -11185,13 +11185,13 @@
    "area": "search",
    "capability": "Drag a search result (channel, DM, computer, agent, human, message hit) into a workspace-mode panel to open it there",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "components/search/MessageSearchPage.tsx handleMessageResultDrag/handleEntityResultDrag -> onDragPanelRef (MainLayout.tsx dragWorkspaceSearchResult)",
    "gate": "Workspace mode (grid) enabled",
    "flutterEntry": "",
-   "justification": "",
-   "impact": "Desktop workspace-mode users; rare drag path, opening via click still works. Flutter has no Draggable for search results.",
-   "size": "M",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": "",
    "flutterRefs": []
   },
   {
@@ -12772,21 +12772,12 @@
    "area": "account-profile",
    "capability": "Toggle 'Workspace mode' (multi-pane grid) on/off from Account settings",
    "background": false,
-   "status": "covered",
+   "status": "na",
    "webEntry": "Settings > Account top card: Workspace mode checkbox (WorkspaceModeSettingsCard)",
    "gate": "desktop-width only (>=1024)",
-   "flutterEntry": "workspace_mode_settings_card.dart shown in Account via workspaceModeCard; rail 'Enter/Exit Workspace' toggle",
-   "flutterRefs": [
-    {
-     "file": "apps/raft_flutter/lib/features/workspace_mode_settings_card.dart",
-     "needle": "class WorkspaceModeSettingsCard"
-    },
-    {
-     "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "workspace-mode-toggle"
-    }
-   ],
-   "justification": "",
+   "flutterEntry": "",
+   "flutterRefs": [],
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
    "impact": "",
    "size": ""
   },
@@ -15813,13 +15804,13 @@
    "area": "global-ui",
    "capability": "Cmd/Ctrl+Shift+T reopens the most recently closed workspace tab; Recently Closed list in the tab overview with Forget per entry",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "components/workspace/WorkspaceGridDemo.tsx reopenLatest keydown + tab overview 'Recently Closed' section (reopenRecentlyClosedTab, 'Forget {name}', 'No recently closed tabs')",
    "gate": "Workspace mode (grid) enabled",
    "flutterEntry": "",
-   "justification": "",
-   "impact": "Desktop workspace-mode users who close a panel by mistake; no undo-close in Flutter's editor groups.",
-   "size": "M",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": "",
    "flutterRefs": []
   },
   {
@@ -15863,13 +15854,13 @@
    "area": "global-ui",
    "capability": "Cmd/Ctrl+B collapses or expands the active workspace-mode sidebar (not while typing in a field)",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "components/layout/MainLayout.tsx onWorkspaceKeyDown (metaKey/ctrlKey + B) -> setWorkspaceSidebarCollapsed",
    "gate": "Workspace mode (grid) enabled: large screen + server flag + user toggle",
    "flutterEntry": "",
-   "justification": "",
-   "impact": "Desktop power users in workspace mode; frequent. Flutter has no key binding for keyB and the workspace-mode rail cannot be collapsed from the keyboard.",
-   "size": "S",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": "",
    "flutterRefs": []
   },
   {
@@ -15878,13 +15869,13 @@
    "area": "global-ui",
    "capability": "Cmd/Ctrl+W closes the active workspace tab (pinned tabs refuse with a message)",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "components/workspace/WorkspaceGridDemo.tsx handleWorkspaceKeyDownCapture (meta/ctrl+W) -> closeWorkspaceTab; shows 'X is pinned and cannot be closed' for pinned tabs",
    "gate": "Workspace mode (grid) enabled",
-   "flutterEntry": "Cmd/Ctrl+W is only bound inside the attachment lightbox and the message-image export dialog, not for workspace-grid tabs",
-   "justification": "",
-   "impact": "Desktop workspace-mode users; closing a tab needs the mouse on the tab X.",
-   "size": "S",
+   "flutterEntry": "",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": "",
    "flutterRefs": []
   },
   {
@@ -15893,13 +15884,13 @@
    "area": "global-ui",
    "capability": "Ctrl+Tab cycles workspace tabs in most-recently-used order",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "components/workspace/WorkspaceGridDemo.tsx handleWorkspaceKeyDownCapture (ctrlKey+Tab) -> nextWorkspaceMruTabId",
    "gate": "Workspace mode (grid) enabled",
    "flutterEntry": "",
-   "justification": "",
-   "impact": "Desktop workspace-mode users switching between open panels; no keyboard tab switching in the Flutter editor groups.",
-   "size": "S",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": "",
    "flutterRefs": []
   },
   {
@@ -15949,13 +15940,13 @@
    "area": "global-ui",
    "capability": "Drag a channel/DM from the sidebar, a saved message, or a search hit onto the workspace to open it in a panel",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "components/layout/Sidebar.tsx handleWorkspaceSidebarDrop (channel/DM rows onDrop), MainLayout.tsx dragWorkspaceSavedEntry/dragWorkspaceSearchResult, workspaceGridOpenEvents.ts",
    "gate": "Workspace mode (grid) enabled",
    "flutterEntry": "",
-   "justification": "",
-   "impact": "Desktop workspace-mode users; click-to-open still works.",
-   "size": "M",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": "",
    "flutterRefs": []
   },
   {
@@ -15964,23 +15955,14 @@
    "area": "global-ui",
    "capability": "Workspace grid tabs: open channels/DMs/threads/agent/human/computer/settings/tasks as tabs, drag tabs between panes, split, resize, tab context menu (Pin/Unpin, Close, Close others, Close all, Move to other pane), tab overview with 'Search open tabs...', Recently Closed, maximize, more than two panes",
    "background": false,
-   "status": "partial",
+   "status": "na",
    "webEntry": "components/workspace/WorkspaceGridDemo.tsx (flexlayout) + workspaceGridDemoConfig.ts WorkspacePanelRef kinds channel|dm|agent|human|machine|settings|thread|tasks",
    "gate": "Workspace mode (grid) enabled",
-   "flutterEntry": "workspace_grid_view.dart RaftEditorGroups: channel/DM/thread tabs plus retained 'route:' page tabs, close X, drag tab to other group, drag-to-split into at most two resizable groups. No pin, close-others/all, move-to-pane menu, tab overview/search, recently closed, maximize, vertical split, or agent/human/computer/settings/tasks panel tabs",
-   "flutterRefs": [
-    {
-     "file": "apps/raft_flutter/lib/features/workspace_grid_view.dart",
-     "needle": "RaftEditorGroups("
-    },
-    {
-     "file": "apps/raft_flutter/lib/features/workspace_grid_view.dart",
-     "needle": "onSplit:"
-    }
-   ],
-   "justification": "Source comment in workspace_grid_view.dart split(): 'More than two and vertical/maximize/rail relocation remain explicit gaps'; docs/tap-targets.md records profile column as a gap.",
-   "impact": "Desktop workspace-mode users (flag-gated feature); core tabs work, power-user management does not.",
-   "size": "L"
+   "flutterEntry": "",
+   "flutterRefs": [],
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": ""
   },
   {
    "kind": "ui",
@@ -15988,21 +15970,12 @@
    "area": "global-ui",
    "capability": "Workspace mode (multi-panel grid) switch, available only when the server flag is on and the window is wide",
    "background": false,
-   "status": "covered",
+   "status": "na",
    "webEntry": "components/workspace/workspaceGridAvailability.ts + workspaceGridNavigationStore.ts (raft:workspace-grid-mode:{user}); Settings 'Workspace mode' card and rail button",
    "gate": "Server feature flag + width >= 1024",
-   "flutterEntry": "workspace_mode_settings_card.dart WorkspaceModeSettingsCard + workspace_mode_store.dart (>=1024 px, server flag, per-user device preference)",
-   "flutterRefs": [
-    {
-     "file": "apps/raft_flutter/lib/features/workspace_mode_settings_card.dart",
-     "needle": "class WorkspaceModeSettingsCard"
-    },
-    {
-     "file": "apps/raft_flutter/lib/data/workspace_mode_store.dart",
-     "needle": "raft:workspace-grid-mode:"
-    }
-   ],
-   "justification": "",
+   "flutterEntry": "",
+   "flutterRefs": [],
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
    "impact": "",
    "size": ""
   },
@@ -16012,13 +15985,13 @@
    "area": "global-ui",
    "capability": "Workspace-mode rails: drag rail icons between a left and a right sidebar, collapse each side, per-side sidebar widths and active item remembered",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "components/workspace/workspaceGridNavigationStore.ts (railLayout left/right, sidebars, sidebarWidths, moveRailItem; persisted raft:workspace-grid-mode:{user}) + workspaceRailDrag.ts",
    "gate": "Workspace mode (grid) enabled",
    "flutterEntry": "",
-   "justification": "",
-   "impact": "Desktop workspace-mode users who rearrange rails; Flutter rail order is fixed on the left.",
-   "size": "M",
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": "",
    "flutterRefs": []
   },
   {
@@ -16122,14 +16095,14 @@
    "area": "global-ui",
    "capability": "Drag a saved message row into the desktop workspace grid to open it as a panel",
    "background": false,
-   "status": "missing",
+   "status": "na",
    "webEntry": "SavedPanel onDragEntry -> emitWorkspaceGridDragPanel",
    "gate": "desktop workspace grid layout",
    "flutterEntry": "",
    "flutterRefs": [],
-   "justification": "resource_view.dart saved rows have no Draggable/onDragEntry (only task rows are draggable).",
-   "impact": "Desktop power users arranging panels; low.",
-   "size": "M"
+   "justification": "Web removed the workspace grid in v1.21.x. Flutter removed the mirrored entry, side-by-side view, per-column sessions, and the mode switch.",
+   "impact": "",
+   "size": ""
   },
   {
    "kind": "ui",

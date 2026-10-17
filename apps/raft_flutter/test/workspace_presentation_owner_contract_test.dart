@@ -6,7 +6,6 @@ import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/user_activity.dart';
 import 'package:raft_flutter/data/workspace_cache.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
-import 'package:raft_flutter/data/workspace_grid_sessions.dart';
 
 Map<String, dynamic> _row(String channel, int seq) => {
   'id': '$channel-$seq',
@@ -454,37 +453,6 @@ void main() {
       );
     },
   );
-
-  test('P9 grid tab admission cannot overwrite a folded child owner', () async {
-    final f = _Fixture(), source = f.root;
-    final grid = WorkspaceGridSessions(source);
-    addTearDown(grid.dispose);
-    final a = grid.open('c1')!, b = grid.open('c2')!;
-    for (
-      var i = 0;
-      i < 100 &&
-          (a.channelLoading ||
-              b.channelLoading ||
-              a.messages.isEmpty ||
-              b.messages.isEmpty);
-      i++
-    ) {
-      await Future<void>.delayed(Duration.zero);
-    }
-    expect(a.messages, isNotEmpty);
-    expect(b.messages, isNotEmpty);
-    final owner = Object();
-    a.setConversationPresentation(owner, main: false, thread: true);
-    b.setConversationPresentation(owner, main: true, thread: true);
-    grid.present({'c1', 'c2'});
-    expect(a.messageWindow!.visible, isFalse);
-    expect(b.messageWindow!.visible, isTrue);
-    grid.present({'c2'});
-    grid.present({'c1', 'c2'});
-    expect(a.messageWindow!.visible, isFalse);
-    expect(source.messageWindow!.visible, isTrue);
-    expect(identical(a.composer, source.composer), isTrue);
-  });
 
   for (final boundary in [
     'background',

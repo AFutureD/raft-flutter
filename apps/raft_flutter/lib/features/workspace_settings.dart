@@ -64,7 +64,6 @@ class WorkspaceSettings extends StatefulWidget {
     this.labsEnabled = false,
     this.appVersion,
     this.frontendOrigin,
-    this.workspaceModeCard,
     this.now,
     this.appUpdate,
   });
@@ -77,7 +76,6 @@ class WorkspaceSettings extends StatefulWidget {
   /// Clock for date-dependent copy (the billing trial notice); tests and the
   /// parity harness freeze it.
   final DateTime Function()? now;
-  final Widget? workspaceModeCard;
   final RaftAppearance appearance;
   final ValueChanged<RaftAppearance> onAppearance;
   final PersonalPresentationStore presentation;
@@ -190,11 +188,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           'account',
           'Account',
           RaftGlyph.user,
-          (_) => AccountSettings(
-            controller: w,
-            onLogout: widget.onLogout,
-            workspaceModeCard: widget.workspaceModeCard,
-          ),
+          (_) => AccountSettings(controller: w, onLogout: widget.onLogout),
         ),
         RaftSettingsDestination(
           'language-region',

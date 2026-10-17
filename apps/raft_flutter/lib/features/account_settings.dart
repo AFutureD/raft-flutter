@@ -13,14 +13,8 @@ import 'usage_data_card.dart';
 import 'sign_in_diagnostics_card.dart';
 
 class AccountSettings extends StatefulWidget {
-  const AccountSettings({
-    super.key,
-    required this.controller,
-    this.onLogout,
-    this.workspaceModeCard,
-  });
+  const AccountSettings({super.key, required this.controller, this.onLogout});
   final WorkspaceController controller;
-  final Widget? workspaceModeCard;
 
   /// AccountSignOutSection; the host owns the session teardown.
   final Future<void> Function()? onLogout;
@@ -497,7 +491,6 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.workspaceModeCard != null) widget.workspaceModeCard!,
         const RaftSettingsSectionHeader(
           label: 'Account',
           glyph: RaftGlyph.user,

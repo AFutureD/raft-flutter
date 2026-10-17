@@ -76,18 +76,7 @@
       "rootEdges": 1,
       "rootIdentifiers": 1,
       "reason": "Existing dependency pending the assigned domain migration; lower/remove this allowance as the file migrates."
-    },
-    "apps/raft_flutter/lib/data/workspace_mode_store.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 1,
-      "reason": "Existing D3 page/mode view model dependency; lower/remove as the file migrates."
     }
   },
-  "compositionHosts": {
-    "apps/raft_flutter/lib/data/workspace_grid_sessions.dart": {
-      "rootEdges": 1,
-      "rootIdentifiers": 6,
-      "reason": "Host constructs workspace presentations; not a domain owner."
-    }
-  }
+  "compositionHosts": {}
 }
