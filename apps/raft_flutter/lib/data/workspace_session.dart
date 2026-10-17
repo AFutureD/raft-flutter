@@ -76,9 +76,6 @@ class WorkspaceSession
   RaftRecord? get server => _serverDirectory.server;
   set server(RaftRecord? value) => _serverDirectory.server = value;
   bool connected = false;
-  bool get syncCoreMessagesEnabled => _features.syncCoreMessagesEnabled;
-  set syncCoreMessagesEnabled(bool value) =>
-      _features.syncCoreMessagesEnabled = value;
   @override
   bool get syncCoreNotificationPrefsEnabled =>
       _features.syncCoreNotificationPrefsEnabled;

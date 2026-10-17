@@ -18,7 +18,6 @@ class WorkspaceSessionFeatures {
   final WorkspaceTransportPort transport;
   final WorkspaceSessionChannels directory;
   final WorkspaceSessionMessages messages;
-  bool syncCoreMessagesEnabled = false;
   bool syncCoreNotificationPrefsEnabled = false;
   bool remoteComputerUpgradeEnabled = false;
   bool agentMigrationEnabled = false, runtimeFormV2WebEnabled = false;
@@ -28,7 +27,6 @@ class WorkspaceSessionFeatures {
   static const runtimeFormV2WebFlag = 'runtime_form_v2_web';
   RaftClient get client => transport.client;
   String syncIdentity() => context.syncIdentity();
-  MessageSync get messageSync => messages.messageSync;
   ThreadRepliesSync get threadRepliesSync => messages.threadRepliesSync;
   NotificationPrefsSync get notificationPrefsSync =>
       directory.notificationPrefsSync;
@@ -57,7 +55,6 @@ class WorkspaceSessionFeatures {
         '/feature-flags/evaluate',
         data: featureFlagEvaluateBody(
           keys: [
-            'sync_core_messages_v0',
             notificationPrefsFlag,
             remoteComputerUpgradeFlag,
             agentMigrationFlag,
@@ -74,13 +71,6 @@ class WorkspaceSessionFeatures {
           identity != syncIdentity()) {
         return;
       }
-      final enabled =
-          result is Map &&
-          (result['evaluations'] as List? ?? []).whereType<Map>().any(
-            (f) => f['key'] == 'sync_core_messages_v0' && f['enabled'] == true,
-          );
-      if (enabled != syncCoreMessagesEnabled) messageSync.reset();
-      syncCoreMessagesEnabled = enabled;
       final prefsEnabled =
           result is Map &&
           (result['evaluations'] as List? ?? []).whereType<Map>().any(

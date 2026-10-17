@@ -12,7 +12,6 @@ abstract interface class WorkspaceMessageIngressPort {
   RaftChannel? get channel;
   String? get threadChannelId;
   bool get hasNewer;
-  bool get syncCoreMessagesEnabled;
   void confirmMessageSend(Map<String, dynamic> row);
   void storeMessage(Map<String, dynamic> row, {bool updateOnly = false});
   void overlayMessageReactions(Map<String, dynamic> row);
@@ -33,7 +32,6 @@ bool consumeWorkspaceMessageEvent(
   required WorkspaceMessageIngressPort presentation,
   required MessageLedger ledger,
   required WorkspaceMessageWindows windows,
-  required MessageSync messageSync,
 }) {
   if ((event.name == 'message:new' || event.name == 'message:updated') &&
       event.payload is Map) {
@@ -54,12 +52,10 @@ bool consumeWorkspaceMessageEvent(
       }
       presentation.overlayMessageReactions(row);
     } else {
-      final projection = presentation.syncCoreMessagesEnabled
-          ? messageSync.consumeNew(row)
-          : row;
-      if (projection == null) return false;
-      presentation.storeMessage(projection);
-      ledger.ingest([projection], expectedGeneration: ledger.generation);
+      // Server-wide sequences are sparse within a channel, and a later frame
+      // may arrive before an earlier one. The ledger owns identity de-duplication.
+      presentation.storeMessage(row);
+      ledger.ingest([row], expectedGeneration: ledger.generation);
     }
     final id = row['channelId'];
     if (id == presentation.channel?.id && !presentation.hasNewer ||
