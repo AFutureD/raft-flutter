@@ -199,6 +199,7 @@ const dialogSurfaces = <CloseSurface>[
       'lib/features/channel_settings.dart',
       'lib/features/fleet_views.dart',
       'lib/features/management_support.dart',
+      'lib/features/mcp_server_editor.dart',
       'lib/features/resource_view.dart',
       'lib/features/server_views.dart',
       '../../packages/raft_ui/lib/src/form_dialog.dart',

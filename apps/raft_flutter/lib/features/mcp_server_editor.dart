@@ -223,7 +223,7 @@ class _McpServerEditorState extends State<McpServerEditor> {
         child: input,
       );
 
-  Widget select(
+  Widget selectInput(
     String id,
     String value,
     Map<String, String> choices,
@@ -257,7 +257,7 @@ class _McpServerEditorState extends State<McpServerEditor> {
     final fields = [
       field(
         'Provider',
-        select(
+        selectInput(
           'mcp-provider',
           provider,
           const {'custom': 'Custom', 'notion': 'Notion', 'linear': 'Linear'},
@@ -278,7 +278,7 @@ class _McpServerEditorState extends State<McpServerEditor> {
       ),
       field(
         'Authentication',
-        select(
+        selectInput(
           'mcp-auth-mode',
           authMode,
           const {
