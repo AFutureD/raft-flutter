@@ -356,7 +356,9 @@ void main() {
 
     testWidgets('an Agent and a person known only by id are named as the '
         'Activity page names them, on screen and for the model', (t) async {
-      final named = _NamedWorkspace(client)
+      final named = _NamedWorkspace(client);
+      addTearDown(named.dispose);
+      named
         ..server = w.server
         ..channels = w.channels
         ..dms = w.dms
@@ -389,6 +391,7 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
+      debugPrint('TEXTS ${t.widgetList<Text>(find.byType(Text)).map((e) => e.data).whereType<String>().toList()} DIR ${named.entityDirectory.authorAgents} ${named.entityDirectory.authorsLoading}');
       expect(find.text('Cindy：每日工作方法复盘：今天的三条'), findsOneWidget);
       expect(find.text('Alice Chen：周五的评审你能来吗？'), findsOneWidget);
       expect(find.textContaining('有人'), findsNothing);
@@ -430,7 +433,9 @@ void main() {
     testWidgets('who says each message of the conversation is resolved too', (
       t,
     ) async {
-      final named = _NamedWorkspace(client)
+      final named = _NamedWorkspace(client);
+      addTearDown(named.dispose);
+      named
         ..server = w.server
         ..channels = w.channels
         ..dms = w.dms
