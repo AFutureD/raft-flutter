@@ -78,7 +78,7 @@ class _LinuxApplicationMenuState extends State<LinuxApplicationMenu> {
       final service = widget.appUpdate;
       if (service == null || !service.enabled) return await _fallback();
       unawaited(service.checkNow());
-      await showDialog<void>(
+      await showRaftDialog<void>(
         context: context,
         builder: (context) => RaftDialogCard(
           key: const Key('linux-update-dialog'),
