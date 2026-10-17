@@ -12,7 +12,8 @@ import '../agent_mode/agent_summary.dart';
 import '../agent_mode/agent_voice.dart';
 import '../agent_mode/agent_voice_settings.dart';
 import '../agent_mode/voice_provider.dart';
-import 'briefing/orb_briefing_models.dart' show OrbBriefItem;
+import 'briefing/orb_briefing_models.dart' show OrbBriefItem, OrbBriefScope;
+import 'briefing/orb_briefing_service.dart';
 import 'briefing/orb_briefing_tools.dart'
     show defaultOrbOpenLink, orbBriefingTools;
 import 'nav/orb_nav_tools.dart'
@@ -72,7 +73,12 @@ class OrbController extends ChangeNotifier {
     AgentVoiceKey? voiceKey,
     this.summarySender,
     this.operatingLinger = const Duration(milliseconds: 2500),
-  }) {
+    Future<void> Function(WorkspaceController w)? warmUp,
+  }) : _warmUp =
+           warmUp ??
+           (appTools == null
+               ? (w) => OrbBriefingService.of(w).warm(OrbBriefScope.activity)
+               : null) {
     final all = [
       ..._shellTools(),
       ...?appTools,
@@ -100,6 +106,15 @@ class OrbController extends ChangeNotifier {
   }
 
   final WorkspaceController workspace;
+
+  /// Reads the Activity briefing ahead of time when the person turns to the
+  /// orb, so the briefing `navigate` brings is mostly written by then.
+  final Future<void> Function(WorkspaceController w)? _warmUp;
+
+  void _warm() {
+    final warmUp = _warmUp;
+    if (warmUp != null) unawaited(warmUp(workspace).catchError((Object _) {}));
+  }
 
   /// Where a session's summary goes (the shared agent's DM unless a test
   /// gives another).
@@ -183,12 +198,14 @@ class OrbController extends ChangeNotifier {
       return;
     }
     if (sheetOpen) return;
+    _warm();
     await openSheet();
   }
 
   /// A long-press on the orb: start a live voice conversation.
   Future<void> longPressOrb() async {
     if (inCall) return;
+    _warm();
     if (!await voice.hasKey) {
       _note('还没有语音 Key：在 设置 > Labs 里扫码填入（和 Agent 模式共用）');
       await openSheet();

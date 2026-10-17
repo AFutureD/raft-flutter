@@ -98,6 +98,9 @@ Map<String, dynamic> dmRow() => {
 
 /// A model that answers from the prompt it is given.
 class FakeGemini implements GeminiText {
+  @override
+  bool get lite => false;
+
   FakeGemini([this.reply]);
 
   /// Builds the reply from the request (null: no key).
@@ -587,6 +590,52 @@ void main() {
         expect((req['known'] as List), isNotEmpty);
       },
     );
+  });
+
+  // The orb warms the Activity briefing when it opens, so `navigate` finds
+  // the model's words ready (8-9 s from request to first word on the G100).
+  group('warming', () {
+    test('a briefing after a warm-up asks the model nothing new', () async {
+      final gemini = FakeGemini(FakeGemini.echo());
+      final s = service(model: gemini);
+      await s.warm(OrbBriefScope.activity);
+      expect(gemini.calls, 1);
+      final b = await s.brief(OrbBriefScope.activity, full: true);
+      expect(gemini.calls, 1);
+      expect(b.writtenByModel, isTrue);
+    });
+
+    test(
+      'a briefing during a warm-up waits for it instead of asking twice',
+      () async {
+        final gemini = FakeGemini(FakeGemini.echo());
+        final s = service(model: gemini);
+        final warming = s.warm(OrbBriefScope.activity);
+        final b = await s.brief(OrbBriefScope.activity, full: true);
+        await warming;
+        expect(gemini.calls, 1);
+        expect(b.writtenByModel, isTrue);
+      },
+    );
+
+    test(
+      'a warm-up is not "told": the next briefing is the whole picture',
+      () async {
+        final s = service();
+        await s.warm(OrbBriefScope.activity);
+        final first = await s.brief(OrbBriefScope.activity);
+        expect(first.isDelta, isFalse);
+        expect(first.needsYou, hasLength(2));
+      },
+    );
+
+    test('a failing warm-up is quiet', () async {
+      final gemini = FakeGemini(FakeGemini.echo())..error = StateError('boom');
+      final s = service(model: gemini);
+      await s.warm(OrbBriefScope.activity);
+      final b = await s.brief(OrbBriefScope.activity, full: true);
+      expect(b.needsYou, hasLength(2));
+    });
   });
 
   group('since last time', () {

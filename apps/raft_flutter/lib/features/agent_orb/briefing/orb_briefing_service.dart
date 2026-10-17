@@ -43,7 +43,7 @@ class OrbBriefingService {
   /// The service of [w]: its cache and its "since last time" memory live as
   /// long as the workspace does.
   static OrbBriefingService of(WorkspaceController w, {GeminiText? model}) =>
-      _shared[w] ??= OrbBriefingService(w, model: model ?? GeminiText.instance);
+      _shared[w] ??= OrbBriefingService(w, model: model ?? GeminiText.briefing);
 
   // Per item, keyed by "<id>@<version>": the model's words and verdict. An
   // item with nothing newer is never sent again.
@@ -53,6 +53,22 @@ class OrbBriefingService {
 
   /// Forgets what was briefed (the next briefing is the full one).
   void forgetTold() => _told.clear();
+
+  final _warming = <String, Future<void>>{};
+
+  /// Reads [scope] and has the model word it ahead of time, so a briefing
+  /// asked for soon after finds the words cached. It is not a briefing: what
+  /// was told stays as it was. Never throws; one warm-up per scope at a time.
+  Future<void> warm(OrbBriefScope scope) {
+    final key = scope.key;
+    return _warming[key] ??= _brief(scope, full: true, remember: false)
+        .then<void>((_) {}, onError: (Object _) {})
+        .whenComplete(() {
+          // A block: `remove` returns this very future, and whenComplete
+          // would wait on it forever.
+          _warming.remove(key);
+        });
+  }
 
   /// The briefing for [scope]. A scope briefed before gets only what is new
   /// since, unless [full]; the first call, and every [full] call, give the
@@ -65,6 +81,18 @@ class OrbBriefingService {
     OrbBriefScope scope, {
     bool full = false,
     Duration? modelWait,
+  }) async {
+    // A warm-up in flight is asking the model already: wait for its words.
+    final warming = _warming[scope.key];
+    if (warming != null) await warming;
+    return _brief(scope, full: full, modelWait: modelWait);
+  }
+
+  Future<OrbBriefing> _brief(
+    OrbBriefScope scope, {
+    required bool full,
+    Duration? modelWait,
+    bool remember = true,
   }) async {
     final reader = OrbBriefingReader(w, now: _now);
     final read = scope.isActivity
@@ -154,7 +182,7 @@ class OrbBriefingService {
       for (final i in [...shownNeeds, ...shownProgress]) i.id: i.versionKey,
       for (final r in routine) r.$1: r.$2,
     };
-    _told[scope.key] = _Told(nowTold);
+    if (remember) _told[scope.key] = _Told(nowTold);
 
     bool isNew(OrbBriefItem i) =>
         !delta || before.versions[i.id] != i.versionKey;

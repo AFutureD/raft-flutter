@@ -165,8 +165,12 @@ class OrbFixture {
     await client.dispose();
   }
 
+  /// The scopes the orb asked to brief ahead of time.
+  final warmed = <WorkspaceController>[];
+
   OrbController build({List<OrbTool> tools = const []}) =>
       controller = OrbController(
+        warmUp: (w) async => warmed.add(w),
         workspace: w,
         navigatorContext: () => navKey.currentState?.overlay?.context,
         appTools: tools,
@@ -321,10 +325,13 @@ void main() {
     ) async {
       await fixture(t);
       await f.pump();
+      expect(f.warmed, isEmpty);
       await t.tap(OrbFixture.orbFinder);
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect(find.byKey(const ValueKey('orb-sheet')), findsOneWidget);
+      // The briefing is read while the person is still typing.
+      expect(f.warmed, [f.w]);
       expect(f.controller.sheetOpen, isTrue);
       // One orb at a time: the floating one docks into the sheet footer.
       expect(OrbFixture.orbFinder, findsOneWidget);

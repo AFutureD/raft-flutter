@@ -256,6 +256,7 @@ void main() {
       expect(f.sessions, hasLength(1));
       expect(f.controller.voice.state, AgentMicState.connecting);
       expect(f.audio.micStarts, 1);
+      expect(f.warmed, [f.w], reason: 'briefed while the call connects');
       // The sheet did not open: a long-press talks.
       expect(f.controller.sheetOpen, isFalse);
       await connected(t);
