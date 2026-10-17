@@ -224,7 +224,9 @@ class AgentConsentLedger extends ChangeNotifier implements AgentUserConsent {
       for (final e in _entries.values) e.request.expires,
       for (final c in _cancelled.values) c.until,
     ];
-    return times.isEmpty ? null : times.reduce((a, b) => a.isBefore(b) ? a : b);
+    return times.isEmpty
+        ? null
+        : times.reduce((a, b) => a.isBefore(b) ? a : b);
   }
 
   bool _prune() {

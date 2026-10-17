@@ -61,7 +61,8 @@ final digestCapabilities = <AgentCapability>[
       ),
       'after': strArg('具体起点，如 2026-10-15T08:00:00；比 range 优先', max: 40),
     }),
-    resultSummary: 'since, label, tasks{updated,byStatus{done,in_review,...},recent[{id,number,title,status,owner,channel,updated}]}, channels{active,rows[{id,name,from,text,time,unread,mention}]}, mentions{count,rows}, unreadTotal',
+    resultSummary:
+        'since, label, tasks{updated,byStatus{done,in_review,...},recent[{id,number,title,status,owner,channel,updated}]}, channels{active,rows[{id,name,from,text,time,unread,mention}]}, mentions{count,rows}, unreadTotal',
     run: (w, args, env) async {
       final data = env.dataFor(w);
       final now = data.now();
@@ -113,17 +114,14 @@ final digestCapabilities = <AgentCapability>[
       } on Object {
         channelsProblem = true;
       }
-      String name(Map<String, dynamic> r) =>
-          '${r['kind'] == 'thread' ? r['parentChannelName'] : r['channelName']}';
+      String name(Map<String, dynamic> r) => '${r['kind'] == 'thread' ? r['parentChannelName'] : r['channelName']}';
       Map<String, Object?> row(Map<String, dynamic> r) {
         final thread = r['kind'] == 'thread';
         return compact({
           'id': thread ? r['parentChannelId'] : r['channelId'],
           'name': name(r),
           'thread': thread ? true : null,
-          'from': thread
-              ? r['latestActivitySenderName']
-              : r['lastMessageSenderName'],
+          'from': thread ? r['latestActivitySenderName'] : r['lastMessageSenderName'],
           'text': clip(
             thread
                 ? r['latestActivityPreview'] ?? r['parentMessagePreview']
@@ -212,8 +210,7 @@ final digestCapabilities = <AgentCapability>[
     preview: (w, args, env) async {
       final target = _server(w, '${args['server']}');
       return AgentActionPreview(
-        summary:
-            '从“${w.server?.string('name')}”切换到工作区“${target.string('name')}”',
+        summary: '从“${w.server?.string('name')}”切换到工作区“${target.string('name')}”',
         changes: [
           change('当前工作区', w.server?.string('name'), target.string('name')),
         ],

@@ -38,7 +38,10 @@ RaftMessage _taskParent(Map<String, dynamic> task) {
   return RaftMessage({'id': id, 'channelId': task['channelId']});
 }
 
-RaftChannel _joinedChannelOf(WorkspaceController w, Map<String, dynamic> task) {
+RaftChannel _joinedChannelOf(
+  WorkspaceController w,
+  Map<String, dynamic> task,
+) {
   final c = w.channelById('${task['channelId']}');
   if (c == null || !c.joined || c.archived) {
     throw AgentCapabilityError('${taskWord(task)} 所在的频道你没有加入或已归档，不能留言');
@@ -106,7 +109,8 @@ final taskMoreCapabilities = <AgentCapability>[
         run: () async {
           await _patchStatus(w, task, before);
           // A sent message cannot be taken back: say that the send-back was.
-          final text = '（撤销了刚才的打回：任务已改回“${statusWord(before)}”）';
+          final text =
+              '（撤销了刚才的打回：任务已改回“${statusWord(before)}”）';
           final ok = await w.sendThreadReply(
             parent,
             text,
@@ -256,12 +260,13 @@ final taskFromMessageCapabilities = <AgentCapability>[
         '/tasks/convert-message',
         data: {'messageId': m.id},
       );
-      final task =
-          _created(body).firstOrNull ??
+      final task = _created(body).firstOrNull ??
           (body is Map ? Map<String, dynamic>.from(body) : <String, dynamic>{});
       final id = task['id'];
       return actionResult(
-        task['taskNumber'] == null ? '已变成任务' : '已变成任务 #${task['taskNumber']}',
+        task['taskNumber'] == null
+            ? '已变成任务'
+            : '已变成任务 #${task['taskNumber']}',
         entity: id == null ? 'message' : 'task',
         id: id == null ? m.id : '$id',
         extra: {'number': task['taskNumber']},
@@ -344,8 +349,7 @@ final taskFromMessageCapabilities = <AgentCapability>[
               '/tasks/${task['id']}/assignee',
               data: {
                 ...assigneePatch(person),
-                if (task['revision'] is num)
-                  'expectedRevision': task['revision'],
+                if (task['revision'] is num) 'expectedRevision': task['revision'],
               },
             );
             assigned++;
@@ -414,4 +418,5 @@ Future<Map<String, dynamic>> _pickIn(
   WorkspaceController w,
   String channelId,
   String ref,
-) async => pickPerson(await assignableOf(w, {'channelId': channelId}), ref);
+) async =>
+    pickPerson(await assignableOf(w, {'channelId': channelId}), ref);

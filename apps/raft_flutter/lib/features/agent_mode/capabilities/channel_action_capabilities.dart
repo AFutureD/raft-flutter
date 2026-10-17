@@ -106,7 +106,10 @@ Future<void> _setPinned(
       {'kind': ref.$1, 'id': ref.$2},
     ];
     final before = _maps(w.sidebarOrder['sectionPlacements']);
-    final drop = [('channel', c.id), if (ref.$1 == 'agent') ('agent', ref.$2)];
+    final drop = [
+      ('channel', c.id),
+      if (ref.$1 == 'agent') ('agent', ref.$2),
+    ];
     final after = [
       for (final p in before)
         if (!drop.any((d) => _same(p, d.$1, d.$2))) p,
@@ -217,9 +220,7 @@ final channelActionCapabilities = <AgentCapability>[
       final c = _mutable(w, '${args['channel']}');
       final muted = args['muted'] != false;
       if (c.flag('activityMuted') == muted) {
-        throw AgentCapabilityError(
-          '${channelWord(c)} 已经${muted ? '静音' : '没有静音'}了',
-        );
+        throw AgentCapabilityError('${channelWord(c)} 已经${muted ? '静音' : '没有静音'}了');
       }
       return AgentActionPreview(
         summary: '${muted ? '静音' : '取消静音'}${channelWord(c)}（只管动态里的提醒，消息照常收）',
@@ -283,9 +284,7 @@ final channelActionCapabilities = <AgentCapability>[
       await _ensureSidebar(w);
       final now = _pinned(w, c);
       if (now == pinned) {
-        throw AgentCapabilityError(
-          '${channelWord(c)} 已经${pinned ? '置顶' : '没有置顶'}了',
-        );
+        throw AgentCapabilityError('${channelWord(c)} 已经${pinned ? '置顶' : '没有置顶'}了');
       }
       return AgentActionPreview(
         summary: '${pinned ? '置顶' : '取消置顶'}${channelWord(c)}',
@@ -398,7 +397,10 @@ final channelActionCapabilities = <AgentCapability>[
       'add member',
     ],
     paramsSchema: objectSchema(
-      {'channel': strArg('频道的 id 或名字（不带 #）'), 'members': _membersArg},
+      {
+        'channel': strArg('频道的 id 或名字（不带 #）'),
+        'members': _membersArg,
+      },
       required: const ['channel', 'members'],
     ),
     resultSummary: 'done, entity=channel, id',

@@ -66,8 +66,7 @@ Future<_Target> _forwardTarget(WorkspaceController w, String ref) async {
   final want = ref.trim().replaceAll(RegExp(r'^[@#]'), '').toLowerCase();
   var hits = [
     for (final r in rows)
-      if (nameOf(r).toLowerCase() == want ||
-          '${r['name']}'.toLowerCase() == want)
+      if (nameOf(r).toLowerCase() == want || '${r['name']}'.toLowerCase() == want)
         r,
   ];
   if (hits.isEmpty && rows.length == 1) hits = rows;
@@ -173,9 +172,7 @@ _File _file(WorkspaceController w, Map<String, Object?> args) {
   final id = text(args['attachment']);
   final latest = text(args['latest']);
   if (id == null && latest == null) {
-    throw const AgentCapabilityError(
-      '需要 attachment（文件 id），或 latest=image/file（刚才那张图 / 那个文件）',
-    );
+    throw const AgentCapabilityError('需要 attachment（文件 id），或 latest=image/file（刚才那张图 / 那个文件）');
   }
   final from = text(args['from']);
   final channelId = from == null ? null : channelByRef(w, from).id;
@@ -183,19 +180,17 @@ _File _file(WorkspaceController w, Map<String, Object?> args) {
   if (id != null) {
     final hit = files.where((f) => f.metadata['id'] == id).firstOrNull;
     if (hit == null) {
-      throw const AgentCapabilityError(
-        '这个文件不在读到的消息里，或你没有权限：id 要取自读取工具或屏幕上的文件卡片',
-      );
+      throw const AgentCapabilityError('这个文件不在读到的消息里，或你没有权限：id 要取自读取工具或屏幕上的文件卡片');
     }
     return hit;
   }
   final hit = files
-      .where(
-        (f) => latest == 'image' ? attachmentIsInlineImage(f.metadata) : true,
-      )
+      .where((f) => latest == 'image' ? attachmentIsInlineImage(f.metadata) : true)
       .firstOrNull;
   if (hit == null) {
-    throw AgentCapabilityError(latest == 'image' ? '最近的消息里没有图片' : '最近的消息里没有文件');
+    throw AgentCapabilityError(
+      latest == 'image' ? '最近的消息里没有图片' : '最近的消息里没有文件',
+    );
   }
   return hit;
 }
@@ -417,7 +412,10 @@ final messageActionCapabilities = <AgentCapability>[
       'translate',
     ],
     paramsSchema: objectSchema(
-      {'message': strArg('消息 id', max: 80), 'channel': strArg('消息所在频道，已知时带上')},
+      {
+        'message': strArg('消息 id', max: 80),
+        'channel': strArg('消息所在频道，已知时带上'),
+      },
       required: const ['message'],
     ),
     resultSummary: 'original, translated, language（译成哪种语言）, sourceLanguage',
@@ -466,7 +464,11 @@ final messageActionCapabilities = <AgentCapability>[
       if (!entry.hasContent) {
         throw const AgentCapabilityError('翻译没有成功，稍后再试');
       }
-      env.facts?.learnMessage(m.author, m.content, id: m.id);
+      env.facts?.learnMessage(
+        m.author,
+        m.content,
+        id: m.id,
+      );
       return compact({
         'from': m.author,
         'original': clip(m.content, 600),
@@ -532,8 +534,7 @@ final messageActionCapabilities = <AgentCapability>[
         throw const AgentCapabilityError('这条消息已经收藏过了');
       }
       return AgentActionPreview(
-        summary:
-            '${saved ? '收藏' : '取消收藏'} ${m.author} 的消息“${quote(m.content, 24)}”',
+        summary: '${saved ? '收藏' : '取消收藏'} ${m.author} 的消息“${quote(m.content, 24)}”',
         changes: [
           change('收藏', saved ? '未收藏' : '已收藏', saved ? '已收藏' : '未收藏'),
           change('消息', '', '${m.author}：${quote(m.content, 30)}'),
@@ -550,7 +551,11 @@ final messageActionCapabilities = <AgentCapability>[
       );
       final saved = args['saved'] != false;
       await SavedCountStore.of(w).setSaved(m.id, saved);
-      return actionResult(saved ? '已收藏' : '已取消收藏', entity: 'message', id: m.id);
+      return actionResult(
+        saved ? '已收藏' : '已取消收藏',
+        entity: 'message',
+        id: m.id,
+      );
     },
   ),
   AgentCapability(
@@ -634,8 +639,7 @@ final messageActionCapabilities = <AgentCapability>[
         await store.follow(m.id);
       } else {
         await _isFollowing(w, m.id);
-        final id =
-            store.threadChannelIdFor(m.id) ?? m.string('threadChannelId');
+        final id = store.threadChannelIdFor(m.id) ?? m.string('threadChannelId');
         if (id.isEmpty) {
           throw const AgentCapabilityError('这个讨论串还没有读到，取消不了关注');
         }

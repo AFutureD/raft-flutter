@@ -172,9 +172,9 @@ class AgentSnoozeStore {
   void _schedule() {
     _timer?.cancel();
     if (!timers || _watchers == 0 || _entries.isEmpty) return;
-    final next = _entries
-        .map((e) => e.until)
-        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final next = _entries.map((e) => e.until).reduce(
+      (a, b) => a.isBefore(b) ? a : b,
+    );
     var wait = next.difference(_now());
     if (wait.isNegative) wait = Duration.zero;
     // A very long wait is taken in steps, so a changed clock is noticed.
@@ -214,7 +214,8 @@ class AgentSnoozeStore {
 
   bool isSnoozed(String id) => active.any((e) => e.id == id);
 
-  AgentSnoozed? entry(String id) => active.where((e) => e.id == id).firstOrNull;
+  AgentSnoozed? entry(String id) =>
+      active.where((e) => e.id == id).firstOrNull;
 
   /// Sets [item] aside until [until] (replaces an earlier time for the same
   /// item).

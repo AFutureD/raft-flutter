@@ -90,8 +90,7 @@ String? _blocked(
         : '这是一张历史副本，只能在它来源的服务器里批准';
   }
   final carrierId = messageParentChannelId(row) ?? '${row['channelId']}';
-  final carrier =
-      w.channelById(carrierId) ?? w.channelById('${row['channelId']}');
+  final carrier = w.channelById(carrierId) ?? w.channelById('${row['channelId']}');
   if (carrier == null) return '卡片所在的频道你看不到';
   if (carrier.archived) return '卡片所在的频道已归档，不能再批准';
   if (w.server?.string('role') == 'guest') return '访客不能批准操作卡片';
@@ -139,7 +138,10 @@ Future<List<Map<String, dynamic>>> _pendingCards(
   return rows.values.toList();
 }
 
-Map<String, Object?> _cardRow(WorkspaceController w, Map<String, dynamic> m) {
+Map<String, Object?> _cardRow(
+  WorkspaceController w,
+  Map<String, dynamic> m,
+) {
   final meta = _meta(m);
   final blocked = _blocked(w, m, meta);
   final type = _action(meta)['type'];
@@ -153,8 +155,7 @@ Map<String, Object?> _cardRow(WorkspaceController w, Map<String, dynamic> m) {
     'canApproveByVoice': blocked == null && _inlineActionTypes.contains(type)
         ? true
         : null,
-    'blocked':
-        blocked ??
+    'blocked': blocked ??
         (_inlineActionTypes.contains(type) ? null : '要在卡片里填写，请用户自己点开'),
   });
 }
@@ -186,9 +187,7 @@ Future<Map<String, dynamic>> _request(
       .where((r) => '${r['id']}' == id)
       .firstOrNull;
   if (hit == null) {
-    throw const AgentCapabilityError(
-      '没有这个待批准的授权请求（可能已被处理）：先用 approvals.pending 看一遍',
-    );
+    throw const AgentCapabilityError('没有这个待批准的授权请求（可能已被处理）：先用 approvals.pending 看一遍');
   }
   return hit;
 }
@@ -233,7 +232,8 @@ final approvalCapabilities = <AgentCapability>[
     paramsSchema: objectSchema({
       'channel': strArg('也去读这个频道最近的消息里找卡片（App 还没加载它时用）'),
     }),
-    resultSummary: 'cards[{messageId,channelId,what,state,scopes,from,canApproveByVoice,blocked}]，apps[{requestId,what,scopes}]；批卡片用 actions.approve，批应用授权用 apps.approve_request',
+    resultSummary:
+        'cards[{messageId,channelId,what,state,scopes,from,canApproveByVoice,blocked}]，apps[{requestId,what,scopes}]；批卡片用 actions.approve，批应用授权用 apps.approve_request',
     run: (w, args, env) async {
       final cards = await _pendingCards(w, text(args['channel']));
       List<Map<String, dynamic>> requests;
@@ -252,9 +252,7 @@ final approvalCapabilities = <AgentCapability>[
             compact({
               'requestId': r['id'],
               'what': _requestWord(r),
-              'scopes': r['scopes'] is List
-                  ? (r['scopes'] as List).join('、')
-                  : null,
+              'scopes': r['scopes'] is List ? (r['scopes'] as List).join('、') : null,
               'agentId': r['agentId'],
             }),
         ],
@@ -285,10 +283,7 @@ final approvalCapabilities = <AgentCapability>[
     ],
     paramsSchema: objectSchema(
       {
-        'message': strArg(
-          '操作卡片所在的消息 id（取自 approvals.pending 的 messageId）',
-          max: 80,
-        ),
+        'message': strArg('操作卡片所在的消息 id（取自 approvals.pending 的 messageId）', max: 80),
         'channel': strArg('卡片所在频道，已知时带上'),
       },
       required: const ['message'],
@@ -335,11 +330,8 @@ final approvalCapabilities = <AgentCapability>[
       final state = c.meta['state'];
       if (state == 'reconfirm_required') {
         await w.client.request('POST', '/actions/$id/reconfirm');
-        return actionResult(
-          '已重新确认，卡片回到“待批准”，再批准一次才会执行',
-          entity: 'message',
-          id: id,
-        );
+        return actionResult('已重新确认，卡片回到“待批准”，再批准一次才会执行',
+            entity: 'message', id: id);
       }
       if (state != 'prepared') {
         throw AgentCapabilityError('这张卡片现在是“$state”，不是待批准');
@@ -358,11 +350,7 @@ final approvalCapabilities = <AgentCapability>[
       if (after != null && after != 'executed') {
         throw AgentCapabilityError('服务器没有执行这张卡片，它现在是“$after”');
       }
-      return actionResult(
-        '已批准：${actionCardWord(c.meta)}',
-        entity: 'message',
-        id: id,
-      );
+      return actionResult('已批准：${actionCardWord(c.meta)}', entity: 'message', id: id);
     },
   ),
   AgentCapability(
@@ -371,15 +359,7 @@ final approvalCapabilities = <AgentCapability>[
     kind: AgentCapabilityKind.action,
     risk: AgentCapabilityRisk.change,
     parity: 'POST /actions/:id/event',
-    keywords: const [
-      '不批准',
-      '拒绝卡片',
-      '不同意这个登录',
-      '不要安装',
-      '拒绝这个请求',
-      '忽略这张卡片',
-      'deny',
-    ],
+    keywords: const ['不批准', '拒绝卡片', '不同意这个登录', '不要安装', '拒绝这个请求', '忽略这张卡片', 'deny'],
     paramsSchema: objectSchema(
       {
         'message': strArg('操作卡片所在的消息 id', max: 80),
@@ -404,11 +384,8 @@ final approvalCapabilities = <AgentCapability>[
         '/actions/$id/event',
         data: {'eventType': 'action_card.dismiss', 'metadata': {}},
       );
-      return actionResult(
-        '已记下不批准：${actionCardWord(c.meta)}（卡片仍在频道里）',
-        entity: 'message',
-        id: id,
-      );
+      return actionResult('已记下不批准：${actionCardWord(c.meta)}（卡片仍在频道里）',
+          entity: 'message', id: id);
     },
   ),
   AgentCapability(
@@ -428,12 +405,7 @@ final approvalCapabilities = <AgentCapability>[
       '允许应用',
     ],
     paramsSchema: objectSchema(
-      {
-        'request': strArg(
-          '授权请求的 id（取自 approvals.pending 的 requestId）',
-          max: 80,
-        ),
-      },
+      {'request': strArg('授权请求的 id（取自 approvals.pending 的 requestId）', max: 80)},
       required: const ['request'],
     ),
     resultSummary: 'done',
@@ -467,12 +439,7 @@ final approvalCapabilities = <AgentCapability>[
     parity: 'POST /integrations/requests/:id/deny',
     keywords: const ['拒绝授权', '不给权限', '不给他权限', '拒绝应用', '拒绝这个授权请求', '不同意授权'],
     paramsSchema: objectSchema(
-      {
-        'request': strArg(
-          '授权请求的 id（取自 approvals.pending 的 requestId）',
-          max: 80,
-        ),
-      },
+      {'request': strArg('授权请求的 id（取自 approvals.pending 的 requestId）', max: 80)},
       required: const ['request'],
     ),
     resultSummary: 'done',
