@@ -59,7 +59,7 @@
         "field.WorkspaceController._channelRereads": 0,
         "field.WorkspaceController._channelRowSeq": 0,
         "field.WorkspaceController._chatTabPresented": 0,
-        "field.WorkspaceController._composerNotices": 1,
+        "field.WorkspaceController._composerNotices": 0,
         "field.WorkspaceController._connectedBefore": 0,
         "field.WorkspaceController._contextFailure": 0,
         "field.WorkspaceController._conversationResolutionRequest": 1,
@@ -142,7 +142,7 @@
         "field.WorkspaceController.client": 1,
         "field.WorkspaceController.composer": 1,
         "field.WorkspaceController.connected": 0,
-        "field.WorkspaceController.discardSharedScope": 1,
+        "field.WorkspaceController.discardSharedScope": 0,
         "field.WorkspaceController.dms": 0,
         "field.WorkspaceController.entityDirectory": 0,
         "field.WorkspaceController.error": 1,
@@ -163,16 +163,16 @@
         "field.WorkspaceController.newFlags": 0,
         "field.WorkspaceController.notificationPrefsSync": 0,
         "field.WorkspaceController.ownsClient": 0,
-        "field.WorkspaceController.pendingMentionActions": 1,
+        "field.WorkspaceController.pendingMentionActions": 0,
         "field.WorkspaceController.planRevision": 0,
         "field.WorkspaceController.presentationActive": 1,
         "field.WorkspaceController.presentationSource": 1,
         "field.WorkspaceController.remoteComputerUpgradeEnabled": 0,
-        "field.WorkspaceController.restoreSharedAttachment": 1,
+        "field.WorkspaceController.restoreSharedAttachment": 0,
         "field.WorkspaceController.resumes": 0,
         "field.WorkspaceController.runtimeFormV2WebEnabled": 0,
         "field.WorkspaceController.savedRevision": 0,
-        "field.WorkspaceController.sendWarnings": 1,
+        "field.WorkspaceController.sendWarnings": 0,
         "field.WorkspaceController.server": 0,
         "field.WorkspaceController.servers": 0,
         "field.WorkspaceController.sidebarOrder": 0,
@@ -225,13 +225,14 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 3686,
-        "tokens": 19683,
+        "lines": 3387,
+        "tokens": 18042,
         "field.WorkspaceController.conversationReads": 0,
         "field.WorkspaceController._conversationPresentation": 0,
         "field.WorkspaceController.channelRepository": 0,
         "field.WorkspaceController.sidebarRepository": 0,
-        "field.WorkspaceController._channels": 0
+        "field.WorkspaceController._channels": 0,
+        "field.WorkspaceController._editor": 0
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
@@ -1050,6 +1051,48 @@
         "lines": 495,
         "tokens": 2922
       }
+    },
+    "workspace_editor": {
+      "root": "apps/raft_flutter/lib/data/workspace_editor.dart",
+      "metrics": {
+        "field.WorkspaceEditor._composerNotices": 1,
+        "field.WorkspaceEditor._composerVisits": 1,
+        "field.WorkspaceEditor._entrypoints": 1,
+        "field.WorkspaceEditor.composer": 1,
+        "field.WorkspaceEditor.context": 1,
+        "field.WorkspaceEditor.conversations": 1,
+        "field.WorkspaceEditor.directory": 1,
+        "field.WorkspaceEditor.discardSharedScope": 1,
+        "field.WorkspaceEditor.messages": 1,
+        "field.WorkspaceEditor.pendingMentionActions": 1,
+        "field.WorkspaceEditor.presentation": 1,
+        "field.WorkspaceEditor.presentationSource": 1,
+        "field.WorkspaceEditor.presentationWrites": 1,
+        "field.WorkspaceEditor.restoreSharedAttachment": 1,
+        "field.WorkspaceEditor.sendWarnings": 1,
+        "field.WorkspaceEditor.threads": 1,
+        "field.WorkspaceEditor.transport": 1,
+        "field.WorkspaceEditor.windows": 1,
+        "lines": 590,
+        "tokens": 3590
+      }
+    },
+    "workspace_share_targets": {
+      "root": "apps/raft_flutter/lib/data/workspace_share_targets.dart",
+      "metrics": {
+        "field.IncomingShareTarget.agentId": 1,
+        "field.IncomingShareTarget.channel": 1,
+        "field.IncomingShareTarget.label": 1,
+        "field.IncomingShareTarget.userId": 1,
+        "field.WorkspaceShareTargets._cachedChannelDirectory": 1,
+        "field.WorkspaceShareTargets._channels": 1,
+        "field.WorkspaceShareTargets._dms": 1,
+        "field.WorkspaceShareTargets._peerRows": 1,
+        "field.WorkspaceShareTargets._selectedServer": 1,
+        "field.WorkspaceShareTargets._selfId": 1,
+        "lines": 175,
+        "tokens": 1099
+      }
     }
   },
   "exceptions": [
@@ -1122,14 +1165,6 @@
       "metric": "field.WorkspaceController._conversationPresentation",
       "limit": 1,
       "reason": "One per-receiver presentation state replaces five local mutable fields; zero callback ports, source dispatch and read policies remain in WorkspaceController. Approved by Cindy in Raft 88b64bd1-8fc3-431c-aa2c-e772fff2de29.",
-      "reviewer": "Cindy",
-      "expires": "2026-10-30"
-    },
-    {
-      "module": "workspace_controller",
-      "metric": "field.WorkspaceController._composerVisits",
-      "limit": 1,
-      "reason": "task #136 step 9 approved by Cindy: one receiver-local ComposerVisitState replaces the three local visit counter and channel/thread slot fields; three mutable states and one source-warning cleanup callback preserve visit, source and synchronous ordering. Measured root fields 95 to 93, production source +17 lines.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     },

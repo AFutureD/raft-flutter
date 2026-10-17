@@ -16,7 +16,6 @@ import 'workspace_session_context.dart';
 import 'workspace_domain_ports.dart';
 import 'workspace_message_ingress.dart';
 import 'announcement_store.dart';
-import 'cause_notice.dart';
 import 'message_task_cache.dart';
 import 'message_translation_store.dart';
 import 'thread_agent_followers.dart';
@@ -36,19 +35,20 @@ import 'sidebar_repository.dart';
 import 'raft_api_gateway.dart';
 import 'workspace_composer.dart';
 import 'workspace_uploads.dart';
-import 'workspace_sends.dart';
+import 'workspace_editor.dart';
+import 'workspace_editor_entrypoints.dart';
 import 'conversation_read_repository.dart';
 import 'conversation_window.dart';
 import 'workspace_message_windows.dart';
 
 export 'workspace_uploads.dart' show UploadDraft;
+export 'workspace_editor.dart' show normalizePendingMentionActions;
 export 'thread_search.dart' show WorkspaceThreadIdentity;
 export 'workspace_message_commands.dart' show isThreadAbsentLookupError;
 export 'conversation_window.dart' show MessageContextLoadError;
 export 'workspace_message_windows.dart' show ReadingAnchor;
 import 'resource_snapshot_cache.dart';
 import 'user_activity.dart';
-import 'user_error.dart';
 import 'workspace_entity_directory.dart';
 import 'followed_threads_store.dart';
 import 'raft_location.dart';
@@ -64,14 +64,15 @@ import 'attachment_url_cache.dart';
 import 'attachment_media.dart';
 import 'attachment_retention_index.dart';
 import 'conversation_presentation_state.dart';
-import 'composer_visit_state.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
-import 'upload_mime.dart';
 
 class WorkspaceController extends ChangeNotifier
-    implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost {
+    implements
+        WorkspaceServiceAuthority,
+        SessionScopeBinding,
+        WorkspaceMessageHost {
   /// High-frequency socket events that never change workspace state.
   static const presenceEvents = WorkspaceSession.presenceEvents;
 
@@ -81,8 +82,8 @@ class WorkspaceController extends ChangeNotifier
     this.presentationSource,
     this.mobileNavigation = false,
     bool ownsClient = true,
-    this.restoreSharedAttachment,
-    this.discardSharedScope,
+    RestoreSharedDraftAttachment? restoreSharedAttachment,
+    Future<void> Function(String, String, String, String?)? discardSharedScope,
     WorkspaceEntityDirectory? entityDirectory,
     FollowedThreadsStore? followedThreads,
     AttachmentImageByteStore? attachmentImageStore,
@@ -105,10 +106,6 @@ class WorkspaceController extends ChangeNotifier
       staleScope: _staleScope,
       ownsClient: ownsClient,
     );
-    _composerVisits = ComposerVisitState((scope) {
-      // Web resets the delivery warnings with the channel.
-      (presentationSource?.sendWarnings ?? sendWarnings).remove(scope);
-    });
     final conversationReads = ConversationReadRepository(
       client,
       readState: () => readState,
@@ -146,7 +143,8 @@ class WorkspaceController extends ChangeNotifier
       saveDirectory: (record) {
         _save('channels', '', record);
       },
-      acceptSelection: (accessible) => _messages.adoptAcceptedChannelSelection(accessible),
+      acceptSelection: (accessible) =>
+          _messages.adoptAcceptedChannelSelection(accessible),
       patchSelected: (patch) {
         if (channel != null) channel = patch(channel!);
       },
@@ -154,7 +152,8 @@ class WorkspaceController extends ChangeNotifier
       reloadRow: (id) => refreshChannel(id),
       revokeChannel: _revokeChannel,
       closeDeniedThread: (id) {
-        if (_messages.state.threadIdentity?.parentChannelId == id) closeThread();
+        if (_messages.state.threadIdentity?.parentChannelId == id)
+          closeThread();
       },
       changed: notifyListeners,
       setError: setError,
@@ -238,6 +237,22 @@ class WorkspaceController extends ChangeNotifier
             jsonEncode(server?.json['permissions']),
           ),
         );
+    _editor = WorkspaceEditor(
+      context: bindings,
+      transport: bindings,
+      presentation: bindings,
+      presentationWrites: bindings,
+      messages: bindings,
+      windows: bindings,
+      conversations: bindings,
+      threads: bindings,
+      directory: bindings,
+      composer: this.composer,
+      entrypoints: bindings,
+      presentationSource: presentationSource?._editor,
+      restoreSharedAttachment: restoreSharedAttachment,
+      discardSharedScope: discardSharedScope,
+    );
     attachmentMedia =
         presentationSource?.attachmentMedia ??
         AttachmentMedia(
@@ -301,6 +316,7 @@ class WorkspaceController extends ChangeNotifier
   @override
   WorkspaceMessages get messageDomain => _messages;
   late final WorkspaceChannels _channels;
+  late final WorkspaceEditor _editor;
 
   VoidCallback? _removeCacheClear;
   late final SessionScope sessionScope;
@@ -339,15 +355,11 @@ class WorkspaceController extends ChangeNotifier
   final WorkspaceController? presentationSource;
   final String? _presentationAuthority;
   bool presentationActive = true;
-  final RestoreSharedDraftAttachment? restoreSharedAttachment;
+  RestoreSharedDraftAttachment? get restoreSharedAttachment =>
+      _editor.restoreSharedAttachment;
   @override
-  final Future<void> Function(
-    String origin,
-    String principal,
-    String server,
-    String? channel,
-  )?
-  discardSharedScope;
+  Future<void> Function(String, String, String, String?)?
+  get discardSharedScope => _editor.discardSharedScope;
   late final WorkspaceServices services;
   @override
   WorkspaceEntityDirectory get entityDirectory => services.entityDirectory;
@@ -586,10 +598,7 @@ class WorkspaceController extends ChangeNotifier
     return Future.wait([deviceStore.retire(), composer.flushed]);
   }
 
-  Map<String, String> get drafts =>
-      !composer.ownedBy(this) && (server == null || _disposed)
-      ? const {}
-      : composer.drafts;
+  Map<String, String> get drafts => _editor.drafts;
   Set<String> get _revokedChannels => _session.revokedChannels;
   Set<String> get _revokedServers => _session.revokedServers;
   final _conversationPresentation = ConversationPresentationState();
@@ -693,74 +702,21 @@ class WorkspaceController extends ChangeNotifier
     requiredSuccess: requiredSuccess,
   );
 
-  void saveDraft(String text, {bool thread = false}) {
-    final source = presentationSource;
-    if (source != null) {
-      if (_presentationAuthority == source.navigationAuthority) {
-        source._savePresentedDraft(draftScope(thread: thread), text);
-      }
-      return;
-    }
-    _savePresentedDraft(draftScope(thread: thread), text);
-  }
-
-  void _savePresentedDraft(String? scope, String text) {
-    if (scope == null || _disposed || _revokedChannels.contains(scope)) return;
-    drafts[scope] = text;
-    unawaited(_saveDraftScope(scope));
-  }
-
-  Future<void> _saveDraftScope(String scope, {bool requiredSuccess = false}) =>
-      composer.saveScope(scope, requiredSuccess: requiredSuccess);
+  void saveDraft(String text, {bool thread = false}) =>
+      _editor.saveDraft(text, thread: thread);
 
   Future<void> stageSharedDraft(
     String text,
     List<SharedDraftAttachment> files, {
     String? sourceToken,
-  }) {
-    final scope = draftScope();
-    if (scope == null) throw const RaftApiException('Choose a conversation.');
-    return composer.stageSharedDraft(
-      scope,
-      text,
-      files,
-      sourceToken: sourceToken,
-      persist: _saveDraftScope,
-    );
-  }
+  }) => _editor.stageSharedDraft(text, files, sourceToken: sourceToken);
 
-  void updateDraftFromShare(String text) {
-    final scope = draftScope();
-    if (scope == null) return;
-    saveDraft(text);
-    _draftRevisions[scope] = (_draftRevisions[scope] ?? 0) + 1;
-    notifyListeners();
-  }
+  void updateDraftFromShare(String text) => _editor.updateDraftFromShare(text);
 
-  Map<String, int> get _draftRevisions => composer.revisions;
   int draftRevision({bool thread = false}) =>
-      _draftRevisions[draftScope(thread: thread)] ?? 0;
+      _editor.draftRevision(thread: thread);
   ValueListenable<int> draftChanges({bool thread = false}) =>
-      composer.changes(draftScope(thread: thread));
-
-  Future<void> _restoreDraft(String scope) async {
-    final generation = ledger.generation;
-    await composer.restore(
-      scope,
-      current: () => generation == ledger.generation && !_disposed,
-      restoreFiles: (files) async {
-        final principal = client.user?.id, origin = client.origin;
-        if (restoreSharedAttachment == null || principal == null) return;
-        await composer.uploads.restore(
-          scope,
-          files,
-          read: (reference) =>
-              restoreSharedAttachment!(reference, origin, principal),
-        );
-      },
-      restored: notifyListeners,
-    );
-  }
+      _editor.draftChanges(thread: thread);
 
   /// Device writes stop before logout purges are queued.
   bool get cacheWritable => deviceStore.writable;
@@ -776,7 +732,6 @@ class WorkspaceController extends ChangeNotifier
       presentationSource?.reactionViewer ?? _reactionViewer;
   final Map<String, Future<void>> _reactionWrites = {};
   final Map<String, Future<void>> _viewerLoads = {};
-  Map<String, List<UploadDraft>> get _uploads => composer.uploads.byScope;
 
   bool _disposed = false;
   int _stateStamp = 0;
@@ -785,205 +740,99 @@ class WorkspaceController extends ChangeNotifier
     _stateStamp++;
     if (presentationSource == null) attachmentMedia.synchronize();
     if (!_disposed) {
-      _syncScopeVisits();
+      _editor.synchronizeVisits();
       _ensureSyncIdentity();
       if (presentationSource == null) messageWindows.synchronize();
       super.notifyListeners();
     }
   }
 
-  /// Outside-channel mention actions from the latest send per draft scope
-  /// (Web MessageInput `pendingMentionActions`).
-  final Map<String, List<Map<String, dynamic>>> pendingMentionActions = {};
+  /// Outside-channel mention actions from the latest send per draft scope.
+  Map<String, List<Map<String, dynamic>>> get pendingMentionActions =>
+      _editor.pendingMentionActions;
 
   List<Map<String, dynamic>> pendingMentionsFor({bool thread = false}) =>
-      (presentationSource?.pendingMentionActions ??
-          pendingMentionActions)[draftScope(thread: thread)] ??
-      const [];
+      _editor.pendingMentionsFor(thread: thread);
 
   void dismissPendingMention(String resolutionId, {bool thread = false}) {
     if (presentationSource != null) {
       presentationSource!.dismissPendingMention(resolutionId, thread: thread);
       return;
     }
-    final scope = draftScope(thread: thread);
-    final list = pendingMentionActions[scope];
-    if (list == null) return;
-    pendingMentionActions[scope!] = [
-      for (final a in list)
-        if (a['resolutionId'] != resolutionId) a,
-    ];
-    notifyListeners();
+    _editor.dismissPendingMention(resolutionId, thread: thread);
   }
 
-  /// Send-receipt warnings of the latest send per draft scope (Web MessageInput
-  /// `unresolvedMentionHandles` / `deliveryWarnings`): handles the server could
-  /// not resolve to a member, and whether a DM's agent is stopped.
-  final Map<String, ({List<String> unresolved, bool agentStopped})>
-  sendWarnings = {};
+  /// Warnings from the latest send per draft scope.
+  Map<String, ({List<String> unresolved, bool agentStopped})>
+  get sendWarnings => _editor.sendWarnings;
 
   ({List<String> unresolved, bool agentStopped}) sendWarningsFor({
     bool thread = false,
-  }) =>
-      (presentationSource?.sendWarnings ?? sendWarnings)[draftScope(
-        thread: thread,
-      )] ??
-      (unresolved: const [], agentStopped: false);
+  }) => _editor.sendWarningsFor(thread: thread);
 
-  /// The banner's X (Web `dismissUnresolvedMentionWarning` /
-  /// `dismissDeliveryWarning`).
   void dismissSendWarnings({bool thread = false}) {
     if (presentationSource != null) {
       presentationSource!.dismissSendWarnings(thread: thread);
       return;
     }
-    final scope = draftScope(thread: thread);
-    if (scope == null || sendWarnings.remove(scope) == null) return;
-    notifyListeners();
+    _editor.dismissSendWarnings(thread: thread);
   }
 
-  /// `POST /messages/mention-actions/execute`; returns ids whose result
-  /// status matches the action (`queued` for notify, `delivered` for add).
   Future<Set<String>> executeMentionActions(
     String action,
     List<String> resolutionIds,
-  ) async => (await executeMentionActionResults(action, resolutionIds)).entries
-      .where((r) => mentionActionSucceeded(action, r.value))
-      .map((r) => r.key)
-      .toSet();
+  ) => _editor.executeMentionActions(action, resolutionIds);
 
-  /// Web `mentionActionSucceeded`.
   static bool mentionActionSucceeded(String action, Map? result) =>
-      result?['status'] == (action == 'notify' ? 'queued' : 'delivered');
+      WorkspaceEditor.mentionActionSucceeded(action, result);
 
-  /// The per-row results of `POST /messages/mention-actions/execute`, by
-  /// resolution id (a row the server did not answer for is absent).
   Future<Map<String, Map<String, dynamic>>> executeMentionActionResults(
     String action,
     List<String> resolutionIds,
-  ) async {
-    final value = await command(
-      'POST',
-      '/messages/mention-actions/execute',
-      data: {'action': action, 'resolutionIds': resolutionIds},
-    );
-    return {
-      if (value is Map && value['results'] is List)
-        for (final r in (value['results'] as List).whereType<Map>())
-          if (r['resolutionId'] is String)
-            r['resolutionId'] as String: Map<String, dynamic>.from(r),
-    };
-  }
+  ) => _editor.executeMentionActionResults(action, resolutionIds);
 
-  String? draftScope({bool thread = false}) => thread
-      ? (threadParentMessageId == null ? null : 'thread:$threadParentMessageId')
-      : channel?.id;
-  bool get conversationPaused =>
-      channel != null && channelConversionBlocksSending(channel!.json);
+  String? draftScope({bool thread = false}) =>
+      _editor.draftScope(thread: thread);
+  bool get conversationPaused => _editor.conversationPaused;
   List<UploadDraft> uploads({bool thread = false}) =>
-      (presentationSource?._uploads ?? _uploads)[draftScope(thread: thread)] ??
-      [];
+      _editor.uploads(thread: thread);
   bool uploadsReady({bool thread = false}) =>
-      !composer.sends.queued(draftScope(thread: thread)) &&
-      uploads(thread: thread)
-          .every((u) => u.id != null || u.queued && u.error == null);
+      _editor.uploadsReady(thread: thread);
 
-  /// Web MessageInput composer error banner per draft scope. Each message is a
-  /// [CauseNotice] bound to the composer visit that raised it (Web resets the
-  /// banner when the channel changes) and, for send blocks, to the upload
-  /// state that caused it, so it cannot outlive its cause. The store lives on
-  /// the session source; the visit is this controller's.
-  final CauseNotices<String> _composerNotices = CauseNotices<String>();
-  String? composerErrorFor({bool thread = false}) {
-    final scope = draftScope(thread: thread);
-    return scope == null
-        ? null
-        : (presentationSource?._composerNotices ?? _composerNotices).messageFor(
-            scope,
-          );
-  }
+  String? composerErrorFor({bool thread = false}) =>
+      _editor.composerErrorFor(thread: thread);
 
-  /// Web MessageInput `setError` outside a file selection (for example the
-  /// folder notices of a drop). Null clears the banner. [whileTrue] is the
-  /// cause: the banner disappears the moment it turns false.
   void setComposerError(
     String? message, {
     bool thread = false,
     bool Function()? whileTrue,
   }) {
-    final scope = draftScope(thread: thread);
-    if (scope == null) return;
-    if (_raiseComposerNotice(scope, message, whileTrue: whileTrue)) {
-      notifyListeners();
-    }
+    // ignore: raft_lints/avoid_imperative_notice_state -- Compatibility entry forwards to the editor's visit-bound CauseNotices; the root stores no error value.
+    _editor.setComposerError(message, thread: thread, whileTrue: whileTrue);
   }
 
-  bool _raiseComposerNotice(
-    String scope,
-    String? message, {
-    bool Function()? whileTrue,
-  }) {
-    final visit = _visitOf(scope);
-    return (presentationSource?._composerNotices ?? _composerNotices).raise(
-      scope,
-      message,
-      whileTrue: () => visit == _visitOf(scope) && (whileTrue?.call() ?? true),
-    );
-  }
-
-  /// Composer visits: a draft scope is "visited" from the moment it becomes
-  /// the open channel / thread until another one replaces it. Notices record
-  /// the visit they were raised in and read as gone in a later one (Web
-  /// MessageInput resets its banners on channel change).
-  late final ComposerVisitState _composerVisits;
-
-  int _visitOf(String scope) {
-    _syncScopeVisits();
-    return _composerVisits.visitOf(scope);
-  }
-
-  void _syncScopeVisits() {
-    final channelScope = draftScope(), threadScope = draftScope(thread: true);
-    _composerVisits.synchronize(channelScope, threadScope);
-  }
-
-  /// Shared content hand-off (docs/sharing-evidence.md): the composer opens
-  /// from device data and the destination is checked afterwards. While a scope
-  /// is held, Send is off: `null` = still checking, a string = the check
-  /// refused it and this notice (an English key) shows on the composer. The
-  /// draft and the staged files stay either way.
-  Map<String, String?> get _shareHolds => composer.uploads.holds;
-  Map<String, String?> get shareHolds =>
-      presentationSource?.shareHolds ?? _shareHolds;
+  Map<String, String?> get shareHolds => _editor.shareHolds;
   bool sharedBlocked({bool thread = false}) =>
-      !thread && shareHolds.containsKey(draftScope());
+      _editor.sharedBlocked(thread: thread);
   String? shareNoticeFor({bool thread = false}) =>
-      thread ? null : shareHolds[draftScope()];
+      _editor.shareNoticeFor(thread: thread);
 
   void holdShared(String scope) {
     final source = presentationSource;
     if (source != null) return source.holdShared(scope);
-    if (_shareHolds.containsKey(scope)) return;
-    _shareHolds[scope] = null;
-    notifyListeners();
+    _editor.holdShared(scope);
   }
 
-  /// The check passed (or could not be made: the server still decides on send).
   void releaseShared(String scope) {
     final source = presentationSource;
     if (source != null) return source.releaseShared(scope);
-    if (!_shareHolds.containsKey(scope) || _shareHolds[scope] != null) return;
-    _shareHolds.remove(scope);
-    notifyListeners();
+    _editor.releaseShared(scope);
   }
 
-  /// The check refused the destination: Send stays off and [notice] shows.
   void blockShared(String scope, String notice) {
     final source = presentationSource;
     if (source != null) return source.blockShared(scope, notice);
-    if (_disposed || _shareHolds[scope] == notice) return;
-    _shareHolds[scope] = notice;
-    notifyListeners();
+    _editor.blockShared(scope, notice);
   }
 
   /// A destination that does not exist on the server yet (a new DM): the
@@ -1001,22 +850,7 @@ class WorkspaceController extends ChangeNotifier
   Future<void> adoptResolvedDm(String pendingId, RaftChannel real) async {
     final source = presentationSource;
     if (source != null) return source.adoptResolvedDm(pendingId, real);
-    if (_disposed) return;
-    final wasOpen = channel?.id == pendingId;
-    composer.adoptScope(pendingId, real.id);
-    _channels.recordRowWrite(real.id);
-    if (wasOpen) channel = real;
-    _putChannelRow(real);
-    notifyListeners();
-    if (wasOpen) {
-      await selectChannel(
-        [
-          ...channels,
-          ...dms,
-        ].firstWhere((c) => c.id == real.id, orElse: () => real),
-        autoRead: false,
-      );
-    }
+    return _editor.adoptResolvedDm(pendingId, real);
   }
 
   /// A joined copy of a public channel's row while its join is in flight; the
@@ -1028,35 +862,13 @@ class WorkspaceController extends ChangeNotifier
     _putChannelRow(row);
   }
 
-  /// Server `LEGACY_ATTACHMENT_SAFE_LIMIT_BYTES`: the multipart request must
-  /// stay below the edge request-body boundary.
-  static const multipartUploadSafeLimitBytes = 90 * 1024 * 1024;
+  static const multipartUploadSafeLimitBytes =
+      WorkspaceEditor.multipartUploadSafeLimitBytes;
 
-  /// The file ceiling this client can honour from an upload-capabilities
-  /// body. With direct uploads enabled the server advertises the plan's
-  /// single-file `maxBytes`, but this client always posts multipart, so the
-  /// legacy transport ceiling applies. Null when the body is unusable.
-  static int? uploadLimitFromCapabilities(dynamic value) {
-    final max = value is Map ? value['maxBytes'] : null;
-    if (max is! num || !max.isFinite || max <= 0) return null;
-    final bytes = max.toInt();
-    return value['directUploadEnabled'] == true &&
-            bytes > multipartUploadSafeLimitBytes
-        ? multipartUploadSafeLimitBytes
-        : bytes;
-  }
+  static int? uploadLimitFromCapabilities(dynamic value) =>
+      WorkspaceEditor.uploadLimitFromCapabilities(value);
 
-  /// Web `resolveAttachmentUploadLimitBytes`: the server ceiling from
-  /// `GET /attachments/upload-capabilities`, or null when it is unusable.
-  Future<int?> uploadLimitBytes() async {
-    try {
-      return uploadLimitFromCapabilities(
-        await query('/attachments/upload-capabilities'),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<int?> uploadLimitBytes() => _editor.uploadLimitBytes();
 
   Future<void> attachSelection(
     List<({String name, Uint8List bytes})> files, {
@@ -1067,63 +879,12 @@ class WorkspaceController extends ChangeNotifier
     if (source != null) {
       return source.attachSelection(files, thread: thread, text: text);
     }
-    if (draftScope(thread: thread) == null || _disposed) {
-      return Future<void>.value();
-    }
-    return composer.uploads.select(files, _uploadVisit(thread), text: text);
+    return _editor.attachSelection(files, thread: thread, text: text);
   }
-
-  String _uploadAuthority() => jsonEncode([
-    client.generation,
-    client.user?.id,
-    client.serverId,
-    server?.id,
-    server?.string('role'),
-    channel?.joined,
-    channel?.archived,
-    channel?.json['channelCapabilities'],
-  ]);
 
   @visibleForTesting
   static String uploadErrorText(Object failure) =>
-      WorkspaceUploads.uploadErrorText(failure);
-
-  ComposerUploadVisit _uploadVisit(bool thread) {
-    final scope = draftScope(thread: thread)!;
-    final generation = ledger.generation, authority = _uploadAuthority();
-    return ComposerUploadVisit(
-      scope: scope,
-      channelId: channel?.id,
-      thread: thread,
-      selectionCurrent: () =>
-          !_disposed &&
-          generation == ledger.generation &&
-          scope == draftScope(thread: thread) &&
-          authority == _uploadAuthority(),
-      resolveThread: ensureThread,
-      limit: uploadLimitBytes,
-      upload: (id, draft, progress) => draft.local != null
-          ? client.uploadStream(
-              id,
-              draft.local!.openRead,
-              draft.sizeBytes,
-              draft.filename,
-              cancellation: draft.cancel,
-              onProgress: progress,
-              mimeType: composerMimeType(draft.filename),
-            )
-          : client.upload(
-              id,
-              draft.bytes,
-              draft.filename,
-              cancellation: draft.cancel,
-              onProgress: progress,
-              mimeType: composerMimeType(draft.filename),
-            ),
-      persist: _saveDraftScope,
-      notice: (message) => _raiseComposerNotice(scope, message),
-    );
-  }
+      WorkspaceEditor.uploadErrorText(failure);
 
   Future<void> attachUpload(
     String name,
@@ -1132,29 +893,19 @@ class WorkspaceController extends ChangeNotifier
   }) async {
     final source = presentationSource;
     if (source != null) return source.attachUpload(name, bytes, thread: thread);
-    if (draftScope(thread: thread) == null || _disposed) return;
-    await composer.uploads.attach(name, bytes, _uploadVisit(thread));
+    return _editor.attachUpload(name, bytes, thread: thread);
   }
 
   Future<void> retryUpload(UploadDraft draft, {bool thread = false}) async {
     final source = presentationSource;
     if (source != null) return source.retryUpload(draft, thread: thread);
-    if (draftScope(thread: thread) == null || _disposed) return;
-    await composer.uploads.retry(draft, _uploadVisit(thread));
-  }
-
-  Future<void> _transferUpload(
-    UploadDraft draft, {
-    required bool thread,
-  }) async {
-    if (draftScope(thread: thread) == null || _disposed) return;
-    await composer.uploads.transfer(draft, _uploadVisit(thread));
+    return _editor.retryUpload(draft, thread: thread);
   }
 
   void removeUpload(UploadDraft draft, {bool thread = false}) {
     final source = presentationSource;
     if (source != null) return source.removeUpload(draft, thread: thread);
-    composer.uploads.remove(draft, _saveDraftScope);
+    _editor.removeUpload(draft, thread: thread);
   }
 
   ConversationReadRepository get conversationReads => _channels.reads;
@@ -1803,105 +1554,15 @@ class WorkspaceController extends ChangeNotifier
         onWindowRefreshed: onWindowRefreshed,
       );
     }
-    if (conversationPaused) {
-      error = 'Channel conversion in progress';
-      notifyListeners();
-      return false;
-    }
-    // Shared content whose destination is not confirmed yet is never sent.
-    if (sharedBlocked(thread: thread)) return false;
-    error = null;
-    final intendedScope = draftScope(thread: thread);
-    if (intendedScope == null) return false;
-    final scope = intendedScope, intendedChannel = channel?.id;
-    final intendedParent = threadParentMessageId, role = server?.string('role');
-    var window = thread ? threadGeneration : channelGeneration;
-    bool current() =>
-        !_disposed &&
-        scope == draftScope(thread: thread) &&
-        intendedChannel == channel?.id &&
-        (!thread || intendedParent == threadParentMessageId) &&
-        window == (thread ? threadGeneration : channelGeneration) &&
-        role == server?.string('role') &&
-        !conversationPaused;
-    final selectedMentions = [
-      for (final mention in mentions ?? <Map<String, dynamic>>[])
-        Map<String, dynamic>.unmodifiable({
-          'type': mention['type'],
-          'id': mention['id'],
-          'name': mention['name'],
-        }),
-    ];
-    return composer.sends.send(
+    return _editor.send(
       text,
-      client: client,
+      thread: thread,
       attachments: attachments,
-      mentions: selectedMentions,
+      mentions: mentions,
       randomId: randomId,
       asTask: asTask,
-      attachmentsOnlyBody:
-          attachmentsOnlyBody ??
-          (count) => count == 1 ? '[1 attachment]' : '[$count attachments]',
-      visit: ComposerSendVisit(
-        scope: scope,
-        channelId: thread ? threadChannelId : intendedChannel,
-        parentChannelId: intendedChannel,
-        displaySeq: ledger.watermark,
-        author: {
-          'senderId': client.user?.id ?? '',
-          'senderType': 'user',
-          'senderName':
-              client.user?.firstNonEmpty(const ['displayName', 'name']) ?? '',
-        },
-        current: current,
-        prepare: () async {
-          if (!thread && hasNewer && channel != null) {
-            final refreshing = selectChannel(channel!);
-            window = channelGeneration;
-            await refreshing;
-            if (!current()) return null;
-            onWindowRefreshed?.call(window);
-          }
-          if (!current()) return null;
-          return thread ? await ensureThread() : intendedChannel;
-        },
-        limit: uploadLimitBytes,
-        transfer: (file) => _transferUpload(file, thread: thread),
-        started: () {
-          _composerNotices.clear(scope);
-          sendWarnings.remove(scope);
-        },
-        failed: (cause) {
-          error = userErrorText(
-            cause,
-            fallback: 'Failed to send message',
-            where: 'send message',
-          );
-          notifyListeners();
-        },
-        received: (sent) {
-          pendingMentionActions[scope] = normalizePendingMentionActions(
-            sent.receipt['pendingMentionActions'],
-          );
-          sendWarnings[scope] = (
-            unresolved: [
-              for (final handle
-                  in (sent.receipt['unresolvedMentionHandles'] as List? ??
-                      const []))
-                if (handle is String) handle,
-            ],
-            agentStopped:
-                (sent.receipt['deliveryWarnings'] as List? ?? const []).any(
-                  (w) =>
-                      w is Map &&
-                      w['targetType'] == 'agent' &&
-                      w['reason'] == 'agent_stopped' &&
-                      w['targetId'] is String &&
-                      (w['targetId'] as String).isNotEmpty,
-                ),
-          );
-        },
-      ),
+      attachmentsOnlyBody: attachmentsOnlyBody,
+      onWindowRefreshed: onWindowRefreshed,
     );
   }
 
@@ -2318,16 +1979,6 @@ class WorkspaceController extends ChangeNotifier
   }
 }
 
-/// Web `normalizePendingMentionActions`: keep well-formed rows only.
-List<Map<String, dynamic>> normalizePendingMentionActions(dynamic value) => [
-  if (value is List)
-    for (final row in value.whereType<Map>())
-      if (row['resolutionId'] is String &&
-          row['targetType'] is String &&
-          row['availableActions'] is List)
-        Map<String, dynamic>.from(row),
-];
-
 /// Composition-only wrapper: domains receive no binding or handler maps.
 class _WorkspaceTransitions implements WorkspaceTransitionPort {
   const _WorkspaceTransitions(this.scope);
@@ -2541,7 +2192,7 @@ class _WorkspaceSessionBindings
     replace: replace,
   );
   @override
-  Future<void> restoreDraft(String id) => w._restoreDraft(id);
+  Future<void> restoreDraft(String id) => w._editor.restoreDraft(id);
   @override
   Future<void> resumeHistory() => MessageHistoryEvents.resume(w);
   @override
@@ -2800,8 +2451,58 @@ class _WorkspaceMessageBindings extends _WorkspaceSessionBindings
         WorkspaceMessagePresentationPort,
         WorkspaceMessageEntryPort,
         WorkspaceMessageDraftPort,
-        WorkspaceMessageNotificationPort {
+        WorkspaceMessageNotificationPort,
+        WorkspaceConversationCommandsPort,
+        WorkspaceThreadCreationPort,
+        WorkspaceEditorEntrypoints {
   _WorkspaceMessageBindings(super.w);
+
+  @override
+  Map<String, List<Map<String, dynamic>>> get pendingMentionActions =>
+      w.pendingMentionActions;
+  @override
+  Map<String, ({List<String> unresolved, bool agentStopped})>
+  get sendWarnings => w.sendWarnings;
+  @override
+  Map<String, String?> get shareHolds => w.shareHolds;
+  @override
+  bool get conversationPaused => w.conversationPaused;
+  @override
+  void saveDraft(String text, {bool thread = false}) =>
+      w.saveDraft(text, thread: thread);
+  @override
+  List<UploadDraft> uploads({bool thread = false}) => w.uploads(thread: thread);
+  @override
+  bool sharedBlocked({bool thread = false}) => w.sharedBlocked(thread: thread);
+  @override
+  Future<int?> uploadLimitBytes() => w.uploadLimitBytes();
+  @override
+  Future<Map<String, Map<String, dynamic>>> executeMentionActionResults(
+    String action,
+    List<String> resolutionIds,
+  ) => w.executeMentionActionResults(action, resolutionIds);
+
+  @override
+  Future<void> openThread(
+    RaftMessage parent, {
+    String? focusedMessageId,
+    bool navigate = true,
+  }) => w.openThread(
+    parent,
+    focusedMessageId: focusedMessageId,
+    navigate: navigate,
+  );
+  @override
+  void closeDeniedThread(String parentChannelId) {
+    if (w.threadIdentity?.parentChannelId == parentChannelId) w.closeThread();
+  }
+
+  @override
+  void adoptAccessibleSelection(Set<String> accessible) =>
+      w._messages.adoptAcceptedChannelSelection(accessible);
+  @override
+  Future<void> returnToLatest({bool navigate = true, bool thread = false}) =>
+      w.returnToLatest(navigate: navigate, thread: thread);
 
   @override
   Future<void> syncVisibleScopes({BigInt? through}) =>

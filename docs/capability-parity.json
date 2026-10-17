@@ -410,7 +410,7 @@
    "flutterEntry": "pending_mention_actions.dart + raft_ui composer_pending_mentions.dart (Add / Add all / Notify / Ignore)",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_editor.dart",
      "needle": "'/messages/mention-actions/execute'"
     },
     {
@@ -577,8 +577,8 @@
    "flutterEntry": "workspace_controller.dart _saveDraftScope / drafts restored on open",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
-     "needle": "Future<void> _saveDraftScope(String scope"
+     "file": "apps/raft_flutter/lib/data/workspace_editor.dart",
+     "needle": "Future<void> saveDraftScope(String scope"
     }
    ],
    "justification": "",
@@ -10604,7 +10604,7 @@
    "flutterEntry": "workspace_controller.dart uploadLimitBytes() reads maxBytes for size checks",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_editor.dart",
      "needle": "'/attachments/upload-capabilities'"
     },
     {
