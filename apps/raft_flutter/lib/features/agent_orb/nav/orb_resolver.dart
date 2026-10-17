@@ -30,7 +30,11 @@ class OrbDmRef {
 
 /// A member (`user`) or an Agent (`agent`).
 class OrbPersonRef {
-  const OrbPersonRef({required this.id, required this.name, required this.type});
+  const OrbPersonRef({
+    required this.id,
+    required this.name,
+    required this.type,
+  });
   final String id, name, type;
 }
 
@@ -561,7 +565,8 @@ OrbResolution resolveOrbTarget(
           OrbMatch(
             kind: OrbKind.thread,
             id: t.parentMessageId,
-            title: '${t.channelName == null ? '' : '#${t.channelName} › '}${t.title}',
+            title:
+                '${t.channelName == null ? '' : '#${t.channelName} › '}${t.title}',
             score: score,
             reason: '讨论：${t.title}',
             data: {

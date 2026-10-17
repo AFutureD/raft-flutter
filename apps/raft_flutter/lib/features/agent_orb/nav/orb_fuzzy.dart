@@ -89,7 +89,19 @@ final List<(RegExp, String Function(Match))> _soundRules = [
 /// Consonants a recognizer or a listener mixes up. Substituting one for the
 /// other costs [_confusableCost]; any other substitution costs 1.
 const _confusable = <String>{
-  'fs', 'sz', 'td', 'pb', 'kg', 'mn', 'lr', 'fh', 'sx', 'tk', 'ds', 'ts', 'jg',
+  'fs',
+  'sz',
+  'td',
+  'pb',
+  'kg',
+  'mn',
+  'lr',
+  'fh',
+  'sx',
+  'tk',
+  'ds',
+  'ts',
+  'jg',
 };
 const _confusableCost = 0.4;
 

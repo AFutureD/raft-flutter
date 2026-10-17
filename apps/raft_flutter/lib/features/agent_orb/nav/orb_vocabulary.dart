@@ -61,7 +61,10 @@ class OrbDestination {
   RaftLocation locationFor(String serverSlug) => RaftLocation.at(
     serverSlug: serverSlug,
     route: route,
-    settingsPath: settingsPath,
+    settingsPath: [
+      for (final tab in settingsPath)
+        WorkspaceNavigation.settingsRouteSlug(tab),
+    ],
   );
 }
 
@@ -114,7 +117,14 @@ final List<OrbDestination> _curated = [
     RaftRoute.home,
     section: 'home',
     zh: ['首页', '主页', '聊天', '消息', '频道列表', '会话列表', '回到首页', '回首页'],
-    en: ['home', 'home page', 'chats', 'chat list', 'messages', 'conversations'],
+    en: [
+      'home',
+      'home page',
+      'chats',
+      'chat list',
+      'messages',
+      'conversations',
+    ],
     covers: {'tab:chat', 'route:home', 'section:home', 'section:chat'},
   ),
   _d(
@@ -123,7 +133,14 @@ final List<OrbDestination> _curated = [
     RaftRoute.activity,
     section: 'activity',
     zh: ['动态', '收件箱', '未读', '未读消息', '新消息', '最新动态', '通知中心', '提醒'],
-    en: ['activity', 'inbox', 'unread', 'unread messages', 'new messages', 'feed'],
+    en: [
+      'activity',
+      'inbox',
+      'unread',
+      'unread messages',
+      'new messages',
+      'feed',
+    ],
     covers: {'tab:activity', 'route:activity', 'section:activity'},
   ),
   _d(
@@ -132,7 +149,15 @@ final List<OrbDestination> _curated = [
     RaftRoute.tasks,
     section: 'tasks',
     zh: ['任务', '任务板', '任务列表', '所有任务', '待办', '看板'],
-    en: ['tasks', 'task board', 'task list', 'all tasks', 'todo', 'to do', 'board'],
+    en: [
+      'tasks',
+      'task board',
+      'task list',
+      'all tasks',
+      'todo',
+      'to do',
+      'board',
+    ],
     covers: {'tab:tasks', 'route:tasks', 'section:tasks'},
   ),
   _d(
@@ -141,8 +166,21 @@ final List<OrbDestination> _curated = [
     RaftRoute.members,
     section: 'members',
     zh: ['成员', 'Agent 列表', 'Agent列表', '代理列表', '智能体', '同事', '团队', '所有人', '通讯录'],
-    en: ['members', 'agents', 'agent list', 'people', 'team', 'directory', 'contacts'],
-    covers: {'tab:members', 'route:members', 'section:members', 'section:agents'},
+    en: [
+      'members',
+      'agents',
+      'agent list',
+      'people',
+      'team',
+      'directory',
+      'contacts',
+    ],
+    covers: {
+      'tab:members',
+      'route:members',
+      'section:members',
+      'section:agents',
+    },
   ),
   _d(
     'member-graph',
@@ -176,7 +214,14 @@ final List<OrbDestination> _curated = [
     RaftRoute.saved,
     section: 'saved',
     zh: ['已保存', '收藏', '收藏夹', '保存的消息', '书签', '稍后看'],
-    en: ['saved', 'saved messages', 'bookmarks', 'favorites', 'favourites', 'starred'],
+    en: [
+      'saved',
+      'saved messages',
+      'bookmarks',
+      'favorites',
+      'favourites',
+      'starred',
+    ],
     covers: {'route:saved', 'section:saved'},
   ),
   _d(
@@ -247,7 +292,13 @@ final List<OrbDestination> _curated = [
     RaftRoute.settings,
     settingsPath: ['server'],
     zh: ['服务器资料', '服务器设置', '工作区设置', '工作区资料', '服务器'],
-    en: ['server profile', 'server settings', 'workspace settings', 'workspace profile', 'server'],
+    en: [
+      'server profile',
+      'server settings',
+      'workspace settings',
+      'workspace profile',
+      'server',
+    ],
     covers: {'settings:server', 'section:workspace-settings'},
   ),
   _d(
@@ -256,7 +307,14 @@ final List<OrbDestination> _curated = [
     RaftRoute.settings,
     settingsPath: ['billing'],
     zh: ['套餐与账单', '账单', '套餐', '订阅', '付费', '用量'],
-    en: ['plan and billing', 'billing', 'plan', 'subscription', 'usage', 'invoices'],
+    en: [
+      'plan and billing',
+      'billing',
+      'plan',
+      'subscription',
+      'usage',
+      'invoices',
+    ],
     covers: {'settings:billing', 'section:billing'},
   ),
   _d(
@@ -265,7 +323,13 @@ final List<OrbDestination> _curated = [
     RaftRoute.settings,
     settingsPath: ['administration'],
     zh: ['管理', '管理员', '管理设置', '后台', '成员管理', '权限'],
-    en: ['administration', 'admin', 'admin settings', 'moderation', 'permissions'],
+    en: [
+      'administration',
+      'admin',
+      'admin settings',
+      'moderation',
+      'permissions',
+    ],
     covers: {'settings:administration', 'section:administration'},
   ),
   _d(
@@ -399,7 +463,7 @@ List<OrbDestination> buildOrbVocabulary() {
             'settings/$name',
             label,
             RaftRoute.settings,
-            settingsPath: [WorkspaceNavigation.settingsRouteSlug(name)],
+            settingsPath: [name],
             covers: {gap},
           ),
         );
@@ -412,9 +476,7 @@ List<OrbDestination> buildOrbVocabulary() {
             label,
             section.route,
             section: name,
-            settingsPath: section.settingsTab == null
-                ? const []
-                : [WorkspaceNavigation.settingsRouteSlug(section.settingsTab!)],
+            settingsPath: [?section.settingsTab],
             covers: {gap},
           ),
         );
