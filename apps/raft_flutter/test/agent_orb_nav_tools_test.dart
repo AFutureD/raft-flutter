@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:raft_flutter/data/raft_location.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_nav_tools.dart';
 import 'package:raft_flutter/features/agent_orb/orb_tool.dart';
 
@@ -546,21 +546,66 @@ void main() {
       },
     );
 
-    testWidgets('settings pages and a member profile', (t) async {
+    testWidgets(
+      'from Activity to a channel: Back returns to Activity, then Home',
+      (t) async {
+        final fx = Fixture();
+        await fx.mount(t);
+        await fx.call(t, 'navigate', {'target': '动态'});
+        await fx.call(t, 'navigate', {'target': 'design 频道'});
+        expect(fx.path, '/s/alpha/channel/cb');
+        await fx.back(t);
+        expect(fx.path, '/s/alpha/activity');
+        await fx.back(t);
+        expect(fx.path, '/s/alpha');
+        await fx.f.close(t);
+      },
+    );
+
+    testWidgets('where the user already is: no new history entry', (t) async {
       final fx = Fixture();
       await fx.mount(t);
-      var r = await fx.call(t, 'navigate', {'target': '外观'});
-      expect(r['error'], isNull, reason: '$r');
-      expect(r['route'], '/s/alpha/settings/appearance');
-      expect(_map(r['page'])['page'], 'other');
-      expect(_map(r['page'])['semantics'], isA<List>());
+      await fx.call(t, 'navigate', {'target': 'design'});
+      final again = await fx.call(t, 'navigate', {'target': 'design 频道'});
+      expect(again['alreadyThere'], true);
+      expect(_map(again['page'])['page'], 'conversation');
       await fx.back(t);
-      r = await fx.call(t, 'navigate', {'target': 'Dana 的资料'});
-      expect(r['error'], isNull, reason: '$r');
-      expect(fx.ctx.workspace.location.profile?.id, 'u-dana');
-      expect(_map(r['page'])['page'], 'profile');
+      expect(fx.path, '/s/alpha');
       await fx.f.close(t);
     });
+
+    testWidgets('"文件" without a conversation open is an error', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final none = await fx.call(t, 'navigate', {'target': '文件'});
+      expect(none['error'], contains('频道'));
+      expect(fx.operating.value, false);
+      expect(fx.path, '/s/alpha');
+      await fx.f.close(t);
+    });
+    testWidgets(
+      'settings pages and a member profile',
+      (t) async {
+        final fx = Fixture();
+        await fx.mount(t);
+        var r = await fx.call(t, 'navigate', {'target': '外观'});
+        expect(r['error'], isNull, reason: '$r');
+        expect(r['route'], '/s/alpha/settings/appearance');
+        expect(_map(r['page'])['page'], 'other');
+        expect(_map(r['page'])['semantics'], isA<List>());
+        await fx.back(t);
+        r = await fx.call(t, 'navigate', {'target': 'Dana 的资料'});
+        expect(r['error'], isNull, reason: '$r');
+        expect(fx.ctx.workspace.location.profile?.id, 'u-dana');
+        expect(_map(r['page'])['page'], 'profile');
+        await fx.f.close(t);
+      },
+      // Opening the Files tab starts the workspace's own files store, which
+      // the app releases with the workspace, after this test's teardown.
+      experimentalLeakTesting: LeakTesting.settings.withIgnored(
+        classes: ['SourceChannelFilesStore'],
+      ),
+    );
   });
 
   group('describe_page', () {
@@ -707,25 +752,32 @@ void main() {
         ],
       };
       await fx.mount(t);
-      final r = await fx.call(t, 'navigate', {
-        'target': '发布 讨论'.replaceAll('发布', 'ready for review'),
-        'kind': 'thread',
-      });
-      // Activity has not been read yet: the discussion is not known by name.
-      expect(r['error'], isNotNull);
+      // The discussion is known by the message it hangs under, from Activity.
       await fx.call(t, 'navigate', {'target': '动态'});
       await fx.back(t);
       final open = await fx.call(t, 'navigate', {
         'target': 'ready for review 讨论',
       });
       expect(open['error'], isNull, reason: '$open');
+      expect(_map(open['page'])['page'], 'thread');
+      expect(fx.ctx.workspace.location.thread?.itemId, 'ca-m1');
       final d = await fx.call(t, 'describe_page');
       expect(d['page'], 'thread');
-      expect(fx.ctx.workspace.location.thread?.itemId, 'ca-m1');
+      expect(d['title'], '#raft-flutter › 讨论');
       expect(
         _map(_map(d['thread'])['parent'])['text'],
         'Task #136 is ready for review.',
       );
+      expect(_map(_map(d['thread'])['parent'])['from'], 'Cody');
+      final replies = _list(d['replies']);
+      expect(replies.map((m) => m['text']), [
+        'Started on the resolver.',
+        'First slice passes the checks.',
+      ]);
+      expect(replies.map((m) => m['from']), ['Cody', 'Cody']);
+
+      await fx.back(t);
+      expect(fx.path, '/s/alpha');
       await fx.f.close(t);
     });
 
@@ -859,15 +911,24 @@ void main() {
       await fx.f.close(t);
     });
 
-    testWidgets('an unknown name is an error; a similar pair are candidates', (
+    testWidgets('an unknown name is an error; similar names are candidates', (
       t,
     ) async {
       final fx = Fixture();
+      fx.f.overrides['GET /channels'] = (_) => [
+        _channel('ca', 'raft-flutter'),
+        _channel('cu', 'flutter-ui'),
+      ];
       await fx.mount(t);
       final r = await fx.call(t, 'read_conversation', {
         'conversation': 'xyzzy plugh',
       });
       expect(r['error'], isNotNull);
+      final c = await fx.call(t, 'read_conversation', {
+        'conversation': 'flutter',
+      });
+      expect(_list(c['candidates']).map((m) => m['id']).toSet(), {'ca', 'cu'});
+      expect(c.containsKey('messages'), isFalse);
       await fx.f.close(t);
     });
   });

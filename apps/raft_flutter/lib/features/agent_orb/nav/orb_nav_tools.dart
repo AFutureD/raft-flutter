@@ -110,6 +110,10 @@ const _readConversationDeclaration = <String, Object?>{
   },
 };
 
+/// " (HTTP 403)" for a refused request; the server's own text is not passed on.
+String _status(Object e) =>
+    e is RaftApiException && e.status != null ? '（HTTP ${e.status}）' : '';
+
 String? _str(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
 
 // --- describe_page ----------------------------------------------------------
@@ -157,8 +161,9 @@ Future<Map<String, Object?>> _navigate(
     }
     resolution = resolveOrbTarget(target, orbDirectoryOf(w), kind: kind);
   }
-  if (resolution.candidates.isNotEmpty)
+  if (resolution.candidates.isNotEmpty) {
     return _candidates(resolution.candidates);
+  }
   var match = resolution.match;
   if (match == null) {
     return {
@@ -194,9 +199,7 @@ Future<Map<String, Object?>> _navigate(
       'page': page,
     };
   } on Object catch (e) {
-    return {
-      'error': '没能打开：${e is RaftApiException ? e.message : e.runtimeType}',
-    };
+    return {'error': '没能打开${_status(e)}'};
   } finally {
     budget.dispose();
     ctx.operating.value = false;
@@ -290,8 +293,9 @@ Future<_Moved> _go(
       final channelId = _str(match.data['parentChannelId']);
       if (channelId == null) return _fail('这个讨论缺少所在频道');
       final here = w.location.thread;
-      if (here?.channelId == channelId && here?.itemId == match.id)
+      if (here?.channelId == channelId && here?.itemId == match.id) {
         return _same;
+      }
       // As the Activity page opens a discussion: the parent conversation is
       // the page, the discussion its slot, in one history entry.
       final dm = w.dms.any((c) => c.id == channelId);
@@ -373,11 +377,7 @@ _resolveTask(
   try {
     rows = await budget.within(AgentModeData(w).searchTasks('$number'));
   } on Object catch (e) {
-    return (
-      match: null,
-      candidates: null,
-      error: '读任务列表失败：${e is RaftApiException ? e.message : e.runtimeType}',
-    );
+    return (match: null, candidates: null, error: '读任务列表失败${_status(e)}');
   }
   if (rows == null) {
     return (
@@ -493,9 +493,7 @@ Future<Map<String, Object?>> _readConversation(
     // A plain read of the page: it sends no read receipt.
     page = await w.client.messagePage(id, limit: bounded);
   } on Object catch (e) {
-    return {
-      'error': '读取失败：${e is RaftApiException ? e.message : e.runtimeType}',
-    };
+    return {'error': '读取失败${_status(e)}'};
   }
   final rows = [
     for (final m in (page['messages'] as List? ?? const []).whereType<Map>())

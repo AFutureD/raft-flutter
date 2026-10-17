@@ -105,7 +105,7 @@ void main() {
     };
     says.forEach((id, words) {
       for (final word in words) {
-        test('"$word" is ${id}', () {
+        test('"$word" is $id', () {
           final r = resolveOrbTarget(word, const OrbDirectory());
           expect(r.match, isNotNull, reason: '"$word" resolved to $r');
           expect(r.match!.kind, OrbKind.page);

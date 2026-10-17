@@ -198,7 +198,8 @@ Future<Map<String, Object?>> describeOrbPage(
       ...head,
       'page': OrbPage.other,
       'loading': false,
-      'error': '读取页面失败：${e is RaftApiException ? e.message : e.runtimeType}',
+      'error':
+          '读取页面失败${e is RaftApiException && e.status != null ? '（HTTP ${e.status}）' : ''}',
     };
   }
 }
@@ -487,33 +488,15 @@ Future<Map<String, Object?>> _task(
 ) async {
   final legacy = loc.task == null;
   final anchor = (loc.task ?? loc.legacyTask)!;
-  Map<String, dynamic>? row;
-  String? error;
-  try {
-    final bucket = await budget.within(
-      readSourceTaskBucket(w, anchor.channelId),
-    );
-    if (bucket is Map) {
-      for (final r in (bucket['tasks'] as List? ?? const []).whereType<Map>()) {
-        if (legacy
-            ? r['id'] == anchor.itemId && r['isLegacy'] == true
-            : r['messageId'] == anchor.itemId && r['isLegacy'] != true) {
-          row = Map<String, dynamic>.from(r);
-          break;
-        }
-      }
-      if (row == null) error = '没有找到这个任务';
-    }
-  } on Object catch (e) {
-    error = '读取任务失败：${e is RaftApiException ? e.message : e.runtimeType}';
-  }
+  final found = await _taskRow(w, anchor, legacy, budget);
+  final row = found.row;
   if (row == null) {
     return {
       'page': OrbPage.task,
       'title': '任务',
-      'loading': error == null,
-      if (error == null) 'note': '任务还在加载，不是空的',
-      'error': ?error,
+      'loading': found.failure == null,
+      if (found.failure == null) 'note': '任务还在加载，不是空的',
+      'error': ?found.failure,
     };
   }
   var task = row;
@@ -583,6 +566,36 @@ Future<Map<String, Object?>> _task(
     },
     'discussion': discussion,
   };
+}
+
+/// The board row of the task a URL names, or why there is none: [failure]
+/// null with a null [row] is a read that has not finished.
+Future<({Map<String, dynamic>? row, String? failure})> _taskRow(
+  WorkspaceController w,
+  RaftAnchor anchor,
+  bool legacy,
+  OrbWaitBudget budget,
+) async {
+  try {
+    final bucket = await budget.within(
+      readSourceTaskBucket(w, anchor.channelId),
+    );
+    if (bucket is! Map) return (row: null, failure: null);
+    for (final r in (bucket['tasks'] as List? ?? const []).whereType<Map>()) {
+      if (legacy
+          ? r['id'] == anchor.itemId && r['isLegacy'] == true
+          : r['messageId'] == anchor.itemId && r['isLegacy'] != true) {
+        return (row: Map<String, dynamic>.from(r), failure: null);
+      }
+    }
+    return (row: null, failure: '没有找到这个任务');
+  } on Object catch (e) {
+    return (
+      row: null,
+      failure:
+          '读取任务失败${e is RaftApiException && e.status != null ? '（HTTP ${e.status}）' : ''}',
+    );
+  }
 }
 
 // --- Profile and other pages ------------------------------------------------
