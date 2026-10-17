@@ -16,6 +16,7 @@ import 'briefing/orb_briefing_models.dart' show OrbBriefItem;
 import 'briefing/orb_briefing_tools.dart'
     show defaultOrbOpenLink, orbBriefingTools;
 import 'nav/orb_nav_tools.dart' show orbNavigationTools;
+import 'orb_arrival_brief.dart';
 import 'orb_operating.dart';
 import 'orb_prompt.dart';
 import 'orb_sheet.dart';
@@ -63,7 +64,8 @@ class OrbController extends ChangeNotifier {
     final all = [
       ..._shellTools(),
       ...?appTools,
-      if (appTools == null) ...orbNavigationTools(),
+      if (appTools == null)
+        ...orbNavigationTools(arrivalBrief: orbArrivalBrief()),
       if (appTools == null) ...orbBriefingTools(openLink: openBriefItem),
     ];
     tools = {for (final tool in all) tool.name: tool};

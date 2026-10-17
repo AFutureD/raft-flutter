@@ -438,6 +438,15 @@ class GeminiLiveException implements Exception {
 /// How long a tool may run before the model gets an error instead.
 const agentToolTimeout = Duration(seconds: 8);
 
+/// Tools that read the app and then ask a text model (the orb's briefing, and
+/// `navigate`, which brings the briefing of the place it opens) are given
+/// longer than a plain call before the model is told "too slow". Only when the
+/// responder runs with the default [agentToolTimeout].
+const agentSlowToolTimeouts = <String, Duration>{
+  'navigate': Duration(seconds: 20),
+  'get_briefing': Duration(seconds: 25),
+};
+
 void _toolLog(String message) {
   if (!kReleaseMode) debugPrint('agent-tool $message');
 }
@@ -470,6 +479,12 @@ class AgentToolResponder {
   final Set<String> Function() quietNames;
   final Duration timeout;
   final void Function(String message) log;
+
+  /// How long [name] may run: [timeout], or its longer allowance when the
+  /// responder has the default.
+  Duration timeoutOf(String name) => timeout == agentToolTimeout
+      ? agentSlowToolTimeouts[name] ?? timeout
+      : timeout;
 
   final _seen = <String>{};
   final _cancelled = <String>{};
@@ -528,11 +543,11 @@ class AgentToolResponder {
       result = await handler(
         name,
         (call['args'] as Map?)?.cast<String, Object?>() ?? const {},
-      ).timeout(timeout);
+      ).timeout(timeoutOf(name));
     } on TimeoutException {
       result = {
         'error':
-            '$name 超过 ${timeout.inSeconds} 秒没有返回：现在读不到，'
+            '$name 超过 ${timeoutOf(name).inSeconds} 秒没有返回：现在读不到，'
             '请如实告诉用户稍后再试，不要重复调用。',
       };
     } catch (e) {

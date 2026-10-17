@@ -42,7 +42,7 @@ const orbBriefingToolName = 'get_briefing';
 const orbBriefingDeclaration = <String, Object?>{
   'name': orbBriefingToolName,
   'description':
-      '读出简报：现在有什么事需要用户关注。用户问“有什么要我处理的”“动态里有什么”“这个频道怎么样了”，或刚打开动态、频道时，先调用它。'
+      '读出简报：现在有什么事需要用户关注。用户问“有什么要我处理的”“动态里有什么”“这个频道怎么样了”时调用它。用 navigate 刚到动态、频道、私信、讨论时，返回里已经带了同一份 briefing，不要再调。'
       '返回 overview（一句总览）、needsYou（需要用户处理的事，每件有 who 谁、title 什么事、where 在哪、since 等了多久、ask 要他做什么、suggestedAction 建议的一句话处理）、'
       'progress（有进展的事）、routineCount（常规条数）。'
       '怎么说：先说 overview 这一句；再逐件说 needsYou（谁、什么事、到哪一步了、要他做什么），一件说完停一下，等用户指令或插话；'

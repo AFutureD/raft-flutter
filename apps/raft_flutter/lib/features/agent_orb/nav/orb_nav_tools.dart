@@ -20,6 +20,19 @@ export 'orb_resolver.dart'
     show OrbDirectory, OrbKind, OrbMatch, OrbResolution, resolveOrbTarget;
 export 'orb_vocabulary.dart' show OrbDestination, orbVocabulary;
 
+/// What `navigate` adds to its answer once it has arrived: the facts of the
+/// place (for a conversation or the Activity, who needs the person and what
+/// for), as JSON; null when the destination has none. It is given the match
+/// that was opened. An error or a slow answer never fails the navigation: the
+/// answer then says the facts were not read.
+typedef OrbArrivalBrief = Future<Map<String, Object?>?> Function(
+  OrbToolContext ctx,
+  OrbMatch match,
+);
+
+/// The most `navigate` waits for [OrbArrivalBrief].
+const orbArrivalWait = Duration(seconds: 10);
+
 /// The navigation tools of the Agent orb: `navigate`, `describe_page` and
 /// `read_conversation`.
 ///
@@ -31,8 +44,14 @@ export 'orb_vocabulary.dart' show OrbDestination, orbVocabulary;
 /// about 5 s) and answers `{route, title, page}` where `page` is what
 /// `describe_page` would say. Ambiguous words answer `{candidates}`, unknown
 /// words `{error}`.
-List<OrbTool> orbNavigationTools() => [
-  OrbTool(declaration: _navigateDeclaration, handler: _navigate),
+///
+/// [arrivalBrief] adds the facts of where `navigate` arrived (see
+/// [OrbArrivalBrief]): without it the answer is the page alone.
+List<OrbTool> orbNavigationTools({OrbArrivalBrief? arrivalBrief}) => [
+  OrbTool(
+    declaration: _navigateDeclaration,
+    handler: (args, ctx) => _navigate(args, ctx, arrivalBrief),
+  ),
   OrbTool(declaration: _describePageDeclaration, handler: _describePage),
   OrbTool(
     declaration: _readConversationDeclaration,
@@ -47,7 +66,9 @@ const _navigateDeclaration = <String, Object?>{
       'target 就写用户的原话：页面（“动态”“设置”“任务”“收藏”“Agent 列表”）、频道（“raft-flutter 频道”）、'
       '私信（“Cody 的私信”）、某人的资料（“Cody 的资料”）、任务（“task 136”“任务136”“#136”）、讨论（“发布流程那个讨论”）。'
       '语音识别常听错名字（“Roughslutter”“RA flutter”），原样传，App 会按读音模糊匹配，不要自己改。'
-      '会等页面的第一批数据读出来再返回（最多约 5 秒），返回 {route, title, page}：page 就是 describe_page 的内容，直接据此开口，不用再调 describe_page。'
+      '会等页面的第一批数据读出来再返回（最多约 5 秒），返回 {route, title, page, briefing}：page 就是 describe_page 的内容，不用再调 describe_page；'
+      '到动态、频道、私信、讨论时还有 briefing（和 get_briefing 同一份：needsYou 谁需要用户处理什么、progress、routineCount），先据它开口：谁、什么事、到哪一步、要用户做什么，常规的只说条数，不要再调 get_briefing。'
+      '没有 briefing 又有 briefingNote 是没读出来，如实说，不要自己从 page 里归纳。'
       '返回里 loading 为 true 是数据还没读到，不是空的，不要说“没有内容”；page.empty 为 true 才是真的没有。'
       '返回 candidates 是有几个都像：把它们的 title 和 reason 念给用户，让用户选，选定后用选中项的 title 再调一次。返回 error 就如实告诉用户没找到。',
   'parameters': {
@@ -136,6 +157,7 @@ Future<Map<String, Object?>> _describePage(
 Future<Map<String, Object?>> _navigate(
   Map<String, Object?> args,
   OrbToolContext ctx,
+  OrbArrivalBrief? arrivalBrief,
 ) async {
   final w = ctx.workspace;
   final target = _str(args['target']) ?? _str(args['name']);
@@ -186,6 +208,17 @@ Future<Map<String, Object?>> _navigate(
     if (moved.error != null) return {'error': moved.error};
     final page = await describeOrbPage(ctx, budget: budget);
     final loading = page['loading'] == true;
+    // The facts of the place, read by the app (not left to the model to make
+    // out of the page): who needs the person here, and for what.
+    Map<String, Object?>? briefing;
+    var briefingFailed = false;
+    if (arrivalBrief != null && !budget.interrupted) {
+      try {
+        briefing = await arrivalBrief(ctx, match).timeout(orbArrivalWait);
+      } on Object {
+        briefingFailed = true;
+      }
+    }
     return {
       'route': w.location.toString(),
       'title': page['title'] ?? match.title,
@@ -197,6 +230,10 @@ Future<Map<String, Object?>> _navigate(
       if (loading && !budget.interrupted)
         'note': '等了约 5 秒，页面的数据还没读完：这是还在加载，不是空的。稍后可以调 describe_page 再看',
       'page': page,
+      'briefing': ?briefing,
+      if (briefingFailed)
+        'briefingNote':
+            '这里的简报没读出来：不要自己从页面内容归纳谁需要用户处理，可以调 get_briefing 再试，或如实说没读到',
     };
   } on Object catch (e) {
     return {'error': '没能打开${_status(e)}'};

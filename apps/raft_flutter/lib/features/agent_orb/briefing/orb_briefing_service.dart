@@ -57,7 +57,15 @@ class OrbBriefingService {
   /// The briefing for [scope]. A scope briefed before gets only what is new
   /// since, unless [full]; the first call, and every [full] call, give the
   /// whole picture.
-  Future<OrbBriefing> brief(OrbBriefScope scope, {bool full = false}) async {
+  ///
+  /// [modelWait] caps how long the model may take to word the items (the
+  /// writer's own wait when null); past it the rules' sentences are used, so
+  /// who, where and what is asked are the same either way.
+  Future<OrbBriefing> brief(
+    OrbBriefScope scope, {
+    bool full = false,
+    Duration? modelWait,
+  }) async {
     final reader = OrbBriefingReader(w, now: _now);
     final read = scope.isActivity
         ? await reader.activity()
@@ -102,6 +110,7 @@ class OrbBriefingService {
         },
         language: language,
         now: now,
+        wait: modelWait,
       );
       if (result != null) {
         for (final e in result.items.entries) {

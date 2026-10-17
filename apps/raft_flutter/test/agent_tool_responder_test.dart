@@ -118,6 +118,35 @@ void main() {
     }
   });
 
+  testWidgets('tools that read and then ask a model get longer than 8 s', (
+    tester,
+  ) async {
+    final gates = {
+      'get_briefing': Completer<Map<String, Object?>>(),
+      'navigate': Completer<Map<String, Object?>>(),
+      'describe_page': Completer<Map<String, Object?>>(),
+    };
+    final r = responder((name, args) => gates[name]!.future);
+    unawaited(
+      r.answer([
+        call('1', 'get_briefing'),
+        call('2', 'navigate'),
+        call('3', 'describe_page'),
+      ]),
+    );
+    await tester.pump(const Duration(seconds: 9));
+    // A plain read gives up at 8 s; the briefing and navigate are still on.
+    expect(ids(), ['3']);
+    expect((sent.single['response'] as Map)['error'], contains('8 秒'));
+    gates['navigate']!.complete({'route': '/s/alpha/activity'});
+    await tester.pump(const Duration(seconds: 1));
+    expect(ids(), ['3', '2']);
+    expect((sent.last['response'] as Map)['route'], '/s/alpha/activity');
+    await tester.pump(const Duration(seconds: 17));
+    expect(ids(), ['3', '2', '1']);
+    expect((sent.last['response'] as Map)['error'], contains('25 秒'));
+  });
+
   test('a repeated id is not answered twice', () async {
     final r = responder((name, args) async => {'ok': true});
     await r.answer([call('1', 'show_tasks')]);

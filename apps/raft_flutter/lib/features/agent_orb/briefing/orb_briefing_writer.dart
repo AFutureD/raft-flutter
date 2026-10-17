@@ -119,6 +119,7 @@ class OrbBriefingWriter {
     required Map<String, int> counts,
     String language = 'zh',
     required DateTime now,
+    Duration? wait,
   }) async {
     final model = this.model;
     if (model == null || drafts.isEmpty) return null;
@@ -136,7 +137,7 @@ class OrbBriefingWriter {
               now: now.toUtc().toIso8601String(),
             ),
           )
-          .timeout(wait);
+          .timeout(wait ?? this.wait);
     } on Object {
       // Offline, a refused key, a timeout: the rules write the briefing. The
       // error text can carry request details, so none of it is kept.
