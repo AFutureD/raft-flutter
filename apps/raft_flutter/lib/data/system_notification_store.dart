@@ -6,8 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'search_memory.dart';
 import 'system_notification_projection.dart';
 
-typedef SystemNotificationGet =
-    Future<dynamic> Function(String path, {Map<String, dynamic>? query});
+typedef SystemNotificationGet = Future<dynamic> Function(
+  String path, {
+  Map<String, dynamic>? query,
+});
 
 class SystemNotificationContext {
   const SystemNotificationContext({
@@ -70,6 +72,36 @@ class SystemNotificationStore extends ChangeNotifier {
   bool _machineReady = false, loading = false, failed = false, closed = false;
   int revision = 0, dismissRevision = 0, feedbackRevision = 0;
   Future<void> writes = Future.value();
+  String? _publishedScope;
+  List<SystemNotice> _publishedEntries = const [];
+
+  /// Loading and failed reads are bookkeeping, not notification-center content.
+  /// Compare with the last publication (not a fresh projection of mutable shared
+  /// entities), so directory changes, copy and time-based deadlines still reach
+  /// an open popup while unchanged background reads remain silent.
+  void _publish() {
+    final next = entries;
+    if (_publishedScope == context?.scope &&
+        next.length == _publishedEntries.length &&
+        next.indexed.every((item) {
+          final (i, a) = item;
+          final b = _publishedEntries[i];
+          return a.id == b.id &&
+              a.kind == b.kind &&
+              a.title == b.title &&
+              a.body == b.body &&
+              a.destination == b.destination &&
+              a.targetId == b.targetId &&
+              a.fingerprint == b.fingerprint &&
+              mapEquals(a.parameters, b.parameters);
+        })) {
+      return;
+    }
+    _publishedScope = context?.scope;
+    _publishedEntries = next;
+    notifyListeners();
+  }
+
   bool accepts(String scope, int ticket) =>
       !closed && context?.scope == scope && ticket == revision;
   List<SystemNotice> get entries {
@@ -98,7 +130,7 @@ class SystemNotificationStore extends ChangeNotifier {
     final changed = next.scope != context?.scope;
     context = next;
     if (!changed) {
-      notifyListeners();
+      _publish();
       return;
     }
     ++revision;
@@ -111,7 +143,7 @@ class SystemNotificationStore extends ChangeNotifier {
     failed = false;
     loading = false;
     dismissed.clear();
-    notifyListeners();
+    _publish();
     final key = next.storageKey;
     if (key == null) return;
     unawaited(refresh());
@@ -132,7 +164,7 @@ class SystemNotificationStore extends ChangeNotifier {
               .reversed
               .take(100),
         );
-        notifyListeners();
+        _publish();
       }
     } catch (_) {
       // Device storage is optional and cannot grant projection authority.
@@ -146,7 +178,6 @@ class SystemNotificationStore extends ChangeNotifier {
     final ticket = ++revision, readTicket = feedbackRevision;
     loading = true;
     failed = false;
-    notifyListeners();
     Future<dynamic> safeRead(String path, {Map<String, dynamic>? query}) async {
       try {
         return await get(path, query: query);
@@ -167,7 +198,7 @@ class SystemNotificationStore extends ChangeNotifier {
       if (valid && readTicket == feedbackRevision) feedbackUnread = unread;
       failed = !shared().ready || !valid;
       loading = false;
-      notifyListeners();
+      _publish();
       return;
     }
     final results = await Future.wait([
@@ -237,7 +268,7 @@ class SystemNotificationStore extends ChangeNotifier {
         unread < 0 ||
         unread > 9007199254740991;
     loading = false;
-    notifyListeners();
+    _publish();
   }
 
   static List<Map>? _rows(dynamic value) =>
@@ -260,7 +291,7 @@ class SystemNotificationStore extends ChangeNotifier {
     }
     ++feedbackRevision;
     feedbackUnread = unread;
-    notifyListeners();
+    _publish();
     return true;
   }
 
@@ -286,7 +317,7 @@ class SystemNotificationStore extends ChangeNotifier {
         /* accepted memory choice remains */
       }
     });
-    notifyListeners();
+    _publish();
     return true;
   }
 

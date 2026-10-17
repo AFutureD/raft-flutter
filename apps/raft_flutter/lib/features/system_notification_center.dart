@@ -102,9 +102,9 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
       ),
     )..addListener(changed);
     events = w.client.events.listen((e) {
-      // High-frequency presence events reach the shared-directory notices
-      // only through the directory facts above.
-      if (!WorkspaceController.presenceEvents.contains(e.name)) changed();
+      // Accepted workspace/directory facts above own projection updates.
+      // Raw chat events carry no notification-center fact and must not rebind
+      // the bell a second time after the workspace already accepted them.
       // agent:*/machine:* revalidate the shared directory in place; only a
       // directory-less store reads them itself.
       if ((store.entities == null &&
