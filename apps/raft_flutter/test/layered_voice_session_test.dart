@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/agent_engine.dart';
 import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
+import 'package:raft_flutter/features/agent_mode/genkit_agent.dart';
 import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
 import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
@@ -317,6 +319,43 @@ void main() {
       },
     );
     expect(seen, [AgentThinking.high]);
+  });
+
+  test('the agent runs on Genkit unless the direct calls are chosen', () {
+    LayeredVoiceSession build({AgentEngine? engine}) => LayeredVoiceSession(
+      apiKey: 'k',
+      systemPrompt: 'p',
+      tools: const [],
+      onToolCall: (n, a) async => {},
+      steering: AgentSteering(
+        scope: () => const AgentScope(systemPrompt: 's', tools: []),
+      ),
+      liveBuilder: (parts) => FakeLive(parts),
+      engine: engine ?? AgentEngine.genkit,
+    );
+    expect(build().agent, isA<GenkitAgentSession>());
+    expect(build(engine: AgentEngine.genkit).agent, isA<GenkitAgentSession>());
+    expect(build(engine: AgentEngine.direct).agent, isA<GeminiAgentSession>());
+  });
+
+  test('the factory reads the engine of the setting', () {
+    AgentOrbPreference.instance.resetForTest();
+    addTearDown(AgentOrbPreference.instance.resetForTest);
+    LayeredVoiceSession make() => createLayeredSession(
+      provider: AgentVoiceProvider.gemini,
+      apiKey: 'k',
+      systemPrompt: 'p',
+      tools: const [],
+      onToolCall: (n, a) async => {},
+      voice: 'v',
+      steering: AgentSteering(
+        scope: () => const AgentScope(systemPrompt: 's', tools: []),
+      ),
+    ) as LayeredVoiceSession;
+    expect(make().engine, AgentEngine.genkit);
+    AgentOrbPreference.instance.setAgentEngine(AgentEngine.direct);
+    expect(make().engine, AgentEngine.direct);
+    expect(make().agent, isA<GeminiAgentSession>());
   });
 
   test('the factory reads the setting when it builds the session', () {

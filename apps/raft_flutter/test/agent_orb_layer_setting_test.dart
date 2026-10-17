@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
+import 'package:raft_flutter/features/agent_mode/agent_engine.dart';
 import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
 import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -123,6 +124,60 @@ void main() {
       await f.pump();
       expect(f.builds, 1);
       AgentOrbPreference.instance.setAgentThinking(AgentThinking.medium);
+      await t.pump();
+      await t.pump();
+      expect(f.builds, 2);
+      await t.pump(const Duration(seconds: 1));
+      expect(f.builds, 2);
+    });
+  });
+
+  group('the engine of the text agent', () {
+    test('Genkit by default; a choice is kept and read back', () async {
+      SharedPreferences.setMockInitialValues({});
+      AgentOrbPreference.instance.resetForTest();
+      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.genkit);
+      AgentOrbPreference.instance.setAgentEngine(AgentEngine.direct);
+      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.direct);
+      await pumpEventQueue();
+      final stored = await SharedPreferences.getInstance();
+      expect(stored.getString(AgentOrbPreference.engineKey), 'direct');
+
+      AgentOrbPreference.instance.resetForTest();
+      DevicePreferences.adopt(stored);
+      addTearDown(DevicePreferences.reset);
+      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.direct);
+      stored.setString(AgentOrbPreference.engineKey, 'nonsense');
+      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.genkit);
+      AgentOrbPreference.instance.resetForTest();
+    });
+
+    testWidgets('the Labs card offers it while the agent layer is on', (
+      t,
+    ) async {
+      await fixture(t);
+      await f.pump(enabled: false);
+      final control = find.byKey(const ValueKey('agent-orb-engine'));
+      expect(find.text('引擎'), findsOneWidget);
+      expect(control, findsOneWidget);
+      expect(find.text('Genkit'), findsOneWidget);
+      expect(find.text('直连'), findsOneWidget);
+      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.genkit);
+
+      await t.tap(find.byKey(const ValueKey('agent-orb-engine-direct')));
+      await t.pump();
+      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.direct);
+
+      await t.tap(find.byKey(const ValueKey('agent-orb-layer-switch')));
+      await t.pump();
+      expect(control, findsNothing);
+    });
+
+    testWidgets('changing it builds the orb again', (t) async {
+      await fixture(t);
+      await f.pump();
+      expect(f.builds, 1);
+      AgentOrbPreference.instance.setAgentEngine(AgentEngine.direct);
       await t.pump();
       await t.pump();
       expect(f.builds, 2);

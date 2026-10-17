@@ -4,6 +4,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/device_preferences.dart';
+import '../agent_mode/agent_engine.dart';
 import '../agent_mode/agent_thinking.dart';
 
 /// Device-local Labs switch for the Agent orb (phones only). Default off.
@@ -118,11 +119,49 @@ class AgentOrbPreference extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// What makes the text agent's model calls: Genkit (the default) or direct
+  /// calls to the Gemini API. A change builds the orb again.
+  static const engineKey = 'raft.agentOrb.engine';
+  AgentEngine? _engineOverride;
+
+  AgentEngine get agentEngine {
+    if (_engineOverride != null) return _engineOverride!;
+    try {
+      return AgentEngine.parse(
+            DevicePreferences.current?.getString(engineKey),
+          ) ??
+          AgentEngine.genkit;
+    } catch (_) {
+      return AgentEngine.genkit;
+    }
+  }
+
+  void setAgentEngine(AgentEngine next) {
+    if (next == agentEngine) return;
+    _engineOverride = next;
+    Future<void> write(SharedPreferences prefs) async {
+      try {
+        await prefs.setString(engineKey, next.name);
+      } catch (_) {
+        /* optional local storage */
+      }
+    }
+
+    final loaded = DevicePreferences.current;
+    if (loaded != null) {
+      write(loaded);
+    } else {
+      SharedPreferences.getInstance().then(write, onError: (_) {});
+    }
+    notifyListeners();
+  }
+
   @visibleForTesting
   void resetForTest() {
     _override = null;
     _layerOverride = null;
     _thinkingOverride = null;
+    _engineOverride = null;
   }
 }
 
@@ -134,6 +173,7 @@ class AgentOrbLabsCard extends StatelessWidget {
   static const title = 'Agent 悬浮球（手机）';
   static const layerTitle = 'Agent 层';
   static const thinkingTitle = '文本 Agent 推理强度';
+  static const engineTitle = '引擎';
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +288,42 @@ class AgentOrbLabsCard extends StatelessWidget {
                 const SizedBox(height: RaftSpace.x1),
                 RaftCssText(
                   '最少最快；高想得更久、答得更晚。下一次对话生效。',
+                  style: RaftTypography.body(
+                    t,
+                    size: 13,
+                    line: 18,
+                    color: t.muted,
+                  ),
+                ),
+                const SizedBox(height: RaftSpace.x3),
+                RaftCssText(
+                  engineTitle,
+                  style: RaftTypography.body(
+                    t,
+                    size: 14,
+                    line: 20,
+                    weight: FontWeight.w600,
+                    color: t.ink,
+                  ),
+                ),
+                const SizedBox(height: RaftSpace.x2),
+                RaftSegmentedControl<AgentEngine>(
+                  key: const ValueKey('agent-orb-engine'),
+                  label: engineTitle,
+                  value: pref.agentEngine,
+                  onChanged: pref.setAgentEngine,
+                  items: [
+                    for (final v in AgentEngine.values)
+                      RaftSegmentedOption(
+                        value: v,
+                        label: v.label,
+                        itemKey: ValueKey('agent-orb-engine-${v.name}'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: RaftSpace.x1),
+                RaftCssText(
+                  'Genkit 是默认；直连是 App 自己调 Gemini 的备用。下一次对话生效。',
                   style: RaftTypography.body(
                     t,
                     size: 13,

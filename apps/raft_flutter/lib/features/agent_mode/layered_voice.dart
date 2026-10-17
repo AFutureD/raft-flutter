@@ -3,10 +3,12 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
+import 'agent_engine.dart';
 import 'agent_steering.dart';
 import 'agent_thinking.dart';
 import '../agent_orb/orb_preference.dart' show AgentOrbPreference;
 import 'gemini_agent.dart';
+import 'genkit_agent.dart';
 import 'gemini_live.dart';
 import 'voice_provider.dart';
 
@@ -70,6 +72,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     required this.onToolCall,
     required this.steering,
     this.thinking = AgentThinking.low,
+    this.engine = AgentEngine.genkit,
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.onAudio,
@@ -79,7 +82,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.onInterrupted,
     this.onClosed,
     VoiceSession Function(LiveParts parts)? liveBuilder,
-    GeminiAgentSession Function(AgentParts parts)? agentBuilder,
+    VoiceSession Function(AgentParts parts)? agentBuilder,
   }) : _liveBuilder = liveBuilder ?? _gemini,
        _agentBuilder = agentBuilder ?? _agentGemini {
     _live = _liveBuilder(
@@ -116,17 +119,31 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     onClosed: p.onClosed,
   );
 
-  static GeminiAgentSession _agentGemini(AgentParts p) => GeminiAgentSession(
-    apiKey: p.apiKey,
-    systemPrompt: p.systemPrompt,
-    tools: p.tools,
-    steering: p.steering,
-    thinking: p.thinking,
-    onToolCall: p.onToolCall,
-    onOutputText: p.onOutputText,
-    onTurnComplete: p.onTurnComplete,
-    onClosed: p.onClosed,
-  );
+  /// The agent on the engine of the setting: Genkit, or the direct calls.
+  static VoiceSession _agentGemini(AgentParts p) => switch (p.engine) {
+    AgentEngine.genkit => GenkitAgentSession(
+      apiKey: p.apiKey,
+      systemPrompt: p.systemPrompt,
+      tools: p.tools,
+      steering: p.steering,
+      thinking: p.thinking,
+      onToolCall: p.onToolCall,
+      onOutputText: p.onOutputText,
+      onTurnComplete: p.onTurnComplete,
+      onClosed: p.onClosed,
+    ),
+    AgentEngine.direct => GeminiAgentSession(
+      apiKey: p.apiKey,
+      systemPrompt: p.systemPrompt,
+      tools: p.tools,
+      steering: p.steering,
+      thinking: p.thinking,
+      onToolCall: p.onToolCall,
+      onOutputText: p.onOutputText,
+      onTurnComplete: p.onTurnComplete,
+      onClosed: p.onClosed,
+    ),
+  };
 
   final String apiKey;
 
@@ -141,6 +158,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   /// How hard the agent behind the voice thinks.
   final AgentThinking thinking;
+
+  /// What makes the agent's model calls.
+  final AgentEngine engine;
   final String voice;
   final AgentReasoning reasoning;
   @override
@@ -157,22 +177,27 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   final void Function(String reason)? onClosed;
 
   final VoiceSession Function(LiveParts) _liveBuilder;
-  final GeminiAgentSession Function(AgentParts) _agentBuilder;
+  final VoiceSession Function(AgentParts) _agentBuilder;
   late final VoiceSession _live;
-  late GeminiAgentSession _agent;
+  late VoiceSession _agent;
+
+  /// The agent session now in use (tests look at what engine it is on).
+  @visibleForTesting
+  VoiceSession get agent => _agent;
   bool _closed = false;
 
   /// The turns the agent has been given and not yet finished, oldest first.
   final _asks = Queue<Completer<String>>();
   final _words = StringBuffer();
 
-  GeminiAgentSession _makeAgent() => _agentBuilder(
+  VoiceSession _makeAgent() => _agentBuilder(
     AgentParts(
       apiKey: apiKey,
       systemPrompt: systemPrompt,
       tools: tools,
       steering: steering,
       thinking: thinking,
+      engine: engine,
       onToolCall: onToolCall,
       onOutputText: _words.write,
       onTurnComplete: _agentFinished,
@@ -317,6 +342,7 @@ class AgentParts {
     required this.tools,
     required this.steering,
     required this.thinking,
+    required this.engine,
     required this.onToolCall,
     required this.onOutputText,
     required this.onTurnComplete,
@@ -327,6 +353,7 @@ class AgentParts {
   final List<Map<String, Object?>> tools;
   final AgentSteering steering;
   final AgentThinking thinking;
+  final AgentEngine engine;
   final AgentToolHandler onToolCall;
   final void Function(String text) onOutputText;
   final void Function() onTurnComplete;
@@ -360,6 +387,7 @@ VoiceSession createLayeredSession({
   steering: steering!,
   // Read now: a change of the setting reaches the next session.
   thinking: AgentOrbPreference.instance.agentThinking,
+  engine: AgentOrbPreference.instance.agentEngine,
   voice: voice,
   reasoning: reasoning,
   onAudio: onAudio,
