@@ -136,12 +136,48 @@ void main() {
     await done;
     f.controller.showBriefing(live(queue, routine: routine));
     await settle(t);
+    // Entering told the model the first item (its own test, "entering");
+    // what follows counts only the notes after it.
+    if (inCall) f.sessions.single.sentTexts.clear();
   }
 
   final progress = find.byKey(const ValueKey('orb-driving-progress'));
   final badge = find.byKey(const ValueKey('orb-driving-new'));
   final marker = find.byKey(const ValueKey('orb-driving-card-new'));
   final next = find.byKey(const ValueKey('orb-driving-next'));
+
+  // On the G100 "start driving mode" turned the mode on and showed nothing:
+  // the model did not ask for a briefing. Kevin: entering it pushes up what
+  // matters first.
+  group('entering', () {
+    testWidgets('driving on with nothing shown lays out the Activity '
+        'briefing by itself', (t) async {
+      await fixture(t);
+      current = live([a, b]);
+      final on = f.controller.dispatch('set_driving_mode', {'on': true});
+      await settle(t);
+      await on;
+      await settle(t);
+      expect(f.controller.drivingItems.map((i) => i.id), ['a', 'b']);
+      expect(find.text('第 1 件 / 共 2 件'), findsOneWidget);
+    });
+
+    testWidgets('in a call the model is told what the first item is', (
+      t,
+    ) async {
+      await fixture(t);
+      await f.startCall();
+      current = live([a]);
+      final on = f.controller.dispatch('set_driving_mode', {'on': true});
+      await settle(t);
+      await on;
+      await settle(t);
+      expect(
+        f.sessions.single.sentTexts.any((n) => n.contains('A 问你周五有没有空')),
+        isTrue,
+      );
+    });
+  });
 
   group('watching', () {
     testWidgets('starts when driving mode goes on, stops when it goes off', (

@@ -774,13 +774,28 @@ class OrbController extends ChangeNotifier {
         orbItemKey(i),
     ]);
     final gen = _liveGen;
+    final nothingShown = shownBriefing == null;
     _baseline = brief(workspace)
         .then((b) {
-          if (gen == _liveGen) {
-            _seen.addAll([for (final i in b.needsYou) orbItemKey(i)]);
+          if (gen != _liveGen) return;
+          _seen.addAll([for (final i in b.needsYou) orbItemKey(i)]);
+          // Entering pushes up what matters first (Kevin): the model need
+          // not ask for it.
+          if (nothingShown && shownBriefing == null && !_disposed) {
+            showBriefing(b);
+            if (inCall) unawaited(voice.tell(_enteredNote(b)));
           }
         })
         .catchError((Object _) {});
+  }
+
+  /// What the model hears when driving mode laid out its briefing.
+  static String _enteredNote(OrbBriefing b) {
+    final first = b.needsYou.firstOrNull;
+    return first == null
+        ? '驾驶简报已经在屏幕上：没有要处理的消息。只说一句“没有要你处理的”，再说常规的条数。'
+        : '驾驶简报已经在屏幕上，共 ${b.needsYou.length} 件，第 1 件：'
+              '${first.who}，${first.title}。只说这一件，最多两句，然后等用户说“下一件”。';
   }
 
   /// Driving ended (or the orb goes): nothing is watched, nothing waits.
