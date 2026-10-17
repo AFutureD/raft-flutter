@@ -617,7 +617,8 @@ class _FileRowState extends State<SourceChannelFileRow> {
         foregroundColor: WidgetStatePropertyAll(recipe.foreground),
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) =>
-              states.contains(WidgetState.hovered) && RaftHoverScope.of(context) ||
+              states.contains(WidgetState.hovered) &&
+                      RaftHoverScope.of(context) ||
                   states.contains(WidgetState.focused)
               ? recipe.highlightedBackground
               : Colors.transparent,

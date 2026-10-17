@@ -269,7 +269,9 @@ class RaftAttachmentCard extends StatelessWidget {
                         label: '${raftText(context, 'Preview')} $filename',
                         button: !exportMode,
                         child: InkWell(
-                          hoverColor: RaftHoverScope.of(context) ? null : Colors.transparent,
+                          hoverColor: RaftHoverScope.materialHoverColor(
+                            context,
+                          ),
                           onTap: exportMode ? null : onOpen,
                           child:
                               preview ??

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -137,8 +136,6 @@ void main() {
     testWidgets('host hover policy follows $platform rather than width', (
       tester,
     ) async {
-      debugDefaultTargetPlatformOverride = platform;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       await tester.binding.setSurfaceSize(
         Size(platform == TargetPlatform.android ? 1600 : 390, 800),
       );
@@ -171,6 +168,6 @@ void main() {
       expect(state!.hovered, platform == TargetPlatform.linux);
       await mouse.removePointer();
       await tester.pumpWidget(const SizedBox());
-    });
+    }, variant: TargetPlatformVariant({platform}));
   }
 }

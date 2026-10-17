@@ -32,6 +32,11 @@ class RaftHoverScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<RaftDensityScope>()?.density !=
           RaftDensity.touch;
 
+  /// Preserve the Material default for fine input and suppress only its hover
+  /// overlay on touch hosts. Focus and pressed overlays keep their defaults.
+  static Color? materialHoverColor(BuildContext context) =>
+      of(context) ? null : Colors.transparent;
+
   @override
   bool updateShouldNotify(RaftHoverScope oldWidget) =>
       enabled != oldWidget.enabled;
