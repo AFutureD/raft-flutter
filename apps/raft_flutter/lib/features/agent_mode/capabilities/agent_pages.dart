@@ -13,9 +13,7 @@ import '../../../data/workspace_navigation.dart';
 
 /// Where a route went.
 class AgentPageResult {
-  const AgentPageResult.opened(this.location)
-    : opened = true,
-      problem = null;
+  const AgentPageResult.opened(this.location) : opened = true, problem = null;
   const AgentPageResult.refused(this.problem) : opened = false, location = null;
 
   final bool opened;

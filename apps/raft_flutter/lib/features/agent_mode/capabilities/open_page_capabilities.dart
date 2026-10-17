@@ -32,7 +32,10 @@ Future<String> _channelPage(
   return c.type == 'dm' ? '/dm/$id' : '/channel/$id?channelPage=$page:$id';
 }
 
-Future<String> _agentPage(WorkspaceController w, Map<String, Object?> args) async {
+Future<String> _agentPage(
+  WorkspaceController w,
+  Map<String, Object?> args,
+) async {
   final ref = text(args['agent']);
   if (ref == null) return '/members';
   final a = await agentByRef(w, ref);
@@ -176,13 +179,22 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'server.invite',
     title: '邀请人加入服务器：发邮件邀请或生成邀请链接，选角色，撤销邀请（带用户去成员页）',
-    keywords: const ['邀请成员', '邀请加入服务器', '发邀请', '邀请链接', '拉人进服务器', '撤销邀请', 'invite'],
+    keywords: const [
+      '邀请成员',
+      '邀请加入服务器',
+      '发邀请',
+      '邀请链接',
+      '拉人进服务器',
+      '撤销邀请',
+      'invite',
+    ],
     route: '/members',
     parity: 'POST /servers/:id/invites',
   ),
   _page(
     id: 'members.change_role',
-    title: '改成员在服务器里的角色（owner / admin / member / guest），或把人移出服务器（不能语音做：带用户去成员页）',
+    title:
+        '改成员在服务器里的角色（owner / admin / member / guest），或把人移出服务器（不能语音做：带用户去成员页）',
     keywords: const [
       '设为管理员',
       '改角色',
@@ -222,7 +234,17 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'settings.appearance',
     title: '外观设置：浅色 / 深色、主题、字号、显示 Agent 模型、导航栏位置（带用户去外观设置页）',
-    keywords: const ['深色模式', '浅色模式', '切到深色', '字大一点', '字号', '主题', '外观', '夜间模式', '调字体'],
+    keywords: const [
+      '深色模式',
+      '浅色模式',
+      '切到深色',
+      '字大一点',
+      '字号',
+      '主题',
+      '外观',
+      '夜间模式',
+      '调字体',
+    ],
     route: '/settings/appearance',
     parity: 'ui:tabs.appearance',
   ),
@@ -236,7 +258,16 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'settings.notifications',
     title: '通知设置：推送开关、本服务器静音、桌面通知（带用户去通知设置页）',
-    keywords: const ['通知设置', '关掉推送', '别推送', '免打扰', '静音服务器', '推送开关', '桌面通知', '明天早上别推送'],
+    keywords: const [
+      '通知设置',
+      '关掉推送',
+      '别推送',
+      '免打扰',
+      '静音服务器',
+      '推送开关',
+      '桌面通知',
+      '明天早上别推送',
+    ],
     route: '/settings/notifications',
     parity: 'PATCH /servers/:id/notification-settings',
   ),
@@ -257,14 +288,33 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'providers.manage',
     title: 'AI 提供商：添加、编辑、验证 Key、删除（不能语音做：带用户去 AI 提供商页）',
-    keywords: const ['AI提供商', '模型提供商', '提供商', 'API Key', 'key还有效吗', '添加模型', '验证key', 'provider'],
+    keywords: const [
+      'AI提供商',
+      '模型提供商',
+      '提供商',
+      'API Key',
+      'key还有效吗',
+      '添加模型',
+      '验证key',
+      'provider',
+    ],
     route: '/settings/providers',
     parity: 'POST /provider-connections',
   ),
   _page(
     id: 'apps.marketplace',
     title: '应用市场与我的应用：安装、卸载、注册应用、重置密钥、Webhook（不能语音做：带用户去应用页）',
-    keywords: const ['装应用', '安装应用', '卸载应用', '应用市场', '集成', '注册应用', '应用密钥', 'webhook', 'marketplace'],
+    keywords: const [
+      '装应用',
+      '安装应用',
+      '卸载应用',
+      '应用市场',
+      '集成',
+      '注册应用',
+      '应用密钥',
+      'webhook',
+      'marketplace',
+    ],
     route: '/settings/applications',
     parity: 'POST /integrations/marketplace/:id/install',
   ),
@@ -278,7 +328,15 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'slack.bridge',
     title: 'Slack 等 IM 桥：授权、预检、频道配对、启用、断开（不能语音做：带用户去 IM 桥页）',
-    keywords: const ['slack', 'Slack桥', 'IM桥', '连接slack', '断开slack', '频道配对', '聊天桥'],
+    keywords: const [
+      'slack',
+      'Slack桥',
+      'IM桥',
+      '连接slack',
+      '断开slack',
+      '频道配对',
+      '聊天桥',
+    ],
     route: '/settings/im-bridges',
     parity: 'POST /slack-bridge/provisioning/connect',
   ),
@@ -295,7 +353,15 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'computers.upgrade',
     title: '升级或重启一台电脑上的 Computer 程序（不能语音做：带用户去电脑详情页）',
-    keywords: const ['升级电脑', '电脑升级', '重启电脑', '重启computer', '更新computer', '升级K8', 'upgrade computer'],
+    keywords: const [
+      '升级电脑',
+      '电脑升级',
+      '重启电脑',
+      '重启computer',
+      '更新computer',
+      '升级K8',
+      'upgrade computer',
+    ],
     route: '/computers',
     parity: 'POST /servers/:id/machines/:id/computer/upgrade',
     params: _on('computer', _computerArg),
@@ -304,7 +370,14 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'computers.rotate_key',
     title: '轮换一台电脑的 API Key（旧 Key 立刻失效；不能语音做：带用户去电脑详情页）',
-    keywords: const ['轮换key', '换key', '电脑密钥', '重置电脑key', '换电脑api key', 'rotate key'],
+    keywords: const [
+      '轮换key',
+      '换key',
+      '电脑密钥',
+      '重置电脑key',
+      '换电脑api key',
+      'rotate key',
+    ],
     route: '/computers',
     parity: 'POST /servers/:id/machines/:id/rotate-key',
     params: _on('computer', _computerArg),
@@ -330,7 +403,14 @@ final openPageCapabilities = <AgentCapability>[
   _page(
     id: 'agents.create',
     title: '新建一个 Agent（选电脑、运行时、模型；带用户去成员页的创建入口）',
-    keywords: const ['新建agent', '创建agent', '建一个agent', '添加agent', '加个agent', '新agent'],
+    keywords: const [
+      '新建agent',
+      '创建agent',
+      '建一个agent',
+      '添加agent',
+      '加个agent',
+      '新agent',
+    ],
     route: '/members',
     parity: 'POST /agents',
   ),

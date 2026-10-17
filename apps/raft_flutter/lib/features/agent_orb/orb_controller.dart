@@ -20,6 +20,7 @@ import 'briefing/orb_briefing_tools.dart'
     show defaultOrbOpenLink, orbBriefingTools;
 import 'nav/orb_nav_tools.dart'
     show orbChannelsLine, orbDirectoryOf, orbNavigationTools;
+import 'nav/orb_page_description.dart' show orbPageTitle;
 import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
 import 'orb_operating.dart';
@@ -149,6 +150,7 @@ class OrbController extends ChangeNotifier {
     )..addListener(_voiceChanged);
     voice.saying.addListener(_sayingChanged);
     operating.addListener(_operatingChanged);
+    workspace.addListener(_whereChanged);
   }
 
   final WorkspaceController workspace;
@@ -363,7 +365,8 @@ class OrbController extends ChangeNotifier {
     if (said.isEmpty) return;
     _agentOpen = false;
     _add(OrbEntryKind.user, said);
-    final sent = await voice.sendText(said);
+    _whereTold = _whereLine();
+    final sent = await voice.sendText(said, silentContext: _whereTold);
     if (!sent) _note('还没有语音 Key：在 设置 > Labs 里扫码填入（和 Agent 模式共用）');
   }
 
@@ -1020,6 +1023,33 @@ class OrbController extends ChangeNotifier {
     );
   }
 
+  // ---- where the person is -------------------------------------------------
+
+  String? _whereTold;
+  Timer? _whereTimer;
+
+  /// The page the person is on, for the model (eval C5: in a discussion
+  /// "大家意见是什么" jumped to the Activity; the model did not know).
+  String _whereLine() {
+    final loc = workspace.location;
+    final title = orbPageTitle(workspace, loc);
+    return '（App 提示，不是用户的话：用户现在在「$title」页面，路由 ${loc.uri}。'
+        '他说“这个”“这里”“大家”时指的就是这个页面。）';
+  }
+
+  /// In a call, a move is told to the model once, without a turn.
+  void _whereChanged() {
+    if (_disposed || !inCall) return;
+    _whereTimer?.cancel();
+    _whereTimer = Timer(const Duration(milliseconds: 400), () {
+      if (_disposed || !inCall) return;
+      final line = _whereLine();
+      if (line == _whereTold) return;
+      _whereTold = line;
+      voice.addContext(line);
+    });
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -1029,6 +1059,8 @@ class OrbController extends ChangeNotifier {
     _subtitleTimer?.cancel();
     _stopLive();
     operating.removeListener(_operatingChanged);
+    workspace.removeListener(_whereChanged);
+    _whereTimer?.cancel();
     voice.saying.removeListener(_sayingChanged);
     voice.removeListener(_voiceChanged);
     callSeconds.dispose();

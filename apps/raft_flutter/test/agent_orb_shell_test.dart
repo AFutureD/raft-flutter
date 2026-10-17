@@ -69,6 +69,12 @@ class FakeSession implements VoiceSession {
   final List<Map<String, Object?>> tools;
   final connectGate = Completer<void>();
   final sentTexts = <String>[];
+
+  /// What the app added silently (where the person is).
+  final contexts = <String>[];
+
+  @override
+  void addContext(String text) => contexts.add(text);
   bool _connected = false;
   int closes = 0;
 

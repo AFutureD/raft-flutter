@@ -61,6 +61,10 @@ abstract interface class VoiceSession {
   /// Typed text, or a note from the app, as the person's next input.
   void sendText(String text);
 
+  /// Context the model should know (where the person is) without it being
+  /// a turn: nothing is answered for it.
+  void addContext(String text);
+
   Future<void> close();
 }
 

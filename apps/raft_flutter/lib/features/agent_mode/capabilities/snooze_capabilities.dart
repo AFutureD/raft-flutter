@@ -13,9 +13,11 @@ import 'capability_support.dart';
 String whenWord(DateTime at, DateTime now) {
   String two(int n) => n.toString().padLeft(2, '0');
   final l = at.toLocal(), n = now.toLocal();
-  final days = DateTime(l.year, l.month, l.day)
-      .difference(DateTime(n.year, n.month, n.day))
-      .inDays;
+  final days = DateTime(
+    l.year,
+    l.month,
+    l.day,
+  ).difference(DateTime(n.year, n.month, n.day)).inDays;
   final clock = '${two(l.hour)}:${two(l.minute)}';
   return switch (days) {
     0 => '今天 $clock',
@@ -32,8 +34,7 @@ Future<AgentAttentionItem> attentionItemFor(
   AgentCapabilityEnv env,
   String ref,
 ) async {
-  final all =
-      AgentModeData.cached(w) ?? await env.dataFor(w).attention();
+  final all = AgentModeData.cached(w) ?? await env.dataFor(w).attention();
   final want = ref.trim();
   if (want.isEmpty) throw const AgentCapabilityError('需要 item：要稍后再看的那一件');
   List<AgentAttentionItem> hits(bool Function(AgentAttentionItem) test) => [
@@ -64,11 +65,7 @@ Future<AgentAttentionItem> attentionItemFor(
         '“$ref”对得上多件事，请问用户是哪一件',
         candidates: [
           for (final i in found.take(6))
-            {
-              'id': i.id,
-              'number': i.taskNumber,
-              'text': clip(i.headline, 60),
-            },
+            {'id': i.id, 'number': i.taskNumber, 'text': clip(i.headline, 60)},
         ],
       );
     }
@@ -103,12 +100,16 @@ DateTime _checked(Map<String, Object?> args, DateTime now) {
   return at;
 }
 
-final _itemArg = strArg('要稍后再看的那一件：动态的 id（activity:…）、任务 id、任务编号（#98）、频道或讨论的 id，或它那句话里的几个字', max: 120);
+final _itemArg = strArg(
+  '要稍后再看的那一件：动态的 id（activity:…）、任务 id、任务编号（#98）、频道或讨论的 id，或它那句话里的几个字',
+  max: 120,
+);
 
 final snoozeCapabilities = <AgentCapability>[
   AgentCapability(
     id: 'attention.snooze',
-    title: '把首页（动态）里的一件事稍后再看（今晚 / 明天早上 / 几小时后）：先从首页拿掉，到点再提醒；记在手机上，退出 Agent 模式也不丢',
+    title:
+        '把首页（动态）里的一件事稍后再看（今晚 / 明天早上 / 几小时后）：先从首页拿掉，到点再提醒；记在手机上，退出 Agent 模式也不丢',
     kind: AgentCapabilityKind.action,
     risk: AgentCapabilityRisk.change,
     keywords: const [
@@ -145,7 +146,9 @@ final snoozeCapabilities = <AgentCapability>[
       final store = env.snoozeFor(w);
       final before = store.entry(item.id);
       return AgentUndoPlan(
-        label: before == null ? '放回首页' : '改回 ${whenWord(before.until, env.snoozeFor(w).now())}',
+        label: before == null
+            ? '放回首页'
+            : '改回 ${whenWord(before.until, env.snoozeFor(w).now())}',
         run: () async {
           if (before == null) {
             store.unsnooze(item.id);
@@ -172,9 +175,7 @@ final snoozeCapabilities = <AgentCapability>[
           ),
         ],
         reversible: true,
-        refs: [
-          if (item.taskId != null) AgentPreviewRef('task', item.taskId!),
-        ],
+        refs: [if (item.taskId != null) AgentPreviewRef('task', item.taskId!)],
       );
     },
     run: (w, args, env) async {
@@ -226,9 +227,7 @@ final snoozeCapabilities = <AgentCapability>[
       final now = env.snoozeFor(w).now();
       return AgentActionPreview(
         summary: '把稍后的“${quote(held.headline, 30)}”现在就放回来',
-        changes: [
-          change('首页', '稍后（${whenWord(held.until, now)}）', '待处理'),
-        ],
+        changes: [change('首页', '稍后（${whenWord(held.until, now)}）', '待处理')],
         reversible: true,
       );
     },
@@ -258,7 +257,8 @@ final snoozeCapabilities = <AgentCapability>[
       '明天要看的',
     ],
     paramsSchema: noArgs,
-    resultSummary: 'count, snoozed[{id,number,text,channel,until,remindIn}] 最先到点的在前',
+    resultSummary:
+        'count, snoozed[{id,number,text,channel,until,remindIn}] 最先到点的在前',
     run: (w, args, env) async {
       final now = env.snoozeFor(w).now();
       final rows = env.snoozeFor(w).active;

@@ -594,7 +594,11 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   /// Sends typed text to the voice session; false when there is no key.
   /// [context] (what is on screen, the card just tapped) goes to the model
   /// in front of the words, not into the captions.
-  Future<bool> sendText(String text, {String? context}) async {
+  Future<bool> sendText(
+    String text, {
+    String? context,
+    String? silentContext,
+  }) async {
     if (!await hasKey) return false;
     say(AgentSpeaker.you, text);
     saying.value = '';
@@ -602,6 +606,11 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     _set(AgentMicState.thinking);
     final session = await _ensureSession();
     if (session == null) return true;
+    // [silentContext] is its own item, ahead of the words: the model knows
+    // it, the words stay the person's own.
+    if (silentContext != null && silentContext.isNotEmpty) {
+      session.addContext(silentContext);
+    }
     session.sendText(
       context == null || context.isEmpty ? text : '$context\n$text',
     );
@@ -619,6 +628,10 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     session.sendText(note);
     return true;
   }
+
+  /// Context for the session that is open now (none is started for it):
+  /// the model knows it, nothing is answered.
+  void addContext(String text) => _session?.addContext(text);
 
   void _playbackIdle() {
     if (state == AgentMicState.speaking) _set(AgentMicState.idle);

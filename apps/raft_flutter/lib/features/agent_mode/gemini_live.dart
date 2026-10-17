@@ -144,6 +144,7 @@ class GeminiLiveSession implements VoiceSession {
   /// Picks the newest model that supports Live sessions for this key.
   static Future<String> _pickModel(String key) async {
     if (_model != null) return _model!;
+    // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
     final client = HttpClient();
     try {
       final request = await client.getUrl(
@@ -229,6 +230,7 @@ class GeminiLiveSession implements VoiceSession {
   }) async {
     _declaredNonBlocking = nonBlocking;
     final model = await _pickModel(apiKey);
+    // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
     final socket = await WebSocket.connect(
       Uri(
         scheme: 'wss',
@@ -420,6 +422,22 @@ class GeminiLiveSession implements VoiceSession {
     'realtimeInput': {'text': text},
   });
 
+  /// A turn that does not complete: context, nothing answered.
+  @override
+  void addContext(String text) => _send({
+    'clientContent': {
+      'turns': [
+        {
+          'role': 'user',
+          'parts': [
+            {'text': text},
+          ],
+        },
+      ],
+      'turnComplete': false,
+    },
+  });
+
   @override
   Future<void> close() async {
     final socket = _socket;
@@ -551,6 +569,7 @@ class AgentToolResponder {
             '请如实告诉用户稍后再试，不要重复调用。',
       };
     } catch (e) {
+      // ignore: raft_lints/avoid_caught_exception_text -- A tool result for the model, never shown in the UI.
       result = {'error': '$e'};
     }
     if (id != null && _cancelled.remove('$id')) {

@@ -89,6 +89,8 @@ class _Session implements VoiceSession {
   @override
   void sendText(String text) {}
   @override
+  void addContext(String text) {}
+  @override
   Future<void> close() async {
     closes++;
     _connected = false;

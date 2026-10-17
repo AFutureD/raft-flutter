@@ -61,6 +61,26 @@ void main() {
     await settleSession(t);
   }
 
+  group('where the person is', () {
+    testWidgets('in a call a move tells the model the new page, once, '
+        'without asking it to answer', (t) async {
+      await fixture(t);
+      await t.longPress(OrbFixture.orbFinder);
+      await settleSession(t);
+      await connected(t);
+      final s = f.sessions.single;
+      final before = s.contexts.length;
+      f.w.setSection('tasks');
+      await t.pump(const Duration(milliseconds: 600));
+      // The same place again says nothing new.
+      f.w.notifyListeners();
+      await t.pump(const Duration(milliseconds: 600));
+      expect(s.contexts.length, before + 1);
+      expect(s.contexts.last, contains('任务'));
+      expect(s.sentTexts, isEmpty, reason: 'no turn is asked for');
+    });
+  });
+
   group('text turns', () {
     testWidgets('typed text goes to the model and the reply shows', (t) async {
       await fixture(t);
@@ -75,6 +95,10 @@ void main() {
       await connected(t);
       expect(f.sessions, hasLength(1));
       expect(f.sessions.single.sentTexts, ['看看动态里什么要我处理']);
+      // Where the person is goes along, silently (eval C5: in a discussion
+      // "大家意见是什么" went to the Activity, the model did not know).
+      expect(f.sessions.single.contexts, hasLength(1));
+      expect(f.sessions.single.contexts.single, contains('用户现在在'));
 
       f.sessions.single.onOutputText!('Cody 在等你批准第 10 步。');
       await t.pump();

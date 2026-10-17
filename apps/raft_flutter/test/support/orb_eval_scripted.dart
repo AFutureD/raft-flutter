@@ -54,6 +54,11 @@ class ScriptedSession implements VoiceSession {
   @override
   void endAudio() {}
   @override
+  void addContext(String text) => contexts.add(text);
+
+  final contexts = <String>[];
+
+  @override
   void sendText(String text) {
     sentTexts.add(text);
     unawaited(script(this, text));

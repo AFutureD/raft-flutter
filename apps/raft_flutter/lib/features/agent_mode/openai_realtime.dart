@@ -885,6 +885,18 @@ class OpenAiRealtimeSession implements VoiceSession {
   }
 
   @override
+  void addContext(String text) => _send({
+    'type': 'conversation.item.create',
+    'item': {
+      'type': 'message',
+      'role': 'user',
+      'content': [
+        {'type': 'input_text', 'text': text},
+      ],
+    },
+  });
+
+  @override
   void sendText(String text) {
     _send({
       'type': 'conversation.item.create',
