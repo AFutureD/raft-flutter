@@ -78,4 +78,19 @@ void main() {
     l.switchServer('b');
     expect(l.changesAfter(marked), isNull);
   });
+
+  test('an unread incremental record stays within its window', () {
+    final l = MessageLedger()..switchServer('a');
+    final base = l.revision;
+    final count = MessageLedger.incrementalChangeLimit + 1;
+    for (var i = 0; i < count; i++) {
+      l.ingest([row('m$i', '$i')], expectedGeneration: l.generation);
+    }
+    expect(
+      l.debugChangeCount,
+      lessThanOrEqualTo(MessageLedger.incrementalChangeLimit),
+    );
+    expect(l.changesAfter(base), isNull);
+    expect(l.messages('general'), hasLength(count));
+  });
 }

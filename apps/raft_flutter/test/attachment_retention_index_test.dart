@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_sync/raft_sync.dart';
 
 const _metadata = {
   'id': 'image',
@@ -302,6 +303,14 @@ void main() {
               'content': 'bulk',
             },
           ], expectedGeneration: f.w.ledger.generation);
+          if ((i + 1) % MessageLedger.incrementalChangeLimit == 0) {
+            final drained = f.w.peekAttachmentImage(
+              f.imageKey,
+              authorized: () => true,
+            );
+            expect(drained, isNotNull);
+            drained!.release();
+          }
         }
         final caughtUp = f.w.peekAttachmentImage(
           f.imageKey,
@@ -346,6 +355,60 @@ void main() {
       }
     },
   );
+
+  test('an unread change window still retains images by rebuilding', () async {
+    final f = _Fixture();
+    final image = await f.retain();
+    final builds = f.w.debugRetainedAttachmentIndexBuilds;
+    final limit = MessageLedger.incrementalChangeLimit;
+    for (var i = 0; i < limit; i++) {
+      f.w.ledger.ingest([
+        {
+          'id': 'unread-$i',
+          'channelId': 'channel',
+          'seq': '${i + 2}',
+          'content': 'unread',
+        },
+      ], expectedGeneration: f.w.ledger.generation);
+    }
+    final extra = {..._metadata, 'id': 'extra'};
+    f.w.ledger.ingest([
+      {
+        'id': 'extra-host',
+        'channelId': 'channel',
+        'seq': '${limit + 2}',
+        'attachments': [extra],
+      },
+    ], expectedGeneration: f.w.ledger.generation);
+    expect(f.w.ledger.debugChangeCount, lessThanOrEqualTo(limit));
+    final kept = f.w.peekAttachmentImage(f.imageKey, authorized: () => true);
+    expect(kept, isNotNull);
+    expect(kept!.lease.value, same(image));
+    kept.release();
+    expect(f.w.debugRetainedAttachmentIndexBuilds, builds + 1);
+    final key = AttachmentImageKey.fromMetadata(
+      scope: f.w.attachmentImageScope,
+      channelId: 'channel',
+      metadata: extra,
+    );
+    final lease = f.w.acquireAttachmentImage(
+      key,
+      authorized: () => true,
+      load: (_) async {
+        ++f.loads;
+        return base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8V7uCgRTARJLqUQ2jGoaUBgC7qgJDBU0aZAAAAABJRU5ErkJggg==',
+        );
+      },
+    );
+    await lease.lease.ready;
+    lease.release();
+    final ready = f.w.peekAttachmentImage(key, authorized: () => true);
+    expect(ready, isNotNull);
+    ready!.release();
+    expect(f.loads, 2);
+    expect(f.w.debugRetainedAttachmentIndexBuilds, builds + 1);
+  });
 
   test(
     'removing the host message drops its image without a history scan',

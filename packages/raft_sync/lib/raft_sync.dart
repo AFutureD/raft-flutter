@@ -29,6 +29,10 @@ class MessageLedgerChange {
 }
 
 class MessageLedger {
+  /// Incremental mutations kept for readers. Past this, the record is dropped
+  /// and the next reader rebuilds from the current rows.
+  static const int incrementalChangeLimit = 1000;
+
   String? _serverId;
   int generation = 0;
 
@@ -43,6 +47,9 @@ class MessageLedger {
 
   /// Revisions at or below this floor are not described incrementally.
   int _changeFloor = 0;
+
+  /// Retained incremental mutations. Stays at or below [incrementalChangeLimit].
+  int get debugChangeCount => _changes.length;
   String? get serverId => _serverId;
   Iterable<String> get channelIds => List.unmodifiable(_channels.keys);
   void switchServer(String? id) {
@@ -62,7 +69,8 @@ class MessageLedger {
   /// Mutations with a revision greater than [since], in apply order.
   ///
   /// Null means [since] is outside the retained window, including after a
-  /// server switch. The caller rebuilds from the current rows in that case.
+  /// server switch or when the unread record passed [incrementalChangeLimit].
+  /// The caller rebuilds from the current rows in that case.
   List<MessageLedgerChange>? changesAfter(int since) {
     if (since < _changeFloor || since > revision) return null;
     var start = 0;
@@ -142,7 +150,7 @@ class MessageLedger {
     revision++;
     _sorted.remove(channelId);
     _latestCreatedAt.remove(channelId);
-    _changes.add(
+    _remember(
       MessageLedgerChange(
         revision: revision,
         channelId: channelId,
@@ -150,6 +158,15 @@ class MessageLedger {
         removed: removed || clearChannel,
       ),
     );
+  }
+
+  void _remember(MessageLedgerChange change) {
+    if (_changes.length >= incrementalChangeLimit) {
+      _changes.clear();
+      _changeFloor = revision;
+      return;
+    }
+    _changes.add(change);
   }
 
   static BigInt _seq(Map<String, dynamic> m) =>
@@ -225,7 +242,7 @@ class MessageLedger {
     _sorted.remove(channelId);
     revision++;
     for (final id in removed) {
-      _changes.add(
+      _remember(
         MessageLedgerChange(
           revision: revision,
           channelId: channelId,
