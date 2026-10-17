@@ -109,7 +109,8 @@ Future<SurfaceProbe> confirmDialog(WidgetTester t, Size size) async {
     ),
   );
   return SurfaceProbe(
-    isOpen: () => find.byKey(const ValueKey('probe-dialog')).evaluate().isNotEmpty,
+    isOpen: () =>
+        find.byKey(const ValueKey('probe-dialog')).evaluate().isNotEmpty,
     x: find.byKey(const Key('confirm-dialog-close')),
     scrim: _corner,
   );
@@ -343,7 +344,12 @@ Future<SurfaceProbe> fromProviders(
 
 void main() {
   // Leak debt (dialog notifier): see docs/development.md, Leak tracking.
-  leakDebt(const ['ValueNotifier<RaftTranscriptRequestState?>']);
+  // Flutter 3.47.6: a modal bottom sheet closed by a drag rebinds its animation
+  // to a CurvedAnimation that nothing disposes (the composer's phone sheet).
+  leakDebt(const [
+    'ValueNotifier<RaftTranscriptRequestState?>',
+    'CurvedAnimation',
+  ]);
   final harness = <String, OpenSurface>{
     'history-lower-limit-confirm': (t, size) =>
         historySettingsConfirmation(t, size),
@@ -356,8 +362,10 @@ void main() {
             unawaited(showRaftRolePermissionHelp(context, agent: false)),
       );
       return SurfaceProbe(
-        isOpen: () =>
-            find.byKey(const ValueKey('role-help-dialog')).evaluate().isNotEmpty,
+        isOpen: () => find
+            .byKey(const ValueKey('role-help-dialog'))
+            .evaluate()
+            .isNotEmpty,
         x: anyX,
         scrim: _corner,
       );
@@ -430,8 +438,10 @@ void main() {
         ),
       );
       return SurfaceProbe(
-        isOpen: () =>
-            find.byKey(const ValueKey('runtime-usage-sheet')).evaluate().isNotEmpty,
+        isOpen: () => find
+            .byKey(const ValueKey('runtime-usage-sheet'))
+            .evaluate()
+            .isNotEmpty,
         x: anyX,
         scrim: _corner,
       );
@@ -440,9 +450,8 @@ void main() {
       t,
       size,
       CreateChannelDialog,
-      (context, w) => unawaited(
-        CreateChannelDialog.show(context, controller: w),
-      ),
+      (context, w) =>
+          unawaited(CreateChannelDialog.show(context, controller: w)),
     ),
     'create-task': (t, size) => inWorkspace(
       t,
@@ -456,9 +465,8 @@ void main() {
       t,
       size,
       CreateJointChannelDialog,
-      (context, w) => unawaited(
-        CreateJointChannelDialog.show(context, controller: w),
-      ),
+      (context, w) =>
+          unawaited(CreateJointChannelDialog.show(context, controller: w)),
     ),
     'unsaved-changes-prompt': unsavedPrompt,
     'announcement-modal': (t, size) async {
@@ -565,8 +573,10 @@ void main() {
       await press('feedback-close-caret');
       await press('feedback-close-reason-completed');
       return SurfaceProbe(
-        isOpen: () =>
-            find.byKey(const ValueKey('feedback-close-dialog')).evaluate().isNotEmpty,
+        isOpen: () => find
+            .byKey(const ValueKey('feedback-close-dialog'))
+            .evaluate()
+            .isNotEmpty,
         scrim: _corner,
       );
     },
@@ -634,10 +644,7 @@ void main() {
       await frames(t, 5);
       await t.tap(
         find
-            .descendant(
-              of: find.byType(AgentAvatarDialog),
-              matching: anyX,
-            )
+            .descendant(of: find.byType(AgentAvatarDialog), matching: anyX)
             .first,
       );
       await frames(t, 25);
@@ -674,7 +681,9 @@ void main() {
         isOpen: () =>
             find.byType(RaftComposerExpandedView).evaluate().isNotEmpty,
         x: find.byKey(const ValueKey('composer-collapse')),
-        scrim: size.width >= 768 ? _corner : null,
+        // Below 768 the editor is a bottom sheet: the scrim is the strip above it.
+        scrim: size.width >= 768 ? _corner : const Offset(200, 10),
+        dragHandle: find.byKey(const ValueKey('raft-sheet-handle')),
       );
     },
     'forward-dialog': (t, size) async {
@@ -784,8 +793,7 @@ void main() {
       w.servers = [w.server!];
       if (size.width >= 768) return SurfaceProbe(isOpen: () => true);
       // The state class is private; its switcher entry point is public.
-      final state =
-          t.state(find.byType(WorkspaceView)) as dynamic;
+      final state = t.state(find.byType(WorkspaceView)) as dynamic;
       unawaited(state.showWorkspaceSwitcher() as Future<void>);
       await frames(t, 25);
       return SurfaceProbe(
