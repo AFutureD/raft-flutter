@@ -352,7 +352,7 @@ void main() {
     // Activity page finds out (it asks the shared author directory).
     Map<String, dynamic> bare(Map<String, dynamic> row) => {
       for (final e in row.entries)
-        if (!'${e.key}'.endsWith('SenderName')) e.key: e.value,
+        if (!e.key.endsWith('SenderName')) e.key: e.value,
     };
 
     testWidgets('an Agent and a person known only by id are named as the '
