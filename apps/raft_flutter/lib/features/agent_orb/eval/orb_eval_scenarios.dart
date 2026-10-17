@@ -634,7 +634,24 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     data: _activityFive,
     say: const ['读 Alice 那条原文'],
     checks: [
-      OrbEvalCheck.tool('read_conversation'),
+      OrbEvalCheck.custom('读到了 Alice 私信里的原文（任何读法）', (run) {
+        // read_conversation, or open_item / navigate to the DM and then
+        // describe_page: what counts is that a read of Alice's conversation
+        // brought the original words in front of the model.
+        for (final c in run.tools) {
+          for (final r in [c.result, c.result['page']]) {
+            if (r is! Map) continue;
+            final conv = r['conversation'];
+            if (conv is Map &&
+                '${conv['name']}'.contains('Alice') &&
+                '$r'.contains('周五能来评审吗')) {
+              return null;
+            }
+          }
+        }
+        return '没有读到 Alice 私信的原文（调用了：'
+            '${run.tools.map((c) => c.name).toSet().join('、')}）';
+      }),
       OrbEvalCheck.says([
         ['周五'],
         ['评审'],
