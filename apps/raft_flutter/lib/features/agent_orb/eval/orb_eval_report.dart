@@ -63,6 +63,7 @@ String orbEvalMarkdown(OrbEvalReport report) {
       '${report.thinking == null ? '' : ' · 推理强度 ${report.thinking}'}'
       '${report.engine == null ? '' : ' · 引擎 ${report.engine}'}'
       '${report.agentModel == null ? '' : ' · Agent 模型 ${report.agentModel}'}'
+      '${report.voiceMode == null ? '' : ' · 语音 ${report.voiceMode}'}'
       '${_percentiles('时延', report.latencyP50, report.latencyP90)}'
       '${_percentiles('首声', report.firstAudioP50, report.firstAudioP90)}'
       '${_percentiles('Agent 耗时', report.askP50, report.askP90)}'
@@ -136,7 +137,7 @@ String orbEvalMarkdown(OrbEvalReport report) {
         }
         if (t.liveFiller) b.writeln('  - Live 说了垫话（和 say 不像）');
         b.writeln(
-          '  - ${t.asks.isEmpty ? 'Agent' : 'Live 说'}：'
+          '  - ${t.asks.isEmpty ? 'Agent' : (t.spoken.isEmpty ? 'Live 说' : 'App 朗读')}：'
           '${t.text.isEmpty ? '（没有说话）' : t.text}'
           '${t.millis > 0 ? '（${(t.millis / 1000).toStringAsFixed(1)}s）' : ''}',
         );

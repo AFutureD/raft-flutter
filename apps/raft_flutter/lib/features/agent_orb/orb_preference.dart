@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/device_preferences.dart';
 import '../agent_mode/agent_engine.dart';
 import '../agent_mode/agent_thinking.dart';
+import '../agent_mode/layered_voice_mode.dart';
 
 /// Device-local Labs switch for the Agent orb (phones only). Default off.
 class AgentOrbPreference extends ChangeNotifier {
@@ -156,8 +157,46 @@ class AgentOrbPreference extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// How the voice of the agent layer speaks: the app reads the agent's words
+  /// aloud (the default), or Live relays them. A change builds the orb again.
+  static const voiceModeKey = 'raft.agentOrb.voiceMode';
+  LayeredVoiceMode? _voiceModeOverride;
+
+  LayeredVoiceMode get layeredVoiceMode {
+    if (_voiceModeOverride != null) return _voiceModeOverride!;
+    try {
+      return LayeredVoiceMode.parse(
+            DevicePreferences.current?.getString(voiceModeKey),
+          ) ??
+          LayeredVoiceMode.appSpeaks;
+    } catch (_) {
+      return LayeredVoiceMode.appSpeaks;
+    }
+  }
+
+  void setLayeredVoiceMode(LayeredVoiceMode next) {
+    if (next == layeredVoiceMode) return;
+    _voiceModeOverride = next;
+    Future<void> write(SharedPreferences prefs) async {
+      try {
+        await prefs.setString(voiceModeKey, next.name);
+      } catch (_) {
+        /* optional local storage */
+      }
+    }
+
+    final loaded = DevicePreferences.current;
+    if (loaded != null) {
+      write(loaded);
+    } else {
+      SharedPreferences.getInstance().then(write, onError: (_) {});
+    }
+    notifyListeners();
+  }
+
   @visibleForTesting
   void resetForTest() {
+    _voiceModeOverride = null;
     _override = null;
     _layerOverride = null;
     _thinkingOverride = null;
@@ -174,6 +213,7 @@ class AgentOrbLabsCard extends StatelessWidget {
   static const layerTitle = 'Agent 层';
   static const thinkingTitle = '文本 Agent 推理强度';
   static const engineTitle = '引擎';
+  static const voiceModeTitle = '语音';
 
   @override
   Widget build(BuildContext context) {
@@ -324,6 +364,43 @@ class AgentOrbLabsCard extends StatelessWidget {
                 const SizedBox(height: RaftSpace.x1),
                 RaftCssText(
                   'Genkit 是默认；直连是 App 自己调 Gemini 的备用。下一次对话生效。',
+                  style: RaftTypography.body(
+                    t,
+                    size: 13,
+                    line: 18,
+                    color: t.muted,
+                  ),
+                ),
+                const SizedBox(height: RaftSpace.x3),
+                RaftCssText(
+                  voiceModeTitle,
+                  style: RaftTypography.body(
+                    t,
+                    size: 14,
+                    line: 20,
+                    weight: FontWeight.w600,
+                    color: t.ink,
+                  ),
+                ),
+                const SizedBox(height: RaftSpace.x2),
+                RaftSegmentedControl<LayeredVoiceMode>(
+                  key: const ValueKey('agent-orb-voice-mode'),
+                  label: voiceModeTitle,
+                  value: pref.layeredVoiceMode,
+                  onChanged: pref.setLayeredVoiceMode,
+                  items: [
+                    for (final v in LayeredVoiceMode.values)
+                      RaftSegmentedOption(
+                        value: v,
+                        label: v.label,
+                        itemKey: ValueKey('agent-orb-voice-mode-${v.name}'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: RaftSpace.x1),
+                RaftCssText(
+                  'App 朗读：Live 只听，App 把话交给 Agent，再用手机自带的声音一字不差地读出来。'
+                  'Live 转述：Live 听到后自己交给 Agent，再由 Live 说，用来对比。下一次对话生效。',
                   style: RaftTypography.body(
                     t,
                     size: 13,

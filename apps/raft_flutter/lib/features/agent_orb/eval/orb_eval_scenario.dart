@@ -214,6 +214,31 @@ class OrbEvalCheck {
         return problems.isEmpty ? null : problems.join('；');
       });
 
+  /// The layered harness with the app speaking: the person's words went to the
+  /// agent, and the voice was asked to speak exactly what the agent said
+  /// (sentence by sentence, nothing added, dropped or changed). Applied to
+  /// every scenario of that harness.
+  factory OrbEvalCheck.appSpokeAgentWords() =>
+      OrbEvalCheck('App 的声音读出 Agent 的 say，一字不差', (run) {
+        final problems = <String>[];
+        for (final t in run.turns) {
+          if (t.line == '（事件）') continue;
+          if (t.asks.isEmpty) {
+            problems.add('「${t.line}」没有交给 Agent');
+            continue;
+          }
+          final say = orbEvalCompact(t.asks.map((a) => a.say).join());
+          final spoken = orbEvalCompact(t.spoken.join());
+          if (say != spoken) {
+            problems.add(
+              '「${t.line}」读出的和 say 不一样：'
+              'say「${t.asks.map((a) => a.say).join()}」；读出「${t.spoken.join()}」',
+            );
+          }
+        }
+        return problems.isEmpty ? null : problems.join('；');
+      });
+
   /// The app sent no write (reads the app posts by itself do not count).
   factory OrbEvalCheck.noWrites() => OrbEvalCheck('不发出任何写操作', (run) {
     final writes = run.realWrites;

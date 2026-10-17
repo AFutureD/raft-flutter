@@ -132,6 +132,7 @@ class OrbEvalReport {
     this.thinking,
     this.engine,
     this.agentModel,
+    this.voiceMode,
     this.cancelled = false,
     this.abortReason,
   });
@@ -155,6 +156,10 @@ class OrbEvalReport {
   /// The layered harness: what made the agent's model calls (`genkit`,
   /// `direct`), and the model it ran (`model` is then the Live model).
   final String? engine, agentModel;
+
+  /// The layered harness: how the voice speaks (`appSpeaks`: the app reads
+  /// the agent's words with a voice of its own; `liveRelays`).
+  final String? voiceMode;
 
   /// The run was stopped before every scenario was through.
   final bool cancelled;
@@ -202,6 +207,7 @@ class OrbEvalReport {
     if (thinking != null) 'thinking': thinking,
     if (engine != null) 'engine': engine,
     if (agentModel != null) 'agentModel': agentModel,
+    if (voiceMode != null) 'voiceMode': voiceMode,
     if (latencyP50 != null) 'latencyP50Ms': latencyP50,
     if (latencyP90 != null) 'latencyP90Ms': latencyP90,
     if (firstAudioP50 != null) 'firstAudioP50Ms': firstAudioP50,

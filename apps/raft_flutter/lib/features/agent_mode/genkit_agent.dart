@@ -67,7 +67,7 @@ class GenkitAgentFailure implements Exception {
 /// (`returnToolRequests`): it never runs a tool or loops, so the tools and the
 /// instruction can change between steps, and the history (with each Gemini 3
 /// `thoughtSignature` in the metadata of its part) is ours.
-class GenkitAgentSession implements VoiceSession, AppSpeaker {
+class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
   GenkitAgentSession({
     required this.systemPrompt,
     required this.tools,
@@ -141,6 +141,13 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
   bool _connected = false;
   bool _closed = false;
 
+  /// How many turns have been cancelled, and the count the running turn
+  /// started under: a cancel makes the running turn (and the ones queued)
+  /// stale, and they stop at their next step.
+  int _cancelled = 0;
+  int _running = 0;
+  bool get _stale => _closed || _cancelled != _running;
+
   /// Whether the model takes a thinking setting; off once it refused one.
   bool _thinking = true;
 
@@ -197,7 +204,8 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
   @override
   void sendText(String text) {
     if (_closed) return;
-    _tail = _tail.then((_) => _turn(text));
+    final mine = _cancelled;
+    _tail = _tail.then((_) => _turn(text, mine));
   }
 
   @override
@@ -224,15 +232,35 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
     _inflight?.cancel();
   }
 
-  Future<void> _turn(String text) async {
-    if (_closed || !_connected) return;
+  @override
+  void cancelTurn() {
+    _cancelled++;
+    _inflight?.cancel();
+  }
+
+  Future<void> _turn(String text, int mine) async {
+    if (_closed || !_connected || mine != _cancelled) return;
+    _running = mine;
+    final mark = _history.length;
     try {
       final said = await _loop(text);
-      if (said == null) return;
+      if (said == null) {
+        // Cancelled half way: the history goes back to before the turn, so
+        // no call is left without its answer.
+        if (!_closed && _history.length > mark) {
+          _history.removeRange(mark, _history.length);
+        }
+        return;
+      }
       if (said.isNotEmpty) onOutputText?.call(said);
       onTurnComplete?.call();
     } catch (e) {
       if (_closed) return;
+      if (_cancelled != _running) {
+        // The request that was cut short failed with it: not a failure.
+        if (_history.length > mark) _history.removeRange(mark, _history.length);
+        return;
+      }
       _closed = true;
       _connected = false;
       _context.clear();
@@ -275,7 +303,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
     final intercept = steering?.intercept;
     if (intercept != null) {
       final answer = await intercept(text, _callOne);
-      if (_closed) return null;
+      if (_stale) return null;
       if (answer != null) {
         _history.add(_model(answer));
         return answer;
@@ -285,7 +313,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
     var retried = false;
     for (var step = 1; step <= maxSteps; step++) {
       final message = await _generate(step);
-      if (_closed) return null;
+      if (_stale) return null;
       final parts = [for (final p in message?.content ?? const <gk.Part>[]) p];
       // An empty reply stays out: a model turn without parts is refused.
       if (parts.isNotEmpty) _history.add(message!);
@@ -302,7 +330,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
         final review = await steering?.review?.call(said.join('\n'), [
           ..._runs,
         ], _callOne);
-        if (_closed) return null;
+        if (_stale) return null;
         final retry = review?.retry;
         if (retry != null && !retried && step < maxSteps) {
           retried = true;
@@ -317,7 +345,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
       final responses = step == maxSteps
           ? _refused(calls)
           : await _runTools(calls);
-      if (_closed) return null;
+      if (_stale) return null;
       // A tool brought the app's own words: they end the turn, the model is
       // not asked again.
       final own = <String>[];
@@ -363,7 +391,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
     final out = <gk.ToolResponsePart>[];
     var over = false;
     for (final call in calls) {
-      if (_closed) break;
+      if (_stale) break;
       if (over) {
         out.add(_response(call, {'error': '这一轮已经结束，没有执行这个工具。'}));
         continue;
@@ -448,7 +476,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
         'step=$step $status ${watch.elapsedMilliseconds}ms '
         'tools=${[for (final p in message?.content ?? const <gk.Part>[]) ?p.toolRequest?.name].join(',')}',
       );
-      if (_closed) return null;
+      if (_stale) return null;
       if (!failed) return message;
       // A model that rejects the thinking setting is asked again without.
       if (status == 400 && _thinking && _google) {
@@ -458,7 +486,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker {
       final transient = status == 429 || status >= 500;
       if (transient && attempt < 2) {
         await Future<void>.delayed(retryDelay);
-        if (_closed) return null;
+        if (_stale) return null;
         continue;
       }
       throw GenkitAgentFailure(status);

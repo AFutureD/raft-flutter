@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/features/agent_mode/agent_engine.dart';
 import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
+import 'package:raft_flutter/features/agent_mode/layered_voice_mode.dart';
 import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -182,6 +183,79 @@ void main() {
       await t.pump();
       expect(f.builds, 2);
       await t.pump(const Duration(seconds: 1));
+      expect(f.builds, 2);
+    });
+  });
+
+  group('how the voice of the agent layer speaks', () {
+    test('the app reads by default; a choice is kept and read back', () async {
+      SharedPreferences.setMockInitialValues({});
+      AgentOrbPreference.instance.resetForTest();
+      expect(
+        AgentOrbPreference.instance.layeredVoiceMode,
+        LayeredVoiceMode.appSpeaks,
+      );
+      AgentOrbPreference.instance.setLayeredVoiceMode(
+        LayeredVoiceMode.liveRelays,
+      );
+      await pumpEventQueue();
+      final stored = await SharedPreferences.getInstance();
+      expect(stored.getString(AgentOrbPreference.voiceModeKey), 'liveRelays');
+
+      AgentOrbPreference.instance.resetForTest();
+      DevicePreferences.adopt(stored);
+      addTearDown(DevicePreferences.reset);
+      expect(
+        AgentOrbPreference.instance.layeredVoiceMode,
+        LayeredVoiceMode.liveRelays,
+      );
+      stored.setString(AgentOrbPreference.voiceModeKey, 'nonsense');
+      expect(
+        AgentOrbPreference.instance.layeredVoiceMode,
+        LayeredVoiceMode.appSpeaks,
+      );
+      AgentOrbPreference.instance.resetForTest();
+    });
+
+    testWidgets('the Labs card offers both while the agent layer is on', (
+      t,
+    ) async {
+      await fixture(t);
+      await f.pump(enabled: false);
+      final control = find.byKey(const ValueKey('agent-orb-voice-mode'));
+      expect(find.text('语音'), findsOneWidget);
+      expect(control, findsOneWidget);
+      expect(find.text('App 朗读'), findsOneWidget);
+      expect(find.text('Live 转述'), findsOneWidget);
+
+      final relay = find.byKey(
+        const ValueKey('agent-orb-voice-mode-liveRelays'),
+      );
+      await t.ensureVisible(relay);
+      await t.pump();
+      await t.tap(relay);
+      await t.pump();
+      expect(
+        AgentOrbPreference.instance.layeredVoiceMode,
+        LayeredVoiceMode.liveRelays,
+      );
+      final layer = find.byKey(const ValueKey('agent-orb-layer-switch'));
+      await t.ensureVisible(layer);
+      await t.pump();
+      await t.tap(layer);
+      await t.pump();
+      expect(control, findsNothing);
+    });
+
+    testWidgets('changing it builds the orb again', (t) async {
+      await fixture(t);
+      await f.pump();
+      expect(f.builds, 1);
+      AgentOrbPreference.instance.setLayeredVoiceMode(
+        LayeredVoiceMode.liveRelays,
+      );
+      await t.pump();
+      await t.pump();
       expect(f.builds, 2);
     });
   });

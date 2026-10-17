@@ -80,7 +80,7 @@ Future<Map<String, Object?>> runAgentTool(
 /// Text only: nothing is heard or spoken, [sendAudio] and [endAudio] do
 /// nothing, and a turn's words arrive as one [onOutputText] before
 /// [onTurnComplete]. Turns run one at a time, in the order they were sent.
-class GeminiAgentSession implements VoiceSession, AppSpeaker {
+class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
   GeminiAgentSession({
     required this.systemPrompt,
     required this.tools,
@@ -155,6 +155,13 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
   bool _connected = false;
   bool _closed = false;
 
+  /// How many turns have been cancelled, and the count the running turn
+  /// started under: a cancel makes the running turn (and the ones queued)
+  /// stale, and they stop at their next step.
+  int _cancelled = 0;
+  int _running = 0;
+  bool get _stale => _closed || _cancelled != _running;
+
   /// Whether the model takes a `thinkingConfig`; off once it refused one.
   bool _thinking = true;
 
@@ -219,7 +226,8 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
   @override
   void sendText(String text) {
     if (_closed) return;
-    _tail = _tail.then((_) => _turn(text));
+    final mine = _cancelled;
+    _tail = _tail.then((_) => _turn(text, mine));
   }
 
   /// Kept for the next turn's input: the API wants the turns to alternate,
@@ -249,15 +257,36 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
     _context.clear();
   }
 
-  Future<void> _turn(String text) async {
-    if (_closed || !_connected) return;
+  @override
+  void cancelTurn() {
+    _cancelled++;
+  }
+
+  Future<void> _turn(String text, int mine) async {
+    if (_closed || !_connected || mine != _cancelled) return;
+    _running = mine;
+    final mark = _contents.length;
     try {
       final said = await _loop(text);
-      if (said == null) return;
+      if (said == null) {
+        // Cancelled half way: the history goes back to before the turn, so
+        // no call is left without its answer.
+        if (!_closed && _contents.length > mark) {
+          _contents.removeRange(mark, _contents.length);
+        }
+        return;
+      }
       if (said.isNotEmpty) onOutputText?.call(said);
       onTurnComplete?.call();
     } catch (e) {
       if (_closed) return;
+      if (_cancelled != _running) {
+        // The request that was cut short failed with it: not a failure.
+        if (_contents.length > mark) {
+          _contents.removeRange(mark, _contents.length);
+        }
+        return;
+      }
       _closed = true;
       _connected = false;
       _context.clear();
@@ -287,7 +316,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
     final intercept = steering?.intercept;
     if (intercept != null) {
       final answer = await intercept(text, _callOne);
-      if (_closed) return null;
+      if (_stale) return null;
       if (answer != null) {
         _contents.add({
           'role': 'model',
@@ -302,7 +331,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
     var retried = false;
     for (var step = 1; step <= maxSteps; step++) {
       final content = await _generate(step);
-      if (_closed) return null;
+      if (_stale) return null;
       final parts = [
         for (final p in (content?['parts'] as List? ?? const []))
           if (p is Map) Map<String, Object?>.from(p),
@@ -322,7 +351,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
         final review = await steering?.review?.call(said.join('\n'), [
           ..._runs,
         ], _callOne);
-        if (_closed) return null;
+        if (_stale) return null;
         final retry = review?.retry;
         if (retry != null && !retried && step < maxSteps) {
           retried = true;
@@ -342,7 +371,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
       final responses = step == maxSteps
           ? _refused(calls)
           : await _runTools(calls);
-      if (_closed) return null;
+      if (_stale) return null;
       // A tool brought the app's own words: they end the turn, the model is
       // not asked again.
       final own = <String>[];
@@ -403,7 +432,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
     final out = <Map<String, Object?>>[];
     var over = false;
     for (final call in calls) {
-      if (_closed) break;
+      if (_stale) break;
       if (over) {
         out.add(_response(call, {'error': '这一轮已经结束，没有执行这个工具。'}));
         continue;
@@ -463,7 +492,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
         'tools=${[for (final p in (content?['parts'] as List? ?? const []))
           if (p is Map && p['functionCall'] is Map) p['functionCall']['name']].join(',')}',
       );
-      if (_closed) return null;
+      if (_stale) return null;
       if (reply.status == 200) return content;
       // A model that rejects the thinking setting is asked again without.
       if (reply.status == 400 && _thinking) {
@@ -473,7 +502,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
       final transient = reply.status == 429 || reply.status >= 500;
       if (transient && attempt < 2) {
         await Future<void>.delayed(retryDelay);
-        if (_closed) return null;
+        if (_stale) return null;
         continue;
       }
       throw HttpException('generateContent ${reply.status}');

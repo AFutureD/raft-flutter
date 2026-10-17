@@ -85,6 +85,10 @@ class OrbEvalTurn {
 
   /// The asks of the voice model to the agent (the layered harness).
   final asks = <OrbEvalAsk>[];
+
+  /// The sentences the app's voice was asked to speak, in order (the layered
+  /// harness, where the app speaks).
+  final spoken = <String>[];
   final _text = StringBuffer();
 
   /// From the person's text sent to the end of the model's turn.
@@ -133,6 +137,7 @@ class OrbEvalTurn {
     if (liveFiller) 'liveFiller': true,
     'tools': [for (final t in tools) t.toJson()],
     if (asks.isNotEmpty) 'asks': [for (final a in asks) a.toJson()],
+    if (spoken.isNotEmpty) 'spoken': spoken,
     'completed': completed,
     if (timedOut) 'timedOut': true,
     'writesAfter': writesAfter,

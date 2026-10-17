@@ -27,6 +27,8 @@ class GeminiLiveSession implements VoiceSession {
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.fast = false,
+    this.listenOnly = false,
+    this.onGenerating,
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -170,6 +172,22 @@ class GeminiLiveSession implements VoiceSession {
   /// extended thinking.
   final bool fast;
 
+  /// The session only listens: it hears and transcribes, and what it
+  /// generates is not wanted. It answers in text (no voice, no tools) where
+  /// the model allows that, and in audio that is dropped where it does not.
+  final bool listenOnly;
+
+  /// Told each time the model produces something (a word, a sound, the end of
+  /// its generation): for a session that only listens, the sign that the
+  /// person's turn is over.
+  final void Function()? onGenerating;
+
+  /// Whether a listening session asks for text; dropped after one refusal.
+  static bool _textOnly = true;
+
+  /// The response modality this session asks for.
+  String get responseModality => listenOnly && _textOnly ? 'TEXT' : 'AUDIO';
+
   static String? _model;
   static String? _fastModel;
   WebSocket? _socket;
@@ -275,6 +293,8 @@ class GeminiLiveSession implements VoiceSession {
           // Tried again with the next lower setting.
         } else if (nb && behavior) {
           _nonBlocking = false;
+        } else if (listenOnly && _textOnly) {
+          _textOnly = false;
         } else if (_affective) {
           _affective = false;
         } else if (nb) {
@@ -355,25 +375,32 @@ class GeminiLiveSession implements VoiceSession {
     'setup': {
       'model': model,
       'generationConfig': {
-        'responseModalities': ['AUDIO'],
+        'responseModalities': [responseModality],
         // Gemini 3 Live models want a level (low keeps replies quick, and is
         // what is sent unless the person chose another in the voice
         // settings).
         if (_thinkingConfig != null) 'thinkingConfig': _thinkingConfig,
-        'speechConfig': {
-          'voiceConfig': {
-            'prebuiltVoiceConfig': {'voiceName': voice},
+        if (responseModality == 'AUDIO')
+          'speechConfig': {
+            'voiceConfig': {
+              'prebuiltVoiceConfig': {'voiceName': voice},
+            },
           },
-        },
       },
       'systemInstruction': {
         'parts': [
           {'text': systemPrompt},
         ],
       },
-      'tools': [
-        {'functionDeclarations': declarations(tools, nonBlocking: nonBlocking)},
-      ],
+      if (!listenOnly || tools.isNotEmpty)
+        'tools': [
+          {
+            'functionDeclarations': declarations(
+              tools,
+              nonBlocking: nonBlocking,
+            ),
+          },
+        ],
       // End the turn soon after the person stops talking.
       'realtimeInputConfig': {
         'automaticActivityDetection': {
@@ -382,9 +409,10 @@ class GeminiLiveSession implements VoiceSession {
         },
       },
       'inputAudioTranscription': <String, Object?>{},
-      'outputAudioTranscription': <String, Object?>{},
+      if (responseModality == 'AUDIO')
+        'outputAudioTranscription': <String, Object?>{},
       'contextWindowCompression': contextCompression(),
-      if (affective) 'enableAffectiveDialog': true,
+      if (affective && !listenOnly) 'enableAffectiveDialog': true,
       'sessionResumption': {'handle': ?_resumeHandle},
     },
   };
@@ -396,16 +424,28 @@ class GeminiLiveSession implements VoiceSession {
       final input = content['inputTranscription']?['text'];
       if (input is String && input.isNotEmpty) onInputText?.call(input);
       final output = content['outputTranscription']?['text'];
-      if (output is String && output.isNotEmpty) onOutputText?.call(output);
+      if (output is String && output.isNotEmpty) {
+        onGenerating?.call();
+        onOutputText?.call(output);
+      }
       for (final part
           in (content['modelTurn']?['parts'] as List? ?? const [])) {
+        onGenerating?.call();
         final data = part['inlineData']?['data'];
         if (data is String) onAudio?.call(base64Decode(data));
+        final text = part['text'];
+        if (text is String && text.isNotEmpty && listenOnly) {
+          onOutputText?.call(text);
+        }
       }
+      if (content['generationComplete'] == true) onGenerating?.call();
       if (content['turnComplete'] == true) onTurnComplete?.call();
     }
     final calls = message['toolCall']?['functionCalls'] as List?;
-    if (calls != null) unawaited(_answer(calls));
+    if (calls != null) {
+      onGenerating?.call();
+      unawaited(_answer(calls));
+    }
     final cancelled = message['toolCallCancellation']?['ids'];
     if (cancelled is List) _responder.cancel(cancelled);
     final update = message['sessionResumptionUpdate'];

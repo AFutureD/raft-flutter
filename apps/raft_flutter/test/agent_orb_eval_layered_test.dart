@@ -4,8 +4,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/app_speech.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice.dart';
+import 'package:raft_flutter/features/agent_mode/layered_voice_mode.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_data.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_result.dart';
@@ -162,6 +164,10 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     AgentOrbPreference.instance.resetForTest();
+    // This file is about the relay; the app speaking has its own file.
+    AgentOrbPreference.instance.setLayeredVoiceMode(
+      LayeredVoiceMode.liveRelays,
+    );
     reports = Directory.systemTemp.createTempSync('orb-eval-layered');
   });
   tearDown(() => reports.deleteSync(recursive: true));
@@ -418,6 +424,95 @@ void main() {
                 as Map)['turns']
             as List;
     expect((turn.single as Map).containsKey('liveFiller'), isFalse);
+  });
+
+  group('the app speaks', () {
+    VoiceSessionFactory appSpeaks() =>
+        ({
+          required provider,
+          required apiKey,
+          required systemPrompt,
+          required tools,
+          required onToolCall,
+          required voice,
+          reasoning = AgentReasoning.low,
+          onAudio,
+          onInputText,
+          onOutputText,
+          onTurnComplete,
+          onInterrupted,
+          onClosed,
+          playbackPending,
+          steering,
+        }) => LayeredVoiceSession(
+          apiKey: apiKey,
+          systemPrompt: systemPrompt,
+          tools: tools,
+          onToolCall: onToolCall,
+          steering: steering!,
+          voice: voice,
+          mode: LayeredVoiceMode.appSpeaks,
+          speech: RecordingSpeech(),
+          listen: false,
+          onInputText: onInputText,
+          onOutputText: onOutputText,
+          onTurnComplete: onTurnComplete,
+          onInterrupted: onInterrupted,
+          onClosed: onClosed,
+          liveBuilder: (p) => throw StateError('Live is not built to listen'),
+          agentBuilder: (p) => FakeAgent(p, agentSays),
+        );
+
+    setUp(
+      () => AgentOrbPreference.instance.setLayeredVoiceMode(
+        LayeredVoiceMode.appSpeaks,
+      ),
+    );
+
+    testWidgets('the typed words reach the agent, the voice is asked for '
+        'the say, and the record shows it', (t) async {
+      final json = await run(t, appSpeaks());
+      expect(json['voiceMode'], 'appSpeaks');
+      final s = (json['scenarios'] as List).single as Map;
+      expect(s['outcome'], 'passed', reason: '${s['failedChecks']}');
+      final turn =
+          (((s['results'] as List).single as Map)['turns'] as List).single
+              as Map;
+      expect(turn['spoken'], ['Cody 在问第 10 步能不能合入，等了 20 分钟。']);
+      expect(turn['text'], agentSays);
+      // Turn end to the start of the first sentence.
+      expect(turn['firstAudioMs'], greaterThan(0));
+      expect(turn['askMs'], isNotNull);
+      final ask = (turn['asks'] as List).single as Map;
+      expect(ask['request'], '去 raft-flutter 看看谁找我');
+      final md = File(
+        '${reports.listSync().whereType<Directory>().single.path}/report.md',
+      ).readAsStringSync();
+      expect(md, contains('语音 appSpeaks'));
+      expect(md, contains('App 朗读：$agentSays'));
+    });
+
+    OrbEvalRun runOf(String say, List<String> spoken) {
+      final t = OrbEvalTurn('x');
+      t.asks.add(OrbEvalAsk(request: 'x', say: say, millis: 1));
+      t.spoken.addAll(spoken);
+      return OrbEvalRun(ids: {})..turns.add(t);
+    }
+
+    test('the check: exactly the say, sentence by sentence', () {
+      final check = OrbEvalCheck.appSpokeAgentWords();
+      expect(
+        check.test(runOf('把 #136 标成完成。下一件。', ['把 #136 标成完成。', '下一件。'])),
+        isNull,
+      );
+      // A word dropped, or one added, or nothing said.
+      expect(check.test(runOf('把 #136 标成完成。', ['把 #136。'])), contains('不一样'));
+      expect(check.test(runOf('好。', ['好。', '嗯。'])), contains('不一样'));
+      expect(check.test(runOf('好。', const [])), contains('不一样'));
+      // Not asked at all.
+      final none = OrbEvalRun(ids: {})..turns.add(OrbEvalTurn('x'));
+      expect(check.test(none), contains('没有交给 Agent'));
+    });
   });
 
   group('filler and fast path in the record', () {

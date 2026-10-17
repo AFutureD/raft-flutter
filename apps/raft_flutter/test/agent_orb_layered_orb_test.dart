@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/app_speech.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice.dart';
+import 'package:raft_flutter/features/agent_mode/layered_voice_mode.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/orb_state.dart';
 
@@ -75,5 +77,63 @@ void main() {
     await t.pump();
     expect(f.controller.voice.asking, isFalse);
     expect(cues, 1, reason: 'once per ask');
+  });
+
+  testWidgets('the app speaks: typed words go to the agent, the orb is '
+      'thinking, then speaking while the voice sounds, then idle', (t) async {
+    final f = OrbFixture(t);
+    await f.setUp();
+    addTearDown(f.tearDown);
+    final speech = RecordingSpeech(perSentence: const Duration(seconds: 1));
+    f
+      ..agentLayer = true
+      ..sessionFactory =
+          ({
+            required provider,
+            required apiKey,
+            required systemPrompt,
+            required tools,
+            required onToolCall,
+            required voice,
+            reasoning = AgentReasoning.low,
+            onAudio,
+            onInputText,
+            onOutputText,
+            onTurnComplete,
+            onInterrupted,
+            onClosed,
+            playbackPending,
+            steering,
+          }) => LayeredVoiceSession(
+            apiKey: apiKey,
+            systemPrompt: systemPrompt,
+            tools: tools,
+            onToolCall: onToolCall,
+            steering: steering!,
+            mode: LayeredVoiceMode.appSpeaks,
+            speech: speech,
+            onInputText: onInputText,
+            onOutputText: onOutputText,
+            onTurnComplete: onTurnComplete,
+            onInterrupted: onInterrupted,
+            liveBuilder: (p) => FakeLive(p),
+            agentBuilder: (p) =>
+                SlowAgent(p, const Duration(milliseconds: 300)),
+          );
+    await f.pump();
+    unawaited(f.controller.sendText('去动态'));
+    for (var i = 0; i < 4; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    expect(f.controller.state, OrbState.thinking);
+    expect(speech.spoken, isEmpty);
+
+    await t.pump(const Duration(milliseconds: 400));
+    expect(speech.spoken, ['好了。']);
+    expect(f.controller.state, OrbState.speaking);
+
+    await t.pump(const Duration(milliseconds: 1100));
+    expect(f.controller.state, OrbState.idle);
+    expect(f.controller.voice.asking, isFalse);
   });
 }

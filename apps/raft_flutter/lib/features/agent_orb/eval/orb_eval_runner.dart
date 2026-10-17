@@ -15,6 +15,8 @@ import '../../agent_mode/agent_voice_settings.dart';
 import '../../agent_mode/gemini_agent.dart';
 import '../../agent_mode/genkit_agent.dart';
 import '../../agent_mode/layered_voice.dart';
+import '../../agent_mode/layered_voice_mode.dart';
+import '../../agent_mode/app_speech.dart' show RecordingSpeech;
 import '../../agent_mode/voice_provider.dart';
 import '../nav/orb_nav_tools.dart' show orbNavigationTools;
 import '../orb_controller.dart';
@@ -85,6 +87,7 @@ class OrbEvalRunner {
     this.thinking,
     this.model,
     this.engine,
+    this.voiceMode,
     this.layeredGrace = const Duration(seconds: 4),
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
@@ -113,6 +116,15 @@ class OrbEvalRunner {
   /// The layered harness: what makes the agent's model calls; the Labs setting
   /// when null.
   final AgentEngine? engine;
+
+  /// The layered harness: how the voice speaks (the Labs setting when null).
+  /// With the app speaking, the person's words are typed straight into the
+  /// path a transcript takes, Live is not connected, and the app's voice is a
+  /// recorder.
+  final LayeredVoiceMode? voiceMode;
+
+  LayeredVoiceMode get _voiceMode =>
+      voiceMode ?? AgentOrbPreference.instance.layeredVoiceMode;
 
   /// The layered harness: how long after a Live turn that asked nothing the
   /// turn is called over (an ask may still follow a filler).
@@ -221,6 +233,7 @@ class OrbEvalRunner {
           ? (engine ?? AgentOrbPreference.instance.agentEngine).name
           : null,
       agentModel: layered ? _agentModel : null,
+      voiceMode: layered ? _voiceMode.name : null,
       cancelled: _stop,
       abortReason: _abortReason,
     );
@@ -237,7 +250,7 @@ class OrbEvalRunner {
   void _log(String line) => debugPrint('orb-eval: $line');
 
   /// What builds the session when a test gave none.
-  VoiceSessionFactory _defaultFactory() => switch (harness) {
+  VoiceSessionFactory _defaultFactory(_Recorder recorder) => switch (harness) {
     OrbEvalHarness.realtime => createVoiceSession,
     // Live is typed to; the agent behind its one tool is the app's own.
     OrbEvalHarness.layered =>
@@ -268,6 +281,11 @@ class OrbEvalRunner {
         agentModelId: model,
         voice: voice,
         reasoning: reasoning,
+        mode: _voiceMode,
+        speech: _voiceMode == LayeredVoiceMode.appSpeaks
+            ? recorder.speech
+            : null,
+        listen: _voiceMode != LayeredVoiceMode.appSpeaks,
         onAudio: onAudio,
         onInputText: onInputText,
         onOutputText: onOutputText,
@@ -360,7 +378,9 @@ class OrbEvalRunner {
       orb = OrbController(
         workspace: world.workspace,
         navigatorContext: () => shown.navigatorContext(),
-        sessionFactory: recorder.wrap(sessionFactory ?? _defaultFactory()),
+        sessionFactory: recorder.wrap(
+          sessionFactory ?? _defaultFactory(recorder),
+        ),
         agentLayer: harness.isTextAgent,
         layeredVoice: harness == OrbEvalHarness.layered,
         audio: _SilentAudio(),
@@ -415,7 +435,10 @@ class OrbEvalRunner {
     // The voice layer is held to one thing in every scenario.
     final checks = [
       ...s.checks,
-      if (harness == OrbEvalHarness.layered) OrbEvalCheck.liveSpokeAgentWords(),
+      if (harness == OrbEvalHarness.layered)
+        _voiceMode == LayeredVoiceMode.appSpeaks
+            ? OrbEvalCheck.appSpokeAgentWords()
+            : OrbEvalCheck.liveSpokeAgentWords(),
     ];
     for (final check in checks) {
       String? reason;
@@ -585,6 +608,10 @@ class _Recorder {
 
   /// The session the orb last built (its model is told in the report).
   VoiceSession? session;
+
+  /// The app's voice in the layered harness: it says nothing aloud and notes
+  /// each sentence it is asked to speak in the turn under way.
+  final speech = RecordingSpeech();
 
   OrbEvalTurn begin(String line, {required bool scored}) {
     final turn = OrbEvalTurn(line, scored: scored);
@@ -772,6 +799,7 @@ class _Recorder {
     if (made is LayeredVoiceSession) {
       made
         ..onAsk = _ask
+        ..onSpoken = ((sentence) => _turn?.spoken.add(sentence))
         ..addAskingListener(_askingChanged);
     }
     return made;

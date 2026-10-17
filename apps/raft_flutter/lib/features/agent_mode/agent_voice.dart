@@ -165,13 +165,19 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     _releasedAsTap = null;
     _youLine = _agentLine = null;
     saying.value = '';
-    unawaited(audio.stopPlayback());
+    _cutVoice(old);
     if (wasListening) onListeningEnded?.call();
     _set(AgentMicState.idle);
     await Future.wait([
       ?old?.close(),
       if (building != null && !identical(building, old)) building.close(),
     ]);
+  }
+
+  /// Stops the voice now: the model's audio, or the app's own voice.
+  void _cutVoice(VoiceSession? session) {
+    unawaited(audio.stopPlayback());
+    if (session is LayeredVoiceSession) session.stopSpeech();
   }
 
   void _settingsChanged() {
@@ -425,6 +431,19 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     if (session is LayeredVoiceSession) {
       session
         ..addAskingListener((n) => _askingIs(n > 0))
+        ..addSpeakingListener((on) {
+          if (epoch != _epoch || _disposed) return;
+          // The app's own voice is the speech: the mic state follows it like
+          // it follows the model's audio.
+          _guard.touch();
+          if (on) {
+            if (!_live && !_holding && state != AgentMicState.speaking) {
+              _set(AgentMicState.speaking);
+            }
+          } else {
+            _playbackIdle();
+          }
+        })
         ..onSlow = slowCue;
     }
     _building = session;
@@ -532,7 +551,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     }
     final early = _releasedAsTap;
     if (!_pressed && early != true) return; // Released during a prompt.
-    unawaited(audio.stopPlayback());
+    _cutVoice(_session);
     _holding = _pressed;
     _live = early == true;
     if (_live) _guard.start();
@@ -624,7 +643,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   void stopSpeaking() {
     _agentLine = null;
     saying.value = '';
-    unawaited(audio.stopPlayback());
+    _cutVoice(_session);
     if (state == AgentMicState.speaking || state == AgentMicState.thinking) {
       _set(_live ? AgentMicState.live : AgentMicState.idle);
     }

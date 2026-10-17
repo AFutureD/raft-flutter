@@ -7,9 +7,12 @@ import 'agent_engine.dart';
 import 'agent_steering.dart';
 import 'agent_thinking.dart';
 import '../agent_orb/orb_preference.dart' show AgentOrbPreference;
+import 'app_speech.dart';
 import 'gemini_agent.dart';
 import 'genkit_agent.dart';
 import 'gemini_live.dart';
+import 'layered_listen.dart';
+import 'layered_voice_mode.dart';
 import 'voice_provider.dart';
 
 /// The one tool of the voice layer.
@@ -55,6 +58,12 @@ const layeredVoicePrompt =
     '\n'
     '【语言】用户说什么语言就用什么语言回答，说中文用自然的口语中文，默认中文；“Agent”这个词任何语言里都照写 Agent。温暖、简短，像很熟的朋友。';
 
+/// The instruction of Live when it only listens ([LayeredVoiceMode.appSpeaks]):
+/// what it generates is thrown away, so it is asked to generate nothing.
+const layeredListenPrompt =
+    '你只负责听。不要回答，不要说话，不要调用工具，不要输出任何文字：用户说什么都不要回应，保持安静。'
+    '你听到的话由 App 自己处理。';
+
 /// The agent layer behind a voice: a Gemini Live session that only listens and
 /// speaks, and a [GeminiAgentSession] that does the work.
 ///
@@ -64,6 +73,15 @@ const layeredVoicePrompt =
 /// reaches the person except through Live. The app's silent context goes to
 /// the agent, not to Live; a note from the app is a turn of the agent whose
 /// answer Live speaks; [speak] has Live say the app's own words.
+///
+/// With [LayeredVoiceMode.appSpeaks] Live does not relay: it only listens
+/// (hearing, end of speech, the transcript), and the app does the rest. When
+/// the person's turn is over ([UserTurnForwarder]) the app sends the
+/// transcript to the agent itself, so nothing depends on the voice model
+/// choosing to call a tool or copying words right; the agent's `say` is spoken
+/// by [speech], a sentence at a time, exactly as it is. The person speaking
+/// over it stops the voice and cuts short a turn of the agent that has not
+/// answered yet. What Live generates is thrown away.
 class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   LayeredVoiceSession({
     required this.apiKey,
@@ -77,6 +95,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.slowAfter = const Duration(milliseconds: 800),
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
+    this.mode = LayeredVoiceMode.liveRelays,
+    this.speech,
+    this.listen = true,
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -87,22 +108,53 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     VoiceSession Function(AgentParts parts)? agentBuilder,
   }) : _liveBuilder = liveBuilder ?? _gemini,
        _agentBuilder = agentBuilder ?? _agentGemini {
-    _live = _liveBuilder(
-      LiveParts(
-        apiKey: apiKey,
-        systemPrompt: layeredVoicePrompt,
-        tools: const [askAgentDeclaration],
-        onToolCall: _liveTool,
-        voice: voice,
-        reasoning: reasoning,
-        onAudio: onAudio,
-        onInputText: onInputText,
-        onOutputText: onOutputText,
-        onTurnComplete: onTurnComplete,
-        onInterrupted: onInterrupted,
-        onClosed: onClosed,
-      ),
+    final speaks = mode == LayeredVoiceMode.appSpeaks;
+    if (speaks && speech == null) {
+      throw ArgumentError('appSpeaks needs a speech');
+    }
+    _forwarder = UserTurnForwarder(
+      forward: _forward,
+      onChunk: onInputText,
+      onBargeIn: _bargeIn,
+      guarding: () => _speaking || (_echoTail?.isActive ?? false),
+      echoOf: _echoOf,
     );
+    _live = !listen
+        ? null
+        : _liveBuilder(
+            speaks
+                ? LiveParts(
+                    apiKey: apiKey,
+                    systemPrompt: layeredListenPrompt,
+                    tools: const [],
+                    onToolCall: _liveTool,
+                    voice: voice,
+                    reasoning: reasoning,
+                    listenOnly: true,
+                    // Everything Live generates is dropped; that it generates
+                    // anything is the sign of the end of the person's turn.
+                    onGenerating: _forwarder.modelActed,
+                    onInputText: _forwarder.heard,
+                    onOutputText: _ignored,
+                    onTurnComplete: _forwarder.modelActed,
+                    onInterrupted: _bargeIn,
+                    onClosed: onClosed,
+                  )
+                : LiveParts(
+                    apiKey: apiKey,
+                    systemPrompt: layeredVoicePrompt,
+                    tools: const [askAgentDeclaration],
+                    onToolCall: _liveTool,
+                    voice: voice,
+                    reasoning: reasoning,
+                    onAudio: onAudio,
+                    onInputText: onInputText,
+                    onOutputText: onOutputText,
+                    onTurnComplete: onTurnComplete,
+                    onInterrupted: onInterrupted,
+                    onClosed: onClosed,
+                  ),
+          );
     _agent = _makeAgent();
   }
 
@@ -119,7 +171,10 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     onTurnComplete: p.onTurnComplete,
     onInterrupted: p.onInterrupted,
     onClosed: p.onClosed,
-    // Live only relays here: the quickest model, no extended thinking.
+    onGenerating: p.onGenerating,
+    listenOnly: p.listenOnly,
+    // Live only relays or listens here: the quickest model, no extended
+    // thinking.
     fast: true,
   );
 
@@ -183,6 +238,19 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     }
   }
 
+  /// How the voice layer speaks: Live relays, or the app speaks.
+  final LayeredVoiceMode mode;
+
+  /// The app's voice ([LayeredVoiceMode.appSpeaks]).
+  final SpeechOut? speech;
+
+  /// Whether Live is connected and listened to. An evaluation types the
+  /// person's words instead of speaking them: the same path, without a
+  /// microphone, and nothing of Live in it.
+  final bool listen;
+
+  bool get _appSpeaks => mode == LayeredVoiceMode.appSpeaks;
+
   /// The app's tools: the agent's, never Live's.
   @override
   final AgentToolHandler onToolCall;
@@ -213,8 +281,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   final VoiceSession Function(LiveParts) _liveBuilder;
   final VoiceSession Function(AgentParts) _agentBuilder;
-  late final VoiceSession _live;
+  late final VoiceSession? _live;
   late VoiceSession _agent;
+  late final UserTurnForwarder _forwarder;
 
   /// The agent session now in use (tests look at what engine it is on).
   @visibleForTesting
@@ -256,10 +325,10 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   }
 
   @override
-  bool get connected => _live.connected && _agent.connected;
+  bool get connected => (!listen || _live!.connected) && _agent.connected;
 
   @override
-  String? get model => _live.model;
+  String? get model => _live?.model;
 
   /// The agent's model, once it is known.
   String? get agentModel => _agent.model;
@@ -275,9 +344,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// say, how long it took (the evaluation records it).
   void Function(String request, String say, int millis)? onAsk;
 
+  /// Told each sentence the app's voice is asked to speak, as it is asked
+  /// (the evaluation records it).
+  void Function(String sentence)? onSpoken;
+
   @override
   Future<void> connect() async {
-    await Future.wait([_live.connect(), _agent.connect()]);
+    await Future.wait([if (listen) _live!.connect(), _agent.connect()]);
   }
 
   /// The agent after a failure: a new one, with a new history.
@@ -298,6 +371,29 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     return done.future;
   }
 
+  /// One ask to the agent: what it says, and how long it took; null when the
+  /// person spoke over it and it was cut short.
+  Future<String?> _ask(String request) async {
+    final watch = Stopwatch()..start();
+    _askingIs(_asking + 1);
+    final slow = Timer(slowAfter, () => onSlow?.call());
+    String? say;
+    try {
+      say = await _runAgent(request);
+    } on _Cancelled {
+      say = null;
+    } catch (_) {
+      say = '我这边出了点问题，你再说一次。';
+    } finally {
+      slow.cancel();
+    }
+    if (say != null) onAsk?.call(request, say, watch.elapsedMilliseconds);
+    // Out of flight as the answer goes on, to Live or to the voice: the turn
+    // is not over before it has it.
+    if (!_closed) _askingIs(_asking - 1);
+    return say;
+  }
+
   Future<Map<String, Object?>> _liveTool(
     String name,
     Map<String, Object?> args,
@@ -305,42 +401,164 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (name != 'ask_agent') return {'error': '没有这个工具：$name'};
     final request = '${args['request'] ?? ''}'.trim();
     if (request.isEmpty) return {'say': ''};
-    final watch = Stopwatch()..start();
-    _askingIs(_asking + 1);
-    final slow = Timer(slowAfter, () => onSlow?.call());
-    String say;
-    try {
-      say = await _runAgent(request);
-    } catch (_) {
-      say = '我这边出了点问题，你再说一次。';
-    } finally {
-      slow.cancel();
+    return {'say': await _ask(request) ?? ''};
+  }
+
+  // ---- the app speaks -----------------------------------------------------
+
+  /// The person's turn is over: the agent is asked, and the answer is said.
+  /// The same whether the words were heard (the transcript) or typed.
+  void _forward(String text) {
+    if (_closed || text.trim().isEmpty) return;
+    _recentSpoken = '';
+    unawaited(_answer(text));
+  }
+
+  Future<void> _answer(String request) async {
+    final say = await _ask(request);
+    if (say == null || _closed) return;
+    await _sayOut(say);
+  }
+
+  /// Live generated something while it only listens: dropped, but logged.
+  void _ignored(String text) {
+    if (kDebugMode) {
+      debugPrint('layered live output ignored (${text.length} chars)');
     }
-    onAsk?.call(request, say, watch.elapsedMilliseconds);
-    // Out of flight as the answer goes back to Live, which can only say its
-    // turn is over after it has it.
-    if (!_closed) _askingIs(_asking - 1);
-    return {'say': say};
+  }
+
+  // What the voice said last, to tell its echo from the person.
+  String _recentSpoken = '';
+  bool _speaking = false;
+  Timer? _echoTail;
+  int _speechGeneration = 0;
+  Future<void> _speechTail = Future.value();
+  final _speakingListeners = <void Function(bool speaking)>[];
+
+  /// Whether the voice is sounding.
+  bool get speaking => _speaking;
+
+  /// Told each time the voice starts or stops sounding.
+  void addSpeakingListener(void Function(bool speaking) listener) =>
+      _speakingListeners.add(listener);
+
+  void _speakingIs(bool now) {
+    if (_speaking == now) return;
+    _speaking = now;
+    if (!now) {
+      // The room still carries the end of the voice for a moment.
+      _echoTail?.cancel();
+      _echoTail = Timer(const Duration(milliseconds: 1200), () {});
+    }
+    for (final f in [..._speakingListeners]) {
+      f(now);
+    }
+  }
+
+  /// Whether [heard] (letters and digits) is mostly what the voice just said.
+  bool _echoOf(String heard) {
+    final said = _recentSpoken;
+    if (said.isEmpty || heard.length < 4) return false;
+    if (said.contains(heard)) return true;
+    String grams(String t, int i) => t.substring(i, i + 2);
+    final mine = {for (var i = 0; i + 2 <= said.length; i++) grams(said, i)};
+    var shared = 0;
+    var total = 0;
+    for (var i = 0; i + 2 <= heard.length; i++) {
+      total++;
+      if (mine.contains(grams(heard, i))) shared++;
+    }
+    return total > 0 && shared / total >= .8;
+  }
+
+  /// Says [say] a sentence at a time, after what is being said. When it is
+  /// over (or there is nothing to say) the turn is over.
+  Future<void> _sayOut(String say) {
+    final generation = _speechGeneration;
+    return _speechTail = _speechTail.then((_) => _sayNow(say, generation));
+  }
+
+  Future<void> _sayNow(String say, int generation) async {
+    if (_closed || generation != _speechGeneration) return;
+    final sentences = orbSentences(say);
+    for (final sentence in sentences) {
+      if (_closed || generation != _speechGeneration) return;
+      _recentSpoken += UserTurnForwarder.compact(sentence);
+      onSpoken?.call(sentence);
+      await speech!.speak(
+        sentence,
+        onStart: () {
+          if (generation != _speechGeneration) return;
+          _speakingIs(true);
+          // The caption follows the voice.
+          onOutputText?.call(sentence);
+        },
+      );
+    }
+    if (_closed || generation != _speechGeneration) return;
+    _speakingIs(false);
+    onTurnComplete?.call();
+  }
+
+  /// Stops the voice now, and what is queued to be said.
+  void stopSpeech() {
+    _speechGeneration++;
+    _speakingIs(false);
+    if (_appSpeaks) unawaited(speech!.stop());
+  }
+
+  /// The person speaks over the app: the voice stops, and an ask the agent
+  /// has not answered yet is cut short (what it was doing stops at its next
+  /// step, and nothing of it is said).
+  void _bargeIn() {
+    if (_closed || !_appSpeaks) return;
+    final active = _speaking || _asking > 0;
+    if (!active) return;
+    stopSpeech();
+    final agent = _agent;
+    if (_asks.isNotEmpty && agent is CancellableTurn) {
+      (agent as CancellableTurn).cancelTurn();
+    }
+    _words.clear();
+    while (_asks.isNotEmpty) {
+      _asks.removeFirst().completeError(const _Cancelled());
+    }
+    onInterrupted?.call();
   }
 
   @override
-  void sendAudio(Uint8List pcm16k) => _live.sendAudio(pcm16k);
+  void sendAudio(Uint8List pcm16k) {
+    if (listen) _live!.sendAudio(pcm16k);
+  }
 
   @override
-  void endAudio() => _live.endAudio();
+  void endAudio() {
+    if (listen) _live!.endAudio();
+  }
 
-  /// Typed text is the person's: Live hears it as if it were said. A note
-  /// from the app is for the agent; what it answers is spoken.
+  /// Typed text is the person's: with Live relaying it hears it as if it were
+  /// said; when the app speaks it is a turn like a heard one. A note from the
+  /// app is for the agent; what it answers is spoken.
   @override
   void sendText(String text) {
     if (_closed) return;
     if (!text.startsWith(_appNote)) {
-      _live.sendText(text);
+      if (_appSpeaks) {
+        _bargeIn();
+        _forward(text);
+      } else {
+        _live!.sendText(text);
+      }
       return;
     }
     unawaited(
       _runAgent(text).then((say) {
-        if (!_closed && say.isNotEmpty) _live.sendText(layeredVerbatim(say));
+        if (_closed || say.isEmpty) return;
+        if (_appSpeaks) {
+          unawaited(_sayOut(say));
+        } else {
+          _live!.sendText(layeredVerbatim(say));
+        }
       }, onError: (Object _) {}),
     );
   }
@@ -349,21 +567,33 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   @override
   void addContext(String text) => _agent.addContext(text);
 
-  /// Live says [text] word for word; the agent knows it was said.
+  /// The app's own words, word for word; the agent knows they were said.
   @override
   void speak(String text) {
     if (_closed || text.isEmpty) return;
     _agent.addContext('（App 已经替你对用户说了：“$text”）');
-    _live.sendText(layeredVerbatim(text));
+    if (_appSpeaks) {
+      unawaited(_sayOut(text));
+    } else {
+      _live!.sendText(layeredVerbatim(text));
+    }
   }
 
   @override
   Future<void> close() async {
     _closed = true;
+    _forwarder.dispose();
+    _echoTail?.cancel();
+    stopSpeech();
     _askingIs(0);
     _agentClosed('closed');
-    await Future.wait([_live.close(), _agent.close()]);
+    await Future.wait([if (listen) _live!.close(), _agent.close()]);
   }
+}
+
+/// An ask the person spoke over.
+class _Cancelled implements Exception {
+  const _Cancelled();
 }
 
 /// What the voice layer's session is built from.
@@ -375,6 +605,8 @@ class LiveParts {
     required this.onToolCall,
     required this.voice,
     required this.reasoning,
+    this.listenOnly = false,
+    this.onGenerating,
     this.onAudio,
     this.onInputText,
     this.onOutputText,
@@ -384,6 +616,10 @@ class LiveParts {
   });
 
   final String apiKey, systemPrompt, voice;
+
+  /// Live only listens (see `GeminiLiveSession.listenOnly`).
+  final bool listenOnly;
+  final void Function()? onGenerating;
   final List<Map<String, Object?>> tools;
   final AgentToolHandler onToolCall;
   final AgentReasoning reasoning;
@@ -443,6 +679,11 @@ VoiceSession createLayeredSession({
   Future<Duration> Function()? playbackPending,
   AgentSteering? steering,
 }) => LayeredVoiceSession(
+  // The app speaks where the platform has a voice for it; else Live relays.
+  mode: appSpeechSupported
+      ? AgentOrbPreference.instance.layeredVoiceMode
+      : LayeredVoiceMode.liveRelays,
+  speech: appSpeechSupported ? FlutterTtsSpeech() : null,
   apiKey: apiKey,
   systemPrompt: systemPrompt,
   tools: tools,

@@ -902,4 +902,59 @@ void main() {
       expect(s.connected, isFalse);
     });
   });
+
+  test('cancelTurn: a turn cut short in a tool says nothing and leaves no '
+      'half of itself; the next turn goes on', () async {
+    final api = Api()
+      ..replies.addAll([
+        _call('navigate', {'to': 'home'}),
+        _say('好'),
+      ]);
+    final heard = Heard();
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    final s = GenkitAgentSession(
+      apiKey: 'test-key',
+      systemPrompt: 'be the orb',
+      tools: _tools,
+      modelId: _model,
+      retryDelay: Duration.zero,
+      onToolCall: (name, args) async {
+        started.complete();
+        await gate.future;
+        return {'ok': true};
+      },
+      onOutputText: heard.texts.add,
+      onTurnComplete: () => heard.turns++,
+      onClosed: heard.closed.add,
+    );
+    await _withApi(api, () async {
+      await s.connect();
+      s.sendText('去主页');
+      await started.future;
+      // A turn queued behind it is dropped too.
+      s.sendText('queued');
+      s.cancelTurn();
+      gate.complete();
+      await pumpEventQueue();
+      expect(heard.texts, isEmpty);
+      expect(heard.turns, 0);
+      expect(heard.closed, isEmpty);
+      expect(s.connected, isTrue);
+      expect(api.requests, hasLength(1), reason: 'no second model call');
+
+      s.sendText('再来');
+      await pumpEventQueue();
+    });
+    expect(heard.texts, ['好']);
+    // The cancelled turn is not in the history the model sees.
+    expect(_contents(api.requests.last), [
+      {
+        'role': 'user',
+        'parts': [
+          {'text': '再来'},
+        ],
+      },
+    ]);
+  });
 }

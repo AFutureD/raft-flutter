@@ -83,3 +83,10 @@ class AgentSteering {
 abstract interface class AppSpeaker {
   void speak(String text);
 }
+
+/// A session whose turn under way can be cut short: the person spoke over it.
+/// The turn stops at its next step, says nothing, and leaves no half of itself
+/// in the history; turns queued behind it are dropped too.
+abstract interface class CancellableTurn {
+  void cancelTurn();
+}
