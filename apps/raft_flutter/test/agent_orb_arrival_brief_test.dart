@@ -354,6 +354,14 @@ void main() {
 
     // Kevin: give it ASD-STE100 so it knows how to say things. The rules,
     // not the English word list.
+    // On the G100 Flash wrote "Cindy 在等你处理…任务" for an agent that was
+    // stuck: a blocked agent is not waiting for the person.
+    test('a blocked agent is stuck, not waiting for the person', () {
+      expect(OrbBriefingWriter.system, contains('agentBlocked'));
+      expect(OrbBriefingWriter.system, contains('卡住了'));
+      expect(OrbBriefingWriter.system, contains('不要写成“在等你”'));
+    });
+
     test(
       'speaks in short, active, one-thing sentences and never reads ids',
       () {
