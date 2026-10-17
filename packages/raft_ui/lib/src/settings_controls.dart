@@ -1,3 +1,5 @@
+import 'text_selection_toolbar.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -369,6 +371,7 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
       decoration: s.decoration(tokens),
       padding: widget.padding ?? s.padding,
       child: TextField(
+        contextMenuBuilder: RaftTextSelectionToolbar.editableText,
         autofillHints: null,
         key: widget.fieldKey,
         controller: widget.controller,
@@ -472,6 +475,7 @@ class _RaftRecipeTextareaState extends State<RaftRecipeTextarea> {
       decoration: s.decoration(tokens),
       padding: s.padding,
       child: TextField(
+        contextMenuBuilder: RaftTextSelectionToolbar.editableText,
         key: widget.fieldKey,
         controller: widget.controller,
         focusNode: focus,
@@ -480,9 +484,12 @@ class _RaftRecipeTextareaState extends State<RaftRecipeTextarea> {
         minLines: 1,
         maxLines: null,
         maxLength: widget.maxLength,
-        buildCounter:
-            (_, {required currentLength, required isFocused, maxLength}) =>
-                null,
+        buildCounter: (
+          _, {
+          required currentLength,
+          required isFocused,
+          maxLength,
+        }) => null,
         cursorColor: text.color ?? t.strong,
         onChanged: widget.onChanged,
         decoration: _bare(
@@ -609,6 +616,7 @@ class _RaftSettingsPrefixedInputState extends State<RaftSettingsPrefixedInput> {
               child: Padding(
                 padding: g.control.padding,
                 child: TextField(
+                  contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                   autofillHints: null,
                   controller: controller,
                   focusNode: focus,

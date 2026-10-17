@@ -1,3 +1,5 @@
+import 'text_selection_toolbar.dart';
+
 import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
@@ -147,6 +149,7 @@ class _RaftComboboxPanelState extends State<RaftComboboxPanel> {
                   style: r.input,
                   tokens: tokens,
                   child: TextField(
+                    contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                     autofillHints: null,
                     controller: query,
                     focusNode: inputFocus,

@@ -1,5 +1,7 @@
 import 'hover_region.dart';
 
+import 'text_selection_toolbar.dart';
+
 import 'dart:async' show unawaited;
 
 import 'control_typography.dart';
@@ -1852,12 +1854,6 @@ class _RaftForceTaskSendIntent extends Intent {
   const _RaftForceTaskSendIntent();
 }
 
-/// TextField's default context menu (system menu where supported).
-Widget _defaultEditorMenu(BuildContext context, EditableTextState state) =>
-    SystemContextMenu.isSupportedByField(state)
-    ? SystemContextMenu.editableText(editableTextState: state)
-    : AdaptiveTextSelectionToolbar.editableText(editableTextState: state);
-
 /// Controlled editor action seam; identity/authority belongs to the caller.
 /// Only the current mounted editor can accept an insertion, and offstage,
 /// disabled, IME-composing and busy editors reject it without moving focus.
@@ -2742,8 +2738,8 @@ class _RaftComposerState extends State<RaftComposer> {
   /// the keyboard shortcut (Web: every paste fires the paste event).
   Widget pasteAwareMenu(BuildContext context, EditableTextState state) =>
       SystemContextMenu.isSupportedByField(state)
-      ? _defaultEditorMenu(context, state)
-      : AdaptiveTextSelectionToolbar.buttonItems(
+      ? RaftTextSelectionToolbar.editableText(context, state)
+      : RaftTextSelectionToolbar.buttonItems(
           anchors: state.contextMenuAnchors,
           buttonItems: [
             for (final item in state.contextMenuButtonItems)
@@ -2901,7 +2897,7 @@ class _RaftComposerState extends State<RaftComposer> {
                 ),
                 textCapitalization: TextCapitalization.sentences,
                 contextMenuBuilder: widget.onPasteAttachments == null
-                    ? _defaultEditorMenu
+                    ? RaftTextSelectionToolbar.editableText
                     : pasteAwareMenu,
                 contentInsertionConfiguration: widget.onContentInserted == null
                     ? null

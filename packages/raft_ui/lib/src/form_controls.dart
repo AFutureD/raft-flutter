@@ -1,6 +1,7 @@
 // Form primitives painted from raft-ui recipes: Field (label / description /
 // error), Input, Textarea + counter, InputGroup (prefixed / slug input), and
 // the Web client's legacy `.input-brutal` chrome (packages/web/src/index.css).
+import 'text_selection_toolbar.dart';
 import 'hover_region.dart';
 
 import 'package:flutter/material.dart';
@@ -341,6 +342,7 @@ class _RaftTextInputState extends State<RaftTextInput>
       );
     }
     final field = TextField(
+      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
       controller: controller,
       focusNode: focus,
       readOnly: widget.readOnly,
@@ -474,6 +476,7 @@ class _RaftTextareaState extends State<RaftTextarea>
           // bound avoids an infinite editor in a scrolling form at large text.
           applyText: false,
           child: TextField(
+            contextMenuBuilder: RaftTextSelectionToolbar.editableText,
             key: widget.fieldKey,
             autofillHints: null,
             controller: controller,
@@ -658,6 +661,7 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
                   child: Padding(
                     padding: g.control.padding,
                     child: TextField(
+                      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                       autofillHints: null,
                       autofocus: widget.autofocus,
                       controller: controller,

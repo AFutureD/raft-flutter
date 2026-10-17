@@ -1,3 +1,4 @@
+import 'text_selection_toolbar.dart';
 import 'hover_region.dart';
 
 import 'package:flutter/material.dart';
@@ -105,6 +106,7 @@ class _RaftSearchInputState extends State<RaftSearchInput> {
               child: Padding(
                 padding: g.control.padding,
                 child: TextField(
+                  contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                   autofillHints: null,
                   controller: widget.controller,
                   focusNode: widget.focusNode,

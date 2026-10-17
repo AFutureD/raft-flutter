@@ -1,3 +1,5 @@
+import 'text_selection_toolbar.dart';
+
 import 'package:flutter/material.dart';
 
 import 'localization.dart';
@@ -242,6 +244,7 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
                             },
                     )
                   : TextFormField(
+                      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                       autofillHints: null,
                       key: ValueKey('field-${field.id}'),
                       controller: editors[field.id],

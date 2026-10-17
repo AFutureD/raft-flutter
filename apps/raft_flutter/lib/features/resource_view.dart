@@ -2481,6 +2481,7 @@ class _ResourceViewState extends State<ResourceView> {
                 if (['search', 'saved'].contains(widget.section))
                   Expanded(
                     child: TextField(
+                      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                       autofillHints: null,
                       controller: query,
                       decoration: InputDecoration(
@@ -4690,6 +4691,7 @@ class _ResourceViewState extends State<ResourceView> {
             SizedBox(
               width: 220,
               child: TextField(
+                contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                 autofillHints: null,
                 controller: query,
                 decoration: InputDecoration(

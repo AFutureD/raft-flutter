@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
+import 'text_selection_toolbar.dart';
 
 /// [SelectionArea] whose touch selection ends with the next touch elsewhere.
 ///
@@ -25,9 +26,7 @@ class RaftSelectionArea extends StatefulWidget {
   static Widget _platformToolbar(
     BuildContext context,
     SelectableRegionState state,
-  ) => AdaptiveTextSelectionToolbar.selectableRegion(
-    selectableRegionState: state,
-  );
+  ) => RaftTextSelectionToolbar.selectableRegion(context, state);
 
   /// The platform Copy / Select all toolbar for a touch selection, nothing
   /// for a mouse or trackpad. For areas whose desktop right-click belongs to

@@ -8,6 +8,7 @@
 //
 // Values come from the generated recipes (package:raft_ui/recipes.dart) and
 // tokens; Tailwind classes written in the Web JSX are resolved in comments.
+import 'text_selection_toolbar.dart';
 import 'hover_region.dart';
 
 import 'dart:math' as math;
@@ -1088,6 +1089,7 @@ class RaftDialogTextInput extends StatelessWidget {
       minLines = math.max(1, ((96 - chrome) / line).ceil());
     }
     Widget field = TextField(
+      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
       autofillHints: null,
       key: fieldKey,
       controller: controller,

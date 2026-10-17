@@ -15,6 +15,8 @@
 //
 // Values come from the recipes; the few Tailwind classes written directly in
 // Web JSX are cited next to the number that resolves them.
+import 'text_selection_toolbar.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -573,6 +575,7 @@ class _RaftAgentTextInputState extends State<RaftAgentTextInput> {
           ].reduce((a, b) => a > b ? a : b)
         : null;
     final editor = TextField(
+      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
       autofillHints: null,
       controller: widget.controller,
       focusNode: focus,

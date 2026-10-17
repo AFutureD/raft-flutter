@@ -20,6 +20,7 @@ import 'package:re_highlight/re_highlight.dart';
 
 import 'panel_layout.dart' show raftTextMetricsCache;
 import 'raft_selection_area.dart';
+import 'text_selection_toolbar.dart';
 import 'viewport_breakpoints.dart';
 
 import 'package:re_highlight/styles/github.dart';
@@ -1089,6 +1090,7 @@ class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
     excludeSemantics: true,
     child: SelectableText(
       widget.source,
+      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
       style: TextStyle(
         fontFamily: RaftTokens.of(context).monoFont,
         fontSize: 14,

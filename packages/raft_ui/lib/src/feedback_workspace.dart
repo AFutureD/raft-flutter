@@ -6,8 +6,10 @@
 // SegmentedControl, MessageReferenceChip, DropdownMenu, AlertDialog, Banner,
 // TextareaCounter). The app owns the store and the transport; every value
 // shown here arrives as data.
+import 'text_selection_toolbar.dart';
 import 'hover_region.dart';
 import 'dismiss_scope.dart';
+
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
@@ -377,6 +379,7 @@ class _RaftFeedbackComposerState extends State<RaftFeedbackComposer> {
             label: raftText(context, widget.label),
             textField: true,
             child: TextField(
+              contextMenuBuilder: RaftTextSelectionToolbar.editableText,
               key: widget.inputKey,
               controller: widget.controller,
               focusNode: focus,

@@ -74,10 +74,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
     final pickerHeight = widget.picker && !t.brutal
         ? 28.0
         : RaftMetrics.buttonMd;
-    final width = math.min(
-      220.0,
-      MediaQuery.sizeOf(context).width - 24,
-    );
+    final width = math.min(220.0, MediaQuery.sizeOf(context).width - 24);
     final entries = widget.options.entries
         .where(
           (entry) =>
@@ -145,6 +142,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
               ),
               RaftSelectionPopoverSearchSlot(
                 child: TextField(
+                  contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                   autofillHints: null,
                   controller: search,
                   autofocus: true,

@@ -1,6 +1,8 @@
 // Presentational pieces of Web ForwardComposerDesktop
 // (packages/web/src/components/message/ForwardComposerDesktop.tsx): the
 // two-pane dialog card. The app owns targets, search and sending.
+import 'text_selection_toolbar.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -332,6 +334,7 @@ class RaftForwardDesktopSearch extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
+              contextMenuBuilder: RaftTextSelectionToolbar.editableText,
               autofillHints: null,
               controller: controller,
               focusNode: focusNode,
@@ -375,6 +378,7 @@ class RaftForwardDesktopNoteField extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return TextField(
+      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
       autofillHints: null,
       controller: controller,
       enabled: enabled,

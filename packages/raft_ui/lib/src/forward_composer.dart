@@ -1,6 +1,7 @@
 // Presentational pieces of Web ForwardComposerMobile
 // (packages/web/src/components/message/ForwardComposerMobile.tsx,
 // ForwardComposerTargetList.tsx). The app owns targets, search and sending.
+import 'text_selection_toolbar.dart';
 import 'hover_region.dart';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -417,6 +418,7 @@ class RaftForwardNoteField extends StatelessWidget {
   final bool enabled, autofocus;
   @override
   Widget build(BuildContext context) => TextField(
+    contextMenuBuilder: RaftTextSelectionToolbar.editableText,
     autofillHints: null,
     controller: controller,
     autofocus: autofocus,
@@ -743,6 +745,7 @@ class _RaftForwardSearchInputState extends State<RaftForwardSearchInput> {
         alignment: Alignment.centerLeft,
         children: [
           TextField(
+            contextMenuBuilder: RaftTextSelectionToolbar.editableText,
             autofillHints: null,
             controller: widget.controller,
             focusNode: widget.focusNode,

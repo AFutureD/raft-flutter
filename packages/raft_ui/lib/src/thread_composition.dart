@@ -1,3 +1,5 @@
+import 'text_selection_toolbar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -399,6 +401,7 @@ class RaftThreadSearchBar extends StatelessWidget {
                       return KeyEventResult.ignored;
                     },
                     child: TextField(
+                      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                       key: const Key('thread-search-input'),
                       controller: controller,
                       focusNode: focusNode,

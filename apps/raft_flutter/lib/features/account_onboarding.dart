@@ -424,6 +424,7 @@ class _OnboardingState extends State<AccountOnboardingView>
                   ),
                   child: RaftAuthHandleGroup(
                     child: TextFormField(
+                      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                       key: const Key('onboarding-username'),
                       controller: username,
                       focusNode: usernameFocus,
@@ -455,6 +456,7 @@ class _OnboardingState extends State<AccountOnboardingView>
                   ),
                   helperHint: true,
                   child: TextFormField(
+                    contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                     key: const Key('onboarding-display-name'),
                     controller: displayName,
                     style: t.fieldStyle,
