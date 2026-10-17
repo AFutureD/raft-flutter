@@ -13,6 +13,8 @@ import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_page.dart';
 import 'package:raft_flutter/features/agent_mode/agent_scripted_model.dart';
 import 'package:raft_flutter/features/agent_mode/agent_tools.dart';
+import 'package:raft_flutter/features/agent_mode/gemini_live.dart'
+    show AgentToolHandler;
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability_standard.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_snooze.dart';
@@ -341,6 +343,145 @@ void main() {
               .dy,
         ),
       );
+    });
+  });
+
+  group('names of senders', () {
+    // The server lists who said it by id only: no name on the row, as the
+    // Activity page finds out (it asks the shared author directory).
+    Map<String, dynamic> bare(Map<String, dynamic> row) => {
+      for (final e in row.entries)
+        if (!'${e.key}'.endsWith('SenderName')) e.key: e.value,
+    };
+
+    testWidgets('an Agent and a person known only by id are named as the '
+        'Activity page names them, on screen and for the model', (t) async {
+      final named = _NamedWorkspace(client)
+        ..server = w.server
+        ..channels = w.channels
+        ..dms = w.dms
+        ..inbox = [
+          bare(
+            _thread(
+              'th1',
+              minutes: 3,
+              unread: 2,
+              mention: true,
+              preview: '每日工作方法复盘：今天的三条',
+            ),
+          ),
+          bare(_dm('d1', minutes: 20)),
+        ];
+      await t.runAsync(() => client.login('fixture', 'fixture'));
+      t.view.physicalSize = const Size(430, 3000);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      late Map<String, Object?> screen;
+      final probe = _Probe((call) async => screen = await call('read_screen', {}));
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: AgentModePage(
+            controller: named,
+            data: AgentModeData(named, now: () => _now),
+            model: probe,
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.text('Cindy：每日工作方法复盘：今天的三条'), findsOneWidget);
+      expect(find.text('Alice Chen：周五的评审你能来吗？'), findsOneWidget);
+      expect(find.textContaining('有人'), findsNothing);
+      // What the model reads of the screen has the names too.
+      await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const ValueKey('agent-input')), '看看屏幕');
+      await t.testTextInput.receiveAction(TextInputAction.send);
+      await t.pumpAndSettle();
+      final seen = '${screen['snapshot']}';
+      expect(seen, contains('Cindy：每日工作方法复盘'));
+      expect(seen, contains('Alice Chen：周五的评审'));
+      expect(seen, isNot(contains('有人')));
+      expect(seen, contains('负责人/发言人 Cindy'));
+    });
+
+    test('a row whose sender the directory does not know is "有人"', () {
+      final feed = AgentActivityFeed(
+        now: _now,
+        myId: 'kevin',
+        nameOf: (id, type) => null,
+      );
+      expect(feed.itemOf(bare(_thread('th1')))!.headline, startsWith('有人：'));
+    });
+
+    test('a name on the row wins; a blank one is not a name', () {
+      final feed = AgentActivityFeed(
+        now: _now,
+        myId: 'kevin',
+        nameOf: (id, type) => 'Directory',
+      );
+      expect(feed.itemOf(_thread('th1'))!.doer, 'Cody');
+      expect(
+        feed.itemOf({..._thread('th1'), 'latestActivitySenderName': ' '})!.doer,
+        'Directory',
+      );
+    });
+
+    testWidgets('who says each message of the conversation is resolved too', (
+      t,
+    ) async {
+      final named = _NamedWorkspace(client)
+        ..server = w.server
+        ..channels = w.channels
+        ..dms = w.dms
+        ..inbox = [bare(_thread('th1', minutes: 3, unread: 1))];
+      client.responses['GET /messages/channel/th1'] = {
+        'messages': [
+          {
+            'id': 'p-th1',
+            'seq': '1',
+            'senderId': 'a-cindy',
+            'senderType': 'agent',
+            'content': '首片的结论',
+            'messageType': 'chat',
+            'createdAt': _ago(30),
+          },
+          {
+            'id': 'l-th1',
+            'seq': '2',
+            'senderId': 'u-alice',
+            'senderType': 'user',
+            'content': '收到',
+            'messageType': 'chat',
+            'createdAt': _ago(20),
+          },
+        ],
+      };
+      await t.runAsync(() => client.login('fixture', 'fixture'));
+      t.view.physicalSize = const Size(430, 3000);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: AgentModePage(
+            controller: named,
+            data: AgentModeData(named, now: () => _now),
+            model: const AgentScriptedModel(),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const ValueKey('attention-card-activity:thread:th1')));
+      await t.pumpAndSettle();
+      final open = find.byKey(const ValueKey('attention-open-activity:thread:th1'));
+      await t.ensureVisible(open);
+      await t.tap(open);
+      await t.pumpAndSettle();
+      expect(find.text('第 2 层'), findsOneWidget);
+      expect(find.text('Cindy'), findsOneWidget);
+      expect(find.text('Alice Chen'), findsOneWidget);
+      expect(find.text('未知'), findsNothing);
     });
   });
 
@@ -940,3 +1081,41 @@ List<String> _ran(List<(String, Map<String, Object?>)> ran) => [
 ];
 
 String _c(String id, Map<String, Object?> args) => '$id ${jsonEncode(args)}';
+
+/// A workspace whose author directory answers: one Agent and two people.
+class _NamedWorkspace extends ActivityWorkspace {
+  _NamedWorkspace(super.client);
+
+  @override
+  Future<dynamic> query(String path, {Map<String, dynamic>? query}) async {
+    if (path == '/agents') {
+      return [
+        {'id': 'a-cindy', 'name': 'cindy', 'displayName': 'Cindy'},
+        {'id': 'a-cody', 'name': 'cody', 'displayName': 'Cody'},
+      ];
+    }
+    if (path.endsWith('/members')) {
+      return [
+        {'userId': 'u-alice', 'name': 'alice', 'displayName': 'Alice Chen'},
+        {'userId': 'kevin', 'name': 'kevin', 'displayName': 'Kevin'},
+      ];
+    }
+    return super.query(path, query: query);
+  }
+}
+
+/// Stands in for the model: runs [script] against the page's own tools.
+class _Probe extends AgentScriptedModel {
+  _Probe(this.script);
+  Future<void> Function(AgentToolHandler call) script;
+
+  @override
+  Future<bool> handle(
+    String text,
+    AgentToolHandler call,
+    void Function(String line) say,
+  ) async {
+    await script(call);
+    return true;
+  }
+}

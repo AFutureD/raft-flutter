@@ -1237,6 +1237,7 @@ class _AgentModePageState extends State<AgentModePage> {
     );
     _push(layer);
     try {
+      await data.authors();
       final read = await data.conversation(
         layer.readId,
         withTasks: thread == null,
@@ -1251,6 +1252,7 @@ class _AgentModePageState extends State<AgentModePage> {
           read.rows,
           myUserId: widget.controller.client.user?.id,
           now: data.now(),
+          nameOf: data.senderName,
         );
         _convoErrors.remove(layer.id);
         if (thread == null) {

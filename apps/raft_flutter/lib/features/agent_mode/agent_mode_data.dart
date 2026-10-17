@@ -1021,7 +1021,11 @@ class AgentModeData {
   /// Tells when the App's Activity window changed (a message arrived, a
   /// conversation was read or set to done, the window was read again): the
   /// home follows it live.
-  Listenable get activityChanges => w.activityUnreadIfBound ?? w.activityUnread;
+  Listenable get activityChanges => Listenable.merge([
+    w.activityUnreadIfBound ?? w.activityUnread,
+    // Names of senders that come with the directory.
+    w.entityDirectory,
+  ]);
 
   /// The rows of the window the inbox store holds now; null when it holds
   /// none. No read.
@@ -1030,12 +1034,49 @@ class AgentModeData {
     return window == null ? null : _rows(window, 'items');
   }
 
+  /// The name of a sender known only by id, from the shared author directory
+  /// (members and Agents, tombstones too) that the Activity page reads.
+  String? senderName(String id, String type) {
+    final directory = w.entityDirectory;
+    final rows = type == 'agent'
+        ? directory.authorAgents.where((a) => a['id'] == id)
+        : directory.authorMembers.where(
+            (m) => (m['userId'] ?? m['id']) == id,
+          );
+    final row = rows.firstOrNull;
+    if (row == null) return null;
+    final name = _str(row['displayName']) ?? _str(row['name']);
+    return name;
+  }
+
   AgentActivityFeed _feed() => AgentActivityFeed(
     now: _now(),
     myId: _me.id,
     channels: w.channels,
     dms: w.dms,
+    nameOf: senderName,
   );
+
+  /// Starts the author lists (once per workspace) and waits for them a moment,
+  /// so a row that names its sender by id is shown with the real name.
+  Future<void> authors() async {
+    final directory = w.entityDirectory;
+    directory.ensureAuthors();
+    if (!directory.authorsLoading) return;
+    final done = Completer<void>();
+    void check() {
+      if (!directory.authorsLoading && !done.isCompleted) done.complete();
+    }
+
+    directory.addListener(check);
+    try {
+      await done.future.timeout(const Duration(seconds: 4));
+    } on Object {
+      // Names come when the directory does: the page listens.
+    } finally {
+      directory.removeListener(check);
+    }
+  }
 
   /// The Activity rows as items, in the App's order.
   List<AgentAttentionItem> activityItems(Iterable<Map> rows) =>
@@ -1046,6 +1087,7 @@ class AgentModeData {
       _taskLane('in_review'),
       _taskLane('in_progress'),
       activityRows(),
+      authors(),
     ]);
     final reviewLane =
         results[0] as ({List<Map<String, dynamic>> rows, bool truncated});

@@ -288,6 +288,27 @@ void revealInPage(BuildContext context, {Rect? stage}) {
   if (stage != null) want = want.expandToInclude(stage);
   // Together too tall: the stage first.
   if (stage != null && !fits(pad(want)) && fits(pad(stage))) want = stage;
+  // The stage alone is taller than the page too: it ends in the actions, so
+  // its end is what must be in view (its start is a scroll up).
+  if (stage != null && !fits(pad(stage)) && !fits(pad(want))) {
+    final target = trail(pad(stage)).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    final shown = (viewport as RenderBox).size.height - hf.sp(24);
+    if (position.pixels >= target - .5 && position.pixels <= target + shown) {
+      return;
+    }
+    if ((target - position.pixels).abs() < 1) return;
+    unawaited(
+      position.animateTo(
+        target,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    return;
+  }
   if (seen(pad(want))) return;
   // The item at the top, with as much of what comes before it as leaves its
   // end in view.

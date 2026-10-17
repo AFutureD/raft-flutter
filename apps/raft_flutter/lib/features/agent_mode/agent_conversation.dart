@@ -24,6 +24,7 @@ List<HfMessageData> hfMessagesFrom(
   List<Map<String, dynamic>> rows, {
   required String? myUserId,
   DateTime? now,
+  String? Function(String id, String type)? nameOf,
 }) {
   final fallback = now ?? DateTime.now();
   final sorted = [...rows]..sort(_bySeq);
@@ -33,7 +34,13 @@ List<HfMessageData> hfMessagesFrom(
   };
   return [
     for (final r in sorted)
-      _message(r, byId, myUserId: myUserId, fallback: fallback),
+      _message(
+        r,
+        byId,
+        myUserId: myUserId,
+        fallback: fallback,
+        nameOf: nameOf,
+      ),
   ];
 }
 
@@ -60,6 +67,7 @@ HfMessageData _message(
   Map<String, Map<String, dynamic>> byId, {
   required String? myUserId,
   required DateTime fallback,
+  String? Function(String id, String type)? nameOf,
 }) {
   final message = RaftMessage(row);
   final time = message.createdAt?.toLocal() ?? fallback;
@@ -86,7 +94,7 @@ HfMessageData _message(
   var text = message.content;
   HfQuoteData? quote;
   if (!deleted) {
-    final found = _quoteOf(text, byId, id);
+    final found = _quoteOf(text, byId, id, nameOf);
     if (found != null) {
       quote = found.quote;
       text = found.rest;
@@ -102,7 +110,7 @@ HfMessageData _message(
   return HfMessageData(
     id: id,
     senderId: message.senderId,
-    senderName: _senderName(row),
+    senderName: _senderName(row, nameOf),
     isMine: mine,
     isAgent: agent,
     time: time,
@@ -156,13 +164,22 @@ String _fileName(Map<String, dynamic> a) {
   return n is String && n.trim().isNotEmpty ? n.trim() : '附件';
 }
 
-String _senderName(Map<String, dynamic> row) {
+String _senderName(
+  Map<String, dynamic> row,
+  String? Function(String id, String type)? nameOf,
+) {
   final external = row['externalAuthor'];
   final fromExternal = external is Map
       ? external['name'] ?? external['displayName']
       : null;
   for (final v in [row['senderDisplayName'], row['senderName'], fromExternal]) {
     if (v is String && v.trim().isNotEmpty) return v.trim();
+  }
+  // A row that names its sender only by id: the shared author directory.
+  final id = row['senderId'], type = row['senderType'];
+  if (id is String && type is String) {
+    final name = nameOf?.call(id, type == 'human' ? 'user' : type);
+    if (name != null && name.trim().isNotEmpty) return name.trim();
   }
   return '未知';
 }
@@ -175,6 +192,7 @@ final _link = RegExp(r'https?://[^\s<>"\x27)]+');
   String text,
   Map<String, Map<String, dynamic>> byId,
   String selfId,
+  String? Function(String id, String type)? nameOf,
 ) {
   if (!text.contains('http')) return null;
   for (final m in _link.allMatches(text)) {
@@ -189,7 +207,7 @@ final _link = RegExp(r'https?://[^\s<>"\x27)]+');
     final rest = text.replaceFirst(m[0]!, '').trim();
     return (
       quote: HfQuoteData(
-        author: _senderName(target),
+        author: _senderName(target, nameOf),
         text: deleted ? '此消息已删除' : _clip(t.content, 120),
         id: _id(target),
       ),

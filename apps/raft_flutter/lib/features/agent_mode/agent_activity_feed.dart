@@ -20,6 +20,7 @@ class AgentActivityFeed {
     required this.myId,
     this.channels = const [],
     this.dms = const [],
+    this.nameOf,
   });
 
   final DateTime now;
@@ -27,6 +28,11 @@ class AgentActivityFeed {
   /// The signed-in user: a message from them reads "你".
   final String? myId;
   final List<RaftChannel> channels, dms;
+
+  /// The name of a person or Agent by id and sender type (`user`, `agent`):
+  /// the shared author directory the Activity page reads. An Activity row
+  /// from the server often carries only the sender's id.
+  final String? Function(String id, String type)? nameOf;
 
   static String? _s(Object? v) {
     final s = v is String ? v.trim() : null;
@@ -109,9 +115,11 @@ class AgentActivityFeed {
     final senderType = _s(
       row[thread ? 'latestActivitySenderType' : 'lastMessageSenderType'],
     );
-    final named = _s(
-      row[thread ? 'latestActivitySenderName' : 'lastMessageSenderName'],
-    );
+    final named =
+        _s(row[thread ? 'latestActivitySenderName' : 'lastMessageSenderName']) ??
+        (senderId == null || senderType == null
+            ? null
+            : _s(nameOf?.call(senderId, senderType)));
     final who = mine
         ? '你'
         : (senderType == 'system' ? '系统' : (named ?? (action ? null : '有人')));
