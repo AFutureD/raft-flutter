@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart'
     show AgentMicState, AgentSpeaker;
 
+import '../../data/raft_location.dart' show RaftRoute;
 import '../../data/workspace_controller.dart';
 import '../agent_mode/agent_audio.dart';
 import '../agent_mode/agent_live_guard.dart' show agentLiveIdleLimit;
@@ -1301,12 +1302,25 @@ class OrbController extends ChangeNotifier {
   /// The person's words of the turn under way (what the review asks about).
   String _turnSaid = '';
 
+  /// The briefing scope of the page the person is on.
+  OrbBriefScope? _screenScope() {
+    final loc = workspace.location;
+    if (loc.route == RaftRoute.activity) return OrbBriefScope.activity;
+    if ((loc.route == RaftRoute.channel || loc.route == RaftRoute.dm) &&
+        loc.thread == null &&
+        loc.entityId != null) {
+      return OrbBriefScope.conversation(loc.entityId!);
+    }
+    return null;
+  }
+
   Future<AgentReview?> _review(String reply, List<AgentToolRun> runs) async {
     // Whichever tool the model read the page with, what the person is told
     // about "nothing for you" and about tasks follows the briefing's data.
     final seen = await orbWithBriefing(
       runs,
       said: _turnSaid,
+      screen: _screenScope,
       brief: (scope) => OrbBriefingService.of(workspace)
           .brief(
             scope,

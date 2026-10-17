@@ -219,6 +219,29 @@ void main() {
         isNull,
       );
       expect(orbPageScope([run('list_tasks', {})]), isNull);
+      // Reading the conversation is reading the place too (the last read wins).
+      final read = run('read_conversation', {
+        'conversation': {
+          'id': 'c1',
+          'name': '#raft-flutter',
+          'type': 'channel',
+        },
+        'messages': <Object?>[],
+      });
+      expect(orbPageScope([read]), const OrbBriefScope.conversation('c1'));
+      expect(
+        orbPageScope([
+          channelPage,
+          run('describe_page', {'page': 'activity'}),
+        ]),
+        OrbBriefScope.activity,
+      );
+      expect(
+        orbPageScope([
+          run('read_conversation', {'error': 'x'}),
+        ]),
+        isNull,
+      );
     });
 
     test(
@@ -238,6 +261,60 @@ void main() {
         expect(r?.text, '没有要你处理的。Cody 说他接着做第 10 步了。另外有 1 个任务在等你验收，不急。');
       },
     );
+
+    test(
+      'reading the conversation instead of the page works the same',
+      () async {
+        OrbBriefScope? asked;
+        final seen = await orbWithBriefing(
+          [
+            run('read_conversation', {
+              'conversation': {'id': 'c1', 'type': 'channel'},
+              'messages': <Object?>[],
+            }),
+          ],
+          said: '这里有什么新的吗',
+          brief: (scope) async {
+            asked = scope;
+            return quiet;
+          },
+        );
+        expect(asked, const OrbBriefScope.conversation('c1'));
+        expect(
+          orbReviewReply('Grok 说第 9 步合入了。', seen, cardUp: false)?.text,
+          startsWith('没有要你处理的。'),
+        );
+      },
+    );
+
+    test('answered without reading: the page the person is on', () async {
+      OrbBriefScope? asked;
+      final seen = await orbWithBriefing(
+        const [],
+        said: '有什么新的',
+        screen: () => const OrbBriefScope.conversation('c9'),
+        brief: (scope) async {
+          asked = scope;
+          return quiet;
+        },
+      );
+      expect(asked, const OrbBriefScope.conversation('c9'));
+      expect(seen.single.name, 'get_briefing');
+      // But a read that found the page unreadable is not second-guessed.
+      asked = null;
+      await orbWithBriefing(
+        [
+          run('describe_page', {'loading': true}),
+        ],
+        said: '有什么新的',
+        screen: () => OrbBriefScope.activity,
+        brief: (scope) async {
+          asked = scope;
+          return quiet;
+        },
+      );
+      expect(asked, isNull);
+    });
 
     test('a question about the content does not read one', () async {
       var read = false;

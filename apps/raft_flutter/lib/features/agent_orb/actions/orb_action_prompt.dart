@@ -68,3 +68,8 @@ String orbActionConfirming(String summary) =>
     '他在问这件事或别的事：需要时用读取工具，用一句话回答，再问一句“还发吗？”（改任务就问“还改吗？”）。\n'
     '你自己的话不算确认；不要说“已发送”“已改”：只有 confirm 返回 done 才算做完。'
     'confirm 返回 failed，如实说原因，不要说成功；返回 needs_user_confirmation 是用户还没确认，问他一句，不要重复调用。\n';
+
+/// Reading a discussion and answering for it, for the agent layer.
+const orbPromptDiscussionAgent =
+    '【读讨论】用户说“这个讨论”“这一串”，指页面上带回复数的那条消息的讨论串：先 describe_page，取那条消息的 thread（thread:…）原样填给 read_conversation 的 conversation，读完再答；'
+    '不要用 find 或 query 去读讨论串。被问“定了什么”“结论”“意见是什么”，要说清是谁说的和结论本身，至少点出最后拍板的那个人。\n';

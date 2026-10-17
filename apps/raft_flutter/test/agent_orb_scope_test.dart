@@ -81,6 +81,7 @@ void main() {
     test('each state has the sections it needs and not the others', () {
       final normal = prompt(OrbMode.normal);
       expect(normal, contains(orbPromptProactive));
+      expect(normal, contains(orbPromptDiscussionAgent));
       expect(normal, contains(orbScreenPrompt));
       expect(normal, contains(orbActionConfirmAgent));
       expect(normal, isNot(contains(orbPromptDrivingRules)));
@@ -90,6 +91,7 @@ void main() {
       expect(driving, contains(orbPromptDrivingRules));
       expect(driving, contains(orbActionDriving));
       expect(driving, isNot(contains(orbPromptProactive)));
+      expect(driving, isNot(contains(orbPromptDiscussionAgent)));
       expect(driving, isNot(contains(orbScreenPrompt)));
 
       final confirming = prompt(

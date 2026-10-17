@@ -4,6 +4,7 @@ import 'package:raft_flutter/features/agent_mode/capabilities/action_support.dar
     show messageById;
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability.dart'
     show AgentCapabilityError;
+import 'package:raft_flutter/features/agent_orb/actions/orb_actions.dart';
 import 'package:raft_flutter/features/agent_orb/actions/orb_reply.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_service.dart';
@@ -27,6 +28,31 @@ OrbEvalScenario scenario(String id) =>
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('a query names a discussion without the orb\'s thread: prefix', () {
+    expect(
+      OrbActions.orbQueryArgs({
+        'capability': 'threads.messages',
+        'args': '{"threadId":"thread:abc-1","limit":5}',
+      }),
+      {
+        'capability': 'threads.messages',
+        'args': '{"threadId":"abc-1","limit":5}',
+      },
+    );
+    expect(
+      OrbActions.orbQueryArgs({
+        'capability': 'threads.messages',
+        'args': {'threadId': 'thread:abc-1'},
+      })['args'],
+      {'threadId': 'abc-1'},
+    );
+    // Anything else is as it was.
+    const other = {'capability': 'channels.list', 'args': '{"name":"x"}'};
+    expect(OrbActions.orbQueryArgs(other), other);
+    const broken = {'capability': 'x', 'args': '{nope'};
+    expect(OrbActions.orbQueryArgs(broken), broken);
+  });
 
   Future<List<OrbBriefItem>> activity(OrbEvalWorld world) async =>
       (await OrbBriefingService(

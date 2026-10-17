@@ -160,6 +160,7 @@ String orbAgentPrompt({
         ..write(orbPromptInApp)
         ..write(orbPromptProactive)
         ..write(orbPromptFacts)
+        ..write(orbPromptDiscussionAgent)
         ..write(orbPromptOperating)
         ..write(orbPromptDrivingEnter)
         ..write('\n')

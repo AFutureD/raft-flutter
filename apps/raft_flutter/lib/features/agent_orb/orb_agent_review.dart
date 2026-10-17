@@ -18,12 +18,13 @@ final orbAsksWhatMatters = RegExp(
   r'新的|新消息|要紧|紧急|重要|处理|找我|等我|等着我|有什么事|有事吗|简报|最近|怎么样了|通知|待办',
 );
 
-/// The place a turn read with `describe_page`: the Activity, or one
-/// conversation. Null when it read neither, or the page was still loading or
-/// could not be read.
+/// The place a turn read, whichever of the reading tools it used
+/// (`describe_page`, `read_conversation`): the Activity, or one conversation.
+/// The last read counts. Null when it read neither, or the page was still
+/// loading or could not be read.
 OrbBriefScope? orbPageScope(List<AgentToolRun> runs) {
   for (final r in runs.reversed) {
-    if (r.name != 'describe_page') continue;
+    if (r.name != 'describe_page' && r.name != 'read_conversation') continue;
     if (r.result['error'] != null || r.result['loading'] == true) return null;
     if (r.result['page'] == 'activity') return OrbBriefScope.activity;
     final c = r.result['conversation'];
@@ -35,7 +36,7 @@ OrbBriefScope? orbPageScope(List<AgentToolRun> runs) {
   return null;
 }
 
-/// [runs] with the briefing of the page the model read, when it read the page
+/// [runs] with the briefing of the place the model read, when it read it
 /// instead of asking for the briefing and the person asked what is new or what
 /// matters: the empty line and the order are the app's whichever tool the model
 /// reached for. [brief] reads the briefing (the rules' sentences are enough);
@@ -44,11 +45,17 @@ Future<List<AgentToolRun>> orbWithBriefing(
   List<AgentToolRun> runs, {
   required String said,
   required Future<OrbBriefing> Function(OrbBriefScope scope) brief,
+  OrbBriefScope? Function()? screen,
 }) async {
   if (!orbAsksWhatMatters.hasMatch(said) || orbBriefingOf(runs) != null) {
     return runs;
   }
-  final scope = orbPageScope(runs);
+  // What it read; failing that (it answered from what it knew), the place the
+  // person is on, unless a read said that place could not be read yet.
+  final read = runs.any(
+    (r) => r.name == 'describe_page' || r.name == 'read_conversation',
+  );
+  final scope = orbPageScope(runs) ?? (read ? null : screen?.call());
   if (scope == null) return runs;
   try {
     final b = await brief(scope);

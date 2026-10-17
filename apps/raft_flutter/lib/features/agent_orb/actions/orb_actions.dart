@@ -245,7 +245,7 @@ class OrbActions extends ChangeNotifier {
   }
 
   Future<Map<String, Object?>> _query(Map<String, Object?> args) async {
-    final r = await capabilities.run('query', args) ?? const {};
+    final r = await capabilities.run('query', orbQueryArgs(args)) ?? const {};
     if (r['error'] != null) return r;
     // Agent mode's hint about drawing a card does not apply here.
     return {
@@ -253,6 +253,39 @@ class OrbActions extends ChangeNotifier {
         if (e.key != 'render') e.key: e.value,
       'activity': '已查询：${r['capability']}',
     };
+  }
+
+  /// A discussion is named `thread:<id>` where the orb's own tools show it
+  /// (`describe_page`, `read_conversation`); the capability layer wants the
+  /// bare id, and reads a prefixed one as a discussion with no replies. The
+  /// model carries the name over, so the prefix goes here.
+  @visibleForTesting
+  static Map<String, Object?> orbQueryArgs(Map<String, Object?> args) {
+    Object? bare(Object? v) => v is String && v.startsWith('thread:')
+        ? v.substring('thread:'.length)
+        : v;
+    final inner = args['args'];
+    if (inner is String) {
+      try {
+        final parsed = jsonDecode(inner);
+        if (parsed is Map) {
+          return {
+            ...args,
+            'args': jsonEncode({
+              for (final e in parsed.entries) '${e.key}': bare(e.value),
+            }),
+          };
+        }
+      } on Object {
+        return args;
+      }
+    } else if (inner is Map) {
+      return {
+        ...args,
+        'args': {for (final e in inner.entries) '${e.key}': bare(e.value)},
+      };
+    }
+    return args;
   }
 
   Future<Map<String, Object?>> _undo(Map<String, Object?> args) async {
