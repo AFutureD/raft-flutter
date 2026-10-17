@@ -225,6 +225,40 @@ void main() {
     expect(agentLines(), ['回复 Cody：稍等，要发吗？']);
   });
 
+  orbTest('a name the App knows, then 说: the words are what follows', (
+    t,
+  ) async {
+    toCody();
+    gemini.replies.addAll([
+      _call('reply', {'text': '马上看'}),
+      _call('reply', {'text': '收到'}),
+    ]);
+    await say(t, '回复 Cody 说可以');
+    // Held to "可以", not to "Cody 说可以".
+    expect(agentLines(), ['回复 Cody：可以，要发吗？']);
+  });
+
+  orbTest('a name nobody knows: not guessed at, the model\'s text is shown', (
+    t,
+  ) async {
+    toCody();
+    gemini.replies.add(_call('reply', {'text': '可以'}));
+    await say(t, '回复小明说可以');
+    expect(gemini.requests, hasLength(1));
+    expect(agentLines(), ['回复 Cody：可以，要发吗？']);
+  });
+
+  orbTest('two people to answer: the guard is off, nothing is filled in', (
+    t,
+  ) async {
+    toCody();
+    gemini.replies.add(_call('reply', {'text': '明天见'}));
+    await say(t, '回他可以，再跟 Alice 说明天见');
+    expect(gemini.requests, hasLength(1));
+    expect(agentLines().single, contains('明天见'));
+    expect(agentLines().single, isNot(contains('可以')));
+  });
+
   orbTest('send_message and reply_in_thread are held to the words too', (
     t,
   ) async {

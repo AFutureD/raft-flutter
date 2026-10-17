@@ -1319,7 +1319,10 @@ class OrbController extends ChangeNotifier {
   ({Map<String, Object?> args, Map<String, Object?>? error}) _holdToTheWords(
     Map<String, Object?> args,
   ) {
-    final want = orbReplyContent(_turnSaid);
+    // Only a sure reading holds the model: where the name ends and the words
+    // begin is not guessed.
+    final words = orbReplyWords(_turnSaid, known: _knownName);
+    final want = words != null && words.sure ? words.text : null;
     final text = args['text'];
     if (want == null || (text is String && orbSameContent(text, want))) {
       return (args: args, error: null);
@@ -1336,6 +1339,15 @@ class OrbController extends ChangeNotifier {
       );
     }
     return (args: {...args, 'text': want}, error: null);
+  }
+
+  /// Whether [name] is a person, Agent or private conversation the App has.
+  bool _knownName(String name) {
+    final want = name.trim().toLowerCase();
+    if (want.isEmpty) return false;
+    final directory = orbDirectoryOf(workspace);
+    return directory.people.any((p) => p.name.trim().toLowerCase() == want) ||
+        directory.dms.any((d) => d.name.trim().toLowerCase() == want);
   }
 
   /// The person's words of the turn under way (what the review asks about).
