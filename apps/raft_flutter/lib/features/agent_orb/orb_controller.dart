@@ -394,6 +394,7 @@ class OrbController extends ChangeNotifier {
     if (said.isEmpty) return;
     _agentOpen = false;
     _add(OrbEntryKind.user, said);
+    _askNudged = false;
     // The person's own words can agree to the card on the screen.
     actions.userSaid(said);
     _whereTold = _whereBase();
@@ -424,6 +425,7 @@ class OrbController extends ChangeNotifier {
 
   void _userSaid(String text, {required bool fresh}) {
     _agentOpen = false;
+    if (fresh) _askNudged = false;
     actions.userSaid(text, fresh: fresh);
     final last = _entries.isEmpty ? null : _entries.last;
     if (!fresh && last != null && last.kind == OrbEntryKind.user) {
@@ -466,6 +468,7 @@ class OrbController extends ChangeNotifier {
   void _modelTurnComplete() {
     _agentOpen = false;
     _saying = '';
+    _nudgeIfAskedWithoutCard();
     if (_modelSpeaking) {
       _modelSpeaking = false;
       notifyListeners();
@@ -477,6 +480,30 @@ class OrbController extends ChangeNotifier {
         if (!_disposed) operating.value = false;
       });
     }
+  }
+
+  /// The model asked "要发吗？" but no action is waiting: no card is up, so
+  /// the person's "确认" cannot send anything (eval A3/C4 on the G100). Told
+  /// once per turn of the person.
+  bool _askNudged = false;
+  static final _asksToConfirm = RegExp(
+    r'要发吗|要改吗|确认吗|要不要发|要我发|你确认|确认要|发吗[？?]|改吗[？?]',
+  );
+
+  void _nudgeIfAskedWithoutCard() {
+    if (_askNudged || _disposed) return;
+    final last = _entries.isEmpty ? null : _entries.last;
+    if (last == null || last.kind != OrbEntryKind.agent) return;
+    if (actions.pending != null) return;
+    if (!_asksToConfirm.hasMatch(last.text)) return;
+    _askNudged = true;
+    unawaited(
+      voice.tell(
+        '（App 提示）你问了要不要发，但还没有调用动作工具，屏幕上没有确认卡，用户说“确认”也发不出去。'
+        '现在调用对应的动作工具（send_message、reply_in_thread、set_task_status 等），它只会出确认卡，不会执行；'
+        '然后只说一句“确认卡已经出来了，要发吗？”。',
+      ),
+    );
   }
 
   void _modelInterrupted() {

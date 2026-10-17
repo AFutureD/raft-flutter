@@ -111,6 +111,43 @@ void main() {
       await t.pump();
     });
 
+    // Eval A3/C4 on the G100: the model asked "要发吗？" without calling the
+    // action tool; no card was up, so the user's "确认" could not send and
+    // they had to confirm twice. The app tells the model to put the card up.
+    testWidgets('asking to confirm with no card up makes the app tell the '
+        'model, once per turn of the person', (t) async {
+      await fixture(t);
+      await openLayer(t);
+      await t.enterText(find.byKey(const ValueKey('orb-input')), '回复他说可以合');
+      await t.tap(find.byKey(const ValueKey('orb-send')));
+      await settleSession(t);
+      await connected(t);
+      final s = f.sessions.single;
+      s.onOutputText!('你要回复 Cody：可以合。要发吗？');
+      s.onTurnComplete!();
+      await t.pump();
+      expect(s.sentTexts.where((x) => x.contains('确认卡')), hasLength(1));
+      // The same turn of the person: not again.
+      s.onOutputText!('要发吗？');
+      s.onTurnComplete!();
+      await t.pump();
+      expect(s.sentTexts.where((x) => x.contains('确认卡')), hasLength(1));
+    });
+
+    testWidgets('an answer that asks nothing is left alone', (t) async {
+      await fixture(t);
+      await openLayer(t);
+      await t.enterText(find.byKey(const ValueKey('orb-input')), '读一下动态');
+      await t.tap(find.byKey(const ValueKey('orb-send')));
+      await settleSession(t);
+      await connected(t);
+      final s = f.sessions.single;
+      s.onOutputText!('Alice 问你周五能不能来评审。');
+      s.onTurnComplete!();
+      await t.pump();
+      expect(s.sentTexts, ['读一下动态']);
+    });
+
     testWidgets('the session knows the tools, the persona and the channels', (
       t,
     ) async {
