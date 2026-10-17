@@ -450,15 +450,13 @@ class OrbController extends ChangeNotifier {
     final before = workspace.location.toString();
     operating.addListener(watch);
     Map<String, Object?> result;
+    final toolContext = OrbToolContext(
+      workspace: workspace,
+      navigatorContext: context,
+      operating: operating,
+    );
     try {
-      result = await tool.handler(
-        args,
-        OrbToolContext(
-          workspace: workspace,
-          navigatorContext: context,
-          operating: operating,
-        ),
-      );
+      result = await tool.handler(args, toolContext);
     } catch (_) {
       result = {'error': '工具出错：$name'};
     } finally {
@@ -480,6 +478,11 @@ class OrbController extends ChangeNotifier {
         !_disposed &&
         (movedScreen || workspace.location.toString() != before)) {
       collapseLayer();
+    }
+    // Asked to show what needs the person: the cards over the page it opened.
+    final arrived = toolContext.arrived;
+    if (!failed && !_disposed && args['show'] == true && arrived != null) {
+      showBriefing(arrived);
     }
     final line = _activityLine(name, result);
     if (line != null && !_disposed) {

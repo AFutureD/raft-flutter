@@ -354,6 +354,12 @@ void main() {
 
     // Kevin: give it ASD-STE100 so it knows how to say things. The rules,
     // not the English word list.
+    // Kevin wanted the big-text-and-cards briefing on screen.
+    test('a briefing request navigates with show; a plain move does not', () {
+      expect(prompt, contains('navigate 带上 show: true'));
+      expect(prompt, contains('只是“去某个地方”就不要 show'));
+    });
+
     // Kevin: "读动态的内容" got tasks; reading the Activity is its rows.
     test(
       'reading the Activity reads its rows in page order, not the briefing',

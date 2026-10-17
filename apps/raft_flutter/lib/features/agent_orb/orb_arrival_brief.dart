@@ -33,6 +33,7 @@ OrbArrivalBrief orbArrivalBrief({
   if (scope == null) return null;
   final briefing = await (serviceFor ?? OrbBriefingService.of)(ctx.workspace)
       .brief(scope, full: true, modelWait: orbArrivalModelWait);
+  ctx.arrived = briefing;
   if (!kReleaseMode) {
     for (final i in briefing.needsYou) {
       debugPrint(

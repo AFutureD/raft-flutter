@@ -101,6 +101,10 @@ final _navigateDeclaration = <String, Object?>{
         'type': 'string',
         'description': '频道的 id，来自 list_targets 的 channels 或提示里的频道列表；配 task_number 时表示那个频道的任务',
       },
+      'show': {
+        'type': 'boolean',
+        'description': '用户要的是简报（“什么需要我处理”“有什么新的”“给我做个简报”）时设 true：到了以后把简报卡片铺在页面上，用户能直接点批准、打开。只是“去某个地方”时不要设',
+      },
       'dm_id': {
         'type': 'string',
         'description': '私信的 id，来自 list_targets 的 dms（和某人的对话）',

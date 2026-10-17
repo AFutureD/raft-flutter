@@ -331,6 +331,39 @@ void main() {
       expect(f.pageTaps, hasLength(1));
     });
 
+    // Kevin asked where the big-text-and-cards briefing was: after a move
+    // the layer stepped aside and the briefing was only spoken.
+    final briefedNav = fakeTool('navigate', (args, ctx) async {
+      ctx.operating.value = true;
+      ctx.arrived = briefing();
+      return {'route': '/s/alpha/activity', 'title': '动态'};
+    });
+
+    testWidgets('a move asked to show its briefing lays the cards over the '
+        'page it opened', (t) async {
+      await fixture(t, tools: [briefedNav]);
+      await f.startCall();
+      await f.controller.dispatch('navigate', {
+        'page': 'activity',
+        'show': true,
+      });
+      await settle(t);
+      await settle(t);
+      expect(f.controller.layerOpen, isTrue);
+      expect(find.text('Cody 在等你批准重构第 10 步'), findsOneWidget);
+      expect(f.controller.inCall, isTrue);
+    });
+
+    testWidgets('without show the same move only opens the page', (t) async {
+      await fixture(t, tools: [briefedNav]);
+      await f.startCall();
+      await f.controller.dispatch('navigate', {'page': 'activity'});
+      await settle(t);
+      await settle(t);
+      expect(f.controller.layerOpen, isFalse);
+      expect(find.text('Cody 在等你批准重构第 10 步'), findsNothing);
+    });
+
     testWidgets('tools that do not move the app, and failed moves, leave the '
         'layer alone', (t) async {
       await fixture(
