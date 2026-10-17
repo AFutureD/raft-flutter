@@ -32,27 +32,29 @@ class ActivityRowWindow extends IndexedActivityRows {
       }
     }
     final names = lookups.keys.toList()..sort();
+    final lookup = _build(
+      0,
+      names.length,
+      (i) => (names[i], lookups[names[i]]!),
+    );
     return ActivityRowWindow._(
       _build(0, entries.length, (i) => (i, entries[i])),
-      _build(0, names.length, (i) => (names[i], lookups[names[i]]!)),
+      lookup,
       0,
+      _ActivityKeys(
+        _build(0, entries.length, (i) => (i, entries[i].key)),
+        lookup,
+      ),
     );
   }
 
-  ActivityRowWindow._(
-    this._order,
-    this._lookup,
-    this._front, [
-    ResourceRowKeys? keys,
-  ]) {
-    rowKeys = keys ?? _ActivityKeys(this);
-  }
+  ActivityRowWindow._(this._order, this._lookup, this._front, this.rowKeys);
 
   final _Tree<int, _Row>? _order;
   final _Tree<String, List<int>>? _lookup;
   final int _front;
   @override
-  late final ResourceRowKeys rowKeys;
+  final ResourceRowKeys rowKeys;
 
   @override
   int get length => _size(_order);
@@ -130,7 +132,18 @@ class ActivityRowWindow extends IndexedActivityRows {
       _put(move ? _remove(_order, rank) : _order, nextRank, entry),
       lookup,
       move ? nextRank : _front,
-      !move && previous.key == entry.key ? rowKeys : null,
+      !move && previous.key == entry.key
+          ? rowKeys
+          : _ActivityKeys(
+              _put(
+                move
+                    ? _remove((rowKeys as _ActivityKeys)._order, rank)
+                    : (rowKeys as _ActivityKeys)._order,
+                nextRank,
+                entry.key,
+              ),
+              lookup,
+            ),
     );
   }
 }
@@ -170,21 +183,24 @@ class _Row {
 }
 
 class _ActivityKeys extends ResourceRowKeys {
-  _ActivityKeys(this.window);
-  final ActivityRowWindow window;
+  _ActivityKeys(this._order, this._lookup);
+  // Metadata only: reusing keys for a content-only edit must not retain the
+  // previous window's message bodies or row objects.
+  final _Tree<int, String?>? _order;
+  final _Tree<String, List<int>>? _lookup;
   @override
-  int get length => window.length;
+  int get length => _size(_order);
   @override
-  String? operator [](int index) => _at(window._order, index).value.key;
+  String? operator [](int index) => _at(_order, index).value;
   @override
   int? uniqueIndexOf(String key) {
-    final ranks = _get(window._lookup, _identity(key));
-    return ranks?.length == 1 ? _rank(window._order, ranks!.single) : null;
+    final ranks = _get(_lookup, _identity(key));
+    return ranks?.length == 1 ? _rank(_order, ranks!.single) : null;
   }
 
   @override
   Iterator<String?> get iterator =>
-      _entries(window._order).map((entry) => entry.value.key).iterator;
+      _entries(_order).map((entry) => entry.value).iterator;
   @override
   set length(int value) =>
       throw UnsupportedError('Immutable Activity identities');
