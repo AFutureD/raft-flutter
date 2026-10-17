@@ -1080,7 +1080,7 @@ void main() {
       expect(c, contains('要点：Cody、第 10 步、合入、等了 20 分钟'));
       expect(c, contains('什么需要我处理'));
       // And the answer is still held to the facts: the app adds the rest.
-      expect(agentLines().single, 'Cody 在等你。补充：第 10 步，合入，等了 20 分钟。');
+      expect(agentLines().single, 'Cody 在等你。他在问第 10 步能不能合入，已经等了 20 分钟。');
     });
 
     orbTest('no needs-you item known is said so; nothing known, nothing '

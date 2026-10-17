@@ -160,7 +160,10 @@ void main() {
         said: '去 raft-flutter 看看谁找我',
       );
       expect(r?.retry, isNull, reason: 'no round trip to the model');
-      expect(r?.text, endsWith('要回复他吗？补充：第 10 步。'));
+      expect(
+        r?.text,
+        'Cody 在 #raft-flutter 等了 20 分钟，想让你批准合并。这是第 10 步的事。要回复他吗？',
+      );
     });
 
     test('C3: the status missing is added: 等验收', () {
@@ -171,7 +174,7 @@ void main() {
         said: '打开 task 136',
       );
       expect(r?.retry, isNull);
-      expect(r?.text, endsWith('要现在通过吗？补充：等验收。'));
+      expect(r?.text, '已经帮你打开 #136 重构第 10 步了。这件在等你验收。测试都过了，Cody 正瞅着呢，要现在通过吗？');
     });
 
     test('several missing share the one sentence; a reply without an end '
@@ -182,7 +185,7 @@ void main() {
         cardUp: false,
         said: '谁找我',
       );
-      expect(r?.text, 'Cody 在 raft-flutter。补充：第 10 步，合入，等了 20 分钟。');
+      expect(r?.text, 'Cody 在 raft-flutter。他在问第 10 步能不能合入，已经等了 20 分钟。');
     });
 
     test('complete answers pass, in the model\'s own words', () {
@@ -223,8 +226,89 @@ void main() {
         driving: true,
         said: '看看 142',
       );
-      expect(r?.text, '迁移旧的缓存。补充：等验收，Cody 负责。');
+      expect(r?.text, '迁移旧的缓存。这件在等你验收，由 Cody 负责。');
       expect('。'.allMatches(r!.text!).length, 2);
+    });
+  });
+
+  group('the sentence that adds what is missing reads aloud', () {
+    String added(List<Map<String, Object?>> items, String reply) {
+      final facts = orbKeyFacts([arrived(items: items)], said: '谁找我');
+      return orbWithSentence(
+        reply,
+        orbFactsSentence(orbMissingFacts(facts, reply)),
+      );
+    }
+
+    Map<String, Object?> item(String who, String title, String since) => {
+      'who': who,
+      'title': title,
+      'since': since,
+      'where': '#raft-flutter',
+    };
+
+    test('what is asked is a clause of its own, before the question', () {
+      final text = added([
+        item('Cody', 'Cody 请你批准', '已等 5 分钟'),
+      ], 'Cody 找你，等了 5 分钟。要直接回复他吗？');
+      expect(text, 'Cody 找你，等了 5 分钟。他在等你批准。要直接回复他吗？');
+      expect(text, isNot(contains('补充')));
+    });
+
+    test('the step and the verb are one clause, and the wait follows', () {
+      expect(
+        added([item('Cody', 'Cody 问你：第 10 步可以合入吗？', '已等 20 分钟')], 'Cody 找你。'),
+        'Cody 找你。他在问第 10 步能不能合入，已经等了 20 分钟。',
+      );
+      expect(
+        added([
+          item('Cody', 'Cody 想让你评审第 10 步', '已等 20 分钟'),
+        ], 'Cody 找你，等了 20 分钟。'),
+        'Cody 找你，等了 20 分钟。他在等你评审第 10 步。',
+      );
+    });
+
+    test('a missing name is named; the topic alone is "这是…的事"', () {
+      expect(
+        added([item('Cody', '周五的事', '已等 3 分钟')], '有人找你，等了 3 分钟。'),
+        '有人找你，等了 3 分钟。Cody 找你，这是周五的事。',
+      );
+    });
+
+    test('a task says how it stands, and who has it', () {
+      final facts = orbKeyFacts([openedTask()], said: '打开 task 136');
+      expect(
+        orbFactsSentence(orbMissingFacts(facts, '好的。')),
+        '任务 #136「重构第 10 步」在等你验收，由 Cody 负责。',
+      );
+      expect(
+        orbFactsSentence([
+          facts.firstWhere((f) => f.kind == OrbFactKind.status),
+        ]),
+        '这件在等你验收。',
+      );
+    });
+
+    test('with several things, each is about its own asker; at most two', () {
+      final facts = orbKeyFacts([
+        arrived(
+          items: [
+            item('Cody', 'Cody 问你：第 10 步可以合入吗？', '已等 20 分钟'),
+            item('八戒', '八戒请你批准', '已等 5 分钟'),
+            item('Alice', 'Alice 请你评审', '已等 1 小时'),
+          ],
+        ),
+      ], said: '谁找我');
+      final s = orbFactsSentence(orbMissingFacts(facts, '三个人找你。'));
+      expect(s, contains('Cody 找你，在问第 10 步能不能合入，已经等了 20 分钟'));
+      expect(s, contains('；'));
+      expect(s, isNot(contains('Alice')));
+      expect('。'.allMatches(s).length, 1, reason: 'one sentence');
+    });
+
+    test('a reply without an end gets one; a question alone gets it first', () {
+      expect(orbWithSentence('Cody 在等', '他在等你批准。'), 'Cody 在等。他在等你批准。');
+      expect(orbWithSentence('要回复他吗？', '他在等你批准。'), '他在等你批准。要回复他吗？');
     });
   });
 }

@@ -208,7 +208,7 @@ AgentReview? _reviewReply(
   if (missing.isNotEmpty) {
     // Added at once: a round trip to the model costs seconds, and the app
     // knows the fact.
-    final added = '${_ended(text)}${orbFactsSentence(missing)}';
+    final added = orbWithSentence(text, orbFactsSentence(missing));
     return AgentReview(text: _polish(added, runs) ?? added);
   }
   final polished = _polish(text, runs);
@@ -604,7 +604,3 @@ AgentReview? _taskListRead(
     text: orbSummarize(runs, driving: driving),
   );
 }
-
-/// [text] with an end to its last sentence.
-String _ended(String text) =>
-    RegExp(r'[。！？.!?]$').hasMatch(text) ? text : '$text。';
