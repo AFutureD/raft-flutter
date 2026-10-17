@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
+import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
+import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice.dart';
@@ -289,6 +291,50 @@ void main() {
     expect((await waiting)['say'], isNotNull);
     expect(live.closes, 1);
     expect(s.connected, isFalse);
+  });
+
+  test('the agent behind the voice thinks as asked', () {
+    final seen = <AgentThinking>[];
+    LayeredVoiceSession(
+      apiKey: 'k',
+      systemPrompt: 'p',
+      tools: const [],
+      onToolCall: (n, a) async => {},
+      thinking: AgentThinking.high,
+      steering: AgentSteering(
+        scope: () => const AgentScope(systemPrompt: 's', tools: []),
+      ),
+      liveBuilder: (parts) => FakeLive(parts),
+      agentBuilder: (p) {
+        seen.add(p.thinking);
+        return GeminiAgentSession(
+          apiKey: p.apiKey,
+          systemPrompt: p.systemPrompt,
+          tools: p.tools,
+          thinking: p.thinking,
+          onToolCall: p.onToolCall,
+        );
+      },
+    );
+    expect(seen, [AgentThinking.high]);
+  });
+
+  test('the factory reads the setting when it builds the session', () {
+    AgentOrbPreference.instance.resetForTest();
+    addTearDown(AgentOrbPreference.instance.resetForTest);
+    AgentOrbPreference.instance.setAgentThinking(AgentThinking.medium);
+    final s = createLayeredSession(
+      provider: AgentVoiceProvider.gemini,
+      apiKey: 'k',
+      systemPrompt: 'p',
+      tools: const [],
+      onToolCall: (n, a) async => {},
+      voice: 'v',
+      steering: AgentSteering(
+        scope: () => const AgentScope(systemPrompt: 's', tools: []),
+      ),
+    ) as LayeredVoiceSession;
+    expect(s.thinking, AgentThinking.medium);
   });
 
   test('the factory builds the layered voice whatever the provider', () {

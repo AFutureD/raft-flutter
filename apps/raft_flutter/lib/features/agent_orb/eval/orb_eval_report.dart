@@ -54,6 +54,7 @@ String orbEvalMarkdown(OrbEvalReport report) {
       '${report.reasoning == null ? '' : ' · 推理 ${report.reasoning}'}'
       '${report.harness == null ? '' : ' · 通道 ${report.harness}'}'
       '${report.model == null ? '' : ' · 模型 ${report.model}'}'
+      '${report.thinking == null ? '' : ' · 推理强度 ${report.thinking}'}'
       '${report.cancelled ? ' · 中途停止' : ''}'
       '${report.abortReason == null ? '' : '（${report.abortReason}）'}',
     )

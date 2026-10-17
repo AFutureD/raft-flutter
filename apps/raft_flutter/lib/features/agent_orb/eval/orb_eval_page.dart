@@ -9,6 +9,7 @@ import '../../../data/workspace_controller.dart';
 import '../../../platform/app_services.dart';
 import '../../agent_mode/voice_provider.dart';
 import '../../agent_mode/agent_audio.dart';
+import '../../agent_mode/agent_thinking.dart';
 import '../../workspace_view.dart';
 import 'orb_eval_report.dart';
 import 'orb_eval_result.dart';
@@ -42,6 +43,7 @@ class OrbEvalPage extends StatefulWidget {
     this.settle = const Duration(milliseconds: 1200),
     this.turnTimeout,
     this.harness = OrbEvalHarness.realtime,
+    this.thinking,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -60,6 +62,9 @@ class OrbEvalPage extends StatefulWidget {
   /// when null.
   final Duration? turnTimeout;
   final OrbEvalHarness harness;
+
+  /// The text agent's thinking level for this run (null: the setting).
+  final AgentThinking? thinking;
 
   @override
   State<OrbEvalPage> createState() => _OrbEvalPageState();
@@ -100,6 +105,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       settle: widget.settle,
       turnTimeout: widget.turnTimeout,
       harness: widget.harness,
+      thinking: widget.thinking,
       sessionFactory: widget.sessionFactory,
       voiceKey: widget.voiceKey,
       onProgress: (p) {

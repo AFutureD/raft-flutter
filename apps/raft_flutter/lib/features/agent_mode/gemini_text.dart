@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'agent_audio.dart';
+import 'agent_thinking.dart';
 
 /// One-shot text generation with the Gemini key stored on the device (the
 /// same key as the voice session), over REST `generateContent`.
@@ -123,13 +124,19 @@ class GeminiText {
 
   /// The `thinkingConfig` with the least thinking [model] takes (null for a
   /// model without one).
+  ///
+  /// A given [level] sets the weight instead of the least: the level's name for
+  /// a Gemini 3 model, its budget for a 2.5 one.
   static Map<String, Object?>? thinkingConfig(
     String model, {
     bool lite = false,
+    AgentThinking? level,
   }) {
-    if (model.contains('gemini-2.5')) return {'thinkingBudget': 0};
+    if (model.contains('gemini-2.5')) {
+      return {'thinkingBudget': level?.budget ?? 0};
+    }
     if (model.contains('gemini-3')) {
-      return {'thinkingLevel': lite ? 'minimal' : 'low'};
+      return {'thinkingLevel': level?.name ?? (lite ? 'minimal' : 'low')};
     }
     return null;
   }

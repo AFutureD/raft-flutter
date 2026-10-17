@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'agent_audio.dart';
 import 'agent_steering.dart';
+import 'agent_thinking.dart';
 import 'gemini_live.dart';
 import 'gemini_text.dart';
 import 'voice_provider.dart';
@@ -62,6 +63,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
     required this.tools,
     required this.onToolCall,
     this.steering,
+    this.thinking = AgentThinking.low,
     this.apiKey,
     AgentVoiceKey? key,
     GeminiTransport? transport,
@@ -79,6 +81,10 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
   /// When given, every model request takes its instruction and tools from it
   /// and [systemPrompt] and [tools] are not used.
   final AgentSteering? steering;
+
+  /// How hard the model thinks (a model that refuses a `thinkingConfig` gets
+  /// none).
+  final AgentThinking thinking;
   @override
   final AgentToolHandler onToolCall;
 
@@ -145,9 +151,11 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
   static Map<String, Object?> generationConfig(
     String model, {
     bool thinking = true,
+    AgentThinking level = AgentThinking.low,
   }) => {
     'temperature': .3,
-    if (thinking) 'thinkingConfig': ?GeminiText.thinkingConfig(model),
+    if (thinking)
+      'thinkingConfig': ?GeminiText.thinkingConfig(model, level: level),
   };
 
   static void _debug(String message) {
@@ -415,7 +423,11 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
             'tools': [
               {'functionDeclarations': declarations},
             ],
-          'generationConfig': generationConfig(model, thinking: _thinking),
+          'generationConfig': generationConfig(
+            model,
+            thinking: _thinking,
+            level: thinking,
+          ),
         },
       );
       Map<String, Object?>? content;
@@ -427,7 +439,8 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker {
         }
       }
       _debug(
-        '$model step=$step ${reply.status} ${watch.elapsedMilliseconds}ms '
+        '$model thinking=${_thinking ? thinking.name : 'none'} step=$step '
+        '${reply.status} ${watch.elapsedMilliseconds}ms '
         'tools=${[for (final p in (content?['parts'] as List? ?? const []))
           if (p is Map && p['functionCall'] is Map) p['functionCall']['name']].join(',')}',
       );

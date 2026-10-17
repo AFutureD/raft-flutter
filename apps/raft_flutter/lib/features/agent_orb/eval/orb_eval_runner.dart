@@ -7,12 +7,14 @@ import 'package:raft_agent_ui/raft_agent_ui.dart' show AgentMicState;
 
 import '../../../data/workspace_controller.dart';
 import '../../agent_mode/agent_audio.dart';
+import '../../agent_mode/agent_thinking.dart';
 import '../../agent_mode/agent_voice.dart';
 import '../../agent_mode/agent_voice_settings.dart';
 import '../../agent_mode/gemini_agent.dart';
 import '../../agent_mode/voice_provider.dart';
 import '../nav/orb_nav_tools.dart' show orbNavigationTools;
 import '../orb_controller.dart';
+import '../orb_preference.dart';
 import '../orb_tool.dart';
 import 'orb_eval_result.dart';
 import 'orb_eval_run.dart';
@@ -76,6 +78,7 @@ class OrbEvalRunner {
     this.runs = 2,
     this.turnTimeout,
     this.harness = OrbEvalHarness.realtime,
+    this.thinking,
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
     this.voiceKey,
@@ -93,6 +96,9 @@ class OrbEvalRunner {
 
   /// What drives the orb: the realtime model, or the text agent.
   final OrbEvalHarness harness;
+
+  /// The text agent's thinking level; the Labs setting when null.
+  final AgentThinking? thinking;
 
   Duration get _turnLimit =>
       turnTimeout ??
@@ -180,6 +186,9 @@ class OrbEvalRunner {
       reasoning: agent ? null : settings.reasoning.name,
       harness: harness.name,
       model: _model,
+      thinking: agent
+          ? (thinking ?? AgentOrbPreference.instance.agentThinking).name
+          : null,
       cancelled: _stop,
       abortReason: _abortReason,
     );
@@ -219,6 +228,7 @@ class OrbEvalRunner {
         steering,
       }) => GeminiAgentSession(
         key: voiceKey,
+        thinking: thinking ?? AgentOrbPreference.instance.agentThinking,
         steering: steering,
         systemPrompt: systemPrompt,
         tools: tools,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../../private_route_guard.dart' show PrivateRouteGuard;
+import '../../agent_mode/agent_thinking.dart';
 import 'orb_eval_page.dart';
 import 'orb_eval_result.dart' show OrbEvalHarness;
 
@@ -12,6 +13,7 @@ class OrbEvalRequest {
     this.only = const [],
     this.runs = 2,
     this.harness = OrbEvalHarness.realtime,
+    this.thinking,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -20,6 +22,10 @@ class OrbEvalRequest {
 
   /// What drives the orb; `harness=agent` in the link picks the text agent.
   final OrbEvalHarness harness;
+
+  /// `thinking=minimal|low|medium|high` for the text agent, for this run only;
+  /// null: the Labs setting.
+  final AgentThinking? thinking;
 
   /// The request a `raft://orb-eval/run?only=A1,B2&runs=3&harness=agent` link
   /// makes; null for any other link.
@@ -37,7 +43,12 @@ class OrbEvalRequest {
       (h) => h.name == (uri.queryParameters['harness'] ?? '').toLowerCase(),
       orElse: () => OrbEvalHarness.realtime,
     );
-    return OrbEvalRequest(only: only, runs: runs.clamp(1, 5), harness: harness);
+    return OrbEvalRequest(
+      only: only,
+      runs: runs.clamp(1, 5),
+      harness: harness,
+      thinking: AgentThinking.parse(uri.queryParameters['thinking']),
+    );
   }
 }
 
@@ -157,6 +168,7 @@ class OrbEvalLauncher {
                   only: request.only,
                   runs: request.runs,
                   harness: request.harness,
+                  thinking: request.thinking,
                 ),
           ),
         )

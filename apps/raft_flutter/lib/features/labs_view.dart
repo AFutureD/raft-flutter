@@ -199,15 +199,18 @@ class _LabsViewState extends ManagementState<LabsView> {
     // Release and desktop Labs stay the product page. Debug and profile
     // phone builds are the only place this device-local control appears.
     if (kReleaseMode) return section;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AgentModeLabsCard(controller: w),
-        const AgentOrbLabsCard(),
-        const OrbEvalLabsCard(),
-        section,
-      ],
+    // The developer cards make the page taller than a phone: it scrolls.
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AgentModeLabsCard(controller: w),
+          const AgentOrbLabsCard(),
+          const OrbEvalLabsCard(),
+          section,
+        ],
+      ),
     );
   }
 }

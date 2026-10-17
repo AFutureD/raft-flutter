@@ -4,6 +4,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/device_preferences.dart';
+import '../agent_mode/agent_thinking.dart';
 
 /// Device-local Labs switch for the Agent orb (phones only). Default off.
 class AgentOrbPreference extends ChangeNotifier {
@@ -79,10 +80,49 @@ class AgentOrbPreference extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// How hard the text agent of the agent layer thinks. Low by default; a
+  /// change reaches the next session (the orb is built again, like for the
+  /// layer switch).
+  static const thinkingKey = 'raft.agentOrb.thinking';
+  AgentThinking? _thinkingOverride;
+
+  AgentThinking get agentThinking {
+    if (_thinkingOverride != null) return _thinkingOverride!;
+    try {
+      return AgentThinking.parse(
+            DevicePreferences.current?.getString(thinkingKey),
+          ) ??
+          AgentThinking.low;
+    } catch (_) {
+      return AgentThinking.low;
+    }
+  }
+
+  void setAgentThinking(AgentThinking next) {
+    if (next == agentThinking) return;
+    _thinkingOverride = next;
+    Future<void> write(SharedPreferences prefs) async {
+      try {
+        await prefs.setString(thinkingKey, next.name);
+      } catch (_) {
+        /* optional local storage */
+      }
+    }
+
+    final loaded = DevicePreferences.current;
+    if (loaded != null) {
+      write(loaded);
+    } else {
+      SharedPreferences.getInstance().then(write, onError: (_) {});
+    }
+    notifyListeners();
+  }
+
   @visibleForTesting
   void resetForTest() {
     _override = null;
     _layerOverride = null;
+    _thinkingOverride = null;
   }
 }
 
@@ -93,6 +133,7 @@ class AgentOrbLabsCard extends StatelessWidget {
 
   static const title = 'Agent 悬浮球（手机）';
   static const layerTitle = 'Agent 层';
+  static const thinkingTitle = '文本 Agent 推理强度';
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +218,44 @@ class AgentOrbLabsCard extends StatelessWidget {
                   color: t.muted,
                 ),
               ),
+              if (pref.agentLayer) ...[
+                const SizedBox(height: RaftSpace.x3),
+                RaftCssText(
+                  thinkingTitle,
+                  style: RaftTypography.body(
+                    t,
+                    size: 14,
+                    line: 20,
+                    weight: FontWeight.w600,
+                    color: t.ink,
+                  ),
+                ),
+                const SizedBox(height: RaftSpace.x2),
+                RaftSegmentedControl<AgentThinking>(
+                  key: const ValueKey('agent-orb-thinking'),
+                  label: thinkingTitle,
+                  value: pref.agentThinking,
+                  onChanged: pref.setAgentThinking,
+                  items: [
+                    for (final v in AgentThinking.values)
+                      RaftSegmentedOption(
+                        value: v,
+                        label: v.label,
+                        itemKey: ValueKey('agent-orb-thinking-${v.name}'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: RaftSpace.x1),
+                RaftCssText(
+                  '最少最快；高想得更久、答得更晚。下一次对话生效。',
+                  style: RaftTypography.body(
+                    t,
+                    size: 13,
+                    line: 18,
+                    color: t.muted,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../../data/workspace_controller.dart';
+import '../agent_mode/agent_thinking.dart';
 import 'orb_avoidance.dart';
 import 'orb_controller.dart';
 import 'orb_preference.dart';
@@ -72,7 +73,7 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
 
   /// The agent-layer setting the controller was made with: a change builds it
   /// again.
-  bool _layerSeen = false;
+  (bool, AgentThinking)? _layerSeen;
   late OrbAvoidance _avoidance = widget.avoidance ?? OrbAvoidance.app();
   List<Rect> _obstacles = const [];
   bool _measureQueued = false;
@@ -150,8 +151,8 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
     }
     if (_controller == null ||
         !identical(_controllerFor, w) ||
-        _layerSeen != _pref.agentLayer) {
-      _layerSeen = _pref.agentLayer;
+        _layerSeen != (_pref.agentLayer, _pref.agentThinking)) {
+      _layerSeen = (_pref.agentLayer, _pref.agentThinking);
       _controllerFor?.removeListener(_workspaceChanged);
       _retire(_controller);
       final nav = widget.navigatorKey;

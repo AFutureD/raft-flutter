@@ -117,6 +117,7 @@ class OrbEvalReport {
     this.reasoning,
     this.harness,
     this.model,
+    this.thinking,
     this.cancelled = false,
     this.abortReason,
   });
@@ -132,6 +133,10 @@ class OrbEvalReport {
   /// Which [OrbEvalHarness] drove the orb, and the model it ended up on.
   final String? harness;
   final String? model;
+
+  /// The text agent's thinking level (`AgentThinking.name`), for the agent
+  /// harness.
+  final String? thinking;
 
   /// The run was stopped before every scenario was through.
   final bool cancelled;
@@ -151,6 +156,7 @@ class OrbEvalReport {
     if (reasoning != null) 'reasoning': reasoning,
     if (harness != null) 'harness': harness,
     if (model != null) 'model': model,
+    if (thinking != null) 'thinking': thinking,
     if (cancelled) 'cancelled': true,
     if (abortReason != null) 'abortReason': abortReason,
     'ok': ok,

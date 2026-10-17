@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
+import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart'
     show AgentToolHandler;
@@ -92,11 +93,13 @@ GeminiAgentSession session(
   int maxSteps = 8,
   Map<String, Object?> Function(String, Map<String, Object?>)? tool,
   AgentSteering? steering,
+  AgentThinking thinking = AgentThinking.low,
 }) => GeminiAgentSession(
   apiKey: 'test-key',
   systemPrompt: 'be the orb',
   tools: _tools,
   steering: steering,
+  thinking: thinking,
   transport: api.call,
   maxSteps: maxSteps,
   retryDelay: Duration.zero,
@@ -663,12 +666,65 @@ void main() {
     );
   });
 
-  test('generationConfig: low thinking for gemini-3, none budget for 2.5', () {
+  test('generationConfig per level: Gemini 3 names it, 2.5 budgets it', () {
+    Map<String, Object?>? of(String model, AgentThinking level) =>
+        GeminiAgentSession.generationConfig(
+              model,
+              level: level,
+            )['thinkingConfig']
+            as Map<String, Object?>?;
+    for (final level in AgentThinking.values) {
+      expect(of('models/gemini-3.5-flash-lite', level), {
+        'thinkingLevel': level.name,
+      });
+    }
+    expect(of('models/gemini-2.5-flash', AgentThinking.minimal), {
+      'thinkingBudget': 0,
+    });
+    expect(of('models/gemini-2.5-flash', AgentThinking.low), {
+      'thinkingBudget': 1024,
+    });
+    expect(of('models/gemini-2.5-flash', AgentThinking.medium), {
+      'thinkingBudget': 4096,
+    });
+    expect(of('models/gemini-2.5-flash', AgentThinking.high), {
+      'thinkingBudget': 8192,
+    });
+    // A model without a setting gets none; the default is the old low.
+    expect(of('models/other', AgentThinking.high), isNull);
+    expect(
+      GeminiAgentSession.generationConfig(
+        'models/gemini-3-flash',
+      )['thinkingConfig'],
+      {'thinkingLevel': 'low'},
+    );
+  });
+
+  test('the level goes in every request, and a 400 still drops it', () async {
+    final api = Api()..replies.addAll([400, _say('好')]);
+    final heard = Heard();
+    final s = session(api, heard, thinking: AgentThinking.high);
+    await s.connect();
+    s.sendText('x');
+    await pumpEventQueue();
+    expect((api.requests[0]['generationConfig'] as Map)['thinkingConfig'], {
+      'thinkingLevel': 'high',
+    });
+    expect(
+      (api.requests[1]['generationConfig'] as Map).containsKey(
+        'thinkingConfig',
+      ),
+      isFalse,
+    );
+    expect(heard.texts, ['好']);
+  });
+
+  test('generationConfig: the default is low (a 1024 budget for 2.5)', () {
     expect(
       GeminiAgentSession.generationConfig(
         'models/gemini-2.5-flash',
       )['thinkingConfig'],
-      {'thinkingBudget': 0},
+      {'thinkingBudget': 1024},
     );
     expect(
       GeminiAgentSession.generationConfig(

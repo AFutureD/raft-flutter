@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/data/device_preferences.dart';
+import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
 import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'agent_orb_shell_test.dart' show OrbFixture;
 
@@ -60,5 +63,71 @@ void main() {
     // Nothing else rebuilds it.
     await t.pump(const Duration(seconds: 1));
     expect(f.builds, 2);
+  });
+
+  group('the thinking level of the text agent', () {
+    final control = find.byKey(const ValueKey('agent-orb-thinking'));
+
+    test(
+      'low by default; a change is kept on the device and read back',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        AgentOrbPreference.instance.resetForTest();
+        expect(AgentOrbPreference.instance.agentThinking, AgentThinking.low);
+        AgentOrbPreference.instance.setAgentThinking(AgentThinking.high);
+        expect(AgentOrbPreference.instance.agentThinking, AgentThinking.high);
+        await pumpEventQueue();
+        final stored = await SharedPreferences.getInstance();
+        expect(stored.getString(AgentOrbPreference.thinkingKey), 'high');
+
+        // A later launch reads it from the device.
+        AgentOrbPreference.instance.resetForTest();
+        DevicePreferences.adopt(stored);
+        addTearDown(DevicePreferences.reset);
+        expect(AgentOrbPreference.instance.agentThinking, AgentThinking.high);
+        stored.setString(AgentOrbPreference.thinkingKey, 'nonsense');
+        expect(AgentOrbPreference.instance.agentThinking, AgentThinking.low);
+        AgentOrbPreference.instance.resetForTest();
+      },
+    );
+
+    testWidgets('the Labs card shows it only while the agent layer is on, '
+        'and a tap changes it', (t) async {
+      await fixture(t);
+      await f.pump(enabled: false);
+      expect(AgentOrbPreference.instance.agentLayer, isTrue);
+      expect(find.text('文本 Agent 推理强度'), findsOneWidget);
+      expect(control, findsOneWidget);
+      for (final v in AgentThinking.values) {
+        expect(find.text(v.label), findsOneWidget);
+      }
+      expect(AgentOrbPreference.instance.agentThinking, AgentThinking.low);
+
+      await t.tap(find.byKey(const ValueKey('agent-orb-thinking-high')));
+      await t.pump();
+      expect(AgentOrbPreference.instance.agentThinking, AgentThinking.high);
+      await t.tap(find.byKey(const ValueKey('agent-orb-thinking-minimal')));
+      await t.pump();
+      expect(AgentOrbPreference.instance.agentThinking, AgentThinking.minimal);
+
+      await t.tap(find.byKey(const ValueKey('agent-orb-layer-switch')));
+      await t.pump();
+      expect(control, findsNothing);
+      await t.tap(find.byKey(const ValueKey('agent-orb-layer-switch')));
+      await t.pump();
+      expect(control, findsOneWidget);
+    });
+
+    testWidgets('changing it builds the orb again', (t) async {
+      await fixture(t);
+      await f.pump();
+      expect(f.builds, 1);
+      AgentOrbPreference.instance.setAgentThinking(AgentThinking.medium);
+      await t.pump();
+      await t.pump();
+      expect(f.builds, 2);
+      await t.pump(const Duration(seconds: 1));
+      expect(f.builds, 2);
+    });
   });
 }

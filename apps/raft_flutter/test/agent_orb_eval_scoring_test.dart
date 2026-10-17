@@ -268,7 +268,7 @@ void main() {
     setUp(() => root = Directory.systemTemp.createTempSync('orb-eval-report'));
     tearDown(() => root.deleteSync(recursive: true));
 
-    OrbEvalReport sample({String? harness, String? model}) {
+    OrbEvalReport sample({String? harness, String? model, String? thinking}) {
       final good = OrbEvalScenario(
         id: 'B2',
         title: '读一下动态',
@@ -295,6 +295,7 @@ void main() {
         reasoning: 'low',
         harness: harness,
         model: model,
+        thinking: thinking,
         results: [
           OrbEvalScenarioResult(bad, [
             OrbEvalRunResult(
@@ -353,6 +354,24 @@ void main() {
       expect(md, contains('每个场景 2 次 · 服务 gemini · 推理 low'));
       expect(md, contains('写操作：POST /m'));
     });
+
+    test(
+      'the header and the json say the thinking level next to the model',
+      () {
+        final report = sample(
+          harness: 'agent',
+          model: 'models/gemini-3-flash',
+          thinking: 'high',
+        );
+        expect(
+          orbEvalMarkdown(report),
+          contains('模型 models/gemini-3-flash · 推理强度 high'),
+        );
+        expect(report.toJson()['thinking'], 'high');
+        expect(sample().toJson().containsKey('thinking'), isFalse);
+        expect(orbEvalMarkdown(sample()), isNot(contains('推理强度')));
+      },
+    );
 
     test('the header and the json say which harness and model ran', () {
       final report = sample(harness: 'agent', model: 'models/gemini-3-flash');

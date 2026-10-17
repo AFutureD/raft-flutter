@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_launcher.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_result.dart'
     show OrbEvalHarness;
@@ -60,6 +61,19 @@ void main() {
       )!;
       expect(r.only, ['A1']);
       expect(r.runs, 3);
+    });
+
+    test('thinking=minimal|low|medium|high is for the text agent, this run '
+        'only', () {
+      AgentThinking? of(String query) =>
+          OrbEvalRequest.fromLink(Uri.parse('raft://orb-eval/run$query'))!
+              .thinking;
+      expect(of(''), isNull);
+      expect(of('?harness=agent&thinking=minimal'), AgentThinking.minimal);
+      expect(of('?thinking=Low'), AgentThinking.low);
+      expect(of('?thinking=medium'), AgentThinking.medium);
+      expect(of('?thinking=high&runs=2'), AgentThinking.high);
+      expect(of('?thinking=extreme'), isNull);
     });
 
     test('no other link is an evaluation link', () {

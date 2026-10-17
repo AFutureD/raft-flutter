@@ -4,6 +4,8 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 import 'agent_steering.dart';
+import 'agent_thinking.dart';
+import '../agent_orb/orb_preference.dart' show AgentOrbPreference;
 import 'gemini_agent.dart';
 import 'gemini_live.dart';
 import 'voice_provider.dart';
@@ -67,6 +69,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     required this.tools,
     required this.onToolCall,
     required this.steering,
+    this.thinking = AgentThinking.low,
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.onAudio,
@@ -118,6 +121,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     systemPrompt: p.systemPrompt,
     tools: p.tools,
     steering: p.steering,
+    thinking: p.thinking,
     onToolCall: p.onToolCall,
     onOutputText: p.onOutputText,
     onTurnComplete: p.onTurnComplete,
@@ -134,6 +138,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   @override
   final AgentToolHandler onToolCall;
   final AgentSteering steering;
+
+  /// How hard the agent behind the voice thinks.
+  final AgentThinking thinking;
   final String voice;
   final AgentReasoning reasoning;
   @override
@@ -165,6 +172,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       systemPrompt: systemPrompt,
       tools: tools,
       steering: steering,
+      thinking: thinking,
       onToolCall: onToolCall,
       onOutputText: _words.write,
       onTurnComplete: _agentFinished,
@@ -308,6 +316,7 @@ class AgentParts {
     required this.systemPrompt,
     required this.tools,
     required this.steering,
+    required this.thinking,
     required this.onToolCall,
     required this.onOutputText,
     required this.onTurnComplete,
@@ -317,6 +326,7 @@ class AgentParts {
   final String apiKey, systemPrompt;
   final List<Map<String, Object?>> tools;
   final AgentSteering steering;
+  final AgentThinking thinking;
   final AgentToolHandler onToolCall;
   final void Function(String text) onOutputText;
   final void Function() onTurnComplete;
@@ -348,6 +358,8 @@ VoiceSession createLayeredSession({
   tools: tools,
   onToolCall: onToolCall,
   steering: steering!,
+  // Read now: a change of the setting reaches the next session.
+  thinking: AgentOrbPreference.instance.agentThinking,
   voice: voice,
   reasoning: reasoning,
   onAudio: onAudio,
