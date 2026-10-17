@@ -916,9 +916,12 @@ class _ScriptedPageState extends State<_ScriptedPage> {
     await mark('channel');
     // A message far up: the page scrolls to it, the notes and the task
     // events around it with it.
-    await _type('看看第三个');
+    await _type('看看第二个');
     await wait(3500);
     await mark('channel-kinds');
+    await _type('看看第五个');
+    await wait(3500);
+    await mark('channel-files');
     await _type('返回');
     await wait(2500);
     // The group of tasks nobody touched for days, opened.
