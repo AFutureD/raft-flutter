@@ -4277,9 +4277,7 @@ class _ResourceViewState extends State<ResourceView> {
           doubleClickInterval: pin
               ? activityGestureInterval!
               : doubleClickInterval,
-          onContextMenu: row['kind'] == 'mention_action'
-              ? null
-              : (at) => activityMenu(row, scope, at),
+          onContextMenu: (at) => activityMenu(row, scope, at),
           popupOpen: menuRowKey != null && menuRowKey == rowKey(row),
           actions: enabledActivity && filter == 'saved'
               ? null
