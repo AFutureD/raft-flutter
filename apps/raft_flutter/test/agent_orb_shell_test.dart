@@ -143,6 +143,9 @@ class OrbFixture {
   /// The voice key of the session; null is a device without one.
   String? apiKey = 'test-key';
 
+  /// Takes the summary of a session instead of the shared agent's DM.
+  OrbSummarySender? summarySender;
+
   Future<void> setUp() async {
     SharedPreferences.setMockInitialValues({});
     AgentOrbPreference.instance.resetForTest();
@@ -169,6 +172,7 @@ class OrbFixture {
         appTools: tools,
         audio: audio,
         voiceKey: AgentVoiceKey.forTesting(apiKey),
+        summarySender: summarySender,
         sessionFactory:
             ({
               required provider,

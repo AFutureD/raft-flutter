@@ -74,6 +74,9 @@ class AgentSessionSummary {
   AgentSessionSummary._();
 
   static const header = '【语音对话摘要 · 来自 Agent 模式】';
+
+  /// The same summary when it comes from the Agent orb.
+  static const orbHeader = '【语音对话摘要 · 来自 Agent 悬浮球】';
   static const instruction =
       '这是我刚才和你的语音形态的对话，请把值得长期记住的部分（我的偏好、决定、待办）记进你的记忆，不需要回复。';
 
@@ -98,6 +101,7 @@ class AgentSessionSummary {
     List<AgentToolOutcome> outcomes, {
     Future<String?> Function(String system, String prompt)? generate,
     Duration timeout = modelTimeout,
+    String? header,
   }) async {
     final said = [
       for (final (who, text) in transcript)
@@ -119,7 +123,7 @@ class AgentSessionSummary {
       lines = null; // No model, no network, a refusal or too slow.
     }
     lines ??= fallbackLines(said, actions);
-    return '$header\n$instruction\n\n'
+    return '${header ?? AgentSessionSummary.header}\n$instruction\n\n'
         '${[for (final l in lines) '- $l'].join('\n')}';
   }
 

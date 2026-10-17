@@ -152,11 +152,13 @@ class AgentBrain {
     List<(AgentSpeaker, String)> transcript,
     List<AgentToolOutcome> outcomes, {
     Future<String?> Function(String system, String prompt)? generate,
+    String? header,
   }) async {
     final text = await AgentSessionSummary.build(
       transcript,
       outcomes,
       generate: generate,
+      header: header,
     );
     if (text == null) return false;
     final channel = await _directChannel(brain.id);

@@ -21,7 +21,17 @@ import 'orb_operating.dart';
 import 'orb_prompt.dart';
 import 'orb_sheet.dart';
 import 'orb_state.dart';
+import 'orb_summary.dart';
 import 'orb_tool.dart';
+
+/// Sends the summary of a session to the shared agent (the orb's header on
+/// it); tests give a fake.
+typedef OrbSummarySender = Future<bool> Function(
+  AgentBrainChoice brain,
+  List<(AgentSpeaker, String)> transcript,
+  List<AgentToolOutcome> outcomes,
+  String header,
+);
 
 /// One line of the orb's transcript.
 enum OrbEntryKind {
@@ -59,6 +69,7 @@ class OrbController extends ChangeNotifier {
     VoiceSessionFactory? sessionFactory,
     AgentAudio? audio,
     AgentVoiceKey? voiceKey,
+    this.summarySender,
     this.operatingLinger = const Duration(milliseconds: 2500),
   }) {
     final all = [
@@ -88,6 +99,10 @@ class OrbController extends ChangeNotifier {
   }
 
   final WorkspaceController workspace;
+
+  /// Where a session's summary goes (the shared agent's DM unless a test
+  /// gives another).
+  final OrbSummarySender? summarySender;
 
   /// A context under the app's Navigator (null before it exists).
   final BuildContext? Function() navigatorContext;
@@ -522,10 +537,20 @@ class OrbController extends ChangeNotifier {
     final settings = AgentVoiceSettings.instance;
     final brain = settings.brain;
     if (brain == null || !settings.writeBack) return;
+    // A quick "go to X" or a test of the microphone is not worth a DM.
+    if (!orbSummaryWorthSending(transcript, outcomes)) return;
+    final send =
+        summarySender ??
+        (brain, transcript, outcomes, header) =>
+            AgentBrain(workspace)
+                .sendSummary(brain, transcript, outcomes, header: header);
     unawaited(
-      AgentBrain(workspace)
-          .sendSummary(brain, transcript, outcomes)
-          .catchError((Object _) => false),
+      send(
+        brain,
+        transcript,
+        outcomes,
+        AgentSessionSummary.orbHeader,
+      ).catchError((Object _) => false),
     );
   }
 
