@@ -4,7 +4,7 @@ import CFNetwork
 import AVFoundation
 import ImageIO
 
-class MainFlutterWindow: NSWindow, RaftPreferencesWindow, RaftPasteWindow {
+class MainFlutterWindow: NSWindow, RaftPreferencesWindow, RaftPasteWindow, RaftUpdatesWindow {
   private var interactionChannel: FlutterMethodChannel?
   private var memoryChannel: FlutterMethodChannel?
   private var titleBar: RaftTitleBar?
@@ -13,6 +13,7 @@ class MainFlutterWindow: NSWindow, RaftPreferencesWindow, RaftPasteWindow {
   private var windowCommandsReady = false
   private(set) var canOpenPreferences = false
   private(set) var canPasteIntoFlutter = false
+  private(set) var canCheckForUpdates = false
   private var videoFrameChannel: FlutterMethodChannel?
   private let videoFrame = RaftVideoFrame()
 
@@ -39,6 +40,11 @@ class MainFlutterWindow: NSWindow, RaftPreferencesWindow, RaftPasteWindow {
 
   private func closeWindowFromCommand() {
     super.performClose(nil)
+  }
+
+  func checkForUpdates() {
+    guard windowCommandsReady && canCheckForUpdates else { return }
+    windowChannel?.invokeMethod("checkForUpdatesRequested", arguments: nil)
   }
 
   func pasteFromMenu() {
@@ -106,6 +112,8 @@ class MainFlutterWindow: NSWindow, RaftPreferencesWindow, RaftPasteWindow {
       } else if call.method == "setWindowCommandsState" {
         let state = call.arguments as? [String: Any]
         self?.windowCommandsReady = state?["ready"] as? Bool == true
+        self?.canCheckForUpdates = self?.windowCommandsReady == true
+          && state?["updates"] as? Bool == true
         self?.canPasteIntoFlutter = self?.windowCommandsReady == true
           && state?["paste"] as? Bool == true
         self?.canOpenPreferences = self?.windowCommandsReady == true

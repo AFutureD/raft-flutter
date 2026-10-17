@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:raft_ui/raft_ui.dart' show RaftPreviewRoute;
+import 'package:raft_ui/raft_ui.dart'
+    show RaftPreviewRoute, raftText, showRaftAlertDialog;
+import 'package:raft_updater/raft_updater.dart';
 
 /// Requests the runner's ordinary close action, preserving its close preference.
 ///
@@ -38,11 +40,15 @@ class AppWindowCommands extends StatefulWidget {
     super.key,
     required this.navigatorKey,
     this.openSection,
+    this.updater,
     required this.child,
   });
 
   final GlobalKey<NavigatorState> navigatorKey;
   final ValueChanged<String>? openSection;
+
+  /// The same updater used by Settings; defaults to the app-wide instance.
+  final AppUpdater? updater;
   final Widget child;
 
   @override
@@ -55,6 +61,7 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
   static Object? _handlerOwner;
   late final _mac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
   bool _closing = false;
+  bool _checkingUpdates = false;
 
   @override
   void initState() {
@@ -63,6 +70,9 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
       _handlerOwner = this;
       _channel.setMethodCallHandler((call) async {
         if (call.method == 'pasteRequested') return _paste();
+        if (call.method == 'checkForUpdatesRequested') {
+          return _checkForUpdates();
+        }
         if (call.method == 'closeRequested') {
           await _close();
         } else if (call.method == 'openPreferences') {
@@ -111,11 +121,42 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
     return true;
   }
 
+  Future<bool> _checkForUpdates() async {
+    if (_checkingUpdates) return false;
+    _checkingUpdates = true;
+    await _publishState(true);
+    try {
+      do {
+        final outcome = await (widget.updater ?? AppUpdater.instance)
+            .checkAndInstall();
+        if (outcome != AppUpdateOutcome.failed) return true;
+        final context = widget.navigatorKey.currentState?.overlay?.context;
+        if (!mounted || context == null || !context.mounted) return false;
+        final retry = await showRaftAlertDialog(
+          context: context,
+          title: raftText(context, "Couldn't check for updates"),
+          description: raftText(
+            context,
+            'Check your connection and try again.',
+          ),
+          confirmLabel: raftText(context, 'Try again'),
+          cancelLabel: raftText(context, 'Cancel'),
+        );
+        if (!retry) return false;
+      } while (mounted);
+      return false;
+    } finally {
+      _checkingUpdates = false;
+      if (mounted) await _publishState(true);
+    }
+  }
+
   Future<void> _publishState(bool ready) async {
     if (!identical(_handlerOwner, this)) return;
     try {
       await _channel.invokeMethod<void>('setWindowCommandsState', {
         'ready': ready,
+        'updates': ready && !_checkingUpdates,
         'paste': ready && _pasteContext != null,
         'preferences': ready && widget.openSection != null,
       });
