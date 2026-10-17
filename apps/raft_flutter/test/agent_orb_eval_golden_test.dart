@@ -80,6 +80,11 @@ final Map<String, Map<String, Say>> golden = {
   'B6': {
     '有什么新的': (s) => s.turn(const [('describe_page', {})], '动态还在加载，稍等再看。'),
   },
+  'B8': {
+    '打开动态里的第一条消息': (s) => s.turn(const [
+      ('open_item', {'n': 1}),
+    ], '打开了，是 Alice 的私信。'),
+  },
   'B7': {
     '什么要紧': (s) =>
         s.turn(const [('get_briefing', {})], 'Grok 回复了测试的事。另外 1 个任务在等你验收，不急。'),

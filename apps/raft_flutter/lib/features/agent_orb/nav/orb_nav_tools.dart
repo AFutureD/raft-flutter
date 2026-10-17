@@ -4,6 +4,7 @@ import 'package:raft_client/raft_client.dart';
 
 import '../../../data/raft_location.dart';
 import '../../../data/raft_navigation_history.dart';
+import '../../../data/resource_row_reconcile.dart' show activityItemKey;
 import '../../../data/workspace_controller.dart';
 import '../../activity_destination.dart';
 import '../../agent_mode/agent_mode_data.dart';
@@ -64,7 +65,81 @@ List<OrbTool> orbNavigationTools({OrbArrivalBrief? arrivalBrief}) => [
     declaration: _readConversationDeclaration,
     handler: _readConversation,
   ),
+  OrbTool(declaration: _openItemDeclaration, handler: _openItem),
 ];
+
+// --- open_item ----------------------------------------------------------------
+
+const _openItemDeclaration = <String, Object?>{
+  'name': 'open_item',
+  'description':
+      '打开动态里的某一条，就像用户点了那一行：进到它的讨论、频道或私信。用户说“打开第一条”“打开 Alice 那条”时用。'
+      'n 是 describe_page 的动态条目里的 n（第几条，从 1 开始）；或者给 id（条目的 id）。只读不打开用 read_conversation。',
+  'parameters': {
+    'type': 'object',
+    'properties': {
+      'n': {'type': 'integer', 'description': '第几条（describe_page 的 n）'},
+      'id': {'type': 'string', 'description': '条目的 id（describe_page 的 id）'},
+    },
+  },
+};
+
+/// Opens an Activity row as a tap on it would (Kevin on the G100: "打开动态
+/// 里的第一个消息" was only ever read, never opened).
+Future<Map<String, Object?>> _openItem(
+  Map<String, Object?> args,
+  OrbToolContext ctx,
+) async {
+  final w = ctx.workspace;
+  if (w.server == null) return {'error': '还没有进入工作区'};
+  final store = w.activityUnreadIfBound ?? w.activityUnread;
+  if (!store.hasAcceptedWindow) {
+    return {'error': '动态还没读到，先打开动态再说第几条'};
+  }
+  final rows = [
+    for (final r in store.acceptedRows) Map<String, dynamic>.from(r),
+  ];
+  final data = AgentModeData(w);
+  final items = data.activityItems(rows).take(orbMaxActivityItems).toList();
+  final n = (args['n'] as num?)?.toInt();
+  final id = _str(args['id']);
+  int? index;
+  if (n != null) {
+    if (n < 1 || n > items.length) {
+      return {'error': '动态里只有 ${items.length} 条，没有第 $n 条'};
+    }
+    index = n - 1;
+  } else if (id != null) {
+    final bare = id.startsWith('activity:') ? id.substring(9) : id;
+    final at = items.indexWhere(
+      (i) => i.id == id || i.id == 'activity:$bare' || i.id.endsWith(':$bare'),
+    );
+    if (at < 0) return {'error': '动态里没有这一条，先调 describe_page 看条目'};
+    index = at;
+  } else {
+    return {'error': '要给 n（第几条）或 id'};
+  }
+  final item = items[index];
+  final key = item.id.startsWith('activity:') ? item.id.substring(9) : item.id;
+  final row = rows.where((r) => activityItemKey(r) == key).firstOrNull;
+  final destination = row == null
+      ? null
+      : ActivityDestination.fromRow(row, canonical: false);
+  if (destination == null) return {'error': '这一条打不开'};
+  final slug = w.location.serverSlug;
+  ctx.operating.value = true;
+  try {
+    w.navigation.navigate(destination.canonicalLocation(slug));
+  } on Object {
+    return {'error': '这一条打不开'};
+  }
+  return {
+    'opened': index + 1,
+    'title': item.place ?? item.excerpt ?? '那一条',
+    'route': w.location.toString(),
+    'note': '已经打开；要说内容就调 describe_page 或 read_conversation',
+  };
+}
 
 /// One line per destination for the declaration: `id = 中文 / English：what
 /// is there`. The model reasons on this, so it carries both names.

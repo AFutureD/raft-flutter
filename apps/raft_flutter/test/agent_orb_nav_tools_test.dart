@@ -296,23 +296,22 @@ List<Map<String, Object?>> _list(Object? v) => [
 ];
 
 void main() {
-  testWidgets(
-    'the tools are the seam: navigate, list_targets, describe_page, read_conversation',
-    (t) async {
-      final tools = orbNavigationTools();
-      expect(tools.map((e) => e.name), [
-        'navigate',
-        'list_targets',
-        'describe_page',
-        'read_conversation',
-      ]);
-      for (final tool in tools) {
-        expect(tool.declaration['description'], isA<String>());
-      }
-      final navigate = tools.first.declaration['parameters']! as Map;
-      expect(navigate['required'], isNull);
-    },
-  );
+  testWidgets('the tools are the seam: navigate, list_targets, describe_page, '
+      'read_conversation, open_item', (t) async {
+    final tools = orbNavigationTools();
+    expect(tools.map((e) => e.name), [
+      'navigate',
+      'list_targets',
+      'describe_page',
+      'read_conversation',
+      'open_item',
+    ]);
+    for (final tool in tools) {
+      expect(tool.declaration['description'], isA<String>());
+    }
+    final navigate = tools.first.declaration['parameters']! as Map;
+    expect(navigate['required'], isNull);
+  });
 
   group('navigate', () {
     testWidgets('to Activity by its name, and Back returns', (t) async {
@@ -1096,6 +1095,40 @@ void main() {
       final lines = (d['semantics']! as List).cast<String>();
       expect(lines, isNotEmpty);
       expect(lines.length, lessThanOrEqualTo(40));
+      await fx.f.close(t);
+    });
+  });
+
+  // Kevin on the G100: "打开动态里的第一个消息" never opened it; there was
+  // no way to open an Activity item, so the model kept reading it.
+  group('open_item', () {
+    testWidgets('opens an Activity item by its place and by its id, like a '
+        'tap on the row', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      await fx.call(t, 'navigate', {'target': '动态'});
+      final page = await fx.call(t, 'describe_page');
+      final items = _list(page['items']);
+      expect(items, hasLength(3));
+
+      var r = await fx.call(t, 'open_item', {'n': 3});
+      expect(r['error'], isNull, reason: '$r');
+      expect(fx.path, contains('/dm/dc'));
+
+      await fx.call(t, 'navigate', {'target': '动态'});
+      r = await fx.call(t, 'open_item', {'id': items[0]['id']});
+      expect(r['error'], isNull, reason: '$r');
+      expect(fx.path, contains('/channel/ca'));
+      expect(fx.path, contains('tt136'));
+      await fx.f.close(t);
+    });
+
+    testWidgets('a place past the end is an error with the count', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      await fx.call(t, 'navigate', {'target': '动态'});
+      final r = await fx.call(t, 'open_item', {'n': 9});
+      expect('${r['error']}', contains('3'));
       await fx.f.close(t);
     });
   });

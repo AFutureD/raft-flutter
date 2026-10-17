@@ -634,6 +634,18 @@ final List<OrbEvalScenario> orbEvalScenarios = [
   ),
 
   // ---- C. discussions, private conversations, tasks ------------------------
+  // Kevin on the G100: "打开动态里的第一个消息" was only ever read.
+  OrbEvalScenario(
+    id: 'B8',
+    title: '打开动态里的第一条',
+    start: OrbEvalStart.activity,
+    data: _activityFive,
+    say: const ['打开动态里的第一条消息'],
+    checks: [
+      OrbEvalCheck.tool('open_item', label: '调用 open_item（打开，不是读）'),
+      ..._std(),
+    ],
+  ),
   OrbEvalScenario(
     id: 'C1',
     title: '看看 Cody 私信',

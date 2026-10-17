@@ -221,7 +221,7 @@ void main() {
       for (final g in 'ABCDE'.split(''))
         for (
           var n = 1;
-          n <= const {'A': 7, 'B': 7, 'C': 5, 'D': 9, 'E': 5}[g]!;
+          n <= const {'A': 7, 'B': 8, 'C': 5, 'D': 9, 'E': 5}[g]!;
           n++
         )
           '$g$n',
@@ -264,6 +264,6 @@ void main() {
       'C4',
       'C5',
     ]);
-    expect(orbEvalSelect(const []), hasLength(33));
+    expect(orbEvalSelect(const []), hasLength(34));
   });
 }
