@@ -475,8 +475,8 @@
         "field._ResourceViewState.viewWindows": 1,
         "field._TaskDrag.row": 1,
         "field._TaskDrag.scope": 1,
-        "lines": 5924,
-        "tokens": 34304
+        "lines": 5896,
+        "tokens": 34011
       }
     },
     "server_page_window": {

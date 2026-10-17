@@ -52,6 +52,54 @@ void main() {
     'capabilities': {'viewChannel': allowed},
   });
 
+  test(
+    'mute follows display record changes without changing permission facts',
+    () {
+      final memo = ResourceAuthorityCache();
+      final channels = [channel('live')], dms = <RaftChannel>[];
+      final activity = <String, dynamic>{
+        'kind': 'channel',
+        'channelId': 'live',
+      };
+      String read() => memo.read(
+        identity: _identity,
+        revision: 0,
+        channels: channels,
+        dms: dms,
+      );
+      final token = read();
+      expect(memo.activityMuted(activity, channels: channels, dms: dms), false);
+      final facts = _AccessReads({...channels[0].json, 'activityMuted': true});
+      channels[0] = _ObservedChannel(facts);
+      memo.synchronize(channels, dms);
+      expect(read(), same(token));
+      expect(memo.activityMuted(activity, channels: channels, dms: dms), true);
+      facts['activityMuted'] = false;
+      expect(memo.activityMuted(activity, channels: channels, dms: dms), false);
+      channels.clear();
+      memo.synchronize(channels, dms);
+      expect(memo.activityMuted(activity, channels: channels, dms: dms), false);
+    },
+  );
+
+  test(
+    'thread mute uses its parent and preserves channel-DM collision behavior',
+    () {
+      final memo = ResourceAuthorityCache();
+      final channels = [channel('parent')];
+      final dms = [
+        RaftChannel({'id': 'parent', 'joined': true, 'activityMuted': true}),
+      ];
+      final activity = <String, dynamic>{
+        'kind': 'thread',
+        'threadChannelId': 'reply',
+        'parentChannelId': 'parent',
+      };
+      expect(memo.activityMuted(activity, channels: channels, dms: dms), true);
+      expect(memo.activityMuted(activity, channels: channels, dms: []), false);
+    },
+  );
+
   test('message-only record changes do not reread other permissions', () {
     final memo = ResourceAuthorityCache();
     final quiet = List.generate(

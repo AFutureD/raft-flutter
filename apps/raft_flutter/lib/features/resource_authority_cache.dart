@@ -36,6 +36,7 @@ class ResourceAuthorityCache {
 
   List<RaftChannel>? _channelSource, _dmSource;
   List<RaftChannel> _records = [];
+  Map<String, List<RaftChannel>> _recordsById = {};
   List<({String wire, Map<String, dynamic> value})> _factsByRecord = [];
   Map<String, Map<String, dynamic>> _access = const {};
   List<Map<String, dynamic>> _orderedFacts = const [];
@@ -45,6 +46,23 @@ class ResourceAuthorityCache {
   String? _directory, _value;
   ResourceAuthorityIdentity? _identity;
   int? _revision;
+
+  /// Mute is a current display preference, not part of the permission token.
+  /// Reuse the directory index, while reading the record's current preference.
+  bool activityMuted(
+    Map<String, dynamic> row, {
+    required List<RaftChannel> channels,
+    required List<RaftChannel> dms,
+  }) {
+    if (!identical(channels, _channelSource) || !identical(dms, _dmSource)) {
+      synchronize(channels, dms);
+    }
+    final id = row['kind'] == 'thread'
+        ? row['parentChannelId']
+        : row['channelId'];
+    return _recordsById[id]?.any((c) => c.json['activityMuted'] == true) ??
+        false;
+  }
 
   static Map<String, dynamic> _facts(RaftChannel channel) => {
     'id': channel.id,
@@ -68,6 +86,10 @@ class ResourceAuthorityCache {
     _dmSource = dms;
     final records = [...channels, ...dms];
     if (_directory != null && !force && listEquals(_records, records)) return;
+    _recordsById = {};
+    for (final record in records) {
+      (_recordsById[record.id] ??= []).add(record);
+    }
     final facts = <({String wire, Map<String, dynamic> value})>[];
     var changed = records.length != _records.length;
     for (var i = 0; i < records.length; i++) {

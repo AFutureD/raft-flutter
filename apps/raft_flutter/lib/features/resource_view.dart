@@ -28,6 +28,7 @@ import '../data/activity_follow_state.dart';
 import '../data/activity_done_state.dart';
 import '../data/source_read_all_transport.dart';
 import '../data/resource_row_reconcile.dart';
+import '../data/activity_row_window.dart';
 import '../data/resource_snapshot_cache.dart';
 import '../data/server_page_window.dart';
 import '../data/server_task_window.dart';
@@ -434,6 +435,8 @@ class _ResourceViewState extends State<ResourceView> {
   }
 
   List<Map<String, dynamic>> rows = [];
+  bool get indexedActivity =>
+      widget.section == 'activity' && !(enabledActivity && filter == 'saved');
   final activityFollowState = ActivityFollowState();
   final activityDoneState = ActivityDoneState();
   bool loading = true;
@@ -604,10 +607,19 @@ class _ResourceViewState extends State<ResourceView> {
   final listUpdates = ResourceListUpdates();
 
   void observeListUpdates() {
+    if (indexedActivity) {
+      rows = ActivityRowWindow.from(rows);
+      acceptedActivityItems = ActivityRowWindow.from(acceptedActivityItems);
+      if (activityGestureRows != null) {
+        activityGestureRows = ActivityRowWindow.from(activityGestureRows!);
+      }
+    }
     final scroll = listScroll;
-    listUpdates.observe(
+    listUpdates.observeRows(
       view: (widget.section, filter, rowsView, advanced.groupByChannel),
-      keys: [for (final row in visibleRows) rowKey(row)],
+      rows: visibleRows,
+      keyOf: rowKey,
+      indexedActivity: indexedActivity,
       position:
           scroll != null && scroll.hasClients && scroll.positions.length == 1
           ? scroll.position
@@ -1595,38 +1607,25 @@ class _ResourceViewState extends State<ResourceView> {
     });
   }
 
-  bool activityMuted(Map<String, dynamic> row) {
-    final id = row['kind'] == 'thread'
-        ? row['parentChannelId']
-        : row['channelId'];
-    return [
-      ...w.channels,
-      ...w.dms,
-    ].any((c) => c.id == id && c.json['activityMuted'] == true);
-  }
+  bool activityMuted(Map<String, dynamic> row) =>
+      _authorityCache.activityMuted(row, channels: w.channels, dms: w.dms);
 
   void advanceActivity(Map message) {
-    for (var i = 0; i < rows.length; i++) {
-      final next = advanceActivityRow(rows[i], message);
-      if (next == null) continue;
-      if (activityMuted(rows[i])) return;
-      final key = rowKey(next), frontier = activityFrontier(next);
-      if (key != null && frontier != null) {
-        activityLocalFrontiers[key] = frontier;
-      }
-      setState(() {
-        final rest = [...rows]..removeAt(i);
-        // Newest-first windows move the advanced conversation to the top.
-        rows = advanced.direction == 'asc'
-            ? ([...rows]..[i] = next)
-            : [next, ...rest];
-        acceptedActivityItems = [
-          for (final row in acceptedActivityItems)
-            rowKey(row) == key ? next : row,
-        ];
-      });
-      return;
+    final next = ActivityRowWindow.from(rows).advance(
+      message,
+      muted: activityMuted,
+      newestFirst: advanced.direction != 'asc',
+    );
+    if (next == null) return;
+    final key = next.key, frontier = activityFrontier(next.row);
+    if (key != null && frontier != null) {
+      activityLocalFrontiers[key] = frontier;
     }
+    setState(() {
+      rows = next.window;
+      acceptedActivityItems = ActivityRowWindow.from(acceptedActivityItems)
+          .replaceKey(key, next.row);
+    });
   }
 
   /// Known read frontiers (Source applyKnownReadStateProjectionsToItems):
@@ -5067,10 +5066,7 @@ class _ResourceViewState extends State<ResourceView> {
 
   List<Map<String, dynamic>> get visibleRows {
     if (widget.section == 'activity' && activityGestureCurrent) {
-      final current = {for (final row in rows) rowKey(row): row};
-      return [
-        for (final row in activityGestureRows!) current[rowKey(row)] ?? row,
-      ];
+      return ActivityRowWindow.from(rows).retaining(activityGestureRows!);
     }
     if (widget.section != 'tasks') return rows;
     return rows.where(matchesTask).toList()..sort((a, b) {
