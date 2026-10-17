@@ -421,6 +421,21 @@ void main() {
       expect(feed.itemOf(bare(_thread('th1')))!.headline, startsWith('有人：'));
     });
 
+    test('a system event has no sender prefix', () {
+      final feed = AgentActivityFeed(
+        now: _now,
+        myId: 'kevin',
+        nameOf: (id, type) => null,
+      );
+      final row = bare(_thread('th1'))
+        ..remove('latestActivitySenderId')
+        ..['latestActivityPreview'] = '🔄 Cody moved #136 to In Progress';
+      expect(feed.itemOf(row)!.headline, '🔄 Cody moved #136 to In Progress');
+      // The Activity page also knows a system sender by its id alone.
+      row['latestActivitySenderId'] = 'system';
+      expect(feed.itemOf(row)!.headline, startsWith('🔄'));
+    });
+
     test('a name on the row wins; a blank one is not a name', () {
       final feed = AgentActivityFeed(
         now: _now,
