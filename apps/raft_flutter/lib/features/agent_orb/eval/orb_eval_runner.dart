@@ -38,6 +38,9 @@ abstract interface class OrbEvalSite {
 /// there rather than failing every scenario the same way.
 const orbEvalNoKey = '没有语音 Key：先在 设置 > Labs 里填入';
 
+/// Why a run ended when the evaluation page was closed under it.
+const orbEvalPageGone = 'page gone';
+
 /// One step of progress, for the page and the log.
 class OrbEvalProgress {
   const OrbEvalProgress(
@@ -98,12 +101,25 @@ class OrbEvalRunner {
   final void Function(OrbEvalProgress progress)? onProgress;
 
   bool _stop = false;
+  String? _abortReason;
+  _Recorder? _recorder;
 
   /// Stops after the run under way.
   void stop() => _stop = true;
 
+  /// Ends the run under way at once, and the evaluation with it, because
+  /// [reason] (the page was closed) leaves nothing to run on.
+  void abort(String reason) {
+    if (_abortReason != null) return;
+    _abortReason = reason;
+    _stop = true;
+    _log(reason);
+    _recorder?.interrupt(reason);
+  }
+
   Future<OrbEvalReport> runAll(List<OrbEvalScenario> scenarios) async {
     _stop = false;
+    _abortReason = null;
     final started = DateTime.now();
     final results = <OrbEvalScenarioResult>[];
     for (final (i, s) in scenarios.indexed) {
@@ -146,6 +162,7 @@ class OrbEvalRunner {
       provider: settings.provider.name,
       reasoning: settings.reasoning.name,
       cancelled: _stop,
+      abortReason: _abortReason,
     );
     _log(
       'done ok=${report.ok} passed=${report.count(OrbEvalOutcome.passed)} '
@@ -171,9 +188,11 @@ class OrbEvalRunner {
     try {
       world = await OrbEvalWorld.create(data);
       final shown = site = await stage.mount(world.workspace);
+      problem = await _awaitFixture(shown);
+      if (problem != null) throw StateError(problem);
       await _warm(world);
       await _start(s, world, shown);
-      final recorder = _Recorder(run);
+      final recorder = _recorder = _Recorder(run);
       orb = OrbController(
         workspace: world.workspace,
         navigatorContext: () => shown.navigatorContext(),
@@ -236,6 +255,18 @@ class OrbEvalRunner {
       failures: failures,
       error: problem,
     );
+  }
+
+  /// The fixture's Navigator exists a moment after it is mounted; a run
+  /// cannot start before it does (the orb's tools answer "not ready"
+  /// without it). Null when it is there.
+  Future<String?> _awaitFixture(OrbEvalSite site) async {
+    for (var i = 0; i < 50; i++) {
+      if (_abortReason != null) return _abortReason;
+      if (site.navigatorContext() != null) return null;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return _abortReason ?? '评测的界面没有准备好（5 秒内没有出现）';
   }
 
   /// Reads the Activity first, as the app has done long before the person
@@ -393,6 +424,12 @@ class _Recorder {
       _unlisten?.call();
       _unlisten = null;
     });
+  }
+
+  /// Ends the turn under way with [reason].
+  void interrupt(String reason) {
+    final done = _done;
+    if (done != null && !done.isCompleted) done.complete(reason);
   }
 
   void _turnComplete() {

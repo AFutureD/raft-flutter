@@ -80,6 +80,8 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
 
   @override
   void dispose() {
+    // The page closed under a run: say so, and end the run with it.
+    if (_running) _runner?.abort(orbEvalPageGone);
     _runner?.stop();
     super.dispose();
   }
@@ -381,7 +383,7 @@ class _PageSite implements OrbEvalSite {
 
   @override
   BuildContext? navigatorContext() =>
-      _state._navigator.currentState?.overlay?.context;
+      _state.mounted ? _state._navigator.currentState?.overlay?.context : null;
 
   @override
   Future<void> unmount() => _state._unmount();

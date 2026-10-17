@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_data.dart';
+import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/agent_orb/eval/orb_eval_result.dart';
+import 'package:raft_flutter/features/agent_orb/eval/orb_eval_runner.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenario.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenarios.dart';
 import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
@@ -241,6 +245,63 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
+  testWidgets('a page closed under a run ends it, says why and logs '
+      '"page gone"', (t) async {
+    final logged = <String>[];
+    final original = debugPrint;
+    debugPrint = (message, {wrapWidth}) => logged.add('$message');
+    final sessions = Sessions();
+    await mountPage(
+      t,
+      runs: 1,
+      scenarios: [simple()],
+      // The model never answers: the run is waiting when the page goes.
+      sessionFactory: sessions.factory((s, text) async {}),
+    );
+    for (var i = 0; i < 20; i++) {
+      await t.pump(const Duration(milliseconds: 100));
+    }
+    expect(sessions.made, isNotEmpty, reason: 'the turn is under way');
+    await t.pumpWidget(const SizedBox());
+    for (var i = 0; i < 30; i++) {
+      await t.pump(const Duration(milliseconds: 100));
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 5)),
+      );
+    }
+    debugPrint = original;
+    expect(logged, contains('orb-eval: page gone'));
+    final report = readEvalReport(reports);
+    expect(report['cancelled'], isTrue);
+    expect(report['abortReason'], 'page gone');
+    final run =
+        ((report['scenarios'] as List).single as Map)['results'] as List;
+    expect((run.single as Map)['error'], 'page gone');
+    expect(
+      File('${reports.listSync().whereType<Directory>().single.path}/report.md')
+          .readAsStringSync(),
+      contains('page gone'),
+    );
+  });
+
+  testWidgets('a fixture Navigator that never appears fails the run clearly, '
+      'after a bounded wait', (t) async {
+    final runner = OrbEvalRunner(
+      stage: _NeverMounted(),
+      runs: 1,
+      voiceKey: AgentVoiceKey.forTesting('test-key'),
+      sessionFactory: Sessions().factory((s, text) async {}),
+    );
+    OrbEvalReport? report;
+    unawaited(runner.runAll([simple()]).then((r) => report = r));
+    for (var i = 0; i < 80 && report == null; i++) {
+      await t.pump(const Duration(milliseconds: 100));
+    }
+    final run = report!.results.single.runs.single;
+    expect(run.error, contains('没有准备好'));
+    expect(run.run.turns, isEmpty, reason: 'nothing was said to the model');
+  });
+
   testWidgets('every scenario of scenarios-v1 mounts its data and starts on '
       'its page', (t) async {
     final sessions = Sessions();
@@ -280,4 +341,17 @@ void main() {
     }
     await t.pumpWidget(const SizedBox());
   });
+}
+
+class _NeverMounted implements OrbEvalStage {
+  @override
+  Future<OrbEvalSite> mount(WorkspaceController workspace) async =>
+      _NoNavigator();
+}
+
+class _NoNavigator implements OrbEvalSite {
+  @override
+  BuildContext? navigatorContext() => null;
+  @override
+  Future<void> unmount() async {}
 }

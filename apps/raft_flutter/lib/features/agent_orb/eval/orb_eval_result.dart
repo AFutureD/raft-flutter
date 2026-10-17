@@ -106,6 +106,7 @@ class OrbEvalReport {
     this.provider,
     this.reasoning,
     this.cancelled = false,
+    this.abortReason,
   });
 
   final DateTime startedAt;
@@ -119,6 +120,9 @@ class OrbEvalReport {
   /// The run was stopped before every scenario was through.
   final bool cancelled;
 
+  /// Why the evaluation was ended from outside (`page gone`).
+  final String? abortReason;
+
   int count(OrbEvalOutcome o) => results.where((r) => r.outcome == o).length;
 
   /// Nothing that was run failed.
@@ -130,6 +134,7 @@ class OrbEvalReport {
     if (provider != null) 'provider': provider,
     if (reasoning != null) 'reasoning': reasoning,
     if (cancelled) 'cancelled': true,
+    if (abortReason != null) 'abortReason': abortReason,
     'ok': ok,
     'summary': {for (final o in OrbEvalOutcome.values) o.name: count(o)},
     'scenarios': [
