@@ -95,6 +95,14 @@ class OrbEvalTurn {
   /// for); 0 when there was none.
   int firstAudioMs = 0;
 
+  /// The command the app did without the model (`next`, `open` ...), when
+  /// that is how the turn went.
+  String? fastPath;
+
+  /// The voice said a filler ("我看一下", "稍等") that is nothing like what the
+  /// agent had for it to say (the layered harness).
+  bool liveFiller = false;
+
   /// The time the asks to the agent took, in all.
   int get askMs => asks.fold(0, (sum, a) => sum + a.millis);
 
@@ -121,6 +129,8 @@ class OrbEvalTurn {
     if (millis > 0) 'ms': millis,
     if (firstAudioMs > 0) 'firstAudioMs': firstAudioMs,
     if (asks.isNotEmpty) 'askMs': askMs,
+    if (fastPath != null) 'fastPath': fastPath,
+    if (liveFiller) 'liveFiller': true,
     'tools': [for (final t in tools) t.toJson()],
     if (asks.isNotEmpty) 'asks': [for (final a in asks) a.toJson()],
     'completed': completed,

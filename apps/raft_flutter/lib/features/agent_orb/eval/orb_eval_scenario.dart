@@ -413,6 +413,25 @@ class OrbEvalScenario {
   String get group => id.substring(0, 1);
 }
 
+/// What the voice says to fill a wait.
+final _filler = RegExp(
+  r"let me (?:check|see|look)|checking|one moment|hold on|稍等|等一下|等我一下|我看一下|我查一下|让我(?:看|查|找)|马上",
+  caseSensitive: false,
+);
+
+/// The voice said a filler and nothing like what the agent gave it to say:
+/// its words are less than half like any `say` of the turn, and are a known
+/// way to say "wait".
+bool orbEvalLiveFiller(OrbEvalTurn turn) {
+  if (turn.asks.isEmpty || turn.text.trim().isEmpty) return false;
+  final spoken = orbEvalWords(turn.text);
+  for (final a in turn.asks) {
+    final say = orbEvalWords(a.say);
+    if (say.isNotEmpty && orbEvalSimilarity(say, spoken) >= .5) return false;
+  }
+  return _filler.hasMatch(turn.text);
+}
+
 /// [text] for comparing what was said: lower case, without spaces and
 /// punctuation (a spoken transcript and a written line differ in those).
 String orbEvalWords(String text) => text.toLowerCase().replaceAll(

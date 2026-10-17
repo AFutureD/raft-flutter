@@ -395,6 +395,65 @@ void main() {
     expect(json['model'], 'live-fake');
   });
 
+  testWidgets('a filler that is nothing like the say is recorded as one', (
+    t,
+  ) async {
+    final json = await run(t, layered(speak: (say) => '我看一下。'));
+    final s = (json['scenarios'] as List).single as Map;
+    final turn =
+        (((s['results'] as List).single as Map)['turns'] as List).single as Map;
+    expect(turn['liveFiller'], isTrue);
+    // (And the check fails it: the say was not spoken.)
+    expect(s['outcome'], 'failed');
+    final md = File(
+      '${reports.listSync().whereType<Directory>().single.path}/report.md',
+    ).readAsStringSync();
+    expect(md, contains('Live 说了垫话'));
+  });
+
+  testWidgets('a turn that says the words is not a filler turn', (t) async {
+    final json = await run(t, layered());
+    final turn =
+        ((((json['scenarios'] as List).single as Map)['results'] as List).single
+                as Map)['turns']
+            as List;
+    expect((turn.single as Map).containsKey('liveFiller'), isFalse);
+  });
+
+  group('filler and fast path in the record', () {
+    OrbEvalTurn turn(String text, List<String> says) {
+      final t = OrbEvalTurn('x')..addText(text);
+      for (final say in says) {
+        t.asks.add(OrbEvalAsk(request: 'x', say: say, millis: 1));
+      }
+      return t;
+    }
+
+    const say = 'Cody 在问第 10 步能不能合入，等了 20 分钟。';
+
+    test('a known wait-word that is nothing like the say', () {
+      for (final w in ['我看一下。', '稍等一下', 'Let me check.', '让我查一下', '马上']) {
+        expect(orbEvalLiveFiller(turn(w, [say])), isTrue, reason: w);
+      }
+    });
+
+    test(
+      'not when it carries the say, or is something else, or asked nothing',
+      () {
+        expect(orbEvalLiveFiller(turn('我看一下。$say', [say])), isFalse);
+        expect(orbEvalLiveFiller(turn('好的。', [say])), isFalse);
+        expect(orbEvalLiveFiller(turn('', [say])), isFalse);
+        expect(orbEvalLiveFiller(turn('我看一下。', [])), isFalse);
+      },
+    );
+
+    test('a turn the app did by itself says so in the json', () {
+      final t = turn('好', [])..fastPath = 'next';
+      expect(t.toJson()['fastPath'], 'next');
+      expect(turn('好', []).toJson().containsKey('fastPath'), isFalse);
+    });
+  });
+
   group('the check on its own', () {
     OrbEvalRun runOf(List<OrbEvalTurn> turns) =>
         OrbEvalRun(ids: {})..turns.addAll(turns);

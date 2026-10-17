@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart'
@@ -38,6 +37,7 @@ import 'orb_driving.dart' show orbSayHint;
 import 'orb_operating.dart';
 import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
+import 'orb_fast_path.dart';
 import 'orb_key_facts.dart';
 import 'orb_open.dart';
 import 'orb_scope.dart';
@@ -775,6 +775,18 @@ class OrbController extends ChangeNotifier {
     if (agentLayer)
       OrbTool(
         declaration: const {
+          'name': 'driving_previous',
+          'description':
+              '驾驶模式下，用户说“上一件”“上一个”时调用：屏幕回到前一件。返回的 item 就是这一件，说完就停。只在驾驶模式下可用。',
+        },
+        handler: (args, ctx) async {
+          if (!_driving) return {'error': '现在不在驾驶模式'};
+          return drivingPrevious();
+        },
+      ),
+    if (agentLayer)
+      OrbTool(
+        declaration: const {
           'name': 'next_task',
           'description':
               '驾驶中逐个处理任务时（“全部处理掉”之后）用户说“下一个”“继续”：换到任务队列里的下一个。'
@@ -892,6 +904,20 @@ class OrbController extends ChangeNotifier {
           'keyFactsNote': '回答要说到这些，用自己的话，别漏。',
         };
       }
+    }
+    if (name == 'navigate' &&
+        result['error'] == null &&
+        result[agentAppSays] == null &&
+        actions.pending == null &&
+        orbJustGo(_turnSaid)) {
+      // "带我去 X": the person asked only to go. When the place is surely the
+      // one they named, the arrival is told from what was brought, and the
+      // model is not asked again for it.
+      final match = result['matched'];
+      final sure =
+          match is Map && match['score'] is num && match['score'] >= .99;
+      final line = sure ? orbArrivalSay(result, said: _turnSaid) : null;
+      if (line != null) result = {...result, agentAppSays: line};
     }
     if (name == 'list_tasks' && _driving && result['error'] == null) {
       return _queueTasks(result);
@@ -1024,6 +1050,22 @@ class OrbController extends ChangeNotifier {
       if (!done && shownBriefing != null)
         'say': orbSayHint(shownBriefing!, driving: true),
       if (done) 'note': '没有了：只说“就这些”，再说常规进度的条数',
+    };
+  }
+
+  /// Back to the item before (the card of "上一件").
+  Map<String, Object?> drivingPrevious() {
+    final items = drivingItems;
+    if (_drivingIndex > 0) _drivingIndex--;
+    notifyListeners();
+    _whereChanged();
+    final done = drivingDone;
+    return {
+      'ok': true,
+      'index': done ? items.length : drivingIndex + 1,
+      'total': items.length,
+      'done': done,
+      if (!done) 'item': items[drivingIndex].toJson(),
     };
   }
 
@@ -1318,6 +1360,7 @@ class OrbController extends ChangeNotifier {
   /// answered, both said by the app. Anything else is left to the model (null).
   Future<String?> _intercept(String said, AgentToolHandler run) async {
     _turnSaid = said;
+    fastPath = null;
     _deferNote = null;
     _replyAsked = false;
     _blockedWrite = false;
@@ -1337,7 +1380,57 @@ class OrbController extends ChangeNotifier {
       await run('cancel_action', const {});
       return '好，已取消。';
     }
-    return null;
+    return _fast(said, run);
+  }
+
+  /// The command of the last turn the app did without the model (an
+  /// evaluation records it); null when the model had it.
+  String? fastPath;
+
+  /// Unambiguous commands are done here, with the tool and a sentence made
+  /// from its result: no model call. Null leaves the turn to the model.
+  Future<String?> _fast(String said, AgentToolHandler run) async {
+    final loc = workspace.location;
+    final cmd = orbFastCommand(
+      said,
+      driving: _driving,
+      onActivity: loc.route == RaftRoute.activity,
+      queue: _queueLine() != null,
+      directory: orbDirectoryOf(workspace),
+    );
+    if (cmd == null) return null;
+    final result = await run(cmd.tool, cmd.args);
+    String? line;
+    switch (cmd.kind) {
+      case 'next':
+        if (cmd.tool == 'next_task') {
+          line = orbTaskPassSay(result);
+          // The task is on the table: the plain action for it, as a card.
+          final t = result['current'];
+          if (line != null && t is Map && '${t['assignee'] ?? ''}'.isNotEmpty) {
+            final card = await run('nudge_task', {
+              'task': t['number'],
+              if ('${t['channel'] ?? ''}'.isNotEmpty) 'channel': t['channel'],
+            });
+            final ask = card[agentAppSays];
+            if (ask is String) line = ask;
+          }
+        } else {
+          line = orbDrivingSay(result, briefing: shownBriefing);
+        }
+      case 'previous':
+        line = orbDrivingSay(result, briefing: shownBriefing);
+      case 'park':
+        line = result['error'] == null ? '好，退出驾驶模式。' : null;
+      case 'drive':
+        line = result['error'] == null ? '好，驾驶模式。' : null;
+      case 'item':
+        line = orbItemSay(result, cmd.args['n'] as int);
+      case 'open':
+        line = orbArrivalSay(result, said: said);
+    }
+    if (line != null) fastPath = cmd.kind;
+    return line;
   }
 
   /// Who "他" is for `reply`: the card on the screen while driving, else what
@@ -1543,29 +1636,6 @@ class OrbController extends ChangeNotifier {
     return line is String ? AgentReview(text: line) : null;
   }
 
-  /// "打开 task 136" is navigate. The model read instead of opening (or did
-  /// nothing): the app opens the place, and the model answers from what has
-  /// arrived.
-  Future<AgentReview?> _openFirst(
-    List<AgentToolRun> runs,
-    AgentToolHandler run,
-  ) async {
-    if (actions.pending != null) return null;
-    final args = orbOpenArgs(_turnSaid, orbDirectoryOf(workspace));
-    if (args == null) return null;
-    const moves = {'navigate', 'open_item', 'screen_action'};
-    if (runs.any((r) => moves.contains(r.name))) return null;
-    final result = await run('navigate', args);
-    if (result['error'] != null || result['candidates'] != null) return null;
-    var seen = jsonEncode(result);
-    if (seen.length > 4000) seen = '${seen.substring(0, 4000)}…';
-    return AgentReview(
-      retry:
-          '（App 提示，不是用户的话：用户说的是“${_turnSaid.trim()}”，是要打开，不是只读。'
-          'App 已经替你调用 navigate 打开了：$seen。据此回答，不要再调用 navigate。）',
-    );
-  }
-
   static final _goThrough = RegExp(r'处理掉|全部处理|都处理|一个一个|逐个|挨个');
 
   /// "全部处理掉" while driving: the model read the tasks and proposed no
@@ -1620,9 +1690,7 @@ class OrbController extends ChangeNotifier {
     AgentToolHandler run,
   ) async {
     final proposed =
-        await _replyInstead(runs, run) ??
-        await _openFirst(runs, run) ??
-        await _nextTaskCard(runs, run);
+        await _replyInstead(runs, run) ?? await _nextTaskCard(runs, run);
     if (proposed != null) return proposed;
     // Whichever tool the model read the page with, what the person is told
     // about "nothing for you" and about tasks follows the briefing's data.

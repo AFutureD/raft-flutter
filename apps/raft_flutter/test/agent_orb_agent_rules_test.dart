@@ -81,15 +81,16 @@ void main() {
 
   final navigated = <Map<String, Object?>>[];
 
-  OrbTool navigateStub() => OrbTool(
+  /// What the stand-in `navigate` answers (a test sets it).
+  Map<String, Object?>? navigateResult;
+
+  OrbTool navigateStub([Map<String, Object?>? result]) => OrbTool(
     declaration: const {'name': 'navigate'},
     handler: (args, ctx) async {
       navigated.add(args);
-      return {
-        'route': '/s/s1/task/136',
-        'title': '#136 重构第 10 步',
-        'page': 'task',
-      };
+      return navigateResult ??
+          result ??
+          {'route': '/s/s1/task/136', 'title': '#136 重构第 10 步', 'page': 'task'};
     },
   );
 
@@ -101,6 +102,7 @@ void main() {
     testWidgets(name, (t) async {
       gemini = FakeGemini();
       navigated.clear();
+      navigateResult = null;
       f = ActionOrbFixture(t)
         ..agentLayer = true
         ..sessionFactory =
@@ -349,34 +351,113 @@ void main() {
     expect(agentLines().single, contains('👍'));
   });
 
-  orbTest('"打开 task 136": the model read, the app opened the task and the '
-      'model answers from it', (t) async {
-    gemini.replies.addAll([
-      _call('task_detail', {'number': 136}),
-      _say('任务 136 在等验收。'),
-      _say('到了任务 136，Cody 做的，等你验收。'),
-    ]);
-    await say(t, '打开 task 136');
+  const taskArrived = <String, Object?>{
+    'route': '/s/s1/task/136',
+    'title': '#136 重构第 10 步',
+    'matched': {'kind': 'task', 'id': '#136', 'score': 1.0},
+    'page': {
+      'page': 'task',
+      'task': {
+        'number': 136,
+        'title': '重构第 10 步',
+        'status': 'in_review',
+        'assignee': 'Cody',
+      },
+    },
+  };
 
+  Map<String, Object?> channelArrived({num score = 1.0, bool needs = true}) => {
+    'route': '/s/s1/channel/ch-general',
+    'title': '#general',
+    'matched': {'kind': 'channel', 'id': 'ch-general', 'score': score},
+    'briefing': {
+      'scope': 'conversation:ch-general',
+      'needsYou': [
+        if (needs)
+          {
+            'id': 'x',
+            'who': 'Cody',
+            'title': 'Cody 问你：周五上线可以吗？',
+            'since': '已等 5 分钟',
+          },
+      ],
+    },
+  };
+
+  orbTest('"打开 task 136" is the app\'s own: navigate, and the task in a '
+      'sentence, no model call', (t) async {
+    await say(t, '打开 task 136');
+    expect(gemini.requests, isEmpty);
     expect(navigated, [
       {'task_number': 136},
     ]);
-    expect(gemini.requests, hasLength(3));
-    final note = jsonEncode((gemini.requests.last['contents'] as List).last);
-    expect(note, contains('打开 task 136'));
-    expect(note, contains('已经替你调用 navigate'));
-    expect(agentLines(), ['到了任务 136，Cody 做的，等你验收。']);
-  }, tools: [navigateStub()]);
+    expect(agentLines(), ['任务 #136「重构第 10 步」，等验收，Cody 负责。']);
+    expect(orb().fastPath, 'open');
+  }, tools: [navigateStub(taskArrived)]);
 
-  orbTest('"打开 task 136": when the model navigates itself, the app does '
-      'nothing more', (t) async {
-    gemini.replies.addAll([
-      _call('navigate', {'task_number': 136}),
-      _say('到了任务 136。'),
+  orbTest('"去 general": arrival and what needs the user, or nothing', (
+    t,
+  ) async {
+    await say(t, '去 general');
+    expect(gemini.requests, isEmpty);
+    expect(navigated, [
+      {'channel_id': 'ch-general'},
     ]);
-    await say(t, '打开 task 136');
-    expect(navigated, hasLength(1));
-    expect(gemini.requests, hasLength(2));
+    expect(
+      agentLines().single,
+      '到了#general。有 1 件事在等你：Cody 问你：周五上线可以吗，已等 5 分钟。',
+    );
+  }, tools: [navigateStub(channelArrived())]);
+
+  orbTest('arrival with nothing for the user says so', (t) async {
+    await say(t, '去 general');
+    expect(agentLines().single, '到了#general。没有要你处理的。');
+  }, tools: [navigateStub(channelArrived(needs: false))]);
+
+  orbTest(
+    'an arrival that is not clear is the model\'s',
+    (t) async {
+      gemini.replies.add(_say('这个频道还在加载。'));
+      await say(t, '去 general');
+      // The app went; it had no sentence for it; the model answers.
+      expect(navigated, hasLength(1));
+      expect(gemini.requests, hasLength(1));
+      expect(agentLines(), ['这个频道还在加载。']);
+    },
+    tools: [
+      navigateStub({'title': '#general', 'briefingNote': '没读出来'}),
+    ],
+  );
+
+  orbTest('the model navigates for a plain "go": the arrival is told from '
+      'what was brought, no second call', (t) async {
+    gemini.replies.add(_call('navigate', {'channel_id': 'ch-general'}));
+    await say(t, '我想看看 general');
+    expect(gemini.requests, hasLength(1));
+    expect(
+      agentLines().single,
+      '到了#general。有 1 件事在等你：Cody 问你：周五上线可以吗，已等 5 分钟。',
+    );
+  }, tools: [navigateStub(channelArrived())]);
+
+  orbTest('but not when the place is a guess, or a question was asked', (
+    t,
+  ) async {
+    gemini.replies.addAll([
+      _call('navigate', {'target': 'genral'}),
+      _say('是 general 吗？'),
+      _call('navigate', {'channel_id': 'ch-general'}),
+      _say('Cody 问周五上线。'),
+    ]);
+    // A fuzzy match: the model may ask.
+    navigateResult = channelArrived(score: .8);
+    await say(t, '我想看看 genral');
+    expect(agentLines().last, '是 general 吗？');
+    // A question beside the order.
+    navigateResult = channelArrived();
+    await say(t, '我想看看 general 有什么新的');
+    expect(agentLines().last, startsWith('Cody 问周五上线。'));
+    expect(gemini.requests, hasLength(4));
   }, tools: [navigateStub()]);
 
   orbTest(
@@ -551,22 +632,25 @@ void main() {
       expect(f.world.sent, hasLength(1));
       expect(agentLines().last, '已催 Cody。还有 1 个，说“下一个”继续。');
 
+      // "下一个" is the app's own: the next task, and the plain action for it.
+      final before = gemini.requests.length;
+      await say(t, '下一个');
+      expect(gemini.requests, hasLength(before), reason: 'no model call');
+      expect(agentLines().last, startsWith('第 2 个任务：#13「戊」'));
+      expect(orb().fastPath, 'next');
+
       // The model is told where the pass is, and has next_task.
       gemini.replies.add(_say('嗯'));
-      await say(t, '下一个');
+      await say(t, '这是什么');
       final last = gemini.requests.last;
       final system =
           ((last['systemInstruction'] as Map)['parts'] as List).single['text']
               as String;
       expect(system, contains('【任务队列】'));
-      expect(system, contains('#12「丁」'));
+      expect(system, contains('#13「戊」'));
       expect(system, contains('next_task'));
       expect(system, contains('【逐个处理任务】'));
 
-      final next = await orb().dispatch('next_task', const {});
-      expect(next['done'], isFalse);
-      expect((next['current'] as Map)['number'], 13);
-      expect(next['index'], 2);
       final done = await orb().dispatch('next_task', const {});
       expect(done['done'], isTrue);
       await orb().setDriving(false);
@@ -663,6 +747,89 @@ void main() {
       ),
     ],
   );
+
+  group('commands the app does without the model', () {
+    OrbBriefItem item(String who, String title) => OrbBriefItem(
+      id: 'msg:$who',
+      title: title,
+      who: who,
+      where: '#general',
+      since: '已等 5 分钟',
+      link: '/s/s1/channel/ch-general',
+      sourceIds: const [],
+      reason: OrbReason.mentionAsk,
+      why: '点名你',
+    );
+
+    Future<void> cards(WidgetTester t) async {
+      orb().showBriefing(
+        OrbBriefing(
+          scope: OrbBriefScope.activity,
+          overview: '',
+          needsYou: [
+            item('Cody', 'Cody 问你：上线吗？'),
+            item('Alice', 'Alice 问你：开会吗？'),
+          ],
+          progress: const [],
+          routineCount: 3,
+        ),
+      );
+      await orb().setDriving(true);
+      await t.pump(const Duration(milliseconds: 300));
+    }
+
+    orbTest('下一件, 上一件 and the end of the cards: no model call', (t) async {
+      await cards(t);
+      await say(t, '下一件');
+      expect(agentLines().last, '第 2 件，共 2 件：Alice 问你：开会吗，已等 5 分钟。');
+      expect(orb().fastPath, 'next');
+      expect(orb().drivingIndex, 1);
+      await say(t, '上一件');
+      expect(agentLines().last, '第 1 件，共 2 件：Cody 问你：上线吗，已等 5 分钟。');
+      expect(orb().drivingIndex, 0);
+      await say(t, '下一件');
+      await say(t, '下一件');
+      expect(agentLines().last, '就这些。其余 3 条是常规进度。');
+      expect(orb().drivingDone, isTrue);
+      expect(gemini.requests, isEmpty);
+    });
+
+    orbTest('停车了 leaves driving mode; 开始驾驶模式 enters it', (t) async {
+      await cards(t);
+      await say(t, '停车了');
+      expect(agentLines().last, '好，退出驾驶模式。');
+      expect(orb().driving, isFalse);
+      expect(orb().fastPath, 'park');
+      await say(t, '开始驾驶模式');
+      expect(agentLines().last, '好，驾驶模式。');
+      expect(orb().driving, isTrue);
+      expect(gemini.requests, isEmpty);
+    });
+
+    orbTest('anything else is the model\'s, and clears the mark', (t) async {
+      await cards(t);
+      await say(t, '下一件');
+      expect(orb().fastPath, 'next');
+      gemini.replies.add(_say('第二件是 Alice 问开会。'));
+      await say(t, '这一件是谁的');
+      expect(orb().fastPath, isNull);
+      expect(gemini.requests, hasLength(1));
+    });
+
+    orbTest('not while a card waits for the user\'s answer', (t) async {
+      toCody();
+      await cards(t);
+      gemini.replies.addAll([
+        _call('reply', {'text': '可以'}),
+        _say('在'),
+      ]);
+      await say(t, '回他可以');
+      expect(orb().actions.pending, isNotNull);
+      await say(t, '下一件');
+      expect(orb().fastPath, isNull);
+      expect(gemini.requests, hasLength(2));
+    });
+  });
 
   group('what the agent is told before each ask', () {
     OrbBriefItem item(String who, String title, String since) => OrbBriefItem(

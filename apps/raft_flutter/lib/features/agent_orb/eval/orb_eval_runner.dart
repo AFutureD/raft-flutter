@@ -508,6 +508,8 @@ class OrbEvalRunner {
     final error = await outcome;
     // Text sent to the end of the model's turn (the settling is not in it).
     turn.millis = math.max(1, watch.elapsedMilliseconds);
+    turn.fastPath = orb.fastPath;
+    orb.fastPath = null;
     return _finish(orb, world, turn, error);
   }
 
@@ -537,6 +539,7 @@ class OrbEvalRunner {
     if (error != null) turn.failure = error;
     // Late transcript words and the screen's last frames.
     await Future<void>.delayed(settle);
+    turn.liveFiller = orbEvalLiveFiller(turn);
     turn.writesAfter = world.writes
         .where((w) => !orbEvalIsBenignWrite(w))
         .length;

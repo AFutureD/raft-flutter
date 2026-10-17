@@ -131,6 +131,10 @@ String orbEvalMarkdown(OrbEvalReport report) {
             '（${(a.millis / 1000).toStringAsFixed(1)}s）',
           );
         }
+        if (t.fastPath != null) {
+          b.writeln('  - 快速通道（没有调用模型）：${t.fastPath}');
+        }
+        if (t.liveFiller) b.writeln('  - Live 说了垫话（和 say 不像）');
         b.writeln(
           '  - ${t.asks.isEmpty ? 'Agent' : 'Live 说'}：'
           '${t.text.isEmpty ? '（没有说话）' : t.text}'
