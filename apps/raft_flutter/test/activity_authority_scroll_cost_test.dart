@@ -110,8 +110,9 @@ void main() {
         ),
       );
       for (var i = 0; i < 50; i++) {
-        if (!(tester.state(find.byType(ResourceView)) as dynamic).loading)
+        if (!(tester.state(find.byType(ResourceView)) as dynamic).loading) {
           break;
+        }
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 1)),
         );
