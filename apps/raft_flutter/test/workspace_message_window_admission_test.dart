@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_message_windows.dart';
+import 'package:raft_flutter/data/thread_window_snapshot.dart';
 
 Map<String, dynamic> row(String id) => {
   'id': id,
@@ -26,6 +27,10 @@ void main() {
   tearDown(() => workspace.dispose());
 
   void attempt(MessageWindowRequest ticket) {
+    windows.acceptThreadPage(
+      ticket, 'alpha', {'messages': [row('late')]},
+      focused: false, retainOlder: true, retainedHasMore: false,
+    );
     windows.acceptRows(ticket, 'alpha', [row('late')], replace: true);
     windows.rememberWindow(
       ticket,

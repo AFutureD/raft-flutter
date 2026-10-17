@@ -342,17 +342,26 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
     return true;
   }
 
-  Future<V?> scopedDialog<V>(Widget Function(BuildContext) builder) =>
-      _scopedRoute<V>(builder, raft: false);
+  /// [form] opens a form with inputs as a bottom sheet on a phone and a
+  /// dialog from 768 (`RaftPresentationPolicy.form`); otherwise a dialog.
+  Future<V?> scopedDialog<V>(
+    Widget Function(BuildContext) builder, {
+    bool form = false,
+  }) => _scopedRoute<V>(builder, raft: false, form: form);
 
   /// [scopedDialog] on the Web `Modal` layer ([showRaftModal]) for product
   /// dialogs that paint their own backdrop.
-  Future<V?> scopedRaftModal<V>(Widget Function(BuildContext) builder) =>
-      _scopedRoute<V>(builder, raft: true);
+  ///
+  /// [form]: a form with inputs, shown as a bottom sheet on a phone.
+  Future<V?> scopedRaftModal<V>(
+    Widget Function(BuildContext) builder, {
+    bool form = false,
+  }) => _scopedRoute<V>(builder, raft: true, form: form);
 
   Future<V?> _scopedRoute<V>(
     Widget Function(BuildContext) builder, {
     required bool raft,
+    required bool form,
   }) async {
     final sourceAuthority = _operationAuthority ?? authority;
     if (!mounted || sourceAuthority != authority) return null;
@@ -381,6 +390,11 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
         return builder(context);
       }
 
+      if (form) {
+        // Esc, Back, a scrim press, a drag and the X ask; a changed form asks
+        // before it discards.
+        return await showRaftForm<V>(context, builder: scoped);
+      }
       return await (raft
           ? showRaftModal<V>(context, builder: scoped)
           : showRaftDialog<V>(
@@ -412,6 +426,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
   }) async {
     final generation = w.client.generation, sourceAuthority = authority;
     return await scopedDialog<bool>(
+          form: fields.isNotEmpty,
           (dialogContext) => RaftFormDialog(
             title: title,
             fields: fields,

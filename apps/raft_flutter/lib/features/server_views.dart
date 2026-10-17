@@ -20,9 +20,8 @@ class WorkspaceActions {
     BuildContext context,
     WorkspaceController w,
   ) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
+    await showRaftForm<void>(
+      context,
       builder: (_) => RaftFormDialog(
         title: 'Create workspace',
         submitLabel: 'Create',
@@ -53,9 +52,8 @@ class WorkspaceActions {
   /// Join workspace: paste an invite link or code; the invite page (the Web
   /// InviteAcceptPage) then shows the invitation and joins.
   static Future<void> join(BuildContext context, WorkspaceController w) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
+    await showRaftForm<void>(
+      context,
       builder: (dialogContext) => RaftFormDialog(
         title: 'Join workspace',
         submitLabel: 'Review invitation',
@@ -88,9 +86,8 @@ class WorkspaceActions {
   }) async {
     final server = w.server;
     if (server == null) return;
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
+    await showRaftForm<void>(
+      context,
       builder: (_) => RaftFormDialog(
         title: delete ? 'Delete workspace?' : 'Leave workspace?',
         description: delete
@@ -120,7 +117,7 @@ class WorkspaceActions {
         destructive: delete,
         onSubmit: (_) async {
           await w.client.exitServer(server.id, delete: delete);
-          w.revokeServer(server.id);
+          w.sessionScope.revokeServer(server.id);
           await w.recoverMembership();
         },
       ),
@@ -304,7 +301,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
     final server = w.server;
     if (server == null) return;
     await w.client.exitServer(server.id, delete: delete);
-    w.revokeServer(server.id);
+    w.sessionScope.revokeServer(server.id);
     await w.recoverMembership();
   }
 
@@ -561,11 +558,11 @@ class _MembersViewState extends State<MembersView> {
   // opens with it and the read below revalidates in place.
   late List<Map<String, dynamic>> members = [
     if (w.server != null && w.client.user != null)
-      ...w.entityDirectory.rows(WorkspaceEntityKind.members),
+      ...w.services.entityDirectory.rows(WorkspaceEntityKind.members),
   ];
   late bool loading =
       members.isEmpty &&
-      !w.entityDirectory.state(WorkspaceEntityKind.members).loaded;
+      !w.services.entityDirectory.state(WorkspaceEntityKind.members).loaded;
   // ignore: raft_lints/avoid_imperative_notice_state -- Members load/profile error clears on the next successful load or Retry; the page is disposed on navigation.
   String? error;
   StreamSubscription<RaftEvent>? events;
@@ -616,7 +613,7 @@ class _MembersViewState extends State<MembersView> {
       // the profile read fills the detail fields in place.
       final profile = ValueNotifier<Map<String, dynamic>>({
         ...member,
-        ...?w.entityDirectory.member(userId),
+        ...?w.services.entityDirectory.member(userId),
       });
       final owner = w;
       unawaited(

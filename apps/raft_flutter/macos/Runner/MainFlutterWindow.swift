@@ -6,6 +6,7 @@ import ImageIO
 
 class MainFlutterWindow: NSWindow, RaftPreferencesWindow {
   private var interactionChannel: FlutterMethodChannel?
+  private var memoryChannel: FlutterMethodChannel?
   private var titleBar: RaftTitleBar?
   private var proxyChannel: FlutterMethodChannel?
   private var windowChannel: FlutterMethodChannel?
@@ -56,6 +57,24 @@ class MainFlutterWindow: NSWindow, RaftPreferencesWindow {
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
+
+    memoryChannel = FlutterMethodChannel(
+      name: "app.raft/device-memory", binaryMessenger: flutterViewController.engine.binaryMessenger)
+    memoryChannel?.setMethodCallHandler { call, result in
+      if call.method == "snapshot" {
+        result(["totalBytes": Int64(ProcessInfo.processInfo.physicalMemory)])
+      } else if call.method == "availableStorageBytes",
+        let args = call.arguments as? [String: Any], let path = args["path"] as? String {
+        do {
+          let values = try FileManager.default.attributesOfFileSystem(forPath: path)
+          result((values[.systemFreeSize] as? NSNumber)?.int64Value)
+        } catch {
+          result(FlutterError(code: "storage_unavailable", message: "Available storage could not be read.", details: nil))
+        }
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+    }
 
     interactionChannel = FlutterMethodChannel(
       name: "app.raft/interaction",

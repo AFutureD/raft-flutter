@@ -460,7 +460,7 @@ void main() {
     s.enabled = false;
     s.notifyListeners();
     await t.pump();
-    expect(find.text('未开启'), findsOneWidget);
+    expect(find.text('未启用'), findsOneWidget);
     expect(find.text('开启通知'), findsOneWidget);
   });
   testWidgets('phone: unavailable disables the action and says why', (t) async {

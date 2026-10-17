@@ -4,10 +4,17 @@ import contextlib
 import copy
 import io
 import json
+import os
 from pathlib import Path
+import signal
+import select
+import shutil
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('lab', ROOT / 'tool/performance/lab.py')
@@ -25,6 +32,268 @@ def frames(ui_ms, raster_ms=2.0, period=16667, start=1_000_000):
 def record(scenario='steady-scroll', ui=(2, 3, 4), **extra):
     return {'theme': 'brutal-light', 'scenario': scenario, 'kind': 'continuous', 'displayRefreshRate': 60.0,
             'viewWidth': 1000, 'viewHeight': 700, 'frames': frames(ui), **extra}
+
+
+class DetectionTest(unittest.TestCase):
+    def observed(self, scene='steady-scroll', ui=(2, 3, 4), **extra):
+        value = record(scene, ui=ui, profile=True, phasesCollected=False,
+                       detection={'arrival': {'arrived': True, 'visibleKeys': ['message-fixture']},
+                                  'framePolicy': 'benchmarkLive', 'testerPumpsDuringAction': 0,
+                                  'bindingAutoFramesSuppressed': True,
+                                  'cpuSamplingEnabled': False, 'phaseProfilingEnabled': False,
+                                  'renderSurfaceWidth': 1000, 'renderSurfaceHeight': 700,
+                                  'nativeWindowWidth': 1000, 'nativeWindowHeight': 700,
+                                  'rebuilds': {'instancesCollected': False, 'timelineRowBuilds': 0}})
+        value.update(extra)
+        for index, frame in enumerate(value['frames']):
+            frame['n'] = index + 1
+        return value
+
+    def test_actual_refresh_rate_and_separate_pipeline_budgets(self):
+        r = self.observed(ui=(9,), displayRefreshRate=120)
+        result = lab.detect_record(r)
+        self.assertEqual(result['status'], 'REVIEW')
+        self.assertEqual(result['findings'][0]['frameId'], 1)
+        self.assertAlmostEqual(result['checks']['frame-budget']['budgetUs'], 1e6 / 120)
+        r = self.observed(ui=(12,))
+        r['frames'][0]['r'] = 12000  # 12+12 is not a 24 ms pipeline budget.
+        self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'PASS')
+
+    def test_uit_does_not_replace_the_raw_ui_duration(self):
+        r = self.observed(ui=(2,))
+        r['frames'][0]['uit'] = 200000
+        self.assertFalse(lab.detect_record(r)['findings'])
+
+    def test_all_slow_frames_including_cold_first_are_retained(self):
+        r = self.observed('open-cold', ui=(60, 20, 20, 3))
+        r['detection']['actions'] = [{'name': 'open-alpha', 'startUs': 1_000_000, 'endUs': 2_000_000}]
+        out = lab.detect_record(r, evidence=['raw.json'])
+        self.assertEqual([f['frameId'] for f in out['findings']], [1, 2, 3])
+        self.assertEqual(out['findings'][0]['observed']['action'], 'open-alpha')
+        self.assertEqual(out['findings'][2]['observed']['priority'], 'high')
+        self.assertIsNone(out['findings'][0]['cause'])  # First-use delay is not shader proof.
+        self.assertEqual(out['findings'][0]['evidence'], ['raw.json'])
+
+    def test_missing_arrival_cannot_pass_even_with_fast_frames(self):
+        r = self.observed()
+        r['detection'].pop('arrival')
+        self.assertEqual(lab.detect_record(r)['status'], 'NOT_RUN')
+
+    def test_missing_arrival_keeps_slow_frame_in_table_and_heading(self):
+        r = self.observed(ui=(25,))
+        r['detection'].pop('arrival')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'brutal-light-steady-scroll.json').write_text(json.dumps(r))
+            out = lab.detection_report(root, ['steady-scroll'], ['brutal-light'])
+            row = out['scenarios'][0]
+            self.assertEqual(row['status'], 'NOT_RUN')
+            self.assertEqual(row['statuses'], ['NOT_RUN', 'REVIEW'])
+            text = (root / 'detection.md').read_text()
+            self.assertIn('| steady-scroll | brutal-light | NOT_RUN + REVIEW |', text)
+            self.assertIn('## brutal-light / steady-scroll — NOT_RUN + REVIEW', text)
+
+    def test_a_started_failure_is_an_issue(self):
+        self.assertEqual(lab.detect_record(self.observed(failure='Target never appeared'))['status'], 'ISSUE')
+
+    def test_visible_target_does_not_hide_rejected_live_operation(self):
+        r = self.observed('nav-activity-item')
+        r['detection']['operationFailures'] = ['agentRevalidation was not accepted']
+        self.assertEqual(lab.detect_record(r)['status'], 'ISSUE')
+
+    def test_invalid_refresh_rate_or_raw_frame_is_not_defaulted(self):
+        for hz in (None, 0, float('nan'), True):
+            with self.subTest(hz=hz):
+                r = self.observed(displayRefreshRate=hz)
+                self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'NOT_RUN')
+                self.assertEqual(lab.detect_record(r)['status'], 'NOT_RUN')
+        r = self.observed()
+        del r['frames'][0]['ui']
+        self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'NOT_RUN')
+
+    def test_detailed_trace_has_no_timing_pass(self):
+        r = self.observed(ui=(25,), phasesCollected=True)
+        out = lab.detect_record(r)
+        self.assertEqual(out['checks']['frame-budget']['status'], 'REVIEW')
+        self.assertFalse(out['findings'][0]['observed']['timingVerdictAllowed'])
+        self.assertEqual(out['findings'][0]['signal'], 'instrumented-frame')
+
+    def test_cpu_sampling_and_hidden_phase_profiling_disable_timing_verdict(self):
+        for signal in ('cpuSamplingEnabled', 'phaseProfilingEnabled'):
+            r = self.observed(ui=(25,))
+            r['detection'][signal] = True
+            out = lab.detect_record(r)
+            self.assertEqual(out['checks']['frame-budget']['status'], 'REVIEW')
+            self.assertFalse(out['findings'][0]['observed']['timingVerdictAllowed'])
+            del r['detection'][signal]
+            self.assertEqual(lab.detect_record(r)['checks']['frame-budget']['status'], 'REVIEW')
+
+    def test_simulated_phone_size_cannot_certify_native_frame_budget(self):
+        for ui in ((2,), (25,)):
+            r = self.observed(ui=ui)
+            r['detection'].update(renderSurfaceWidth=390, renderSurfaceHeight=640)
+            out = lab.detect_record(r)
+            self.assertEqual(out['checks']['render-surface']['status'], 'REVIEW')
+            self.assertEqual(out['checks']['frame-budget']['status'], 'REVIEW')
+            self.assertFalse(any(f['observed'].get('timingVerdictAllowed') for f in out['findings']))
+
+    def test_unknown_or_invalid_native_size_cannot_pass(self):
+        for size in (None, 0, True, float('nan'), float('inf')):
+            r = self.observed()
+            r['detection']['nativeWindowWidth'] = size
+            out = lab.detect_record(r)
+            self.assertEqual(out['checks']['render-surface']['status'], 'REVIEW')
+            self.assertEqual(out['status'], 'REVIEW')
+
+    def idle_record(self, **extra):
+        r = self.observed('idle-final', ui=(2, 2, 2), kind='idle', idleSeconds=10, **extra)
+        r['frames'] = frames((2, 2, 2), period=600000)
+        return r
+
+    def test_healthy_natural_idle_without_frames_is_observed(self):
+        r = self.idle_record()
+        r['frames'] = []
+        out = lab.detect_record(r)
+        self.assertEqual(out['checks']['idle-work']['status'], 'PASS')
+        self.assertEqual(out['checks']['frame-budget']['frames'], 0)
+        self.assertEqual(out['checks']['unrelated-rebuild']['status'], 'NOT_RUN')
+
+    def test_fully_live_and_benchmark_are_not_idle_proof(self):
+        for policy in ('fullyLive', 'benchmark'):
+            r = self.idle_record()
+            r['detection']['framePolicy'] = policy
+            self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'NOT_RUN')
+        r['detection'].update(framePolicy='benchmarkLive', testerPumpsDuringAction=1)
+        self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'NOT_RUN')
+        r['detection'].update(testerPumpsDuringAction=0, bindingAutoFramesSuppressed=False)
+        self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'NOT_RUN')
+
+    def test_continuous_idle_frames_need_replay_until_fixture_cause_known(self):
+        r = self.idle_record()
+        out = lab.detect_record(r)
+        self.assertEqual(out['checks']['idle-work']['status'], 'REVIEW')
+        self.assertIsNone(out['findings'][0]['component'])
+        r['detection']['control'] = 'unexpected-ticker'
+        out = lab.detect_record(r)
+        self.assertEqual(out['status'], 'ISSUE')
+        self.assertEqual(out['findings'][0]['component'], '_DetectionTicker')
+
+    def test_allowed_animation_is_not_an_idle_paint_storm(self):
+        r = self.idle_record()
+        r['detection']['allowedActivity'] = ['fixture animation']
+        self.assertEqual(lab.detect_record(r)['checks']['idle-work']['status'], 'PASS')
+        self.assertFalse(lab.detect_record(r)['findings'])
+
+    def test_aggregate_build_count_is_never_instance_proof(self):
+        r = self.idle_record()
+        r['frames'] = []
+        r['detection']['rebuilds']['timelineRowBuilds'] = 7
+        out = lab.detect_record(r)
+        self.assertEqual(out['status'], 'REVIEW')
+        self.assertEqual(out['checks']['unrelated-rebuild']['status'], 'NOT_RUN')
+        self.assertEqual(out['findings'][0]['signal'], 'idle-row-builds')
+
+    def test_reused_debug_instance_counter_requires_specific_scope_evidence(self):
+        r = self.observed()
+        r['detection']['rebuilds'] = {'instancesCollected': True, 'instances': [
+            {'component': 'message-unchanged@12', 'unexpected': True, 'rebuilds': 3}]}
+        out = lab.detect_record(r)
+        self.assertEqual(out['status'], 'ISSUE')
+        self.assertEqual(out['findings'][0]['occurrences'], 3)
+
+    def test_report_preserves_missing_scenes_and_writes_full_findings(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-open-cold.json').write_text(json.dumps(self.observed('open-cold', ui=(30,))))
+            out = lab.detection_report(root, ['open-cold', 'keyboard'], ['brutal-light'])
+            self.assertEqual(out['scenarios'][0]['status'], 'REVIEW')
+            self.assertEqual(out['scenarios'][1]['status'], 'NOT_RUN')
+            self.assertFalse(out['comparison'])
+            self.assertIn('video-play-pause', (root / 'detection.md').read_text())
+            self.assertEqual(json.loads((root / 'detection.json').read_text())['scenarios'][0]['findings'][0]['frameId'], 1)
+
+    def test_detection_runs_one_launch_without_quiet_wait_comparison_or_qualification(self):
+        with tempfile.TemporaryDirectory() as d:
+            args = argparse.Namespace(out=Path(d) / 'new', scenarios='keyboard', themes='brutal-light',
+                seconds=8, semantics='platform', details=False, headless=True, records=None)
+            with patch.object(lab, 'build', return_value=0) as build, patch.object(lab, 'run', return_value=0) as run, \
+                 patch.object(lab, 'compare_cmd') as compare, patch.object(lab, 'qualify_cmd') as qualify, \
+                 patch.object(lab.platform, 'system', return_value='Linux'), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.detect_cmd(args), 0)
+            self.assertEqual(build.call_count, 1)
+            self.assertEqual(run.call_count, 1)
+            invocation = run.call_args.args[0]
+            self.assertEqual(invocation.wait_quiet, 0)
+            self.assertIsNone(invocation.reference)
+            self.assertTrue(invocation.no_trace)
+            self.assertTrue(invocation.detection)
+            self.assertEqual(lab.workload_defines(lab.workload_config(invocation))['RAFT_LAB_IDLE_SECONDS'], '10')
+            compare.assert_not_called()
+            qualify.assert_not_called()
+
+    def test_unreadable_raw_record_is_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-keyboard.json').write_text('{unfinished')
+            out = lab.detection_report(root, ['keyboard'], ['brutal-light'])
+            self.assertEqual(out['scenarios'][0]['status'], 'NOT_RUN')
+
+    def test_valid_json_with_wrong_record_shape_is_not_a_pass(self):
+        for record in ([], {'detection': []}):
+            with self.subTest(record=record), tempfile.TemporaryDirectory() as d:
+                root = Path(d)
+                (root / 'brutal-light-keyboard.json').write_text(json.dumps(record))
+                out = lab.detection_report(root, ['keyboard'], ['brutal-light'])
+                self.assertEqual(out['scenarios'][0]['status'], 'NOT_RUN')
+
+    def test_suite_failure_and_sampler_error_survive_fast_scene_results(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-open-cold.json').write_text(json.dumps(self.observed('open-cold')))
+            (root / 'lab-done.json').write_text(json.dumps({'failures': ['Initial target did not appear']}))
+            (root / 'lab-sampler-errors.txt').write_text('start: failed\n')
+            out = lab.detection_report(root, ['open-cold'], ['brutal-light'])
+            issue = next(row for row in out['scenarios'] if row['scene'] == 'collection')
+            self.assertEqual(issue['status'], 'ISSUE')
+            self.assertIn('Initial target', issue['reason'])
+            self.assertIn('Sampler failed', issue['reason'])
+
+    def test_runtime_cleanup_only_unmounts_the_owned_session(self):
+        with tempfile.TemporaryDirectory(prefix='raft-detect-', dir='/tmp') as d:
+            root = Path(d)
+            (root / 'gvfs').mkdir()
+            mountinfo = f'1 0 0:1 / {root}/gvfs rw - fuse.gvfsd-fuse gvfsd-fuse rw\n'
+            mountinfo += '2 0 0:2 / /run/user/1000/gvfs rw - fuse.gvfsd-fuse gvfsd-fuse rw\n'
+            with patch.object(lab.Path, 'read_text', return_value=mountinfo), \
+                 patch.object(lab.subprocess, 'run', return_value=argparse.Namespace(returncode=0, stderr='')) as unmount:
+                result = lab.cleanup_private_runtime(root)
+            self.assertTrue(result['removed'])
+            self.assertEqual(unmount.call_args.args[0], ['fusermount3', '-u', '-z', '--', str(root / 'gvfs')])
+            self.assertEqual(unmount.call_count, 1)
+
+    def test_runtime_cleanup_rejects_unowned_paths_and_symlinks(self):
+        with self.assertRaises(ValueError):
+            lab.cleanup_private_runtime('/run/user/1000')
+        with tempfile.TemporaryDirectory(prefix='raft-detect-', dir='/tmp') as d:
+            link = Path(d + '-link')
+            try:
+                link.symlink_to(d)
+                with self.assertRaises(ValueError):
+                    lab.cleanup_private_runtime(link)
+                self.assertTrue(Path(d).is_dir())
+            finally:
+                link.unlink()
+
+    def test_engine_errors_are_reported_even_when_frame_checks_pass(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'brutal-light-open-cold.json').write_text(json.dumps(self.observed('open-cold')))
+            (root / 'runner.log').write_text('[ERROR:flutter/text.cc(200)] atlas failure\n' * 2)
+            out = lab.detection_report(root, ['open-cold'], ['brutal-light'])
+            row = next(row for row in out['scenarios'] if row['scene'] == 'collection-renderer')
+            self.assertEqual(row['status'], 'ISSUE')
+            self.assertEqual(row['findings'][0]['occurrences'], 2)
+            self.assertIsNone(row['findings'][0]['cause'])
 
 
 class SummaryTest(unittest.TestCase):
@@ -556,6 +825,219 @@ class AndroidRunSafetyTest(unittest.TestCase):
             env = json.loads((output / 'env.json').read_text())
             self.assertEqual(env['exitCode'], 1)
             self.assertIn('protectedAppError', env)
+
+
+_MANAGED_LIFETIME_SCRIPT = """
+import json,os,signal,subprocess,sys,time
+child = subprocess.Popen([sys.executable, '-c',
+    'import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'],
+    start_new_session=sys.argv[2].startswith('detached'),
+    env={k:v for k,v in os.environ.items() if k != 'RAFT_LAB_PROCESS_OWNER'}
+        if sys.argv[2].startswith('sanitized') else None)
+time.sleep(.1)
+# The consumer treats existence as readiness, including on normal leader exit.
+# Publish only after close, on the same filesystem, so no partial JSON is visible.
+pending = sys.argv[1] + '.partial'
+with open(pending, 'w') as stream:
+    json.dump({'leader': os.getpid(), 'child': child.pid, 'group': os.getpgrp()}, stream)
+os.replace(pending, sys.argv[1])
+if sys.argv[2].endswith('interrupt'): time.sleep(60)
+"""
+
+
+@unittest.skipUnless(os.name == 'posix', 'POSIX process lifecycle fixture')
+class DetectionReadinessPublicationTest(unittest.TestCase):
+    def test_partial_identity_is_not_published_as_ready(self):
+        # Pause the exact native fixture midway through json.dump. Readiness
+        # must remain absent until a whole identity can be consumed, regardless
+        # of host load or whether the managed leader is about to exit.
+        held_writer = """
+import json,os,sys
+_real_dump = json.dump
+def held_dump(identity, stream):
+    stream.write('{"leader":')
+    stream.flush()
+    os.write(int(sys.argv[3]), (str(identity['child']) + '\\n').encode())
+    os.read(int(sys.argv[4]), 1)
+    stream.seek(0)
+    stream.truncate()
+    _real_dump(identity, stream)
+json.dump = held_dump
+"""
+        for mode in ('interrupt', 'normal', 'detached-interrupt', 'detached-normal',
+                     'sanitized-interrupt', 'sanitized-normal'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                state = Path(directory) / 'state.json'
+                ready_read, ready_write = os.pipe()
+                release_read, release_write = os.pipe()
+                process = None
+                child = None
+                released = False
+                try:
+                    process = subprocess.Popen([sys.executable, '-c',
+                        held_writer + _MANAGED_LIFETIME_SCRIPT,
+                        str(state), mode, str(ready_write), str(release_read)],
+                        pass_fds=(ready_write, release_read), start_new_session=True,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    os.close(ready_write)
+                    ready_write = None
+                    os.close(release_read)
+                    release_read = None
+                    self.assertTrue(select.select([ready_read], [], [], 5)[0],
+                                    'managed fixture never reached the partial-write barrier')
+                    identity_bytes = os.read(ready_read, 128)
+                    self.assertTrue(identity_bytes.endswith(b'\n'), identity_bytes)
+                    child = int(identity_bytes)
+                    if state.exists():
+                        # On the old fixture this raises the same JSONDecodeError
+                        # as the full check, rather than hiding it with retries.
+                        json.loads(state.read_text())
+                    self.assertFalse(state.exists(), 'partial identity was published')
+                    os.write(release_write, b'1')
+                    released = True
+                    deadline = time.monotonic() + 5
+                    while not state.exists() and time.monotonic() < deadline:
+                        time.sleep(.01)
+                    self.assertTrue(state.exists(), 'complete identity was never published')
+                    identity = json.loads(state.read_text())
+                    self.assertEqual(identity, {
+                        'leader': process.pid, 'child': child, 'group': process.pid})
+                    if mode.endswith('normal'):
+                        self.assertEqual(process.wait(timeout=5), 0)
+                finally:
+                    if not released:
+                        with contextlib.suppress(BrokenPipeError):
+                            os.write(release_write, b'1')
+                    if process is not None:
+                        with contextlib.suppress(ProcessLookupError):
+                            os.killpg(process.pid, signal.SIGKILL)
+                        if child is not None:
+                            with contextlib.suppress(ProcessLookupError):
+                                os.kill(child, signal.SIGKILL)
+                        process.wait(timeout=5)
+                    for fd in (ready_read, ready_write, release_read, release_write):
+                        if fd is not None:
+                            os.close(fd)
+
+
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Linux private display sessions')
+class DetectionLifetimeTest(unittest.TestCase):
+    def test_collected_scope_disappearing_before_stop_is_checked_as_empty(self):
+        process = Mock(pid=123456, returncode=0)
+        process.wait.return_value = 0
+        process.poll.return_value = 0
+        shown = subprocess.CompletedProcess([], 0,
+            'LoadState=loaded\nActiveState=active\nControlGroup=/raft-detect-unit-test-absent\n')
+        gone = subprocess.CompletedProcess([], 1,
+            'LoadState=not-found\nActiveState=inactive\nControlGroup=\n')
+        receipts = []
+        with patch.object(lab.subprocess, 'Popen', return_value=process), \
+             patch.object(lab.subprocess, 'run', side_effect=[shown,
+                 subprocess.CompletedProcess([], 5, ''), gone]):
+            self.assertEqual(lab.run_owned_process(['true'], process_groups=receipts), 0)
+        self.assertEqual(receipts[0]['scopeStopExitCode'], 5)
+        self.assertTrue(receipts[0]['cleanupComplete'])
+        self.assertEqual(receipts[0]['cgroupPopulatedAfter'], '0')
+
+    def test_system_exit_after_runtime_creation_still_removes_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / '.fvmrc').write_text('{"flutter":"test"}')
+            bundle = root / 'bundle'
+            bundle.mkdir()
+            (bundle / 'raft_flutter').write_bytes(b'wrong application identity')
+            out = root / 'out'
+            args = argparse.Namespace(out=out, device='linux', flutter_args=[],
+                detection=True, headless=True, themes='brutal-light', scenarios='steady-scroll',
+                seconds=8, rounds=1, semantics='platform', no_trace=True)
+            manifest = {'buildReceipt': {'identitySuffix': '.unit_owned'}, 'artifact': {'path': str(bundle)}}
+            created = []
+            real_mkdtemp = tempfile.mkdtemp
+
+            def create(**kwargs):
+                value = real_mkdtemp(**kwargs)
+                created.append(Path(value))
+                return value
+
+            try:
+                with patch.object(lab, 'ROOT', root), patch.object(lab, 'flutter_guard'), \
+                     patch.object(lab, 'run_manifest', return_value=manifest), \
+                     patch.object(lab, 'environment', return_value={'loadavg': [0, 0, 0]}), \
+                     patch.dict(os.environ, {'RAFT_FLUTTER_BIN': sys.executable}), \
+                     patch.object(lab.tempfile, 'mkdtemp', side_effect=create):
+                    with self.assertRaisesRegex(SystemExit, 'native application identity'):
+                        lab.run(args)
+                self.assertEqual(len(created), 1)
+                self.assertFalse(created[0].exists())
+                receipt = json.loads((out / 'env.json').read_text())
+                self.assertTrue(receipt['privateRuntimeRemoved'])
+                self.assertNotEqual(receipt['exitCode'], 0)
+            finally:
+                for path in created:
+                    if path.exists():
+                        lab.cleanup_private_runtime(path)
+
+    def test_owned_group_cleanup_on_interrupt_and_normal_parent_exit(self):
+        if not shutil.which('systemd-run'):
+            self.skipTest('Linux user systemd is required for the native detection lifecycle test.')
+        manager = subprocess.run(['systemctl', '--user', 'show', '--property=Version'],
+            capture_output=True, timeout=5)
+        if manager.returncode:
+            self.skipTest('No reachable user systemd manager; native scope cleanup was not run.')
+        # A descendant ignores TERM. Cleanup must escalate for that same group
+        # while leaving a separately launched sentinel alive.
+        managed = _MANAGED_LIFETIME_SCRIPT
+        wrapper = """
+import importlib.util,os,subprocess,sys
+spec=importlib.util.spec_from_file_location('lab',sys.argv[1])
+lab=importlib.util.module_from_spec(spec);spec.loader.exec_module(lab)
+raise SystemExit(lab.run_owned_process([sys.executable,'-c',sys.argv[2],sys.argv[3],sys.argv[4]],
+    env={**os.environ,'RAFT_LAB_PROCESS_OWNER':sys.argv[3]},
+    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
+"""
+
+        def running(pid):
+            try:
+                stat = Path(f'/proc/{pid}/stat').read_text()
+                return stat[stat.rfind(')') + 2:].split()[0] != 'Z'
+            except FileNotFoundError:
+                return False
+
+        for mode in ('interrupt', 'normal', 'detached-interrupt', 'detached-normal',
+                     'sanitized-interrupt', 'sanitized-normal'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                state = Path(directory) / 'state.json'
+                sentinel = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+                wrapper_process = subprocess.Popen([sys.executable, '-c', wrapper,
+                    str(ROOT / 'tool/performance/lab.py'), managed, str(state), mode],
+                    start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                identity = None
+                try:
+                    deadline = time.monotonic() + 5
+                    while not state.exists() and wrapper_process.poll() is None and time.monotonic() < deadline:
+                        time.sleep(.02)
+                    self.assertTrue(state.exists(), wrapper_process.communicate(timeout=1)[1].decode()
+                                    if wrapper_process.poll() is not None else 'child did not become ready')
+                    identity = json.loads(state.read_text())
+                    self.assertEqual(identity['leader'], identity['group'])
+                    if mode.endswith('interrupt'):
+                        wrapper_process.send_signal(signal.SIGINT)
+                    wrapper_process.communicate(timeout=8)
+                    self.assertEqual(wrapper_process.returncode == 0, mode.endswith('normal'))
+                    self.assertIsNone(sentinel.poll())
+                    self.assertFalse(running(identity['leader']))
+                    self.assertFalse(running(identity['child']))
+                finally:
+                    if identity:
+                        with contextlib.suppress(ProcessLookupError):
+                            os.killpg(identity['group'], signal.SIGKILL)
+                        with contextlib.suppress(ProcessLookupError):
+                            os.kill(identity['child'], signal.SIGKILL)
+                    if wrapper_process.poll() is None:
+                        os.killpg(wrapper_process.pid, signal.SIGKILL)
+                    wrapper_process.communicate(timeout=3)
+                    sentinel.terminate()
+                    sentinel.wait(timeout=3)
 
 
 if __name__ == '__main__':

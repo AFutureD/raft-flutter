@@ -4,7 +4,16 @@ const _x = Affordance.x,
     _back = Affordance.back,
     _esc = Affordance.esc,
     _scrim = Affordance.scrim,
-    _sys = Affordance.systemBack;
+    _sys = Affordance.systemBack,
+    _drag = Affordance.drag;
+
+/// What every form window (RaftPresentationPolicy.form) says below 768.
+const _sheetOnPhone =
+    'Below 768 the form is a bottom sheet (RaftPresentationPolicy.form, '
+    'product-owner approved); from 768 the same centered dialog. X, Esc, Back, '
+    'a scrim press and (sheet) a drag down all ask the route to close, and a '
+    'form whose fields changed asks "Discard your changes?" first (an '
+    'unchanged form just closes); Cancel and Submit never ask';
 
 /// Dialogs, modals, alerts and confirmations.
 /// Web: components/Modal.tsx (Escape closes unless `closeOnEscape` is false;
@@ -13,6 +22,16 @@ const _x = Affordance.x,
 /// ConfirmDialog.tsx (X + Escape, `disablePointerDismissal`, every close
 /// gated on the in-flight confirm).
 const dialogSurfaces = <CloseSurface>[
+  CloseSurface(
+    'history-lower-limit-confirm',
+    kind: SurfaceKind.dialog,
+    web: 'Flutter-only history action; ConfirmDialog.tsx:138-165: X + Esc, no pointer dismissal',
+    phone: {_x, _esc, _sys},
+    fold: {_x, _esc, _sys},
+    desktop: {_x, _esc, _sys},
+    files: ['lib/features/message_history_settings.dart'],
+    status: 'no-web',
+  ),
   CloseSurface(
     'confirm-dialog',
     kind: SurfaceKind.dialog,
@@ -55,11 +74,14 @@ const dialogSurfaces = <CloseSurface>[
   CloseSurface(
     'sidebar-section-dialog',
     kind: SurfaceKind.dialog,
-    web: 'SidebarSectionDialog.tsx:30 Modal closeOnBackdrop: X + Esc + backdrop',
-    phone: {_x, _esc, _scrim, _sys},
+    web:
+        'SidebarSectionDialog.tsx:30 Modal closeOnBackdrop: X + Esc + backdrop',
+    phone: {_x, _esc, _scrim, _sys, _drag},
     fold: {_x, _esc, _scrim, _sys},
     desktop: {_x, _esc, _scrim, _sys},
     files: ['../../packages/raft_ui/lib/src/sidebar_section_dialog.dart'],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
   CloseSurface(
     'add-computer-dialog',
@@ -90,7 +112,8 @@ const dialogSurfaces = <CloseSurface>[
     phone: {_x, _esc, _scrim, _sys},
     none: {
       'fold': 'wide layouts show the hover / pinned popover (popover family)',
-      'desktop': 'wide layouts show the hover / pinned popover (popover family)',
+      'desktop':
+          'wide layouts show the hover / pinned popover (popover family)',
     },
     files: ['../../packages/raft_ui/lib/src/runtime_usage_card.dart'],
   ),
@@ -98,49 +121,57 @@ const dialogSurfaces = <CloseSurface>[
     'create-channel',
     kind: SurfaceKind.dialog,
     web: 'CreateChannelDialog.tsx:250 DialogCard: X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/create_channel_dialog.dart',
       '../../packages/raft_ui/lib/src/create_channel_view.dart',
     ],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
   CloseSurface(
     'create-task',
     kind: SurfaceKind.dialog,
     web: 'CreateTaskDialog.tsx:59 DialogCard: X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/create_task_dialog.dart',
       '../../packages/raft_ui/lib/src/create_task_view.dart',
     ],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
   CloseSurface(
     'create-joint-channel',
     kind: SurfaceKind.dialog,
     web: 'CreateJointChannelDialog.tsx:245 DialogCard: X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/create_joint_channel_dialog.dart',
       '../../packages/raft_ui/lib/src/joint_channel_dialog_view.dart',
     ],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
   CloseSurface(
     'invite-human',
     kind: SurfaceKind.dialog,
     web: 'InviteHumanDialog.tsx:352 DialogCard: X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/workspace_menu_invite.dart',
       '../../packages/raft_ui/lib/src/invite_human_dialog.dart',
     ],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
   CloseSurface(
     'add-members',
@@ -152,16 +183,16 @@ const dialogSurfaces = <CloseSurface>[
     files: [
       'lib/features/add_members_dialog.dart',
       'lib/features/message_action_card.dart',
-          '../../packages/raft_ui/lib/src/add_members_dialog_view.dart',
+      '../../packages/raft_ui/lib/src/add_members_dialog_view.dart',
     ],
   ),
   CloseSurface(
     'form-dialog',
     kind: SurfaceKind.dialog,
     web: 'DialogCard.tsx:28-40 / ConfirmDialog.tsx:138: X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/account_settings.dart',
       'lib/features/auth_view.dart',
@@ -171,9 +202,11 @@ const dialogSurfaces = <CloseSurface>[
       'lib/features/resource_view.dart',
       'lib/features/server_views.dart',
       '../../packages/raft_ui/lib/src/form_dialog.dart',
+      '../../packages/raft_ui/lib/src/form_presentation.dart',
     ],
-    status: 'fixed',
-    fix: 'RaftFormDialog gets a header X and Escape; call sites stop closing on a scrim tap',
+    status: 'approved',
+    fix:
+        '$_sheetOnPhone; earlier: RaftFormDialog gets a header X and Escape; call sites stop closing on a scrim tap',
   ),
   CloseSurface(
     'sos-dialog',
@@ -216,13 +249,15 @@ const dialogSurfaces = <CloseSurface>[
     'create-agent',
     kind: SurfaceKind.dialog,
     web: 'CreateAgentDialog.tsx:1688,1727 Modal / DialogCard: X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/managed_agent_launcher.dart',
       'lib/features/create_agent_dialog.dart',
     ],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
   CloseSurface(
     'agent-avatar-dialog',
@@ -259,6 +294,21 @@ const dialogSurfaces = <CloseSurface>[
       'lib/features/forward_messages_dialog.dart',
     ],
     status: 'ok',
+    fix: '',
+  ),
+  CloseSurface(
+    'composer-expanded-editor',
+    kind: SurfaceKind.dialog,
+    web: 'no Web surface: MessageInput has no expand mode. Flutter-only (GitHub #153): one route whose form follows the window width (RaftPresentationPolicy.editor): a tall bottom sheet below 768 (collapse button, Esc, scrim, back, drag the handle down) and a centered dialog from 768 (collapse button, Esc, scrim, back); every close keeps the draft',
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
+    files: [
+      '../../packages/raft_ui/lib/src/composer_expand.dart',
+      '../../packages/raft_ui/lib/src/composer_expansion_state.dart',
+      '../../packages/raft_ui/lib/src/presentation.dart',
+    ],
+    status: 'no-web',
     fix: '',
   ),
   CloseSurface(
@@ -304,14 +354,16 @@ const dialogSurfaces = <CloseSurface>[
     'provider-edit-dialog',
     kind: SurfaceKind.dialog,
     web: 'EditProviderConnectionModal.tsx:67 DialogCard: X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/provider_edit_dialog.dart',
       'lib/features/provider_views.dart',
-          '../../packages/raft_ui/lib/src/provider_edit_view.dart',
+      '../../packages/raft_ui/lib/src/provider_edit_view.dart',
     ],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
   CloseSurface(
     'material-alert-dialog',
@@ -344,7 +396,8 @@ const dialogSurfaces = <CloseSurface>[
     phone: {_esc, _scrim, _sys},
     none: {
       'fold': 'wide layouts open the server switcher popover (server-switcher)',
-      'desktop': 'wide layouts open the server switcher popover (server-switcher)',
+      'desktop':
+          'wide layouts open the server switcher popover (server-switcher)',
     },
     files: ['lib/features/workspace_view.dart'],
     status: 'no-web',
@@ -362,16 +415,17 @@ const dialogSurfaces = <CloseSurface>[
     'agent-runtime-editor',
     kind: SurfaceKind.dialog,
     web: 'AgentDetailPanel.tsx:2094 Modal layer=1 + CloseButton (closeRuntimeConfigEditor): X + Esc, no backdrop close',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/agent_runtime_editor.dart',
       'lib/features/runtime_form_dialog.dart',
       'lib/features/fleet_views.dart',
     ],
-    status: 'fixed',
-    fix: 'fleet dialogs stop closing on a scrim tap; the profile Edit runtime config opens AgentRuntimeEditor (legacy fields or the v2 form), which replaced RuntimeFormDialog there',
+    status: 'approved',
+    fix:
+        '$_sheetOnPhone; earlier: fleet dialogs stop closing on a scrim tap; the profile Edit runtime config opens AgentRuntimeEditor (legacy fields or the v2 form), which replaced RuntimeFormDialog there',
   ),
   CloseSurface(
     'feedback-close-dialog',
@@ -387,15 +441,16 @@ const dialogSurfaces = <CloseSurface>[
     'agent-profile-edit-dialog',
     kind: SurfaceKind.dialog,
     web: 'AgentProfileEditDialog.tsx:187-201 Dialog: X + Esc + outside press, all through requestClose (discard prompt when dirty)',
-    phone: {_x, _esc, _scrim, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
     fold: {_x, _esc, _scrim, _sys},
     desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/fleet_views.dart',
       '../../packages/raft_ui/lib/src/agent_dialogs.dart',
     ],
-    status: 'fixed',
-    fix: 'outside press and every close run requestClose with a discard prompt',
+    status: 'approved',
+    fix:
+        '$_sheetOnPhone; earlier: outside press and every close run requestClose with a discard prompt',
   ),
   CloseSurface(
     'agent-reset-dialog',
@@ -415,12 +470,14 @@ const dialogSurfaces = <CloseSurface>[
     'report-issue-dialog',
     kind: SurfaceKind.dialog,
     web: 'ReportIssueDialog.tsx:552-559 DialogCard (no closeOnBackdrop): X + Esc, form and submitted states',
-    phone: {_x, _esc, _sys},
-    fold: {_x, _esc, _sys},
-    desktop: {_x, _esc, _sys},
+    phone: {_x, _esc, _scrim, _sys, _drag},
+    fold: {_x, _esc, _scrim, _sys},
+    desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/report_issue.dart',
       '../../packages/raft_ui/lib/src/report_issue_dialog.dart',
     ],
+    status: 'approved',
+    fix: _sheetOnPhone,
   ),
 ];

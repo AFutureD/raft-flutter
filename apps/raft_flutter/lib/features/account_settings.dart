@@ -191,6 +191,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     final sourceScope = authority;
     final user = controller.client.user!;
     await scopedDialog<void>(
+      form: true,
       (_) => RaftFormDialog(
         title: raftText(context, 'Edit profile'),
         fields: [
@@ -223,6 +224,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     final sourceScope = authority;
     final user = controller.client.user!;
     await scopedDialog<void>(
+      form: true,
       (_) => RaftFormDialog(
         title: raftText(context, 'Reading preferences'),
         fields: [
@@ -271,6 +273,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     final sourceScope = authority;
     final user = controller.client.user!;
     await scopedDialog<void>(
+      form: true,
       (_) => RaftFormDialog(
         title: raftText(context, 'Display language'),
         fields: [

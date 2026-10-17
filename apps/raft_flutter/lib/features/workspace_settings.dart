@@ -370,7 +370,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
             'storage',
             'Storage',
             RaftGlyph.hardDrive,
-            (_) => const StorageSettingsPage(),
+            (_) => StorageSettingsPage(workspace: w),
             group: WorkspaceSettings.resources,
           ),
         RaftSettingsDestination.action(

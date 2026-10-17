@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -6,7 +6,6 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'agent_mode/agent_mode_preference.dart';
-import 'mobile_settings_owner.dart';
 
 /// Settings > Labs (SettingsPanel.tsx LabsSection, gated by
 /// `server_labs_ui_v0`): GET /servers/:id/labs (canonical or legacy
@@ -203,8 +202,6 @@ class _LabsViewState extends ManagementState<LabsView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AgentModeLabsCard(controller: w),
-        if (RaftAdaptiveWorkspace.compactOf(context))
-          const MobileSettingsSwitch(),
         section,
       ],
     );

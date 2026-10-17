@@ -62,7 +62,7 @@ class CreateJointChannelDialog extends StatefulWidget {
         w.can('federateChannels');
     // The workspace directory already holds both lists (same endpoints), so
     // the dialog opens at once; only a directory that never loaded is fetched.
-    final directory = w.entityDirectory;
+    final directory = w.services.entityDirectory;
     final loaded =
         directory.state(WorkspaceEntityKind.agents).loaded &&
         directory.state(WorkspaceEntityKind.members).loaded;
@@ -93,7 +93,7 @@ class CreateJointChannelDialog extends StatefulWidget {
     }
 
     if (!context.mounted) return;
-    final created = await showRaftModal<Map<String, dynamic>>(
+    final created = await showRaftForm<Map<String, dynamic>>(
       context,
       builder: (_) => CreateJointChannelDialog(
         agents: agents,

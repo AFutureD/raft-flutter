@@ -762,6 +762,23 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
       child: RaftAgentDialogCard(
         title: 'Create Agent',
         onClose: close,
+        footerGap: raftAgentFormGap,
+        footer: ListenableBuilder(
+          listenable: f ?? const AlwaysStoppedAnimation(0),
+          builder: (context, _) => RaftAgentDialogFooter(
+            children: [
+              RaftAgentDialogButton(label: 'Cancel', onPressed: close),
+              RaftAgentDialogButton(
+                label: 'Create Agent',
+                primary: true,
+                // CreateAgentDialog.tsx2103 caller; other primary buttons keep defaults.
+                foreground: tokens.dark ? tokens.colors['foreground-inverse'] : null,
+                busy: busy,
+                onPressed: createDisabled ? null : submit,
+              ),
+            ],
+          ),
+        ),
         children: [
           if (f == null)
             Column(
@@ -797,23 +814,6 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
                 ],
               ),
             ),
-          const SizedBox(height: raftAgentFormGap),
-          ListenableBuilder(
-            listenable: f ?? const AlwaysStoppedAnimation(0),
-            builder: (context, _) => RaftAgentDialogFooter(
-              children: [
-                RaftAgentDialogButton(label: 'Cancel', onPressed: close),
-                RaftAgentDialogButton(
-                  label: 'Create Agent',
-                  primary: true,
-                  // CreateAgentDialog.tsx2103 caller; other primary buttons keep defaults.
-                  foreground: tokens.dark ? tokens.colors['foreground-inverse'] : null,
-                  busy: busy,
-                  onPressed: createDisabled ? null : submit,
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

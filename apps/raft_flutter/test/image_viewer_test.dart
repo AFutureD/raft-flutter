@@ -301,6 +301,7 @@ Future<_Rig> _mount(
   Size? bitmap,
   Size? thumbBitmap,
   BoxFit? fit,
+  bool waitForPreview = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -347,6 +348,7 @@ Future<_Rig> _mount(
     w.dispose();
     await client.dispose();
     toasts.dispose();
+    await _clearTestCache(tester, w.attachmentDiskCache!);
     root.deleteSync(recursive: true);
   });
   await tester.pumpWidget(
@@ -382,7 +384,50 @@ Future<_Rig> _mount(
     ),
   );
   await _settle(tester);
+  if (waitForPreview) {
+    // Geometry tests need a decoded source Hero. A fixed number of frames
+    // cannot prove that real disk IO and image decoding have completed.
+    final hero = find.descendant(
+      of: find.byKey(const ValueKey('attachment-img0')),
+      matching: find.byType(RaftMediaHero),
+    );
+    final clock = Stopwatch()..start();
+    while (hero.evaluate().isEmpty) {
+      if (clock.elapsed > const Duration(seconds: 45)) {
+        fail('Timed out waiting for the decoded card Hero');
+      }
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+  }
   return _Rig(client, w, files, sharing, root, toasts);
+}
+
+// File I/O needs real event turns; writes started by widgets also have
+// continuations in the fake zone. Drive both until cleanup actually finishes.
+Future<void> _clearTestCache(
+  WidgetTester tester,
+  AttachmentDiskCache cache,
+) async {
+  var complete = false;
+  final clearing = cache.clear();
+  unawaited(
+    clearing.then<void>(
+      (_) => complete = true,
+      onError: (Object _, StackTrace _) => complete = true,
+    ),
+  );
+  final clock = Stopwatch()..start();
+  while (!complete) {
+    if (clock.elapsed > const Duration(seconds: 30)) {
+      throw TimeoutException('Image viewer cache cleanup did not finish');
+    }
+    await tester.runAsync(() => Future<void>(() {}));
+    await tester.pump();
+  }
+  await clearing; // Preserve any cleanup error after driving its completion.
 }
 
 /// Ends a test that raised a toast: its 5 s timer must not outlive the tree.
@@ -621,12 +666,8 @@ void main() {
     ) async {
       final rig = await _mount(tester, size: _wide, count: 1, thumbnails: true);
       await _open(tester, 0);
-      // The stored original is gone (evicted): the files, not the index.
-      for (final entity in Directory(
-        '${rig.root.path}/cache',
-      ).listSync(recursive: true).whereType<File>()) {
-        entity.deleteSync();
-      }
+      // Let queued writes finish before evicting through the cache owner.
+      await _clearTestCache(tester, rig.w.attachmentDiskCache!);
       await tester.tap(find.byKey(const ValueKey('attachment-download')));
       await _settle(tester);
       expect(rig.client.attachmentSigned, ['img0']);
@@ -759,9 +800,7 @@ void main() {
       // again, but a page that was shown once never brings the chip back.
       viewer.goTo(2);
       await _settle(tester, 8);
-      for (final entry in rig.root.listSync(recursive: true)) {
-        if (entry is File && entry.path.contains('/cache/')) entry.deleteSync();
-      }
+      await _clearTestCache(tester, rig.w.attachmentDiskCache!);
       final again = Completer<void>();
       rig.files.hold = again;
       viewer.goTo(0);
@@ -3130,6 +3169,47 @@ void main() {
       }
     });
 
+    testWidgets('card geometry waits for a deliberately delayed thumbnail', (
+      tester,
+    ) async {
+      // Initial: the thumbnail is held beyond the old mount's fixed frames.
+      // Event: the geometry setup keeps driving frames until bytes are released.
+      // Expected: it returns only when the actual card Hero can be measured.
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      var frames = 0;
+      void releaseAfterOldMount(Duration _) {
+        frames++;
+        if (frames == 15) {
+          if (!gate.isCompleted) gate.complete();
+        } else if (!gate.isCompleted) {
+          tester.binding.addPostFrameCallback(releaseAfterOldMount);
+          tester.binding.scheduleFrame();
+        }
+      }
+
+      tester.binding.addPostFrameCallback(releaseAfterOldMount);
+      await _mount(
+        tester,
+        size: _phone,
+        count: 1,
+        thumbnails: true,
+        bitmap: const Size(1200, 800),
+        imageSize: null,
+        hold: gate,
+        waitForPreview: true,
+      );
+      expect(
+        gate.isCompleted,
+        isTrue,
+        reason: 'The old fixed mount must not finish this delayed fixture.',
+      );
+      expect(cardHero(), findsOneWidget);
+      expect(tester.getRect(cardHero()).size.isEmpty, isFalse);
+    });
+
     for (final (name, release) in [
       ('before the flight lifts off', 0),
       ('mid flight', 96),
@@ -3145,6 +3225,7 @@ void main() {
             thumbnails: true,
             bitmap: const Size(1200, 800),
             imageSize: null,
+            waitForPreview: true,
           );
           final gate = Completer<void>();
           final files =
