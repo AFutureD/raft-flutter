@@ -2403,11 +2403,11 @@
    "status": "covered",
    "webEntry": "SOSDialog step 2: guidance textarea > 'Resume all agents' (or 'Keep stopped')",
    "gate": "same as stop-all-agents",
-   "flutterEntry": "RaftSosDialog onResume in channel_settings.dart stopAgents()",
+   "flutterEntry": "RaftSosDialog onResume in channel_sos.dart showChannelSos()",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/channel_settings.dart",
-     "needle": "/channels/${c.id}/resume-all-agents"
+     "file": "apps/raft_flutter/lib/features/channel_sos.dart",
+     "needle": "/channels/${channel.id}/resume-all-agents"
     }
    ],
    "justification": "",
@@ -2426,8 +2426,8 @@
    "flutterEntry": "channel_settings.dart 'Stop Agents' action (channel-overflow-stop-agents) > RaftSosDialog",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/channel_settings.dart",
-     "needle": "/channels/${c.id}/stop-all-agents"
+     "file": "apps/raft_flutter/lib/features/channel_sos.dart",
+     "needle": "/channels/${channel.id}/stop-all-agents"
     },
     {
      "file": "apps/raft_flutter/lib/features/channel_settings.dart",
@@ -7173,7 +7173,7 @@
      "needle": "channel-overflow-stop-agents"
     },
     {
-     "file": "apps/raft_flutter/lib/features/channel_settings.dart",
+     "file": "apps/raft_flutter/lib/features/channel_sos.dart",
      "needle": "stop-all-agents"
     }
    ],
