@@ -35,7 +35,8 @@ class ResourceAuthorityCache {
   ];
 
   List<RaftChannel>? _channelSource, _dmSource;
-  List<RaftChannel> _channels = [], _dms = [];
+  List<RaftChannel> _records = [];
+  List<({String wire, Map<String, dynamic> value})> _factsByRecord = [];
   Map<String, Map<String, dynamic>> _access = const {};
   List<Map<String, dynamic>> _orderedFacts = const [];
 
@@ -65,21 +66,33 @@ class ResourceAuthorityCache {
   }) {
     _channelSource = channels;
     _dmSource = dms;
-    if (_directory != null &&
-        !force &&
-        listEquals(_channels, channels) &&
-        listEquals(_dms, dms)) {
-      return;
+    final records = [...channels, ...dms];
+    if (_directory != null && !force && listEquals(_records, records)) return;
+    final facts = <({String wire, Map<String, dynamic> value})>[];
+    var changed = records.length != _records.length;
+    for (var i = 0; i < records.length; i++) {
+      final previous = i < _factsByRecord.length ? _factsByRecord[i] : null;
+      if (!force && i < _records.length && identical(_records[i], records[i])) {
+        facts.add(previous!);
+        continue;
+      }
+      final wire = jsonEncode(_facts(records[i]));
+      if (previous?.wire == wire) {
+        facts.add(previous!);
+      } else {
+        changed = true;
+        facts.add((
+          wire: wire,
+          value: Map<String, dynamic>.unmodifiable(jsonDecode(wire) as Map),
+        ));
+      }
     }
-    _channels = List.of(channels);
-    _dms = List.of(dms);
-    final original = [
-      for (final channel in [...channels, ...dms]) _facts(channel),
-    ];
-    final owned = [
-      for (final row in jsonDecode(jsonEncode(original)) as List)
-        Map<String, dynamic>.unmodifiable(row as Map),
-    ];
+    _records = records;
+    _factsByRecord = facts;
+    // New-message/unread updates replace channel records too. Keep their
+    // unchanged access snapshots without cloning or serializing the directory.
+    if (_directory != null && !changed) return;
+    final owned = [for (final fact in facts) fact.value];
     final ordered = [...owned]
       ..sort((a, b) => (a['id'] as String).compareTo(b['id'] as String));
     final directory = jsonEncode(ordered);
