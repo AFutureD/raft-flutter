@@ -23,6 +23,7 @@ import 'nav/orb_nav_tools.dart'
 import 'nav/orb_page_description.dart' show orbPageTitle;
 import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
+import 'orb_driving.dart' show orbSayHint;
 import 'orb_operating.dart';
 import 'orb_prompt.dart';
 import 'orb_layer.dart';
@@ -734,6 +735,8 @@ class OrbController extends ChangeNotifier {
       'total': items.length,
       'done': done,
       if (!done) 'item': items[drivingIndex].toJson(),
+      if (!done && shownBriefing != null)
+        'say': orbSayHint(shownBriefing!, driving: true),
       if (done) 'note': '没有了：只说“就这些”，再说常规进度的条数',
     };
   }

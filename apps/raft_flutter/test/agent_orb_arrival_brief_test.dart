@@ -380,6 +380,7 @@ void main() {
       expect(prompt, contains('先调 describe_page 看当前页面'));
       expect(prompt, contains('不要先跳到别的页面'));
       expect(prompt, contains('不能只报名字'));
+      expect(prompt, contains('等了多久'));
       expect(prompt, contains('最多两句'));
     });
 

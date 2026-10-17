@@ -487,3 +487,9 @@ class _Bar extends StatelessWidget {
     );
   }
 }
+
+/// What the model is told about how much to say for [b] (a driving item is
+/// one thing, two sentences at most; the full eval had four or five).
+String orbSayHint(OrbBriefing b, {required bool driving}) => driving
+    ? '只说这一件：谁、什么事、要你做什么，最多两句，然后停下等用户说“下一件”或处理它。'
+    : (b.needsYou.isEmpty ? '没有要用户处理的：最多两句。' : '先说总览一句，再说最要紧的一两件，每件一句。');

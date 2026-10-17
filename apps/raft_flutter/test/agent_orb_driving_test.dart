@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
+import 'package:raft_flutter/features/agent_orb/orb_driving.dart';
 import 'package:raft_flutter/features/agent_orb/orb_prompt.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -470,5 +471,36 @@ void main() {
         expect(t.takeException(), isNull);
       });
     }
+  });
+
+  // Full eval: "下一件" while driving got 4-5 sentences; "这里有什么新的吗"
+  // with nothing to do got 4-5. The guidance rides in the tool results,
+  // where the model reads it right before it speaks.
+  group('how much to say', () {
+    test('driving_next says: this one only, two sentences', () {
+      final b = OrbBriefing(
+        scope: OrbBriefScope.activity,
+        overview: '2 件',
+        needsYou: [
+          needsYou(title: 'A 问你周五有没有空'),
+          needsYou(title: 'B 想知道进度'),
+        ],
+        progress: const [],
+        routineCount: 0,
+      );
+      expect(orbSayHint(b, driving: true), contains('最多两句'));
+      expect(orbSayHint(b, driving: true), contains('只说这一件'));
+    });
+
+    test('a briefing with nothing to do says: two sentences', () {
+      const b = OrbBriefing(
+        scope: OrbBriefScope.activity,
+        overview: '没有要你处理的',
+        needsYou: [],
+        progress: [],
+        routineCount: 4,
+      );
+      expect(b.toJson()['sayHint'], contains('最多两句'));
+    });
   });
 }

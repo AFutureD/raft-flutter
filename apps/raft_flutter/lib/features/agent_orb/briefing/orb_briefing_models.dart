@@ -270,5 +270,8 @@ class OrbBriefing {
     if (waitingTasks > 0) 'waitingTasks': waitingTasks,
     if (waitingTasks > 0 && waitingTaskTitles.isNotEmpty)
       'waitingTaskTitles': waitingTaskTitles,
+    // How much to say rides in the result, read right before speaking (the
+    // full eval: with nothing to do the answer ran to four or five).
+    if (needsYou.isEmpty) 'sayHint': '没有要用户处理的：最多两句，一句“没有要你处理的”，一句带过进展，不念条目',
   };
 }
