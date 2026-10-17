@@ -2478,8 +2478,8 @@
      "needle": "${unread ? 'read-all' : 'unread'}"
     },
     {
-     "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "await controller.command('POST', '/channels/$id/unread')"
+     "file": "apps/raft_flutter/lib/data/conversation_read_repository.dart",
+     "needle": "await client.post('/channels/$id/unread')"
     }
    ],
    "justification": "",

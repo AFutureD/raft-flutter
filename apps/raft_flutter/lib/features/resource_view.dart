@@ -4145,7 +4145,6 @@ class _ResourceViewState extends State<ResourceView> {
     String scope,
     Offset at,
   ) async {
-    final following = row['isFollowing'] != false;
     final unread = (row['unreadCount'] as num? ?? 0) > 0;
     await scopedMenu<void>(scope, at, (context) {
       void close() => closeOwnedDialog(context, scope);
@@ -4153,20 +4152,14 @@ class _ResourceViewState extends State<ResourceView> {
         context,
         row,
         onDismiss: close,
-        onToggleRead: () {
+        onAction: (action) {
           if (!accepts(scope)) return;
           close();
-          unawaited(toggleActivityRead(row, scope, unread));
-        },
-        onDone: () {
-          if (!accepts(scope)) return;
-          close();
-          activityAction(row, 'done', scope);
-        },
-        onToggleFollow: () {
-          if (!accepts(scope)) return;
-          close();
-          activityAction(row, following ? 'unfollow' : 'follow', scope);
+          if (action == ActivityContextAction.toggleRead) {
+            unawaited(toggleActivityRead(row, scope, unread));
+          } else {
+            unawaited(activityAction(row, action.name, scope));
+          }
         },
       );
     }, rowKey: rowKey(row));

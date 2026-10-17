@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+/// Identifies a command offered by an Activity row menu.
+enum ActivityContextAction { toggleRead, done, follow, unfollow }
+
 /// Builds the Web InboxContextMenu with the existing design system menu.
 ///
 /// Every row has Done. Unfollowed threads offer Follow without a read toggle.
@@ -8,9 +11,7 @@ Widget buildActivityContextMenu(
   BuildContext context,
   Map<String, dynamic> row, {
   required VoidCallback onDismiss,
-  required VoidCallback onToggleRead,
-  required VoidCallback onDone,
-  required VoidCallback onToggleFollow,
+  required ValueChanged<ActivityContextAction> onAction,
 }) {
   final thread = row['kind'] == 'thread';
   final following = row['isFollowing'] != false;
@@ -26,18 +27,22 @@ Widget buildActivityContextMenu(
               ? RaftGlyph.messageSquareCheck
               : RaftGlyph.messageSquareDot,
           itemKey: const ValueKey('activity-menu-toggle-read'),
-          onPressed: onToggleRead,
+          onPressed: () => onAction(ActivityContextAction.toggleRead),
         ),
       RaftSidebarMenuItem(
         label: raftText(context, 'Done'),
         glyph: RaftGlyph.check,
-        onPressed: onDone,
+        onPressed: () => onAction(ActivityContextAction.done),
       ),
       if (thread)
         RaftSidebarMenuItem(
           label: raftText(context, following ? 'Unfollow' : 'Follow'),
           glyph: following ? RaftGlyph.bellOff : RaftGlyph.bell,
-          onPressed: onToggleFollow,
+          onPressed: () => onAction(
+            following
+                ? ActivityContextAction.unfollow
+                : ActivityContextAction.follow,
+          ),
         ),
     ],
   );
