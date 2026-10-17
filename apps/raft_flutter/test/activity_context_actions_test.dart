@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -8,11 +9,29 @@ import 'activity_context_menu_test.dart' show pendingMention;
 import 'activity_incremental_refresh_test.dart'
     show ActivityClient, ActivityWorkspace, activityFixture, channelRow;
 
+class CountedWorkspace extends ActivityWorkspace {
+  CountedWorkspace(super.client);
+  @override
+  Future<dynamic> query(String path, {Map<String, dynamic>? query}) async {
+    final value = await super.query(path, query: query);
+    return path == '/channels/inbox'
+        ? {
+            ...value as Map,
+            'allCount': inbox.length,
+            'groups': [
+              {'channelId': 'ch1', 'count': inbox.length},
+            ],
+          }
+        : value;
+  }
+}
+
 Future<dynamic> mount(
   WidgetTester tester,
   ActivityClient client,
-  ActivityWorkspace w,
-) async {
+  ActivityWorkspace w, {
+  void Function(Map? window, {bool firstPage})? onAccepted,
+}) async {
   addTearDown(() async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -27,6 +46,7 @@ Future<dynamic> mount(
           controller: w,
           section: 'activity',
           activitySidebarEnabled: true,
+          onActivityWindowAccepted: onAccepted,
           onMessage: (_, _) async {},
         ),
       ),
@@ -49,7 +69,13 @@ void main() {
   testWidgets(
     'pending mention Done removes only that item without a channel mutation',
     (tester) async {
-      final (client, w) = activityFixture();
+      final client = ActivityClient()..user = RaftRecord({'id': 'alice'});
+      client.selectServer('s1');
+      final w = CountedWorkspace(client)
+        ..server = RaftRecord({'id': 's1', 'role': 'owner'})
+        ..channels = [
+          RaftChannel({'id': 'ch1', 'name': 'Channel 1', 'joined': true}),
+        ];
       w.inbox = [
         pendingMention(),
         {
@@ -59,7 +85,15 @@ void main() {
           'messagePreview': 'Other pending mention',
         },
       ];
-      final dynamic state = await mount(tester, client, w);
+      final windows = <Map>[];
+      final dynamic state = await mount(
+        tester,
+        client,
+        w,
+        onAccepted: (window, {firstPage = false}) {
+          if (window != null) windows.add(window);
+        },
+      );
       expect(state.totalCount, 2);
       final requests = client.posts.length, reads = w.inboxQueries.length;
       await openMenu(tester);
@@ -68,6 +102,11 @@ void main() {
       expect(find.byType(RaftSidebarContextMenu), findsNothing);
       expect((state.rows as List).map((dynamic row) => row['id']), ['other']);
       expect(state.totalCount, 1);
+      expect(state.activityAllCount, 1);
+      expect(windows.last['totalCount'], 1);
+      expect(windows.last['allCount'], 1);
+      expect((windows.last['groups'] as List).single['count'], 1);
+      expect((windows.last['items'] as List).single['id'], 'other');
       expect(
         client.posts.length,
         requests,

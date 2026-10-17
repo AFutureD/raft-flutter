@@ -43,6 +43,7 @@ import 'search_snapshot.dart';
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
 import 'resource_filters.dart';
+import 'activity_context_menu.dart';
 import 'page_layout.dart';
 import 'resource_cards.dart';
 import 'search_filter_bar.dart';
@@ -718,24 +719,24 @@ class _ResourceViewState extends State<ResourceView> {
       return;
     }
     final snapshot = TaskSnapshot(
-        identity: acceptedIdentity!,
-        layout: taskLayout,
-        view: rowsView,
-        filter: filter,
-        rows: rows,
-        cursor: cursor,
-        hasMore: hasMore,
-        totalCount: totalCount,
-        lanes: Map.of(lanes),
-        laneCursors: Map.of(laneCursors),
-        channels: Set.of(taskAdvanced.channels),
-        creators: Set.of(taskAdvanced.creators),
-        assignees: Set.of(taskAdvanced.assignees),
-        collapsed: Set.of(collapsedTaskStatuses),
-        channelAccess: acceptedAccess,
-        listOffset: taskListOffset,
-        boardOffset: taskBoardOffset,
-      );
+      identity: acceptedIdentity!,
+      layout: taskLayout,
+      view: rowsView,
+      filter: filter,
+      rows: rows,
+      cursor: cursor,
+      hasMore: hasMore,
+      totalCount: totalCount,
+      lanes: Map.of(lanes),
+      laneCursors: Map.of(laneCursors),
+      channels: Set.of(taskAdvanced.channels),
+      creators: Set.of(taskAdvanced.creators),
+      assignees: Set.of(taskAdvanced.assignees),
+      collapsed: Set.of(collapsedTaskStatuses),
+      channelAccess: acceptedAccess,
+      listOffset: taskListOffset,
+      boardOffset: taskBoardOffset,
+    );
     if (!serverTaskPage) {
       w.resourceSnapshots.write(snapshotSection, snapshot);
       return;
@@ -856,30 +857,30 @@ class _ResourceViewState extends State<ResourceView> {
     }
     viewWindows.remove(rowsView);
     final snapshot = ResourceSnapshot(
-        identity: acceptedIdentity!,
-        enabledActivity: enabledActivity,
-        view: rowsView,
-        rows: rows,
-        hasMore: hasMore,
-        filter: filter,
-        activeActivityFilter: activeActivityFilter,
-        query: query.text,
-        channelId: advanced.channelId,
-        direction: advanced.direction,
-        totalCount: totalCount,
-        totalUnreadCount: totalUnreadCount,
-        activityAllCount: activityAllCount,
-        savedActivityTotal: savedActivityTotal,
-        activityGroups: activityGroups,
-        acceptedActivityItems: acceptedActivityItems,
-        savedActivityItems: savedActivityItems,
-        doneActivityItems: doneActivityItems,
-        channelAccess: acceptedAccess,
-        scrollOffset: listOffset,
-        sectionScrollOffsets: Map.of(activityScrollOffsets),
-        viewWindows: Map.of(viewWindows),
-        inboxSerial: inboxSerial,
-      );
+      identity: acceptedIdentity!,
+      enabledActivity: enabledActivity,
+      view: rowsView,
+      rows: rows,
+      hasMore: hasMore,
+      filter: filter,
+      activeActivityFilter: activeActivityFilter,
+      query: query.text,
+      channelId: advanced.channelId,
+      direction: advanced.direction,
+      totalCount: totalCount,
+      totalUnreadCount: totalUnreadCount,
+      activityAllCount: activityAllCount,
+      savedActivityTotal: savedActivityTotal,
+      activityGroups: activityGroups,
+      acceptedActivityItems: acceptedActivityItems,
+      savedActivityItems: savedActivityItems,
+      doneActivityItems: doneActivityItems,
+      channelAccess: acceptedAccess,
+      scrollOffset: listOffset,
+      sectionScrollOffsets: Map.of(activityScrollOffsets),
+      viewWindows: Map.of(viewWindows),
+      inboxSerial: inboxSerial,
+    );
     if (savedPage) {
       keepServerSavedPage(w, snapshot);
       return;
@@ -895,7 +896,8 @@ class _ResourceViewState extends State<ResourceView> {
   /// list reads the same inboxStore `items` the badge counts, so opening
   /// Activity paints the arrival that lit the badge on the first frame.
   Map<String, dynamic>? sharedInboxSeed() {
-    if (!activityPage || listView != SourceActivityUnreadStore.defaultInboxView) {
+    if (!activityPage ||
+        listView != SourceActivityUnreadStore.defaultInboxView) {
       return null;
     }
     return _services.activityUnreadIfBound?.windowSince(inboxSerial);
@@ -910,7 +912,8 @@ class _ResourceViewState extends State<ResourceView> {
   void bindSharedInbox() {
     sharedInbox?.removeListener(sharedInboxChanged);
     sharedInbox = activityPage
-        ? (_services.activityUnreadIfBound?..addListener(sharedInboxChanged)) : null;
+        ? (_services.activityUnreadIfBound?..addListener(sharedInboxChanged))
+        : null;
   }
 
   void sharedInboxChanged() {
@@ -1382,7 +1385,8 @@ class _ResourceViewState extends State<ResourceView> {
         dropSavedMessage(event.payload);
         return;
       }
-      if (activityPage && (event.name == 'task:updated' || event.name == 'task:created')) {
+      if (activityPage &&
+          (event.name == 'task:updated' || event.name == 'task:created')) {
         patchActivityTasks(event.payload);
         return;
       }
@@ -3905,21 +3909,15 @@ class _ResourceViewState extends State<ResourceView> {
     final controller = w;
     final identity = SourceReadAllIdentity.capture(controller.client);
     try {
-      final receipt = await SourceReadAllTransport.of(controller.client)
-          .readAll(scopeId, identity: identity);
-      if (identity.current(controller.client)) {
-        controller.acceptReadAllAck(
-          scopeId,
-          receipt,
-          serverId: identity.serverId!,
-          principalId: identity.principalId!,
-        );
-      }
+      await controller.conversationReads.markAllRead(
+        scopeId,
+        identity: identity,
+      );
     } catch (_) {
       if (!identity.current(controller.client)) return;
       // Source forgets the suppression and refreshes the inbox in background.
       if (mounted) activityReadMarkers.remove(key);
-      await controller.refreshUnread();
+      await controller.conversationReads.reconcileUnread();
       if (mounted && accepts(scope)) await load(keep: true, quietErrors: true);
     }
   }
@@ -4147,51 +4145,29 @@ class _ResourceViewState extends State<ResourceView> {
     String scope,
     Offset at,
   ) async {
-    final thread = row['kind'] == 'thread';
     final following = row['isFollowing'] != false;
     final unread = (row['unreadCount'] as num? ?? 0) > 0;
     await scopedMenu<void>(scope, at, (context) {
       void close() => closeOwnedDialog(context, scope);
-      return RaftSidebarContextMenu(
-        width: 184,
+      return buildActivityContextMenu(
+        context,
+        row,
         onDismiss: close,
-        entries: [
-          if (!thread || following)
-            RaftSidebarMenuItem(
-              label: raftText(
-                context,
-                unread ? 'Mark as Read' : 'Mark as Unread',
-              ),
-              glyph: unread
-                  ? RaftGlyph.messageSquareCheck
-                  : RaftGlyph.messageSquareDot,
-              itemKey: const ValueKey('activity-menu-toggle-read'),
-              onPressed: () {
-                if (!accepts(scope)) return;
-                close();
-                unawaited(toggleActivityRead(row, scope, unread));
-              },
-            ),
-          RaftSidebarMenuItem(
-            label: raftText(context, 'Done'),
-            glyph: RaftGlyph.check,
-            onPressed: () {
-              if (!accepts(scope)) return;
-              close();
-              activityAction(row, 'done', scope);
-            },
-          ),
-          if (thread)
-            RaftSidebarMenuItem(
-              label: raftText(context, following ? 'Unfollow' : 'Follow'),
-              glyph: following ? RaftGlyph.bellOff : RaftGlyph.bell,
-              onPressed: () {
-                if (!accepts(scope)) return;
-                close();
-                activityAction(row, following ? 'unfollow' : 'follow', scope);
-              },
-            ),
-        ],
+        onToggleRead: () {
+          if (!accepts(scope)) return;
+          close();
+          unawaited(toggleActivityRead(row, scope, unread));
+        },
+        onDone: () {
+          if (!accepts(scope)) return;
+          close();
+          activityAction(row, 'done', scope);
+        },
+        onToggleFollow: () {
+          if (!accepts(scope)) return;
+          close();
+          activityAction(row, following ? 'unfollow' : 'follow', scope);
+        },
       );
     }, rowKey: rowKey(row));
   }
@@ -4213,11 +4189,10 @@ class _ResourceViewState extends State<ResourceView> {
     if (id is! String) return;
     final controller = w;
     try {
-      await controller.command('POST', '/channels/$id/unread');
+      await controller.conversationReads.markUnread(id);
     } catch (_) {}
     if (!mounted || !accepts(scope)) return;
-    await controller.refreshUnread();
-    if (mounted && accepts(scope)) await load(keep: true, quietErrors: true);
+    await load(keep: true, quietErrors: true);
   }
 
   Widget activityCard(
@@ -4911,6 +4886,35 @@ class _ResourceViewState extends State<ResourceView> {
         .firstOrNull;
     if (current == null) return;
     row = current;
+    if (row['kind'] == 'mention_action' && action == 'done') {
+      setState(() {
+        rows = rows.where((item) => rowKey(item) != itemKey).toList();
+        acceptedActivityItems = acceptedActivityItems
+            .where((item) => rowKey(item) != itemKey)
+            .toList();
+        activityGestureRows = activityGestureRows
+            ?.where((item) => rowKey(item) != itemKey)
+            .toList();
+        activityGroups = ActivityDoneState.groups(activityGroups, [
+          row,
+        ], advanced.channelId);
+        if (totalCount != null) {
+          totalCount = (totalCount! - 1).clamp(0, 1 << 53);
+        }
+        if (activityAllCount != null) {
+          activityAllCount = (activityAllCount! - 1).clamp(0, 1 << 53);
+        }
+      });
+      widget.onActivityWindowAccepted?.call({
+        'items': acceptedActivityItems.isEmpty ? rows : acceptedActivityItems,
+        'totalCount': totalCount,
+        'allCount': activityAllCount,
+        'groups': activityGroups,
+        'totalUnreadCount': totalUnreadCount,
+      });
+      saveSnapshot();
+      return;
+    }
     final mutation = activityMutation(row, action);
     if (mutation == null) {
       if (action == 'done') {

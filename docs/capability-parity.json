@@ -11870,15 +11870,15 @@
    "kind": "ui",
    "id": "ui:notifications.activity-row-menu",
    "area": "notifications",
-   "capability": "Activity row context menu: Mark as Read/Unread, Done, Follow/Unfollow (threads); hover Done / Restore button; mention_action rows have no menu",
+   "capability": "Activity row context menu: Mark as Read/Unread, Done, Follow/Unfollow (threads); hover Done / Restore button; mention_action rows offer Mark as Unread and local Done",
    "background": false,
    "status": "covered",
-   "webEntry": "ThreadsInbox.tsx contextMenuPortal + conversation-card-actions",
+   "webEntry": "InboxContextMenu.tsx + ThreadsInbox.tsx conversation-card-actions",
    "gate": "thread follow only on thread rows",
    "flutterEntry": "resource_view.dart activityMenu + RaftConversationCard actions",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/resource_view.dart",
+     "file": "apps/raft_flutter/lib/features/activity_context_menu.dart",
      "needle": "'Unfollow' : 'Follow'"
     },
     {
