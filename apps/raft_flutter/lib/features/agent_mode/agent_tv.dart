@@ -281,17 +281,7 @@ class AgentTvScreen extends StatelessWidget {
         staleOpen: staleOpen,
       );
       if (shown >= 1 && shown <= listed.length) {
-        stage = AgentAttentionDetail(
-          item: listed[shown - 1],
-          number: shown,
-          onApprove: (_) {},
-          onOpen: (_) {},
-          onLater: (_) {},
-          onReply: (_) {},
-          onLike: (_) {},
-          onDone: (_) {},
-          onAssign: (_) {},
-        );
+        stage = AgentAttentionDetail(item: listed[shown - 1], number: shown);
       }
     } else {
       final spec = layer['spec'];

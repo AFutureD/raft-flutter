@@ -628,18 +628,19 @@ void main() {
       await t.tap(card('t3'));
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('attention-approve-t3')),
-        findsOneWidget,
+      Finder inStage(String text) => find.descendant(
+        of: find.byKey(const ValueKey('attention-detail')),
+        matching: find.textContaining(text),
       );
-      expect(find.byKey(const ValueKey('attention-approve-t2')), findsNothing);
+      expect(inStage('丙方案'), findsWidgets);
+      expect(inStage('乙方案'), findsNothing);
       await t.tap(find.byKey(const ValueKey('hf-stage-close')));
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('hf-stage')), findsNothing);
     });
 
     testWidgets('the voice makes an item current the same way a tap does: '
-        'the stage, the same actions, and 展开 for the full page', (t) async {
+        'the stage, and 展开 for the full page', (t) async {
       await open(t, _Data(w, _three()), model: const _Spot());
       await say(t, 'x');
       // The model's words are not heard in a test: the item comes after the
@@ -648,20 +649,15 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('第 1 层'), findsOneWidget);
       expect(find.byKey(const ValueKey('hf-stage')), findsOneWidget);
+      // The stage is t2's detail, and it has no buttons.
       expect(
-        find.byKey(const ValueKey('attention-approve-t2')),
-        findsOneWidget,
+        find.descendant(
+          of: find.byKey(const ValueKey('attention-detail')),
+          matching: find.textContaining('乙方案'),
+        ),
+        findsWidgets,
       );
-      // 通过 acts on the current one: it asks about t2.
-      await t.tap(find.byKey(const ValueKey('attention-approve-t2')));
-      await t.pumpAndSettle();
-      expect(find.textContaining('乙方案'), findsWidgets);
-      expect(
-        find.byKey(const ValueKey('attention-approve-confirm')),
-        findsOneWidget,
-      );
-      await t.tap(find.byKey(const ValueKey('attention-approve-cancel')));
-      await t.pumpAndSettle();
+      expect(find.byKey(const ValueKey('attention-approve-t2')), findsNothing);
       await t.tap(find.byKey(const ValueKey('hf-stage-expand')));
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('detail:t2')), findsOneWidget);
@@ -844,13 +840,28 @@ void main() {
       expect(find.textContaining('没能通过'), findsWidgets);
     });
 
-    testWidgets('稍后 hides the card for the session and recounts', (t) async {
+    testWidgets('稍后 (the tool snooze_item, behind a confirm card) hides the '
+        'card for the session and recounts', (t) async {
       final data = _Data(w, _three());
-      await open(t, data);
+      final model = _Script();
+      await open(t, data, model: model);
       await t.tap(card('t1'));
       await t.pumpAndSettle();
-      await t.tap(find.byKey(const ValueKey('attention-later-t1')));
+      // The stage has no 稍后 button: the person says it.
+      expect(find.byKey(const ValueKey('attention-later-t1')), findsNothing);
+      late Map<String, Object?> previewed;
+      model.script = (call) async {
+        previewed = await call('snooze_item', {'item': 't1'});
+      };
+      await say(t, '稍后再看这个');
+      expect(previewed['status'], 'needs_confirmation');
+      expect(card('t1'), findsOneWidget);
+      await t.tap(find.text('确认'));
       await t.pumpAndSettle();
+      model.script = (call) async {
+        await call('confirm', {'token': previewed['confirmToken']});
+      };
+      await say(t, '好');
       expect(find.byKey(const ValueKey('attention-card-t1')), findsNothing);
       expect(countOf('decision', '2'), findsOneWidget);
       expect(client.posts.where((p) => p.startsWith('PATCH')), isEmpty);
@@ -1033,11 +1044,7 @@ void main() {
             .selected,
         isTrue,
       );
-      // And the actions act on it.
-      expect(
-        find.byKey(const ValueKey('attention-approve-t2')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('attention-approve-t2')), findsNothing);
     });
 
     testWidgets('the pane follows the voice (spotlight), and a tap after it '
@@ -1140,14 +1147,16 @@ void main() {
       );
     });
 
-    testWidgets('detail has the ask and its three actions', (t) async {
+    testWidgets('detail has the ask and no action buttons', (t) async {
       await open(t, _Data(w, _three()), size: wide);
-      expect(
-        find.byKey(const ValueKey('attention-approve-t1')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const ValueKey('attention-open-t1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('attention-later-t1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
+      for (final key in [
+        'attention-approve-t1',
+        'attention-open-t1',
+        'attention-later-t1',
+      ]) {
+        expect(find.byKey(ValueKey(key)), findsNothing, reason: key);
+      }
       expect(find.text('要你做'), findsOneWidget);
     });
   });
@@ -1190,8 +1199,8 @@ void main() {
       await t.pumpAndSettle();
     }
 
-    testWidgets('the same list and detail as a desktop, voice hints for the '
-        'buttons, caption strip', (t) async {
+    testWidgets('the same list and detail as a desktop, no buttons, '
+        'caption strip', (t) async {
       final attention = AgentAttention(
         items: [
           _decision('t1', '甲方案：等你验收', hours: 24),
@@ -1212,9 +1221,9 @@ void main() {
       expect(find.text('24'), findsOneWidget);
       // The detail of the first row, beside the list.
       expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
-      // The buttons are pills that say what to say; nothing is pressable.
-      expect(find.textContaining('「通过」'), findsOneWidget);
-      expect(find.textContaining('「稍后」'), findsOneWidget);
+      // The detail has no buttons and no voice pills for them either.
+      expect(find.textContaining('「通过」'), findsNothing);
+      expect(find.textContaining('「稍后」'), findsNothing);
       expect(find.text('通过'), findsNothing);
       expect(find.text('在手机上处理'), findsNothing);
       expect(find.text('下一批'), findsNothing);
@@ -1249,6 +1258,23 @@ class _Spot extends AgentScriptedModel {
     void Function(String) say,
   ) async {
     await call('spotlight', {'number': 2});
+    return true;
+  }
+}
+
+/// Stands in for the voice model: runs [script] against the page's own
+/// tools each time the person says something.
+class _Script extends AgentScriptedModel {
+  _Script();
+  Future<void> Function(AgentToolHandler call) script = (call) async {};
+
+  @override
+  Future<bool> handle(
+    String text,
+    AgentToolHandler call,
+    void Function(String) say,
+  ) async {
+    await script(call);
     return true;
   }
 }

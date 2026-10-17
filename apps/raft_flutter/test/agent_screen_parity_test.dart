@@ -694,7 +694,8 @@ void main() {
     expect(seen, isNot(contains('安装包签名')));
   });
 
-  testWidgets('the Activity home with its feedback actions open', (t) async {
+  testWidgets('the Activity home with an item open: its detail lists no '
+      'buttons, because it has none', (t) async {
     final probe = await open(t, data: _HomeData.new);
     await t.tap(
       find.byKey(const ValueKey('attention-card-activity:thread:th-m7')),
@@ -702,9 +703,12 @@ void main() {
     await t.pumpAndSettle();
     expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
     final seen = await given(t, probe, 'go_home');
-    _expectParity(_shown(t, attentionRoots()), seen, 'activity home + actions');
+    _expectParity(_shown(t, attentionRoots()), seen, 'activity home + detail');
+    // The words of the item are in the snapshot; no button is.
+    expect(seen, contains('原话'));
     for (final action in ['看完整对话', '回复', '点赞', '标记已处理', '稍后', '交给 Agent']) {
-      expect(seen, contains(action), reason: action);
+      expect(seen, isNot(contains('可做：$action')), reason: action);
+      expect(seen, isNot(contains(' / $action')), reason: action);
     }
   });
 

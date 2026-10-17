@@ -479,53 +479,26 @@ class _AgentAttentionViewState extends State<AgentAttentionView> {
 }
 
 /// One item in its detail rendering: the message in full, who, where, how
-/// long ago, and what the person can do with it. For an Activity row those
-/// are the feedback actions: 回复, 点赞, 标记已处理, 稍后, 交给 Agent. The
-/// detail slot beside the list (a wide window, a TV) and under the row on a
-/// phone both show it; [trailing] is the small tools of a phone's stage.
-///
-/// An action whose callback is null is not offered (the TV has none).
+/// long ago and in what state. It has no buttons: what can be done with the
+/// item (通过, 看完整对话, 回复, 点赞, 标记已处理, 稍后, 交给 Agent) is said
+/// or typed, and the model shows the preview on a confirm card. The detail
+/// slot beside the list (a wide window, a TV) and under the row on a phone
+/// both show it; [trailing] is the small tools of a phone's stage.
 class AgentAttentionDetail extends StatelessWidget {
   const AgentAttentionDetail({
     super.key,
     required this.item,
     required this.number,
-    required this.onApprove,
-    required this.onOpen,
-    required this.onLater,
-    this.onReply,
-    this.onLike,
-    this.onDone,
-    this.onAssign,
     this.trailing,
-    this.compact = false,
   });
   final AgentAttentionItem item;
 
   /// The number the item has on the screen.
   final int number;
-  final void Function(AgentAttentionItem item) onApprove, onOpen, onLater;
-  final void Function(AgentAttentionItem item)? onReply,
-      onLike,
-      onDone,
-      onAssign;
   final Widget? trailing;
-
-  /// A phone's stage: it has little height and what an Activity row said can
-  /// be long. The actions go right under the header (who, where, how long)
-  /// and the whole message flows below them, so the actions are in view after
-  /// the focus scroll whatever the length, and nothing is cut.
-  final bool compact;
 
   @override
   Widget build(BuildContext context) => view();
-
-  /// What 回复 says on the button.
-  static const replyLabel = '回复';
-  static const likeLabel = '点赞';
-  static const doneLabel = '标记已处理';
-  static const assignLabel = '交给 Agent';
-  static const openActivityLabel = '看完整对话';
 
   /// The heading over the message of an Activity row.
   static const messageLabel = '原话';
@@ -540,25 +513,9 @@ class AgentAttentionDetail extends StatelessWidget {
     final who = item.doer ?? (item.waiters.isEmpty ? null : item.waiters.first);
     final activity = item.isActivity;
     final chip = AgentAttentionView.taskChip(item);
-    VoidCallback? call(void Function(AgentAttentionItem)? f) =>
-        f == null ? null : () => f(item);
-    final open = HfAction(
-      activity
-          ? openActivityLabel
-          : item.action == AgentAction.reply
-          ? '回复${who == null ? '' : ' $who'}'
-          : '打开讨论',
-      key: ValueKey('attention-open-${item.id}'),
-      kind: item.canApprove ? HfActionKind.secondary : HfActionKind.primary,
-      onPressed: () => onOpen(item),
-    );
     return HfDetail(
       key: const ValueKey('attention-detail'),
       trailing: trailing,
-      // The tools are a phone's: its page has little height for stacked
-      // buttons.
-      oneRowActions: trailing != null && !activity,
-      gridActions: activity,
       titleMode: HfDetailTitle.heading,
       index: n,
       title: activity ? (item.place ?? item.headline) : item.headline,
@@ -585,49 +542,7 @@ class AgentAttentionDetail extends StatelessWidget {
             ],
       // An Activity row shows what was said, a task its last progress.
       progressLabel: activity ? messageLabel : HfDetail.progressHeading,
-      actionsBeforeProgress: activity && compact,
       progress: [for (final p in lines) HfProgressLine(p.time, p.who, p.text)],
-      actions: [
-        if (item.canApprove)
-          HfAction(
-            '通过',
-            key: ValueKey('attention-approve-${item.id}'),
-            kind: HfActionKind.primary,
-            icon: Icons.check_rounded,
-            onPressed: () => onApprove(item),
-          ),
-        open,
-        if (activity && onReply != null)
-          HfAction(
-            replyLabel,
-            key: ValueKey('attention-reply-${item.id}'),
-            onPressed: call(onReply),
-          ),
-        if (activity && onLike != null && item.messageId != null)
-          HfAction(
-            likeLabel,
-            key: ValueKey('attention-like-${item.id}'),
-            onPressed: call(onLike),
-          ),
-        if (activity && onDone != null && item.rowKind != 'mention_action')
-          HfAction(
-            doneLabel,
-            key: ValueKey('attention-done-${item.id}'),
-            onPressed: call(onDone),
-          ),
-        HfAction(
-          '稍后',
-          key: ValueKey('attention-later-${item.id}'),
-          kind: HfActionKind.text,
-          onPressed: () => onLater(item),
-        ),
-        if (onAssign != null && (activity || item.taskId != null))
-          HfAction(
-            assignLabel,
-            key: ValueKey('attention-assign-${item.id}'),
-            onPressed: call(onAssign),
-          ),
-      ],
     );
   }
 }

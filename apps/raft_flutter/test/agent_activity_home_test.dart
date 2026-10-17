@@ -491,7 +491,9 @@ void main() {
           home: AgentModePage(
             controller: named,
             data: AgentModeData(named, now: () => _now),
-            model: const AgentScriptedModel(),
+            model: _Probe((call) async {
+              await call('open_item', {'number': 1});
+            }),
           ),
         ),
       );
@@ -500,11 +502,11 @@ void main() {
         find.byKey(const ValueKey('attention-card-activity:thread:th1')),
       );
       await t.pumpAndSettle();
-      final open = find.byKey(
-        const ValueKey('attention-open-activity:thread:th1'),
-      );
-      await t.ensureVisible(open);
-      await t.tap(open);
+      // 看完整对话 is said, not pressed: the model opens the first row.
+      await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const ValueKey('agent-input')), '看完整对话');
+      await t.testTextInput.receiveAction(TextInputAction.send);
       await t.pumpAndSettle();
       expect(find.text('第 2 层'), findsOneWidget);
       expect(find.text('Cindy'), findsOneWidget);
@@ -620,8 +622,8 @@ void main() {
 
   group('the current row on a phone', () {
     for (final length in [20, 120, 400]) {
-      testWidgets('its actions are in view with a quote of $length characters '
-          'and the whole quote is there', (t) async {
+      testWidgets('the whole quote of $length characters is in the detail, '
+          'uncut', (t) async {
         final data = _HomeData(w);
         final rows = _rows();
         final quote = '今天做了三件事，' * (length ~/ 8);
@@ -641,20 +643,7 @@ void main() {
           find.byKey(const ValueKey('attention-card-activity:thread:th1')),
         );
         await t.pumpAndSettle();
-        final page = t.getRect(find.byKey(const ValueKey('hf-page')));
-        for (final key in [
-          'attention-open-activity:thread:th1',
-          'attention-reply-activity:thread:th1',
-          'attention-done-activity:thread:th1',
-          'attention-later-activity:thread:th1',
-          'attention-assign-activity:thread:th1',
-        ]) {
-          final r = t.getRect(find.byKey(ValueKey(key)));
-          expect(r.top, greaterThanOrEqualTo(page.top - 1), reason: key);
-          expect(r.bottom, lessThanOrEqualTo(page.bottom + 1), reason: key);
-        }
-        // The whole quote is in the detail, under the actions: no clip, no
-        // ellipsis.
+        // The whole quote is in the detail: no clip, no ellipsis.
         final detail = find.byKey(const ValueKey('attention-detail'));
         final said = find.descendant(
           of: detail,
@@ -666,19 +655,94 @@ void main() {
         )) {
           expect(p.didExceedMaxLines, isFalse, reason: p.text.toPlainText());
         }
-        expect(
-          t.getTopLeft(said).dy,
-          greaterThan(
-            t
-                    .getBottomLeft(
-                      find.byKey(
-                        const ValueKey('attention-later-activity:thread:th1'),
-                      ),
-                    )
-                    .dy -
-                1,
+      });
+    }
+  });
+
+  group('no action buttons in the detail', () {
+    // The detail of a row has the heading, the facts and the words; what can
+    // be done with it is said to the model, which shows the preview.
+    const labels = ['看完整对话', '回复', '点赞', '标记已处理', '稍后', '交给 Agent', '通过'];
+    for (final (name, size) in [
+      ('a phone', const Size(412, 915)),
+      ('a wide window', const Size(1400, 900)),
+    ]) {
+      testWidgets('on $name, for an Activity row and for a task', (t) async {
+        final data = _HomeData(w);
+        final decision = data.decisionTask('t1', 41, 'th2');
+        data.result = AgentAttention(
+          items: AgentActivityFeed.compose(data.feed(_rows()), [decision]),
+          pool: [decision],
+        );
+        t.view.physicalSize = size;
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(RaftFamily.brutal),
+            home: AgentModePage(controller: w, data: data),
           ),
         );
+        await t.pumpAndSettle();
+        final detail = find.byKey(const ValueKey('attention-detail'));
+        for (final id in [
+          'activity:thread:th1',
+          'activity:thread:th2',
+          'activity:dm:d1',
+        ]) {
+          // A wide window numbers its rows; a phone has cards.
+          final card = find.byKey(
+            ValueKey('attention-${size.width > 800 ? 'row' : 'card'}-$id'),
+          );
+          await t.ensureVisible(card);
+          await t.tap(card);
+          await t.pumpAndSettle();
+          expect(detail, findsOneWidget, reason: id);
+          // Heading and words are there (an Activity row says 原话, a task
+          // its last progress) ...
+          expect(
+            find
+                .descendant(
+                  of: detail,
+                  matching: find.byWidgetPredicate(
+                    (w) => w is Text && (w.data == '原话' || w.data == '最近进展'),
+                  ),
+                )
+                .evaluate()
+                .length,
+            1,
+            reason: id,
+          );
+          // ... and nothing to press.
+          expect(
+            find.descendant(of: detail, matching: find.byType(HfActions)),
+            findsNothing,
+            reason: id,
+          );
+          // The phone's stage tools (展开, close) are not actions of the item.
+          for (final label in labels) {
+            expect(
+              find.descendant(of: detail, matching: find.text(label)),
+              findsNothing,
+              reason: '$id $label',
+            );
+          }
+          for (final key in [
+            'open',
+            'reply',
+            'like',
+            'done',
+            'later',
+            'assign',
+            'approve',
+          ]) {
+            expect(
+              find.byKey(ValueKey('attention-$key-$id')),
+              findsNothing,
+              reason: '$id $key',
+            );
+          }
+        }
       });
     }
   });
@@ -716,10 +780,11 @@ void main() {
       t.view.physicalSize = const Size(412, 915);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
+      final probe = _Probe((call) async {});
       await t.pumpWidget(
         MaterialApp(
           theme: raftTheme(RaftFamily.brutal),
-          home: AgentModePage(controller: w, data: data),
+          home: AgentModePage(controller: w, data: data, model: probe),
         ),
       );
       await t.pumpAndSettle();
@@ -727,11 +792,18 @@ void main() {
         find.byKey(const ValueKey('attention-card-activity:thread:th1')),
       );
       await t.pumpAndSettle();
-      final openButton = find.byKey(
-        const ValueKey('attention-open-activity:thread:th1'),
+      // No button: the model opens the whole conversation of the first row.
+      expect(
+        find.byKey(const ValueKey('attention-open-activity:thread:th1')),
+        findsNothing,
       );
-      await t.ensureVisible(openButton);
-      await t.tap(openButton);
+      probe.script = (call) async {
+        await call('open_item', {'number': 1});
+      };
+      await t.tap(find.byKey(const ValueKey('agent-keyboard')));
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const ValueKey('agent-input')), '看完整对话');
+      await t.testTextInput.receiveAction(TextInputAction.send);
       await t.pumpAndSettle();
       expect(data.reads, ['th1']);
       expect(find.text('第 2 层'), findsOneWidget);
@@ -818,6 +890,7 @@ void main() {
       'activity.mark_done',
       'tasks.assign',
       'tasks.create',
+      'tasks.set_status',
     };
     final registry = AgentCapabilityRegistry([
       spy(
@@ -842,15 +915,18 @@ void main() {
         ['channel', 'title', 'description', 'assignee'],
         required: ['channel', 'title'],
       ),
+      spy('tasks.set_status', ['task', 'status'], required: ['task', 'status']),
       for (final c in agentStandardCapabilities.all)
         if (!spied.contains(c.id)) c,
     ]);
 
     late _HomeData data;
+    late _Probe probe;
 
     Future<void> open(WidgetTester t) async {
       ran.clear();
       data = _HomeData(w);
+      probe = _Probe((call) async {});
       final decision = data.decisionTask('t1', 41, 'th2');
       data.result = AgentAttention(
         items: AgentActivityFeed.compose(data.feed(_rows()), [decision]),
@@ -866,7 +942,7 @@ void main() {
             controller: w,
             data: data,
             registry: registry,
-            model: const AgentScriptedModel(),
+            model: probe,
           ),
         ),
       );
@@ -880,19 +956,6 @@ void main() {
       await t.pumpAndSettle();
     }
 
-    Future<void> press(WidgetTester t, String key) async {
-      final f = find.byKey(ValueKey(key));
-      await t.ensureVisible(f);
-      await t.tap(f);
-      await t.pumpAndSettle();
-    }
-
-    Future<void> confirm(WidgetTester t) async {
-      expect(find.text('确认'), findsOneWidget);
-      await t.tap(find.text('确认'));
-      await t.pumpAndSettle();
-    }
-
     Future<void> type(WidgetTester t, String text) async {
       if (find.byKey(const ValueKey('agent-input')).evaluate().isEmpty) {
         await t.tap(find.byKey(const ValueKey('agent-keyboard')));
@@ -903,14 +966,51 @@ void main() {
       await t.pumpAndSettle();
     }
 
+    /// The person says something and the model answers with the tool [name]:
+    /// the preview, with its confirm card on the screen.
+    Future<Map<String, Object?>> say(
+      WidgetTester t,
+      String name,
+      Map<String, Object?> args, {
+      String words = '随便',
+    }) async {
+      late Map<String, Object?> result;
+      probe.script = (call) async {
+        result = await call(name, args);
+      };
+      await type(t, words);
+      return result;
+    }
+
+    /// The person presses 确认 on the card, then the model confirms.
+    Future<void> confirm(WidgetTester t, Map<String, Object?> previewed) async {
+      expect(previewed['status'], 'needs_confirmation', reason: '$previewed');
+      expect(find.text('确认'), findsOneWidget);
+      await t.tap(find.text('确认'));
+      await t.pumpAndSettle();
+      probe.script = (call) async {
+        await call('confirm', {'token': previewed['confirmToken']});
+      };
+      await type(t, '随便');
+    }
+
     testWidgets('点赞 is react on the message, behind a confirm card', (t) async {
       await open(t);
       await current(t, 'activity:thread:th1');
-      await press(t, 'attention-like-activity:thread:th1');
+      // The detail has no 点赞 button: it is said, and the model previews.
+      expect(
+        find.byKey(const ValueKey('attention-like-activity:thread:th1')),
+        findsNothing,
+      );
+      final previewed = await say(t, 'react', {
+        'message': 'l-th1',
+        'emoji': '👍',
+        'channel': 'th1',
+      }, words: '给这条点赞');
       // The preview of the tool, and nothing ran yet.
       expect(find.textContaining('预览 messages.react'), findsWidgets);
       expect(ran, isEmpty);
-      await confirm(t);
+      await confirm(t, previewed);
       expect(_ran(ran), [
         _c('messages.react', {
           'message': 'l-th1',
@@ -923,46 +1023,49 @@ void main() {
     testWidgets('取消 on the card runs nothing', (t) async {
       await open(t);
       await current(t, 'activity:thread:th1');
-      await press(t, 'attention-like-activity:thread:th1');
+      final previewed = await say(t, 'react', {
+        'message': 'l-th1',
+        'emoji': '👍',
+        'channel': 'th1',
+      });
+      expect(previewed['status'], 'needs_confirmation');
       await t.tap(find.text('取消'));
       await t.pumpAndSettle();
       expect(ran, isEmpty);
     });
 
     testWidgets('标记已处理 is mark_done: a thread with its thread, a '
-        'private conversation by itself, and a mention action has none', (
-      t,
-    ) async {
+        'private conversation by itself', (t) async {
       await open(t);
       await current(t, 'activity:thread:th1');
-      await press(t, 'attention-done-activity:thread:th1');
-      await confirm(t);
+      await confirm(
+        t,
+        await say(t, 'mark_done', {'channel': 'c1', 'thread': 'th1'}),
+      );
       await current(t, 'activity:dm:d1');
-      await press(t, 'attention-done-activity:dm:d1');
-      await confirm(t);
+      await confirm(t, await say(t, 'mark_done', {'channel': 'd1'}));
       expect(_ran(ran), [
         _c('activity.mark_done', {'channel': 'c1', 'thread': 'th1'}),
         _c('activity.mark_done', {'channel': 'd1'}),
       ]);
-      await current(t, 'activity:mention_action:ma1');
-      expect(
-        find.byKey(
-          const ValueKey('attention-done-activity:mention_action:ma1'),
-        ),
-        findsNothing,
-      );
     });
 
     testWidgets('回复 waits for the words: a thread is answered in its '
         'thread, a private message in its conversation', (t) async {
       await open(t);
       await current(t, 'activity:thread:th1');
-      await press(t, 'attention-reply-activity:thread:th1');
-      expect(find.byKey(const ValueKey('agent-reply-note')), findsOneWidget);
+      // Nothing is previewed until the model has the words.
+      await type(t, '回复这条');
       expect(ran, isEmpty);
-      await type(t, '先跑全量');
-      expect(find.byKey(const ValueKey('agent-reply-note')), findsNothing);
-      await confirm(t);
+      expect(find.text('确认'), findsNothing);
+      await confirm(
+        t,
+        await say(t, 'reply_in_thread', {
+          'message': 'p-th1',
+          'text': '先跑全量',
+          'channel': 'c1',
+        }, words: '先跑全量'),
+      );
       expect(_ran(ran), [
         _c('messages.reply_thread', {
           'message': 'p-th1',
@@ -972,28 +1075,29 @@ void main() {
       ]);
       ran.clear();
       await current(t, 'activity:dm:d1');
-      await press(t, 'attention-reply-activity:dm:d1');
-      await type(t, '可以，周五见');
-      await confirm(t);
+      await confirm(
+        t,
+        await say(t, 'send_message', {
+          'channel': 'd1',
+          'text': '可以，周五见',
+        }, words: '可以，周五见'),
+      );
       expect(_ran(ran), [
         _c('messages.send', {'channel': 'd1', 'text': '可以，周五见'}),
       ]);
     });
 
-    testWidgets('回复 can be given up', (t) async {
-      await open(t);
-      await current(t, 'activity:thread:th1');
-      await press(t, 'attention-reply-activity:thread:th1');
-      await press(t, 'agent-reply-cancel');
-      expect(find.byKey(const ValueKey('agent-reply-note')), findsNothing);
-      await type(t, '随便说点什么');
-      expect(ran, isEmpty);
-    });
-
-    testWidgets('稍后 sets the item aside, as it always did', (t) async {
+    testWidgets('稍后 sets the item aside, behind a confirm card', (t) async {
       await open(t);
       await current(t, 'activity:channel:c2');
-      await press(t, 'attention-later-activity:channel:c2');
+      final previewed = await say(t, 'snooze_item', {
+        'item': 'activity:channel:c2',
+      }, words: '稍后再看这个');
+      expect(
+        find.byKey(const ValueKey('attention-card-activity:channel:c2')),
+        findsOneWidget,
+      );
+      await confirm(t, previewed);
       expect(
         AgentSnoozeStore.of(w).active.map((e) => e.id),
         contains('activity:channel:c2'),
@@ -1009,27 +1113,28 @@ void main() {
       await open(t);
       // The Activity row of a task I decide: its own task is assigned.
       await current(t, 'activity:thread:th2');
-      expect(
-        find.byKey(const ValueKey('attention-approve-activity:thread:th2')),
-        findsOneWidget,
+      await confirm(
+        t,
+        await say(t, 'assign_task', {
+          'task': 't1',
+          'assignee': 'Cody',
+        }, words: '交给 Cody'),
       );
-      await press(t, 'attention-assign-activity:thread:th2');
-      expect(find.byKey(const ValueKey('agent-assign-panel')), findsOneWidget);
-      // Only an Agent that is online can be chosen.
-      expect(find.byKey(const ValueKey('agent-assign-Cody')), findsOneWidget);
-      expect(find.byKey(const ValueKey('agent-assign-Bo')), findsNothing);
-      await press(t, 'agent-assign-Cody');
-      expect(find.byKey(const ValueKey('agent-assign-panel')), findsNothing);
-      await confirm(t);
       expect(_ran(ran), [
         _c('tasks.assign', {'task': 't1', 'assignee': 'Cody'}),
       ]);
       ran.clear();
       // A message that is no task yet.
       await current(t, 'activity:channel:c2');
-      await press(t, 'attention-assign-activity:channel:c2');
-      await press(t, 'agent-assign-Grok');
-      await confirm(t);
+      await confirm(
+        t,
+        await say(t, 'create_task', {
+          'channel': 'c2',
+          'title': '托盘退出验证通过',
+          'description': '来自动态（#ch-c2）：托盘退出验证通过',
+          'assignee': 'Grok',
+        }, words: '交给 Grok'),
+      );
       expect(ran.single.$1, 'tasks.create');
       expect(ran.single.$2['channel'], 'c2');
       expect(ran.single.$2['assignee'], 'Grok');
@@ -1040,11 +1145,17 @@ void main() {
     testWidgets('通过 on a row that is a task I decide asks first', (t) async {
       await open(t);
       await current(t, 'activity:thread:th2');
-      await press(t, 'attention-approve-activity:thread:th2');
-      expect(find.text('通过这件事？'), findsOneWidget);
-      await t.tap(find.byKey(const ValueKey('attention-approve-confirm')));
-      await t.pumpAndSettle();
-      expect(data.approved, ['t1']);
+      final previewed = await say(t, 'set_task_status', {
+        'task': 't1',
+        'status': 'done',
+      }, words: '通过');
+      // The card asks; nothing is written until it is confirmed.
+      expect(find.textContaining('预览 tasks.set_status'), findsWidgets);
+      expect(ran, isEmpty);
+      await confirm(t, previewed);
+      expect(_ran(ran), [
+        _c('tasks.set_status', {'task': 't1', 'status': 'done'}),
+      ]);
       // The task is done; its row stays in the Activity.
       expect(
         find.byKey(const ValueKey('attention-card-activity:thread:th2')),
@@ -1055,7 +1166,13 @@ void main() {
     testWidgets('看完整对话 opens the conversation of the row', (t) async {
       await open(t);
       await current(t, 'activity:dm:d1');
-      await press(t, 'attention-open-activity:dm:d1');
+      final n =
+          data.result
+              .listed(open: false)
+              .indexWhere((i) => i.id == 'activity:dm:d1') +
+          1;
+      expect(n, greaterThan(0));
+      await say(t, 'open_item', {'number': n}, words: '看完整对话');
       expect(data.reads, ['d1']);
       expect(find.text('@Alice Chen'), findsWidgets);
     });
@@ -1072,7 +1189,6 @@ class _HomeData extends AgentModeData {
   late AgentAttention result;
   final convos = <String, AgentConversationRead>{};
   final reads = <String>[];
-  final approved = <String>[];
   final signal = _Signal();
 
   /// A task of mine that waits for a decision, whose thread is [thread].
@@ -1095,8 +1211,6 @@ class _HomeData extends AgentModeData {
       );
 
   @override
-  Future<void> approve(String taskId) async => approved.add(taskId);
-
   @override
   Future<List<AgentRuntimeInfo>> agents() async => const [
     AgentRuntimeInfo(

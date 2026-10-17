@@ -44,7 +44,6 @@ import 'references/agent_entities.dart';
 import 'references/agent_handle_tag.dart';
 import 'references/agent_reference_table.dart';
 import 'runtime/agent_runtime.dart';
-import 'runtime/agent_stop_words.dart' show isStopUtterance;
 import 'runtime/agent_turn.dart' show AgentTurn;
 import 'runtime/agent_tool_set.dart';
 
@@ -478,14 +477,6 @@ class _AgentModePageState extends State<AgentModePage> {
     // The person pressed 确认 / 取消 on a preview: tell the model, which is
     // waiting for them (their words reach it as audio or text on their own).
     _consent.onTapped = (request, yes) {
-      // A preview the person's own tap started (点赞, 标记已处理 ...) has no
-      // model waiting for the answer: the app runs it.
-      if (_tapTokens.remove(request.token)) {
-        if (yes) {
-          unawaited(_runtime.runTool('confirm', {'token': request.token}));
-        }
-        return;
-      }
       unawaited(
         _voice.tell(
           yes
@@ -725,196 +716,6 @@ class _AgentModePageState extends State<AgentModePage> {
         item,
         AgentSnoozeStore.untilFor('later', DateTime.now()),
       ),
-    );
-  }
-
-  // ---- feedback on an Activity item -------------------------------------
-
-  /// The previews the person's own taps started: their confirm card decides
-  /// them, and the app (not the model) then runs `confirm`.
-  final _tapTokens = <String>{};
-
-  /// 回复 was pressed: what the person says or types next is the reply.
-  AgentAttentionItem? _replying;
-
-  /// 交给 Agent was pressed: the Agents to choose from (null while they are
-  /// being read).
-  AgentAttentionItem? _assigning;
-  List<String>? _assignees;
-
-  /// One feedback action, through the tool the model would use for it: the
-  /// preview and its confirm card are the ones every operation has.
-  Future<void> _feedback(String tool, Map<String, Object?> args) async {
-    final r = await _runtime.runTool(tool, args);
-    if (!mounted) return;
-    final token = r['confirmToken'];
-    if (token is String) _tapTokens.add(token);
-    if (r['error'] != null) {
-      _voice.say(AgentSpeaker.agent, '${r['message'] ?? r['error']}');
-      return;
-    }
-    final summary = (r['preview'] as Map?)?['summary'];
-    if (summary != null) _voice.say(AgentSpeaker.agent, '$summary，确认吗？');
-    _showTray();
-  }
-
-  /// The confirm cards end the page: scroll there to show the one that
-  /// just came.
-  void _showTray() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final page = _pageOf(_stack.last);
-      if (!page.hasClients) return;
-      unawaited(
-        page.position.animateTo(
-          page.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        ),
-      );
-    });
-  }
-
-  /// The tool and arguments that reply to [item] with [text]: a private
-  /// message is answered in its conversation, a discussion in its thread, a
-  /// message in a channel in the thread of that message.
-  static (String, Map<String, Object?>) replyCall(
-    AgentAttentionItem item,
-    String text,
-  ) {
-    final channel = item.channelId;
-    if (item.dm && channel != null) {
-      return ('send_message', {'channel': channel, 'text': text});
-    }
-    return (
-      'reply_in_thread',
-      {
-        'message': item.parentMessageId ?? item.messageId ?? '',
-        'text': text,
-        'channel': ?channel,
-      },
-    );
-  }
-
-  void _reply(AgentAttentionItem item) {
-    if (item.messageId == null && item.parentMessageId == null && !item.dm) {
-      _voice.say(AgentSpeaker.agent, '这条没有可以回复的消息。');
-      return;
-    }
-    setState(() {
-      _replying = item;
-      _assigning = null;
-    });
-    final to = item.doer == null ? '' : ' ${item.doer}';
-    _voice.say(AgentSpeaker.agent, '回复$to：说出或输入要回的话，我先给你看预览。');
-    final (tool, args) = replyCall(item, '<他说的话>');
-    unawaited(
-      _voice.tell(
-        '（屏幕提示，不是用户说的）用户点了“回复”：${item.headline}（${item.place ?? ''}）。'
-        '请他说出要回复的内容，他说完后调用 $tool 出预览，参数 ${jsonEncode(args)}（text 换成他说的话）。',
-      ),
-    );
-  }
-
-  /// Typed words while 回复 is pending are the reply itself.
-  bool _typedReply(String text) {
-    final item = _replying;
-    if (item == null || text.trim().isEmpty || isStopUtterance(text.trim())) {
-      return false;
-    }
-    setState(() => _replying = null);
-    _voice.say(AgentSpeaker.you, text);
-    final (tool, args) = replyCall(item, text.trim());
-    unawaited(_feedback(tool, args));
-    return true;
-  }
-
-  /// The conversation a message of [item] is in: its thread, else its channel.
-  static String? conversationOf(AgentAttentionItem item) =>
-      item.threadChannelId ?? item.channelId;
-
-  void _like(AgentAttentionItem item) {
-    final id = item.messageId;
-    if (id == null) {
-      _voice.say(AgentSpeaker.agent, '这条没有可以点赞的消息。');
-      return;
-    }
-    unawaited(
-      _feedback('react', {
-        'message': id,
-        'emoji': '👍',
-        'channel': ?conversationOf(item),
-      }),
-    );
-  }
-
-  void _done(AgentAttentionItem item) {
-    final channel = item.channelId ?? item.threadChannelId;
-    if (channel == null) {
-      _voice.say(AgentSpeaker.agent, '这条动态没法标为已处理。');
-      return;
-    }
-    unawaited(
-      _feedback('mark_done', {
-        'channel': channel,
-        if (item.rowKind == 'thread' && item.threadChannelId != null)
-          'thread': item.threadChannelId,
-      }),
-    );
-  }
-
-  /// 交给 Agent: choose which one, then a task is assigned to it (the item's
-  /// own task) or created for it from the message.
-  void _assign(AgentAttentionItem item) {
-    setState(() {
-      _assigning = item;
-      _assignees = null;
-      _replying = null;
-    });
-    _voice.say(AgentSpeaker.agent, '交给哪个 Agent？点一个，或者说名字。');
-    unawaited(() async {
-      List<AgentRuntimeInfo> agents;
-      try {
-        agents = await data.agents();
-      } on Object {
-        agents = const [];
-      }
-      if (!mounted || !identical(_assigning, item)) return;
-      setState(() {
-        _assignees = [
-          for (final a in agents)
-            if (a.state != AgentWorkState.offline) a.name,
-        ].take(6).toList();
-      });
-    }());
-  }
-
-  /// [item] goes to the Agent [name]: the preview of `assign_task` for a
-  /// task, of `create_task` (with the message as its description) for the
-  /// rest.
-  void _assignTo(AgentAttentionItem item, String name) {
-    setState(() {
-      _assigning = null;
-      _assignees = null;
-    });
-    final task = item.taskId;
-    if (task != null) {
-      unawaited(_feedback('assign_task', {'task': task, 'assignee': name}));
-      return;
-    }
-    final channel = item.channelId;
-    if (channel == null) {
-      _voice.say(AgentSpeaker.agent, '这条所在的频道不明确，交不出去。');
-      return;
-    }
-    final said = item.excerpt ?? item.headline;
-    unawaited(
-      _feedback('create_task', {
-        'channel': channel,
-        'title': said.length <= 60 ? said : '${said.substring(0, 60)}…',
-        'description': '来自动态（${item.place ?? ''}）：$said',
-        'assignee': name,
-      }),
     );
   }
 
@@ -1337,8 +1138,6 @@ class _AgentModePageState extends State<AgentModePage> {
   ].where((line) => line.isNotEmpty).join('\n');
 
   Future<void> _submit(String text) async {
-    // 回复 was pressed: the next words are the reply.
-    if (_typedReply(text)) return;
     // Typed words are the person's: they may answer a pending preview, or
     // only stop everything ("算了"), which needs no model.
     final turn = _runtime.submitText(text);
@@ -1538,14 +1337,6 @@ class _AgentModePageState extends State<AgentModePage> {
     final notes = [
       if (widget.controller.servers.length > 1)
         '工作区：${widget.controller.server?.name ?? ''}',
-      if (_replying != null)
-        '屏幕下方提示：正在回复${_replying!.doer == null ? '' : ' ${_replying!.doer}'}，等他说出或输入要回的话',
-      if (_assigning != null)
-        '屏幕下方提示：交给哪个 Agent？${_assignees == null
-            ? '正在读取'
-            : _assignees!.isEmpty
-            ? '没有在线的 Agent'
-            : _assignees!.join('、')}',
     ];
     AgentScreenSnapshot make(
       String kind,
@@ -1590,7 +1381,6 @@ class _AgentModePageState extends State<AgentModePage> {
                     row.describe(env),
                     n: n,
                     facts: _attentionFacts(item),
-                    actions: _attentionDetail(item, n).describe(env).actions,
                     view: views?[n],
                     entity: table.byIndex(n),
                   ),
@@ -1732,18 +1522,7 @@ class _AgentModePageState extends State<AgentModePage> {
 
   /// The detail of the attention card [n], as its stage draws it.
   HfDetail _attentionDetail(AgentAttentionItem item, int n) =>
-      AgentAttentionDetail(
-        item: item,
-        number: n,
-        onApprove: (_) {},
-        onOpen: (_) {},
-        onLater: (_) {},
-        onReply: (_) {},
-        onLike: (_) {},
-        onDone: (_) {},
-        onAssign: (_) {},
-        compact: _compact,
-      ).view();
+      AgentAttentionDetail(item: item, number: n).view();
 
   /// The stage of item [e] of a frame, as the screen draws it.
   HfDetail _frameStage(AgentFrameEntry e, int n) => AgentFrameStage(
@@ -2498,14 +2277,6 @@ class _AgentModePageState extends State<AgentModePage> {
         child: AgentAttentionDetail(
           item: items[n - 1],
           number: n,
-          onApprove: (i) => unawaited(_approve(i)),
-          onOpen: _openItem,
-          onLater: _later,
-          onReply: _reply,
-          onLike: _like,
-          onDone: _done,
-          onAssign: _assign,
-          compact: hf.phone,
           trailing: tools,
         ),
       );
@@ -2550,82 +2321,6 @@ class _AgentModePageState extends State<AgentModePage> {
     ),
   );
 
-  /// A small panel above the dock: what 回复 waits for, or who 交给 Agent
-  /// can go to.
-  List<Widget> _feedbackPanels(HfData hf) {
-    Widget box(Key key, List<Widget> children) => Padding(
-      padding: EdgeInsets.only(top: hf.sp(6)),
-      child: Container(
-        key: key,
-        padding: EdgeInsets.fromLTRB(hf.sp(12), hf.sp(8), hf.sp(8), hf.sp(8)),
-        decoration: BoxDecoration(
-          color: HfColors.cream,
-          borderRadius: BorderRadius.circular(hf.sp(14)),
-          border: Border.all(color: HfColors.ink, width: hf.sp(3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: children,
-        ),
-      ),
-    );
-    Widget head(String text, VoidCallback cancel, Key cancelKey) => Row(
-      children: [
-        Expanded(child: Text(text, style: hf.type(HfType.headline))),
-        GestureDetector(
-          key: cancelKey,
-          behavior: HitTestBehavior.opaque,
-          onTap: cancel,
-          child: Padding(
-            padding: EdgeInsets.all(hf.sp(6)),
-            child: Icon(Icons.close, size: hf.sp(22), color: HfColors.inkSoft),
-          ),
-        ),
-      ],
-    );
-    final replying = _replying, assigning = _assigning;
-    return [
-      if (replying != null)
-        box(const ValueKey('agent-reply-note'), [
-          head(
-            '回复${replying.doer == null ? '' : ' ${replying.doer}'}：说出或输入要回的话',
-            () => setState(() => _replying = null),
-            const ValueKey('agent-reply-cancel'),
-          ),
-        ]),
-      if (assigning != null)
-        box(const ValueKey('agent-assign-panel'), [
-          head(
-            _assignees == null
-                ? '交给哪个 Agent？正在读取'
-                : _assignees!.isEmpty
-                ? '现在没有在线的 Agent 可以交给'
-                : '交给哪个 Agent？',
-            () => setState(() {
-              _assigning = null;
-              _assignees = null;
-            }),
-            const ValueKey('agent-assign-cancel'),
-          ),
-          if (_assignees != null && _assignees!.isNotEmpty) ...[
-            SizedBox(height: hf.sp(4)),
-            HfActions(
-              grid: true,
-              actions: [
-                for (final name in _assignees!)
-                  HfAction(
-                    name,
-                    key: ValueKey('agent-assign-$name'),
-                    onPressed: () => _assignTo(assigning, name),
-                  ),
-              ],
-            ),
-          ],
-        ]),
-    ];
-  }
-
   Widget _frameScreen(BuildContext context, HfData hf) {
     // Room above the front layer only for the layers that peek out behind
     // it: one layer, no gap.
@@ -2659,7 +2354,6 @@ class _AgentModePageState extends State<AgentModePage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ..._feedbackPanels(hf),
           if (_surfaceError != null)
             Padding(
               padding: EdgeInsets.only(top: hf.sp(6)),

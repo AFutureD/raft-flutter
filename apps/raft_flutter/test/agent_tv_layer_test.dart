@@ -196,10 +196,10 @@ void main() {
     expect(find.byKey(const ValueKey('attention-detail')), findsOneWidget);
     expect(find.text(AgentAttentionView.layerTitle), findsOneWidget);
     expect(find.textContaining('修复已提交'), findsOneWidget);
-    // Nothing to press: the buttons are pills that say what to say.
-    expect(find.textContaining('「通过」'), findsOneWidget);
-    expect(find.textContaining('「打开讨论」'), findsOneWidget);
-    expect(find.textContaining('「稍后」'), findsOneWidget);
+    // Nothing to press, and no pills for buttons: the detail has none.
+    expect(find.textContaining('「通过」'), findsNothing);
+    expect(find.textContaining('「打开讨论」'), findsNothing);
+    expect(find.textContaining('「稍后」'), findsNothing);
     expect(find.text('在手机上处理'), findsNothing);
     expect(find.byType(HfDock), findsNothing);
     final title = t.widget<Text>(find.text('Dex 卡在「导出报表」'));
