@@ -5,6 +5,7 @@ import 'dart:async' show unawaited;
 import 'control_typography.dart';
 import 'composer_composing_text.dart';
 import 'composer_action_row.dart';
+import 'composer_paste.dart';
 import 'composer_editing.dart';
 import 'composer_expand.dart';
 import 'presentation.dart';
@@ -1857,36 +1858,6 @@ Widget _defaultEditorMenu(BuildContext context, EditableTextState state) =>
     ? SystemContextMenu.editableText(editableTextState: state)
     : AdaptiveTextSelectionToolbar.editableText(editableTextState: state);
 
-/// Overrides the editor's [PasteTextIntent] (EditableText actions are
-/// overridable from ancestors). The host is asked for clipboard attachments
-/// first; only when it takes none does the editor's own text paste run.
-class _RaftPasteAction extends Action<PasteTextIntent> {
-  _RaftPasteAction(this.handler);
-  final Future<bool> Function()? Function() handler;
-
-  @override
-  bool isEnabled(PasteTextIntent intent) =>
-      callingAction?.isEnabled(intent) ?? true;
-
-  @override
-  Object? invoke(PasteTextIntent intent) {
-    final fallback = callingAction;
-    final take = handler();
-    if (take == null) return fallback?.invoke(intent);
-    take().then(
-      (taken) {
-        if (!taken && (fallback?.isEnabled(intent) ?? false)) {
-          fallback!.invoke(intent);
-        }
-      },
-      onError: (Object _) {
-        if (fallback?.isEnabled(intent) ?? false) fallback!.invoke(intent);
-      },
-    );
-    return null;
-  }
-}
-
 /// Controlled editor action seam; identity/authority belongs to the caller.
 /// Only the current mounted editor can accept an insertion, and offstage,
 /// disabled, IME-composing and busy editors reject it without moving focus.
@@ -2785,17 +2756,12 @@ class _RaftComposerState extends State<RaftComposer> {
                           state.pasteText(SelectionChangedCause.toolbar);
                           return;
                         }
-                        take().then(
-                          (taken) {
-                            if (!taken && state.mounted) {
-                              state.pasteText(SelectionChangedCause.toolbar);
-                            }
-                          },
-                          onError: (Object _) {
-                            if (state.mounted) {
-                              state.pasteText(SelectionChangedCause.toolbar);
-                            }
-                          },
+                        unawaited(
+                          pasteComposerClipboard(
+                            state,
+                            take,
+                            cause: SelectionChangedCause.toolbar,
+                          ),
                         );
                       },
                     )
@@ -2885,7 +2851,7 @@ class _RaftComposerState extends State<RaftComposer> {
               },
             ),
             if (widget.onPasteAttachments != null)
-              PasteTextIntent: _RaftPasteAction(
+              PasteTextIntent: RaftComposerPasteAction(
                 () => widget.onPasteAttachments,
               ),
           },

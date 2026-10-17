@@ -31,6 +31,8 @@ Future<void> closeAppWindow({
 /// Local preview shortcuts take precedence over the window fallback. Native
 /// macOS menu actions use the same policy: popups and marked previews close
 /// first, protected dialogs veto closing, and ordinary pages stay mounted.
+/// Native Paste uses the focused editor's action, including its attachment
+/// handler, instead of the engine's hidden AppKit accessibility text field.
 class AppWindowCommands extends StatefulWidget {
   const AppWindowCommands({
     super.key,
@@ -60,6 +62,7 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
     if (_mac) {
       _handlerOwner = this;
       _channel.setMethodCallHandler((call) async {
+        if (call.method == 'pasteRequested') return _paste();
         if (call.method == 'closeRequested') {
           await _close();
         } else if (call.method == 'openPreferences') {
@@ -69,6 +72,7 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
         }
         return true;
       });
+      FocusManager.instance.addListener(_focusChanged);
       unawaited(_publishState(true));
     }
   }
@@ -82,11 +86,37 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
     }
   }
 
+  static const _pasteIntent = PasteTextIntent(SelectionChangedCause.keyboard);
+
+  BuildContext? get _pasteContext {
+    final context = FocusManager.instance.primaryFocus?.context;
+    if (context == null || !context.mounted) return null;
+    final editor = context.findAncestorWidgetOfExactType<EditableText>();
+    if (editor != null &&
+        (editor.readOnly ||
+            !editor.selectionEnabled ||
+            !editor.controller.selection.isValid)) {
+      return null;
+    }
+    final action = Actions.maybeFind<PasteTextIntent>(context);
+    return action?.isEnabled(_pasteIntent) == true ? context : null;
+  }
+
+  void _focusChanged() => unawaited(_publishState(true));
+
+  bool _paste() {
+    final target = _pasteContext;
+    if (target == null) return false;
+    Actions.invoke(target, _pasteIntent);
+    return true;
+  }
+
   Future<void> _publishState(bool ready) async {
     if (!identical(_handlerOwner, this)) return;
     try {
       await _channel.invokeMethod<void>('setWindowCommandsState', {
         'ready': ready,
+        'paste': ready && _pasteContext != null,
         'preferences': ready && widget.openSection != null,
       });
     } on MissingPluginException {
@@ -128,6 +158,7 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
 
   @override
   void dispose() {
+    if (_mac) FocusManager.instance.removeListener(_focusChanged);
     if (_mac && identical(_handlerOwner, this)) {
       unawaited(_publishState(false));
       _channel.setMethodCallHandler(null);
