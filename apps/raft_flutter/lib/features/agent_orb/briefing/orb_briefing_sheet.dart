@@ -54,11 +54,10 @@ class OrbBriefingSheet extends StatelessWidget {
     ),
   );
 
-  static const _padding = EdgeInsets.fromLTRB(
-    RaftSpace.x4,
-    0,
-    RaftSpace.x4,
-    RaftSpace.x4,
+  static const _padding = EdgeInsets.only(
+    left: RaftSpace.x4,
+    right: RaftSpace.x4,
+    bottom: RaftSpace.x4,
   );
 
   @override
@@ -336,9 +335,7 @@ class _ProgressRow extends StatelessWidget {
               '${item.who}：${item.title}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: recipe
-                  .titleStyle(true)
-                  .copyWith(fontWeight: FontWeight.w600),
+              style: recipe.titleStyle(true),
             ),
           ),
           RaftIcon(
