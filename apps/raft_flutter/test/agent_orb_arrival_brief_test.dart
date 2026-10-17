@@ -330,6 +330,15 @@ void main() {
       expect(prompt, contains('只引用工具返回'));
     });
 
+    test('tells the model to choose ids, with target as the last resort', () {
+      final p = orbSystemPrompt(channels: 'raft-flutter [ca]、design [cb]');
+      expect(p, contains('page 列表里选 id'));
+      expect(p, contains('list_targets'));
+      expect(p, contains('channel_id'));
+      expect(p, contains('target 只用在'));
+      expect(p, contains('raft-flutter [ca]'));
+    });
+
     test('navigate already brings the briefing: no second get_briefing', () {
       expect(prompt, contains('navigate'));
       expect(prompt, contains('briefing'));

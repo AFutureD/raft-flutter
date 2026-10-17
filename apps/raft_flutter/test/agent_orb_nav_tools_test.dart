@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_nav_tools.dart';
+import 'package:raft_flutter/features/agent_orb/nav/orb_resolver.dart';
 import 'package:raft_flutter/features/agent_orb/orb_tool.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
@@ -296,11 +297,12 @@ List<Map<String, Object?>> _list(Object? v) => [
 
 void main() {
   testWidgets(
-    'the tools are the seam: navigate, describe_page, read_conversation',
+    'the tools are the seam: navigate, list_targets, describe_page, read_conversation',
     (t) async {
       final tools = orbNavigationTools();
       expect(tools.map((e) => e.name), [
         'navigate',
+        'list_targets',
         'describe_page',
         'read_conversation',
       ]);
@@ -308,7 +310,7 @@ void main() {
         expect(tool.declaration['description'], isA<String>());
       }
       final navigate = tools.first.declaration['parameters']! as Map;
-      expect(navigate['required'], ['target']);
+      expect(navigate['required'], isNull);
     },
   );
 
@@ -538,6 +540,11 @@ void main() {
         final candidates = _list(r['candidates']);
         expect(candidates.map((c) => c['id']).toSet(), {'ca', 'cu'});
         expect(candidates.every((c) => '${c['reason']}'.isNotEmpty), isTrue);
+        // Each candidate says which argument chooses it.
+        expect(
+          {for (final c in candidates) _map(c['use'])['channel_id']},
+          {'ca', 'cu'},
+        );
         expect(fx.path, '/s/alpha', reason: 'ambiguous words do not move');
         final none = await fx.call(t, 'navigate', {'target': 'xyzzy plugh'});
         expect(none['error'], isNotNull);
@@ -606,6 +613,256 @@ void main() {
         classes: ['SourceChannelFilesStore'],
       ),
     );
+  });
+
+  group('navigate by id', () {
+    final log = <String>[];
+    setUp(() {
+      log.clear();
+      orbNavLog = log.add;
+    });
+    tearDown(() => orbNavLog = (_) {});
+
+    testWidgets('page: activity goes to the Activity; Back returns', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'navigate', {'page': 'activity'});
+      expect(r['error'], isNull, reason: '$r');
+      expect(r['route'], '/s/alpha/activity');
+      expect(r['title'], '动态');
+      expect(_map(r['page'])['page'], 'activity');
+      expect(_map(r['matched'])['id'], 'activity');
+      expect(fx.operating.value, false);
+      await fx.back(t);
+      expect(fx.path, '/s/alpha');
+      await fx.f.close(t);
+    });
+
+    testWidgets('a settings page by id', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'navigate', {'page': 'settings/appearance'});
+      expect(r['error'], isNull, reason: '$r');
+      expect(r['title'], '外观');
+      expect(fx.path, contains('appearance'));
+      await fx.f.close(t);
+    });
+
+    testWidgets('an invalid page id returns the nearest valid ids', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      var r = await fx.call(t, 'navigate', {'page': 'activty'});
+      expect(r['error'], isA<String>());
+      final valid = _list(r['valid']);
+      expect(valid, hasLength(5));
+      expect(valid.first, {'id': 'activity', 'name': '动态'});
+      expect(r.containsKey('route'), isFalse);
+      expect(fx.path, '/s/alpha', reason: 'a wrong id does not move');
+      // A display name in the id field points at the right id.
+      r = await fx.call(t, 'navigate', {'page': '动态'});
+      expect(_list(r['valid']).first['id'], 'activity');
+      await fx.f.close(t);
+    });
+
+    testWidgets('channel_id opens the channel with its messages', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'navigate', {'channel_id': 'ca'});
+      expect(r['error'], isNull, reason: '$r');
+      expect(r['route'], contains('/channel/ca'));
+      expect(r['title'], '#raft-flutter');
+      expect(_map(r['matched'])['kind'], 'channel');
+      expect(
+        _list(_map(r['page'])['messages']).map((m) => m['text']),
+        contains('Looks good, shipping it.'),
+      );
+      await fx.f.close(t);
+    });
+
+    testWidgets('an unknown channel_id returns the nearest channels', (
+      t,
+    ) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      // A name where an id belongs: the right id comes back first.
+      var r = await fx.call(t, 'navigate', {'channel_id': 'raft-flutter'});
+      expect(r['error'], isA<String>());
+      expect(_list(r['valid']).first, {'id': 'ca', 'name': 'raft-flutter'});
+      r = await fx.call(t, 'navigate', {'channel_id': 'cx'});
+      expect(r['error'], isA<String>());
+      expect(
+        _list(r['valid']).map((c) => c['id']).toSet(),
+        containsAll({'ca', 'cb', 'ce'}),
+      );
+      expect(fx.path, '/s/alpha');
+      await fx.f.close(t);
+    });
+
+    testWidgets('dm_id opens the private conversation', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'navigate', {'dm_id': 'dc'});
+      expect(r['error'], isNull, reason: '$r');
+      expect(r['route'], contains('/dm/dc'));
+      expect(_map(r['matched'])['kind'], 'dm');
+      final bad = await fx.call(t, 'navigate', {'dm_id': 'ca'});
+      expect(_list(bad['valid']).first['id'], 'dc');
+      await fx.f.close(t);
+    });
+
+    testWidgets('person_id opens a profile; an Agent is an Agent', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      var r = await fx.call(t, 'navigate', {'person_id': 'u-dana'});
+      expect(r['error'], isNull, reason: '$r');
+      expect(_map(r['page'])['page'], 'profile');
+      expect(fx.ctx.workspace.location.profile?.id, 'u-dana');
+      r = await fx.call(t, 'navigate', {'person_id': 'u-danna'});
+      expect(r['error'], isA<String>());
+      expect(_list(r['valid']).first['id'], 'u-dana');
+      await fx.f.close(t);
+    });
+
+    testWidgets('thread_id opens the discussion from the Activity rows', (
+      t,
+    ) async {
+      final fx = Fixture();
+      fx.f.overrides['GET /messages/context/ca-m1'] = (_) => {
+        'messages': [
+          _message('ca', 1, 'Task #136 is ready for review.', id: 'ca-m1'),
+        ],
+      };
+      await fx.mount(t);
+      await fx.call(t, 'navigate', {'page': 'activity'});
+      await fx.back(t);
+      final listed = await fx.call(t, 'list_targets', {'kind': 'threads'});
+      expect(_list(listed['threads']).map((e) => e['id']), ['ca-m1']);
+      final open = await fx.call(t, 'navigate', {'thread_id': 'ca-m1'});
+      expect(open['error'], isNull, reason: '$open');
+      expect(_map(open['page'])['page'], 'thread');
+      expect(fx.ctx.workspace.location.thread?.itemId, 'ca-m1');
+      final bad = await fx.call(t, 'navigate', {'thread_id': 'nope'});
+      expect(_list(bad['valid']).first['id'], 'ca-m1');
+      await fx.f.close(t);
+    });
+
+    testWidgets('task_number opens the task, with or without a channel', (
+      t,
+    ) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      var r = await fx.call(t, 'navigate', {'task_number': 136});
+      expect(r['error'], isNull, reason: '$r');
+      expect(_map(_map(r['page'])['task'])['number'], 136);
+      await fx.back(t);
+      r = await fx.call(t, 'navigate', {
+        'task_number': '#136',
+        'channel_id': 'ca',
+      });
+      expect(r['error'], isNull, reason: '$r');
+      expect(fx.ctx.workspace.location.task?.itemId, 'ca-m1');
+      final none = await fx.call(t, 'navigate', {'task_number': 9999});
+      expect(none['error'], isA<String>());
+      final bad = await fx.call(t, 'navigate', {'task_number': 'abc'});
+      expect(bad['error'], contains('task_number'));
+      await fx.f.close(t);
+    });
+
+    testWidgets('two destinations at once is an error that moves nothing', (
+      t,
+    ) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'navigate', {
+        'page': 'activity',
+        'channel_id': 'ca',
+      });
+      expect(r['error'], isA<String>());
+      expect(fx.path, '/s/alpha');
+      final empty = await fx.call(t, 'navigate', {});
+      expect(empty['error'], isA<String>());
+      await fx.f.close(t);
+    });
+
+    testWidgets('an id beats the words; target is only the fallback', (
+      t,
+    ) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'navigate', {
+        'channel_id': 'cb',
+        'target': 'Roughslutter',
+      });
+      expect(r['route'], contains('/channel/cb'));
+      // A mis-heard name with no id still resolves through the matcher.
+      final heard = await fx.call(t, 'navigate', {'target': 'Roughslutter'});
+      expect(heard['route'], contains('/channel/ca'));
+      await fx.f.close(t);
+    });
+
+    testWidgets('the choice is logged as ids, never content', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      await fx.call(t, 'navigate', {'page': 'activity'});
+      await fx.back(t);
+      await fx.call(t, 'navigate', {'channel_id': 'ca'});
+      await fx.back(t);
+      await fx.call(t, 'navigate', {'page': 'nope'});
+      await fx.call(t, 'navigate', {'target': 'Roughslutter'});
+      expect(log, [
+        'choose page=activity kind=page',
+        'choose channel_id=ca kind=channel',
+        'invalid page',
+        'fallback target=ca kind=channel',
+      ]);
+      expect(log.join(' '), isNot(contains('Roughslutter')));
+      await fx.f.close(t);
+    });
+  });
+
+  group('list_targets', () {
+    testWidgets('channels, DMs, people with ids; unread and joined', (t) async {
+      final fx = Fixture();
+      await fx.mount(t);
+      final r = await fx.call(t, 'list_targets');
+      final channels = _list(r['channels']);
+      expect(channels.first, {
+        'id': 'cb',
+        'name': 'design',
+        'joined': true,
+        'unread': 2,
+      }, reason: 'unread first');
+      expect(channels.map((c) => c['id']), containsAll(['ca', 'cb', 'ce']));
+      expect(_list(r['dms']).single, {
+        'id': 'dc',
+        'name': 'Cody',
+        'person_id': 'a-cody',
+      });
+      expect(
+        _list(r['people']).map((p) => '${p['id']}:${p['type']}'),
+        containsAll(['u-dana:member', 'a-cody:agent']),
+      );
+      expect(_list(r['threads']), isEmpty);
+      final only = await fx.call(t, 'list_targets', {'kind': 'dms'});
+      expect(only.keys, ['dms']);
+      expect(
+        (await fx.call(t, 'list_targets', {'kind': 'x'}))['error'],
+        isNotNull,
+      );
+      await fx.f.close(t);
+    });
+
+    test('each list is capped and says what it left out', () {
+      final dir = OrbDirectory(
+        channels: [
+          for (var i = 0; i < 70; i++) OrbChannelRef(id: 'c$i', name: 'n$i'),
+        ],
+      );
+      final r = orbTargetsJson(dir);
+      expect((r['channels']! as List), hasLength(60));
+      expect(r['channelsOmitted'], 10);
+      expect(orbChannelsLine(dir), contains('n0 [c0]'));
+    });
   });
 
   group('describe_page', () {

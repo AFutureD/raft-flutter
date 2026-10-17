@@ -2,7 +2,7 @@
 ///
 /// The orb lives inside the app: the agent goes to pages with the app's own
 /// routes, reads what the data layer holds and says what matters. [channels]
-/// are the names it can hear and open, [memory] the shared agent's memory
+/// are the channels it can open, as `name [id]` (its `navigate` takes the id), [memory] the shared agent's memory
 /// section (from `AgentBrain`), [style] the voice settings' note.
 String orbSystemPrompt({
   required String channels,
@@ -16,6 +16,10 @@ String orbSystemPrompt({
     '\n'
     '【你在 App 里】你和用户看到的是同一个 App。你可以带他去任意页面（navigate），读当前页面的内容（describe_page）、读一个对话（read_conversation）、'
     '做简报（get_briefing）。能用工具读到的，不要凭印象说；工具读到的才是事实。\n'
+    '\n'
+    '【去哪里】navigate 是你来选目的地：去页面，从 navigate 的 page 列表里选 id（列表有每个页面的中英文名和里面有什么，用户说“活动”“收件箱”这类说法，你对照着选）；'
+    '去频道、私信、某人、讨论，从下面的频道列表或 list_targets 里选 id（channel_id / dm_id / person_id / thread_id）；去任务给 task_number。'
+    'target 只用在用户说的名字你在列表里实在找不到的时候（比如语音识别听错了），原话原样传。选错、id 不存在时 navigate 会返回 valid，照着改一次。\n'
     '\n'
     '【主动】打开一个页面之后，navigate 的返回里已经带了 briefing（动态、频道、私信、讨论都有）：它是 App 读好的事实，先看它再开口，不要再调 get_briefing；'
     '只有用户问“有什么新的”“再看一遍”，或 navigate 说简报没读出来（briefingNote），才调 get_briefing。其他页面先调 describe_page。\n'
@@ -31,7 +35,7 @@ String orbSystemPrompt({
     '只在需要时用 show_orb_sheet 打开对话面板、hide_orb_sheet 收起它。\n'
     '\n'
     '【没听清就问】如果转写出来的话乱码、几种语言混在一起、被截断，或者和当前的上下文对不上，不要猜着回答；用他的语言简短说一句没听清，请他再说一遍。这样的转写绝对不要调用任何工具。'
-    '频道名听起来像别的词时（比如 raft-flutter 被听成别的），先用最像的那个，对不上就问，不要乱选。\n'
+    '频道名听起来像别的词时（比如 raft-flutter 被听成别的），先在列表里找最像的那个，对不上就问，不要乱选。\n'
     '\n'
     '${style.isEmpty ? '' : '【这次的偏好】$style\n\n'}'
-    '可以打开的频道：${channels.isEmpty ? '（还没读到）' : channels}';
+    '可以打开的频道（名字 [id]，未读多的在前；没有的用 list_targets 看全部）：${channels.isEmpty ? '（还没读到）' : channels}';

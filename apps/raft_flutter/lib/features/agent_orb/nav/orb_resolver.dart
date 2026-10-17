@@ -11,9 +11,12 @@ class OrbChannelRef {
     required this.id,
     required this.name,
     this.archived = false,
+    this.joined = true,
+    this.unread = 0,
   });
   final String id, name;
-  final bool archived;
+  final bool archived, joined;
+  final int unread;
 }
 
 /// A private conversation, named by the other side.
@@ -23,9 +26,11 @@ class OrbDmRef {
     required this.name,
     this.peerId,
     this.peerType,
+    this.unread = 0,
   });
   final String id, name;
   final String? peerId, peerType;
+  final int unread;
 }
 
 /// A member (`user`) or an Agent (`agent`).

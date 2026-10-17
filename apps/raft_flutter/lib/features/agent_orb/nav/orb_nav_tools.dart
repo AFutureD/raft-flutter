@@ -8,6 +8,7 @@ import '../../../data/workspace_controller.dart';
 import '../../activity_destination.dart';
 import '../../agent_mode/agent_mode_data.dart';
 import '../orb_tool.dart';
+import 'orb_choice.dart';
 import 'orb_fuzzy.dart';
 import 'orb_page_description.dart';
 import 'orb_resolver.dart';
@@ -18,6 +19,7 @@ export 'orb_page_description.dart'
     show describeOrbPage, orbDirectoryOf, orbMessageJson;
 export 'orb_resolver.dart'
     show OrbDirectory, OrbKind, OrbMatch, OrbResolution, resolveOrbTarget;
+export 'orb_choice.dart' show orbChannelsLine, orbNavLog, orbTargetsJson;
 export 'orb_vocabulary.dart' show OrbDestination, orbVocabulary;
 
 /// What `navigate` adds to its answer once it has arrived: the facts of the
@@ -33,17 +35,21 @@ typedef OrbArrivalBrief = Future<Map<String, Object?>?> Function(
 /// The most `navigate` waits for [OrbArrivalBrief].
 const orbArrivalWait = Duration(seconds: 10);
 
-/// The navigation tools of the Agent orb: `navigate`, `describe_page` and
-/// `read_conversation`.
+/// The navigation tools of the Agent orb: `navigate`, `list_targets`,
+/// `describe_page` and `read_conversation`.
 ///
-/// `navigate` goes where the person's words name: a page of the App (动态,
-/// 设置, 任务, ...), a channel, a private conversation, a member's profile, a
-/// task by number or a discussion. It uses the App's own navigation (the same
+/// `navigate` goes where the model CHOOSES by id: a page from the enum of its
+/// declaration (each id with its names and what is there), or a channel,
+/// private conversation, member, discussion or task from `list_targets`. The
+/// free-text `target` is only the fallback for a name the model could not
+/// find; it runs the fuzzy matcher over the directory. It uses the App's own
+/// navigation (the same
 /// path as a tap, so Back returns), holds `operating` while it moves, waits
 /// for the destination's first data (or a definite empty or error; at most
 /// about 5 s) and answers `{route, title, page}` where `page` is what
 /// `describe_page` would say. Ambiguous words answer `{candidates}`, unknown
-/// words `{error}`.
+/// words `{error}`; an id that does not exist answers `{error, valid}` with the
+/// nearest ids.
 ///
 /// [arrivalBrief] adds the facts of where `navigate` arrived (see
 /// [OrbArrivalBrief]): without it the answer is the page alone.
@@ -52,6 +58,7 @@ List<OrbTool> orbNavigationTools({OrbArrivalBrief? arrivalBrief}) => [
     declaration: _navigateDeclaration,
     handler: (args, ctx) => _navigate(args, ctx, arrivalBrief),
   ),
+  OrbTool(declaration: _listTargetsDeclaration, handler: _listTargets),
   OrbTool(declaration: _describePageDeclaration, handler: _describePage),
   OrbTool(
     declaration: _readConversationDeclaration,
@@ -59,41 +66,82 @@ List<OrbTool> orbNavigationTools({OrbArrivalBrief? arrivalBrief}) => [
   ),
 ];
 
-const _navigateDeclaration = <String, Object?>{
+/// One line per destination for the declaration: `id = 中文 / English：what
+/// is there`. The model reasons on this, so it carries both names.
+String orbPageTable() => [
+  for (final d in orbVocabulary)
+    '${d.id} = ${d.zhName} / ${d.label}：${d.about}',
+].join('\n');
+
+/// The `navigate` declaration. Built from [orbVocabulary], so a new
+/// destination is in the enum and the table by itself.
+final _navigateDeclaration = <String, Object?>{
   'name': 'navigate',
   'description':
       '带用户去 App 里的某个地方，用 App 自己的路由（和用户点一下是同一条路，返回键能回去）。'
-      'target 就写用户的原话：页面（“动态”“设置”“任务”“收藏”“Agent 列表”）、频道（“raft-flutter 频道”）、'
-      '私信（“Cody 的私信”）、某人的资料（“Cody 的资料”）、任务（“task 136”“任务136”“#136”）、讨论（“发布流程那个讨论”）。'
-      '语音识别常听错名字（“Roughslutter”“RA flutter”），原样传，App 会按读音模糊匹配，不要自己改。'
+      '你来选目的地，不要传原话：去页面就从 page 的列表里选 id；去频道、私信、某人的资料、讨论，用 list_targets 或提示里的列表给的 id（channel_id / dm_id / person_id / thread_id）；'
+      '去任务给 task_number（任务编号，可以再给 channel_id 限定哪个频道）。一次只给一个目的地。'
+      'target 是最后的办法：只有用户说的名字在列表里找不到（语音识别常听错名字，如“Roughslutter”“RA flutter”）时，才把原话原样传给 target，App 会按读音模糊匹配。'
+      '给了不存在的 id 会返回 {error, valid}，valid 是最接近的 id，照着改一次就行。'
       '会等页面的第一批数据读出来再返回（最多约 5 秒），返回 {route, title, page, briefing}：page 就是 describe_page 的内容，不用再调 describe_page；'
       '到动态、频道、私信、讨论时还有 briefing（和 get_briefing 同一份：needsYou 谁需要用户处理什么、progress、routineCount），先据它开口：谁、什么事、到哪一步、要用户做什么，常规的只说条数，不要再调 get_briefing。'
       '没有 briefing 又有 briefingNote 是没读出来，如实说，不要自己从 page 里归纳。'
       '返回里 loading 为 true 是数据还没读到，不是空的，不要说“没有内容”；page.empty 为 true 才是真的没有。'
-      '返回 candidates 是有几个都像：把它们的 title 和 reason 念给用户，让用户选，选定后用选中项的 title 再调一次。返回 error 就如实告诉用户没找到。',
+      '返回 candidates 是有几个都像：把它们的 title 和 reason 念给用户，让用户选，选定后用该项 use 里的参数再调一次。返回 error 且没有 valid 就如实告诉用户没找到。',
   'parameters': {
     'type': 'object',
     'properties': {
+      'page': {
+        'type': 'string',
+        'enum': [for (final d in orbVocabulary) d.id],
+        'description':
+            'App 的页面，选一个 id（id = 中文名 / English name：那里有什么）：\n${orbPageTable()}',
+      },
+      'channel_id': {
+        'type': 'string',
+        'description': '频道的 id，来自 list_targets 的 channels 或提示里的频道列表；配 task_number 时表示那个频道的任务',
+      },
+      'dm_id': {
+        'type': 'string',
+        'description': '私信的 id，来自 list_targets 的 dms（和某人的对话）',
+      },
+      'person_id': {
+        'type': 'string',
+        'description': '成员或 Agent 的 id，来自 list_targets 的 people，打开他的资料页',
+      },
+      'thread_id': {
+        'type': 'string',
+        'description': '讨论的 id，来自 list_targets 的 threads',
+      },
+      'task_number': {'type': 'integer', 'description': '任务编号，比如 136'},
       'target': {
         'type': 'string',
-        'description':
-            '用户的原话里要去的地方，不要改写：“动态”“raft-flutter 频道”“task 136”“Cody 的私信”“设置”',
+        'description': '最后的办法：用户说的、在列表里找不到的名字，原样传，不要改写；其他情况不要用',
       },
       'kind': {
         'type': 'string',
-        'enum': [
-          'page',
-          'channel',
-          'dm',
-          'person',
-          'profile',
-          'task',
-          'thread',
-        ],
-        'description': '可选：已经确定是哪一类时给，page 页面 / channel 频道 / dm 私信 / profile 某人的资料 / task 任务 / thread 讨论',
+        'enum': ['channel', 'dm', 'person', 'profile', 'task', 'thread'],
+        'description': '只配 target 用，可选：已经确定名字是哪一类时给',
       },
     },
-    'required': ['target'],
+  },
+};
+
+const _listTargetsDeclaration = <String, Object?>{
+  'name': 'list_targets',
+  'description':
+      '列出可以去的具体对象和它们的 id：频道（id、name、joined 是否已加入、unread 未读数）、私信（id、对方名字、person_id）、'
+      '成员和 Agent（id、name、type）、最近的讨论（id、父消息摘要、所在频道）。用户点名了一个频道、人或讨论，而提示里的列表没有它时先调这个，再用里面的 id 调 navigate。'
+      '每一类都有上限，被截掉的会在 xxxOmitted 里说多少。只读，不会改变任何状态。',
+  'parameters': {
+    'type': 'object',
+    'properties': {
+      'kind': {
+        'type': 'string',
+        'enum': ['channels', 'dms', 'people', 'threads'],
+        'description': '只要哪一类；省略是全部',
+      },
+    },
   },
 };
 
@@ -154,24 +202,19 @@ Future<Map<String, Object?>> _describePage(
 
 // --- navigate ---------------------------------------------------------------
 
-Future<Map<String, Object?>> _navigate(
+Future<Map<String, Object?>> _listTargets(
   Map<String, Object?> args,
   OrbToolContext ctx,
-  OrbArrivalBrief? arrivalBrief,
 ) async {
   final w = ctx.workspace;
-  final target = _str(args['target']) ?? _str(args['name']);
-  if (target == null) return {'error': '需要 target：用户说的要去哪里'};
   if (w.server == null) return {'error': '还没有进入工作区'};
-  final kind = _str(args['kind']);
-
-  // The words are resolved against what the App holds now. Members load in
-  // the background: a name that fits nothing waits for them once.
   w.entityDirectory.ensureAuthors();
-  var resolution = resolveOrbTarget(target, orbDirectoryOf(w), kind: kind);
-  if (resolution.match == null &&
-      resolution.candidates.isEmpty &&
-      w.entityDirectory.authorsLoading) {
+  final only = _str(args['kind']);
+  if (only != null &&
+      !const {'channels', 'dms', 'people', 'threads'}.contains(only)) {
+    return {'error': 'kind 只能是 channels、dms、people、threads 之一'};
+  }
+  if ((only == null || only == 'people') && w.entityDirectory.authorsLoading) {
     final budget = OrbWaitBudget(const Duration(seconds: 3));
     try {
       await budget.until(
@@ -181,18 +224,79 @@ Future<Map<String, Object?>> _navigate(
     } finally {
       budget.dispose();
     }
-    resolution = resolveOrbTarget(target, orbDirectoryOf(w), kind: kind);
   }
-  if (resolution.candidates.isNotEmpty) {
-    return _candidates(resolution.candidates);
-  }
-  var match = resolution.match;
-  if (match == null) {
+  return orbTargetsJson(orbDirectoryOf(w), only: only);
+}
+
+Future<Map<String, Object?>> _navigate(
+  Map<String, Object?> args,
+  OrbToolContext ctx,
+  OrbArrivalBrief? arrivalBrief,
+) async {
+  final w = ctx.workspace;
+  final target = _str(args['target']) ?? _str(args['name']);
+  final hasId = orbIdParams.any((p) => _str(args[p]) != null || args[p] is num);
+  if (target == null && !hasId) {
     return {
-      'error': resolution.error ?? '没有找到「$target」',
-      if (resolution.suggestion != null)
-        'suggestion': resolution.suggestion!.toJson(),
+      'error': '需要一个目的地：page、channel_id、dm_id、person_id、thread_id、task_number 之一（找不到名字时才用 target）',
     };
+  }
+  if (w.server == null) return {'error': '还没有进入工作区'};
+  final kind = _str(args['kind']);
+
+  // What was chosen is checked against what the App holds now. Members load
+  // in the background: a name or id that fits nothing waits for them once.
+  w.entityDirectory.ensureAuthors();
+  OrbMatch? match;
+  OrbResolution resolution = const OrbResolution.none('');
+  OrbChoice? choice;
+  void resolve() {
+    final directory = orbDirectoryOf(w);
+    choice = chooseOrbById(args, directory);
+    if (choice == null && target != null) {
+      resolution = resolveOrbTarget(target, directory, kind: kind);
+    }
+  }
+
+  bool nothing() => choice != null
+      ? choice!.error != null
+      : resolution.match == null && resolution.candidates.isEmpty;
+  resolve();
+  if (nothing() && w.entityDirectory.authorsLoading) {
+    final budget = OrbWaitBudget(const Duration(seconds: 3));
+    try {
+      await budget.until(
+        w.entityDirectory,
+        () => !w.entityDirectory.authorsLoading,
+      );
+    } finally {
+      budget.dispose();
+    }
+    resolve();
+  }
+
+  if (choice != null) {
+    if (choice!.error != null) {
+      orbNavLog('invalid ${choice!.param}');
+      return choice!.error!;
+    }
+    match = choice!.match;
+    orbNavLog('choose ${choice!.param}=${match!.id} kind=${match.kind.name}');
+  } else {
+    if (resolution.candidates.isNotEmpty) {
+      orbNavLog('fallback target candidates=${resolution.candidates.length}');
+      return _candidates(resolution.candidates);
+    }
+    match = resolution.match;
+    if (match == null) {
+      orbNavLog('fallback target none');
+      return {
+        'error': resolution.error ?? '没有找到「$target」',
+        if (resolution.suggestion != null)
+          'suggestion': resolution.suggestion!.toJson(),
+      };
+    }
+    orbNavLog('fallback target=${match.id} kind=${match.kind.name}');
   }
 
   final budget = OrbWaitBudget(orbNavigateWait, operating: ctx.operating);
@@ -243,9 +347,25 @@ Future<Map<String, Object?>> _navigate(
   }
 }
 
+/// The `navigate` argument that goes to [m] (the candidate's `use`).
+Map<String, Object?> _use(OrbMatch m) => switch (m.kind) {
+  OrbKind.page => {'page': m.id},
+  OrbKind.channel => {'channel_id': m.id},
+  OrbKind.dm => {'dm_id': m.id},
+  OrbKind.person || OrbKind.profile => {'person_id': m.id},
+  OrbKind.thread => {'thread_id': m.id},
+  OrbKind.task => {
+    'task_number': m.data['number'],
+    if (m.data['row'] is Map && (m.data['row'] as Map)['channelId'] != null)
+      'channel_id': (m.data['row'] as Map)['channelId'],
+  },
+};
+
 Map<String, Object?> _candidates(List<OrbMatch> found) => {
-  'candidates': [for (final m in found) m.toJson()],
-  'note': '有几个都像，请用户选一个，再用选中项的 title 调 navigate',
+  'candidates': [
+    for (final m in found) {...m.toJson(), 'use': _use(m)},
+  ],
+  'note': '有几个都像，请用户选一个，再用选中项 use 里的参数调 navigate',
 };
 
 typedef _Moved = ({String? error, bool already});

@@ -15,7 +15,8 @@ import '../agent_mode/voice_provider.dart';
 import 'briefing/orb_briefing_models.dart' show OrbBriefItem;
 import 'briefing/orb_briefing_tools.dart'
     show defaultOrbOpenLink, orbBriefingTools;
-import 'nav/orb_nav_tools.dart' show orbNavigationTools;
+import 'nav/orb_nav_tools.dart'
+    show orbChannelsLine, orbDirectoryOf, orbNavigationTools;
 import 'orb_arrival_brief.dart';
 import 'orb_operating.dart';
 import 'orb_prompt.dart';
@@ -384,6 +385,7 @@ class OrbController extends ChangeNotifier {
     if (error != null) return '$name 没成功：${_clip('$error', 60)}';
     final title = result['title'];
     return switch (name) {
+      'list_targets' => '已查看可去的地方',
       'navigate' =>
         title is String && title.isNotEmpty ? '已打开 $title' : '已打开页面',
       'describe_page' => '已查看当前页面',
@@ -519,11 +521,7 @@ class OrbController extends ChangeNotifier {
   String _systemPrompt() => orbSystemPrompt(
     style: AgentVoiceSettings.instance.styleNote,
     memory: _brainContext,
-    channels: workspace.channels
-        .where((c) => c.name.isNotEmpty)
-        .take(80)
-        .map((c) => c.name)
-        .join('、'),
+    channels: orbChannelsLine(orbDirectoryOf(workspace)),
   );
 
   /// The shared agent's memory, as Agent mode reads it, before a session.

@@ -125,14 +125,11 @@ void main() {
       ('open task number 7', OrbKind.task, '#7'),
       // Pages.
       ('动态', OrbKind.page, 'activity'),
-      ('活动', OrbKind.page, 'activity'),
-      ('去活动页', OrbKind.page, 'activity'),
       ('打开动态', OrbKind.page, 'activity'),
-      ('收件箱', OrbKind.page, 'activity'),
       ('设置', OrbKind.page, 'settings'),
       ('任务', OrbKind.page, 'tasks'),
-      ('Agent 列表', OrbKind.page, 'members'),
-      ('回到首页', OrbKind.page, 'home'),
+      ('Activity', OrbKind.page, 'activity'),
+      ('Tasks', OrbKind.page, 'tasks'),
       // A discussion by the message it hangs under.
       ('发布流程 讨论', OrbKind.thread, 'm-launch'),
       ('thread tab bar icons', OrbKind.thread, 'm-icons'),
@@ -151,6 +148,15 @@ void main() {
         expect(r.match!.reason, isNotEmpty);
       });
     }
+
+    test('a page is found by its display name only, no synonym table', () {
+      // The model chooses a page by id; the fallback target matches the
+      // App's own names (zh and en), nothing curated beyond them.
+      for (final said in ['收件箱', '活动', '未读', 'inbox', '收藏夹']) {
+        final r = resolveOrbTarget(said, _directory);
+        expect(r.match?.kind == OrbKind.page, isFalse, reason: said);
+      }
+    });
 
     test('a task names its channel when the words do', () {
       final r = resolveOrbTarget('raft-flutter 的任务 136', _directory);

@@ -100,7 +100,13 @@ OrbDirectory orbDirectoryOf(WorkspaceController w) {
     channels: [
       for (final c in w.channels)
         if (c.type != 'dm')
-          OrbChannelRef(id: c.id, name: c.name, archived: c.archived),
+          OrbChannelRef(
+            id: c.id,
+            name: c.name,
+            archived: c.archived,
+            joined: c.joined,
+            unread: w.unread[c.id] ?? 0,
+          ),
     ],
     dms: [
       for (final c in w.dms)
@@ -109,6 +115,7 @@ OrbDirectory orbDirectoryOf(WorkspaceController w) {
           name: c.peerLabel,
           peerId: str(c.json['peerId']),
           peerType: str(c.json['peerType']),
+          unread: w.unread[c.id] ?? 0,
         ),
     ],
     people: people,

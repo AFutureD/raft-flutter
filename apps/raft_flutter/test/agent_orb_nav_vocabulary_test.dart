@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
 import 'package:raft_flutter/data/navigation_registry.dart';
 import 'package:raft_flutter/data/raft_location.dart';
-import 'package:raft_flutter/features/agent_orb/nav/orb_resolver.dart';
+import 'package:raft_flutter/features/agent_orb/nav/orb_nav_tools.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_vocabulary.dart';
 import 'package:raft_ui/raft_ui.dart' show raftChinese;
 
@@ -85,27 +85,33 @@ void main() {
       }
     });
 
-    // The names the person says, per destination id.
-    const says = <String, List<String>>{
-      'activity': ['动态', '收件箱', '未读', 'activity', 'inbox', '打开动态', '去动态页面'],
-      'home': ['首页', '主页', 'home', '回到首页', '聊天'],
-      'tasks': ['任务', '任务板', 'tasks', 'task board', '所有任务'],
-      'members': ['成员', 'Agent 列表', 'agents'],
-      'saved': ['收藏', '已保存', 'saved', 'bookmarks'],
+    test('every destination has a display name and a description', () {
+      for (final d in orbVocabulary) {
+        expect(d.zhName, isNotEmpty, reason: d.id);
+        expect(d.label, isNotEmpty, reason: d.id);
+        expect(
+          d.about.trim(),
+          isNotEmpty,
+          reason: '${d.id} has no one-line description for the model',
+        );
+        expect(d.about.contains('\n'), isFalse, reason: '${d.id} is one line');
+      }
+    });
+
+    // The display names still match the fallback `target`; nothing else does.
+    const names = <String, List<String>>{
+      'activity': ['动态', 'Activity', '打开动态', '去动态页面'],
+      'tasks': ['任务', 'Tasks'],
       'settings': ['设置', 'settings', '打开设置', 'open settings'],
       'search': ['搜索', 'search'],
-      'computers': ['电脑', '计算机', 'computers'],
-      'settings/appearance': ['外观', '深色模式', 'appearance'],
-      'settings/account': ['账户', '账号', 'account'],
-      'settings/notifications': ['通知设置', 'notification settings'],
-      'settings/storage': ['缓存', '存储'],
+      'settings/appearance': ['外观', 'appearance'],
       'settings/about': ['关于', 'about'],
-      'release-notes': ['更新日志', 'release notes'],
+      'release-notes': ['release notes'],
       'files': ['文件', 'files'],
     };
-    says.forEach((id, words) {
+    names.forEach((id, words) {
       for (final word in words) {
-        test('"$word" is $id', () {
+        test('the display name "$word" is $id', () {
           final r = resolveOrbTarget(word, const OrbDirectory());
           expect(r.match, isNotNull, reason: '"$word" resolved to $r');
           expect(r.match!.kind, OrbKind.page);
@@ -118,6 +124,65 @@ void main() {
       final activity = orbVocabulary.firstWhere((d) => d.id == 'activity');
       expect(activity.zhName, '动态');
       expect(activity.route, RaftRoute.activity);
+    });
+  });
+
+  group('the navigate declaration', () {
+    final tool = orbNavigationTools().firstWhere((t) => t.name == 'navigate');
+    final params = tool.declaration['parameters']! as Map;
+    final props = (params['properties']! as Map).cast<String, Object?>();
+    final page = (props['page']! as Map).cast<String, Object?>();
+
+    test('page is an enum of every destination id', () {
+      expect(page['type'], 'string');
+      expect(page['enum'], [for (final d in orbVocabulary) d.id]);
+    });
+
+    test('every destination is in the table with its zh and en names', () {
+      final description = page['description']! as String;
+      final lines = description.split('\n');
+      for (final d in orbVocabulary) {
+        final line = lines.firstWhere(
+          (l) => l.startsWith('${d.id} = '),
+          orElse: () => fail('${d.id} is not in the page table'),
+        );
+        expect(line, contains(d.zhName), reason: d.id);
+        expect(line, contains(d.label), reason: d.id);
+        expect(line, contains(d.about), reason: d.id);
+      }
+    });
+
+    test('"去活动看看": 动态 / Activity sits next to the activity id', () {
+      // A scripted fake model cannot choose; what makes the real one choose
+      // `page: activity` for 活动 is this line, so it is what is tested.
+      final line = (page['description']! as String)
+          .split('\n')
+          .firstWhere((l) => l.startsWith('activity = '));
+      expect(line, contains('动态'));
+      expect(line, contains('Activity'));
+      expect(line, contains('点名你的'));
+    });
+
+    test('the free-text path is only a fallback', () {
+      expect(params['required'], isNull);
+      for (final id in [
+        'page',
+        'channel_id',
+        'dm_id',
+        'person_id',
+        'thread_id',
+        'task_number',
+        'target',
+      ]) {
+        expect(props.containsKey(id), isTrue, reason: id);
+      }
+      expect((props['target']! as Map)['description'], contains('最后的办法'));
+      expect(tool.declaration['description'], contains('target 是最后的办法'));
+    });
+
+    test('the table stays bounded', () {
+      final text = '${tool.declaration['description']}${page['description']}';
+      expect(text.length, lessThan(3200), reason: '${text.length} chars');
     });
   });
 }
