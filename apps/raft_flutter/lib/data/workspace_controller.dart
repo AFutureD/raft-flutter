@@ -59,6 +59,7 @@ import 'cache_clear.dart';
 import 'attachment_url_cache.dart';
 import 'attachment_media.dart';
 import 'attachment_retention_index.dart';
+import 'conversation_presentation_state.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
@@ -1014,16 +1015,15 @@ class WorkspaceController extends ChangeNotifier
       : composer.drafts;
   Set<String> get _revokedChannels => sessionScope.revokedChannels;
   Set<String> get _revokedServers => sessionScope.revokedServers;
-  Object? _presentationOwner;
-  bool _mainPresented = true, _threadPresented = true;
-  Object? _tabPresentationOwner;
-  bool _chatTabPresented = true;
+  final _conversationPresentation = ConversationPresentationState();
+  bool get _mainPresented => _conversationPresentation.main;
+  bool get _threadPresented => _conversationPresentation.thread;
+  bool get _chatTabPresented => _conversationPresentation.chat;
 
   /// Channel tabs and folded panels are independent presentation owners.
   /// Neither loaded data nor an offstage retained editor admits a read receipt.
   void setChatTabPresentation(Object owner, bool visible) {
-    _tabPresentationOwner = owner;
-    _chatTabPresented = visible;
+    _conversationPresentation.setTab(owner, visible);
     if (presentationSource != null) {
       if (presentationActive) {
         presentationSource!.setChatTabPresentation(owner, visible);
@@ -1033,9 +1033,7 @@ class WorkspaceController extends ChangeNotifier
 
   void releaseChatTabPresentation(Object owner) {
     presentationSource?.releaseChatTabPresentation(owner);
-    if (!identical(owner, _tabPresentationOwner)) return;
-    _tabPresentationOwner = null;
-    _chatTabPresented = true;
+    _conversationPresentation.releaseTab(owner);
   }
 
   /// Mounted layout admission, separate from accepted message windows. This
@@ -1045,9 +1043,7 @@ class WorkspaceController extends ChangeNotifier
     required bool main,
     required bool thread,
   }) {
-    _presentationOwner = owner;
-    _mainPresented = main;
-    _threadPresented = thread;
+    _conversationPresentation.setConversation(owner, main: main, thread: thread);
     if (presentationSource != null) {
       if (presentationActive) {
         presentationSource!.setConversationPresentation(
@@ -1061,9 +1057,7 @@ class WorkspaceController extends ChangeNotifier
 
   void releaseConversationPresentation(Object owner) {
     presentationSource?.releaseConversationPresentation(owner);
-    if (!identical(owner, _presentationOwner)) return;
-    _presentationOwner = null;
-    _mainPresented = _threadPresented = true;
+    _conversationPresentation.releaseConversation(owner);
   }
 
   /// This session owns one window; pages and platform adapters only borrow it.
