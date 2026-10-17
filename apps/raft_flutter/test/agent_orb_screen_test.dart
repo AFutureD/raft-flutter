@@ -95,7 +95,9 @@ void _semanticsTest(String name, Future<void> Function(WidgetTester t) body) =>
 
 void main() {
   group('the reader', () {
-    _semanticsTest('lists the visible text and the actions of a page', (t) async {
+    _semanticsTest('lists the visible text and the actions of a page', (
+      t,
+    ) async {
       await t.pumpWidget(_samplePage());
       final s = _read(t);
 
@@ -192,43 +194,56 @@ void main() {
       expect(unnamed.single.role, 'button');
     });
 
-    _semanticsTest('a long page stays within the budget, the visible part first', (
-      t,
-    ) async {
-      await t.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: Column(
-              children: [
-                for (var i = 0; i < 400; i++)
-                  ListTile(
-                    title: Text('第 $i 行 ${'很长的一行消息内容 ' * 12}'),
-                    onTap: () {},
-                  ),
-                for (var i = 0; i < 300; i++) Text('说明文字 $i ${'字' * 100}'),
-              ],
-            ),
+    _semanticsTest(
+      'a long page stays within the budget, the visible part first',
+      (t) async {
+        // A tall window, so that all of it is on the screen at once.
+        t.view.physicalSize = const Size(412, 40000);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        await t.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ListView(
+                children: [
+                  for (var i = 0; i < 400; i++)
+                    SizedBox(
+                      height: 40,
+                      child: InkWell(
+                        onTap: () {},
+                        child: Text('第 $i 行 ${'很长的一行消息内容 ' * 12}'),
+                      ),
+                    ),
+                  for (var i = 0; i < 300; i++)
+                    SizedBox(height: 20, child: Text('说明文字 $i ${'字' * 100}')),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-      final s = _read(t);
-      final full = orbScreenContract(s);
-      expect(_bytes(full), lessThanOrEqualTo(orbScreenBudgetFull));
-      final arrival = orbScreenContract(s, detail: OrbScreenDetail.arrival);
-      expect(_bytes(arrival), lessThanOrEqualTo(orbScreenBudgetArrival));
-      expect(arrival.containsKey('text'), isFalse);
-      // The part the person sees comes first, and what was left out is said.
-      final actions = _list(full['actions']);
-      expect(actions, isNotEmpty);
-      expect(actions.first['label'], startsWith('第 0 行'));
-      expect(actions.every((a) => a['offscreen'] != true), isTrue);
-      expect(full['actionsOmitted'] ?? full['textOmitted'], isNotNull);
-      // And the guard of the wire does not have to cut it.
-      final guarded = guardToolOutput({'screen': full, 'page': 'other'});
-      expect(guarded.truncated, isFalse);
-    });
+        );
+        final s = _read(t);
+        expect(
+          s.nodes.length,
+          greaterThan(300),
+          reason: 'the page has them all',
+        );
+        final full = orbScreenContract(s);
+        expect(_bytes(full), lessThanOrEqualTo(orbScreenBudgetFull));
+        final arrival = orbScreenContract(s, detail: OrbScreenDetail.arrival);
+        expect(_bytes(arrival), lessThanOrEqualTo(orbScreenBudgetArrival));
+        expect(arrival.containsKey('text'), isFalse);
+        // The first of the page comes first, and what was left out is said.
+        final actions = _list(full['actions']);
+        expect(actions, isNotEmpty);
+        expect(actions.first['label'], startsWith('第 0 行'));
+        expect(full['actionsOmitted'], greaterThan(0));
+        expect(_list(arrival['actions']).first['label'], startsWith('第 0 行'));
+        expect(arrival['actionsOmitted'], greaterThan(0));
+        // And the guard of the wire does not have to cut it.
+        final guarded = guardToolOutput({'screen': full, 'page': 'other'});
+        expect(guarded.truncated, isFalse);
+      },
+    );
   });
 
   group('with the orb layer open', () {
@@ -419,11 +434,10 @@ void main() {
       });
       expect(done['ok'], isTrue, reason: '$done');
       expect(
-        find.descendant(
-          of: find.byType(EditableText),
-          matching: find.text('周五可以'),
-        ),
-        findsOneWidget,
+        t
+            .widgetList<EditableText>(find.byType(EditableText))
+            .map((e) => e.controller.text),
+        contains('周五可以'),
       );
       final written = fx.f.adapter.calls
           .skip(posts)
@@ -535,7 +549,7 @@ void main() {
       await fx.f.close(t);
     });
 
-    testWidgets('the confirm seam is asked instead when the orb has one', (
+    testWidgets('the orb\'s confirm card is asked instead when it has one', (
       t,
     ) async {
       await mount(t);
@@ -552,21 +566,19 @@ void main() {
       );
       await fx.f.flush(t);
       final approve = _find(await readScreen(t), '批准')!;
-      final asked = <String>[];
-      var answer = false;
-      screen.confirm = (context, describe) async {
-        asked.add(describe);
-        return answer;
+      final asked = <Map<String, Object?>>[];
+      screen.ask = (args) async {
+        asked.add(args);
+        return {'status': 'needs_confirmation', 'preview': '点「批准」'};
       };
-      addTearDown(() => screen.confirm = null);
-      final no = await act(t, {'id': approve['id'], 'action': 'tap'});
-      expect(no['declined'], isTrue);
-      expect(sent, 0);
-      answer = true;
-      final yes = await act(t, {'id': approve['id'], 'action': 'tap'});
-      expect(yes['ok'], isTrue, reason: '$yes');
-      expect(sent, 1);
-      expect(asked, hasLength(2));
+      addTearDown(() => screen.ask = null);
+      final r = await act(t, {'id': approve['id'], 'action': 'tap'});
+      expect(r['status'], 'needs_confirmation');
+      expect(r.containsKey('needsConfirm'), isFalse);
+      expect(asked, [
+        {'id': approve['id'], 'action': 'tap'},
+      ]);
+      expect(sent, 0, reason: 'nothing is pressed until the card is agreed');
       await fx.f.close(t);
     });
 

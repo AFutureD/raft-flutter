@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_orb/screen/orb_screen_capability.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability_standard.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_capability_tools.dart';
 import 'package:raft_flutter/features/agent_mode/capabilities/agent_direct_tools.dart';
@@ -116,10 +117,14 @@ void main() {
     });
   });
 
-  test('every capability of the registry is in the orb\'s, and the nudge', () {
+  test('every capability of the registry is in the orb\'s, and its own', () {
     final ours = {for (final c in actions.registry.all) c.id};
     final theirs = {for (final c in agentStandardCapabilities.all) c.id};
-    expect(ours.difference(theirs), {orbNudgeCapability.id});
+    // The nudge, and the press of a risky control on the screen.
+    expect(ours.difference(theirs), {
+      orbNudgeCapability.id,
+      orbScreenCapability.id,
+    });
     expect(theirs.difference(ours), isEmpty);
   });
 
