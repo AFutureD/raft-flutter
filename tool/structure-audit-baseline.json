@@ -287,8 +287,8 @@
         "field._WorkspaceViewState.classicDraftScope": 0,
         "field._WorkspaceViewState.classicEditorRevision": 0,
         "field._WorkspaceViewState.conversationInstance": 1,
-        "field._WorkspaceViewState.gridEntered": 1,
-        "field._WorkspaceViewState.gridKey": 1,
+        "field._WorkspaceViewState.gridEntered": 0,
+        "field._WorkspaceViewState.gridKey": 0,
         "field._WorkspaceViewState.heldCompact": 1,
         "field._WorkspaceViewState.heldRail": 1,
         "field._WorkspaceViewState.joinedChannelsOnly": 1,
@@ -314,12 +314,12 @@
         "field._WorkspaceViewState.pendingDesktopSelection": 1,
         "field._WorkspaceViewState.persistPanels": 1,
         "field._WorkspaceViewState.presentedAttention": 1,
-        "field._WorkspaceViewState.profilePanelKey": 1,
+        "field._WorkspaceViewState.profilePanelKey": 0,
         "field._WorkspaceViewState.providerEnabled": 1,
         "field._WorkspaceViewState.quickSwitcher": 1,
         "field._WorkspaceViewState.railItemArea": 1,
         "field._WorkspaceViewState.restoreSavedSearchRevision": 1,
-        "field._WorkspaceViewState.retainedGridSize": 1,
+        "field._WorkspaceViewState.retainedGridSize": 0,
         "field._WorkspaceViewState.retainedSettingsContent": 1,
         "field._WorkspaceViewState.rowToast": 1,
         "field._WorkspaceViewState.scaffold": 1,
@@ -345,9 +345,9 @@
         "field._WorkspaceViewState.threadViewport": 1,
         "field._WorkspaceViewState.threadWidth": 1,
         "field._WorkspaceViewState.workspaceErrorScheduled": 1,
-        "field._WorkspaceViewState.workspaceMode": 1,
-        "lines": 5017,
-        "tokens": 26221
+        "field._WorkspaceViewState.workspaceMode": 0,
+        "lines": 4900,
+        "tokens": 25626
       }
     },
     "resource_view": {
