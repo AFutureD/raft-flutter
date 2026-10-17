@@ -64,6 +64,24 @@ abstract interface class VoiceSession {
   Future<void> close();
 }
 
+/// What builds a voice session: [createVoiceSession], or a fake in tests.
+typedef VoiceSessionFactory = VoiceSession Function({
+  required AgentVoiceProvider provider,
+  required String apiKey,
+  required String systemPrompt,
+  required List<Map<String, Object?>> tools,
+  required AgentToolHandler onToolCall,
+  required String voice,
+  AgentReasoning reasoning,
+  void Function(Uint8List pcm24k)? onAudio,
+  void Function(String text)? onInputText,
+  void Function(String text)? onOutputText,
+  void Function()? onTurnComplete,
+  void Function()? onInterrupted,
+  void Function(String reason)? onClosed,
+  Future<Duration> Function()? playbackPending,
+});
+
 /// Builds the session of [provider]. [playbackPending] says how much of the
 /// speech already received is still to be played (OpenAI needs it to cut the
 /// unheard part off when the person interrupts).

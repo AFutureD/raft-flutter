@@ -44,7 +44,9 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     Duration liveIdleLimit = agentLiveIdleLimit,
     AgentAudio? audio,
     AgentVoiceKey? key,
-  }) : audio = audio ?? AgentAudio.instance,
+    VoiceSessionFactory? sessionFactory,
+  }) : sessionFactory = sessionFactory ?? createVoiceSession,
+       audio = audio ?? AgentAudio.instance,
        key = key ?? AgentVoiceKey.instance {
     _guard = AgentLiveGuard(
       limit: liveIdleLimit,
@@ -94,6 +96,9 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   final AgentAudio audio;
   final AgentVoiceKey key;
 
+  /// Builds the realtime session; [createVoiceSession] unless a test says so.
+  final VoiceSessionFactory sessionFactory;
+
   /// Plays a short greeting in [voice] so it can be heard at once; the
   /// voice is already saved in [AgentVoiceSettings].
   Future<void> preview(String voice) async {
@@ -104,17 +109,35 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     session?.sendText('（用户正在试听你的声音。用一句自然、简短的话跟他打个招呼。）');
   }
 
-  /// Ends the current session so the next one picks up changed settings.
+  /// Ends the current session at once: capture stops, speech is cut, the
+  /// provider session is closed (also one still connecting: it is closed as
+  /// soon as it exists and never revived), and the mic is idle. This is what a
+  /// tap on the mic does while a call is connecting, listening or speaking.
+  /// It also lets the next session pick up changed settings.
   Future<void> restart() async {
+    _epoch++;
+    _callHold?.cancel();
+    _callHold = null;
+    _callPress = _callHoldFired = false;
+    final wasListening = _live || _holding;
     _endSession();
     final old = _session;
-    _session = null;
+    final building = _building;
+    _session = _building = _connecting = null;
     _stopMic();
     _guard.stop();
-    _live = _holding = false;
-    await old?.close();
+    _pending.clear();
+    _live = _holding = _pressed = false;
+    _releasedAsTap = null;
+    _youLine = _agentLine = null;
+    saying.value = '';
     unawaited(audio.stopPlayback());
+    if (wasListening) onListeningEnded?.call();
     _set(AgentMicState.idle);
+    await Future.wait([
+      ?old?.close(),
+      if (building != null && !identical(building, old)) building.close(),
+    ]);
   }
 
   void _settingsChanged() {
@@ -166,6 +189,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   final lines = <(AgentSpeaker, String)>[];
   AgentMicState state = AgentMicState.idle;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Replaced by every state change (_set) and cleared with the next successful one; shown only in the dock.
   String? notice;
 
   late final AgentLiveGuard _guard;
@@ -173,6 +197,19 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   VoiceSession? _session;
   Future<VoiceSession?>? _connecting;
+
+  /// The session being connected, so a hang up can close it at once.
+  VoiceSession? _building;
+
+  /// Bumped by every hang up: what was started before it must not go on.
+  int _epoch = 0;
+
+  /// A press that began while a call was on (connecting, live, or the model
+  /// speaking): a tap hangs up; a hold while the model speaks interrupts it
+  /// (see [_callHold]).
+  bool _callPress = false;
+  bool _callHoldFired = false;
+  Timer? _callHold;
   StreamSubscription<Uint8List>? _mic;
   final _pending = <Uint8List>[];
   bool _live = false;
@@ -246,14 +283,23 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   Future<VoiceSession?> _ensureSession() {
     if (_session?.connected ?? false) return Future.value(_session);
-    return _connecting ??= _connect().whenComplete(() => _connecting = null);
+    final existing = _connecting;
+    if (existing != null) return existing;
+    late final Future<VoiceSession?> next;
+    next = _connect().whenComplete(() {
+      if (identical(_connecting, next)) _connecting = null;
+    });
+    return _connecting = next;
   }
 
   Future<VoiceSession?> _connect() async {
+    final epoch = _epoch;
     await beforeConnect?.call();
+    if (epoch != _epoch || _disposed) return null;
     final settings = AgentVoiceSettings.instance;
     final provider = settings.provider;
     final apiKey = await _activeKey();
+    if (epoch != _epoch || _disposed) return null;
     if (apiKey == null) {
       _set(
         AgentMicState.idle,
@@ -261,7 +307,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       );
       return null;
     }
-    final session = createVoiceSession(
+    final session = sessionFactory(
       provider: provider,
       apiKey: apiKey,
       voice: settings.voiceOf(provider),
@@ -290,6 +336,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         }
       },
       onAudio: (pcm) {
+        if (epoch != _epoch) return; // A call that was hung up.
         _guard.touch();
         onModelSpoke?.call();
         if (muted?.call() ?? false) return;
@@ -327,6 +374,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         onModelInterrupted?.call();
       },
       onClosed: (reason) {
+        if (epoch != _epoch) return; // A call that was hung up.
         _endSession();
         _session = null;
         _stopMic();
@@ -335,17 +383,23 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         _set(AgentMicState.idle, note: '语音连接断开：$reason');
       },
     );
+    _building = session;
     try {
       await session.connect();
     } catch (e) {
+      if (identical(_building, session)) _building = null;
+      // Hung up meanwhile: nothing to report.
+      if (epoch != _epoch) return null;
       final model = session.model;
       _set(
         AgentMicState.idle,
+        // ignore: raft_lints/avoid_caught_exception_text -- The voice demo's developer-facing connection note (provider and error), shown in the dock until the next state change.
         note: '连接失败${model == null ? '' : '（${model.split('/').last}）'}：$e',
       );
       return null;
     }
-    if (_disposed) {
+    if (identical(_building, session)) _building = null;
+    if (_disposed || epoch != _epoch) {
       await session.close();
       return null;
     }
@@ -367,6 +421,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
         _stopMic();
         _guard.stop();
         _live = _holding = false;
+        // ignore: raft_lints/avoid_caught_exception_text -- The voice demo's developer-facing microphone note, shown in the dock until the next state change.
         _set(AgentMicState.idle, note: '麦克风不可用：$e');
       },
     );
@@ -377,8 +432,33 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     _mic = null;
   }
 
+  /// A call is on: connecting, listening (live), or the model is speaking. A
+  /// press on the mic then is not a new turn: a tap hangs up.
+  bool get _inCall =>
+      _live ||
+      state == AgentMicState.connecting ||
+      state == AgentMicState.speaking;
+
   Future<void> micDown() async {
-    if (_live) return; // Ending live is decided on release.
+    if (_inCall) {
+      // The mic toggles the call: this press is a hang up unless it is held
+      // while the model speaks, which interrupts it (and talks, as before).
+      _callPress = true;
+      _callHoldFired = false;
+      _callHold?.cancel();
+      if (!_live && state == AgentMicState.speaking) {
+        _callHold = Timer(tapLimit, () {
+          _callHoldFired = true;
+          if (_callPress) unawaited(_press());
+        });
+      }
+      return;
+    }
+    await _press();
+  }
+
+  Future<void> _press() async {
+    final epoch = _epoch;
     _pressed = true;
     _releasedAsTap = null;
     if (!audio.supported) {
@@ -404,6 +484,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
           : AgentMicState.connecting,
     );
     final session = await _ensureSession();
+    if (epoch != _epoch) return; // Hung up meanwhile: nothing is left to do.
     if (session == null) {
       _stopMic();
       _guard.stop();
@@ -427,22 +508,34 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   }
 
   void micUp(Duration held) {
+    if (_callPress) {
+      _callPress = false;
+      _callHold?.cancel();
+      _callHold = null;
+      if (!_callHoldFired) {
+        unawaited(restart());
+        return;
+      }
+      _callHoldFired = false; // A hold while speaking: handled as before.
+    }
     final wasPressed = _pressed;
     _pressed = false;
     if (wasPressed && !_holding && !_live) {
       _releasedAsTap = held < tapLimit;
       return;
     }
-    if (_live) {
-      if (held < tapLimit) stopLive();
-      return;
-    }
+    if (_live) return;
     if (!_holding) return;
     _holding = false;
     if (held < tapLimit) {
+      // A tap starts the call; it is "connecting" until the session is up.
       _live = true;
       _guard.start();
-      _set(AgentMicState.live);
+      _set(
+        _session?.connected ?? false
+            ? AgentMicState.live
+            : AgentMicState.connecting,
+      );
       return;
     }
     _stopMic();
@@ -464,15 +557,6 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     _session?.endAudio();
     onListeningEnded?.call();
     _set(AgentMicState.idle, note: agentLiveIdleNotice);
-  }
-
-  void stopLive() {
-    _guard.stop();
-    _live = false;
-    _stopMic();
-    _session?.endAudio();
-    onListeningEnded?.call();
-    _set(AgentMicState.idle);
   }
 
   @override

@@ -15,6 +15,10 @@ class AgentAudio {
   }
   static final instance = AgentAudio._();
 
+  /// A subclass for tests: no platform channel is touched.
+  @visibleForTesting
+  AgentAudio.forTesting();
+
   static const _methods = MethodChannel('app.raft/agent-audio');
   static const _mic = EventChannel('app.raft/agent-audio/mic');
 
@@ -60,6 +64,13 @@ class AgentAudio {
 class AgentVoiceKey extends ChangeNotifier {
   AgentVoiceKey._([this._storageKey = 'raft.agentDemo.geminiKey']);
   static final instance = AgentVoiceKey._();
+
+  /// A key that is already read, for tests.
+  @visibleForTesting
+  AgentVoiceKey.forTesting(String? key)
+    : _storageKey = 'test',
+      _key = key,
+      _loaded = true;
   final String _storageKey;
 
   final _storage = const FlutterSecureStorage(

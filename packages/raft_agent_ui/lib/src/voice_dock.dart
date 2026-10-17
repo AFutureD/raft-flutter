@@ -93,11 +93,11 @@ class _AgentVoiceDockState extends State<AgentVoiceDock> {
 
   String get _stateHint => switch (widget.state) {
     AgentMicState.idle => '按住说话 · 点一下实时对话',
-    AgentMicState.connecting => '正在连接…',
+    AgentMicState.connecting => '正在连接 · 点一下取消',
     AgentMicState.holding => '正在听，松开发送',
-    AgentMicState.live => '实时对话中 · 点一下结束',
+    AgentMicState.live => '实时对话中 · 点一下挂断',
     AgentMicState.thinking => '正在想…',
-    AgentMicState.speaking => '正在回答 · 按住可以打断',
+    AgentMicState.speaking => '正在回答 · 点一下挂断，按住打断',
   };
 
   /// What the strip says: a notice, what the mic is doing while the person
