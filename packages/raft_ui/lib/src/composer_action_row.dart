@@ -23,6 +23,7 @@ class RaftComposerActionRow extends StatelessWidget {
     this.submitTooltip,
     this.spinner = false,
     this.hint,
+    this.inset,
   });
   final RaftComposerRecipe recipe;
   final VoidCallback onSend;
@@ -30,6 +31,11 @@ class RaftComposerActionRow extends StatelessWidget {
   final VoidCallback? onImagePick, onAttach;
   final Widget? taskAction;
   final String? submitTooltip, hint;
+
+  /// Replaces the recipe's own inset (and its paint offset). The expanded
+  /// editor passes its card padding so the row lines up with the toolbar and
+  /// the text; the inline composer leaves it null.
+  final EdgeInsets? inset;
 
   @override
   Widget build(BuildContext context) {
@@ -94,10 +100,10 @@ class RaftComposerActionRow extends StatelessWidget {
       ],
     );
     return Transform.translate(
-      offset: recipe.toolbarPaintOffset,
+      offset: inset == null ? recipe.toolbarPaintOffset : Offset.zero,
       child: Padding(
         key: const ValueKey('composer-toolbar-slot'),
-        padding: recipe.toolbarInset,
+        padding: inset ?? recipe.toolbarInset,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

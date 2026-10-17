@@ -3,15 +3,24 @@ part of 'components.dart';
 /// The expanded editor of [RaftComposer]: opens a larger editor over the same
 /// draft. The expanded text field uses the composer's own controller, undo
 /// history, mention map and suggestion state, so there is one draft whichever
-/// view is showing. Desktop opens a centered dialog; a narrow screen opens a
-/// full-screen page.
+/// view is showing. The presentation primitive picks the form from the window
+/// width: a centered dialog on a wide window, a bottom sheet on a narrow one.
 extension _RaftComposerExpansion on _RaftComposerState {
   /// Runs a Markdown edit on the draft (toolbar buttons, format shortcuts).
   void applyFormat(TextEditingValue Function(TextEditingValue) op) {
+    // A composition belongs to the input method until it commits.
+    if (composing) return;
     controller.value = op(controller.value);
   }
 
-  void toggleExpanded() => expanded ? closeExpanded() : openExpanded();
+  void toggleExpanded() {
+    if (composing) return;
+    if (expanded) {
+      closeExpanded();
+    } else {
+      openExpanded();
+    }
+  }
 
   /// Whether Send is available now; shared by the inline and expanded rows.
   bool get submitReady =>
@@ -33,45 +42,46 @@ extension _RaftComposerExpansion on _RaftComposerState {
         widget.submitBusy) {
       return;
     }
-    final phone =
-        MediaQuery.sizeOf(context).width < RaftLayoutMetrics.desktopBreakpoint;
-    final navigator = Navigator.of(context, rootNavigator: true);
-    final themes = InheritedTheme.capture(from: context, to: navigator.context);
-    Widget content(BuildContext routeContext) => themes.wrap(
-      Material(
+    // One route for every layout: the presentation primitive picks the form
+    // (dialog or bottom sheet) from the live window width, so the editor stays
+    // open and keeps its state when the window crosses the breakpoint.
+    final route = raftPresentedRoute<void>(
+      context,
+      policy: RaftPresentationPolicy.editor,
+      label: raftText(context, 'Collapse editor'),
+      dialogMaxWidth: RaftComposerExpandedView.dialogMaxWidth,
+      dialogMaxHeight: RaftComposerExpandedView.dialogMaxHeight,
+      dialogFillsHeight: true,
+      sheetFillsHeight: true,
+      content: (routeContext, form) => Material(
         type: MaterialType.transparency,
-        child: _expandedContent(phone: phone),
+        child: _expandedContent(form),
       ),
     );
-    final route = phone
-        ? MaterialPageRoute<void>(
-            fullscreenDialog: true,
-            builder: (c) => RaftDismissScope(child: content(c)),
-          )
-        : RaftDialogRoute<void>(
-            capturedThemes: themes,
-            label: raftText(context, 'Collapse editor'),
-            builder: (c) => RaftComposerExpandedDialog(child: content(c)),
-          );
     expandedRoute = route;
     controller.styled = true;
-    expansion = navigator.push(route).whenComplete(_expandedClosed);
+    // Until the route is gone the inline field is a static stand-in, so
+    // exactly one EditableText is attached to the draft.
+    expansion = route.completed.whenComplete(_expandedClosed);
+    unawaited(Navigator.of(context, rootNavigator: true).push(route));
+    rebuild();
     // The expanded field's popup portal mounts with the route: switch the
     // popup over once it is built.
     updateSuggestionPortal(defer: true);
   }
 
-  Widget _expandedContent({required bool phone}) => ListenableBuilder(
+  Widget _expandedContent(RaftSurfaceForm form) => ListenableBuilder(
     listenable: Listenable.merge([controller, expandedChanges]),
     builder: (context, _) {
       final t = RaftTokens.of(context);
+      final phone = form != RaftSurfaceForm.dialog;
       final recipe = RaftComposerRecipe(t, desktop: !phone, bottomSafeInset: 0);
       final mac = switch (Theme.of(context).platform) {
         TargetPlatform.macOS || TargetPlatform.iOS => true,
         _ => false,
       };
       return RaftComposerExpandedView(
-        phone: phone,
+        form: form,
         title: widget.hint,
         controller: controller,
         onCollapse: closeExpanded,
@@ -99,6 +109,12 @@ extension _RaftComposerExpansion on _RaftComposerState {
           spinner: widget.submitSpinner,
           submitEnabled: submitReady,
           onSend: send,
+          inset: const EdgeInsets.fromLTRB(
+            RaftComposerExpandedLayout.pad,
+            0,
+            RaftComposerExpandedLayout.pad,
+            RaftComposerExpandedLayout.gap,
+          ),
           hint: phone
               ? null
               : raftText(
@@ -127,9 +143,18 @@ extension _RaftComposerExpansion on _RaftComposerState {
     expansion = null;
     expandedRoute = null;
     if (!mounted) return;
+    // The expanded field is gone: a composition it held has no input
+    // connection any more, and a stale range would block Send and Expand.
+    if (composing) controller.clearComposing();
     controller.styled = false;
     updateSuggestionPortal();
-    if (presentationActive && widget.enabled) focus.requestFocus();
+    rebuild();
+    // The inline field is back on the next frame; focus it then.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !expanded && presentationActive && widget.enabled) {
+        focus.requestFocus();
+      }
+    });
   }
 
   /// The composer is leaving the tree while its editor is open: the route goes

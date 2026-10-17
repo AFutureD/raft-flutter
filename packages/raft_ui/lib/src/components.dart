@@ -1,10 +1,11 @@
+import 'dart:async' show unawaited;
+
 import 'control_typography.dart';
 import 'composer_composing_text.dart';
 import 'composer_action_row.dart';
 import 'composer_editing.dart';
 import 'composer_expand.dart';
-import 'dismiss_scope.dart';
-import 'overlays/dialog.dart' show RaftDialogRoute;
+import 'presentation.dart';
 import 'markdown_editing.dart';
 import 'markdown_autolink.dart';
 import 'message_semantics.dart';
@@ -2036,6 +2037,7 @@ class _RaftComposerState extends State<RaftComposer> {
   Future<void>? expansion;
   Route<void>? expandedRoute;
   bool get expanded => expansion != null;
+  void rebuild() => setState(() {});
   FocusNode get activeFocus => expanded ? expandedFocus : focus;
   final suggestionScroll = ScrollController();
   final suggestionPortal = OverlayPortalController();
@@ -2332,6 +2334,12 @@ class _RaftComposerState extends State<RaftComposer> {
   /// platform text-input client, so on macOS (`insertNewline:`) the key
   /// otherwise neither sent nor reliably inserted anything.
   KeyEventResult composerKey(FocusNode node, KeyEvent event) {
+    // Escape while an input method is composing cancels the composition. It
+    // is the input method's key: nothing above this field (the dialog's
+    // dismiss action) may take it, and it still reaches the platform.
+    if (event.logicalKey == LogicalKeyboardKey.escape && composing) {
+      return KeyEventResult.skipRemainingHandlers;
+    }
     final suggested = suggestionKey(node, event);
     if (suggested == KeyEventResult.handled) return suggested;
     final key = event.logicalKey;
@@ -2403,16 +2411,37 @@ class _RaftComposerState extends State<RaftComposer> {
     updateSuggestionPortal(defer: true);
     if (!widget.enabled && expanded) closeExpanded();
     if (oldWidget.draftRevision != widget.draftRevision) {
-      applyProgrammaticDraft(widget.initialDraft);
-    } else if (oldWidget.initialDraft != widget.initialDraft &&
-        controller.text.isEmpty &&
-        !activeFocus.hasFocus &&
-        !sending) {
-      restoringDraft = true;
-      controller.text = raftProgrammaticEditingText(widget.initialDraft);
-      restoringDraft = false;
+      syncDraft(() => applyProgrammaticDraft(widget.initialDraft));
+    } else if (oldWidget.initialDraft != widget.initialDraft) {
+      syncDraft(() {
+        if (controller.text.isEmpty && !activeFocus.hasFocus && !sending) {
+          restoringDraft = true;
+          controller.text = raftProgrammaticEditingText(widget.initialDraft);
+          restoringDraft = false;
+        }
+      });
     }
   }
+
+  /// Runs a draft write that came from the host. The expanded editor listens
+  /// to the controller from its own route, outside this widget's subtree, so
+  /// writing during this widget's update would rebuild it mid-build: while it
+  /// is open the write waits for the end of the frame.
+  void syncDraft(VoidCallback write) {
+    if (!expanded) {
+      write();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) write();
+    });
+  }
+
+  /// Releases the live field's insertion handle (the inline field, or the
+  /// expanded one while it is open; the other is not mounted).
+  void hideEditorToolbar() => activeFocus.context
+      ?.findAncestorStateOfType<EditableTextState>()
+      ?.hideToolbar();
 
   /// A tap on the composer's blank space: focus the editor with the caret
   /// at the end, or, when it already has focus but the soft keyboard was
@@ -2420,6 +2449,11 @@ class _RaftComposerState extends State<RaftComposer> {
   void focusEditor() {
     if (focus.hasFocus) {
       SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+      return;
+    }
+    // Moving the caret would end a composition that is still running.
+    if (composing) {
+      focus.requestFocus();
       return;
     }
     controller.selection = TextSelection.collapsed(
@@ -2467,9 +2501,7 @@ class _RaftComposerState extends State<RaftComposer> {
         // Programmatic clearing does not invoke TextField.onChanged. Release
         // the old draft's insertion handle so its overlay cannot cover the
         // toolbar while the empty editor stays focused for the next draft.
-        focus.context
-            ?.findAncestorStateOfType<EditableTextState>()
-            ?.hideToolbar();
+        hideEditorToolbar();
       }
     } finally {
       if (mounted) {
@@ -2492,7 +2524,7 @@ class _RaftComposerState extends State<RaftComposer> {
     controller.clear();
     closeExpanded();
     // Release the sent draft's insertion handle (see [send]).
-    focus.context?.findAncestorStateOfType<EditableTextState>()?.hideToolbar();
+    hideEditorToolbar();
     final succeeded = submit == null
         ? await widget.onSend(text)
         : await submit(text, selected);
@@ -2766,6 +2798,25 @@ class _RaftComposerState extends State<RaftComposer> {
           ],
         );
 
+  /// The inline editor's place while the expanded editor is open: the draft as
+  /// static text in the same box, so the composer behind the scrim keeps its
+  /// size and look without a second field attached to the controller.
+  Widget inlineStandIn(RaftComposerRecipe recipe) {
+    final empty = controller.text.isEmpty;
+    return ExcludeSemantics(
+      child: RaftCssLineBox(
+        style: recipe.editorText,
+        textScaler: MediaQuery.textScalerOf(context),
+        child: Text(
+          empty ? widget.hint : controller.text,
+          maxLines: 6,
+          overflow: TextOverflow.clip,
+          style: empty ? recipe.placeholder : recipe.editorText,
+        ),
+      ),
+    );
+  }
+
   /// The composer's text field with its key rules, shortcuts, IME and paste
   /// handling. The inline composer and the expanded editor both show it: same
   /// controller (one draft, selection and mentions) and undo history, each with
@@ -2775,6 +2826,9 @@ class _RaftComposerState extends State<RaftComposer> {
     RaftComposerRecipe recipe, {
     bool expanded = false,
   }) {
+    // While the expanded editor is open it is the only EditableText on the
+    // draft: the inline composer shows its text, not a second live field.
+    if (!expanded && this.expanded) return inlineStandIn(recipe);
     final fieldFocus = expanded ? expandedFocus : focus;
     final field = Focus(
       onKeyEvent: composerKey,
@@ -2849,7 +2903,7 @@ class _RaftComposerState extends State<RaftComposer> {
                   // fading it leaves its overlay hit box
                   // above the Source composer toolbar.
                   if (controller.selection.isCollapsed) {
-                    focus.context
+                    fieldFocus.context
                         ?.findAncestorStateOfType<EditableTextState>()
                         ?.hideToolbar();
                   }

@@ -13,6 +13,8 @@ import 'icons.dart';
 import 'localization.dart';
 import 'markdown_editing.dart';
 import 'message_body.dart';
+import 'presentation.dart';
+import 'sheet.dart';
 import 'recipes/button_variants.g.dart';
 import 'settings_layout.dart' show RaftSpace;
 import 'text_scaling.dart' show RaftScaled;
@@ -102,6 +104,23 @@ class RaftComposerExpandable extends StatelessWidget {
   }
 }
 
+/// The expanded editor's spacing. One inner padding and one vertical beat,
+/// shared by every row of the card, so the toolbar, the editor text, the
+/// preview and the action row line up on the left and the right, and the gaps
+/// between rows are equal. Both come from the raft_ui spacing scale; nothing
+/// in the expanded editor adds its own number.
+abstract final class RaftComposerExpandedLayout {
+  /// Left and right padding inside the card: toolbar, text, preview, actions.
+  static const pad = RaftSpace.x3;
+
+  /// The vertical beat: above and below the toolbar, above the text, below it,
+  /// and below the action row.
+  static const gap = RaftSpace.x2;
+
+  /// The toolbar button face (the edge that must meet [pad]).
+  static const toolFace = RaftMetrics.buttonSm;
+}
+
 /// The Markdown toolbar: only styles the message renderer draws. Each button
 /// edits the draft through [RaftMarkdownFormat] and leaves the editor focused.
 class RaftComposerFormatToolbar extends StatelessWidget {
@@ -117,8 +136,12 @@ class RaftComposerFormatToolbar extends StatelessWidget {
   final bool? preview;
   final VoidCallback? onPreview;
 
-  void _apply(TextEditingValue Function(TextEditingValue) op) =>
-      controller.value = op(controller.value);
+  void _apply(TextEditingValue Function(TextEditingValue) op) {
+    final v = controller.value;
+    // An IME composition is the input method's until it commits.
+    if (v.composing.isValid && !v.composing.isCollapsed) return;
+    controller.value = op(v);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -146,8 +169,8 @@ class RaftComposerFormatToolbar extends StatelessWidget {
       label: raftText(context, 'Formatting'),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: RaftSpace.x2,
-          vertical: RaftSpace.x1_5,
+          horizontal: RaftComposerExpandedLayout.pad,
+          vertical: RaftComposerExpandedLayout.gap,
         ),
         child: Row(
           children: [
@@ -271,7 +294,7 @@ Color _ruleColor(RaftTokens t) =>
     t.brutal ? Colors.black : t.colors['line-muted']!;
 
 class _Rule extends StatelessWidget {
-  const _Rule({this.vertical = false});
+  const _Rule({super.key, this.vertical = false});
   final bool vertical;
   @override
   Widget build(BuildContext context) {
@@ -289,18 +312,20 @@ class _Rule extends StatelessWidget {
   }
 }
 
-/// The expanded editor. Desktop (wide): the card of a centered dialog with the
-/// editor and a live preview side by side. Phone ([phone]): a full-screen page
-/// with a Write / Preview switch and the toolbar above the keyboard.
+/// The expanded editor, in whatever form the window has (see
+/// [RaftPresentationPolicy.editor]). [RaftSurfaceForm.dialog]: the card of a
+/// centered dialog with the editor and a live preview side by side. Any other
+/// form (the phone's bottom sheet): a Write / Preview switch above the card and
+/// the toolbar under the text, riding above the keyboard.
 ///
 /// It borrows everything from the composer that opened it: [editor] is that
 /// composer's own text field (same controller, so the draft, selection and
 /// mentions are shared), [footer] its action row, [frameEditor] wraps the field
-/// for the @ / # suggestions.
+/// for the @ / # suggestions. The editor keeps its state when the form changes.
 class RaftComposerExpandedView extends StatefulWidget {
   const RaftComposerExpandedView({
     super.key,
-    required this.phone,
+    this.form = RaftSurfaceForm.dialog,
     required this.title,
     required this.controller,
     required this.editor,
@@ -309,7 +334,7 @@ class RaftComposerExpandedView extends StatefulWidget {
     this.attachments,
     this.previewBuilder,
   });
-  final bool phone;
+  final RaftSurfaceForm form;
   final String title;
   final TextEditingController controller;
 
@@ -332,36 +357,35 @@ class RaftComposerExpandedView extends StatefulWidget {
 }
 
 class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
-  // Desktop: the preview pane shows by default. Phone: Write first.
-  late bool preview = !widget.phone;
+  // Each layout remembers its own preview choice, so a resize across the
+  // breakpoint never hides the editor: the dialog shows the preview beside the
+  // text by default, the sheet shows Write first.
+  bool sidePreview = true, pagePreview = false;
+
+  // Keeps the editor's state (focus, IME connection, caret) when the layout
+  // moves it: preview on or off, dialog to sheet.
+  final editorKey = GlobalKey(debugLabel: 'expanded editor');
+
+  bool get compact => widget.form != RaftSurfaceForm.dialog;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final phone = widget.phone;
+    final phone = compact;
     final recipe = RaftComposerRecipe(t, desktop: !phone, bottomSafeInset: 0);
-    final inset = recipe.editorInset;
+    const pad = RaftComposerExpandedLayout.pad;
+    const gap = RaftComposerExpandedLayout.gap;
     final text = widget.controller.text.trim();
 
     final editor = Padding(
-      padding: EdgeInsets.fromLTRB(
-        inset.left,
-        inset.top,
-        inset.right,
-        RaftSpace.x2,
-      ),
-      child: widget.editor,
+      padding: const EdgeInsets.fromLTRB(pad, gap, pad, gap),
+      child: KeyedSubtree(key: editorKey, child: widget.editor),
     );
     final previewPane = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            RaftSpace.x4,
-            RaftSpace.x3,
-            RaftSpace.x4,
-            0,
-          ),
+          padding: const EdgeInsets.fromLTRB(pad, gap, pad, 0),
           child: Text(
             raftText(context, 'Preview · as sent'),
             style: RaftTypography.body(
@@ -376,12 +400,7 @@ class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
         Expanded(
           child: SingleChildScrollView(
             key: const ValueKey('composer-preview'),
-            padding: const EdgeInsets.fromLTRB(
-              RaftSpace.x4,
-              RaftSpace.x2,
-              RaftSpace.x4,
-              RaftSpace.x3,
-            ),
+            padding: const EdgeInsets.fromLTRB(pad, gap, pad, gap),
             child: text.isEmpty
                 ? Text(
                     raftText(context, 'Nothing to preview yet.'),
@@ -395,12 +414,14 @@ class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
     );
     final toolbar = RaftComposerFormatToolbar(
       controller: widget.controller,
-      preview: phone ? null : preview,
-      onPreview: phone ? null : () => setState(() => preview = !preview),
+      preview: phone ? null : sidePreview,
+      onPreview: phone
+          ? null
+          : () => setState(() => sidePreview = !sidePreview),
     );
     final Widget body = phone
-        ? (preview ? previewPane : editor)
-        : (preview
+        ? (pagePreview ? previewPane : editor)
+        : (sidePreview
               ? Row(
                   children: [
                     Expanded(child: editor),
@@ -413,24 +434,30 @@ class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
     final card = DecoratedBox(
       key: const ValueKey('composer-expanded-card'),
       decoration: recipe.shellDecoration(focused: true),
-      child: Padding(
-        padding: recipe.shellInset,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(recipe.shellRadius),
-          child: RaftTapSlopHost(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Desktop: toolbar above the text. Phone: between the text and
-                // the action row, so it rides directly above the keyboard.
-                if (!phone) ...[toolbar, const _Rule()],
-                Expanded(child: body),
-                if (phone && !preview) ...[const _Rule(), toolbar],
-                if (widget.attachments != null) widget.attachments!,
-                SizedBox(height: recipe.shellGap),
-                widget.footer(recipe),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(recipe.shellRadius),
+        child: RaftTapSlopHost(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Desktop: toolbar above the text. Phone: between the text and
+              // the action row, so it rides directly above the keyboard.
+              if (!phone) ...[
+                toolbar,
+                const _Rule(key: ValueKey('composer-toolbar-rule')),
               ],
-            ),
+              Expanded(child: body),
+              if (phone && !pagePreview) ...[
+                const _Rule(key: ValueKey('composer-toolbar-rule')),
+                toolbar,
+              ],
+              if (widget.attachments != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(pad, 0, pad, gap),
+                  child: widget.attachments!,
+                ),
+              widget.footer(recipe),
+            ],
           ),
         ),
       ),
@@ -485,7 +512,6 @@ class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
         ),
       );
     }
-    final insets = MediaQuery.viewInsetsOf(context);
     // Larger text reflows: the Write / Preview switch drops under the title.
     Widget switcher({
       required Widget collapse,
@@ -514,81 +540,56 @@ class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
               segmented,
             ],
           );
+    // The sheet supplies the scrim, the handle, the safe areas and the keyboard
+    // inset; this is its content: the header, then the card with the editor.
     return Semantics(
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
       label: widget.title,
-      child: ColoredBox(
-        color: t.panel,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: insets.bottom),
-          child: MediaQuery.removeViewInsets(
-            context: context,
-            removeBottom: true,
-            child: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      RaftSpace.x3,
-                      RaftSpace.x2,
-                      RaftSpace.x3,
-                      RaftSpace.x2,
-                    ),
-                    child: switcher(
-                      collapse: collapse,
-                      title: title,
-                      segmented: RaftRecipeSegmentedControl<bool>(
-                        value: preview,
-                        items: [
-                          (false, null, raftTextZh(context, 'Write', '编辑')),
-                          (true, RaftGlyph.eye, 'Preview'),
-                        ],
-                        onChanged: (v) => setState(() => preview = v),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        RaftSpace.x3,
-                        0,
-                        RaftSpace.x3,
-                        RaftSpace.x3,
-                      ),
-                      child: card,
-                    ),
-                  ),
-                ],
+      child: RaftSheet.fixed(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(pad, 0, pad, gap),
+              child: switcher(
+                collapse: collapse,
+                title: title,
+                segmented: RaftRecipeSegmentedControl<bool>(
+                  value: pagePreview,
+                  items: [
+                    (false, null, raftTextZh(context, 'Write', '编辑')),
+                    (true, RaftGlyph.eye, 'Preview'),
+                  ],
+                  onChanged: (v) => setState(() => pagePreview = v),
+                ),
               ),
             ),
-          ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(pad, 0, pad, pad),
+                child: card,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Layout of the dialog route: centered, capped, with the dialog's inset.
+/// Layout of the dialog route: centered, capped, with the dialog's inset. The
+/// route frame ([RaftDialogFrame]) does the same for the real editor; this is
+/// for previews that draw the dialog without a route.
 class RaftComposerExpandedDialog extends StatelessWidget {
   const RaftComposerExpandedDialog({super.key, required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(RaftSpace.x4),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: RaftComposerExpandedView.dialogMaxWidth,
-            maxHeight: RaftComposerExpandedView.dialogMaxHeight,
-          ),
-          child: SizedBox(height: size.height - RaftSpace.x4 * 2, child: child),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => RaftDialogFrame(
+    maxWidth: RaftComposerExpandedView.dialogMaxWidth,
+    maxHeight: RaftComposerExpandedView.dialogMaxHeight,
+    fillsHeight: true,
+    child: child,
+  );
 }

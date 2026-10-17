@@ -45,7 +45,7 @@ class _ExpandedPreviewState extends State<_ExpandedPreview> {
   @override
   Widget build(BuildContext context) {
     final view = RaftComposerExpandedView(
-      phone: widget.phone,
+      form: widget.phone ? RaftSurfaceForm.sheet : RaftSurfaceForm.dialog,
       title: 'Message #general',
       controller: controller,
       onCollapse: () {},
@@ -64,6 +64,8 @@ class _ExpandedPreviewState extends State<_ExpandedPreview> {
         hint: widget.phone ? null : 'Enter adds a line · Ctrl+Enter sends',
       ),
     );
-    return widget.phone ? view : RaftComposerExpandedDialog(child: view);
+    return widget.phone
+        ? RaftSheetSurface(height: 800, child: view)
+        : RaftComposerExpandedDialog(child: view);
   }
 }
