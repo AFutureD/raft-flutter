@@ -16,12 +16,14 @@ Directory _repository() {
 
 ProcessResult _python(Directory repository, List<String> arguments) {
   try {
+    // preflight-allow: Python is required by tool/preflight and tool/check-project.
     return Process.runSync(
       'python3',
       arguments,
       workingDirectory: repository.path,
     );
   } on ProcessException {
+    // preflight-allow: Windows can expose the required Python interpreter as python.
     return Process.runSync(
       'python',
       arguments,
