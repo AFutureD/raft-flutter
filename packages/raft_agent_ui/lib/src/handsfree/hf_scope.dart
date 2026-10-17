@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftSpace;
 
 import '../agent_theme.dart';
 import 'hf_tokens.dart';
@@ -36,14 +37,23 @@ class HfData {
   /// Gap between rows: 3u.
   double get rowGap => 3 * u;
 
-  /// Screen margins: 4% of the width, 4% above, 6% below (a TV keeps its
-  /// taskbar safe area).
-  EdgeInsets get margin => EdgeInsets.fromLTRB(
-    size.width * .04,
-    size.height * .04,
-    size.width * .04,
-    size.height * .06,
-  );
+  /// Screen margins. A phone keeps the safe area the screen puts around the
+  /// frame and adds one small spacing token on each side (the extra band that
+  /// 4% / 6% of the height made was empty space). A desktop window and a TV:
+  /// 4% of the width, 4% above, 6% below (a TV keeps its taskbar safe area).
+  EdgeInsets get margin => phone
+      ? const EdgeInsets.fromLTRB(
+          RaftSpace.x4,
+          RaftSpace.x2,
+          RaftSpace.x4,
+          RaftSpace.x3,
+        )
+      : EdgeInsets.fromLTRB(
+          size.width * .04,
+          size.height * .04,
+          size.width * .04,
+          size.height * .06,
+        );
 
   /// Drawn width a base value takes.
   double sp(double base) => base * s;

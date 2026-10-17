@@ -343,6 +343,26 @@ void main() {
         )
         .opacity;
 
+    testWidgets('the edges are the safe area and one small token', (t) async {
+      await openInsets(t);
+      // The top bar starts within the safe area and a small token of the
+      // top; the mic row ends within them of the bottom.
+      expect(bar(t).top, greaterThanOrEqualTo(safe));
+      expect(bar(t).top, lessThanOrEqualTo(safe + RaftSpace.x3));
+      final dock = t.getRect(find.byType(HfDock));
+      expect(phone.height - dock.bottom, greaterThanOrEqualTo(safe));
+      expect(
+        phone.height - dock.bottom,
+        lessThanOrEqualTo(safe + RaftSpace.x3),
+      );
+      // The sides use the same logic.
+      expect(card(t, 1).left, closeTo(RaftSpace.x4, 1));
+      expect(
+        phone.width - card(t, 1).right,
+        lessThanOrEqualTo(RaftSpace.x4 + 12),
+      );
+    });
+
     testWidgets('at rest the first row is whole below the bar and the last '
         'can be scrolled whole above the dock', (t) async {
       await openInsets(t);
