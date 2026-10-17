@@ -213,7 +213,8 @@ class HfDetail extends StatelessWidget implements HfDescribed {
             children: [
               Expanded(flex: 5, child: facts_()),
               SizedBox(width: hf.sp(24)),
-              if (cardProgress.isNotEmpty) Expanded(flex: 6, child: progress_()),
+              if (cardProgress.isNotEmpty)
+                Expanded(flex: 6, child: progress_()),
             ],
           );
         } else {
@@ -353,14 +354,17 @@ class HfDetail extends StatelessWidget implements HfDescribed {
         if (actionsBeforeProgress && progress.isNotEmpty) ...[
           SizedBox(height: hf.sp(beside ? 10 : 18)),
           Container(
-            padding: EdgeInsets.fromLTRB(hf.sp(16), hf.sp(12), hf.sp(16), hf.sp(6)),
+            padding: EdgeInsets.fromLTRB(
+              hf.sp(16),
+              hf.sp(12),
+              hf.sp(16),
+              hf.sp(6),
+            ),
             decoration: BoxDecoration(
               color: HfColors.card,
               borderRadius: BorderRadius.circular(hf.sp(16)),
               border: Border.all(color: HfColors.ink, width: hf.sp(3)),
-              boxShadow: [
-                BoxShadow(color: color, offset: Offset(0, hf.sp(6))),
-              ],
+              boxShadow: [BoxShadow(color: color, offset: Offset(0, hf.sp(6)))],
             ),
             child: progress_(),
           ),

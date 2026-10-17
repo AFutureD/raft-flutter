@@ -654,7 +654,14 @@ void main() {
         expect(
           t.getTopLeft(said).dy,
           greaterThan(
-            t.getBottomLeft(find.byKey(const ValueKey('attention-later-activity:thread:th1'))).dy - 1,
+            t
+                    .getBottomLeft(
+                      find.byKey(
+                        const ValueKey('attention-later-activity:thread:th1'),
+                      ),
+                    )
+                    .dy -
+                1,
           ),
         );
       });
