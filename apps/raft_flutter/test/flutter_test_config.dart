@@ -132,6 +132,7 @@ void _enableLeakTracking() {
       'NativeSystemFonts',
       'NativeAppIcon',
       'AgentModePreference',
+      'AgentOrbPreference',
       'AgentVoiceKey',
       'OpenAiVoiceKey',
       'GrokVoiceKey',

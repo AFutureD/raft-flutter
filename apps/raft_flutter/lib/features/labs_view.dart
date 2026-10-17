@@ -6,6 +6,7 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'agent_mode/agent_mode_preference.dart';
+import 'agent_orb/orb_preference.dart';
 
 /// Settings > Labs (SettingsPanel.tsx LabsSection, gated by
 /// `server_labs_ui_v0`): GET /servers/:id/labs (canonical or legacy
@@ -202,6 +203,7 @@ class _LabsViewState extends ManagementState<LabsView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AgentModeLabsCard(controller: w),
+        const AgentOrbLabsCard(),
         section,
       ],
     );
