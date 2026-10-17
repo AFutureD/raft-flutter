@@ -253,6 +253,33 @@ void main() {
       },
     );
 
+    // The briefing reads the data layer itself: it starts with the page
+    // read, not after it, so its model wait does not add to the page wait.
+    testWidgets('the briefing starts while the page is still loading', (
+      t,
+    ) async {
+      final fx = Fixture()..caPage = Completer<void>();
+      await fx.mount(t);
+      var briefed = false;
+      Map<String, Object?>? out;
+      unawaited(
+        navigate((c, m) async {
+          briefed = true;
+          return {'scope': 'conversation:${m.id}'};
+        }).handler({'target': 'raft-flutter'}, fx.ctx).then((v) => out = v),
+      );
+      await fx.f.flush(t);
+      await fx.f.flush(t);
+      expect(out, isNull, reason: 'the page has not arrived');
+      expect(briefed, isTrue);
+      fx.caPage!.complete();
+      for (var i = 0; i < 20 && out == null; i++) {
+        await fx.f.flush(t);
+      }
+      expect(out!['briefing'], {'scope': 'conversation:ca'});
+      await fx.f.close(t);
+    });
+
     testWidgets('the Activity too; a settings page has none', (t) async {
       final fx = Fixture();
       await fx.mount(t);

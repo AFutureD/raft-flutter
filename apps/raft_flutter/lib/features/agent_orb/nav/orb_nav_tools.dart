@@ -310,15 +310,20 @@ Future<Map<String, Object?>> _navigate(
     }
     final moved = await _go(ctx, match, budget);
     if (moved.error != null) return {'error': moved.error};
+    // The facts of the place, read by the app (not left to the model to make
+    // out of the page): who needs the person here, and for what. Read while
+    // the page is described, not after it.
+    final briefed = arrivalBrief == null || budget.interrupted
+        ? null
+        : arrivalBrief(ctx, match).timeout(orbArrivalWait);
+    briefed?.ignore();
     final page = await describeOrbPage(ctx, budget: budget);
     final loading = page['loading'] == true;
-    // The facts of the place, read by the app (not left to the model to make
-    // out of the page): who needs the person here, and for what.
     Map<String, Object?>? briefing;
     var briefingFailed = false;
-    if (arrivalBrief != null && !budget.interrupted) {
+    if (briefed != null && !budget.interrupted) {
       try {
-        briefing = await arrivalBrief(ctx, match).timeout(orbArrivalWait);
+        briefing = await briefed;
       } on Object {
         briefingFailed = true;
       }
