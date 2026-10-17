@@ -7,7 +7,6 @@ import 'package:raft_flutter/features/agent_mode/agent_tool_output.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_nav_tools.dart';
 import 'package:raft_flutter/features/agent_orb/orb_prompt.dart';
 import 'package:raft_flutter/features/agent_orb/orb_tool.dart';
-import 'package:raft_flutter/features/agent_orb/screen/orb_screen.dart';
 import 'package:raft_flutter/features/agent_orb/screen/orb_screen_contract.dart';
 import 'package:raft_flutter/features/agent_orb/screen/orb_screen_reader.dart';
 import 'package:raft_flutter/features/agent_orb/screen/orb_screen_snapshot.dart';
