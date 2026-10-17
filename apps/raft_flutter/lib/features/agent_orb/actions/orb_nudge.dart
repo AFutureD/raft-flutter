@@ -6,6 +6,7 @@ import '../../agent_mode/capabilities/agent_capability.dart';
 import '../../agent_mode/capabilities/agent_capability_standard.dart';
 import '../../agent_mode/capabilities/capability_support.dart';
 import '../../agent_mode/agent_mode_data.dart' show AgentModeData;
+import '../screen/orb_screen_capability.dart' show orbScreenCapability;
 import 'orb_task_tools.dart' show orbIdleText;
 
 /// "催一下": a reply in the task's thread that names whoever has the task and
@@ -110,8 +111,10 @@ final orbNudgeCapability = AgentCapability(
   },
 );
 
-/// What the orb's actions run on: every standard capability, and the nudge.
+/// What the orb's actions run on: every standard capability, the nudge, and
+/// the press of a risky control on the screen.
 final orbActionRegistry = AgentCapabilityRegistry([
   ...agentStandardCapabilities.all,
   orbNudgeCapability,
+  orbScreenCapability,
 ]);

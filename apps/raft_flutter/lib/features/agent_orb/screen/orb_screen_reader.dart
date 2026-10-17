@@ -122,7 +122,12 @@ OrbScreenSnapshot readOrbScreen(
             (control && disabled));
 
     if (actionable) {
-      if (f.isTextField && acts.contains('setText')) acts.remove('tap');
+      if (f.isTextField && !f.isReadOnly) {
+        // A field takes text once it has the focus; a tap gives it the focus,
+        // so setText is offered (and done) as one step.
+        acts.remove('tap');
+        if (!acts.contains('setText')) acts.insert(0, 'setText');
+      }
       nodes.add(
         OrbScreenNode(
           id: 'a${node.id}',
@@ -237,7 +242,7 @@ String _grid(Rect rect, ({double width, double height}) size) {
       ? '下'
       : '中';
   if (h == '中' && v == '中') return '中';
-  if (h == '中') return '${v}中';
-  if (v == '中') return '${h}中';
+  if (h == '中') return '$v中';
+  if (v == '中') return '$h中';
   return '$h$v';
 }

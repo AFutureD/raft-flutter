@@ -204,8 +204,8 @@ Future<Map<String, Object?>> describeOrbPage(
       ...head,
       if (title is String && title.isNotEmpty) 'title': title,
       ...body,
-      'screen': await OrbScreen.of(w).contract(
-        ctx.navigatorContext,
+      'screen': await OrbScreen.of(w).contractFor(
+        ctx,
         detail: hasData ? OrbScreenDetail.arrival : OrbScreenDetail.full,
       ),
     };

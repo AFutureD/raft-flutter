@@ -1,4 +1,5 @@
 import 'actions/orb_action_prompt.dart';
+import 'screen/orb_screen_prompt.dart';
 
 /// System instruction of the orb's model session.
 ///
@@ -56,6 +57,8 @@ String orbSystemPrompt({
     '驾驶中去别的页面也不用收起面板，屏幕会一直开着，不要用 hide_orb_sheet。\n'
     '\n'
     '$orbActionPrompt'
+    '\n'
+    '$orbScreenPrompt'
     '\n'
     '【没听清就问】如果转写出来的话乱码、几种语言混在一起、被截断，或者和当前的上下文对不上，不要猜着回答；用他的语言简短说一句没听清，请他再说一遍。这样的转写绝对不要调用任何工具。'
     '频道名听起来像别的词时（比如 raft-flutter 被听成别的），先在列表里找最像的那个，对不上就问，不要乱选。\n'

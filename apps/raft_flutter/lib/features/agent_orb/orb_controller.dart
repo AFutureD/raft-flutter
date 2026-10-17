@@ -27,6 +27,7 @@ import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
 import 'orb_driving.dart' show orbSayHint;
 import 'orb_operating.dart';
+import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
 import 'orb_layer.dart';
 import 'orb_state.dart';
@@ -144,6 +145,7 @@ class OrbController extends ChangeNotifier {
       if (appTools == null || actions != null) ...[
         ...orbTaskTools(),
         ...this.actions.tools,
+        ...orbScreenTools(),
       ],
     ];
     tools = {for (final tool in all) tool.name: tool};
@@ -163,6 +165,11 @@ class OrbController extends ChangeNotifier {
       sessionFactory: sessionFactory,
     )..addListener(_voiceChanged);
     voice.saying.addListener(_sayingChanged);
+    // A risky press on the screen asks through the same confirm card.
+    OrbScreen.of(workspace).ask = (args) => this.actions.request('act', {
+      'capability': 'screen.action',
+      'args': args,
+    });
     this.actions
       ..onTell = ((note) => unawaited(voice.tell(note)))
       ..onTapped = _actionTapped
@@ -389,8 +396,11 @@ class OrbController extends ChangeNotifier {
     _add(OrbEntryKind.user, said);
     // The person's own words can agree to the card on the screen.
     actions.userSaid(said);
-    _whereTold = _whereLine();
-    final sent = await voice.sendText(said, silentContext: _whereTold);
+    _whereTold = _whereBase();
+    final sent = await voice.sendText(
+      said,
+      silentContext: await _whereLine(_whereTold!),
+    );
     if (!sent) _note('还没有语音 Key：在 设置 > Labs 里扫码填入（和 Agent 模式共用）');
   }
 
@@ -1095,22 +1105,35 @@ class OrbController extends ChangeNotifier {
 
   /// The page the person is on, for the model (eval C5: in a discussion
   /// "大家意见是什么" jumped to the Activity; the model did not know).
-  String _whereLine() {
+  String _whereBase() {
     final loc = workspace.location;
     final title = orbPageTitle(workspace, loc);
-    return '（App 提示，不是用户的话：用户现在在「$title」页面，路由 ${loc.uri}。'
-        '他说“这个”“这里”“大家”时指的就是这个页面。）';
+    return '用户现在在「$title」页面，路由 ${loc.uri}。';
+  }
+
+  /// The silent note for the model: the page and, short, what can be tapped
+  /// on it (labels only: ids belong to a reading of the screen).
+  Future<String> _whereLine(String base) async {
+    final context = navigatorContext();
+    final screen = context == null || !context.mounted
+        ? ''
+        : await OrbScreen.of(workspace)
+              .shortLine(context)
+              .timeout(const Duration(milliseconds: 800), onTimeout: () => '');
+    return '（App 提示，不是用户的话：$base$screen他说“这个”“这里”“大家”时指的就是这个页面。）';
   }
 
   /// In a call, a move is told to the model once, without a turn.
   void _whereChanged() {
     if (_disposed || !inCall) return;
     _whereTimer?.cancel();
-    _whereTimer = Timer(const Duration(milliseconds: 400), () {
+    _whereTimer = Timer(const Duration(milliseconds: 400), () async {
       if (_disposed || !inCall) return;
-      final line = _whereLine();
-      if (line == _whereTold) return;
-      _whereTold = line;
+      final base = _whereBase();
+      if (base == _whereTold) return;
+      _whereTold = base;
+      final line = await _whereLine(base);
+      if (_disposed || !inCall) return;
       voice.addContext(line);
     });
   }
@@ -1125,6 +1148,7 @@ class OrbController extends ChangeNotifier {
     _stopLive();
     operating.removeListener(_operatingChanged);
     workspace.removeListener(_whereChanged);
+    OrbScreen.of(workspace).ask = null;
     _whereTimer?.cancel();
     voice.saying.removeListener(_sayingChanged);
     actions

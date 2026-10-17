@@ -164,10 +164,8 @@ Future<Map<String, Object?>> _openItem(
     'note': '已经打开；要说内容就调 describe_page 或 read_conversation',
     // What can be done on the page it opened (a conversation: its text is
     // read with describe_page, so the controls only).
-    'screen': await OrbScreen.of(w).contract(
-      ctx.navigatorContext,
-      detail: OrbScreenDetail.arrival,
-    ),
+    'screen': await OrbScreen.of(w)
+        .contractFor(ctx, detail: OrbScreenDetail.arrival),
   };
 }
 
