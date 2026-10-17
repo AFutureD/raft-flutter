@@ -13,12 +13,11 @@ class WindowsTray {
     TargetPlatform? platform,
     MethodChannel? channel,
     bool? lab,
-    AppUpdater? updater,
+    this._updater,
   }) : supported =
            !kIsWeb &&
            (platform ?? defaultTargetPlatform) == TargetPlatform.windows,
        _channel = channel ?? nativeChannel,
-       _updater = updater,
        lab = lab ?? const bool.fromEnvironment('RAFT_WINDOWS_NOTIFICATION_LAB');
 
   static const nativeChannel = MethodChannel('app.raft/windows-tray');
