@@ -732,11 +732,11 @@ class WorkspaceController extends ChangeNotifier
   @override
   void notifyListeners() {
     _stateStamp++;
-    if (presentationSource == null) attachmentMedia.synchronize();
+    if (presentationSource == null) messageWindows.synchronize();
     if (!_disposed) {
       _editor.synchronizeVisits();
       _ensureSyncIdentity();
-      if (presentationSource == null) messageWindows.synchronize();
+      if (presentationSource == null) attachmentMedia.synchronize();
       super.notifyListeners();
     }
   }

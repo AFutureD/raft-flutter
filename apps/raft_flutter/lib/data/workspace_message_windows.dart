@@ -334,16 +334,15 @@ class WorkspaceMessageWindows {
     final token = authority(scope);
     if (token == null) return null;
     _retireIncompatible(scope, token);
-    return _windows.putIfAbsent(
-      scope,
-      () => _ProjectedConversationWindow(scope, token, _read(scope), this),
-    );
+    return holdWindow<_ProjectedConversationWindow>(_windows, scope, layout,
+        (held) => held.retire(), () => _ProjectedConversationWindow(
+          scope, token, _read(scope), this));
   }
 
   /// Called after existing state mutations; only changed windows publish.
   void synchronize() {
     if (_disposed) return;
-    for (final window in _windows.values.toList()) {
+    for (final window in dueWindows(ledger, _windows, _threads)) {
       _retireIncompatible(window.scope, authority(window.scope));
       if (!window.snapshot.retired) window.refresh(_read(window.scope));
     }

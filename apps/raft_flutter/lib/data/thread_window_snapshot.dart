@@ -1,5 +1,7 @@
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_sync/raft_sync.dart';
 
+import 'conversation_window.dart';
 import 'message_window_snapshot.dart';
 
 /// Accepted paging facts returned to the presentation adapter.
@@ -85,4 +87,82 @@ reconcileThreadPage(
                   : fresh.length >= 50),
     limited: limited,
   );
+}
+
+/// Resident conversation windows.
+///
+/// The read regression keeps 51 windows open, so the cap sits one step above
+/// that. An app left on a busy server otherwise keeps every channel it has
+/// opened; a Mac profile of that path climbed from 9 windows to 176.
+const cachedConversationWindowLimit = 64;
+
+final _appliedRevision = Expando<int>('conversation window revision');
+
+/// Windows a ledger notification must refresh.
+///
+/// A message refreshes its channel and the parent of a thread that received
+/// it. A cleared channel, a permission notification, or a gap in the change
+/// record refreshes every open window. This does not discard the ledger
+/// record; the attachment index still reads it afterwards.
+List<T> dueWindows<T extends ConversationWindow>(
+  MessageLedger ledger,
+  Map<ConversationWindowScope, T> windows,
+  Map<String, CachedMessageThread> threads,
+) {
+  final open = windows.values.toList();
+  final since = _appliedRevision[windows];
+  final revision = ledger.revision;
+  final changes = since == null ? null : ledger.changesAfter(since);
+  _appliedRevision[windows] = revision;
+  if (changes == null ||
+      changes.isEmpty ||
+      changes.last.revision != revision ||
+      changes.any((change) => change.messageId == null)) {
+    return open;
+  }
+  final channels = <String>{for (final change in changes) change.channelId};
+  for (final thread in threads.values) {
+    if (channels.contains(thread.threadChannelId)) {
+      channels.add(thread.parentChannelId);
+    }
+  }
+  return [
+    for (final window in open)
+      if (channels.contains(window.scope.channelId)) window,
+  ];
+}
+
+/// Keeps [scope] newest and drops the oldest inactive projections past the cap.
+///
+/// Dropped windows are retired. Their ledger rows stay, so opening the same
+/// scope again reads those rows back. The window on screen is not dropped.
+T holdWindow<T extends ConversationWindow>(
+  Map<ConversationWindowScope, T> windows,
+  ConversationWindowScope scope,
+  (bool, bool) Function(ConversationWindowScope) layout,
+  void Function(T window) retire,
+  T Function() create,
+) {
+  final window = windows.remove(scope) ?? create();
+  windows[scope] = window;
+  for (final old in _lruDrop(windows, layout)) {
+    final dropped = windows.remove(old);
+    if (dropped != null) retire(dropped);
+  }
+  return window;
+}
+
+List<ConversationWindowScope> _lruDrop<T extends ConversationWindow>(
+  Map<ConversationWindowScope, T> windows,
+  (bool, bool) Function(ConversationWindowScope) layout,
+) {
+  final extra = windows.length - cachedConversationWindowLimit;
+  if (extra <= 0) return const [];
+  final drop = <ConversationWindowScope>[];
+  for (final scope in windows.keys) {
+    if (drop.length == extra) break;
+    if (layout(scope).$1) continue;
+    drop.add(scope);
+  }
+  return drop;
 }
