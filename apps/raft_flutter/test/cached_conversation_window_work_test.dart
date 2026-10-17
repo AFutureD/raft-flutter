@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/thread_window_snapshot.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_message_windows.dart';
@@ -135,6 +136,71 @@ Future<({int reads, int cached, int rows})> _measure(int extraWindows) async {
   }
 }
 
+/// What an on-screen image does: read the attachment index, which asks the
+/// ledger to drop the incremental record it has applied.
+void _readAttachmentIndex(WorkspaceController w) {
+  w.attachmentRetentionIndex.retains(
+    AttachmentImageKey(
+      scope: w.attachmentImageScope,
+      channelId: 'alpha',
+      attachmentId: 'missing',
+      revision: '0',
+    ),
+  );
+}
+
+/// Message one is published. Message two is committed, then an attachment
+/// read asks to drop it, and only then do windows observe that notification.
+Future<({int reads, int alphaReads, int cached})> _measureAttachmentGap(
+  int extraWindows,
+) async {
+  final client = _Client();
+  final channels = [
+    _Channel('alpha'),
+    for (var i = 0; i < 60; i++) _Channel('cached-$i'),
+  ];
+  final w = WorkspaceController(client)
+    ..server = RaftRecord({'id': 's', 'role': 'owner'})
+    ..channels = channels;
+  try {
+    w.ledger.switchServer('s');
+    for (final channel in channels) {
+      w.messageWindows.acceptRows(liveWindowWrite, channel.id, [
+        _row(channel.id, 1),
+        _row(channel.id, 2),
+      ], replace: true);
+    }
+    await w.selectChannel(channels.first, autoRead: false, navigate: false);
+    expect(w.messageWindow, isNotNull);
+    for (final channel in channels.skip(1).take(extraWindows)) {
+      expect(w.messageWindows.channel(channel.id), isNotNull);
+    }
+    client.injected.add(RaftEvent('message:new', _row('alpha', 3)));
+    expect(w.messages.last.id, 'alpha-3');
+    w.ledger.ingest([
+      _row('alpha', 4),
+    ], expectedGeneration: w.ledger.generation);
+    _readAttachmentIndex(w);
+    for (final channel in channels) {
+      channel.counted
+        ..reads = 0
+        ..enabled = true;
+    }
+    w.notifyListeners();
+    final unrelated = channels
+        .skip(1)
+        .fold<int>(0, (sum, channel) => sum + channel.counted.reads);
+    return (
+      reads: unrelated,
+      alphaReads: channels.first.counted.reads,
+      cached: w.messageWindows.retainedSnapshots.length,
+    );
+  } finally {
+    w.dispose();
+    await client.injected.close();
+  }
+}
+
 void main() {
   test(
     'unrelated cached windows add no authority reads to a new message',
@@ -154,6 +220,20 @@ void main() {
             '${many.cached}. Unrelated capability reads grew from '
             '${one.reads} to ${many.reads}.',
       );
+    },
+  );
+
+  test(
+    'an attachment read between messages does not widen the next refresh',
+    () async {
+      final one = await _measureAttachmentGap(0);
+      final many = await _measureAttachmentGap(50);
+      expect(one.cached, 1);
+      expect(many.cached, 51);
+      expect(one.alphaReads, greaterThan(0));
+      expect(many.alphaReads, greaterThan(0));
+      expect(one.reads, 0);
+      expect(many.reads, 0);
     },
   );
 

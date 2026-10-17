@@ -102,8 +102,9 @@ final _appliedRevision = Expando<int>('conversation window revision');
 ///
 /// A message refreshes its channel and the parent of a thread that received
 /// it. A cleared channel, a permission notification, or a gap in the change
-/// record refreshes every open window. This does not discard the ledger
-/// record; the attachment index still reads it afterwards.
+/// record refreshes every open window. The applied revision is registered
+/// with the ledger, so an attachment read cannot drop unseen changes. That
+/// registration does not itself discard the record.
 List<T> dueWindows<T extends ConversationWindow>(
   MessageLedger ledger,
   Map<ConversationWindowScope, T> windows,
@@ -114,6 +115,7 @@ List<T> dueWindows<T extends ConversationWindow>(
   final revision = ledger.revision;
   final changes = since == null ? null : ledger.changesAfter(since);
   _appliedRevision[windows] = revision;
+  ledger.noteChangesRead(windows, revision);
   if (changes == null ||
       changes.isEmpty ||
       changes.last.revision != revision ||

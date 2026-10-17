@@ -48,6 +48,15 @@ class MessageLedger {
   /// Revisions at or below this floor are not described incrementally.
   int _changeFloor = 0;
 
+  /// Highest revision a discarding reader has finished applying.
+  ///
+  /// Null until the first [discardChangesThrough]. Readers registered with
+  /// [noteChangesRead] keep every later revision until they catch up.
+  int? _finishedThrough;
+
+  /// Revision each holding reader has applied, keyed by that reader's identity.
+  final Map<Object, int> _readThrough = {};
+
   /// Retained incremental mutations. Stays at or below [incrementalChangeLimit].
   int get debugChangeCount => _changes.length;
   String? get serverId => _serverId;
@@ -82,8 +91,43 @@ class MessageLedger {
     return List<MessageLedgerChange>.unmodifiable(_changes.sublist(start));
   }
 
-  /// Drops the incremental record of revisions at or below [through].
+  /// Drops revisions at or below [through] once every holding reader has
+  /// applied them.
+  ///
+  /// A reader registered with [noteChangesRead] keeps a revision it has not
+  /// applied. Past [incrementalChangeLimit] the whole record is still dropped
+  /// and every reader rebuilds.
   void discardChangesThrough(int through) {
+    if (_finishedThrough == null || through > _finishedThrough!) {
+      _finishedThrough = through;
+    }
+    _trimShared();
+  }
+
+  /// Records that [reader] has applied every revision at or below [through].
+  ///
+  /// The key is the reader's identity. A higher revision replaces a lower one.
+  /// This does not discard by itself; it releases the hold so a previous or
+  /// later [discardChangesThrough] can move forward.
+  void noteChangesRead(Object reader, int through) {
+    final current = _readThrough[reader];
+    if (current != null && through <= current) return;
+    _readThrough[reader] = through;
+    _trimShared();
+  }
+
+  void _trimShared() {
+    final finished = _finishedThrough;
+    if (finished == null) return;
+    var through = finished;
+    for (final read in _readThrough.values) {
+      if (read < through) through = read;
+    }
+    _dropThrough(through);
+  }
+
+  /// Drops the incremental record of revisions at or below [through].
+  void _dropThrough(int through) {
     if (through <= _changeFloor) return;
     _changeFloor = through;
     var start = 0;

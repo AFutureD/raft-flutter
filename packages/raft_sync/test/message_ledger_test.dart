@@ -79,6 +79,34 @@ void main() {
     expect(l.changesAfter(marked), isNull);
   });
 
+  test('a slower reader keeps changes another reader has finished', () {
+    final l = MessageLedger()..switchServer('a');
+    final reader = Object();
+    l.noteChangesRead(reader, l.revision);
+    final base = l.revision;
+    l.ingest([row('a', '1')], expectedGeneration: l.generation);
+    l.discardChangesThrough(l.revision);
+    expect(l.changesAfter(base)?.map((change) => change.messageId), ['a']);
+    l.noteChangesRead(reader, l.revision);
+    expect(l.changesAfter(l.revision), isEmpty);
+  });
+
+  test('the incremental cap still drops changes a reader has not applied', () {
+    final l = MessageLedger()..switchServer('a');
+    final reader = Object();
+    l.noteChangesRead(reader, l.revision);
+    final base = l.revision;
+    final count = MessageLedger.incrementalChangeLimit + 1;
+    for (var i = 0; i < count; i++) {
+      l.ingest([row('cap$i', '$i')], expectedGeneration: l.generation);
+    }
+    expect(
+      l.debugChangeCount,
+      lessThanOrEqualTo(MessageLedger.incrementalChangeLimit),
+    );
+    expect(l.changesAfter(base), isNull);
+  });
+
   test('an unread incremental record stays within its window', () {
     final l = MessageLedger()..switchServer('a');
     final base = l.revision;
