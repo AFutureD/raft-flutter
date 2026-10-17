@@ -13,6 +13,7 @@ import 'orb_preference.dart';
 import 'orb_state.dart';
 import 'orb_status.dart';
 import 'orb_widget.dart';
+import 'screen/orb_screen_snapshot.dart' show orbSemanticsIdentifier;
 
 /// Builds the orb's session for a workspace. [navigatorContext] is a context
 /// under the app's Navigator (null before the first frame has one).
@@ -277,83 +278,94 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
     final ringGap = state == OrbState.idle ? RaftSpace.x3 : 28.0;
     final beside = width - orbSize - _margin * 2 - ringGap;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        if (operating)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                key: const ValueKey('orb-operating-frame'),
-                decoration: BoxDecoration(
-                  border: Border.all(color: accent, width: RaftSpace.x1),
+    return Semantics(
+      // Everything the orb draws is outside the model's reading of the screen.
+      identifier: orbSemanticsIdentifier,
+      container: true,
+      explicitChildNodes: true,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (operating)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  key: const ValueKey('orb-operating-frame'),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: accent, width: RaftSpace.x1),
+                  ),
                 ),
               ),
             ),
-          ),
-        if (!c.layerOpen) ...[
-          // The subtitle, then a notice (no key, no microphone), above the orb.
-          Positioned(
-            bottom: height - y + 30,
-            left: _onRight ? null : _margin,
-            right: _onRight ? _margin : null,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: _onRight
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                if (notice != null)
-                  ConstrainedBox(
-                    // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
-                    constraints: BoxConstraints(maxWidth: width - _margin * 2),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: RaftSpace.x3,
-                        vertical: RaftSpace.x2,
+          if (!c.layerOpen) ...[
+            // The subtitle, then a notice (no key, no microphone), above the orb.
+            Positioned(
+              bottom: height - y + 30,
+              left: _onRight ? null : _margin,
+              right: _onRight ? _margin : null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: _onRight
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  if (notice != null)
+                    ConstrainedBox(
+                      // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+                      constraints: BoxConstraints(
+                        maxWidth: width - _margin * 2,
                       ),
-                      decoration: orbSurface(t, radius: 16),
-                      child: Text(
-                        notice,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: RaftTypography.body(
-                          t,
-                          size: 14,
-                          line: 20,
-                          weight: FontWeight.w600,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: RaftSpace.x3,
+                          vertical: RaftSpace.x2,
+                        ),
+                        decoration: orbSurface(t, radius: 16),
+                        child: Text(
+                          notice,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: RaftTypography.body(
+                            t,
+                            size: 14,
+                            line: 20,
+                            weight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
+                  OrbSubtitleBubble(
+                    controller: c,
+                    maxWidth: width - _margin * 2,
                   ),
-                OrbSubtitleBubble(controller: c, maxWidth: width - _margin * 2),
-              ],
+                ],
+              ),
             ),
-          ),
-          // The call pill, level with the orb on its inner side.
-          Positioned(
-            top: y + (orbSize - orbPillHeight) / 2,
-            left: _onRight ? null : x + orbSize + ringGap,
-            right: _onRight ? width - x + ringGap : null,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: beside),
-              child: OrbCallStatus(controller: c, alignEnd: _onRight),
+            // The call pill, level with the orb on its inner side.
+            Positioned(
+              top: y + (orbSize - orbPillHeight) / 2,
+              left: _onRight ? null : x + orbSize + ringGap,
+              right: _onRight ? width - x + ringGap : null,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: beside),
+                child: OrbCallStatus(controller: c, alignEnd: _onRight),
+              ),
             ),
-          ),
-          AnimatedPositioned(
-            duration: _drag == null ? _glide : Duration.zero,
-            curve: Curves.easeOut,
-            left: x,
-            top: y,
-            child: OrbBall(
-              controller: c,
-              onPanStart: (d) => _panStart(d, Offset(x, y)),
-              onPanUpdate: (d) => _panUpdate(d, media),
-              onPanEnd: (_) => _panEnd(media),
+            AnimatedPositioned(
+              duration: _drag == null ? _glide : Duration.zero,
+              curve: Curves.easeOut,
+              left: x,
+              top: y,
+              child: OrbBall(
+                controller: c,
+                onPanStart: (d) => _panStart(d, Offset(x, y)),
+                onPanUpdate: (d) => _panUpdate(d, media),
+                onPanEnd: (_) => _panEnd(media),
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

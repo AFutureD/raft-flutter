@@ -9,6 +9,8 @@ import 'actions/orb_action_card.dart';
 import 'briefing/orb_briefing_cards.dart';
 import 'briefing/orb_briefing_models.dart' show OrbBriefing;
 import 'orb_controller.dart';
+import 'screen/orb_screen.dart';
+import 'screen/orb_screen_snapshot.dart' show orbSemanticsIdentifier;
 import 'orb_driving.dart';
 import 'orb_state.dart';
 import 'orb_status.dart';
@@ -42,7 +44,23 @@ class OrbLayerRoute extends PopupRoute<void> {
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
-  ) => OrbLayer(controller: orb, animation: animation);
+  ) => Semantics(
+    // The screen reader of the model leaves the orb's own layer out.
+    identifier: orbSemanticsIdentifier,
+    container: true,
+    child: OrbLayer(controller: orb, animation: animation),
+  );
+
+  /// The barrier hides the page below from a screen reader (and so from the
+  /// model's reading of the screen). While the model reads, it lets the page
+  /// through; it still takes every touch.
+  @override
+  Widget buildModalBarrier() => ListenableBuilder(
+    listenable: OrbScreen.of(orb.workspace).revealing,
+    builder: (context, _) => OrbScreen.of(orb.workspace).revealing.value > 0
+        ? const AbsorbPointer(child: SizedBox.expand())
+        : super.buildModalBarrier(),
+  );
 }
 
 /// The scrim's darkness, the blur and where a swipe down lets go (frames 05
