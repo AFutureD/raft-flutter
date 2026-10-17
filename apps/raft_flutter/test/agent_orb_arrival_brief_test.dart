@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_service.dart';
+import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_writer.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_nav_tools.dart';
 import 'package:raft_flutter/features/agent_orb/orb_arrival_brief.dart';
 import 'package:raft_flutter/features/agent_orb/orb_prompt.dart';
@@ -323,6 +324,21 @@ void main() {
 
   group('the prompt', () {
     final prompt = orbSystemPrompt(channels: 'raft-flutter、design');
+
+    // Kevin: give it ASD-STE100 so it knows how to say things. The rules,
+    // not the English word list.
+    test(
+      'speaks in short, active, one-thing sentences and never reads ids',
+      () {
+        for (final text in [prompt, OrbBriefingWriter.system]) {
+          expect(text, contains('ASD-STE100'));
+          expect(text, contains('一句只说一件事'));
+          expect(text, contains('主动'));
+          expect(text, contains('绝不'));
+          expect(text, contains('id'));
+        }
+      },
+    );
 
     test('leads with what needs the user, and counts the routine', () {
       expect(prompt, contains('需要用户'));
