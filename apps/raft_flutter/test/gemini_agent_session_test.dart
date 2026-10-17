@@ -1,0 +1,400 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/gemini_agent.dart';
+
+/// The text agent: the same prompt and tools as the realtime session, over
+/// plain generateContent calls with a function-calling loop. A fake transport
+/// stands in for the API.
+
+const _models = {
+  'models': [
+    {
+      'name': 'models/gemini-3-flash-preview',
+      'supportedGenerationMethods': ['generateContent'],
+    },
+  ],
+};
+
+const _tools = [
+  {
+    'name': 'navigate',
+    'behavior': 'NON_BLOCKING',
+    'description': 'go',
+    'parameters': {
+      'type': 'object',
+      'properties': {
+        'to': {'type': 'string'},
+      },
+    },
+  },
+];
+
+Map<String, Object?> _reply(List<Map<String, Object?>> parts) => {
+  'candidates': [
+    {
+      'content': {'role': 'model', 'parts': parts},
+    },
+  ],
+};
+
+Map<String, Object?> _say(String text) => _reply([
+  {'text': text},
+]);
+
+Map<String, Object?> _call(
+  String name,
+  Map<String, Object?> args, {
+  String? signature,
+}) => _reply([
+  {
+    'functionCall': {'name': name, 'args': args},
+    'thoughtSignature': ?signature,
+  },
+]);
+
+class Api {
+  /// The generateContent replies in order; a completer waits for a gate.
+  final replies = <Object>[];
+  final requests = <Map<String, Object?>>[];
+  final paths = <String>[];
+
+  Future<({int status, String body})> call(
+    Uri uri,
+    String apiKey,
+    Map<String, Object?>? body,
+  ) async {
+    paths.add(uri.path);
+    if (body == null) return (status: 200, body: jsonEncode(_models));
+    // What the API saw now, whatever the session does to its history later.
+    requests.add(jsonDecode(jsonEncode(body)) as Map<String, Object?>);
+    var next = replies.removeAt(0);
+    if (next is Future) next = await next;
+    if (next is int) return (status: next, body: '{}');
+    return (status: 200, body: jsonEncode(next));
+  }
+}
+
+class Heard {
+  final texts = <String>[];
+  var turns = 0;
+  final closed = <String>[];
+  final calls = <(String, Map<String, Object?>)>[];
+}
+
+GeminiAgentSession session(
+  Api api,
+  Heard heard, {
+  int maxSteps = 8,
+  Map<String, Object?> Function(String, Map<String, Object?>)? tool,
+}) => GeminiAgentSession(
+  apiKey: 'test-key',
+  systemPrompt: 'be the orb',
+  tools: _tools,
+  transport: api.call,
+  maxSteps: maxSteps,
+  retryDelay: Duration.zero,
+  onToolCall: (name, args) async {
+    heard.calls.add((name, args));
+    return tool?.call(name, args) ?? {'ok': true};
+  },
+  onOutputText: heard.texts.add,
+  onTurnComplete: () => heard.turns++,
+  onClosed: heard.closed.add,
+);
+
+List<Map<String, Object?>> _contents(Map<String, Object?> request) => [
+  for (final c in request['contents'] as List) Map<String, Object?>.from(c),
+];
+
+void main() {
+  test(
+    'connect resolves the model; a text-only reply is said and ends',
+    () async {
+      final api = Api()..replies.add(_say('你好'));
+      final heard = Heard();
+      final s = session(api, heard);
+      expect(s.connected, isFalse);
+      await s.connect();
+      expect(s.connected, isTrue);
+      expect(s.model, 'models/gemini-3-flash-preview');
+
+      s.sendText('hi');
+      await pumpEventQueue();
+
+      expect(heard.texts, ['你好']);
+      expect(heard.turns, 1);
+      final r = api.requests.single;
+      expect(
+        api.paths.last,
+        '/v1beta/models/gemini-3-flash-preview:generateContent',
+      );
+      expect(r['systemInstruction'], {
+        'parts': [
+          {'text': 'be the orb'},
+        ],
+      });
+      // The declarations are the realtime session's, without NON_BLOCKING.
+      final declared =
+          ((r['tools'] as List).single as Map)['functionDeclarations'];
+      expect((declared as List).single, {
+        'name': 'navigate',
+        'description': 'go',
+        'parameters': _tools.single['parameters'],
+      });
+      final config = r['generationConfig'] as Map;
+      expect(config['temperature'], .3);
+      expect(config['thinkingConfig'], {'thinkingLevel': 'low'});
+      expect(config.containsKey('responseMimeType'), isFalse);
+      expect(_contents(r).single, {
+        'role': 'user',
+        'parts': [
+          {'text': 'hi'},
+        ],
+      });
+    },
+  );
+
+  test('a function call runs the tool and its response goes back with the '
+      'model part, thoughtSignature included', () async {
+    final api = Api()
+      ..replies.addAll([
+        _call('navigate', {'to': 'home'}, signature: 'sig-1'),
+        _say('到了'),
+      ]);
+    final heard = Heard();
+    final s = session(api, heard, tool: (_, _) => {'location': '/home'});
+    await s.connect();
+
+    s.sendText('go home');
+    await pumpEventQueue();
+
+    expect(heard.calls.map((c) => c.$1), ['navigate']);
+    expect(heard.calls.single.$2, {'to': 'home'});
+    expect(heard.texts, ['到了']);
+    expect(heard.turns, 1);
+    expect(api.requests, hasLength(2));
+    final second = _contents(api.requests.last);
+    expect(second.map((c) => c['role']), ['user', 'model', 'user']);
+    expect(second[1]['parts'], [
+      {
+        'functionCall': {
+          'name': 'navigate',
+          'args': {'to': 'home'},
+        },
+        'thoughtSignature': 'sig-1',
+      },
+    ]);
+    expect(second[2]['parts'], [
+      {
+        'functionResponse': {
+          'name': 'navigate',
+          'response': {'location': '/home'},
+        },
+      },
+    ]);
+  });
+
+  test(
+    'several calls in one reply run in order, answered in one turn',
+    () async {
+      final api = Api()
+        ..replies.addAll([
+          _reply([
+            {
+              'functionCall': {'name': 'a', 'args': <String, Object?>{}},
+            },
+            {
+              'functionCall': {'name': 'b', 'args': <String, Object?>{}},
+            },
+          ]),
+          _say('done'),
+        ]);
+      final heard = Heard();
+      final s = session(api, heard, tool: (name, _) => {'who': name});
+      await s.connect();
+      s.sendText('x');
+      await pumpEventQueue();
+
+      expect(heard.calls.map((c) => c.$1), ['a', 'b']);
+      final parts = _contents(api.requests.last).last['parts'] as List;
+      expect(parts.map((p) => (p as Map)['functionResponse']['response']), [
+        {'who': 'a'},
+        {'who': 'b'},
+      ]);
+    },
+  );
+
+  test(
+    'a tool that throws is answered with an error, not a dead turn',
+    () async {
+      final api = Api()..replies.addAll([_call('navigate', {}), _say('出错了')]);
+      final heard = Heard();
+      final s = session(api, heard, tool: (_, _) => throw StateError('boom'));
+      await s.connect();
+      s.sendText('x');
+      await pumpEventQueue();
+
+      final answer =
+          (_contents(api.requests.last).last['parts'] as List).single as Map;
+      expect(answer['functionResponse']['response'], contains('error'));
+      expect(heard.texts, ['出错了']);
+      expect(heard.turns, 1);
+    },
+  );
+
+  test('the step cap stops a model that keeps calling, and the history stays '
+      'valid for the next turn', () async {
+    final api = Api()
+      ..replies.addAll([
+        for (var i = 0; i < 3; i++) _call('navigate', {'to': '$i'}),
+        _say('later'),
+      ]);
+    final heard = Heard();
+    final s = session(api, heard, maxSteps: 3);
+    await s.connect();
+
+    s.sendText('loop');
+    await pumpEventQueue();
+
+    expect(api.requests, hasLength(3));
+    // The last step's call was not run: no step is left to read its answer.
+    expect(heard.calls, hasLength(2));
+    expect(heard.turns, 1);
+    expect(heard.texts, isEmpty);
+    expect(heard.closed, isEmpty);
+
+    s.sendText('again');
+    await pumpEventQueue();
+    final roles = _contents(api.requests.last).map((c) => c['role']).toList();
+    expect(roles, [
+      'user',
+      'model',
+      'user',
+      'model',
+      'user',
+      'model',
+      'user',
+      'user',
+    ]);
+    // Every model call has its answer right after it.
+    final contents = _contents(api.requests.last);
+    expect(
+      (contents[6]['parts'] as List).single,
+      containsPair('functionResponse', isA<Map>()),
+    );
+    expect(heard.texts, ['later']);
+  });
+
+  test(
+    'addContext sends nothing by itself and rides along the next turn',
+    () async {
+      final api = Api()..replies.add(_say('ok'));
+      final heard = Heard();
+      final s = session(api, heard);
+      await s.connect();
+
+      s.addContext('用户在首页');
+      await pumpEventQueue();
+      expect(api.requests, isEmpty);
+      expect(heard.turns, 0);
+
+      s.sendText('这是什么');
+      await pumpEventQueue();
+      expect(_contents(api.requests.single).single, {
+        'role': 'user',
+        'parts': [
+          {'text': '用户在首页'},
+          {'text': '这是什么'},
+        ],
+      });
+    },
+  );
+
+  test('a second sendText waits for the first turn to end', () async {
+    final gate = Completer<Map<String, Object?>>();
+    final api = Api()..replies.addAll([gate.future, _say('second')]);
+    final heard = Heard();
+    final s = session(api, heard);
+    await s.connect();
+
+    s.sendText('one');
+    s.sendText('two');
+    await pumpEventQueue();
+    expect(api.requests, hasLength(1));
+
+    gate.complete(_say('first'));
+    await pumpEventQueue();
+    expect(api.requests, hasLength(2));
+    expect(heard.texts, ['first', 'second']);
+    expect(heard.turns, 2);
+    final roles = _contents(api.requests.last).map((c) => c['role']).toList();
+    expect(roles, ['user', 'model', 'user']);
+  });
+
+  test('close during a turn drops its result; a failed call closes the '
+      'session with a reason that has no key in it', () async {
+    final gate = Completer<Map<String, Object?>>();
+    final api = Api()..replies.add(gate.future);
+    final heard = Heard();
+    final s = session(api, heard);
+    await s.connect();
+    s.sendText('x');
+    await pumpEventQueue();
+    await s.close();
+    gate.complete(_say('late'));
+    await pumpEventQueue();
+    expect(heard.texts, isEmpty);
+    expect(heard.turns, 0);
+    expect(s.connected, isFalse);
+
+    final api2 = Api()..replies.add(401);
+    final heard2 = Heard();
+    final s2 = session(api2, heard2);
+    await s2.connect();
+    s2.sendText('x');
+    await pumpEventQueue();
+    expect(heard2.closed, ['generateContent 401']);
+    expect(s2.connected, isFalse);
+    expect(heard2.closed.join(), isNot(contains('test-key')));
+  });
+
+  test('a 400 on the thinking setting is asked again without it; a 503 is '
+      'tried again', () async {
+    final api = Api()..replies.addAll([400, 503, _say('ok')]);
+    final heard = Heard();
+    final s = session(api, heard);
+    await s.connect();
+    s.sendText('x');
+    await pumpEventQueue();
+
+    expect(api.requests, hasLength(3));
+    expect(
+      (api.requests[0]['generationConfig'] as Map)['thinkingConfig'],
+      isNotNull,
+    );
+    expect(
+      (api.requests[1]['generationConfig'] as Map).containsKey(
+        'thinkingConfig',
+      ),
+      isFalse,
+    );
+    expect(heard.texts, ['ok']);
+  });
+
+  test('generationConfig: low thinking for gemini-3, none budget for 2.5', () {
+    expect(
+      GeminiAgentSession.generationConfig(
+        'models/gemini-2.5-flash',
+      )['thinkingConfig'],
+      {'thinkingBudget': 0},
+    );
+    expect(
+      GeminiAgentSession.generationConfig(
+        'models/gemini-3-flash',
+      )['thinkingConfig'],
+      {'thinkingLevel': 'low'},
+    );
+  });
+}

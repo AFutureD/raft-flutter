@@ -112,10 +112,26 @@ class GeminiText {
     if (response.statusCode != 200) {
       throw HttpException('models ${response.statusCode}');
     }
-    return pickModel([
-      for (final m in (jsonDecode(body)['models'] as List? ?? const []))
-        if (m is Map) Map<String, dynamic>.from(m),
-    ], lite: lite);
+    return pickModelFrom(body, lite: lite);
+  }
+
+  /// [pickModel] over the body of a `models.list` response.
+  static String pickModelFrom(String body, {bool lite = false}) => pickModel([
+    for (final m in (jsonDecode(body)['models'] as List? ?? const []))
+      if (m is Map) Map<String, dynamic>.from(m),
+  ], lite: lite);
+
+  /// The `thinkingConfig` with the least thinking [model] takes (null for a
+  /// model without one).
+  static Map<String, Object?>? thinkingConfig(
+    String model, {
+    bool lite = false,
+  }) {
+    if (model.contains('gemini-2.5')) return {'thinkingBudget': 0};
+    if (model.contains('gemini-3')) {
+      return {'thinkingLevel': lite ? 'minimal' : 'low'};
+    }
+    return null;
   }
 
   /// The request's generationConfig: JSON out, and the least thinking the
@@ -127,10 +143,7 @@ class GeminiText {
   }) => {
     'temperature': .3,
     'responseMimeType': 'application/json',
-    if (thinking && model.contains('gemini-2.5'))
-      'thinkingConfig': {'thinkingBudget': 0},
-    if (thinking && model.contains('gemini-3'))
-      'thinkingConfig': {'thinkingLevel': lite ? 'minimal' : 'low'},
+    if (thinking) 'thinkingConfig': ?thinkingConfig(model, lite: lite),
   };
 
   Future<({int status, String? text})> _post(

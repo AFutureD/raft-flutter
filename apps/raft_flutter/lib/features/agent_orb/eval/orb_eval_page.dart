@@ -40,7 +40,8 @@ class OrbEvalPage extends StatefulWidget {
     this.voiceKey,
     this.reportRoot = orbEvalReportRoot,
     this.settle = const Duration(milliseconds: 1200),
-    this.turnTimeout = const Duration(seconds: 45),
+    this.turnTimeout,
+    this.harness = OrbEvalHarness.realtime,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -54,7 +55,11 @@ class OrbEvalPage extends StatefulWidget {
   final AgentVoiceKey? voiceKey;
   final Future<Directory> Function() reportRoot;
   final Duration settle;
-  final Duration turnTimeout;
+
+  /// The longest a model turn may take; the runner's default for the harness
+  /// when null.
+  final Duration? turnTimeout;
+  final OrbEvalHarness harness;
 
   @override
   State<OrbEvalPage> createState() => _OrbEvalPageState();
@@ -94,6 +99,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       runs: widget.runs,
       settle: widget.settle,
       turnTimeout: widget.turnTimeout,
+      harness: widget.harness,
       sessionFactory: widget.sessionFactory,
       voiceKey: widget.voiceKey,
       onProgress: (p) {

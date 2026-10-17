@@ -97,6 +97,16 @@ class OrbEvalScenarioResult {
   }
 }
 
+/// What drives the orb in an evaluation.
+enum OrbEvalHarness {
+  /// The realtime voice model of the settings, in text mode (the default).
+  realtime,
+
+  /// A Gemini text model in a function-calling loop: the same prompt and
+  /// tools, answered by plain `generateContent` calls.
+  agent,
+}
+
 /// All scenarios of one evaluation.
 class OrbEvalReport {
   OrbEvalReport({
@@ -105,6 +115,8 @@ class OrbEvalReport {
     required this.results,
     this.provider,
     this.reasoning,
+    this.harness,
+    this.model,
     this.cancelled = false,
     this.abortReason,
   });
@@ -116,6 +128,10 @@ class OrbEvalReport {
   /// The voice service and reasoning level the runs used (never the key).
   final String? provider;
   final String? reasoning;
+
+  /// Which [OrbEvalHarness] drove the orb, and the model it ended up on.
+  final String? harness;
+  final String? model;
 
   /// The run was stopped before every scenario was through.
   final bool cancelled;
@@ -133,6 +149,8 @@ class OrbEvalReport {
     'runsPerScenario': runsPerScenario,
     if (provider != null) 'provider': provider,
     if (reasoning != null) 'reasoning': reasoning,
+    if (harness != null) 'harness': harness,
+    if (model != null) 'model': model,
     if (cancelled) 'cancelled': true,
     if (abortReason != null) 'abortReason': abortReason,
     'ok': ok,

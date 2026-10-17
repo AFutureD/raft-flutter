@@ -52,6 +52,8 @@ String orbEvalMarkdown(OrbEvalReport report) {
       '${report.runsPerScenario} 次'
       '${report.provider == null ? '' : ' · 服务 ${report.provider}'}'
       '${report.reasoning == null ? '' : ' · 推理 ${report.reasoning}'}'
+      '${report.harness == null ? '' : ' · 通道 ${report.harness}'}'
+      '${report.model == null ? '' : ' · 模型 ${report.model}'}'
       '${report.cancelled ? ' · 中途停止' : ''}'
       '${report.abortReason == null ? '' : '（${report.abortReason}）'}',
     )

@@ -4,17 +4,25 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../../private_route_guard.dart' show PrivateRouteGuard;
 import 'orb_eval_page.dart';
+import 'orb_eval_result.dart' show OrbEvalHarness;
 
 /// What a start request asks for.
 class OrbEvalRequest {
-  const OrbEvalRequest({this.only = const [], this.runs = 2});
+  const OrbEvalRequest({
+    this.only = const [],
+    this.runs = 2,
+    this.harness = OrbEvalHarness.realtime,
+  });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
   final List<String> only;
   final int runs;
 
-  /// The request a `raft://orb-eval/run?only=A1,B2&runs=3` link makes; null
-  /// for any other link.
+  /// What drives the orb; `harness=agent` in the link picks the text agent.
+  final OrbEvalHarness harness;
+
+  /// The request a `raft://orb-eval/run?only=A1,B2&runs=3&harness=agent` link
+  /// makes; null for any other link.
   static OrbEvalRequest? fromLink(Uri uri) {
     if (uri.scheme != 'raft' || uri.host != 'orb-eval') return null;
     final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
@@ -25,7 +33,11 @@ class OrbEvalRequest {
         .take(60)
         .toList();
     final runs = int.tryParse(uri.queryParameters['runs'] ?? '') ?? 2;
-    return OrbEvalRequest(only: only, runs: runs.clamp(1, 5));
+    final harness = OrbEvalHarness.values.firstWhere(
+      (h) => h.name == (uri.queryParameters['harness'] ?? '').toLowerCase(),
+      orElse: () => OrbEvalHarness.realtime,
+    );
+    return OrbEvalRequest(only: only, runs: runs.clamp(1, 5), harness: harness);
   }
 }
 
@@ -141,7 +153,11 @@ class OrbEvalLauncher {
             ),
             builder: (_) =>
                 pageBuilder?.call(request) ??
-                OrbEvalPage(only: request.only, runs: request.runs),
+                OrbEvalPage(
+                  only: request.only,
+                  runs: request.runs,
+                  harness: request.harness,
+                ),
           ),
         )
         .whenComplete(() => _open = false);

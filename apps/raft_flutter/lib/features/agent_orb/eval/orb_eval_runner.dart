@@ -9,6 +9,7 @@ import '../../../data/workspace_controller.dart';
 import '../../agent_mode/agent_audio.dart';
 import '../../agent_mode/agent_voice.dart';
 import '../../agent_mode/agent_voice_settings.dart';
+import '../../agent_mode/gemini_agent.dart';
 import '../../agent_mode/voice_provider.dart';
 import '../nav/orb_nav_tools.dart' show orbNavigationTools;
 import '../orb_controller.dart';
@@ -73,7 +74,8 @@ class OrbEvalRunner {
   OrbEvalRunner({
     required this.stage,
     this.runs = 2,
-    this.turnTimeout = const Duration(seconds: 45),
+    this.turnTimeout,
+    this.harness = OrbEvalHarness.realtime,
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
     this.voiceKey,
@@ -85,14 +87,25 @@ class OrbEvalRunner {
   /// How many times each scenario runs.
   final int runs;
 
-  /// The longest a model turn may take.
-  final Duration turnTimeout;
+  /// The longest a model turn may take; 45 seconds for the realtime model,
+  /// 120 for the agent (a turn there is several model calls in a row).
+  final Duration? turnTimeout;
+
+  /// What drives the orb: the realtime model, or the text agent.
+  final OrbEvalHarness harness;
+
+  Duration get _turnLimit =>
+      turnTimeout ??
+      (harness == OrbEvalHarness.agent
+          ? const Duration(seconds: 120)
+          : const Duration(seconds: 45));
 
   /// How long after a turn the late words (transcripts arrive after the turn
   /// ends) and the screen are given to settle before they are read.
   final Duration settle;
 
-  /// The session builder; the real providers unless a test gives a fake.
+  /// The session builder; the real providers (or the text agent, for its
+  /// harness) unless a test gives a fake.
   final VoiceSessionFactory? sessionFactory;
 
   /// The key; the one stored in the app unless a test gives one.
@@ -103,6 +116,7 @@ class OrbEvalRunner {
   bool _stop = false;
   String? _abortReason;
   _Recorder? _recorder;
+  String? _model;
 
   /// Stops after the run under way.
   void stop() => _stop = true;
@@ -120,6 +134,7 @@ class OrbEvalRunner {
   Future<OrbEvalReport> runAll(List<OrbEvalScenario> scenarios) async {
     _stop = false;
     _abortReason = null;
+    _model = null;
     final started = DateTime.now();
     final results = <OrbEvalScenarioResult>[];
     for (final (i, s) in scenarios.indexed) {
@@ -155,12 +170,16 @@ class OrbEvalRunner {
       results.add(OrbEvalScenarioResult(s, done));
     }
     final settings = AgentVoiceSettings.instance;
+    // The agent harness ignores the voice settings: they would only mislead.
+    final agent = harness == OrbEvalHarness.agent;
     final report = OrbEvalReport(
       startedAt: started,
       runsPerScenario: runs,
       results: results,
-      provider: settings.provider.name,
-      reasoning: settings.reasoning.name,
+      provider: agent ? null : settings.provider.name,
+      reasoning: agent ? null : settings.reasoning.name,
+      harness: harness.name,
+      model: _model,
       cancelled: _stop,
       abortReason: _abortReason,
     );
@@ -175,6 +194,38 @@ class OrbEvalRunner {
   /// Progress lines only: scenario ids and pass or fail. Never a prompt, a
   /// reply or a key.
   void _log(String line) => debugPrint('orb-eval: $line');
+
+  /// What builds the session when a test gave none.
+  VoiceSessionFactory _defaultFactory() => switch (harness) {
+    OrbEvalHarness.realtime => createVoiceSession,
+    // The text agent has its own key reading (the stored Gemini key, or the
+    // one a test gave): provider, voice and reasoning do not apply to it.
+    OrbEvalHarness.agent =>
+      ({
+        required provider,
+        required apiKey,
+        required systemPrompt,
+        required tools,
+        required onToolCall,
+        required voice,
+        reasoning = AgentReasoning.low,
+        onAudio,
+        onInputText,
+        onOutputText,
+        onTurnComplete,
+        onInterrupted,
+        onClosed,
+        playbackPending,
+      }) => GeminiAgentSession(
+        key: voiceKey,
+        systemPrompt: systemPrompt,
+        tools: tools,
+        onToolCall: onToolCall,
+        onOutputText: onOutputText,
+        onTurnComplete: onTurnComplete,
+        onClosed: onClosed,
+      ),
+  };
 
   // ---- one run -------------------------------------------------------------
 
@@ -196,7 +247,7 @@ class OrbEvalRunner {
       orb = OrbController(
         workspace: world.workspace,
         navigatorContext: () => shown.navigatorContext(),
-        sessionFactory: recorder.wrap(sessionFactory ?? createVoiceSession),
+        sessionFactory: recorder.wrap(sessionFactory ?? _defaultFactory()),
         audio: _SilentAudio(),
         voiceKey: voiceKey,
         // The summary of a session would be a write to the shared agent.
@@ -221,6 +272,7 @@ class OrbEvalRunner {
       // ignore: raft_lints/avoid_caught_exception_text -- Only our own StateError texts (the start page); they go into the report of a developer tool.
       problem = '运行出错：${e is StateError ? e.message : e.runtimeType}';
     } finally {
+      _model ??= _recorder?.session?.model;
       run.writes = world?.writes.toList() ?? const [];
       try {
         // The layer opens on the app's root Navigator and outlives the
@@ -325,7 +377,7 @@ class OrbEvalRunner {
     required bool scored,
   }) async {
     final turn = recorder.begin(line, scored: scored);
-    final outcome = recorder.waitForTurn(orb.voice, turnTimeout);
+    final outcome = recorder.waitForTurn(orb.voice, _turnLimit);
     await orb.sendText(line);
     final error = await outcome;
     return _finish(orb, world, turn, error);
@@ -389,6 +441,9 @@ class _Recorder {
   Completer<String?>? _done;
   Timer? _timeout;
   VoidCallback? _unlisten;
+
+  /// The session the orb last built (its model is told in the report).
+  VoiceSession? session;
 
   OrbEvalTurn begin(String line, {required bool scored}) {
     final turn = OrbEvalTurn(line, scored: scored);
@@ -460,7 +515,7 @@ class _Recorder {
         onInterrupted,
         onClosed,
         playbackPending,
-      }) => inner(
+      }) => session = inner(
         provider: provider,
         apiKey: apiKey,
         systemPrompt: systemPrompt,

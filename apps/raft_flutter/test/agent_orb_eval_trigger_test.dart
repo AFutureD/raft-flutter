@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_launcher.dart';
+import 'package:raft_flutter/features/agent_orb/eval/orb_eval_result.dart'
+    show OrbEvalHarness;
 import 'package:raft_flutter/platform/content_coordinator.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -42,6 +44,22 @@ void main() {
         OrbEvalRequest.fromLink(Uri.parse('raft://orb-eval/run?runs=0'))!.runs,
         1,
       );
+    });
+
+    test('harness=agent picks the text agent; anything else is realtime', () {
+      OrbEvalHarness of(String query) =>
+          OrbEvalRequest.fromLink(Uri.parse('raft://orb-eval/run$query'))!
+              .harness;
+      expect(of(''), OrbEvalHarness.realtime);
+      expect(of('?harness=agent'), OrbEvalHarness.agent);
+      expect(of('?only=A1&runs=3&harness=Agent'), OrbEvalHarness.agent);
+      expect(of('?harness=realtime'), OrbEvalHarness.realtime);
+      expect(of('?harness=other'), OrbEvalHarness.realtime);
+      final r = OrbEvalRequest.fromLink(
+        Uri.parse('raft://orb-eval/run?only=A1&runs=3&harness=agent'),
+      )!;
+      expect(r.only, ['A1']);
+      expect(r.runs, 3);
     });
 
     test('no other link is an evaluation link', () {
