@@ -269,6 +269,11 @@ void main() {
     final json = await run(t, layered());
 
     expect(json['harness'], 'layered');
+    expect(
+      json['combination'],
+      '语音模型 + 文字 Agent：语音模型 Gemini Live（live-fake） · Live 转述 · Agent 引擎 Genkit'
+      ' 模型 agent-fake 推理 低',
+    );
     expect(json['model'], 'live-fake', reason: 'the Live model');
     expect(json['agentModel'], 'agent-fake');
     expect(json['engine'], 'genkit');
@@ -306,6 +311,7 @@ void main() {
       '${reports.listSync().whereType<Directory>().single.path}/report.md',
     ).readAsStringSync();
     expect(md, contains('通道 layered'));
+    expect(md, contains('组合：语音模型 + 文字 Agent'));
     expect(md, contains('模型 live-fake'));
     expect(md, contains('引擎 genkit'));
     expect(md, contains('Agent 模型 agent-fake'));

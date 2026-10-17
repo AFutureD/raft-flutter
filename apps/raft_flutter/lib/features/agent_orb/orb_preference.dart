@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/device_preferences.dart';
 import '../agent_mode/agent_engine.dart';
+import '../agent_mode/agent_voice_settings.dart' show AgentVoiceSettingsPage;
 import '../agent_mode/agent_thinking.dart';
 import '../agent_mode/layered_voice_mode.dart';
 
@@ -68,6 +69,56 @@ class AgentOrbPreference extends ChangeNotifier {
     Future<void> write(SharedPreferences prefs) async {
       try {
         await prefs.setBool(layerKey, next);
+      } catch (_) {
+        /* optional local storage */
+      }
+    }
+
+    final loaded = DevicePreferences.current;
+    if (loaded != null) {
+      write(loaded);
+    } else {
+      SharedPreferences.getInstance().then(write, onError: (_) {});
+    }
+    notifyListeners();
+  }
+
+  /// The brain the orb runs on: the realtime voice model alone, or a voice
+  /// model with the text Agent. It is the old "Agent 层" switch under a new
+  /// name (same key, so a device with the layer on is on the layered brain).
+  AgentBrainMode get brainMode =>
+      agentLayer ? AgentBrainMode.layered : AgentBrainMode.voiceOnly;
+
+  void setBrainMode(AgentBrainMode next) =>
+      setAgentLayer(next == AgentBrainMode.layered);
+
+  /// The text Agent's model id (`gemini-3.5-flash-lite`, or `provider/model`
+  /// for Genkit); null: the app picks a Flash Lite.
+  static const agentModelKey = 'raft.agentOrb.agentModel';
+  String? _agentModelOverride;
+  bool _agentModelSet = false;
+
+  String? get agentModel {
+    if (_agentModelSet) return _agentModelOverride;
+    try {
+      final v = DevicePreferences.current?.getString(agentModelKey)?.trim();
+      return v == null || v.isEmpty ? null : v;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void setAgentModel(String? next) {
+    final v = next?.trim();
+    final model = v == null || v.isEmpty ? null : v;
+    if (model == agentModel) return;
+    _agentModelOverride = model;
+    _agentModelSet = true;
+    Future<void> write(SharedPreferences prefs) async {
+      try {
+        model == null
+            ? await prefs.remove(agentModelKey)
+            : await prefs.setString(agentModelKey, model);
       } catch (_) {
         /* optional local storage */
       }
@@ -197,6 +248,8 @@ class AgentOrbPreference extends ChangeNotifier {
 
   @visibleForTesting
   void resetForTest() {
+    _agentModelOverride = null;
+    _agentModelSet = false;
     _voiceModeOverride = null;
     _override = null;
     _layerOverride = null;
@@ -205,16 +258,15 @@ class AgentOrbPreference extends ChangeNotifier {
   }
 }
 
-/// Labs control for the orb: a switch. Phone layout only, and in debug and
-/// profile builds only, like the Agent mode card next to it.
+/// Labs control for the orb: a switch, and when it is on the way to the
+/// Agent settings, where the brain (the realtime voice model alone, or a voice
+/// model with the text Agent), the voice, how it speaks and the Agent are
+/// chosen. Phone layout only, and in debug and profile builds only, like the
+/// Agent mode card next to it.
 class AgentOrbLabsCard extends StatelessWidget {
   const AgentOrbLabsCard({super.key});
 
   static const title = 'Agent 悬浮球（手机）';
-  static const layerTitle = 'Agent 层';
-  static const thinkingTitle = '文本 Agent 推理强度';
-  static const engineTitle = '引擎';
-  static const voiceModeTitle = '语音';
 
   @override
   Widget build(BuildContext context) {
@@ -265,148 +317,27 @@ class AgentOrbLabsCard extends StatelessWidget {
                   color: t.muted,
                 ),
               ),
-              const SizedBox(height: RaftSpace.x3),
-              Row(
-                children: [
-                  Expanded(
-                    child: RaftCssText(
-                      layerTitle,
-                      style: RaftTypography.body(
-                        t,
-                        size: 14,
-                        line: 20,
-                        weight: FontWeight.w600,
-                        color: t.ink,
-                      ),
+              if (pref.enabled) ...[
+                const SizedBox(height: RaftSpace.x3),
+                RaftCssText(
+                  '现在：${pref.brainMode.label}',
+                  key: const ValueKey('agent-orb-brain-summary'),
+                  style: RaftTypography.body(
+                    t,
+                    size: 13,
+                    line: 18,
+                    color: t.muted,
+                  ),
+                ),
+                const SizedBox(height: RaftSpace.x2),
+                RaftButton(
+                  key: const ValueKey('agent-orb-settings-open'),
+                  label: 'Agent 设置',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          const AgentVoiceSettingsPage(showOrb: true),
                     ),
-                  ),
-                  RaftSwitch(
-                    key: const ValueKey('agent-orb-layer-switch'),
-                    value: pref.agentLayer,
-                    semanticLabel: layerTitle,
-                    onChanged: pref.setAgentLayer,
-                  ),
-                ],
-              ),
-              const SizedBox(height: RaftSpace.x1),
-              RaftCssText(
-                '用文字模型当 Agent，语音只负责听和说，确认和结果由 App 来说。需要 Gemini Key。'
-                '关掉就用实时语音模型直接做。',
-                style: RaftTypography.body(
-                  t,
-                  size: 13,
-                  line: 18,
-                  color: t.muted,
-                ),
-              ),
-              if (pref.agentLayer) ...[
-                const SizedBox(height: RaftSpace.x3),
-                RaftCssText(
-                  thinkingTitle,
-                  style: RaftTypography.body(
-                    t,
-                    size: 14,
-                    line: 20,
-                    weight: FontWeight.w600,
-                    color: t.ink,
-                  ),
-                ),
-                const SizedBox(height: RaftSpace.x2),
-                RaftSegmentedControl<AgentThinking>(
-                  key: const ValueKey('agent-orb-thinking'),
-                  label: thinkingTitle,
-                  value: pref.agentThinking,
-                  onChanged: pref.setAgentThinking,
-                  items: [
-                    for (final v in AgentThinking.values)
-                      RaftSegmentedOption(
-                        value: v,
-                        label: v.label,
-                        itemKey: ValueKey('agent-orb-thinking-${v.name}'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: RaftSpace.x1),
-                RaftCssText(
-                  '最少最快；高想得更久、答得更晚。下一次对话生效。',
-                  style: RaftTypography.body(
-                    t,
-                    size: 13,
-                    line: 18,
-                    color: t.muted,
-                  ),
-                ),
-                const SizedBox(height: RaftSpace.x3),
-                RaftCssText(
-                  engineTitle,
-                  style: RaftTypography.body(
-                    t,
-                    size: 14,
-                    line: 20,
-                    weight: FontWeight.w600,
-                    color: t.ink,
-                  ),
-                ),
-                const SizedBox(height: RaftSpace.x2),
-                RaftSegmentedControl<AgentEngine>(
-                  key: const ValueKey('agent-orb-engine'),
-                  label: engineTitle,
-                  value: pref.agentEngine,
-                  onChanged: pref.setAgentEngine,
-                  items: [
-                    for (final v in AgentEngine.values)
-                      RaftSegmentedOption(
-                        value: v,
-                        label: v.label,
-                        itemKey: ValueKey('agent-orb-engine-${v.name}'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: RaftSpace.x1),
-                RaftCssText(
-                  'Genkit 是默认；直连是 App 自己调 Gemini 的备用。下一次对话生效。',
-                  style: RaftTypography.body(
-                    t,
-                    size: 13,
-                    line: 18,
-                    color: t.muted,
-                  ),
-                ),
-                const SizedBox(height: RaftSpace.x3),
-                RaftCssText(
-                  voiceModeTitle,
-                  style: RaftTypography.body(
-                    t,
-                    size: 14,
-                    line: 20,
-                    weight: FontWeight.w600,
-                    color: t.ink,
-                  ),
-                ),
-                const SizedBox(height: RaftSpace.x2),
-                RaftSegmentedControl<LayeredVoiceMode>(
-                  key: const ValueKey('agent-orb-voice-mode'),
-                  label: voiceModeTitle,
-                  value: pref.layeredVoiceMode,
-                  onChanged: pref.setLayeredVoiceMode,
-                  items: [
-                    for (final v in LayeredVoiceMode.values)
-                      RaftSegmentedOption(
-                        value: v,
-                        label: v.label,
-                        itemKey: ValueKey('agent-orb-voice-mode-${v.name}'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: RaftSpace.x1),
-                RaftCssText(
-                  'Live 转述：Live 听到后交给 Agent，再用自然的声音说出来；要你确认的那句话，App 会核对，漏了就自己再说一遍。'
-                  'App 朗读：Live 只听，App 把话交给 Agent，再用手机自带的声音读出来。下一次对话生效。',
-                  style: RaftTypography.body(
-                    t,
-                    size: 13,
-                    line: 18,
-                    color: t.muted,
                   ),
                 ),
               ],

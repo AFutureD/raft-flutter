@@ -234,6 +234,7 @@ class OrbEvalRunner {
           : null,
       agentModel: layered ? _agentModel : null,
       voiceMode: layered ? _voiceMode.name : null,
+      combination: _combination(settings, agent: agent, layered: layered),
       cancelled: _stop,
       abortReason: _abortReason,
     );
@@ -243,6 +244,35 @@ class OrbEvalRunner {
       'failed=${report.count(OrbEvalOutcome.failed)}',
     );
     return report;
+  }
+
+  /// The combination that was run, in one line: the brain, and what each
+  /// side was.
+  String _combination(
+    AgentVoiceSettings settings, {
+    required bool agent,
+    required bool layered,
+  }) {
+    final thinkingLabel =
+        (thinking ?? AgentOrbPreference.instance.agentThinking).label;
+    if (layered) {
+      final engineLabel =
+          (engine ?? AgentOrbPreference.instance.agentEngine).label;
+      return '${AgentBrainMode.layered.label}：'
+          '语音模型 Gemini Live${_model == null ? '' : '（$_model）'}'
+          '${_liveThinking == null ? '' : ' 推理 $_liveThinking'}'
+          ' · ${_voiceMode.label}'
+          ' · Agent 引擎 $engineLabel'
+          '${_agentModel == null ? '' : ' 模型 $_agentModel'}'
+          ' 推理 $thinkingLabel';
+    }
+    if (agent) {
+      return '文字 Agent（不带语音模型）：${_model ?? '自动选'} 推理 $thinkingLabel';
+    }
+    return '${AgentBrainMode.voiceOnly.label}：'
+        '${agentVoiceProviderLabels[settings.provider]}'
+        '${_model == null ? '' : '（$_model）'}'
+        ' 推理 ${settings.reasoning.name}';
   }
 
   /// Progress lines only: scenario ids and pass or fail. Never a prompt, a
@@ -278,7 +308,7 @@ class OrbEvalRunner {
         steering: steering!,
         thinking: thinking ?? AgentOrbPreference.instance.agentThinking,
         engine: engine ?? AgentOrbPreference.instance.agentEngine,
-        agentModelId: model,
+        agentModelId: model ?? AgentOrbPreference.instance.agentModel,
         voice: voice,
         reasoning: reasoning,
         mode: _voiceMode,

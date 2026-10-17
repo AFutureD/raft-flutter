@@ -53,6 +53,7 @@ String orbEvalMarkdown(OrbEvalReport report) {
   final b = StringBuffer()
     ..writeln('# Agent 评测')
     ..writeln()
+    ..writeln(report.combination == null ? '' : '组合：${report.combination}\n')
     ..writeln(
       '开始：${report.startedAt.toIso8601String()} · 每个场景 '
       '${report.runsPerScenario} 次'

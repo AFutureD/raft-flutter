@@ -274,6 +274,8 @@ void main() {
     final report = readEvalReport(reports);
     expect(report['cancelled'], isTrue);
     expect(report['abortReason'], 'page gone');
+    // The realtime harness says it ran the voice model alone.
+    expect(report['combination'], startsWith('纯语音模型：'));
     final run =
         ((report['scenarios'] as List).single as Map)['results'] as List;
     expect((run.single as Map)['error'], 'page gone');

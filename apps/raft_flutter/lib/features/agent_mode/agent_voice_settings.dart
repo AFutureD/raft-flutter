@@ -7,7 +7,11 @@ import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/device_preferences.dart';
+import '../agent_orb/orb_preference.dart' show AgentOrbPreference;
 import 'agent_audio.dart';
+import 'agent_engine.dart';
+import 'agent_thinking.dart';
+import 'layered_voice_mode.dart';
 import 'voice_provider.dart';
 
 enum AgentPace { slow, normal, fast }
@@ -245,8 +249,22 @@ class AgentVoiceSettings extends ChangeNotifier {
 }
 
 /// Settings page for the voice: voice (with preview), pace, output, warmth.
+///
+/// With [showOrb] (opened from the orb's Labs card) it also chooses what the
+/// orb runs on: the realtime voice model alone (its service, voice and
+/// reasoning below), or a voice model with the text Agent (the voice model
+/// for listening and speaking, how it speaks, and the Agent's engine, model
+/// and reasoning).
 class AgentVoiceSettingsPage extends StatelessWidget {
-  const AgentVoiceSettingsPage({super.key, this.onPreview, this.agents});
+  const AgentVoiceSettingsPage({
+    super.key,
+    this.onPreview,
+    this.agents,
+    this.showOrb = false,
+  });
+
+  /// Offer the orb's brain choice, and the Agent's settings with it.
+  final bool showOrb;
 
   /// Plays a short greeting in the given voice; null where no session can
   /// run (the page still saves the choice).
@@ -260,6 +278,7 @@ class AgentVoiceSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftAgentTheme.of(context);
     final s = AgentVoiceSettings.instance;
+    final orb = AgentOrbPreference.instance;
     Widget section(String title, {Key? key, TextStyle? style}) => Padding(
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 8),
       child: Text(title, key: key, style: style ?? t.heading(15)),
@@ -290,110 +309,224 @@ class AgentVoiceSettingsPage extends StatelessWidget {
         title: Text('声音设置', style: t.heading(17)),
       ),
       body: ListenableBuilder(
-        listenable: s,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.only(bottom: 32),
-          children: [
-            section('语音服务'),
-            choices(
-              agentVoiceProviderLabels,
-              s.provider,
-              (v) => s.provider = v,
-            ),
-            _ProviderKeyRow(
-              key: ValueKey('agent-provider-key-${s.provider.name}'),
-              provider: s.provider,
-            ),
-            section('声音'),
-            for (final e in AgentVoiceSettings.voicesOf(s.provider).entries)
-              ListTile(
-                key: ValueKey('agent-voice-${e.key}'),
-                leading: Icon(
-                  e.key == s.voiceOf(s.provider)
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  color: t.foreground,
+        listenable: Listenable.merge([s, orb]),
+        builder: (context, _) {
+          // The voice model of the layered brain listens and speaks: Gemini
+          // Live today (the layer is built on its transcript and tool
+          // calls); the voice choices below are its.
+          final layered = showOrb && orb.brainMode == AgentBrainMode.layered;
+          final provider = layered ? AgentVoiceProvider.gemini : s.provider;
+          return ListView(
+            padding: const EdgeInsets.only(bottom: 32),
+            children: [
+              if (showOrb) ...[
+                section('悬浮球'),
+                choices(
+                  {for (final m in AgentBrainMode.values) m: m.label},
+                  orb.brainMode,
+                  orb.setBrainMode,
                 ),
-                title: Text(e.value, style: t.body(15)),
-                subtitle: s.provider == AgentVoiceProvider.gemini
-                    ? Text(e.key, style: t.body(12, color: t.hint))
-                    : null,
-                trailing: onPreview == null
-                    ? null
-                    : IconButton(
-                        tooltip: '试听',
-                        icon: Icon(Icons.play_circle_outline, color: t.muted),
-                        onPressed: () {
-                          _setVoice(s, e.key);
-                          onPreview!(e.key);
-                        },
-                      ),
-                onTap: () => _setVoice(s, e.key),
+                section(
+                  layered
+                      ? '语音模型负责听和说，文字 Agent 负责想和做；确认和结果由 App 把关。下一次对话生效。'
+                      : '一个实时语音模型自己听、想、调用工具、说话。下一次对话生效。',
+                  key: const ValueKey('agent-orb-brain-note'),
+                  style: t.body(12, color: t.hint),
+                ),
+              ],
+              section(layered ? '语音模型（听和说）' : '语音服务'),
+              if (layered) ...[
+                choices(
+                  const {AgentVoiceProvider.gemini: 'Gemini Live'},
+                  AgentVoiceProvider.gemini,
+                  (_) {},
+                ),
+                section(
+                  '目前听和说用 Gemini Live：它的转写和端点检测是这一层的输入。',
+                  key: const ValueKey('agent-orb-voice-model-note'),
+                  style: t.body(12, color: t.hint),
+                ),
+              ] else
+                choices(
+                  agentVoiceProviderLabels,
+                  s.provider,
+                  (v) => s.provider = v,
+                ),
+              _ProviderKeyRow(
+                key: ValueKey('agent-provider-key-${provider.name}'),
+                provider: provider,
               ),
-            section('推理强度'),
-            if (AgentVoiceSettings.reasoningApplies(s.provider)) ...[
+              section('声音'),
+              for (final e in AgentVoiceSettings.voicesOf(provider).entries)
+                ListTile(
+                  key: ValueKey('agent-voice-${e.key}'),
+                  leading: Icon(
+                    e.key == s.voiceOf(provider)
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: t.foreground,
+                  ),
+                  title: Text(e.value, style: t.body(15)),
+                  subtitle: provider == AgentVoiceProvider.gemini
+                      ? Text(e.key, style: t.body(12, color: t.hint))
+                      : null,
+                  trailing: onPreview == null
+                      ? null
+                      : IconButton(
+                          tooltip: '试听',
+                          icon: Icon(Icons.play_circle_outline, color: t.muted),
+                          onPressed: () {
+                            _setVoice(s, provider, e.key);
+                            onPreview!(e.key);
+                          },
+                        ),
+                  onTap: () => _setVoice(s, provider, e.key),
+                ),
+              if (layered) ...[
+                section('说话方式'),
+                choices(
+                  {for (final m in LayeredVoiceMode.values) m: m.label},
+                  orb.layeredVoiceMode,
+                  orb.setLayeredVoiceMode,
+                ),
+                section(
+                  'Live 转述：Live 用自然的声音把 Agent 的答案说出来；要你确认的那句话，App 会核对，漏了就自己再说一遍。'
+                  'App 朗读：Live 只听，App 用手机自带的声音读 Agent 的话。',
+                  key: const ValueKey('agent-orb-speak-note'),
+                  style: t.body(12, color: t.hint),
+                ),
+                section('文字 Agent'),
+                choices(
+                  {for (final e in AgentEngine.values) e: e.label},
+                  orb.agentEngine,
+                  orb.setAgentEngine,
+                ),
+                _AgentModelField(preference: orb),
+                section('Agent 推理强度'),
+                choices(
+                  {for (final v in AgentThinking.values) v: v.label},
+                  orb.agentThinking,
+                  orb.setAgentThinking,
+                ),
+                section(
+                  '最少最快；高想得更久、答得更晚。下一次对话生效。',
+                  key: const ValueKey('agent-orb-thinking-note'),
+                  style: t.body(12, color: t.hint),
+                ),
+              ] else ...[
+                section('推理强度'),
+                if (AgentVoiceSettings.reasoningApplies(s.provider)) ...[
+                  choices(
+                    AgentVoiceSettings.reasoningLabels,
+                    s.reasoning,
+                    (v) => s.reasoning = v,
+                  ),
+                  section(
+                    '低最快；高想得更久、答得更晚。下一次对话生效。',
+                    key: const ValueKey('agent-reasoning-note'),
+                    style: t.body(12, color: t.hint),
+                  ),
+                ] else
+                  section(
+                    'Grok 只有开和关两档，没有强度可选，这里用服务默认（开）。',
+                    key: const ValueKey('agent-reasoning-grok-note'),
+                    style: t.body(12, color: t.hint),
+                  ),
+              ],
+              section('语速'),
+              choices(AgentVoiceSettings.paceLabels, s.pace, (v) => s.pace = v),
+              section('性格'),
               choices(
-                AgentVoiceSettings.reasoningLabels,
-                s.reasoning,
-                (v) => s.reasoning = v,
+                AgentVoiceSettings.warmthLabels,
+                s.warmth,
+                (v) => s.warmth = v,
               ),
-              section(
-                '低最快；高想得更久、答得更晚。下一次对话生效。',
-                key: const ValueKey('agent-reasoning-note'),
-                style: t.body(12, color: t.hint),
+              section('出声位置'),
+              choices(
+                AgentVoiceSettings.outputLabels,
+                s.output,
+                (v) => s.output = v,
               ),
-            ] else
-              section(
-                'Grok 只有开和关两档，没有强度可选，这里用服务默认（开）。',
-                key: const ValueKey('agent-reasoning-grok-note'),
-                style: t.body(12, color: t.hint),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  '插上耳机时总是从耳机出声。语速和性格从下一句开始生效。',
+                  style: t.body(12, color: t.hint),
+                ),
               ),
-            section('语速'),
-            choices(AgentVoiceSettings.paceLabels, s.pace, (v) => s.pace = v),
-            section('性格'),
-            choices(
-              AgentVoiceSettings.warmthLabels,
-              s.warmth,
-              (v) => s.warmth = v,
-            ),
-            section('出声位置'),
-            choices(
-              AgentVoiceSettings.outputLabels,
-              s.output,
-              (v) => s.output = v,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Text(
-                '插上耳机时总是从耳机出声。语速和性格从下一句开始生效。',
-                style: t.body(12, color: t.hint),
+              section('录屏'),
+              SwitchListTile(
+                key: const ValueKey('agent-recording-mode'),
+                value: s.recordingMode,
+                onChanged: (v) => s.recordingMode = v,
+                title: Text('录屏模式', style: t.body(15)),
+                subtitle: Text(
+                  '录屏时用，建议按住说话。Agent 的声音改走媒体通道，系统录屏才能录到；'
+                  '外放时可能被麦克风收回去形成回声。',
+                  style: t.body(12, color: t.hint),
+                ),
               ),
-            ),
-            section('录屏'),
-            SwitchListTile(
-              key: const ValueKey('agent-recording-mode'),
-              value: s.recordingMode,
-              onChanged: (v) => s.recordingMode = v,
-              title: Text('录屏模式', style: t.body(15)),
-              subtitle: Text(
-                '录屏时用，建议按住说话。Agent 的声音改走媒体通道，系统录屏才能录到；'
-                '外放时可能被麦克风收回去形成回声。',
-                style: t.body(12, color: t.hint),
-              ),
-            ),
-            if (agents != null) ...[
-              section('记忆'),
-              _BrainPicker(load: agents!, settings: s),
+              if (agents != null) ...[
+                section('记忆'),
+                _BrainPicker(load: agents!, settings: s),
+              ],
             ],
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-void _setVoice(AgentVoiceSettings s, String voice) {
-  switch (s.provider) {
+/// The text Agent's model id: empty lets the app pick a Flash Lite.
+class _AgentModelField extends StatefulWidget {
+  const _AgentModelField({required this.preference});
+  final AgentOrbPreference preference;
+
+  @override
+  State<_AgentModelField> createState() => _AgentModelFieldState();
+}
+
+class _AgentModelFieldState extends State<_AgentModelField> {
+  late final _text = TextEditingController(
+    text: widget.preference.agentModel ?? '',
+  );
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftAgentTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: TextField(
+        key: const ValueKey('agent-orb-agent-model'),
+        controller: _text,
+        autocorrect: false,
+        enableSuggestions: false,
+        style: t.body(14),
+        decoration: InputDecoration(
+          labelText: 'Agent 模型',
+          hintText: '留空：自动选 Flash Lite',
+          helperText: '例：gemini-3.5-flash-lite，或 googleai/…（Genkit）',
+          helperStyle: t.body(12, color: t.hint),
+        ),
+        onChanged: widget.preference.setAgentModel,
+      ),
+    );
+  }
+}
+
+void _setVoice(
+  AgentVoiceSettings s,
+  AgentVoiceProvider provider,
+  String voice,
+) {
+  switch (provider) {
     case AgentVoiceProvider.gemini:
       s.voice = voice;
     case AgentVoiceProvider.openai:

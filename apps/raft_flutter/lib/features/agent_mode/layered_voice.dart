@@ -796,6 +796,7 @@ VoiceSession createLayeredSession({
   // Read now: a change of the setting reaches the next session.
   thinking: AgentOrbPreference.instance.agentThinking,
   engine: AgentOrbPreference.instance.agentEngine,
+  agentModelId: AgentOrbPreference.instance.agentModel,
   voice: voice,
   reasoning: reasoning,
   onAudio: onAudio,

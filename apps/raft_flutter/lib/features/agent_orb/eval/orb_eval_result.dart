@@ -133,6 +133,7 @@ class OrbEvalReport {
     this.engine,
     this.agentModel,
     this.voiceMode,
+    this.combination,
     this.cancelled = false,
     this.abortReason,
   });
@@ -160,6 +161,10 @@ class OrbEvalReport {
   /// The layered harness: how the voice speaks (`appSpeaks`: the app reads
   /// the agent's words with a voice of its own; `liveRelays`).
   final String? voiceMode;
+
+  /// What was run, in a line: the brain (the realtime voice model alone, or a
+  /// voice model with the text Agent) and each side of it.
+  final String? combination;
 
   /// The run was stopped before every scenario was through.
   final bool cancelled;
@@ -208,6 +213,7 @@ class OrbEvalReport {
     if (engine != null) 'engine': engine,
     if (agentModel != null) 'agentModel': agentModel,
     if (voiceMode != null) 'voiceMode': voiceMode,
+    if (combination != null) 'combination': combination,
     if (latencyP50 != null) 'latencyP50Ms': latencyP50,
     if (latencyP90 != null) 'latencyP90Ms': latencyP90,
     if (firstAudioP50 != null) 'firstAudioP50Ms': firstAudioP50,

@@ -1,3 +1,19 @@
+/// Which brain the orb runs on, chosen in the Agent settings.
+enum AgentBrainMode {
+  /// The realtime voice model alone listens, thinks, calls the tools and
+  /// speaks (OpenAI, Gemini or Grok).
+  voiceOnly('纯语音模型'),
+
+  /// A voice model listens and speaks, a text model (the Agent) thinks and
+  /// calls the tools, and the app's rules sit between them.
+  layered('语音模型 + 文字 Agent');
+
+  const AgentBrainMode(this.label);
+
+  /// What the settings say.
+  final String label;
+}
+
 /// How the voice layer of the agent layer speaks.
 enum LayeredVoiceMode {
   /// Live listens, asks the agent through its tool and tells the answer in

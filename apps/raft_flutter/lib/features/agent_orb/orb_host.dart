@@ -75,7 +75,7 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
 
   /// The agent-layer setting the controller was made with: a change builds it
   /// again.
-  (bool, AgentThinking, AgentEngine, LayeredVoiceMode)? _layerSeen;
+  (bool, AgentThinking, AgentEngine, LayeredVoiceMode, String?)? _layerSeen;
   late OrbAvoidance _avoidance = widget.avoidance ?? OrbAvoidance.app();
   List<Rect> _obstacles = const [];
   bool _measureQueued = false;
@@ -159,12 +159,14 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
               _pref.agentThinking,
               _pref.agentEngine,
               _pref.layeredVoiceMode,
+              _pref.agentModel,
             )) {
       _layerSeen = (
         _pref.agentLayer,
         _pref.agentThinking,
         _pref.agentEngine,
         _pref.layeredVoiceMode,
+        _pref.agentModel,
       );
       _controllerFor?.removeListener(_workspaceChanged);
       _retire(_controller);

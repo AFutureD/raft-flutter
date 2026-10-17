@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/features/agent_mode/agent_engine.dart';
@@ -30,24 +29,6 @@ void main() {
     AgentOrbPreference.instance.resetForTest();
   });
 
-  testWidgets('the Labs card has the switch and it flips the setting', (
-    t,
-  ) async {
-    await fixture(t);
-    await f.pump(enabled: false);
-    final switchFinder = find.byKey(const ValueKey('agent-orb-layer-switch'));
-    expect(find.text('Agent 层'), findsOneWidget);
-    expect(switchFinder, findsOneWidget);
-    expect(AgentOrbPreference.instance.agentLayer, isTrue);
-
-    await t.tap(switchFinder);
-    await t.pump();
-    expect(AgentOrbPreference.instance.agentLayer, isFalse);
-    await t.tap(switchFinder);
-    await t.pump();
-    expect(AgentOrbPreference.instance.agentLayer, isTrue);
-  });
-
   testWidgets('changing it builds the orb again, with the new setting', (
     t,
   ) async {
@@ -68,8 +49,6 @@ void main() {
   });
 
   group('the thinking level of the text agent', () {
-    final control = find.byKey(const ValueKey('agent-orb-thinking'));
-
     test(
       'low by default; a change is kept on the device and read back',
       () async {
@@ -92,33 +71,6 @@ void main() {
         AgentOrbPreference.instance.resetForTest();
       },
     );
-
-    testWidgets('the Labs card shows it only while the agent layer is on, '
-        'and a tap changes it', (t) async {
-      await fixture(t);
-      await f.pump(enabled: false);
-      expect(AgentOrbPreference.instance.agentLayer, isTrue);
-      expect(find.text('文本 Agent 推理强度'), findsOneWidget);
-      expect(control, findsOneWidget);
-      for (final v in AgentThinking.values) {
-        expect(find.text(v.label), findsOneWidget);
-      }
-      expect(AgentOrbPreference.instance.agentThinking, AgentThinking.low);
-
-      await t.tap(find.byKey(const ValueKey('agent-orb-thinking-high')));
-      await t.pump();
-      expect(AgentOrbPreference.instance.agentThinking, AgentThinking.high);
-      await t.tap(find.byKey(const ValueKey('agent-orb-thinking-minimal')));
-      await t.pump();
-      expect(AgentOrbPreference.instance.agentThinking, AgentThinking.minimal);
-
-      await t.tap(find.byKey(const ValueKey('agent-orb-layer-switch')));
-      await t.pump();
-      expect(control, findsNothing);
-      await t.tap(find.byKey(const ValueKey('agent-orb-layer-switch')));
-      await t.pump();
-      expect(control, findsOneWidget);
-    });
 
     testWidgets('changing it builds the orb again', (t) async {
       await fixture(t);
@@ -151,27 +103,6 @@ void main() {
       stored.setString(AgentOrbPreference.engineKey, 'nonsense');
       expect(AgentOrbPreference.instance.agentEngine, AgentEngine.genkit);
       AgentOrbPreference.instance.resetForTest();
-    });
-
-    testWidgets('the Labs card offers it while the agent layer is on', (
-      t,
-    ) async {
-      await fixture(t);
-      await f.pump(enabled: false);
-      final control = find.byKey(const ValueKey('agent-orb-engine'));
-      expect(find.text('引擎'), findsOneWidget);
-      expect(control, findsOneWidget);
-      expect(find.text('Genkit'), findsOneWidget);
-      expect(find.text('直连'), findsOneWidget);
-      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.genkit);
-
-      await t.tap(find.byKey(const ValueKey('agent-orb-engine-direct')));
-      await t.pump();
-      expect(AgentOrbPreference.instance.agentEngine, AgentEngine.direct);
-
-      await t.tap(find.byKey(const ValueKey('agent-orb-layer-switch')));
-      await t.pump();
-      expect(control, findsNothing);
     });
 
     testWidgets('changing it builds the orb again', (t) async {
@@ -215,34 +146,6 @@ void main() {
         LayeredVoiceMode.liveRelays,
       );
       AgentOrbPreference.instance.resetForTest();
-    });
-
-    testWidgets('the Labs card offers both while the agent layer is on', (
-      t,
-    ) async {
-      await fixture(t);
-      await f.pump(enabled: false);
-      final control = find.byKey(const ValueKey('agent-orb-voice-mode'));
-      expect(find.text('语音'), findsOneWidget);
-      expect(control, findsOneWidget);
-      expect(find.text('App 朗读'), findsOneWidget);
-      expect(find.text('Live 转述'), findsOneWidget);
-
-      final app = find.byKey(const ValueKey('agent-orb-voice-mode-appSpeaks'));
-      await t.ensureVisible(app);
-      await t.pump();
-      await t.tap(app);
-      await t.pump();
-      expect(
-        AgentOrbPreference.instance.layeredVoiceMode,
-        LayeredVoiceMode.appSpeaks,
-      );
-      final layer = find.byKey(const ValueKey('agent-orb-layer-switch'));
-      await t.ensureVisible(layer);
-      await t.pump();
-      await t.tap(layer);
-      await t.pump();
-      expect(control, findsNothing);
     });
 
     testWidgets('changing it builds the orb again', (t) async {
