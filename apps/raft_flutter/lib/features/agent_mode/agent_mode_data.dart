@@ -347,7 +347,11 @@ class AgentAttentionItem {
   /// The one-line reason this is the most urgent thing.
   String get urgent {
     if (isActivity) {
-      final said = excerpt == null || excerpt!.isEmpty ? '' : '：$excerpt';
+      // One sentence to be said: a long message is cut here, not on screen.
+      final text = excerpt ?? '';
+      final said = text.isEmpty
+          ? ''
+          : '：${text.length <= 120 ? text : '${text.substring(0, 120)}…'}';
       return '${doer ?? '有人'}在${place ?? '动态'}，$reason$said（$agoLabel）';
     }
     final lead = doer ?? (waiters.isEmpty ? '有人' : waiters.first);

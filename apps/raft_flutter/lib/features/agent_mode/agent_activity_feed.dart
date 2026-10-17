@@ -44,7 +44,7 @@ class AgentActivityFeed {
 
   /// A message as the person reads it in a list: markdown marks and code
   /// blocks removed, @mentions kept (they are why it is here), one line.
-  static String excerptOf(String raw, {int max = 140}) {
+  static String excerptOf(String raw, {int max = 4000}) {
     final text = raw
         .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
         .replaceAllMapped(RegExp(r'\[([^\]]*)\]\([^)]*\)'), (m) => m[1] ?? '')
