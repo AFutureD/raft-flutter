@@ -5,6 +5,8 @@
 // requests, billing gates and navigation.
 import 'package:flutter/material.dart';
 
+import 'form_presentation.dart';
+
 import 'banner.dart';
 import 'dialog_card.dart';
 import 'error_presentation.dart';
@@ -208,7 +210,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                   vertical: 8,
                 ),
                 textStep: RaftTextSteps.sm,
-                onPressed: widget.onClose,
+                onPressed: raftExplicitClose(context, widget.onClose),
               ),
               if (tab == 'email') ...[
                 const SizedBox(width: 12),

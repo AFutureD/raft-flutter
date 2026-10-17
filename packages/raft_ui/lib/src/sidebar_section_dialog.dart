@@ -191,7 +191,7 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
             size: RaftButtonRecipeSize.sm,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             textStep: RaftTextSteps.sm,
-            onPressed: widget.onClose,
+            onPressed: raftExplicitClose(context, widget.onClose),
           ),
           const SizedBox(width: 8),
           RaftRecipeButton(
@@ -246,7 +246,9 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                RaftCloseButton(onPressed: widget.onClose),
+                RaftCloseButton(
+                  onPressed: raftGuardedClose(context, widget.onClose),
+                ),
               ],
             ),
           ),

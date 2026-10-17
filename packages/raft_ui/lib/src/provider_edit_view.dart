@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
 import 'dialog_card.dart';
+import 'form_presentation.dart';
 import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
@@ -132,7 +133,7 @@ class RaftEditProviderDialogView extends StatelessWidget {
             RaftRecipeButton(
               key: const ValueKey('provider-edit-cancel'),
               label: 'Cancel',
-              onPressed: onClose,
+              onPressed: raftExplicitClose(context, onClose),
             ),
             RaftRecipeButton(
               key: const ValueKey('provider-edit-save'),

@@ -7,6 +7,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'form_presentation.dart';
+
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'error_presentation.dart';
@@ -126,7 +128,7 @@ class RaftCreateTaskDialogView extends StatelessWidget {
               size: RaftButtonRecipeSize.sm,
               padding: padding, // px-4 py-2 text-sm
               textStep: RaftTextSteps.sm,
-              onPressed: onClose,
+              onPressed: raftExplicitClose(context, onClose),
             ),
             const SizedBox(width: 12), // gap-3
             RaftRecipeButton(

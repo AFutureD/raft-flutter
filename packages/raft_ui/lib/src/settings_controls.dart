@@ -921,7 +921,7 @@ class _RaftDialogShellState extends State<RaftDialogShell> {
                       restColor: t.brutal || widget.outlineClose
                           ? null
                           : t.colors['foreground-placeholder'],
-                      onPressed: onClose,
+                      onPressed: raftGuardedClose(context, onClose),
                     ),
                   ],
                 ),

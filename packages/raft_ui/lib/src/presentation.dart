@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -274,19 +275,9 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
                 child: RaftSheetScope(scrollController: null, child: body),
               ),
             )
-          // ignore: raft_lints/avoid_raw_bottom_sheet -- the sheet's detents and nested-scroll coordination come from the framework
-          : DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: sheetInitialSize,
-              minChildSize: .25,
-              maxChildSize: RaftSheetMetrics.largeDetent,
-              snap: true,
-              snapSizes: [
-                if (sheetInitialSize < RaftSheetMetrics.largeDetent)
-                  sheetInitialSize,
-                RaftSheetMetrics.largeDetent,
-              ],
-              builder: (context, controller) =>
+          : _DetentSheet(
+              initialSize: sheetInitialSize,
+              builder: (controller) =>
                   RaftSheetScope(scrollController: controller, child: body),
             ),
     );
@@ -359,6 +350,75 @@ class RaftPresentedRoute<T> extends ModalBottomSheetRoute<T> {
       ),
     );
   }
+}
+
+/// The scrolling sheet: draggable detents (the opening size and the large
+/// one) with one rule for closing it. A drag down to the bottom is a request
+/// to close, answered the way Back and Esc are: [Navigator.maybePop]. A route
+/// that vetoes the pop (`PopScope(canPop: false)`, a form with unsaved input)
+/// hears `didPop: false` and the sheet slides back to its detent; the framework
+/// would close it with a raw `Navigator.pop` instead.
+class _DetentSheet extends StatefulWidget {
+  const _DetentSheet({required this.initialSize, required this.builder});
+  final double initialSize;
+  final Widget Function(ScrollController controller) builder;
+
+  @override
+  State<_DetentSheet> createState() => _DetentSheetState();
+}
+
+class _DetentSheetState extends State<_DetentSheet> {
+  final controller = DraggableScrollableController();
+  bool asking = false;
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  bool onExtent(DraggableScrollableNotification n) {
+    if (n.extent > n.minExtent + .001 || asking) return false;
+    asking = true;
+    final route = ModalRoute.of(context);
+    Navigator.of(context).maybePop().then((_) {
+      asking = false;
+      // Still open: the route said no. Back to the detent it was opened at.
+      if (mounted && route != null && route.isActive && controller.isAttached) {
+        unawaited(
+          controller.animateTo(
+            widget.initialSize,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          ),
+        );
+      }
+    });
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      NotificationListener<DraggableScrollableNotification>(
+        onNotification: onExtent,
+        // ignore: raft_lints/avoid_raw_bottom_sheet -- the sheet's detents and nested-scroll coordination come from the framework
+        child: DraggableScrollableSheet(
+          controller: controller,
+          expand: false,
+          initialChildSize: widget.initialSize,
+          minChildSize: .25,
+          maxChildSize: RaftSheetMetrics.largeDetent,
+          snap: true,
+          snapSizes: [
+            if (widget.initialSize < RaftSheetMetrics.largeDetent)
+              widget.initialSize,
+            RaftSheetMetrics.largeDetent,
+          ],
+          // The framework closes at the bottom with a raw pop; this sheet asks.
+          shouldCloseOnMinExtent: false,
+          builder: (context, scroll) => widget.builder(scroll),
+        ),
+      );
 }
 
 /// Lets the route's super constructor take a builder that needs the route.

@@ -391,7 +391,8 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
       }
 
       if (form) {
-        // Web `DialogCard` / `Modal`: no scrim close; Esc, Back and the X do.
+        // Esc, Back, a scrim press, a drag and the X ask; a changed form asks
+        // before it discards.
         return await showRaftForm<V>(context, builder: scoped);
       }
       return await (raft

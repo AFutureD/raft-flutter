@@ -641,6 +641,7 @@ void main() {
       return SurfaceProbe(
         isOpen: probe.isOpen,
         x: probe.x,
+        scrim: _corner,
         dragHandle: _handle,
       );
     },

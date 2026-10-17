@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
@@ -430,6 +431,104 @@ void main() {
           t.getRect(find.byType(RaftSheet)).bottom,
           lessThanOrEqualTo(room + 1),
         );
+      });
+    });
+  }
+
+  // A form never throws unsaved input away by a stray close: dragging the
+  // sheet down, the scrim, Esc, Back and the X all ask first. An untouched
+  // form closes at once, and Cancel never asks.
+  final asked = find.byType(RaftAvatarDiscardConfirmation);
+  final handle = find.byKey(const ValueKey('raft-sheet-handle'));
+  for (final form in _forms.where(
+    (f) => const {
+      'create workspace',
+      'create channel',
+      'create task',
+      'new sidebar section',
+      'create joint channel',
+    }.contains(f.id),
+  )) {
+    group('${form.id} guards unsaved input', () {
+      Future<void> typeSomething(WidgetTester t) async {
+        await t.enterText((form.field ?? _editable)(), 'unsaved words');
+        await t.pump();
+      }
+
+      Future<void> closeBy(WidgetTester t, String how) async {
+        switch (how) {
+          case 'drag':
+            await t.fling(handle, const Offset(0, 700), 2500);
+          case 'scrim':
+            await t.tapAt(const Offset(200, 6));
+          case 'esc':
+            await t.sendKeyEvent(LogicalKeyboardKey.escape);
+          case 'back':
+            await t.binding.handlePopRoute();
+          case 'x':
+            await t.tap(
+              find
+                  .descendant(
+                    of: _window(),
+                    matching: find.byType(RaftCloseButton),
+                  )
+                  .first,
+            );
+        }
+        await frames(t, 30);
+      }
+
+      for (final how in ['drag', 'scrim', 'esc', 'back', 'x']) {
+        testWidgets('$how asks; Keep editing keeps the text; Discard closes', (
+          t,
+        ) async {
+          final size = how == 'drag' || how == 'scrim' ? _phone : _desktop;
+          await openForm(t, form, size);
+          await typeSomething(t);
+          await closeBy(t, how);
+          expect(asked, findsOneWidget, reason: '$how asks');
+          expect(find.text('unsaved words'), findsOneWidget);
+          await t.tap(find.text('Keep editing'));
+          await frames(t, 30);
+          expect(asked, findsNothing);
+          expect(find.text('unsaved words'), findsOneWidget, reason: 'kept');
+          expect(
+            (form.field ?? _editable)(),
+            findsOneWidget,
+            reason: 'still open',
+          );
+          await closeBy(t, how);
+          expect(asked, findsOneWidget);
+          await t.tap(find.text('Discard'));
+          await frames(t, 30);
+          expect(find.text('unsaved words'), findsNothing, reason: 'closed');
+          expect(asked, findsNothing);
+        });
+      }
+
+      testWidgets('an untouched form closes without asking', (t) async {
+        for (final how in ['drag', 'scrim', 'esc']) {
+          await openForm(t, form, how == 'esc' ? _desktop : _phone);
+          await closeBy(t, how);
+          expect(asked, findsNothing, reason: how);
+          expect(_window(), findsNothing, reason: '$how closed it');
+          await t.pumpWidget(const SizedBox.shrink());
+        }
+      });
+
+      testWidgets('a footer Cancel does not ask', (t) async {
+        await openForm(t, form, _phone);
+        await typeSomething(t);
+        final cancel = find.descendant(
+          of: _window(),
+          matching: find.text('Cancel'),
+        );
+        if (cancel.evaluate().isEmpty) return;
+        await t.ensureVisible(cancel.first);
+        await t.tap(cancel.first);
+        await frames(t, 30);
+        expect(asked, findsNothing);
+        expect(find.text('unsaved words'), findsNothing);
       });
     });
   }

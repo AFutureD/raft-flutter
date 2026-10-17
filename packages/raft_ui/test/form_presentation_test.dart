@@ -148,5 +148,113 @@ void main() {
         lessThanOrEqualTo(800 - 300),
       );
     });
+
+    group('unsaved input', () {
+      final asked = find.byType(RaftAvatarDiscardConfirmation);
+      final handle = find.byKey(const ValueKey('raft-sheet-handle'));
+      Future<void> phoneForm(WidgetTester tester) async {
+        _size(tester, const Size(390, 800));
+        await tester.pumpWidget(_app(form: formDialog));
+        await _open(tester);
+      }
+
+      testWidgets('a drag on a changed form asks, Keep editing keeps it, '
+          'Discard closes it', (tester) async {
+        await phoneForm(tester);
+        await tester.enterText(find.byKey(const ValueKey('field-f1')), 'mine');
+        await tester.fling(handle, const Offset(0, 700), 2500);
+        await tester.pumpAndSettle();
+        expect(asked, findsOneWidget);
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+        expect(find.text('mine'), findsOneWidget);
+        expect(find.byType(RaftSheet), findsOneWidget);
+        await tester.fling(handle, const Offset(0, 700), 2500);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Discard'));
+        await tester.pumpAndSettle();
+        expect(find.byType(RaftFormDialog), findsNothing);
+      });
+
+      testWidgets('an untouched form closes by drag and by the scrim without '
+          'asking', (tester) async {
+        await phoneForm(tester);
+        await tester.fling(handle, const Offset(0, 700), 2500);
+        await tester.pumpAndSettle();
+        expect(asked, findsNothing);
+        expect(find.byType(RaftFormDialog), findsNothing);
+        await tester.pumpWidget(const SizedBox());
+        await phoneForm(tester);
+        await tester.tapAt(const Offset(200, 6));
+        await tester.pumpAndSettle();
+        expect(asked, findsNothing);
+        expect(find.byType(RaftFormDialog), findsNothing);
+      });
+
+      testWidgets('the X asks on a changed form; Cancel never asks', (
+        tester,
+      ) async {
+        await phoneForm(tester);
+        await tester.enterText(find.byKey(const ValueKey('field-f1')), 'mine');
+        await tester.tap(find.byType(RaftCloseButton));
+        await tester.pumpAndSettle();
+        expect(asked, findsOneWidget);
+        await tester.tap(find.text('Keep editing'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(asked, findsNothing);
+        expect(find.byType(RaftFormDialog), findsNothing);
+      });
+
+      testWidgets('a changed choice counts as unsaved', (tester) async {
+        _size(tester, const Size(390, 800));
+        await tester.pumpWidget(
+          _app(
+            form: (context) => RaftFormDialog(
+              title: 'Language',
+              fields: const [
+                RaftFormField(
+                  'lang',
+                  'Language',
+                  initial: 'en',
+                  choices: {'en': 'English', 'de': 'Deutsch'},
+                ),
+              ],
+              onSubmit: (_) async {},
+            ),
+          ),
+        );
+        await _open(tester);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(asked, findsNothing, reason: 'nothing changed: just closes');
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(
+          _app(
+            form: (context) => RaftFormDialog(
+              title: 'Language',
+              fields: const [
+                RaftFormField(
+                  'lang',
+                  'Language',
+                  initial: 'en',
+                  choices: {'en': 'English', 'de': 'Deutsch'},
+                ),
+              ],
+              onSubmit: (_) async {},
+            ),
+          ),
+        );
+        await _open(tester);
+        await tester.tap(find.byType(DropdownButtonFormField<String>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Deutsch').last);
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(asked, findsOneWidget);
+      });
+    });
   });
 }

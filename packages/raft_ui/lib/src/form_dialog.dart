@@ -109,10 +109,22 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
     }
   }
 
+  /// A choice moved off the value it opened with (the guard asks before a
+  /// close throws it away).
+  bool _choicesChanged() => widget.fields.any(
+    (f) =>
+        f.choices != null &&
+        choices[f.id] !=
+            (f.initial.isEmpty ? f.choices!.keys.first : f.initial),
+  );
+
+  RaftUnsavedGuardState? _guard;
+
   @override
   void initState() {
     super.initState();
     _sync();
+    _guard = RaftUnsavedGuard.maybeOf(context)?..watch(_choicesChanged);
   }
 
   @override
@@ -123,6 +135,7 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
 
   @override
   void dispose() {
+    _guard?.unwatch(_choicesChanged);
     for (final editor in editors.values) {
       editor.dispose();
     }
@@ -221,7 +234,12 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
                             ),
                           ),
                       ],
-                      onChanged: busy ? null : (v) => choices[field.id] = v!,
+                      onChanged: busy
+                          ? null
+                          : (v) {
+                              choices[field.id] = v!;
+                              RaftUnsavedGuard.maybeOf(context)?.recheck();
+                            },
                     )
                   : TextFormField(
                       autofillHints: null,
@@ -323,7 +341,10 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
                   RaftCloseButton(
                     onPressed: busy
                         ? null
-                        : () => Navigator.pop(context, false),
+                        : raftGuardedClose(
+                            context,
+                            () => Navigator.pop(context, false),
+                          ),
                   ),
                 ],
               ),

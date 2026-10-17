@@ -8,6 +8,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'form_presentation.dart';
+
 import 'package:flutter/foundation.dart';
 
 import 'banner.dart';
@@ -546,7 +549,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
             textStep: RaftTextSteps.sm,
             disabled: loading,
             disabledOpacity: .5,
-            onPressed: widget.onClose,
+            onPressed: raftExplicitClose(context, widget.onClose),
           ),
           RaftRecipeButton(
             key: const ValueKey('report-issue-submit'),

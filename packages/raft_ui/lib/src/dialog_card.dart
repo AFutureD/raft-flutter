@@ -645,7 +645,7 @@ class _RaftDialogCardState extends State<RaftDialogCard> {
                     ),
             ),
           ),
-          RaftCloseButton(onPressed: onClose),
+          RaftCloseButton(onPressed: raftGuardedClose(context, onClose)),
         ],
       ),
     );

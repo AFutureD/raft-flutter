@@ -180,7 +180,9 @@ class _RaftAgentDialogCardState extends State<RaftAgentDialogCard> {
           onClose: onClose,
           closeButton: onClose == null
               ? const SizedBox.shrink()
-              : RaftAgentCloseButton(onPressed: onClose),
+              : RaftAgentCloseButton(
+                  onPressed: raftGuardedClose(context, onClose),
+                ),
           body: body,
           footer: footer,
         ),
@@ -216,7 +218,10 @@ class _RaftAgentDialogCardState extends State<RaftAgentDialogCard> {
                       ),
                     ),
                   ),
-                  if (onClose != null) RaftAgentCloseButton(onPressed: onClose),
+                  if (onClose != null)
+                    RaftAgentCloseButton(
+                      onPressed: raftGuardedClose(context, onClose),
+                    ),
                 ],
               ),
               const SizedBox(height: 4 * _tw), // mb-4

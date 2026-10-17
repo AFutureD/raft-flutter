@@ -66,13 +66,18 @@ Future<T?> _fleetDialog<T>(
   WidgetBuilder builder, {
   bool dismissible = false,
   bool form = false,
+  bool guardUnsaved = true,
 }) async {
   if (!context.mounted || !authorized()) return null;
   // Web `Dialog` layer: the recipe overlay (Brutal black/65, Elegant backdrop + blur).
   final navigator = Navigator.of(context, rootNavigator: true);
   final Route<T> route = form
       // A form with inputs: a bottom sheet on a phone, a dialog from 768.
-      ? raftFormRoute<T>(context, builder: builder, dismissible: dismissible)
+      ? raftFormRoute<T>(
+          context,
+          builder: builder,
+          guardUnsaved: guardUnsaved,
+        )
       : RaftDialogRoute<T>(
           builder: builder,
           // Web `DialogCard` / `ConfirmDialog`: no scrim close, Escape closes.
@@ -973,6 +978,8 @@ class _FleetDetailState extends State<FleetDetail> {
       // Web `Dialog`: an outside press runs `requestClose`.
       dismissible: true,
       form: true,
+      // The dialog asks about its own dirty draft (requestClose).
+      guardUnsaved: false,
     );
   }
 

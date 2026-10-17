@@ -479,6 +479,95 @@ void main() {
       );
     });
 
+    group('closing asks the route (Back, drag and scrim alike)', () {
+      final popped = <bool>[];
+      // The same tall sheet, optionally vetoing every pop.
+      Widget guarded(BuildContext context, RaftSurfaceForm form) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) => popped.add(didPop),
+        child: tall(context, form),
+      );
+
+      setUp(popped.clear);
+
+      testWidgets('a drag down on a guarded sheet snaps back, says '
+          'didPop: false and stays open', (tester) async {
+        _size(tester, phone);
+        await tester.pumpWidget(
+          _app(policy: RaftPresentationPolicy.form, content: guarded),
+        );
+        await _open(tester);
+        final opened = tester.getSize(_sheet).height;
+        await tester.fling(_handle, const Offset(0, 700), 2500);
+        await tester.pumpAndSettle();
+        expect(popped, [false]);
+        expect(_sheet, findsOneWidget);
+        expect(tester.getSize(_sheet).height, closeTo(opened, 2));
+        // Asked again, answered again: the sheet keeps coming back.
+        await tester.fling(
+          find.byKey(const ValueKey('sheet-header')),
+          const Offset(0, 700),
+          2500,
+        );
+        await tester.pumpAndSettle();
+        expect(popped, [false, false]);
+        expect(_sheet, findsOneWidget);
+      });
+
+      testWidgets('a drag down on a sheet that allows the pop closes it, '
+          'through the same check', (tester) async {
+        _size(tester, phone);
+        final asked = <bool>[];
+        await tester.pumpWidget(
+          _app(
+            policy: RaftPresentationPolicy.form,
+            content: (context, form) => PopScope(
+              canPop: true,
+              onPopInvokedWithResult: (didPop, _) => asked.add(didPop),
+              child: tall(context, form),
+            ),
+          ),
+        );
+        await _open(tester);
+        await tester.fling(_handle, const Offset(0, 700), 2500);
+        await tester.pumpAndSettle();
+        expect(_sheet, findsNothing);
+        expect(asked, [true]);
+      });
+
+      testWidgets('a scrim tap is answered like the drag', (tester) async {
+        _size(tester, phone);
+        await tester.pumpWidget(
+          _app(policy: RaftPresentationPolicy.form, content: guarded),
+        );
+        await _open(tester);
+        await tester.tapAt(const Offset(200, 20));
+        await tester.pumpAndSettle();
+        expect(popped, [false]);
+        expect(_sheet, findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(
+          _app(policy: RaftPresentationPolicy.form, content: tall),
+        );
+        await _open(tester);
+        await tester.tapAt(const Offset(200, 20));
+        await tester.pumpAndSettle();
+        expect(_sheet, findsNothing);
+      });
+
+      testWidgets('Back is answered the same way', (tester) async {
+        _size(tester, phone);
+        await tester.pumpWidget(
+          _app(policy: RaftPresentationPolicy.form, content: guarded),
+        );
+        await _open(tester);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(popped, [false]);
+        expect(_sheet, findsOneWidget);
+      });
+    });
+
     testWidgets('brutal and elegant dark draw a handle and stay in the '
         'window', (tester) async {
       for (final (family, dark) in raftThemeMatrix([
