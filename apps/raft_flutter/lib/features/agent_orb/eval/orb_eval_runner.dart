@@ -626,6 +626,11 @@ class _Recorder {
   final Duration? grace;
   int _asking = 0;
   int _turnAsks = 0;
+
+  /// The voice model's own tool calls still running (the voice-only
+  /// harness). Gemini Live ends its turn at the call, before the result is
+  /// back: the turn is not over then.
+  int _toolsOut = 0;
   final _clock = Stopwatch();
   bool _askBack = false;
   Timer? _graceTimer;
@@ -684,6 +689,7 @@ class _Recorder {
     _unlisten = () => voice.removeListener(changed);
     return done.future.whenComplete(() {
       _timeout?.cancel();
+      _graceTimer?.cancel();
       _unlisten?.call();
       _unlisten = null;
     });
@@ -707,7 +713,13 @@ class _Recorder {
         _graceTimer = Timer(grace!, _finish);
         return;
       }
+      _finish();
+      return;
     }
+    // A tool call the model just made (its turn ended at the call, the call
+    // arrives first): the turn goes on once the result is back and the model
+    // has answered.
+    if (_toolsOut > 0) return;
     _finish();
   }
 
@@ -779,10 +791,13 @@ class _Recorder {
           steering: steering,
           onToolCall: (name, args) async {
             final watch = Stopwatch()..start();
+            _toolsOut++;
+            _graceTimer?.cancel();
             Map<String, Object?> result;
             try {
               result = await onToolCall(name, args);
             } catch (e) {
+              _toolsOut--;
               _turn?.tools.add(
                 OrbEvalToolCall(
                   name: name,
@@ -793,6 +808,7 @@ class _Recorder {
               );
               rethrow;
             }
+            _toolsOut--;
             _turn?.tools.add(
               OrbEvalToolCall(
                 name: name,
