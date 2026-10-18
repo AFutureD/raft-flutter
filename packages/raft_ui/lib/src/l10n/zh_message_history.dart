@@ -1,5 +1,15 @@
 // Native account-wide message history settings.
 const Map<String, String> zhCatalogMessageHistory = <String, String>{
+  'Local changes could not be saved on this device.': '本地更改无法保存到此设备。',
+  'Local history changed while loading. Try again.': '加载期间本地历史记录已变化，请重试。',
+  'Copy diagnostics': '复制诊断信息',
+  'Diagnostics copied': '诊断信息已复制',
+  'Could not copy diagnostics. Try again.': '无法复制诊断信息，请重试。',
+  'Local error diagnostics': '本地错误诊断',
+  'No storage errors recorded in this app run. Copy app version and foreground/background state; excludes messages, credentials and server addresses.':
+      '本次运行尚未记录到存储错误。可复制 App 版本和前后台状态，不含消息、凭据或服务器地址。',
+  'Copy recent storage errors from this app run for a bug report. Includes app version and foreground/background state; excludes messages, credentials and server addresses.':
+      '复制本次运行的近期存储错误以便反馈问题。包含 App 版本和前后台状态，不含消息、凭据或服务器地址。',
   'Unable to load messages.': '无法加载消息。',
   'Sign in to load messages.': '请登录后加载消息。',
   'You do not have permission to load these messages.': '你没有权限加载这些消息。',

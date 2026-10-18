@@ -4,6 +4,7 @@ import 'package:raft_client/raft_client.dart';
 
 import 'message_history.dart';
 import 'history_capacity.dart';
+import 'local_error_diagnostics.dart';
 import 'history_read_policy.dart';
 import 'message_history_pages.dart';
 import 'message_history_verification.dart';
@@ -13,12 +14,21 @@ import 'workspace_message_windows.dart';
 /// The receiver queue preserves socket order while a previously unseen thread
 /// resolves its parent through existing, authorized read routes.
 class MessageHistoryEvents {
-  static void _saveFailed(WorkspaceMessageHost host, Object cause) {
+  static void _saveFailed(
+    WorkspaceMessageHost host,
+    Object cause,
+    StackTrace trace,
+    LocalErrorOperation operation,
+  ) {
     final w = host.messageDomain;
-    if (w.presentation.error != null || cause is HistoryCapacityExceeded) {
-      return;
-    }
-    w.presentation.assignError(MessageHistoryPages.saveError(cause));
+    if (cause is HistoryCapacityExceeded) return;
+    final message = MessageHistoryPages.saveError(
+      cause,
+      trace: trace,
+      operation: operation,
+    );
+    if (w.presentation.error != null) return;
+    w.presentation.assignError(message);
     w.context.changed();
   }
 
@@ -171,8 +181,13 @@ class MessageHistoryEvents {
       pending = db.receiver.run(() async => apply(row, await revision));
     }
     unawaited(
-      pending.whenComplete(rowReceipt.finish).catchError((Object cause) {
-        if (current()) _saveFailed(w, cause);
+      pending.whenComplete(rowReceipt.finish).catchError((
+        Object cause,
+        StackTrace trace,
+      ) {
+        if (current()) {
+          _saveFailed(w, cause, trace, LocalErrorOperation.liveMessage);
+        }
       }),
     );
   }
@@ -355,9 +370,9 @@ class MessageHistoryEvents {
           ? committed
           : db.receiver.checkpointLimit(scope, w.ledger.watermark);
       if (current() && seq > BigInt.zero) w.transport.client.resume(seq);
-    } catch (cause) {
+    } catch (cause, trace) {
       if (current()) {
-        _saveFailed(w, cause);
+        _saveFailed(w, cause, trace, LocalErrorOperation.resumeCursor);
       }
     }
   }
@@ -416,9 +431,9 @@ class MessageHistoryEvents {
             unresolved: () => unresolved = true,
           );
         }
-      } catch (cause) {
+      } catch (cause, trace) {
         if (current()) {
-          _saveFailed(w, cause);
+          _saveFailed(w, cause, trace, LocalErrorOperation.resumeReplay);
         }
       } finally {
         receipt?.finish(

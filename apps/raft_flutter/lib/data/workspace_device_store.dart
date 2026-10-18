@@ -4,6 +4,7 @@ import 'package:raft_client/raft_client.dart';
 
 import 'workspace_cache.dart';
 import 'history_capacity.dart';
+import 'local_error_diagnostics.dart';
 import 'workspace_cache_reads.dart';
 import 'workspace_entity_directory.dart';
 
@@ -34,7 +35,7 @@ class WorkspaceDeviceStore {
   final bool Function(String) _isServerRevoked;
   final Object Function(String) _historyTicket;
   final void Function() _readFailed, _purgeFailed;
-  final void Function(Object) _writeFailed;
+  final void Function(String) _writeFailed;
   Future<void> _writes = Future<void>.value();
   bool _retired = false;
 
@@ -206,8 +207,10 @@ class WorkspaceDeviceStore {
       }
       try {
         await cache!.write(origin, user, serverId, kind, id, value);
-      } catch (cause) {
-        if (cause is! HistoryCapacityExceeded) _writeFailed(cause);
+      } catch (cause, trace) {
+        if (cause is! HistoryCapacityExceeded) {
+          _writeFailed(LocalErrorDiagnostics.shared.capture(cause, trace));
+        }
         if (requiredSuccess) rethrow;
       }
     });

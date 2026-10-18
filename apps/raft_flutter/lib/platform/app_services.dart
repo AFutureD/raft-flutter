@@ -1,4 +1,7 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
+
+import '../data/local_error_diagnostics.dart';
 
 import 'app_update.dart';
 import 'local_network_access.dart';
@@ -70,8 +73,22 @@ class AppServicesHost extends StatefulWidget {
   State<AppServicesHost> createState() => _AppServicesHostState();
 }
 
-class _AppServicesHostState extends State<AppServicesHost> {
+class _AppServicesHostState extends State<AppServicesHost>
+    with WidgetsBindingObserver {
   final _retired = <AppUpdateService>{};
+
+  @override
+  void initState() {
+    super.initState();
+    LocalErrorDiagnostics.shared
+      ..platform = defaultTargetPlatform.name
+      ..lifecycle(WidgetsBinding.instance.lifecycleState?.name ?? 'resumed');
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) =>
+      LocalErrorDiagnostics.shared.lifecycle(state.name);
 
   @override
   void didUpdateWidget(AppServicesHost oldWidget) {
@@ -102,6 +119,7 @@ class _AppServicesHostState extends State<AppServicesHost> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (widget.ownsAppUpdate && widget.services.appUpdate != null) {
       _retired.add(widget.services.appUpdate!);
     }

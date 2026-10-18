@@ -12,6 +12,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'announcement_host.dart';
 import 'notification_activation_workspace.dart';
 import '../data/user_error.dart';
+import 'local_error_diagnostics.dart';
 import '../data/workspace_controller.dart';
 import '../platform/route_frame_diagnostics.dart';
 import '../data/workspace_entity_directory.dart';
@@ -914,7 +915,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       if (message == null) return;
       // ignore: raft_lints/avoid_imperative_notice_state -- Consumes the pending workspace error into a toast.
       w.setError(null);
-      showRaftToast(context, message);
+      showLocalErrorToast(context, message);
     });
     // ignore: raft_lints/avoid_unreviewed_idle_work -- Single frame so the post-frame callback that shows and clears w.error (Web toast.error) runs even when nothing else rebuilds; the callback never re-requests.
     WidgetsBinding.instance.ensureVisualUpdate();

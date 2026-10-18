@@ -3,6 +3,7 @@ import 'package:raft_sync/raft_sync.dart' show mergeMessageProjection;
 
 import 'message_history.dart';
 import 'history_capacity.dart';
+import 'local_error_diagnostics.dart';
 import 'history_retention_policy.dart';
 import 'history_read_policy.dart';
 import 'message_history_verification.dart';
@@ -46,11 +47,16 @@ class MessageHistoryPages {
     );
   }
 
-  static String saveError(Object cause) => cause is HistoryReadRetired
-      ? 'Local history changed while loading. Try again.'
-      : cause is HistoryCapacityExceeded
-      ? 'Device message storage is full. Increase the message history limit in Storage settings.'
-      : 'Local changes could not be saved on this device.';
+  static String saveError(
+    Object cause, {
+    StackTrace? trace,
+    LocalErrorOperation operation = LocalErrorOperation.deviceWrite,
+  }) => LocalErrorDiagnostics.shared.capture(
+    cause,
+    trace ?? StackTrace.current,
+    operation: operation,
+  );
+
   static void attach(WorkspaceMessageHost host) {
     final w = host.messageDomain;
     final device = storage(w.device.cache);
@@ -359,7 +365,7 @@ class MessageHistoryPages {
       }
       if (page.local) MessageHistoryVerification.schedule(w, request, page);
       return true;
-    } catch (cause) {
+    } catch (cause, trace) {
       if (cause is HistoryCapacityExceeded) return true;
       if (request.current && w.device.writable) {
         if (cause is HistoryReadRetired) {
@@ -387,9 +393,12 @@ class MessageHistoryPages {
             authoritative: true,
           );
         }
-        if (w.presentation.error == null) {
-          w.presentation.assignError(saveError(cause));
-        }
+        final message = saveError(
+          cause,
+          trace: trace,
+          operation: LocalErrorOperation.historyPage,
+        );
+        if (w.presentation.error == null) w.presentation.assignError(message);
       }
       return false;
     }

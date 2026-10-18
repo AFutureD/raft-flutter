@@ -2288,6 +2288,32 @@
    ]
   },
   {
+   "id": "settings.local-error-diagnostics",
+   "title": "Local storage error diagnostics",
+   "webEntry": "Native-only device storage diagnostics",
+   "flutterEntry": "apps/raft_flutter/lib/features/local_error_diagnostics.dart",
+   "states": [
+    {
+     "state": "empty",
+     "variant": "no errors in this app run; Storage entry still copies app metadata and lifecycle",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "intentional",
+     "justification": "Native-only bounded in-memory diagnostics; local_error_diagnostics_test.dart checks a fresh run and reopening."
+    },
+    {
+     "state": "error",
+     "variant": "clipboard unavailable; retry copies the sample and removes failure feedback",
+     "web": "no",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "intentional",
+     "justification": "Native-only clipboard diagnostics; local_error_diagnostics_test.dart checks failure, successful retry and expired confirmation; shell_error_presentation_test.dart covers actual cache failure through the toast copy action."
+    }
+   ]
+  },
+  {
    "id": "settings.account",
    "title": "Settings: Account",
    "webEntry": "packages/web/src/components/settings/SettingsPanel.tsx (AccountSection)",

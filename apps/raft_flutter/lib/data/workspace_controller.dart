@@ -171,9 +171,9 @@ class WorkspaceController extends ChangeNotifier
       readFailed: () {
         if (!_disposed) error ??= 'Local workspace history is unavailable.';
       },
-      writeFailed: (cause) {
+      writeFailed: (message) {
         if (!_disposed) {
-          error ??= MessageHistoryPages.saveError(cause);
+          error ??= message;
           notifyListeners();
         }
       },

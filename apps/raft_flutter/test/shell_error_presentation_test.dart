@@ -1,15 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/server_error_code.dart';
+import 'package:raft_flutter/data/workspace_cache.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/local_network_access.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'support/app_services_fixture.dart';
 
 class _Client extends RaftClient {
@@ -75,6 +78,29 @@ class _Client extends RaftClient {
 
 const _joinFailed = 'Failed to join community server';
 
+class _Cache implements WorkspaceCache {
+  bool fail = false;
+  @override
+  Future<dynamic> read(o, p, s, String kind, String id) async => null;
+  @override
+  Future<void> write(o, p, s, String kind, String id, value) async {
+    if (fail) throw StateError('secret-payload');
+  }
+
+  @override
+  Future<void> revokeChannel(o, p, s, String channel) async {}
+  @override
+  Future<void> clearAccount(o, p) async {}
+  @override
+  Future<void> revokeServer(o, p, s) async {}
+  @override
+  Future<List<Map<String, dynamic>>> readTranslations(o, p, s) async => [];
+  @override
+  Future<void> writeTranslations(o, p, s, entries) async {}
+  @override
+  Future<void> close() async {}
+}
+
 void main() {
   group('workspace error is a toast, not a Material banner', () {
     for (final (name, size) in [
@@ -89,13 +115,24 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         final c = _Client()..selectServer('s');
-        final w = WorkspaceController(c, mobileNavigation: size.width < 600)
-          ..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'})
-          ..channels = [...c.channelRows]
-          ..channel = c.channelRows.first;
+        final cache = _Cache();
+        final w =
+            WorkspaceController(
+                c,
+                cache: cache,
+                mobileNavigation: size.width < 600,
+              )
+              ..server = RaftRecord({
+                'id': 's',
+                'name': 'Fixture',
+                'role': 'owner',
+              })
+              ..channels = [...c.channelRows]
+              ..channel = c.channelRows.first;
         w.ledger.switchServer('s');
         addTearDown(() async {
           w.dispose();
+          await cache.close();
           await c.stream.close();
         });
         await tester.pumpWidget(
@@ -137,6 +174,45 @@ void main() {
         await tester.pump(const Duration(seconds: 6));
         await tester.pumpAndSettle();
         expect(find.text('Could not join this channel.'), findsNothing);
+
+        // A local-storage failure offers a diagnostic copy without exposing
+        // the exception's payload or pretending that copying repairs storage.
+        String? clipboard;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') {
+              clipboard = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        cache.fail = true;
+        await w.deviceStore.write('draft', 'c', {'text': 'private-draft'});
+        await tester.pump();
+        await tester.pump();
+        expect(find.text('Copy diagnostics'), findsOneWidget);
+        await tester.tap(find.text('Copy diagnostics'));
+        await tester.pumpAndSettle();
+        expect(clipboard, contains('local-storage'));
+        expect(clipboard, isNot(contains('secret-payload')));
+        expect(clipboard, isNot(contains('private-draft')));
+        expect(clipboard, contains('deviceWrite'));
+        expect(clipboard, contains('workspace_device_store.dart'));
+        expect(find.text('Diagnostics copied'), findsOneWidget);
+        expect(find.text('Copy diagnostics'), findsNothing);
+        await tester.pump(const Duration(seconds: 6));
+        await tester.pumpAndSettle();
+        expect(find.text('Diagnostics copied'), findsNothing);
+        w.notifyListeners();
+        await tester.pumpAndSettle();
+        expect(find.text('Copy diagnostics'), findsNothing);
       });
     }
   });

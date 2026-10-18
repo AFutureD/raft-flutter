@@ -8,6 +8,7 @@ import '../data/cache_budget.dart';
 import '../data/cache_clear.dart';
 import '../data/workspace_controller.dart';
 import 'message_history_settings.dart';
+import 'local_error_diagnostics.dart';
 import 'computer_detail_view.dart' show computerFileSize;
 
 /// Settings > Resources > Storage (native only; Web leaves caching to the
@@ -139,6 +140,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const LocalErrorDiagnosticsCard(),
         if (widget.workspace case final w?) MessageHistorySettings.forWorkspace(w),
         const RaftSettingsSectionHeader(
           label: 'Storage',
