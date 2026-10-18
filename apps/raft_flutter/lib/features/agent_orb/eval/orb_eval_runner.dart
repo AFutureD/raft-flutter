@@ -676,6 +676,7 @@ class _Recorder {
     run.turns.add(turn);
     _turn = turn;
     _turnAsks = 0;
+    _saidSinceAnswer = false;
     _askBack = false;
     _clock
       ..reset()
@@ -733,6 +734,10 @@ class _Recorder {
       // Live's turn ends when it has the agent's answer and has spoken it:
       // not while an ask is out, and not at a filler said before the ask.
       if (_asking > 0) return;
+      // gemini-3.8-live ends its turn at the call, before the answer is
+      // back: a turn end with nothing said since the agent answered is that
+      // one, not the end of the answer.
+      if (_turnAsks > 0 && !_saidSinceAnswer) return;
       if (_turnAsks == 0) {
         _graceTimer?.cancel();
         _graceTimer = Timer(grace!, _finish);
@@ -757,10 +762,14 @@ class _Recorder {
     if (done != null && !done.isCompleted) done.complete(null);
   }
 
+  /// Whether the voice said anything since the agent last answered.
+  bool _saidSinceAnswer = false;
+
   void _askingChanged(int inFlight) {
     if (inFlight > _asking) {
       _turnAsks++;
       _askBack = false;
+      _saidSinceAnswer = false;
       _graceTimer?.cancel();
       // The voice that came before this ask is not what the person waited for.
       _turn?.firstAudioMs = 0;
@@ -774,6 +783,7 @@ class _Recorder {
   /// the agent (or the first at all, when it asked nothing) is when the
   /// person starts to hear.
   void _heard() {
+    if (_askBack) _saidSinceAnswer = true;
     final turn = _turn;
     if (turn == null || turn.firstAudioMs > 0 || _asking > 0) return;
     if (_turnAsks > 0 && !_askBack) return;
