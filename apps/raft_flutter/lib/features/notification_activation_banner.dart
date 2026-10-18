@@ -170,8 +170,11 @@ class _ActivationBannerState extends State<NotificationActivationBanner> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.service,
     builder: (context, _) {
-      if (!widget.service.showActivation && !confirming)
+      if (widget.service.permitted ||
+          widget.service.activationAsked ||
+          (!widget.service.showActivation && !confirming)) {
         return const SizedBox.shrink();
+      }
       final mobile = RaftDensityScope.of(context) == RaftDensity.touch;
       return Padding(
         padding: const EdgeInsets.symmetric(
@@ -201,10 +204,14 @@ class _ActivationBannerState extends State<NotificationActivationBanner> {
                 description: mobile
                     ? 'Get notified when they finish or need you.'
                     : "Turn on notifications so you don't miss when they finish or need you.",
-                action: Row(
-                  mainAxisSize: MainAxisSize.min,
+                action: Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: RaftSpace.x2,
                   children: [
                     RaftButton(
+                      size: RaftButtonRecipeSize.sm,
+                      tone: RaftButtonRecipeVariant.accent,
                       label: busy ? 'Enabling…' : 'Enable notifications',
                       onPressed: busy ? null : enable,
                     ),
