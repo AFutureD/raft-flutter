@@ -81,15 +81,17 @@ String? _modelParam(String? value) {
   return RegExp(r'^[A-Za-z0-9._:/-]+$').hasMatch(id) ? id : null;
 }
 
-/// How the evaluation is started in a debug build: from the Labs card or from
-/// adb, with an explicit-component intent that carries a `raft://orb-eval/run`
-/// link (the app's link stream hands it to [receiveLink]).
+/// How the evaluation is started in a debug or profile build: from the Labs
+/// card or from adb, with an explicit-component intent that carries a
+/// `raft://orb-eval/run` link (the app's link stream hands it to
+/// [receiveLink]). Profile counts because the phone runs the profile build
+/// (debug is too slow to judge the voice by), like the orb itself.
 ///
-/// In any other build mode it does nothing: no link is taken and no page is
+/// In a release build it does nothing: no link is taken and no page is
 /// opened.
 class OrbEvalLauncher {
   OrbEvalLauncher({bool? debug, this.pageBuilder, this.navigator})
-    : debug = debug ?? kDebugMode;
+    : debug = debug ?? !kReleaseMode;
 
   /// The launcher the app uses; tests put their own here and put it back.
   static OrbEvalLauncher instance = OrbEvalLauncher();
@@ -216,13 +218,13 @@ class OrbEvalLabsCard extends StatelessWidget {
 
   static const title = 'Agent 评测（开发）';
 
-  /// Overrides `kDebugMode` (tests).
+  /// Overrides the build mode check (tests).
   final bool? debug;
   final OrbEvalLauncher? launcher;
 
   @override
   Widget build(BuildContext context) {
-    if (!(debug ?? kDebugMode)) return const SizedBox.shrink();
+    if (!(debug ?? !kReleaseMode)) return const SizedBox.shrink();
     final t = RaftTokens.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: RaftSpace.x4),
