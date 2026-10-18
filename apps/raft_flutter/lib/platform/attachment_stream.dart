@@ -45,6 +45,7 @@ Future<AttachmentSource> attachmentStreamSource(
   return AttachmentSource.network(
     uri,
     start: start,
+    cacheKey: id,
     refresh: () {
       controller.attachmentMedia.invalidateUrl(id);
       return sign(refresh: true);

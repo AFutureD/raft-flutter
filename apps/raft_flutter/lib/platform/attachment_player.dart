@@ -9,6 +9,7 @@ import 'package:raft_client/system_proxy.dart';
 import 'attachment_player_log.dart';
 import 'media_failure.dart';
 import 'media_probe.dart';
+import 'video_cache.dart';
 
 class AttachmentPlayback {
   const AttachmentPlayback({
@@ -46,6 +47,7 @@ class AttachmentSource {
     : url = null,
       headers = const {},
       refresh = null,
+      cacheKey = null,
       start = Duration.zero;
 
   /// [url] is the signed attachment URL (it is the only credential: [headers]
@@ -58,6 +60,7 @@ class AttachmentSource {
     this.headers = const {},
     this.refresh,
     this.start = Duration.zero,
+    this.cacheKey,
   }) : file = null;
 
   final File? file;
@@ -65,6 +68,10 @@ class AttachmentSource {
   final Map<String, String> headers;
   final Future<Uri> Function()? refresh;
   final Duration start;
+
+  /// Names the content for the on-disk video cache (the attachment id); it
+  /// must stay the same when the URL is signed again.
+  final String? cacheKey;
   bool get isNetwork => url != null;
 }
 
@@ -164,6 +171,11 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         }, onError: (_) {}),
       );
     }
+    // A short clip repeats by itself (mpv's loop-file, what media_kit's
+    // PlaylistMode.single sets); see [kLoopingVideoMaxDuration].
+    if (VideoCache.enabled) {
+      subscriptions.add(player.stream.duration.listen(_loopShortClip));
+    }
     // media_kit's error stream also fires for harmless libmpv errors (a
     // hardware decoder that is absent, no sound card) while the video plays.
     // Failure comes from classified log lines only; every warn+ line is kept
@@ -190,6 +202,20 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         }
       }),
     );
+  }
+
+  Future<void> _loopShortClip(Duration length) async {
+    if (closed || length <= Duration.zero) return;
+    final native = player.platform;
+    if (native is! NativePlayer) return;
+    try {
+      await native.setProperty(
+        'loop-file',
+        length <= kLoopingVideoMaxDuration ? 'inf' : 'no',
+      );
+    } on Object {
+      // Looping is a nicety; playback goes on without it.
+    }
   }
 
   /// The libmpv text since the last open (warn and above), the evidence a
@@ -430,7 +456,12 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     attempt++;
     recent.clear();
     final native = player.platform;
-    final target = source.isNetwork ? source.url!.toString() : source.file!.path;
+    // Through the on-disk cache when it is on: mpv gets a loopback URL (never
+    // via an HTTP proxy); failures are diagnosed against [source].
+    final routed = await VideoCache.route(source);
+    if (closed) return;
+    final local = routed.isNetwork && VideoCache.isLocal(routed.url!);
+    final target = source.isNetwork ? routed.url.toString() : source.file!.path;
     if (native is NativePlayer) {
       for (final property in const [
         'cache-on-disk',
@@ -449,11 +480,12 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       if (source.isNetwork) {
         await native.setProperty('demuxer-max-bytes', '${maxVideoSize.width > 1000 ? 64 : 32}MiB');
         await native.setProperty('demuxer-max-back-bytes', '8MiB');
-        await native.setProperty('http-proxy', httpProxyFor(source.url!));
-        await native.setProperty('stream-lavf-o', lavfOptionsFor(source.url!));
+        await native.setProperty('http-proxy', local ? '' : httpProxyFor(source.url!));
+        await native.setProperty('stream-lavf-o', local ? 'http_proxy=' : lavfOptionsFor(source.url!));
+        // The cache holds the headers; nothing is sent to the loopback URL.
         await native.setProperty(
           'http-header-fields',
-          source.headers.entries.map((e) => '${e.key}: ${e.value}').join(','),
+          (local ? const <String, String>{} : source.headers).entries.map((e) => '${e.key}: ${e.value}').join(','),
         );
       }
       await native.setProperty(
@@ -463,6 +495,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       // media_kit.open uses an intermediate playlist. Keep external references
       // disabled and load the already-authorized input directly instead.
       await native.setProperty('pause', 'yes');
+      if (VideoCache.enabled) await native.setProperty('loop-file', 'no');
       await native.command(['loadfile', target, 'replace']);
       return;
     }

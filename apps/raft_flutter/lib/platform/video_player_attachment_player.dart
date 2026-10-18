@@ -7,6 +7,7 @@ import 'attachment_player.dart';
 import 'attachment_player_log.dart';
 import 'media_failure.dart';
 import 'media_probe.dart';
+import 'video_cache.dart';
 
 /// The platform's own player behind [AttachmentPlayer]: ExoPlayer (Media3) on
 /// Android, AVPlayer on iOS and macOS, through the official `video_player`
@@ -120,7 +121,11 @@ class VideoPlayerAttachmentPlayer
     _failure = null;
     _hasFrame = false;
     _last = null;
-    final controller = _build(source);
+    // Through the on-disk cache when it is on: the player gets a loopback
+    // URL; failures are still diagnosed against [source], the real URL.
+    final routed = await VideoCache.route(source);
+    if (_closed) return;
+    final controller = _build(routed);
     controller.addListener(_publish);
     _controller.value = controller;
     if (!_observing) {
@@ -132,6 +137,12 @@ class VideoPlayerAttachmentPlayer
       await controller.initialize();
       if (_closed || _active != controller) return;
       if (source.start > Duration.zero) await controller.seekTo(source.start);
+      // A short clip repeats by itself (and, cached, without a download).
+      if (VideoCache.enabled &&
+          controller.value.duration > Duration.zero &&
+          controller.value.duration <= kLoopingVideoMaxDuration) {
+        await controller.setLooping(true);
+      }
     } on Object catch (error) {
       if (_closed || _active != controller) return;
       // video_player reports "Source error" for a rejected request without the
@@ -167,6 +178,7 @@ class VideoPlayerAttachmentPlayer
         url,
         headers: source.headers,
         start: position,
+        cacheKey: source.cacheKey,
       );
       _source = next;
       await _open(next);
