@@ -340,6 +340,58 @@ List<md.Node> _parseMarkdown(String data) =>
     }) ??
     _parseMarkdownSource(data);
 
+/// What [RaftMessageBody] derives from a bare Markdown string with no
+/// references: its body chunks and the parsed tree of each prose chunk. Pure
+/// data, so a background isolate can compute it for a large document and the
+/// UI isolate adopt it ([raftAdoptPreparedBody]) instead of parsing on a frame.
+class RaftPreparedBody {
+  const RaftPreparedBody._(this._chunks, this._trees);
+  final List<_BodyChunk> _chunks;
+
+  /// One entry per chunk: the tree of a prose chunk (null when it must be
+  /// parsed per build, see [raftMarkdownAstCache]) and null for code.
+  final List<List<md.Node>?> _trees;
+}
+
+RaftPreparedBody raftPrepareBody(String content) {
+  final chunks = _splitBody(raftMessageReferences(content));
+  return RaftPreparedBody._(chunks, [
+    for (final chunk in chunks)
+      if (chunk.markdown)
+        () {
+          final nodes = _parseMarkdownSource(chunk.text);
+          return _hasEmptyListItem(nodes) ? null : nodes;
+        }()
+      else
+        null,
+  ]);
+}
+
+/// A copy keeps the line break between the bodies of a list that share one
+/// selection area (see [RaftMessageBody.joinsAmbientSelection]).
+class RaftJoinedSelection extends StatelessWidget {
+  const RaftJoinedSelection({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      _JoinedSelection(separator: '\n', child: child);
+}
+
+/// Seeds the caches [RaftMessageBody] reads, so building [content] parses
+/// nothing.
+void raftAdoptPreparedBody(String content, RaftPreparedBody body) {
+  _bodyChunkCache.putIfAbsent(
+    _ReferencesKey(content, const [], null, null),
+    () => body._chunks,
+  );
+  for (var i = 0; i < body._chunks.length; i++) {
+    final tree = body._trees[i];
+    if (tree != null) {
+      raftMarkdownAstCache.putIfAbsent(body._chunks[i].text, () => tree);
+    }
+  }
+}
+
 /// Exactly the style sheet MarkdownBody resolves (its Material fallback
 /// merged with the message recipe), computed once per theme and text scale.
 @immutable
@@ -404,6 +456,7 @@ class RaftMessageBody extends StatelessWidget {
     this.knownTaskNumber,
     this.lineHeight,
     this.enableProseSelection = true,
+    this.joinsAmbientSelection = false,
     this.compactSemantics = false,
     this.searchHighlight,
     this.permalinkAppearance,
@@ -473,6 +526,10 @@ class RaftMessageBody extends StatelessWidget {
   /// Interactive containers such as an anchored comment button own taps.
   /// Ordinary message/document bodies retain their selection region.
   final bool enableProseSelection;
+
+  /// Joins the selection area above instead of opening its own, so a list of
+  /// bodies (the blocks of a long document) selects and copies as one.
+  final bool joinsAmbientSelection;
   final String content;
 
   /// Chip/text treatment for an identity-backed reference href (Web
@@ -623,6 +680,7 @@ class RaftMessageBody extends StatelessWidget {
     if (!proseSelection) return column;
     // A copy keeps the line break between the message's blocks.
     final body = _JoinedSelection(separator: '\n', child: column);
+    if (joinsAmbientSelection) return body;
     // One selection region per message: prose blocks before and after a
     // code block share it, and a row mounts one region instead of several.
     return RaftSelectionArea(

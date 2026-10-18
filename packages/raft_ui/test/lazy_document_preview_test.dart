@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/src/lazy_markdown_document.dart';
 
 Future<void> pump(
   WidgetTester tester,
@@ -57,10 +58,16 @@ void main() {
         '## Section $i\n\nParagraph $i with **bold** text and a [link](https://example.invalid).\n',
     ].join('\n');
     expect(md.length, greaterThan(raftLazyMarkdownChars));
+    final defaultParser = raftMarkdownDocumentParser;
+    raftMarkdownDocumentParser = (source) async =>
+        raftParseMarkdownDocument(source);
+    addTearDown(() => raftMarkdownDocumentParser = defaultParser);
     await pump(
       tester,
       RaftDocumentPreview(data: {'kind': 'markdown', 'markdown': md}),
     );
+    await tester.pump(Duration.zero);
+    await tester.pump();
     expect(find.text('Section 0'), findsOneWidget);
     expect(find.text('Section 1900'), findsNothing);
     expect(find.byType(RaftMessageBody).evaluate().length, lessThan(20));

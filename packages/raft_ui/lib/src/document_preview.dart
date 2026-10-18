@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+
 import 'raft_selection_area.dart';
 
 import 'localization.dart';
-import 'markdown_blocks.dart';
+import 'lazy_markdown_document.dart';
 import 'message_body.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart' show RaftShadowSet;
@@ -12,10 +13,11 @@ import 'theme.dart';
 import 'tokens/tokens.dart';
 
 /// Markdown longer than this many characters is laid out as a lazy list of
-/// blocks (only the blocks near the viewport are built), not one column.
-/// Server previews are capped at 64 KB; below this size the single column
-/// builds in a frame or two and keeps whole-document selection.
-const raftLazyMarkdownChars = 48 * 1024;
+/// blocks (only the blocks near the viewport are built, parsed off the UI
+/// isolate), not one column. Server previews are capped at 64 KB; a 40 KB
+/// document in one column took ~100 ms of build and layout on every open,
+/// while below this size the single column fits in a frame.
+const raftLazyMarkdownChars = 4 * 1024;
 
 /// Plain text with more lines than this is a lazy list of lines.
 const raftLazyTextLines = 1000;
@@ -35,8 +37,10 @@ class RaftDocumentPreview extends StatefulWidget {
     super.key,
     required this.data,
     this.truncated = false,
+    @visibleForTesting this.lazyMarkdownChars = raftLazyMarkdownChars,
   });
   final Map<String, dynamic> data;
+  final int lazyMarkdownChars;
   final bool truncated;
   @override
   State<RaftDocumentPreview> createState() => _RaftDocumentPreviewState();
@@ -45,19 +49,9 @@ class RaftDocumentPreview extends StatefulWidget {
 class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
   int sheet = 0;
 
-  // Lazy layouts split their source once per content, not per build.
-  String? _blocksSource;
-  List<String> _blocks = const [];
+  // The lazy text layout splits its source once per content, not per build.
   String? _linesSource;
   List<String> _lines = const [];
-
-  List<String> blocksOf(String source) {
-    if (!identical(_blocksSource, source)) {
-      _blocks = raftSplitMarkdownBlocks(source);
-      _blocksSource = source;
-    }
-    return _blocks;
-  }
 
   List<String> linesOf(String source) {
     if (!identical(_linesSource, source)) {
@@ -111,80 +105,6 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
       for (var i = 0; i < intrinsic.length; i++)
         i: FixedColumnWidth(intrinsic[i] * grow),
     };
-  }
-
-  /// A long Markdown document: a lazy list of independently rendered blocks
-  /// on the same paper sheet (borders on the sides, top of the first block and
-  /// bottom of the last).
-  Widget _lazyMarkdown(
-    BuildContext context,
-    DocumentAttachmentRecipe recipe,
-    bool truncated,
-  ) {
-    final blocks = blocksOf('${widget.data['markdown']}');
-    final width = MediaQuery.sizeOf(context).width;
-    final wide = width >= 768;
-    final edge = wide ? 40.0 : 24.0, vertical = wide ? 48.0 : 32.0;
-    final side = recipe.border;
-    final notice = truncated ? 1 : 0;
-    return ColoredBox(
-      color: recipe.background,
-      child: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: recipe.markdownInset(width).copyWith(top: 0, bottom: 0),
-            sliver: SliverList.builder(
-              itemCount: blocks.length + notice,
-              itemBuilder: (context, index) {
-                if (index < notice) {
-                  return Padding(
-                    padding: EdgeInsets.only(top: vertical, bottom: 16),
-                    child: Text(
-                      raftText(
-                        context,
-                        'Preview truncated. Download the full file.',
-                      ),
-                    ),
-                  );
-                }
-                final at = index - notice;
-                final first = at == 0, last = at == blocks.length - 1;
-                return Padding(
-                  padding: EdgeInsets.only(
-                    top: first && !truncated ? vertical : 0,
-                    bottom: last ? vertical : 0,
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: recipe.paper,
-                      border: Border(
-                        left: side,
-                        right: side,
-                        top: first ? side : BorderSide.none,
-                        bottom: last ? side : BorderSide.none,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        edge,
-                        first ? vertical : 0,
-                        edge,
-                        last ? vertical : 16,
-                      ),
-                      child: RaftMessageBody(
-                        content: blocks[at],
-                        fontSize: 16,
-                        documentMode: true,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   /// A long text file: a lazy list of lines inside the usual bordered box.
@@ -429,8 +349,13 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
       ),
     );
     if (kind == 'markdown' &&
-        '${data['markdown'] ?? ''}'.length > raftLazyMarkdownChars) {
-      return _lazyMarkdown(context, recipe, truncated);
+        '${data['markdown'] ?? ''}'.length > widget.lazyMarkdownChars) {
+      return RaftLazyMarkdownDocument(
+        source: '${data['markdown']}',
+        recipe: recipe,
+        truncated: truncated,
+        shadow: shadow,
+      );
     }
     if (kind == 'markdown') {
       final width = MediaQuery.sizeOf(context).width;
