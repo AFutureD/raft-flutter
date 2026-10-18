@@ -12,6 +12,7 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'flutter_test_config.dart' show leakDebt;
 
 import '../integration_test/desktop_screens_test.dart'
@@ -29,9 +30,8 @@ import 'support/app_services_fixture.dart';
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['PersonalPresentationStore']);
-  final fixtureText = File(
-    '../../tool/desktop-parity/desktop-fixture.json',
-  ).readAsStringSync();
+  final fixtureText = File('../../tool/desktop-parity/desktop-fixture.json')
+      .readAsStringSync();
 
   Future<(WorkspaceController, DesktopFixtureClient)> boot(
     WidgetTester t,
@@ -44,6 +44,13 @@ void main() {
     );
     final w = WorkspaceController(client);
     addTearDown(w.dispose);
+    // This fixture creates the app-level service; WorkspaceView only borrows
+    // it. Unmount consumers before releasing the fixture-owned notifier.
+    final notifications = NativeNotificationService();
+    addTearDown(() async {
+      await t.pumpWidget(const SizedBox());
+      notifications.dispose();
+    });
     await t.pumpWidget(
       MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -65,7 +72,7 @@ void main() {
             ),
             onAppearance: (_) async {},
             onLogout: () async {},
-            notifications: NativeNotificationService(),
+            notifications: notifications,
           ),
         ),
       ),
@@ -80,7 +87,10 @@ void main() {
         break;
       }
     }
-    expect(find.byKey(const ValueKey('message-msg-agent-reply')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('message-msg-agent-reply')),
+      findsOneWidget,
+    );
     return (w, client);
   }
 
