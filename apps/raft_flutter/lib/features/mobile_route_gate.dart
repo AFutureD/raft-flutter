@@ -75,6 +75,19 @@ class MobileRouteGate extends InheritedWidget {
     return state == null ? null : _location[state];
   }
 
+  /// Reads whether the phone route containing [context] is not the page the
+  /// workspace is on: covered by another page, or popped and animating out.
+  /// The reader is safe to call at any time, including while the caller is
+  /// being disposed, because it keeps the route [State] and never looks up
+  /// the element tree again. Outside a phone route it always answers false.
+  static bool Function() coveredReader(BuildContext context) {
+    final state = _state(context);
+    if (state == null) return _never;
+    return () => _covered[state] == true;
+  }
+
+  static bool _never() => false;
+
   /// Covered phone routes pause. Desktop and grid have no gate, so a hidden
   /// conversation there still publishes its window.
   static bool paused(BuildContext context, WorkspaceController workspace) =>

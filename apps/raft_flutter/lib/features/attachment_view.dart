@@ -25,6 +25,7 @@ import 'attachment_shape.dart';
 import 'inline_attachment_media.dart';
 import 'media_browser.dart';
 import 'media_items.dart';
+import 'mobile_route_gate.dart';
 import 'private_route_guard.dart';
 
 bool _isSvgMime(String mime) =>
@@ -165,10 +166,23 @@ class _AttachmentViewState extends State<AttachmentView> {
       generation == w.client.generation &&
       principal == w.client.user?.id &&
       server == w.client.serverId &&
-      sourceChannel == w.channel?.id &&
-      !channelAuthorityReduced(channelAuthority, w.channel?.json) &&
       projectedServer == w.server?.id &&
       role == w.server?.string('role') &&
+      (pageIsCovered || presentsConversation);
+
+  /// A phone page that is covered, or popped and animating out, is not the
+  /// page the workspace is on. The workspace's conversation (channel, thread,
+  /// presented rows) already belongs to the next page: closing a thread
+  /// clears it at the first frame of the back. Judging this row against it
+  /// dropped the image of the page still sliding away. Account, server and
+  /// role are still checked, and the row is judged again against the
+  /// workspace the moment its page is current.
+  bool get pageIsCovered => coveredReader();
+
+  /// The workspace is on this row's conversation and still presents it.
+  bool get presentsConversation =>
+      sourceChannel == w.channel?.id &&
+      !channelAuthorityReduced(channelAuthority, w.channel?.json) &&
       (widget.messageId == null ||
           w.presentsMessage(widget.messageId) ||
           w.presentsReply(widget.messageId) ||
@@ -248,9 +262,13 @@ class _AttachmentViewState extends State<AttachmentView> {
     },
   );
 
+  /// Whether this row's phone page is covered or leaving (see [pageIsCovered]).
+  bool Function() coveredReader = () => false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    coveredReader = MobileRouteGate.coveredReader(context);
     devicePixelRatio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
     tickerEnabled = TickerMode.valuesOf(context).enabled;
     if (begun) {
