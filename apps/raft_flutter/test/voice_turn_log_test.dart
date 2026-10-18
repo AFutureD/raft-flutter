@@ -67,7 +67,7 @@ void main() {
     test(
       'a model that refused three features gets the accepted setup first',
       () {
-        final first = _live()..useModel('models/gemini-3.8-live');
+        final first = _live()..useModel('models/gemini-9-live');
         expect(first.setupFlags.affective, isTrue);
         expect(
           first.dropRefused(
@@ -89,7 +89,7 @@ void main() {
         );
         first.rememberSetup();
 
-        final next = _live()..useModel('models/gemini-3.8-live');
+        final next = _live()..useModel('models/gemini-9-live');
         expect(next.setupFlags.affective, isFalse);
         expect(next.setupFlags.nonBlocking, isFalse);
         // High was refused, medium was too (one step down each refusal in the
@@ -140,17 +140,17 @@ void main() {
     });
 
     test('the relaying session remembers the thinking step it was given', () {
-      final first = _live(fast: true)..useModel('models/gemini-3.8-live');
+      final first = _live(fast: true)..useModel('models/gemini-9-live');
       expect(first.thinkingUsed, 'minimal');
       first.dropRefused('thinking level not supported', nonBlocking: false);
       first.dropRefused('thinking level not supported', nonBlocking: false);
       expect(first.thinkingUsed, 'budget 0');
       first.rememberSetup();
-      final next = _live(fast: true)..useModel('models/gemini-3.8-live');
+      final next = _live(fast: true)..useModel('models/gemini-9-live');
       expect(next.thinkingUsed, 'budget 0');
       // A listening session is its own kind: not affected.
       final listen = _live(fast: true, listenOnly: true)
-        ..useModel('models/gemini-3.8-live');
+        ..useModel('models/gemini-9-live');
       expect(listen.thinkingUsed, 'minimal');
     });
 

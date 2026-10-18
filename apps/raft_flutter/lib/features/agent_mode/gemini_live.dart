@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../data/device_preferences.dart';
 import 'agent_tool_output.dart';
 import 'voice_provider.dart';
 import 'voice_turn_log.dart';
@@ -100,19 +101,63 @@ class GeminiLiveSession implements VoiceSession {
   }
 
   /// What the model [model] refused at setup before, by model (and the kind
-  /// of session), for the life of the app: the next session sends the setup
-  /// that was accepted first, instead of walking the refusals again (three
-  /// failed setups, 4-5 s, every session on gemini-3.8-live). Written when a
-  /// setup succeeds; a model not seen before starts with everything.
+  /// of session): the next session sends the setup that was accepted first,
+  /// instead of walking the refusals again (three failed setups, 4-5 s, every
+  /// session on gemini-3.8-live). Written when a setup succeeds, to this map
+  /// and to device storage ([_storePrefix]), so a fresh app process connects
+  /// on the first try too. A model that is neither remembered nor in
+  /// [seededSetups] starts with everything.
   static final _remembered = <String, SetupMemory>{};
+
+  static const _storePrefix = 'raft.agentDemo.liveSetup.';
+
+  /// What is known of models without asking them: gemini-3.8-live refuses
+  /// `enableAffectiveDialog` and every `thinkingConfig` (seen on a phone,
+  /// 2026-10-18). A refusal of a seeded setup is handled like any other: the
+  /// feature is dropped and the memory updated.
+  static SetupMemory? _seed(String model) => switch (_bare(model)) {
+    'gemini-3.8-live' =>
+      SetupMemory()
+        ..affective = false
+        ..levelKnown = true
+        ..levelCeiling = null
+        ..relayStep = relayThinking.length - 1,
+    _ => null,
+  };
 
   static String _memoryKey(String model, bool fast, bool listenOnly) =>
       '${_bare(model)}|${fast ? 'fast' : 'full'}|'
       '${listenOnly ? 'listen' : 'talk'}';
 
-  /// Forgets the refusals remembered so far (tests).
+  /// What this process, the device storage or the seeds know of the setup
+  /// [key] of [model] (in that order), or null.
+  static SetupMemory? _recall(String model, String key) {
+    final known = _remembered[key];
+    if (known != null) return known;
+    try {
+      final raw = DevicePreferences.current?.getString('$_storePrefix$key');
+      if (raw != null) {
+        final stored = SetupMemory.fromJson(jsonDecode(raw));
+        if (stored != null) return _remembered[key] = stored;
+      }
+    } catch (_) {
+      /* unreadable: the seed or the ladder decides */
+    }
+    return _seed(model);
+  }
+
+  /// Forgets the refusals remembered so far (tests); [storage] false keeps
+  /// the device storage, as a new app process would find it.
   @visibleForTesting
-  static void forgetSetups() => _remembered.clear();
+  static void forgetSetups({bool storage = true}) {
+    if (storage) {
+      final prefs = DevicePreferences.current;
+      for (final key in prefs?.getKeys() ?? const <String>{}) {
+        if (key.startsWith(_storePrefix)) unawaited(prefs?.remove(key));
+      }
+    }
+    _remembered.clear();
+  }
 
   /// What is remembered of [model], or null.
   @visibleForTesting
@@ -135,7 +180,7 @@ class GeminiLiveSession implements VoiceSession {
   @visibleForTesting
   void useModel(String model) {
     _used = model;
-    final known = _remembered[_memoryKey(model, fast, listenOnly)];
+    final known = _recall(model, _memoryKey(model, fast, listenOnly));
     _setup = known?.copy() ?? SetupMemory();
     if (fast) {
       if (_setup.relayStep > _relayStep) _relayStep = _setup.relayStep;
@@ -155,7 +200,18 @@ class GeminiLiveSession implements VoiceSession {
   void rememberSetup() {
     final model = _used;
     if (model == null) return;
-    _remembered[_memoryKey(model, fast, listenOnly)] = _setup.copy();
+    final key = _memoryKey(model, fast, listenOnly);
+    _remembered[key] = _setup.copy();
+    try {
+      unawaited(
+        DevicePreferences.current?.setString(
+          '$_storePrefix$key',
+          jsonEncode(_setup.toJson()),
+        ),
+      );
+    } catch (_) {
+      /* optional local storage */
+    }
   }
 
   static const _host = 'generativelanguage.googleapis.com';
@@ -318,6 +374,18 @@ class GeminiLiveSession implements VoiceSession {
     return (model: sortModels(available, fast: fast).first, missing: want);
   }
 
+  /// Opens the socket; tests replace it.
+  @visibleForTesting
+  static Future<WebSocket> Function(String url, Map<String, dynamic> headers)
+  socketOpener = _openSocket;
+
+  static Future<WebSocket> _openSocket(
+    String url,
+    Map<String, dynamic> headers,
+  ) =>
+      // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
+      WebSocket.connect(url, headers: headers);
+
   /// Lists the models of the key that support Live; tests replace it.
   @visibleForTesting
   static Future<List<String>> Function(String key) modelLister = _listModels;
@@ -434,7 +502,9 @@ class GeminiLiveSession implements VoiceSession {
     if (_socket != null) return;
     final hasNonBlocking = nonBlockingNames(tools).isNotEmpty;
     // The model first: what it refused before is not sent again.
+    final pickWatch = Stopwatch()..start();
     final picked = await _pickModel(apiKey, fast: fast, wanted: preferredModel);
+    final pickMs = pickWatch.elapsedMilliseconds;
     useModel(picked.model);
     final watch = Stopwatch()..start();
     var tries = 0;
@@ -444,6 +514,11 @@ class GeminiLiveSession implements VoiceSession {
       try {
         await _connect(affective: _setup.affective, nonBlocking: nb);
         rememberSetup();
+        connectTimeline = (
+          pickMs: pickMs,
+          setupMs: watch.elapsedMilliseconds,
+          tries: tries,
+        );
         _log(
           voiceTurnLine('live-setup', {
             'model': _bare(picked.model),
@@ -461,6 +536,9 @@ class GeminiLiveSession implements VoiceSession {
       } catch (e) {
         // ignore: raft_lints/avoid_caught_exception_text -- Matched against the feature names to pick which to drop; clipped into the debug log, never shown.
         final refusal = '$e';
+        // A network failure or an abnormal drop says nothing about the
+        // setup: dropping a feature for it would be remembered for good.
+        if (e is! GeminiLiveException || e.code == 1006) rethrow;
         final dropped = dropRefused(refusal, nonBlocking: nb);
         if (dropped == null) rethrow;
         _log(
@@ -473,6 +551,10 @@ class GeminiLiveSession implements VoiceSession {
       }
     }
   }
+
+  /// How the last [connect] went: the model pick, the setup (all its tries)
+  /// and the number of tries. Null before the first success.
+  ({int pickMs, int setupMs, int tries})? connectTimeline;
 
   /// The model refused its setup with [refusal]: drops the feature it names,
   /// else the next in line, and says which ('thinking' when only the thinking
@@ -533,15 +615,16 @@ class GeminiLiveSession implements VoiceSession {
     modelNote = picked.missing == null
         ? null
         : '这个 Key 没有 ${picked.missing}，改用 $model';
-    // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
-    final socket = await WebSocket.connect(
+    final socket = await socketOpener(
       Uri(
         scheme: 'wss',
         host: _host,
         path: _path(affective ? 'v1alpha' : 'v1beta'),
       ).toString(),
-      headers: {'x-goog-api-key': apiKey},
+      {'x-goog-api-key': apiKey},
     ).timeout(const Duration(seconds: 15));
+    _sentEvents = _sentBytes = 0;
+    final open = Stopwatch()..start();
     final ready = Completer<void>();
     socket.listen(
       (raw) {
@@ -568,9 +651,21 @@ class GeminiLiveSession implements VoiceSession {
           'sent=${_sentEvents}ev/${_sentBytes}B',
         );
         if (!ready.isCompleted) {
-          ready.completeError(GeminiLiveException(reason));
+          ready.completeError(
+            GeminiLiveException(reason, code: socket.closeCode),
+          );
         }
-        if (remote && established) onClosed?.call(reason);
+        if (remote && established) {
+          _log(
+            voiceTurnLine('closed', {
+              'code': socket.closeCode,
+              'reason': socket.closeReason,
+              'after': '${open.elapsedMilliseconds}ms',
+              'sentBytes': _sentBytes,
+            }),
+          );
+          _closedUnexpectedly(reason, socket.closeCode, open.elapsed);
+        }
       },
       onError: (Object e) {
         if (!ready.isCompleted) ready.completeError(e);
@@ -582,7 +677,7 @@ class GeminiLiveSession implements VoiceSession {
     try {
       await ready.future.timeout(const Duration(seconds: 15));
     } catch (_) {
-      await close();
+      await _dropSocket();
       rethrow;
     }
   }
@@ -753,7 +848,50 @@ class GeminiLiveSession implements VoiceSession {
     final old = _socket;
     _socket = null;
     await old?.close();
-    await connect();
+    try {
+      await connect();
+    } catch (e) {
+      // ignore: raft_lints/avoid_caught_exception_text -- Handed to the owner as the close reason, shown in the dock note.
+      onClosed?.call('$e');
+    }
+  }
+
+  /// A session that lasted this long was healthy: a later drop may be
+  /// resumed once again.
+  static const _healthyFor = Duration(seconds: 60);
+
+  /// Whether the one automatic resumption of this session is spent.
+  bool _resumed = false;
+
+  /// Bumped by [close]: a resumption that finishes after it is dropped.
+  int _generation = 0;
+
+  /// The server ended the session [after] [lived] with [code]. A normal close
+  /// is the end; anything else is resumed once (with the resumption handle),
+  /// without asking the person. If that fails, or the session drops again
+  /// shortly after, the owner is told ([onClosed]). Never loops.
+  void _closedUnexpectedly(String reason, int? code, Duration lived) {
+    if (lived >= _healthyFor) _resumed = false;
+    if (code == 1000 || _resumed) {
+      onClosed?.call(reason);
+      return;
+    }
+    _resumed = true;
+    final generation = _generation;
+    _log(
+      voiceTurnLine('reconnect', {
+        'why': 'closed code=$code',
+        'resume': _resumeHandle != null,
+      }),
+    );
+    unawaited(() async {
+      try {
+        await connect();
+        if (generation != _generation) await close();
+      } catch (_) {
+        if (generation == _generation) onClosed?.call(reason);
+      }
+    }());
   }
 
   // What went over the socket, for the log line at its close.
@@ -821,7 +959,12 @@ class GeminiLiveSession implements VoiceSession {
   });
 
   @override
-  Future<void> close() async {
+  Future<void> close() {
+    _generation++;
+    return _dropSocket();
+  }
+
+  Future<void> _dropSocket() async {
     final socket = _socket;
     _socket = null;
     await socket?.close();
@@ -855,6 +998,36 @@ class SetupMemory {
   bool levelKnown = false;
   AgentReasoning? levelCeiling;
 
+  Map<String, Object?> toJson() => {
+    'affective': affective,
+    'nonBlocking': nonBlocking,
+    'textOnly': textOnly,
+    'languageCode': languageCode,
+    'relayStep': relayStep,
+    'levelKnown': levelKnown,
+    'levelCeiling': levelCeiling?.name,
+  };
+
+  /// What [toJson] wrote, or null when [json] is not that.
+  static SetupMemory? fromJson(Object? json) {
+    if (json is! Map) return null;
+    bool flag(String key) => json[key] is bool ? json[key] as bool : true;
+    final step = json['relayStep'];
+    final ceiling = json['levelCeiling'];
+    return SetupMemory()
+      ..affective = flag('affective')
+      ..nonBlocking = flag('nonBlocking')
+      ..textOnly = flag('textOnly')
+      ..languageCode = flag('languageCode')
+      ..relayStep = step is int
+          ? step.clamp(0, GeminiLiveSession.relayThinking.length - 1)
+          : 0
+      ..levelKnown = json['levelKnown'] == true
+      ..levelCeiling = AgentReasoning.values
+          .where((r) => r.name == ceiling)
+          .firstOrNull;
+  }
+
   SetupMemory copy() => SetupMemory()
     ..affective = affective
     ..nonBlocking = nonBlocking
@@ -866,8 +1039,11 @@ class SetupMemory {
 }
 
 class GeminiLiveException implements Exception {
-  const GeminiLiveException(this.message);
+  const GeminiLiveException(this.message, {this.code});
   final String message;
+
+  /// The WebSocket close code that ended the attempt, when there was one.
+  final int? code;
   @override
   String toString() => message;
 }

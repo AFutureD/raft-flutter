@@ -36,3 +36,14 @@ String voiceTurnLine(String event, Map<String, Object?> fields) {
   });
   return b.toString();
 }
+
+/// The connection timeline of one call, from the tap to the microphone audio
+/// being sent: the model pick, the setup (all its tries), and the whole wait.
+String connectTimelineLine({
+  required int pickMs,
+  required int setupMs,
+  required int tries,
+  required int firstAudioReadyMs,
+}) =>
+    'voice-turn connect-timeline pick=${pickMs}ms setup=${setupMs}ms '
+    'tries=$tries firstAudioReady=${firstAudioReadyMs}ms';

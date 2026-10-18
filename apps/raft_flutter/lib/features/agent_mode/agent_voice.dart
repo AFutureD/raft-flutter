@@ -267,6 +267,31 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   Timer? _callHold;
   StreamSubscription<Uint8List>? _mic;
   final _pending = <Uint8List>[];
+
+  /// The most microphone audio sent at once when the session is up: what was
+  /// captured while it connected (a PCM16 mono 16 kHz second is 32000 bytes).
+  /// A call that is open to listen gets only the last second, not the
+  /// seconds of silence or noise that piled up (about 500 KB in one burst
+  /// ended a session on a phone); a press-and-hold turn keeps all it said.
+  static const flushLimitBytes = 32000;
+
+  /// The last [limit] bytes of [chunks] (the first chunk is cut at a sample).
+  @visibleForTesting
+  static List<Uint8List> lastAudio(List<Uint8List> chunks, int limit) {
+    var total = 0;
+    var from = chunks.length;
+    while (from > 0 && total < limit) {
+      total += chunks[--from].lengthInBytes;
+    }
+    final kept = chunks.sublist(from);
+    final over = total - limit;
+    if (over > 0 && kept.isNotEmpty) {
+      final cut = over - over % 2;
+      kept[0] = Uint8List.sublistView(kept[0], cut);
+    }
+    return kept;
+  }
+
   bool _live = false;
   bool _holding = false;
   bool _disposed = false;
@@ -431,7 +456,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       },
       onClosed: (reason) {
         if (epoch != _epoch) return; // A call that was hung up.
-        _voiceLog(voiceTurnLine('closed', {'reason': reason}));
+        _voiceLog(voiceTurnLine('session-ended', {'reason': reason}));
         _endSession();
         _session = null;
         _stopMic();
@@ -567,6 +592,8 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   Future<void> _press() async {
     final epoch = _epoch;
+    final tapped = Stopwatch()..start();
+    final wasConnected = _session?.connected ?? false;
     _pressed = true;
     _releasedAsTap = null;
     if (!audio.supported) {
@@ -599,10 +626,26 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       _holding = false;
       return;
     }
-    for (final chunk in _pending) {
+    final backlog = _live
+        ? lastAudio(_pending, flushLimitBytes)
+        : List.of(_pending);
+    for (final chunk in backlog) {
       session.sendAudio(chunk);
     }
     _pending.clear();
+    final timeline = session is GeminiLiveSession
+        ? session.connectTimeline
+        : null;
+    if (!wasConnected && timeline != null) {
+      _voiceLog(
+        connectTimelineLine(
+          pickMs: timeline.pickMs,
+          setupMs: timeline.setupMs,
+          tries: timeline.tries,
+          firstAudioReadyMs: tapped.elapsedMilliseconds,
+        ),
+      );
+    }
     if (_holding) {
       _set(AgentMicState.holding);
     } else if (_live) {
