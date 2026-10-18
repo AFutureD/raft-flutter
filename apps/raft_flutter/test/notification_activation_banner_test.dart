@@ -41,9 +41,13 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ]) {
-    for (final mobile in [false, true]) {
+    for (final (mobile, chinese) in [
+      (false, false),
+      (true, false),
+      (true, true),
+    ]) {
       testWidgets(
-        'actual composer explicit opt-in survives restart $family/$dark/$mobile',
+        'actual composer explicit opt-in survives restart $family/$dark/$mobile/$chinese',
         (t) async {
           t.view.physicalSize = Size(mobile ? 390 : 1440, 1000);
           t.view.devicePixelRatio = 1;
@@ -61,7 +65,7 @@ void main() {
               family: family,
               dark: dark,
               mobile: mobile,
-              chinese: mobile,
+              chinese: chinese,
             ),
           );
           await turn(t);
@@ -71,13 +75,15 @@ void main() {
           expect(banner, findsOneWidget);
           expect(
             find.text(
-              mobile
+              chinese
                   ? '离开后，Agent 仍会继续工作。'
+                  : mobile
+                  ? 'Agents keep working after you leave.'
                   : 'Your agents keep working after you leave.',
             ),
             findsOneWidget,
           );
-          final enable = find.text(mobile ? '开启通知' : 'Enable notifications');
+          final enable = find.text(chinese ? '开启通知' : 'Enable notifications');
           await t.ensureVisible(enable);
           await t.tap(enable);
           await turn(t);

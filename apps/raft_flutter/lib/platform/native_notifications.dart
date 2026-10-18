@@ -341,7 +341,12 @@ class NativeNotificationService extends ChangeNotifier {
     if (!await _preferences.write(_permissionKey, true)) {
       throw StateError('Permission request marker could not be saved.');
     }
-    if (_scope != scope || epoch != _epoch) return false;
+    if (_scope != scope || epoch != _epoch) {
+      await _preferences.write(_permissionKey, false);
+      activationAsked = false;
+      notifyListeners();
+      return false;
+    }
     try {
       final granted = await _permission(request: true);
       activationAsked = true;
@@ -397,7 +402,6 @@ class NativeNotificationService extends ChangeNotifier {
         return;
       }
     }
-    _permissionRequest = null;
     if (!current()) return;
     if (systemManaged) {
       _updateEnabled();
