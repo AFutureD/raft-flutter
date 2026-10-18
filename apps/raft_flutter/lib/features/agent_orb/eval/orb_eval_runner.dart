@@ -20,6 +20,7 @@ import '../../agent_mode/app_speech.dart' show RecordingSpeech;
 import '../../agent_mode/voice_provider.dart';
 import '../nav/orb_nav_tools.dart' show orbNavigationTools;
 import '../orb_controller.dart';
+import '../orb_driving_surface.dart' show orbListPageSize;
 import '../orb_preference.dart';
 import '../orb_tool.dart';
 import 'orb_eval_result.dart';
@@ -609,6 +610,30 @@ class OrbEvalRunner {
             'reason': item.reason.name,
           },
       ],
+      surface: orb.surface.kind.name,
+      listTitle: orb.surface.list?.heading ?? '',
+      listTotal: orb.surface.list?.total ?? 0,
+      page: orb.surface.page,
+      rows: [
+        for (final row in orb.surface.pageRows)
+          {
+            'id': row.id,
+            'who': row.who,
+            'meta': row.meta,
+            'title': row.title,
+            'fact': row.fact,
+          },
+      ],
+      speakingRow: orb.surface.speaking == null
+          ? null
+          : orb.surface.speaking! - orb.surface.page * orbListPageSize,
+      detail: orb.surface.detailRow == null
+          ? null
+          : {
+              'who': orb.surface.detailRow!.who,
+              'title': orb.surface.detailRow!.title,
+            },
+      arrival: orb.drivingArrival,
     );
     return error;
   }

@@ -3,8 +3,9 @@ import 'orb_eval_scenario.dart';
 import 'orb_eval_world.dart' show OrbEvalWrite;
 
 /// The scenarios of scenarios-v1: A (a channel), B (the Activity), C
-/// (discussions, private conversations, tasks), D (driving: messages) and E
-/// (driving: idle tasks). Fictional data only.
+/// (discussions, private conversations, tasks), D (driving: messages), E
+/// (driving: idle tasks), F (the screen) and G (driving: what the screen
+/// shows). Fictional data only.
 ///
 /// ✍️ scenarios (A3, C2, C4, D3, D8, E4) run the action tools: the model
 /// asks, a card is up, nothing is written until the person says 确认, and
@@ -471,6 +472,44 @@ OrbEvalData _urgentThree({String? codyAsk}) {
     ago: 30,
     mention: true,
   );
+  return d;
+}
+
+/// Seven things in the Activity, so that a list has a second page: Cody's @,
+/// Alice's question, Grok's @ (the same three as [_urgentThree]), then three
+/// private conversations (八戒, CodexMac, Grok) and a progress discussion.
+OrbEvalData _unreadSeven() {
+  final d = _urgentThree();
+  d.dm(evalBajie);
+  d.dm(evalCodexMac);
+  d.dm(evalGrok);
+  final bajie = d.say('dm:bajie', evalBajie, 'CI 红了，你看一下？', ago: 40);
+  d.inboxDm(
+    'dm:bajie',
+    peer: evalBajie,
+    preview: 'CI 红了，你看一下？',
+    message: bajie,
+    unread: 2,
+    ago: 40,
+  );
+  final mac = d.say('dm:codexmac', evalCodexMac, '设计稿更新了，你看一下？', ago: 50);
+  d.inboxDm(
+    'dm:codexmac',
+    peer: evalCodexMac,
+    preview: '设计稿更新了，你看一下？',
+    message: mac,
+    ago: 50,
+  );
+  final grok = d.say('dm:grok', evalGrok, '#136 评审通过了。', ago: 60);
+  d.inboxDm(
+    'dm:grok',
+    peer: evalGrok,
+    preview: '#136 评审通过了。',
+    message: grok,
+    unread: 5,
+    ago: 60,
+  );
+  _progressThread(d, ago: 70);
   return d;
 }
 
@@ -1280,6 +1319,115 @@ final List<OrbEvalScenario> orbEvalScenarios = [
         }
         return '操作之后的屏幕上，“未读”没有被选中';
       }),
+      ..._std(),
+    ],
+  ),
+
+  // ---- G. driving: what the screen shows -----------------------------------
+  // The screen is checked, not only the words: the list has the rows the app
+  // laid out, the opened row is the one named, the way back is the same page.
+  OrbEvalScenario(
+    id: 'G1',
+    title: '把未读的列一下',
+    start: OrbEvalStart.home,
+    data: _unreadSeven,
+    setup: const ['开始驾驶模式'],
+    say: const ['把未读的列一下'],
+    checks: [
+      OrbEvalCheck.tool('show_list', args: {'kind': 'unread'}),
+      OrbEvalCheck.screen(
+        '屏幕是未读列表：共 7 条，这一页 4 张卡',
+        (s, _) => s.surface == 'list' && s.listTotal == 7 && s.rows.length == 4,
+      ),
+      OrbEvalCheck.screen(
+        '第 1 张卡是最急的（Cody 的 @），并且是正在说的那一张',
+        (s, _) =>
+            s.rows.isNotEmpty &&
+            s.rows.first['who'] == 'Cody' &&
+            s.speakingRow == 0,
+      ),
+      OrbEvalCheck.screen(
+        '卡片上是 Cody、Alice、Grok、八戒，没有任务',
+        (s, _) =>
+            s.rows.map((r) => r['who']).join(',') == 'Cody,Alice,Grok,八戒' &&
+            s.rows.every((r) => !r['id']!.startsWith('task:')),
+      ),
+      OrbEvalCheck.says([
+        ['7'],
+        ['Cody'],
+      ], label: '说了总数和最急的 Cody'),
+      OrbEvalCheck.avoids(RegExp('八戒'), '念到第 4 条（只说总数和前一两条）'),
+      OrbEvalCheck.shortReply(3),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'G2',
+    title: '第 2 个',
+    start: OrbEvalStart.home,
+    data: _unreadSeven,
+    setup: const ['开始驾驶模式', '把未读的列一下'],
+    say: const ['第 2 个'],
+    checks: [
+      OrbEvalCheck.tool('open_item', args: {'n': 2}),
+      OrbEvalCheck.screen(
+        '屏幕是列表里第 2 条的详情：Alice',
+        (s, _) => s.surface == 'detail' && s.detail?['who'] == 'Alice',
+      ),
+      OrbEvalCheck.says([
+        ['Alice'],
+        ['周五', '评审'],
+      ]),
+      OrbEvalCheck.shortReply(3),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'G3',
+    title: '下一批',
+    start: OrbEvalStart.home,
+    data: _unreadSeven,
+    setup: const ['开始驾驶模式', '把未读的列一下'],
+    say: const ['下一批'],
+    checks: [
+      OrbEvalCheck.tool('driving_next'),
+      OrbEvalCheck.screen(
+        '还是这个列表，第 2 页：剩下的 3 张卡，第 1 张是 CodexMac',
+        (s, _) =>
+            s.surface == 'list' &&
+            s.listTotal == 7 &&
+            s.page == 1 &&
+            s.rows.length == 3 &&
+            s.rows.first['who'] == 'CodexMac',
+      ),
+      OrbEvalCheck.says([
+        ['3'],
+        ['CodexMac'],
+      ], label: '说了还有 3 条和第一条'),
+      OrbEvalCheck.shortReply(3),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'G4',
+    title: '返回',
+    start: OrbEvalStart.home,
+    data: _unreadSeven,
+    setup: const ['开始驾驶模式', '把未读的列一下', '第 2 个'],
+    say: const ['返回'],
+    checks: [
+      OrbEvalCheck.tool('driving_back'),
+      OrbEvalCheck.screen(
+        '回到刚才那个列表、同一页：4 张卡，刚看的第 2 张抬起',
+        (s, _) =>
+            s.surface == 'list' &&
+            s.page == 0 &&
+            s.rows.length == 4 &&
+            s.speakingRow == 1 &&
+            s.rows[1]['who'] == 'Alice',
+      ),
+      OrbEvalCheck.screen('驾驶模式还开着', (s, _) => s.driving),
+      OrbEvalCheck.shortReply(1),
       ..._std(),
     ],
   ),

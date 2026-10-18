@@ -47,6 +47,14 @@ class OrbEvalSnapshot {
     required this.driving,
     required this.drivingIndex,
     required this.cards,
+    this.surface = 'deck',
+    this.listTitle = '',
+    this.listTotal = 0,
+    this.page = 0,
+    this.rows = const [],
+    this.speakingRow,
+    this.detail,
+    this.arrival,
   });
 
   /// The app's route (`/s/fixture/activity`).
@@ -61,12 +69,43 @@ class OrbEvalSnapshot {
   /// title. Empty when no briefing is shown.
   final List<Map<String, String>> cards;
 
+  /// What the driving layer shows: `deck`, `list` or `detail`.
+  final String surface;
+
+  /// The list behind it ("未读 7"; empty on the deck), how many rows it has
+  /// and the page on the screen (from 0).
+  final String listTitle;
+  final int listTotal, page;
+
+  /// The cards of the page on the screen, in order: id, who, where, title,
+  /// fact. What a person sees, not what the model said.
+  final List<Map<String, String>> rows;
+
+  /// The index in [rows] of the card that is lifted (the row being spoken).
+  final int? speakingRow;
+
+  /// The row opened large (who, title); null when none is.
+  final Map<String, String>? detail;
+
+  /// The plain line about a new arrival ("新的：Alice @你").
+  final String? arrival;
+
   Map<String, Object?> toJson() => {
     'location': location,
     'layerOpen': layerOpen,
     'driving': driving,
     'drivingIndex': drivingIndex,
     'cards': cards,
+    if (surface != 'deck') ...{
+      'surface': surface,
+      'listTitle': listTitle,
+      'listTotal': listTotal,
+      'page': page,
+      'rows': rows,
+      if (speakingRow != null) 'speakingRow': speakingRow,
+      if (detail != null) 'detail': detail,
+    },
+    if (arrival != null) 'arrival': arrival,
   };
 }
 

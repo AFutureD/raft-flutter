@@ -264,10 +264,19 @@ void main() {
     final ids = orbEvalScenarios.map((s) => s.id).toList();
     expect(ids.toSet(), hasLength(ids.length));
     expect(ids, [
-      for (final g in 'ABCDEF'.split(''))
+      for (final g in 'ABCDEFG'.split(''))
         for (
           var n = 1;
-          n <= const {'A': 7, 'B': 9, 'C': 5, 'D': 9, 'E': 5, 'F': 2}[g]!;
+          n <=
+              const {
+                'A': 7,
+                'B': 9,
+                'C': 5,
+                'D': 9,
+                'E': 5,
+                'F': 2,
+                'G': 4,
+              }[g]!;
           n++
         )
           '$g$n',
@@ -304,6 +313,6 @@ void main() {
       'C4',
       'C5',
     ]);
-    expect(orbEvalSelect(const []), hasLength(37));
+    expect(orbEvalSelect(const []), hasLength(41));
   });
 }

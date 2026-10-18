@@ -247,6 +247,46 @@ final Map<String, Map<String, Say>> golden = {
     },
     '确认': (s) => relays(s, '已催八戒。'),
   },
+  'G1': {
+    '开始驾驶模式': drive,
+    '把未读的列一下': (s) async {
+      final r = await s.onToolCall('show_list', {'kind': 'unread'});
+      s.say(r['screenSay']! as String);
+    },
+  },
+  'G2': {
+    '开始驾驶模式': drive,
+    '把未读的列一下': (s) => s.turn(const [
+      ('show_list', {'kind': 'unread'}),
+    ], '7 条未读。最急的是 Cody，还有 Alice。'),
+    '第 2 个': (s) async {
+      final r = await s.onToolCall('open_item', {'n': 2});
+      s.say(r['screenSay']! as String);
+    },
+  },
+  'G3': {
+    '开始驾驶模式': drive,
+    '把未读的列一下': (s) => s.turn(const [
+      ('show_list', {'kind': 'unread'}),
+    ], '7 条未读。最急的是 Cody，还有 Alice。'),
+    '下一批': (s) async {
+      final r = await s.onToolCall('driving_next', const {});
+      s.say(r['screenSay']! as String);
+    },
+  },
+  'G4': {
+    '开始驾驶模式': drive,
+    '把未读的列一下': (s) => s.turn(const [
+      ('show_list', {'kind': 'unread'}),
+    ], '7 条未读。最急的是 Cody，还有 Alice。'),
+    '第 2 个': (s) => s.turn(const [
+      ('open_item', {'n': 2}),
+    ], 'Alice 问你周五能来评审吗。要回复吗？'),
+    '返回': (s) async {
+      await s.onToolCall('driving_back', const {});
+      s.say('好。');
+    },
+  },
 };
 
 void main() {
