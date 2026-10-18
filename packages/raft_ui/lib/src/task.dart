@@ -79,7 +79,9 @@ class RaftTaskStatus extends StatelessWidget {
               ? 'foreground-strong'
               : '$semantic-strong']!;
     return Container(
-      height: recipe.height,
+      // The recipe height is a minimum: a taller line box (Android Chinese
+      // control profile, larger text) grows the pill instead of being clipped.
+      constraints: BoxConstraints(minHeight: recipe.height),
       padding: recipe.inset,
       decoration: BoxDecoration(
         color: bg,
@@ -519,8 +521,7 @@ class RaftSliverTaskSection extends StatelessWidget {
                   findChildIndexCallback: findChildIndexCallback,
                 ),
               ),
-            if (!collapsed && footer != null)
-              SliverToBoxAdapter(child: footer),
+            if (!collapsed && footer != null) SliverToBoxAdapter(child: footer),
           ],
         ),
       ),
@@ -880,7 +881,6 @@ class _LaneEmptyPainter extends CustomPainter {
       old.width != width ||
       old.radius != radius;
 }
-
 
 /// TasksPanel lane paging button: `<Button size="sm" variant="outline"
 /// className="box-border h-8 min-h-8 w-full gap-1 py-0 text-xs">`, labelled

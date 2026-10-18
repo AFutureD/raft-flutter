@@ -452,6 +452,9 @@ class RaftAvatar extends StatelessWidget {
         ),
         _ => Text(
           name.isEmpty ? '?' : name.characters.first.toUpperCase(),
+          // Initials fill a fixed-size avatar: they grow with the text size
+          // only up to the chrome bound.
+          textScaler: RaftChrome.boundedScalerOf(context),
           style: RaftTypography.body(
             t,
             size: size * .4,
@@ -1376,8 +1379,12 @@ class RaftNavItem extends StatelessWidget {
                     Text(savedLabel, style: recipe.savedCount)
                   else if (role == RaftNavItemRole.activity && unread > 0)
                     Container(
-                      height: 16,
-                      constraints: const BoxConstraints(minWidth: 16),
+                      // 16px is a minimum: larger text grows the counter
+                      // instead of clipping its digits.
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
                       padding: EdgeInsets.symmetric(
                         horizontal: t.brutal ? 6 : 4,
                       ),
@@ -3442,7 +3449,9 @@ class RaftActorTypeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = _resolved(context);
     return Container(
-      height: style.height,
+      // The recipe height is a minimum: a taller line box (Android Chinese
+      // control profile, larger text) grows the badge instead of clipping.
+      constraints: BoxConstraints(minHeight: style.height ?? 0),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: style.decoration,
       alignment: Alignment.center,
@@ -3469,7 +3478,9 @@ class RaftArchivedBadge extends StatelessWidget {
       tokens: resolver,
     ).root;
     return Container(
-      height: s.height,
+      // The recipe height is a minimum: a taller line box (Android Chinese
+      // control profile, larger text) grows the badge instead of clipping.
+      constraints: BoxConstraints(minHeight: s.height ?? 0),
       padding: s.padding,
       decoration: s.decoration(resolver),
       alignment: Alignment.center,

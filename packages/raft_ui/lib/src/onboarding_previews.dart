@@ -6,6 +6,7 @@ import 'agent_profile.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'text_scaling.dart' show RaftChrome;
 import 'theme.dart';
 import 'tokens/shadows.g.dart';
 
@@ -627,6 +628,7 @@ class RaftIdentityImpactPreview extends StatelessWidget {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 1),
+                      // ignore: raft_lints/avoid_fixed_height_text -- a fixed 28px avatar: the initial is bounded by RaftChrome and always fits
                       child: Container(
                         width: 28,
                         height: 28,
@@ -636,6 +638,7 @@ class RaftIdentityImpactPreview extends StatelessWidget {
                         ),
                         child: Text(
                           'M',
+                          textScaler: RaftChrome.boundedScalerOf(context),
                           style: _text(
                             t,
                             11,

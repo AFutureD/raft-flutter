@@ -21,6 +21,7 @@ import 'recipes/badge.g.dart';
 import 'recipes/context_menu.g.dart';
 import 'recipes/popover.g.dart';
 import 'recipes/recipe_runtime.dart';
+import 'text_scaling.dart' show RaftChrome;
 import 'theme.dart';
 import 'sized_image.dart';
 import 'tooltip.dart' show RaftTooltip;
@@ -677,8 +678,8 @@ class _ServerDragHandle extends StatelessWidget {
     label: label,
     child: Focus(
       child: Listener(
-        onPointerDown: (e) =>
-            SliverReorderableList.of(context).startItemDragReorder(
+        onPointerDown: (e) => SliverReorderableList.of(context)
+            .startItemDragReorder(
               index: index,
               event: e,
               recognizer: e.kind == PointerDeviceKind.touch
@@ -754,6 +755,9 @@ class _ServerAvatar extends StatelessWidget {
     final initial = Center(
       child: Text(
         name.trim().isEmpty ? 'S' : name.trim().characters.first.toUpperCase(),
+        // Initials fill a fixed-size avatar: they grow with the text size only
+        // up to the chrome bound.
+        textScaler: RaftChrome.boundedScalerOf(context),
         style: RaftTypography.body(
           t,
           size: initialSize,

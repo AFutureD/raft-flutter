@@ -661,17 +661,22 @@ class _FileRowState extends State<SourceChannelFileRow> {
               left: 0,
               bottom: 0,
               child: Container(
-                width: 28,
-                height: 14,
+                // 28x14 is a minimum: a taller line box (Android Chinese
+                // control profile, larger text) grows the tag instead of
+                // clipping the extension.
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 14),
                 decoration: BoxDecoration(
                   color: badge,
                   border: attachment.badgeBorder,
                   borderRadius: attachment.badgeRadius,
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  extension.toUpperCase(),
-                  style: attachment.badgeLabel(extension),
+                child: Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Text(
+                    extension.toUpperCase(),
+                    style: attachment.badgeLabel(extension),
+                  ),
                 ),
               ),
             ),

@@ -15,6 +15,7 @@ import 'localization.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'recipes/button_variants.g.dart';
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 
 /// `ExternalSetupTab`.
@@ -425,7 +426,8 @@ class RaftExternalSetupSection extends StatelessWidget {
         // `<SectionEyebrow as="div" className="mb-2">`; RaftCssText snaps the
         // glyph baseline like Blink so the 16px line box lands on whole pixels.
         RaftCssPixelSnap(
-          child: SizedBox(
+          child: RaftScaled.lineBox(
+            context,
             height: 16,
             child: RaftCssText(
               tr('External setup').toUpperCase(),

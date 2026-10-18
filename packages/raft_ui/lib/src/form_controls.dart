@@ -377,7 +377,10 @@ class _RaftTextInputState extends State<RaftTextInput>
       decorationOverride: legacyDecoration == null
           ? null
           : (_) => legacyDecoration!,
-      child: field,
+      // An `<input>` centres its line in a box taller than the line (a fixed
+      // `h-8` with no vertical padding); a TextField only fills its own line
+      // and would sit at the top. With a loose height this is the field itself.
+      child: RaftCssOverflowY(child: field),
     );
     return Semantics(label: widget.semanticLabel, child: hoverRegion(box));
   }

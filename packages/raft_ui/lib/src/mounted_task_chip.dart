@@ -231,7 +231,9 @@ class _RaftMountedMessageTaskChipState
           minimumTargetSize: recipe.chipHeight,
           child: ExcludeSemantics(
             child: Container(
-              height: recipe.chipHeight,
+              // The chip height is a minimum: larger text grows the chip
+              // instead of clipping the `#8` / `@name` labels.
+              constraints: BoxConstraints(minHeight: recipe.chipHeight),
               padding: recipe.padding,
               decoration: BoxDecoration(
                 color: recipe.background,

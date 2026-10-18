@@ -37,6 +37,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
 import 'recipes/textarea_counter.g.dart';
 import 'system_inset.dart';
+import 'text_scaling.dart' show RaftChrome, RaftScaled;
 import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
 import 'sized_image.dart';
@@ -988,7 +989,13 @@ class _FeedbackAvatar extends StatelessWidget {
               height: double.infinity,
               alignment: Alignment.center,
               applyText: false,
-              child: Text(initial, style: style),
+              // Initials fill a fixed-size avatar: they grow with the text size
+              // only up to the chrome bound.
+              child: Text(
+                initial,
+                style: style,
+                textScaler: RaftChrome.boundedScalerOf(context),
+              ),
             ),
           ),
         ),
@@ -1551,7 +1558,8 @@ class _CloseMenuItem extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // The CSS line box (16.8px), not the ceiled paragraph.
-                        SizedBox(
+                        RaftScaled.lineBox(
+                          context,
                           height: 16.8,
                           child: Text(
                             label,
@@ -1561,7 +1569,8 @@ class _CloseMenuItem extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        SizedBox(
+                        RaftScaled.lineBox(
+                          context,
                           height: 16.8,
                           child: Text(description, style: caption),
                         ),

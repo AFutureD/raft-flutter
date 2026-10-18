@@ -1065,7 +1065,9 @@ class RaftSettingsRecipeBadge extends StatelessWidget {
         );
     final value = raftText(context, label);
     return Container(
-      height: s.height,
+      // The recipe height is a minimum: a taller line box (Android Chinese
+      // control profile, larger text) grows the capsule instead of clipping.
+      constraints: BoxConstraints(minHeight: s.height ?? 0),
       padding: s.padding,
       decoration: s.decoration(tokens),
       child: Row(

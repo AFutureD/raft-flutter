@@ -175,8 +175,10 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
     }
   }
 
-  static Widget metaLine(TextStyle style, String text) => SizedBox(
-    height: style.fontSize! * style.height!,
+  // The CSS line box is a minimum: a taller line (larger text, the Android
+  // Chinese control line) grows the row instead of clipping the text.
+  static Widget metaLine(TextStyle style, String text) => ConstrainedBox(
+    constraints: BoxConstraints(minHeight: style.fontSize! * style.height!),
     child: Text(text, style: style),
   );
 
@@ -424,29 +426,31 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 24),
                     child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: RaftShowMoreToggle(
-                      label: expanded
-                          ? raftText(context, 'Collapse')
-                          : raftFormat(
-                              context,
-                              items.length == 1
-                                  ? 'View all {count} message'
-                                  : 'View all {count} messages',
-                              {'count': items.length},
-                            ),
-                      onPressed: () => setState(() {
-                        touched = true;
-                        expanded = !expanded;
-                      }),
-                      style: recipe.showMore,
-                      underline: recipe.showMoreUnderlined,
-                      visualHeight: 20,
-                      icon: RaftIcon(
-                        expanded ? RaftGlyph.chevronUp : RaftGlyph.chevronRight,
-                        size: 12,
+                      alignment: Alignment.centerLeft,
+                      child: RaftShowMoreToggle(
+                        label: expanded
+                            ? raftText(context, 'Collapse')
+                            : raftFormat(
+                                context,
+                                items.length == 1
+                                    ? 'View all {count} message'
+                                    : 'View all {count} messages',
+                                {'count': items.length},
+                              ),
+                        onPressed: () => setState(() {
+                          touched = true;
+                          expanded = !expanded;
+                        }),
+                        style: recipe.showMore,
+                        underline: recipe.showMoreUnderlined,
+                        visualHeight: 20,
+                        icon: RaftIcon(
+                          expanded
+                              ? RaftGlyph.chevronUp
+                              : RaftGlyph.chevronRight,
+                          size: 12,
+                        ),
                       ),
-                    ),
                     ),
                   ),
                 ),

@@ -233,9 +233,9 @@ class RaftChrome extends StatelessWidget {
 
   /// The ambient text scaler bounded for chrome. For a single `Text` in chrome
   /// that is not worth a [RaftChrome] of its own: pass this as `textScaler`.
-  static TextScaler boundedScalerOf(BuildContext context) => contentScalerOf(
-    context,
-  ).clamp(maxScaleFactor: RaftTextScaling.chromeMaxScale);
+  static TextScaler boundedScalerOf(BuildContext context) =>
+      contentScalerOf(context)
+          .clamp(maxScaleFactor: RaftTextScaling.chromeMaxScale);
 
   /// Whether the chrome bound is reducing the text scale here.
   static bool engagedOf(BuildContext context) {
@@ -288,6 +288,20 @@ abstract final class RaftScaled {
   /// Whether text is currently larger than at the default size.
   static bool grows(BuildContext context) =>
       MediaQuery.textScalerOf(context).scale(14) > 14.0 + 1e-6;
+
+  /// A box that holds a line of text [height] tall: exactly [height] at the
+  /// default text size (the CSS line box, pixel parity with Web) and a minimum
+  /// above it, so the line grows instead of being clipped.
+  static Widget lineBox(
+    BuildContext context, {
+    required double height,
+    required Widget child,
+  }) => grows(context)
+      ? ConstrainedBox(
+          constraints: BoxConstraints(minHeight: height),
+          child: child,
+        )
+      : SizedBox(height: height, child: child);
 
   /// [px] (a size designed for text of [fontSize] at the default text size)
   /// grown by the scale of that font size; never below [px].

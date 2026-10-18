@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show Size;
 
+import 'package:flutter/material.dart' show Locale, TargetPlatform;
 import 'package:flutter/widgets.dart' show Scrollable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -77,8 +78,9 @@ Size _frame(Size size, AuditMode mode) =>
     : size;
 
 /// Stable identity of a failure: what broke, on which text.
-Set<String> signatures(AuditReport r) => {
-  for (final f in r.failures) '${f.kind}: ${f.text}',
+Set<String> signatures(AuditReport r, {Set<String> ignore = const {}}) => {
+  for (final f in r.failures)
+    if (!ignore.contains(f.kind)) '${f.kind}: ${f.text}',
 };
 
 /// Registers one test per surface for [fonts].
@@ -88,13 +90,31 @@ void defineSurfaceAudits(
   AuditFonts fonts, {
   required List<AuditMode> modes,
   RaftFamily family = RaftFamily.brutal,
+
+  /// A profile beyond the default Web one (e.g. `android-zh`): keys the
+  /// baseline entries, picks the theme and turns the label-centring check on.
+  String profile = '',
+  bool dark = false,
+  bool androidChinese = false,
+  bool centring = false,
+
+  /// Audit every preview, not only the representative ones.
+  bool allSurfaces = false,
+
+  /// Finding kinds that are not fit defects of the surface. The previews that
+  /// are not representative include ones the harness cannot lay out under its
+  /// probes (`error`: a render object without dry-baseline support).
+  Set<String> ignoreKinds = const {},
 }) {
   final update = Platform.environment['RAFT_TEXT_SCALE_UPDATE'] == '1';
-  final sweep = Platform.environment['RAFT_TEXT_SCALE_SWEEP'] == '1';
+  final sweep =
+      allSurfaces || Platform.environment['RAFT_TEXT_SCALE_SWEEP'] == '1';
   final out = Platform.environment['RAFT_TEXT_SCALE_OUT'];
   final baseline = _readBaseline();
   final actual = <String, List<String>>{};
-  final prefix = '${fonts.name}|${family.name}';
+  final prefix =
+      '${fonts.name}|${family.name}${dark ? '-dark' : ''}'
+      '${profile.isEmpty ? '' : '|$profile'}';
 
   tearDownAll(() {
     if (!update) return;
@@ -112,7 +132,12 @@ void defineSurfaceAudits(
     if (!s.representative && !sweep) continue;
     testWidgets('$prefix ${s.fn}', (t) async {
       await loadAuditFonts(t, fonts);
-      final theme = raftTheme(family);
+      final theme = raftTheme(
+        family,
+        dark: dark,
+        locale: androidChinese ? const Locale('zh', 'CN') : null,
+        platform: androidChinese ? TargetPlatform.android : null,
+      );
       final truncation = <String, bool>{};
       final problems = <String>[];
       for (final mode in modes) {
@@ -124,19 +149,20 @@ void defineSurfaceAudits(
           mode: mode,
           size: _frame(s.size, mode),
           truncationBaseline: truncation,
+          centring: centring,
           screenshotDir: out == null
               ? null
               : '$out/${prefix.replaceAll('|', '-')}',
         );
         final key = '$prefix|${s.fn}|${mode.name}';
-        final got = signatures(report).toList()..sort();
+        final got = signatures(report, ignore: ignoreKinds).toList()..sort();
         if (update) {
           actual[key] = got;
         } else {
           final known = (baseline[key] ?? const []).toSet();
           if (mode.name == '1.0x' && got.isNotEmpty) {
             problems.add(
-              '${mode.name}: not clean at 1.0x: ${report.failures.join('; ')}',
+              '${mode.name}: not clean at 1.0x: ${report.failures.where((f) => !ignoreKinds.contains(f.kind)).join('; ')}',
             );
           }
           final added = got.toSet().difference(known);
@@ -163,13 +189,14 @@ void defineSurfaceAudits(
             mode: mode,
             size: _frame(s.size, mode),
             truncationBaseline: truncation,
+            centring: centring,
             screenshotDir: out == null
                 ? null
                 : '$out/${prefix.replaceAll('|', '-')}',
             after: _actions[s.fn],
           );
           final akey = '$prefix|${s.fn}-open|${mode.name}';
-          final agot = signatures(acted).toList()..sort();
+          final agot = signatures(acted, ignore: ignoreKinds).toList()..sort();
           if (update) {
             actual[akey] = agot;
           } else {
@@ -195,7 +222,9 @@ void expectSurfaceListComplete() {
     final listed = {for (final s in auditSurfaces) s.fn};
     final found = <String>{};
     for (final f in lib.listSync().whereType<File>().where(
-      (f) => f.path.endsWith('_previews.dart'),
+      (f) =>
+          f.path.endsWith('_previews.dart') ||
+          f.path.endsWith('/previews.dart'),
     )) {
       final src = f.readAsStringSync();
       for (final m in RegExp(

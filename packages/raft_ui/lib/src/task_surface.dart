@@ -285,9 +285,15 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
       key: const ValueKey('task-modal-bar'),
       // TaskModalBar px-4 py-2 with 16+20 line boxes and a 1/2px border.
       // LegacyTaskPanel uses the separate h-panel-header recipe.
-      height: widget.legacy
-          ? (t.brutal ? RaftMetrics.brutalPanelHeader : RaftMetrics.panelHeader)
-          : (t.brutal ? 54 : 53),
+      // The height is a minimum: larger text grows the bar, whose two-line
+      // title would otherwise spill out of it.
+      constraints: BoxConstraints(
+        minHeight: widget.legacy
+            ? (t.brutal
+                  ? RaftMetrics.brutalPanelHeader
+                  : RaftMetrics.panelHeader)
+            : (t.brutal ? 54 : 53),
+      ),
       padding: EdgeInsets.symmetric(horizontal: widget.legacy ? 20 : 16),
       decoration: BoxDecoration(
         border: Border(

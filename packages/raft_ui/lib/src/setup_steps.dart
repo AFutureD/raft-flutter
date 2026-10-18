@@ -21,6 +21,7 @@ import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
 import 'text_measure.dart';
+import 'text_scaling.dart' show RaftChrome, RaftScaled;
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -1180,6 +1181,7 @@ class _Instructions extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 1),
+                // ignore: raft_lints/avoid_fixed_height_text -- a fixed 16px step marker: the digit is bounded by RaftChrome and always fits
                 child: Container(
                   width: 16,
                   height: 16,
@@ -1194,6 +1196,9 @@ class _Instructions extends StatelessWidget {
                   ),
                   child: Text(
                     '${i + 1}',
+                    // The digit fills a fixed 16px box: it grows with the text
+                    // size only up to the chrome bound.
+                    textScaler: RaftChrome.boundedScalerOf(context),
                     style: _mono(t, 9, 13.5, color: t.muted),
                   ),
                 ),
@@ -1512,7 +1517,8 @@ class _OfflineRow extends StatelessWidget {
                   style: RaftTypography.heading(t, size: 12, line: 16),
                 ),
                 // CSS keeps the 16.5px line box; a paragraph would round up.
-                SizedBox(
+                RaftScaled.lineBox(
+                  context,
                   height: 16.5,
                   child: Text(
                     computer.lastSeen == null

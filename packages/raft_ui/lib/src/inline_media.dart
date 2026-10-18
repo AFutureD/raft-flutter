@@ -380,7 +380,8 @@ class RaftVideoPosterCard extends StatelessWidget {
     required double screenHeight,
     double maxHeightFraction = .6,
   }) {
-    final aspect = aspectRatio != null && aspectRatio.isFinite && aspectRatio > 0
+    final aspect =
+        aspectRatio != null && aspectRatio.isFinite && aspectRatio > 0
         ? aspectRatio
         : defaultAspect;
     final height = (width / aspect).roundToDouble();
@@ -1058,8 +1059,10 @@ class _AudioPlayer extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(
-                width: 76,
+              ConstrainedBox(
+                // 76px is a minimum: a larger text size widens the label
+                // instead of cutting it.
+                constraints: const BoxConstraints(minWidth: 76),
                 child: Text(
                   timeLabel,
                   key: const Key('audio-time'),

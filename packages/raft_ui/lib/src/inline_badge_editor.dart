@@ -160,9 +160,8 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
         : BorderRadius.circular(
             badge.borderRadius!.topLeft.x.clamp(0, 9999).toDouble(),
           );
-    final inherited = DefaultTextStyle.of(
-      context,
-    ).style.merge(badge.textStyle(rt));
+    final inherited = DefaultTextStyle.of(context).style
+        .merge(badge.textStyle(rt));
     final label = inherited.copyWith(
       // Badge sets no family: inherit the caller's mounted shell style.
       fontFamily: inherited.fontFamily,
@@ -181,7 +180,9 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
             : null,
         child: Container(
           // brutal Badge `h-5`; elegant has no fixed height (py-0.5 + 16px line).
-          height: badge.height,
+          // The height is a minimum: a taller line box (Android Chinese control
+          // profile, larger text) grows the capsule instead of being clipped.
+          constraints: BoxConstraints(minHeight: badge.height ?? 0),
           // px-2 py-0.5; with the brutal fixed h-5 the 16px line is centred
           // (items-center) and overflows into the padding, so only elegant keeps
           // the vertical inset in layout.

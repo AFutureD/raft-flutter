@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 
 import 'emoji_data.g.dart';
 import 'icons.dart';
+import 'text_scaling.dart' show RaftChrome;
 import 'theme.dart';
 
 /// One emoji of the picker data: [unified] code points (`1f44b-1f3fb`),
@@ -433,6 +434,7 @@ class _EmojiCellState extends State<_EmojiCell> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: Center(
+            // ignore: raft_lints/avoid_fixed_height_text -- a fixed 40px emoji cell: the glyph is bounded by RaftChrome and always fits
             child: Container(
               width: 40,
               height: 40,
@@ -443,6 +445,9 @@ class _EmojiCellState extends State<_EmojiCell> {
               ),
               child: Text(
                 shown,
+                // A glyph in a fixed 40px cell: it grows with the text size
+                // only up to the chrome bound.
+                textScaler: RaftChrome.boundedScalerOf(context),
                 style: const TextStyle(
                   fontSize: 25,
                   height: 1,

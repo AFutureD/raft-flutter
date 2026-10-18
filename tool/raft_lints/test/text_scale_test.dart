@@ -357,7 +357,9 @@ void g(BuildContext c) {
     );
   }
 
-  Future<void> test_legacy_files_are_exempt_from_the_fixed_height_rule() async {
+  Future<void> test_no_file_is_exempt_from_the_fixed_height_rule() async {
+    // Every surface that predated the rule was fixed; the list stays empty.
+    expect(legacyFixedHeightTextFiles, isEmpty);
     const code = r'''
 import 'package:flutter/widgets.dart';
 void g(BuildContext c) {
@@ -365,19 +367,16 @@ void g(BuildContext c) {
   MediaQuery.textScaleFactorOf(c);
 }
 ''';
-    final legacy = '$testPackageRootPath/${legacyFixedHeightTextFiles.first}';
-    expect(await run(code, path: legacy), ['avoid_text_scale_factor:4']);
-    expect(await run(code), [
-      'avoid_fixed_height_text:3',
-      'avoid_text_scale_factor:4',
-    ]);
+    expect(
+      await run(
+        code,
+        path: '$testPackageRootPath/packages/raft_ui/lib/src/action_card.dart',
+      ),
+      ['avoid_fixed_height_text:3', 'avoid_text_scale_factor:4'],
+    );
   }
 
   Future<void> test_legacy_path_matching() async {
-    expect(
-      isLegacyFixedHeightTextFile('/r/${legacyFixedHeightTextFiles.last}'),
-      isTrue,
-    );
     expect(
       isLegacyFixedHeightTextFile('/r/packages/raft_ui/lib/a.dart'),
       isFalse,

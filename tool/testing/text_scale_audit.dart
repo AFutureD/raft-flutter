@@ -16,6 +16,11 @@
 //   escapes    A paragraph's line box sticks out of a tight-height ancestor
 //              (fixed SizedBox/Container height) without being clipped, i.e.
 //              it paints over its neighbours.
+//   offCentre  (opt-in, `centring: true`) A single-line label that is the only
+//              text of a visible box (decorated, or fixed height) and whose
+//              line box is more than a pixel off the box's vertical centre, or
+//              sticks out of the box. This is the pill-label bug of PR 238: a
+//              box smaller than the real line box sits the text low.
 //   truncated  A paragraph that fits at scale 1.0 now exceeds maxLines
 //              (informational: an ellipsis is a legitimate answer to a larger
 //              font; clip overflow without an ellipsis is reported as
@@ -176,6 +181,11 @@ class AuditReport {
   final overflow = <AuditFinding>[];
   final inkClipped = <AuditFinding>[];
   final escapes = <AuditFinding>[];
+  final offCentre = <AuditFinding>[];
+
+  /// Labels the centring check measured (a component test asserts it is not
+  /// zero, so a detector that silently matches nothing cannot pass).
+  int centreChecked = 0;
   final truncated = <AuditFinding>[];
   final hardCut = <AuditFinding>[];
   final errors = <AuditFinding>[];
@@ -186,6 +196,7 @@ class AuditReport {
     ...overflow,
     ...inkClipped,
     ...escapes,
+    ...offCentre,
     ...hardCut,
     ...errors,
   ];
@@ -194,6 +205,7 @@ class AuditReport {
     if (overflow.isNotEmpty) 'overflow',
     if (inkClipped.isNotEmpty) 'inkClipped',
     if (escapes.isNotEmpty) 'escapes',
+    if (offCentre.isNotEmpty) 'offCentre',
     if (hardCut.isNotEmpty) 'hardCut',
     if (errors.isNotEmpty) 'error',
   };
@@ -206,6 +218,7 @@ class AuditReport {
       ('overflow', overflow),
       ('inkClipped', inkClipped),
       ('escapes', escapes),
+      ('offCentre', offCentre),
       ('hardCut', hardCut),
       ('truncated', truncated),
       ('errors', errors),
@@ -276,6 +289,9 @@ String _where(RenderObject r) {
       );
       final c = json['creationLocation'];
       if (c is Map) {
+        // Skip the framework's own widgets: the creator of a Container's
+        // DecoratedBox says nothing about whose Container it is.
+        if ('${c['file']}'.contains('/packages/flutter/lib/')) return null;
         final file = '${c['file']}'.split('/lib/').last;
         return '$file:${c['line']}';
       }
@@ -290,7 +306,7 @@ String _where(RenderObject r) {
     if (l != null && !locs.any((x) => x.endsWith(l))) {
       locs.add('${e.widget.runtimeType}=$l');
     }
-    return locs.length < 4;
+    return locs.length < 5;
   });
   return locs.join(' < ');
 }
@@ -308,6 +324,7 @@ Future<void> inspectPumped(
   Map<String, bool>? truncatedBase,
   required ValueNotifier<List<(Rect, Color)>> marks,
   double tolerance = 0.75,
+  bool centring = false,
 }) async {
   final root = t.binding.renderViews.first;
   final all = <_Collected>[];
@@ -489,14 +506,31 @@ Future<void> inspectPumped(
       }
     }
 
+    if (centring && box is RenderParagraph) {
+      final (checked, f) = _centringFinding(box, c.text, rect);
+      if (checked) report.centreChecked++;
+      if (f != null) {
+        report.offCentre.add(f);
+        newMarks.add((rect, const Color(0xFF0088FF)));
+      }
+    }
+
     // ---- escapes a tight-height ancestor ----------------------------------
     if (box is RenderParagraph) {
-      for (var a = box.parent; a != null; a = a.parent) {
+      RenderObject below = box;
+      for (var a = box.parent; a != null; below = a, a = a.parent) {
         if (_isScrollBoundary(a)) break;
+        // An absolutely positioned overlay (a corner counter, a `Positioned`
+        // badge) is placed outside its box on purpose.
+        final pd = below.parentData;
+        if (pd is StackParentData && pd.isPositioned) break;
         if (a is! RenderBox || !a.hasSize) continue;
         if (a.parent == null || a.parent is RenderView) break;
         final cs = a.constraints;
         if (!cs.hasTightHeight || a.size.height <= 0) continue;
+        // CSS `align-items: center` on a box shorter than its content: the
+        // content overflows the padding, centred, on purpose.
+        if (a.runtimeType.toString() == '_RenderCssOverflowY') break;
         final r = MatrixUtils.transformRect(
           box.getTransformTo(a),
           Offset.zero & box.size,
@@ -523,6 +557,124 @@ Future<void> inspectPumped(
     }
   }
   marks.value = [...marks.value, ...newMarks];
+}
+
+/// Number of visible, non-icon text paragraphs below [r] (including [r]).
+int _textCount(RenderObject r) {
+  final out = <_Collected>[];
+  _collect(r, out);
+  return out.length;
+}
+
+bool _paintsBox(RenderBox a) {
+  if (a is RenderDecoratedBox) {
+    final d = a.decoration;
+    if (d is BoxDecoration) {
+      // An underline / divider (a border on one or two sides) is not a box
+      // around its label.
+      final b = d.border;
+      final framed =
+          b is Border &&
+          b.top != BorderSide.none &&
+          b.bottom != BorderSide.none &&
+          b.left != BorderSide.none &&
+          b.right != BorderSide.none;
+      return d.color != null || framed || d.image != null;
+    }
+    return true;
+  }
+  return a is RenderPhysicalShape || a is RenderPhysicalModel;
+}
+
+/// Rects of the non-text content (icons, images, painted glyphs) below [r].
+void _collectGlyphs(RenderObject r, List<Rect> out) {
+  if (r is RenderOffstage && r.offstage) return;
+  if (r is RenderParagraph && _isIconFont(r.text) && r.hasSize) {
+    out.add(
+      MatrixUtils.transformRect(r.getTransformTo(null), Offset.zero & r.size),
+    );
+  } else if ((r is RenderImage || r is RenderCustomPaint) &&
+      r is RenderBox &&
+      r.hasSize &&
+      !r.size.isEmpty) {
+    out.add(
+      MatrixUtils.transformRect(r.getTransformTo(null), Offset.zero & r.size),
+    );
+  }
+  r.visitChildren((c) => _collectGlyphs(c, out));
+}
+
+/// The label-in-a-box check of [AuditReport.offCentre]: [box] is a single
+/// line, the only text of the nearest painted box, and that box is not much
+/// taller than the line (a control, pill or chip rather than a card). Returns
+/// whether the label was measured and the finding, if any.
+(bool, AuditFinding?) _centringFinding(
+  RenderParagraph box,
+  String text,
+  Rect rect,
+) {
+  final line = box.size.height;
+  // RaftCssText shifts the paint of its paragraph by the Blink baseline snap (up
+  // to a pixel, shared with Chromium); the box it lays out is what centres.
+  final wrapper = box.parent;
+  if (wrapper is RenderBox &&
+      wrapper.hasSize &&
+      wrapper.runtimeType.toString() == '_RenderCssLineBox') {
+    rect = MatrixUtils.transformRect(
+      wrapper.getTransformTo(null),
+      Offset.zero & wrapper.size,
+    );
+  }
+  // One line: wrapping at the laid-out width gives the same height as no wrap
+  // (a taller label is a paragraph, not a pill label).
+  if (box.getMaxIntrinsicHeight(double.infinity) < line - 0.5 ||
+      box.size.width < box.getMaxIntrinsicWidth(double.infinity) - 0.5) {
+    return (false, null);
+  }
+  for (RenderObject? a = box.parent; a != null; a = a.parent) {
+    if (_isScrollBoundary(a) || a is RenderView) return (false, null);
+    if (a is! RenderBox || !a.hasSize) continue;
+    if (!_paintsBox(a)) continue;
+    // A painted box that is a whole page area is not a label's box.
+    if (a.size.height > line * 3 + 8) return (false, null);
+    if (_textCount(a) != 1) return (false, null);
+    final r = MatrixUtils.transformRect(
+      a.getTransformTo(null),
+      Offset.zero & a.size,
+    );
+    // Horizontal containment: a text beside (not inside) the box is a caption.
+    if (rect.center.dx < r.left || rect.center.dx > r.right) {
+      return (false, null);
+    }
+    // An icon / image stacked above or below the label (tab bar item, card
+    // header) makes the label's place in the box deliberate.
+    final glyphs = <Rect>[];
+    _collectGlyphs(a, glyphs);
+    if (glyphs.any(
+      (g) => g.top >= rect.bottom - 1 || g.bottom <= rect.top + 1,
+    )) {
+      return (false, null);
+    }
+    final off = rect.center.dy - r.center.dy;
+    final out = math.max(r.top - rect.top, rect.bottom - r.bottom);
+    if (off.abs() > 1 || out > 0.75) {
+      return (
+        true,
+        AuditFinding(
+          'offCentre',
+          text,
+          'line box ${line.toStringAsFixed(1)}px in a '
+              '${r.height.toStringAsFixed(1)}px ${a.runtimeType}: centre '
+              '${off.abs().toStringAsFixed(1)}px ${off > 0 ? 'low' : 'high'}'
+              '${out > 0.75 ? ', sticks out ${out.toStringAsFixed(1)}px' : ''}',
+          rect: rect,
+          where: _where(box),
+        ),
+      );
+    }
+    return (true, null);
+  }
+  return (false, null);
 }
 
 Future<Rect?> _inkRect(
@@ -635,6 +787,7 @@ Future<AuditReport> auditSurface(
   required Map<String, bool> truncationBaseline,
   String? screenshotDir,
   TargetPlatform? platform,
+  bool centring = false,
   Duration settle = const Duration(milliseconds: 600),
 
   /// Interaction that opens the state under audit (runs after the first settle).
@@ -697,6 +850,7 @@ Future<AuditReport> auditSurface(
       report,
       truncatedBase: truncationBaseline,
       marks: marks,
+      centring: centring,
     );
     await t.pump();
   } catch (e) {
@@ -768,4 +922,5 @@ String summaryLine(AuditReport r) =>
     '${r.surface}\t${r.mode.name}\t${r.ok ? 'pass' : 'FAIL'}\t'
     'paragraphs=${r.paragraphs}\toverflow=${r.overflow.length}\t'
     'inkClipped=${r.inkClipped.length}\tescapes=${r.escapes.length}\t'
+    'offCentre=${r.offCentre.length}/${r.centreChecked}\t'
     'hardCut=${r.hardCut.length}\ttruncated=${r.truncated.length}';

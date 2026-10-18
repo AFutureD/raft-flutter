@@ -216,15 +216,19 @@ class RaftProfilePreviewCard extends StatelessWidget {
                                   right: 8,
                                   top: i == 0 ? 0 : 4,
                                 ),
-                                child: SizedBox(
-                                  height: 11 * 1.25,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 11 * 1.25,
+                                  ),
                                   child: Text(fact.label, style: factLabel),
                                 ),
                               ),
                               Padding(
                                 padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
-                                child: SizedBox(
-                                  height: 11 * 1.25,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 11 * 1.25,
+                                  ),
                                   child: line(
                                     fact.capitalize && fact.value.isNotEmpty
                                         ? fact.value[0].toUpperCase() +

@@ -12,7 +12,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'indicators.dart' show RaftSkeletonRow;
 import 'panel_layout.dart' show raftRecipeTheme, raftPanelInk, RaftCssText;
-import 'recipe_surface.dart' show raftCssText, RaftRecipeBox;
+import 'recipe_surface.dart' show raftCssText, RaftCssOverflowY, RaftRecipeBox;
 import 'recipes/badge.g.dart';
 import 'recipes/card.g.dart';
 import 'recipes/panel_header.g.dart';
@@ -110,23 +110,28 @@ class RaftRuntimeChip extends StatelessWidget {
       ),
     );
     return Container(
-      height: s.height,
+      // The recipe height is a minimum: a taller line box (Android Chinese
+      // control profile, larger text) grows the chip instead of clipping, and
+      // RaftCssOverflowY keeps a label that meets a tighter parent centred.
+      constraints: BoxConstraints(minHeight: s.height ?? 0),
       padding: s.padding,
       decoration: s.decoration(rt).copyWith(color: fill),
       child: Center(
         widthFactor: 1,
-        child: trailing == null
-            ? text
-            // Badge root `inline-flex items-center gap-1` (elegant gap-1.5):
-            // the health Status carries only its own `ml-1` (the caller).
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  text,
-                  SizedBox(width: s.columnGap ?? s.length('gap') ?? 4),
-                  trailing!,
-                ],
-              ),
+        child: RaftCssOverflowY(
+          child: trailing == null
+              ? text
+              // Badge root `inline-flex items-center gap-1` (elegant gap-1.5):
+              // the health Status carries only its own `ml-1` (the caller).
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    text,
+                    SizedBox(width: s.columnGap ?? s.length('gap') ?? 4),
+                    trailing!,
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -148,7 +153,8 @@ class RaftUnderlineTextButton extends StatelessWidget {
   Widget build(BuildContext context) => RaftInteractive(
     onPressed: onPressed,
     semanticLabel: label,
-    builder: (context, state) => RaftCssText(label, style: style, underline: true),
+    builder: (context, state) =>
+        RaftCssText(label, style: style, underline: true),
   );
 }
 

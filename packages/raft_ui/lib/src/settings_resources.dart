@@ -18,6 +18,7 @@ import 'recipe_surface.dart';
 import 'recipes/button_variants.g.dart' show RaftButtonRecipeSize;
 import 'recipes/card.g.dart';
 import 'settings_layout.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 
 /// MobileDownloadQr.tsx + the AboutSection mobile-app buttons.
@@ -315,7 +316,8 @@ class RaftMobileDownloadQr extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
+        RaftScaled.lineBox(
+          context,
           height: 11 * 1.25,
           child: Text(
             raftText(context, 'Or, Scan with your phone'),

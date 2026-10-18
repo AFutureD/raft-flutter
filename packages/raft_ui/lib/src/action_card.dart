@@ -10,6 +10,7 @@ import 'icons.dart';
 import 'message_row_recipe.dart' show RaftMessageBodyMargin;
 import 'rich_card_tokens.dart';
 import 'text_measure.dart';
+import 'text_scaling.dart' show RaftScaled;
 
 /// A safe presentation of server-owned action metadata. Execution and current
 /// permissions belong to the application adapter, never this component.
@@ -51,6 +52,7 @@ class RaftActionCard extends StatelessWidget {
   /// and, when done, the `ml-auto` Done badge (alone on its line when the
   /// items leave no room for it).
   Widget _titleLine(
+    BuildContext context,
     List<String> parts,
     Widget? badge,
     ActionSnapshotRecipe recipe,
@@ -59,7 +61,11 @@ class RaftActionCard extends StatelessWidget {
     Widget item(String part) =>
         // `leading-snug` (19.25px) is fractional; a Text would round the line
         // up to 20.
-        SizedBox(height: 19.25, child: Text(part, style: style));
+        RaftScaled.lineBox(
+          context,
+          height: 19.25,
+          child: Text(part, style: style),
+        );
     Wrap items() => Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -154,7 +160,7 @@ class RaftActionCard extends StatelessWidget {
                     ],
                   )
                 else
-                  _titleLine(titleParts!, done ? badge : null, recipe),
+                  _titleLine(context, titleParts!, done ? badge : null, recipe),
                 if (body.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -415,7 +421,8 @@ class RaftActionScopeList extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
+                    RaftScaled.lineBox(
+                      context,
                       height: 11 * 4 / 3,
                       child: Text(
                         s.scope,

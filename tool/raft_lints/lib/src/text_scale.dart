@@ -71,27 +71,13 @@ const _flutterTextWidgets = {
   'TextFormField',
 };
 
-/// legacy: remove entries as surfaces are fixed.
-///
 /// Files that already had a fixed-height box directly around text when
 /// `avoid_fixed_height_text` landed (CSS line-box parity heights such as 16.5
 /// or 11 * 1.25, and fixed-size badge / glyph chips). Repo-relative path
-/// suffixes; the rule does not run on these files. Fix the surface (minimum
-/// height, or a ratio line height) and delete the entry; do not add entries.
-const legacyFixedHeightTextFiles = <String>[
-  'apps/raft_flutter/lib/features/source_channel_files_view.dart',
-  'packages/raft_ui/lib/conversation_card_previews.dart',
-  'packages/raft_ui/lib/src/action_card.dart',
-  'packages/raft_ui/lib/src/components.dart',
-  'packages/raft_ui/lib/src/emoji_picker.dart',
-  'packages/raft_ui/lib/src/external_agent_setup.dart',
-  'packages/raft_ui/lib/src/feedback_workspace.dart',
-  'packages/raft_ui/lib/src/onboarding_previews.dart',
-  'packages/raft_ui/lib/src/profile_preview_card.dart',
-  'packages/raft_ui/lib/src/settings_administration.dart',
-  'packages/raft_ui/lib/src/settings_resources.dart',
-  'packages/raft_ui/lib/src/setup_steps.dart',
-];
+/// suffixes; the rule does not run on these files. The list is empty: every
+/// surface was fixed (minimum height, `RaftScaled.lineBox`, or a justified
+/// ignore); do not add entries.
+const legacyFixedHeightTextFiles = <String>[];
 
 /// Whether [path] is on the [legacyFixedHeightTextFiles] list.
 bool isLegacyFixedHeightTextFile(String path) {

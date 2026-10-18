@@ -3558,7 +3558,7 @@ class _ResourceViewState extends State<ResourceView> {
     // ThreadsInbox `inbox-toolbar`: `flex h-[54px] items-center
     // justify-between gap-3 px-4 border-b theme-brutal:border-b-2`.
     return Container(
-      height: RaftResourceMetrics.activityToolbarHeight,
+      constraints: RaftResourceMetrics.activityToolbarConstraints,
       padding: RaftResourceMetrics.activityToolbarInset,
       decoration: BoxDecoration(
         color: t.panel,

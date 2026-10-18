@@ -253,17 +253,20 @@ class RaftResourceBadge extends StatelessWidget {
       ),
     );
     return Container(
-      height: root.height,
+      // The recipe height is a minimum: a taller line box (Android Chinese
+      // control profile, larger text) grows the capsule instead of clipping.
+      constraints: BoxConstraints(minHeight: root.height ?? 0),
       padding: root.padding,
       // CSS rounded-full radii are reduced to half the box's height. Passing
       // the generated max-double radius into Skia instead overflows its
-      // radius arithmetic and paints a square badge.
+      // radius arithmetic and paints a square badge; a large finite radius
+      // paints the same capsule at any height.
       decoration: root
           .decoration(rt)
           .copyWith(
             borderRadius: t.brutal
                 ? root.borderRadius
-                : BorderRadius.circular((root.height ?? 18) / 2),
+                : BorderRadius.circular(9999),
           ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -353,6 +356,12 @@ abstract final class RaftResourceMetrics {
 
   /// ThreadsInbox `inbox-toolbar`: `h-[54px] px-4`.
   static const double activityToolbarHeight = 54;
+
+  /// The toolbar height is a minimum: the segmented filter grows with the
+  /// text size and the bar with it.
+  static const BoxConstraints activityToolbarConstraints = BoxConstraints(
+    minHeight: activityToolbarHeight,
+  );
 
   /// ThreadsInbox toolbar `gap-3`; outline `h-8 px-2 text-xs font-bold`.
   static const double activityToolbarGap = 12;

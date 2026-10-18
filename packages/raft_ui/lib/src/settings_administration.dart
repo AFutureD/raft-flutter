@@ -969,8 +969,10 @@ class _JoinLinkRow extends StatelessWidget {
                 padding: EdgeInsets.only(top: snapped(h)),
                 child: child,
               );
-              return SizedBox(
-                height: rowHeight,
+              return ConstrainedBox(
+                // The row height is a minimum: a taller URL line (larger text,
+                // Android Chinese control line) grows the row.
+                constraints: BoxConstraints(minHeight: rowHeight),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -989,10 +991,11 @@ class _JoinLinkRow extends StatelessWidget {
                               width: t.brutal ? 2 : 1,
                             ),
                           ),
-                          child: SizedBox(
+                          child: ConstrainedBox(
                             // Blink's 16.5px line box (Flutter rounds a
-                            // paragraph's line to whole pixels).
-                            height: 16.5,
+                            // paragraph's line to whole pixels); a minimum, so
+                            // a taller line box grows the field.
+                            constraints: const BoxConstraints(minHeight: 16.5),
                             child: SelectableText(
                               link.url,
                               maxLines: 1,
@@ -1275,8 +1278,7 @@ class RaftAdminAgreementCard extends StatelessWidget {
           RaftAdminCheckboxRow(
             checkboxKey: const ValueKey('admin-agreement-enabled'),
             title: 'Require agreement before joining',
-            description:
-                'New invite-link and community joins must accept the current version before membership is created.',
+            description: 'New invite-link and community joins must accept the current version before membership is created.',
             checked: enabled,
             dimmed: busy,
             onChanged: busy ? null : onEnabled,

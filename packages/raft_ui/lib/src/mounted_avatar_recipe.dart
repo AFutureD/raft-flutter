@@ -4,6 +4,7 @@ import 'css_pixel_snap.dart';
 
 import 'design_primitives.dart' show RaftTypography;
 import 'icons.dart';
+import 'text_scaling.dart' show RaftChrome;
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -176,6 +177,9 @@ class RaftMountedAvatarFallback extends StatelessWidget {
                         )
                         .toString()
                         .toUpperCase(),
+              // Initials fill a fixed-size avatar: they follow the avatar, and
+              // grow with the text size only up to the chrome bound.
+              textScaler: RaftChrome.boundedScalerOf(context),
               style: TextStyle(
                 fontFamily: t.headingFont,
                 fontSize: r.panelHeader ? 14 : 10,

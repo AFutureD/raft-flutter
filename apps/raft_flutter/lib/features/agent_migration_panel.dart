@@ -47,7 +47,8 @@ class MigrationProgressPanel extends StatelessWidget {
     final canceled = phase == 'canceled';
     final active = phase == 'active';
     final attention = migration['cancelNeedsAttention'] == true;
-    final cancelRequested = state != null && state.startsWith('cancel_requested_');
+    final cancelRequested =
+        state != null && state.startsWith('cancel_requested_');
     final target = MigrationText('{target}', {
       'target': migrationComputerLabel(machines, migration['targetMachineId']),
     }).text(context);
@@ -97,7 +98,12 @@ class MigrationProgressPanel extends StatelessWidget {
             Semantics(
               liveRegion: true,
               child: DefaultTextStyle.merge(
-                style: RaftTypography.body(t, size: 14, line: 20, color: t.muted),
+                style: RaftTypography.body(
+                  t,
+                  size: 14,
+                  line: 20,
+                  color: t.muted,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -170,15 +176,23 @@ class MigrationSteps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final labels = [for (final s in migrationProgressSteps) raftText(context, s)];
-    final style = RaftTypography.body(t, size: 14, line: 20, weight: FontWeight.w500);
+    final labels = [
+      for (final s in migrationProgressSteps) raftText(context, s),
+    ];
+    final style = RaftTypography.body(
+      t,
+      size: 14,
+      line: 20,
+      weight: FontWeight.w500,
+    );
     final scaler = MediaQuery.textScalerOf(context);
     return Semantics(
       container: true,
       label: semanticLabel,
       child: LayoutBuilder(
         builder: (context, box) {
-          var needed = (labels.length - 1) * (_connectorMin + 2 * _connectorGap);
+          var needed =
+              (labels.length - 1) * (_connectorMin + 2 * _connectorGap);
           for (final label in labels) {
             final painter = TextPainter(
               text: TextSpan(text: label, style: style),
@@ -286,6 +300,9 @@ class _Step extends StatelessWidget {
             child: mark == null
                 ? Text(
                     '${index + 1}',
+                    // The digit fills a fixed-size indicator: it grows with
+                    // the text size only up to the chrome bound.
+                    textScaler: RaftChrome.boundedScalerOf(context),
                     style: RaftTypography.body(
                       t,
                       size: 12,
