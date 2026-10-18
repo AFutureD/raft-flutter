@@ -912,6 +912,72 @@ void main() {
       expect(orb().fastPath, 'drive');
     }, tools: [getBriefing()]);
 
+    Map<String, Object?> activityArrived() => {
+      'route': '/s/s1/activity',
+      'title': '动态',
+      'matched': {'kind': 'page', 'id': 'activity', 'score': 1.0},
+      'briefing': {
+        'scope': 'activity',
+        'overview': '2 条新动态，1 件需要你处理',
+        'needsYou': [
+          {
+            'id': 'dm:alice',
+            'who': 'Alice',
+            'title': 'Alice 问你：周五能来评审吗？',
+            'where': '@Alice',
+            'unread': 3,
+          },
+        ],
+        'progress': [
+          {
+            'id': 'ch:swift',
+            'who': 'Grok',
+            'title': '构建通过了',
+            'where': '#swift-workflow',
+            'unread': 1,
+          },
+        ],
+        'routineCount': 2,
+      },
+    };
+
+    orbTest('没读的摘要: the Activity, its unread told, no model call', (t) async {
+      await say(t, '把我没有读的那些摘要都拿出来看一下');
+      expect(gemini.requests, isEmpty);
+      expect(navigated, [
+        {'page': 'activity', 'show': true},
+      ]);
+      expect(
+        agentLines().single,
+        '2 条新动态，1 件需要你处理。'
+        'Alice 问你：周五能来评审吗，在 @Alice，3 条未读；'
+        'Grok：构建通过了，在 #swift-workflow，1 条未读。'
+        '其余 2 条是常规进度。',
+      );
+      expect(orb().fastPath, 'unread');
+    }, tools: [navigateStub(activityArrived())]);
+
+    orbTest('没读的 that was not read: left to the model', (t) async {
+      navigateResult = {
+        'route': '/s/s1/activity',
+        'title': '动态',
+        'matched': {'kind': 'page', 'id': 'activity', 'score': 1.0},
+        'briefingNote': '简报没读出来',
+      };
+      gemini.replies.add(_say('简报没读出来。'));
+      await say(t, '没读的');
+      expect(gemini.requests, hasLength(1));
+      expect(orb().fastPath, isNull);
+    }, tools: [navigateStub()]);
+
+    orbTest('标为已读 and 回复 are not "没读的": the model has them', (t) async {
+      gemini.replies.add(_say('好。'));
+      await say(t, '把没读的标为已读');
+      expect(navigated, isEmpty);
+      expect(gemini.requests, hasLength(1));
+      expect(orb().fastPath, isNull);
+    }, tools: [navigateStub(activityArrived())]);
+
     orbTest('D2: 下一件 after it names the card now shown, and who', (t) async {
       await say(t, '开始驾驶模式');
       await say(t, '下一件');

@@ -286,6 +286,15 @@ void main() {
         expect(b.routineCount, 1);
         expect(b.overview, '4 条新动态，2 件需要你处理');
         expect(b.writtenByModel, isFalse);
+
+        // Each item says how many of its messages are unread (the Activity's
+        // "N 条未读"), for "把没读的摘要拿出来".
+        expect(cody.unread, 2);
+        expect(ada.unread, 1);
+        expect(b.toJson()['needsYou'], [
+          containsPair('unread', 1),
+          containsPair('unread', 2),
+        ]);
       },
     );
 

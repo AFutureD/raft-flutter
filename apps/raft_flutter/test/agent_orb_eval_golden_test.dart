@@ -113,6 +113,11 @@ final Map<String, Map<String, Say>> golden = {
   'B6': {
     '有什么新的': (s) => s.turn(const [('describe_page', {})], '动态还在加载，稍等再看。'),
   },
+  'B9': {
+    '把我没有读的那些摘要都拿出来看一下': (s) => s.turn(const [
+      ('get_briefing', {'show': true, 'full': true}),
+    ], 'Alice 私信你，3 条未读，问周五能不能来评审。Cody 在 raft-flutter 问第 10 步可以合入吗，2 条未读。'),
+  },
   'B8': {
     '打开动态里的第一条消息': (s) => s.turn(const [
       ('open_item', {'n': 1}),

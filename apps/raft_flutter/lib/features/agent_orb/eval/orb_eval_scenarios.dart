@@ -197,6 +197,64 @@ OrbEvalData _activityFive() {
   return d;
 }
 
+/// The Activity with unread counts: Alice's private conversation (3 unread),
+/// Cody's @ in #raft-flutter (2), a build in #swift-workflow (1); Cody's
+/// private conversation is read.
+OrbEvalData _activityUnread() {
+  final d = OrbEvalData.cast();
+  d.say('dm:alice', evalAlice, '我把评审的材料发你了。', ago: 20);
+  d.say('dm:alice', evalAlice, '周五下午两点开。', ago: 12);
+  final alice = d.say('dm:alice', evalAlice, '周五能来评审吗？', ago: 5);
+  d.inboxDm(
+    'dm:alice',
+    peer: evalAlice,
+    preview: '周五能来评审吗？',
+    message: alice,
+    unread: 3,
+    ago: 5,
+  );
+  final g = d.say('raft-flutter', evalGrok, '第 9 步测试通过了。', ago: 30);
+  final ask = d.say(
+    'raft-flutter',
+    evalCody,
+    '@Sam 第 10 步可以合入吗？',
+    ago: 12,
+    mentions: [evalMe],
+  );
+  d.inboxChannel(
+    'raft-flutter',
+    name: 'raft-flutter',
+    preview: '@Sam 第 10 步可以合入吗？',
+    from: evalCody,
+    message: ask,
+    unread: 2,
+    ago: 12,
+    mention: true,
+    firstUnread: g,
+    firstMention: ask,
+  );
+  final build = d.say('swift-workflow', evalGrok, '构建通过了。', ago: 25);
+  d.inboxChannel(
+    'swift-workflow',
+    name: 'swift-workflow',
+    preview: '构建通过了。',
+    from: evalGrok,
+    message: build,
+    unread: 1,
+    ago: 25,
+  );
+  final read = d.say('dm:cody', evalCody, '收到，我接着做。', ago: 55);
+  d.inboxDm(
+    'dm:cody',
+    peer: evalCody,
+    preview: '收到，我接着做。',
+    message: read,
+    unread: 0,
+    ago: 55,
+  );
+  return d;
+}
+
 /// A discussion Sam started that moves along without him.
 void _progressThread(OrbEvalData d, {required int ago}) {
   final parent = d.say(
@@ -722,6 +780,37 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     say: const ['打开动态里的第一条消息'],
     checks: [
       OrbEvalCheck.tool('open_item', label: '调用 open_item（打开，不是读）'),
+      ..._std(),
+    ],
+  ),
+  // Kevin on the phone: "把我没有读的那些摘要都拿出来看一下" only went to the
+  // Activity; the unread were never shown or told.
+  OrbEvalScenario(
+    id: 'B9',
+    title: '把没读的摘要拿出来看',
+    start: OrbEvalStart.activity,
+    data: _activityUnread,
+    say: const ['把我没有读的那些摘要都拿出来看一下'],
+    checks: [
+      OrbEvalCheck.anyTool(
+        ['get_briefing', 'navigate'],
+        args: {'show': true},
+        label: '调用 get_briefing 或 navigate，show: true（把未读的铺在屏幕上）',
+      ),
+      OrbEvalCheck.screen(
+        '卡片里有 Alice 的私信和 Cody 的 @，没有任务',
+        (s, _) =>
+            s.cards.any((c) => c['who'] == 'Alice') &&
+            s.cards.any((c) => c['who'] == 'Cody') &&
+            s.cards.every((c) => !c['id']!.startsWith('task:')),
+      ),
+      OrbEvalCheck.says([
+        ['Alice'],
+        ['Cody'],
+        ['3 条', '三条'],
+      ], label: '说到 Alice、Cody，以及 Alice 有 3 条未读'),
+      OrbEvalCheck.avoids(RegExp(r'没有未读|没有新的'), '说没有未读'),
+      OrbEvalCheck.avoids(RegExp('接着做'), '念已读的那条'),
       ..._std(),
     ],
   ),

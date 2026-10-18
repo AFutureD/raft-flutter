@@ -9,7 +9,7 @@ import 'orb_open.dart';
 class OrbFastCommand {
   const OrbFastCommand(this.kind, this.tool, [this.args = const {}]);
 
-  /// `next`, `previous`, `park`, `drive`, `item`, `open`.
+  /// `next`, `previous`, `park`, `drive`, `item`, `open`, `unread`.
   final String kind;
   final String tool;
   final Map<String, Object?> args;
@@ -31,6 +31,30 @@ final _item = RegExp(
   r'^(?:打开|读|念|看|读一下|念一下|看一下)?动态[里中]的?第([0-9一二三四五六七八九十两]+)[条个件](?:消息)?$',
 );
 
+// "把我没读的那些摘要都拿出来看一下", "未读消息", "有什么新的": the person asks to
+// see what is unread in the Activity. Only these words and no others (no place,
+// no "标为已读", no "回复"): what is more than this goes to the model.
+const _unreadVerbs =
+    '(?:把|给我|帮我|我想要?|我要|让我|想|再|看一下|看看|看|听一下|听听|听|读一下|读读|读|念一下|念念|念|'
+    '说一下|说说|说|拿出来|拿|查一下|查看|查|找出来|找|打开|显示|展示|列出来|列出|汇总|总结|整理|一下|都|全部|所有的?|'
+    '那些|这些|那几条|这几条|吧|啊|呀|嘛|麻烦|请)';
+const _notRead = '(?:我)?(?:还)?(?:没有?|未)(?:读|看|查看)(?:过)?(?:的)?';
+const _unreadNoun =
+    '(?:那些|这些|那几条|这几条|所有的?|全部的?)?(?:动态里?的?)?(?:摘要|消息|动态|通知|信息|内容|东西|对话|会话)';
+const _hasPrefix = '(?:现在|最近|还|那|你)*(?:有没有|有什么|有哪些|有啥|有)(?:什么|哪些|啥|一些|点)?';
+const _hasTail = '(?:$_unreadNoun)?(?:吗|呢|没有|没)?';
+// Said of what was not read ("没读的", "未读"): from any page.
+final _unreadAsk = RegExp(
+  '^$_unreadVerbs*$_notRead(?:$_unreadNoun)?$_unreadVerbs*\$',
+);
+final _unreadHas = RegExp('^$_hasPrefix$_notRead$_hasTail\$');
+// Said of what is new ("新消息", "有什么新的"): only on the Activity (in a
+// channel or elsewhere it may mean something else; the model decides). And
+// "摘要" is the Activity's own summaries.
+final _newAsk = RegExp('^$_unreadVerbs*新的?$_unreadNoun$_unreadVerbs*\$');
+final _newHas = RegExp('^$_hasPrefix新的?$_hasTail\$');
+final _summaries = RegExp('^$_unreadVerbs*(?:动态的?)?摘要$_unreadVerbs*\$');
+
 int? _number(String s) {
   final n = int.tryParse(s);
   if (n != null) return n;
@@ -50,13 +74,16 @@ int? _number(String s) {
 /// What [said] is, when it is exactly one of the commands the app can do by
 /// itself; null for everything else (the model decides). [driving] and
 /// [onActivity] say where the person is; [queue]: a pass over the stale tasks
-/// is under way (then "下一个" is its next task).
+/// is under way (then "下一个" is its next task); [inConversation]: a channel
+/// or private conversation is open (there "未读" may mean its own, the model
+/// decides).
 OrbFastCommand? orbFastCommand(
   String said, {
   required bool driving,
   required bool onActivity,
   required bool queue,
   required OrbDirectory directory,
+  bool inConversation = false,
 }) {
   final s = _plain(said);
   if (s.isEmpty) return null;
@@ -74,6 +101,26 @@ OrbFastCommand? orbFastCommand(
     }
   } else if (_drive.hasMatch(s)) {
     return const OrbFastCommand('drive', 'set_driving_mode', {'on': true});
+  }
+  if (!driving &&
+      !inConversation &&
+      s.length <= 24 &&
+      (_unreadAsk.hasMatch(s) ||
+          _unreadHas.hasMatch(s) ||
+          (onActivity &&
+              (_newAsk.hasMatch(s) ||
+                  _newHas.hasMatch(s) ||
+                  _summaries.hasMatch(s))))) {
+    // The Activity's unread: laid out as cards and told, one call.
+    return onActivity
+        ? const OrbFastCommand('unread', 'get_briefing', {
+            'show': true,
+            'full': true,
+          })
+        : const OrbFastCommand('unread', 'navigate', {
+            'page': 'activity',
+            'show': true,
+          });
   }
   final item = _item.firstMatch(s);
   if (item != null && onActivity) {
@@ -225,6 +272,38 @@ String _dmArrival(String name, Map result, Map briefing) {
   final one = last.replaceAll(RegExp(r'\s+'), ' ');
   final clip = one.length <= 40 ? one : '${one.substring(0, 40)}…';
   return '$name 说：${_tidy(clip)}。不用回。';
+}
+
+/// The unread of the Activity, told: the overview, then each item (who, where,
+/// what, how many unread) and how many more there are. [briefing] is
+/// `get_briefing`'s result, or the `briefing` of `navigate`. Null when it did
+/// not read (the model then has the turn).
+String? orbUnreadSay(Map briefing) {
+  if (briefing['error'] != null || briefing['loading'] == true) return null;
+  if (briefing['overview'] is! String) return null;
+  List<Map> list(Object? v) => [
+    for (final i in (v as List? ?? const []))
+      if (i is Map) i,
+  ];
+  final items = [...list(briefing['needsYou']), ...list(briefing['progress'])];
+  final routine = briefing['routineCount'];
+  final more = routine is int ? routine : 0;
+  if (items.isEmpty && more == 0) return '没有未读的动态。';
+  String one(Map i) {
+    final line = _cardLine({...i, 'since': ''});
+    final where = '${i['where'] ?? ''}'.trim();
+    final unread = i['unread'];
+    return '$line'
+        '${where.isEmpty ? '' : '，在 $where'}'
+        '${unread is int && unread > 0 ? '，$unread 条未读' : ''}';
+  }
+
+  final shown = items.take(5).toList();
+  final rest = items.length - shown.length + more;
+  final head = _tidy('${briefing['overview']}'.trim());
+  return '$head。'
+      '${shown.isEmpty ? '' : '${[for (final i in shown) one(i)].join('；')}。'}'
+      '${rest > 0 ? '其余 $rest 条是常规进度。' : ''}';
 }
 
 /// The opened item of the Activity.

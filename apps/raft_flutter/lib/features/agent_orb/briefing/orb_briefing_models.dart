@@ -116,6 +116,7 @@ class OrbBriefItem {
     this.channelId,
     this.versionKey = '',
     this.askingMe,
+    this.unread = 0,
   });
 
   /// Stable across briefings: the Activity row, task or agent behind it.
@@ -166,6 +167,10 @@ class OrbBriefItem {
   /// The model's verdict on an ambiguous item; null when it was not asked.
   final bool? askingMe;
 
+  /// How many unread messages the Activity row behind it shows ("3 条未读");
+  /// 0 for a task or an Agent.
+  final int unread;
+
   OrbBriefItem copyWith({
     String? title,
     String? ask,
@@ -190,6 +195,7 @@ class OrbBriefItem {
     channelId: channelId,
     versionKey: versionKey,
     askingMe: askingMe ?? this.askingMe,
+    unread: unread,
   );
 
   Map<String, Object?> toJson() => {
@@ -200,6 +206,7 @@ class OrbBriefItem {
     'since': since,
     if (sinceAt != null) 'sinceAt': sinceAt!.toUtc().toIso8601String(),
     'why': why,
+    if (unread > 0) 'unread': unread,
     'reason': reason.name,
     if (ask != null) 'ask': ask,
     if (suggestedAction != null) 'suggestedAction': suggestedAction!.toJson(),

@@ -412,6 +412,7 @@ class OrbBriefingService {
       why: _why(s.reason),
       channelId: c.channelId,
       versionKey: _version(c),
+      unread: c.unread,
     );
   }
 

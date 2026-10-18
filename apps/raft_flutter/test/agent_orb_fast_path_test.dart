@@ -16,12 +16,14 @@ OrbFastCommand? parse(
   bool driving = false,
   bool activity = false,
   bool queue = false,
+  bool inConversation = false,
 }) => orbFastCommand(
   said,
   driving: driving,
   onActivity: activity,
   queue: queue,
   directory: directory,
+  inConversation: inConversation,
 );
 
 void main() {
@@ -69,6 +71,77 @@ void main() {
       expect(parse('去动态')?.args, {'page': 'activity'});
       expect(parse('去 raft-flutter')?.args, {'channel_id': 'c1'});
       expect(parse('打开 Cody 私信')?.args, {'dm_id': 'd1'});
+    });
+
+    test('what was not read: from any page but a conversation', () {
+      for (final said in [
+        '把我没有读的那些摘要都拿出来看一下',
+        '把我没读的摘要拿出来看一下。',
+        '没读的',
+        '未读',
+        '未读消息',
+        '看一下未读的动态',
+        '我还没看的消息',
+        '把未读的都读一下',
+        '给我看没看过的摘要',
+        '有什么没读的',
+        '有没有未读的消息',
+        '还有什么没看的吗',
+        '好的，帮我把没读的消息念一下',
+      ]) {
+        final off = parse(said);
+        expect((off?.kind, off?.tool), ('unread', 'navigate'), reason: said);
+        expect(off?.args, {'page': 'activity', 'show': true}, reason: said);
+        final on = parse(said, activity: true);
+        expect((on?.kind, on?.tool), ('unread', 'get_briefing'), reason: said);
+        expect(on?.args, {'show': true, 'full': true}, reason: said);
+      }
+    });
+
+    test('what is new: only on the Activity', () {
+      for (final said in [
+        '新消息',
+        '有什么新的',
+        '有新消息吗',
+        '有没有新的动态',
+        '看一下新的摘要',
+        '摘要',
+        '看看动态摘要',
+      ]) {
+        expect(parse(said), isNull, reason: said);
+        expect(parse(said, activity: true)?.kind, 'unread', reason: said);
+      }
+    });
+
+    test('not driving, and not in a conversation', () {
+      expect(parse('没读的', driving: true), isNull);
+      expect(parse('有什么新的', driving: true, activity: true), isNull);
+      expect(parse('没读的', inConversation: true), isNull);
+      expect(parse('没读的', inConversation: true, activity: true), isNull);
+    });
+
+    test('words that are more than asking for the unread are the model\'s', () {
+      for (final said in [
+        '把没读的标为已读',
+        '全部标为已读',
+        '把未读的都标成已读',
+        '回复没读的',
+        '回他可以',
+        '未读的消息回复一下',
+        '没读的那个任务怎么样了',
+        '我还没读完',
+        'raft-flutter 里没读的',
+        '去 raft-flutter 看看未读',
+        '把视图切到未读',
+        '有什么要我处理的',
+        '有新的任务吗',
+        '谁没读我的消息',
+        '总结一下这个频道',
+        '删掉没读的',
+      ]) {
+        expect(parse(said), isNull, reason: said);
+        expect(parse(said, activity: true), isNull, reason: said);
+      }
     });
 
     test('anything else goes to the model', () {
@@ -178,6 +251,67 @@ void main() {
       // Did not read: no claim.
       expect(orbDriveSay({'error': 'x'}), isNull);
       expect(orbDriveSay({'loading': true, 'needsYou': <Object?>[]}), isNull);
+    });
+
+    test('the unread: overview, then each with where and how many', () {
+      expect(
+        orbUnreadSay({
+          'overview': '3 条新动态，2 件需要你处理。',
+          'needsYou': [
+            {
+              'who': 'Alice',
+              'title': 'Alice 问你：周五能来评审吗？',
+              'where': '@Alice',
+              'unread': 3,
+              'since': '已等 5 分钟',
+            },
+            {
+              'who': 'Cody',
+              'title': '第 10 步可以合入吗',
+              'where': '#raft-flutter',
+              'unread': 2,
+            },
+          ],
+          'progress': [
+            {'who': 'Grok', 'title': '构建通过了', 'where': '#swift-workflow'},
+          ],
+          'routineCount': 4,
+        }),
+        '3 条新动态，2 件需要你处理。'
+        'Alice 问你：周五能来评审吗，在 @Alice，3 条未读；'
+        'Cody：第 10 步可以合入吗，在 #raft-flutter，2 条未读；'
+        'Grok：构建通过了，在 #swift-workflow。'
+        '其余 4 条是常规进度。',
+      );
+    });
+
+    test('the unread: at most five are told, the rest are counted', () {
+      final say = orbUnreadSay({
+        'overview': '7 条新动态',
+        'needsYou': [
+          for (var i = 1; i <= 7; i++)
+            {'who': 'P$i', 'title': 'P$i 问你', 'where': '#a', 'unread': i},
+        ],
+        'routineCount': 1,
+      });
+      expect(say, contains('P5 问你，在 #a，5 条未读。'));
+      expect(say, isNot(contains('P6')));
+      expect(say, endsWith('其余 3 条是常规进度。'));
+    });
+
+    test('the unread: none, or not read (no claim)', () {
+      expect(
+        orbUnreadSay({
+          'overview': '没有新的动态',
+          'needsYou': <Object?>[],
+          'progress': <Object?>[],
+          'routineCount': 0,
+        }),
+        '没有未读的动态。',
+      );
+      expect(orbUnreadSay({'error': 'x'}), isNull);
+      expect(orbUnreadSay({'loading': true, 'overview': ''}), isNull);
+      expect(orbUnreadSay({'needsYou': <Object?>[]}), isNull);
     });
 
     test('a private conversation: who, what they asked, and answer or not', () {

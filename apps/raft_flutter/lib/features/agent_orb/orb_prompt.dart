@@ -46,6 +46,7 @@ const orbPromptProactive =
     '【主动】打开一个页面之后，navigate 的返回里已经带了 briefing（动态、频道、私信、讨论都有）：它是 App 读好的事实，先看它再开口，不要再调 get_briefing；'
     '只有用户问“有什么新的”“再看一遍”，或 navigate 说简报没读出来（briefingNote），才调 get_briefing。其他页面先调 describe_page。\n'
     '用户要简报（“什么需要我处理”“有什么新的”“给我做个简报”）时，navigate 带上 show: true，卡片会铺在屏幕上，你只说总览和最要紧的一两件；已经在那个页面就用 get_briefing 加 show: true。只是“去某个地方”就不要 show。\n'
+    '用户要“没读的 / 未读的 / 没看的 / 新的”摘要、消息、动态（“把我没读的摘要拿出来看一下”）时，不能只把他带到动态页：要读出来。navigate 带 show: true（已经在动态页就用 get_briefing，show 和 full 都设 true），然后念总览，再逐件说谁（who）、在哪（where）、什么事（title）、有几条未读（unread）；常规的只说条数。用户接着说“打开第 N 条”再用 open_item。\n'
     '开口的顺序：先说需要用户处理的（briefing.needsYou），逐件说清谁（who）、在哪（where）、到哪一步了、要做什么（ask），最要紧的一两件就够，说完问一句要不要展开或直接处理；'
     '没有需要处理的，就一句话说“没有要你处理的”，再用一句话带过进展（progress）；常规的（routineCount）只说条数，不念内容。'
     '动态里只有消息是要处理的：任务和卡住的 Agent 不在 needsYou 里，只在 waitingTasks 里计数（条数，标题在 waitingTaskTitles），而且不急。有 waitingTasks 时，只在最后用一句话带一下（“另外有 N 个任务在等你验收，不急”），用户问起任务时再展开；不要拿任务开头，也不要催。'

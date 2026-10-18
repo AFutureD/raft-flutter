@@ -193,6 +193,7 @@ class OrbController extends ChangeNotifier {
       key: voiceKey,
       provider: agentLayer && layeredVoice ? AgentVoiceProvider.gemini : null,
       slowCue: slowCue ?? AgentVoiceController.platformSlowCue,
+      fastPath: () => fastPath,
       sessionFactory:
           sessionFactory ??
           (agentLayer && layeredVoice ? createLayeredSession : null),
@@ -1433,8 +1434,14 @@ class OrbController extends ChangeNotifier {
       onActivity: loc.route == RaftRoute.activity,
       queue: _queueLine() != null,
       directory: orbDirectoryOf(workspace),
+      inConversation:
+          loc.route == RaftRoute.channel || loc.route == RaftRoute.dm,
     );
     if (cmd == null) return null;
+    // Not read yet is not empty: the model says it is loading.
+    if (cmd.kind == 'unread' && cmd.tool == 'get_briefing' && !_activityRead) {
+      return null;
+    }
     final result = await run(cmd.tool, cmd.args);
     String? line;
     switch (cmd.kind) {
@@ -1464,6 +1471,13 @@ class OrbController extends ChangeNotifier {
         if (result['error'] != null) break;
         final deck = await run('get_briefing', const {'show': true});
         line = orbDriveSay(deck) ?? '好，驾驶模式。';
+      case 'unread':
+        // get_briefing's result, or navigate's briefing (only if it landed on
+        // the Activity).
+        final b = cmd.tool == 'navigate' ? result['briefing'] : result;
+        line = b is Map && result['candidates'] == null
+            ? orbUnreadSay(b)
+            : null;
       case 'item':
         line = orbItemSay(result, cmd.args['n'] as int);
       case 'open':
