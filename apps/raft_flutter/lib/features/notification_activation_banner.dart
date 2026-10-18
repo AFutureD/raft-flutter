@@ -195,6 +195,7 @@ class _ActivationBannerState extends State<NotificationActivationBanner> {
               )
             : RaftBanner(
                 key: const ValueKey('notification-activation-banner'),
+                centerAction: true,
                 status: RaftBannerRecipeStatus.info,
                 size: RaftBannerRecipeSize.sm,
                 glyph: RaftGlyph.bell,
@@ -215,8 +216,7 @@ class _ActivationBannerState extends State<NotificationActivationBanner> {
                       label: busy ? 'Enabling…' : 'Enable notifications',
                       onPressed: busy ? null : enable,
                     ),
-                    RaftIconButton(
-                      glyph: RaftGlyph.x,
+                    RaftCloseButton(
                       tooltip: 'Hide notification reminder for this session',
                       onPressed: dismiss,
                     ),
