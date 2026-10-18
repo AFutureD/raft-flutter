@@ -7,9 +7,13 @@ import 'native_notifications_test.dart' show deferredMacNotifications;
 import 'notification_settings_view_test.dart' show host, fixture, card;
 
 void main() {
-  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
+  for (final (family, dark) in [
+    (RaftFamily.brutal, false),
+    (RaftFamily.elegant, false),
+    (RaftFamily.elegant, true),
+  ]) {
     testWidgets(
-      'macOS denied permission links to system settings and clears after a grant $family',
+      'macOS denied permission links to system settings and clears after a grant $family/$dark',
       (t) async {
         final (w, _, unused) = (await t.runAsync(fixture))!;
         final (service, _, permission) = deferredMacNotifications();
@@ -38,7 +42,13 @@ void main() {
         );
         await service.bind('alice');
         await t.pumpWidget(
-          host(w, service, family: family, locale: const Locale('zh')),
+          host(
+            w,
+            service,
+            family: family,
+            dark: dark,
+            locale: const Locale('zh'),
+          ),
         );
         await t.pumpAndSettle();
         expect(card(t).status, 'Off in system settings');
@@ -57,7 +67,13 @@ void main() {
         expect(find.text('系统里没开'), findsNothing);
         await t.pumpWidget(const SizedBox());
         await t.pumpWidget(
-          host(w, service, family: family, locale: const Locale('zh')),
+          host(
+            w,
+            service,
+            family: family,
+            dark: dark,
+            locale: const Locale('zh'),
+          ),
         );
         await t.pumpAndSettle();
         expect(card(t).status, 'Enabled');
