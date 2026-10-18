@@ -320,7 +320,9 @@ void main() {
     expect(service.enabled, false);
     expect(service.permitted, false);
     expect(service.error, contains('system settings'));
-    expect(store.values, isEmpty);
+    expect(store.values, {
+      'raft.notifications.initial-permission.macOS.v1': true,
+    });
     mac.allowed = true;
     await service.show(title: 'Raft', body: 'blocked', payload: 'denied');
     expect(service.permitted, true);
@@ -363,7 +365,9 @@ void main() {
     await enabling;
     expect(service.enabled, false);
     expect(plugin.sent, isEmpty);
-    expect(store.values, isEmpty);
+    expect(store.values, {
+      'raft.notifications.initial-permission.macOS.v1': true,
+    });
     await service.refreshPermission();
     expect(service.enabled, true);
     await service.bind('alice');

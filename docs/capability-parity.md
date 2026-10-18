@@ -11,10 +11,10 @@ Total capabilities: 739 (325 endpoint/network keys, 414 client-side).
 
 | Status | Count |
 | --- | ---: |
-| ✅ covered | 532 |
+| ✅ covered | 533 |
 | ⚠️ partial | 72 |
 | ❌ missing | 80 |
-| ➖ na | 55 |
+| ➖ na | 54 |
 
 | Area | ✅ | ⚠️ | ❌ | ➖ |
 | --- | ---: | ---: | ---: | ---: |
@@ -30,7 +30,7 @@ Total capabilities: 739 (325 endpoint/network keys, 414 client-side).
 | Tasks | 30 | 4 | 1 | 5 |
 | Files and attachments | 16 | 7 | 7 | 0 |
 | Search | 17 | 1 | 0 | 1 |
-| Notifications | 23 | 2 | 1 | 7 |
+| Notifications | 24 | 2 | 1 | 6 |
 | Account and profile | 37 | 3 | 4 | 6 |
 | Onboarding and auth | 33 | 1 | 2 | 5 |
 | Joint channels | 6 | 4 | 1 | 0 |
@@ -659,7 +659,7 @@ Legend: ✅ covered (endpoint called and a reachable entry point with equivalent
 | ❌ | Double-click the Activity entry (mobile sidebar) or the Activity header title to jump to / focus the next unread item | `ui:channels.sidebar-activity-entry-jump-unread` | Sidebar.tsx Activity entry onDoubleClick -> focusFirstUnreadInboxItem; ThreadsInbox header title double-click -> focusNextUnread (tooltip 'Double-click to jump to the next unread item') |  | Impact: Heavy Activity users with many unread rows; the Unread view is the workaround. No double-tap or 'next unread' handler in resource_view.dart / workspace_view.dart. Size S |
 | ✅ | App/tab unread badge reflecting Activity unread total | `ui:channels.unread-badge-app-icon` | mobileAppBadge.ts (PWA badge) / LeftRail Activity badge | Native equivalents: macos_dock_unread.dart, background_inbox.dart, mobile tab activity badge |  |
 | ✅ | Dismissed Notification Center entries stay hidden until their fingerprint changes | `ui:global-ui.pref-notification-dismissals` | components/layout/dismissedNotificationStore.ts (slock:notification-center:dismissed:{server}) | data/system_notification_store.dart (raft:notification-center:dismissed:) |  |
-| ➖ | Composer-adjacent banner asking to enable browser/desktop notifications ('Enable', dismiss, Settings > Notifications) | `ui:messages.composer-notification-activation-banner` | NotificationActivationBanner[gate: browser Notification.permission] |  | N/A: The browser-specific composer banner is not used. Native macOS, iOS and Android request OS notification permission once per local installation after entering an authenticated workspace (never on the login screen); Settings offers an explicit OS-settings action after refusal. |
+| ✅ | Composer-adjacent banner asking to enable browser/desktop notifications ('Enable', dismiss, Settings > Notifications) | `ui:messages.composer-notification-activation-banner` | NotificationActivationBanner[gate: Native macOS/iOS/Android first permission; eligible joined channel or DM composer] | features/notification_activation_banner.dart; explicit native opt-in | Native OS permission is requested only by the Enable action. Dismissal lasts for the app session with a three-second Settings confirmation. Refusal is persisted; foreground/focus reconciles system changes. Windows/Linux have no prompt and no banner. |
 | ✅ | 'N new updates' pill when new rows arrive while scrolled down; click scrolls to top | `ui:notifications.activity-new-updates-pill` | ThreadsInbox.tsx thread.newUpdates button | resource_view.dart '{count} new updates' pill |  |
 | ✅ | Activity row context menu: Mark as Read/Unread, Done, Follow/Unfollow (threads); hover Done / Restore button; mention_action rows offer Mark as Unread and local Done | `ui:notifications.activity-row-menu` | InboxContextMenu.tsx + ThreadsInbox.tsx conversation-card-actions[gate: thread follow only on thread rows] | resource_view.dart activityMenu + RaftConversationCard actions |  |
 | ✅ | Activity search box (Ctrl/Cmd+F in the sidebar variant) and sort Newest / Oldest | `ui:notifications.activity-search-sort` | ThreadsInbox.tsx search input + sort Select | resource_view.dart RaftActivitySearchInput + onSort |  |

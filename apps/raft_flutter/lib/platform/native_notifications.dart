@@ -69,7 +69,9 @@ class NativeNotificationService extends ChangeNotifier {
   Future<void> _preferenceTail = Future.value();
   int _preferenceRevision = 0;
   Future<void>? _initializing;
-  Future<bool>? _initialPermission;
+  Future<bool>? _permissionRequest;
+  bool activationAsked = false, activationDismissed = false;
+  bool _activationHistoryReady = false;
   Future<void> _tail = Future.value();
   String? _scope;
   int _epoch = 0, _id = 0;
@@ -141,7 +143,7 @@ class NativeNotificationService extends ChangeNotifier {
       _platform == TargetPlatform.windows ||
       _platform == TargetPlatform.linux;
 
-  bool get _requestsPermissionOnWorkspace => const {
+  bool get hasPermissionPrompt => const {
     TargetPlatform.macOS,
     TargetPlatform.iOS,
     TargetPlatform.android,
@@ -261,6 +263,7 @@ class NativeNotificationService extends ChangeNotifier {
   Future<void> bind(String? scope) async {
     if (_scope == scope) return;
     _scope = scope;
+    _activationHistoryReady = false;
     final epoch = ++_epoch;
     final revision = ++_preferenceRevision;
     enabled = false;
@@ -283,8 +286,7 @@ class NativeNotificationService extends ChangeNotifier {
       try {
         await _preferenceTail;
         final wanted =
-            await _preferences.read(_key(scope)) ??
-            _requestsPermissionOnWorkspace;
+            await _preferences.read(_key(scope)) ?? hasPermissionPrompt;
         if (epoch != _epoch || revision != _preferenceRevision) return;
         _wanted = wanted;
       } catch (_) {
@@ -297,52 +299,59 @@ class NativeNotificationService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Only an authenticated workspace may initiate the device's first prompt.
-  /// Ordinary initialization, login and service binds never ask for permission.
+  /// Restores the device prompt history without requesting OS permission.
   Future<void> bindAuthenticatedWorkspace(String? scope) async {
     await bind(scope);
-    if (_scope != scope ||
-        scope == null ||
-        !available ||
-        !_requestsPermissionOnWorkspace) {
-      return;
+    if (_scope != scope || scope == null || !hasPermissionPrompt) return;
+    final epoch = _epoch;
+    try {
+      final asked = await _preferences.read(_permissionKey) == true;
+      if (epoch != _epoch) return;
+      activationAsked = asked;
+      _activationHistoryReady = true;
+    } catch (_) {
+      if (epoch != _epoch) return;
+      // Unknown history must not silently offer another first-time prompt.
+      activationAsked = true;
+      _activationHistoryReady = true;
+      error = 'Notification settings could not be loaded on this device.';
     }
-    final recorded = await (_initialPermission ??= _requestInitialPermission());
-    // A reply belongs to the device, but requestEnable fences its old account.
-    // Re-read for the currently bound workspace after an in-flight account change.
-    if (recorded && _scope != null) await refreshPermission();
+    await refreshPermission();
   }
 
-  Future<bool> _requestInitialPermission() async {
-    final key = 'raft.notifications.initial-permission.${_platform.name}.v1';
+  String get _permissionKey =>
+      'raft.notifications.initial-permission.${_platform.name}.v1';
+
+  bool get showActivation =>
+      initialized &&
+      available &&
+      _activationHistoryReady &&
+      _scope != null &&
+      hasPermissionPrompt &&
+      !permitted &&
+      !activationAsked &&
+      !activationDismissed;
+
+  void dismissActivation() {
+    activationDismissed = true;
+    notifyListeners();
+  }
+
+  Future<bool> _askPermission(String scope, int epoch) async {
+    if (!await _preferences.write(_permissionKey, true)) {
+      throw StateError('Permission request marker could not be saved.');
+    }
+    if (_scope != scope || epoch != _epoch) return false;
     try {
-      if (!available || _scope == null) {
-        _initialPermission = null;
-        return false;
-      }
-      if (await _preferences.read(key) == true) return true;
-      if (_scope == null) {
-        _initialPermission = null;
-        return false;
-      }
-      // Persist before asking: a denied prompt must not recur after a restart.
-      if (!await _preferences.write(key, true)) {
-        throw StateError('Permission request marker could not be saved.');
-      }
-      if (_scope == null) {
-        // Logout won the storage await, before any system prompt was shown.
-        await _preferences.write(key, false);
-        _initialPermission = null;
-        return false;
-      }
-      if (!permitted) await requestEnable(true);
-      return true;
+      final granted = await _permission(request: true);
+      activationAsked = true;
+      notifyListeners();
+      return granted;
     } catch (_) {
-      if (_scope != null) {
-        error = 'Notification settings could not be saved on this device.';
-        notifyListeners();
-      }
-      return false;
+      // A failed native call is retryable by an explicit action; it is not an
+      // answered system prompt. Denials, in contrast, keep the device marker.
+      await _preferences.write(_permissionKey, false);
+      rethrow;
     }
   }
 
@@ -363,7 +372,15 @@ class NativeNotificationService extends ChangeNotifier {
     if (value && available && canOpenSettings) {
       try {
         final asked = Stopwatch()..start();
-        final permission = await _permission(request: true);
+        final request = hasPermissionPrompt
+            ? (_permissionRequest ??= _askPermission(scope, epoch))
+            : _permission(request: true);
+        final bool permission;
+        try {
+          permission = await request;
+        } finally {
+          if (identical(_permissionRequest, request)) _permissionRequest = null;
+        }
         if (!current()) return;
         permitted = permission;
         // A person cannot answer a system prompt within this window.
@@ -373,12 +390,14 @@ class NativeNotificationService extends ChangeNotifier {
         if (!current()) return;
         permitted = false;
         enabled = false;
+        _permissionRequest = null;
         _wanted = false;
-        error = 'System notification permission could not be checked.';
+        error = 'Notification settings could not be saved on this device.';
         notifyListeners();
         return;
       }
     }
+    _permissionRequest = null;
     if (!current()) return;
     if (systemManaged) {
       _updateEnabled();
@@ -389,7 +408,7 @@ class NativeNotificationService extends ChangeNotifier {
       return;
     }
     enabled = value && available && permitted;
-    _wanted = _requestsPermissionOnWorkspace ? value : enabled;
+    _wanted = hasPermissionPrompt ? value : enabled;
     error = value && !enabled
         ? 'Allow notifications in system settings to receive alerts.'
         : null;

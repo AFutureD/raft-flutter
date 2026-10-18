@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../data/workspace_controller.dart';
+import 'notification_activation_banner.dart';
 
 /// Keeps a conversation's composer alive when the window crosses the phone /
 /// desktop breakpoint.
@@ -101,7 +102,11 @@ class _ComposerSlotState extends State<ComposerSlot> {
     return ValueListenableBuilder<int>(
       valueListenable: widget.controller.draftChanges(thread: widget.thread),
       builder: (context, _, _) {
-        final composer = widget.builder(context);
+        final composer = NotificationActivationComposer(
+          controller: widget.controller,
+          thread: widget.thread,
+          child: widget.builder(context),
+        );
         final name = slot;
         if (name == null) return composer;
         return KeyedSubtree(

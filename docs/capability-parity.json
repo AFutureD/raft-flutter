@@ -11850,12 +11850,17 @@
    "area": "notifications",
    "capability": "Composer-adjacent banner asking to enable browser/desktop notifications ('Enable', dismiss, Settings > Notifications)",
    "background": false,
-   "status": "na",
+   "status": "covered",
    "webEntry": "NotificationActivationBanner",
-   "gate": "browser Notification.permission",
-   "flutterEntry": "",
-   "flutterRefs": [],
-   "justification": "The browser-specific composer banner is not used. Native macOS, iOS and Android request OS notification permission once per local installation after entering an authenticated workspace (never on the login screen); Settings offers an explicit OS-settings action after refusal.",
+   "gate": "Native macOS/iOS/Android first permission; eligible joined channel or DM composer",
+   "flutterEntry": "features/notification_activation_banner.dart; explicit native opt-in",
+   "flutterRefs": [
+    {
+     "file": "apps/raft_flutter/lib/features/notification_activation_banner.dart",
+     "needle": "class NotificationActivationBanner"
+    }
+   ],
+   "justification": "Native OS permission is requested only by the Enable action. Dismissal lasts for the app session with a three-second Settings confirmation. Refusal is persisted; foreground/focus reconciles system changes. Windows/Linux have no prompt and no banner.",
    "impact": "",
    "size": ""
   },
