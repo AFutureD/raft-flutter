@@ -31,7 +31,49 @@ class AgentToolOutcome {
     'show_surface',
   };
 
-  bool get isAction => !_screenOnly.contains(name);
+  /// Tools that only move around or read; what they did is not worth a
+  /// memory, and the summary prompt never needs to see them.
+  static const _readOnly = {
+    'navigate',
+    'describe_page',
+    'read_screen',
+    'read_conversation',
+    'read_channel',
+    'get_briefing',
+    'get_task',
+    'task_detail',
+    'search_messages',
+    'search_tasks',
+    'list_agents',
+    'list_targets',
+    'list_tasks',
+    'open_channel',
+    'open_item',
+    'expand_item',
+    'go_back',
+    'go_home',
+    'next_batch',
+    'next_task',
+    'driving_next',
+    'driving_previous',
+    'set_driving_mode',
+    'show_orb_sheet',
+    'hide_orb_sheet',
+    'show_attention',
+    'show_item',
+    'show_list',
+    'show_thread',
+    'show_tasks',
+    'show_agent_activity',
+    'show_task_history',
+    'find',
+    'query',
+    'resolve',
+  };
+
+  /// A write (or an unknown tool): the only calls whose outcome can leave
+  /// something open.
+  bool get isAction => !_screenOnly.contains(name) && !_readOnly.contains(name);
 
   /// "name(arg=value, ...) -> what came of it", short.
   String get line {
@@ -86,16 +128,23 @@ class AgentSessionSummary {
   static const maxLines = 8;
   static const _lineLimit = 140;
 
+  /// The model keeps only what is worth long-term memory; the operation log
+  /// of a session (pages opened, briefings read out) is noise to the agent.
   static const _system =
-      '你把一段语音对话整理成给用户的 Agent 看的简短摘要。只输出 JSON：{"lines":["..."]}。'
+      '你从一段语音对话里挑出值得用户的 Agent 长期记住的内容，写成简短摘要。只输出 JSON：{"lines":["..."]}。'
       '最多 8 条，每条一句，不超过 60 字，语言和对话一致（用户说中文就写中文）。'
-      '内容：用户想要什么；做了哪些决定；实际执行了什么操作（以【工具结果】为准，写清是已执行、已发送、已批准、已推迟、失败、被取消，还是只出了预览在等用户确认）；'
-      '还没完成的待办；用户说出的偏好。没有的项目就不写。'
-      '不要逐字复述对话，不要引用整句话，只有名字、编号这类需要时才引用短语；不要编造对话和工具结果里没有的事。';
+      '只写这几类：用户明确说出的偏好和习惯；用户做出的决定；用户自己提出或答应的待办和承诺；用户说出的重要事实（人、时间、约定）。'
+      '待办必须是用户自己的：只是读给用户听的消息、简报、页面内容不是用户的待办，里面的事不要写成他的待办，除非用户自己说了要跟进。'
+      '不要写：打开或切换页面、查看或朗读内容、简报播报、界面开关（驾驶模式、面板）、普通的工具调用，也不要写助手做了什么、用户问了什么。'
+      '替用户执行的写操作（发消息、改任务状态、批准）以【工具结果】为准：已经成功的 Raft 里已有记录，不用写；只有没做完的才写，即失败、被取消，或只出了预览还在等用户确认。'
+      '不要逐字复述对话，不要引用整句话，只有名字、编号这类需要时才引用短语；不要编造对话和工具结果里没有的事。'
+      '没有值得记的内容就输出 {"lines":[]}，这是正常的，不要凑数。';
 
-  /// The message for a session, or null when the person said nothing.
+  /// The message for a session, or null when there is nothing worth
+  /// remembering (the person said nothing, or the model found nothing).
   /// [generate] is the text model call (JSON text out); without a model, on
-  /// an error or after [timeout], a compact rule-based summary is used.
+  /// an error or after [timeout], only the person's own preference or todo
+  /// requests are kept, and usually that is nothing.
   static Future<String?> build(
     List<(AgentSpeaker, String)> transcript,
     List<AgentToolOutcome> outcomes, {
@@ -122,7 +171,8 @@ class AgentSessionSummary {
     } catch (_) {
       lines = null; // No model, no network, a refusal or too slow.
     }
-    lines ??= fallbackLines(said, actions);
+    lines ??= fallbackLines(said);
+    if (lines.isEmpty) return null;
     return '${header ?? AgentSessionSummary.header}\n$instruction\n\n'
         '${[for (final l in lines) '- $l'].join('\n')}';
   }
@@ -149,7 +199,9 @@ class AgentSessionSummary {
   }
 
   /// The lines of a model reply (`{"lines":[...]}` or a bare list), each
-  /// clipped, at most [maxLines]; null when there is nothing usable.
+  /// clipped, at most [maxLines]; null when the reply is unusable, and empty
+  /// when the model found nothing worth keeping (that is an answer, not a
+  /// failure, so no fallback).
   static List<String>? parseLines(String? reply) {
     if (reply == null || reply.trim().isEmpty) return null;
     Object? decoded;
@@ -165,25 +217,19 @@ class AgentSessionSummary {
         if (l is String && l.trim().isNotEmpty)
           _clip(l.trim().replaceFirst(RegExp(r'^[-•*]\s*'), ''), _lineLimit),
     ].take(maxLines).toList();
-    return lines.isEmpty ? null : lines;
+    return lines;
   }
 
-  /// No model: what the person asked (each request clipped, at most five) and
-  /// what the tools did.
-  static List<String> fallbackLines(
-    List<String> said,
-    List<AgentToolOutcome> actions,
-  ) {
-    const requests = 5;
-    const shownActions = 6;
-    return [
-      for (final s in said.take(requests)) '我说过：${_clip(s, 60)}',
-      if (said.length > requests) '（还有 ${said.length - requests} 句）',
-      for (final o in actions.take(shownActions)) '操作：${o.line}',
-      if (actions.length > shownActions)
-        '（还有 ${actions.length - shownActions} 项操作）',
-    ];
-  }
+  /// What the person says when they ask to be remembered or set a habit.
+  static final _worthKeeping = RegExp(r'记住|以后|提醒我|别再|不要再|我喜欢|我不喜欢|下次');
+
+  /// No model: only what the person explicitly said as a preference or todo
+  /// (at most [maxLines], each clipped). Operations and plain chatter are
+  /// left out; sending nothing beats sending noise.
+  static List<String> fallbackLines(List<String> said) => [
+    for (final s in said)
+      if (_worthKeeping.hasMatch(s)) '我说过：${_clip(s, 60)}',
+  ].take(maxLines).toList();
 }
 
 String _clip(String text, int max) {

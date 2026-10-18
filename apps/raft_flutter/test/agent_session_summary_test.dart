@@ -67,6 +67,12 @@ void main() {
       // The model asked for JSON, in the language of the talk, short.
       expect(sentSystem, contains('JSON'));
       expect(sentSystem, contains('不要逐字复述'));
+      // Only what is worth long-term memory; no operation log.
+      expect(sentSystem, contains('偏好'));
+      expect(sentSystem, contains('驾驶模式'));
+      expect(sentSystem, contains('读给用户听'));
+      expect(sentSystem, contains('Raft 里已有记录'));
+      expect(sentSystem, contains('{"lines":[]}'));
       expect(sentPrompt, contains('明天提醒我看选型'));
     });
 
@@ -93,6 +99,69 @@ void main() {
       );
       expect(prompt, isNot(contains('spotlight')));
     });
+
+    test('navigation and reading tools stay out of the prompt', () async {
+      String? prompt;
+      await AgentSessionSummary.build(
+        transcript,
+        [
+          for (final name in [
+            'navigate',
+            'describe_page',
+            'read_screen',
+            'get_briefing',
+            'read_conversation',
+            'list_tasks',
+            'open_item',
+            'set_driving_mode',
+            'hide_orb_sheet',
+          ])
+            AgentToolOutcome(
+              name: name,
+              args: const {},
+              result: const {'ok': true},
+            ),
+          ...outcomes,
+        ],
+        generate: (system, p) async {
+          prompt = p;
+          return '{"lines":["ok"]}';
+        },
+      );
+      for (final name in [
+        'navigate',
+        'describe_page',
+        'read_screen',
+        'get_briefing',
+        'read_conversation',
+        'list_tasks',
+        'open_item',
+        'set_driving_mode',
+        'hide_orb_sheet',
+      ]) {
+        expect(prompt, isNot(contains('$name(')), reason: name);
+      }
+      // Writes that left something open still go in.
+      expect(prompt, contains('snooze_item('));
+      expect(prompt, contains('send_message('));
+    });
+
+    test(
+      'nothing worth keeping from the model means nothing is sent',
+      () async {
+        for (final reply in ['{"lines":[]}', '[]', '{"lines":["", "  "]}']) {
+          expect(
+            await AgentSessionSummary.build(
+              transcript,
+              outcomes,
+              generate: (system, prompt) async => reply,
+            ),
+            isNull,
+            reason: reply,
+          );
+        }
+      },
+    );
 
     test('a model reply is capped to eight short lines', () async {
       final message = await AgentSessionSummary.build(
@@ -124,33 +193,31 @@ void main() {
   });
 
   group('without a model', () {
-    void expectCompact(String? message) {
+    final chatter = [
+      (you, '明天提醒我看选型'),
+      (agent, longAgent),
+      (you, '打开活动页看看第一条消息'),
+      (you, longYou),
+      (agent, '好，记下了'),
+    ];
+
+    void expectOnlyTheAsk(String? message) {
       expect(message, startsWith(AgentSessionSummary.header));
       expect(message, contains(AgentSessionSummary.instruction));
       expect(message, contains('- 我说过：明天提醒我看选型'));
-      // What the person said is clipped, what the agent said is not there.
+      // Plain chatter, the agent's words and the operations are not there.
+      expect(message, isNot(contains('活动页')));
       expect(message, isNot(contains(longAgent)));
       expect(message, isNot(contains('好，记下了')));
-      expect(message, isNot(contains(longYou)));
-      final clipped = message!
-          .split('\n')
-          .firstWhere((l) => l.startsWith('- 我说过：我想让你'));
-      expect(clipped.length, lessThanOrEqualTo('- 我说过：'.length + 61));
-      expect(clipped, endsWith('…'));
-      expect(
-        message,
-        contains(
-          '- 操作：snooze_item(id=task-94, until=明天) -> needs_user_confirmation',
-        ),
-      );
-      expect(message, contains('failed: needs_user_consent'));
-      expect(message, isNot(contains('spotlight')));
+      expect(message, isNot(contains('操作：')));
+      expect(message, isNot(contains('snooze_item')));
+      expect(message, isNot(contains('needs_user_consent')));
     }
 
     test('no key (the model call gives nothing)', () async {
-      expectCompact(
+      expectOnlyTheAsk(
         await AgentSessionSummary.build(
-          transcript,
+          chatter,
           outcomes,
           generate: (system, prompt) async => null,
         ),
@@ -158,9 +225,9 @@ void main() {
     });
 
     test('an error from the model', () async {
-      expectCompact(
+      expectOnlyTheAsk(
         await AgentSessionSummary.build(
-          transcript,
+          chatter,
           outcomes,
           generate: (system, prompt) async => throw const HttpException('500'),
         ),
@@ -168,9 +235,9 @@ void main() {
     });
 
     test('a reply that is not the asked JSON', () async {
-      expectCompact(
+      expectOnlyTheAsk(
         await AgentSessionSummary.build(
-          transcript,
+          chatter,
           outcomes,
           generate: (system, prompt) async => '这是一段没有 JSON 的话',
         ),
@@ -181,42 +248,56 @@ void main() {
       final never = Completer<String?>();
       final watch = Stopwatch()..start();
       final message = await AgentSessionSummary.build(
-        transcript,
+        chatter,
         outcomes,
         generate: (system, prompt) => never.future,
         timeout: const Duration(milliseconds: 100),
       );
       expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
-      expectCompact(message);
+      expectOnlyTheAsk(message);
       // The real limit is about 15 seconds.
       expect(AgentSessionSummary.modelTimeout, const Duration(seconds: 15));
     });
 
-    test(
-      'at most five requests and the tools beyond six are counted',
-      () async {
-        final many = [
-          for (var i = 1; i <= 8; i++) ...[(you, '请求$i'), (agent, '回答$i')],
-        ];
-        // Lines of the same speaker are merged by the controller; here each
-        // request is its own line.
-        final message = await AgentSessionSummary.build(many, [
+    test('plain chatter and operations send nothing', () async {
+      final message = await AgentSessionSummary.build(
+        const [(you, '打开活动页看看'), (agent, '好的'), (you, '读一下简报'), (you, '开驾驶模式')],
+        [
           for (var i = 0; i < 9; i++)
             AgentToolOutcome(
               name: 'set_task_status',
               args: {'n': '$i'},
               result: const {'status': 'done'},
             ),
-        ], generate: (system, prompt) async => null);
-        expect(message, contains('我说过：请求5'));
-        expect(message, isNot(contains('请求6')));
-        expect(message, contains('（还有 3 句）'));
-        expect(message, contains('操作：set_task_status(n=5) -> done'));
-        expect(message, isNot(contains('n=6')));
-        expect(message, contains('（还有 3 项操作）'));
-        expect(message, isNot(contains('回答1')));
-      },
-    );
+        ],
+        generate: (system, prompt) async => null,
+      );
+      expect(message, isNull);
+    });
+
+    test('each preference or todo marker is kept, clipped, at most 8', () {
+      for (final said in [
+        '记住我不喝咖啡',
+        '以后简报先说 Cody 的事',
+        '提醒我明天看选型',
+        '别再给我推这个了',
+        '不要再提醒了',
+        '我喜欢简短的回答',
+        '我不喜欢太长的简报',
+        '下次先读未读',
+      ]) {
+        expect(AgentSessionSummary.fallbackLines([said]), [
+          '我说过：$said',
+        ], reason: said);
+      }
+      final lines = AgentSessionSummary.fallbackLines([
+        '以后${'很长' * 100}',
+        for (var i = 0; i < 12; i++) '记住第$i件',
+      ]);
+      expect(lines, hasLength(AgentSessionSummary.maxLines));
+      expect(lines.first.length, lessThanOrEqualTo('我说过：'.length + 61));
+      expect(lines.first, endsWith('…'));
+    });
   });
 
   group('tool outcomes', () {

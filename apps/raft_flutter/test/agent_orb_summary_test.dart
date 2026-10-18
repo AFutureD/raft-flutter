@@ -100,12 +100,12 @@ void main() {
       final mode = await AgentSessionSummary.build(
         talk,
         const [],
-        generate: (s, p) async => null,
+        generate: (s, p) async => '{"lines":["批准了第 10 步"]}',
       );
       final orb = await AgentSessionSummary.build(
         talk,
         const [],
-        generate: (s, p) async => null,
+        generate: (s, p) async => '{"lines":["批准了第 10 步"]}',
         header: AgentSessionSummary.orbHeader,
       );
       expect(mode, startsWith('【语音对话摘要 · 来自 Agent 模式】'));
