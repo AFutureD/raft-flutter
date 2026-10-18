@@ -133,7 +133,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.voiceProvider = AgentVoiceProvider.gemini,
     this.agentApiKey,
     this.preambleAfter = const Duration(milliseconds: 80),
-    this.ackTarget = const Duration(milliseconds: 600),
+    this.ackTarget = const Duration(milliseconds: 400),
     this.leadGrace = const Duration(milliseconds: 700),
     this.liveLeadGrace = const Duration(milliseconds: 450),
     this.playbackPending,
@@ -693,12 +693,20 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
         // front of the acknowledgment in the voice's queue.
         if (!l.started) l.cancel();
       }
-      acked = _acknowledge();
-      if (acked && cachedAck && !_closed) {
-        _stage('lead-requested');
-        leading = _startLead(request, after: _lastAck);
-        leadAt = _now();
-      }
+      // The lead-in that goes on from the acknowledgment is asked for once
+      // the acknowledgment is in the voice's queue, not before: the queue is
+      // in the order of asking, and a lead-in in front of it would hold the
+      // acknowledgment back until its own response was over.
+      acked = _acknowledge(
+        afterIssued: !cachedAck
+            ? null
+            : () {
+                if (_closed) return;
+                _stage('lead-requested');
+                leading = _startLead(request, after: _lastAck);
+                leadAt = _now();
+              },
+      );
     }
 
     // The time the acknowledgment is due: after the ask has been out for
@@ -709,7 +717,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       if (_voiceSpeech == null) return ackAfter;
       // The floor leaves a fast path (a command the app does without a model,
       // answered in well under that) its chance to answer first.
-      const floor = Duration(milliseconds: 200);
+      const floor = Duration(milliseconds: 150);
       final least = ackAfter < floor ? ackAfter : floor;
       final late = ackTarget - Duration(milliseconds: _now() - _userEndedAt);
       return late > least ? late : least;
@@ -1318,7 +1326,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// captions (it is not part of the answer), but it counts as the voice's
   /// echo. Whether it is said: not when something of this turn has been
   /// heard already.
-  bool _acknowledge() {
+  bool _acknowledge({void Function()? afterIssued}) {
     if (_closed || _turnVoiced) return false;
     if (!_appDriven && _liveVoicedThisTurn) return false;
     final out = _voice;
@@ -1333,6 +1341,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     _requestTimed = _timeRequest();
     _recentSpoken += UserTurnForwarder.compact(text);
     if (out == null) {
+      afterIssued?.call();
       // Gemini Live relaying with no voice of the device's: Live says it, as
       // it says the app's other lines.
       final live = _live;
@@ -1348,13 +1357,16 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     late final Future<void> mine;
     mine = _speechTail = _speechTail.then((_) async {
       if (_closed || generation != _speechGeneration) return;
-      final started = await _appSay(
+      final said = _appSay(
         text,
         'ack',
         onStart: () {
           if (generation == _speechGeneration) _speakingIs(true);
         },
       );
+      // (The line is asked of the voice by now.)
+      afterIssued?.call();
+      final started = await said;
       if (_closed || generation != _speechGeneration) return;
       _acking = false;
       if (started) onFeedback?.call('ack', text);

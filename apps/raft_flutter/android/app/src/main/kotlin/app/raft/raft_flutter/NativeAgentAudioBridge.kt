@@ -82,6 +82,14 @@ class NativeAgentAudioBridge(private val activity: Activity, engine: FlutterEngi
                     playQueue.put(data)
                     result.success(null)
                 }
+                // Opens the speaker before there is anything to play, so that
+                // the first sound of a turn (a kept acknowledgment) does not
+                // wait for the track to be built.
+                "warmUp" -> {
+                    enterCommunication()
+                    ensureTrack()
+                    result.success(null)
+                }
                 "pendingMs" -> result.success(pendingMs())
                 "stopPlayback" -> {
                     stopPlayback()

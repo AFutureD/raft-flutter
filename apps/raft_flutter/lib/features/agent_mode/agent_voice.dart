@@ -533,6 +533,8 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       return null;
     }
     _session = session;
+    // The speaker is open before the first line is due.
+    unawaited(audio.warmUp());
     return session;
   }
 

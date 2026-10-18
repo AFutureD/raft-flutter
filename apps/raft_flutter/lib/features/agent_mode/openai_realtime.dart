@@ -996,7 +996,10 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
     for (final chunk in clip) {
       onAudio?.call(chunk);
     }
-    _log('line played from a kept clip (${clip.length} chunks)');
+    _log(
+      'line played from a kept clip (${clip.length} chunks) '
+      '${line.askedAt.elapsedMilliseconds} ms after it was asked for',
+    );
     _lineEnded(line, 'completed', cancelOnServer: false);
   }
 
@@ -1557,6 +1560,9 @@ class _Line {
   /// A kept clip to play instead of asking the service.
   final List<Uint8List>? clipToPlay;
   String? responseId;
+
+  /// The time since the line was asked for.
+  final askedAt = Stopwatch()..start();
   bool created = false;
   int createdMs = 0;
   Timer? watchdog;

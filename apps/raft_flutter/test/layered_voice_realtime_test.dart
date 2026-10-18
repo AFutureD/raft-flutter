@@ -841,7 +841,7 @@ void main() {
   group('the first sound within a second', () {
     for (final provider in _providers) {
       test('${provider.name}: the sound of the canned lines is kept at '
-          'connect; the acknowledgment is instant, by 600 ms after the end '
+          'connect; the acknowledgment is instant, by 400 ms after the end '
           'of speech, and the voice\'s lead-in goes on from it', () {
         fakeAsync((async) {
           final r = Rig(
@@ -856,14 +856,14 @@ void main() {
             reason: 'in the background, at connect',
           );
           r.voice.person('看一下 Cody 那边的消息');
-          async.elapse(const Duration(milliseconds: 590));
+          async.elapse(const Duration(milliseconds: 380));
           expect(r.voice.lines, isEmpty, reason: 'nothing before it is due');
           async.elapse(const Duration(milliseconds: 40));
           final ack = r.voice.said.single.text;
           expect(ackPhrases(AgentLanguage.zh), contains(ack));
           async.elapse(const Duration(milliseconds: 10));
           final first = r.timings.firstWhere((t) => t.$1 == 'voice').$2;
-          expect(first, inInclusiveRange(600, 700));
+          expect(first, inInclusiveRange(400, 500));
           expect(first, lessThan(1000));
           // The lead-in is asked for when the acknowledgment is, and is told
           // what was said.
@@ -905,7 +905,7 @@ void main() {
           );
           r.connect(async);
           r.voice.person('读一下动态');
-          async.elapse(const Duration(milliseconds: 700));
+          async.elapse(const Duration(milliseconds: 500));
           final lead = r.voice.leads.single.handle;
           expect(lead.started, isFalse);
           r.agent.answer('有 3 条。');
@@ -950,7 +950,7 @@ void main() {
           async.elapse(const Duration(milliseconds: 700));
           final names = {for (final s in r.segments) s.$1: s.$2};
           expect(names['forward'], inInclusiveRange(15, 25));
-          expect(names['request'], inInclusiveRange(250, 300));
+          expect(names['request'], inInclusiveRange(140, 160));
           expect(
             r.logs.where(
               (l) => l.startsWith('voice-turn segment name=forward'),

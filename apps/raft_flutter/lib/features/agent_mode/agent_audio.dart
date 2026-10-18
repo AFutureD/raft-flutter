@@ -36,6 +36,17 @@ class AgentAudio {
 
   Future<void> play(Uint8List pcm) => _methods.invokeMethod('play', pcm);
 
+  /// Opens the speaker ahead of the first sound (the track is built on the
+  /// first sound otherwise, which costs the first line of a turn some time).
+  Future<void> warmUp() async {
+    if (!supported) return;
+    try {
+      await _methods.invokeMethod('warmUp');
+    } catch (_) {
+      /* the first sound builds it */
+    }
+  }
+
   /// How long until the speech already received has been heard; visuals
   /// that belong after it wait this long.
   Future<Duration> pending() async {
