@@ -87,11 +87,24 @@ const feedbackRule = 'avoid_material_feedback';
 const idleRule = 'avoid_unreviewed_idle_work';
 const selectionRule = 'avoid_bare_selection_area';
 const sheetRule = 'avoid_raw_bottom_sheet';
+const viewDisplayRule = 'avoid_view_display';
 
 String _ignore(String rule) =>
     "add '// ignore: raft_lints/$rule -- <why this site is exempt>'";
 
 final bannedApis = <BannedApi>[
+  BannedApi(
+    rule: viewDisplayRule,
+    message:
+        'Reads the display of a FlutterView directly. A view has no display '
+        'while the computer sleeps or a screen is being unplugged, and '
+        '`FlutterView.display` then throws (v0.1.0+23 crashed in '
+        'scheduleFrame on macOS after sleep).',
+    correction:
+        'Use displayRefreshRateOf (lib/platform/android_performance_hint.dart) '
+        'or MediaQuery, or ${_ignore(viewDisplayRule)}.',
+    refs: const [ApiRef('dart:ui', 'FlutterView', 'display')],
+  ),
   BannedApi(
     rule: proxyRule,
     message:

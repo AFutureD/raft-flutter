@@ -26,3 +26,4 @@ plugins:
       avoid_fixed_height_text: error
       avoid_pixel_text_height: error
       off_grid_spacing: error
+      avoid_view_display: error
