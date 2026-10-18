@@ -16,6 +16,7 @@ import 'key_info.dart';
 import 'layered_listen.dart';
 import 'layered_voice_mode.dart';
 import 'voice_provider.dart';
+import 'voice_turn_log.dart';
 
 /// The one tool of the voice layer.
 const askAgentDeclaration = <String, Object?>{
@@ -119,8 +120,10 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.onClosed,
     VoiceSession Function(LiveParts parts)? liveBuilder,
     VoiceSession Function(AgentParts parts)? agentBuilder,
+    VoiceLog? log,
   }) : _liveBuilder = liveBuilder ?? geminiLive,
-       _agentBuilder = agentBuilder ?? _agentGemini {
+       _agentBuilder = agentBuilder ?? _agentGemini,
+       _log = log ?? printVoiceLog {
     final speaks = mode == LayeredVoiceMode.appSpeaks;
     if (speaks && speech == null) {
       throw ArgumentError('appSpeaks needs a speech');
@@ -129,6 +132,8 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       forward: _forward,
       onChunk: onInputText,
       onBargeIn: _bargeIn,
+      onDropped: (text, why) =>
+          _log(voiceTurnLine('user-dropped', {'why': why, 'text': text})),
       guarding: () => _speaking || (_echoTail?.isActive ?? false),
       echoOf: _echoOf,
     );
@@ -222,6 +227,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       onClosed: p.onClosed,
     ),
   };
+
+  /// Where the `voice-turn` lines go (one per event, in the logcat).
+  final VoiceLog _log;
+
+  /// The command the app did without the model in the turn just asked, if any
+  /// (the orb sets it): named in the `ask` line.
+  String? Function()? fastPathOf;
 
   final String apiKey;
 
@@ -349,7 +361,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   }
 
   void _agentClosed(String reason) {
-    if (kDebugMode) debugPrint('layered agent closed: $reason');
+    _log(voiceTurnLine('agent-closed', {'reason': reason}));
     _words.clear();
     while (_asks.isNotEmpty) {
       _asks.removeFirst().completeError(StateError('agent closed'));
@@ -383,6 +395,28 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   @override
   Future<void> connect() async {
     await Future.wait([if (listen) _live!.connect(), _agent.connect()]);
+    final live = _live;
+    _log(
+      voiceTurnLine('session', {
+        'mode': 'layered',
+        'live': _appSpeaks ? 'appSpeaks' : 'liveRelays',
+        'liveModel': live?.model?.split('/').last,
+        // The voice Live speaks with; the app's own voice is `tts-voice`.
+        'liveVoice': _appSpeaks ? null : voice,
+        'liveThinking': liveThinking,
+        'agent': engine.name,
+        'agentModel': _agent.model,
+        'agentThinking': thinking.name,
+      }),
+    );
+    final Object? info = speech;
+    if (info is SpeechVoiceInfo) {
+      unawaited(
+        info.prepare().then(
+          (_) => _log(voiceTurnLine('tts-voice', info.voiceInfo)),
+        ),
+      );
+    }
   }
 
   /// The agent after a failure: a new one, with a new history.
@@ -426,7 +460,25 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       ack.cancel();
       slow.cancel();
     }
-    if (say != null) onAsk?.call(request, say, watch.elapsedMilliseconds);
+    if (say != null) {
+      _log(
+        voiceTurnLine('ask', {
+          'request': request,
+          'say': say,
+          'ms': watch.elapsedMilliseconds,
+          'fastPath': fastPathOf?.call(),
+        }),
+      );
+      onAsk?.call(request, say, watch.elapsedMilliseconds);
+    } else {
+      _log(
+        voiceTurnLine('ask', {
+          'request': request,
+          'cut': true,
+          'ms': watch.elapsedMilliseconds,
+        }),
+      );
+    }
     // Out of flight as the answer goes on, to Live or to the voice: the turn
     // is not over before it has it.
     if (!_closed) _askingIs(_asking - 1);
@@ -526,17 +578,61 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     for (final sentence in orbSentences(say)) {
       if (_closed || generation != _speechGeneration) return;
       onSpoken?.call(sentence);
-      await voice.speak(sentence, onStart: () => _speakingIs(true));
+      await _appSay(sentence, 'confirm', onStart: () => _speakingIs(true));
     }
     _speakingIs(false);
+  }
+
+  /// Asks the app's own voice to say [sentence] and logs who says it
+  /// ([kind]: `ack`, `answer`, or `confirm` for the line that asks to confirm
+  /// a card), with the engine and voice once the sound begins. A sentence
+  /// that never began (cut off, or no engine) is logged as such.
+  Future<void> _appSay(
+    String sentence,
+    String kind, {
+    void Function()? onStart,
+  }) async {
+    var started = false;
+    final watch = Stopwatch()..start();
+    Map<String, Object?> info() => speech is SpeechVoiceInfo
+        ? (speech! as SpeechVoiceInfo).voiceInfo
+        : const <String, Object?>{};
+    await speech!.speak(
+      sentence,
+      onStart: () {
+        started = true;
+        _log(
+          voiceTurnLine('speak', {
+            'who': 'app-tts',
+            'kind': kind,
+            'text': sentence,
+            ...info(),
+          }),
+        );
+        onStart?.call();
+      },
+    );
+    if (!started) {
+      _log(
+        voiceTurnLine('speak-none', {
+          'who': 'app-tts',
+          'kind': kind,
+          'text': sentence,
+          'ms': watch.elapsedMilliseconds,
+          ...info(),
+        }),
+      );
+    }
   }
 
   // ---- the app speaks -----------------------------------------------------
 
   /// The person's turn is over: the agent is asked, and the answer is said.
   /// The same whether the words were heard (the transcript) or typed.
-  void _forward(String text) {
+  void _forward(String text, {bool heard = true}) {
     if (_closed || text.trim().isEmpty) return;
+    // Typed text is logged by whoever took it; what was heard, here.
+    if (heard) _log(voiceTurnLine('user', {'src': 'voice', 'text': text}));
     _recentSpoken = '';
     unawaited(_answer(text));
   }
@@ -549,9 +645,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   /// Live generated something while it only listens: dropped, but logged.
   void _ignored(String text) {
-    if (kDebugMode) {
-      debugPrint('layered live output ignored (${text.length} chars)');
-    }
+    _log(voiceTurnLine('live-output-ignored', {'chars': text.length}));
   }
 
   // What the voice said last, to tell its echo from the person.
@@ -612,8 +706,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       if (_closed || generation != _speechGeneration) return;
       _recentSpoken += UserTurnForwarder.compact(sentence);
       onSpoken?.call(sentence);
-      await speech!.speak(
+      await _appSay(
         sentence,
+        'answer',
         onStart: () {
           if (generation != _speechGeneration) return;
           _speakingIs(true);
@@ -624,6 +719,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     }
     if (_closed || generation != _speechGeneration) return;
     _speakingIs(false);
+    _log(voiceTurnLine('turn-complete', {'who': 'app-tts'}));
     onTurnComplete?.call();
   }
 
@@ -646,8 +742,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     late final Future<void> mine;
     mine = _speechTail = _speechTail.then((_) async {
       if (_closed || generation != _speechGeneration) return;
-      await speech!.speak(
+      await _appSay(
         text,
+        'ack',
         onStart: () {
           if (generation == _speechGeneration) _speakingIs(true);
         },
@@ -681,6 +778,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (_closed || !_appSpeaks) return;
     final active = _speaking || _asking > 0;
     if (!active) return;
+    _log(
+      voiceTurnLine('interrupted', {
+        'by': 'person',
+        'speaking': _speaking,
+        'asking': _asking,
+      }),
+    );
     stopSpeech();
     final agent = _agent;
     if (_asks.isNotEmpty && agent is CancellableTurn) {
@@ -712,7 +816,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (!text.startsWith(_appNote)) {
       if (_appSpeaks) {
         _bargeIn();
-        _forward(text);
+        _forward(text, heard: false);
       } else {
         _live!.sendText(text);
       }

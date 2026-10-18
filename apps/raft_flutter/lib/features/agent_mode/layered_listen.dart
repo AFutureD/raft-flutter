@@ -23,6 +23,7 @@ class UserTurnForwarder {
     required this.forward,
     this.onChunk,
     this.onBargeIn,
+    this.onDropped,
     this.guarding,
     this.echoOf,
     this.settle = const Duration(milliseconds: 80),
@@ -38,6 +39,10 @@ class UserTurnForwarder {
   /// The person started to speak: once per utterance, as soon as it is known
   /// not to be the echo of the voice.
   final void Function()? onBargeIn;
+
+  /// A heard utterance that was not forwarded, and why (`echo` of the app's
+  /// own voice, or `no-words`): for the log.
+  final void Function(String text, String why)? onDropped;
 
   /// Whether the app's voice is, or just was, sounding.
   final bool Function()? guarding;
@@ -116,6 +121,9 @@ class UserTurnForwarder {
     _text.clear();
     _decided = false;
     _echo = false;
+    if (text.isNotEmpty && (echo || !hasWords(text))) {
+      onDropped?.call(text, echo ? 'echo' : 'no-words');
+    }
     if (text.isEmpty || echo || !hasWords(text)) return;
     if (!decided) {
       onBargeIn?.call();

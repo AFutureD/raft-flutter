@@ -13,6 +13,7 @@ import 'agent_voice_settings.dart';
 import 'gemini_live.dart';
 import 'layered_voice.dart' show LayeredVoiceSession;
 import 'voice_provider.dart';
+import 'voice_turn_log.dart';
 
 /// What the runtime needs of the model's side: to tell it something the app
 /// saw, and to silence it.
@@ -52,7 +53,10 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     AgentAudio? audio,
     AgentVoiceKey? key,
     VoiceSessionFactory? sessionFactory,
-  }) : sessionFactory = sessionFactory ?? createVoiceSession,
+    this.fastPath,
+    VoiceLog? log,
+  }) : _voiceLog = log ?? printVoiceLog,
+       sessionFactory = sessionFactory ?? createVoiceSession,
        audio = audio ?? AgentAudio.instance,
        key = key ?? AgentVoiceKey.instance {
     _guard = AgentLiveGuard(
@@ -67,6 +71,13 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   }
 
   static const tapLimit = Duration(milliseconds: 300);
+
+  /// Where the `voice-turn` lines go.
+  final VoiceLog _voiceLog;
+
+  /// The command the app did without the model in the turn just asked, if
+  /// any (told to a layered voice for its `ask` log line).
+  final String? Function()? fastPath;
 
   final List<Map<String, Object?>> tools;
   final AgentToolHandler onToolCall;
@@ -420,6 +431,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       },
       onClosed: (reason) {
         if (epoch != _epoch) return; // A call that was hung up.
+        _voiceLog(voiceTurnLine('closed', {'reason': reason}));
         _endSession();
         _session = null;
         _stopMic();
@@ -444,7 +456,8 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
             _playbackIdle();
           }
         })
-        ..onSlow = slowCue;
+        ..onSlow = slowCue
+        ..fastPathOf = fastPath;
     }
     _building = session;
     try {
@@ -462,6 +475,21 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       return null;
     }
     if (identical(_building, session)) _building = null;
+    if (session is! LayeredVoiceSession) {
+      // A layered session says its own (it knows its two models).
+      _voiceLog(
+        voiceTurnLine('session', {
+          'mode': 'voice-only',
+          'provider': provider.name,
+          'model': session.model?.split('/').last,
+          'voice': settings.voiceOf(provider),
+          'reasoning': settings.reasoning.name,
+          'thinking': session is GeminiLiveSession
+              ? session.thinkingUsed
+              : null,
+        }),
+      );
+    }
     if (_disposed || epoch != _epoch) {
       await session.close();
       return null;
@@ -659,6 +687,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   }) async {
     if (!await hasKey) return false;
     say(AgentSpeaker.you, text);
+    _voiceLog(voiceTurnLine('user', {'src': 'typed', 'text': text}));
     saying.value = '';
     _logAppend(AgentSpeaker.you, text);
     _set(AgentMicState.thinking);

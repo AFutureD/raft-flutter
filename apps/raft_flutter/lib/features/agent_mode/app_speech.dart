@@ -16,6 +16,18 @@ abstract interface class SpeechOut {
   Future<void> stop();
 }
 
+/// A [SpeechOut] that can say which engine and voice it speaks with, for the
+/// log line of each sentence.
+abstract interface class SpeechVoiceInfo {
+  /// `engine`, `voice` and `lang` of the voice, as far as the platform tells
+  /// (known once the first sentence has been asked for).
+  Map<String, Object?> get voiceInfo;
+
+  /// Makes the engine ready and asks it what it is, so that [voiceInfo] is
+  /// complete.
+  Future<void> prepare();
+}
+
 /// The sentences of [text], in order, each with its closing punctuation (and
 /// the quote that closes after it). Nothing is dropped or changed but the
 /// white space around a sentence, so that the sentences said one after the
@@ -66,10 +78,19 @@ bool get appSpeechSupported =>
 /// macOS AVSpeechSynthesizer, Windows) through `flutter_tts`: on the device,
 /// so the first sentence starts without a network trip. Chinese, at the
 /// normal rate.
-class FlutterTtsSpeech implements SpeechOut {
+class FlutterTtsSpeech implements SpeechOut, SpeechVoiceInfo {
   FlutterTtsSpeech({this.language = 'zh-CN'});
 
   final String language;
+
+  @override
+  Map<String, Object?> get voiceInfo => {..._info, 'lang': language};
+
+  @override
+  Future<void> prepare() => _ready();
+
+  // Asked of the platform once, when the engine is made.
+  Map<String, Object?> _info = const {};
 
   FlutterTts? _tts;
   Future<FlutterTts?>? _making;
@@ -90,11 +111,29 @@ class FlutterTtsSpeech implements SpeechOut {
       await tts.setSpeechRate(0.5);
       await tts.setVolume(1);
       await tts.setPitch(1);
+      _info = await _describe(tts);
       return _tts = tts;
     } catch (_) {
       // No engine on this platform (or none installed): nothing is said.
       return null;
     }
+  }
+
+  /// The engine and default voice the platform reports, once, for the log.
+  static Future<Map<String, Object?>> _describe(FlutterTts tts) async {
+    final info = <String, Object?>{};
+    try {
+      info['engine'] = await tts.getDefaultEngine.timeout(
+        const Duration(seconds: 2),
+      );
+    } catch (_) {}
+    try {
+      final voice = await tts.getDefaultVoice.timeout(
+        const Duration(seconds: 2),
+      );
+      info['voice'] = voice is Map ? voice['name'] ?? voice : voice;
+    } catch (_) {}
+    return info;
   }
 
   void _finished() {

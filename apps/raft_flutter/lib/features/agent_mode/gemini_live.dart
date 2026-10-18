@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'agent_tool_output.dart';
 import 'voice_provider.dart';
+import 'voice_turn_log.dart';
 
 /// A tool the model may call: [declaration] is a Gemini FunctionDeclaration.
 typedef AgentToolHandler = Future<Map<String, Object?>> Function(
@@ -36,7 +37,11 @@ class GeminiLiveSession implements VoiceSession {
     this.onTurnComplete,
     this.onInterrupted,
     this.onClosed,
-  });
+    VoiceLog? log,
+  }) : _log = log ?? printVoiceLog;
+
+  /// Where the `voice-turn` lines go.
+  final VoiceLog _log;
 
   /// How hard the model thinks (`thinkingConfig.thinkingLevel`). Gemini Live
   /// models accept `low`, `medium` and `high` (3.1 Flash Live also `minimal`;
@@ -82,25 +87,86 @@ class GeminiLiveSession implements VoiceSession {
     if (fast) {
       if (_relayStep >= relayThinking.length - 1) return false;
       _relayStep++;
+      _setup.relayStep = _relayStep;
       return true;
     }
     if (_level == null) return false;
     _level = lowerThinking(_level!);
+    _setup
+      ..levelKnown = true
+      ..levelCeiling = _level;
     return true;
+  }
+
+  /// What the model [model] refused at setup before, by model (and the kind
+  /// of session), for the life of the app: the next session sends the setup
+  /// that was accepted first, instead of walking the refusals again (three
+  /// failed setups, 4-5 s, every session on gemini-3.8-live). Written when a
+  /// setup succeeds; a model not seen before starts with everything.
+  static final _remembered = <String, SetupMemory>{};
+
+  static String _memoryKey(String model, bool fast, bool listenOnly) =>
+      '${_bare(model)}|${fast ? 'fast' : 'full'}|'
+      '${listenOnly ? 'listen' : 'talk'}';
+
+  /// Forgets the refusals remembered so far (tests).
+  @visibleForTesting
+  static void forgetSetups() => _remembered.clear();
+
+  /// What is remembered of [model], or null.
+  @visibleForTesting
+  static SetupMemory? rememberedSetup(
+    String model, {
+    bool fast = false,
+    bool listenOnly = false,
+  }) => _remembered[_memoryKey(model, fast, listenOnly)];
+
+  /// This session's working copy: what is remembered of its model, plus what
+  /// it has found out since. Only a setup that succeeds writes it back, so a
+  /// failed network never makes the app forget a feature for good.
+  SetupMemory _setup = SetupMemory();
+
+  /// The features this session sends now.
+  SetupMemory get setupFlags => _setup;
+
+  /// Starts from what is remembered of [model]: the features it refused, and
+  /// no more thinking than it accepted.
+  @visibleForTesting
+  void useModel(String model) {
+    _used = model;
+    final known = _remembered[_memoryKey(model, fast, listenOnly)];
+    _setup = known?.copy() ?? SetupMemory();
+    if (fast) {
+      if (_setup.relayStep > _relayStep) _relayStep = _setup.relayStep;
+    } else if (_setup.levelKnown) {
+      _level = _capped(_level, _setup.levelCeiling);
+    }
+  }
+
+  /// The lower of [wanted] and [ceiling] (null: none at all).
+  static AgentReasoning? _capped(AgentReasoning? wanted, AgentReasoning? top) =>
+      wanted == null || top == null
+      ? null
+      : (wanted.index <= top.index ? wanted : top);
+
+  /// The setup worked: remember what it took.
+  @visibleForTesting
+  void rememberSetup() {
+    final model = _used;
+    if (model == null) return;
+    _remembered[_memoryKey(model, fast, listenOnly)] = _setup.copy();
   }
 
   static const _host = 'generativelanguage.googleapis.com';
   static String _path(String version) =>
       '/ws/google.ai.generativelanguage.$version.GenerativeService.BidiGenerateContent';
 
-  /// Affective dialog (tone follows the person's tone) needs the v1alpha
-  /// endpoint and a model that supports it; dropped after one refusal.
-  static bool _affective = true;
-
-  /// Functions declared `NON_BLOCKING` let the model keep talking while a
-  /// screen is composed. A model that refuses them at setup gets blocking
-  /// functions instead (answered just as fast); dropped after one refusal.
-  static bool _nonBlocking = true;
+  // Optional setup features, each dropped after the model refuses it (see
+  // [SetupMemory]): affective dialog (tone follows the person's tone) needs
+  // the v1alpha endpoint and a model that supports it; functions declared
+  // `NON_BLOCKING` let the model keep talking while a screen is composed (a
+  // model that refuses them gets blocking functions, answered just as fast);
+  // a listening session asks for text instead of audio.
 
   /// The tokens of context at which the session starts dropping its oldest
   /// turns, and what it keeps (`ContextWindowCompressionConfig.triggerTokens`
@@ -183,11 +249,9 @@ class GeminiLiveSession implements VoiceSession {
   /// person's turn is over.
   final void Function()? onGenerating;
 
-  /// Whether a listening session asks for text; dropped after one refusal.
-  static bool _textOnly = true;
-
   /// The response modality this session asks for.
-  String get responseModality => listenOnly && _textOnly ? 'TEXT' : 'AUDIO';
+  String get responseModality =>
+      listenOnly && _setup.textOnly ? 'TEXT' : 'AUDIO';
 
   /// The Live model the person chose (`models/gemini-3.8-live` or without
   /// the prefix), or null to let the app pick (see [sortModels]). Used when
@@ -359,39 +423,77 @@ class GeminiLiveSession implements VoiceSession {
   Future<void> connect() async {
     if (_socket != null) return;
     final hasNonBlocking = nonBlockingNames(tools).isNotEmpty;
+    // The model first: what it refused before is not sent again.
+    final picked = await _pickModel(apiKey, fast: fast, wanted: preferredModel);
+    useModel(picked.model);
+    final watch = Stopwatch()..start();
+    var tries = 0;
     while (true) {
-      final nb = _nonBlocking && hasNonBlocking;
+      tries++;
+      final nb = _setup.nonBlocking && hasNonBlocking;
       try {
-        await _connect(affective: _affective, nonBlocking: nb);
+        await _connect(affective: _setup.affective, nonBlocking: nb);
+        rememberSetup();
+        _log(
+          voiceTurnLine('live-setup', {
+            'model': _bare(picked.model),
+            'modality': responseModality,
+            if (responseModality == 'AUDIO') 'voice': voice,
+            'thinking': thinkingUsed,
+            'affective': _setup.affective && !listenOnly,
+            'nonBlocking': nb,
+            'tries': tries,
+            'ms': watch.elapsedMilliseconds,
+          }),
+        );
         return;
       } catch (e) {
-        // A refusal that names the function behavior drops that first;
-        // otherwise affective dialog (as before), then non-blocking.
-        // ignore: raft_lints/avoid_caught_exception_text -- Matched against "behavior" / "non_blocking" to pick which feature to drop; the text is never shown.
+        // ignore: raft_lints/avoid_caught_exception_text -- Matched against the feature names to pick which to drop; clipped into the debug log, never shown.
         final refusal = '$e';
-        final behavior = RegExp(
-          r'behavior|non_?blocking|scheduling',
-          caseSensitive: false,
-        ).hasMatch(refusal);
-        final thinking = RegExp(
-          r'thinking|thought',
-          caseSensitive: false,
-        ).hasMatch(refusal);
-        if (thinking && lowerThinkingSetting()) {
-          // Tried again with the next lower setting.
-        } else if (nb && behavior) {
-          _nonBlocking = false;
-        } else if (listenOnly && _textOnly) {
-          _textOnly = false;
-        } else if (_affective) {
-          _affective = false;
-        } else if (nb) {
-          _nonBlocking = false;
-        } else {
-          rethrow;
-        }
+        final dropped = dropRefused(refusal, nonBlocking: nb);
+        if (dropped == null) rethrow;
+        _log(
+          voiceTurnLine('live-setup-refused', {
+            'model': _bare(picked.model),
+            'dropped': dropped,
+            'reason': refusal,
+          }),
+        );
       }
     }
+  }
+
+  /// The model refused its setup with [refusal]: drops the feature it names,
+  /// else the next in line, and says which ('thinking' when only the thinking
+  /// went a step down). Null when there is nothing left to drop.
+  @visibleForTesting
+  String? dropRefused(String refusal, {required bool nonBlocking}) {
+    bool names(String pattern) =>
+        RegExp(pattern, caseSensitive: false).hasMatch(refusal);
+    if (names(r'thinking|thought') && lowerThinkingSetting()) {
+      return 'thinking(now $thinkingUsed)';
+    }
+    if (nonBlocking && names(r'behavior|non_?blocking|scheduling')) {
+      _setup.nonBlocking = false;
+      return 'nonBlocking';
+    }
+    if (names('affective') && _setup.affective) {
+      _setup.affective = false;
+      return 'affective';
+    }
+    if (listenOnly && _setup.textOnly) {
+      _setup.textOnly = false;
+      return 'textOnly';
+    }
+    if (_setup.affective) {
+      _setup.affective = false;
+      return 'affective';
+    }
+    if (nonBlocking) {
+      _setup.nonBlocking = false;
+      return 'nonBlocking';
+    }
+    return null;
   }
 
   Future<void> _connect({
@@ -510,19 +612,68 @@ class GeminiLiveSession implements VoiceSession {
     },
   };
 
+  // What was heard and said in this turn, logged once when the turn moves on
+  // (the transcripts come in pieces). A session that only listens leaves it
+  // to its owner: its own words are thrown away.
+  final _heard = StringBuffer();
+  final _said = StringBuffer();
+
+  void _logHeard() {
+    if (_heard.isEmpty) return;
+    final text = '$_heard'.trim();
+    _heard.clear();
+    if (text.isNotEmpty) {
+      _log(voiceTurnLine('user', {'src': 'voice', 'text': text}));
+    }
+  }
+
+  void _logSaid({bool cut = false}) {
+    if (_said.isEmpty) return;
+    final text = '$_said'.trim();
+    _said.clear();
+    if (text.isEmpty) return;
+    _log(
+      voiceTurnLine('speak', {
+        'who': 'live',
+        'voice': voice,
+        'text': text,
+        'cut': cut ? true : null,
+      }),
+    );
+  }
+
+  /// A server message, as if it had come over the socket (tests).
+  @visibleForTesting
+  void handleMessage(Map<String, dynamic> message) => _handle(message);
+
   void _handle(Map<String, dynamic> message) {
     final content = message['serverContent'] as Map<String, dynamic>?;
     if (content != null) {
-      if (content['interrupted'] == true) onInterrupted?.call();
+      if (content['interrupted'] == true) {
+        if (!listenOnly) {
+          _logHeard();
+          _logSaid(cut: true);
+          _log(voiceTurnLine('interrupted', {'by': 'person', 'who': 'live'}));
+        }
+        onInterrupted?.call();
+      }
       final input = content['inputTranscription']?['text'];
-      if (input is String && input.isNotEmpty) onInputText?.call(input);
+      if (input is String && input.isNotEmpty) {
+        if (!listenOnly) _heard.write(input);
+        onInputText?.call(input);
+      }
       final output = content['outputTranscription']?['text'];
       if (output is String && output.isNotEmpty) {
+        if (!listenOnly) {
+          _logHeard();
+          _said.write(output);
+        }
         onGenerating?.call();
         onOutputText?.call(output);
       }
       for (final part
           in (content['modelTurn']?['parts'] as List? ?? const [])) {
+        if (!listenOnly) _logHeard();
         onGenerating?.call();
         final data = part['inlineData']?['data'];
         if (data is String) onAudio?.call(base64Decode(data));
@@ -532,10 +683,18 @@ class GeminiLiveSession implements VoiceSession {
         }
       }
       if (content['generationComplete'] == true) onGenerating?.call();
-      if (content['turnComplete'] == true) onTurnComplete?.call();
+      if (content['turnComplete'] == true) {
+        if (!listenOnly) {
+          _logHeard();
+          _logSaid();
+          _log(voiceTurnLine('turn-complete', {'who': 'live'}));
+        }
+        onTurnComplete?.call();
+      }
     }
     final calls = message['toolCall']?['functionCalls'] as List?;
     if (calls != null) {
+      if (!listenOnly) _logHeard();
       onGenerating?.call();
       unawaited(_answer(calls));
     }
@@ -641,6 +800,39 @@ class GeminiLiveSession implements VoiceSession {
   }
 }
 
+/// The optional setup features of one Live model, as far as it has shown which
+/// it takes (see `GeminiLiveSession.useModel`). Everything is on until the
+/// model refuses it.
+class SetupMemory {
+  SetupMemory();
+
+  /// Affective dialog (`enableAffectiveDialog`, the v1alpha endpoint).
+  bool affective = true;
+
+  /// Functions declared `NON_BLOCKING`.
+  bool nonBlocking = true;
+
+  /// A listening session's text-only response.
+  bool textOnly = true;
+
+  /// A relaying session's step in `GeminiLiveSession.relayThinking` that the
+  /// model took (0: the first, as asked).
+  int relayStep = 0;
+
+  /// For the other sessions: whether the model refused a thinking level, and
+  /// the highest level it took after that (null: none at all).
+  bool levelKnown = false;
+  AgentReasoning? levelCeiling;
+
+  SetupMemory copy() => SetupMemory()
+    ..affective = affective
+    ..nonBlocking = nonBlocking
+    ..textOnly = textOnly
+    ..relayStep = relayStep
+    ..levelKnown = levelKnown
+    ..levelCeiling = levelCeiling;
+}
+
 class GeminiLiveException implements Exception {
   const GeminiLiveException(this.message);
   final String message;
@@ -662,9 +854,7 @@ const agentSlowToolTimeouts = <String, Duration>{
   'ask_agent': Duration(seconds: 90),
 };
 
-void _toolLog(String message) {
-  if (!kReleaseMode) debugPrint('agent-tool $message');
-}
+void _toolLog(String message) => printVoiceLog('agent-tool $message');
 
 /// Answers the function calls of a Live session: every call id gets exactly
 /// one response, in blocking and non-blocking mode alike. A handler that
@@ -682,8 +872,13 @@ class AgentToolResponder {
     Set<String> Function()? quietNames,
     this.timeout = agentToolTimeout,
     void Function(String message)? log,
+    VoiceLog? turnLog,
   }) : quietNames = quietNames ?? (() => const <String>{}),
-       log = log ?? _toolLog;
+       log = log ?? _toolLog,
+       turnLog = turnLog ?? printVoiceLog;
+
+  /// Where the one `voice-turn tool` line of each call goes.
+  final VoiceLog turnLog;
 
   final AgentToolHandler handler;
 
@@ -754,25 +949,35 @@ class AgentToolResponder {
     final watch = Stopwatch()..start();
     log('call $name id=$id ${nonBlocking ? 'non-blocking' : 'blocking'}');
     Map<String, Object?> result;
+    final args = (call['args'] as Map?)?.cast<String, Object?>() ?? const {};
+    var status = 'ok';
     try {
-      result = await handler(
-        name,
-        (call['args'] as Map?)?.cast<String, Object?>() ?? const {},
-      ).timeout(timeoutOf(name));
+      result = await handler(name, args).timeout(timeoutOf(name));
     } on TimeoutException {
+      status = 'timeout';
       result = {
         'error':
             '$name 超过 ${timeoutOf(name).inSeconds} 秒没有返回：现在读不到，'
             '请如实告诉用户稍后再试，不要重复调用。',
       };
     } catch (e) {
+      status = 'threw';
       // ignore: raft_lints/avoid_caught_exception_text -- A tool result for the model, never shown in the UI.
       result = {'error': '$e'};
     }
     if (id != null && _cancelled.remove('$id')) {
       log('response id=$id dropped (cancelled)');
+      turnLog(
+        voiceTurnLine('tool', {
+          'name': name,
+          'args': _argsSummary(args),
+          'status': 'cancelled',
+          'ms': watch.elapsedMilliseconds,
+        }),
+      );
       return;
     }
+    if (status == 'ok' && result['error'] != null) status = 'error';
     // Whatever the tool returned, only valid JSON of a safe size goes out.
     final guarded = guardToolOutput(result);
     result = guarded.result;
@@ -789,5 +994,26 @@ class AgentToolResponder {
       '${guarded.truncated ? ' (cut from ${guarded.originalBytes}B)' : ''}'
       '${delivered ? '' : ' NOT SENT (no socket)'}',
     );
+    turnLog(
+      voiceTurnLine('tool', {
+        'name': name,
+        'args': _argsSummary(args),
+        'status': status,
+        'err': status == 'ok' ? null : clipForLog('${result['error']}', 80),
+        'ms': watch.elapsedMilliseconds,
+        'bytes': guarded.bytes,
+        'sent': delivered ? null : false,
+      }),
+    );
+  }
+
+  /// The arguments of a call on one short line (clipped by the line).
+  static String _argsSummary(Map<String, Object?> args) {
+    if (args.isEmpty) return '{}';
+    try {
+      return jsonEncode(args);
+    } catch (_) {
+      return args.keys.join(',');
+    }
   }
 }
