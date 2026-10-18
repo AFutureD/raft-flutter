@@ -48,11 +48,9 @@ export 'workspace_message_commands.dart' show isThreadAbsentLookupError;
 export 'conversation_window.dart' show MessageContextLoadError;
 export 'workspace_message_windows.dart' show ReadingAnchor;
 import 'resource_snapshot_cache.dart';
-import 'user_activity.dart';
 import 'workspace_entity_directory.dart';
 import 'followed_threads_store.dart';
 import 'raft_location.dart';
-import 'navigation_registry.dart';
 import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
 import 'message_history_pages.dart';
@@ -63,13 +61,14 @@ import 'cache_clear.dart';
 import 'attachment_url_cache.dart';
 import 'attachment_media.dart';
 import 'attachment_retention_index.dart';
-import 'conversation_presentation_state.dart';
+import 'workspace_presentation.dart';
+import 'workspace_presentation_ports.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
 
 class WorkspaceController extends ChangeNotifier
-    implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost {
+    implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost, WorkspacePresentationSourcePort {
   /// High-frequency socket events that never change workspace state.
   static const presenceEvents = WorkspaceSession.presenceEvents;
 
@@ -77,7 +76,7 @@ class WorkspaceController extends ChangeNotifier
     this.client, {
     WorkspaceCache? cache,
     this.presentationSource,
-    this.mobileNavigation = false,
+    bool mobileNavigation = false,
     bool ownsClient = true,
     RestoreSharedDraftAttachment? restoreSharedAttachment,
     Future<void> Function(String, String, String, String?)? discardSharedScope,
@@ -86,8 +85,16 @@ class WorkspaceController extends ChangeNotifier
     AttachmentImageByteStore? attachmentImageStore,
     AttachmentUrlCache? attachmentUrls,
     WorkspaceComposer? composer,
-  }) : _presentationAuthority = presentationSource?.navigationAuthority {
+  }) {
     final bindings = _WorkspaceMessageBindings(this);
+    _presentation = WorkspacePresentation(
+      context: bindings,
+      client: client,
+      directory: bindings,
+      conversations: bindings,
+      source: presentationSource,
+      mobileNavigation: mobileNavigation,
+    );
     _session = WorkspaceSession(
       context: bindings,
       transport: bindings,
@@ -109,7 +116,7 @@ class WorkspaceController extends ChangeNotifier
       revokedChannels: () => _revokedChannels,
       channelId: () => channel?.id,
       threadChannelId: () => threadChannelId,
-      mobileNavigation: () => mobileNavigation,
+      mobileNavigation: () => this.mobileNavigation,
       mayMarkRead: _mayMarkRead,
       markRead: (id) => markRead(id),
       channelRows: () => [...channels, ...dms],
@@ -348,8 +355,9 @@ class WorkspaceController extends ChangeNotifier
   /// Route-local presentation borrows the session and accepted stores. Only
   /// the source reduces socket events and owns server/bootstrap lifecycle.
   final WorkspaceController? presentationSource;
-  final String? _presentationAuthority;
-  bool presentationActive = true;
+  late final WorkspacePresentation _presentation;
+  bool get presentationActive => _presentation.presentationActive;
+  set presentationActive(bool value) => _presentation.presentationActive = value;
   RestoreSharedDraftAttachment? get restoreSharedAttachment =>
       _editor.restoreSharedAttachment;
   @override
@@ -501,7 +509,8 @@ class WorkspaceController extends ChangeNotifier
 
   /// Set by the host from its actual logical width before bootstrap. Home
   /// retains selection/drafts, but is not an open conversation/read surface.
-  bool mobileNavigation;
+  bool get mobileNavigation => _presentation.mobileNavigation;
+  set mobileNavigation(bool value) => _presentation.mobileNavigation = value;
   @override
   MessageSync get messageSync => _messages.state.messageSync;
   @override
@@ -595,50 +604,21 @@ class WorkspaceController extends ChangeNotifier
   Map<String, String> get drafts => _editor.drafts;
   Set<String> get _revokedChannels => _session.revokedChannels;
   Set<String> get _revokedServers => _session.revokedServers;
-  final _conversationPresentation = ConversationPresentationState();
-  bool get _mainPresented => _conversationPresentation.main;
-  bool get _threadPresented => _conversationPresentation.thread;
-  bool get _chatTabPresented => _conversationPresentation.chat;
-
-  /// Channel tabs and folded panels are independent presentation owners.
-  /// Neither loaded data nor an offstage retained editor admits a read receipt.
-  void setChatTabPresentation(Object owner, bool visible) {
-    _conversationPresentation.setTab(owner, visible);
-    if (presentationSource != null) {
-      if (presentationActive) {
-        presentationSource!.setChatTabPresentation(owner, visible);
-      }
-    }
-  }
-
-  void releaseChatTabPresentation(Object owner) {
-    presentationSource?.releaseChatTabPresentation(owner);
-    _conversationPresentation.releaseTab(owner);
-  }
-
-  /// Mounted layout admission, separate from accepted message windows. This
-  /// changes synchronously without notifying/rebuilding the controller tree.
-  void setConversationPresentation(
-    Object owner, {
-    required bool main,
-    required bool thread,
-  }) {
-    _conversationPresentation.setConversation(owner, main: main, thread: thread);
-    if (presentationSource != null) {
-      if (presentationActive) {
-        presentationSource!.setConversationPresentation(
-          owner,
-          main: main,
-          thread: thread,
-        );
-      }
-    }
-  }
-
-  void releaseConversationPresentation(Object owner) {
-    presentationSource?.releaseConversationPresentation(owner);
-    _conversationPresentation.releaseConversation(owner);
-  }
+  bool get _mainPresented => _presentation.mainPresented;
+  bool get _threadPresented => _presentation.threadPresented;
+  bool get _chatTabPresented => _presentation.chatTabPresented;
+  @override
+  void setChatTabPresentation(Object owner, bool visible) =>
+      _presentation.setChatTabPresentation(owner, visible);
+  @override
+  void releaseChatTabPresentation(Object owner) =>
+      _presentation.releaseChatTabPresentation(owner);
+  @override
+  void setConversationPresentation(Object owner, {required bool main, required bool thread}) =>
+      _presentation.setConversationPresentation(owner, main: main, thread: thread);
+  @override
+  void releaseConversationPresentation(Object owner) =>
+      _presentation.releaseConversationPresentation(owner);
 
   /// This session owns one window; pages and platform adapters only borrow it.
   /// Server selection creates it before UI; standalone views can borrow a
@@ -651,21 +631,14 @@ class WorkspaceController extends ChangeNotifier
   SourceActivityUnreadStore? get activityUnreadIfBound =>
       services.activityUnreadIfBound;
 
-  final foregroundChanges = ValueNotifier<bool>(true);
+  ValueNotifier<bool> get foregroundChanges => _presentation.foregroundChanges;
 
   /// Counts returns to the foreground that reached [resumeLiveSession]; views
   /// that own live summaries (the server menu's Activity count) refresh on it.
   ValueNotifier<int> get resumes => _session.resumes;
-  bool foreground = true;
-  void setForeground(bool value) {
-    foreground = value;
-    if (!value) RaftUserActivity.forget();
-    foregroundChanges.value = value;
-    if (value) {
-      if (channel != null && !hasNewer) markRead(channel!.id);
-      if (threadChannelId != null) markRead(threadChannelId!);
-    }
-  }
+  bool get foreground => _presentation.foreground;
+  set foreground(bool value) => _presentation.foreground = value;
+  void setForeground(bool value) => _presentation.setForeground(value);
 
   @override
   void resetServerProjection() => _session.resetServerProjection();
@@ -954,7 +927,8 @@ class WorkspaceController extends ChangeNotifier
   set server(RaftRecord? value) => _session.server = value;
   bool can(String capability, {RaftChannel? resource}) =>
       _session.can(capability, resource: resource);
-  RaftChannel? channel;
+  RaftChannel? get channel => _presentation.channel;
+  set channel(RaftChannel? value) => _presentation.channel = value;
 
   @override
   WorkspaceThreadIdentity? get threadIdentity => _messages.threadIdentity;
@@ -973,7 +947,8 @@ class WorkspaceController extends ChangeNotifier
   @override
   String? get threadChannelId => _messages.state.threadChannelId;
   set threadChannelId(String? value) => _messages.state.threadChannelId = value;
-  bool loading = false;
+  bool get loading => _presentation.loading;
+  set loading(bool value) => _presentation.loading = value;
   bool get channelLoading => _messages.state.channelLoading;
   set channelLoading(bool value) => _messages.state.channelLoading = value;
   bool get threadLoading => _messages.state.threadLoading;
@@ -985,7 +960,8 @@ class WorkspaceController extends ChangeNotifier
   bool get connected => _session.connected;
   set connected(bool value) => _session.connected = value;
   // ignore: raft_lints/avoid_imperative_notice_state -- One-shot toast consumed by WorkspaceView; cleared on channel open, jump, send start, server switch and server revoke.
-  String? error;
+  String? get error => _presentation.error;
+  set error(String? value) => _presentation.error = value;
 
   /// Source messageStore `contextLoadError` for the open channel: the jump
   /// target's context failed to load and the latest window replaced it.
@@ -997,80 +973,14 @@ class WorkspaceController extends ChangeNotifier
 
   set contextLoadError(MessageContextLoadError? value) => _messages.contextLoadError = value;
 
-  final navigation = WorkspaceNavigation();
-  String _unboundSection = 'chat';
-  String? _navigationAuthority;
-  String get navigationAuthority => jsonEncode([
-    client.origin,
-    client.generation,
-    client.user?.id,
-    server?.id,
-    client.serverId,
-    server?.string('role'),
-  ]);
-  void bindNavigation() {
-    if (server == null) return;
-    final authority = navigationAuthority;
-    if (_navigationAuthority == authority) return;
-    final slug =
-        [
-          server!.string('slug'),
-          server!.id,
-          client.serverId,
-        ].whereType<String>().where((value) => value.isNotEmpty).firstOrNull ??
-        '_';
-    final initial = _navigationAuthority == null
-        ? WorkspaceNavigation.locationForSection(
-            slug,
-            _unboundSection,
-            channelId: channel?.id,
-            dm: channel?.type == 'dm',
-          )
-        : navigation.location.serverSlug == slug
-        ? navigation.location
-        : WorkspaceNavigation.locationForSection(
-            slug,
-            mobileNavigation ? 'home' : _unboundSection,
-            channelId: null,
-          );
-    _navigationAuthority = authority;
-    navigation.bind(authority, initial);
-  }
-
-  RaftLocation get location {
-    bindNavigation();
-    return navigation.location;
-  }
-
-  int get navigationRevision {
-    bindNavigation();
-    return navigation.revision;
-  }
-
-  String get section {
-    bindNavigation();
-    if (server == null) return _unboundSection;
-    final projected = navigation.section;
-    // SettingsPanel.tsx:7882–7894 retains the requested URL while a denied
-    // tab resolves to Account. It does not redirect the entire workspace.
-    return navigation.location.route == RaftRoute.settings &&
-            !canVisitSection(projected)
-        ? 'settings'
-        : projected;
-  }
-
-  set section(String value) {
-    _unboundSection = value;
-    final firstBind = _navigationAuthority == null && server != null;
-    bindNavigation();
-    if (server != null && !firstBind) {
-      navigation.selectSection(
-        value,
-        channelId: channel?.id,
-        dm: channel?.type == 'dm',
-      );
-    }
-  }
+  WorkspaceNavigation get navigation => _presentation.navigation;
+  @override
+  String get navigationAuthority => _presentation.navigationAuthority;
+  void bindNavigation() => _presentation.bindNavigation();
+  RaftLocation get location => _presentation.location;
+  int get navigationRevision => _presentation.navigationRevision;
+  String get section => _presentation.section;
+  set section(String value) => _presentation.section = value;
 
   int get channelGeneration => _messages.channelGeneration;
   int get threadGeneration => _messages.threadGeneration;
@@ -1117,16 +1027,9 @@ class WorkspaceController extends ChangeNotifier
   /// otherwise reported, rate limits included).
   static bool _staleScope(Object e) => e is RaftApiException && e.staleScope;
 
-  void setError(String? value) {
-    final source = presentationSource;
-    if (source != null) {
-      // ignore: raft_lints/avoid_imperative_notice_state -- Delegates to the session source.
-      source.setError(value);
-      return;
-    }
-    error = value;
-    notifyListeners();
-  }
+  @override
+  // ignore: raft_lints/avoid_imperative_notice_state -- Compatibility command delegates the existing scoped notice to its presentation owner; notification and source dispatch are unchanged.
+  void setError(String? value) => _presentation.setError(value);
 
   /// Hydrates the account's real server directory without selecting a server.
   /// The app root uses this before exposing the global chooser. Offline rows
@@ -1228,7 +1131,7 @@ class WorkspaceController extends ChangeNotifier
     final id = event.plan.channelId;
     if (channel?.id == id && !event.keepShared) {
       channel = null;
-      _missingConversationChannelId = id;
+      _presentation.assignMissingConversationChannelId(id);
       messageWindows.channelGeneration++;
     }
     if (threadParent?.channelId == id ||
@@ -1340,29 +1243,7 @@ class WorkspaceController extends ChangeNotifier
   /// the held window. Nothing is cleared or reloaded.
   Future<void> syncVisibleScopes({BigInt? through}) => _messages.navigation.syncVisibleScopes(through: through);
 
-  bool canVisitSection(String name) {
-    final capability = const {
-      'agents': 'viewAgents',
-      'computers': 'viewMachines',
-      'members': 'viewMembers',
-      'providers': 'manageExternalAuth',
-      'integrations': 'manageIntegrations',
-      'im-bridges': 'manageIntegrations',
-      'administration': 'viewServerSettings',
-      'billing': 'viewBilling',
-      'workspace-settings': 'viewServerSettings',
-    }[name];
-    if (capability != null) return can(capability);
-    return const {
-      'home',
-      'chat',
-      'activity',
-      'search',
-      'saved',
-      'tasks',
-      'settings',
-    }.contains(name);
-  }
+  bool canVisitSection(String name) => _presentation.canVisitSection(name);
 
   /// Apply the mounted receiver's own authoritative role event synchronously.
   /// Any earlier HTTP membership snapshot loses its request revision fence.
@@ -1389,89 +1270,11 @@ class WorkspaceController extends ChangeNotifier
   Future<void> recoverMembership({bool coalesce = false}) =>
       _session.recoverMembership(coalesce: coalesce);
 
-  bool _rejectRevokedConversation(String id) {
-    if (_disposed || !_revokedChannels.contains(id)) return false;
-    if (location.entityId == id) {
-      _missingConversationChannelId = id;
-      _resolvingConversationChannelId = null;
-      notifyListeners();
-    }
-    return true;
-  }
-
-  String? _resolvingConversationChannelId, _missingConversationChannelId;
-  int _conversationResolutionRequest = 0;
-  String? get missingConversationChannelId => _missingConversationChannelId;
-
-  /// MainLayout ChannelById/ensureChannel: hydrate a real channel without
-  /// treating the thread's focused reply as a message in its parent channel.
-  /// URI, principal/server epoch and request ownership fence late arrival.
-  Future<void> resolveConversationChannel(
-    String id, {
-    bool preserveThread = false,
-  }) async {
-    final source = presentationSource;
-    if (source != null) {
-      return source.resolveConversationChannel(
-        id,
-        preserveThread: preserveThread,
-      );
-    }
-    final request = ++_conversationResolutionRequest,
-        revision = navigationRevision,
-        scope = navigationAuthority,
-        reply = _messages.replyToken(id),
-        generation = ledger.generation;
-    bool current() =>
-        !_disposed &&
-        request == _conversationResolutionRequest &&
-        revision == navigationRevision &&
-        scope == navigationAuthority &&
-        reply == _messages.replyToken(id) &&
-        generation == ledger.generation &&
-        !_revokedChannels.contains(id);
-    if (_disposed ||
-        _rejectRevokedConversation(id) ||
-        id.isEmpty ||
-        !can('viewChannel')) {
-      return;
-    }
-    _resolvingConversationChannelId = id;
-    _missingConversationChannelId = null;
-    notifyListeners();
-    try {
-      var real = [...channels, ...dms].where((c) => c.id == id).firstOrNull;
-      if (real == null) {
-        final data = await client.get('/channels/$id');
-        if (!current()) return;
-        if (data is! Map ||
-            data['id'] != id ||
-            data['serverId'] != null && data['serverId'] != server?.id) {
-          throw const RaftApiException('This channel is not available.');
-        }
-        real = RaftChannel(Map<String, dynamic>.from(data));
-        if (!can('viewChannel', resource: real)) return;
-        if (real.type == 'dm') {
-          dms = [...dms.where((c) => c.id != id), real];
-        } else {
-          channels = [...channels.where((c) => c.id != id), real];
-        }
-      }
-      if (!current() || !can('viewChannel', resource: real)) return;
-      await selectChannel(
-        real,
-        navigate: false,
-        preserveThread: preserveThread,
-      );
-    } catch (_) {
-      if (current()) _missingConversationChannelId = id;
-    } finally {
-      if (current() && _resolvingConversationChannelId == id) {
-        _resolvingConversationChannelId = null;
-        notifyListeners();
-      }
-    }
-  }
+  bool _rejectRevokedConversation(String id) => _presentation.rejectRevokedConversation(id);
+  String? get missingConversationChannelId => _presentation.missingConversationChannelId;
+  @override
+  Future<void> resolveConversationChannel(String id, {bool preserveThread = false}) =>
+      _presentation.resolveConversationChannel(id, preserveThread: preserveThread);
 
   Future<void> selectChannel(
     RaftChannel next, {
@@ -1606,90 +1409,18 @@ class WorkspaceController extends ChangeNotifier
   /// channel (the CTA that replaces the composer for a non-member).
   Future<void> joinThreadParentChannel() => _messages.joinThreadParentChannel();
 
-  // Web profileStore: the profile side panel is a URL slot (`profile=`); an
-  // external author's frozen attribution payload lives beside it.
-  final Map<String, Map<String, dynamic>> _externalProfiles = {};
-
-  /// The provider attribution frozen when an external author's panel opened.
-  Map<String, dynamic>? externalProfile(String messageId) =>
-      presentationSource?.externalProfile(messageId) ??
-      _externalProfiles[messageId];
-
-  /// Web `openProfile` / `openExternalProfile`: a human or agent (optionally
-  /// landing on an agent [agentTab]) or an external message author
-  /// ([id] = message id, [channelId] its channel, [externalAuthor] the
-  /// attribution). Adding a panel pushes history; retargeting replaces.
-  void openProfile(
-    RaftProfileKind kind,
-    String id, {
-    String? agentTab,
-    String? channelId,
-    Map<String, dynamic>? externalAuthor,
-  }) {
-    final source = presentationSource;
-    if (source != null) {
-      source.openProfile(
-        kind,
-        id,
-        agentTab: agentTab,
-        channelId: channelId,
-        externalAuthor: externalAuthor,
-      );
-      return;
-    }
-    if (id.trim().isEmpty ||
-        kind == RaftProfileKind.external && (channelId?.isEmpty ?? true)) {
-      return;
-    }
-    if (externalAuthor != null) _externalProfiles[id] = externalAuthor;
-    final next = location.withQuery({
-      'profile': RaftProfileLocation(kind, id, channelId: channelId).toString(),
-      'agentTab': kind == RaftProfileKind.agent ? agentTab : null,
-    });
-    if (next.uri == location.uri) return;
-    navigation.navigateProfile(
-      next,
-      kind: location.panelNavigationKindTo(next),
-    );
-    notifyListeners();
-  }
-
-  /// Web `closeProfile`: removing a slot replaces the history entry.
-  void closeProfile() {
-    final source = presentationSource;
-    if (source != null) {
-      source.closeProfile();
-      return;
-    }
-    if (location.profile == null) return;
-    final next = location.withQuery({'profile': null, 'agentTab': null});
-    navigation.navigateProfile(
-      next,
-      kind: location.panelNavigationKindTo(next),
-    );
-    notifyListeners();
-  }
+  @override
+  Map<String, dynamic>? externalProfile(String messageId) => _presentation.externalProfile(messageId);
+  @override
+  void openProfile(RaftProfileKind kind, String id, {String? agentTab, String? channelId, Map<String, dynamic>? externalAuthor}) =>
+      _presentation.openProfile(kind, id, agentTab: agentTab, channelId: channelId, externalAuthor: externalAuthor);
+  @override
+  void closeProfile() => _presentation.closeProfile();
 
   void closeThread({bool navigate = true}) => _messages.threads.closeThread(navigate: navigate);
 
-  void setSection(String next) {
-    if (!NavigationRegistry.knowsSection(next)) {
-      NavigationRegistry.reportFallback(
-        'section',
-        next,
-        NavigationRegistry.unsupportedSections[next],
-      );
-      return;
-    }
-    final source = presentationSource;
-    if (source != null) {
-      source.setSection(next);
-      return;
-    }
-    if (!canVisitSection(next)) return;
-    section = next;
-    notifyListeners();
-  }
+  @override
+  void setSection(String next) => _presentation.setSection(next);
 
   @override
   Future<dynamic> query(String path, {Map<String, dynamic>? query}) =>
@@ -1964,7 +1695,7 @@ class WorkspaceController extends ChangeNotifier
     services.retireChannelFiles();
     subscription.cancel();
     services.disposeActivityUnread();
-    foregroundChanges.dispose();
+    _presentation.dispose();
     resumes.dispose();
     if (ownsClient) client.dispose();
     super.dispose();
@@ -2004,7 +1735,8 @@ class _WorkspaceSessionBindings
         WorkspaceWindowFactsPort,
         WorkspaceMessagePrefetchPort,
         WorkspacePrefetchPagesPort,
-        WorkspaceTaskMetadataPort {
+        WorkspaceTaskMetadataPort,
+        WorkspacePresentationDirectoryPort {
   _WorkspaceSessionBindings(this.w);
   final WorkspaceController w;
   late final WorkspaceTransitionPort _transitions = _WorkspaceTransitions(
@@ -2108,7 +1840,7 @@ class _WorkspaceSessionBindings
   @override
   bool get borrowed => w.presentationSource != null;
   @override
-  String? get presentationAuthority => w._presentationAuthority;
+  String? get presentationAuthority => w._presentation.boundSourceAuthority;
   @override
   String? get sourceNavigationAuthority =>
       w.presentationSource?.navigationAuthority;
@@ -2117,12 +1849,12 @@ class _WorkspaceSessionBindings
   @override
   void assignSection(String value) => w.section = value;
   @override
-  void assignUnboundSection(String value) => w._unboundSection = value;
+  void assignUnboundSection(String value) => w._presentation.assignUnboundSection(value);
   @override
   void assignLoading(bool value) => w.loading = value;
   @override
   void assignMissingConversationChannelId(String? value) =>
-      w._missingConversationChannelId = value;
+      w._presentation.assignMissingConversationChannelId(value);
   @override
   void setSelectedChannel(RaftChannel? value) => w.channel = value;
   @override
@@ -2287,7 +2019,11 @@ class _WorkspaceSessionBindings
   @override
   List<RaftChannel> get channels => w.channels;
   @override
+  set channels(List<RaftChannel> value) => w.channels = value;
+  @override
   List<RaftChannel> get dms => w.dms;
+  @override
+  set dms(List<RaftChannel> value) => w.dms = value;
   @override
   RaftChannel? channelById(String id) => w.channelById(id);
   @override
@@ -2443,6 +2179,7 @@ class _WorkspaceMessageBindings extends _WorkspaceSessionBindings
         WorkspaceMessagePresentationPort,
         WorkspaceMessageEntryPort,
         WorkspaceMessageDraftPort,
+        WorkspacePresentationConversationPort,
         WorkspaceMessageNotificationPort,
         WorkspaceConversationCommandsPort,
         WorkspaceThreadCreationPort,

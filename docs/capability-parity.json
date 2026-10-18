@@ -2183,10 +2183,10 @@
    "status": "covered",
    "webEntry": "channelStore.ensureChannel (ChannelRoute, notification click, search result) | readReceiptStore.fetchScope (background)",
    "gate": "",
-   "flutterEntry": "channel_repository.dart refreshChannel() via controller facade; workspace_controller.dart resolveConversationChannel() for unknown/deep-link channels",
+      "flutterEntry": "channel_repository.dart refreshChannel() via controller facade; workspace_presentation.dart resolveConversationChannel() for unknown/deep-link channels",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+          "file": "apps/raft_flutter/lib/data/workspace_presentation.dart",
      "needle": "final data = await client.get('/channels/$id');"
     },
     {
