@@ -39,6 +39,8 @@
 - 只有 Kevin 明确要求时才用 Opus 5.5。
 - subagent 只跑与改动相关的测试、`tool/flutter analyze`、设计系统审计和 `tool/raft-lints --changed`（每轮编辑后跑，几秒出结果），不跑全量检查。
 - 每个 clone 首次使用时运行一次 `tool/install-git-hooks`：提交前自动 lint 暂存的 lib 文件，pull / rebase / 切分支后自动按 pubspec.lock 重跑 `pub get`。
+- 用户也会出错：发现明显错误或前后决策冲突时，直接、毫不留情地指出并给出证据，再提建议；你是同事，不是奴仆（Kevin，2026-10-18）。
+- 多个有依赖关系的 PR 用 `gh stack`（官方扩展 `github/gh-stack`）管理：`gh stack init <分支…>`、`add`、`submit`、`sync`；合入仍是 rebase 后 fast-forward，不产生合并提交。
 - 申请全量检查前先跑 `tool/preflight`（约 1 分钟：结构/设计系统审计、守卫测试、改动文件的 analyze/lint/format、受影响测试、跨平台路径扫描），把它输出的 `preflight:` 汇总行贴进 PR；`tool/prepare-handoff` 会先跑它，失败即停。preflight 没全部通过（结构审计超上限也算）的 PR 不送全量检查：先改到通过，要放宽上限须先由负责人同意；改了 capability 或宿主侧行为时，先本地重新生成 capability-parity 文档。
 - 全量检查每个分支一次：负责人审核后用 `tool/prepare-handoff`（rebase + `tool/check-project`），通过后 fast-forward 推送到 cindy/integration。例外：小的机械性 PR（如同一迁移的多个批次）可以叠成一串只跑一次全量检查，通过后按顺序逐个 fast-forward；失败时按失败位置只打回对应的那个。
 - `tool/check-project` 只在失败项全是 Dart 测试文件（不超过 6 个）时，单独重跑这些文件最多 3 次（`RAFT_CHECK_RETRIES=0` 关闭）；重跑通过的算 flaky，列在最终 JSON 的 `flaky` 里，运行可通过。同一棵树（`git rev-parse HEAD^{tree}`）在干净工作区通过后会被记录，`tool/check-project --reuse` 对相同的干净树直接复用，不重跑。
