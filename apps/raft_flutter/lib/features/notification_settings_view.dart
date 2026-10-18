@@ -11,9 +11,9 @@ import 'management_support.dart';
 import 'windows_tray_settings.dart';
 
 /// Mounted NotificationsSection. Desktop (macOS / Linux / Windows) mirrors
-/// Web's DesktopNativeNotificationsCard: the system owns the switch, the card
-/// says so and offers one real test. Phones (Android / iOS) keep the same card
-/// but can read and request the permission, and add the member-owned server
+/// Web's DesktopNativeNotificationsCard: the system owns the switch. macOS
+/// and phones show the checked permission and link to system settings; Windows
+/// and Linux retain their system-managed guidance. Phones add the member-owned server
 /// mute form. Neither describes a browser permission or web-push subscription.
 class NotificationSettingsView extends StatefulWidget {
   const NotificationSettingsView({
@@ -485,9 +485,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
           ? 'Unavailable'
           : service.enabled
           ? (chinese ? '已开启' : 'Enabled')
-          : platform == TargetPlatform.iOS &&
-                service.initialized &&
-                !service.permitted
+          : service.initialized && !service.permitted
           ? 'Off in system settings'
           : 'Not enabled',
       hint: unavailable
@@ -546,10 +544,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
       saveLabel: busy && !nativeBusy ? 'Saving…' : 'Save',
       onSave: blocked || !verified || muted == savedMuted ? null : save,
     );
-    if (platform != TargetPlatform.iOS ||
-        !service.initialized ||
-        service.permitted)
-      return card;
+    if (!service.initialized || service.permitted) return card;
     return RaftGapColumn(
       gap: RaftSpace.x3,
       children: [

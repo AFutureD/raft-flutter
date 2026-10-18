@@ -141,8 +141,11 @@ class NativeNotificationService extends ChangeNotifier {
       _platform == TargetPlatform.windows ||
       _platform == TargetPlatform.linux;
 
-  bool get _requestsPermissionOnWorkspace =>
-      const {TargetPlatform.macOS, TargetPlatform.iOS}.contains(_platform);
+  bool get _requestsPermissionOnWorkspace => const {
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  }.contains(_platform);
 
   // Desktop has no app-owned opt-in; the system notification switch owns it
   // (on Linux the notification daemon: Do Not Disturb, per-app settings).
