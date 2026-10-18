@@ -216,8 +216,16 @@ Future<void> playthrough(
     // What the viewer does on play at the end (togglePlay): seek to 0, then
     // toggle.
     await player.seek(Duration.zero);
+    // Let the player report the seek before pressing play (at the end mpv
+    // reports the old position for a moment).
+    await until(
+      () => now(run).position < const Duration(seconds: 1),
+      seconds: 5,
+    );
     final afterSeek = now(run).playing;
-    await player.toggle();
+    if (!afterSeek) {
+      await player.toggle();
+    }
     // mpv can resume by itself when it is seeked away from its end, so the
     // toggle may have paused it: note it and press play once more.
     var extraToggle = false;
@@ -229,12 +237,18 @@ Future<void> playthrough(
       '$label $file replay: playing right after seek=$afterSeek, second toggle needed=$extraToggle',
     );
     run.result['replayExtraToggle'] = extraToggle;
-    final replayed = await until(
+    var replayed = await until(
       () =>
           now(run).playing &&
           now(run).position > const Duration(milliseconds: 1500),
       seconds: 20,
     );
+    if (!replayed) {
+      final p = now(run);
+      log(
+        '$label $file replay stuck: playing=${p.playing} position=${p.position} duration=${p.duration} buffering=${p.buffering}',
+      );
+    }
     run.result
       ..['replayMs'] = replayed ? replay.elapsedMilliseconds : -1
       ..['replayBufferingEvents'] = run.bufferingEvents;
@@ -296,12 +310,25 @@ Future<void> expiredCase(String file) async {
   } catch (e) {
     error = e;
   }
-  final played = await until(
+  var played = await until(
     () =>
         player.playback.playing &&
         player.playback.position > const Duration(seconds: 2),
     seconds: 25,
   );
+  if (!played && refreshed > 0) {
+    // A re-signed source reopens paused (as in the app): press play again.
+    log(
+      'expired $file: reopened after re-sign, state ${player.playback.playing} ${player.playback.position} error=${player.playback.error}',
+    );
+    await player.toggle();
+    played = await until(
+      () =>
+          player.playback.playing &&
+          player.playback.position > const Duration(seconds: 2),
+      seconds: 15,
+    );
+  }
   final (bytes, requests) = await upstream(file);
   log(
     'expired $file: open error=$error refreshCalls=$refreshed playing=$played '
