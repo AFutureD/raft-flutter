@@ -11,6 +11,7 @@ import '../agent_orb/orb_preference.dart' show AgentOrbPreference;
 import 'agent_audio.dart';
 import 'agent_engine.dart';
 import 'agent_thinking.dart';
+import 'gemini_live.dart' show GeminiLiveSession;
 import 'layered_voice_mode.dart';
 import 'voice_provider.dart';
 
@@ -78,6 +79,16 @@ class AgentVoiceSettings extends ChangeNotifier {
   /// default (on). See https://docs.x.ai/developers/model-capabilities/audio/speech-to-speech
   static bool reasoningApplies(AgentVoiceProvider provider) =>
       provider != AgentVoiceProvider.grok;
+
+  /// The choice that lets the app pick the Gemini Live model.
+  static const liveModelAuto = 'auto';
+
+  /// The Gemini Live models to choose from: automatic, then each of
+  /// [GeminiLiveSession.selectableModels].
+  static const liveModelLabels = {
+    liveModelAuto: '自动（${GeminiLiveSession.preferredFamily}）',
+    ...GeminiLiveSession.selectableModels,
+  };
 
   static const warmthLabels = {
     AgentWarmth.restrained: '克制',
@@ -166,6 +177,21 @@ class AgentVoiceSettings extends ChangeNotifier {
         AgentVoiceProvider.openai => openAiVoices,
         AgentVoiceProvider.grok => grokVoices,
       };
+
+  /// The Gemini Live model choice: [liveModelAuto] or a key of
+  /// [GeminiLiveSession.selectableModels]. Both voice modes use it.
+  String get liveModelChoice {
+    final v = _read('liveModel');
+    return v != null && liveModelLabels.containsKey(v) ? v : liveModelAuto;
+  }
+
+  set liveModelChoice(String v) => _write('liveModel', v);
+
+  /// The Live model to ask for, or null to let the app pick.
+  String? get liveModel {
+    final v = liveModelChoice;
+    return v == liveModelAuto ? null : v;
+  }
 
   AgentPace get pace => _enum(AgentPace.values, 'pace', AgentPace.normal);
   set pace(AgentPace v) => _write('pace', v.name);
@@ -356,6 +382,19 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                 key: ValueKey('agent-provider-key-${provider.name}'),
                 provider: provider,
               ),
+              if (provider == AgentVoiceProvider.gemini) ...[
+                section(layered ? '语音模型版本' : '语音模型'),
+                choices(
+                  AgentVoiceSettings.liveModelLabels,
+                  s.liveModelChoice,
+                  (v) => s.liveModelChoice = v,
+                ),
+                section(
+                  '这个 Key 没有所选的模型时，自动选。下一次对话生效。',
+                  key: const ValueKey('agent-live-model-note'),
+                  style: t.body(12, color: t.hint),
+                ),
+              ],
               section('声音'),
               for (final e in AgentVoiceSettings.voicesOf(provider).entries)
                 ListTile(

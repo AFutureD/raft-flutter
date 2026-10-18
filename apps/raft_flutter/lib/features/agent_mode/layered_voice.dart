@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'agent_engine.dart';
 import 'agent_steering.dart';
 import 'agent_thinking.dart';
+import 'agent_voice_settings.dart' show AgentVoiceSettings;
 import '../agent_orb/orb_preference.dart' show AgentOrbPreference;
 import 'app_speech.dart';
 import 'gemini_agent.dart';
@@ -104,6 +105,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.ackAfter = const Duration(milliseconds: 350),
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
+    this.liveModel,
     this.mode = LayeredVoiceMode.liveRelays,
     this.speech,
     this.listen = true,
@@ -117,7 +119,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.onClosed,
     VoiceSession Function(LiveParts parts)? liveBuilder,
     VoiceSession Function(AgentParts parts)? agentBuilder,
-  }) : _liveBuilder = liveBuilder ?? _gemini,
+  }) : _liveBuilder = liveBuilder ?? geminiLive,
        _agentBuilder = agentBuilder ?? _agentGemini {
     final speaks = mode == LayeredVoiceMode.appSpeaks;
     if (speaks && speech == null) {
@@ -141,6 +143,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
                     onToolCall: _liveTool,
                     voice: voice,
                     reasoning: reasoning,
+                    liveModel: liveModel,
                     listenOnly: true,
                     // Everything Live generates is dropped; that it generates
                     // anything is the sign of the end of the person's turn.
@@ -158,6 +161,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
                     onToolCall: _liveTool,
                     voice: voice,
                     reasoning: reasoning,
+                    liveModel: liveModel,
                     onAudio: _relayAudio,
                     onInputText: onInputText,
                     onOutputText: _relayOutput,
@@ -169,10 +173,12 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     _agent = _makeAgent();
   }
 
-  static VoiceSession _gemini(LiveParts p) => GeminiLiveSession(
+  @visibleForTesting
+  static VoiceSession geminiLive(LiveParts p) => GeminiLiveSession(
     apiKey: p.apiKey,
     voice: p.voice,
     reasoning: p.reasoning,
+    preferredModel: p.liveModel,
     systemPrompt: p.systemPrompt,
     tools: p.tools,
     onToolCall: p.onToolCall,
@@ -289,6 +295,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   final String? agentModelId;
   final String voice;
   final AgentReasoning reasoning;
+
+  /// The Live model the person chose; null lets the app pick.
+  final String? liveModel;
   @override
   final void Function(Uint8List pcm24k)? onAudio;
   @override
@@ -774,6 +783,7 @@ class LiveParts {
     required this.onToolCall,
     required this.voice,
     required this.reasoning,
+    this.liveModel,
     this.listenOnly = false,
     this.onGenerating,
     this.onAudio,
@@ -792,6 +802,9 @@ class LiveParts {
   final List<Map<String, Object?>> tools;
   final AgentToolHandler onToolCall;
   final AgentReasoning reasoning;
+
+  /// The Live model the person chose; null lets the app pick.
+  final String? liveModel;
   final void Function(Uint8List pcm24k)? onAudio;
   final void Function(String text)? onInputText;
   final void Function(String text)? onOutputText;
@@ -867,6 +880,7 @@ VoiceSession createLayeredSession({
   agentModelId: AgentOrbPreference.instance.agentModel,
   voice: voice,
   reasoning: reasoning,
+  liveModel: AgentVoiceSettings.instance.liveModel,
   onAudio: onAudio,
   onInputText: onInputText,
   onOutputText: onOutputText,

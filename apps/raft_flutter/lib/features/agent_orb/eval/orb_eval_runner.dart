@@ -311,6 +311,7 @@ class OrbEvalRunner {
         agentModelId: model ?? AgentOrbPreference.instance.agentModel,
         voice: voice,
         reasoning: reasoning,
+        liveModel: AgentVoiceSettings.instance.liveModel,
         mode: _voiceMode,
         // Also with Live relaying: the app says a confirmation line itself
         // when Live's words for it miss something.

@@ -27,6 +27,7 @@ class GeminiLiveSession implements VoiceSession {
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.fast = false,
+    this.preferredModel,
     this.listenOnly = false,
     this.onGenerating,
     this.onAudio,
@@ -188,18 +189,79 @@ class GeminiLiveSession implements VoiceSession {
   /// The response modality this session asks for.
   String get responseModality => listenOnly && _textOnly ? 'TEXT' : 'AUDIO';
 
-  static String? _model;
-  static String? _fastModel;
+  /// The Live model the person chose (`models/gemini-3.8-live` or without
+  /// the prefix), or null to let the app pick (see [sortModels]). Used when
+  /// the key has it; otherwise the automatic pick stands in for it.
+  final String? preferredModel;
+
+  /// Models picked so far, by [_pickKey]: the choice is part of the key, so a
+  /// changed setting never gets the model of the old one.
+  static final _picked = <String, String>{};
+  static final _missing = <String, String>{};
+  static String _pickKey(String? wanted, bool fast) =>
+      '${fast ? 'fast' : 'full'}|${_bare(wanted ?? '')}';
+  String? _used;
+
+  /// A note about the model for a log or a report: the wanted model was not
+  /// on the key, so the automatic pick runs instead. Null when all is well.
+  String? modelNote;
   WebSocket? _socket;
   String? _resumeHandle;
 
   @override
   bool get connected => _socket != null;
   @override
-  String? get model => fast ? _fastModel : _model;
+  String? get model => _used ?? _picked[_pickKey(preferredModel, fast)];
 
-  /// The model chosen for this key, once known.
-  static String? get pickedModel => _model;
+  /// The automatic pick for this key, once known.
+  static String? get pickedModel => _picked[_pickKey(null, false)];
+
+  /// The Live models a person can choose, by model name. The automatic pick
+  /// is not in it. Add a model here to offer it.
+  static const selectableModels = {
+    'models/gemini-3.8-live': 'Gemini 3.8 Live',
+    'models/gemini-3.1-flash-live-preview': 'Gemini 3.1 Flash Live',
+  };
+
+  static String _bare(String name) =>
+      name.startsWith('models/') ? name.substring(7) : name;
+
+  /// Which model to use of the [available] ones: [wanted] when it is there
+  /// (with or without the `models/` prefix), otherwise the automatic pick
+  /// ([sortModels]) with [missing] set to what was wanted.
+  @visibleForTesting
+  static ({String model, String? missing}) selectModel(
+    Iterable<String> available, {
+    String? wanted,
+    bool fast = false,
+  }) {
+    final want = wanted == null || wanted.isEmpty ? null : wanted;
+    if (want != null) {
+      for (final m in available) {
+        if (_bare(m) == _bare(want)) return (model: m, missing: null);
+      }
+    }
+    return (model: sortModels(available, fast: fast).first, missing: want);
+  }
+
+  /// Lists the models of the key that support Live; tests replace it.
+  @visibleForTesting
+  static Future<List<String>> Function(String key) modelLister = _listModels;
+
+  /// Forgets the models picked so far (tests).
+  @visibleForTesting
+  static void forgetModels() {
+    _picked.clear();
+    _missing.clear();
+  }
+
+  /// Picks the model of a session for [key] (see [selectModel]).
+  @visibleForTesting
+  static Future<String> pick(
+    String key, {
+    bool fast = false,
+    String? wanted,
+  }) async => (await _pickModel(key, fast: fast, wanted: wanted)).model;
 
   /// The Live model both voice modes use when the key has it (Kevin,
   /// 2026-10-18: Google's recommended one), in its plain form.
@@ -230,10 +292,33 @@ class GeminiLiveSession implements VoiceSession {
     return models;
   }
 
-  /// Picks the newest model that supports Live sessions for this key.
-  static Future<String> _pickModel(String key, {bool fast = false}) async {
-    if (fast && _fastModel != null) return _fastModel!;
-    if (!fast && _model != null) return _model!;
+  /// Picks the model for this key: [wanted] when it is available, else the
+  /// newest one that supports Live sessions. The answer is kept per [wanted].
+  static Future<({String model, String? missing})> _pickModel(
+    String key, {
+    bool fast = false,
+    String? wanted,
+  }) async {
+    final cacheKey = _pickKey(wanted, fast);
+    final known = _picked[cacheKey];
+    if (known != null) return (model: known, missing: _missing[cacheKey]);
+    final models = await modelLister(key);
+    final choice = selectModel(models, wanted: wanted, fast: fast);
+    _debug(
+      'live model ${choice.model}${fast ? ' (relay: fast)' : ''}'
+      '${choice.missing == null ? '' : ' (wanted ${choice.missing}, not available)'}',
+    );
+    _picked[cacheKey] = choice.model;
+    final missing = choice.missing;
+    if (missing != null) {
+      _missing[cacheKey] = missing;
+    } else {
+      _missing.remove(cacheKey);
+    }
+    return choice;
+  }
+
+  static Future<List<String>> _listModels(String key) async {
     // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
     final client = HttpClient();
     try {
@@ -256,9 +341,7 @@ class GeminiLiveSession implements VoiceSession {
       if (models.isEmpty) {
         throw const GeminiLiveException('这个 Key 没有可用的实时语音模型');
       }
-      final sorted = sortModels(models, fast: fast);
-      _debug('live model ${sorted.first}${fast ? ' (relay: fast)' : ''}');
-      return fast ? _fastModel = sorted.first : _model = sorted.first;
+      return models;
     } finally {
       client.close();
     }
@@ -316,7 +399,12 @@ class GeminiLiveSession implements VoiceSession {
     required bool nonBlocking,
   }) async {
     _declaredNonBlocking = nonBlocking;
-    final model = await _pickModel(apiKey, fast: fast);
+    final picked = await _pickModel(apiKey, fast: fast, wanted: preferredModel);
+    final model = picked.model;
+    _used = model;
+    modelNote = picked.missing == null
+        ? null
+        : '这个 Key 没有 ${picked.missing}，改用 $model';
     // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the OpenAI voice session's socket.
     final socket = await WebSocket.connect(
       Uri(

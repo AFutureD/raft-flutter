@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'agent_audio.dart';
 import 'agent_steering.dart';
+import 'agent_voice_settings.dart' show AgentVoiceSettings;
 import 'gemini_live.dart';
 import 'openai_realtime.dart';
 
@@ -113,6 +114,8 @@ VoiceSession createVoiceSession({
     apiKey: apiKey,
     voice: voice,
     reasoning: reasoning,
+    // Read now: a change of the setting reaches the next session.
+    preferredModel: AgentVoiceSettings.instance.liveModel,
     systemPrompt: systemPrompt,
     tools: tools,
     onToolCall: onToolCall,
