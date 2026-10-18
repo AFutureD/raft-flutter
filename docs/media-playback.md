@@ -237,6 +237,8 @@ signed URL directly, as before).
 * **Desktop.** `integration_test/video_cache_linux_test.dart` runs the same on mpv (Linux under `xvfb-run`, Windows): a
   clip played and sought once is read from the range server once (through the proxy only, `User-Agent: RaftVideoCache/1`)
   and two reopens with a new player and a newly signed URL read nothing; purging the account deletes its folder.
+  The same file checks the loop (a 19 s clip wraps twice while playing and reads nothing more; a 287 s clip stops at its
+  end and stays), which needs `long.mp4` in the media directory too.
 * **Not covered.** Audio (`hasPicture: false` / `video: false` players) streams as before. Poster frames and thumbnails read
   the signed URL directly (they need the first frame only). Downloads and the audio/PDF previews use the attachment disk
   cache as before. Upstream requests carry `User-Agent: RaftVideoCache/1`, so a server log (or the interaction suite's

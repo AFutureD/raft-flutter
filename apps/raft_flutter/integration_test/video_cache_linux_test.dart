@@ -1,7 +1,7 @@
-// The video cache through the real desktop player
+// The video cache and the short-video loop through the real desktop player
 // (mpv via media_kit, Linux and Windows): a range server that counts what it
-// sends, real clips, the production proxy. Needs a clip named portrait.mp4 in
-// --dart-define=VC_MEDIA=<dir>:
+// sends, real clips, the production proxy. Needs two clips (a 19 s one and one
+// over 60 s) in --dart-define=VC_MEDIA=<dir> as portrait.mp4 and long.mp4:
 //
 //   xvfb-run -a tool/flutter test integration_test/video_cache_linux_test.dart -d linux \
 //     --dart-define=VC_MEDIA=/path/to/media
@@ -10,8 +10,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:raft_flutter/platform/attachment_player.dart'
-    show AttachmentSource, NativeAttachmentPlayer;
+import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_flutter/platform/video_cache.dart';
 
 const _media = String.fromEnvironment('VC_MEDIA');
@@ -223,5 +222,98 @@ void main() {
     expect(await VideoCache.sizeBytes(account), greaterThanOrEqualTo(size));
     await VideoCache.purgeAccount('https://raft.example', 'alice');
     expect(folder.existsSync(), isFalse);
+  });
+
+  testWidgets('a clip of 60 seconds or less repeats; the repeat reads nothing', (
+    tester,
+  ) async {
+    final player = await open(tester, sourceOf('portrait.mp4'));
+    expect(
+      player.player.state.duration,
+      lessThanOrEqualTo(kLoopingVideoMaxDuration),
+    );
+    await player.toggle();
+    await until(
+      tester,
+      () => player.player.state.position > const Duration(milliseconds: 800),
+      'playback',
+    );
+    final size = File('$_media/portrait.mp4').lengthSync();
+    await until(
+      tester,
+      () => (server.bytes['portrait.mp4'] ?? 0) >= size,
+      'the clip through the proxy',
+    );
+    var wraps = 0;
+    var late = false;
+    var last = player.player.state.position;
+    for (var i = 0; i < 450 && wraps < 2; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      final now = player.player.state.position;
+      if (now > player.player.state.duration - const Duration(seconds: 3)) {
+        late = true;
+      }
+      if (late && now < last - const Duration(seconds: 5)) {
+        wraps++;
+        late = false;
+        expect(
+          player.player.state.playing,
+          isTrue,
+          reason: 'stopped at the end instead of repeating',
+        );
+      }
+      last = now;
+      // Seek close to the end once so the test does not need 40 s of real time.
+      if (wraps == 0 &&
+          !late &&
+          now > const Duration(seconds: 2) &&
+          now < const Duration(seconds: 6)) {
+        await player.seek(
+          player.player.state.duration - const Duration(seconds: 4),
+        );
+      }
+    }
+    expect(wraps, 2);
+    expect(
+      server.bytes['portrait.mp4'],
+      size,
+      reason: 'repeating read nothing again',
+    );
+    await close(tester, player);
+  });
+
+  testWidgets('a clip over 60 seconds stops at its end and stays there', (
+    tester,
+  ) async {
+    final player = await open(tester, sourceOf('long.mp4'));
+    final total = player.player.state.duration;
+    expect(total, greaterThan(kLoopingVideoMaxDuration));
+    await player.toggle();
+    await until(
+      tester,
+      () => player.player.state.position > const Duration(milliseconds: 800),
+      'playback',
+    );
+    await player.seek(total - const Duration(seconds: 4));
+    await until(
+      tester,
+      () =>
+          !player.player.state.playing &&
+          player.player.state.position >=
+              total - const Duration(milliseconds: 1500),
+      'the end',
+      seconds: 30,
+    );
+    await tester.pump(const Duration(seconds: 4));
+    expect(
+      player.player.state.playing,
+      isFalse,
+      reason: 'a long clip must not repeat',
+    );
+    expect(
+      player.player.state.position,
+      greaterThanOrEqualTo(total - const Duration(milliseconds: 1500)),
+    );
+    await close(tester, player);
   });
 }
