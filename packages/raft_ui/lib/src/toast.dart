@@ -59,6 +59,15 @@ class RaftToast extends StatelessWidget {
       tone: tone,
       states: t.recipeStates(
         extra: [
+          // The base content rules moved from `:has([data-slot=...])` to
+          // `data-has-*` attributes on the content element in 0.5.52; the
+          // per-theme blocks still use `:has()`. Negatives are explicit: the
+          // resolver does not infer them.
+          icon ? 'data-has-icon' : 'not:data-has-icon',
+          hasClose ? 'data-has-actions' : 'not:data-has-actions',
+          description != null
+              ? 'data-has-description'
+              : 'not:data-has-description',
           if (icon)
             'has:data-slot=toast-icon'
           else

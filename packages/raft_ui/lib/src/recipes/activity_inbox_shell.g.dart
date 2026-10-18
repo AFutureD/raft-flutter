@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `activityInboxShell`.
 // ignore_for_file: type=lint
 
@@ -30,7 +30,7 @@ class RaftActivityInboxShellRecipeStyle {
   };
 }
 
-/// raft-ui recipe `activityInboxShell` (`src/components/activity-inbox/activity-inbox-shell.recipe.ts`, index.mjs:19696).
+/// raft-ui recipe `activityInboxShell` (`src/components/activity-inbox/activity-inbox-shell.recipe.ts`, index.mjs:19845).
 ///
 /// Used by: ActivityInboxLoadingMore, ActivityInboxPanel, ActivityInboxViewport.
 ///
@@ -84,12 +84,12 @@ abstract final class RaftActivityInboxShellRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1620, 1978, 2560, 1621, 1622, 2656, 856, 2956],
-    [2775, 1621, 2661, 856, 2672, 2693],
-    [2767, 2970, 3032, 1684, 2959],
-    [1620, 1978, 2560, 1621, 1622, 2656, 820, 2976, 2497],
-    [2775, 1621, 2661, 825, 1002, 2758, 2691, 2440, 2443],
-    [2767, 2970, 3032, 1688, 2984],
+    [1644, 1980, 2583, 1645, 1646, 2679, 868, 2994],
+    [2804, 1645, 2684, 868, 2695, 2716],
+    [2796, 3007, 3073, 1709, 2996],
+    [1644, 1980, 2583, 1645, 1646, 2679, 825, 3013, 2518],
+    [2804, 1645, 2684, 830, 1022, 2786, 2714, 2460, 2463],
+    [2796, 3007, 3073, 1713, 3021],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

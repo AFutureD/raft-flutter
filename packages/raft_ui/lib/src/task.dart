@@ -631,7 +631,6 @@ class RaftTaskSectionBadge extends StatelessWidget {
         ? RaftTaskBoardColumnRecipe.resolve(theme: theme, tokens: rt).badge
         : RaftTaskListSectionRecipe.resolve(theme: theme, tokens: rt).badge;
     final statusStyle = RaftTaskStatusRecipe.resolve(
-      theme: theme,
       status: _recipeStatus(status),
       tokens: rt,
     ).base;
@@ -642,11 +641,11 @@ class RaftTaskSectionBadge extends StatelessWidget {
     final iconColor = t.brutal
         ? (badge.target('& svg')?.color?.resolve(rt) ?? fg)
         : switch (status) {
-            'in_progress' => const Color(0xFFF0B800), // oklch(0.8 0.19 88.97)
-            'in_review' => const Color(0xFFEE8A2E), // oklch(0.72 0.16 58)
-            'done' => t.colors['success']!,
-            'closed' => t.colors['inactive']!,
-            _ => t.colors['foreground-placeholder']!,
+            'in_progress' => t.semantic.taskStatusInProgressStrong,
+            'in_review' => t.semantic.taskStatusInReviewStrong,
+            'done' => t.semantic.taskStatusDoneStrong,
+            'closed' => t.semantic.taskStatusClosedStrong,
+            _ => t.semantic.taskStatusTodoStrong,
           };
     return Container(
       padding: badge.padding,

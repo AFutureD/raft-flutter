@@ -54,57 +54,52 @@ void main() {
       expect(find.byType(RaftDropdownMenu), findsNothing);
     });
 
-    testWidgets(
-      '$family/$dark Source rail slots, short size and depressed semantics',
-      (tester) async {
-        var clicks = 0;
-        Widget footer() => Align(
-          alignment: Alignment.bottomLeft,
-          child: SizedBox(
-            width: 64,
-            child: RaftWorkspaceRailFooter(
-              children: [
-                RaftWorkspaceRailAction(
-                  label: 'Workspace',
-                  glyph: RaftGlyph.squareSplitHorizontal,
-                  selected: true,
-                  depressed: true,
-                  onPressed: () => clicks++,
-                ),
-                RaftWorkspaceRailAction(
-                  label: 'Settings',
-                  glyph: RaftGlyph.settings,
-                  onPressed: () {},
-                ),
-              ],
-            ),
+    testWidgets('$family/$dark Source rail slots, short size semantics', (
+      tester,
+    ) async {
+      var clicks = 0;
+      Widget footer() => Align(
+        alignment: Alignment.bottomLeft,
+        child: SizedBox(
+          width: 64,
+          child: RaftWorkspaceRailFooter(
+            children: [
+              RaftWorkspaceRailAction(
+                label: 'Workspace',
+                glyph: RaftGlyph.squareSplitHorizontal,
+                selected: true,
+                onPressed: () => clicks++,
+              ),
+              RaftWorkspaceRailAction(
+                label: 'Settings',
+                glyph: RaftGlyph.settings,
+                onPressed: () {},
+              ),
+            ],
           ),
-        );
-        await mount(tester, footer());
-        expect(
-          tester.getSize(find.byType(RaftWorkspaceRailFooter)).height,
-          102,
-        );
-        final action = find.bySemanticsLabel('Workspace');
-        final semantics = tester.ensureSemantics();
-        expect(
-          tester.getSemantics(action).flagsCollection.isSelected,
-          Tristate.isTrue,
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pump();
-        expect(clicks, 1);
-        final box = find.descendant(
-          of: find.byType(RaftWorkspaceRailAction).first,
-          matching: find.byType(RaftRecipeBox),
-        );
-        expect(tester.getSize(box), const Size(40, 40));
-        await mount(tester, footer(), height: 600);
-        expect(tester.getSize(box), const Size(36, 36));
-        semantics.dispose();
-      },
-    );
+        ),
+      );
+      await mount(tester, footer());
+      expect(tester.getSize(find.byType(RaftWorkspaceRailFooter)).height, 102);
+      final action = find.bySemanticsLabel('Workspace');
+      final semantics = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(action).flagsCollection.isSelected,
+        Tristate.isTrue,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(clicks, 1);
+      final box = find.descendant(
+        of: find.byType(RaftWorkspaceRailAction).first,
+        matching: find.byType(RaftRecipeBox),
+      );
+      expect(tester.getSize(box), const Size(40, 40));
+      await mount(tester, footer(), height: 600);
+      expect(tester.getSize(box), const Size(36, 36));
+      semantics.dispose();
+    });
 
     testWidgets(
       '$family/$dark actual editor tabs expose selected state on their tab role',

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/gen-tokens`.
-// Source: component-roles.css over raft-ui-0.5.27/foundation.css, raft-ui-0.5.27/styles.css, raft-web-26f77ef/index.css
+// Source: component-roles.css over raft-ui-0.5.52/foundation.css, raft-ui-0.5.52/styles.css, raft-web-a98ae00/index.css
 // dart format off
 // ignore_for_file: constant_identifier_names, lines_longer_than_80_chars
 

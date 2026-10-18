@@ -62,7 +62,7 @@ void main() {
         compared++;
       }
     }
-    expect(compared, 657);
+    expect(compared, 695);
   });
 
   test('translucent tokens composite to Chrome bytes in Flutter', () async {
@@ -123,7 +123,7 @@ void main() {
       }
       image.dispose();
     }
-    expect(fitCompared, 216);
+    expect(fitCompared, 228);
     expect(misses, _fitExceptions);
     // Other surfaces are not fitted; record how far the fit generalises.
     expect(extraExact / extraCompared, greaterThan(.9));

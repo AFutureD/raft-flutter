@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `conversationPanel`.
 // ignore_for_file: type=lint
 
@@ -35,7 +35,7 @@ class RaftConversationPanelRecipeStyle {
   };
 }
 
-/// raft-ui recipe `conversationPanel` (`src/components/conversation-panel/conversation-panel.recipe.ts`, index.mjs:4499).
+/// raft-ui recipe `conversationPanel` (`src/components/conversation-panel/conversation-panel.recipe.ts`, index.mjs:4514).
 ///
 /// Used by: ConversationPanelContent, ConversationPanelFooter, ConversationPanelRoot, ConversationPanelTabs, ProfilePanelBody.
 ///
@@ -90,59 +90,43 @@ abstract final class RaftConversationPanelRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1620, 1978, 2560, 2574, 1621, 1622, 856, 1691, 2956],
-    [1620, 2560, 2574, 1621, 1622, 856],
+    [1644, 1980, 2583, 2597, 1645, 1646, 868, 1716, 2994],
+    [1644, 2583, 2597, 1645, 1646, 868],
     [
-      2867,
-      875,
-      876,
-      856,
+      2902,
+      891,
+      892,
+      868,
       112,
       111,
       109,
       110,
       108,
-      106,
-      248,
-      251,
-      245,
-      247,
-      246,
-      244,
-    ],
-    [913, 876, 856],
-    [1620, 1978, 2560, 2574, 1621, 1622, 2775, 820, 1691, 2987],
-    [
-      1620,
-      2560,
-      2574,
-      1621,
-      1622,
-      2775,
-      2655,
-      825,
-      993,
-      1741,
-      1742,
-      1743,
-      1072,
-    ],
-    [
-      2867,
-      874,
-      825,
-      2395,
-      1002,
-      1117,
-      2398,
-      2399,
       107,
-      252,
-      249,
-      250,
+      244,
+      247,
       243,
-      2390,
+      242,
+      241,
     ],
+    [927, 892, 868],
+    [1644, 1980, 2583, 2597, 1645, 1646, 2804, 825, 1716, 3024],
+    [
+      1644,
+      2583,
+      2597,
+      1645,
+      1646,
+      2804,
+      2678,
+      830,
+      1013,
+      1766,
+      1767,
+      1768,
+      1092,
+    ],
+    [2902, 890, 830, 2417, 1022, 1137, 2420, 2421, 248, 245, 246, 2409],
     [],
   ];
 

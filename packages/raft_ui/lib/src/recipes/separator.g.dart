@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `separator`.
 // ignore_for_file: type=lint
 
@@ -35,7 +35,7 @@ class RaftSeparatorRecipeStyle {
   };
 }
 
-/// raft-ui recipe `separator` (`src/components/separator/separator.tsx`, index.mjs:16238).
+/// raft-ui recipe `separator` (`src/components/separator/separator.tsx`, index.mjs:16492).
 ///
 /// Used by: ComboboxSeparator, ContextMenuSeparator, DropdownMenuSeparator, MessageTextSelectionToolbarSeparator, PopoverSeparator, PreviewCardSeparator, SelectSeparator, Separator.
 ///
@@ -95,13 +95,13 @@ abstract final class RaftSeparatorRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2867, 1290, 1296, 1284, 1279, 1278, 1297, 1291, 1292],
-    [1717, 1723, 2312, 1700, 2767],
-    [3127, 2867, 1947, 913, 900],
-    [2574, 1689, 3032, 1688, 2995],
-    [2867, 1290, 1296, 829, 1286, 1299],
-    [3127, 2867, 1979, 829],
-    [2574, 1689, 3032, 1688, 2984],
+    [2902, 1312, 1318, 1306, 1301, 1300, 1319, 1313, 1314],
+    [1742, 1748, 2331, 1725, 2796],
+    [3168, 2902, 1949, 927, 916],
+    [2597, 1714, 3073, 1713, 3032],
+    [2902, 1312, 1318, 834, 1308, 1321],
+    [3168, 2902, 1981, 834],
+    [2597, 1714, 3073, 1713, 3021],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

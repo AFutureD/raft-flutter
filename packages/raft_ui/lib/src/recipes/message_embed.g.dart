@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageEmbed`.
 // ignore_for_file: type=lint
 
@@ -35,7 +35,7 @@ class RaftMessageEmbedRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageEmbed` (`src/components/message-embed/message-embed.recipe.ts`, index.mjs:10298).
+/// raft-ui recipe `messageEmbed` (`src/components/message-embed/message-embed.recipe.ts`, index.mjs:10341).
 ///
 /// Used by: MessageEmbed, MessageEmbedContent, MessageEmbedFooter, MessageEmbedHeader, MessageReplies.
 ///
@@ -90,32 +90,32 @@ abstract final class RaftMessageEmbedRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1726, 862, 2574, 3003, 864, 879, 856],
-    [2574, 873, 877, 856, 2752, 2763],
-    [2574, 856],
-    [2574, 911, 877, 856, 2753, 2763],
+    [1751, 874, 2597, 3040, 876, 895, 868],
+    [2597, 889, 893, 868, 2780, 2792],
+    [2597, 868],
+    [2597, 925, 893, 868, 2781, 2792],
     [
-      1726,
-      862,
-      2574,
-      3003,
-      821,
-      2865,
-      3065,
-      1602,
-      2186,
-      2269,
-      2817,
-      867,
-      896,
-      2675,
-      1009,
-      1638,
-      1627,
-      1641,
+      1751,
+      874,
+      2597,
+      3040,
+      826,
+      2899,
+      3106,
+      1626,
+      2205,
+      2288,
+      2847,
+      879,
+      912,
+      2698,
+      1029,
+      1662,
+      1651,
+      1665,
     ],
-    [2574, 2753, 2763, 2894],
-    [2574, 2655, 2809, 867, 896, 825, 3084, 1602, 1906, 1009, 1138],
+    [2597, 2781, 2792, 2929],
+    [2597, 2678, 2839, 879, 912, 830, 3125, 1626, 1907, 1029, 1157],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

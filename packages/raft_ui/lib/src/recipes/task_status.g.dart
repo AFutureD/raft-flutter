@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `taskStatus`.
 // ignore_for_file: type=lint
 
@@ -30,9 +30,9 @@ class RaftTaskStatusRecipeStyle {
   Map<String, RaftSlotStyle> get slots => {'base': base};
 }
 
-/// raft-ui recipe `taskStatus` (`src/components/tasks/task-status.recipe.ts`, index.mjs:17803).
+/// raft-ui recipe `taskStatus` (`src/components/tasks/task-status.recipe.ts`, index.mjs:18082).
 ///
-/// Used by: TaskBoardColumnBadge, TaskCardStatus, TaskChip, TaskSectionBadge.
+/// Used by: TaskBoardColumnBadge, TaskCardStatus, TaskChip, TaskSectionBadge, TimelineItem.
 ///
 /// Class lists are the exact tailwind-variants + tailwind-merge output for
 /// every variant combination; [resolve] applies the CSS cascade for [states].
@@ -40,7 +40,6 @@ abstract final class RaftTaskStatusRecipe {
   static const String recipeName = 'taskStatus';
   static const List<String> slotNames = ['base'];
   static const List<RaftRecipeAxis> axes = [
-    RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
     RaftRecipeAxis(
       'status',
       ['todo', 'in-progress', 'in-review', 'done', 'closed'],
@@ -50,7 +49,6 @@ abstract final class RaftTaskStatusRecipe {
   ];
 
   static RaftTaskStatusRecipeStyle resolve({
-    required RaftRecipeTheme theme,
     RaftTaskStatusRecipeStatus? status,
     RaftRecipeStates states = RaftRecipeStates.none,
     RaftTokenResolver? tokens,
@@ -60,7 +58,7 @@ abstract final class RaftTaskStatusRecipe {
       axes,
       _lists,
       _combos,
-      [theme.name, status?.css],
+      [status?.css],
       states,
       tokens,
     );
@@ -88,16 +86,11 @@ abstract final class RaftTaskStatusRecipe {
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
     [],
-    [777],
-    [772],
-    [775],
-    [776],
-    [783],
-    [818, 2981],
-    [833, 3010],
-    [851, 3024],
-    [845, 3020],
-    [809, 2998],
+    [861],
+    [857],
+    [859],
+    [855],
+    [853],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.
@@ -108,11 +101,5 @@ abstract final class RaftTaskStatusRecipe {
     [3],
     [4],
     [5],
-    [0],
-    [6],
-    [7],
-    [8],
-    [9],
-    [10],
   ];
 }

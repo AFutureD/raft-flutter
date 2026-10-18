@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/gen-tokens`.
-// Source: raft-ui-0.5.27/styles.css, raft-web-26f77ef/index.css
+// Source: raft-ui-0.5.52/styles.css, raft-web-a98ae00/index.css
 // dart format off
 // ignore_for_file: constant_identifier_names, lines_longer_than_80_chars
 
@@ -26,7 +26,6 @@ class RaftProductColors {
     required this.brutalStone,
     required this.brutalCream,
     required this.statusBusy,
-    required this.workspaceModeActive,
     required this.brutalBlack,
     required this.codeSurface,
     required this.codeForeground,
@@ -54,8 +53,6 @@ class RaftProductColors {
   final Color brutalCream;
   /// `--color-status-busy` — product @theme
   final Color statusBusy;
-  /// `--color-workspace-mode-active` — product @theme
-  final Color workspaceModeActive;
   /// `--color-brutal-black` — product @theme
   final Color brutalBlack;
   /// `--color-code-surface` — product @theme (:root.dark override)
@@ -76,7 +73,6 @@ class RaftProductColors {
     'color-brutal-stone': brutalStone,
     'color-brutal-cream': brutalCream,
     'color-status-busy': statusBusy,
-    'color-workspace-mode-active': workspaceModeActive,
     'color-brutal-black': brutalBlack,
     'color-code-surface': codeSurface,
     'color-code-foreground': codeForeground,
@@ -106,8 +102,6 @@ class RaftProductColors {
     brutalCream: Color(0xfffffaef),
     // #FFD440
     statusBusy: Color(0xffffd440),
-    // #E3B100
-    workspaceModeActive: Color(0xffe3b100),
     // #141111
     brutalBlack: Color(0xff141111),
     // #ffffff
@@ -139,8 +133,6 @@ class RaftProductColors {
     brutalCream: Color(0xfffffaef),
     // #FFD440
     statusBusy: Color(0xffffd440),
-    // #E3B100
-    workspaceModeActive: Color(0xffe3b100),
     // #141111
     brutalBlack: Color(0xff141111),
     // #ffffff
@@ -172,8 +164,6 @@ class RaftProductColors {
     brutalCream: Color(0xfffffaef),
     // #FFD440
     statusBusy: Color(0xffffd440),
-    // #E3B100
-    workspaceModeActive: Color(0xffe3b100),
     // #141111
     brutalBlack: Color(0xff141111),
     // #0a0c10

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageBlock`.
 // ignore_for_file: type=lint
 
@@ -16,7 +16,7 @@ class RaftMessageBlockRecipeStyle {
   Map<String, RaftSlotStyle> get slots => {'root': root};
 }
 
-/// raft-ui recipe `messageBlock` (`src/components/message-embed/message-embed.recipe.ts`, index.mjs:10287).
+/// raft-ui recipe `messageBlock` (`src/components/message-embed/message-embed.recipe.ts`, index.mjs:10330).
 ///
 /// Used by: MessageEmbed, MessageEmbedContent, MessageEmbedFooter, MessageEmbedHeader, MessageReplies, MessageRepliesItem, MessageRepliesItemContent, MessageRepliesItemSender, MessageRepliesItemTime, MessageRepliesSummary, MessageRepliesSummaryItem.
 ///
@@ -67,7 +67,7 @@ abstract final class RaftMessageBlockRecipe {
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
     [],
-    [821, 2865, 3065, 1602, 2186, 2269],
+    [826, 2899, 3106, 1626, 2205, 2288],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

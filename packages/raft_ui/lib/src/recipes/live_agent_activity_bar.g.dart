@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `liveAgentActivityBar`.
 // ignore_for_file: type=lint
 
@@ -45,7 +45,7 @@ class RaftLiveAgentActivityBarRecipeStyle {
   };
 }
 
-/// raft-ui recipe `liveAgentActivityBar` (`src/components/live-agent-activity-bar/live-agent-activity-bar.tsx`, index.mjs:17637).
+/// raft-ui recipe `liveAgentActivityBar` (`src/components/live-agent-activity-bar/live-agent-activity-bar.tsx`, index.mjs:17896).
 ///
 /// Used by: LiveAgentActivityBar, LiveAgentActivityBarAvatar, LiveAgentActivityBarContent, LiveAgentActivityBarRow, LiveAgentActivityBarStatus, LiveAgentActivityBarText.
 ///
@@ -109,16 +109,16 @@ abstract final class RaftLiveAgentActivityBarRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2867, 2765, 913, 876, 856, 2755, 2511],
-    [1620, 2567, 2312, 1698],
-    [2886, 2867, 2656],
-    [1620, 2574, 1621, 2312, 1697],
-    [876],
-    [2574, 3092, 3017, 1689, 2963],
-    [2867, 2753, 2765, 2817, 864, 896, 825, 2862, 1009],
-    [2574, 1621, 2312, 1697, 938],
-    [2636],
-    [2574, 3092, 1621, 1691, 2924, 1690, 2981],
+    [2902, 2794, 927, 892, 868, 2783, 2533],
+    [1644, 2590, 2331, 1723],
+    [2921, 2902, 2679],
+    [1644, 2597, 1645, 2331, 1722],
+    [892],
+    [2597, 3133, 3053, 1714, 3000],
+    [2902, 2781, 2794, 2847, 876, 912, 830, 2896, 1029],
+    [2597, 1645, 2331, 1722, 958],
+    [2659],
+    [2597, 3133, 1645, 1716, 2962, 1715, 3018],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

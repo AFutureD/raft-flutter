@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `composerDropOverlay`.
 // ignore_for_file: type=lint
 
@@ -35,7 +35,7 @@ class RaftComposerDropOverlayRecipeStyle {
   };
 }
 
-/// raft-ui recipe `composerDropOverlay` (`src/components/composer/composer-drop-overlay.recipe.ts`, index.mjs:13728).
+/// raft-ui recipe `composerDropOverlay` (`src/components/composer/composer-drop-overlay.recipe.ts`, index.mjs:13954).
 ///
 /// Used by: ComposerDropOverlay, ComposerDropOverlayLabel, ComposerDropOverlayPrompt.
 ///
@@ -95,14 +95,14 @@ abstract final class RaftComposerDropOverlayRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [580, 2303, 3140, 1620, 2312, 2317, 866, 886, 876, 819],
-    [1620, 1622, 2312, 1701, 865, 2667, 2970, 1688, 2979, 1168, 3017],
-    [2775, 1620, 2312, 2317, 1967, 3104],
-    [825, 2862, 2791, 2800, 1133, 2819, 2670, 430],
-    [580, 3140, 1620, 2312, 2317, 129, 2824, 865, 755],
-    [1620, 1622, 2312, 1701, 865, 2667, 2970, 1688, 2979, 1168, 2955],
-    [2775, 1620, 2312, 2317, 1951, 3107],
-    [825, 2862, 2791, 2800, 1133, 2818, 2671, 431],
+    [586, 2322, 3181, 1644, 2331, 2336, 878, 902, 892, 824],
+    [1644, 1646, 2331, 1726, 877, 2690, 3007, 1713, 3016, 1187, 3053],
+    [2804, 1644, 2331, 2336, 1969, 3145],
+    [830, 2896, 2821, 2830, 1152, 2849, 2693, 428],
+    [586, 3181, 1644, 2331, 2336, 129, 2854, 877, 761],
+    [1644, 1646, 2331, 1726, 877, 2690, 3007, 1713, 3016, 1187, 2993],
+    [2804, 1644, 2331, 2336, 1953, 3148],
+    [830, 2896, 2821, 2830, 1152, 2848, 2694, 429],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

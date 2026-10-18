@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `scrollArea`.
 // ignore_for_file: type=lint
 
@@ -45,7 +45,7 @@ class RaftScrollAreaRecipeStyle {
   };
 }
 
-/// raft-ui recipe `scrollArea` (`src/components/scroll-area/scroll-area.recipe.ts`, index.mjs:3054).
+/// raft-ui recipe `scrollArea` (`src/components/scroll-area/scroll-area.recipe.ts`, index.mjs:3065).
 ///
 /// Used by: ScrollArea, ScrollAreaContent, ScrollAreaCorner, ScrollAreaScrollbar, ScrollAreaThumb, ScrollAreaViewport.
 ///
@@ -109,32 +109,32 @@ abstract final class RaftScrollAreaRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2775, 2560],
-    [2890, 2560, 2664, 2649, 578, 559],
-    [2572],
+    [2804, 2583],
+    [2925, 2583, 2687, 2672, 583, 560],
+    [2595],
     [
-      1930,
-      3142,
-      1620,
-      3045,
-      2834,
-      2669,
-      2626,
-      3085,
-      1602,
-      2716,
-      1560,
-      1559,
-      1558,
-      1298,
-      1295,
-      1285,
-      1281,
-      1287,
+      1931,
+      3183,
+      1644,
+      3086,
+      2868,
+      2692,
+      2649,
+      3126,
+      1626,
+      2739,
+      1584,
+      1583,
+      1582,
+      1320,
+      1317,
+      1307,
+      1303,
+      1309,
     ],
-    [2775, 2815, 1753, 1752, 767, 2194],
-    [850],
-    [2775, 2815, 1753, 1752, 803, 2216],
+    [2804, 2845, 1778, 1777, 773, 2213],
+    [863],
+    [2804, 2845, 1778, 1777, 809, 2235],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

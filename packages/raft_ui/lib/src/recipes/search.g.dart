@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `search`.
 // ignore_for_file: type=lint
 
@@ -50,7 +50,7 @@ class RaftSearchRecipeStyle {
   };
 }
 
-/// raft-ui recipe `search` (`src/components/search/search.recipe.ts`, index.mjs:20200).
+/// raft-ui recipe `search` (`src/components/search/search.recipe.ts`, index.mjs:20349).
 ///
 /// Used by: SearchResultsList, SearchResultsSection, SearchResultsSectionHeading, SearchResultsSummary, SearchShellFilters, SearchShellRoot, SearchShellViewport, ThreadPanelSearch.
 ///
@@ -116,20 +116,20 @@ abstract final class RaftSearchRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1620, 1978, 2560, 1621, 1622, 856],
-    [2867, 2755, 2767, 875, 876, 856],
-    [2560, 1621, 2661, 2673, 856],
-    [2494, 862, 2749, 3032, 1684, 3096, 3057, 2963],
-    [2494],
-    [2749, 2765, 1689, 2918, 1684, 3096, 3051, 2961],
-    [1620, 1622, 1698],
-    [1620, 1978, 2560, 1621, 1622, 820, 991],
-    [2867, 2775, 3138, 873, 896, 825, 2753, 2765, 2440, 2443, 1002],
-    [2560, 1621, 2661, 2673, 825, 1002, 2753, 2767, 2440, 2443],
-    [2494, 862, 2749, 3032, 1688, 2981],
-    [2494, 2807, 740, 2672, 2865, 993],
-    [2765, 2747, 2731, 2684, 3032, 1688, 2981],
-    [1620, 1622, 1697],
+    [1644, 1980, 2583, 1645, 1646, 868],
+    [2902, 2783, 2796, 891, 892, 868],
+    [2583, 1645, 2684, 2696, 868],
+    [2515, 874, 2777, 3073, 1709, 3137, 3098, 3000],
+    [2515],
+    [2777, 2794, 1714, 2956, 1709, 3137, 3092, 2998],
+    [1644, 1646, 1723],
+    [1644, 1980, 2583, 1645, 1646, 825, 1011],
+    [2902, 2804, 3179, 889, 912, 830, 2781, 2794, 2460, 2463, 1022],
+    [2583, 1645, 2684, 2696, 830, 1022, 2781, 2796, 2460, 2463],
+    [2515, 874, 2777, 3073, 1713, 3018],
+    [2515, 2837, 746, 2695, 2899, 1013],
+    [2794, 2775, 2756, 2707, 3073, 1713, 3018],
+    [1644, 1646, 1722],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

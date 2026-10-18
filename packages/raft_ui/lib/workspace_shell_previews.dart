@@ -57,7 +57,6 @@ class _FooterPreviewState extends State<_FooterPreview> {
             label: 'Exit workspace mode',
             glyph: RaftGlyph.squareSplitHorizontal,
             selected: true,
-            depressed: true,
             onPressed: () {},
           ),
           RaftWorkspaceRailAction(

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageMultiSelect`.
 // ignore_for_file: type=lint
 
@@ -30,7 +30,7 @@ class RaftMessageMultiSelectRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageMultiSelect` (`src/components/message-item/message-multi-select.recipe.ts`, index.mjs:10032).
+/// raft-ui recipe `messageMultiSelect` (`src/components/message-item/message-multi-select.recipe.ts`, index.mjs:10070).
 ///
 /// Used by: MessageMultiSelect, MessageMultiSelectCheckbox, MessageMultiSelectToolbar.
 ///
@@ -84,10 +84,10 @@ abstract final class RaftMessageMultiSelectRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1620, 2560, 2574, 1621, 1622],
-    [2599, 2837, 2815, 1428, 1494, 2257, 2260],
-    [1620, 2312, 1697, 913, 900, 831, 2751, 2736, 2692],
-    [1620, 2312, 1697, 2817, 867, 896, 825, 2752, 2766, 2865, 1009],
+    [1644, 2583, 2597, 1645, 1646],
+    [2622, 2871, 2845, 1450, 1518, 2276, 2279],
+    [1644, 2331, 1722, 927, 916, 836, 2779, 2761, 2715],
+    [1644, 2331, 1722, 2847, 879, 912, 830, 2780, 2795, 2899, 1029],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

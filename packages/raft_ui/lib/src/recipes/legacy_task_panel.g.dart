@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `legacyTaskPanel`.
 // ignore_for_file: type=lint
 
@@ -85,7 +85,7 @@ class RaftLegacyTaskPanelRecipeStyle {
   };
 }
 
-/// raft-ui recipe `legacyTaskPanel` (`src/components/legacy-task-panel/legacy-task-panel.recipe.ts`, index.mjs:19419).
+/// raft-ui recipe `legacyTaskPanel` (`src/components/legacy-task-panel/legacy-task-panel.recipe.ts`, index.mjs:19568).
 ///
 /// Used by: LegacyTaskPanelBody, LegacyTaskPanelField, LegacyTaskPanelFieldLabel, LegacyTaskPanelFieldText, LegacyTaskPanelFieldTitle, LegacyTaskPanelIcon, LegacyTaskPanelMeta, LegacyTaskPanelMetaLabel, LegacyTaskPanelMetaRow, LegacyTaskPanelMetaValue, LegacyTaskPanelRoot, LegacyTaskPanelSection, LegacyTaskPanelStatus, LegacyTaskPanelTitle.
 ///
@@ -167,29 +167,29 @@ abstract final class RaftLegacyTaskPanelRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2890, 2570, 2486, 2656, 866, 876, 2862],
-    [1620, 2886, 2867, 2312, 2317, 866, 876, 831, 2956],
-    [1620, 1622, 2314, 1695, 2657, 3130],
-    [2905, 2661, 2756, 2769],
-    [1620, 1626, 2312, 1698],
-    [2673, 2903, 866, 876, 856, 2862],
+    [2925, 2593, 2507, 2679, 878, 892, 2896],
+    [1644, 2921, 2902, 2331, 2336, 878, 892, 836, 2994],
+    [1644, 1646, 2333, 1720, 2680, 3171],
+    [2940, 2684, 2784, 2798],
+    [1644, 1650, 2331, 1723],
+    [2696, 2938, 878, 892, 868, 2896],
     [],
-    [2491, 1689, 3032, 2959],
-    [2359, 3004, 3136, 1684, 2956],
-    [2359, 3017, 3132, 3136, 2966],
-    [2901, 2673, 3017, 866, 876, 856, 2862],
-    [1620, 2314, 2316, 1700],
-    [1689, 2961],
-    [3012, 2956],
-    [2890, 2570, 2486, 2656, 2824, 864, 896, 2863, 1009],
-    [1620, 2886, 2867, 2312, 2317, 2818, 867, 896, 825, 2978],
-    [2673, 2903, 2817, 867, 896, 825, 2865, 1009],
-    [2491, 1689, 3032, 2981],
-    [2359, 3004, 3136, 1687, 1688, 2976],
-    [2359, 3017, 3132, 3136, 2997],
-    [2901, 2673, 3017, 2817, 867, 896, 825, 2865, 1009],
-    [1689, 3032, 2984],
-    [3012, 2976],
+    [2512, 1714, 3073, 2996],
+    [2378, 3041, 3177, 1709, 2994],
+    [2378, 3053, 3173, 3177, 3003],
+    [2936, 2696, 3053, 878, 892, 868, 2896],
+    [1644, 2333, 2335, 1725],
+    [1714, 2998],
+    [3048, 2994],
+    [2925, 2593, 2507, 2679, 2854, 876, 912, 2897, 1029],
+    [1644, 2921, 2902, 2331, 2336, 2848, 879, 912, 830, 3015],
+    [2696, 2938, 2847, 879, 912, 830, 2899, 1029],
+    [2512, 1714, 3073, 3018],
+    [2378, 3041, 3177, 1712, 1713, 3013],
+    [2378, 3053, 3173, 3177, 3034],
+    [2936, 2696, 3053, 2847, 879, 912, 830, 2899, 1029],
+    [1714, 3073, 3021],
+    [3048, 3013],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

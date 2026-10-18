@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `descriptionList`.
 // ignore_for_file: type=lint
 
@@ -46,7 +46,7 @@ class RaftDescriptionListRecipeStyle {
   };
 }
 
-/// raft-ui recipe `descriptionList` (`src/components/description-list/description-list.tsx`, index.mjs:8021).
+/// raft-ui recipe `descriptionList` (`src/components/description-list/description-list.tsx`, index.mjs:8042).
 ///
 /// Used by: DescriptionDetails, DescriptionItem, DescriptionList, DescriptionTerm.
 ///
@@ -103,45 +103,45 @@ abstract final class RaftDescriptionListRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2359],
+    [2378],
     [],
-    [2491, 1620, 2312, 1698, 3032, 96, 2992],
-    [2359, 3017, 2976],
-    [1620, 2312, 96, 2492, 1697, 1691, 2920, 1688, 2344, 2984],
-    [2359, 3017, 1691, 2335, 2981],
+    [2512, 1644, 2331, 1723, 3073, 96, 3029],
+    [2378, 3053, 3013],
+    [1644, 2331, 96, 2513, 1722, 1716, 2958, 1713, 2363, 3021],
+    [2378, 3053, 1716, 2354, 3018],
     [
-      2359,
-      1717,
-      1720,
-      2311,
-      2464,
-      2463,
+      2378,
+      1742,
+      1745,
+      2330,
+      2484,
+      2483,
       98,
-      227,
-      226,
-      228,
-      229,
-      224,
       225,
-      1708,
-      1714,
+      224,
+      226,
+      227,
+      222,
+      223,
+      1733,
+      1739,
     ],
     [
-      2359,
-      1717,
-      1720,
-      2311,
-      2464,
-      2463,
+      2378,
+      1742,
+      1745,
+      2330,
+      2484,
+      2483,
       98,
-      227,
-      226,
-      228,
-      229,
-      224,
       225,
-      1711,
-      1716,
+      224,
+      226,
+      227,
+      222,
+      223,
+      1736,
+      1741,
     ],
   ];
 

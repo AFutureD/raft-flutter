@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageSystem`.
 // ignore_for_file: type=lint
 
@@ -55,7 +55,7 @@ class RaftMessageSystemRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageSystem` (`src/components/system-message/system-message.recipe.ts`, index.mjs:10139).
+/// raft-ui recipe `messageSystem` (`src/components/system-message/system-message.recipe.ts`, index.mjs:10177).
 ///
 /// Used by: SystemMessage, SystemMessageContent, SystemMessageGroup, SystemMessageGroupChevron, SystemMessageGroupDisclosure, SystemMessageGroupHeader, SystemMessageGroupSummary, SystemMessageTime.
 ///
@@ -123,40 +123,58 @@ abstract final class RaftMessageSystemRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1620, 2574, 2312, 2317, 2491, 1698, 2751, 2763],
-    [2867, 3131, 2959, 1689, 3032],
-    [2574, 3092, 2961, 3032],
-    [2491],
-    [1620, 2317, 2763],
-    [1726, 1620, 2484, 2312, 1697, 2751, 2762, 2961, 2274, 331, 3032],
-    [3092],
-    [2878, 2867, 2806, 2958, 3087],
-    [2867, 3131, 2959, 1691, 2920, 1688, 2911, 1170],
-    [2574, 3092, 2961, 1691, 2922, 1171],
+    [1644, 2597, 2331, 2336, 1723, 2779, 2702, 2756],
+    [2902, 3172, 2996, 1714, 3073],
+    [2597, 3133, 2998, 3073],
+    [],
+    [1644, 2336, 2702, 2756],
     [
-      1726,
-      1620,
-      2484,
-      2312,
-      1697,
-      2751,
-      2762,
-      2961,
-      2274,
-      331,
-      2818,
-      1691,
-      2922,
-      3084,
-      1171,
-      1116,
+      1751,
+      2804,
+      1644,
+      2505,
+      2331,
+      1722,
+      2779,
+      2702,
+      2998,
+      2293,
+      329,
+      2772,
+      3073,
     ],
-    [2878, 2867, 2806, 2958, 3087, 1169],
+    [3133],
+    [2913, 2902, 2836, 2995, 3128],
+    [1644, 2597, 2331, 2336, 1723, 2779, 2702, 2769],
+    [2902, 3172, 2996, 1716, 2958, 1713, 2946, 1189],
+    [2597, 3133, 2998, 1716, 2960, 1190],
+    [1644, 2336, 2702, 2772],
+    [
+      1751,
+      2804,
+      1644,
+      2505,
+      2331,
+      1722,
+      2779,
+      2702,
+      2998,
+      2293,
+      329,
+      2757,
+      2848,
+      1716,
+      2960,
+      3125,
+      1190,
+      1136,
+    ],
+    [2913, 2902, 2836, 2995, 3128, 1188],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
     [0, 1, 2, 3, 4, 5, 6, 7],
-    [0, 8, 9, 3, 4, 10, 6, 11],
+    [8, 9, 10, 3, 11, 12, 6, 13],
   ];
 }

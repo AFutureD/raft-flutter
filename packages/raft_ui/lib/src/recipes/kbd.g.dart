@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `kbd`.
 // ignore_for_file: type=lint
 
@@ -19,7 +19,7 @@ class RaftKbdRecipeStyle {
   Map<String, RaftSlotStyle> get slots => {'root': root, 'group': group};
 }
 
-/// raft-ui recipe `kbd` (`src/components/kbd/kbd.tsx`, index.mjs:4669).
+/// raft-ui recipe `kbd` (`src/components/kbd/kbd.tsx`, index.mjs:4681).
 ///
 /// Used by: Kbd, KbdGroup.
 ///
@@ -70,50 +70,50 @@ abstract final class RaftKbdRecipe {
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
     [
-      2716,
-      2301,
-      3126,
-      2867,
-      2312,
-      2317,
-      1696,
-      3131,
-      1691,
-      1688,
-      2834,
-      425,
-      415,
-      2924,
-      2995,
+      2739,
+      2320,
+      3167,
+      2902,
+      2331,
+      2336,
+      1721,
+      3172,
+      1716,
+      1713,
+      2868,
+      423,
+      413,
+      2962,
+      3032,
     ],
-    [2301, 2312, 1696],
+    [2320, 2331, 1721],
     [
-      2716,
-      2301,
-      3126,
-      2867,
-      2312,
-      2317,
-      1696,
-      3131,
-      1691,
-      2834,
-      425,
-      415,
-      2580,
-      2822,
-      825,
-      2750,
-      2762,
-      2918,
-      1688,
-      2981,
+      2739,
+      2320,
+      3167,
+      2902,
+      2331,
+      2336,
+      1721,
+      3172,
+      1716,
+      2868,
+      423,
+      413,
+      2603,
+      2852,
+      830,
+      2778,
       2791,
-      2797,
-      2799,
-      983,
-      1133,
-      1137,
+      2956,
+      1713,
+      3018,
+      2821,
+      2827,
+      2829,
+      1003,
+      1152,
+      1156,
     ],
   ];
 

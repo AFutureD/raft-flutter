@@ -6,10 +6,8 @@ import 'list_items.dart';
 import 'recipe_surface.dart';
 import 'rail_attention.dart';
 import 'recipes/app_rail.g.dart';
-import 'recipes/recipe_runtime.dart';
 import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
-import 'tokens/tokens.dart';
 
 /// Sidebar.tsx3840–3848: one bordered heading, no duplicate server switcher.
 class RaftChatSidebarHeading extends StatelessWidget {
@@ -103,7 +101,6 @@ class RaftWorkspaceRailAction extends StatelessWidget {
     required this.glyph,
     required this.onPressed,
     this.selected = false,
-    this.depressed = false,
     this.focusNode,
     this.showTooltip = true,
     this.attention = false,
@@ -111,7 +108,7 @@ class RaftWorkspaceRailAction extends StatelessWidget {
   final String label;
   final RaftGlyph glyph;
   final VoidCallback? onPressed;
-  final bool selected, depressed, showTooltip, attention;
+  final bool selected, showTooltip, attention;
   final FocusNode? focusNode;
   @override
   Widget build(BuildContext context) {
@@ -126,7 +123,7 @@ class RaftWorkspaceRailAction extends StatelessWidget {
       tooltip: showTooltip ? label : null,
       onPressed: onPressed,
       builder: (context, state) {
-        final slot = RaftAppRailRecipe.resolve(
+        final style = RaftAppRailRecipe.resolve(
           theme: t.recipeTheme,
           tokens: t.recipeTokens,
           states: t.recipeStates(
@@ -136,30 +133,13 @@ class RaftWorkspaceRailAction extends StatelessWidget {
             extra: [if (selected) 'data-selected=true'],
           ),
         ).item;
-        final pressedMode = selected && depressed;
-        final style = !pressedMode
-            ? slot
-            : RaftSlotStyle(
-                {
-                  ...slot.properties,
-                  'background-color': CssColor(
-                    t.product.workspaceModeActive.toARGB32(),
-                  ),
-                  'box-shadow': const CssKeyword('none'),
-                  for (final side in ['top', 'right', 'bottom', 'left'])
-                    'border-$side-color': const CssColor(0xff000000),
-                },
-                slot.targets,
-                slot.classes,
-                slot.tokens,
-              );
         final glyphSize = style.target('& svg')?.width ?? RaftMetrics.railGlyph;
         Widget glyphWidget() => RaftIcon(
           glyph,
           size: glyphSize,
           color: style.foreground(t.recipeTokens, inherited: t.strong),
         );
-        Widget box = RaftRecipeBox(
+        return RaftRecipeBox(
           style: style,
           tokens: t.recipeTokens,
           width: size,
@@ -184,20 +164,6 @@ class RaftWorkspaceRailAction extends StatelessWidget {
             ),
           ),
         );
-        if (pressedMode) {
-          box = DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: RaftLayeredDecoration(
-              BoxDecoration(borderRadius: style.borderRadius),
-              RaftProductShadows.shadowWorkspaceModeActive.layers,
-              style.borderRadius ?? BorderRadius.zero,
-              null,
-              style.borderWidth,
-            ),
-            child: box,
-          );
-        }
-        return box;
       },
     );
   }

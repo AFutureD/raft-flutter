@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `popover`.
 // ignore_for_file: type=lint
 
@@ -70,7 +70,7 @@ class RaftPopoverRecipeStyle {
   };
 }
 
-/// raft-ui recipe `popover` (`src/components/popover/popover.tsx`, index.mjs:5873).
+/// raft-ui recipe `popover` (`src/components/popover/popover.tsx`, index.mjs:5885).
 ///
 /// Used by: PopoverArrow, PopoverBackdrop, PopoverClose, PopoverContent, PopoverDescription, PopoverHeader, PopoverPopup, PopoverSeparator, PopoverTitle, PopoverTrigger, PopoverViewport.
 ///
@@ -144,24 +144,24 @@ abstract final class RaftPopoverRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2834],
-    [2309, 3142, 2649],
-    [2361, 2583, 2656, 2649, 866, 900, 828, 2861],
-    [1620, 2312, 2316, 2753, 2765],
-    [911, 900],
-    [2359, 2918, 1684, 2344, 1691, 3096, 3055, 2993],
-    [2359, 3032, 2335, 1691, 2987],
-    [2301, 2312, 2317, 2918, 1684, 2649, 3084, 1691, 3096, 3055, 2993, 2280],
-    [2876, 2805, 892, 913, 900, 828],
-    [1619, 2303, 850],
-    [862],
-    [2361, 2583, 2656, 2649, 2818, 828, 2864],
-    [911, 895],
-    [2359, 2920, 1688, 3046, 2991],
-    [2359, 3032, 2335, 2981],
-    [2301, 2312, 2317, 2649, 2920, 1688, 3046, 2981, 3084, 1602, 2276],
-    [2876, 2805, 891, 911, 895, 828],
-    [1619, 2303, 819, 679],
+    [2868],
+    [2328, 3183, 2672],
+    [2380, 2606, 2679, 2672, 878, 916, 833, 2895],
+    [1644, 2331, 2335, 2781, 2794],
+    [925, 916],
+    [2378, 2956, 1709, 2363, 1716, 3137, 3096, 3030],
+    [2378, 3073, 2354, 1716, 3024],
+    [2320, 2331, 2336, 2956, 1709, 2672, 3125, 1716, 3137, 3096, 3030, 2299],
+    [2911, 2835, 908, 927, 916, 833],
+    [1643, 2322, 863],
+    [874],
+    [2380, 2606, 2679, 2672, 2848, 833, 2898],
+    [925, 911],
+    [2378, 2958, 1713, 3087, 3028],
+    [2378, 3073, 2354, 3018],
+    [2320, 2331, 2336, 2672, 2958, 1713, 3087, 3018, 3125, 1626, 2295],
+    [2911, 2835, 907, 925, 911, 833],
+    [1643, 2322, 824, 685],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/gen-tokens`.
-// Source: raft-ui-0.5.27/foundation.css, raft-ui-0.5.27/fonts.css, raft-ui-0.5.27/styles.css, tailwindcss-4.2.2/theme.css
+// Source: raft-ui-0.5.52/foundation.css, raft-ui-0.5.52/fonts.css, raft-ui-0.5.52/styles.css, tailwindcss-4.3.3/theme.css
 // dart format off
 // ignore_for_file: constant_identifier_names, lines_longer_than_80_chars
 
@@ -90,7 +90,7 @@ class RaftThemeMetrics {
   );
 }
 
-/// Tailwind 4 @theme scale (tailwindcss 4.2.2 theme.css + raft-ui/product @theme),
+/// Tailwind 4 @theme scale (tailwindcss 4.3.3 theme.css + raft-ui/product @theme),
 /// converted to logical px at a 16px root font size.
 abstract final class RaftScale {
   /// `--spacing: 0.25rem`. Utility `p-N` = N * spacing.

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `textareaCounter`.
 // ignore_for_file: type=lint
 
@@ -16,7 +16,7 @@ class RaftTextareaCounterRecipeStyle {
   Map<String, RaftSlotStyle> get slots => {'root': root};
 }
 
-/// raft-ui recipe `textareaCounter` (`src/components/textarea/textarea.tsx`, index.mjs:7966).
+/// raft-ui recipe `textareaCounter` (`src/components/textarea/textarea.tsx`, index.mjs:7987).
 ///
 /// Used by: TextareaCounter.
 ///
@@ -68,10 +68,10 @@ abstract final class RaftTextareaCounterRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1689, 3032, 2911, 1744, 1843, 2972],
-    [1689, 3032, 2911, 2992, 1744, 1843],
-    [1689, 2911, 2920, 2344, 3061, 1605, 1613, 1745, 1843, 2972],
-    [1689, 2911, 2920, 2344, 2986, 3061, 1605, 1613, 1745, 1843],
+    [1714, 3073, 2946, 1769, 1868, 3009],
+    [1714, 3073, 2946, 3029, 1769, 1868],
+    [1714, 2946, 2958, 2363, 3102, 1629, 1637, 1770, 1868, 3009],
+    [1714, 2946, 2958, 2363, 3023, 3102, 1629, 1637, 1770, 1868],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

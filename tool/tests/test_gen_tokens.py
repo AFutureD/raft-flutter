@@ -146,7 +146,7 @@ class ChromeOracle(unittest.TestCase):
                 with self.subTest(theme=theme, token=key):
                     self.assertEqual(list(c.bytes()), sample['white'])
                 compared += 1
-        self.assertEqual(compared, 657)
+        self.assertEqual(compared, 695)
 
     def test_spec_pipeline_is_off_by_one_on_known_tokens(self):
         # The rule that makes the difference: without the Chromium D50 path the
@@ -173,7 +173,7 @@ class ChromeOracle(unittest.TestCase):
                     got = [gen.flutter_over(chans[i], a, backs[b][i]) for i in range(3)]
                     if got != sample[b]:
                         misses.add((theme, key, b))
-        self.assertEqual(compared, 216)
+        self.assertEqual(compared, 228)
         self.assertEqual(misses, FIT_EXCEPTIONS)
 
     def test_recipe_opaque_literals_equal_chrome_bytes(self):

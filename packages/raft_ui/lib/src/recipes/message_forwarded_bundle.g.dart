@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageForwardedBundle`.
 // ignore_for_file: type=lint
 
@@ -60,7 +60,7 @@ class RaftMessageForwardedBundleRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageForwardedBundle` (`src/components/message-forwarded-bundle/message-forwarded-bundle.recipe.ts`, index.mjs:11459).
+/// raft-ui recipe `messageForwardedBundle` (`src/components/message-forwarded-bundle/message-forwarded-bundle.recipe.ts`, index.mjs:11502).
 ///
 /// Used by: MessageForwardedBundle, MessageForwardedBundleFooterAction, MessageForwardedBundleHeader, MessageForwardedBundleHeaderContent, MessageForwardedBundleHeaderCount, MessageForwardedBundleHeaderLabel, MessageForwardedBundleItems, MessageForwardedBundleSource, MessageForwardedBundleSourceLabel.
 ///
@@ -134,53 +134,53 @@ abstract final class RaftMessageForwardedBundleRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2598, 2481],
-    [1620, 1626, 2312, 2316, 1698],
-    [1620, 2574, 2312, 1698],
-    [2301, 2867, 2312, 1696, 2920, 1683, 2344, 2964],
-    [2867, 2920, 1684, 2962],
+    [2621, 2502],
+    [1644, 1650, 2331, 2335, 1723],
+    [1644, 2597, 2331, 1723],
+    [2320, 2902, 2331, 1721, 2958, 1708, 2363, 3001],
+    [2902, 2958, 1709, 2999],
     [
-      2574,
-      3092,
-      2301,
-      2312,
-      1696,
-      2920,
-      1684,
-      3094,
-      3084,
-      2961,
-      2272,
-      2288,
-      1639,
-      1647,
-      1642,
+      2597,
+      3133,
+      2320,
+      2331,
+      1721,
+      2958,
+      1709,
+      3135,
+      3125,
+      2998,
+      2291,
+      2307,
+      1663,
+      1671,
+      1666,
     ],
-    [2574, 3092, 2301, 2312, 1696, 2920, 1684, 2960],
-    [2775],
-    [2301, 2312, 1696, 2920, 1683, 3093, 3094, 2963, 2272, 1639, 1647, 1642],
-    [2775, 2363, 2655, 626, 613, 624, 617, 621, 614, 1368, 620, 634, 632],
-    [2598, 3127, 2487],
-    [2301, 2867, 2312, 1696, 2920, 1688, 2344, 2981],
-    [2867, 2920, 1688, 2984],
+    [2597, 3133, 2320, 2331, 1721, 2958, 1709, 2997],
+    [2804],
+    [2320, 2331, 1721, 2958, 1708, 3134, 3135, 3000, 2291, 1663, 1671, 1666],
+    [2804, 2382, 2678, 632, 619, 630, 623, 627, 620, 1390, 626, 640, 638],
+    [2621, 3168, 2508],
+    [2320, 2902, 2331, 1721, 2958, 1713, 2363, 3018],
+    [2902, 2958, 1713, 3021],
     [
-      2574,
-      3092,
-      2301,
-      2312,
-      1696,
-      2920,
-      1688,
-      3084,
-      2984,
-      2280,
-      1639,
-      1647,
-      1644,
+      2597,
+      3133,
+      2320,
+      2331,
+      1721,
+      2958,
+      1713,
+      3125,
+      3021,
+      2299,
+      1663,
+      1671,
+      1668,
     ],
-    [2574, 3092, 2301, 2312, 1696, 2920, 1688, 2984],
-    [2301, 2312, 1696, 2920, 1688, 2984, 2280, 1639, 1647, 1644],
-    [2775, 2363, 2655, 626, 613, 624, 617, 621, 614, 1368, 619, 633, 631],
+    [2597, 3133, 2320, 2331, 1721, 2958, 1713, 3021],
+    [2320, 2331, 1721, 2958, 1713, 3021, 2299, 1663, 1671, 1668],
+    [2804, 2382, 2678, 632, 619, 630, 623, 627, 620, 1390, 625, 639, 637],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageTranslation`.
 // ignore_for_file: type=lint
 
@@ -50,7 +50,7 @@ class RaftMessageTranslationRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageTranslation` (`src/components/message-translation/message-translation.recipe.ts`, index.mjs:12094).
+/// raft-ui recipe `messageTranslation` (`src/components/message-translation/message-translation.recipe.ts`, index.mjs:12137).
 ///
 /// Used by: MessageItemTranslationAction, MessageItemTranslationFailedStatus, MessageItemTranslationOriginal, MessageItemTranslationOriginalLabel, MessageItemTranslationProgressTrack, MessageItemTranslationRetryAction, MessageItemTranslationStatus.
 ///
@@ -116,32 +116,32 @@ abstract final class RaftMessageTranslationRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2619],
-    [2490, 2918, 1684, 3096, 3053, 2959],
-    [2301, 2312, 1697, 1689, 2920, 2960],
-    [2301, 2312, 1697, 1689, 2920, 2967],
+    [2641],
+    [2511, 2956, 1709, 3137, 3094, 2996],
+    [2320, 2331, 1722, 1714, 2958, 2997],
+    [2320, 2331, 1722, 1714, 2958, 3004],
     [],
-    [2301, 2312, 1696, 1688, 3093, 3094, 1580, 2261],
-    [2301, 2312, 1696, 3093, 3094, 1684, 2967, 1580, 2261],
-    [2490, 2918, 1688, 3053, 2982],
-    [2301, 2312, 1697, 2920, 2344, 2981],
-    [2301, 2312, 1697, 2920, 2344, 3023],
-    [1950],
-    [2301, 2312, 1696, 1688, 3094, 2982, 2611, 2279],
+    [2320, 2331, 1721, 1713, 3134, 3135, 1604, 2280],
+    [2320, 2331, 1721, 3134, 3135, 1709, 3004, 1604, 2280],
+    [2511, 2956, 1713, 3094, 3019],
+    [2320, 2331, 1722, 2958, 2363, 3018],
+    [2320, 2331, 1722, 2958, 2363, 3064],
+    [1952],
+    [2320, 2331, 1721, 1713, 3135, 3019, 2633, 2298],
     [
-      2301,
-      2312,
-      1696,
-      1688,
-      3094,
-      2822,
-      2749,
-      2761,
-      3023,
-      2611,
-      3084,
-      2236,
-      2283,
+      2320,
+      2331,
+      1721,
+      1713,
+      3135,
+      2852,
+      2777,
+      2790,
+      3064,
+      2633,
+      3125,
+      2255,
+      2302,
     ],
   ];
 

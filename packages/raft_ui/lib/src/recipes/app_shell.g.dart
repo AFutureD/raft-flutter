@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `appShell`.
 // ignore_for_file: type=lint
 
@@ -45,7 +45,7 @@ class RaftAppShellRecipeStyle {
   };
 }
 
-/// raft-ui recipe `appShell` (`src/components/app-shell/app-shell.tsx`, index.mjs:16366).
+/// raft-ui recipe `appShell` (`src/components/app-shell/app-shell.tsx`, index.mjs:16620).
 ///
 /// Used by: AppShellMainSlot, AppShellOverlaySlot, AppShellPanelSlot, AppShellRailSlot, AppShellRoot, AppShellSidebarSlot.
 ///
@@ -111,14 +111,14 @@ abstract final class RaftAppShellRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1620, 2560, 3127, 2657, 2541, 2404, 2447, 1691, 537, 770, 2956, 2397],
-    [2174, 1978, 2867, 1622, 2513],
-    [2174, 2560, 2867, 1622, 2513],
-    [1620, 2560, 2574, 1621, 1622],
-    [2174, 2560, 2574, 1622, 2513],
-    [580, 2303, 3139, 1620, 2560, 2574],
-    [1620, 2560, 2574, 1621, 1622, 2775],
-    [1620, 2560, 3127, 2657, 2541, 2404, 2447, 1691, 2987, 536, 820],
+    [1644, 2583, 3168, 2680, 2564, 2425, 2467, 1716, 538, 776, 2994, 2419],
+    [2189, 1980, 2902, 1646, 2535],
+    [2189, 2583, 2902, 1646, 2535],
+    [1644, 2583, 2597, 1645, 1646],
+    [2189, 2583, 2597, 1646, 2535],
+    [586, 2322, 3180, 1644, 2583, 2597],
+    [1644, 2583, 2597, 1645, 1646, 2804],
+    [1644, 2583, 3168, 2680, 2564, 2425, 2467, 1716, 3024, 537, 825],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

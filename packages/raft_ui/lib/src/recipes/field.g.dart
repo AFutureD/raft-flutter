@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `field`.
 // ignore_for_file: type=lint
 
@@ -51,7 +51,7 @@ class RaftFieldRecipeStyle {
   };
 }
 
-/// raft-ui recipe `field` (`src/components/field/field.tsx`, index.mjs:6329).
+/// raft-ui recipe `field` (`src/components/field/field.tsx`, index.mjs:6341).
 ///
 /// Used by: Field, FieldDescription, FieldError, FieldItem, FieldLabel, LegacyTaskPanelField.
 ///
@@ -115,17 +115,17 @@ abstract final class RaftFieldRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1919, 1620, 1622, 1696],
-    [1920, 1620, 2314, 1698, 97],
-    [862, 1838, 1684, 3032, 2993],
-    [3032, 2335, 1838, 2992],
-    [3032, 2335, 1838, 2972],
-    [862, 1838, 1684, 2976, 3017],
-    [1919, 1620, 1622, 1697],
-    [862, 1838, 1688, 2987, 1164, 3032],
-    [2924, 2977, 1838],
-    [1838, 2924, 2972],
-    [862, 1838, 1688, 2987, 1164, 3017],
+    [1920, 1644, 1646, 1721],
+    [1921, 1644, 2333, 1723, 97],
+    [874, 1863, 1709, 3073, 3030],
+    [3073, 2354, 1863, 3029],
+    [3073, 2354, 1863, 3009],
+    [874, 1863, 1709, 3013, 3053],
+    [1920, 1644, 1646, 1722],
+    [874, 1863, 1713, 3024, 1183, 3073],
+    [2962, 3014, 1863],
+    [1863, 2962, 3009],
+    [874, 1863, 1713, 3024, 1183, 3053],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

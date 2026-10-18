@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageList`.
 // ignore_for_file: type=lint
 
@@ -66,7 +66,7 @@ class RaftMessageListRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageList` (`src/components/message-list/message-list.recipe.ts`, index.mjs:12194).
+/// raft-ui recipe `messageList` (`src/components/message-list/message-list.recipe.ts`, index.mjs:12237).
 ///
 /// Used by: MessageList, MessageListDateDivider, MessageListHistoryLimited, MessageListNotice.
 ///
@@ -136,22 +136,22 @@ abstract final class RaftMessageListRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2775, 1978, 2560],
-    [2574, 2665],
-    [1620, 2572, 3127, 2574, 1622],
-    [1620, 2834, 2312, 2753, 2765],
-    [1621, 3091, 913, 878],
-    [2301, 2312, 2751, 2918, 1684, 3096, 3057, 2961],
-    [2970, 2683, 1689, 3032, 2990],
-    [2301, 2312, 1697, 864, 879, 858, 2751, 2762, 429],
-    [2970, 2683, 1689, 3032, 2992],
-    [1620, 2572, 3127, 2574, 1622, 2543],
-    [1620, 2834, 2312, 2753, 2765, 2630],
-    [1621, 911, 895, 1006],
-    [2301, 2312, 2751, 1689, 2920, 1690, 3096, 3057, 2981],
-    [2970, 2683, 1691, 3032, 2990],
-    [2301, 2312, 1697, 2822, 864, 896, 827, 2751, 2762, 429],
-    [2970, 2683, 1691, 3032, 2992],
+    [2804, 1980, 2583],
+    [2597, 2688],
+    [1644, 2595, 3168, 2597, 1646],
+    [1644, 2868, 2331, 2781, 2794],
+    [1645, 3132, 927, 894],
+    [2320, 2331, 2779, 2956, 1709, 3137, 3098, 2998],
+    [3007, 2706, 1714, 3073, 3027],
+    [2320, 2331, 1722, 876, 895, 870, 2779, 2791, 427],
+    [3007, 2706, 1714, 3073, 3029],
+    [1644, 2595, 3168, 2597, 1646, 2566],
+    [1644, 2868, 2331, 2781, 2794, 2653],
+    [1645, 925, 911, 1026],
+    [2320, 2331, 2779, 1714, 2958, 1715, 3137, 3098, 3018],
+    [3007, 2706, 1716, 3073, 3027],
+    [2320, 2331, 1722, 2852, 876, 912, 832, 2779, 2791, 427],
+    [3007, 2706, 1716, 3073, 3029],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

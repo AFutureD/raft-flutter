@@ -1,19 +1,19 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Barrel and registry.
 // ignore_for_file: type=lint
 
 import 'recipe_runtime.dart';
 import 'spinner.g.dart';
 import 'button_variants.g.dart';
-import 'alert_dialog.g.dart';
 import 'dialog.g.dart';
+import 'alert_dialog.g.dart';
+import 'drawer_motion.g.dart';
 import 'drawer.g.dart';
-import 'drawer_extend.g.dart';
 import 'tooltip.g.dart';
 import 'card.g.dart';
+import 'dot.g.dart';
 import 'status.g.dart';
-import 'status_extend.g.dart';
 import 'app_rail.g.dart';
 import 'copyable_code.g.dart';
 import 'checkbox_indicator.g.dart';
@@ -105,6 +105,9 @@ import 'profile_panel.g.dart';
 import 'thread_panel.g.dart';
 import 'live_agent_activity_bar.g.dart';
 import 'task_status.g.dart';
+import 'task_status_soft.g.dart';
+import 'task_status_strong.g.dart';
+import 'task_status_border.g.dart';
 import 'task_board_column.g.dart';
 import 'task_card_status.g.dart';
 import 'task_card.g.dart';
@@ -126,14 +129,14 @@ import 'search_thread.g.dart';
 export 'recipe_utilities.g.dart';
 export 'spinner.g.dart';
 export 'button_variants.g.dart';
-export 'alert_dialog.g.dart';
 export 'dialog.g.dart';
+export 'alert_dialog.g.dart';
+export 'drawer_motion.g.dart';
 export 'drawer.g.dart';
-export 'drawer_extend.g.dart';
 export 'tooltip.g.dart';
 export 'card.g.dart';
+export 'dot.g.dart';
 export 'status.g.dart';
-export 'status_extend.g.dart';
 export 'app_rail.g.dart';
 export 'copyable_code.g.dart';
 export 'checkbox_indicator.g.dart';
@@ -225,6 +228,9 @@ export 'profile_panel.g.dart';
 export 'thread_panel.g.dart';
 export 'live_agent_activity_bar.g.dart';
 export 'task_status.g.dart';
+export 'task_status_soft.g.dart';
+export 'task_status_strong.g.dart';
+export 'task_status_border.g.dart';
 export 'task_board_column.g.dart';
 export 'task_card_status.g.dart';
 export 'task_card.g.dart';
@@ -243,25 +249,24 @@ export 'search_entity.g.dart';
 export 'search_message.g.dart';
 export 'search_thread.g.dart';
 
-typedef RaftRecipeResolver =
-    Map<String, RaftSlotStyle> Function(
-      Map<String, String?> props, {
-      RaftRecipeStates states,
-      RaftTokenResolver? tokens,
-    });
+typedef RaftRecipeResolver = Map<String, RaftSlotStyle> Function(
+  Map<String, String?> props, {
+  RaftRecipeStates states,
+  RaftTokenResolver? tokens,
+});
 
 /// tailwind-variants recipe name -> resolver.
 const Map<String, RaftRecipeResolver> raftRecipes = {
   'spinner': RaftSpinnerRecipe.resolveProps,
   'buttonVariants': RaftButtonRecipe.resolveProps,
-  'alertDialog': RaftAlertDialogRecipe.resolveProps,
   'dialog': RaftDialogRecipe.resolveProps,
+  'alertDialog': RaftAlertDialogRecipe.resolveProps,
+  'drawerMotion': RaftDrawerMotionRecipe.resolveProps,
   'drawer': RaftDrawerRecipe.resolveProps,
-  'drawer\$extend': RaftDrawerBaseRecipe.resolveProps,
   'tooltip': RaftTooltipRecipe.resolveProps,
   'card': RaftCardRecipe.resolveProps,
+  'dot': RaftDotRecipe.resolveProps,
   'status': RaftStatusRecipe.resolveProps,
-  'status\$extend': RaftStatusBaseRecipe.resolveProps,
   'appRail': RaftAppRailRecipe.resolveProps,
   'copyableCode': RaftCopyableCodeRecipe.resolveProps,
   'checkboxIndicator': RaftCheckboxIndicatorRecipe.resolveProps,
@@ -357,6 +362,9 @@ const Map<String, RaftRecipeResolver> raftRecipes = {
   'threadPanel': RaftThreadPanelRecipe.resolveProps,
   'liveAgentActivityBar': RaftLiveAgentActivityBarRecipe.resolveProps,
   'taskStatus': RaftTaskStatusRecipe.resolveProps,
+  'taskStatusSoft': RaftTaskStatusSoftRecipe.resolveProps,
+  'taskStatusStrong': RaftTaskStatusStrongRecipe.resolveProps,
+  'taskStatusBorder': RaftTaskStatusBorderRecipe.resolveProps,
   'taskBoardColumn': RaftTaskBoardColumnRecipe.resolveProps,
   'taskCardStatus': RaftTaskCardStatusRecipe.resolveProps,
   'taskCard': RaftTaskCardRecipe.resolveProps,

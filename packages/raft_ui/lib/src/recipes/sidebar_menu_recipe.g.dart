@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `sidebarMenuRecipe`.
 // ignore_for_file: type=lint
 
@@ -40,7 +40,7 @@ class RaftSidebarMenuRecipeStyle {
   };
 }
 
-/// raft-ui recipe `sidebarMenuRecipe` (`src/components/sidebar/sidebar-menu.recipe.ts`, index.mjs:3359).
+/// raft-ui recipe `sidebarMenuRecipe` (`src/components/sidebar/sidebar-menu.recipe.ts`, index.mjs:3370).
 ///
 /// Used by: SidebarMenu, SidebarMenuAside, SidebarMenuCount, SidebarMenuIcon, SidebarMenuTitle.
 ///
@@ -103,53 +103,53 @@ abstract final class RaftSidebarMenuRecipe {
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
     [
-      1620,
-      2574,
-      1621,
-      2312,
-      1963,
-      1696,
-      3032,
-      1684,
-      3057,
-      3096,
-      2956,
-      3084,
-      2273,
-      1639,
-      1648,
-      1647,
-      1640,
+      1644,
+      2597,
+      1645,
+      2331,
+      1965,
+      1721,
+      3073,
+      1709,
+      3098,
+      3137,
+      2994,
+      3125,
+      2292,
+      1663,
+      1672,
+      1671,
+      1664,
     ],
-    [1620, 2878, 2867, 2312, 2317, 429, 427, 421, 457, 445, 460],
-    [2574, 3092],
-    [1620, 2867, 2312, 1696],
-    [1689, 2612, 3053, 2959],
+    [1644, 2913, 2902, 2331, 2336, 427, 425, 419, 455, 443, 458],
+    [2597, 3133],
+    [1644, 2902, 2331, 1721],
+    [1714, 2634, 3094, 2996],
     [
-      1620,
-      2574,
-      1621,
-      2312,
-      1966,
-      3127,
-      2316,
-      1697,
-      2818,
-      2746,
-      3032,
-      2344,
-      1690,
-      2612,
-      3053,
-      2981,
-      2214,
-      2276,
-      1105,
-      606,
+      1644,
+      2597,
+      1645,
+      2331,
+      1968,
+      3168,
+      2335,
+      1722,
+      2848,
+      2774,
+      3073,
+      2363,
+      1715,
+      2634,
+      3094,
+      3018,
+      2233,
+      2295,
+      1125,
+      612,
     ],
-    [1620, 2878, 2867, 2312, 2317, 429, 427, 421, 457, 2978, 446, 461],
-    [1620, 2867, 2312, 1696, 2585],
-    [2867, 1691, 3032, 1688, 2344, 2613, 2978],
+    [1644, 2913, 2902, 2331, 2336, 427, 425, 419, 455, 3015, 444, 459],
+    [1644, 2902, 2331, 1721, 2608],
+    [2902, 1716, 3073, 1713, 2363, 2635, 3015],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

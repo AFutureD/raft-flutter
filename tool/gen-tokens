@@ -2,11 +2,11 @@
 """Translate the raft-ui design-system CSS into Flutter design tokens.
 
 Source of truth (vendored, hashed in tool/design-source/manifest.json):
-  raft-ui 0.5.27 dist/foundation.css   raw ramps + theme blocks (brutal, elegant, elegant.dark)
-  raft-ui 0.5.27 dist/styles.css       Tailwind @theme aliases (black/white, brutal bare aliases, ease)
-  raft-ui 0.5.27 dist/fonts.css        per-theme font stacks
-  tailwindcss 4.2.2 theme.css          default scale (spacing, radius, text, weights, ...)
-  raft-source 26f77ef web index.css    product @theme overrides (+ :root.dark code colours)
+  raft-ui 0.5.52 dist/foundation.css   raw ramps + theme blocks (brutal, elegant, elegant.dark)
+  raft-ui 0.5.52 dist/styles.css       Tailwind @theme aliases (black/white, brutal bare aliases, ease)
+  raft-ui 0.5.52 dist/fonts.css        per-theme font stacks
+  tailwindcss 4.3.3 theme.css          default scale (spacing, radius, text, weights, ...)
+  raft-source a98ae00 web index.css    product @theme overrides (+ :root.dark code colours)
 
 Output: packages/raft_ui/lib/src/tokens/*.g.dart (GENERATED — do not edit).
 
@@ -45,11 +45,11 @@ OUT = ROOT / 'packages/raft_ui/lib/src/tokens'
 ORACLE = ROOT / 'docs/theme-tokens'
 
 SOURCES = {
-    'foundation': 'raft-ui-0.5.27/foundation.css',
-    'styles': 'raft-ui-0.5.27/styles.css',
-    'fonts': 'raft-ui-0.5.27/fonts.css',
-    'tailwind': 'tailwindcss-4.2.2/theme.css',
-    'web': 'raft-web-26f77ef/index.css',
+    'foundation': 'raft-ui-0.5.52/foundation.css',
+    'styles': 'raft-ui-0.5.52/styles.css',
+    'fonts': 'raft-ui-0.5.52/fonts.css',
+    'tailwind': 'tailwindcss-4.3.3/theme.css',
+    'web': 'raft-web-a98ae00/index.css',
 }
 IMPORT_ORIGINS = {
     'foundation': ('raft-ui', 'dist/foundation.css'),
@@ -1116,7 +1116,7 @@ def emit_metrics(m: Model):
 
 def emit_scale(m: Model):
     tv = m.theme_vars
-    lines = ['/// Tailwind 4 @theme scale (tailwindcss 4.2.2 theme.css + raft-ui/product @theme),',
+    lines = ['/// Tailwind 4 @theme scale (tailwindcss 4.3.3 theme.css + raft-ui/product @theme),',
              f'/// converted to logical px at a {fmt_num(ROOT_FONT_SIZE)}px root font size.',
              'abstract final class RaftScale {']
     sp = parse_length(tv['--spacing'])

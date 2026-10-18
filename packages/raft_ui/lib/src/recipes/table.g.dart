@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `table`.
 // ignore_for_file: type=lint
 
@@ -60,7 +60,7 @@ class RaftTableRecipeStyle {
   };
 }
 
-/// raft-ui recipe `table` (`src/components/table/table.recipe.ts`, index.mjs:12520).
+/// raft-ui recipe `table` (`src/components/table/table.recipe.ts`, index.mjs:12741).
 ///
 /// Used by: MarkdownTable, Table, TableBody, TableCaption, TableCell, TableColgroup, TableColumn, TableHead, TableHeader, TableRow.
 ///
@@ -130,15 +130,15 @@ abstract final class RaftTableRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [3127, 882, 933, 3017, 866, 876],
+    [3168, 898, 946, 3053, 878, 892],
     [],
-    [327, 328],
-    [3003, 3131, 875, 876, 772, 2753, 2765, 1684, 2956],
-    [638, 3135, 875, 876, 2753, 2765],
-    [2981],
-    [3127, 882, 933, 3017],
-    [3003, 3131, 873, 896, 797, 2753, 2765, 1688, 2976],
-    [638, 3135, 873, 895, 2753, 2765],
+    [323, 324],
+    [3040, 3172, 891, 892, 778, 2781, 2794, 1709, 2994],
+    [644, 3176, 891, 892, 2781, 2794],
+    [3018],
+    [3168, 898, 946, 3053],
+    [3040, 3172, 889, 912, 803, 2781, 2794, 1713, 3013],
+    [644, 3176, 889, 911, 2781, 2794],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageActionCardContent`.
 // ignore_for_file: type=lint
 
@@ -80,7 +80,7 @@ class RaftMessageActionCardContentRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageActionCardContent` (`src/components/message-action-card/message-action-card-content.recipe.ts`, index.mjs:10691).
+/// raft-ui recipe `messageActionCardContent` (`src/components/message-action-card/message-action-card-content.recipe.ts`, index.mjs:10734).
 ///
 /// Used by: MessageActionCardActions, MessageActionCardCompletion, MessageActionCardContent, MessageActionCardHint, MessageActionCardProperties, MessageActionCardProperty, MessageActionCardPropertyLabel, MessageActionCardPropertyValue, MessageActionCardScope, MessageActionCardScopeDescription, MessageActionCardScopeList, MessageActionCardScopeListLabel, MessageActionCardScopeName.
 ///
@@ -158,31 +158,31 @@ abstract final class RaftMessageActionCardContentRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2672, 2731],
-    [2359, 1717, 1720, 2311, 2464, 2463, 2598, 1708, 1714],
-    [938],
-    [2466, 2574, 3136, 3032, 2962],
-    [2359, 2574, 3136, 3032, 2965],
-    [2602, 2900],
-    [3032, 2333, 1690, 2962],
-    [2574, 864, 2670, 878, 856],
-    [932, 1689, 2920, 1684, 2962],
-    [3032, 2346, 2963],
-    [2598, 892, 879, 2699, 3032, 2310, 2962],
-    [2598, 3032, 2962],
-    [1620, 1626, 2312, 2601, 1700],
-    [2672, 2754, 2736, 2686, 2895],
-    [2359, 1717, 1720, 2311, 2464, 2463, 2600, 1711, 1716],
-    [2466, 2574, 3136, 2924, 2335, 2983],
-    [2359, 2574, 3136, 2924, 2335, 2987],
-    [2602, 2901],
-    [2924, 2335, 1688, 2987],
-    [2574, 864, 2670, 2818, 896, 827, 2752, 2765, 2865, 1009, 983],
-    [932, 1691, 3032, 2333, 1688, 2981],
-    [2597, 2924, 2335, 3005, 2983],
-    [2601, 891, 896, 2700, 3032, 2333, 2310, 2983],
-    [2601, 2924, 2335, 2981],
-    [1620, 1626, 2312, 2602, 1698],
+    [2695, 2756],
+    [2378, 1742, 1745, 2330, 2484, 2483, 2621, 1733, 1739],
+    [958],
+    [2487, 2597, 3177, 3073, 2999],
+    [2378, 2597, 3177, 3073, 3002],
+    [2625, 2935],
+    [3073, 2352, 1715, 2999],
+    [2597, 876, 2693, 894, 868],
+    [945, 1714, 2958, 1709, 2999],
+    [3073, 2365, 3000],
+    [2621, 908, 895, 2722, 3073, 2329, 2999],
+    [2621, 3073, 2999],
+    [1644, 1650, 2331, 2624, 1725],
+    [2695, 2782, 2761, 2709, 2930],
+    [2378, 1742, 1745, 2330, 2484, 2483, 2623, 1736, 1741],
+    [2487, 2597, 3177, 2962, 2354, 3020],
+    [2378, 2597, 3177, 2962, 2354, 3024],
+    [2625, 2936],
+    [2962, 2354, 1713, 3024],
+    [2597, 876, 2693, 2848, 912, 832, 2780, 2794, 2899, 1029, 1003],
+    [945, 1716, 3073, 2352, 1713, 3018],
+    [2620, 2962, 2354, 3042, 3020],
+    [2624, 907, 912, 2723, 3073, 2352, 2329, 3020],
+    [2624, 2962, 2354, 3018],
+    [1644, 1650, 2331, 2625, 1723],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `emptyState`.
 // ignore_for_file: type=lint
 
@@ -45,7 +45,7 @@ class RaftEmptyStateRecipeStyle {
   };
 }
 
-/// raft-ui recipe `emptyState` (`src/components/empty-state/empty-state.tsx`, index.mjs:14605).
+/// raft-ui recipe `emptyState` (`src/components/empty-state/empty-state.tsx`, index.mjs:14827).
 ///
 /// Used by: EmptyState, EmptyStateActions, EmptyStateContent, EmptyStateDescription, EmptyStateIcon, EmptyStateTitle.
 ///
@@ -109,15 +109,15 @@ abstract final class RaftEmptyStateRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [1620, 3127, 2574, 1622, 2312, 2317, 2757, 2764, 2970],
-    [1620, 3127, 2488, 2574, 1622, 2312, 1698, 2970, 230, 231],
-    [2495, 2301, 2312, 2317, 427, 2981, 435],
-    [2493, 3127, 2484, 2970, 2954, 1687, 3004, 1692, 2993],
-    [2607, 3127, 2472, 2970, 3017, 2345, 3005, 259, 260, 258, 2993],
-    [2604],
-    [2495, 2301, 2312, 2317, 427, 2818, 795, 2671, 2984, 432, 995, 1140],
-    [2493, 3127, 2484, 2970, 2954, 1687, 3017, 1688, 2976, 1166],
-    [2607, 3127, 2472, 2970, 3017, 2345, 3005, 259, 260, 258, 2981],
+    [1644, 3168, 2597, 1646, 2331, 2336, 2785, 2793, 3007],
+    [1644, 3168, 2509, 2597, 1646, 2331, 1723, 3007, 228, 229],
+    [2516, 2320, 2331, 2336, 425, 3018, 433],
+    [2514, 3168, 2505, 3007, 2992, 1712, 3041, 1717, 3030],
+    [2629, 3168, 2493, 3007, 3053, 2364, 3042, 255, 256, 254, 3030],
+    [2627],
+    [2516, 2320, 2331, 2336, 425, 2848, 801, 2694, 3021, 430, 1015, 1159],
+    [2514, 3168, 2505, 3007, 2992, 1712, 3053, 1713, 3013, 1185],
+    [2629, 3168, 2493, 3007, 3053, 2364, 3042, 255, 256, 254, 3018],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

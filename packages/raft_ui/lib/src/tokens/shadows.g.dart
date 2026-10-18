@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/gen-tokens`.
-// Source: raft-ui-0.5.27/foundation.css, raft-web-26f77ef/index.css, tailwindcss-4.2.2/theme.css
+// Source: raft-ui-0.5.52/foundation.css, raft-web-a98ae00/index.css, tailwindcss-4.3.3/theme.css
 // dart format off
 // ignore_for_file: constant_identifier_names, lines_longer_than_80_chars
 
@@ -228,10 +228,6 @@ abstract final class RaftProductShadows {
   /// `--shadow-brutal-active: 1px 1px 0px #141111`
   static const shadowBrutalActive = RaftShadow([
     RaftCssShadow(inset: false, offset: Offset(1.0, 1.0), blur: 0.0, spread: 0.0, color: Color(0xff141111)),
-  ]);
-  /// `--shadow-workspace-mode-active: inset 3px 3px 0px rgb(20 17 17 / 35%)`
-  static const shadowWorkspaceModeActive = RaftShadow([
-    RaftCssShadow(inset: true, offset: Offset(3.0, 3.0), blur: 0.0, spread: 0.0, color: Color.fromRGBO(20, 17, 17, 0.35)),
   ]);
   /// `--shadow-soft-popover: 0 4px 12px rgba(0, 0, 0, 0.08)`
   static const shadowSoftPopover = RaftShadow([

@@ -4,7 +4,7 @@ The Flutter tokens are a deterministic translation of the raft-ui design-system
 CSS, tuned so Flutter paints the same bytes as the parity Chromium:
 
 - Opaque colours come from a conversion rule that reproduces Chromium 147
-  bit-exactly (657/657 sampled opaque tokens, 77/77 opaque recipe literals).
+  bit-exactly (695/695 sampled opaque tokens, 77/77 opaque recipe literals).
 - Translucent colours are fitted against swatches sampled from that Chromium
   (`tool/design-source/chrome-oracle.json`), because Chromium's compositing is
   not a plain `c·a + d·(1−a)` (see "Translucent colours").
@@ -16,11 +16,11 @@ second, legacy oracle.
 
 ```
 tool/design-source/                       (vendored, sha256-pinned in manifest.json)
-  raft-ui-0.5.27/foundation.css           raw ramps + theme blocks
-  raft-ui-0.5.27/styles.css               Tailwind @theme / @theme inline aliases
-  raft-ui-0.5.27/fonts.css                per-theme font stacks
-  tailwindcss-4.2.2/theme.css             Tailwind default scale
-  raft-web-26f77ef/index.css              Web product @theme overrides, :root.dark
+  raft-ui-0.5.52/foundation.css           raw ramps + theme blocks
+  raft-ui-0.5.52/styles.css               Tailwind @theme / @theme inline aliases
+  raft-ui-0.5.52/fonts.css                per-theme font stacks
+  tailwindcss-4.3.3/theme.css             Tailwind default scale
+  raft-web-a98ae00/index.css              Web product @theme overrides, :root.dark
   component-roles.css                     AUTHORED: recipe roles as plain CSS
         │
         ▼  tool/gen-tokens  (python3, stdlib only)
@@ -155,7 +155,7 @@ ported to `tool/recipes/lib/css-value.mjs` and to `raftMixColors` in
    tokens. For example, `--success` oklch(0.714 0.176 153.079) is red 31.53 in
    exact maths but 31.39 in Chromium, so it paints 31, not 32. The exact maths
    is kept as a fallback: `RAFT_TOKENS_PIPELINE=spec`. It is within 1/255 of
-   Chrome on all channels and off by 1 on 8 of the 657 opaque swatches.
+   Chrome on all channels and off by 1 on 12 of the 695 opaque swatches.
    `#hex`, `rgb()`, `rgba()`, `transparent`, `black` and `white` are also
    accepted.
 2. `color-mix()` supports `srgb-linear`, `srgb`, `oklab` and `oklch` (shorter
@@ -252,10 +252,10 @@ product `--border-width-3`.
   - the converter: primaries, round trip, clipping, every `color-mix` space;
   - cascade resolution;
   - the Chrome oracle:
-    - every opaque token is byte-equal (657/657);
+    - every opaque token is byte-equal (695/695);
     - the spec maths is off by one on `--success`;
     - fitted translucent tokens reproduce Chrome on white/black/canvas for
-      212/216 swatches, the 4 misses being the listed exceptions;
+      224/228 swatches, the 4 misses being the listed exceptions;
     - every opaque recipe literal equals Chrome;
     - the oracle's source hashes match the manifest;
   - the legacy readback oracle: 78/78 exact after simulating premultiplied

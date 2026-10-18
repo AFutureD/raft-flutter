@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `taskDnd`.
 // ignore_for_file: type=lint
 
@@ -30,7 +30,7 @@ class RaftTaskDndRecipeStyle {
   };
 }
 
-/// raft-ui recipe `taskDnd` (`src/components/task-dnd/task-dnd.recipe.ts`, index.mjs:18514).
+/// raft-ui recipe `taskDnd` (`src/components/task-dnd/task-dnd.recipe.ts`, index.mjs:18648).
 ///
 /// Used by: TaskDragOverlay, TaskDraggable, TaskDropPlaceholder.
 ///
@@ -85,48 +85,48 @@ abstract final class RaftTaskDndRecipe {
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
     [
-      1937,
-      2775,
-      941,
-      3045,
-      594,
-      2649,
-      1216,
+      1939,
+      2804,
+      961,
+      3086,
+      600,
+      2672,
+      1235,
+      1234,
       1215,
-      1196,
-      1207,
-      1639,
-      1648,
-      1647,
-      1642,
-      1214,
-    ],
-    [1936, 2716, 3139, 2632, 59],
-    [2174, 3127, 2867, 1945, 866, 886, 900, 840, 1219],
-    [
-      1937,
-      2775,
-      941,
-      3045,
-      594,
-      2649,
-      1216,
-      1215,
-      1196,
-      1207,
-      1639,
-      1648,
-      1647,
-      1649,
-      1653,
-      1666,
-      1662,
+      1226,
       1663,
-      1065,
-      1693,
+      1672,
+      1671,
+      1666,
+      1233,
     ],
-    [1936, 2716],
-    [2174, 3127, 2867, 1945, 2817, 864, 886, 896, 739, 1219],
+    [1938, 2739, 3180, 2655, 59],
+    [2189, 3168, 2902, 1947, 878, 902, 916, 844, 1238],
+    [
+      1939,
+      2804,
+      961,
+      3086,
+      600,
+      2672,
+      1235,
+      1234,
+      1215,
+      1226,
+      1663,
+      1672,
+      1671,
+      1673,
+      1677,
+      1690,
+      1686,
+      1687,
+      1085,
+      1718,
+    ],
+    [1938, 2739],
+    [2189, 3168, 2902, 1947, 2847, 876, 902, 912, 745, 1238],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

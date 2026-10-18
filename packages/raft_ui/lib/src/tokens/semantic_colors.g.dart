@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/gen-tokens`.
-// Source: raft-ui-0.5.27/foundation.css, raft-ui-0.5.27/styles.css
+// Source: raft-ui-0.5.52/foundation.css, raft-ui-0.5.52/styles.css
 // dart format off
 // ignore_for_file: constant_identifier_names, lines_longer_than_80_chars
 
@@ -107,6 +107,21 @@ class RaftSemanticColors {
     required this.dangerSoft,
     required this.inactive,
     required this.inactiveForeground,
+    required this.taskStatusTodo,
+    required this.taskStatusTodoSoft,
+    required this.taskStatusTodoStrong,
+    required this.taskStatusInProgress,
+    required this.taskStatusInProgressSoft,
+    required this.taskStatusInProgressStrong,
+    required this.taskStatusInReview,
+    required this.taskStatusInReviewSoft,
+    required this.taskStatusInReviewStrong,
+    required this.taskStatusDone,
+    required this.taskStatusDoneSoft,
+    required this.taskStatusDoneStrong,
+    required this.taskStatusClosed,
+    required this.taskStatusClosedSoft,
+    required this.taskStatusClosedStrong,
     required this.primaryStrong,
     required this.primarySoft,
     required this.primaryEdge,
@@ -307,6 +322,36 @@ class RaftSemanticColors {
   final Color inactive;
   /// `--inactive-foreground` — declared in brutal, elegant, elegant.dark
   final Color inactiveForeground;
+  /// `--task-status-todo` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusTodo;
+  /// `--task-status-todo-soft` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusTodoSoft;
+  /// `--task-status-todo-strong` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusTodoStrong;
+  /// `--task-status-in-progress` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusInProgress;
+  /// `--task-status-in-progress-soft` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusInProgressSoft;
+  /// `--task-status-in-progress-strong` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusInProgressStrong;
+  /// `--task-status-in-review` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusInReview;
+  /// `--task-status-in-review-soft` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusInReviewSoft;
+  /// `--task-status-in-review-strong` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusInReviewStrong;
+  /// `--task-status-done` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusDone;
+  /// `--task-status-done-soft` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusDoneSoft;
+  /// `--task-status-done-strong` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusDoneStrong;
+  /// `--task-status-closed` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusClosed;
+  /// `--task-status-closed-soft` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusClosedSoft;
+  /// `--task-status-closed-strong` — declared in brutal, elegant, elegant.dark
+  final Color taskStatusClosedStrong;
   /// `--primary-strong` — declared in brutal, elegant, elegant.dark
   final Color primaryStrong;
   /// `--primary-soft` — declared in brutal, elegant, elegant.dark
@@ -433,6 +478,21 @@ class RaftSemanticColors {
     'danger-soft': dangerSoft,
     'inactive': inactive,
     'inactive-foreground': inactiveForeground,
+    'task-status-todo': taskStatusTodo,
+    'task-status-todo-soft': taskStatusTodoSoft,
+    'task-status-todo-strong': taskStatusTodoStrong,
+    'task-status-in-progress': taskStatusInProgress,
+    'task-status-in-progress-soft': taskStatusInProgressSoft,
+    'task-status-in-progress-strong': taskStatusInProgressStrong,
+    'task-status-in-review': taskStatusInReview,
+    'task-status-in-review-soft': taskStatusInReviewSoft,
+    'task-status-in-review-strong': taskStatusInReviewStrong,
+    'task-status-done': taskStatusDone,
+    'task-status-done-soft': taskStatusDoneSoft,
+    'task-status-done-strong': taskStatusDoneStrong,
+    'task-status-closed': taskStatusClosed,
+    'task-status-closed-soft': taskStatusClosedSoft,
+    'task-status-closed-strong': taskStatusClosedStrong,
     'primary-strong': primaryStrong,
     'primary-soft': primarySoft,
     'primary-edge': primaryEdge,
@@ -653,6 +713,36 @@ class RaftSemanticColors {
     inactive: Color(0xff787878),
     // oklch(0.946 0 0)
     inactiveForeground: Color(0xffededed),
+    // var(--color-brutal-orange-400)
+    taskStatusTodo: Color(0xfff8a16f),
+    // var(--color-brutal-orange-100)
+    taskStatusTodoSoft: Color(0xfffde6de),
+    // var(--color-brutal-orange-800)
+    taskStatusTodoStrong: Color(0xff5b310f),
+    // var(--color-brutal-cyan-400)
+    taskStatusInProgress: Color(0xff28ccf3),
+    // var(--color-brutal-cyan-100)
+    taskStatusInProgressSoft: Color(0xffd7f2fe),
+    // var(--color-brutal-cyan-800)
+    taskStatusInProgressStrong: Color(0xff06414f),
+    // var(--color-brutal-purple-400)
+    taskStatusInReview: Color(0xffbbafe6),
+    // var(--color-brutal-purple-100)
+    taskStatusInReviewSoft: Color(0xffefecf9),
+    // var(--color-brutal-purple-800)
+    taskStatusInReviewStrong: Color(0xff442b7c),
+    // var(--color-brutal-lime-400)
+    taskStatusDone: Color(0xffa9d877),
+    // var(--color-brutal-lime-100)
+    taskStatusDoneSoft: Color(0xffdcfac1),
+    // var(--color-brutal-lime-800)
+    taskStatusDoneStrong: Color(0xff344522),
+    // var(--color-brutal-stone-400)
+    taskStatusClosed: Color(0xffc0b9b1),
+    // var(--color-brutal-stone-200)
+    taskStatusClosedSoft: Color(0xffe0dcd7),
+    // var(--color-brutal-stone-800)
+    taskStatusClosedStrong: Color(0xff3e3b38),
     // oklch(0.44 0.09 91.39)
     primaryStrong: Color(0xff655000),
     // oklch(0.955 0.067 93.62)
@@ -700,8 +790,8 @@ class RaftSemanticColors {
     // oklch(0.36 0.006 106.42 / 0.68)
     // Chrome-composite fit, CSS alpha 0.68 (see docs/design-tokens.md)
     foregroundIcon: Color.from(alpha: 0.679142, red: 0.238861, green: 0.239324, blue: 0.226994),
-    // oklch(0.58 0.006 106.42)
-    foregroundPlaceholder: Color(0xff7b7b77),
+    // oklch(0.55 0.006 106.42)
+    foregroundPlaceholder: Color(0xff72726e),
     // oklch(0.7 0.006 106.42)
     foregroundDisabled: Color(0xff9f9f9a),
     // oklch(1 0 0)
@@ -885,6 +975,36 @@ class RaftSemanticColors {
     inactive: Color(0xff787878),
     // oklch(0.946 0 0)
     inactiveForeground: Color(0xffededed),
+    // var(--warning)
+    taskStatusTodo: Color(0xffff6900),
+    // var(--warning-soft)
+    taskStatusTodoSoft: Color(0xffffe9df),
+    // oklch(0.54 0.2 44)
+    taskStatusTodoStrong: Color(0xffc53200),
+    // var(--info)
+    taskStatusInProgress: Color(0xff28ccf3),
+    // var(--info-soft)
+    taskStatusInProgressSoft: Color(0xffbaeafd),
+    // var(--info-strong)
+    taskStatusInProgressStrong: Color(0xff095c71),
+    // var(--color-brutal-purple-600)
+    taskStatusInReview: Color(0xff7f62cb),
+    // var(--color-brutal-purple-200)
+    taskStatusInReviewSoft: Color(0xffdcd7f2),
+    // var(--color-brutal-purple-800)
+    taskStatusInReviewStrong: Color(0xff442b7c),
+    // var(--success)
+    taskStatusDone: Color(0xff1fc16b),
+    // var(--success-soft)
+    taskStatusDoneSoft: Color(0xff9ff9c9),
+    // var(--success-strong)
+    taskStatusDoneStrong: Color(0xff025f2c),
+    // var(--inactive)
+    taskStatusClosed: Color(0xff787878),
+    // var(--fill-muted, var(--ink-8))
+    taskStatusClosedSoft: Color(0xfff4f4f3),
+    // var(--foreground-disabled)
+    taskStatusClosedStrong: Color(0xff9f9f9a),
     // oklch(0.44 0.09 91.39)
     primaryStrong: Color(0xff655000),
     // oklch(0.955 0.067 93.62)
@@ -927,13 +1047,13 @@ class RaftSemanticColors {
     foregroundStrong: Color(0xffe5e5e2),
     // oklch(0.82 0.005 106.42)
     foregroundMuted: Color(0xffc4c4c1),
-    // oklch(0.76 0.005 106.42)
-    foregroundHint: Color(0xffb1b1ae),
+    // oklch(0.68 0.005 106.42)
+    foregroundHint: Color(0xff989895),
     // oklch(0.82 0.005 106.42 / 0.68)
     // Chrome-composite fit, CSS alpha 0.68 (see docs/design-tokens.md)
     foregroundIcon: Color.from(alpha: 0.678897, red: 0.766973, green: 0.766973, blue: 0.755370),
-    // oklch(0.72 0.005 106.42)
-    foregroundPlaceholder: Color(0xffa5a5a1),
+    // oklch(0.64 0.005 106.42)
+    foregroundPlaceholder: Color(0xff8c8c89),
     // oklch(0.65 0.005 106.42)
     foregroundDisabled: Color(0xff8f8f8c),
     // oklch(0.145 0 0)
@@ -1126,6 +1246,40 @@ class RaftSemanticColors {
     inactive: Color(0xff8f8f8d),
     // oklch(0.145 0.002 106.42)
     inactiveForeground: Color(0xff0a0a09),
+    // var(--warning)
+    taskStatusTodo: Color(0xffff6900),
+    // var(--warning-soft)
+    // Chrome-composite fit, CSS alpha 0.18 (see docs/design-tokens.md)
+    taskStatusTodoSoft: Color.from(alpha: 0.180368, red: 0.621523, green: 0.317134, blue: 0.098399),
+    // var(--warning-strong)
+    taskStatusTodoStrong: Color(0xffffaf76),
+    // var(--info)
+    taskStatusInProgress: Color(0xff28ccf3),
+    // var(--info-soft)
+    // Chrome-composite fit, CSS alpha 0.18 (see docs/design-tokens.md)
+    taskStatusInProgressSoft: Color.from(alpha: 0.180551, red: 0.000603, green: 0.371047, blue: 0.476102),
+    // var(--info-strong)
+    taskStatusInProgressStrong: Color(0xff6ccdea),
+    // var(--color-brutal-purple-500)
+    taskStatusInReview: Color(0xff9d8ada),
+    // oklch(0.5 0.12 294 / 0.24)
+    // Chrome-composite fit, CSS alpha 0.24 (see docs/design-tokens.md)
+    taskStatusInReviewSoft: Color.from(alpha: 0.239203, red: 0.403008, green: 0.321037, blue: 0.615603),
+    // var(--color-brutal-purple-300)
+    taskStatusInReviewStrong: Color(0xffccc4ec),
+    // var(--success)
+    taskStatusDone: Color(0xff1fc16b),
+    // var(--success-soft)
+    // Chrome-composite fit, CSS alpha 0.18 (see docs/design-tokens.md)
+    taskStatusDoneSoft: Color.from(alpha: 0.180368, red: 0.081719, green: 0.451335, blue: 0.250594),
+    // var(--success-strong)
+    taskStatusDoneStrong: Color(0xff6ed892),
+    // var(--inactive)
+    taskStatusClosed: Color(0xff8f8f8d),
+    // var(--fill-muted, var(--ink-8))
+    taskStatusClosedSoft: Color(0xff32322f),
+    // var(--foreground-disabled)
+    taskStatusClosedStrong: Color(0xff8f8f8c),
     // oklch(0.88 0.13 92)
     primaryStrong: Color(0xfff6d56b),
     // oklch(0.55 0.1 92 / 0.16)

@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `messageActionCard`.
 // ignore_for_file: type=lint
 
@@ -30,7 +30,7 @@ class RaftMessageActionCardRecipeStyle {
   };
 }
 
-/// raft-ui recipe `messageActionCard` (`src/components/message-action-card/message-action-card.recipe.ts`, index.mjs:10678).
+/// raft-ui recipe `messageActionCard` (`src/components/message-action-card/message-action-card.recipe.ts`, index.mjs:10721).
 ///
 /// Used by: MessageActionCard, MessageActionCardHeader, MessageActionCardHeaderStatus.
 ///
@@ -84,10 +84,10 @@ abstract final class RaftMessageActionCardRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [2598, 3127],
-    [1620, 1626, 2312, 1698, 874, 3017, 1684],
-    [2585],
-    [1620, 1626, 2312, 1698, 2765, 2924, 1682],
+    [2621, 3168],
+    [1644, 1650, 2331, 1723, 890, 3053, 1709],
+    [2608],
+    [1644, 1650, 2331, 1723, 2794, 2962, 1707],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.

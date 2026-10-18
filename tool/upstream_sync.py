@@ -2004,7 +2004,7 @@ def render_markdown(r: dict, limit_ui: int = 80) -> str:
     L.append("## 样式与设计系统 (Styles, tokens, design system)")
     L.append("")
     if S["dependency_changes"]:
-        L.append("Web package dependency changes (raft-ui is the token/foundation source for tool/gen-tokens; the app pins raft-ui 0.5.27 in tool/design-source):")
+        L.append("Web package dependency changes (raft-ui is the token/foundation source for tool/gen-tokens; the app pins raft-ui 0.5.52 in tool/design-source):")
         L.append("")
         L.append(_tbl(["Package", "From", "To"], [[k, v[0], v[1]] for k, v in S["dependency_changes"].items()]))
         L.append("")

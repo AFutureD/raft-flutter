@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/recipes/run`.
-// Source: raft-ui 0.5.27 dist/index.mjs (sha256 eb843b9c5ce26766),
+// Source: raft-ui 0.5.52 dist/index.mjs (sha256 742e86bfdb372e8f),
 // tailwindcss 4.2.2 with raft-ui styles.css + Web @theme overrides. Recipe `activityInboxSidebar`.
 // ignore_for_file: type=lint
 
@@ -30,7 +30,7 @@ class RaftActivityInboxSidebarRecipeStyle {
   };
 }
 
-/// raft-ui recipe `activityInboxSidebar` (`src/components/activity-inbox/activity-inbox-sidebar.recipe.ts`, index.mjs:19748).
+/// raft-ui recipe `activityInboxSidebar` (`src/components/activity-inbox/activity-inbox-sidebar.recipe.ts`, index.mjs:19897).
 ///
 /// Used by: ActivityInboxSidebar.
 ///
@@ -88,62 +88,62 @@ abstract final class RaftActivityInboxSidebarRecipe {
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [3111, 2867, 2428, 2513, 907, 876],
-    [856],
+    [3152, 2902, 2448, 2535, 922, 892],
+    [868],
     [
-      2672,
-      394,
-      393,
+      2695,
+      392,
+      391,
       48,
       50,
-      392,
-      395,
-      396,
-      49,
       390,
-      397,
+      393,
+      394,
+      49,
+      388,
+      395,
       52,
       54,
       66,
       69,
+      343,
       345,
-      347,
       74,
       67,
       70,
       72,
       65,
       73,
-      342,
+      340,
     ],
-    [2867, 2428, 2513, 3112, 991],
+    [2902, 2448, 2535, 3153, 1011],
     [],
     [
-      2672,
-      394,
-      393,
+      2695,
+      392,
+      391,
       48,
       50,
-      392,
-      395,
-      396,
+      390,
+      393,
+      394,
       49,
-      391,
+      389,
       53,
       51,
       66,
       69,
-      346,
-      347,
+      344,
+      345,
       74,
       67,
       71,
       73,
       68,
-      343,
-      344,
-      340,
       341,
+      342,
+      338,
+      339,
     ],
   ];
 
