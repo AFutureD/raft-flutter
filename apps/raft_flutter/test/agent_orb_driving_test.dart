@@ -466,11 +466,14 @@ void main() {
         );
         await settle(t);
         expect(t.takeException(), isNull);
-        expect(find.byKey(const ValueKey('orb-input')), findsOneWidget);
-        // The big button and the hints are on the screen, above the input.
-        final inputTop = t.getRect(find.byKey(const ValueKey('orb-input'))).top;
+        // Driving: no typing, the phrases to say are where the input was.
+        expect(find.byKey(const ValueKey('orb-input')), findsNothing);
+        final hint = find.byKey(const ValueKey('orb-driving-hint'));
+        expect(hint, findsOneWidget);
+        // The big button and the hints are on the screen, above the phrases.
+        final hintTop = t.getRect(hint).top;
         expect(t.getRect(primary).top, greaterThan(0));
-        expect(t.getRect(next).bottom, lessThanOrEqualTo(inputTop));
+        expect(t.getRect(next).bottom, lessThanOrEqualTo(hintTop));
         await t.tap(next);
         await t.pump(const Duration(milliseconds: 300));
         await t.tap(next);

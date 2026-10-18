@@ -35,6 +35,9 @@ import 'orb_agent_review.dart';
 import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
 import 'orb_driving.dart' show orbSayHint;
+import 'orb_driving_lists.dart';
+import 'orb_driving_rows.dart' show orbArrivalLine;
+import 'orb_driving_surface.dart';
 import 'orb_operating.dart';
 import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
@@ -577,6 +580,15 @@ class OrbController extends ChangeNotifier {
     String name,
     Map<String, Object?> args,
   ) async {
+    // A list is on the screen: "the N-th" is the N-th of it, not the Activity's.
+    final nth = (args['n'] as num?)?.toInt();
+    if (name == 'open_item' &&
+        _driving &&
+        !surface.isDeck &&
+        nth != null &&
+        args['id'] == null) {
+      return openRowN(nth);
+    }
     final tool = tools[name];
     if (tool == null) return {'error': '没有这个工具：$name'};
     if (agentLayer &&
@@ -780,7 +792,45 @@ class OrbController extends ChangeNotifier {
       },
       handler: (args, ctx) async {
         if (!_driving) return {'error': '现在不在驾驶模式'};
+        if (!surface.isDeck) return surfaceNext();
         return drivingNext();
+      },
+    ),
+    OrbTool(
+      declaration: {
+        'name': 'show_list',
+        'description': orbToolDescription('show_list'),
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'kind': {
+              'type': 'string',
+              'enum': ['unread', 'mentions', 'tasks', 'channel', 'person'],
+              'description': 'unread 未读的动态；mentions 点名用户的；tasks 用户名下的任务；channel 某个频道最近的消息；person 某个人的私信最近的消息',
+            },
+            'target': {
+              'type': 'string',
+              'description': 'channel 填频道名，person 填人名；其余不给',
+              'maxLength': 120,
+            },
+          },
+          'required': ['kind'],
+        },
+      },
+      handler: (args, ctx) => showList(
+        orbListKindOf(args['kind']),
+        target: '${args['target'] ?? ''}',
+        ctx: ctx,
+      ),
+    ),
+    OrbTool(
+      declaration: {
+        'name': 'driving_back',
+        'description': orbToolDescription('driving_back'),
+      },
+      handler: (args, ctx) async {
+        if (!_driving) return {'error': '现在不在驾驶模式'};
+        return surfaceBack();
       },
     ),
     if (agentLayer)
@@ -791,6 +841,7 @@ class OrbController extends ChangeNotifier {
         },
         handler: (args, ctx) async {
           if (!_driving) return {'error': '现在不在驾驶模式'};
+          if (!surface.isDeck) return surfacePrevious();
           return drivingPrevious();
         },
       ),
@@ -988,6 +1039,7 @@ class OrbController extends ChangeNotifier {
           // Closing the layer is leaving driving mode.
           _driving = false;
           _drivingIndex = 0;
+          surface.reset();
           _stopLive();
           notifyListeners();
         }
@@ -1031,6 +1083,7 @@ class OrbController extends ChangeNotifier {
     if (on == _driving) return;
     _driving = on;
     _drivingIndex = 0;
+    surface.reset();
     _clearQueue();
     if (on) {
       _startLive();
@@ -1078,6 +1131,271 @@ class OrbController extends ChangeNotifier {
       'done': done,
       if (!done) 'item': items[drivingIndex].toJson(),
     };
+  }
+
+  // ---- driving mode: the surfaces -------------------------------------------
+
+  /// What the layer shows while driving besides the deck: a list, the detail
+  /// of one of its rows, and the way back. The app holds it (deterministic);
+  /// the model and the fast path only ask for a surface.
+  final surface = OrbDrivingSurface();
+
+  /// "新的：Alice @你": what came in live, for a few seconds, while a list or
+  /// a detail is up (the deck has its own badge).
+  String? _arrival;
+  String? get drivingArrival => surface.isDeck ? null : _arrival;
+
+  /// What is in front of the person: the deck's card, or the opened row.
+  OrbBriefItem? get _currentItem {
+    if (!_driving) return null;
+    if (!surface.isDeck) return surface.detailRow?.item;
+    return drivingDone ? null : drivingItems[drivingIndex];
+  }
+
+  /// The Activity briefing a list is made from: the one on the screen (kept
+  /// fresh by the live push), else a read of the Activity.
+  Future<OrbBriefing> _activityForList() async {
+    final shown = shownBriefing;
+    final OrbBriefing b;
+    if (shown != null && shown.scope.isActivity && !shown.isDelta) {
+      b = shown;
+    } else {
+      final brief = _liveBriefer;
+      b = brief != null
+          ? await brief(workspace)
+          : await OrbBriefingService.of(workspace)
+                .brief(
+                  OrbBriefScope.activity,
+                  full: true,
+                  remember: false,
+                  modelWait: const Duration(seconds: 3),
+                )
+                .timeout(const Duration(seconds: 8));
+    }
+    // Not read yet is not empty.
+    if (b.isEmpty && !_activityRead) {
+      throw const OrbListError('动态还在加载，稍后再试');
+    }
+    return b;
+  }
+
+  /// Puts a list on the screen (the model's `show_list` and the fast path):
+  /// grey cards at once, the rows when they are read. The app says the total
+  /// and the top one or two ([agentAppSays] for the agent layer).
+  Future<Map<String, Object?>> showList(
+    OrbListKind? kind, {
+    String target = '',
+    required OrbToolContext ctx,
+  }) async {
+    if (!_driving) return {'error': '现在不在驾驶模式'};
+    if (kind == null) {
+      return {'error': 'kind 只能是 unread、mentions、tasks、channel、person'};
+    }
+    final loading = OrbList.loading(kind, target: target.trim());
+    surface.showList(loading);
+    notifyListeners();
+    final OrbList read;
+    try {
+      read = await orbReadDrivingList(
+        kind: kind,
+        target: target,
+        activity: _activityForList,
+        read: (tool, args) async =>
+            await tools[tool]?.handler(args, ctx) ?? {'error': '现在读不了'},
+      );
+    } on OrbListError catch (e) {
+      _dropLoading(loading);
+      // ignore: raft_lints/avoid_caught_exception_text -- the app's own sentence for the person, not an exception's
+      return {'error': e.message};
+    } on Object {
+      _dropLoading(loading);
+      return {'error': '没读出来，稍后再试'};
+    }
+    if (_disposed) return {'error': '已经关了'};
+    if (!surface.resolve(loading, read)) {
+      return {'ok': true, 'note': '用户已经返回了，不用再说'};
+    }
+    notifyListeners();
+    _whereChanged();
+    return _surfaceResult(read.say);
+  }
+
+  void _dropLoading(OrbList loading) {
+    if (identical(surface.list, loading)) surface.back();
+    if (!_disposed) notifyListeners();
+  }
+
+  /// What a surface tool returns: where the person is and what the screen
+  /// shows, and the line the app says for it.
+  Map<String, Object?> _surfaceResult(String? say, {Object? error}) {
+    final list = surface.list;
+    final row = surface.detailRow;
+    return {
+      if (error != null) 'error': error else 'ok': true,
+      'surface': surface.kind.name,
+      if (list != null && !list.loading) ...{
+        'list': list.title,
+        'total': list.total,
+        'page': surface.page + 1,
+        'pages': surface.pageCount,
+        'rows': [
+          for (var i = 0; i < surface.pageRows.length; i++)
+            {
+              'n': i + 1,
+              'who': surface.pageRows[i].who,
+              'title': surface.pageRows[i].title,
+              'fact': surface.pageRows[i].fact,
+            },
+        ],
+      },
+      if (row != null) 'detail': {'who': row.who, 'title': row.title},
+      if (say != null) ...{
+        'screenSay': say,
+        if (agentLayer) agentAppSays: say else 'sayHint': '照这句说，然后停下：$say',
+      },
+    };
+  }
+
+  /// "下一批" on a list, "下一个" on a detail.
+  Map<String, Object?> surfaceNext() {
+    final list = surface.list;
+    if (list == null) return drivingNext();
+    if (surface.kind == OrbSurfaceKind.list) {
+      if (!surface.nextPage()) return _surfaceResult('没有更多了，就这些。');
+      notifyListeners();
+      _whereChanged();
+      return _surfaceResult(orbPageSay(list, surface.page));
+    }
+    if (!surface.stepDetail(1)) return _surfaceResult('这是最后一个了。');
+    notifyListeners();
+    _whereChanged();
+    return _surfaceResult(orbRowSay(surface.detailRow!));
+  }
+
+  /// "上一个" on a detail; on a list it is "返回".
+  Map<String, Object?> surfacePrevious() {
+    if (surface.kind != OrbSurfaceKind.detail) return surfaceBack();
+    if (!surface.stepDetail(-1)) return _surfaceResult('这是第一个。');
+    notifyListeners();
+    _whereChanged();
+    return _surfaceResult(orbRowSay(surface.detailRow!));
+  }
+
+  /// "返回": the surface before (the list, the page before, the deck).
+  Map<String, Object?> surfaceBack() {
+    if (!surface.back()) return _surfaceResult('已经在最前面了。');
+    notifyListeners();
+    _whereChanged();
+    return _surfaceResult('好。');
+  }
+
+  /// "第 N 个": the detail of the N-th row of the list on the screen.
+  Map<String, Object?> openRowN(int n) {
+    final list = surface.list;
+    if (list == null) return _surfaceResult('屏幕上没有列表。', error: '屏幕上没有列表');
+    if (list.loading) return _surfaceResult('还在读，稍等。', error: '列表还在读');
+    final at = surface.indexOfNth(n);
+    if (at == null || !surface.openRow(at)) {
+      final say = '没有第 $n 个，一共 ${list.total} 个。';
+      return _surfaceResult(say, error: say);
+    }
+    notifyListeners();
+    _whereChanged();
+    return _surfaceResult(orbRowSay(surface.detailRow!));
+  }
+
+  /// A card of a list was tapped: the same as saying its number.
+  void listRowTapped(int index) {
+    if (!_driving || !surface.openRow(index)) return;
+    notifyListeners();
+    _whereChanged();
+    _saidByTap(orbRowSay(surface.detailRow!), '我点了列表里的这一个');
+  }
+
+  /// "下一个" on the detail's button.
+  void detailNextTapped() {
+    if (!_driving || surface.kind != OrbSurfaceKind.detail) return;
+    final result = surfaceNext();
+    _saidByTap('${result['screenSay'] ?? ''}', '我点了下一个');
+  }
+
+  /// "稍后" on the detail: the row is put aside, the list is back.
+  void detailLaterTapped() => backTapped();
+
+  /// The layer's "返回" or "稍后".
+  void backTapped() {
+    if (!_driving || surface.isDeck) return;
+    surfaceBack();
+  }
+
+  /// The detail's big button: "回复" asks the person what to say (the model
+  /// then makes the card); else the row opens in the app.
+  void detailPrimaryTapped() {
+    final row = surface.detailRow;
+    if (!_driving || row == null) return;
+    if (row.canReply && inCall) {
+      unawaited(voice.tell('我点了「回复」：${row.say}。问我要回什么，我说完你再出确认卡，不要自己编内容。'));
+      return;
+    }
+    final item = row.item;
+    if (item != null) {
+      openBriefItemTapped(item);
+    } else if (row.openArgs != null) {
+      unawaited(dispatch('navigate', row.openArgs!));
+    }
+  }
+
+  /// A tap on the screen is said like a command: by the app's own voice in
+  /// the agent layer, else the model is told what the person did.
+  void _saidByTap(String line, String did) {
+    if (!inCall || line.isEmpty) return;
+    if (agentLayer) {
+      unawaited(voice.speak(line));
+    } else {
+      unawaited(voice.tell('$did：$line 只说这一句，然后停下。'));
+    }
+  }
+
+  /// The words on a row after a confirmed write: what the card was for.
+  String _doneLabel = '已完成';
+
+  /// A card was asked for while a detail was open; the outcome that follows
+  /// puts the list back.
+  bool _askedOnDetail = false;
+  Object? _lastOutcome;
+
+  void _surfaceActionsChanged(
+    OrbPendingAction? pending, {
+    required bool appeared,
+  }) {
+    if (pending != null) {
+      _doneLabel =
+          const {
+            'messages.send',
+            'messages.reply_thread',
+          }.contains(pending.capabilityId)
+          ? '已回复'
+          : '已完成';
+    }
+    if (appeared) {
+      _askedOnDetail = _driving && surface.kind == OrbSurfaceKind.detail;
+      _lastOutcome = actions.outcome;
+    }
+    final outcome = actions.outcome;
+    if (pending != null ||
+        !_askedOnDetail ||
+        outcome == null ||
+        identical(outcome, _lastOutcome)) {
+      return;
+    }
+    // A confirmed write from a detail: the list is back, the row ticked.
+    _askedOnDetail = false;
+    _lastOutcome = outcome;
+    if (_driving &&
+        outcome.kind == OrbOutcomeKind.done &&
+        surface.kind == OrbSurfaceKind.detail) {
+      surface.finishDetail(_doneLabel);
+    }
   }
 
   // ---- driving mode: live push ---------------------------------------------
@@ -1162,6 +1480,7 @@ class OrbController extends ChangeNotifier {
     _badgeTimer?.cancel();
     _badgeTimer = null;
     _newCount = 0;
+    _arrival = null;
   }
 
   void _liveSourceChanged() {
@@ -1231,10 +1550,12 @@ class OrbController extends ChangeNotifier {
     if (merge.added.isNotEmpty) {
       _newKeys.addAll([for (final i in merge.added) orbItemKey(i)]);
       _newCount += merge.added.length;
+      _arrival = orbArrivalLine(merge.added.first);
       _badgeTimer?.cancel();
       _badgeTimer = Timer(newBadgeLinger, () {
         if (_disposed) return;
         _newCount = 0;
+        _arrival = null;
         notifyListeners();
       });
       // Said to the model only in a call; whether to speak is its call.
@@ -1279,6 +1600,8 @@ class OrbController extends ChangeNotifier {
       _keepBriefing(briefing.toJson(ordered: true));
     }
     _drivingIndex = 0;
+    // A briefing laid out is the deck again.
+    surface.reset();
     // What the briefing holds is not new when it comes live later.
     if (_driving) {
       _seen.addAll([for (final i in briefing.needsYou) orbItemKey(i)]);
@@ -1318,8 +1641,8 @@ class OrbController extends ChangeNotifier {
   /// The ids that name the card in front of the person while driving ("稍后
   /// 提醒我" means this one).
   List<String> _cardIds() {
-    if (!_driving || drivingDone) return const [];
-    final item = drivingItems[drivingIndex];
+    final item = _currentItem;
+    if (item == null) return const [];
     return [item.id, ?item.channelId, ...item.sourceIds];
   }
 
@@ -1330,6 +1653,7 @@ class OrbController extends ChangeNotifier {
     final pending = actions.pending != null;
     final appeared = pending && !_hadPending;
     _hadPending = pending;
+    _surfaceActionsChanged(actions.pending, appeared: appeared);
     notifyListeners();
     if (appeared && !layerOpen) unawaited(openLayer());
   }
@@ -1440,6 +1764,7 @@ class OrbController extends ChangeNotifier {
       directory: orbDirectoryOf(workspace),
       inConversation:
           loc.route == RaftRoute.channel || loc.route == RaftRoute.dm,
+      surface: surface.kind,
     );
     if (cmd == null) return null;
     // Not read yet is not empty: the model says it is loading.
@@ -1448,6 +1773,12 @@ class OrbController extends ChangeNotifier {
     }
     final result = await run(cmd.tool, cmd.args);
     String? line;
+    // A list, a page, a detail or the way back: the surface says it itself.
+    final screen = result['screenSay'];
+    if (screen is String) {
+      fastPath = cmd.kind;
+      return screen;
+    }
     switch (cmd.kind) {
       case 'next':
         if (cmd.tool == 'next_task') {
@@ -1503,7 +1834,7 @@ class OrbController extends ChangeNotifier {
   /// Who "他" is for `reply`: the card on the screen while driving, else what
   /// needs the person (the cards the layer shows, or the Activity's).
   OrbReplyContext _replyContext() => OrbReplyContext(
-    card: _driving && !drivingDone ? drivingItems[drivingIndex] : null,
+    card: _currentItem,
     needsYou: () async {
       final shown = shownBriefing?.needsYou;
       if (shown != null && shown.isNotEmpty) return shown;
@@ -1873,12 +2204,30 @@ class OrbController extends ChangeNotifier {
   /// Driving: the card on screen is what "他/这件/回他" means (eval D3/D8:
   /// the model read the page under the layer and asked who "他" was).
   String _drivingLine() {
+    if (driving && !surface.isDeck) return _surfaceLine();
     if (!driving || drivingDone) return '';
     final items = drivingItems;
     final item = items[drivingIndex];
     return '驾驶中，屏幕上是第 ${drivingIndex + 1} 件 / 共 ${items.length} 件：'
         '${item.who}，${item.title}（${item.where}）。'
         '用户说“他”“这件”“回他”“稍后提醒我”指的就是这一件。';
+  }
+
+  /// Driving, on a list or a detail: what the person sees, so that "第 2 个",
+  /// "他" and "回他" mean what is on the screen.
+  String _surfaceLine() {
+    final list = surface.list;
+    if (list == null) return '';
+    if (list.loading) return '驾驶中，屏幕上是${list.title}列表，正在读。';
+    final row = surface.detailRow;
+    if (row != null) {
+      return '驾驶中，屏幕上是「${list.title}」列表里第 ${surface.detailIndex! + 1} 个的详情：'
+          '${row.meta}，${row.title}。用户说“他”“这件”“回他”指的就是它；“下一个”“返回”由 App 处理。';
+    }
+    final rows = surface.pageRows;
+    return '驾驶中，屏幕上是「${list.heading}」列表，第 ${surface.page + 1}/${surface.pageCount} 页：'
+        '${[for (var i = 0; i < rows.length; i++) '${i + 1}. ${rows[i].meta} ${rows[i].title}'].join('；')}。'
+        '用户说“第 N 个”是屏幕上的第 N 个。';
   }
 
   /// The silent note for the model: the page and, short, what can be tapped

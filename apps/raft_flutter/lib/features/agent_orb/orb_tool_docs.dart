@@ -81,6 +81,7 @@ const orbSwitchTools = {
   'set_driving_mode',
   'driving_next',
   'driving_previous',
+  'driving_back',
   'next_task',
   'cancel_action',
   'undo',
@@ -194,7 +195,7 @@ const orbToolDocs = <String, OrbToolDoc>{
   'open_item': OrbToolDoc(
     '打开动态里的某一条，就像用户点了那一行：进到它的讨论、频道或私信。',
     notFor: [OrbNot('只读不打开', 'read_conversation'), OrbNot('去某个频道', 'navigate')],
-    params: 'n 是 describe_page 动态条目里的 n（从 1 开始）；或给条目的 id。',
+    params: 'n 是 describe_page 动态条目里的 n（从 1 开始）；或给条目的 id。驾驶中屏幕上是列表时，n 是列表里的第几个，打开的是它的详情。',
     returns:
         'opened、title、route、screen。要说内容再调 describe_page 或 read_conversation。',
   ),
@@ -218,14 +219,31 @@ const orbToolDocs = <String, OrbToolDoc>{
     notFor: [OrbNot('只是提到在路上，没有要开模式')],
   ),
   'driving_next': OrbToolDoc(
-    '驾驶模式下，屏幕换到简报里的下一件。只在驾驶模式下可用。',
+    '驾驶模式下，屏幕换到简报里的下一件；屏幕是列表时翻下一页，是详情时换下一个。',
     notFor: [OrbNot('逐个处理任务时的下一个', 'next_task')],
     returns: 'index、total、item（这一件，说完就停）、done（true 只说“就这些”和常规条数）。',
   ),
   'driving_previous': OrbToolDoc(
-    '驾驶模式下，屏幕回到前一件。只在驾驶模式下可用。',
-    notFor: [OrbNot('往后翻', 'driving_next')],
+    '驾驶模式下，屏幕回到前一件；详情上是前一个。',
+    notFor: [OrbNot('往后翻', 'driving_next'), OrbNot('退出列表或详情', 'driving_back')],
     returns: 'item 就是这一件，说完就停。',
+  ),
+  'driving_back': OrbToolDoc(
+    '驾驶模式下，屏幕退回前一个画面：详情回到列表，列表回到上一页或卡片。',
+    notFor: [OrbNot('回到上一件卡片', 'driving_previous')],
+    returns: '返回里的 screenSay 是 App 要说的话。',
+  ),
+  'show_list': OrbToolDoc(
+    '驾驶模式下，在屏幕上列出一批卡片：未读的、点名用户的、用户的任务、某个频道或某个人最近的消息；每页 4 张。',
+    notFor: [
+      OrbNot('只想听一遍简报', 'get_briefing'),
+      OrbNot('要消息的原文', 'read_conversation'),
+      OrbNot('逐个处理任务', 'next_task'),
+    ],
+    limit: '只在驾驶模式下可用；新列表盖住现在的画面，“返回”回到原来的。',
+    params: 'kind 选来源；channel、person 要给 target（频道名、人名）。',
+    returns: 'total 总数，rows 是屏幕上这一页，page/pages；列表上说“第 N 个”用 open_item 的 n。',
+    say: '只说总数和最前面的一两条，其余让他看屏幕。',
   ),
   'next_task': OrbToolDoc(
     '驾驶中逐个处理任务（用户说“全部处理掉”之后），换到队列里的下一个任务。',

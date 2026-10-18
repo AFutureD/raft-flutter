@@ -12,6 +12,8 @@ import 'orb_controller.dart';
 import 'screen/orb_screen.dart';
 import 'screen/orb_screen_snapshot.dart' show orbSemanticsIdentifier;
 import 'orb_driving.dart';
+import 'orb_driving_list.dart';
+import 'orb_driving_surface.dart';
 import 'orb_state.dart';
 import 'orb_status.dart';
 import 'orb_widget.dart';
@@ -385,16 +387,43 @@ class _OrbLayerState extends State<OrbLayer>
                   ),
                 ),
               ),
-              RaftButton(
-                key: const ValueKey('orb-layer-history'),
-                label: _history ? '返回' : '对话记录',
-                variant: RaftControlVariant.ghost,
-                visualHeight: RaftMetrics.buttonSm,
-                // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
-                foreground: Colors.white,
-                onPressed: () => setState(() => _history = !_history),
+              ListenableBuilder(
+                listenable: c,
+                builder: (context, _) {
+                  // On a list or a detail while driving the same place is the
+                  // way back (the transcript is for when the car is parked).
+                  final back = c.driving && !c.surface.isDeck && !_history;
+                  return RaftButton(
+                    key: const ValueKey('orb-layer-history'),
+                    label: _history || back ? '返回' : '对话记录',
+                    variant: RaftControlVariant.ghost,
+                    visualHeight: RaftMetrics.buttonSm,
+                    // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
+                    foreground: Colors.white,
+                    onPressed: back
+                        ? c.backTapped
+                        : () => setState(() => _history = !_history),
+                  );
+                },
               ),
             ],
+          ),
+          // What came in while a list or a detail is up: one plain line; the
+          // list does not move.
+          ListenableBuilder(
+            listenable: c,
+            builder: (context, _) {
+              final arrival = c.drivingArrival;
+              if (!c.driving || arrival == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: RaftSpace.x2),
+                child: OrbPlainLine(
+                  arrival,
+                  key: const ValueKey('orb-list-arrival'),
+                  strong: true,
+                ),
+              );
+            },
           ),
           Expanded(
             child: Align(
@@ -418,7 +447,13 @@ class _OrbLayerState extends State<OrbLayer>
               ),
             ),
           ),
-          _InputBar(controller: c, focus: focus),
+          // Driving: no typing; what can be said is under the content.
+          ListenableBuilder(
+            listenable: c,
+            builder: (context, _) => c.driving
+                ? _DrivingHint(text: orbSayHintOf(c.surface))
+                : _InputBar(controller: c, focus: focus),
+          ),
         ],
       ),
     );
@@ -462,11 +497,14 @@ class _OrbLayerState extends State<OrbLayer>
     ];
     final pending = c.actions.pending;
     final outcome = c.actions.outcome;
+    // A list or a detail replaces the deck (and its headline).
+    final onSurface = driving && !c.surface.isDeck;
     if (big == null &&
         notices.isEmpty &&
         briefing == null &&
         pending == null &&
-        outcome == null) {
+        outcome == null &&
+        !onSurface) {
       return Text(
         driving ? '驾驶模式：直接说就行，我一次只说一件' : '说点什么，或者长按球直接对话',
         style: RaftTypography.body(t, size: 15, line: 22, color: quiet),
@@ -475,7 +513,7 @@ class _OrbLayerState extends State<OrbLayer>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (big != null)
+        if (big != null && !onSurface)
           Padding(
             padding: const EdgeInsets.only(bottom: RaftSpace.x4),
             child: Text(
@@ -517,7 +555,12 @@ class _OrbLayerState extends State<OrbLayer>
               onCancel: c.actions.cancelTapped,
             ),
           ),
-        if (briefing != null && driving && pending == null)
+        if (onSurface && pending == null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+            child: _surfaceView(),
+          ),
+        if (briefing != null && driving && !onSurface && pending == null)
           Padding(
             padding: const EdgeInsets.only(bottom: RaftSpace.x3),
             child: _drivingCard(briefing),
@@ -534,6 +577,31 @@ class _OrbLayerState extends State<OrbLayer>
           ),
       ],
     );
+  }
+
+  /// Driving, away from the deck: the list, or the opened row of it.
+  Widget _surfaceView() {
+    final surface = c.surface;
+    final row = surface.detailRow;
+    if (surface.kind == OrbSurfaceKind.detail && row != null) {
+      final item = row.item;
+      final label = row.canReply && c.inCall
+          ? '回复'
+          : item != null
+          ? orbDrivingButtonLabel(item)
+          : '打开';
+      return OrbDrivingDetail(
+        key: ValueKey('orb-detail-${row.id}'),
+        surface: surface,
+        primaryLabel: label,
+        onPrimary: item != null && orbNeedsParking(item)
+            ? null
+            : c.detailPrimaryTapped,
+        onLater: c.detailLaterTapped,
+        onNext: c.detailNextTapped,
+      );
+    }
+    return OrbDrivingList(surface: surface, onOpenRow: c.listRowTapped);
   }
 
   /// Driving: the one item, its big button and the hints; "就这些" at the end.
@@ -584,6 +652,31 @@ class _OrbLayerState extends State<OrbLayer>
     final n = text.runes.length;
     return n <= 24 ? 32 : (n <= 70 ? 24 : 19);
   }
+}
+
+/// The place of the input while driving: what can be said, with the lane on
+/// the right where the orb docks.
+class _DrivingHint extends StatelessWidget {
+  const _DrivingHint({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: RaftSpace.x3),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: orbSize),
+      child: Padding(
+        padding: const EdgeInsets.only(right: orbSize + RaftSpace.x3),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: OrbDrivingSayHint(
+            text,
+            key: const ValueKey('orb-driving-hint'),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _EntryView extends StatelessWidget {

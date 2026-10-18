@@ -62,6 +62,8 @@ const orbToolModes = <String, Set<OrbMode>>{
   'driving_next': {OrbMode.driving},
   'next_task': {OrbMode.driving},
   'driving_previous': {OrbMode.driving},
+  'driving_back': {OrbMode.driving},
+  'show_list': {OrbMode.driving},
   // Asking for a change (one card at a time; a new ask replaces the card).
   'reply': _all,
   'send_message': _all,

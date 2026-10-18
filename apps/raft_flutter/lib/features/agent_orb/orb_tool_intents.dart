@@ -79,7 +79,14 @@ const orbIntents = <OrbIntent>[
     '退出驾驶模式',
   ]),
   OrbIntent('driving_forward', 'driving_next', ['下一件', '下一个', '稍后再说这件', '还有吗']),
-  OrbIntent('driving_back', 'driving_previous', ['上一件', '上一个']),
+  OrbIntent('driving_before', 'driving_previous', ['上一件', '上一个']),
+  OrbIntent('driving_back', 'driving_back', ['返回', '回到刚才那几个']),
+  OrbIntent('driving_list', 'show_list', [
+    '把未读的列一下',
+    '点名我的有哪些',
+    '我的任务列出来',
+    'Cody 那边最近有什么',
+  ]),
   OrbIntent('driving_tasks', 'next_task', ['下一个', '继续']),
 
   // Asking for a change (each makes a confirm card).

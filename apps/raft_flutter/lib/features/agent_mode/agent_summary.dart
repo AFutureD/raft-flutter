@@ -56,6 +56,7 @@ class AgentToolOutcome {
     'next_task',
     'driving_next',
     'driving_previous',
+    'driving_back',
     'set_driving_mode',
     'orb_layer',
     'show_attention',
