@@ -278,7 +278,7 @@ void main() {
       expect(list.kind, OrbListKind.tasks);
       expect(row.meta, '任务 #138 · #swift-workflow');
       expect(row.title, '整理发布说明');
-      expect(row.fact, '八戒 在做');
+      expect(row.fact, '八戒 在做 · 4 天没动');
       expect(row.openArgs, {'task_number': 138, 'channel': 'swift-workflow'});
       expect(list.countSay, '1 个任务');
     });

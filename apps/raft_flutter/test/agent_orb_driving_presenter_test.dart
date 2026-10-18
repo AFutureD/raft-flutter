@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_orb/eval/orb_eval_run.dart';
+import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenario.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_scenarios.dart';
 import 'package:raft_flutter/features/agent_orb/orb_controller.dart';
 import 'package:raft_flutter/features/agent_orb/orb_driving_rows.dart';
@@ -153,6 +155,75 @@ void main() {
       );
     });
 
+    test(
+      'tasks: each row says how it stands and how long it has sat, the '
+      'heading how they stand: what the model says of them is on the card',
+      () {
+        final tasks = {
+          'tasks': [
+            {
+              'number': 142,
+              'title': '迁移旧的缓存',
+              'statusText': '等验收',
+              'assignee': 'Cody',
+              'waitsFor': '等你验收',
+              'idle': '5 天',
+            },
+            {
+              'number': 141,
+              'title': '整理发布说明',
+              'statusText': '进行中',
+              'assignee': '八戒',
+              'idle': '4 天',
+            },
+            {
+              'number': 143,
+              'title': '补充设计评审记录',
+              'statusText': '进行中',
+              'assignee': 'Grok',
+              'idle': '3 天',
+            },
+          ],
+        };
+        final list = orbPresent('list_tasks', const {}, tasks)!.list;
+        expect(list.heading, '任务 3 · 等验收 1、进行中 2');
+        expect(list.rows[0].fact, '等你验收 · 5 天没动');
+        expect(list.rows[0].meta, '任务 #142 · Cody');
+        expect(list.rows[1].fact, '进行中 · 4 天没动');
+        // The line says who has it and how it stands, and how many are which.
+        expect(list.say, contains('等验收 1、进行中 2'));
+        expect(list.say, contains('任务 #142「迁移旧的缓存」，Cody 负责，等你验收'));
+        // What the model said on the G100 ("5 天没动 … 4 天 … 3 天") is on it.
+        final turn = OrbEvalTurn('看看那几个放了好几天的任务')
+          ..addText(
+            '共 3 个任务，其中 1 个在等你验收。迁移旧的缓存，Cody 负责，等你验收，5 天没动；'
+            '整理发布说明，八戒 在做，4 天没动；补充设计评审记录，Grok 在做，3 天没动。',
+          )
+          ..after = OrbEvalSnapshot(
+            location: '/s/fixture',
+            layerOpen: true,
+            driving: true,
+            drivingIndex: 0,
+            cards: const [],
+            surface: 'list',
+            listTitle: list.heading,
+            listTotal: list.total,
+            rows: [
+              for (final r in list.rows)
+                {
+                  'id': r.id,
+                  'who': r.who,
+                  'meta': r.meta,
+                  'title': r.title,
+                  'fact': r.fact,
+                },
+            ],
+          );
+        final run = OrbEvalRun(ids: const {})..turns.add(turn);
+        expect(OrbEvalCheck.spokenIsShown().test(run), isNull);
+      },
+    );
+
     test('a long message is cut at 60 characters and says so', () {
       final long = '很长的话' * 30;
       final p = orbPresent('read_conversation', const {}, {
@@ -268,6 +339,47 @@ void main() {
           '${(c as Map)['check']}',
       ];
     }
+
+    testWidgets(
+      'driving while the Activity has not come: the turn is not held, '
+      'the screen is grey placeholders, and the briefing is laid out when '
+      'it lands',
+      (t) async {
+        final scenario = orbEvalScenarios.firstWhere((s) => s.id == 'H6');
+        final sessions = Sessions();
+        await mountEvalPage(
+          t,
+          reports: reports,
+          scenarios: [scenario],
+          runs: 1,
+          sessionFactory: sessions.factory((s, text) async {
+            // The model asks for the briefing, as it did on the G100.
+            if (text == '开始驾驶模式') {
+              await s.turn([
+                ('set_driving_mode', {'on': true}),
+                ('get_briefing', {'show': true}),
+              ], '好，驾驶模式。');
+            } else {
+              await s.turn(const [('get_briefing', {})], '动态还在加载，稍等再看。');
+            }
+          }),
+        );
+        await finishEvalRun(t);
+        final report = readEvalReport(reports);
+        final turns =
+            (((report['scenarios'] as List).single as Map)['results'] as List)
+                    .first['turns']
+                as List;
+        for (final turn in turns.cast<Map>()) {
+          expect(turn['error'], isNull);
+          expect(turn['ms'] as int, lessThan(8000), reason: '${turn['line']}');
+        }
+        final last = (turns.last as Map)['after'] as Map;
+        expect(last['surface'], 'list');
+        expect(last['rows'], isEmpty, reason: 'grey placeholders, not "empty"');
+        await t.pumpWidget(const SizedBox());
+      },
+    );
 
     for (final id in ids) {
       testWidgets('$id: green with the presenter, red without it', (t) async {

@@ -80,9 +80,9 @@ OrbPresentation? orbPresent(
     case 'read_conversation':
       final list = orbListOfConversation(result);
       if (list.rows.isEmpty) return null;
-      if (list.rows.length == 1) return OrbPresentation(list, openFirst: true);
       // What the discussion came to is a summary, shown with the answer.
       if (orbAsksSummary.hasMatch(said)) return null;
+      if (list.rows.length == 1) return OrbPresentation(list, openFirst: true);
       return OrbPresentation(list);
     case 'list_targets':
     case 'query':

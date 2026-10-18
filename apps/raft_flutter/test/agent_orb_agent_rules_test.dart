@@ -1076,6 +1076,44 @@ void main() {
     );
 
     orbTest(
+      'driving: the discussion has one message in the channel (its thread was '
+      'not read): what was asked is still answered on a summary card',
+      (t) async {
+        await orb().setDriving(true);
+        await t.pump(const Duration(milliseconds: 300));
+        gemini.replies.addAll([
+          _call('read_conversation', {'conversation': 'raft-flutter'}),
+          _say('大家还在讨论，Alice 问新手引导用哪个方案。'),
+        ]);
+        await say(t, '新手引导那个讨论，大家意见是什么');
+        expect(orb().surface.list?.kind, OrbListKind.summary);
+        expect(orb().surface.list?.rows.single.say, '大家还在讨论，Alice 问新手引导用哪个方案。');
+        expect(orb().surface.kind, OrbSurfaceKind.list);
+      },
+      tools: [
+        OrbTool(
+          declaration: const {'name': 'read_conversation'},
+          handler: (args, ctx) async => {
+            'conversation': {
+              'id': 'c1',
+              'name': '#raft-flutter',
+              'type': 'channel',
+            },
+            'messages': [
+              {
+                'id': 'm1',
+                'from': 'Alice',
+                'text': '新手引导用哪个方案？',
+                'time': '今天',
+                'replies': 3,
+              },
+            ],
+          },
+        ),
+      ],
+    );
+
+    orbTest(
       'not driving: nothing is shown of a read (the page is the surface)',
       (t) async {
         gemini.replies.addAll([

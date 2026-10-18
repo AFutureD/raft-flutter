@@ -72,6 +72,7 @@ OrbList? orbListOfBriefing(OrbBriefing b, OrbListKind kind) {
 /// The rows of `list_tasks`' result ("我的任务").
 OrbList orbListOfTasks(Map<String, Object?> result) {
   final rows = <OrbListRow>[];
+  final counts = <String, int>{};
   for (final t in (result['tasks'] as List? ?? const [])) {
     if (t is! Map) continue;
     final number = t['number'];
@@ -81,6 +82,9 @@ OrbList orbListOfTasks(Map<String, Object?> result) {
     final waits = '${t['waitsFor'] ?? ''}'.trim();
     final state = '${t['statusText'] ?? ''}'.trim();
     final idle = '${t['idle'] ?? ''}'.trim();
+    if (state.isNotEmpty) counts[state] = (counts[state] ?? 0) + 1;
+    // How it stands, and how long it has sat: the card shows what is said.
+    final stands = waits.isNotEmpty ? waits : state;
     rows.add(
       OrbListRow(
         id: 'task:$number',
@@ -89,10 +93,20 @@ OrbList orbListOfTasks(Map<String, Object?> result) {
           '任务 #$number',
           if (channel.isNotEmpty)
             channel.startsWith('#') ? channel : '#$channel',
+          // Who has it is on the card, since it is said (unless the words of
+          // what it waits for already name them).
+          if (owner.isNotEmpty && !waits.contains(owner)) owner,
         ].join(' · '),
         title: title,
-        fact: waits.isNotEmpty ? waits : state,
+        fact: [
+          if (stands.isNotEmpty) stands,
+          if (idle.isNotEmpty) '$idle没动',
+        ].join(' · '),
         say: '任务 #$number「$title」',
+        listSay:
+            '任务 #$number「$title」'
+            '${owner.isEmpty ? '' : '，$owner 负责'}'
+            '${stands.isEmpty ? '' : '，$stands'}',
         summary: [
           if (state.isNotEmpty) state,
           if (owner.isNotEmpty) '$owner 负责',
@@ -107,7 +121,14 @@ OrbList orbListOfTasks(Map<String, Object?> result) {
       ),
     );
   }
-  return OrbList(kind: OrbListKind.tasks, rows: rows);
+  return OrbList(
+    kind: OrbListKind.tasks,
+    rows: rows,
+    // "进行中 2、等验收 1": how they stand, on the heading and in the line.
+    note: rows.length < 2
+        ? ''
+        : [for (final e in counts.entries) '${e.key} ${e.value}'].join('、'),
+  );
 }
 
 /// The longest a message may be on the card before it is cut (the rest is for

@@ -47,6 +47,7 @@ class OrbListRow {
     this.item,
     this.openArgs,
     this.canReply = false,
+    this.listSay,
   });
 
   /// Stable across lists: the Activity row, task or message behind it.
@@ -73,6 +74,13 @@ class OrbListRow {
   /// The text was cut: the detail says the whole is for when the car stops.
   final bool clipped;
 
+  /// How the list says the row when it names the top ones, when that is more
+  /// than [say] (a task: who has it and how it stands).
+  final String? listSay;
+
+  /// What the list says of the row.
+  String get lineSay => listSay ?? say;
+
   /// The briefing item behind it (opening it, replying to it).
   final OrbBriefItem? item;
 
@@ -93,12 +101,14 @@ class OrbList {
     this.target = '',
     this.routine = 0,
     this.loading = false,
+    this.note = '',
   });
 
   /// A list that is being read: placeholders on the screen.
   const OrbList.loading(this.kind, {this.target = ''})
     : rows = const [],
       routine = 0,
+      note = '',
       loading = true;
 
   final OrbListKind kind;
@@ -109,6 +119,9 @@ class OrbList {
 
   /// Items counted and not listed ("其余 5 条是常规进度").
   final int routine;
+
+  /// What the list adds to its heading and its count line ("进行中 2、等验收 1").
+  final String note;
   final bool loading;
 
   int get total => rows.length;
@@ -127,14 +140,17 @@ class OrbList {
   };
 
   /// The heading line: the title, then the count (a summary has none).
-  String get heading =>
-      loading || kind == OrbListKind.summary ? title : '$title $total';
+  String get heading => loading || kind == OrbListKind.summary
+      ? title
+      : note.isEmpty
+      ? '$title $total'
+      : '$title $total · $note';
 
   /// "7 条未读": the count said.
   String get countSay => switch (kind) {
     OrbListKind.unread => '$total 条未读',
     OrbListKind.mentions => '$total 条点名你的',
-    OrbListKind.tasks => '$total 个任务',
+    OrbListKind.tasks => '$total 个任务${note.isEmpty ? '' : '，$note'}',
     OrbListKind.channel || OrbListKind.person => '$title 最近 $total 条',
     OrbListKind.recent => '最近动态 $total 条',
     OrbListKind.results => '$title $total 个',
@@ -169,7 +185,7 @@ class OrbList {
     if (kind == OrbListKind.summary) {
       return rows.map((r) => r.say).join('');
     }
-    final top = rows.take(2).map((r) => _tidy(r.say)).toList();
+    final top = rows.take(2).map((r) => _tidy(r.lineSay)).toList();
     final first = top.first;
     final tail = top.length > 1 ? '，还有${top[1]}' : '';
     final rest = total > 2 ? '其余看屏幕。' : '';

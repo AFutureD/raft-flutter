@@ -700,7 +700,21 @@ class OrbController extends ChangeNotifier {
       agentLayer: agentLayer,
     );
     try {
-      result = await tool.handler(args, toolContext);
+      if (_driving &&
+          presenterEnabled &&
+          name == 'get_briefing' &&
+          _activityLoading &&
+          (args['scope'] == null ||
+              '${args['scope']}'.trim().isEmpty ||
+              const {'activity', '动态'}.contains('${args['scope']}'.trim()))) {
+        // The Activity has not come: reading it would hold the turn (25 s on
+        // the G100) with nothing on the screen. The screen says it is being
+        // read, now; the read goes on, and lays the briefing out when it lands.
+        result = {'loading': true, 'note': '动态还在读：这是还在加载，不是空的。读到了屏幕会自己更新。'};
+        unawaited(_layOutWhenRead(args, toolContext));
+      } else {
+        result = await tool.handler(args, toolContext);
+      }
     } catch (_) {
       result = {'error': '工具出错：$name'};
     } finally {
@@ -1878,7 +1892,7 @@ class OrbController extends ChangeNotifier {
         final onScreen = deck['screenSay'];
         if (onScreen is String &&
             (deck['needsYou'] as List? ?? const []).isEmpty) {
-          line = onScreen.startsWith('没有要你处理')
+          line = deck['loading'] == true || onScreen.startsWith('没有要你处理')
               ? '好，驾驶模式。$onScreen'
               : '好，驾驶模式。没有要你处理的。$onScreen';
         }
@@ -2005,6 +2019,13 @@ class OrbController extends ChangeNotifier {
 
   /// The Activity has been read: a briefing of it before that says "nothing"
   /// because nothing has come yet, and must not be kept as an empty inbox.
+  /// The Activity is being read: its store is there and has had no answer
+  /// yet (a read of it would wait for one).
+  bool get _activityLoading {
+    final store = workspace.activityUnreadIfBound;
+    return store != null && !store.hasAcceptedWindow;
+  }
+
   bool get _activityRead =>
       workspace.activityUnreadIfBound?.hasAcceptedWindow ?? false;
 
@@ -2224,6 +2245,26 @@ class OrbController extends ChangeNotifier {
     };
   }
 
+  /// The briefing of the Activity is read in the background (driving, before
+  /// the Activity came): when it lands the screen is laid out, if the person is
+  /// still waiting for it.
+  Future<void> _layOutWhenRead(
+    Map<String, Object?> args,
+    OrbToolContext ctx,
+  ) async {
+    try {
+      final read = await tools['get_briefing']?.handler({
+        ...args,
+        'show': true,
+      }, ctx);
+      if (read == null || _disposed || !_driving) return;
+      if (read['error'] != null || read['loading'] == true) return;
+      await _present('get_briefing', args, read, ctx, wasDriving: true);
+    } catch (_) {
+      /* the screen keeps saying it is being read */
+    }
+  }
+
   /// The surface of what a read tool returned (driving only).
   Future<Map<String, Object?>> _present(
     String name,
@@ -2301,7 +2342,7 @@ class OrbController extends ChangeNotifier {
         if (name == 'read_conversation' && orbAsksSummary.hasMatch(_turnSaid)) {
           final conv = result['conversation'];
           final messages = result['messages'] as List? ?? const [];
-          if (conv is Map && messages.length >= 2) {
+          if (conv is Map && messages.isNotEmpty) {
             final name = '${conv['name'] ?? ''}'.replaceFirst(
               RegExp(r'^[@#]'),
               '',
