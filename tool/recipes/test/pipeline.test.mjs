@@ -11,6 +11,7 @@ import { join, relative, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import * as acorn from 'acorn';
+import { loadBundle } from '../lib/bundle.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const tool = resolve(here, '..');
@@ -21,11 +22,12 @@ const raw = JSON.parse(readFileSync(join(build, 'recipes.raw.json'), 'utf8'));
 const model = JSON.parse(readFileSync(join(build, 'recipes.json'), 'utf8'));
 
 test('every tv$1 call is extracted with literal options', () => {
-  const code = readFileSync(join(source, 'dist/index.mjs'), 'utf8');
+  const { code, aliasToLocal } = loadBundle(source);
+  const callees = new Set(['tv$1', ...[...aliasToLocal].filter(([, l]) => l === 'tv$1').map(([a]) => a)]);
   let calls = 0;
   const walk = (n) => {
     if (!n || typeof n.type !== 'string') return;
-    if (n.type === 'CallExpression' && n.callee.type === 'Identifier' && n.callee.name === 'tv$1') calls++;
+    if (n.type === 'CallExpression' && n.callee.type === 'Identifier' && callees.has(n.callee.name)) calls++;
     for (const [k, v] of Object.entries(n)) {
       if (k === 'loc') continue;
       if (Array.isArray(v)) v.forEach(walk);

@@ -10,6 +10,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as acorn from 'acorn';
+import { loadBundle } from './lib/bundle.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../..');
@@ -23,8 +24,10 @@ export const sourceRoot = arg('source', process.env.RAFT_UI_SOURCE ?? '/tmp/rui'
 const outDir = resolve(repo, arg('out', 'build/recipes'));
 const TV_CALLEE = 'tv$1';
 
-const file = join(sourceRoot, 'dist/index.mjs');
-const code = readFileSync(file, 'utf8');
+const bundle = loadBundle(sourceRoot);
+const code = bundle.code;
+// `import { S as tv }` from the shared chunk: `tv` is the chunk's `tv$1`.
+const TV_CALLEES = new Set([TV_CALLEE, ...[...bundle.aliasToLocal].filter(([, l]) => l === TV_CALLEE).map(([a]) => a)]);
 const pkg = JSON.parse(readFileSync(join(sourceRoot, 'package.json'), 'utf8'));
 
 const comments = [];
@@ -82,7 +85,8 @@ const exportsByLocal = new Map();
 for (const stmt of ast.body) {
   if (stmt.type !== 'ExportNamedDeclaration') continue;
   for (const s of stmt.specifiers ?? []) {
-    const local = s.local.name ?? s.local.value;
+    const local0 = s.local.name ?? s.local.value;
+    const local = bundle.aliasToLocal.get(local0) ?? local0;
     const exported = s.exported.name ?? s.exported.value;
     if (!exportsByLocal.has(local)) exportsByLocal.set(local, []);
     exportsByLocal.get(local).push(exported);
@@ -147,7 +151,7 @@ function evaluate(node, ctx, path) {
       break;
     }
     case 'CallExpression':
-      if (node.callee.type === 'Identifier' && node.callee.name === TV_CALLEE) {
+      if (node.callee.type === 'Identifier' && TV_CALLEES.has(node.callee.name)) {
         const inner = callNames.get(node);
         return { $recipe: inner };
       }
@@ -161,7 +165,7 @@ function evaluate(node, ctx, path) {
 const calls = [];
 const callNames = new Map();
 walk(ast, (node, parents) => {
-  if (node.type !== 'CallExpression' || node.callee.type !== 'Identifier' || node.callee.name !== TV_CALLEE) return;
+  if (node.type !== 'CallExpression' || node.callee.type !== 'Identifier' || !TV_CALLEES.has(node.callee.name)) return;
   calls.push({ node, parents: [...parents] });
 });
 // Name outer calls first so nested `extend: tv$1(...)` can derive from them.
@@ -278,7 +282,7 @@ const recipes = calls
   .sort((a, b) => a.line - b.line);
 
 // Sanity: count raw `tv$1(` occurrences so the test can assert full coverage.
-const rawCallCount = (code.match(/\btv\$1\(/g) ?? []).length;
+const rawCallCount = [...TV_CALLEES].reduce((n, c) => n + (code.match(new RegExp(`\\b${c.replace(/\$/g, '\\$')}\\(`, 'g')) ?? []).length, 0);
 
 // The bundle's own `tv$1` wrapper (tailwind-variants + raft-ui cn), kept as
 // source so resolve.mjs evaluates recipes exactly like the Web runtime.
@@ -293,7 +297,8 @@ const out = {
     package: pkg.name,
     version: pkg.version,
     file: 'dist/index.mjs',
-    sha256: createHash('sha256').update(code).digest('hex'),
+    files: bundle.files,
+    sha256: createHash('sha256').update(bundle.texts.join('\n')).digest('hex'),
   },
   tvImport,
   tvWrapperSource,
