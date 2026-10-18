@@ -243,6 +243,16 @@ void main() {
     expect(completes, 0);
   });
 
+  test('Live is given a task number without its "#"', () async {
+    final s = make();
+    await s.connect();
+    api.replies.add(_say('任务 #136「重构第 10 步」在等你验收。'));
+    expect(await live.onToolCall('ask_agent', {'request': '打开 136'}), {
+      'say': '任务 136「重构第 10 步」在等你验收。',
+    });
+    expect(layeredForVoice('#raft-flutter 的 #12'), '#raft-flutter 的 12');
+  });
+
   test('an agent that says nothing returns an empty say', () async {
     final s = make();
     await s.connect();

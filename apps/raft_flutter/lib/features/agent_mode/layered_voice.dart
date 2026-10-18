@@ -36,7 +36,13 @@ const askAgentDeclaration = <String, Object?>{
 const _appNote = '（App';
 
 /// What the voice model is asked to tell the person: the app's own words.
-String layeredVerbatim(String text) => '（App 请你说）$text';
+String layeredVerbatim(String text) => '（App 请你说）${layeredForVoice(text)}';
+
+/// [text] as the voice model is given it to say. A number written "#136"
+/// often ends Live's answer right there, so it reads "136": the same number
+/// to the ear.
+String layeredForVoice(String text) =>
+    text.replaceAllMapped(RegExp(r'#(\d)'), (m) => m[1]!);
 
 /// The instruction of the voice layer: it listens and speaks, and gives
 /// everything about Raft to `ask_agent`.
@@ -415,7 +421,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     // whose speech is checked.
     final info = say.isEmpty ? null : steering.confirmation?.call();
     _watch = info == null ? null : _Watch(say, info);
-    return {'say': say};
+    return {'say': layeredForVoice(say)};
   }
 
   // ---- Live relays: the safety net for a confirmation ----------------------
