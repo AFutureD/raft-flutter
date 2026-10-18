@@ -210,7 +210,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _delivered.clear();
     _inFlight.clear();
     unawaited(background.bind(null, false).catchError((Object _) {}));
-    unawaited(notifications.bind(scope));
+    unawaited(notifications.bindAuthenticatedWorkspace(scope));
   }
 
   void _notificationSettingsChanged() {
