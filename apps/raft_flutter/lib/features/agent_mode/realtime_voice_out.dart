@@ -95,11 +95,13 @@ abstract interface class RealtimeVoiceOut {
   /// Has the voice phrase and say one short lead-in for what the person just
   /// asked ([request]), in its own words, while the agent works. [avoid] are
   /// the lead-ins already used; [after] is the acknowledgment already said
-  /// (the lead-in goes on from it).
+  /// (the lead-in goes on from it). It is phrased in [language] (the
+  /// language of the turn); null is the session's own.
   SpeechHandle lead(
     String request, {
     List<String> avoid,
     String? after,
+    AgentLanguage? language,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   });
@@ -153,18 +155,21 @@ class RealtimeSpeech implements SpeechOut, SpeechVoiceInfo {
     return handle.done;
   }
 
-  /// A lead-in the voice phrases from [request]; the caller keeps the handle
+  /// A lead-in the voice phrases from [request], in [language] (the turn's;
+  /// null is the session's); the caller keeps the handle
   /// to see whether it has begun and to take it back.
   SpeechHandle lead(
     String request, {
     List<String> avoid = const [],
     String? after,
+    AgentLanguage? language,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   }) => out.lead(
     layeredForVoice(request),
     avoid: avoid,
     after: after,
+    language: language,
     onStart: onStart,
     onTranscript: onTranscript,
   );

@@ -614,7 +614,16 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     // The sound of the canned acknowledgments is made once, in the
     // background: afterwards they are said at once.
     final speaker = _voiceSpeech;
-    if (speaker != null) unawaited(speaker.prewarm(ackPhrases(language)));
+    // Both languages: the lines of a turn follow what the person speaks, not
+    // the setting (the setting's own first).
+    if (speaker != null) {
+      final other = language == AgentLanguage.zh
+          ? AgentLanguage.en
+          : AgentLanguage.zh;
+      unawaited(
+        speaker.prewarm([...ackPhrases(language), ...ackPhrases(other)]),
+      );
+    }
     final Object? info = speech;
     if (info is SpeechVoiceInfo) {
       unawaited(
@@ -658,6 +667,8 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   }) async {
     final watch = Stopwatch()..start();
     _askingIs(_asking + 1);
+    // One language for the whole turn: the person's.
+    final turnLanguage = _turnLanguage = languageOfText(request, language);
     var acked = false;
     SpeechHandle? leading;
     var leadAt = 0;
@@ -734,7 +745,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     } on _Cancelled {
       say = null;
     } catch (_) {
-      say = agentFailedLine(language);
+      say = agentFailedLine(turnLanguage);
     } finally {
       lead?.cancel();
       ack?.cancel();
@@ -1046,6 +1057,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     // What was still being said is stale now: the person has spoken again.
     if (_speaking) _bargeIn();
     _recentSpoken = '';
+    _turnLanguage = languageOfText(text, language);
     _turnBegan();
     _stage('forwarded');
     _forwardedAt = _now();
@@ -1263,8 +1275,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// of some canned line is kept).
   bool get _ackIsInstant {
     final voice = _voiceSpeech;
-    return voice != null && ackPhrases(language).any(voice.hasClip);
+    return voice != null && ackPhrases(_turnLanguage).any(voice.hasClip);
   }
+
+  /// The language of the turn under way: the script of the person's words
+  /// (the setting when they have no letters). Every line the app says itself
+  /// in the turn is in it. The setting is never changed.
+  late AgentLanguage _turnLanguage = language;
 
   final _recentLeads = <String>[];
   bool _acking = false;
@@ -1285,6 +1302,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       request,
       avoid: [..._recentLeads],
       after: after,
+      language: _turnLanguage,
       onStart: () {
         if (generation != _speechGeneration) return;
         _turnVoiced = true;
@@ -1333,9 +1351,9 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     final voiceSpeech = _voiceSpeech;
     // A line whose sound is kept is said at once.
     final text = voiceSpeech == null
-        ? _acks.next(language)
-        : (_acks.nextWhere(language, voiceSpeech.hasClip) ??
-              _acks.next(language));
+        ? _acks.next(_turnLanguage)
+        : (_acks.nextWhere(_turnLanguage, voiceSpeech.hasClip) ??
+              _acks.next(_turnLanguage));
     _lastAck = text;
     _stage('ack-requested');
     _requestTimed = _timeRequest();

@@ -920,8 +920,11 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   /// run).
   static VoiceClipStore? clipStore;
 
+  /// The language a line is said in follows its own text, whatever the
+  /// session's setting is: the same sentence is the same clip for either.
   String _clipKey(String text) =>
-      '${service.name}|${modelId ?? ''}|$voice|${language.name}|$text';
+      '${service.name}|${modelId ?? ''}|$voice|'
+      '${languageOfText(text, language).name}|$text';
 
   @override
   bool hasClip(String text) => _clips.containsKey(_clipKey(text));
@@ -1056,6 +1059,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
     String request, {
     List<String> avoid = const [],
     String? after,
+    AgentLanguage? language,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   }) => _enqueue(
@@ -1064,6 +1068,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
       text: request,
       avoid: avoid,
       after: after,
+      language: language ?? languageOfText(request, this.language),
       tag: '${_lineTag++}',
       handle: SpeechHandle(
         text: request,
@@ -1135,13 +1140,16 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
       case _LineKind.exact:
         return _responseCreate(
           line,
-          verbatimInstructionsFor(language, line.text),
+          verbatimInstructionsFor(
+            languageOfText(line.text, language),
+            line.text,
+          ),
         );
       case _LineKind.lead:
         return _responseCreate(
           line,
           leadInstructionsFor(
-            language,
+            line.language ?? languageOfText(line.text, language),
             line.text,
             avoid: line.avoid,
             after: line.after,
@@ -1540,6 +1548,7 @@ class _Line {
     required this.handle,
     this.avoid = const [],
     this.after,
+    this.language,
     this.capture = false,
     this.clipToPlay,
   });
@@ -1552,6 +1561,9 @@ class _Line {
 
   /// A lead-in that follows this acknowledgment, already said.
   final String? after;
+
+  /// The language a lead-in is phrased in (the turn's).
+  final AgentLanguage? language;
 
   /// The sound is kept (a clip being made), not played.
   final bool capture;

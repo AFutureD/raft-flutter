@@ -61,6 +61,7 @@ class FakeVoice implements VoiceSession, RealtimeVoiceOut {
   final clips = <String>{};
   final prewarmed = <String>[];
   final afters = <String?>[];
+  final leadLanguages = <AgentLanguage?>[];
 
   /// What the voice reads of a line (default: the line, as asked).
   String Function(String text)? reads;
@@ -143,10 +144,12 @@ class FakeVoice implements VoiceSession, RealtimeVoiceOut {
     String request, {
     List<String> avoid = const [],
     String? after,
+    AgentLanguage? language,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   }) {
     afters.add(after);
+    leadLanguages.add(language);
     final h = _handle(request, onStart, onTranscript);
     lines.add(Said('lead', request, h));
     if (leadStarts) _play(h, leadSays);
@@ -838,6 +841,92 @@ void main() {
     });
   }
 
+  group('one language per turn', () {
+    test('a Chinese request with the setting English: Chinese acknowledgment '
+        'and Chinese lead-in language', () {
+      fakeAsync((async) {
+        final r = Rig(
+          nowMs: () => async.elapsed.inMilliseconds,
+          language: AgentLanguage.en,
+          leadStarts: false,
+        );
+        r.connect(async);
+        r.voice.person('读一下未读');
+        async.elapse(const Duration(seconds: 2));
+        expect(ackPhrases(AgentLanguage.zh), contains(r.said.single));
+        expect(r.voice.leadLanguages, everyElement(AgentLanguage.zh));
+        expect(r.voice.leadLanguages, isNotEmpty);
+      });
+    });
+
+    test('an English request with the setting Chinese: English '
+        'acknowledgment and lead-in language', () {
+      fakeAsync((async) {
+        final r = Rig(
+          nowMs: () => async.elapsed.inMilliseconds,
+          language: AgentLanguage.zh,
+          leadStarts: false,
+        );
+        r.connect(async);
+        r.voice.person('read my unread');
+        async.elapse(const Duration(seconds: 2));
+        expect(ackPhrases(AgentLanguage.en), contains(r.said.single));
+        expect(r.voice.leadLanguages, everyElement(AgentLanguage.en));
+        expect(r.voice.leadLanguages, isNotEmpty);
+      });
+    });
+
+    test('a request with no letters takes the setting', () {
+      for (final setting in AgentLanguage.values) {
+        fakeAsync((async) {
+          final r = Rig(
+            nowMs: () => async.elapsed.inMilliseconds,
+            language: setting,
+            leadStarts: false,
+          );
+          r.connect(async);
+          r.voice.person('136');
+          async.elapse(const Duration(seconds: 2));
+          expect(ackPhrases(setting), contains(r.said.single));
+          expect(r.voice.leadLanguages, everyElement(setting));
+        });
+      }
+    });
+
+    test('with kept clips the instant acknowledgment and the lead-in that '
+        'goes on from it follow the request, not the setting', () {
+      fakeAsync((async) {
+        final r = Rig(
+          nowMs: () => async.elapsed.inMilliseconds,
+          language: AgentLanguage.en,
+          keepsClips: true,
+        );
+        r.connect(async);
+        r.voice.person('看一下 Cody 那边的消息');
+        async.elapse(const Duration(milliseconds: 600));
+        expect(ackPhrases(AgentLanguage.zh), contains(r.voice.said.first.text));
+        expect(r.voice.leadLanguages.single, AgentLanguage.zh);
+      });
+    });
+
+    test('the agent-failed line is in the language of the request', () {
+      fakeAsync((async) {
+        final r = Rig(
+          nowMs: () => async.elapsed.inMilliseconds,
+          language: AgentLanguage.en,
+          leadStarts: false,
+        );
+        r.connect(async);
+        r.voice.person('读一下未读');
+        async.elapse(const Duration(milliseconds: 20));
+        r.agentParts.onClosed('boom');
+        async.elapse(const Duration(seconds: 3));
+        expect(r.said, contains(agentFailedLine(AgentLanguage.zh)));
+        expect(r.said, isNot(contains(agentFailedLine(AgentLanguage.en))));
+      });
+    });
+  });
+
   group('the first sound within a second', () {
     for (final provider in _providers) {
       test('${provider.name}: the sound of the canned lines is kept at '
@@ -850,11 +939,10 @@ void main() {
             keepsClips: true,
           );
           r.connect(async);
-          expect(
-            r.voice.prewarmed,
-            ackPhrases(AgentLanguage.zh),
-            reason: 'in the background, at connect',
-          );
+          expect(r.voice.prewarmed, [
+            ...ackPhrases(AgentLanguage.zh),
+            ...ackPhrases(AgentLanguage.en),
+          ], reason: 'both languages, the setting first, at connect');
           r.voice.person('看一下 Cody 那边的消息');
           async.elapse(const Duration(milliseconds: 380));
           expect(r.voice.lines, isEmpty, reason: 'nothing before it is due');

@@ -8,6 +8,21 @@ import 'agent_language.dart';
 /// back on. One place, so the style rules are the same for all three voice
 /// services.
 
+final _cjk = RegExp(r'[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]');
+final _latin = RegExp(r'[A-Za-z\u00c0-\u024f]');
+
+/// The language of one turn, from the script of what the person said: any
+/// Chinese character (or kana, Hangul) makes it Chinese, Latin letters alone
+/// make it English, and text with no such letters (digits, symbols, empty)
+/// takes [fallback], the saved setting. Every line the app says in a turn is
+/// in this language, so that a Chinese answer is never preceded by an English
+/// lead-in (and the other way round).
+AgentLanguage languageOfText(String text, AgentLanguage fallback) {
+  if (_cjk.hasMatch(text)) return AgentLanguage.zh;
+  if (_latin.hasMatch(text)) return AgentLanguage.en;
+  return fallback;
+}
+
 /// Style rules of the short line the voice says while the agent works. Kevin:
 /// it must sound like a person, not a script.
 String leadStyleRules(AgentLanguage language) => switch (language) {

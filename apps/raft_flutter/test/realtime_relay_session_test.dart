@@ -275,6 +275,59 @@ void main() {
       );
     });
 
+    test('one language per turn: a line is told to speak the language of '
+        'its own text, whatever the session setting is', () async {
+      final s = await connected(service, language: AgentLanguage.en);
+      s.say('已经把 136 标成完成。');
+      final zh =
+          response(await server.waitFor('response.create'))['instructions']
+              as String;
+      expect(zh, contains(AgentLanguage.zh.relayLine));
+      expect(zh, isNot(contains(AgentLanguage.en.relayLine)));
+      expect(zh, contains('原样'));
+      expect(zh, contains('已经把 136 标成完成。'));
+    });
+
+    test('an English line in a Chinese session is told English; digits '
+        'only follow the session', () async {
+      final s = await connected(service, language: AgentLanguage.zh);
+      s.say('Done.');
+      final en =
+          response(await server.waitFor('response.create'))['instructions']
+              as String;
+      expect(en, contains(AgentLanguage.en.relayLine));
+      expect(en, isNot(contains(AgentLanguage.zh.relayLine)));
+      expect(
+        verbatimInstructionsFor(languageOfText('136', AgentLanguage.zh), '136'),
+        contains(AgentLanguage.zh.relayLine),
+      );
+    });
+
+    test('the lead-in language follows the request (or the explicit '
+        'language), not the session setting', () async {
+      final s = await connected(service, language: AgentLanguage.en);
+      s.lead('看一下 Cody 那边的消息');
+      final zh =
+          response(await server.waitFor('response.create'))['instructions']
+              as String;
+      expect(zh, contains(AgentLanguage.zh.relayLine));
+      expect(zh, contains('不要客服腔'));
+      expect(zh, isNot(contains(AgentLanguage.en.relayLine)));
+    });
+
+    test(
+      'an explicit lead language wins over the text of the request',
+      () async {
+        final s = await connected(service, language: AgentLanguage.zh);
+        s.lead('136', language: AgentLanguage.en);
+        final en =
+            response(await server.waitFor('response.create'))['instructions']
+                as String;
+        expect(en, contains(AgentLanguage.en.relayLine));
+        expect(en, contains('Say only that one line'));
+      },
+    );
+
     test('cutting the speech cancels the response, drops the sound that '
         'still comes and what is queued', () async {
       final s = await connected(service);
@@ -704,6 +757,25 @@ void main() {
       await making.timeout(const Duration(seconds: 3));
       await until(() => kept.containsKey('openai||marin|zh|好嘞，稍等。'));
       expect(kept['openai||marin|zh|好嘞，稍等。'], isNotEmpty);
+    });
+  });
+
+  group('clips of both languages are found whatever the session setting', () {
+    test('a kept clip is keyed by the language of its text', () async {
+      final kept = <String, List<Uint8List>>{
+        'openai||marin|zh|嗯，我看看。': [Uint8List(960)],
+        'openai||marin|en|Let me look.': [Uint8List(960)],
+      };
+      OpenAiRealtimeSession.clipStore = _MemoryStore(kept);
+      addTearDown(() => OpenAiRealtimeSession.clipStore = null);
+      for (final setting in AgentLanguage.values) {
+        final s = await connected(RealtimeService.openai, language: setting);
+        await s.prewarm(['嗯，我看看。', 'Let me look.']);
+        expect(s.hasClip('嗯，我看看。'), isTrue, reason: setting.name);
+        expect(s.hasClip('Let me look.'), isTrue, reason: setting.name);
+        expect(server.of('response.create'), isEmpty);
+        await s.close();
+      }
     });
   });
 

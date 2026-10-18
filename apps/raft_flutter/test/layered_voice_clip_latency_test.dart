@@ -48,8 +48,11 @@ void main() {
     'due, while the lead-in request is pending (and is sent after it)',
     () async {
       OpenAiRealtimeSession.clipStore = _Kept({
-        for (final p in ackPhrases(AgentLanguage.zh))
-          'openai||marin|zh|$p': [Uint8List(4800), Uint8List(4800)],
+        // Both languages are kept at connect (a turn follows the person's
+        // language), so no prewarm request stands in front of the lead-in.
+        for (final l in AgentLanguage.values)
+          for (final p in ackPhrases(l))
+            'openai||marin|${l.name}|$p': [Uint8List(4800), Uint8List(4800)],
       });
       final log = <(String, DateTime)>[];
       final audio = <DateTime>[];
