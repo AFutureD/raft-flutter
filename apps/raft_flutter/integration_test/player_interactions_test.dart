@@ -6,17 +6,20 @@
 // test on the device cannot do itself: Android's back key and back swipe, the
 // screen recording of the close animation, the system save dialog.
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:raft_flutter/features/attachment_view.dart' show AttachmentView;
 import 'package:raft_flutter/features/media_browser.dart';
 import 'package:raft_flutter/features/media_image_page.dart' show AttachmentLightboxImage, AttachmentLightboxImageState;
 import 'package:raft_flutter/features/media_video_page.dart';
 import 'package:raft_flutter/platform/attachment_player.dart' show AttachmentPlayback;
+import 'package:raft_flutter/platform/video_cache.dart';
 import 'package:raft_flutter/platform/video_frame_scheduler.dart';
 import 'package:raft_flutter/platform/video_player_attachment_player.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -1318,6 +1321,95 @@ void main() {
     expect(browserOf(t).chrome.value, shown, reason: '$state: chrome state');
     expect(chromeShown(t), shown ? 2 : 0, reason: '$state: top bar and bottom band');
   }
+
+  // ---- the on-disk video cache (docs/media-playback.md, "Video cache") --------
+
+  /// Polls the range server until [file] has sent at least [bytes] (the proxy
+  /// fetches in windows, behind the player), pumping frames meanwhile.
+  Future<ServerStats> waitForBytes(WidgetTester tester, String file, int bytes) async {
+    for (var i = 0; i < 100; i++) {
+      final stats = await lab.stats();
+      if (stats.bytes(file) >= bytes) return stats;
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    return lab.stats();
+  }
+
+  /// What the proxy (the cache) asked the range server for, and what anything
+  /// else did (the HDR colour probe reads a few KB itself): (requests, bytes).
+  ({int requests, int bytes}) viaProxy(ServerStats stats, String file, {bool proxy = true}) {
+    final entries = stats.log.where((e) => e['file'] == file && '${e['ua']}'.startsWith('RaftVideoCache') == proxy);
+    return (requests: entries.length, bytes: entries.fold(0, (sum, e) => sum + (e['length'] as int)));
+  }
+
+  /// Bytes the app's video cache holds on the device (every account folder).
+  Future<int> cachedVideoBytes() async {
+    final root = Directory('${(await getApplicationCacheDirectory()).path}/raft-video');
+    if (!root.existsSync()) return 0;
+    var total = 0;
+    for (final entity in root.listSync(recursive: true)) {
+      if (entity is File && entity.path.endsWith('.chunk')) total += entity.lengthSync();
+    }
+    return total;
+  }
+
+  /// No video cache from an earlier scenario or run: players closed, folders gone.
+  Future<void> freshVideoCache() async {
+    await VideoCache.debugReset();
+    final root = Directory('${(await getApplicationCacheDirectory()).path}/raft-video');
+    if (root.existsSync()) root.deleteSync(recursive: true);
+  }
+
+  /// A playing viewer hides its chrome (and the seek rail with it) after a few seconds; a real tap on the stage brings it back.
+  Future<void> showChrome(WidgetTester tester) async {
+    final rail = find.descendant(of: viewer, matching: find.byKey(const Key('inline-video-seek')));
+    if (rail.evaluate().isNotEmpty) return;
+    await realTap(tester, stagePoint(tester, down: .3));
+    await until(tester, () => rail.evaluate().isNotEmpty, 'the viewer chrome');
+  }
+
+  Future<void> seekOnRail(WidgetTester tester, double at) async {
+    await showChrome(tester);
+    final rail = tester.getRect(find.descendant(of: viewer, matching: find.byKey(const Key('inline-video-seek'))));
+    final total = viewerOf(tester).duration;
+    await tester.tapAt(Offset(rail.left + rail.width * at, rail.center.dy));
+    await tester.pump(const Duration(milliseconds: 100));
+    await until(tester, () => (viewerOf(tester).position - total * at).abs() < const Duration(seconds: 4), 'the seek to ${(at * 100).round()} %');
+  }
+
+  scenario('video cache: a video seen once opens again with no upstream bytes (play, seek, close, reopen)', (tester) async {
+    await freshVideoCache();
+    await launch(tester, [_portrait]);
+    // First view: a real tap on the poster opens the viewer; play, then seek with a tap on the rail.
+    await playFromPoster(tester, 'portrait.mp4', past: const Duration(milliseconds: 1500));
+    await seekOnRail(tester, .6);
+    // The proxy fetches ahead of the player: wait for the whole file to have come from upstream once.
+    final first = await waitForBytes(tester, 'portrait.mp4', 5416578);
+    final cached = await cachedVideoBytes();
+    final proxied = viaProxy(first, 'portrait.mp4'), others = viaProxy(first, 'portrait.mp4', proxy: false);
+    report('video-cache-first', {'proxyRequests': proxied.requests, 'proxyBytes': proxied.bytes, 'otherRequests': others.requests, 'otherBytes': others.bytes, 'cachedOnDisk': cached});
+    expect(proxied.bytes, greaterThanOrEqualTo(5416578), reason: 'the whole clip came through the proxy');
+    expect(others.bytes, lessThan(1024 * 1024), reason: 'only a small probe read the server itself, never a download');
+    expect(cached, greaterThanOrEqualTo(5416578), reason: 'the chunks are on disk');
+    await closeViewer(tester, 'key', 'video-cache-first-close');
+    await until(tester, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'the closed viewer to free its player');
+
+    // Reopen the same video (a new player each time): nothing is fetched. Recorded.
+    for (var i = 1; i <= 2; i++) {
+      await lab.host(tester, 'record-start:video-cache-reopen-$i');
+      await playFromPoster(tester, 'portrait.mp4', past: const Duration(milliseconds: 1500));
+      await seekOnRail(tester, .3 + .3 * i);
+      await lab.host(tester, 'record-stop');
+      final again = await lab.stats();
+      final now = viaProxy(again, 'portrait.mp4');
+      report('video-cache-reopen-$i', {'proxyRequests': now.requests, 'proxyBytes': now.bytes, 'serverBytes': again.bytes('portrait.mp4')});
+      expect(now.bytes, proxied.bytes, reason: 'reopen $i fetched bytes again');
+      expect(now.requests, proxied.requests, reason: 'reopen $i made a request');
+      await closeViewer(tester, 'key', 'video-cache-reopen-$i-close');
+      await until(tester, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'the closed viewer to free its player');
+    }
+    await shutdown(tester);
+  });
 
   scenario('browser V1: a real tap on a playing video page shows and hides its controls with the chrome; pause and seek work', (tester) async {
     await browserLaunch(tester, [_bA, _bP1]);

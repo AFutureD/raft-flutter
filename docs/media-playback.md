@@ -471,6 +471,7 @@ Scenarios (`PS-REPORT` lines in `suite.log` carry the measured numbers):
 | reopen | open and close the viewer twice on a 16 MB / 287 s clip: zero new requests, under 35 % of the file read |
 | HDR | an HLG-tagged clip: native view at the card's position, exit without a native view on the first frames of the pop, card resumes; handoff time and requested ranges reported |
 | background | an inline card plays, the app goes to the background for 4 s (longer than the card's 3 s release grace) and returns: no crash (the still is not photographed from the background, flutter/flutter#192365), the decoder is released, the card is not playing, a tap plays on from the position it had |
+| video cache: reopen | a clip viewed once (play, seek on the rail with a real tap) is read through the proxy exactly once (proxy bytes = file size, the chunks on disk); closing with the Back key and opening it twice more (a new player each time, rail seeks) sends the range server no further request or byte; the opens and closes are recorded |
 | Download | system save dialog, whole file written to Downloads, size matches |
 | expired URL | the host answers 403 once: signed again once, plays |
 | undecodable | "Download to view" |
