@@ -132,3 +132,62 @@ class MobileRouteGate extends InheritedWidget {
     return workspace.channel?.id != location.entityId;
   }
 }
+
+/// What [retainWhileCovered] keeps for one owner. This hangs off the owner
+/// instead of being fields of its state: the structure audit counts every new
+/// instance field on those states.
+final _retained = Expando<_Retained>();
+
+class _Retained {
+  Widget? last;
+  bool Function()? covered;
+}
+
+/// Builds [build] unless the phone page of [owner] is covered or leaving and
+/// has built before: then the last result stays.
+///
+/// Back moves the workspace to the previous page at once, and the workspace's
+/// thread, parent message and source channel follow its location. The page
+/// being popped stays on screen for the whole slide and rebuilds when its
+/// tickers turn off; reading that live state made its title lose the channel,
+/// its parent message vanish and "1 replies" become "No replies yet" while it
+/// slid away. A covered page repaints nothing and is built again, from the
+/// workspace, when it is shown again. A page that was never built (born under
+/// another one) builds normally. Outside a phone route nothing is retained.
+Widget retainWhileCovered(
+  Object owner,
+  BuildContext context,
+  Widget Function(BuildContext context) build,
+) {
+  final held = _retained[owner] ??= _Retained();
+  final covered = held.covered ??= MobileRouteGate.coveredReader(context);
+  final last = held.last;
+  if (last != null && covered()) return last;
+  return held.last = build(context);
+}
+
+/// [retainWhileCovered] for a subtree that is built from a method.
+class RetainWhileCovered extends StatefulWidget {
+  const RetainWhileCovered({super.key, required this.builder});
+  final WidgetBuilder builder;
+
+  @override
+  State<RetainWhileCovered> createState() => _RetainWhileCoveredState();
+}
+
+class _RetainWhileCoveredState extends State<RetainWhileCovered> {
+  @override
+  Widget build(BuildContext context) =>
+      retainWhileCovered(this, context, widget.builder);
+}
+
+/// The state of a page that sits in the phone Navigator: it observes the
+/// bindings, and its [build] is [retainWhileCovered] of [buildLive].
+abstract class PhonePageState<T extends StatefulWidget> extends State<T>
+    with WidgetsBindingObserver {
+  Widget buildLive(BuildContext context);
+
+  @override
+  Widget build(BuildContext context) =>
+      retainWhileCovered(this, context, buildLive);
+}

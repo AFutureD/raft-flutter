@@ -121,8 +121,7 @@ class RaftChatView extends StatefulWidget {
   State<RaftChatView> createState() => _RaftChatViewState();
 }
 
-class _RaftChatViewState extends State<RaftChatView>
-    with WidgetsBindingObserver {
+class _RaftChatViewState extends PhonePageState<RaftChatView> {
   late MessageReferenceDirectory referenceDirectory;
   late ComposerDirectory composerDirectory;
   late MessageAgentPresentation agentPresentation;
@@ -3415,7 +3414,7 @@ class _RaftChatViewState extends State<RaftChatView>
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget buildLive(BuildContext context) {
     bindAgentCollapse(this, w, scope);
     final search = boundSearch;
     if (!widget.thread || search == null) return buildView(context);

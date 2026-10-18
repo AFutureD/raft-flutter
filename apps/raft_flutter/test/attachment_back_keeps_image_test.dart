@@ -139,6 +139,7 @@ Future<(WorkspaceController, dynamic)> _openThreadWithImage(
         ..._reply(),
         'id': 'parent',
         'channelId': 'c1',
+        'content': 'The parent message of the thread',
         'attachments': <dynamic>[],
       },
     ],
@@ -208,6 +209,9 @@ void main() {
       (tester) async {
         final (w, state) = await _openThreadWithImage(tester);
         final provider = state.imageProvider;
+        final before = _chrome(tester);
+        expect(before.header, contains('Thread— #test'));
+        expect(before.parent && before.begin && before.count, isTrue);
         if (predictive) {
           await startPredictiveBack(tester);
           await backEvent(tester, const MethodCall('commitBackGesture'));
@@ -230,6 +234,24 @@ void main() {
           expect(identical(now, state), isTrue, reason: 'frame $frame');
           expect(now.invalidated, isFalse, reason: 'frame $frame');
           expect(now.imageProvider, same(provider), reason: 'frame $frame');
+          // The leaving page keeps its title with the channel, its parent
+          // message, its reply count and its rows where they were: the picture
+          // may only move with the page's own slide.
+          final shown = _chrome(tester);
+          expect(
+            shown.header,
+            contains('Thread— #test'),
+            reason: 'frame $frame',
+          );
+          expect(shown.parent, isTrue, reason: 'parent, frame $frame');
+          expect(shown.begin, isTrue, reason: 'beginning, frame $frame');
+          expect(shown.count, isTrue, reason: 'count, frame $frame');
+          expect(shown.none, isFalse, reason: 'empty notice, frame $frame');
+          expect(
+            (shown.top - before.top).abs(),
+            lessThan(24),
+            reason: 'picture position, frame $frame',
+          );
           framesWithPage++;
           await tester.pump(const Duration(milliseconds: 16));
         }
@@ -274,4 +296,32 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
   });
+}
+
+/// What the leaving thread page shows right now: the title row with the
+/// source channel, the parent message, the reply count, the empty notice and
+/// where the picture sits.
+({
+  List<String> header,
+  bool parent,
+  bool begin,
+  bool count,
+  bool none,
+  double top,
+})
+_chrome(WidgetTester tester) {
+  bool seen(String text) =>
+      find.textContaining(text, findRichText: true).evaluate().isNotEmpty;
+  return (
+    header: [
+      for (final e in find.byType(RichText).evaluate())
+        if ((e.renderObject! as RenderBox).localToGlobal(Offset.zero).dy < 90)
+          (e.widget as RichText).text.toPlainText(),
+    ],
+    parent: seen('The parent message'),
+    begin: seen('Beginning of replies'),
+    count: seen('1 replies'),
+    none: seen('No replies yet'),
+    top: tester.getTopLeft(_attachment).dy,
+  );
 }

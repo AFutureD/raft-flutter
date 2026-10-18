@@ -2089,7 +2089,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final threadId = w.threadChannelId;
     return ListenableBuilder(
       listenable: w.services.threadFollowers,
-      builder: (context, _) => RaftThreadHeader(
+      builder: (context, _) => RetainWhileCovered(
+        builder: (context) => RaftThreadHeader(
         key: Key(
           mobile ? 'workspace-mobile-detail-header' : 'workspace-thread-header',
         ),
@@ -2138,6 +2139,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
               },
             ),
         ],
+      ),
       ),
     );
   }
