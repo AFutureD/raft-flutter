@@ -180,18 +180,23 @@ class SearchHighlight extends StatelessWidget {
   final TextStyle style;
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context), needle = query.trim().toLowerCase();
+    final t = RaftTokens.of(context);
+    final tokens = query
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty);
+    final pattern = tokens.isEmpty
+        ? null
+        : RegExp(tokens.map(RegExp.escape).join('|'), caseSensitive: false);
     final spans = <InlineSpan>[];
     var start = 0;
-    while (needle.isNotEmpty) {
-      final index = text.toLowerCase().indexOf(needle, start);
-      if (index < 0) break;
-      if (index > start) {
-        spans.add(TextSpan(text: text.substring(start, index)));
+    for (final match in pattern?.allMatches(text) ?? const <RegExpMatch>[]) {
+      if (match.start > start) {
+        spans.add(TextSpan(text: text.substring(start, match.start)));
       }
       spans.add(
         TextSpan(
-          text: text.substring(index, index + needle.length),
+          text: match.group(0),
           style: TextStyle(
             backgroundColor: RaftSearchRecipe(t, mobile: false).highlight,
             color: t.brutal ? t.strong : t.colors['primary-950'],
@@ -199,7 +204,7 @@ class SearchHighlight extends StatelessWidget {
           ),
         ),
       );
-      start = index + needle.length;
+      start = match.end;
     }
     spans.add(TextSpan(text: text.substring(start)));
     return Text.rich(
@@ -476,7 +481,11 @@ class ResourceSearchResults extends StatelessWidget {
     final grouped = <String, List<Map<String, dynamic>>>{};
     for (final row in rows) {
       final thread = row['threadId'], parent = row['parentMessageId'];
-      final key = thread is String && thread.isNotEmpty && parent is String
+      final key =
+          thread is String &&
+              thread.isNotEmpty &&
+              parent is String &&
+              parent.isNotEmpty
           ? 'thread:$thread'
           : 'message:${row['id']}';
       (grouped[key] ??= []).add(row);
@@ -506,13 +515,16 @@ class ResourceSearchResults extends StatelessWidget {
           if (searchBeyondHistory(row['createdAt'] as String?, plan, now))
             raftText(context, 'Upgrade to view'),
         ],
+        uppercaseWarnings: {raftText(context, 'Archived')},
         avatar: sender.isEmpty ? null : _senderAvatar(row, sender),
         sender: sender,
-        time: resourceRelativeTime(
-          row['createdAt'] as String?,
-          now: now,
-          chinese: Localizations.localeOf(context).languageCode == 'zh',
-        ),
+        time: DateTime.tryParse('${row['createdAt']}') == null
+            ? raftText(context, 'unknown time')
+            : resourceRelativeTime(
+                row['createdAt'] as String?,
+                now: now,
+                chinese: Localizations.localeOf(context).languageCode == 'zh',
+              ),
         snippet: SearchHighlight(
           text: '${row['snippet'] ?? row['content'] ?? ''}',
           query: query,
@@ -529,7 +541,8 @@ class ResourceSearchResults extends StatelessWidget {
       final first = hits.first;
       if (!(first['threadId'] is String &&
           (first['threadId'] as String).isNotEmpty &&
-          first['parentMessageId'] is String)) {
+          first['parentMessageId'] is String &&
+          (first['parentMessageId'] as String).isNotEmpty)) {
         return message(first);
       }
       return RaftQuickSwitcherThreadGroup(

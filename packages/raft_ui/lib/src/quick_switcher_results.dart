@@ -167,6 +167,7 @@ class RaftQuickSwitcherHit extends StatelessWidget {
     required this.onPressed,
     this.threadLabel,
     this.warnings = const [],
+    this.uppercaseWarnings,
     this.avatar,
     this.sender = '',
     this.time = '',
@@ -178,6 +179,9 @@ class RaftQuickSwitcherHit extends StatelessWidget {
 
   /// Warning badges (archived, beyond history), already localized.
   final List<String> warnings;
+  // Null retains the legacy all-uppercase treatment. Callers can select
+  // individual labels when the source gives badges different casing.
+  final Set<String>? uppercaseWarnings;
   final Widget? avatar;
   final Widget snippet;
   final bool selected, nested, first;
@@ -237,10 +241,12 @@ class RaftQuickSwitcherHit extends StatelessWidget {
                   ),
                 for (final warning in warnings)
                   RaftBadge(
-                    label: warning,
+                    label: uppercaseWarnings?.contains(warning) == true
+                        ? warning.toUpperCase()
+                        : warning,
                     appearance: RaftBadgeRecipeAppearance.soft,
                     variant: RaftBadgeRecipeVariant.warning,
-                    uppercase: true,
+                    uppercase: uppercaseWarnings?.contains(warning) ?? true,
                   ),
                 if (sender.isNotEmpty)
                   Row(

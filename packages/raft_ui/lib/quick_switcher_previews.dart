@@ -96,6 +96,8 @@ Widget quickSwitcherResultsPreview() => Builder(
             RaftQuickSwitcherHit(
               where: '#product',
               threadLabel: 'thread',
+              warnings: const ['Archived', 'Upgrade to view'],
+              uppercaseWarnings: const {'Archived'},
               sender: who,
               time: '1 hour ago',
               snippet: const Text('Parity captures for the overlay'),
