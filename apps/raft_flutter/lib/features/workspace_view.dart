@@ -72,8 +72,6 @@ import 'sidebar_projection.dart';
 import 'sidebar_reorder.dart';
 import 'sidebar_sort_menu.dart';
 import 'agent_avatar_projection.dart';
-import 'agent_metadata_projection.dart';
-import 'resource_cards.dart' show resourceRelativeTime;
 import 'saved_sidebar_entry.dart';
 import 'system_notification_center.dart';
 import 'workspace_browser.dart';
