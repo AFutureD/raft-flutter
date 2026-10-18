@@ -46,6 +46,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     this.onListening,
     this.onListeningEnded,
     this.onModelInterrupted,
+    this.onSpokenSentence,
     this.onModelSpoke,
     this.onModelTurnComplete,
     this.muted,
@@ -128,6 +129,10 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
 
   /// The server cut the model off because the person spoke over it.
   final void Function()? onModelInterrupted;
+
+  /// The layered voice is saying this sentence of the answer (the screen lifts
+  /// the row it is about).
+  final void Function(String sentence)? onSpokenSentence;
 
   /// The model began to answer (audio or words).
   final void Function()? onModelSpoke;
@@ -350,6 +355,18 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
     if (!_disposed) notifyListeners();
   }
 
+  /// What is done when the layered voice says a sentence: whoever was told
+  /// before (the evaluation), and the orb (it lifts the row of it).
+  void Function(String)? _spokenBy(void Function(String)? prior) {
+    final mine = onSpokenSentence;
+    if (mine == null) return prior;
+    if (prior == null) return mine;
+    return (sentence) {
+      prior(sentence);
+      mine(sentence);
+    };
+  }
+
   /// Whether a voice key exists; text falls back to local intents without.
   Future<bool> get hasKey async => (await _activeKey()) != null;
 
@@ -495,6 +512,7 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
           }
         })
         ..onSlow = slowCue
+        ..onSpoken = _spokenBy(session.onSpoken)
         ..fastPathOf = fastPath;
     }
     _building = session;

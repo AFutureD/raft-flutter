@@ -14,6 +14,7 @@ class OrbListError implements Exception {
 /// The list kind a tool's `kind` argument names; null for any other word.
 OrbListKind? orbListKindOf(Object? name) => switch ('$name'.trim()) {
   'unread' || '未读' => OrbListKind.unread,
+  'recent' || '最近' || '动态' => OrbListKind.recent,
   'mentions' || 'mention' || '点名' || '@我' => OrbListKind.mentions,
   'tasks' || 'task' || '任务' => OrbListKind.tasks,
   'channel' || '频道' => OrbListKind.channel,
@@ -41,8 +42,12 @@ Future<OrbList> orbReadDrivingList({
   read,
 }) async {
   switch (kind) {
+    case OrbListKind.results:
+    case OrbListKind.summary:
+      throw const OrbListError('这种列表要先读了才能列出来');
     case OrbListKind.unread:
     case OrbListKind.mentions:
+    case OrbListKind.recent:
       final OrbBriefing b;
       try {
         b = await activity();

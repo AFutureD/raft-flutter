@@ -240,7 +240,7 @@ const orbToolDocs = <String, OrbToolDoc>{
       OrbNot('要消息的原文', 'read_conversation'),
       OrbNot('逐个处理任务', 'next_task'),
     ],
-    limit: '只在驾驶模式下可用；新列表盖住现在的画面，“返回”回到原来的。',
+    limit: '只在驾驶模式下可用；新列表盖住现在的画面，“返回”回到原来的。读到的东西 App 已自动铺在屏幕上；用户点名要某一类时才调它。',
     params: 'kind 选来源；channel、person 要给 target（频道名、人名）。',
     returns: 'total 总数，rows 是屏幕上这一页，page/pages；列表上说“第 N 个”用 open_item 的 n。',
     say: '只说总数和最前面的一两条，其余让他看屏幕。',

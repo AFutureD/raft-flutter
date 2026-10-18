@@ -640,6 +640,7 @@ class OrbEvalRunner {
             'where': item.where,
             'title': item.title,
             'reason': item.reason.name,
+            'since': item.since,
           },
       ],
       surface: orb.surface.kind.name,
@@ -916,9 +917,12 @@ class _Recorder {
   /// A layered session reports each ask of the voice model to the agent.
   VoiceSession _track(VoiceSession made) {
     if (made is LayeredVoiceSession) {
+      final prior = made.onSpoken;
       made
         ..onAsk = _ask
         ..onSpoken = ((sentence) {
+          // (The orb lifts the row of the sentence on the screen: kept.)
+          prior?.call(sentence);
           _turn?.spoken.add(sentence);
           _answerSpoken = true;
           _graceTimer?.cancel();

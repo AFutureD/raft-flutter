@@ -160,7 +160,7 @@ Future<void> mountEvalPage(
 /// Lets the run go: frames and timers on the fake clock, files on the real.
 Future<void> finishEvalRun(WidgetTester t) async {
   final verdict = find.byKey(const ValueKey('orb-eval-verdict'));
-  for (var i = 0; i < 600 && verdict.evaluate().isEmpty; i++) {
+  for (var i = 0; i < 1000 && verdict.evaluate().isEmpty; i++) {
     await t.pump(const Duration(milliseconds: 100));
     await t.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 5)),

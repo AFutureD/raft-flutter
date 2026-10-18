@@ -601,6 +601,11 @@ class _OrbLayerState extends State<OrbLayer>
         onNext: c.detailNextTapped,
       );
     }
+    final list = surface.list;
+    // The sentences of a summary have no detail: nothing opens.
+    if (list != null && list.kind == OrbListKind.summary && !list.loading) {
+      return OrbDrivingSummary(surface: surface);
+    }
     return OrbDrivingList(surface: surface, onOpenRow: c.listRowTapped);
   }
 
@@ -620,6 +625,7 @@ class _OrbLayerState extends State<OrbLayer>
           OrbDrivingDone(
             routineCount: briefing.routineCount,
             waitingTasks: briefing.waitingTasks,
+            nothing: briefing.needsYou.isEmpty,
           ),
         ],
       );

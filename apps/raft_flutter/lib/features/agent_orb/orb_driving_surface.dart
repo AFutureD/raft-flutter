@@ -17,8 +17,20 @@ const orbListPageSize = 4;
 
 enum OrbSurfaceKind { deck, list, detail }
 
-/// What a list is made of.
-enum OrbListKind { unread, mentions, tasks, channel, person }
+/// What a list is made of. [recent]: the Activity's items when nothing needs
+/// the person (the briefing's progress); [results]: what a search or the list
+/// of places found; [summary]: the sentences of an answer about a discussion
+/// (the rows are the sentences, the same words that are spoken).
+enum OrbListKind {
+  unread,
+  mentions,
+  tasks,
+  channel,
+  person,
+  recent,
+  results,
+  summary,
+}
 
 /// One row of a list: what the card shows, what the app says of it, and how it
 /// opens.
@@ -101,17 +113,22 @@ class OrbList {
 
   int get total => rows.length;
 
-  /// "未读 7", "点名你 2", "任务 3", "#design 6", "Cody 6".
+  /// "未读 7", "点名你 2", "任务 3", "#design 6", "Cody 6", "最近动态 3",
+  /// "找到 5 个" (the count comes with [heading]).
   String get title => switch (kind) {
     OrbListKind.unread => '未读',
     OrbListKind.mentions => '点名你',
     OrbListKind.tasks => '任务',
     OrbListKind.channel => target.startsWith('#') ? target : '#$target',
     OrbListKind.person => target,
+    OrbListKind.recent => '最近动态',
+    OrbListKind.results => target.isEmpty ? '找到' : target,
+    OrbListKind.summary => target.isEmpty ? '摘要' : '摘要 · $target',
   };
 
-  /// The heading line: the title, then the count.
-  String get heading => loading ? title : '$title $total';
+  /// The heading line: the title, then the count (a summary has none).
+  String get heading =>
+      loading || kind == OrbListKind.summary ? title : '$title $total';
 
   /// "7 条未读": the count said.
   String get countSay => switch (kind) {
@@ -119,12 +136,18 @@ class OrbList {
     OrbListKind.mentions => '$total 条点名你的',
     OrbListKind.tasks => '$total 个任务',
     OrbListKind.channel || OrbListKind.person => '$title 最近 $total 条',
+    OrbListKind.recent => '最近动态 $total 条',
+    OrbListKind.results => '$title $total 个',
+    OrbListKind.summary => '',
   };
 
   String get _lead => switch (kind) {
     OrbListKind.unread || OrbListKind.mentions => '最急的是',
     OrbListKind.tasks => '排第一的是',
     OrbListKind.channel || OrbListKind.person => '最新的是',
+    OrbListKind.recent => '最新的是',
+    OrbListKind.results => '排第一的是',
+    OrbListKind.summary => '',
   };
 
   /// What is said when a list appears: the total and the top one or two; the
@@ -137,7 +160,14 @@ class OrbList {
         OrbListKind.mentions => '没有点名你的。',
         OrbListKind.tasks => '没有任务在你名下。',
         OrbListKind.channel || OrbListKind.person => '$title 里还没有消息。',
+        OrbListKind.recent => '最近没有新动态。',
+        OrbListKind.results => '没有找到。',
+        OrbListKind.summary => null,
       };
+    }
+    // A summary is said as it is written: it is the sentences on the card.
+    if (kind == OrbListKind.summary) {
+      return rows.map((r) => r.say).join('');
     }
     final top = rows.take(2).map((r) => _tidy(r.say)).toList();
     final first = top.first;
@@ -224,6 +254,23 @@ class OrbDrivingSurface {
   /// card of it is lifted and ringed.
   int? get speaking => _speaking;
 
+  /// The agent is on the row [index] (null: on none): the card is lifted. A
+  /// row on another page is not followed (the page does not turn by itself).
+  void spotlight(int? index) {
+    final list = _list;
+    if (list == null || list.loading) return;
+    if (index == null || index < 0 || index >= list.total) {
+      _speaking = null;
+      return;
+    }
+    if (_kind == OrbSurfaceKind.list &&
+        list.kind != OrbListKind.summary &&
+        index ~/ orbListPageSize != _page) {
+      return;
+    }
+    _speaking = index;
+  }
+
   /// The opened row (an index into [OrbList.rows]).
   int? get detailIndex => _detail;
 
@@ -295,6 +342,7 @@ class OrbDrivingSurface {
     final list = _list;
     if (list == null ||
         list.loading ||
+        list.kind == OrbListKind.summary ||
         index < 0 ||
         index >= list.total ||
         _kind == OrbSurfaceKind.deck) {

@@ -299,8 +299,13 @@ class OrbDrivingDone extends StatelessWidget {
     super.key,
     required this.routineCount,
     this.waitingTasks = 0,
+    this.nothing = false,
   });
   final int routineCount;
+
+  /// The deck had no item at all (nothing ever needed the person): the quiet
+  /// line then says what the Activity held, not what is "其余".
+  final bool nothing;
 
   /// Tasks that wait for the person: one quiet line, "不急".
   final int waitingTasks;
@@ -322,7 +327,7 @@ class OrbDrivingDone extends StatelessWidget {
             color: Colors.white,
           ),
         ),
-        if (routineCount > 0) ...[
+        if (routineCount > 0 || nothing) ...[
           const SizedBox(height: RaftSpace.x2),
           Row(
             key: const Key('orb-briefing-routine'),
@@ -336,7 +341,11 @@ class OrbDrivingDone extends StatelessWidget {
               const SizedBox(width: RaftSpace.x2),
               Expanded(
                 child: Text(
-                  '其余 $routineCount 条是常规进度',
+                  !nothing
+                      ? '其余 $routineCount 条是常规进度'
+                      : routineCount > 0
+                      ? '最近动态 $routineCount 条，都是常规进度'
+                      : '最近没有新动态',
                   style: RaftTypography.body(
                     t,
                     size: 16,

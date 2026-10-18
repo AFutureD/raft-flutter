@@ -77,6 +77,23 @@ class OrbListHeading extends StatelessWidget {
   }
 }
 
+/// A card the agent is on: lifted a little and ringed in white.
+Widget _raised(RaftTokens t, Widget card) => Transform.translate(
+  offset: const Offset(0, -3),
+  child: DecoratedBox(
+    key: const ValueKey('orb-list-speaking'),
+    decoration: BoxDecoration(
+      // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
+      border: Border.all(color: Colors.white, width: 2),
+      borderRadius: t.brutal
+          ? BorderRadius.zero
+          // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
+          : BorderRadius.circular(24),
+    ),
+    child: card,
+  ),
+);
+
 /// One row of a list as a compact card of the deck's style: the small meta
 /// line, a one-line headline, one quiet fact at the right.
 ///
@@ -120,23 +137,7 @@ class OrbListCard extends StatelessWidget {
       padding: const EdgeInsets.all(RaftSpace.x1),
       child: card,
     );
-    if (speaking) {
-      out = Transform.translate(
-        offset: const Offset(0, -3),
-        child: DecoratedBox(
-          key: const ValueKey('orb-list-speaking'),
-          decoration: BoxDecoration(
-            // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
-            border: Border.all(color: Colors.white, width: 2),
-            borderRadius: t.brutal
-                ? BorderRadius.zero
-                // ds-allow: orb, pill and layer geometry is set by the approved design frames (09, 05)
-                : BorderRadius.circular(24),
-          ),
-          child: out,
-        ),
-      );
-    }
+    if (speaking) out = _raised(t, out);
     out = Opacity(opacity: mark == null ? 1 : .5, child: out);
     if (row == null || onTap == null) return out;
     return Semantics(
@@ -297,6 +298,67 @@ class OrbDrivingList extends StatelessWidget {
     return routine;
   }
 }
+
+/// The answer about a discussion: its heading (no count) and the sentences,
+/// each a card of two or three lines of big type, the one the agent is saying
+/// raised and ringed like a spoken row. A sentence has no detail, so nothing
+/// here is tapped. When a sentence was cut, a quiet foot says the whole is for
+/// when the car stops.
+class OrbDrivingSummary extends StatelessWidget {
+  const OrbDrivingSummary({super.key, required this.surface});
+  final OrbDrivingSurface surface;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final list = surface.list!;
+    final speaking = surface.speaking;
+    return Column(
+      key: const ValueKey('orb-summary'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OrbListHeading(
+          key: const ValueKey('orb-summary-heading'),
+          title: list.heading,
+        ),
+        const SizedBox(height: RaftSpace.x3),
+        for (var i = 0; i < list.rows.length; i++) ...[
+          if (i > 0) const SizedBox(height: RaftSpace.x2),
+          _sentence(t, i, list.rows[i], speaking == i),
+        ],
+        if (list.rows.any((r) => r.clipped)) ...[
+          const SizedBox(height: RaftSpace.x3),
+          const OrbPlainLine('停车后看原文', key: ValueKey('orb-summary-foot')),
+        ],
+      ],
+    );
+  }
+
+  Widget _sentence(RaftTokens t, int i, OrbListRow row, bool speaking) {
+    final card = Padding(
+      padding: const EdgeInsets.all(RaftSpace.x1),
+      child: Container(
+        key: ValueKey('orb-summary-line-$i'),
+        padding: const EdgeInsets.symmetric(
+          horizontal: RaftSpace.x4,
+          vertical: RaftSpace.x3,
+        ),
+        decoration: orbSurface(t, radius: 20),
+        child: Text(
+          row.title,
+          maxLines: orbSummaryMaxLines,
+          overflow: TextOverflow.ellipsis,
+          style: RaftTypography.heading(t, size: 22, line: 29),
+        ),
+      ),
+    );
+    return speaking ? _raised(t, card) : card;
+  }
+}
+
+/// How many lines a sentence of a summary may take: 60 characters of 22 px
+/// type are five lines on a phone (14 to a line), none is cut by the widget.
+const orbSummaryMaxLines = 5;
 
 /// One row, large: the card of the deck (meta, headline, a sentence and how
 /// long), then the big buttons. "回复" speaks, so tapping it asks; "稍后" puts

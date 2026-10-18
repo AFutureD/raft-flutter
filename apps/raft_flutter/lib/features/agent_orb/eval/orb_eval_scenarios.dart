@@ -17,7 +17,13 @@ final _raft = evalId('raft-flutter');
 final _codyDm = evalId('dm:cody');
 
 /// Checks every scenario carries: no id said out loud, no write sent.
-List<OrbEvalCheck> _std() => [OrbEvalCheck.noIds(), OrbEvalCheck.noWrites()];
+/// What every scenario holds: no ids said, no write, and (driving) what is
+/// said is on the screen.
+List<OrbEvalCheck> _std() => [
+  OrbEvalCheck.noIds(),
+  OrbEvalCheck.noWrites(),
+  OrbEvalCheck.spokenIsShown(),
+];
 
 // ---- checks of the actions -----------------------------------------------
 
@@ -510,6 +516,25 @@ OrbEvalData _unreadSeven() {
     ago: 60,
   );
   _progressThread(d, ago: 70);
+  return d;
+}
+
+/// Nothing waits for Sam, but things have happened: a build that passed and
+/// a part of the release notes that was written (Kevin's driving test on the
+/// G100: the Activity had fresh items, the driving brief had none).
+OrbEvalData _progressOnly() {
+  final d = OrbEvalData.cast();
+  final build = d.say('swift-workflow', evalCodexMac, 'Mac 构建通过了。', ago: 20);
+  d.inboxChannel(
+    'swift-workflow',
+    name: 'swift-workflow',
+    preview: 'Mac 构建通过了。',
+    from: evalCodexMac,
+    message: build,
+    unread: 2,
+    ago: 20,
+  );
+  _progressThread(d, ago: 35);
   return d;
 }
 
@@ -1428,6 +1453,171 @@ final List<OrbEvalScenario> orbEvalScenarios = [
       ),
       OrbEvalCheck.screen('驾驶模式还开着', (s, _) => s.driving),
       OrbEvalCheck.shortReply(1),
+      ..._std(),
+    ],
+  ),
+  // ---- H. driving: what is said is on the screen ---------------------------
+  // One scenario for each kind of answer, and Kevin's own sequence. The screen
+  // is checked, and every person and number spoken must be on it. The model
+  // only reads: what is shown is the app's.
+  OrbEvalScenario(
+    id: 'H1',
+    title: '数量：还有多少没读的',
+    start: OrbEvalStart.home,
+    data: _unreadSeven,
+    setup: const ['开始驾驶模式'],
+    say: const ['还有多少没读的'],
+    checks: [
+      OrbEvalCheck.screen(
+        '屏幕是未读列表，共 7 条',
+        (s, _) => s.surface == 'list' && s.listTotal == 7,
+      ),
+      OrbEvalCheck.says([
+        ['7'],
+      ], label: '说了总数 7'),
+      OrbEvalCheck.shortReply(3),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'H2',
+    title: '列表：我的任务有哪些',
+    start: OrbEvalStart.home,
+    data: _staleTasks,
+    setup: const ['开始驾驶模式'],
+    say: const ['看看那几个放了好几天的任务'],
+    checks: [
+      OrbEvalCheck.screen(
+        '屏幕是任务列表，共 3 个',
+        (s, _) =>
+            s.surface == 'list' &&
+            s.listTitle.startsWith('任务') &&
+            s.listTotal == 3 &&
+            s.rows.every((r) => r['id']!.startsWith('task:')),
+      ),
+      OrbEvalCheck.shortReply(3),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'H3',
+    title: '详情和状态：任务 136 现在什么状态',
+    start: OrbEvalStart.home,
+    data: _task136,
+    setup: const ['开始驾驶模式'],
+    say: const ['任务 136 现在什么状态'],
+    checks: [
+      OrbEvalCheck.screen(
+        '屏幕是任务 #136 的详情',
+        (s, _) =>
+            s.surface == 'detail' &&
+            '${s.detail?['title']}'.contains('重构') &&
+            s.rows.any((r) => r['id'] == 'task:136'),
+      ),
+      OrbEvalCheck.shortReply(3),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'H4',
+    title: '讨论摘要：大家的意见是什么',
+    start: OrbEvalStart.home,
+    data: _opinions,
+    setup: const ['开始驾驶模式'],
+    say: const ['新手引导那个讨论，大家意见是什么'],
+    checks: [
+      OrbEvalCheck.screen('屏幕是摘要卡：每一行就是说出口的一句话', (s, run) {
+        final spoken = run.turns.last.text.replaceAll(RegExp(r'\s'), '');
+        return s.surface == 'list' &&
+            s.listTitle.startsWith('摘要') &&
+            s.rows.isNotEmpty &&
+            s.rows.every(
+              (r) => spoken.contains(
+                '${r['title']}'.replaceAll(RegExp(r'[…\s]'), ''),
+              ),
+            );
+      }),
+      OrbEvalCheck.says([
+        ['方案 A', '方案A'],
+        ['方案 B', '方案B'],
+      ], label: '说到方案 A 和方案 B'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'H5',
+    title: '没有要处理的，只有进度：开始驾驶模式',
+    start: OrbEvalStart.home,
+    data: _progressOnly,
+    say: const ['开始驾驶模式'],
+    checks: [
+      OrbEvalCheck.screen(
+        '屏幕上是最近动态的列表（2 条），不是空牌',
+        (s, _) =>
+            s.driving &&
+            s.surface == 'list' &&
+            s.listTitle.startsWith('最近动态') &&
+            s.listTotal == 2 &&
+            s.rows.map((r) => r['who']).toSet().containsAll([
+              'CodexMac',
+              'Cody',
+            ]),
+      ),
+      OrbEvalCheck.says([
+        ['没有要你处理'],
+      ], label: '说没有要处理的'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'H6',
+    title: '加载中：有什么新的',
+    start: OrbEvalStart.activity,
+    data: () => _activityFive()..holdInbox = true,
+    setup: const ['开始驾驶模式'],
+    say: const ['有什么新的'],
+    checks: [
+      OrbEvalCheck.saysMatching(RegExp(r'加载|稍后|稍等|等一下|等等|再看|还没'), '说还在加载'),
+      OrbEvalCheck.screen(
+        '屏幕是灰色的占位，没有当成“空的”',
+        (s, _) => s.driving && s.surface == 'list' && s.rows.isEmpty,
+      ),
+      OrbEvalCheck.avoids(RegExp(r'没有内容|是空的|什么都没有|没有新的'), '“没有内容”'),
+      ..._std(),
+    ],
+  ),
+  OrbEvalScenario(
+    id: 'H7',
+    title: 'Kevin 的原话：没有什么动态吗 / 为什么没有显示',
+    start: OrbEvalStart.home,
+    data: _progressOnly,
+    setup: const ['开始驾驶模式'],
+    say: const ['没有什么动态吗？', '为什么这个驾驶模式没有显示？'],
+    checks: [
+      OrbEvalCheck.custom('进入驾驶模式时，屏幕上就是最近的动态，不是空牌', (run) {
+        final s = run.turns.first.after;
+        return s != null &&
+                s.surface == 'list' &&
+                s.listTitle.startsWith('最近动态') &&
+                s.listTotal == 2
+            ? null
+            : '进入驾驶模式后屏幕是 ${s?.surface} ${s?.listTitle} ${s?.listTotal}';
+      }),
+      OrbEvalCheck.custom('“没有什么动态吗”：说到的动态都在屏幕上', (run) {
+        final s = run.scoredTurns.first.after;
+        return s != null &&
+                s.surface == 'list' &&
+                s.rows.map((r) => r['who']).toSet().containsAll([
+                  'CodexMac',
+                  'Cody',
+                ])
+            ? null
+            : '屏幕是 ${s?.surface} ${s?.listTitle}';
+      }),
+      OrbEvalCheck.screen(
+        '“为什么没有显示”之后卡片在屏幕上',
+        (s, _) => s.driving && s.surface == 'list' && s.rows.isNotEmpty,
+      ),
       ..._std(),
     ],
   ),

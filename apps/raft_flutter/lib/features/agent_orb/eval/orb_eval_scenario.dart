@@ -235,6 +235,48 @@ class OrbEvalCheck {
         return problems.isEmpty ? null : problems.join('；');
       });
 
+  /// "说到的东西，屏幕上都有对应" (driving): every person and every number that
+  /// is spoken in a driving turn is on the screen at the end of that turn, in
+  /// the cards, the rows, the open detail or the heading ([OrbEvalSnapshot]),
+  /// unless the person said it themselves. What a voice speaks and what a
+  /// person glances at must be the same things.
+  factory OrbEvalCheck.spokenIsShown() => OrbEvalCheck('说到的人和数字，屏幕上都有（驾驶中）', (
+    run,
+  ) {
+    final problems = <String>[];
+    for (final t in run.scoredTurns) {
+      final snap = t.after;
+      if (snap == null || !snap.driving) continue;
+      final spoken = '${t.text} ${t.spoken.join(' ')}'.trim();
+      if (spoken.isEmpty) continue;
+      final screen = _screenWords(snap);
+      final said = keyCompact(t.line);
+      final missing = <String>[];
+      for (final p in orbEvalPeople) {
+        if (spoken.toLowerCase().contains(p.toLowerCase()) &&
+            !keyCompact(screen).contains(keyCompact(p)) &&
+            !said.contains(keyCompact(p))) {
+          missing.add(p);
+        }
+      }
+      final onScreen = RegExp(r'\d+').allMatches(screen).map((m) => m[0]!);
+      final shownNumbers = onScreen.toSet();
+      for (final m in RegExp(r'\d+').allMatches(spoken)) {
+        final n = m[0]!;
+        if (!shownNumbers.contains(n) && !t.line.contains(n)) {
+          missing.add(n);
+        }
+      }
+      if (missing.isNotEmpty) {
+        problems.add(
+          '「${t.line}」说到了屏幕上没有的：${missing.toSet().join('、')}'
+          '（屏幕：${snap.surface} ${snap.listTitle}${snap.listTotal > 0 ? ' ${snap.listTotal}' : ''}）',
+        );
+      }
+    }
+    return problems.isEmpty ? null : problems.join('；');
+  });
+
   /// A turn whose ask to the agent took long was not met with silence: the
   /// voice (a lead-in of its own, or the app's acknowledgment) was heard
   /// before the answer was back, and within [within] of the person's words.
@@ -457,6 +499,24 @@ class OrbEvalScenario {
   final Duration observe;
 
   String get group => id.substring(0, 1);
+}
+
+/// Everything of the screen a person can read in [s]: the heading and count of
+/// the list, its rows, the open detail, the cards of the deck and how many
+/// there are, the page of the new arrival.
+String _screenWords(OrbEvalSnapshot s) {
+  final b = StringBuffer()
+    ..write('${s.listTitle} ${s.listTotal} ${s.page + 1} ')
+    ..write('${s.cards.length} ${s.cards.isEmpty ? '' : s.drivingIndex + 1} ');
+  for (final c in s.cards) {
+    b.write('${c.values.join(' ')} ');
+  }
+  for (final r in s.rows) {
+    b.write('${r.values.join(' ')} ');
+  }
+  if (s.detail != null) b.write('${s.detail!.values.join(' ')} ');
+  if (s.arrival != null) b.write(s.arrival);
+  return '$b';
 }
 
 /// What the voice says to fill a wait.

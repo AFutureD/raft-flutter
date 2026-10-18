@@ -381,7 +381,7 @@ void main() {
       f.controller.showBriefing(briefing(needs: const []));
       await settle(t);
       expect(find.text('就这些'), findsOneWidget);
-      expect(find.text('其余 5 条是常规进度'), findsOneWidget);
+      expect(find.text('最近动态 5 条，都是常规进度'), findsOneWidget);
     });
   });
 
@@ -395,7 +395,7 @@ void main() {
       await settle(t);
       expect(done, findsOneWidget);
       expect(find.text('另外有 2 个任务在等你验收，不急'), findsOneWidget);
-      expect(find.text('其余 5 条是常规进度'), findsOneWidget);
+      expect(find.text('最近动态 5 条，都是常规进度'), findsOneWidget);
     });
 
     testWidgets('no waiting tasks: no tail', (t) async {

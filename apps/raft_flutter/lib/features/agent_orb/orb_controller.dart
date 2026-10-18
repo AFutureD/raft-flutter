@@ -36,8 +36,9 @@ import 'orb_arrival_brief.dart';
 import 'orb_driving_queue.dart';
 import 'orb_driving.dart' show orbSayHint;
 import 'orb_driving_lists.dart';
-import 'orb_driving_rows.dart' show orbArrivalLine;
+import 'orb_driving_rows.dart';
 import 'orb_driving_surface.dart';
+import 'orb_presenter.dart';
 import 'orb_operating.dart';
 import 'screen/orb_screen_tools.dart';
 import 'orb_prompt.dart';
@@ -188,6 +189,7 @@ class OrbController extends ChangeNotifier {
               // The review's own steps that are not in orbReviewReply: the
               // app's reply for a blocked write, the next task card.
               streamSafe: (runs, draft) =>
+                  !_presentsReads(runs) &&
                   !(_blockedWrite && _sureWords() != null) &&
                   !(_driving && _goThrough.hasMatch(_turnSaid)) &&
                   orbStreamSafe(
@@ -205,6 +207,7 @@ class OrbController extends ChangeNotifier {
       onModelSpoke: _modelSpoke,
       onModelTurnComplete: _modelTurnComplete,
       onModelInterrupted: _modelInterrupted,
+      onSpokenSentence: spokenSentence,
       liveIdleLimit: liveIdleLimit,
       audio: audio,
       key: voiceKey,
@@ -472,6 +475,8 @@ class OrbController extends ChangeNotifier {
     _agentOpen = false;
     _add(OrbEntryKind.user, said);
     _askNudged = false;
+    // (The agent layer takes the words in its own intercept.)
+    if (!agentLayer) _startTurn(said);
     // The person's own words can agree to the card on the screen.
     actions.userSaid(said);
     _whereTold = _whereBase();
@@ -503,6 +508,13 @@ class OrbController extends ChangeNotifier {
   void _userSaid(String text, {required bool fresh}) {
     _agentOpen = false;
     if (fresh) _askNudged = false;
+    if (!agentLayer) {
+      if (fresh) {
+        _startTurn(text);
+      } else {
+        _turnSaid += text;
+      }
+    }
     actions.userSaid(text, fresh: fresh);
     final last = _entries.isEmpty ? null : _entries.last;
     if (!fresh && last != null && last.kind == OrbEntryKind.user) {
@@ -544,6 +556,13 @@ class OrbController extends ChangeNotifier {
 
   void _modelTurnComplete() {
     _agentOpen = false;
+    // (The agent layer shows the summary in its review, before it is spoken.)
+    final where = _summaryWhere;
+    if (where != null && !agentLayer && _driving && presenterEnabled) {
+      _summaryWhere = null;
+      final said = voice.saying.value;
+      if (said.trim().isNotEmpty) _showSummary(said, where);
+    }
     _saying = '';
     _nudgeIfAskedWithoutCard();
     if (_modelSpeaking) {
@@ -667,6 +686,12 @@ class OrbController extends ChangeNotifier {
 
     final before = workspace.location.toString();
     operating.addListener(watch);
+    // While driving the briefing is always laid out: whether the person sees
+    // what is read is not for the model to choose.
+    if (_driving && presenterEnabled && name == 'get_briefing') {
+      args = {...args, 'show': true};
+    }
+    final drivingBefore = _driving;
     Map<String, Object?> result;
     final toolContext = OrbToolContext(
       workspace: workspace,
@@ -680,6 +705,15 @@ class OrbController extends ChangeNotifier {
       result = {'error': '工具出错：$name'};
     } finally {
       operating.removeListener(watch);
+    }
+    if (_driving && presenterEnabled) {
+      result = await _present(
+        name,
+        args,
+        result,
+        toolContext,
+        wasDriving: drivingBefore,
+      );
     }
     if (agentLayer) result = _afterTool(name, args, result);
     if (result['status'] == 'needs_confirmation') _cardAsked = true;
@@ -1742,7 +1776,7 @@ class OrbController extends ChangeNotifier {
   /// agreed to runs `confirm` in code and a plain no that cancelled it is
   /// answered, both said by the app. Anything else is left to the model (null).
   Future<String?> _intercept(String said, AgentToolHandler run) async {
-    _turnSaid = said;
+    _startTurn(said);
     _cardAsked = false;
     fastPath = null;
     _deferNote = null;
@@ -1840,6 +1874,14 @@ class OrbController extends ChangeNotifier {
         if (result['error'] != null) break;
         final deck = await run('get_briefing', const {'show': true});
         line = orbDriveSay(deck) ?? '好，驾驶模式。';
+        // Nothing needs the person: what the screen shows instead is said.
+        final onScreen = deck['screenSay'];
+        if (onScreen is String &&
+            (deck['needsYou'] as List? ?? const []).isEmpty) {
+          line = onScreen.startsWith('没有要你处理')
+              ? '好，驾驶模式。$onScreen'
+              : '好，驾驶模式。没有要你处理的。$onScreen';
+        }
       case 'unread':
         // On the Activity: get_briefing's result. Elsewhere `navigate` only
         // moved; the briefing is read and laid out as the model would.
@@ -2131,6 +2173,255 @@ class OrbController extends ChangeNotifier {
     return null;
   }
 
+  // ---- driving: what the screen shows of what was read --------------------
+
+  /// Whether the app puts what was read on the screen while driving (on; a
+  /// test turns it off to see the old behaviour, where the model had to ask
+  /// for a second tool to show anything).
+  @visibleForTesting
+  static bool presenterEnabled = true;
+
+  /// A turn of the person begins: their words, and nothing shown of it yet.
+  void _startTurn(String said) {
+    _turnSaid = said;
+    _presented = null;
+    _summaryWhere = null;
+  }
+
+  /// What this turn put on the screen from a read (the review replaces the
+  /// model's reading of a set with its line).
+  OrbPresentation? _presented;
+
+  /// The discussion the turn read, when the person asked what it came to: the
+  /// answer is shown as a summary card, in the words that are spoken.
+  String? _summaryWhere;
+
+  /// Whether the turn read something the app shows (no raw words of the model
+  /// are said before the review has put the screen and the words together).
+  bool _presentsReads(List<AgentToolRun> runs) =>
+      _driving &&
+      presenterEnabled &&
+      runs.any(
+        (r) =>
+            orbPresentedTools.containsKey(r.name) ||
+            orbPresentedElsewhere.containsKey(r.name),
+      );
+
+  /// Puts [p] on the screen: the list, or its one row open.
+  Map<String, Object?> _show(OrbPresentation p, Map<String, Object?> result) {
+    surface.showList(p.list);
+    if (p.openFirst) surface.openRow(0);
+    _presented = p;
+    notifyListeners();
+    _whereChanged();
+    return {
+      ...result,
+      'shown': true,
+      'screenSay': p.say,
+      'screenNote': p.openFirst
+          ? '这一条已经在屏幕上了，照 screenSay 说。'
+          : '这一批已经在屏幕上了：只说总数和最前面的一两条（screenSay），不要逐条念。',
+    };
+  }
+
+  /// The surface of what a read tool returned (driving only).
+  Future<Map<String, Object?>> _present(
+    String name,
+    Map<String, Object?> args,
+    Map<String, Object?> result,
+    OrbToolContext ctx, {
+    required bool wasDriving,
+  }) async {
+    if (result['error'] != null || _disposed) return result;
+    // Not read yet is not empty: grey cards, and the words say it is loading.
+    if (result['loading'] == true &&
+        (name == 'get_briefing' || name == 'describe_page')) {
+      surface.showList(OrbList.loading(OrbListKind.recent));
+      notifyListeners();
+      _whereChanged();
+      return {...result, 'shown': true, 'screenSay': '动态还在加载，稍后再看。'};
+    }
+    switch (name) {
+      case 'set_driving_mode':
+        // "开驾驶模式" again, because nothing is on the screen: the briefing is
+        // laid out again.
+        if (args['on'] == true &&
+            wasDriving &&
+            _driving &&
+            surface.isDeck &&
+            drivingItems.isEmpty) {
+          final shown = await tools['get_briefing']?.handler(const {
+            'show': true,
+          }, ctx);
+          if (shown != null && shown['error'] == null) {
+            final laid = _presentBriefing(shown, args: const {});
+            return {
+              ...result,
+              for (final k in const ['shown', 'screenSay', 'screenNote'])
+                if (laid.containsKey(k)) k: laid[k],
+            };
+          }
+        }
+        return result;
+      case 'get_briefing':
+        return _presentBriefing(result, args: args);
+      case 'navigate':
+        // To the Activity: the briefing it brought is laid out (the deck, or
+        // what is recent), as `get_briefing` would.
+        if (result['briefing'] is Map &&
+            result['candidates'] == null &&
+            (args['page'] == 'activity' ||
+                (result['matched'] is Map &&
+                    (result['matched'] as Map)['id'] == 'activity'))) {
+          final shown = await tools['get_briefing']?.handler(const {
+            'show': true,
+          }, ctx);
+          if (shown == null || shown['error'] != null) return result;
+          final laid = _presentBriefing(shown, args: const {});
+          return {
+            ...result,
+            for (final k in const ['shown', 'screenSay', 'screenNote'])
+              if (laid.containsKey(k)) k: laid[k],
+          };
+        }
+        final number = args['task_number'];
+        if (number is! num || result['candidates'] != null) return result;
+        final detail = await tools['task_detail']?.handler({
+          'number': number.toInt(),
+          if (args['channel_id'] is String &&
+              '${args['channel_id']}'.isNotEmpty)
+            'channel': args['channel_id'],
+        }, ctx);
+        if (detail == null) return result;
+        final p = orbPresent('task_detail', const {}, detail);
+        return p == null ? result : _show(p, result);
+      default:
+        final p = orbPresent(name, args, result, said: _turnSaid);
+        if (p != null) return _show(p, result);
+        if (name == 'read_conversation' && orbAsksSummary.hasMatch(_turnSaid)) {
+          final conv = result['conversation'];
+          final messages = result['messages'] as List? ?? const [];
+          if (conv is Map && messages.length >= 2) {
+            final name = '${conv['name'] ?? ''}'.replaceFirst(
+              RegExp(r'^[@#]'),
+              '',
+            );
+            // A discussion is named by its id: no name to show.
+            _summaryWhere = RegExp(r'^[0-9a-f]{6,}').hasMatch(name) ? '' : name;
+          }
+        }
+        return result;
+    }
+  }
+
+  /// The briefing is laid out (`get_briefing` always shows while driving):
+  /// the cards when something needs the person; otherwise the recent items
+  /// as a list, or "就这些" with how many there were.
+  Map<String, Object?> _presentBriefing(
+    Map<String, Object?> result, {
+    required Map<String, Object?> args,
+  }) {
+    final shown = shownBriefing;
+    if (shown == null || result['loading'] == true) return result;
+    // The person asked for the set (all the unread, how many, which ones):
+    // the list of it, not the deck of what needs them.
+    final wantsSet = args['full'] == true || _wantsSet.hasMatch(_turnSaid);
+    if (shown.needsYou.isNotEmpty && !wantsSet) {
+      return {...result, 'shown': true};
+    }
+    final list = orbListOfBriefing(
+      shown,
+      shown.needsYou.isEmpty ? OrbListKind.recent : OrbListKind.unread,
+    );
+    if (list != null && list.rows.isNotEmpty) {
+      return _show(OrbPresentation(list), {
+        ...result,
+        'screenNote': '没有要他处理的：屏幕上是最近的动态，照 screenSay 说，不要逐条念。',
+      });
+    }
+    final routine = shown.routineCount;
+    return {
+      ...result,
+      'shown': true,
+      'screenSay': routine > 0
+          ? '没有要你处理的。最近动态 $routine 条，都是常规进度。'
+          : '没有要你处理的，也没有新动态。',
+    };
+  }
+
+  static final _wantsSet = RegExp(r'多少|几条|几个|哪些|列|全部|都有|没读|未读|摘要');
+
+  /// Puts the screen and the words of a presented turn together. A discussion
+  /// that was asked about is shown as a summary card, the sentences of the
+  /// answer (cut short, then the cut words are the spoken ones); a set that
+  /// the model reads out is replaced by the line of the screen; an answer
+  /// about one thing stays, its row lifted as it is spoken.
+  AgentReview? _reviewPresented(String reply) {
+    final where = _summaryWhere;
+    final presented = _presented;
+    _summaryWhere = null;
+    if (!_driving || !presenterEnabled) return null;
+    if (where != null && reply.trim().isNotEmpty) {
+      final list = _showSummary(reply, where);
+      return list == null ? null : AgentReview(text: list.say);
+    }
+    if (presented == null ||
+        presented.openFirst ||
+        presented.list.total < 2 ||
+        AgentVoiceSettings.instance.language != AgentLanguage.zh) {
+      return null;
+    }
+    return orbRowsNamed(reply, presented.list.rows) >= 2
+        ? AgentReview(text: presented.say)
+        : null;
+  }
+
+  /// Shows [reply] as the summary card of the discussion at [where]. The
+  /// list when the card holds fewer words than the reply (what is said is then
+  /// the card's words); null when the card holds all of it.
+  OrbList? _showSummary(String reply, String where) {
+    final sentences = orbSummarySentences(reply);
+    final list = orbListOfSummary(sentences, where: where);
+    if (list.rows.isEmpty) return null;
+    surface.showList(list);
+    surface.spotlight(0);
+    notifyListeners();
+    _whereChanged();
+    final cut =
+        sentences.length > orbSummaryLines || list.rows.any((r) => r.clipped);
+    return cut ? list : null;
+  }
+
+  /// A sentence is being said: its row is lifted on the screen.
+  void spokenSentence(String sentence) {
+    final list = surface.list;
+    if (!_driving || list == null || list.loading) return;
+    String c(String t) =>
+        t.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
+    final said = c(sentence);
+    if (said.isEmpty) return;
+    int? at;
+    for (var i = 0; i < list.rows.length; i++) {
+      final r = list.rows[i];
+      if (list.kind == OrbListKind.summary) {
+        if (c(r.say) == said) at = i;
+      } else {
+        final who = c(r.who);
+        final head = c(r.title);
+        final key = head.length > 6 ? head.substring(0, 6) : head;
+        if ((who.isNotEmpty && said.contains(who)) ||
+            (key.length >= 4 && said.contains(key))) {
+          at = i;
+          break;
+        }
+      }
+      if (at != null) break;
+    }
+    if (at == null) return;
+    surface.spotlight(at);
+    notifyListeners();
+  }
+
   /// "打开动态，什么需要我处理": the model went to the Activity (`navigate`
   /// only moves) and answered; the cards are what the person was asked to be
   /// shown. The app lays the briefing out itself, through the tool, so that
@@ -2170,6 +2461,8 @@ class OrbController extends ChangeNotifier {
     final proposed =
         await _replyInstead(runs, run) ?? await _nextTaskCard(runs, run);
     if (proposed != null) return proposed;
+    final presented = _reviewPresented(reply);
+    if (presented != null) return presented;
     // The rules below rewrite the reply with words of the app's own, which
     // are Chinese (as are the patterns that find what the reply says): in
     // another language they would put Chinese into the answer.

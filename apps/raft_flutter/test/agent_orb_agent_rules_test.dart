@@ -9,6 +9,7 @@ import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/actions/orb_reply.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/orb_controller.dart';
+import 'package:raft_flutter/features/agent_orb/orb_driving_surface.dart';
 import 'package:raft_flutter/features/agent_orb/orb_tool.dart';
 
 import 'support/agent_capability_world.dart' show hoursAgo, taskRow;
@@ -81,6 +82,7 @@ void main() {
   late FakeGemini gemini;
 
   final navigated = <Map<String, Object?>>[];
+  final briefedArgs = <Map<String, Object?>>[];
 
   /// What the stand-in `navigate` answers (a test sets it).
   Map<String, Object?>? navigateResult;
@@ -735,7 +737,11 @@ void main() {
       ]);
       await say(t, '看看那些任务');
       expect(orb().actions.pending, isNull);
-      expect(agentLines().single, '己，Cody 负责。丁，Cody 负责。戊，八戒 负责。');
+      // The tasks are on the screen, and the model's reading of all three is
+      // replaced by the line of the screen (the total and the top two).
+      expect(orb().surface.list?.kind, OrbListKind.tasks);
+      expect(orb().surface.list?.total, 3);
+      expect(agentLines().single, orb().surface.list!.say);
       await orb().setDriving(false);
     });
 
@@ -884,6 +890,7 @@ void main() {
     /// `get_briefing` as the real one does with show: the deck is laid out.
     OrbTool getBriefing({
       List<OrbBriefItem>? items,
+      List<OrbBriefItem> progress = const [],
       Map<String, Object?>? raw,
     }) => OrbTool(
       declaration: const {'name': 'get_briefing'},
@@ -893,7 +900,7 @@ void main() {
           scope: OrbBriefScope.activity,
           overview: '',
           needsYou: items ?? deck,
-          progress: const [],
+          progress: progress,
           routineCount: 3,
         );
         if (args['show'] == true) orb().showBriefing(b);
@@ -911,6 +918,190 @@ void main() {
       expect(agentLines().single, '好，驾驶模式。第 1 件，共 3 件：Cody 问你：上线吗，已经等了 5 分钟。');
       expect(orb().fastPath, 'drive');
     }, tools: [getBriefing()]);
+
+    OrbBriefItem recent(String who, String title) => OrbBriefItem(
+      id: 'ch:$who',
+      title: title,
+      who: who,
+      where: '#swift-workflow',
+      since: '20 分钟前',
+      link: '/s/s1/channel/swift',
+      sourceIds: const [],
+      reason: OrbReason.progress,
+      why: '进展',
+      unread: 2,
+    );
+
+    final recentTwo = [
+      recent('CodexMac', 'Mac 构建通过了'),
+      recent('Cindy', '复核做完了'),
+    ];
+
+    orbTest('driving, nothing needs the person but there are recent items: '
+        'they are on the screen and said (Kevin: an empty card said nothing)', (
+      t,
+    ) async {
+      await say(t, '开始驾驶模式');
+      expect(gemini.requests, isEmpty);
+      expect(orb().surface.list?.kind, OrbListKind.recent);
+      expect(orb().surface.list?.total, 2);
+      expect(agentLines().single, startsWith('好，驾驶模式。没有要你处理的。最近动态 2 条。'));
+    }, tools: [getBriefing(items: const [], progress: recentTwo)]);
+
+    orbTest(
+      'driving: the briefing is always laid out, whatever the model asks '
+      'for; "没有什么动态吗" shows the set and the model\'s reading of it is '
+      'the line of the screen',
+      (t) async {
+        await orb().setDriving(true);
+        await t.pump(const Duration(milliseconds: 300));
+        briefedArgs.clear();
+        gemini.replies.addAll([
+          _call('get_briefing', {'full': true}),
+          _say('CodexMac 的构建通过了，Cindy 的复核做完了，都是 2 条未读。'),
+        ]);
+        await say(t, '没有什么动态吗？');
+        expect(
+          briefedArgs.single['show'],
+          isTrue,
+          reason: 'the model did not ask',
+        );
+        expect(orb().surface.list?.kind, OrbListKind.recent);
+        expect(orb().surface.list?.total, 2);
+        expect(agentLines().last, orb().surface.list!.say);
+        expect(agentLines().last, startsWith('最近动态 2 条'));
+        // The model streamed nothing before the screen and the words agreed.
+        expect(
+          lastSteering!.streamSafe!([
+            const AgentToolRun('get_briefing', {}, {'needsYou': []}),
+          ], '好'),
+          isFalse,
+        );
+      },
+      tools: [
+        OrbTool(
+          declaration: const {'name': 'get_briefing'},
+          handler: (args, ctx) async {
+            briefedArgs.add(args);
+            final b = OrbBriefing(
+              scope: OrbBriefScope.activity,
+              overview: '',
+              needsYou: const [],
+              progress: recentTwo,
+              routineCount: 0,
+            );
+            if (args['show'] == true) orb().showBriefing(b);
+            return b.toJson();
+          },
+        ),
+      ],
+    );
+
+    orbTest(
+      'driving: a reply about one of the rows stays, the row lifted as '
+      'it is spoken',
+      (t) async {
+        await orb().setDriving(true);
+        await t.pump(const Duration(milliseconds: 300));
+        gemini.replies.addAll([
+          _call('get_briefing', {'full': true}),
+          _say('CodexMac 的构建通过了。'),
+        ]);
+        await say(t, '构建怎么样了');
+        expect(orb().surface.list?.total, 2);
+        // (The app's own "nothing for you" goes first, as it always does.)
+        expect(agentLines().last, endsWith('CodexMac 的构建通过了。'));
+        orb().spokenSentence('CodexMac 的构建通过了。');
+        expect(orb().surface.speaking, 0);
+        orb().spokenSentence('Cindy 的复核做完了。');
+        expect(orb().surface.speaking, 1);
+      },
+      tools: [
+        OrbTool(
+          declaration: const {'name': 'get_briefing'},
+          handler: (args, ctx) async {
+            final b = OrbBriefing(
+              scope: OrbBriefScope.activity,
+              overview: '',
+              needsYou: const [],
+              progress: recentTwo,
+              routineCount: 0,
+            );
+            if (args['show'] == true) orb().showBriefing(b);
+            return b.toJson();
+          },
+        ),
+      ],
+    );
+
+    orbTest(
+      'driving: what a discussion came to is a summary card, the words '
+      'of the card are the words that are said (three sentences at most)',
+      (t) async {
+        await orb().setDriving(true);
+        await t.pump(const Duration(milliseconds: 300));
+        gemini.replies.addAll([
+          _call('read_conversation', {'conversation': 'raft-flutter'}),
+          _say('Cody 选方案 A。Grok 选方案 B。Alice 在问你。还有一句多的。'),
+        ]);
+        await say(t, '大家意见是什么');
+        final list = orb().surface.list!;
+        expect(list.kind, OrbListKind.summary);
+        expect(list.rows.map((r) => r.say), [
+          'Cody 选方案 A。',
+          'Grok 选方案 B。',
+          'Alice 在问你。',
+        ]);
+        expect(agentLines().last, 'Cody 选方案 A。Grok 选方案 B。Alice 在问你。');
+        orb().spokenSentence('Grok 选方案 B。');
+        expect(orb().surface.speaking, 1);
+      },
+      tools: [
+        OrbTool(
+          declaration: const {'name': 'read_conversation'},
+          handler: (args, ctx) async => {
+            'conversation': {
+              'id': 'c1',
+              'name': '#raft-flutter',
+              'type': 'channel',
+            },
+            'messages': [
+              {'id': 'm1', 'from': 'Cody', 'text': '我支持方案 A', 'time': '今天'},
+              {'id': 'm2', 'from': 'Grok', 'text': '我支持方案 B', 'time': '今天'},
+              {'id': 'm3', 'from': 'Alice', 'text': '@Sam 你怎么看', 'time': '今天'},
+            ],
+          },
+        ),
+      ],
+    );
+
+    orbTest(
+      'not driving: nothing is shown of a read (the page is the surface)',
+      (t) async {
+        gemini.replies.addAll([
+          _call('read_conversation', {'conversation': 'raft-flutter'}),
+          _say('Cody 选方案 A。'),
+        ]);
+        await say(t, '大家意见是什么');
+        expect(orb().surface.list, isNull);
+      },
+      tools: [
+        OrbTool(
+          declaration: const {'name': 'read_conversation'},
+          handler: (args, ctx) async => {
+            'conversation': {
+              'id': 'c1',
+              'name': '#raft-flutter',
+              'type': 'channel',
+            },
+            'messages': [
+              {'id': 'm1', 'from': 'Cody', 'text': '我支持方案 A', 'time': '今天'},
+              {'id': 'm2', 'from': 'Grok', 'text': '我支持方案 B', 'time': '今天'},
+            ],
+          },
+        ),
+      ],
+    );
 
     Map<String, Object?> activityArrived() => {
       'route': '/s/s1/activity',
@@ -1104,7 +1295,7 @@ void main() {
 
     orbTest('nothing for the user: said so, and the routine count', (t) async {
       await say(t, '开始驾驶模式');
-      expect(agentLines().single, '好，驾驶模式。没有要你处理的。其余 3 条是常规进度。');
+      expect(agentLines().single, '好，驾驶模式。没有要你处理的。最近动态 3 条，都是常规进度。');
     }, tools: [getBriefing(items: const [])]);
 
     orbTest(

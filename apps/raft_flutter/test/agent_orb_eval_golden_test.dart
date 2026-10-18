@@ -21,6 +21,13 @@ Future<void> drive(ScriptedSession s) => s.turn([
   ('get_briefing', {'show': true}),
 ], '好，驾驶模式。第一件，Cody 在问第 10 步能不能合入。');
 
+/// Driving mode starts and nothing needs the person: the model only reads
+/// (the app lays out what there is, and says it).
+Future<void> driveQuiet(ScriptedSession s) => s.turn([
+  ('set_driving_mode', {'on': true}),
+  ('get_briefing', {'show': true}),
+], '好，驾驶模式。没有要你处理的。');
+
 /// The id of the message [from] wrote in the open conversation (a tool takes
 /// it; the model never says it).
 Future<String> messageFrom(ScriptedSession s, String from, String has) async {
@@ -219,14 +226,14 @@ final Map<String, Map<String, Say>> golden = {
     ], '好，退出驾驶模式。'),
   },
   'E2': {
-    '开始驾驶模式': drive,
+    '开始驾驶模式': driveQuiet,
     '好，看看那几个放了好几天的任务': (s) async {
       await s.onToolCall('list_tasks', {'stale': true});
       s.say('第一个，整理发布说明，八戒在做，卡在等设计稿。');
     },
   },
   'E3': {
-    '开始驾驶模式': drive,
+    '开始驾驶模式': driveQuiet,
     '看看这些任务现在什么状态': (s) async {
       await s.onToolCall('list_tasks', const {});
       s.say('一共 3 个：两个在做，一个等你验收。');
@@ -286,6 +293,58 @@ final Map<String, Map<String, Say>> golden = {
       await s.onToolCall('driving_back', const {});
       s.say('好。');
     },
+  },
+  // H: what is said is on the screen. The model only reads; the screen is the
+  // app's.
+  'H1': {
+    '开始驾驶模式': drive,
+    '还有多少没读的': (s) =>
+        s.turn(const [('get_briefing', {})], '一共 7 条没读的，最急的是 Cody。'),
+  },
+  'H2': {
+    '开始驾驶模式': driveQuiet,
+    '看看那几个放了好几天的任务': (s) => s.turn(const [
+      ('list_tasks', {'stale': true}),
+    ], '3 个任务放了好几天，最久的是迁移旧的缓存，Cody 负责。'),
+  },
+  'H3': {
+    '开始驾驶模式': driveQuiet,
+    '任务 136 现在什么状态': (s) => s.turn(const [
+      ('task_detail', {'number': 136}),
+    ], '任务 136 在等你验收，Cody 负责。'),
+  },
+  'H4': {
+    '开始驾驶模式': drive,
+    '新手引导那个讨论，大家意见是什么': (s) async {
+      await s.onToolCall('read_conversation', {
+        'conversation': evalId('thread:opinions'),
+      });
+      s.say('Cody 选方案 A，说上线最快。Grok 选方案 B，说留存更好。Alice 在问你怎么看。');
+    },
+  },
+  'H5': {
+    '开始驾驶模式': (s) => s.turn([
+      ('set_driving_mode', {'on': true}),
+      ('get_briefing', {'show': true}),
+    ], '好，驾驶模式。没有要你处理的。最近动态 2 条，最新的是 CodexMac。'),
+  },
+  'H6': {
+    '开始驾驶模式': (s) => s.turn(const [
+      ('set_driving_mode', {'on': true}),
+    ], '好，驾驶模式。'),
+    '有什么新的': (s) => s.turn(const [('describe_page', {})], '动态还在加载，稍等再看。'),
+  },
+  'H7': {
+    '开始驾驶模式': (s) => s.turn([
+      ('set_driving_mode', {'on': true}),
+      ('get_briefing', {'show': true}),
+    ], '好，驾驶模式。没有要你处理的。最近动态 2 条。'),
+    '没有什么动态吗？': (s) => s.turn(const [
+      ('get_briefing', {'full': true}),
+    ], '最近有 2 条：CodexMac 的构建通过了，Cody 说发布说明的第一部分写完了。'),
+    '为什么这个驾驶模式没有显示？': (s) => s.turn(const [
+      ('set_driving_mode', {'on': true}),
+    ], '好，驾驶模式。屏幕上是最近的 2 条动态。'),
   },
 };
 

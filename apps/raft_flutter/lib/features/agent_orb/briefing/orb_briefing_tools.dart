@@ -40,7 +40,8 @@ final orbBriefingDeclaration = <String, Object?>{
       },
       'show': {
         'type': 'boolean',
-        'description': '设 true 同时在屏幕上铺简报卡片（全部都铺）：用户说“看”“拿出来看”“给我看”；只要听就不设',
+        'description':
+            '设 true 同时在屏幕上铺简报卡片（全部都铺）：用户说“看”“拿出来看”“给我看”；只要听就不设。驾驶中不用管：App 一直会铺',
       },
       'full': {
         'type': 'boolean',

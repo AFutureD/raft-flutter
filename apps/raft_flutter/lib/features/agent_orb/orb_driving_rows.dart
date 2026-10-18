@@ -46,13 +46,17 @@ OrbListRow orbRowOfItem(OrbBriefItem item, {required bool waiting}) {
   );
 }
 
-/// The rows of [b] for [kind] (unread, or the ones that name the person), the
-/// items that need the person first, then the progress, in the briefing's own
-/// order. Null for a kind a briefing does not make.
+/// The rows of [b] for [kind] (unread, the ones that name the person, or the
+/// recent ones), the items that need the person first, then the progress, in
+/// the briefing's own order. Null for a kind a briefing does not make.
 OrbList? orbListOfBriefing(OrbBriefing b, OrbListKind kind) {
-  if (kind != OrbListKind.unread && kind != OrbListKind.mentions) return null;
+  if (kind != OrbListKind.unread &&
+      kind != OrbListKind.mentions &&
+      kind != OrbListKind.recent) {
+    return null;
+  }
   bool wanted(OrbBriefItem i) =>
-      kind == OrbListKind.unread || _mentionReasons.contains(i.reason);
+      kind != OrbListKind.mentions || _mentionReasons.contains(i.reason);
   return OrbList(
     kind: kind,
     rows: [
@@ -61,7 +65,7 @@ OrbList? orbListOfBriefing(OrbBriefing b, OrbListKind kind) {
       for (final i in b.progress)
         if (wanted(i)) orbRowOfItem(i, waiting: false),
     ],
-    routine: kind == OrbListKind.unread ? b.routineCount : 0,
+    routine: kind == OrbListKind.mentions ? 0 : b.routineCount,
   );
 }
 
@@ -154,4 +158,135 @@ OrbList orbListOfConversation(Map<String, Object?> result) {
 String orbArrivalLine(OrbBriefItem item) {
   final who = item.who.isEmpty ? '有人' : item.who;
   return _mentionReasons.contains(item.reason) ? '新的：$who @你' : '新的：$who 找你';
+}
+
+/// The sentence and its cap on a card: the longest a line of a card may be
+/// (the rest is for when the car is parked).
+String _cap(String text) {
+  final one = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return one.runes.length <= orbRowTextCap
+      ? one
+      : '${String.fromCharCodes(one.runes.take(orbRowTextCap))}…';
+}
+
+/// The rows of `describe_page` on the Activity: the page's items, as the person
+/// would see them. A row opens the conversation behind it.
+OrbList orbListOfPageItems(Map<String, Object?> result) {
+  final rows = <OrbListRow>[];
+  for (final i in (result['items'] as List? ?? const [])) {
+    if (i is! Map) continue;
+    final who = '${i['who'] ?? ''}'.trim();
+    final where = '${i['where'] ?? ''}'.trim();
+    final preview = '${i['preview'] ?? i['title'] ?? ''}'.trim();
+    final unread = i['unread'];
+    final id = '${i['id'] ?? ''}'.replaceFirst('activity:', '');
+    final dm = id.startsWith('dm:') ? id.substring(3) : null;
+    final channel = id.startsWith('channel:') ? id.substring(8) : null;
+    rows.add(
+      OrbListRow(
+        id: 'page:$id',
+        who: who,
+        meta: [who, if (where.isNotEmpty && where != who) where].join(' · '),
+        title: _cap(preview.isEmpty ? who : preview),
+        fact: unread is int && unread > 0
+            ? '$unread 条未读'
+            : '${i['time'] ?? ''}',
+        say: _said(who, _cap(preview)),
+        clipped: preview.runes.length > orbRowTextCap,
+        openArgs: dm != null
+            ? {'dm_id': dm}
+            : channel != null
+            ? {'channel_id': channel}
+            : null,
+      ),
+    );
+  }
+  return OrbList(kind: OrbListKind.recent, rows: rows);
+}
+
+/// What `list_targets` found (channels, private conversations, people,
+/// threads), or what a `query` returned when it is a list of named things:
+/// one row each. [heading] names the list ("频道", "找到").
+OrbList orbListOfTargets(Map<String, Object?> result) {
+  final rows = <OrbListRow>[];
+  void add(String type, Object? list, String Function(Map) name) {
+    for (final e in (list as List? ?? const [])) {
+      if (e is! Map) continue;
+      final title = _cap(name(e));
+      if (title.isEmpty) continue;
+      final unread = e['unread'];
+      rows.add(
+        OrbListRow(
+          id: '$type:${e['id'] ?? title}',
+          who: title,
+          meta: type,
+          title: title,
+          fact: unread is int && unread > 0 ? '$unread 条未读' : '',
+          say: '$type $title',
+          openArgs: switch (type) {
+            '频道' => {'channel_id': e['id']},
+            '私信' => {'dm_id': e['id']},
+            '人' => e['id'] == null ? null : {'person_id': e['id']},
+            '讨论' => e['id'] == null ? null : {'thread_id': e['id']},
+            _ => null,
+          },
+        ),
+      );
+    }
+  }
+
+  add('频道', result['channels'], (m) => '${m['name'] ?? ''}');
+  add('私信', result['dms'], (m) => '${m['name'] ?? ''}');
+  add('人', result['people'], (m) => '${m['name'] ?? ''}');
+  add('讨论', result['threads'], (m) => '${m['excerpt'] ?? ''}');
+  if (rows.isEmpty) {
+    // A `query`: the first list of named things in the result.
+    for (final v in result.values) {
+      if (v is! List || v.isEmpty || v.first is! Map) continue;
+      for (final e in v) {
+        if (e is! Map) continue;
+        final title = _cap(
+          '${e['title'] ?? e['name'] ?? e['text'] ?? e['summary'] ?? ''}',
+        );
+        if (title.isEmpty) continue;
+        rows.add(
+          OrbListRow(
+            id: 'result:${e['id'] ?? rows.length}',
+            who: '${e['assignee'] ?? e['from'] ?? ''}',
+            meta: '${e['channel'] ?? e['status'] ?? ''}',
+            title: title,
+            fact: '${e['statusText'] ?? e['time'] ?? ''}',
+            say: title,
+          ),
+        );
+      }
+      if (rows.isNotEmpty) break;
+    }
+  }
+  return OrbList(kind: OrbListKind.results, rows: rows);
+}
+
+/// The sentences of what the agent says about a discussion, as the card: at
+/// most [orbSummaryLines], each cut at [orbRowTextCap] (what was cut is for
+/// when the car is parked). The rows ARE the spoken sentences: [where] is
+/// where the discussion is.
+const orbSummaryLines = 3;
+
+OrbList orbListOfSummary(List<String> sentences, {String where = ''}) {
+  final rows = <OrbListRow>[];
+  for (final s in sentences.take(orbSummaryLines)) {
+    final line = _cap(s);
+    rows.add(
+      OrbListRow(
+        id: 'summary:${rows.length}',
+        who: '',
+        meta: where,
+        title: line,
+        fact: '',
+        say: line,
+        clipped: s.trim().runes.length > orbRowTextCap,
+      ),
+    );
+  }
+  return OrbList(kind: OrbListKind.summary, rows: rows, target: where);
 }
