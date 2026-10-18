@@ -2364,6 +2364,15 @@
      "parityCase": [],
      "status": "intentional",
      "justification": "Web \"Checking…\" push status and enable / disable spinners are browser web push only; the native client has no equivalent flow."
+    },
+    {
+     "state": "error",
+     "variant": "native OS notification permission off",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "intentional",
+     "justification": "Native macOS/iOS/Android permission status and system-settings action; browser push fixtures cannot exercise an OS dialog. Covered by macos_notification_permission_settings_test and iOS/Android first-workspace regressions; native acceptance is separate."
     }
    ]
   },

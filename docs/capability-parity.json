@@ -11855,7 +11855,7 @@
    "gate": "browser Notification.permission",
    "flutterEntry": "",
    "flutterRefs": [],
-   "justification": "Browser permission prompt flow is web-only; Flutter uses native OS notifications (platform/native_notifications.dart, background_notifications.dart) with permission requested from Settings > Notifications.",
+   "justification": "The browser-specific composer banner is not used. Native macOS, iOS and Android request OS notification permission once per local installation after entering an authenticated workspace (never on the login screen); Settings offers an explicit OS-settings action after refusal.",
    "impact": "",
    "size": ""
   },
@@ -11976,7 +11976,7 @@
    "status": "covered",
    "webEntry": "utils/desktopNativeNotifications.ts + components/settings/SettingsPanel.tsx (settings.notifications.desktop.*), utils/notificationChannel.ts kind desktop-native",
    "gate": "Desktop app",
-   "flutterEntry": "platform/desktop_inbox_notifications.dart + native_notifications.dart; notification_settings_view.dart 'Send a test notification' / 'Open notification settings' (Windows/macOS/Linux)",
+   "flutterEntry": "platform/desktop_inbox_notifications.dart + native_notifications.dart; macOS asks once after entering an authenticated workspace, reports current OS permission and offers 'Open notification settings'; Windows/Linux behavior unchanged",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/notification_settings_view.dart",
@@ -11985,6 +11985,10 @@
     {
      "file": "apps/raft_flutter/lib/platform/native_notifications.dart",
      "needle": "class NativeNotificationService"
+    },
+    {
+     "file": "apps/raft_flutter/lib/platform/native_notifications.dart",
+     "needle": "bindAuthenticatedWorkspace"
     }
    ],
    "justification": "",
@@ -12108,7 +12112,7 @@
    "status": "partial",
    "webEntry": "components/settings/SettingsPanel.tsx notifications section + utils/pushNotifications.ts (VAPID web push) + public/sw.js push handler",
    "gate": "",
-   "flutterEntry": "notification_settings_view.dart 'Enable notifications' / 'Send test notification' (phone) with local notifications fed by the live socket (notification:push) and iOS BGAppRefresh polling; no FCM/APNs/UnifiedPush registration",
+   "flutterEntry": "native_notifications.dart bindAuthenticatedWorkspace requests OS permission once per installation on iOS/Android (Android runtime dialog on 13+); notification_settings_view.dart shows permission status, system settings and test controls; live socket / iOS BGAppRefresh delivery, no FCM/APNs/UnifiedPush registration",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/notification_settings_view.dart",
@@ -12183,7 +12187,7 @@
    "status": "partial",
    "webEntry": "Settings > Notifications > Push Notifications card: status, Enable, Disable, Send Test Push",
    "gate": "web push channel",
-   "flutterEntry": "notification_settings_view.dart phone card: permission status, 'Enable notifications' (opens system settings), 'Test notification' (local)",
+   "flutterEntry": "notification_settings_view.dart phone card: current OS permission status, explicit 'Open notification settings' after refusal, manual enable and local test; native_notifications.dart persists the single automatic request independently of account and retains notification intent across OS refusal",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/notification_settings_view.dart",
