@@ -72,6 +72,15 @@ class MobileRouteGate extends InheritedWidget {
     if (changed) _flips[state]?.notifyListeners();
   }
 
+  /// The route's own answer, when it can give one on demand. The flag above is
+  /// only written when the workspace notifies, and the workspace's own
+  /// bookkeeping (the image repository judging its entries) runs before the
+  /// route's listener, so readers ask the route when they can.
+  static final _live = Expando<bool Function()>();
+
+  static void follow(State state, bool Function() covered) =>
+      _live[state] = covered;
+
   /// Notifies when the route's covered flag flips, so what was held while it
   /// was covered is built again the moment it is current, whether or not a
   /// ticker mode or an ancestor changes with it.
@@ -96,7 +105,7 @@ class MobileRouteGate extends InheritedWidget {
   static bool Function() coveredReader(BuildContext context) {
     final state = _state(context);
     if (state == null) return _never;
-    return () => _covered[state] == true;
+    return () => _live[state]?.call() ?? _covered[state] == true;
   }
 
   static bool _never() => false;

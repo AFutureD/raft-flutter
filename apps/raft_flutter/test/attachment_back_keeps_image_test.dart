@@ -72,6 +72,9 @@ Map<String, dynamic> _reply() => {
   ],
 };
 
+/// What the server returns for the thread; tests append to it.
+final _served = <Map<String, dynamic>>[];
+
 final _attachment = find.byKey(const ValueKey('attachment-att1'));
 
 dynamic _state(WidgetTester tester) =>
@@ -144,15 +147,16 @@ Future<(WorkspaceController, dynamic)> _openThreadWithImage(
       },
     ],
   };
+  _served
+    ..clear()
+    ..add(_reply());
   api.routes['GET /messages/context/m5'] = (_) => {
-    'messages': [_reply()],
+    'messages': _served,
     'hasOlder': false,
     'hasNewer': false,
   };
   api.routes['GET /messages/channel/c1'] = (_) => {'messages': []};
-  api.routes['GET /messages/channel/thread-1'] = (_) => {
-    'messages': [_reply()],
-  };
+  api.routes['GET /messages/channel/thread-1'] = (_) => {'messages': _served};
   api.routes['GET /attachments/att1/url'] = (_) => {
     'url': 'https://storage.example.invalid/att1.png',
   };
@@ -202,6 +206,7 @@ Future<(WorkspaceController, dynamic)> _openThreadWithImage(
 }
 
 void main() {
+  main2();
   for (final predictive in [false, true]) {
     testWidgets(
       'the picture of a thread page stays while Back slides the page away '
@@ -324,4 +329,77 @@ _chrome(WidgetTester tester) {
     none: seen('No replies yet'),
     top: tester.getTopLeft(_attachment).dy,
   );
+}
+
+void main2() {
+  for (final predictive in [false, true]) {
+    testWidgets(
+      'going back and opening the thread again shows the current replies and '
+      'a picture that stays while the second Back slides it away '
+      '(${predictive ? 'predictive back' : 'toolbar'})',
+      (tester) async {
+        final (w, state) = await _openThreadWithImage(tester);
+        await tester.tap(find.byKey(const Key('mobile-detail-back')));
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(_attachment, findsNothing);
+        // While the thread is closed a reply lands on the server.
+        _served.add({
+          ..._reply(),
+          'id': 'm6',
+          'seq': '6',
+          'content': 'A reply that landed while the thread was closed',
+          'attachments': <dynamic>[],
+        });
+        await tester.tap(
+          find.byKey(const ValueKey('activity-thread-thread-1')),
+        );
+        await tester.pumpAndSettle();
+        dynamic now = _state(tester);
+        for (var i = 0; i < 100 && now.imageProvider == null; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump();
+        }
+        expect(
+          find.textContaining('landed while the thread was closed').evaluate(),
+          isNotEmpty,
+          reason: 'the second visit shows the current reply',
+        );
+        expect(
+          find.textContaining('2 replies', findRichText: true).evaluate(),
+          isNotEmpty,
+          reason: 'the second visit shows the current reply count',
+        );
+        final provider = now.imageProvider;
+        expect(provider, isNotNull);
+        if (predictive) {
+          await startPredictiveBack(tester);
+          await backEvent(tester, const MethodCall('commitBackGesture'));
+        } else {
+          await tester.tap(find.byKey(const Key('mobile-detail-back')));
+          await tester.pump();
+        }
+        var frames = 0;
+        for (var f = 0; f < 40 && _attachment.evaluate().isNotEmpty; f++) {
+          now = _state(tester);
+          expect(now.invalidated, isFalse, reason: 'frame $f');
+          expect(now.imageProvider, same(provider), reason: 'frame $f');
+          expect(
+            find.textContaining('Preview unavailable', skipOffstage: false),
+            findsNothing,
+            reason: 'the picture did not fail, frame $f',
+          );
+          frames++;
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(frames, greaterThan(3));
+        expect(w.threadChannelId, isNull);
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 }

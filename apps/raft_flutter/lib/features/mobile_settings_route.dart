@@ -28,6 +28,7 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
   @override
   void initState() {
     super.initState();
+    MobileRouteGate.follow(this, () => !active);
     MobileRouteGate.write(this, covered: !active, location: widget.location);
     source.addListener(sourceChanged);
   }
