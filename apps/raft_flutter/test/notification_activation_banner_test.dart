@@ -36,6 +36,45 @@ Widget host(
 );
 
 void main() {
+  testWidgets(
+    'activation consumers release borrowed services on swap and unmount',
+    (t) async {
+      SharedPreferences.setMockInitialValues({});
+      final (first, _, _) = deferredMacNotifications();
+      final (second, _, _) = deferredMacNotifications();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      await first.bindAuthenticatedWorkspace('alice');
+      await second.bindAuthenticatedWorkspace('alice');
+      Widget tree(NativeNotificationService service) => host(
+        NotificationActivationBanner(service: service, onSettings: () {}),
+        service,
+      );
+      await t.pumpWidget(tree(first));
+      await turn(t);
+      expect(first.hasListeners, isTrue);
+      expect(second.hasListeners, isFalse);
+      await t.pumpWidget(tree(second));
+      await turn(t);
+      expect(first.hasListeners, isFalse);
+      expect(second.hasListeners, isTrue);
+      await t.pumpWidget(const SizedBox());
+      await t.pumpAndSettle();
+      expect(first.hasListeners, isFalse);
+      expect(second.hasListeners, isFalse);
+      // Pages must leave borrowed app-session services usable by the next page.
+      for (final service in [first, second]) {
+        var notifications = 0;
+        void observe() => notifications++;
+        service.addListener(observe);
+        service.dismissActivation();
+        expect(notifications, 1);
+        service.removeListener(observe);
+      }
+      expect(t.binding.hasScheduledFrame, isFalse);
+      expect(t.binding.transientCallbackCount, 0);
+    },
+  );
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
