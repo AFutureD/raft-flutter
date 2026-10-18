@@ -505,6 +505,9 @@ class OrbBriefingService {
       channelId: i.channelId,
       versionKey: i.versionKey,
       askingMe: t.askingMe,
+      // How many are unread is the Activity's, not the writer's: the briefing
+      // of "把没读的摘要拿出来" says it whoever worded the title.
+      unread: i.unread,
     );
   }
 }

@@ -612,6 +612,20 @@ class OrbController extends ChangeNotifier {
     final tool = tools[name];
     if (tool == null) return {'error': '没有这个工具：$name'};
     if (agentLayer &&
+        name == 'set_driving_mode' &&
+        args['on'] == false &&
+        _driving &&
+        _turnSaid.trim().isNotEmpty &&
+        !_leavesDriving.hasMatch(_turnSaid)) {
+      // D4: "批准吧" while driving came back as leaving driving mode, and the
+      // answer was about something else. What waits until parked is said so.
+      return {
+        'error':
+            '用户没有要退出驾驶模式：他说的是“${_turnSaid.trim()}”。'
+            '批准、合并、删除、发布这类操作驾驶中不做：对他说“这个等你停车后再批准”，问要不要稍后提醒，不要调用 $name。',
+      };
+    }
+    if (agentLayer &&
         _replyTools.contains(name) &&
         actions.pending == null &&
         _turnSaid.trim().isNotEmpty &&
@@ -2064,6 +2078,11 @@ class OrbController extends ChangeNotifier {
     return line is String ? AgentReview(text: line) : null;
   }
 
+  /// The person says they are done driving.
+  static final _leavesDriving = RegExp(
+    r'停车了|停好车|退出|结束|关闭|关掉|不开车|不用.{0,4}驾驶|到了|下车|不开了',
+  );
+
   static final _goThrough = RegExp(r'处理掉|全部处理|都处理|一个一个|逐个|挨个');
 
   /// "全部处理掉" while driving: the model read the tasks and proposed no
@@ -2112,6 +2131,37 @@ class OrbController extends ChangeNotifier {
     return null;
   }
 
+  /// "打开动态，什么需要我处理": the model went to the Activity (`navigate`
+  /// only moves) and answered; the cards are what the person was asked to be
+  /// shown. The app lays the briefing out itself, through the tool, so that
+  /// the screen and the words are the same briefing. [runs] with that call
+  /// added.
+  Future<List<AgentToolRun>> _briefingShown(
+    List<AgentToolRun> runs,
+    AgentToolHandler run,
+  ) async {
+    final wentToActivity = runs.any(
+      (r) =>
+          r.name == 'navigate' &&
+          r.args['page'] == 'activity' &&
+          r.result['error'] == null,
+    );
+    final shown = runs.any(
+      (r) => r.name == 'get_briefing' && r.result['shown'] == true,
+    );
+    if (!wentToActivity ||
+        shown ||
+        _driving ||
+        actions.pending != null ||
+        !orbAsksNeeds.hasMatch(_turnSaid)) {
+      return runs;
+    }
+    const args = {'show': true};
+    final result = await run('get_briefing', args);
+    if (result['error'] != null) return runs;
+    return [...runs, AgentToolRun('get_briefing', args, result)];
+  }
+
   Future<AgentReview?> _review(
     String reply,
     List<AgentToolRun> runs,
@@ -2124,6 +2174,7 @@ class OrbController extends ChangeNotifier {
     // are Chinese (as are the patterns that find what the reply says): in
     // another language they would put Chinese into the answer.
     if (AgentVoiceSettings.instance.language != AgentLanguage.zh) return null;
+    runs = await _briefingShown(runs, run);
     // Whichever tool the model read the page with, what the person is told
     // about "nothing for you" and about tasks follows the briefing's data.
     final seen = await orbWithBriefing(

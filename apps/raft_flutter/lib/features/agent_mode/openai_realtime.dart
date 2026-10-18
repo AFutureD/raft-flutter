@@ -9,6 +9,7 @@ import 'agent_language.dart';
 import 'agent_tool_output.dart';
 import 'gemini_live.dart';
 import 'realtime_voice_out.dart';
+import 'voice_clip_store.dart';
 import 'voice_layer_text.dart';
 import 'voice_provider.dart';
 
@@ -915,6 +916,10 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   /// language, so another choice never plays the old voice.
   static final _clips = <String, List<Uint8List>>{};
 
+  /// Where the clips are kept between runs of the app (none: only for this
+  /// run).
+  static VoiceClipStore? clipStore;
+
   String _clipKey(String text) =>
       '${service.name}|${modelId ?? ''}|$voice|${language.name}|$text';
 
@@ -928,15 +933,30 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   @override
   Future<void> prewarm(Iterable<String> phrases) async {
     if (!relay) return;
-    for (final phrase in phrases) {
+    final all = phrases.toList();
+    // What an earlier run kept is there at once.
+    final store = clipStore;
+    if (store != null) {
+      for (final phrase in all) {
+        final key = _clipKey(phrase);
+        if (_clips.containsKey(key)) continue;
+        final kept = await store.read(key);
+        if (kept != null) _clips[key] = kept;
+      }
+    }
+    for (final phrase in all) {
       final key = _clipKey(phrase);
       if (_clips.containsKey(key)) continue;
-      for (var i = 0; i < 40; i++) {
-        if (_socket == null) return;
-        if (_line == null && _speechQueue.isEmpty && !_userSpeaking) break;
+      // A quiet moment (a turn is more important); for a minute at most.
+      var quiet = false;
+      for (var i = 0; i < 240 && _socket != null; i++) {
+        if (_line == null && _speechQueue.isEmpty && !_userSpeaking) {
+          quiet = true;
+          break;
+        }
         await Future<void>.delayed(const Duration(milliseconds: 250));
-        if (i == 39) return;
       }
+      if (!quiet) return;
       final line = _Line(
         kind: _LineKind.exact,
         text: phrase,
@@ -951,6 +971,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
         continue;
       }
       _clips[key] = line.clip;
+      unawaited(store?.write(key, line.clip));
     }
   }
 

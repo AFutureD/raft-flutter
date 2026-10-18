@@ -39,6 +39,31 @@ void main() {
   tearDown(reset);
 
   group('the preferences', () {
+    test(
+      'OpenAI Realtime is the layered default; a saved choice stays',
+      () async {
+        final s = AgentVoiceSettings.instance;
+        SharedPreferences.setMockInitialValues({});
+        await DevicePreferences.load();
+        s.forgetRunChoices();
+        expect(s.layeredProvider, AgentVoiceProvider.openai);
+        // Nothing stored for the voice-only brain: still Gemini there.
+        expect(s.provider, AgentVoiceProvider.gemini);
+        SharedPreferences.setMockInitialValues({
+          'raft.agentDemo.layeredProvider': 'gemini',
+        });
+        await DevicePreferences.load();
+        s.forgetRunChoices();
+        expect(s.layeredProvider, AgentVoiceProvider.gemini);
+        SharedPreferences.setMockInitialValues({
+          'raft.agentDemo.layeredProvider': 'grok',
+        });
+        await DevicePreferences.load();
+        s.forgetRunChoices();
+        expect(s.layeredProvider, AgentVoiceProvider.grok);
+      },
+    );
+
     test('the layered service is its own, Gemini until chosen', () {
       expect(s.layeredProvider, AgentVoiceProvider.gemini);
       s.layeredProvider = AgentVoiceProvider.grok;

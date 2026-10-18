@@ -670,6 +670,29 @@ void main() {
       expect(b.needsYou.firstWhere((i) => i.who == 'Ada').askingMe, isTrue);
     });
 
+    test(
+      'the unread counts are the Activity\'s, whoever worded the titles',
+      () async {
+        final plain = await service().brief(OrbBriefScope.activity);
+        final written = await service(
+          model: FakeGemini(FakeGemini.echo(asking: true)),
+        ).brief(OrbBriefScope.activity);
+        expect(written.writtenByModel, isTrue);
+        final counts = {
+          for (final i in [...plain.needsYou, ...plain.progress])
+            i.id: i.unread,
+        };
+        expect(counts.values.any((n) => n > 0), isTrue);
+        for (final i in [...written.needsYou, ...written.progress]) {
+          expect(i.unread, counts[i.id], reason: i.who);
+        }
+        expect(
+          written.toJson()['needsYou'],
+          contains(containsPair('unread', greaterThan(0))),
+        );
+      },
+    );
+
     test('FYI from the model leaves an ambiguous item as progress', () async {
       final gemini = FakeGemini(FakeGemini.echo(asking: false));
       channelMessages['dm-1'] = [

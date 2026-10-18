@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_language.dart';
 import 'package:raft_flutter/features/agent_mode/openai_realtime.dart';
+import 'package:raft_flutter/features/agent_mode/voice_clip_store.dart';
 import 'package:raft_flutter/features/agent_mode/voice_layer_text.dart';
 
 import 'agent_openai_realtime_test.dart' show FakeRealtime, b64, settle, until;
@@ -658,6 +659,54 @@ void main() {
     });
   });
 
+  group('the sound of the canned lines is kept between runs', () {
+    test('the file store gives back what it was given, in pieces', () async {
+      final dir = Directory.systemTemp.createTempSync('voice-clips');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final store = FileVoiceClipStore(root: () async => dir);
+      expect(await store.read('openai|m|marin|zh|嗯，我看看。'), isNull);
+      final sound = Uint8List.fromList(List.generate(10000, (i) => i % 251));
+      await store.write('openai|m|marin|zh|嗯，我看看。', [sound]);
+      final back = await store.read('openai|m|marin|zh|嗯，我看看。');
+      expect(back, isNotNull);
+      expect(back!.length, 3, reason: '4800 + 4800 + 400');
+      expect(Uint8List.fromList([for (final c in back) ...c]), sound);
+      // Another key, another file.
+      expect(await store.read('openai|m|cedar|zh|嗯，我看看。'), isNull);
+      // A new store over the same folder (the next run) finds it.
+      expect(
+        await FileVoiceClipStore(root: () async => dir)
+            .read('openai|m|marin|zh|嗯，我看看。'),
+        isNotNull,
+      );
+    });
+
+    test('a session takes the kept sound at connect: no request to the '
+        'service, and a clip it makes is kept for the next run', () async {
+      final kept = <String, List<Uint8List>>{};
+      OpenAiRealtimeSession.clipStore = _MemoryStore(kept);
+      addTearDown(() => OpenAiRealtimeSession.clipStore = null);
+      final key = 'openai||marin|zh|嗯，我看看。';
+      kept[key] = [Uint8List(960)];
+      final s = await connected(RealtimeService.openai);
+      await s.prewarm(['嗯，我看看。']);
+      expect(s.hasClip('嗯，我看看。'), isTrue);
+      expect(server.of('response.create'), isEmpty);
+      // Another line is made, and kept.
+      final making = s.prewarm(['好嘞，稍等。']);
+      final event = await server.waitFor('response.create');
+      await created(
+        'c1',
+        metadata: {'relay': (response(event)['metadata'] as Map)['relay']},
+      );
+      sound('c1');
+      done('c1');
+      await making.timeout(const Duration(seconds: 3));
+      await until(() => kept.containsKey('openai||marin|zh|好嘞，稍等。'));
+      expect(kept['openai||marin|zh|好嘞，稍等。'], isNotEmpty);
+    });
+  });
+
   test('a text session (not a relay) refuses to say lines', () async {
     final s = OpenAiRealtimeSession(
       apiKey: 'k',
@@ -671,4 +720,14 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(jsonEncode(server.received), '[]');
   });
+}
+
+class _MemoryStore implements VoiceClipStore {
+  _MemoryStore(this.kept);
+  final Map<String, List<Uint8List>> kept;
+  @override
+  Future<List<Uint8List>?> read(String key) async => kept[key];
+  @override
+  Future<void> write(String key, List<Uint8List> chunks) async =>
+      kept[key] = chunks;
 }

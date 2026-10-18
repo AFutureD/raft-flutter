@@ -19,6 +19,8 @@ void main() {
   final pref = AgentOrbPreference.instance;
 
   setUp(() async {
+    // These tests are about Gemini Live as the voice layer.
+    AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.gemini;
     SharedPreferences.setMockInitialValues({});
     await DevicePreferences.load();
     pref.resetForTest();

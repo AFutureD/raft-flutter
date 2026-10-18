@@ -976,6 +976,75 @@ void main() {
       ],
     );
 
+    orbTest(
+      'B1: 打开动态，什么需要我处理 — the model only navigated; the app lays '
+      'the briefing out through the tool, and the words are the model\'s',
+      (t) async {
+        briefed.clear();
+        gemini.replies.addAll([
+          _call('navigate', {'page': 'activity'}),
+          _say('Alice 在问周五能不能评审，已经等了 5 分钟。'),
+        ]);
+        await say(t, '打开动态，什么需要我处理');
+        expect(navigated, [
+          {'page': 'activity'},
+        ]);
+        expect(briefed, [
+          {'show': true},
+        ]);
+        // The cards are on the screen.
+        expect(orb().drivingItems.map((i) => i.who), contains('Alice'));
+        expect(agentLines().single, contains('Alice'));
+      },
+      tools: [
+        navigateStub(activityArrived()),
+        OrbTool(
+          declaration: const {'name': 'get_briefing'},
+          handler: (args, ctx) async {
+            briefed.add(args);
+            final b = activityArrived()['briefing']! as Map<String, Object?>;
+            final needs = [item('Alice', 'Alice 问你：周五能来评审吗？')];
+            if (args['show'] == true) {
+              orb().showBriefing(
+                OrbBriefing(
+                  scope: OrbBriefScope.activity,
+                  overview: '${b['overview']}',
+                  needsYou: needs,
+                  progress: const [],
+                  routineCount: 2,
+                ),
+              );
+            }
+            return {...b, 'shown': args['show'] == true};
+          },
+        ),
+      ],
+    );
+
+    orbTest(
+      'B1 without the ask, or when the cards are already up: the app '
+      'adds no call',
+      (t) async {
+        briefed.clear();
+        gemini.replies.addAll([
+          _call('navigate', {'page': 'activity'}),
+          _say('到了动态。'),
+        ]);
+        await say(t, '打开动态');
+        expect(briefed, isEmpty);
+      },
+      tools: [
+        navigateStub(activityArrived()),
+        OrbTool(
+          declaration: const {'name': 'get_briefing'},
+          handler: (args, ctx) async {
+            briefed.add(args);
+            return {'shown': false};
+          },
+        ),
+      ],
+    );
+
     orbTest('没读的 that was not read: left to the model', (t) async {
       navigateResult = {
         'route': '/s/s1/activity',
@@ -996,6 +1065,32 @@ void main() {
       expect(gemini.requests, hasLength(1));
       expect(orb().fastPath, isNull);
     }, tools: [navigateStub(activityArrived())]);
+
+    orbTest('D4: 批准吧 while driving is not leaving driving mode: the model is '
+        'told what to say instead', (t) async {
+      await say(t, '开始驾驶模式');
+      expect(orb().driving, isTrue);
+      gemini.replies.addAll([
+        _call('set_driving_mode', {'on': false}),
+        _say('这个等你停车后再批准。要稍后提醒你吗？'),
+      ]);
+      await say(t, '批准吧');
+      expect(orb().driving, isTrue);
+      final answer =
+          (((gemini.requests[1]['contents'] as List).last as Map)['parts']
+                      as List)
+                  .single['functionResponse']['response']
+              as Map;
+      expect(answer['error'], contains('停车后再批准'));
+      expect(agentLines().last, contains('停车'));
+      // Saying they are done is another thing.
+      gemini.replies.addAll([
+        _call('set_driving_mode', {'on': false}),
+        _say('好，退出驾驶模式。'),
+      ]);
+      await say(t, '我到了，不用驾驶模式了');
+      expect(orb().driving, isFalse);
+    }, tools: [getBriefing()]);
 
     orbTest('D2: 下一件 after it names the card now shown, and who', (t) async {
       await say(t, '开始驾驶模式');

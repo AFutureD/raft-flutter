@@ -9,6 +9,7 @@ import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice_mode.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
+import 'package:raft_flutter/features/agent_mode/agent_voice_settings.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_data.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_result.dart';
 import 'package:raft_flutter/features/agent_orb/eval/orb_eval_run.dart';
@@ -167,6 +168,8 @@ void main() {
   late Directory reports;
 
   setUp(() {
+    // This file is about Gemini Live as the voice layer.
+    AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.gemini;
     SharedPreferences.setMockInitialValues({});
     AgentOrbPreference.instance.resetForTest();
     // This file is about the relay; the app speaking has its own file.

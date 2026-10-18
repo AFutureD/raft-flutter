@@ -122,7 +122,7 @@ void main() {
 
   group('the voice service of the agent layer', () {
     tearDown(() {
-      AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.gemini;
+      AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.openai;
     });
 
     testWidgets('changing it in the voice settings builds the orb again', (
@@ -131,7 +131,7 @@ void main() {
       await fixture(t);
       await f.pump();
       expect(f.builds, 1);
-      AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.openai;
+      AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.grok;
       await t.pump();
       await t.pump();
       expect(f.builds, 2);

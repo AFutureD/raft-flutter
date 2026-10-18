@@ -27,6 +27,7 @@ void main() {
   final realLister = GeminiLiveSession.modelLister;
 
   setUp(() async {
+    AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.gemini;
     SharedPreferences.setMockInitialValues({});
     await DevicePreferences.load();
     AgentVoiceSettings.instance.liveModelChoice =

@@ -124,6 +124,11 @@ class AgentVoiceSettings extends ChangeNotifier {
   /// is available.
   final _values = <String, String>{};
 
+  /// Forgets the choices made in this run (a test starts from what the device
+  /// has stored).
+  @visibleForTesting
+  void forgetRunChoices() => _values.clear();
+
   String? _read(String key) {
     final local = _values[key];
     if (local != null) return local;
@@ -169,11 +174,13 @@ class AgentVoiceSettings extends ChangeNotifier {
   set provider(AgentVoiceProvider v) => _write('provider', v.name);
 
   /// Which realtime voice service listens and speaks in the layered brain
-  /// (voice model + text Agent); separate from [provider].
+  /// (voice model + text Agent); separate from [provider]. OpenAI Realtime
+  /// unless the person chose another: it answered the evaluation best (a
+  /// choice that was saved stays).
   AgentVoiceProvider get layeredProvider => _enum(
     AgentVoiceProvider.values,
     'layeredProvider',
-    AgentVoiceProvider.gemini,
+    AgentVoiceProvider.openai,
   );
   set layeredProvider(AgentVoiceProvider v) =>
       _write('layeredProvider', v.name);

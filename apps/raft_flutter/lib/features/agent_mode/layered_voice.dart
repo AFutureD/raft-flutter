@@ -20,6 +20,7 @@ import 'layered_listen.dart';
 import 'layered_voice_mode.dart';
 import 'openai_realtime.dart';
 import 'realtime_voice_out.dart';
+import 'voice_clip_store.dart';
 import 'voice_layer_text.dart';
 export 'voice_layer_text.dart' show layeredForVoice;
 import 'voice_provider.dart';
@@ -267,7 +268,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// OpenAI Realtime or Grok Voice as the voice of the layered brain: it
   /// listens, and says what the app gives it (see [OpenAiRealtimeSession]).
   @visibleForTesting
-  static VoiceSession realtimeLive(LiveParts p) => OpenAiRealtimeSession(
+  static VoiceSession realtimeLive(LiveParts p) {
+    // The sound of the canned lines is kept between runs, in the cache.
+    OpenAiRealtimeSession.clipStore ??= FileVoiceClipStore();
+    return _realtimeLive(p);
+  }
+
+  static VoiceSession _realtimeLive(LiveParts p) => OpenAiRealtimeSession(
     service: p.provider == AgentVoiceProvider.grok
         ? RealtimeService.grok
         : RealtimeService.openai,
