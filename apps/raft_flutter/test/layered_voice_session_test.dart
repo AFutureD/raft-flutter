@@ -396,22 +396,31 @@ void main() {
     expect(cues, 0);
   });
 
-  test('the Live model: the app\'s pick as before; for the relaying voice '
-      'layer the quickest without extended thinking', () {
+  test('the Live model: gemini-3.8-live for both voice modes, never a '
+      'thinking one while another is there', () {
     const models = [
       'models/gemini-3.8-live-extended-thinking',
       'models/gemini-3.8-live',
       'models/gemini-3.5-flash-live-preview',
+      'models/gemini-3.1-flash-live-preview',
       'models/gemini-2.5-flash-native-audio-preview-09-2025',
     ];
-    // As before: what the device picked.
+    for (final fast in [false, true]) {
+      final sorted = GeminiLiveSession.sortModels(models, fast: fast);
+      expect(sorted.first, 'models/gemini-3.8-live', reason: 'fast=$fast');
+      expect(
+        sorted,
+        isNot(contains('models/gemini-3.8-live-extended-thinking')),
+      );
+    }
+    // Without it: the relaying layer takes a Flash one.
     expect(
-      GeminiLiveSession.sortModels(models).first,
-      'models/gemini-3.8-live-extended-thinking',
+      GeminiLiveSession.sortModels(
+        models.where((m) => !m.contains('3.8')),
+        fast: true,
+      ).first,
+      'models/gemini-3.5-flash-live-preview',
     );
-    final fast = GeminiLiveSession.sortModels(models, fast: true);
-    expect(fast.first, 'models/gemini-3.5-flash-live-preview');
-    expect(fast, isNot(contains('models/gemini-3.8-live-extended-thinking')));
     // Nothing else to take: the thinking one is still better than none.
     expect(
       GeminiLiveSession.sortModels([

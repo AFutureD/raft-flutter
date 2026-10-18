@@ -201,20 +201,25 @@ class GeminiLiveSession implements VoiceSession {
   /// The model chosen for this key, once known.
   static String? get pickedModel => _model;
 
-  /// The Live models in the order they are preferred: native audio and "live"
-  /// first, stable before preview, newest first. For a [fast] session (it
-  /// only relays) a model with "thinking" in its name is left out when any
-  /// other is there, and a Flash one comes first.
+  /// The Live model both voice modes use when the key has it (Kevin,
+  /// 2026-10-18: Google's recommended one), in its plain form.
+  static const preferredFamily = 'gemini-3.8-live';
+
+  /// The Live models in the order they are preferred: [preferredFamily]
+  /// first, then native audio and "live", stable before preview, newest
+  /// first. A model with "thinking" in its name is left out when any other is
+  /// there: it thinks before each sentence, which costs the voice its pace
+  /// (the unnatural voice of the voice-only mode). For a [fast] session (it
+  /// only relays) a Flash one comes first after the preferred one.
   static List<String> sortModels(Iterable<String> names, {bool fast = false}) {
     var models = [...names];
-    if (fast) {
-      final quick = [
-        for (final m in models)
-          if (!m.contains('thinking')) m,
-      ];
-      if (quick.isNotEmpty) models = quick;
-    }
+    final quick = [
+      for (final m in models)
+        if (!m.contains('thinking')) m,
+    ];
+    if (quick.isNotEmpty) models = quick;
     int rank(String name) =>
+        (name.contains(preferredFamily) ? 16 : 0) +
         (name.contains('native-audio') || name.contains('live') ? 2 : 0) +
         (name.contains('preview') || name.contains('exp') ? 0 : 1) +
         (fast && name.contains('flash') ? 4 : 0);
