@@ -599,8 +599,8 @@ void main() {
               .preview,
           isNull,
         );
-        expect(w.retainedImageCount, 0);
-        expect(w.retainedImageEncodedBytes, 0);
+        expect(w.attachmentMedia.retainedImageCount, 0);
+        expect(w.attachmentMedia.retainedImageEncodedBytes, 0);
         await tester.pumpWidget(const SizedBox());
       } finally {
         w.dispose();

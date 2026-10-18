@@ -312,7 +312,7 @@ void main() {
     testWidgets('a row on a hidden route lets go of its image after the delay, so a trim can free it', (tester) async {
       await tester.pumpWidget(app());
       await waitImage(tester);
-      expect(w.retainedImageCount, 1);
+      expect(w.attachmentMedia.retainedImageCount, 1);
       final provider = tester.widget<Image>(find.byType(Image)).image;
 
       tickers.value = false;
@@ -323,11 +323,11 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(card(tester).preview, isNull, reason: 'stream listener released');
       // The decoded image is still retained for a quick return ...
-      expect(w.retainedImageCount, 1);
+      expect(w.attachmentMedia.retainedImageCount, 1);
       // ... until a trim: the row no longer pins it.
       RaftMemoryRelease.instance.trim(RaftMemoryTrim.pressure);
-      expect(w.retainedImageCount, 0);
-      expect(w.retainedImageDecodedBytes, 0);
+      expect(w.attachmentMedia.retainedImageCount, 0);
+      expect(w.attachmentMedia.retainedImageDecodedBytes, 0);
 
       // Coming back decodes again (from the network here; the byte store in
       // the product) and shows the image.
@@ -377,7 +377,7 @@ void main() {
       expect(RaftMemoryRelease.instance.backgrounded, isTrue);
       // The row still shows its image and the repository still retains it.
       expect(find.byType(Image), findsOneWidget);
-      expect(w.retainedImageCount, 1);
+      expect(w.attachmentMedia.retainedImageCount, 1);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       expect(find.byType(Image), findsOneWidget);
@@ -388,11 +388,11 @@ void main() {
       await tester.pumpWidget(app());
       await waitImage(tester);
       await tester.pumpWidget(const SizedBox());
-      expect(w.retainedImageCount, 1, reason: 'kept for a quick revisit');
+      expect(w.attachmentMedia.retainedImageCount, 1, reason: 'kept for a quick revisit');
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       await tester.pump(const Duration(seconds: 31));
-      expect(w.retainedImageCount, 0);
-      expect(w.retainedImageDecodedBytes, 0);
+      expect(w.attachmentMedia.retainedImageCount, 0);
+      expect(w.attachmentMedia.retainedImageDecodedBytes, 0);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await finish(tester);
     });

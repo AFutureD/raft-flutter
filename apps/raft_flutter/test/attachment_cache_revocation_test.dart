@@ -33,7 +33,7 @@ void main() {
   late _Client client;
   late WorkspaceController w;
   AttachmentImageStoreKey key(String id, {String channel = 'channel'}) =>
-      w.attachmentCacheKey(
+      w.attachmentMedia.cacheKey(
         {'id': id, 'mimeType': 'application/pdf'},
         'file',
         channelId: channel,
@@ -61,7 +61,11 @@ void main() {
   });
 
   test('a removed channel purges its stored attachments only', () async {
-    expect(w.retainedImageCount, 0, reason: 'no decoded image this session');
+    expect(
+      w.attachmentMedia.retainedImageCount,
+      0,
+      reason: 'no decoded image this session',
+    );
     client.bus.add(
       const RaftEvent('channel:removed', {'channelId': 'channel'}),
     );

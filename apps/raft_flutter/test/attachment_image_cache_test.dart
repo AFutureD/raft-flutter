@@ -235,8 +235,8 @@ void main() {
       ))!;
       // 384x288 logical at the test view's 3x.
       expect(listSize, (1152, 864));
-      expect(w.retainedImageDecodedBytes, 1152 * 864 * 4);
-      expect(w.retainedImageEncodedBytes, 0);
+      expect(w.attachmentMedia.retainedImageDecodedBytes, 1152 * 864 * 4);
+      expect(w.attachmentMedia.retainedImageEncodedBytes, 0);
 
       await tester.tap(find.byTooltip('Preview photo.png'));
       await tester.pump();
@@ -265,8 +265,8 @@ void main() {
       await tester.tap(find.byTooltip('Close preview'));
       await tester.pumpAndSettle();
       // Closing the lightbox frees the full bitmap; the preview stays.
-      expect(w.retainedImageDecodedBytes, 1152 * 864 * 4);
-      expect(w.retainedImageCount, 1);
+      expect(w.attachmentMedia.retainedImageDecodedBytes, 1152 * 864 * 4);
+      expect(w.attachmentMedia.retainedImageCount, 1);
       await tester.pumpWidget(const SizedBox());
       // Evict while the widget test can still finish the release frame.
       // ImageCache defers its keep-alive handle disposal to that frame;

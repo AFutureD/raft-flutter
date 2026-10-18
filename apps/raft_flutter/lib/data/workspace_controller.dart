@@ -439,12 +439,6 @@ class WorkspaceController extends ChangeNotifier
   @override
   late final AttachmentMedia attachmentMedia;
 
-  /// Compatibility facade while attachment surfaces move to [attachmentMedia].
-  int get retainedImageDecodedBytes =>
-      attachmentMedia.retainedImageDecodedBytes;
-  int get retainedImageCount => attachmentMedia.retainedImageCount;
-  int get retainedImageEncodedBytes =>
-      attachmentMedia.retainedImageEncodedBytes;
   AttachmentImageScope get attachmentImageScope =>
       _session.attachmentImageScope;
 
@@ -487,34 +481,6 @@ class WorkspaceController extends ChangeNotifier
   @visibleForTesting
   int get debugRetainedAttachmentIndexBuilds =>
       attachmentRetentionIndex.debugBuilds;
-
-  WorkspaceAttachmentImageLease acquireAttachmentImage(
-    AttachmentImageKey key, {
-    required AttachmentImageLoader load,
-    required bool Function() authorized,
-    bool foreground = false,
-    bool bestAvailable = false,
-  }) => attachmentMedia.acquireImage(
-    key,
-    load: load,
-    authorized: authorized,
-    foreground: foreground,
-    bestAvailable: bestAvailable,
-  );
-
-  /// Synchronous lookup; never loads an image.
-  WorkspaceAttachmentImageLease? peekAttachmentImage(
-    AttachmentImageKey key, {
-    required bool Function() authorized,
-  }) => attachmentMedia.peekImage(key, authorized: authorized);
-
-  AttachmentDiskCache? get attachmentDiskCache => attachmentMedia.diskCache;
-
-  AttachmentImageStoreKey attachmentCacheKey(
-    Map<String, dynamic> metadata,
-    String kind, {
-    required String channelId,
-  }) => attachmentMedia.cacheKey(metadata, kind, channelId: channelId);
 
   /// Set by the host from its actual logical width before bootstrap. Home
   /// retains selection/drafts, but is not an open conversation/read surface.

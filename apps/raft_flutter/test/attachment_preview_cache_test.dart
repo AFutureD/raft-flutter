@@ -369,7 +369,7 @@ void main() {
       // An earlier open stored it.
       final stored = await tester.runAsync(
         () => cache.fetchFile(
-          w.attachmentCacheKey(metadata, 'file', channelId: 'c1'),
+          w.attachmentMedia.cacheKey(metadata, 'file', channelId: 'c1'),
           filename: 'a.pdf',
           expectedBytes: storage.body.length,
           download: (file, cancel, progress) => file.writeAsBytes(storage.body),

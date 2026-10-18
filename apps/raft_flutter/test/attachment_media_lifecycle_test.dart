@@ -147,7 +147,7 @@ class _Fixture {
   int loads = 0;
 
   WorkspaceAttachmentImageLease image(WorkspaceController controller) =>
-      controller.acquireAttachmentImage(
+      controller.attachmentMedia.acquireImage(
         key,
         authorized: () => true,
         load: (_) async {
@@ -191,7 +191,7 @@ void main() {
       final image = f.image(borrowed);
       final provider = await image.lease.ready;
       image.release();
-      final fromSource = f.source.peekAttachmentImage(
+      final fromSource = f.source.attachmentMedia.peekImage(
         f.key,
         authorized: () => true,
       )!;
@@ -218,7 +218,7 @@ void main() {
       expect(player.disposed, isFalse);
       expect(hold.orphaned, isFalse);
       expect(f.urls.length, 1);
-      final stillReady = f.source.peekAttachmentImage(
+      final stillReady = f.source.attachmentMedia.peekImage(
         f.key,
         authorized: () => true,
       )!;
@@ -279,7 +279,7 @@ void main() {
     final order = <String>[];
     f.urls.onDispose = () {
       order.add('urls');
-      expect(f.source.retainedImageCount, 0);
+      expect(f.source.attachmentMedia.retainedImageCount, 0);
       expect(image.lease.active, isFalse);
       expect(CacheClear.instance.names, hooksBefore);
       final snapshot = RaftMemoryRelease.instance.snapshot();

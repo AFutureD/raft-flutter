@@ -68,7 +68,7 @@ class _Fixture {
   ], expectedGeneration: w.ledger.generation);
 
   Future<Object> retain() async {
-    final lease = w.acquireAttachmentImage(
+    final lease = w.attachmentMedia.acquireImage(
       imageKey,
       authorized: () => true,
       load: (_) async {
@@ -80,7 +80,7 @@ class _Fixture {
     );
     final provider = await lease.lease.ready;
     lease.release();
-    expect(w.retainedImageCount, 1);
+    expect(w.attachmentMedia.retainedImageCount, 1);
     return provider;
   }
 }
@@ -97,7 +97,7 @@ void main() {
       for (var i = 0; i < 20; i++) {
         f.w.section = i.isEven ? 'settings' : 'chat';
         f.w.notifyListeners();
-        final ready = f.w.peekAttachmentImage(
+        final ready = f.w.attachmentMedia.peekImage(
           f.imageKey,
           authorized: () => true,
         );
@@ -120,7 +120,7 @@ void main() {
         RaftChannel({'id': 'channel', 'name': 'renamed', 'joined': true}),
       ];
       f.w.notifyListeners();
-      expect(f.w.retainedImageCount, 1);
+      expect(f.w.attachmentMedia.retainedImageCount, 1);
       expect(f.w.debugRetainedAttachmentIndexBuilds, firstBuilds);
     },
   );
@@ -132,9 +132,9 @@ void main() {
       await f.retain();
       f.w.channels[0] = RaftChannel({'id': 'other', 'joined': true});
       f.w.notifyListeners();
-      expect(f.w.retainedImageCount, 0);
+      expect(f.w.attachmentMedia.retainedImageCount, 0);
       expect(
-        f.w.peekAttachmentImage(f.imageKey, authorized: () => true),
+        f.w.attachmentMedia.peekImage(f.imageKey, authorized: () => true),
         isNull,
       );
     },
@@ -149,9 +149,9 @@ void main() {
       f.ingest({..._metadata, 'contentVersion': 'next'}, '2');
       f.w.notifyListeners();
       expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
-      expect(f.w.retainedImageCount, 0);
+      expect(f.w.attachmentMedia.retainedImageCount, 0);
       expect(
-        f.w.peekAttachmentImage(f.imageKey, authorized: () => true),
+        f.w.attachmentMedia.peekImage(f.imageKey, authorized: () => true),
         isNull,
       );
     },
@@ -167,10 +167,10 @@ void main() {
       // A ledger read can precede its owner's next notification. Its revision
       // must refresh admission as well as the cached attachment metadata.
       expect(
-        f.w.peekAttachmentImage(f.imageKey, authorized: () => true),
+        f.w.attachmentMedia.peekImage(f.imageKey, authorized: () => true),
         isNull,
       );
-      expect(f.w.retainedImageCount, 0);
+      expect(f.w.attachmentMedia.retainedImageCount, 0);
     },
   );
 
@@ -182,9 +182,9 @@ void main() {
       f.client.bus.add(
         const RaftEvent('channel:removed', {'channelId': 'channel'}),
       );
-      expect(f.w.retainedImageCount, 0);
+      expect(f.w.attachmentMedia.retainedImageCount, 0);
       expect(
-        f.w.peekAttachmentImage(f.imageKey, authorized: () => true),
+        f.w.attachmentMedia.peekImage(f.imageKey, authorized: () => true),
         isNull,
       );
     },
@@ -202,9 +202,9 @@ void main() {
           f.client.user = RaftRecord({'id': 'bob'});
         }
         f.w.notifyListeners();
-        expect(f.w.retainedImageCount, 0);
+        expect(f.w.attachmentMedia.retainedImageCount, 0);
         expect(
-          f.w.peekAttachmentImage(f.imageKey, authorized: () => true),
+          f.w.attachmentMedia.peekImage(f.imageKey, authorized: () => true),
           isNull,
         );
       }
@@ -227,7 +227,7 @@ void main() {
           },
         ], expectedGeneration: f.w.ledger.generation);
         f.w.notifyListeners();
-        final lease = f.w.peekAttachmentImage(
+        final lease = f.w.attachmentMedia.peekImage(
           f.imageKey,
           authorized: () => true,
         );
@@ -264,7 +264,7 @@ void main() {
         channelId: 'channel',
         metadata: extra,
       );
-      final lease = f.w.acquireAttachmentImage(
+      final lease = f.w.attachmentMedia.acquireImage(
         key,
         authorized: () => true,
         load: (_) async {
@@ -276,12 +276,15 @@ void main() {
       );
       await lease.lease.ready;
       lease.release();
-      final ready = f.w.peekAttachmentImage(key, authorized: () => true);
+      final ready = f.w.attachmentMedia.peekImage(key, authorized: () => true);
       expect(ready, isNotNull);
       ready!.release();
       expect(f.loads, 2);
       expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
-      final kept = f.w.peekAttachmentImage(f.imageKey, authorized: () => true);
+      final kept = f.w.attachmentMedia.peekImage(
+        f.imageKey,
+        authorized: () => true,
+      );
       expect(kept, isNotNull);
       kept!.release();
     },
@@ -304,7 +307,7 @@ void main() {
             },
           ], expectedGeneration: f.w.ledger.generation);
           if ((i + 1) % MessageLedger.incrementalChangeLimit == 0) {
-            final drained = f.w.peekAttachmentImage(
+            final drained = f.w.attachmentMedia.peekImage(
               f.imageKey,
               authorized: () => true,
             );
@@ -312,7 +315,7 @@ void main() {
             drained!.release();
           }
         }
-        final caughtUp = f.w.peekAttachmentImage(
+        final caughtUp = f.w.attachmentMedia.peekImage(
           f.imageKey,
           authorized: () => true,
         );
@@ -331,7 +334,7 @@ void main() {
               'content': 'timed',
             },
           ], expectedGeneration: f.w.ledger.generation);
-          final lease = f.w.peekAttachmentImage(
+          final lease = f.w.attachmentMedia.peekImage(
             f.imageKey,
             authorized: () => true,
           );
@@ -381,7 +384,10 @@ void main() {
       },
     ], expectedGeneration: f.w.ledger.generation);
     expect(f.w.ledger.debugChangeCount, lessThanOrEqualTo(limit));
-    final kept = f.w.peekAttachmentImage(f.imageKey, authorized: () => true);
+    final kept = f.w.attachmentMedia.peekImage(
+      f.imageKey,
+      authorized: () => true,
+    );
     expect(kept, isNotNull);
     expect(kept!.lease.value, same(image));
     kept.release();
@@ -391,7 +397,7 @@ void main() {
       channelId: 'channel',
       metadata: extra,
     );
-    final lease = f.w.acquireAttachmentImage(
+    final lease = f.w.attachmentMedia.acquireImage(
       key,
       authorized: () => true,
       load: (_) async {
@@ -403,7 +409,7 @@ void main() {
     );
     await lease.lease.ready;
     lease.release();
-    final ready = f.w.peekAttachmentImage(key, authorized: () => true);
+    final ready = f.w.attachmentMedia.peekImage(key, authorized: () => true);
     expect(ready, isNotNull);
     ready!.release();
     expect(f.loads, 2);
@@ -419,10 +425,10 @@ void main() {
       f.w.ledger.remove('channel', 'host');
       f.w.notifyListeners();
       expect(
-        f.w.peekAttachmentImage(f.imageKey, authorized: () => true),
+        f.w.attachmentMedia.peekImage(f.imageKey, authorized: () => true),
         isNull,
       );
-      expect(f.w.retainedImageCount, 0);
+      expect(f.w.attachmentMedia.retainedImageCount, 0);
       expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
     },
   );

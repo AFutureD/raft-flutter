@@ -96,7 +96,7 @@ class _Fixture {
     AttachmentImageKey key, {
     WorkspaceController? through,
   }) async {
-    final lease = (through ?? w).acquireAttachmentImage(
+    final lease = (through ?? w).attachmentMedia.acquireImage(
       key,
       authorized: () => true,
       load: (_) async {
@@ -111,7 +111,7 @@ class _Fixture {
   }
 
   bool ready(AttachmentImageKey key) {
-    final lease = w.peekAttachmentImage(key, authorized: () => true);
+    final lease = w.attachmentMedia.peekImage(key, authorized: () => true);
     lease?.release();
     return lease != null;
   }
@@ -246,7 +246,7 @@ void main() {
     editor.ledger.switchServer('server');
     expect(editor.attachmentMedia, isNot(same(f.w.attachmentMedia)));
     await f.load(f.key(), through: editor);
-    expect(editor.retainedImageCount, 0);
+    expect(editor.attachmentMedia.retainedImageCount, 0);
     expect(editor.debugRetainedAttachmentIndexBuilds, 1);
     expect(f.ready(f.key()), isTrue);
     expect(f.w.debugRetainedAttachmentIndexBuilds, 1);
@@ -294,7 +294,7 @@ void main() {
     final f = _Fixture();
     f.ingest('orphan', 'reply', '2', attachments: [_metadata]);
     await f.load(f.key(channel: 'orphan'));
-    expect(f.w.retainedImageCount, 0);
+    expect(f.w.attachmentMedia.retainedImageCount, 0);
     expect(f.w.debugRetainedAttachmentIndexBuilds, 1);
   });
 
@@ -306,7 +306,7 @@ void main() {
       f.ingest('channel', 'second', '2', attachments: [next]);
       await f.load(f.key());
       await f.load(f.key(metadata: next, rendition: 'thumbnail'));
-      expect(f.w.retainedImageCount, 2);
+      expect(f.w.attachmentMedia.retainedImageCount, 2);
       expect(f.ready(f.key()), isTrue);
       expect(f.ready(f.key(metadata: next, rendition: 'thumbnail')), isTrue);
       final scans = f.w.debugRetainedAttachmentIndexBuilds;

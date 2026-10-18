@@ -252,7 +252,7 @@ Future<void> _stored(
   final clock = Stopwatch()..start();
   while (true) {
     final bytes = await tester.runAsync(
-      () => rig.w.attachmentDiskCache!.read(key),
+      () => rig.w.attachmentMedia.diskCache!.read(key),
     );
     if (bytes != null) return;
     if (clock.elapsed > timeout) {
@@ -348,7 +348,7 @@ Future<_Rig> _mount(
     w.dispose();
     await client.dispose();
     toasts.dispose();
-    await _clearTestCache(tester, w.attachmentDiskCache!);
+    await _clearTestCache(tester, w.attachmentMedia.diskCache!);
     root.deleteSync(recursive: true);
   });
   await tester.pumpWidget(
@@ -667,7 +667,7 @@ void main() {
       final rig = await _mount(tester, size: _wide, count: 1, thumbnails: true);
       await _open(tester, 0);
       // Let queued writes finish before evicting through the cache owner.
-      await _clearTestCache(tester, rig.w.attachmentDiskCache!);
+      await _clearTestCache(tester, rig.w.attachmentMedia.diskCache!);
       await tester.tap(find.byKey(const ValueKey('attachment-download')));
       await _settle(tester);
       expect(rig.client.attachmentSigned, ['img0']);
@@ -800,7 +800,7 @@ void main() {
       // again, but a page that was shown once never brings the chip back.
       viewer.goTo(2);
       await _settle(tester, 8);
-      await _clearTestCache(tester, rig.w.attachmentDiskCache!);
+      await _clearTestCache(tester, rig.w.attachmentMedia.diskCache!);
       final again = Completer<void>();
       rig.files.hold = again;
       viewer.goTo(0);
