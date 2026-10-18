@@ -1,3 +1,4 @@
+import '../../agent_mode/key_info.dart' show keyCompact;
 import '../orb_key_info.dart';
 import 'orb_eval_data.dart';
 import 'orb_eval_run.dart';
@@ -195,38 +196,44 @@ class OrbEvalCheck {
   /// number or a person the answer does not have is not. What was spoken is
   /// the voice's transcript and the sentences the app's own voice was asked
   /// for. Applied to every scenario of that harness.
-  factory OrbEvalCheck.keyInfoSpoken() => OrbEvalCheck(
-    '说出了 Agent 那句话的关键信息（数字、人名、确认卡的动作、对象、内容、要不要确认），措辞不限',
-    (run) {
-      final problems = <String>[];
-      for (final t in run.turns) {
-        if (t.line == '（事件）') continue;
-        if (t.asks.isEmpty) {
-          problems.add('「${t.line}」没有交给 Agent');
-          continue;
+  factory OrbEvalCheck.keyInfoSpoken() =>
+      OrbEvalCheck('说出了 Agent 那句话的关键信息（数字、人名、确认卡的动作、对象、内容、要不要确认），措辞不限', (run) {
+        final problems = <String>[];
+        for (final t in run.turns) {
+          if (t.line == '（事件）') continue;
+          if (t.asks.isEmpty) {
+            problems.add('「${t.line}」没有交给 Agent');
+            continue;
+          }
+          final say = t.asks.map((a) => a.say).join(' ');
+          if (say.trim().isEmpty) continue;
+          var info = orbSayKeyInfo(say);
+          for (final c in t.tools) {
+            final card = orbCardKeyInfoOfResult(c.name, c.args, c.result);
+            if (card != null) info += card;
+          }
+          final spoken = '${t.text} ${t.spoken.join(' ')}';
+          final missing = info.missingIn(spoken);
+          // A person the agent named is its own, in whatever script.
+          final sayCompact = keyCompact(say);
+          final wrong = info.contradictionsIn(
+            spoken,
+            knownNames: [
+              for (final p in orbEvalPeople)
+                if (!sayCompact.contains(keyCompact(p))) p,
+            ],
+          );
+          if (missing.isEmpty && wrong.isEmpty) continue;
+          problems.add(
+            '「${t.line}」'
+            '${missing.isEmpty ? '' : '漏了：${missing.join('、')}'}'
+            '${missing.isNotEmpty && wrong.isNotEmpty ? '；' : ''}'
+            '${wrong.isEmpty ? '' : '不对：${wrong.join('、')}'}'
+            '（say「$say」；说出「${spoken.trim()}」）',
+          );
         }
-        final say = t.asks.map((a) => a.say).join(' ');
-        if (say.trim().isEmpty) continue;
-        var info = orbSayKeyInfo(say);
-        for (final c in t.tools) {
-          final card = orbCardKeyInfoOfResult(c.name, c.args, c.result);
-          if (card != null) info += card;
-        }
-        final spoken = '${t.text} ${t.spoken.join(' ')}';
-        final missing = info.missingIn(spoken);
-        final wrong = info.contradictionsIn(spoken, knownNames: orbEvalPeople);
-        if (missing.isEmpty && wrong.isEmpty) continue;
-        problems.add(
-          '「${t.line}」'
-          '${missing.isEmpty ? '' : '漏了：${missing.join('、')}'}'
-          '${missing.isNotEmpty && wrong.isNotEmpty ? '；' : ''}'
-          '${wrong.isEmpty ? '' : '不对：${wrong.join('、')}'}'
-          '（say「$say」；说出「${spoken.trim()}」）',
-        );
-      }
-      return problems.isEmpty ? null : problems.join('；');
-    },
-  );
+        return problems.isEmpty ? null : problems.join('；');
+      });
 
   /// The app sent no write (reads the app posts by itself do not count).
   factory OrbEvalCheck.noWrites() => OrbEvalCheck('不发出任何写操作', (run) {

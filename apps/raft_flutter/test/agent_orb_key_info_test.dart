@@ -68,6 +68,21 @@ void main() {
       expect(info.missingIn('有人在问第 10 步能不能合入，等了 20 分钟。'), ['名字 Cody']);
     });
 
+    test('a quoted title\'s numbers may be left out, nothing else', () {
+      final titled = orbSayKeyInfo('任务 #136「重构第 10 步」在等你验收，由 Cody 负责。');
+      expect(titled.missingIn('任务 #136 在等你验收，由 Cody 负责。'), isEmpty);
+      expect(titled.missingIn('这个任务在等你验收，由 Cody 负责。'), ['数字 136']);
+      // Still its number, not a contradiction.
+      expect(titled.contradictionsIn('任务 #136 重构第十步，Cody 负责'), isEmpty);
+    });
+
+    test('a time keeps its hour and minutes apart', () {
+      final time = orbSayKeyInfo('今天 09:26 再提醒你。');
+      expect(time.missingIn('今天 09:26再提醒你'), isEmpty);
+      expect(time.missingIn('九点二十六再提醒你'), isEmpty);
+      expect(time.missingIn('今天晚点再提醒你'), ['数字 09', '数字 26']);
+    });
+
     test('a number or a person the answer does not have contradicts it', () {
       expect(info.contradictionsIn('Cody 问第 11 步，等了 20 分钟'), ['多出数字 11']);
       expect(
@@ -126,6 +141,44 @@ void main() {
       expect(card.missingIn('把这个任务标成完成，要改吗？'), ['数字 136']);
       expect(card.missingIn('把 #136 的事，要处理吗？'), ['动作（标成…）']);
       expect(card.contradictionsIn('把 #137 标成完成，要改吗？'), ['多出数字 137']);
+    });
+
+    test('a task title\'s number and an old value need not be said; the time '
+        'it moves to must', () {
+      final status = orbCardKeyInfoOfResult('set_task_status', const {}, {
+        'status': 'needs_confirmation',
+        'preview': {
+          'summary': '把 #136 重构第 10 步 改为 已完成',
+          'changes': ['状态: 等验收 → 已完成'],
+        },
+      })!;
+      expect(status.missingIn('把 #136 标成完成，要改吗？'), isEmpty);
+      final snooze = orbCardKeyInfoOfResult('snooze_item', const {}, {
+        'status': 'needs_confirmation',
+        'preview': {
+          'summary': '把 “@Sam 第 10 步可以合入吗？” 先放一放，今天 09:26再提醒你',
+          'changes': ['首页: 稍后（今天 06:51） → 稍后（今天 09:26）'],
+        },
+      })!;
+      expect(snooze.missingIn('先放一放，今天 09:26 再提醒你，要记下吗？'), isEmpty);
+      expect(snooze.missingIn('先放一放，晚点再提醒你，要记下吗？'), ['数字 09', '数字 26']);
+    });
+
+    test('where a nudge is posted is a place when the person is named', () {
+      final nudge = orbCardKeyInfoOfResult('nudge_task', const {}, {
+        'status': 'needs_confirmation',
+        'preview': {
+          'summary': '催 八戒（#141 整理发布说明）：“@八戒 这个任务 4 天没动了”',
+          'changes': [
+            '催:  → 八戒',
+            '任务:  → #141 整理发布说明',
+            '发到:  → 任务的讨论串 · #raft-flutter',
+            '内容:  → @八戒 这个任务 4 天没动了',
+          ],
+        },
+      })!;
+      expect(nudge.missingIn('催一下八戒 #141：这个任务 4 天没动了，要催吗？'), isEmpty);
+      expect(nudge.missingIn('催一下八戒：这个任务 4 天没动了，要催吗？'), ['数字 141']);
     });
 
     test('a sensitive card is about the buttons, not a yes', () {
@@ -198,6 +251,17 @@ void main() {
       expect(
         check.test(runOf('回复 Cody：晚上看。', '我替你回复 Cody，晚上看。', tools: tools)),
         contains('问他要不要做'),
+      );
+    });
+
+    test('a person the agent named is not extra, in any script', () {
+      expect(
+        check.test(runOf('整理发布说明，八戒 在做，4 天没动。', '整理发布说明，八戒在做，4 天没动。')),
+        isNull,
+      );
+      expect(
+        check.test(runOf('整理发布说明，4 天没动。', '整理发布说明，八戒在做，4 天没动。')),
+        contains('多出人名 八戒'),
       );
     });
 

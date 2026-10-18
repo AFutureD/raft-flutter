@@ -71,9 +71,18 @@ class KeyInfo {
 }
 
 /// Letters and digits of [text], lower case: what two wordings of the same
-/// thing agree on (no spaces, no punctuation).
-String keyCompact(String text) =>
-    text.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '').toLowerCase();
+/// thing agree on (no spaces, no punctuation). Two digit runs that something
+/// stood between stay apart ("09:26" is 09 and 26, not 0926).
+String keyCompact(String text) => text
+    .replaceAll(_digitBreak, '')
+    .replaceAllMapped(
+      RegExp(r'(\d)[^\p{L}\p{N}]+(?=\d)', unicode: true),
+      (m) => '${m[1]}$_digitBreak',
+    )
+    .replaceAll(RegExp('[^\\p{L}\\p{N}$_digitBreak]', unicode: true), '')
+    .toLowerCase();
+
+const _digitBreak = '\uE000';
 
 /// The digit runs of [text] ("第 10 步" -> 10, "#136" -> 136).
 List<String> numbersIn(String text) => [

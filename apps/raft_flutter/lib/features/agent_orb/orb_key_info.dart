@@ -28,14 +28,19 @@ Iterable<String> _chineseNumbers(String text) sync* {
   }
 }
 
-/// What an answer says that has to survive its wording: every number, every
-/// Latin name.
+/// A quoted title or message ("任务 #136「重构第 10 步」"): the numbers in it
+/// may be said, but need not be.
+final _quoted = RegExp('「[^」]*」|“[^”]*”|"[^"]*"');
+
+/// What an answer says that has to survive its wording: every number outside
+/// a quoted title, every Latin name.
 KeyInfo orbSayKeyInfo(String say) {
   final numbers = numbersIn(say);
+  final needed = numbersIn(say.replaceAll(_quoted, ' '));
   final names = latinNamesIn(say);
   return KeyInfo(
     needs: [
-      for (final n in {...numbers})
+      for (final n in {...needed})
         KeyRequirement('数字 $n', (spoken) => saysNumber(spoken, n)),
       for (final name in {...names})
         KeyRequirement('名字 $name', (spoken) {
@@ -96,6 +101,10 @@ const _targetRows = {'发到', '回复', '催', '指派给', '负责人', '交�
 /// them out.
 const _placeRows = {'所在'};
 
+/// Target rows that name a person, and those that name where it is posted.
+const _personRows = {'回复', '催', '指派给', '负责人', '交给'};
+const _whereRows = {'发到', '频道'};
+
 /// What the words that ask the person to confirm a card must carry: what it
 /// does (the verb), to whom, the exact words, every number, and that it is a
 /// question to answer (or, for a sensitive card, that the buttons confirm).
@@ -117,10 +126,17 @@ KeyInfo orbCardInfo({
   }
   final targets = <String>{};
   String? content;
+  // Where it goes is only a place when a person is named too ("催 八戒",
+  // posted in the task's thread).
+  final hasPerson = rows.any(
+    (r) => _personRows.contains(r.label) && r.value.isNotEmpty,
+  );
   for (final r in rows) {
     if (r.label == '内容') {
       content = r.value;
-    } else if (_targetRows.contains(r.label) && r.value.isNotEmpty) {
+    } else if (_targetRows.contains(r.label) &&
+        r.value.isNotEmpty &&
+        !(hasPerson && _whereRows.contains(r.label))) {
       final t = _target(r.value);
       if (t.isNotEmpty) targets.add(t);
     }
@@ -128,7 +144,7 @@ KeyInfo orbCardInfo({
   final names = [
     ...targets,
     ...latinNamesIn(
-      '$summary ${rows.where((r) => r.label != '内容' && !_targetRows.contains(r.label) && !_placeRows.contains(r.label)).map((r) => r.value).join(' ')}',
+      '${summary.replaceAll(_quoted, ' ')} ${rows.where((r) => r.label != '内容' && !_targetRows.contains(r.label) && !_placeRows.contains(r.label)).map((r) => r.value).join(' ')}',
     ),
   ];
   final seen = <String>{};
@@ -146,12 +162,21 @@ KeyInfo orbCardInfo({
       ),
     );
   }
-  // The numbers of what will be done; the line a target row quotes (the
-  // message being replied to) is not.
+  // The numbers that say which one and when: a task number (#136) and a time
+  // (09:26) in the summary. A title's numbers ("重构第 10 步"), the quoted
+  // words and the rows' old values may be said but need not be.
   final all =
       '$summary ${rows.where((r) => !_targetRows.contains(r.label) && !_placeRows.contains(r.label)).map((r) => r.value).join(' ')}';
   final numbers = numbersIn(all);
-  for (final n in {...numbers}) {
+  final bare = summary.replaceAll(_quoted, ' ');
+  final needed = {
+    for (final m in RegExp(r'#(\d+)').allMatches(bare)) m.group(1)!,
+    for (final m in RegExp(r'(\d{1,2})[:：](\d{2})').allMatches(bare)) ...[
+      m.group(1)!,
+      m.group(2)!,
+    ],
+  };
+  for (final n in needed) {
     needs.add(KeyRequirement('数字 $n', (spoken) => saysNumber(spoken, n)));
   }
   needs.add(
