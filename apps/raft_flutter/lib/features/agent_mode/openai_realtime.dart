@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'agent_language.dart';
 import 'agent_tool_output.dart';
 import 'gemini_live.dart';
+import 'realtime_voice_out.dart';
+import 'voice_layer_text.dart';
 import 'voice_provider.dart';
 
 /// Linear resampler for mono PCM16 (little endian) that keeps its place
@@ -75,7 +79,21 @@ enum RealtimeService { openai, grok }
 /// descriptions and parameters. A response that calls tools ends; once every
 /// call is answered (`function_call_output`) one `response.create` makes the
 /// model go on, unless the person spoke in between.
-class OpenAiRealtimeSession implements VoiceSession {
+///
+/// With [relay] the session is the voice of the layered brain instead: it
+/// listens and transcribes (server VAD, input transcription) and it never
+/// answers, never calls a tool and never answers on its own: the server is
+/// told not to respond to the person (OpenAI: `create_response: false`,
+/// `interrupt_response: false`; Grok Voice has no such switch, so a response
+/// it starts by itself is cancelled and its sound dropped). What it says is
+/// only what the app asks for through [RealtimeVoiceOut]: a line to read
+/// exactly (OpenAI: an out-of-band `response.create` with
+/// `conversation: none` and the text in its instructions; Grok: a
+/// `force_message`, which is text to speech and not model generated) or a
+/// short lead-in the model phrases from what the person asked. Lines are
+/// said one at a time; the next is asked for as soon as the previous one is
+/// generated, so it is ready when the previous finishes playing.
+class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   OpenAiRealtimeSession({
     required this.apiKey,
     required this.systemPrompt,
@@ -91,6 +109,13 @@ class OpenAiRealtimeSession implements VoiceSession {
     this.onClosed,
     this.playbackPending,
     this.service = RealtimeService.openai,
+    this.modelId,
+    this.relay = false,
+    this.language = AgentLanguage.zh,
+    this.onInputDone,
+    this.onSpeechStarted,
+    this.onSpeechStopped,
+    this.relayLead = const Duration(milliseconds: 600),
     Duration? idleClose,
     Uri? endpoint,
     void Function(String message)? log,
@@ -98,8 +123,8 @@ class OpenAiRealtimeSession implements VoiceSession {
   }) : endpoint =
            endpoint ??
            (service == RealtimeService.grok
-               ? Uri.parse('$_grokUrl?model=$grokModelName')
-               : Uri.parse('$_url?model=$modelName')),
+               ? Uri.parse('$_grokUrl?model=${modelId ?? grokModelName}')
+               : Uri.parse('$_url?model=${modelId ?? modelName}')),
        _idleClose =
            idleClose ??
            (service == RealtimeService.grok ? grokIdleClose : null),
@@ -155,6 +180,30 @@ class OpenAiRealtimeSession implements VoiceSession {
 
   final RealtimeService service;
   bool get _grok => service == RealtimeService.grok;
+
+  /// The model to ask for (the person's choice); the service's default when
+  /// null.
+  final String? modelId;
+
+  /// The session is the voice of the layered brain: it listens and speaks
+  /// what the app asks, and nothing else (see the class comment).
+  final bool relay;
+
+  /// The language the voice speaks in (relay only).
+  final AgentLanguage language;
+
+  /// The transcript of one thing the person said is complete (the end of the
+  /// person's turn, for a relay voice, which does not answer).
+  final void Function()? onInputDone;
+
+  /// The person began, or stopped, speaking (relay only; the server's voice
+  /// activity detection).
+  final void Function()? onSpeechStarted;
+  final void Function()? onSpeechStopped;
+
+  /// How long before the end of a line's playback the line after it is let
+  /// go (the time the next response needs to start sounding).
+  final Duration relayLead;
 
   /// `reasoning.effort` of the session: OpenAI accepts minimal, low, medium,
   /// high and xhigh (https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets/methods/create);
@@ -251,7 +300,7 @@ class OpenAiRealtimeSession implements VoiceSession {
   bool get connected => _socket != null;
 
   @override
-  String? get model => _grok ? grokModelName : modelName;
+  String? get model => modelId ?? (_grok ? grokModelName : modelName);
 
   // ---- tools -----------------------------------------------------------
 
@@ -339,7 +388,7 @@ class OpenAiRealtimeSession implements VoiceSession {
     'instructions': systemPrompt,
     'voice': voice,
     'turn_detection': {'type': 'server_vad'},
-    'tools': functionTools(tools),
+    if (!relay) 'tools': functionTools(tools),
     'audio': {
       'input': {
         'format': {'type': 'audio/pcm', 'rate': apiRate},
@@ -355,7 +404,7 @@ class OpenAiRealtimeSession implements VoiceSession {
     'type': 'realtime',
     'output_modalities': ['audio'],
     'instructions': systemPrompt,
-    'tools': functionTools(tools),
+    if (!relay) 'tools': functionTools(tools),
     if (_reasoning) 'reasoning': {'effort': _effort.name},
     if (_truncation)
       // Drops a fifth of a full conversation at once instead of a little each
@@ -370,8 +419,10 @@ class OpenAiRealtimeSession implements VoiceSession {
           'threshold': 0.5,
           'prefix_padding_ms': _prefixPaddingMs,
           'silence_duration_ms': silenceMs,
-          'create_response': true,
-          'interrupt_response': true,
+          // The voice of the layered brain never answers by itself, and the
+          // app cuts its speech when the person speaks over it.
+          'create_response': !relay,
+          'interrupt_response': !relay,
         },
       },
       'output': {
@@ -497,6 +548,7 @@ class OpenAiRealtimeSession implements VoiceSession {
     _audioMs = 0;
     _waitingForPlayback = _playbackSettled = false;
     _inputStreamed.clear();
+    _relayReset();
   }
 
   // ---- idle close and session time ----------------------------------------
@@ -557,6 +609,7 @@ class OpenAiRealtimeSession implements VoiceSession {
 
   void _handle(Map<String, dynamic> event) {
     _sinceActivity.reset();
+    if (relay && _relayEvent(event)) return;
     switch (event['type']) {
       case 'input_audio_buffer.speech_started':
         unawaited(_speechStarted());
@@ -578,6 +631,7 @@ class OpenAiRealtimeSession implements VoiceSession {
           final id = '${event['item_id']}';
           _inputTranscript(id, event['transcript']);
           _inputStreamed.remove(id);
+          onInputDone?.call();
           return;
         }
         // Models that stream deltas have said it all already.
@@ -586,6 +640,7 @@ class OpenAiRealtimeSession implements VoiceSession {
         if (!streamed && transcript is String && transcript.isNotEmpty) {
           onInputText?.call(transcript);
         }
+        onInputDone?.call();
       case 'response.created':
         final response = event['response'] as Map<String, dynamic>? ?? const {};
         _responseActive = true;
@@ -802,6 +857,330 @@ class OpenAiRealtimeSession implements VoiceSession {
     onClosed?.call(reason);
   }
 
+  // ---- relay: the voice of the layered brain -----------------------------
+
+  final _speechQueue = Queue<_Line>();
+  _Line? _line;
+  int _lineTag = 0;
+
+  /// Responses the server started that are not lines the app asked for (or
+  /// that were cut off): their sound is dropped.
+  final _dropped = <String>{};
+
+  void _relayReset() {
+    _speechQueue.clear();
+    _line = null;
+    _dropped.clear();
+  }
+
+  @override
+  bool get speaksExactly => _grok;
+
+  @override
+  SpeechHandle say(
+    String text, {
+    void Function()? onStart,
+    void Function(String piece)? onTranscript,
+  }) => _enqueue(
+    _Line(
+      kind: _LineKind.exact,
+      text: text,
+      tag: '${_lineTag++}',
+      handle: SpeechHandle(
+        text: text,
+        onStart: onStart,
+        onTranscript: onTranscript,
+        onCancel: _cancelHandle,
+      ),
+    ),
+  );
+
+  @override
+  SpeechHandle lead(
+    String request, {
+    List<String> avoid = const [],
+    void Function()? onStart,
+    void Function(String piece)? onTranscript,
+  }) => _enqueue(
+    _Line(
+      kind: _LineKind.lead,
+      text: request,
+      avoid: avoid,
+      tag: '${_lineTag++}',
+      handle: SpeechHandle(
+        text: request,
+        onStart: onStart,
+        onTranscript: onTranscript,
+        onCancel: _cancelHandle,
+      ),
+    ),
+  );
+
+  SpeechHandle _enqueue(_Line line) {
+    if (!relay) {
+      throw StateError('only a relay session says what the app gives it');
+    }
+    if (_socket == null) {
+      line.handle
+        ..markFailed()
+        ..complete();
+      return line.handle;
+    }
+    _speechQueue.add(line);
+    _pumpSpeech();
+    return line.handle;
+  }
+
+  /// Sends the next line when none is being generated.
+  void _pumpSpeech() {
+    if (_line != null || _speechQueue.isEmpty || _socket == null) return;
+    final line = _line = _speechQueue.removeFirst();
+    _awaitingCreated = true;
+    final ok = _send(_requestFor(line));
+    if (!ok) {
+      _line = null;
+      _awaitingCreated = false;
+      line.handle
+        ..markFailed()
+        ..complete();
+      return;
+    }
+    // A line whose response never ends does not hold the rest of the speech
+    // for ever.
+    line.watchdog = Timer(
+      Duration(seconds: 15 + line.text.length ~/ 3),
+      () => _lineEnded(line, 'timeout', cancelOnServer: true),
+    );
+  }
+
+  Map<String, Object?> _requestFor(_Line line) {
+    switch (line.kind) {
+      case _LineKind.exact when _grok:
+        // Text to speech, not model generated; no `response.create` after it.
+        return {
+          'type': 'conversation.item.create',
+          'item': {
+            'type': 'force_message',
+            'role': 'assistant',
+            'content': [
+              {'type': 'output_text', 'text': line.text},
+            ],
+          },
+        };
+      case _LineKind.exact:
+        return _responseCreate(
+          line,
+          verbatimInstructionsFor(language, line.text),
+        );
+      case _LineKind.lead:
+        return _responseCreate(
+          line,
+          leadInstructionsFor(language, line.text, avoid: line.avoid),
+        );
+    }
+  }
+
+  Map<String, Object?> _responseCreate(_Line line, String instructions) => {
+    'type': 'response.create',
+    'response': {
+      // Out of band: the line is not part of the conversation, and nothing
+      // of the conversation is in its context. Grok has neither field and
+      // takes its instructions as an override for this one response.
+      if (!_grok) 'conversation': 'none',
+      if (!_grok) 'input': <Object?>[],
+      if (!_grok) 'output_modalities': ['audio'],
+      if (_grok) 'modalities': ['audio'],
+      'instructions': instructions,
+      'metadata': {'relay': line.tag},
+    },
+  };
+
+  /// The relay's part of a server event; true when it is all there is to do
+  /// with it.
+  bool _relayEvent(Map<String, dynamic> event) {
+    switch (event['type']) {
+      case 'input_audio_buffer.speech_started':
+        _userSpeaking = true;
+        onSpeechStarted?.call();
+        return true;
+      case 'input_audio_buffer.speech_stopped':
+        _userSpeaking = false;
+        onSpeechStopped?.call();
+        return true;
+      case 'response.created':
+        _relayCreated(event['response'] as Map<String, dynamic>? ?? const {});
+        return true;
+      case 'response.output_audio.delta':
+        final delta = event['delta'];
+        if (delta is! String) return true;
+        final line = _lineOf(event['response_id']);
+        if (line == null) return true;
+        line.handle.markStarted();
+        onAudio?.call(base64Decode(delta));
+        return true;
+      case 'response.output_audio_transcript.delta':
+        final delta = event['delta'];
+        final line = _lineOf(event['response_id']);
+        if (delta is String && delta.isNotEmpty && line != null) {
+          line.handle.addTranscript(delta);
+        }
+        return true;
+      case 'response.function_call_arguments.done':
+        // The voice of the layered brain has no tools: whatever it called is
+        // not run.
+        _log('ignored a tool call of the relay voice');
+        return true;
+      case 'response.done':
+        _relayDone(event['response'] as Map<String, dynamic>? ?? const {});
+        return true;
+      case 'error':
+        final error = event['error'] as Map<String, dynamic>? ?? const {};
+        _log(
+          'server error ${error['type']}/${error['code']}: '
+          '${error['message']}',
+        );
+        final line = _line;
+        // A request the server refused has no response coming.
+        if (line != null && !line.created) {
+          _lineEnded(line, 'refused', cancelOnServer: false);
+        }
+        return true;
+    }
+    return false;
+  }
+
+  /// The line the response [id] belongs to (null: not one of ours, or cut
+  /// off).
+  _Line? _lineOf(Object? id) {
+    final line = _line;
+    if (line == null || !line.created) return null;
+    if (id == null || '$id' == line.responseId) return line;
+    return null;
+  }
+
+  void _relayCreated(Map<String, dynamic> response) {
+    final id = '${response['id']}';
+    final meta = response['metadata'];
+    final line = _line;
+    final tagged = meta is Map && meta['relay'] == line?.tag;
+    // Grok's text to speech line has no metadata: it is the one the app has
+    // just sent and that has no response yet.
+    final forced =
+        _grok &&
+        line != null &&
+        line.kind == _LineKind.exact &&
+        !(meta is Map && meta['relay'] != null);
+    if (line != null && !line.created && (tagged || forced)) {
+      line.created = true;
+      line.responseId = id;
+      _awaitingCreated = false;
+      _responseActive = true;
+      _log('response $id created (line)');
+      return;
+    }
+    // A response the server made on its own (Grok answers the person
+    // itself): cancelled, and none of its sound is played.
+    _dropped.add(id);
+    _log('response $id is not a line of the app: cancelled');
+    _send({'type': 'response.cancel', 'response_id': id});
+  }
+
+  void _relayDone(Map<String, dynamic> response) {
+    final id = '${response['id']}';
+    _logUsage(response);
+    if (_dropped.remove(id)) return;
+    final line = _line;
+    if (line == null || line.responseId != id) return;
+    final status = '${response['status']}';
+    if (status == 'failed') {
+      final error = (response['status_details'] as Map?)?['error'] as Map?;
+      _log('line failed: ${error?['message']}');
+      line.handle.markFailed();
+    }
+    _lineEnded(line, status, cancelOnServer: false);
+  }
+
+  /// The response of [line] is over (or given up): the next line goes out at
+  /// once, and [line] is done when it has nearly played.
+  void _lineEnded(_Line line, String why, {required bool cancelOnServer}) {
+    if (!identical(_line, line)) return;
+    line.watchdog?.cancel();
+    _line = null;
+    _responseActive = false;
+    _awaitingCreated = false;
+    if (cancelOnServer && line.responseId != null) {
+      _dropped.add(line.responseId!);
+      _send({'type': 'response.cancel', 'response_id': line.responseId});
+    }
+    if (why == 'cancelled') line.handle.markCancelled();
+    unawaited(_completeAfterPlayback(line));
+    _pumpSpeech();
+  }
+
+  Future<void> _completeAfterPlayback(_Line line) async {
+    try {
+      if (!line.handle.cancelled && !line.handle.failed) {
+        final pending = (await playbackPending?.call()) ?? Duration.zero;
+        final wait = pending - relayLead;
+        if (wait > Duration.zero) await Future<void>.delayed(wait);
+      }
+    } catch (_) {
+      /* done now */
+    }
+    line.handle.complete();
+  }
+
+  void _cancelHandle(SpeechHandle handle) {
+    final line = _line;
+    if (line != null && identical(line.handle, handle)) {
+      line.watchdog?.cancel();
+      _line = null;
+      _responseActive = false;
+      _awaitingCreated = false;
+      if (line.responseId != null) {
+        _dropped.add(line.responseId!);
+        _send({'type': 'response.cancel', 'response_id': line.responseId});
+      }
+      // Not created yet: its response is cancelled when it shows up (it is
+      // not one of the app's lines then).
+      handle
+        ..markCancelled()
+        ..complete();
+      _pumpSpeech();
+      return;
+    }
+    _speechQueue.removeWhere((l) => identical(l.handle, handle));
+    handle
+      ..markCancelled()
+      ..complete();
+  }
+
+  @override
+  void cancelSpeech() {
+    final queued = [..._speechQueue];
+    _speechQueue.clear();
+    for (final l in queued) {
+      l.handle
+        ..markCancelled()
+        ..complete();
+    }
+    final line = _line;
+    if (line != null) _cancelHandle(line.handle);
+  }
+
+  @override
+  Future<void> drained() async {
+    while (_line != null || _speechQueue.isNotEmpty) {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+    }
+    try {
+      final pending = (await playbackPending?.call()) ?? Duration.zero;
+      if (pending > Duration.zero) await Future<void>.delayed(pending);
+    } catch (_) {
+      /* nothing to wait for */
+    }
+  }
+
   // ---- usage log ---------------------------------------------------------
 
   /// One line with what a response was billed for: tokens in (and how many
@@ -898,6 +1277,11 @@ class OpenAiRealtimeSession implements VoiceSession {
 
   @override
   void sendText(String text) {
+    if (relay) {
+      // The app speaks through [say]; typed text is not a request to it.
+      _log('ignored text sent to the relay voice');
+      return;
+    }
     _send({
       'type': 'conversation.item.create',
       'item': {
@@ -914,6 +1298,7 @@ class OpenAiRealtimeSession implements VoiceSession {
 
   @override
   Future<void> close() async {
+    if (relay) cancelSpeech();
     final socket = _socket;
     _socket = null;
     _logOpenTime('closed');
@@ -929,4 +1314,26 @@ class OpenAiRealtimeException implements Exception {
   final String? param;
   @override
   String toString() => message;
+}
+
+enum _LineKind { exact, lead }
+
+/// One line the app asked the voice to say, on its way through the session.
+class _Line {
+  _Line({
+    required this.kind,
+    required this.text,
+    required this.tag,
+    required this.handle,
+    this.avoid = const [],
+  });
+
+  final _LineKind kind;
+  final String text;
+  final String tag;
+  final SpeechHandle handle;
+  final List<String> avoid;
+  String? responseId;
+  bool created = false;
+  Timer? watchdog;
 }

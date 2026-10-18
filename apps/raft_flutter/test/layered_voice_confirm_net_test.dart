@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/agent_language.dart';
 import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
 import 'package:raft_flutter/features/agent_mode/app_speech.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/key_info.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice.dart';
+import 'package:raft_flutter/features/agent_mode/voice_layer_text.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_orb/orb_key_info.dart';
 
@@ -127,6 +130,7 @@ class Rig {
     String say = _line,
     Duration perSentence = Duration.zero,
     Duration delay = Duration.zero,
+    Duration liveLeadGrace = Duration.zero,
   }) {
     speech = withSpeech ? RecordingSpeech(perSentence: perSentence) : null;
     session = LayeredVoiceSession(
@@ -139,6 +143,10 @@ class Rig {
         confirmation: () => card ? _card() : null,
       ),
       speech: speech,
+      // These tests are about the acknowledgment's own timing; Live's own
+      // lead-in grace has its own test.
+      liveLeadGrace: liveLeadGrace,
+      random: math.Random(7),
       onAudio: (pcm) => audio++,
       onOutputText: captions.add,
       onTurnComplete: () => completes++,
@@ -282,7 +290,8 @@ void main() {
     });
   });
   group('the acknowledgment while the agent works', () {
-    const ack = '我看一下。';
+    // The first acknowledgment of a session with this seed.
+    final ack = AckPicker(random: math.Random(7)).next(AgentLanguage.zh);
 
     test('a slow ask is acknowledged by the app once, before Live speaks; '
         'a quick one is not', () {
@@ -385,7 +394,8 @@ void main() {
       });
     });
 
-    test('without a voice of its own, the click cue is all there is', () {
+    test('without a voice of the device, Live itself says the acknowledgment: '
+        'once, no click', () {
       fakeAsync((async) {
         final r = Rig(
           card: false,
@@ -397,13 +407,79 @@ void main() {
         r.session.connect();
         async.flushMicrotasks();
         r.live.ask('读一下动态');
-        async.elapse(const Duration(milliseconds: 700));
-        expect(cues, 0);
-        async.elapse(const Duration(milliseconds: 200));
-        expect(cues, 1);
-        async.elapse(const Duration(seconds: 1));
-        expect(cues, 1);
+        async.elapse(const Duration(milliseconds: 340));
+        expect(r.live.sent, isEmpty);
+        async.elapse(const Duration(milliseconds: 20));
+        expect(r.live.sent, [layeredVerbatim(ack)]);
+        async.elapse(const Duration(seconds: 2));
+        expect(r.live.sent, hasLength(1), reason: 'once');
+        expect(cues, 0, reason: 'the acknowledgment is the cue');
       });
+    });
+
+    test('Live gets a moment to say its own lead-in before the app steps in; '
+        'if it does, the app says nothing', () {
+      fakeAsync((async) {
+        final r = Rig(
+          card: false,
+          delay: const Duration(seconds: 3),
+          liveLeadGrace: const Duration(milliseconds: 450),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.says('嗯，我看看。');
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(seconds: 2));
+        expect(r.speech!.spoken, isEmpty, reason: 'Live spoke first');
+      });
+      fakeAsync((async) {
+        final r = Rig(
+          card: false,
+          delay: const Duration(seconds: 3),
+          liveLeadGrace: const Duration(milliseconds: 450),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(milliseconds: 790));
+        expect(r.speech!.spoken, isEmpty);
+        async.elapse(const Duration(milliseconds: 20));
+        expect(r.speech!.spoken, [ack]);
+      });
+    });
+
+    test('consecutive acknowledgments differ, in both languages, and there '
+        'are many to pick from', () {
+      for (final language in AgentLanguage.values) {
+        final picker = AckPicker(random: math.Random(3));
+        var last = '';
+        final seen = <String>{};
+        for (var i = 0; i < 200; i++) {
+          final next = picker.next(language);
+          expect(next, isNot(last));
+          expect(ackPhrases(language), contains(next));
+          seen.add(next);
+          last = next;
+        }
+        expect(ackPhrases(language).length, greaterThanOrEqualTo(10));
+        expect(seen.length, greaterThanOrEqualTo(8), reason: language.name);
+        // A rigid rotation of a few lines is what it was before.
+        expect(
+          ackPhrases(language).toSet().length,
+          ackPhrases(language).length,
+        );
+      }
+    });
+
+    test('the style rules of the voice layer are in the instruction of every '
+        'voice service, in both languages', () {
+      for (final language in AgentLanguage.values) {
+        final rules = leadStyleRules(language);
+        expect(layeredVoicePromptFor(language), contains(rules));
+        expect(leadInstructionsFor(language, 'x'), contains(rules));
+      }
+      expect(leadStyleRules(AgentLanguage.zh), contains('正在为您查询'));
+      expect(leadStyleRules(AgentLanguage.en), contains('Please wait'));
     });
 
     test('with a voice, the acknowledgment is the cue: no click as well', () {

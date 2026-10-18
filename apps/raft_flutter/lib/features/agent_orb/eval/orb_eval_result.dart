@@ -182,6 +182,15 @@ class OrbEvalReport {
   int? get firstAudioP50 => _percentile(_turnTimes((t) => t.firstAudioMs), .5);
   int? get firstAudioP90 => _percentile(_turnTimes((t) => t.firstAudioMs), .9);
 
+  /// The time from the person's words to the first sound of the voice, and to
+  /// the first sentence of the answer (the layered harness).
+  int? get firstVoiceP50 => _percentile(_turnTimes((t) => t.firstVoiceMs), .5);
+  int? get firstVoiceP90 => _percentile(_turnTimes((t) => t.firstVoiceMs), .9);
+  int? get firstAnswerP50 =>
+      _percentile(_turnTimes((t) => t.firstAnswerMs), .5);
+  int? get firstAnswerP90 =>
+      _percentile(_turnTimes((t) => t.firstAnswerMs), .9);
+
   /// The time the asks to the agent took in a turn.
   int? get askP50 => _percentile(_turnTimes((t) => t.askMs), .5);
   int? get askP90 => _percentile(_turnTimes((t) => t.askMs), .9);
@@ -218,6 +227,10 @@ class OrbEvalReport {
     if (latencyP90 != null) 'latencyP90Ms': latencyP90,
     if (firstAudioP50 != null) 'firstAudioP50Ms': firstAudioP50,
     if (firstAudioP90 != null) 'firstAudioP90Ms': firstAudioP90,
+    if (firstVoiceP50 != null) 'firstVoiceP50Ms': firstVoiceP50,
+    if (firstVoiceP90 != null) 'firstVoiceP90Ms': firstVoiceP90,
+    if (firstAnswerP50 != null) 'firstAnswerP50Ms': firstAnswerP50,
+    if (firstAnswerP90 != null) 'firstAnswerP90Ms': firstAnswerP90,
     if (askP50 != null) 'askP50Ms': askP50,
     if (askP90 != null) 'askP90Ms': askP90,
     if (cancelled) 'cancelled': true,

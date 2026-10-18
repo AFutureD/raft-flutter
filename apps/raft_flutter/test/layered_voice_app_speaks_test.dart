@@ -1,13 +1,16 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_mode/agent_language.dart';
 import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
 import 'package:raft_flutter/features/agent_mode/app_speech.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/layered_listen.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice_mode.dart';
+import 'package:raft_flutter/features/agent_mode/voice_layer_text.dart';
 import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 
 /// The voice layer where the app speaks: Live only listens, the app forwards
@@ -18,6 +21,11 @@ class ListenLive implements VoiceSession {
   final LiveParts parts;
   var audio = 0;
   var closes = 0;
+
+  /// Text the app typed to Live (only where Live relays and says what it is
+  /// given); in the app-speaks mode that is an error.
+  final typed = <String>[];
+  var allowText = false;
 
   @override
   bool get connected => true;
@@ -44,8 +52,11 @@ class ListenLive implements VoiceSession {
   @override
   void endAudio() {}
   @override
-  void sendText(String text) =>
-      throw StateError('the app does not type to Live');
+  void sendText(String text) {
+    if (!allowText) throw StateError('the app does not type to Live');
+    typed.add(text);
+  }
+
   @override
   void addContext(String text) {}
   @override
@@ -116,6 +127,7 @@ class Rig {
       mode: LayeredVoiceMode.appSpeaks,
       speech: speech,
       ackAfter: ackAfter,
+      random: math.Random(7),
       onInputText: heard.add,
       onOutputText: captions.add,
       onTurnComplete: () => completes++,
@@ -440,7 +452,8 @@ void main() {
   });
 
   group('the acknowledgment while the agent works', () {
-    const ack = '我看一下。';
+    // The first acknowledgment of a session with this seed.
+    final ack = AckPicker(random: math.Random(7)).next(AgentLanguage.zh);
 
     test('a slow ask is acknowledged once, in the app\'s voice, before the '
         'answer; it is no click, no caption and not a spoken sentence', () {
@@ -586,7 +599,7 @@ void main() {
         async.flushMicrotasks();
         async.elapse(const Duration(milliseconds: 400));
         expect(r.speech.spoken, [ack]);
-        r.live.parts.onInputText!('我看一下');
+        r.live.parts.onInputText!(ack);
         r.live.parts.onGenerating!();
         async.elapse(const Duration(milliseconds: 300));
         expect(r.agent.cancels, 0);
@@ -600,7 +613,8 @@ void main() {
       });
     });
 
-    test('without a voice there is only the click', () {
+    test('without a voice of the device, Live relaying says the '
+        'acknowledgment itself, once; no click', () {
       fakeAsync((async) {
         var cues = 0;
         late HeldAgent agent;
@@ -612,22 +626,32 @@ void main() {
           onToolCall: (n, a) async => {},
           steering: const AgentSteering(scope: Rig._scope),
           ackAfter: const Duration(milliseconds: 350),
+          liveLeadGrace: Duration.zero,
+          random: math.Random(7),
           liveBuilder: (p) => live = ListenLive(p),
           agentBuilder: (p) => agent = HeldAgent(p),
         )..onSlow = (() => cues++);
         s.connect();
         async.flushMicrotasks();
+        live.allowText = true;
         final answer = live.parts.onToolCall('ask_agent', {'request': '读'});
         async.flushMicrotasks();
-        async.elapse(const Duration(milliseconds: 500));
+        async.elapse(const Duration(milliseconds: 340));
+        expect(live.typed, isEmpty);
+        async.elapse(const Duration(milliseconds: 20));
+        expect(live.typed, [
+          layeredVerbatim(
+            AckPicker(random: math.Random(7)).next(AgentLanguage.zh),
+          ),
+        ]);
+        async.elapse(const Duration(seconds: 2));
+        expect(live.typed, hasLength(1));
         expect(cues, 0);
-        async.elapse(const Duration(milliseconds: 400));
-        expect(cues, 1);
         agent.answer('好。');
         async.flushMicrotasks();
         answer.then((_) {});
         async.elapse(const Duration(seconds: 2));
-        expect(cues, 1);
+        expect(cues, 0);
       });
     });
   });

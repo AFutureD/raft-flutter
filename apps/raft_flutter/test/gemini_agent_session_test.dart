@@ -112,6 +112,8 @@ GeminiAgentSession session(
   onClosed: heard.closed.add,
 );
 
+AgentScope _scope() => const AgentScope(systemPrompt: 'scoped', tools: _tools);
+
 List<Map<String, Object?>> _contents(Map<String, Object?> request) => [
   for (final c in request['contents'] as List) Map<String, Object?>.from(c),
 ];
@@ -823,5 +825,372 @@ void main() {
         ],
       },
     ]);
+  });
+
+  group('streaming the final answer', () {
+    Map<String, Object?> chunk(List<Map<String, Object?>> parts) =>
+        _reply(parts);
+    Map<String, Object?> words(String t) => chunk([
+      {'text': t},
+    ]);
+
+    /// A stream transport that gives the chunks of each call in turn;
+    /// [after] runs after the chunk with that index of the call.
+    ({
+      GeminiStreamTransport transport,
+      List<Uri> uris,
+      List<Map<String, String>> keys,
+      List<Map<String, Object?>> bodies,
+    })
+    fake(
+      List<List<Map<String, Object?>>> calls, {
+      void Function(int call, int index)? after,
+    }) {
+      final uris = <Uri>[];
+      final keys = <Map<String, String>>[];
+      final bodies = <Map<String, Object?>>[];
+      var call = 0;
+      Stream<Map<String, Object?>> transport(
+        Uri uri,
+        String key,
+        Map<String, Object?> body,
+      ) async* {
+        uris.add(uri);
+        keys.add({'key': key});
+        bodies.add(jsonDecode(jsonEncode(body)) as Map<String, Object?>);
+        final mine = call++;
+        for (var i = 0; i < calls[mine].length; i++) {
+          yield calls[mine][i];
+          after?.call(mine, i);
+          await Future<void>.delayed(Duration.zero);
+        }
+      }
+
+      return (transport: transport, uris: uris, keys: keys, bodies: bodies);
+    }
+
+    AgentSteering steering({bool Function(List<AgentToolRun>, String)? safe}) =>
+        AgentSteering(
+          scope: () => const AgentScope(systemPrompt: 'scoped', tools: _tools),
+          streamSafe: safe ?? (_, _) => true,
+        );
+
+    GeminiAgentSession streaming(
+      Heard heard,
+      GeminiStreamTransport stream, {
+      AgentSteering? steer,
+      List<String>? drafts,
+      Api? api,
+    }) => GeminiAgentSession(
+      apiKey: 'test-key',
+      systemPrompt: 'be the orb',
+      tools: _tools,
+      steering: steer ?? steering(),
+      transport: (api ?? Api()).call,
+      streamTransport: stream,
+      onDraft: (drafts ?? <String>[]).add,
+      retryDelay: Duration.zero,
+      onToolCall: (name, args) async {
+        heard.calls.add((name, args));
+        return {'ok': true};
+      },
+      onOutputText: heard.texts.add,
+      onTurnComplete: () => heard.turns++,
+      onClosed: heard.closed.add,
+    );
+
+    test('the answer after a tool streams as drafts in order, and is said '
+        'once in full', () async {
+      final f = fake([
+        [
+          chunk([
+            {
+              'functionCall': {'name': 'navigate', 'args': {}},
+              'thoughtSignature': 'sig',
+            },
+          ]),
+        ],
+        [words('第一句。'), words('第二'), words('句。')],
+      ]);
+      final heard = Heard();
+      final drafts = <String>[];
+      final s = streaming(heard, f.transport, drafts: drafts);
+      await s.connect();
+      s.sendText('go');
+      await pumpEventQueue();
+
+      expect(drafts, ['第一句。', '第二', '句。']);
+      expect(heard.texts, ['第一句。第二句。']);
+      expect(heard.turns, 1);
+      expect(f.uris.first.path, endsWith(':streamGenerateContent'));
+      expect(f.uris.first.queryParameters, {'alt': 'sse'});
+      // The scope of the steering reaches the request, the key only the
+      // transport's argument.
+      expect((f.bodies.first['systemInstruction'] as Map)['parts'], [
+        {'text': 'scoped'},
+      ]);
+      expect(jsonEncode(f.bodies), isNot(contains('test-key')));
+      // The history carries the merged model words and the signature.
+      expect(_contents(f.bodies.last)[1]['parts'], [
+        {
+          'functionCall': {'name': 'navigate', 'args': {}},
+          'thoughtSignature': 'sig',
+        },
+      ]);
+    });
+
+    test('the words of the first step are never drafted', () async {
+      final f = fake([
+        [
+          words('我先看看。'),
+          chunk([
+            {
+              'functionCall': {'name': 'navigate', 'args': {}},
+            },
+          ]),
+        ],
+        [words('好了。')],
+      ]);
+      final heard = Heard();
+      final drafts = <String>[];
+      final s = streaming(heard, f.transport, drafts: drafts);
+      await s.connect();
+      s.sendText('go');
+      await pumpEventQueue();
+
+      expect(drafts, ['好了。']);
+      // What is said at the end is the whole turn's words, as ever.
+      expect(heard.texts, ['我先看看。\n好了。']);
+      // The step-one words stay in the history, merged into one part.
+      expect(_contents(f.bodies.last)[1]['parts'], [
+        {'text': '我先看看。'},
+        {
+          'functionCall': {'name': 'navigate', 'args': {}},
+        },
+      ]);
+    });
+
+    test('streamSafe false stops the drafts for the turn; the words are '
+        'still all said at the end', () async {
+      final f = fake([
+        [
+          chunk([
+            {
+              'functionCall': {'name': 'navigate', 'args': {}},
+            },
+          ]),
+        ],
+        [words('甲。'), words('乙。'), words('丙。')],
+      ]);
+      final heard = Heard();
+      final drafts = <String>[];
+      final asked = <(int, String)>[];
+      final s = streaming(
+        heard,
+        f.transport,
+        drafts: drafts,
+        steer: steering(
+          safe: (runs, draft) {
+            asked.add((runs.length, draft));
+            return draft.length < 4;
+          },
+        ),
+      );
+      await s.connect();
+      s.sendText('go');
+      await pumpEventQueue();
+
+      expect(drafts, ['甲。']);
+      // The text of the step so far, with the tool run, and not asked again
+      // once it said no.
+      expect(asked, [(1, '甲。'), (1, '甲。乙。')]);
+      expect(heard.texts, ['甲。乙。丙。']);
+      expect(heard.turns, 1);
+    });
+
+    test('without onDraft or streamSafe the plain transport is used', () async {
+      for (final withDraft in [false, true]) {
+        final api = Api()..replies.addAll([_call('navigate', {}), _say('好。')]);
+        final f = fake(const []);
+        final heard = Heard();
+        final drafts = <String>[];
+        final s = GeminiAgentSession(
+          apiKey: 'test-key',
+          systemPrompt: 'be the orb',
+          tools: _tools,
+          // Draft callback without streamSafe, or streamSafe without it.
+          steering: withDraft ? const AgentSteering(scope: _scope) : steering(),
+          transport: api.call,
+          streamTransport: f.transport,
+          onDraft: withDraft ? drafts.add : null,
+          retryDelay: Duration.zero,
+          onToolCall: (_, _) async => {'ok': true},
+          onOutputText: heard.texts.add,
+          onTurnComplete: () => heard.turns++,
+        );
+        await s.connect();
+        s.sendText('go');
+        await pumpEventQueue();
+
+        expect(f.uris, isEmpty);
+        expect(api.requests, hasLength(2));
+        expect(drafts, isEmpty);
+        expect(heard.texts, ['好。']);
+      }
+    });
+
+    test(
+      'reasoning parts are never drafted, and stay in the history',
+      () async {
+        final f = fake([
+          [
+            chunk([
+              {
+                'functionCall': {'name': 'navigate', 'args': {}},
+              },
+            ]),
+          ],
+          [
+            chunk([
+              {'text': '想一想', 'thought': true},
+            ]),
+            chunk([
+              {'text': '想完了', 'thought': true, 'thoughtSignature': 'sg'},
+              {'text': '答案。'},
+            ]),
+          ],
+        ]);
+        final heard = Heard();
+        final drafts = <String>[];
+        final asked = <String>[];
+        final s = streaming(
+          heard,
+          f.transport,
+          drafts: drafts,
+          steer: steering(
+            safe: (_, draft) {
+              asked.add(draft);
+              return true;
+            },
+          ),
+        );
+        await s.connect();
+        s.sendText('go');
+        await pumpEventQueue();
+
+        expect(drafts, ['答案。']);
+        expect(asked, ['答案。']);
+        expect(heard.texts, ['答案。']);
+      },
+    );
+
+    test('the turn cancelled mid-stream: no more drafts, nothing said, no '
+        'half of it left', () async {
+      late GeminiAgentSession s;
+      final f = fake(
+        [
+          [
+            chunk([
+              {
+                'functionCall': {'name': 'navigate', 'args': {}},
+              },
+            ]),
+          ],
+          [words('甲。'), words('乙。'), words('丙。')],
+        ],
+        after: (call, i) {
+          if (call == 1 && i == 0) s.cancelTurn();
+        },
+      );
+      final heard = Heard();
+      final drafts = <String>[];
+      s = streaming(heard, f.transport, drafts: drafts);
+      await s.connect();
+      s.sendText('go');
+      await pumpEventQueue();
+
+      expect(drafts, ['甲。']);
+      expect(heard.texts, isEmpty);
+      expect(heard.turns, 0);
+      expect(heard.closed, isEmpty);
+
+      // The next turn starts from a clean history.
+      final g = fake([
+        [words('新的。')],
+      ]);
+      final next = streaming(heard, g.transport, drafts: drafts);
+      await next.connect();
+      next.sendText('again');
+      await pumpEventQueue();
+      expect(heard.texts, ['新的。']);
+    });
+
+    test('a review retry ends the drafts of the turn', () async {
+      final f = fake([
+        [
+          chunk([
+            {
+              'functionCall': {'name': 'navigate', 'args': {}},
+            },
+          ]),
+        ],
+        [words('要发吗？')],
+        [words('改好。')],
+      ]);
+      final heard = Heard();
+      final drafts = <String>[];
+      final s = streaming(
+        heard,
+        f.transport,
+        drafts: drafts,
+        steer: AgentSteering(
+          scope: _scope,
+          streamSafe: (_, _) => true,
+          review: (reply, runs, run) =>
+              reply.contains('要发吗') ? const AgentReview(retry: '先出卡') : null,
+        ),
+      );
+      await s.connect();
+      s.sendText('go');
+      await pumpEventQueue();
+
+      expect(drafts, ['要发吗？']);
+      expect(heard.texts, ['改好。']);
+    });
+
+    test('a failed stream is asked again like a plain call', () async {
+      var calls = 0;
+      Stream<Map<String, Object?>> flaky(
+        Uri uri,
+        String key,
+        Map<String, Object?> body,
+      ) async* {
+        if (calls++ == 0) throw const GeminiStreamFailure(503);
+        yield words('好。');
+      }
+
+      final heard = Heard();
+      final s = streaming(heard, flaky);
+      await s.connect();
+      s.sendText('go');
+      await pumpEventQueue();
+      expect(calls, 2);
+      expect(heard.texts, ['好。']);
+    });
+
+    test('geminiSseChunks reads the data events', () async {
+      final chunks = await geminiSseChunks(
+        Stream.fromIterable([
+          'data: {"a":1}\r\n\r\nda',
+          'ta: {"b":\n',
+          'data: 2}\n\n: comment\ndata: not json\n\ndata: {"c":3}',
+        ]),
+      ).toList();
+      expect(chunks, [
+        {'a': 1},
+        {'b': 2},
+        {'c': 3},
+      ]);
+    });
   });
 }

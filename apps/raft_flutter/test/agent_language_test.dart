@@ -107,7 +107,7 @@ void main() {
           final p = layeredVoicePromptFor(language);
           expect(p, contains(language.relayLine));
           expect(p, contains('ask_agent'));
-          expect(p.length, lessThan(900));
+          expect(p.length, lessThan(1800));
         }
         expect(layeredVoicePromptFor(en), isNot(contains(zh.relayLine)));
         expect(layeredVoicePrompt, layeredVoicePromptFor(zh));

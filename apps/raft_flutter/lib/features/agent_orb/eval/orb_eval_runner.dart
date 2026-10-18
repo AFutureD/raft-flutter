@@ -89,6 +89,7 @@ class OrbEvalRunner {
     this.model,
     this.engine,
     this.voiceMode,
+    this.voiceProvider,
     this.layeredGrace = const Duration(seconds: 4),
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
@@ -126,6 +127,14 @@ class OrbEvalRunner {
 
   LayeredVoiceMode get _voiceMode =>
       voiceMode ?? AgentOrbPreference.instance.layeredVoiceMode;
+
+  /// The layered harness: the voice service that listens and speaks (Gemini
+  /// Live, OpenAI Realtime or Grok Voice); the voice settings' choice when
+  /// null.
+  final AgentVoiceProvider? voiceProvider;
+
+  AgentVoiceProvider get _provider =>
+      voiceProvider ?? AgentVoiceSettings.instance.layeredProvider;
 
   /// The layered harness: how long after a Live turn that asked nothing the
   /// turn is called over (an ask may still follow a filler).
@@ -218,8 +227,10 @@ class OrbEvalRunner {
       startedAt: started,
       runsPerScenario: runs,
       results: results,
-      // The voice layer is Gemini whatever the voice settings name.
-      provider: agent ? null : (layered ? 'gemini' : settings.provider.name),
+      // The voice layer has its own service (the text agent is Gemini).
+      provider: agent
+          ? null
+          : (layered ? _provider.name : settings.provider.name),
       // The voice layer runs Live with the least thinking it takes, whatever
       // the voice settings say.
       reasoning: agent
@@ -260,7 +271,8 @@ class OrbEvalRunner {
       final engineLabel =
           (engine ?? AgentOrbPreference.instance.agentEngine).label;
       return '${AgentBrainMode.layered.label}：'
-          '语音模型 Gemini Live${_model == null ? '' : '（$_model）'}'
+          '语音模型 ${agentLayeredVoiceLabels[_provider]}'
+          '${_model == null ? '' : '（$_model）'}'
           '${_liveThinking == null ? '' : ' 推理 $_liveThinking'}'
           ' · ${_voiceMode.label}'
           ' · Agent 引擎 $engineLabel'
@@ -302,7 +314,13 @@ class OrbEvalRunner {
         playbackPending,
         steering,
       }) => LayeredVoiceSession(
+        voiceProvider: _provider,
         apiKey: apiKey,
+        agentApiKey: _provider == AgentVoiceProvider.gemini
+            ? null
+            : (voiceKey ?? AgentVoiceKey.instance).loaded,
+        playbackPending: playbackPending,
+        language: AgentVoiceSettings.instance.language,
         systemPrompt: systemPrompt,
         tools: tools,
         onToolCall: onToolCall,
@@ -312,7 +330,7 @@ class OrbEvalRunner {
         agentModelId: model ?? AgentOrbPreference.instance.agentModel,
         voice: voice,
         reasoning: reasoning,
-        liveModel: AgentVoiceSettings.instance.liveModel,
+        liveModel: AgentVoiceSettings.instance.realtimeModelOf(_provider),
         mode: _voiceMode,
         // Also with Live relaying: the app says a confirmation line itself
         // when Live's words for it miss something.
@@ -415,6 +433,7 @@ class OrbEvalRunner {
         ),
         agentLayer: harness.isTextAgent,
         layeredVoice: harness == OrbEvalHarness.layered,
+        layeredProvider: harness == OrbEvalHarness.layered ? _provider : null,
         audio: _SilentAudio(),
         voiceKey: voiceKey,
         // The summary of a session would be a write to the shared agent.
@@ -468,6 +487,8 @@ class OrbEvalRunner {
     final checks = [
       ...s.checks,
       if (harness == OrbEvalHarness.layered) OrbEvalCheck.keyInfoSpoken(),
+      // The person is not left in silence while the agent works.
+      if (harness == OrbEvalHarness.layered) OrbEvalCheck.feedbackWhenSlow(),
     ];
     for (final check in checks) {
       String? reason;
@@ -677,6 +698,7 @@ class _Recorder {
     _turn = turn;
     _turnAsks = 0;
     _saidSinceAnswer = false;
+    _answerSpoken = false;
     _askBack = false;
     _clock
       ..reset()
@@ -737,7 +759,9 @@ class _Recorder {
       // gemini-3.8-live ends its turn at the call, before the answer is
       // back: a turn end with nothing said since the agent answered is that
       // one, not the end of the answer.
-      if (_turnAsks > 0 && !_saidSinceAnswer) return;
+      // (A voice the app drives has said the answer, a sentence at a time,
+      // before the ask ended when it streams: that counts.)
+      if (_turnAsks > 0 && !_saidSinceAnswer && !_answerSpoken) return;
       if (_turnAsks == 0) {
         _graceTimer?.cancel();
         _graceTimer = Timer(grace!, _finish);
@@ -765,11 +789,16 @@ class _Recorder {
   /// Whether the voice said anything since the agent last answered.
   bool _saidSinceAnswer = false;
 
+  /// Whether the app asked the voice to say a sentence of the answer (it
+  /// does so as the agent's words stream in, before the ask is over).
+  bool _answerSpoken = false;
+
   void _askingChanged(int inFlight) {
     if (inFlight > _asking) {
       _turnAsks++;
       _askBack = false;
       _saidSinceAnswer = false;
+      _answerSpoken = false;
       _graceTimer?.cancel();
       // The voice that came before this ask is not what the person waited for.
       _turn?.firstAudioMs = 0;
@@ -878,7 +907,22 @@ class _Recorder {
     if (made is LayeredVoiceSession) {
       made
         ..onAsk = _ask
-        ..onSpoken = ((sentence) => _turn?.spoken.add(sentence))
+        ..onSpoken = ((sentence) {
+          _turn?.spoken.add(sentence);
+          _answerSpoken = true;
+          _graceTimer?.cancel();
+        })
+        ..onTimed = ((what, ms) {
+          final turn = _turn;
+          if (turn == null) return;
+          if (what == 'voice' && turn.firstVoiceMs == 0) {
+            turn.firstVoiceMs = math.max(1, ms);
+          }
+          if (what == 'answer' && turn.firstAnswerMs == 0) {
+            turn.firstAnswerMs = math.max(1, ms);
+          }
+        })
+        ..onFeedback = ((kind, text) => _turn?.feedback.add('$kind：$text'))
         ..onCorrection = ((say, missing) => _turn?.corrections.add(missing))
         ..addAskingListener(_askingChanged);
     }

@@ -5,6 +5,7 @@ import 'package:raft_ui/raft_ui.dart';
 import '../../private_route_guard.dart' show PrivateRouteGuard;
 import '../../agent_mode/agent_engine.dart';
 import '../../agent_mode/layered_voice_mode.dart';
+import '../../agent_mode/voice_provider.dart' show AgentVoiceProvider;
 import '../../agent_mode/agent_thinking.dart';
 import 'orb_eval_page.dart';
 import 'orb_eval_result.dart' show OrbEvalHarness;
@@ -19,6 +20,7 @@ class OrbEvalRequest {
     this.model,
     this.engine,
     this.voiceMode,
+    this.voiceProvider,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -40,10 +42,29 @@ class OrbEvalRequest {
   /// the Labs setting.
   final AgentEngine? engine;
 
-  /// `voice=app|relay` for `harness=layered`, for this run only: the app
-  /// reads the agent's words (the default), or Live relays them. Null: the
-  /// Labs setting.
+  /// `speak=app|relay` (or `voice=app|relay`) for `harness=layered`, for this
+  /// run only: the app reads the agent's words with the device's voice, or
+  /// the voice service relays them with its own. Null: the Labs setting.
   final LayeredVoiceMode? voiceMode;
+
+  /// `voice=gemini|openai|grok` (or `provider=`) for `harness=layered`, for
+  /// this run only: the voice service that listens and speaks. Null: the one
+  /// chosen in the voice settings.
+  final AgentVoiceProvider? voiceProvider;
+
+  /// The voice service a link names (`openai`, `grok`, `gemini`), or null.
+  static AgentVoiceProvider? parseVoiceProvider(String? name) {
+    final want = name?.trim().toLowerCase();
+    for (final p in AgentVoiceProvider.values) {
+      if (p.name == want) return p;
+    }
+    return switch (want) {
+      'xai' || 'grok-voice' => AgentVoiceProvider.grok,
+      'gpt' || 'openai-realtime' => AgentVoiceProvider.openai,
+      'live' || 'gemini-live' => AgentVoiceProvider.gemini,
+      _ => null,
+    };
+  }
 
   /// The request a `raft://orb-eval/run?only=A1,B2&runs=3&harness=agent` link
   /// makes; null for any other link.
@@ -68,7 +89,14 @@ class OrbEvalRequest {
       thinking: AgentThinking.parse(uri.queryParameters['thinking']),
       model: _modelParam(uri.queryParameters['model']),
       engine: AgentEngine.parse(uri.queryParameters['engine']),
-      voiceMode: LayeredVoiceMode.parse(uri.queryParameters['voice']),
+      // `voice=` names a voice service (openai) or, as before, how the voice
+      // speaks (app, relay); `speak=` and `provider=` say which one.
+      voiceMode: LayeredVoiceMode.parse(
+        uri.queryParameters['speak'] ?? uri.queryParameters['voice'],
+      ),
+      voiceProvider: parseVoiceProvider(
+        uri.queryParameters['provider'] ?? uri.queryParameters['voice'],
+      ),
     );
   }
 }
@@ -203,6 +231,7 @@ class OrbEvalLauncher {
                   model: request.model,
                   engine: request.engine,
                   voiceMode: request.voiceMode,
+                  voiceProvider: request.voiceProvider,
                 ),
           ),
         )

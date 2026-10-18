@@ -9,7 +9,9 @@ import 'package:raft_ui/raft_ui.dart';
 import '../../data/workspace_controller.dart';
 import '../agent_mode/agent_engine.dart';
 import '../agent_mode/agent_thinking.dart';
+import '../agent_mode/agent_voice_settings.dart' show AgentVoiceSettings;
 import '../agent_mode/layered_voice_mode.dart';
+import '../agent_mode/voice_provider.dart' show AgentVoiceProvider;
 import 'orb_avoidance.dart';
 import 'orb_controller.dart';
 import 'orb_preference.dart';
@@ -75,7 +77,15 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
 
   /// The agent-layer setting the controller was made with: a change builds it
   /// again.
-  (bool, AgentThinking, AgentEngine, LayeredVoiceMode, String?)? _layerSeen;
+  (
+    bool,
+    AgentThinking,
+    AgentEngine,
+    LayeredVoiceMode,
+    String?,
+    AgentVoiceProvider,
+  )?
+  _layerSeen;
   late OrbAvoidance _avoidance = widget.avoidance ?? OrbAvoidance.app();
   List<Rect> _obstacles = const [];
   bool _measureQueued = false;
@@ -91,6 +101,8 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
   void initState() {
     super.initState();
     _pref.addListener(_prefChanged);
+    // The voice service of the layered brain is chosen in the voice settings.
+    AgentVoiceSettings.instance.addListener(_prefChanged);
   }
 
   @override
@@ -111,6 +123,7 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
   @override
   void dispose() {
     _pref.removeListener(_prefChanged);
+    AgentVoiceSettings.instance.removeListener(_prefChanged);
     _measureTimer?.cancel();
     widget.workspace?.removeListener(_workspaceChanged);
     _retire(_controller);
@@ -160,6 +173,7 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
               _pref.agentEngine,
               _pref.layeredVoiceMode,
               _pref.agentModel,
+              AgentVoiceSettings.instance.layeredProvider,
             )) {
       _layerSeen = (
         _pref.agentLayer,
@@ -167,6 +181,7 @@ class _AgentOrbHostState extends State<AgentOrbHost> {
         _pref.agentEngine,
         _pref.layeredVoiceMode,
         _pref.agentModel,
+        AgentVoiceSettings.instance.layeredProvider,
       );
       _controllerFor?.removeListener(_workspaceChanged);
       _retire(_controller);

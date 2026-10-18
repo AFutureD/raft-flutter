@@ -95,6 +95,9 @@ class AgentVoiceKey extends ChangeNotifier {
     return _key;
   }
 
+  /// The key if it has been read (or saved) already; null before that.
+  String? get loaded => _key;
+
   /// Last four characters, for display only.
   String? get suffix {
     final k = _key;

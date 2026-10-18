@@ -957,4 +957,58 @@ void main() {
   test('no briefing, no card, nothing to say about it', () {
     expect(orbReviewReply('你好。', const [], cardUp: false), isNull);
   });
+
+  group('orbStreamSafe', () {
+    test('no tools and a plain action: the beginning is the model\'s', () {
+      expect(orbStreamSafe(const [], '好的，', cardUp: false), isTrue);
+      expect(
+        orbStreamSafe(
+          [
+            run('send_message', {'status': 'needs_confirmation'}),
+          ],
+          '我替你起草了一条。',
+          cardUp: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('a briefing that was read: the review adds and orders, so no', () {
+      expect(
+        orbStreamSafe(
+          [run('get_briefing', briefing())],
+          '今天挺安静。',
+          cardUp: false,
+          said: '有什么要紧的',
+        ),
+        isFalse,
+      );
+      expect(
+        orbStreamSafe(
+          [
+            run('get_briefing', briefing(waiting: 2, titles: ['甲', '乙'])),
+          ],
+          '我看了。',
+          cardUp: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('the person asked what matters and nothing was read: the review '
+        'may read it itself', () {
+      expect(
+        orbStreamSafe(const [], '我看看。', cardUp: false, said: '有什么新的'),
+        isFalse,
+      );
+    });
+
+    test('a draft that asks to confirm, claims it was done, claims nothing '
+        'is there or loading', () {
+      expect(orbStreamSafe(const [], '回复 Cody：可以，要发吗', cardUp: false), isFalse);
+      expect(orbStreamSafe(const [], '已经发送了。', cardUp: true), isFalse);
+      expect(orbStreamSafe(const [], '什么都没有。', cardUp: false), isFalse);
+      expect(orbStreamSafe(const [], '稍等，', cardUp: false), isFalse);
+    });
+  });
 }

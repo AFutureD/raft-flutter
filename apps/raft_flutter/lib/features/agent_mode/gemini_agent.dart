@@ -47,6 +47,82 @@ Future<({int status, String body})> geminiHttpTransport(
   }
 }
 
+/// A streamed model call failed with this HTTP status (the body, which can
+/// name the request, stays out).
+class GeminiStreamFailure implements Exception {
+  const GeminiStreamFailure(this.status);
+
+  final int status;
+
+  @override
+  String toString() => 'GeminiStreamFailure($status)';
+}
+
+/// One streamed POST to the Gemini REST API (`streamGenerateContent?alt=sse`):
+/// the JSON chunks of the answer, in order, as they arrive. A status other
+/// than 200 is a [GeminiStreamFailure]. [apiKey] belongs in the
+/// `x-goog-api-key` header and nowhere else. Cancelling the subscription ends
+/// the request.
+typedef GeminiStreamTransport = Stream<Map<String, Object?>> Function(
+  Uri uri,
+  String apiKey,
+  Map<String, Object?> body,
+);
+
+/// The `data:` events of a server-sent-events body, each decoded as a JSON
+/// object (an event that is not one is skipped).
+Stream<Map<String, Object?>> geminiSseChunks(Stream<String> text) async* {
+  final data = <String>[];
+  Map<String, Object?>? flush() {
+    if (data.isEmpty) return null;
+    final raw = data.join('\n').trim();
+    data.clear();
+    try {
+      final json = jsonDecode(raw);
+      return json is Map ? Map<String, Object?>.from(json) : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  await for (final line in text.transform(const LineSplitter())) {
+    if (line.isEmpty) {
+      final chunk = flush();
+      if (chunk != null) yield chunk;
+    } else if (line.startsWith('data:')) {
+      data.add(line.substring(5));
+    }
+  }
+  final last = flush();
+  if (last != null) yield last;
+}
+
+/// The stream transport of the app: an [HttpClient] per exchange.
+Stream<Map<String, Object?>> geminiHttpStreamTransport(
+  Uri uri,
+  String apiKey,
+  Map<String, Object?> body,
+) async* {
+  const timeout = Duration(seconds: 60);
+  // ignore: raft_lints/avoid_unproxied_network_client -- Resolves through HttpOverrides.global (SystemProxy.installGlobally) like the voice session's client.
+  final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
+  try {
+    final request = await client.postUrl(uri).timeout(timeout);
+    request.headers.set('x-goog-api-key', apiKey);
+    request.headers.contentType = ContentType.json;
+    request.add(utf8.encode(jsonEncode(body)));
+    final response = await request.close().timeout(timeout);
+    if (response.statusCode != 200) {
+      await response.drain<void>().timeout(timeout);
+      throw GeminiStreamFailure(response.statusCode);
+    }
+    // The timeout counts the silence between two chunks.
+    yield* geminiSseChunks(response.transform(utf8.decoder).timeout(timeout));
+  } finally {
+    client.close(force: true);
+  }
+}
+
 /// One tool run through [handler] with the timeout and the size guard of a
 /// Live session's tools; an `error` map when it returned nothing. The text
 /// agents (`GeminiAgentSession`, `GenkitAgentSession`) both call tools so.
@@ -91,13 +167,16 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
     this.apiKey,
     AgentVoiceKey? key,
     GeminiTransport? transport,
+    GeminiStreamTransport? streamTransport,
+    this.onDraft,
     this.maxSteps = 8,
     this.retryDelay = const Duration(seconds: 1),
     this.onOutputText,
     this.onTurnComplete,
     this.onClosed,
   }) : _key = key ?? AgentVoiceKey.instance,
-       _transport = transport ?? geminiHttpTransport;
+       _transport = transport ?? geminiHttpTransport,
+       _streamTransport = streamTransport ?? geminiHttpStreamTransport;
 
   final String systemPrompt;
   final List<Map<String, Object?>> tools;
@@ -120,6 +199,15 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
   final String? apiKey;
   final AgentVoiceKey _key;
   final GeminiTransport _transport;
+  final GeminiStreamTransport _streamTransport;
+
+  /// Model words as they stream, a draft of what [onOutputText] will deliver;
+  /// only the later [onOutputText] is authoritative. Given with
+  /// [AgentSteering.streamSafe], the model calls stream and the words of a
+  /// step after tool results come here, as long as the steering says the
+  /// review would leave their beginning alone; without either, a model call
+  /// is one plain `generateContent`.
+  final void Function(String delta)? onDraft;
 
   /// The most model calls one turn may take; a model still calling tools
   /// after that is stopped.
@@ -298,6 +386,13 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
   /// The tools one turn has run (what the steering's review is shown).
   final _runs = <AgentToolRun>[];
 
+  bool get _streams => onDraft != null && steering?.streamSafe != null;
+
+  /// Whether the turn under way may still give drafts: off for good once the
+  /// steering said no, the review asked for a retry, or the app's own words
+  /// ended the turn.
+  bool _drafting = true;
+
   /// One turn: the model and its tools until it answers with words only, or
   /// a tool brings the app's own words ([agentAppSays]). Those words, or null
   /// when the session was closed meanwhile.
@@ -305,6 +400,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
     final context = [..._context, ?steering?.preload?.call()];
     _context.clear();
     _runs.clear();
+    _drafting = true;
     _contents.add({
       'role': 'user',
       'parts': [
@@ -355,6 +451,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
         final retry = review?.retry;
         if (retry != null && !retried && step < maxSteps) {
           retried = true;
+          _drafting = false;
           said.clear();
           _contents.add({
             'role': 'user',
@@ -382,6 +479,7 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
       }
       _contents.add({'role': 'user', 'parts': responses});
       if (own.isNotEmpty) {
+        _drafting = false;
         final line = own.join('');
         _contents.add({
           'role': 'model',
@@ -457,55 +555,151 @@ class GeminiAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
     );
     for (var attempt = 0; ; attempt++) {
       final watch = Stopwatch()..start();
-      final reply = await _transport(
-        Uri.https(_host, '/v1beta/$model:generateContent'),
-        _apiKey!,
-        {
-          'systemInstruction': {
-            'parts': [
-              {'text': scope?.systemPrompt ?? systemPrompt},
-            ],
-          },
-          'contents': [..._contents],
-          if (declarations.isNotEmpty)
-            'tools': [
-              {'functionDeclarations': declarations},
-            ],
-          'generationConfig': generationConfig(
-            model,
-            thinking: _thinking,
-            level: thinking,
-          ),
+      final request = {
+        'systemInstruction': {
+          'parts': [
+            {'text': scope?.systemPrompt ?? systemPrompt},
+          ],
         },
-      );
+        'contents': [..._contents],
+        if (declarations.isNotEmpty)
+          'tools': [
+            {'functionDeclarations': declarations},
+          ],
+        'generationConfig': generationConfig(
+          model,
+          thinking: _thinking,
+          level: thinking,
+        ),
+      };
       Map<String, Object?>? content;
-      if (reply.status == 200) {
-        final candidate =
-            (jsonDecode(reply.body)['candidates'] as List?)?.firstOrNull;
-        if (candidate is Map && candidate['content'] is Map) {
-          content = Map<String, Object?>.from(candidate['content'] as Map);
+      int status;
+      if (_streams) {
+        final streamed = await _streamed(model, request, step);
+        status = streamed.status;
+        content = streamed.content;
+      } else {
+        final reply = await _transport(
+          Uri.https(_host, '/v1beta/$model:generateContent'),
+          _apiKey!,
+          request,
+        );
+        status = reply.status;
+        if (status == 200) {
+          final candidate =
+              (jsonDecode(reply.body)['candidates'] as List?)?.firstOrNull;
+          if (candidate is Map && candidate['content'] is Map) {
+            content = Map<String, Object?>.from(candidate['content'] as Map);
+          }
         }
       }
       _debug(
         '$model thinking=${_thinking ? thinking.name : 'none'} step=$step '
-        '${reply.status} ${watch.elapsedMilliseconds}ms '
+        '$status ${watch.elapsedMilliseconds}ms '
         'tools=${[for (final p in (content?['parts'] as List? ?? const []))
           if (p is Map && p['functionCall'] is Map) p['functionCall']['name']].join(',')}',
       );
       if (_stale) return null;
-      if (reply.status == 200) return content;
+      if (status == 200) return content;
       // A model that rejects the thinking setting is asked again without.
-      if (reply.status == 400 && _thinking) {
+      if (status == 400 && _thinking) {
         _thinking = false;
         continue;
       }
-      final transient = reply.status == 429 || reply.status >= 500;
+      final transient = status == 429 || status >= 500;
       if (transient && attempt < 2) {
         await Future<void>.delayed(retryDelay);
         if (_stale) return null;
         continue;
       }
-      throw HttpException('generateContent ${reply.status}');
+      throw HttpException('generateContent $status');
     }
+  }
+
+  /// One streamed model call: the content merged from the chunks, with the
+  /// words of the step given to [onDraft] as they come (see [AgentSteering.
+  /// streamSafe]). A failure comes back as its status; one after a draft was
+  /// given is thrown, since asking again would say the words twice.
+  Future<({int status, Map<String, Object?>? content})> _streamed(
+    String model,
+    Map<String, Object?> request,
+    int step,
+  ) async {
+    final parts = <Map<String, Object?>>[];
+    var text = '';
+    var drafted = false;
+    var calling = false;
+    try {
+      await for (final chunk in _streamTransport(
+        Uri.https(_host, '/v1beta/$model:streamGenerateContent', {
+          'alt': 'sse',
+        }),
+        _apiKey!,
+        request,
+      )) {
+        if (_stale) return (status: 200, content: null);
+        final candidate = (chunk['candidates'] as List?)?.firstOrNull;
+        final content = candidate is Map ? candidate['content'] : null;
+        for (final p
+            in (content is Map ? content['parts'] : null) as List? ??
+                const []) {
+          if (p is! Map) continue;
+          final part = Map<String, Object?>.from(p);
+          _mergePart(parts, part);
+          if (part['functionCall'] is Map) calling = true;
+          final delta = part['text'];
+          if (delta is! String ||
+              delta.isEmpty ||
+              part['thought'] == true ||
+              part['functionCall'] != null) {
+            continue;
+          }
+          text += delta;
+          // The first step may be reasoning before a tool; so is any step
+          // that goes on to call one.
+          if (step < 2 || !_drafting || calling) continue;
+          if (!steering!.streamSafe!([..._runs], text)) {
+            _drafting = false;
+            continue;
+          }
+          drafted = true;
+          onDraft!(delta);
+        }
+      }
+    } on GeminiStreamFailure catch (e) {
+      if (drafted) throw HttpException('generateContent ${e.status}');
+      return (status: e.status, content: null);
+    }
+    return (
+      status: 200,
+      content: parts.isEmpty
+          ? null
+          : <String, Object?>{'role': 'model', 'parts': parts},
+    );
+  }
+
+  /// Adds a streamed [part] to [parts] the way one whole reply has it: the
+  /// pieces of one run of words (or of reasoning) are one part, which keeps
+  /// the last `thoughtSignature` seen.
+  static void _mergePart(
+    List<Map<String, Object?>> parts,
+    Map<String, Object?> part,
+  ) {
+    bool plain(Map<String, Object?> p) =>
+        p['text'] is String &&
+        p.keys.every(
+          (k) => k == 'text' || k == 'thought' || k == 'thoughtSignature',
+        );
+    if (parts.isNotEmpty && plain(parts.last) && plain(part)) {
+      final last = parts.last;
+      if ((last['thought'] == true) == (part['thought'] == true)) {
+        last['text'] = '${last['text']}${part['text']}';
+        if (part['thoughtSignature'] != null) {
+          last['thoughtSignature'] = part['thoughtSignature'];
+        }
+        return;
+      }
+    }
+    parts.add(part);
   }
 }

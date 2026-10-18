@@ -135,6 +135,7 @@ Future<void> mountEvalPage(
   int runs = 2,
   Duration turnTimeout = const Duration(seconds: 45),
   OrbEvalHarness harness = OrbEvalHarness.realtime,
+  AgentVoiceProvider? voiceProvider,
 }) async {
   t.view.physicalSize = const Size(412, 915);
   t.view.devicePixelRatio = 1;
@@ -150,6 +151,7 @@ Future<void> mountEvalPage(
         settle: const Duration(milliseconds: 50),
         turnTimeout: turnTimeout,
         harness: harness,
+        voiceProvider: voiceProvider,
       ),
     ),
   );

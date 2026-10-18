@@ -79,6 +79,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
     AgentVoiceKey? key,
     GeminiTransport? transport,
     GenkitModelResolver? resolver,
+    this.onDraft,
     this.maxSteps = 8,
     this.retryDelay = const Duration(seconds: 1),
     this.requestTimeout = const Duration(seconds: 60),
@@ -110,6 +111,14 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
   final AgentVoiceKey _key;
   final GeminiTransport _transport;
   final GenkitModelResolver _resolver;
+
+  /// Model words as they stream, a draft of what [onOutputText] will deliver;
+  /// only the later [onOutputText] is authoritative. Given with
+  /// [AgentSteering.streamSafe], the model calls stream and the words of a
+  /// step after tool results come here, as long as the steering says the
+  /// review would leave their beginning alone; without either, a model call
+  /// is not streamed.
+  final void Function(String delta)? onDraft;
 
   /// The most model calls one turn may take.
   final int maxSteps;
@@ -272,6 +281,13 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
   /// The tools one turn has run (what the steering's review is shown).
   final _runs = <AgentToolRun>[];
 
+  bool get _streams => onDraft != null && steering?.streamSafe != null;
+
+  /// Whether the turn under way may still give drafts: off for good once the
+  /// steering said no, the review asked for a retry, or the app's own words
+  /// ended the turn.
+  bool _drafting = true;
+
   static gk.Message _user(List<String> texts) => gk.Message(
     role: gk.Role.user,
     content: [for (final t in texts) gk.TextPart(text: t)],
@@ -299,6 +315,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
     final context = [..._context, ?steering?.preload?.call()];
     _context.clear();
     _runs.clear();
+    _drafting = true;
     _history.add(_user([...context, text]));
     final intercept = steering?.intercept;
     if (intercept != null) {
@@ -334,6 +351,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
         final retry = review?.retry;
         if (retry != null && !retried && step < maxSteps) {
           retried = true;
+          _drafting = false;
           said.clear();
           _history.add(_user([retry]));
           continue;
@@ -356,6 +374,7 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
       }
       _history.add(gk.Message(role: gk.Role.tool, content: responses));
       if (own.isNotEmpty) {
+        _drafting = false;
         final line = own.join('');
         _history.add(_model(line));
         return line;
@@ -448,6 +467,10 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
       final cancel = _inflight = gk.CancellationController();
       final timer = Timer(requestTimeout, () => cancel.cancel('timeout'));
       gk.GenerateResult<Object?> result;
+      // What this call has given as a draft, and what it has said so far.
+      var drafted = false;
+      var text = '';
+      var calling = false;
       try {
         result = await gk.generate<Object?, dynamic>(
           model: _genkitModel!,
@@ -463,6 +486,27 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
                 )
               : null,
           cancel: cancel.token,
+          onChunk: !_streams
+              ? null
+              : (chunk) {
+                  if (_stale) return;
+                  if (chunk.content.any((p) => p.toolRequest != null)) {
+                    calling = true;
+                  }
+                  // Only the words: a reasoning part has no `text` key.
+                  final delta = chunk.text;
+                  if (delta.isEmpty) return;
+                  text += delta;
+                  // The first step may be reasoning before a tool; so is any
+                  // step that goes on to call one.
+                  if (step < 2 || !_drafting || calling) return;
+                  if (!steering!.streamSafe!([..._runs], text)) {
+                    _drafting = false;
+                    return;
+                  }
+                  drafted = true;
+                  onDraft!(delta);
+                },
         );
       } finally {
         timer.cancel();
@@ -478,6 +522,8 @@ class GenkitAgentSession implements VoiceSession, AppSpeaker, CancellableTurn {
       );
       if (_stale) return null;
       if (!failed) return message;
+      // Asking again would say the words twice.
+      if (drafted) throw GenkitAgentFailure(status);
       // A model that rejects the thinking setting is asked again without.
       if (status == 400 && _thinking && _google) {
         _thinking = false;

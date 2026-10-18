@@ -49,6 +49,7 @@ class OrbEvalPage extends StatefulWidget {
     this.model,
     this.engine,
     this.voiceMode,
+    this.voiceProvider,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -80,6 +81,9 @@ class OrbEvalPage extends StatefulWidget {
 
   /// How the layered harness's voice speaks (null: the setting).
   final LayeredVoiceMode? voiceMode;
+
+  /// The voice service of the layered harness (null: the setting).
+  final AgentVoiceProvider? voiceProvider;
 
   @override
   State<OrbEvalPage> createState() => _OrbEvalPageState();
@@ -124,6 +128,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       model: widget.model,
       engine: widget.engine,
       voiceMode: widget.voiceMode,
+      voiceProvider: widget.voiceProvider,
       sessionFactory: widget.sessionFactory,
       voiceKey: widget.voiceKey,
       onProgress: (p) {

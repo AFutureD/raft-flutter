@@ -142,6 +142,19 @@ class OrbEvalTurn {
   /// for); 0 when there was none.
   int firstAudioMs = 0;
 
+  /// From the end of the person's words (typed text: when it was sent) to the
+  /// first sound of the voice, whatever it says (a lead-in, an
+  /// acknowledgment, the answer); 0 when it said nothing. The target is under
+  /// a second. (The layered harness.)
+  int firstVoiceMs = 0;
+
+  /// The same to the first sentence of the answer itself.
+  int firstAnswerMs = 0;
+
+  /// What the voice said while the agent worked, in order: `lead：…` (the
+  /// voice's own words) or `ack：…` (the app's canned line).
+  final feedback = <String>[];
+
   /// The command the app did without the model (`next`, `open` ...), when
   /// that is how the turn went.
   String? fastPath;
@@ -175,6 +188,9 @@ class OrbEvalTurn {
     'text': text,
     if (millis > 0) 'ms': millis,
     if (firstAudioMs > 0) 'firstAudioMs': firstAudioMs,
+    if (firstVoiceMs > 0) 'firstVoiceMs': firstVoiceMs,
+    if (firstAnswerMs > 0) 'firstAnswerMs': firstAnswerMs,
+    if (feedback.isNotEmpty) 'feedback': feedback,
     if (asks.isNotEmpty) 'askMs': askMs,
     if (fastPath != null) 'fastPath': fastPath,
     if (liveFiller) 'liveFiller': true,

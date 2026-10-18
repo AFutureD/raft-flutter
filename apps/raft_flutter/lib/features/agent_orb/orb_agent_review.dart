@@ -136,6 +136,41 @@ AgentReview? orbReviewReply(
   return r;
 }
 
+/// Whether the words a turn is still writing ([draft], the model's text of
+/// this step so far) may be spoken before the turn is over: the review of
+/// [orbReviewReply] would not change their beginning. True only when the review
+/// has nothing to change for [runs] (probed with a bare "好的。"; a briefing
+/// to add, key facts to add, words to put first all show there), the person
+/// asked nothing the review answers from a briefing the model has not read,
+/// and the draft says none of what makes the review retry or replace (a
+/// question to confirm, "已发送", "没有……", "加载"). [cardUp], [driving] and
+/// [said] are what the review is given.
+bool orbStreamSafe(
+  List<AgentToolRun> runs,
+  String draft, {
+  required bool cardUp,
+  bool driving = false,
+  String said = '',
+}) {
+  if ((orbAsksWhatMatters.hasMatch(said) || orbLooksAtDm.hasMatch(said)) &&
+      orbBriefingOf(runs) == null) {
+    // The review may fetch the briefing itself and put its words first.
+    return false;
+  }
+  final probe = orbReviewReply(
+    '好的。',
+    runs,
+    cardUp: cardUp,
+    driving: driving,
+    said: said,
+  );
+  if (probe != null) return false;
+  return !(orbAsksToConfirm.hasMatch(draft) ||
+      _claimsDone.hasMatch(draft) ||
+      _claimsEmpty.hasMatch(draft) ||
+      _saysLoading.hasMatch(draft));
+}
+
 /// The reply says there is nothing, but what it was told by is a page that is
 /// still loading, or nothing has been read of the Activity yet ([inboxUnread],
 /// no tool read anything): "not read" is not "empty". The app says it is

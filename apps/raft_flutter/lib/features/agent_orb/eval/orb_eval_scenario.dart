@@ -235,6 +235,31 @@ class OrbEvalCheck {
         return problems.isEmpty ? null : problems.join('；');
       });
 
+  /// A turn whose ask to the agent took long was not met with silence: the
+  /// voice (a lead-in of its own, or the app's acknowledgment) was heard
+  /// before the answer was back, and within [within] of the person's words.
+  /// Applied to every scenario of the layered harness.
+  factory OrbEvalCheck.feedbackWhenSlow({
+    Duration slow = const Duration(milliseconds: 1500),
+    Duration within = const Duration(milliseconds: 1500),
+  }) => OrbEvalCheck('Agent 慢的时候不是一片沉默（先出声：接话或确认）', (run) {
+    final problems = <String>[];
+    for (final t in run.scoredTurns) {
+      if (t.asks.isEmpty || t.askMs < slow.inMilliseconds) continue;
+      final first = t.firstVoiceMs;
+      if (first <= 0) {
+        problems.add('「${t.line}」Agent 用了 ${t.askMs}ms，这期间没有出过声');
+      } else if (first > t.askMs) {
+        problems.add('「${t.line}」第一声在 ${first}ms，Agent 在 ${t.askMs}ms 就答了');
+      } else if (first > within.inMilliseconds) {
+        problems.add(
+          '「${t.line}」第一声在 ${first}ms，晚于 ${within.inMilliseconds}ms',
+        );
+      }
+    }
+    return problems.isEmpty ? null : problems.join('；');
+  });
+
   /// The app sent no write (reads the app posts by itself do not count).
   factory OrbEvalCheck.noWrites() => OrbEvalCheck('不发出任何写操作', (run) {
     final writes = run.realWrites;

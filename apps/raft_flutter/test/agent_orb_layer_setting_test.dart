@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/features/agent_mode/agent_engine.dart';
 import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
+import 'package:raft_flutter/features/agent_mode/agent_voice_settings.dart';
+import 'package:raft_flutter/features/agent_mode/voice_provider.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice_mode.dart';
 import 'package:raft_flutter/features/agent_orb/orb_preference.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -115,6 +117,30 @@ void main() {
       expect(f.builds, 2);
       await t.pump(const Duration(seconds: 1));
       expect(f.builds, 2);
+    });
+  });
+
+  group('the voice service of the agent layer', () {
+    tearDown(() {
+      AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.gemini;
+    });
+
+    testWidgets('changing it in the voice settings builds the orb again', (
+      t,
+    ) async {
+      await fixture(t);
+      await f.pump();
+      expect(f.builds, 1);
+      AgentVoiceSettings.instance.layeredProvider = AgentVoiceProvider.openai;
+      await t.pump();
+      await t.pump();
+      expect(f.builds, 2);
+      // A setting of the voice that is not the service does not.
+      AgentVoiceSettings.instance.openAiVoice = 'cedar';
+      AgentVoiceSettings.instance.language = AgentLanguage.en;
+      await t.pump(const Duration(seconds: 1));
+      expect(f.builds, 2);
+      AgentVoiceSettings.instance.language = AgentLanguage.zh;
     });
   });
 

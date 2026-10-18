@@ -129,6 +129,7 @@ VoiceSession createVoiceSession({
   ),
   AgentVoiceProvider.openai => OpenAiRealtimeSession(
     apiKey: apiKey,
+    modelId: AgentVoiceSettings.instance.realtimeModelOf(provider),
     voice: voice,
     reasoning: reasoning,
     systemPrompt: systemPrompt,
@@ -146,6 +147,7 @@ VoiceSession createVoiceSession({
   AgentVoiceProvider.grok => OpenAiRealtimeSession(
     service: RealtimeService.grok,
     apiKey: apiKey,
+    modelId: AgentVoiceSettings.instance.realtimeModelOf(provider),
     voice: voice,
     systemPrompt: systemPrompt,
     tools: tools,

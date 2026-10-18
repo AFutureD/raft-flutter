@@ -51,6 +51,7 @@ class AgentSteering {
     this.review,
     this.preload,
     this.confirmation,
+    this.streamSafe,
   });
 
   /// Asked before every model request of a turn (also the second and third
@@ -75,6 +76,12 @@ class AgentSteering {
   /// is a question); null for every other answer. The voice layer checks what
   /// its voice said against it, for these answers only.
   final KeyInfo? Function()? confirmation;
+
+  /// Asked while the final answer streams, with the tools the turn has run so
+  /// far and the model text of the current step so far; true: the app's review
+  /// would not change the beginning of these words, so they may be spoken
+  /// before the turn is over. Null (the default): nothing streams.
+  final bool Function(List<AgentToolRun> runs, String draft)? streamSafe;
 
   /// Offered the words a turn ends with (and the tools it ran) before they
   /// are said. See [AgentReview]. [run] calls a tool the way the model's own

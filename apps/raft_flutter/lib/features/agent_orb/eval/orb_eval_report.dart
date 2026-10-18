@@ -67,6 +67,8 @@ String orbEvalMarkdown(OrbEvalReport report) {
       '${report.voiceMode == null ? '' : ' · 语音 ${report.voiceMode}'}'
       '${_percentiles('时延', report.latencyP50, report.latencyP90)}'
       '${_percentiles('首声', report.firstAudioP50, report.firstAudioP90)}'
+      '${_percentiles('首次出声', report.firstVoiceP50, report.firstVoiceP90)}'
+      '${_percentiles('答案首句', report.firstAnswerP50, report.firstAnswerP90)}'
       '${_percentiles('Agent 耗时', report.askP50, report.askP90)}'
       '${report.cancelled ? ' · 中途停止' : ''}'
       '${report.abortReason == null ? '' : '（${report.abortReason}）'}',
@@ -137,6 +139,15 @@ String orbEvalMarkdown(OrbEvalReport report) {
           b.writeln('  - 快速通道（没有调用模型）：${t.fastPath}');
         }
         if (t.liveFiller) b.writeln('  - Live 说了垫话（和 say 不像）');
+        for (final f in t.feedback) {
+          b.writeln('  - 等待时说了：$f');
+        }
+        if (t.firstVoiceMs > 0 || t.firstAnswerMs > 0) {
+          b.writeln(
+            '  - 从说完到出声 ${(t.firstVoiceMs / 1000).toStringAsFixed(2)}s'
+            '${t.firstAnswerMs > 0 ? '，到答案第一句 ${(t.firstAnswerMs / 1000).toStringAsFixed(2)}s' : ''}',
+          );
+        }
         for (final c in t.corrections) {
           b.writeln('  - Live 的话漏了：${c.join('、')}；App 自己把确认的话说了一遍');
         }

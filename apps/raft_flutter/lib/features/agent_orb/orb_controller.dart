@@ -137,6 +137,7 @@ class OrbController extends ChangeNotifier {
     this.newBadgeLinger = const Duration(seconds: 5),
     this.agentLayer = false,
     this.layeredVoice = false,
+    this.layeredProvider,
     this.slowCue,
   }) : _now = now ?? DateTime.now,
        _activityWatcher =
@@ -184,6 +185,18 @@ class OrbController extends ChangeNotifier {
               review: _review,
               preload: _preload,
               confirmation: _confirmation,
+              // The review's own steps that are not in orbReviewReply: the
+              // app's reply for a blocked write, the next task card.
+              streamSafe: (runs, draft) =>
+                  !(_blockedWrite && _sureWords() != null) &&
+                  !(_driving && _goThrough.hasMatch(_turnSaid)) &&
+                  orbStreamSafe(
+                    runs,
+                    draft,
+                    cardUp: this.actions.pending != null,
+                    driving: _driving,
+                    said: _turnSaid,
+                  ),
             )
           : null,
       beforeConnect: _loadBrain,
@@ -195,7 +208,9 @@ class OrbController extends ChangeNotifier {
       liveIdleLimit: liveIdleLimit,
       audio: audio,
       key: voiceKey,
-      provider: agentLayer && layeredVoice ? AgentVoiceProvider.gemini : null,
+      provider: agentLayer && layeredVoice
+          ? (layeredProvider ?? AgentVoiceSettings.instance.layeredProvider)
+          : null,
       slowCue: slowCue ?? AgentVoiceController.platformSlowCue,
       fastPath: () => fastPath,
       sessionFactory:
@@ -228,6 +243,11 @@ class OrbController extends ChangeNotifier {
   /// False: the agent is typed to and its words are shown, not spoken (the
   /// evaluation).
   final bool layeredVoice;
+
+  /// With [layeredVoice]: the voice service that listens and speaks (Gemini
+  /// Live, OpenAI Realtime or Grok Voice); the Agent settings' choice when
+  /// null (the evaluation names one for its run).
+  final AgentVoiceProvider? layeredProvider;
 
   /// The cue the person gets when the agent behind the voice is slow (the
   /// platform's tap and click unless a test gives one).

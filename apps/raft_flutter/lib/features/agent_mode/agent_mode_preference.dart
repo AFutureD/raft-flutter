@@ -142,6 +142,7 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
   final _key = AgentVoiceKey.instance;
   final _openAiKey = OpenAiVoiceKey.instance;
   final _grokKey = GrokVoiceKey.instance;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared by the next scan; the row is rebuilt when the key changes.
   String? _error;
 
   @override
@@ -165,6 +166,7 @@ class _VoiceKeyRowState extends State<_VoiceKeyRow> {
         setState(() => _error = '二维码里没有找到 Key');
       }
     } on PlatformException catch (e) {
+      // ignore: raft_lints/avoid_caught_exception_text -- Demo screen: the scanner plugin's own message is the most useful thing to read.
       if (mounted) setState(() => _error = '扫码失败：${e.message ?? e.code}');
     }
   }

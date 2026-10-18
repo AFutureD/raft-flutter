@@ -78,6 +78,16 @@ class Api {
         next,
       );
     }
+    // A list is the chunks of a streamed answer.
+    if (next is List) {
+      return http.Response.bytes(
+        utf8.encode(
+          [for (final c in next) 'data: ${jsonEncode(c)}\r\n\r\n'].join(),
+        ),
+        200,
+        headers: {'content-type': 'text/event-stream'},
+      );
+    }
     return http.Response(
       jsonEncode(next),
       200,
@@ -101,6 +111,7 @@ GenkitAgentSession session(
   AgentThinking thinking = AgentThinking.low,
   String? modelId = _model,
   GenkitModelResolver? resolver,
+  void Function(String)? onDraft,
 }) => GenkitAgentSession(
   apiKey: 'test-key',
   systemPrompt: 'be the orb',
@@ -109,6 +120,7 @@ GenkitAgentSession session(
   thinking: thinking,
   modelId: modelId,
   resolver: resolver,
+  onDraft: onDraft,
   maxSteps: maxSteps,
   retryDelay: Duration.zero,
   onToolCall: (name, args) async {
@@ -956,5 +968,115 @@ void main() {
         ],
       },
     ]);
+  });
+
+  group('streaming the final answer', () {
+    AgentSteering steering({bool Function(List<AgentToolRun>, String)? safe}) =>
+        AgentSteering(
+          scope: () => const AgentScope(systemPrompt: 'scoped', tools: _tools),
+          streamSafe: safe ?? (_, _) => true,
+        );
+
+    test('the answer after a tool streams as drafts in order and is said '
+        'once in full', () async {
+      final api = Api()
+        ..replies.addAll([
+          [
+            _call('navigate', {'to': 'home'}, signature: 'sig-1'),
+          ],
+          [_say('第一句。'), _say('第二'), _say('句。')],
+        ]);
+      final heard = Heard();
+      final drafts = <String>[];
+      await _withApi(api, () async {
+        final s = session(heard, steering: steering(), onDraft: drafts.add);
+        await s.connect();
+        s.sendText('go');
+        await pumpEventQueue();
+      });
+
+      expect(drafts, ['第一句。', '第二', '句。']);
+      expect(heard.texts, ['第一句。第二句。']);
+      expect(heard.turns, 1);
+      expect(api.paths, everyElement(endsWith(':streamGenerateContent')));
+      // The signature of the streamed call still goes back with it.
+      final second = _contents(api.requests.last);
+      expect(
+        ((second[1]['parts'] as List).single as Map)['thoughtSignature'],
+        'sig-1',
+      );
+    });
+
+    test('streamSafe false stops the drafts for the turn; the words are '
+        'still all said at the end', () async {
+      final api = Api()
+        ..replies.addAll([
+          [_call('navigate', {})],
+          [_say('甲。'), _say('乙。'), _say('丙。')],
+        ]);
+      final heard = Heard();
+      final drafts = <String>[];
+      final asked = <(int, String)>[];
+      await _withApi(api, () async {
+        final s = session(
+          heard,
+          steering: steering(
+            safe: (runs, draft) {
+              asked.add((runs.length, draft));
+              return draft.length < 4;
+            },
+          ),
+          onDraft: drafts.add,
+        );
+        await s.connect();
+        s.sendText('go');
+        await pumpEventQueue();
+      });
+
+      expect(drafts, ['甲。']);
+      expect(asked, [(1, '甲。'), (1, '甲。乙。')]);
+      expect(heard.texts, ['甲。乙。丙。']);
+    });
+
+    test('the first step is never drafted', () async {
+      final api = Api()
+        ..replies.addAll([
+          [_say('先看看。'), _call('navigate', {})],
+          [_say('好了。')],
+        ]);
+      final heard = Heard();
+      final drafts = <String>[];
+      await _withApi(api, () async {
+        final s = session(heard, steering: steering(), onDraft: drafts.add);
+        await s.connect();
+        s.sendText('go');
+        await pumpEventQueue();
+      });
+      expect(drafts, ['好了。']);
+      // What is said at the end is the whole turn's words, as ever.
+      expect(heard.texts, ['先看看。\n好了。']);
+    });
+
+    test('without onDraft or streamSafe the call is not streamed', () async {
+      for (final withDraft in [false, true]) {
+        final api = Api()..replies.addAll([_call('navigate', {}), _say('好。')]);
+        final heard = Heard();
+        final drafts = <String>[];
+        await _withApi(api, () async {
+          final s = session(
+            heard,
+            // Either one alone does not stream.
+            steering: withDraft ? null : steering(),
+            onDraft: withDraft ? drafts.add : null,
+          );
+          await s.connect();
+          s.sendText('go');
+          await pumpEventQueue();
+        });
+        expect(api.paths, everyElement(endsWith(':generateContent')));
+        expect(drafts, isEmpty);
+        expect(heard.texts, ['好。']);
+      }
+    });
   });
 }

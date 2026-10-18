@@ -80,6 +80,11 @@ class FakeLive implements VoiceSession {
   void sendText(String text) => unawaited(_turn(text));
 
   Future<void> _turn(String text) async {
+    // What the app asks Live to say (its acknowledgment) is said, not asked.
+    if (text.startsWith('（App 请你说）')) {
+      parts.onOutputText?.call(text.substring('（App 请你说）'.length));
+      return;
+    }
     var say = '我自己答的。';
     if (filler) {
       parts.onOutputText?.call('我看一下。');

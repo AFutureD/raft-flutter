@@ -93,6 +93,19 @@ class AgentVoiceSettings extends ChangeNotifier {
     ...GeminiLiveSession.selectableModels,
   };
 
+  /// OpenAI Realtime models to choose from; the first is the default.
+  static const openAiModels = {
+    'gpt-realtime-2.1-mini': 'gpt-realtime-2.1-mini（默认，快）',
+    'gpt-realtime-2.1': 'gpt-realtime-2.1',
+    'gpt-realtime-2': 'gpt-realtime-2',
+  };
+
+  /// xAI Grok Voice models to choose from; the first is the default.
+  static const grokModels = {
+    'grok-voice-latest': 'grok-voice-latest（默认，最新）',
+    'grok-voice-3.0': 'grok-voice-3.0',
+  };
+
   /// The languages to choose from, as they are shown.
   static final languageLabels = {
     for (final l in AgentLanguage.values) l: l.label,
@@ -155,6 +168,16 @@ class AgentVoiceSettings extends ChangeNotifier {
       _enum(AgentVoiceProvider.values, 'provider', AgentVoiceProvider.gemini);
   set provider(AgentVoiceProvider v) => _write('provider', v.name);
 
+  /// Which realtime voice service listens and speaks in the layered brain
+  /// (voice model + text Agent); separate from [provider].
+  AgentVoiceProvider get layeredProvider => _enum(
+    AgentVoiceProvider.values,
+    'layeredProvider',
+    AgentVoiceProvider.gemini,
+  );
+  set layeredProvider(AgentVoiceProvider v) =>
+      _write('layeredProvider', v.name);
+
   String get openAiVoice {
     final v = _read('openAiVoice');
     return v != null && openAiVoices.containsKey(v)
@@ -200,6 +223,58 @@ class AgentVoiceSettings extends ChangeNotifier {
     final v = liveModelChoice;
     return v == liveModelAuto ? null : v;
   }
+
+  /// The OpenAI Realtime model; an unknown stored value falls back.
+  String get openAiModel {
+    final v = _read('openAiModel');
+    return v != null && openAiModels.containsKey(v)
+        ? v
+        : openAiModels.keys.first;
+  }
+
+  set openAiModel(String v) => _write('openAiModel', v);
+
+  /// The xAI Grok Voice model; an unknown stored value falls back.
+  String get grokModel {
+    final v = _read('grokModel');
+    return v != null && grokModels.containsKey(v) ? v : grokModels.keys.first;
+  }
+
+  set grokModel(String v) => _write('grokModel', v);
+
+  /// The models [provider] offers, with how they are shown.
+  static Map<String, String> modelsOf(AgentVoiceProvider provider) =>
+      switch (provider) {
+        AgentVoiceProvider.gemini => liveModelLabels,
+        AgentVoiceProvider.openai => openAiModels,
+        AgentVoiceProvider.grok => grokModels,
+      };
+
+  /// The chosen model key of [provider] (for Gemini, maybe [liveModelAuto]).
+  String modelChoiceOf(AgentVoiceProvider provider) => switch (provider) {
+    AgentVoiceProvider.gemini => liveModelChoice,
+    AgentVoiceProvider.openai => openAiModel,
+    AgentVoiceProvider.grok => grokModel,
+  };
+
+  void setModelChoice(AgentVoiceProvider provider, String choice) {
+    switch (provider) {
+      case AgentVoiceProvider.gemini:
+        liveModelChoice = choice;
+      case AgentVoiceProvider.openai:
+        openAiModel = choice;
+      case AgentVoiceProvider.grok:
+        grokModel = choice;
+    }
+  }
+
+  /// The model id to ask [provider]'s service for; null (Gemini only) lets
+  /// the app pick.
+  String? realtimeModelOf(AgentVoiceProvider provider) => switch (provider) {
+    AgentVoiceProvider.gemini => liveModel,
+    AgentVoiceProvider.openai => openAiModel,
+    AgentVoiceProvider.grok => grokModel,
+  };
 
   /// The language the agent answers in, whatever the person's words mix in.
   AgentLanguage get language =>
@@ -287,6 +362,13 @@ class AgentVoiceSettings extends ChangeNotifier {
   }
 }
 
+/// The voice services of the layered brain, as they are shown.
+const agentLayeredVoiceLabels = {
+  AgentVoiceProvider.gemini: 'Gemini Live',
+  AgentVoiceProvider.openai: 'OpenAI Realtime',
+  AgentVoiceProvider.grok: 'Grok Voice',
+};
+
 /// Settings page for the voice: voice (with preview), pace, output, warmth.
 ///
 /// With [showOrb] (opened from the orb's Labs card) it also chooses what the
@@ -350,11 +432,11 @@ class AgentVoiceSettingsPage extends StatelessWidget {
       body: ListenableBuilder(
         listenable: Listenable.merge([s, orb]),
         builder: (context, _) {
-          // The voice model of the layered brain listens and speaks: Gemini
-          // Live today (the layer is built on its transcript and tool
-          // calls); the voice choices below are its.
+          // The voice model of the layered brain listens and speaks (Gemini
+          // Live, OpenAI Realtime or Grok Voice); the key, model and voice
+          // choices below are the chosen service's.
           final layered = showOrb && orb.brainMode == AgentBrainMode.layered;
-          final provider = layered ? AgentVoiceProvider.gemini : s.provider;
+          final provider = layered ? s.layeredProvider : s.provider;
           return ListView(
             padding: const EdgeInsets.only(bottom: 32),
             children: [
@@ -376,12 +458,14 @@ class AgentVoiceSettingsPage extends StatelessWidget {
               section(layered ? '语音模型（听和说）' : '语音服务'),
               if (layered) ...[
                 choices(
-                  const {AgentVoiceProvider.gemini: 'Gemini Live'},
-                  AgentVoiceProvider.gemini,
-                  (_) {},
+                  agentLayeredVoiceLabels,
+                  s.layeredProvider,
+                  (v) => s.layeredProvider = v,
                 ),
                 section(
-                  '目前听和说用 Gemini Live：它的转写和端点检测是这一层的输入。',
+                  provider == AgentVoiceProvider.gemini
+                      ? '用 Gemini Live 听和说，也可以让 Live 自己调用 ask_agent 转述。'
+                      : 'OpenAI/Grok 只负责听和转写，说话时只念 App 交给它的话（先接一句，再说 Agent 的答案），自己不调用工具、不回答。',
                   key: const ValueKey('agent-orb-voice-model-note'),
                   style: t.body(12, color: t.hint),
                 ),
@@ -395,16 +479,33 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                 key: ValueKey('agent-provider-key-${provider.name}'),
                 provider: provider,
               ),
-              if (provider == AgentVoiceProvider.gemini) ...[
+              if (layered && provider != AgentVoiceProvider.gemini) ...[
+                section(
+                  '文字 Agent 一直用 Gemini，需要 Gemini Key。',
+                  key: const ValueKey('agent-orb-agent-key-note'),
+                  style: t.body(12, color: t.hint),
+                ),
+                const _ProviderKeyRow(
+                  key: ValueKey('agent-provider-key-agent-gemini'),
+                  provider: AgentVoiceProvider.gemini,
+                ),
+              ],
+              // The voice model alone offers a model choice for Gemini only
+              // (as before); the layered brain for each service.
+              if (layered || provider == AgentVoiceProvider.gemini) ...[
                 section(layered ? '语音模型版本' : '语音模型'),
                 choices(
-                  AgentVoiceSettings.liveModelLabels,
-                  s.liveModelChoice,
-                  (v) => s.liveModelChoice = v,
+                  AgentVoiceSettings.modelsOf(provider),
+                  s.modelChoiceOf(provider),
+                  (v) => s.setModelChoice(provider, v),
                 ),
                 section(
-                  '这个 Key 没有所选的模型时，自动选。下一次对话生效。',
-                  key: const ValueKey('agent-live-model-note'),
+                  provider == AgentVoiceProvider.gemini
+                      ? '这个 Key 没有所选的模型时，自动选。下一次对话生效。'
+                      : '下一次对话生效。',
+                  key: provider == AgentVoiceProvider.gemini
+                      ? const ValueKey('agent-live-model-note')
+                      : const ValueKey('agent-realtime-model-note'),
                   style: t.body(12, color: t.hint),
                 ),
               ],
@@ -415,7 +516,7 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                 (v) => s.language = v,
               ),
               section(
-                '始终用这个语言回答，你夹几个别的语言的词也不会换。下一次对话生效。',
+                '始终用这个语言回答，对 Gemini、OpenAI、Grok 都一样，你夹几个别的语言的词也不会换。下一次对话生效。',
                 key: const ValueKey('agent-language-note'),
                 style: t.body(12, color: t.hint),
               ),
@@ -453,8 +554,9 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                   orb.setLayeredVoiceMode,
                 ),
                 section(
-                  'Live 转述：Live 用自然的声音把 Agent 的答案说出来；要你确认的那句话，App 会核对，漏了就自己再说一遍。'
-                  'App 朗读：Live 只听，App 用手机自带的声音读 Agent 的话。',
+                  'Live 转述（Gemini）：Live 自己调用 Agent 并用自然的声音说出答案；要你确认的那句话，App 会核对。'
+                  'OpenAI / Grok 的“转述”：由 App 决定说什么，语音模型用自己的声音照念。'
+                  'App 朗读：语音模型只听，App 用手机自带的声音读。',
                   key: const ValueKey('agent-orb-speak-note'),
                   style: t.body(12, color: t.hint),
                 ),

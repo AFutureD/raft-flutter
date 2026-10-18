@@ -91,8 +91,8 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
   /// How the app steers a text agent session (the realtime ones ignore it).
   final AgentSteering? steering;
 
-  /// The voice service to use whatever the settings say (the layered voice
-  /// needs Gemini); null: the one in the settings.
+  /// The voice service to use whatever the voice-only setting says (the
+  /// layered brain's own choice); null: the one in the settings.
   final AgentVoiceProvider? provider;
 
   /// The cue the person gets when the agent behind a layered voice is slow:
@@ -387,6 +387,19 @@ class AgentVoiceController extends ChangeNotifier implements AgentModelLink {
       );
       return null;
     }
+    // The layered brain's text agent is Gemini whichever voice service
+    // listens and speaks: its key is read before the session is made.
+    if (this.provider != null &&
+        this.provider != AgentVoiceProvider.gemini &&
+        await key.read() == null) {
+      if (epoch != _epoch || _disposed) return null;
+      _set(
+        AgentMicState.idle,
+        note: '还没有 Gemini Key：文字 Agent 一直用 Gemini，点右上角扫码填入',
+      );
+      return null;
+    }
+    if (epoch != _epoch || _disposed) return null;
     final session = sessionFactory(
       provider: provider,
       apiKey: apiKey,

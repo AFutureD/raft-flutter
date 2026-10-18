@@ -228,10 +228,16 @@ void main() {
     expect(layeredVoicePrompt, contains('ask_agent'));
     expect(layeredVoicePrompt, contains('如实、自然'));
     expect(layeredVoicePrompt, isNot(contains('一字不差')));
-    // The voice model says nothing before or while the agent works.
-    expect(layeredVoicePrompt, contains('不要先说话'));
-    expect(layeredVoicePrompt, isNot(contains('可以先说一句')));
-    expect(layeredVoicePrompt.length, lessThan(900));
+    // It may say one short lead-in of its own before it asks, in a human
+    // register, and states no result before the agent answers.
+    expect(layeredVoicePrompt, contains('先接一句'));
+    expect(layeredVoicePrompt, contains('不是答案'));
+    expect(layeredVoicePrompt, contains('好的例子'));
+    expect(layeredVoicePrompt, contains('不好的例子'));
+    expect(layeredVoicePrompt, contains('正在为您查询'));
+    expect(layeredVoicePrompt, contains('不要连着两次'));
+    expect(layeredVoicePrompt, isNot(contains('不要先说话')));
+    expect(layeredVoicePrompt.length, lessThan(1800));
     expect(s.connected, isFalse);
     await s.connect();
     expect(s.connected, isTrue);
