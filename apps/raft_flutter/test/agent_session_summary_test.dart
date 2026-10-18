@@ -114,7 +114,7 @@ void main() {
             'list_tasks',
             'open_item',
             'set_driving_mode',
-            'hide_orb_sheet',
+            'orb_layer',
           ])
             AgentToolOutcome(
               name: name,
@@ -137,7 +137,7 @@ void main() {
         'list_tasks',
         'open_item',
         'set_driving_mode',
-        'hide_orb_sheet',
+        'orb_layer',
       ]) {
         expect(prompt, isNot(contains('$name(')), reason: name);
       }

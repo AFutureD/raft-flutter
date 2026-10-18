@@ -47,6 +47,7 @@ import 'orb_layer.dart';
 import 'orb_state.dart';
 import 'orb_summary.dart';
 import 'orb_tool.dart';
+import 'orb_tool_docs.dart' show orbDescribeFor, orbToolDescription;
 
 /// Sends the summary of a session to the shared agent (the orb's header on
 /// it); tests give a fake.
@@ -170,7 +171,7 @@ class OrbController extends ChangeNotifier {
     ];
     tools = {for (final tool in all) tool.name: tool};
     voice = AgentVoiceController(
-      tools: [for (final tool in tools.values) tool.declaration],
+      tools: _declared(),
       onToolCall: dispatch,
       systemPrompt: _systemPrompt,
       steering: agentLayer
@@ -655,11 +656,6 @@ class OrbController extends ChangeNotifier {
         (movedScreen || workspace.location.toString() != before)) {
       collapseLayer();
     }
-    // Asked to show what needs the person: the cards over the page it opened.
-    final arrived = toolContext.arrived;
-    if (!failed && !_disposed && args['show'] == true && arrived != null) {
-      showBriefing(arrived);
-    }
     final line = _activityLine(name, result);
     if (line != null && !_disposed) {
       _agentOpen = false;
@@ -701,7 +697,7 @@ class OrbController extends ChangeNotifier {
   /// The activity line of a tool result: its own `activity` text, else what
   /// the tool is known for.
   static String? _activityLine(String name, Map<String, Object?> result) {
-    if (name == 'show_orb_sheet' || name == 'hide_orb_sheet') return null;
+    if (name == 'orb_layer') return null;
     final own = result['activity'];
     if (own is String && own.trim().isNotEmpty) return own.trim();
     if (result['cancelled'] == true) return '已停下：你接管了屏幕';
@@ -726,30 +722,43 @@ class OrbController extends ChangeNotifier {
     return t.length <= max ? t : '${t.substring(0, max)}…';
   }
 
+  /// The declarations of the tools this orb has, each worded for exactly
+  /// these tools (a description does not point at a tool the model lacks).
+  List<Map<String, Object?>> _declared() {
+    final names = {
+      for (final n in tools.keys)
+        if (!agentLayer || !orbAgentReplaced.contains(n)) n,
+    };
+    return [
+      for (final tool in tools.values) orbDescribeFor(tool.declaration, names),
+    ];
+  }
+
   List<OrbTool> _shellTools() => [
     OrbTool(
-      declaration: const {
-        'name': 'show_orb_sheet',
-        'description': '打开悬浮球的全屏对话层（看对话记录、打字）。用户说“打开面板”“看看记录”时用。立即生效。',
-      },
-      handler: (args, ctx) async => {'ok': await openLayer()},
-    ),
-    OrbTool(
-      declaration: const {
-        'name': 'hide_orb_sheet',
-        'description': '收起悬浮球的全屏对话层，回到页面。用户说“收起来”“关掉面板”时用。立即生效。',
+      declaration: {
+        'name': 'orb_layer',
+        'description': orbToolDescription('orb_layer'),
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'open': {'type': 'boolean', 'description': 'true 打开，false 收起'},
+          },
+          'required': ['open'],
+        },
       },
       handler: (args, ctx) async {
-        closeLayer();
-        return {'ok': true};
+        if (args['open'] == false) {
+          closeLayer();
+          return {'ok': true};
+        }
+        return {'ok': await openLayer()};
       },
     ),
     OrbTool(
-      declaration: const {
+      declaration: {
         'name': 'set_driving_mode',
-        'description':
-            '进入或退出驾驶模式。用户说“我在开车”“进入驾驶模式”“开车模式”时 on 设为 true（全屏对话层会一直开着，一次只显示一件事）；'
-            '说“停车了”“退出驾驶模式”时 on 设为 false。立即生效。',
+        'description': orbToolDescription('set_driving_mode'),
         'parameters': {
           'type': 'object',
           'properties': {
@@ -765,12 +774,9 @@ class OrbController extends ChangeNotifier {
       },
     ),
     OrbTool(
-      declaration: const {
+      declaration: {
         'name': 'driving_next',
-        'description':
-            '驾驶模式下，用户说“下一件”“下一个”“稍后再说这件”时调用：屏幕换到简报里的下一件。'
-            '返回 index（第几件）、total（共几件）、item（这一件的内容；说完就停）、done（true 表示已经没有了，只说“就这些”和常规的条数）。'
-            '只在驾驶模式下可用。',
+        'description': orbToolDescription('driving_next'),
       },
       handler: (args, ctx) async {
         if (!_driving) return {'error': '现在不在驾驶模式'};
@@ -779,10 +785,9 @@ class OrbController extends ChangeNotifier {
     ),
     if (agentLayer)
       OrbTool(
-        declaration: const {
+        declaration: {
           'name': 'driving_previous',
-          'description':
-              '驾驶模式下，用户说“上一件”“上一个”时调用：屏幕回到前一件。返回的 item 就是这一件，说完就停。只在驾驶模式下可用。',
+          'description': orbToolDescription('driving_previous'),
         },
         handler: (args, ctx) async {
           if (!_driving) return {'error': '现在不在驾驶模式'};
@@ -791,11 +796,9 @@ class OrbController extends ChangeNotifier {
       ),
     if (agentLayer)
       OrbTool(
-        declaration: const {
+        declaration: {
           'name': 'next_task',
-          'description':
-              '驾驶中逐个处理任务时（“全部处理掉”之后）用户说“下一个”“继续”：换到任务队列里的下一个。'
-              '返回 current（这一个任务，只对它提一个动作）、index、total；done 为 true 就是没有了，只说“就这些”。只在驾驶模式下可用。',
+          'description': orbToolDescription('next_task'),
         },
         handler: (args, ctx) async {
           if (!_driving) return {'error': '现在不在驾驶模式'};
@@ -1472,12 +1475,18 @@ class OrbController extends ChangeNotifier {
         final deck = await run('get_briefing', const {'show': true});
         line = orbDriveSay(deck) ?? '好，驾驶模式。';
       case 'unread':
-        // get_briefing's result, or navigate's briefing (only if it landed on
-        // the Activity).
-        final b = cmd.tool == 'navigate' ? result['briefing'] : result;
-        line = b is Map && result['candidates'] == null
-            ? orbUnreadSay(b)
-            : null;
+        // On the Activity: get_briefing's result. Elsewhere `navigate` only
+        // moved; the briefing is read and laid out as the model would.
+        var read = result;
+        if (cmd.tool == 'navigate') {
+          if (result['error'] != null ||
+              result['candidates'] != null ||
+              result['loading'] == true) {
+            break;
+          }
+          read = await run('get_briefing', const {'show': true, 'full': true});
+        }
+        line = read['candidates'] == null ? orbUnreadSay(read) : null;
       case 'item':
         line = orbItemSay(result, cmd.args['n'] as int);
       case 'open':
@@ -1800,7 +1809,7 @@ class OrbController extends ChangeNotifier {
     return orbAgentScope(
       mode: orbModeOf(pending: pending != null, driving: _driving),
       driving: _driving,
-      declarations: [for (final tool in tools.values) tool.declaration],
+      declarations: _declared(),
       style: AgentVoiceSettings.instance.styleNote,
       memory: _brainContext,
       channels: orbChannelsLine(orbDirectoryOf(workspace)),

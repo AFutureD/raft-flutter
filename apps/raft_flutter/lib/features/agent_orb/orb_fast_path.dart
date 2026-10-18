@@ -111,16 +111,14 @@ OrbFastCommand? orbFastCommand(
               (_newAsk.hasMatch(s) ||
                   _newHas.hasMatch(s) ||
                   _summaries.hasMatch(s))))) {
-    // The Activity's unread: laid out as cards and told, one call.
+    // The Activity's unread: laid out as cards and told. On another page
+    // the app goes there first (`navigate` only moves), then reads.
     return onActivity
         ? const OrbFastCommand('unread', 'get_briefing', {
             'show': true,
             'full': true,
           })
-        : const OrbFastCommand('unread', 'navigate', {
-            'page': 'activity',
-            'show': true,
-          });
+        : const OrbFastCommand('unread', 'navigate', {'page': 'activity'});
   }
   final item = _item.firstMatch(s);
   if (item != null && onActivity) {

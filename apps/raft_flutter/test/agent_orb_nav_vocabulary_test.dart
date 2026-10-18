@@ -177,7 +177,7 @@ void main() {
         expect(props.containsKey(id), isTrue, reason: id);
       }
       expect((props['target']! as Map)['description'], contains('不要再给 page'));
-      expect(tool.declaration['description'], contains('给了 target 就不要再给 page'));
+      expect(tool.declaration['description'], contains('才把原话放进 target'));
     });
 
     test('the table stays bounded', () {

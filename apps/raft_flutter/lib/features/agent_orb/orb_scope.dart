@@ -3,6 +3,7 @@ import 'actions/orb_action_declarations.dart'
     show orbActionCapabilities, orbDrivingCapabilities;
 import 'actions/orb_action_prompt.dart';
 import 'orb_prompt.dart';
+import 'orb_tool_docs.dart' show orbDescribeFor;
 import 'screen/orb_screen_prompt.dart';
 
 /// What the conversation is doing, which decides what the text agent is told
@@ -29,8 +30,11 @@ const _all = {OrbMode.normal, OrbMode.driving, OrbMode.confirming};
 const _free = {OrbMode.normal};
 const _moving = {OrbMode.normal, OrbMode.driving};
 
-/// The modes each tool belongs to. Reading is always there; moving the app is
-/// not while a card waits; the operations that change something are in the
+/// The modes each tool belongs to. Reading is there in every mode but the
+/// ones that need no more than the page and the conversation (while a card
+/// waits, the briefing and the list of places are not: the person is answering
+/// the card, and fewer tools make the right one easier to find); moving the
+/// app is not there while a card waits; the operations that change something are in the
 /// modes that can ask for them (while driving the card, and the asking, are
 /// narrowed again to [orbDrivingCapabilities]); `confirm` and `cancel_action`
 /// only mean something with a card up.
@@ -41,18 +45,17 @@ const orbToolModes = <String, Set<OrbMode>>{
   // Reading.
   'describe_page': _all,
   'read_conversation': _all,
-  'get_briefing': _all,
+  'get_briefing': _moving,
   'list_tasks': _all,
   'task_detail': _all,
-  'list_targets': _all,
+  'list_targets': _moving,
   'find': _all,
   'query': _all,
   // Moving the app.
   'navigate': _moving,
   'open_item': _moving,
   'screen_action': _free,
-  'show_orb_sheet': _free,
-  'hide_orb_sheet': _free,
+  'orb_layer': _free,
   // Driving.
   'set_driving_mode': _all,
   'driving_next': {OrbMode.driving},
@@ -108,10 +111,8 @@ bool orbToolIn(String name, OrbMode mode, {required bool driving}) {
   if (driving && orbChangeTools.contains(name)) {
     return orbDrivingChangeTools.contains(name);
   }
-  // While driving, nothing that moves the app by touch or hides the layer.
-  if (driving && (name == 'screen_action' || name == 'hide_orb_sheet')) {
-    return false;
-  }
+  // While driving, nothing that moves the app by touch.
+  if (driving && name == 'screen_action') return false;
   return true;
 }
 
@@ -137,11 +138,22 @@ AgentScope orbAgentScope({
     pending: pending,
     extra: extra,
   ),
-  tools: [
+  tools: _inState(declarations, mode, driving),
+);
+
+/// The declarations the state has, each worded for exactly these tools.
+List<Map<String, Object?>> _inState(
+  Iterable<Map<String, Object?>> declarations,
+  OrbMode mode,
+  bool driving,
+) {
+  final given = [
     for (final d in declarations)
       if (orbToolIn('${d['name']}', mode, driving: driving)) d,
-  ],
-);
+  ];
+  final names = {for (final d in given) '${d['name']}'};
+  return [for (final d in given) orbDescribeFor(d, names)];
+}
 
 /// The instruction of [mode]: the same sections as [orbSystemPrompt]'s, the
 /// ones the state needs, and the confirm card's part as the agent layer has
@@ -172,7 +184,6 @@ String orbAgentPrompt({
         ..write(orbPromptDrivingEnter)
         ..write('\n')
         ..write(orbActionBasicsAgent)
-        ..write(orbActionReplyAgent)
         ..write(orbActionConfirmAgent)
         ..write('\n')
         ..write(orbScreenPrompt);
@@ -183,8 +194,7 @@ String orbAgentPrompt({
         ..write(orbPromptDrivingEnter)
         ..write(orbPromptDrivingRules)
         ..write('\n')
-        ..write(orbActionBasicsAgent)
-        ..write(orbActionReplyAgent)
+        ..write(orbActionBasicsDriving)
         ..write(orbActionConfirmAgent)
         ..write(orbActionDriving)
         ..write('\n')

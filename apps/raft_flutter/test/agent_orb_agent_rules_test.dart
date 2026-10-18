@@ -941,21 +941,40 @@ void main() {
       },
     };
 
-    orbTest('没读的摘要: the Activity, its unread told, no model call', (t) async {
-      await say(t, '把我没有读的那些摘要都拿出来看一下');
-      expect(gemini.requests, isEmpty);
-      expect(navigated, [
-        {'page': 'activity', 'show': true},
-      ]);
-      expect(
-        agentLines().single,
-        '2 条新动态，1 件需要你处理。'
-        'Alice 问你：周五能来评审吗，在 @Alice，3 条未读；'
-        'Grok：构建通过了，在 #swift-workflow，1 条未读。'
-        '其余 2 条是常规进度。',
-      );
-      expect(orb().fastPath, 'unread');
-    }, tools: [navigateStub(activityArrived())]);
+    final briefed = <Map<String, Object?>>[];
+    orbTest(
+      '没读的摘要: the Activity, its unread told, no model call',
+      (t) async {
+        briefed.clear();
+        await say(t, '把我没有读的那些摘要都拿出来看一下');
+        expect(gemini.requests, isEmpty);
+        // `navigate` only moves; the briefing is read and laid out after it.
+        expect(navigated, [
+          {'page': 'activity'},
+        ]);
+        expect(briefed, [
+          {'show': true, 'full': true},
+        ]);
+        expect(
+          agentLines().single,
+          '2 条新动态，1 件需要你处理。'
+          'Alice 问你：周五能来评审吗，在 @Alice，3 条未读；'
+          'Grok：构建通过了，在 #swift-workflow，1 条未读。'
+          '其余 2 条是常规进度。',
+        );
+        expect(orb().fastPath, 'unread');
+      },
+      tools: [
+        navigateStub(activityArrived()),
+        OrbTool(
+          declaration: const {'name': 'get_briefing'},
+          handler: (args, ctx) async {
+            briefed.add(args);
+            return activityArrived()['briefing']! as Map<String, Object?>;
+          },
+        ),
+      ],
+    );
 
     orbTest('没读的 that was not read: left to the model', (t) async {
       navigateResult = {

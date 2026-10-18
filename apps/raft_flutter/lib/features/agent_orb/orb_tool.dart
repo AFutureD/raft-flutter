@@ -2,7 +2,6 @@
 import 'package:flutter/widgets.dart';
 
 import '../../data/workspace_controller.dart';
-import 'briefing/orb_briefing_models.dart';
 
 /// What a tool handler gets: the live workspace, a context under the app's
 /// Navigator (for routing and for opening sheets), and the orb's notifier for
@@ -21,10 +20,6 @@ class OrbToolContext {
   /// The model is the app's text agent: the app owns the order and the empty
   /// line, and the tool results say so.
   final bool agentLayer;
-
-  /// The briefing of the place a tool arrived at (set by `navigate`), for
-  /// the orb to lay out as cards when the model asks it to show them.
-  OrbBriefing? arrived;
 }
 
 /// A tool the model may call: a Gemini FunctionDeclaration (same shape as

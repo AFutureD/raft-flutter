@@ -91,7 +91,7 @@ void main() {
       ]) {
         final off = parse(said);
         expect((off?.kind, off?.tool), ('unread', 'navigate'), reason: said);
-        expect(off?.args, {'page': 'activity', 'show': true}, reason: said);
+        expect(off?.args, {'page': 'activity'}, reason: said);
         final on = parse(said, activity: true);
         expect((on?.kind, on?.tool), ('unread', 'get_briefing'), reason: said);
         expect(on?.args, {'show': true, 'full': true}, reason: said);

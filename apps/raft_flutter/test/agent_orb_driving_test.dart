@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_orb/orb_tool_docs.dart';
 import 'package:raft_agent_ui/raft_agent_ui.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/orb_driving.dart';
@@ -432,11 +433,12 @@ void main() {
 
     test('has the triggers, one item per turn and the low-risk rule', () {
       final p = orbSystemPrompt(channels: '');
-      for (final phrase in ['我在开车', '进入驾驶模式', '开车模式', '停车了', '退出驾驶模式']) {
-        expect(p, contains(phrase));
+      // What is said to start and to step is in the tools' words.
+      final enter = orbToolDescription('set_driving_mode');
+      for (final phrase in ['我在开车', '开车模式', '停车了', '退出驾驶模式']) {
+        expect(enter, contains(phrase));
       }
-      expect(p, contains('set_driving_mode'));
-      expect(p, contains('driving_next'));
+      expect(orbToolDescription('driving_next'), contains('下一件'));
       expect(p, contains('下一件'));
       expect(p, contains('每次只说一件'));
       expect(p, contains('两句'));

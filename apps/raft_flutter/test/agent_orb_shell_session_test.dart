@@ -173,10 +173,7 @@ void main() {
       await connected(t);
       final s = f.sessions.single;
       final names = [for (final d in s.tools) d['name']];
-      expect(
-        names,
-        containsAll(['show_orb_sheet', 'hide_orb_sheet', 'fake_open']),
-      );
+      expect(names, containsAll(['orb_layer', 'fake_open']));
       expect(s.systemPrompt, contains('raft-flutter'));
       expect(s.systemPrompt, contains('没听清'));
       expect(s.systemPrompt, contains('loading'));
@@ -269,17 +266,15 @@ void main() {
       );
     });
 
-    testWidgets('show_orb_sheet and hide_orb_sheet open and close the layer', (
-      t,
-    ) async {
+    testWidgets('orb_layer opens and closes the layer', (t) async {
       await fixture(t);
       expect(f.controller.layerOpen, isFalse);
-      final shown = f.controller.dispatch('show_orb_sheet', const {});
+      final shown = f.controller.dispatch('orb_layer', const {'open': true});
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect((await shown)['ok'], isTrue);
       expect(f.controller.layerOpen, isTrue);
-      final hidden = f.controller.dispatch('hide_orb_sheet', const {});
+      final hidden = f.controller.dispatch('orb_layer', const {'open': false});
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect((await hidden)['ok'], isTrue);

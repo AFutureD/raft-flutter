@@ -158,7 +158,7 @@ void main() {
         'join_channel',
         'reject_task',
         'screen_action',
-        'hide_orb_sheet',
+        'orb_layer',
         'confirm',
       ]) {
         expect(d, isNot(contains(risky)), reason: risky);
@@ -300,7 +300,7 @@ void main() {
       await f.startCall();
       final s = f.sessions.single;
       expect(s.steering, isNull);
-      expect(s.systemPrompt, contains('【主动】'));
+      expect(s.systemPrompt, contains('【说简报】'));
       expect(s.systemPrompt, contains('驾驶中：每次只说一件'));
       expect(s.systemPrompt, contains('【屏幕】'));
       expect({

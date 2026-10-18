@@ -9,8 +9,7 @@ const orbReadOnlyTools = {
   'describe_page',
   'read_conversation',
   'get_briefing',
-  'show_orb_sheet',
-  'hide_orb_sheet',
+  'orb_layer',
 };
 
 /// Whether a session of the orb is worth a summary to the shared agent: the

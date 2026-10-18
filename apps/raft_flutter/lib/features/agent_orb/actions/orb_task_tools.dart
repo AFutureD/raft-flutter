@@ -9,6 +9,7 @@ import '../../agent_mode/capabilities/agent_capability_standard.dart';
 import '../../agent_mode/capabilities/capability_support.dart';
 import '../../agent_mode/capabilities/task_capabilities.dart' show taskStatuses;
 import '../orb_tool.dart';
+import '../orb_tool_docs.dart' show orbToolDescription;
 
 /// The orb's task reads: the same task rows the Agent mode board reads
 /// (`AgentModeData`), worded for a person who listens. A row has the title and
@@ -28,12 +29,7 @@ const _statusOrder = ['in_progress', 'in_review', 'todo', 'done', 'closed'];
 
 final _listDeclaration = <String, Object?>{
   'name': 'list_tasks',
-  'description':
-      '读任务列表（只读，立即返回）。默认是没做完的（进行中、等验收、待办），最近动过的在前。'
-      '用户问“任务现在什么状态”“谁在做什么”“有哪些任务放了好几天”“什么在等我验收”时用。'
-      '每个任务有 number（编号）、title、statusText、assignee（谁在做）、channel、idle（多久没动）、waitsFor（在等什么）。'
-      '返回里没有 id：说任务时只说标题或“任务 138”，要做动作（改状态、交给别人、催）就把 number 传给动作工具。'
-      'summary 是各状态的条数，用户问“什么状态”时直接据它说。',
+  'description': orbToolDescription('list_tasks'),
   'parameters': {
     'type': 'object',
     'properties': {
@@ -59,9 +55,7 @@ final _listDeclaration = <String, Object?>{
 
 final _detailDeclaration = <String, Object?>{
   'name': 'task_detail',
-  'description':
-      '按任务编号读一个任务（只读，立即返回）：标题、描述、状态、谁在做、谁建的、频道、多久没动、在等什么，以及讨论串最后几条。'
-      '用户问“任务 138 怎么样了”“这个任务卡在哪”时用。不同频道的编号会重复，返回里说有几个频道时，问用户是哪个频道再带 channel 重读。返回里没有 id。',
+  'description': orbToolDescription('task_detail'),
   'parameters': {
     'type': 'object',
     'properties': {

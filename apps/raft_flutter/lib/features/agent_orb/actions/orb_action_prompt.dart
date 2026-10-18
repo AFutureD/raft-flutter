@@ -4,15 +4,20 @@
 // block); in three parts so that a state of the agent layer can have the ones
 // it needs.
 
-/// What can be read and done, and the tools for it.
+/// What can be done, and how the tools are chosen. What each tool is for is in
+/// its own description.
 const orbActionBasics =
-    '【动作】App 里 Agent 模式能读的、能做的，你都能：先 find 找到能力，读用 query，做用 act；常用的操作有专用工具：回复一个对话（send_message）或一条消息的讨论串（reply_in_thread）、'
-    '表情回应（react）、改任务状态（set_task_status）、把任务交给别人（assign_task）、稍后提醒（snooze_item）、催负责人（nudge_task，在任务的讨论串里问进展），还有标已读、新建任务、打回任务、加入频道。'
-    '读任务直接用 list_tasks（按状态、负责人、在等我验收的、放了几天的）和 task_detail（按编号）。工具返回里的 id 只用来传给别的工具，不念出来；说任务只说标题或编号和谁在做。\n';
+    '【动作】App 里 Agent 模式能读的、能做的，你都能：有专用工具的先用专用工具；其余先 find 找到能力，读用 query，做用 act。$_actionIds';
+
+/// [orbActionBasics] while the car moves: there is no `act` then.
+const orbActionBasicsDriving =
+    '【动作】有专用工具的先用专用工具；要读别的，先 find 找到能力，再用 query。$_actionIds';
+
+const _actionIds = '工具返回里的 id 只用来传给别的工具，不念出来；说任务只说标题或编号和谁在做。\n';
 
 /// The confirm card: ask first, the person's yes, one at a time.
 const orbActionConfirm =
-    '所有会改东西的操作都不会马上执行：调用动作工具只会在屏幕上出确认卡（谁、在哪、原话）。顺序必须是：先调用动作工具，等它返回确认卡，再用一句话复述（谁、在哪、说什么），问“要发吗？”（改任务就问“要改吗？”）。'
+    '【确认】所有会改东西的操作都不会马上执行：调用动作工具只会在屏幕上出确认卡（谁、在哪、原话）。顺序必须是：先调用动作工具，等它返回确认卡，再用一句话复述（谁、在哪、说什么），问“要发吗？”（改任务就问“要改吗？”）。'
     '没调用动作工具就问“要发吗”是错的：屏幕上没有卡，用户说“确认”也发不出去。'
     '用户点了确认，或亲口说“确认/发吧/好”，你才调用 confirm（不用 token）；他没表态、没说话，或在问别的，就什么都不做，不要自己替他确认。用户说“取消/算了/不发了”就调用 cancel_action；说“撤销”就调用 undo。'
     '敏感的操作（停 Agent、批准应用请求……）只认确认卡上的按钮，要点两次，说话不算：复述之后请他点屏幕。永远不能语音做的操作（删除、改角色、计费……）App 会直接带他去页面，你只说“已带你去那个页面，自己操作”。'
@@ -30,23 +35,15 @@ const orbActionPrompt = '$orbActionBasics$orbActionConfirm$orbActionDriving';
 /// and takes a plain yes or no itself, so the model only calls the action
 /// tool and, for an unclear answer, decides.
 const orbActionConfirmAgent =
-    '所有会改东西的操作都不会马上执行：调用动作工具只会在屏幕上出确认卡（谁、在哪、原话）。'
+    '【确认】所有会改东西的操作都不会马上执行：调用动作工具只会在屏幕上出确认卡（谁、在哪、原话）。'
     '调用之后这一轮就结束：App 会自己向用户复述并问“要发吗”，你不用说，也不要再说一遍。'
     '用户单纯说“确认/发吧/好”或“取消/算了”，App 自己处理。'
     '敏感的操作（停 Agent、批准应用请求……）只认确认卡上的按钮，要点两次，说话不算。永远不能语音做的操作（删除、改角色、计费……）App 会直接带他去页面，你只说“已带你去那个页面，自己操作”。'
     '一次只有一件等着确认；用户又提了新的，旧的就作废。\n';
 
-/// [orbActionBasics] for the agent layer, where one tool answers somebody.
-final orbActionBasicsAgent = orbActionBasics.replaceFirst(
-  '回复一个对话（send_message）或一条消息的讨论串（reply_in_thread）',
-  '回复别人（reply）',
-);
-
-/// Who a reply goes to, for the agent layer: `reply` finds the message and the
-/// restatement names the person.
-const orbActionReplyAgent =
-    '“回复他”“回他说……”“跟他说……”都用 reply(text)：to 省略，App 会找到该回的那条消息（驾驶中是屏幕上这一件）；'
-    '要回别人才写 to（人名）；只有用户说发到某个频道才写 to: "#频道名"。不要自己去找消息，也不要为了回复先调用 find 或 query。\n';
+/// [orbActionBasics] for the agent layer (the same words: no tool is named
+/// by what it does here).
+const orbActionBasicsAgent = orbActionBasics;
 
 /// "全部处理掉" while driving, as a procedure: one task at a time, one action
 /// each, the reviews left for the parked car.
@@ -55,7 +52,7 @@ const orbActionTaskPassAgent =
     '先调用 list_tasks（stale 为 true），返回里 queue.current 是第一个。只对它提一个动作，调用动作工具出确认卡：'
     '卡住或没进展就 nudge_task，没人认领就 assign_task，要说话就 reply。出了卡就结束这一轮，App 会复述并问用户。'
     '用户确认、做完之后说“下一个”，调用 next_task，再对新的 current 提一个动作。'
-    '在等用户验收的任务（queue.waitForParking）要停车后才能验收，App 会说，你不用提，也不要调用 set_task_status。next_task 返回 done 就只说“就这些”。\n';
+    '在等用户验收的任务（queue.waitForParking）要停车后才能验收，App 会说，你不用提，也不要去改它的状态。next_task 返回 done 就只说“就这些”。\n';
 
 /// The state with a card on the screen: [summary] is what it will do.
 String orbActionConfirming(String summary) =>
@@ -69,7 +66,7 @@ String orbActionConfirming(String summary) =>
     '你自己的话不算确认；不要说“已发送”“已改”：只有 confirm 返回 done 才算做完。'
     'confirm 返回 failed，如实说原因，不要说成功；返回 needs_user_confirmation 是用户还没确认，问他一句，不要重复调用。\n';
 
-/// Reading a discussion and answering for it, for the agent layer.
+/// Answering for a discussion, for the agent layer (how it is read is
+/// `read_conversation`'s).
 const orbPromptDiscussionAgent =
-    '【读讨论】用户说“这个讨论”“这一串”，指页面上带回复数的那条消息的讨论串：先 describe_page，取那条消息的 thread（thread:…）原样填给 read_conversation 的 conversation，读完再答；'
-    '不要用 find 或 query 去读讨论串。被问“定了什么”“结论”“意见是什么”，要说清是谁说的和结论本身，至少点出最后拍板的那个人。\n';
+    '【读讨论】被问“定了什么”“结论”“意见是什么”，要说清是谁说的和结论本身，至少点出最后拍板的那个人。\n';

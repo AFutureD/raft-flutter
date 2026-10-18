@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/features/agent_orb/orb_tool_docs.dart';
 import 'package:raft_flutter/features/agent_mode/agent_mode_data.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_service.dart';
+import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_tools.dart'
+    show orbBriefingDeclaration;
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_writer.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_nav_tools.dart';
 import 'package:raft_flutter/features/agent_orb/orb_arrival_brief.dart';
@@ -384,20 +387,39 @@ void main() {
       expect(prompt, contains('最多两句'));
     });
 
-    // Kevin wanted the big-text-and-cards briefing on screen.
-    test('a briefing request navigates with show; a plain move does not', () {
-      expect(prompt, contains('navigate 带上 show: true'));
-      expect(prompt, contains('只是“去某个地方”就不要 show'));
-    });
+    // Kevin wanted the big-text-and-cards briefing on screen: `navigate` only
+    // moves, and the cards are `get_briefing`'s `show`.
+    test(
+      'a briefing request shows through get_briefing; navigate only moves',
+      () {
+        final navigate = orbNavigationTools().firstWhere(
+          (t) => t.name == 'navigate',
+        );
+        final params =
+            (navigate.declaration['parameters']! as Map)['properties']! as Map;
+        expect(params, isNot(contains('show')));
+        expect(prompt, isNot(contains('show: true')));
+        final briefing = orbBriefingDeclaration;
+        final briefingParams =
+            (briefing['parameters']! as Map)['properties']! as Map;
+        expect(briefingParams, contains('show'));
+        expect(
+          '${(briefingParams['show']! as Map)['description']}',
+          contains('设 true'),
+        );
+      },
+    );
 
-    // Kevin: "读动态的内容" got tasks; reading the Activity is its rows.
+    // Kevin: "读动态的内容" got tasks; reading the Activity is its rows (said
+    // by the tool that returns them).
     test(
       'reading the Activity reads its rows in page order, not the briefing',
       () {
-        expect(prompt, contains('读一下动态'));
+        final text = orbToolDescription('describe_page');
+        expect(text, contains('读一下动态'));
+        expect(text, contains('按页面上的顺序'));
+        expect(text, contains('不拿简报代替'));
         expect(prompt, contains('describe_page'));
-        expect(prompt, contains('按页面上的顺序'));
-        expect(prompt, contains('不要拿简报代替'));
       },
     );
 
@@ -424,9 +446,12 @@ void main() {
 
     test('leads with what needs the user, and counts the routine', () {
       expect(prompt, contains('需要用户'));
-      expect(prompt, contains('只说条数'));
       expect(prompt, contains('谁'));
-      expect(prompt, contains('要做什么'));
+      expect(prompt, contains('做什么'));
+      // How each field is said is the tool's.
+      final say = orbToolDescription('get_briefing');
+      expect(say, contains('只说条数'));
+      expect(say, contains('who'));
     });
 
     test('never guesses who said what, and quotes only returned text', () {
@@ -437,17 +462,26 @@ void main() {
 
     test('tells the model to choose ids, with target as the last resort', () {
       final p = orbSystemPrompt(channels: 'raft-flutter [ca]、design [cb]');
-      expect(p, contains('page 列表里选 id'));
-      expect(p, contains('list_targets'));
-      expect(p, contains('channel_id'));
-      expect(p, contains('target 只用在'));
       expect(p, contains('raft-flutter [ca]'));
+      final navigate = orbNavigationTools().firstWhere(
+        (t) => t.name == 'navigate',
+      );
+      final text = '${navigate.declaration['description']}';
+      expect(text, contains('id 来自 list_targets'));
+      expect(text, contains('实在找不到'));
+      final params =
+          (navigate.declaration['parameters']! as Map)['properties']! as Map;
+      expect(params.keys, containsAll(['page', 'channel_id', 'target']));
+      expect(
+        '${(params['page']! as Map)['description']}',
+        contains('activity'),
+      );
     });
 
     test('navigate already brings the briefing: no second get_briefing', () {
-      expect(prompt, contains('navigate'));
-      expect(prompt, contains('briefing'));
-      expect(prompt, contains('不要再调 get_briefing'));
+      final navigate = orbToolDescription('navigate');
+      expect(navigate, contains('briefing（同 get_briefing）'));
+      expect(orbToolDescription('get_briefing'), contains('不要再调'));
     });
   });
 }

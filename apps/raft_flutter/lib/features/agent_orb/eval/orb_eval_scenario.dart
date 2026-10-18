@@ -73,7 +73,7 @@ class OrbEvalEvent {
 class OrbEvalCheck {
   const OrbEvalCheck(this.label, this.test, {this.why});
 
-  /// What is expected, in a line ("navigate(page: activity, show: true)").
+  /// What is expected, in a line ("get_briefing(show: true)").
   final String label;
 
   /// Null passes; otherwise the reason.

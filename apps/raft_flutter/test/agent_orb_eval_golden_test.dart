@@ -89,7 +89,8 @@ final Map<String, Map<String, Say>> golden = {
   },
   'B1': {
     '打开动态，什么需要我处理': (s) => s.turn(const [
-      ('navigate', {'page': 'activity', 'show': true}),
+      ('navigate', {'page': 'activity'}),
+      ('get_briefing', {'show': true}),
     ], 'Alice 私信问你周五能不能来评审。Cody 在问第 10 步能不能合入。'),
   },
   'B2': {

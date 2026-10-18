@@ -9,6 +9,7 @@ import '../../../data/workspace_controller.dart';
 import '../../activity_destination.dart';
 import '../../agent_mode/agent_mode_data.dart';
 import '../orb_tool.dart';
+import '../orb_tool_docs.dart' show orbToolDescription;
 import '../screen/orb_screen.dart';
 import '../screen/orb_screen_contract.dart';
 import 'orb_choice.dart';
@@ -72,11 +73,9 @@ List<OrbTool> orbNavigationTools({OrbArrivalBrief? arrivalBrief}) => [
 
 // --- open_item ----------------------------------------------------------------
 
-const _openItemDeclaration = <String, Object?>{
+final _openItemDeclaration = <String, Object?>{
   'name': 'open_item',
-  'description':
-      '打开动态里的某一条，就像用户点了那一行：进到它的讨论、频道或私信。用户说“打开第一条”“打开 Alice 那条”时用。'
-      'n 是 describe_page 的动态条目里的 n（第几条，从 1 开始）；或者给 id（条目的 id）。只读不打开用 read_conversation。',
+  'description': orbToolDescription('open_item'),
   'parameters': {
     'type': 'object',
     'properties': {
@@ -180,17 +179,7 @@ String orbPageTable() => [
 /// destination is in the enum and the table by itself.
 final _navigateDeclaration = <String, Object?>{
   'name': 'navigate',
-  'description':
-      '带用户去 App 里的某个地方，用 App 自己的路由（和用户点一下是同一条路，返回键能回去）。'
-      '你来选目的地，不要传原话：去页面就从 page 的列表里选 id；去频道、私信、某人的资料、讨论，用 list_targets 或提示里的列表给的 id（channel_id / dm_id / person_id / thread_id）；'
-      '去任务给 task_number（任务编号，可以再给 channel_id 限定哪个频道）。一次只给一个目的地。'
-      'target 是用户说的名字（人、频道、私信、任务，如“Cody”“RA flutter”）：列表里找不到、或来不及查时就把原话原样传给 target，App 会按读音模糊匹配；可以再给 kind（dm、channel、person、task）说明是哪一类。给了 target 就不要再给 page。'
-      '给了不存在的 id 会返回 {error, valid}，valid 是最接近的 id，照着改一次就行。'
-      '会等页面的第一批数据读出来再返回（最多约 5 秒），返回 {route, title, page, briefing}：page 就是 describe_page 的内容，不用再调 describe_page；'
-      '到动态、频道、私信、讨论时还有 briefing（和 get_briefing 同一份：needsYou 谁需要用户处理什么、progress、routineCount），先据它开口：谁、什么事、到哪一步、要用户做什么，常规的只说条数，不要再调 get_briefing。'
-      '没有 briefing 又有 briefingNote 是没读出来，如实说，不要自己从 page 里归纳。'
-      '返回里 loading 为 true 是数据还没读到，不是空的，不要说“没有内容”；page.empty 为 true 才是真的没有。'
-      '返回 candidates 是有几个都像：把它们的 title 和 reason 念给用户，让用户选，选定后用该项 use 里的参数再调一次。返回 error 且没有 valid 就如实告诉用户没找到。',
+  'description': orbToolDescription('navigate'),
   'parameters': {
     'type': 'object',
     'properties': {
@@ -198,49 +187,39 @@ final _navigateDeclaration = <String, Object?>{
         'type': 'string',
         'enum': [for (final d in orbVocabulary) d.id],
         'description':
-            'App 的页面，选一个 id（id = 中文名 / English name：那里有什么）：\n${orbPageTable()}',
+            'App 的页面，选一个 id（id = 中文名 / English：那里有什么）：\n${orbPageTable()}',
       },
       'channel_id': {
         'type': 'string',
-        'description': '频道的 id，来自 list_targets 的 channels 或提示里的频道列表；配 task_number 时表示那个频道的任务',
+        'description':
+            '频道的 id（list_targets 的 channels 或提示里的列表）；配 task_number 时限定哪个频道的任务',
       },
-      'show': {
-        'type': 'boolean',
-        'description': '用户要的是简报（“什么需要我处理”“有什么新的”“给我做个简报”，或“没读的 / 未读的摘要”）时设 true：到了以后把简报卡片铺在页面上，用户能直接点批准、打开。只是“去某个地方”时不要设',
-      },
-      'dm_id': {
-        'type': 'string',
-        'description': '私信的 id，来自 list_targets 的 dms（和某人的对话）',
-      },
+      'dm_id': {'type': 'string', 'description': '私信的 id（list_targets 的 dms）'},
       'person_id': {
         'type': 'string',
-        'description': '成员或 Agent 的 id，来自 list_targets 的 people，打开他的资料页',
+        'description': '成员或 Agent 的 id（list_targets 的 people），打开他的资料页',
       },
       'thread_id': {
         'type': 'string',
-        'description': '讨论的 id，来自 list_targets 的 threads',
+        'description': '讨论的 id（list_targets 的 threads）',
       },
       'task_number': {'type': 'integer', 'description': '任务编号，比如 136'},
       'target': {
         'type': 'string',
-        'description':
-            '用户说的名字，原样传，不要改写（人、频道、私信、任务都行）；和 kind 一起用更准；给了它就不要再给 page 或其他 id',
+        'description': '用户说的名字，原样传（人、频道、私信、任务）；给了它就不要再给 page 或其他 id',
       },
       'kind': {
         'type': 'string',
         'enum': ['channel', 'dm', 'person', 'profile', 'task', 'thread'],
-        'description': '只配 target 用，可选：已经确定名字是哪一类时给',
+        'description': '只配 target 用：已经知道名字是哪一类时给',
       },
     },
   },
 };
 
-const _listTargetsDeclaration = <String, Object?>{
+final _listTargetsDeclaration = <String, Object?>{
   'name': 'list_targets',
-  'description':
-      '列出可以去的具体对象和它们的 id：频道（id、name、joined 是否已加入、unread 未读数）、私信（id、对方名字、person_id）、'
-      '成员和 Agent（id、name、type）、最近的讨论（id、父消息摘要、所在频道）。用户点名了一个频道、人或讨论，而提示里的列表没有它时先调这个，再用里面的 id 调 navigate。'
-      '每一类都有上限，被截掉的会在 xxxOmitted 里说多少。只读，不会改变任何状态。',
+  'description': orbToolDescription('list_targets'),
   'parameters': {
     'type': 'object',
     'properties': {
@@ -253,23 +232,14 @@ const _listTargetsDeclaration = <String, Object?>{
   },
 };
 
-const _describePageDeclaration = <String, Object?>{
+final _describePageDeclaration = <String, Object?>{
   'name': 'describe_page',
-  'description':
-      '读当前页面的内容，数据来自 App 的数据层，和屏幕上显示的是同一份（不是截图）。'
-      '动态：每一条的 id、kind、who（真实名字；系统事件没有 who，不要说“有人”）、where、time、unread、why（为什么在这里）、preview（只是预览，isPreview）。'
-      '频道、私信、讨论：当前看得到的消息，带发送人名字、全文、时间、回复数。任务：状态、负责人、标题、最近的讨论。其他页面：路由、标题和页面上的文字摘要。'
-      '页面还在加载时 loading 为 true，不是空的，不要说“没有内容”；empty 为 true 才是真的没有。'
-      '只读，不会改变任何已读状态。',
+  'description': orbToolDescription('describe_page'),
 };
 
-const _readConversationDeclaration = <String, Object?>{
+final _readConversationDeclaration = <String, Object?>{
   'name': 'read_conversation',
-  'description':
-      '读一个频道、私信或讨论的消息（不改变已读状态，也不会切换页面）。要讲屏幕以外的内容、或要全文时用。'
-      'conversation 是频道名（可以听错的名字）、私信对象的名字，或频道 / 讨论的 id；省略表示当前打开的这个。'
-      'since=last_read 只要上次读到之后的新消息（未读的），since=recent（默认）是最近的几条；limit 默认 20，最多 50。'
-      '返回的每条有发送人名字、全文（太长的会标 truncated）、时间、回复数。',
+  'description': orbToolDescription('read_conversation'),
   'parameters': {
     'type': 'object',
     'properties': {

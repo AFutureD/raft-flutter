@@ -352,7 +352,7 @@ class OrbFixture {
 
   /// The agent opens the layer in a call (a tap on the live orb hangs up).
   Future<void> openLayerInCall() async {
-    final shown = controller.dispatch('show_orb_sheet', const {});
+    final shown = controller.dispatch('orb_layer', const {'open': true});
     await t.pump();
     await t.pump(const Duration(milliseconds: 400));
     await shown;

@@ -5,6 +5,7 @@ import '../../agent_mode/capabilities/agent_capability.dart'
 import '../../agent_mode/capabilities/capability_support.dart'
     show channelByRef;
 import '../orb_tool.dart';
+import '../orb_tool_docs.dart' show orbToolDescription;
 import 'orb_briefing_models.dart';
 import 'orb_briefing_service.dart';
 
@@ -26,27 +27,25 @@ typedef OrbShowBriefing = void Function(
 
 const orbBriefingToolName = 'get_briefing';
 
-const orbBriefingDeclaration = <String, Object?>{
+final orbBriefingDeclaration = <String, Object?>{
   'name': orbBriefingToolName,
-  'description':
-      '读出简报：现在有什么事需要用户关注。用户问“有什么要我处理的”“动态里有什么”“这个频道怎么样了”时调用它。用户要“没读的 / 未读的 / 没看的 / 新的”摘要、消息、动态（“把没读的摘要拿出来看一下”）时也调它，show 和 full 都设为 true：它读的就是动态里有未读的那些，每件的 unread 是这一条的未读条数（动态里粉色的“N 条未读”）；不要只导航到动态就算完。用 navigate 刚到动态、频道、私信、讨论时，返回里已经带了同一份 briefing，不要再调。'
-      '返回 overview（一句总览）、needsYou（需要用户处理的事，每件有 who 谁、title 什么事、where 在哪、since 等了多久、ask 要他做什么、suggestedAction 建议的一句话处理）、'
-      'progress（有进展的事）、routineCount（常规条数）。'
-      '怎么说：先说 overview 这一句；再逐件说 needsYou（谁、什么事、到哪一步了、要他做什么），一件说完停一下，等用户指令或插话；'
-      'progress 只在用户问进展时用一句话带过；常规的只说条数（“其余 N 条是常规进度”），不要念内容。'
-      '用真实姓名，不要念标题模板，不要念原文；用户要原文时再用读取工具。'
-      '再次调用只返回自上次简报以来新的内容（返回里 sinceLastTime 为 true，alreadyBriefed 是上次说过、没有再列出的件数）；用户要听全部时把 full 设为 true。'
-      'show 设为 true 会同时在屏幕上打开简报卡片，用户可以瞄一眼、点某一件直接打开。',
+  'description': orbToolDescription(orbBriefingToolName),
   'parameters': {
     'type': 'object',
     'properties': {
       'scope': {
         'type': 'string',
-        'description': '简报的范围：activity（动态，默认），或某个频道、私信、讨论的名字或 id',
+        'description': 'activity（动态，默认）或某个频道、私信、讨论的名字或 id；没指定地方就不给',
         'maxLength': 120,
       },
-      'show': {'type': 'boolean', 'description': '同时在屏幕上打开简报卡片'},
-      'full': {'type': 'boolean', 'description': '要全部内容，而不只是自上次以来新的'},
+      'show': {
+        'type': 'boolean',
+        'description': '设 true 同时在屏幕上铺简报卡片（全部都铺）：用户说“看”“拿出来看”“给我看”；只要听就不设',
+      },
+      'full': {
+        'type': 'boolean',
+        'description': '设 true 连上次说过的也列出：用户说“全部”“没读的都”“再来一遍”',
+      },
     },
   },
 };
@@ -79,7 +78,9 @@ List<OrbTool> orbBriefingTools({
       final OrbBriefing briefing;
       try {
         briefing = await (serviceFor ?? OrbBriefingService.of)(ctx.workspace)
-            .brief(scope, full: args['full'] == true);
+            // The cards on the screen are the whole picture: what `navigate`
+            // brought a moment ago would otherwise leave them empty.
+            .brief(scope, full: args['full'] == true || args['show'] == true);
       } on Object {
         return {'error': '简报没读出来，稍后再试'};
       }

@@ -651,8 +651,14 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     checks: [
       OrbEvalCheck.tool(
         'navigate',
-        args: {'page': 'activity', 'show': true},
-        label: 'navigate(page: activity, show: true)',
+        args: {'page': 'activity'},
+        label: 'navigate(page: activity)',
+      ),
+      // `navigate` only moves: the cards are laid out by the briefing.
+      OrbEvalCheck.tool(
+        'get_briefing',
+        args: {'show': true},
+        label: 'get_briefing(show: true)（把简报铺在屏幕上）',
       ),
       OrbEvalCheck.says([
         ['Alice'],
@@ -792,10 +798,10 @@ final List<OrbEvalScenario> orbEvalScenarios = [
     data: _activityUnread,
     say: const ['把我没有读的那些摘要都拿出来看一下'],
     checks: [
-      OrbEvalCheck.anyTool(
-        ['get_briefing', 'navigate'],
+      OrbEvalCheck.tool(
+        'get_briefing',
         args: {'show': true},
-        label: '调用 get_briefing 或 navigate，show: true（把未读的铺在屏幕上）',
+        label: 'get_briefing(show: true)（把未读的铺在屏幕上）',
       ),
       OrbEvalCheck.screen(
         '卡片里有 Alice 的私信和 Cody 的 @，没有任务',

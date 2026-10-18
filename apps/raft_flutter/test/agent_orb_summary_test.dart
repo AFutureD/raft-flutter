@@ -59,7 +59,7 @@ void main() {
           outcome('describe_page'),
           outcome('read_conversation'),
           outcome('get_briefing'),
-          outcome('show_orb_sheet'),
+          outcome('orb_layer'),
           outcome('navigate', {'error': '没找到'}),
         ]),
         isFalse,

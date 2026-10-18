@@ -1,5 +1,6 @@
 import '../nav/orb_page_description.dart' show orbPageTitle;
 import '../orb_tool.dart';
+import '../orb_tool_docs.dart' show orbToolDescription;
 import 'orb_screen.dart';
 import 'orb_screen_capability.dart';
 
@@ -13,15 +14,9 @@ List<OrbTool> orbScreenTools() => [
   OrbTool(declaration: _screenActionDeclaration, handler: _screenAction),
 ];
 
-const _screenActionDeclaration = <String, Object?>{
+final _screenActionDeclaration = <String, Object?>{
   'name': 'screen_action',
-  'description':
-      '在当前页面上做一件事，就像用户点了屏幕：点一个按钮、切一个标签、打开一行、往输入框里填字、滚动。'
-      'id 来自最近一次读屏幕的结果（navigate / open_item / describe_page 返回里 screen.actions 的 id，或 screen.scroll 的 id），action 必须是那一项 do 里列出的。'
-      '先读再做，不要猜 id。id 只对读到的那个屏幕有效：返回 error 并带 snapshot 时，说明屏幕变了，snapshot 就是新读到的屏幕，照它再选一次（只重试一次）。'
-      'setText 把 text 填进输入框，不会发送。'
-      '发送、删除、移除、批准、合并、发布、退出、归档这类有后果的控件不会马上按：屏幕上先出确认卡，按【动作】里的规则复述、等用户确认再调用 confirm。'
-      '成功后返回 {ok, snapshot}：snapshot 是做完以后的屏幕；页面换了会带 route 和 title。',
+  'description': orbToolDescription('screen_action'),
   'parameters': {
     'type': 'object',
     'properties': {
@@ -32,7 +27,7 @@ const _screenActionDeclaration = <String, Object?>{
       'action': {
         'type': 'string',
         'enum': orbScreenActions,
-        'description': 'tap 点一下 / longPress 长按 / setText 填字 / increase decrease 滑块或步进 / scrollUp scrollDown 滚动 / dismiss 关掉 / expand collapse 展开收起',
+        'description': 'tap 点；longPress 长按；setText 填字；increase/decrease 步进；scrollUp/Down 滚动；dismiss 关掉；expand/collapse 展开收起',
       },
       'text': {'type': 'string', 'description': 'action 是 setText 时要填的文字'},
       'confirmed': {
