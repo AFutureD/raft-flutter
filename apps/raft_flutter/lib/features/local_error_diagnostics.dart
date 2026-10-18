@@ -9,7 +9,7 @@ void showLocalErrorToast(BuildContext context, String message) {
   showRaftToast(
     context,
     message,
-    actionLabel: sample == null ? null : 'Copy diagnostics',
+    actionLabel: sample == null ? null : 'Copy',
     onAction: sample == null
         ? null
         : () => copyLocalErrorDiagnostics(context, sample: sample),
@@ -40,7 +40,7 @@ Future<bool> copyLocalErrorDiagnostics(
       showRaftToast(
         context,
         'Could not copy diagnostics. Try again.',
-        actionLabel: 'Copy diagnostics',
+        actionLabel: 'Copy',
         onAction: () =>
             copyLocalErrorDiagnostics(context, log: log, sample: sample),
       );
@@ -58,19 +58,37 @@ class LocalErrorDiagnosticsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final held = log ?? LocalErrorDiagnostics.shared;
-    return Padding(
-      padding: const EdgeInsets.only(top: RaftSpace.x6),
-      child: RaftSettingsActionCard(
-        title: 'Local error diagnostics',
-        description: held.samples.isEmpty
-            ? 'No storage errors recorded in this app run. Copy app version and foreground/background state; excludes messages, credentials and server addresses.'
-            : 'Copy recent storage errors from this app run for a bug report. Includes app version and foreground/background state; excludes messages, credentials and server addresses.',
-        action: RaftSettingsRecipeButton(
-          label: 'Copy diagnostics',
-          variant: RaftButtonRecipeVariant.outline,
-          onPressed: () => copyLocalErrorDiagnostics(context, log: held),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const RaftSettingsSectionHeader(
+          label: 'Local error diagnostics',
+          glyph: RaftGlyph.bug,
         ),
-      ),
+        RaftSettingsCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                raftText(
+                  context,
+                  'Copy app version, foreground/background state and any storage errors recorded in this app run. Excludes messages, credentials and server addresses.',
+                ),
+                style: RaftSettingsText(RaftTokens.of(context)).description,
+              ),
+              const SizedBox(height: RaftSpace.x3),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: RaftSettingsRecipeButton(
+                  label: 'Copy',
+                  onPressed: () =>
+                      copyLocalErrorDiagnostics(context, log: held),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

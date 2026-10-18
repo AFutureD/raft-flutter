@@ -40,8 +40,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Local error diagnostics'), findsOneWidget);
-      expect(find.text('Copy diagnostics'), findsOneWidget);
+      expect(find.text('LOCAL ERROR DIAGNOSTICS'), findsOneWidget);
+      expect(find.text('Copy'), findsOneWidget);
     },
   );
 
@@ -248,7 +248,7 @@ void main() {
         ),
       );
       await tester.pumpWidget(app(log));
-      await tester.tap(find.text('Copy diagnostics'));
+      await tester.tap(find.text('Copy'));
       await tester.pumpAndSettle();
       expect(clipboard, isNull);
       expect(
@@ -259,7 +259,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(RaftToast),
-          matching: find.text('Copy diagnostics'),
+          matching: find.text('Copy'),
         ),
       );
       await tester.pumpAndSettle();
@@ -271,14 +271,14 @@ void main() {
       expect(find.text('Diagnostics copied'), findsNothing);
       await tester.pumpWidget(app(log));
       await tester.pumpAndSettle();
-      expect(find.text('Copy diagnostics'), findsOneWidget);
+      expect(find.text('Copy'), findsOneWidget);
       final fresh = LocalErrorDiagnostics()..lifecycle('resumed');
       await tester.pumpWidget(app(fresh));
       await tester.pumpAndSettle();
-      expect(find.text('Copy diagnostics'), findsOneWidget);
-      expect(find.text('Local error diagnostics'), findsOneWidget);
-      expect(find.textContaining('No storage errors recorded'), findsOneWidget);
-      await tester.tap(find.text('Copy diagnostics'));
+      expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('LOCAL ERROR DIAGNOSTICS'), findsOneWidget);
+      expect(find.textContaining('Copy app version'), findsOneWidget);
+      await tester.tap(find.text('Copy'));
       await tester.pumpAndSettle();
       final copied = jsonDecode(clipboard!) as Map;
       expect(copied['samples'], isEmpty);

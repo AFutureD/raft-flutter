@@ -11,6 +11,51 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ])) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('$family/$dark/$scale action precedes trailing close', (
+        t,
+      ) async {
+        t.view
+          ..physicalSize = const Size(390, 900)
+          ..devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        final controller = RaftToastController();
+        addTearDown(controller.dispose);
+        var copied = 0;
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
+            ),
+            home: Scaffold(body: RaftToastPortal(controller: controller)),
+          ),
+        );
+        void show() => controller.show(
+          'Local save failed',
+          actionLabel: 'Copy',
+          onAction: () => copied++,
+        );
+        show();
+        await t.pump();
+        final action = find.byKey(const Key('toast-action'));
+        final close = find.byKey(const Key('toast-close'));
+        expect(t.getRect(close).left, greaterThan(t.getRect(action).right));
+        expect(t.takeException(), isNull);
+        await t.tap(action);
+        await t.pump();
+        expect(copied, 1);
+        expect(find.byType(RaftToast), findsNothing);
+        show();
+        await t.pump();
+        await t.tap(close);
+        await t.pump();
+        expect(copied, 1);
+        expect(find.byType(RaftToast), findsNothing);
+      });
+    }
     testWidgets('$family/$dark title-only source recipe and bounded portal', (
       t,
     ) async {
@@ -183,9 +228,8 @@ void main() {
       await t.pump();
       final title = find.text('Something went wrong');
       expect(title, findsOneWidget);
-      final style = DefaultTextStyle.of(
-        t.element(title),
-      ).style.merge(t.widget<Text>(title).style);
+      final style = DefaultTextStyle.of(t.element(title)).style
+          .merge(t.widget<Text>(title).style);
       expect(style.decoration, anyOf(isNull, TextDecoration.none));
       expect(style.decorationColor, isNull);
       expect(style.fontFamily, isNot('monospace'));
@@ -204,9 +248,8 @@ void main() {
           matching: find.byType(Text),
         ),
       )) {
-        final merged = DefaultTextStyle.of(
-          t.element(find.byWidget(text)),
-        ).style.merge(text.style);
+        final merged = DefaultTextStyle.of(t.element(find.byWidget(text))).style
+            .merge(text.style);
         expect(
           merged.decoration,
           anyOf(isNull, TextDecoration.none),
@@ -298,9 +341,8 @@ void main() {
     ) async {
       await mount(t, const Size(390, 844));
       final context = t.element(find.byType(RaftComposer));
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
       await t.pumpAndSettle();
       showRaftToast(t.element(find.byType(Scaffold).last), 'Saved');
       await t.pump();

@@ -6,6 +6,8 @@ const Map<String, String> zhCatalogMessageHistory = <String, String>{
   'Diagnostics copied': '诊断信息已复制',
   'Could not copy diagnostics. Try again.': '无法复制诊断信息，请重试。',
   'Local error diagnostics': '本地错误诊断',
+  'Copy app version, foreground/background state and any storage errors recorded in this app run. Excludes messages, credentials and server addresses.':
+      '复制 App 版本、前后台状态及本次运行记录的存储错误（如有），不含消息、凭据或服务器地址。',
   'No storage errors recorded in this app run. Copy app version and foreground/background state; excludes messages, credentials and server addresses.':
       '本次运行尚未记录到存储错误。可复制 App 版本和前后台状态，不含消息、凭据或服务器地址。',
   'Copy recent storage errors from this app run for a bug report. Includes app version and foreground/background state; excludes messages, credentials and server addresses.':

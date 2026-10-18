@@ -119,7 +119,7 @@ void main() {
     );
     await settle(t, until: calculated);
     expect(size(t), 'Cache size: 3.5 MB');
-    expect(find.byType(RaftSettingsSectionHeader), findsOneWidget);
+    expect(find.byType(RaftSettingsSectionHeader), findsNWidgets(2));
     expect(find.text('Cache'), findsOneWidget);
   });
 
@@ -266,9 +266,8 @@ void main() {
       for (var i = 0; i < count; i++) {
         files[i].setLastModifiedSync(now.subtract(Duration(days: count - i)));
       }
-      File(
-        '${root.path}/raft-attachments/public/p1',
-      ).writeAsBytesSync(Uint8List(mb));
+      File('${root.path}/raft-attachments/public/p1')
+          .writeAsBytesSync(Uint8List(mb));
       return files;
     }
 

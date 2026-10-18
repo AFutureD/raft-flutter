@@ -147,6 +147,16 @@ class RaftToast extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
+                if (actionLabel != null) ...[
+                  RaftRecipeButton(
+                    key: const Key('toast-action'),
+                    variant: RaftButtonRecipeVariant.outline,
+                    size: RaftButtonRecipeSize.sm,
+                    label: actionLabel,
+                    onPressed: onAction,
+                  ),
+                  if (hasClose) const SizedBox(width: 4),
+                ],
                 if (hasClose)
                   Semantics(
                     button: true,
@@ -171,16 +181,6 @@ class RaftToast extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (actionLabel != null) ...[
-                  if (hasClose) const SizedBox(width: 4),
-                  RaftRecipeButton(
-                    key: const Key('toast-action'),
-                    variant: RaftButtonRecipeVariant.outline,
-                    size: RaftButtonRecipeSize.sm,
-                    label: actionLabel,
-                    onPressed: onAction,
-                  ),
-                ],
               ],
             ),
           )

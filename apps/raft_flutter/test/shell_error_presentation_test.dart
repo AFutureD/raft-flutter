@@ -197,8 +197,8 @@ void main() {
         await w.deviceStore.write('draft', 'c', {'text': 'private-draft'});
         await tester.pump();
         await tester.pump();
-        expect(find.text('Copy diagnostics'), findsOneWidget);
-        await tester.tap(find.text('Copy diagnostics'));
+        expect(find.text('Copy'), findsOneWidget);
+        await tester.tap(find.text('Copy'));
         await tester.pumpAndSettle();
         expect(clipboard, contains('local-storage'));
         expect(clipboard, isNot(contains('secret-payload')));
@@ -206,13 +206,13 @@ void main() {
         expect(clipboard, contains('deviceWrite'));
         expect(clipboard, contains('workspace_device_store.dart'));
         expect(find.text('Diagnostics copied'), findsOneWidget);
-        expect(find.text('Copy diagnostics'), findsNothing);
+        expect(find.text('Copy'), findsNothing);
         await tester.pump(const Duration(seconds: 6));
         await tester.pumpAndSettle();
         expect(find.text('Diagnostics copied'), findsNothing);
         w.notifyListeners();
         await tester.pumpAndSettle();
-        expect(find.text('Copy diagnostics'), findsNothing);
+        expect(find.text('Copy'), findsNothing);
       });
     }
   });

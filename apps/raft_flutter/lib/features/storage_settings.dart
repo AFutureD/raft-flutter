@@ -25,7 +25,12 @@ import 'computer_detail_view.dart' show computerFileSize;
 /// workspace database, files the user saved and files received from other apps
 /// are stored elsewhere and are never touched.
 class StorageSettingsPage extends StatefulWidget {
-  const StorageSettingsPage({super.key, this.cache, this.coordinator, this.workspace});
+  const StorageSettingsPage({
+    super.key,
+    this.cache,
+    this.coordinator,
+    this.workspace,
+  });
   final WorkspaceController? workspace;
 
   /// The cache whose size is shown; the app's installed cache by default.
@@ -140,8 +145,8 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const LocalErrorDiagnosticsCard(),
-        if (widget.workspace case final w?) MessageHistorySettings.forWorkspace(w),
+        if (widget.workspace case final w?)
+          MessageHistorySettings.forWorkspace(w),
         const RaftSettingsSectionHeader(
           label: 'Storage',
           glyph: RaftGlyph.hardDrive,
@@ -152,8 +157,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
             children: [
               RaftSettingsPreference(
                 title: 'Cache',
-                description:
-                    'Attachments, previews, profile pictures and icons you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
+                description: 'Attachments, previews, profile pictures and icons you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
                 child: Semantics(
                   key: const Key('storage-size'),
                   container: true,
@@ -182,8 +186,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
               const SizedBox(height: RaftSpace.x4),
               RaftSettingsPreference(
                 title: 'Cache limit',
-                description:
-                    'The most space the cache may use on this device. When it is full, the attachments and previews you opened longest ago are removed first. Profile pictures and icons keep their own small limit.',
+                description: 'The most space the cache may use on this device. When it is full, the attachments and previews you opened longest ago are removed first. Profile pictures and icons keep their own small limit.',
                 child: RaftSelectField<int>(
                   key: const Key('storage-budget'),
                   label: 'Cache limit',
@@ -217,6 +220,8 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
             ],
           ),
         ),
+        const SizedBox(height: RaftSpace.x6),
+        const LocalErrorDiagnosticsCard(),
         const SizedBox(height: RaftSpace.x6),
       ],
     );
