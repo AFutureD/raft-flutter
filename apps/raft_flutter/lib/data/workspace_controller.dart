@@ -28,7 +28,8 @@ import 'channel_repository.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
-import 'reaction_toggle.dart';
+import 'reaction_repository.dart';
+import 'reaction_repository_ports.dart';
 import 'workspace_cache.dart';
 import 'workspace_device_store.dart';
 import 'sidebar_repository.dart';
@@ -68,7 +69,7 @@ export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
 import '../platform/attachment_player_sessions.dart';
 
 class WorkspaceController extends ChangeNotifier
-    implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost, WorkspacePresentationSourcePort {
+    implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost, WorkspacePresentationSourcePort, WorkspaceReactionSourcePort {
   /// High-frequency socket events that never change workspace state.
   static const presenceEvents = WorkspaceSession.presenceEvents;
 
@@ -94,6 +95,14 @@ class WorkspaceController extends ChangeNotifier
       conversations: bindings,
       source: presentationSource,
       mobileNavigation: mobileNavigation,
+    );
+    reactions = ReactionRepository(
+      context: bindings,
+      client: client,
+      presentation: bindings,
+      rows: bindings,
+      hydration: bindings,
+      source: presentationSource,
     );
     _session = WorkspaceSession(
       context: bindings,
@@ -693,12 +702,9 @@ class WorkspaceController extends ChangeNotifier
 
   StreamSubscription<RaftEvent> get subscription => _session.subscription;
   MessageLedger get ledger => _messages.ledger;
-  final _reactionViewer = ReactionViewerLedger();
+  late final ReactionRepository reactions;
   @override
-  ReactionViewerLedger get reactionViewer =>
-      presentationSource?.reactionViewer ?? _reactionViewer;
-  final Map<String, Future<void>> _reactionWrites = {};
-  final Map<String, Future<void>> _viewerLoads = {};
+  ReactionViewerLedger get reactionViewer => reactions.reactionViewer;
 
   bool _disposed = false;
   int _stateStamp = 0;
@@ -1475,206 +1481,20 @@ class WorkspaceController extends ChangeNotifier
     return apiGateway.command(method, path, data: data);
   }
 
-  Future<void> hydrateReactionViewer(RaftMessage message) async {
-    if (presentationSource != null) {
-      return presentationSource!.hydrateReactionViewer(message);
-    }
-    if (reactionViewer.reacted(message.id) != null ||
-        _viewerLoads.containsKey(message.id) ||
-        channel?.archived == true) {
-      return;
-    }
-    final generation = ledger.generation, serverId = client.serverId;
-    if (serverId == null) return;
-    Future<void> load() async {
-      try {
-        final snapshot = await client.get(
-          '/messages/${message.id}/reactions/viewer',
-        );
-        if (_disposed ||
-            generation != ledger.generation ||
-            _revokedChannels.contains(message.channelId)) {
-          return;
-        }
-        if (reactionViewer.accept(snapshot, serverId: serverId) == 'accepted') {
-          notifyListeners();
-        }
-      } catch (_) {
-        /* A click retries explicitly and reports an actionable error. */
-      }
-    }
+  @override
+  Future<void> hydrateReactionViewer(RaftMessage message) =>
+      reactions.hydrateReactionViewer(message);
 
-    final pending = load();
-    _viewerLoads[message.id] = pending;
-    try {
-      await pending;
-    } finally {
-      if (identical(_viewerLoads[message.id], pending)) {
-        _viewerLoads.remove(message.id);
-      }
-    }
-  }
+  @override
+  Map<String, bool>? pendingReactionTargets(String messageId) =>
+      reactions.pendingReactionTargets(messageId);
 
-  /// Reaction toggles in flight per message, so a presented row shows the
-  /// viewer's own state at once (Web `pendingReactionTargetsRef`).
-  final Map<String, Map<String, PendingReaction>> _pendingReactions = {};
+  void _overlayPendingReactions(Map<String, dynamic> row) =>
+      reactions.overlayMessageReactions(row);
 
-  /// The state each pending toggle is heading for (null when none).
-  Map<String, bool>? pendingReactionTargets(String messageId) {
-    if (presentationSource != null) {
-      return presentationSource!.pendingReactionTargets(messageId);
-    }
-    final pending = _pendingReactions[messageId];
-    return pending == null || pending.isEmpty
-        ? null
-        : {for (final e in pending.entries) e.key: e.value.target};
-  }
-
-  String get _reactionViewerName => client.user?.name ?? '';
-
-  List<Map<String, dynamic>> _heldReactions(RaftMessage message) =>
-      reactionList(
-        (ledger.message(message.channelId, message.id) ??
-            message.json)['reactions'],
-      );
-
-  /// Socket rows carry server state that may predate a pending write: lay the
-  /// pending toggles back over the row's reactions.
-  void _overlayPendingReactions(Map<String, dynamic> row) {
-    final id = row['id'], channelId = row['channelId'];
-    final pending = _pendingReactions[id];
-    final viewerId = client.user?.id;
-    if (pending == null ||
-        pending.isEmpty ||
-        viewerId == null ||
-        id is! String ||
-        channelId is! String ||
-        !row.containsKey('reactions')) {
-      return;
-    }
-    final held = reactionList(ledger.message(channelId, id)?['reactions']);
-    final next = overlayPendingReactions(
-      held,
-      pending,
-      viewerId: viewerId,
-      viewerName: _reactionViewerName,
-    );
-    if (!identical(next, held)) _messages.setMessageReactions(channelId, id, next);
-  }
-
-  /// Web MessageItem `handleToggleReaction`: the chip and the viewer's own
-  /// state change at once, the write follows, the server row reconciles and a
-  /// failure puts the previous reaction back. A second toggle of the same
-  /// emoji while one is in flight is ignored (Web `pendingReactionEmojisRef`).
-  Future<void> toggleReaction(RaftMessage message, String emoji) {
-    if (presentationSource != null) {
-      return presentationSource!.toggleReaction(message, emoji);
-    }
-    final key = '${message.id}:$emoji';
-    final inFlight = _reactionWrites[key];
-    if (inFlight != null) return inFlight;
-    final generation = ledger.generation,
-        serverId = client.serverId,
-        viewerId = client.user?.id;
-    if (serverId == null || viewerId == null) return Future.value();
-    Future<void> change() async {
-      var reacted =
-          reactionViewer.reacted(message.id)?.contains(emoji) ??
-          ownReactionFromRow(_heldReactions(message), emoji, viewerId);
-      if (reacted == null) {
-        // Canonical chip without a private snapshot: read it first.
-        final viewer = await client.get(
-          '/messages/${message.id}/reactions/viewer',
-        );
-        if (_disposed || generation != ledger.generation) return;
-        reactionViewer.accept(viewer, serverId: serverId);
-        reacted = reactionViewer.reacted(message.id)?.contains(emoji);
-        if (reacted == null) {
-          throw StateError('Your reaction state could not be loaded.');
-        }
-      }
-      final target = !reacted;
-      final before = _heldReactions(message);
-      final pending = beginReaction(before, emoji, target: target);
-      (_pendingReactions[message.id] ??= {})[emoji] = pending;
-      _messages.setMessageReactions(
-        message.channelId,
-        message.id,
-        setOwnReaction(
-          before,
-          emoji,
-          reacted: target,
-          viewerId: viewerId,
-          viewerName: _reactionViewerName,
-        ),
-      );
-      notifyListeners();
-      bool stale() =>
-          _disposed ||
-          generation != ledger.generation ||
-          _revokedChannels.contains(message.channelId);
-      try {
-        final value = await client.request(
-          target ? 'POST' : 'DELETE',
-          '/messages/${message.id}/reactions',
-          data: {'emoji': emoji},
-        );
-        _clearPendingReaction(message.id, emoji);
-        if (stale()) return;
-        if (value is Map) {
-          final accepted = reactionViewer.accept(
-            value['reactionViewer'],
-            serverId: serverId,
-          );
-          final row = Map<String, dynamic>.from(value)
-            ..remove('reactionViewer');
-          ledger.ingest([row], expectedGeneration: generation);
-          // Other emojis still in flight keep their optimistic state.
-          _overlayPendingReactions(row);
-          final snapshot = reactionViewer.reacted(message.id);
-          if (accepted != 'accepted' &&
-              snapshot != null &&
-              snapshot.contains(emoji) != target) {
-            // A snapshot older than the write would show the old state.
-            reactionViewer.remove(message.id);
-            unawaited(hydrateReactionViewer(message));
-          }
-          final held = ledger.message(message.channelId, message.id);
-          if (held != null && threadParent?.id == message.id) {
-            threadParent = RaftMessage(held);
-          }
-          _messages.saveWindow(
-            message.channelId,
-            thread: message.channelId == threadChannelId,
-          );
-        }
-        notifyListeners();
-      } catch (_) {
-        _clearPendingReaction(message.id, emoji);
-        if (!stale()) {
-          _messages.setMessageReactions(
-            message.channelId,
-            message.id,
-            restoreReaction(_heldReactions(message), emoji, pending),
-          );
-          notifyListeners();
-        }
-        rethrow;
-      }
-    }
-
-    final pending = change();
-    _reactionWrites[key] = pending;
-    return pending.whenComplete(() {
-      if (identical(_reactionWrites[key], pending)) _reactionWrites.remove(key);
-    });
-  }
-
-  void _clearPendingReaction(String messageId, String emoji) {
-    final pending = _pendingReactions[messageId];
-    pending?.remove(emoji);
-    if (pending != null && pending.isEmpty) _pendingReactions.remove(messageId);
-  }
+  @override
+  Future<void> toggleReaction(RaftMessage message, String emoji) =>
+      reactions.toggleReaction(message, emoji);
 
   @override
   void dispose() {
@@ -2183,8 +2003,25 @@ class _WorkspaceMessageBindings extends _WorkspaceSessionBindings
         WorkspaceMessageNotificationPort,
         WorkspaceConversationCommandsPort,
         WorkspaceThreadCreationPort,
-        WorkspaceEditorEntrypoints {
+        WorkspaceEditorEntrypoints,
+        WorkspaceReactionMessagesPort,
+        WorkspaceReactionHydrationPort {
   _WorkspaceMessageBindings(super.w);
+
+  @override
+  void acceptReactionResponse(Map<String, dynamic> row, {required int generation}) =>
+      w.ledger.ingest([row], expectedGeneration: generation);
+  @override
+  set threadParent(RaftMessage? value) => w.threadParent = value;
+  @override
+  bool setMessageReactions(String channelId, String messageId, List<Map<String, dynamic>> reactions) =>
+      w._messages.setMessageReactions(channelId, messageId, reactions);
+  @override
+  Future<void> saveWindow(String channelId, {bool thread = false, bool coalesce = false}) =>
+      w._messages.saveWindow(channelId, thread: thread, coalesce: coalesce);
+  @override
+  Future<void> hydrateReactionViewer(RaftMessage message) => w.hydrateReactionViewer(message);
+
 
   @override
   Map<String, List<Map<String, dynamic>>> get pendingMentionActions =>

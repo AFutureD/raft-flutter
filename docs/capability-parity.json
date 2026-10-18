@@ -44,10 +44,10 @@
    "status": "covered",
    "webEntry": "reaction chip click when viewer already reacted",
    "gate": "canReact",
-   "flutterEntry": "chat_view.dart react() -> workspace_controller.toggleReaction (DELETE branch)",
+   "flutterEntry": "chat_view.dart react() -> reaction_repository.toggleReaction (DELETE branch)",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/reaction_repository.dart",
      "needle": "target ? 'POST' : 'DELETE'"
     },
     {
@@ -92,10 +92,10 @@
    "status": "covered",
    "webEntry": "reactionViewerReadModel hydrateReactionViewerSnapshot (automatic before toggling a chip)",
    "gate": "none",
-   "flutterEntry": "workspace_controller.dart hydrateReactionViewer()",
+   "flutterEntry": "reaction_repository.dart hydrateReactionViewer()",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/reaction_repository.dart",
      "needle": "'/messages/${message.id}/reactions/viewer'"
     }
    ],
@@ -359,10 +359,10 @@
    "status": "covered",
    "webEntry": "MessageHoverToolbar > 'Add Reaction' picker | context menu quick-reaction row | reaction chip click | mobile '+' chip",
    "gate": "canReact: not system message, not guest, channel joined/viewable, not archived/read-only",
-   "flutterEntry": "chat_view.dart react()/openReactionPicker/RaftQuickReactionPicker + context menu onReact -> workspace_controller.toggleReaction",
+   "flutterEntry": "chat_view.dart react()/openReactionPicker/RaftQuickReactionPicker + context menu onReact -> reaction_repository.toggleReaction",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
+     "file": "apps/raft_flutter/lib/data/reaction_repository.dart",
      "needle": "'/messages/${message.id}/reactions'"
     },
     {

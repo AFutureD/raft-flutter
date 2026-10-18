@@ -83,7 +83,7 @@
         "field.WorkspaceController._ownsEntityDirectory": 0,
         "field.WorkspaceController._ownsFollowedThreads": 0,
         "field.WorkspaceController._pageSummariesByChannel": 0,
-        "field.WorkspaceController._pendingReactions": 1,
+        "field.WorkspaceController._pendingReactions": 0,
         "field.WorkspaceController._playerSessions": 0,
         "field.WorkspaceController._prefetched": 0,
         "field.WorkspaceController._prefetching": 0,
@@ -92,8 +92,8 @@
         "field.WorkspaceController._previewGate": 0,
         "field.WorkspaceController._previewGateAt": 0,
         "field.WorkspaceController._previewGateScope": 0,
-        "field.WorkspaceController._reactionViewer": 1,
-        "field.WorkspaceController._reactionWrites": 1,
+        "field.WorkspaceController._reactionViewer": 0,
+        "field.WorkspaceController._reactionWrites": 0,
         "field.WorkspaceController._readPosts": 0,
         "field.WorkspaceController._readState": 0,
         "field.WorkspaceController._removeCacheClear": 1,
@@ -133,7 +133,7 @@
         "field.WorkspaceController._threadVisit": 0,
         "field.WorkspaceController._translations": 0,
         "field.WorkspaceController._unboundSection": 0,
-        "field.WorkspaceController._viewerLoads": 1,
+        "field.WorkspaceController._viewerLoads": 0,
         "field.WorkspaceController._visitedChannelScope": 0,
         "field.WorkspaceController._visitedThreadScope": 0,
         "field.WorkspaceController.agentMigrationEnabled": 0,
@@ -231,14 +231,16 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 3173,
-        "tokens": 17272,
-        "field.WorkspaceController._presentation": 0
+        "lines": 3048,
+        "tokens": 16470,
+        "field.WorkspaceController._presentation": 0,
+        "field.WorkspaceController.reactions": 0
       },
       "companions": [
         "apps/raft_flutter/lib/data/conversation_window.dart",
         "apps/raft_flutter/lib/data/workspace_message_windows.dart",
-        "apps/raft_flutter/lib/data/workspace_presentation_ports.dart"
+        "apps/raft_flutter/lib/data/workspace_presentation_ports.dart",
+        "apps/raft_flutter/lib/data/reaction_repository_ports.dart"
       ]
     },
     "workspace_view": {
@@ -1123,6 +1125,30 @@
         "lines": 399,
         "tokens": 1913
       }
+    },
+    "reaction_repository": {
+      "root": "apps/raft_flutter/lib/data/reaction_repository.dart",
+      "companions": [
+        "apps/raft_flutter/lib/data/reaction_toggle.dart"
+      ],
+      "metrics": {
+        "field.PendingReaction.baseCount": 1,
+        "field.PendingReaction.previous": 1,
+        "field.PendingReaction.previousIndex": 1,
+        "field.PendingReaction.target": 1,
+        "field.ReactionRepository._pendingReactions": 1,
+        "field.ReactionRepository._reactionViewer": 1,
+        "field.ReactionRepository._reactionWrites": 1,
+        "field.ReactionRepository._viewerLoads": 1,
+        "field.ReactionRepository.client": 1,
+        "field.ReactionRepository.context": 1,
+        "field.ReactionRepository.hydration": 1,
+        "field.ReactionRepository.presentation": 1,
+        "field.ReactionRepository.rows": 1,
+        "field.ReactionRepository.source": 1,
+        "lines": 408,
+        "tokens": 2397
+      }
     }
   },
   "exceptions": [
@@ -1275,6 +1301,14 @@
       "metric": "field.WorkspaceController._presentation",
       "limit": 1,
       "reason": "D3 replaces 16 receiver-local Root presentation/navigation fields with one WorkspacePresentation owner (Root fields 36 to 21). Old field ceilings are zero and the old _conversationPresentation exception is removed; the common context is unchanged. Approved by Cindy in Raft 1a9f9178-87f8-41df-b8a2-28f6cfd97760. Remove this Root reference during D6/caller and composition cleanup before 2026-10-30; no new forwards or context growth.",
+      "reviewer": "Cindy",
+      "expires": "2026-10-30"
+    },
+    {
+      "module": "workspace_controller",
+      "metric": "field.WorkspaceController.reactions",
+      "limit": 1,
+      "reason": "Cindy approved D6 on 2026-10-18 (d834986b-5093-4304-88d3-1adc7a30ddf6): one owner reference replaces four Root reaction state fields; old ceilings zero and Root totals lowered. Receiver/source and hydration overrides retain explicit dispatch; common context unchanged. Retire this and _presentation in caller/composition cleanup; no new forwards.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }
