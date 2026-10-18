@@ -2372,7 +2372,7 @@
      "flutter": "yes",
      "parityCase": [],
      "status": "intentional",
-     "justification": "Native macOS/iOS/Android permission status and system-settings action; browser push fixtures cannot exercise an OS dialog. Covered by macos_notification_permission_settings_test and iOS/Android first-workspace regressions; native acceptance is separate."
+     "justification": "Native macOS/iOS/Android permission status and system-settings action; browser push fixtures cannot exercise an OS dialog. Covered by macos_notification_permission_settings_test and iOS/Android explicit-opt-in regressions; native acceptance is separate."
     }
    ]
   },
@@ -2985,6 +2985,58 @@
      "justification": "Catalogs expose header names only. Blank unchanged rows retain stored values, renamed/new rows need a value; OAuth providers keep their fixed URL/auth and hide draft testing. Web 1.21.12 behavior is widget-tested on phone/desktop; no matched React/Flutter editor parity capture is registered.",
      "size": "S",
      "gapKind": "case-missing"
+    }
+   ]
+  },
+  {
+   "id": "messages.notification-activation",
+   "title": "Composer notification activation",
+   "webEntry": "packages/web/src/components/message/NotificationActivationBanner.tsx",
+   "flutterEntry": "apps/raft_flutter/lib/features/notification_activation_banner.dart",
+   "states": [
+    {
+     "state": "loading",
+     "variant": "system permission request in progress",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "gapKind": "case-missing",
+     "size": "S",
+     "justification": "Three-theme desktop/phone widget regressions cover opt-in, session dismissal and settings navigation; paired pixel captures are not included. Native OS allow/deny acceptance is recorded separately in the PR."
+    },
+    {
+     "state": "empty",
+     "variant": "already asked, granted, dismissed or ineligible composer",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "gapKind": "case-missing",
+     "size": "S",
+     "justification": "Three-theme desktop/phone widget regressions cover opt-in, session dismissal and settings navigation; paired pixel captures are not included. Native OS allow/deny acceptance is recorded separately in the PR."
+    },
+    {
+     "state": "error",
+     "variant": "permission request could not be started",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "gapKind": "case-missing",
+     "size": "S",
+     "justification": "Three-theme desktop/phone widget regressions cover opt-in, session dismissal and settings navigation; paired pixel captures are not included. Native OS allow/deny acceptance is recorded separately in the PR."
+    },
+    {
+     "state": "partial",
+     "variant": "three-second dismissal confirmation",
+     "web": "yes",
+     "flutter": "yes",
+     "parityCase": [],
+     "status": "gap",
+     "gapKind": "case-missing",
+     "size": "S",
+     "justification": "Three-theme desktop/phone widget regressions cover opt-in, session dismissal and settings navigation; paired pixel captures are not included. Native OS allow/deny acceptance is recorded separately in the PR."
     }
    ]
   }

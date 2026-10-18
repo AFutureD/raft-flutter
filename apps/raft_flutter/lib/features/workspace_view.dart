@@ -10,6 +10,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'announcement_host.dart';
+import 'notification_activation_workspace.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/route_frame_diagnostics.dart';
@@ -1283,17 +1284,12 @@ class _WorkspaceViewState extends State<WorkspaceView>
   }
 
   @override
-  Widget build(BuildContext context) => widget.mobileRoutePage
-      ? buildHost(context)
-      // Settings and the rail layout read the side through the scope; the
-      // workspace itself reads the store.
-      : ListenableBuilder(
-          listenable: railSideStore,
-          builder: (context, _) => RaftRailSideScope(
-            side: railSideStore.side,
-            child: Builder(builder: buildHost),
-          ),
-        );
+  Widget build(BuildContext context) => NotificationActivationWorkspace(
+    service: widget.notifications,
+    mobileRoutePage: widget.mobileRoutePage,
+    railSide: railSideStore,
+    builder: buildHost,
+  );
 
   Widget buildHost(BuildContext context) {
     final live = RaftAdaptiveWorkspace.compactOf(context);

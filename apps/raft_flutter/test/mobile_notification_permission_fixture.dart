@@ -57,7 +57,7 @@ void mobilePermissionTests(TargetPlatform platform) {
   }
 
   test(
-    '$platform requests only after a workspace, not on initialization/login',
+    '$platform requests only after explicit enable, never on workspace entry',
     () async {
       final permission = MacPermissionFixture();
       final (s, _) = make(permission);
@@ -65,6 +65,8 @@ void mobilePermissionTests(TargetPlatform platform) {
       await s.bindAuthenticatedWorkspace(null);
       expect(permission.requests, 0);
       await s.bindAuthenticatedWorkspace('alice');
+      expect(permission.requests, 0);
+      await s.requestEnable(true);
       expect(permission.requests, 1);
       expect(s.enabled, isTrue);
       await s.bindAuthenticatedWorkspace('alice');
@@ -78,6 +80,8 @@ void mobilePermissionTests(TargetPlatform platform) {
         ..prompt = (Completer<bool?>()..complete(false));
       final (s, _) = make(permission);
       await s.bindAuthenticatedWorkspace('alice');
+      expect(permission.requests, 0);
+      await s.requestEnable(true);
       expect(permission.requests, 1);
       expect(s.enabled, isFalse);
       await s.bindAuthenticatedWorkspace(null);
@@ -106,6 +110,7 @@ void mobilePermissionTests(TargetPlatform platform) {
       final permission = MacPermissionFixture();
       final (s, _) = make(permission);
       await s.bindAuthenticatedWorkspace('alice');
+      await s.requestEnable(true);
       await s.bindAuthenticatedWorkspace('bob');
       expect(permission.requests, 1);
       expect(s.enabled, isTrue);
@@ -125,7 +130,8 @@ void mobilePermissionTests(TargetPlatform platform) {
     () async {
       final permission = MacPermissionFixture()..prompt = Completer<bool?>();
       final (s, _) = make(permission);
-      final entering = s.bindAuthenticatedWorkspace('alice');
+      await s.bindAuthenticatedWorkspace('alice');
+      final entering = s.requestEnable(true);
       await Future<void>.delayed(Duration.zero);
       expect(permission.requests, 1);
       await s.bindAuthenticatedWorkspace(null);
@@ -147,6 +153,8 @@ void mobilePermissionTests(TargetPlatform platform) {
       final permission = MacPermissionFixture();
       final (s, _) = make(permission);
       await s.bindAuthenticatedWorkspace('alice');
+      expect(permission.requests, 0);
+      await s.requestEnable(true);
       expect(permission.requests, 1);
       expect(s.enabled, isTrue);
       final prefs = await SharedPreferences.getInstance();

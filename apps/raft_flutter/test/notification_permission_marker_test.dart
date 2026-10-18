@@ -45,6 +45,7 @@ void main() {
       final permission = MacPermissionFixture();
       final s = service(store, permission);
       await s.bindAuthenticatedWorkspace('alice');
+      await s.requestEnable(true);
       expect(permission.requests, 0);
       expect(s.enabled, isFalse);
       expect(s.error, contains('saved'));
@@ -66,6 +67,7 @@ void main() {
       expect(store.values, isEmpty);
       store.readGate = null;
       await s.bindAuthenticatedWorkspace('bob');
+      await s.requestEnable(true);
       expect(permission.requests, 1);
       expect(s.enabled, isTrue);
     },
@@ -76,9 +78,11 @@ void main() {
       final store = Store();
       final permission = MacPermissionFixture()..prompt = Completer<bool?>();
       final s = service(store, permission);
-      final alice = s.bindAuthenticatedWorkspace('alice');
+      await s.bindAuthenticatedWorkspace('alice');
+      final alice = s.requestEnable(true);
       await Future<void>.delayed(Duration.zero);
-      final bob = s.bindAuthenticatedWorkspace('bob');
+      await s.bindAuthenticatedWorkspace('bob');
+      final bob = s.requestEnable(true);
       await Future<void>.delayed(Duration.zero);
       expect(permission.requests, 1);
       expect(store.values.values.single, isTrue);

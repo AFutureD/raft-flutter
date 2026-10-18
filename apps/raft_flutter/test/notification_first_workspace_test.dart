@@ -61,26 +61,30 @@ Future<(NativeContentCoordinator, NativeNotificationService)> coordinator(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  testWidgets('macOS waits for authenticated workspace then requests once', (
-    t,
-  ) async {
-    final (w, _) = await pageFixture(t);
-    final permission = MacPermissionFixture();
-    final (content, service) = await coordinator(t, permission);
-    await turn(t);
-    expect(permission.requests, 0, reason: 'No prompt on the login screen.');
-    content.bindWorkspace(null);
-    await turn(t);
-    expect(permission.requests, 0);
-    content.bindWorkspace(w);
-    await turn(t);
-    expect(permission.requests, 1);
-    expect(service.enabled, isTrue);
-    content.bindWorkspace(w);
-    w.notifyListeners();
-    await turn(t);
-    expect(permission.requests, 1);
-  });
+  testWidgets(
+    'macOS never prompts on workspace entry; explicit enable requests once',
+    (t) async {
+      final (w, _) = await pageFixture(t);
+      final permission = MacPermissionFixture();
+      final (content, service) = await coordinator(t, permission);
+      await turn(t);
+      expect(permission.requests, 0, reason: 'No prompt on the login screen.');
+      content.bindWorkspace(null);
+      await turn(t);
+      expect(permission.requests, 0);
+      content.bindWorkspace(w);
+      await turn(t);
+      expect(permission.requests, 0);
+      expect(service.enabled, isFalse);
+      await service.requestEnable(true);
+      expect(permission.requests, 1);
+      expect(service.enabled, isTrue);
+      content.bindWorkspace(w);
+      w.notifyListeners();
+      await turn(t);
+      expect(permission.requests, 1);
+    },
+  );
   testWidgets('macOS remembers denial across logout and a fresh coordinator', (
     t,
   ) async {
@@ -89,6 +93,9 @@ void main() {
       ..prompt = (Completer<bool?>()..complete(false));
     final (first, service) = await coordinator(t, permission);
     first.bindWorkspace(w);
+    await turn(t);
+    expect(permission.requests, 0);
+    await service.requestEnable(true);
     await turn(t);
     expect(permission.requests, 1);
     expect(service.enabled, isFalse);
@@ -130,9 +137,13 @@ void main() {
     final (content, service) = await coordinator(t, permission);
     content.bindWorkspace(w);
     await turn(t);
+    expect(permission.requests, 0);
+    final enabling = service.requestEnable(true);
+    await turn(t);
     expect(permission.requests, 1);
     content.bindWorkspace(null);
     permission.prompt!.complete(true);
+    await enabling;
     await turn(t);
     expect(service.enabled, isFalse);
     content.bindWorkspace(w);
