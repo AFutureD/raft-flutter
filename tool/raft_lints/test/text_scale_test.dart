@@ -4,7 +4,7 @@ import 'package:raft_lints/src/checks.dart';
 import 'package:raft_lints/src/ignores.dart';
 import 'package:raft_lints/src/text_scale.dart';
 import 'package:raft_lints/src/rules.dart';
-import 'package:test/test.dart' show expect, isEmpty, isFalse, isTrue;
+import 'package:test/test.dart' show expect, isEmpty, isFalse;
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
 void main() {
