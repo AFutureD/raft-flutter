@@ -127,7 +127,7 @@ void main() {
       );
       await t.pumpWidget(host(child(), s));
       await turn(t);
-      await t.tap(find.byType(RaftIconButton));
+      await t.tap(find.byType(RaftCloseButton));
       await t.pump();
       expect(
         find.textContaining(

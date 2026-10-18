@@ -32,6 +32,7 @@ class RaftBanner extends StatelessWidget {
     this.titleGap,
     this.glyph,
     this.action,
+    this.centerAction = false,
     this.descriptionTail,
     this.descriptionTailWeight,
     this.textAlign,
@@ -63,6 +64,10 @@ class RaftBanner extends StatelessWidget {
   /// `actions` -> `BannerAction` (trailing grid cell, `gap-x` from the
   /// recipe).
   final Widget? action;
+
+  /// Web `[&>div:last-child]:self-center`: center the action against the whole
+  /// icon/body group while keeping the leading glyph aligned with its title.
+  final bool centerAction;
 
   /// Measured space between title and description where the Web grid adds
   /// it (MachineDetailPanel disk-low banner: 4px); null keeps the recipe.
@@ -231,6 +236,18 @@ class RaftBanner extends StatelessWidget {
     Widget content,
     Widget? action,
   ) {
+    if (centerAction && action != null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: _rowOf(stacked, gap, svg, recipe, tokens, content, null),
+          ),
+          SizedBox(width: gap),
+          action,
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: stacked
           ? CrossAxisAlignment.start
