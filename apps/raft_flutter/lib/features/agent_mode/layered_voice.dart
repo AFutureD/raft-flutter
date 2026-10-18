@@ -101,6 +101,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.engine = AgentEngine.genkit,
     this.agentModelId,
     this.slowAfter = const Duration(milliseconds: 800),
+    this.ackAfter = const Duration(milliseconds: 350),
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.mode = LayeredVoiceMode.liveRelays,
@@ -157,7 +158,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
                     onToolCall: _liveTool,
                     voice: voice,
                     reasoning: reasoning,
-                    onAudio: onAudio,
+                    onAudio: _relayAudio,
                     onInputText: onInputText,
                     onOutputText: _relayOutput,
                     onTurnComplete: _relayTurnComplete,
@@ -225,8 +226,15 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// How long an ask may take before [onSlow] is told.
   final Duration slowAfter;
 
+  /// How long an ask may take before the app says a short acknowledgment in
+  /// its own voice ([speech]). The agent's quick answers come well within it
+  /// and get none; the voice model says nothing while it waits, so without it
+  /// the person hears nothing for seconds.
+  final Duration ackAfter;
+
   /// The agent is taking its time: the app gives the person a cue of its own
-  /// (the voice model says nothing while it waits).
+  /// (the voice model says nothing while it waits). Not told for an ask whose
+  /// acknowledgment was spoken: that is the cue.
   void Function()? onSlow;
 
   /// How many asks to the agent are in flight. The orb is thinking while it is
@@ -391,7 +399,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   Future<String?> _ask(String request) async {
     final watch = Stopwatch()..start();
     _askingIs(_asking + 1);
-    final slow = Timer(slowAfter, () => onSlow?.call());
+    var acked = false;
+    final ack = Timer(ackAfter, () {
+      acked = _acknowledge();
+    });
+    final slow = Timer(slowAfter, () {
+      if (!acked) onSlow?.call();
+    });
     String? say;
     try {
       say = await _runAgent(request);
@@ -400,6 +414,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     } catch (_) {
       say = '我这边出了点问题，你再说一次。';
     } finally {
+      ack.cancel();
       slow.cancel();
     }
     if (say != null) onAsk?.call(request, say, watch.elapsedMilliseconds);
@@ -434,11 +449,18 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   void Function(String say, List<String> missing)? onCorrection;
 
   void _relayOutput(String text) {
+    _endAck();
     _watch?.heard.write(text);
     onOutputText?.call(text);
   }
 
+  void _relayAudio(Uint8List pcm24k) {
+    _endAck();
+    onAudio?.call(pcm24k);
+  }
+
   void _relayInterrupted() {
+    _endAck();
     // The person spoke over it: nothing is corrected.
     final waiting = _watch?.waiting ?? false;
     _watch = null;
@@ -596,8 +618,48 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     onTurnComplete?.call();
   }
 
+  // What the app says while the agent works, in turn.
+  static const _acks = ['我看一下。', '好，我查查。', '稍等，我看看。', '嗯，我找一下。'];
+  int _ackNext = 0;
+  bool _acking = false;
+
+  /// Says one short acknowledgment in the app's voice, queued like any other
+  /// speech so that an answer follows it and does not overlap. Not reported to
+  /// [onSpoken] or the captions (it is not part of the answer), but it counts
+  /// as the voice's echo. Whether it is said: not without a voice, and not
+  /// over a voice already sounding.
+  bool _acknowledge() {
+    if (_closed || speech == null || _speaking) return false;
+    final text = _acks[_ackNext++ % _acks.length];
+    _recentSpoken += UserTurnForwarder.compact(text);
+    _acking = true;
+    final generation = _speechGeneration;
+    late final Future<void> mine;
+    mine = _speechTail = _speechTail.then((_) async {
+      if (_closed || generation != _speechGeneration) return;
+      await speech!.speak(
+        text,
+        onStart: () {
+          if (generation == _speechGeneration) _speakingIs(true);
+        },
+      );
+      if (_closed || generation != _speechGeneration) return;
+      _acking = false;
+      // An answer queued behind it carries the voice on.
+      if (identical(_speechTail, mine)) _speakingIs(false);
+    });
+    return true;
+  }
+
+  /// Live starts to answer (or the person spoke over it): the acknowledgment
+  /// is cut, so that the two voices do not overlap.
+  void _endAck() {
+    if (_acking) stopSpeech();
+  }
+
   /// Stops the voice now, and what is queued to be said.
   void stopSpeech() {
+    _acking = false;
     _speechGeneration++;
     _speakingIs(false);
     unawaited(speech?.stop());

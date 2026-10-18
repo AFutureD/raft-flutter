@@ -100,7 +100,12 @@ class HeldAgent implements VoiceSession, CancellableTurn {
 }
 
 class Rig {
-  Rig({this.perSentence = const Duration(seconds: 1)}) {
+  Rig({
+    this.perSentence = const Duration(seconds: 1),
+    // Off unless a test is about it: an ask the test leaves unanswered would
+    // be acknowledged.
+    Duration ackAfter = const Duration(hours: 1),
+  }) {
     speech = RecordingSpeech(perSentence: perSentence);
     session = LayeredVoiceSession(
       apiKey: 'k',
@@ -110,6 +115,7 @@ class Rig {
       steering: const AgentSteering(scope: _scope),
       mode: LayeredVoiceMode.appSpeaks,
       speech: speech,
+      ackAfter: ackAfter,
       onInputText: heard.add,
       onOutputText: captions.add,
       onTurnComplete: () => completes++,
@@ -429,6 +435,199 @@ void main() {
         async.flushMicrotasks();
         expect(asks, [('读一下动态', '第一句。第二句。')]);
         expect(spoken, ['第一句。', '第二句。']);
+      });
+    });
+  });
+
+  group('the acknowledgment while the agent works', () {
+    const ack = '我看一下。';
+
+    test('a slow ask is acknowledged once, in the app\'s voice, before the '
+        'answer; it is no click, no caption and not a spoken sentence', () {
+      fakeAsync((async) {
+        final r = Rig(ackAfter: const Duration(milliseconds: 350));
+        var cues = 0;
+        final spoken = <String>[];
+        r.session
+          ..onSlow = (() => cues++)
+          ..onSpoken = spoken.add;
+        r.session.connect();
+        async.flushMicrotasks();
+        r.session.sendText('读一下动态');
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 340));
+        expect(r.speech.spoken, isEmpty);
+        async.elapse(const Duration(milliseconds: 20));
+        expect(r.speech.spoken, [ack]);
+        expect(r.speaking, [true]);
+        // Once, however long it takes; the click is not needed on top.
+        async.elapse(const Duration(seconds: 6));
+        expect(r.speech.spoken, [ack]);
+        expect(cues, 0);
+        expect(spoken, isEmpty);
+        expect(r.captions, isEmpty);
+        expect(r.completes, 0, reason: 'the turn is not over');
+        expect(r.agent.contexts, isEmpty, reason: 'the agent is not told');
+        r.agent.answer('动态里有 3 条。');
+        async.flushMicrotasks();
+        expect(r.speech.spoken, [ack, '动态里有 3 条。']);
+        expect(spoken, ['动态里有 3 条。']);
+      });
+    });
+
+    test('a quick answer gets no acknowledgment', () {
+      fakeAsync((async) {
+        final r = Rig(
+          perSentence: Duration.zero,
+          ackAfter: const Duration(milliseconds: 350),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        r.session.sendText('读一下动态');
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 200));
+        r.agent.answer('没有要你处理的。');
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+        expect(r.speech.spoken, ['没有要你处理的。']);
+      });
+    });
+
+    test('an ask cut short or a session closed before the delay gets none', () {
+      fakeAsync((async) {
+        final r = Rig(ackAfter: const Duration(milliseconds: 350));
+        r.session.connect();
+        async.flushMicrotasks();
+        r.session.sendText('读一下动态');
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 100));
+        r.live.parts.onInputText!('算了');
+        async.flushMicrotasks();
+        expect(r.agent.cancels, 1);
+        // Short of the stale time that would forward the new words.
+        async.elapse(const Duration(seconds: 1));
+        expect(r.speech.spoken, isEmpty);
+      });
+      fakeAsync((async) {
+        final r = Rig(ackAfter: const Duration(milliseconds: 350));
+        r.session.connect();
+        async.flushMicrotasks();
+        r.session.sendText('读一下动态');
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 100));
+        r.session.close();
+        async.elapse(const Duration(seconds: 2));
+        expect(r.speech.spoken, isEmpty);
+      });
+    });
+
+    test('an answer that comes while it is said follows it, not over it', () {
+      fakeAsync((async) {
+        final r = Rig(ackAfter: const Duration(milliseconds: 350));
+        r.session.connect();
+        async.flushMicrotasks();
+        r.session.sendText('读一下动态');
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 600));
+        expect(r.speech.spoken, [ack]);
+        r.agent.answer('好的。第二句。');
+        async.flushMicrotasks();
+        expect(r.speech.spoken, [ack], reason: 'queued behind it');
+        // The acknowledgment is said from 350 ms to 1350 ms.
+        async.elapse(const Duration(milliseconds: 740));
+        expect(r.speech.spoken, [ack]);
+        async.elapse(const Duration(milliseconds: 20));
+        expect(r.speech.spoken, [ack, '好的。']);
+        async.elapse(const Duration(seconds: 1));
+        expect(r.speech.spoken, [ack, '好的。', '第二句。']);
+        expect(r.speaking, [true], reason: 'the voice goes on, no gap');
+        async.elapse(const Duration(seconds: 1));
+        expect(r.speaking, [true, false]);
+        expect(r.completes, 1);
+        expect(r.captions.join(), '好的。第二句。');
+      });
+    });
+
+    test('no immediate repeat: the next ask has the next one', () {
+      fakeAsync((async) {
+        final r = Rig(
+          perSentence: Duration.zero,
+          ackAfter: const Duration(milliseconds: 350),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        for (var i = 0; i < 5; i++) {
+          r.session.sendText('读$i');
+          async.flushMicrotasks();
+          async.elapse(const Duration(milliseconds: 400));
+          r.agent.answer('好$i。');
+          async.flushMicrotasks();
+        }
+        final acks = [
+          for (var i = 0; i < r.speech.spoken.length; i += 2)
+            r.speech.spoken[i],
+        ];
+        expect(acks, hasLength(5));
+        for (var i = 1; i < acks.length; i++) {
+          expect(acks[i], isNot(acks[i - 1]));
+        }
+        expect(acks.toSet().length, greaterThan(2));
+        expect(r.speech.spoken[1], '好0。');
+      });
+    });
+
+    test('its echo through the microphone is neither a barge-in nor a '
+        'question', () {
+      fakeAsync((async) {
+        final r = Rig(ackAfter: const Duration(milliseconds: 350));
+        r.session.connect();
+        async.flushMicrotasks();
+        r.session.sendText('读一下动态');
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 400));
+        expect(r.speech.spoken, [ack]);
+        r.live.parts.onInputText!('我看一下');
+        r.live.parts.onGenerating!();
+        async.elapse(const Duration(milliseconds: 300));
+        expect(r.agent.cancels, 0);
+        expect(r.interrupts, 0);
+        expect(r.agent.asked, ['读一下动态']);
+        // The ask is still alive and answered.
+        r.agent.answer('好。');
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+        expect(r.speech.spoken, [ack, '好。']);
+      });
+    });
+
+    test('without a voice there is only the click', () {
+      fakeAsync((async) {
+        var cues = 0;
+        late HeldAgent agent;
+        late ListenLive live;
+        final s = LayeredVoiceSession(
+          apiKey: 'k',
+          systemPrompt: 'p',
+          tools: const [],
+          onToolCall: (n, a) async => {},
+          steering: const AgentSteering(scope: Rig._scope),
+          ackAfter: const Duration(milliseconds: 350),
+          liveBuilder: (p) => live = ListenLive(p),
+          agentBuilder: (p) => agent = HeldAgent(p),
+        )..onSlow = (() => cues++);
+        s.connect();
+        async.flushMicrotasks();
+        final answer = live.parts.onToolCall('ask_agent', {'request': '读'});
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 500));
+        expect(cues, 0);
+        async.elapse(const Duration(milliseconds: 400));
+        expect(cues, 1);
+        agent.answer('好。');
+        async.flushMicrotasks();
+        answer.then((_) {});
+        async.elapse(const Duration(seconds: 2));
+        expect(cues, 1);
       });
     });
   });

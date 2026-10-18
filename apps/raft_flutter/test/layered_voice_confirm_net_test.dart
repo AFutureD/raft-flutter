@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:fake_async/fake_async.dart';
@@ -59,9 +60,12 @@ class RelayLive implements VoiceSession {
 }
 
 class SayingAgent implements VoiceSession {
-  SayingAgent(this.parts, this.say);
+  SayingAgent(this.parts, this.say, [this.delay = Duration.zero]);
   final AgentParts parts;
   final String say;
+
+  /// How long it takes to answer.
+  final Duration delay;
 
   @override
   bool get connected => true;
@@ -93,8 +97,16 @@ class SayingAgent implements VoiceSession {
   Future<void> close() async {}
   @override
   void sendText(String text) {
-    parts.onOutputText(say);
-    parts.onTurnComplete();
+    void answer() {
+      parts.onOutputText(say);
+      parts.onTurnComplete();
+    }
+
+    if (delay == Duration.zero) {
+      answer();
+    } else {
+      Timer(delay, answer);
+    }
   }
 }
 
@@ -109,8 +121,14 @@ KeyInfo _card() => orbCardKeyInfoOfResult('reply_in_thread', const {}, {
 })!;
 
 class Rig {
-  Rig({this.card = true, bool withSpeech = true, String say = _line}) {
-    speech = withSpeech ? RecordingSpeech() : null;
+  Rig({
+    this.card = true,
+    bool withSpeech = true,
+    String say = _line,
+    Duration perSentence = Duration.zero,
+    Duration delay = Duration.zero,
+  }) {
+    speech = withSpeech ? RecordingSpeech(perSentence: perSentence) : null;
     session = LayeredVoiceSession(
       apiKey: 'k',
       systemPrompt: 'p',
@@ -121,12 +139,14 @@ class Rig {
         confirmation: () => card ? _card() : null,
       ),
       speech: speech,
+      onAudio: (pcm) => audio++,
       onOutputText: captions.add,
       onTurnComplete: () => completes++,
       onInterrupted: () => interrupts++,
       liveBuilder: (p) => live = RelayLive(p),
-      agentBuilder: (p) => SayingAgent(p, say),
+      agentBuilder: (p) => SayingAgent(p, say, delay),
     )..onCorrection = ((say, missing) => corrections.add(missing));
+    session.addSpeakingListener(speaking.add);
   }
 
   final bool card;
@@ -135,8 +155,10 @@ class Rig {
   late RelayLive live;
   final captions = <String>[];
   final corrections = <List<String>>[];
+  final speaking = <bool>[];
   int completes = 0;
   int interrupts = 0;
+  int audio = 0;
 
   /// Live asks and tells [words] after the answer, then ends its turn.
   Future<void> relay(FakeAsync async, String? words) async {
@@ -257,6 +279,145 @@ void main() {
       async.elapse(const Duration(seconds: 6));
       expect(r.corrections, hasLength(1));
       expect(r.speech!.spoken.join(), _line);
+    });
+  });
+  group('the acknowledgment while the agent works', () {
+    const ack = '我看一下。';
+
+    test('a slow ask is acknowledged by the app once, before Live speaks; '
+        'a quick one is not', () {
+      fakeAsync((async) {
+        final r = Rig(
+          card: false,
+          say: '有 3 条。',
+          delay: const Duration(seconds: 3),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(milliseconds: 340));
+        expect(r.speech!.spoken, isEmpty);
+        async.elapse(const Duration(milliseconds: 20));
+        expect(r.speech!.spoken, [ack]);
+        async.elapse(const Duration(seconds: 1));
+        expect(r.speech!.spoken, [ack], reason: 'once');
+        expect(r.captions, isEmpty);
+        expect(r.completes, 0);
+      });
+      fakeAsync((async) {
+        final r = Rig(
+          card: false,
+          say: '有 3 条。',
+          delay: const Duration(milliseconds: 200),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(seconds: 2));
+        expect(r.speech!.spoken, isEmpty);
+      });
+    });
+
+    test('Live starting to answer cuts the acknowledgment: no overlap', () {
+      for (final byAudio in [false, true]) {
+        fakeAsync((async) {
+          final r = Rig(
+            card: false,
+            say: '有 3 条。',
+            perSentence: const Duration(seconds: 2),
+            delay: const Duration(milliseconds: 800),
+          );
+          r.session.connect();
+          async.flushMicrotasks();
+          r.live.ask('读一下动态');
+          async.elapse(const Duration(milliseconds: 900));
+          // The answer is back; the acknowledgment is still being said.
+          expect(r.speech!.spoken, [ack]);
+          expect(r.speaking, [true]);
+          expect(r.speech!.stops, 0);
+          if (byAudio) {
+            r.live.parts.onAudio!(Uint8List(4));
+          } else {
+            r.live.says('有三条。');
+          }
+          expect(r.speech!.stops, 1, reason: 'byAudio: $byAudio');
+          expect(r.speaking, [true, false]);
+          expect(byAudio ? r.audio : r.captions.length, 1);
+          async.elapse(const Duration(seconds: 5));
+          expect(r.speech!.spoken, [ack]);
+        });
+      }
+    });
+
+    test('Live answering after the acknowledgment was said stops nothing', () {
+      fakeAsync((async) {
+        final r = Rig(
+          card: false,
+          say: '有 3 条。',
+          delay: const Duration(seconds: 3),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(seconds: 3, milliseconds: 100));
+        expect(r.speaking, [true, false]);
+        r.live.says('有三条。');
+        expect(r.speech!.stops, 0);
+        expect(r.captions, ['有三条。']);
+      });
+    });
+
+    test('the person speaking over Live cuts it too', () {
+      fakeAsync((async) {
+        final r = Rig(
+          card: false,
+          perSentence: const Duration(seconds: 2),
+          delay: const Duration(seconds: 5),
+        );
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(milliseconds: 500));
+        expect(r.speaking, [true]);
+        r.live.parts.onInterrupted!();
+        expect(r.speech!.stops, 1);
+        expect(r.speaking, [true, false]);
+      });
+    });
+
+    test('without a voice of its own, the click cue is all there is', () {
+      fakeAsync((async) {
+        final r = Rig(
+          card: false,
+          withSpeech: false,
+          delay: const Duration(seconds: 3),
+        );
+        var cues = 0;
+        r.session.onSlow = (() => cues++);
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(milliseconds: 700));
+        expect(cues, 0);
+        async.elapse(const Duration(milliseconds: 200));
+        expect(cues, 1);
+        async.elapse(const Duration(seconds: 1));
+        expect(cues, 1);
+      });
+    });
+
+    test('with a voice, the acknowledgment is the cue: no click as well', () {
+      fakeAsync((async) {
+        final r = Rig(card: false, delay: const Duration(seconds: 3));
+        var cues = 0;
+        r.session.onSlow = (() => cues++);
+        r.session.connect();
+        async.flushMicrotasks();
+        r.live.ask('读一下动态');
+        async.elapse(const Duration(seconds: 2));
+        expect(r.speech!.spoken, [ack]);
+        expect(cues, 0);
+      });
     });
   });
 }
