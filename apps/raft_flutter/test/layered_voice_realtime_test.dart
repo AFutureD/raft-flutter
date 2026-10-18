@@ -42,6 +42,7 @@ class FakeVoice implements VoiceSession, RealtimeVoiceOut {
     this.playFor = const Duration(seconds: 1),
     this.leadStarts = true,
     this.leadSays = '好嘞，翻一下未读。',
+    this.keepsClips = false,
   });
   final LiveParts parts;
   final bool exact;
@@ -53,6 +54,13 @@ class FakeVoice implements VoiceSession, RealtimeVoiceOut {
 
   /// What the voice made of a lead-in.
   final String leadSays;
+
+  /// Whether the voice keeps the sound of the canned lines it is asked to
+  /// prewarm (then saying one is instant).
+  final bool keepsClips;
+  final clips = <String>{};
+  final prewarmed = <String>[];
+  final afters = <String?>[];
 
   /// What the voice reads of a line (default: the line, as asked).
   String Function(String text)? reads;
@@ -66,6 +74,15 @@ class FakeVoice implements VoiceSession, RealtimeVoiceOut {
 
   @override
   bool get speaksExactly => exact;
+
+  @override
+  bool hasClip(String text) => clips.contains(text);
+
+  @override
+  Future<void> prewarm(Iterable<String> phrases) async {
+    prewarmed.addAll(phrases);
+    if (keepsClips) clips.addAll(phrases);
+  }
 
   void _play(SpeechHandle h, String transcript) {
     timers.add(
@@ -105,7 +122,19 @@ class FakeVoice implements VoiceSession, RealtimeVoiceOut {
   }) {
     final h = _handle(text, onStart, onTranscript);
     lines.add(Said('say', text, h));
-    _play(h, reads?.call(text) ?? text);
+    parts.onTiming?.call('say.created', 111);
+    if (clips.contains(text)) {
+      // A kept clip: the sound begins at once.
+      timers.add(
+        Timer(Duration.zero, () {
+          h.markStarted();
+          h.addTranscript(text);
+          timers.add(Timer(const Duration(milliseconds: 800), h.complete));
+        }),
+      );
+    } else {
+      _play(h, reads?.call(text) ?? text);
+    }
     return h;
   }
 
@@ -113,9 +142,11 @@ class FakeVoice implements VoiceSession, RealtimeVoiceOut {
   SpeechHandle lead(
     String request, {
     List<String> avoid = const [],
+    String? after,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   }) {
+    afters.add(after);
     final h = _handle(request, onStart, onTranscript);
     lines.add(Said('lead', request, h));
     if (leadStarts) _play(h, leadSays);
@@ -238,6 +269,7 @@ class Rig {
     Duration startAfter = const Duration(milliseconds: 300),
     Duration playFor = const Duration(seconds: 1),
     bool leadStarts = true,
+    bool keepsClips = false,
     Duration ackAfter = const Duration(milliseconds: 350),
     this.confirm,
     bool deviceVoice = false,
@@ -281,6 +313,7 @@ class Rig {
         startAfter: startAfter,
         playFor: playFor,
         leadStarts: leadStarts,
+        keepsClips: keepsClips,
       ),
       agentBuilder: (p) {
         agentParts = p;
@@ -292,6 +325,7 @@ class Rig {
     session.onTimed = (what, ms) => timings.add((what, ms));
     session.onSpoken = spoken.add;
     session.onFeedback = (kind, text) => feedback.add('$kind:$text');
+    session.onSegment = (name, ms) => segments.add((name, ms));
   }
 
   final AgentVoiceProvider provider;
@@ -313,6 +347,7 @@ class Rig {
   final logs = <String>[];
   final feedback = <String>[];
   final timings = <(String, int)>[];
+  final segments = <(String, int)>[];
   int completes = 0;
   int interrupts = 0;
   int audio = 0;
@@ -385,7 +420,7 @@ void main() {
           );
           r.connect(async);
           r.voice.person('读一下动态');
-          async.elapse(const Duration(milliseconds: 100));
+          async.elapse(const Duration(milliseconds: 60));
           expect(r.agent.asked, ['读一下动态']);
           expect(r.heard.join(), '读一下动态');
           expect(r.voice.lines, isEmpty, reason: 'nothing is said at once');
@@ -402,9 +437,9 @@ void main() {
           );
           r.connect(async);
           r.voice.person('读一下动态');
-          async.elapse(const Duration(milliseconds: 120));
+          async.elapse(const Duration(milliseconds: 60));
           expect(r.voice.leads, isEmpty, reason: 'a quick answer needs none');
-          async.elapse(const Duration(milliseconds: 130));
+          async.elapse(const Duration(milliseconds: 60));
           expect(r.voice.leads.map((l) => l.text), ['读一下动态']);
           async.elapse(const Duration(seconds: 3));
           expect(r.voice.said, isEmpty, reason: 'the lead-in is the cue');
@@ -462,7 +497,7 @@ void main() {
           );
           r.connect(async);
           r.voice.person('下一件');
-          async.elapse(const Duration(milliseconds: 100));
+          async.elapse(const Duration(milliseconds: 60));
           r.agent.answer('第 10 步。');
           async.flushMicrotasks();
           async.elapse(const Duration(seconds: 3));
@@ -802,6 +837,157 @@ void main() {
       });
     });
   }
+
+  group('the first sound within a second', () {
+    for (final provider in _providers) {
+      test('${provider.name}: the sound of the canned lines is kept at '
+          'connect; the acknowledgment is instant, by 600 ms after the end '
+          'of speech, and the voice\'s lead-in goes on from it', () {
+        fakeAsync((async) {
+          final r = Rig(
+            nowMs: () => async.elapsed.inMilliseconds,
+            provider: provider,
+            keepsClips: true,
+          );
+          r.connect(async);
+          expect(
+            r.voice.prewarmed,
+            ackPhrases(AgentLanguage.zh),
+            reason: 'in the background, at connect',
+          );
+          r.voice.person('看一下 Cody 那边的消息');
+          async.elapse(const Duration(milliseconds: 590));
+          expect(r.voice.lines, isEmpty, reason: 'nothing before it is due');
+          async.elapse(const Duration(milliseconds: 40));
+          final ack = r.voice.said.single.text;
+          expect(ackPhrases(AgentLanguage.zh), contains(ack));
+          async.elapse(const Duration(milliseconds: 10));
+          final first = r.timings.firstWhere((t) => t.$1 == 'voice').$2;
+          expect(first, inInclusiveRange(600, 700));
+          expect(first, lessThan(1000));
+          // The lead-in is asked for when the acknowledgment is, and is told
+          // what was said.
+          expect(r.voice.leads.single.text, '看一下 Cody 那边的消息');
+          expect(r.voice.afters, [ack]);
+          expect(r.logs.join('\n'), contains('stage name=ack-requested'));
+          expect(r.logs.join('\n'), contains('stage name=forwarded'));
+          // The answer comes after the lead-in, never over it.
+          async.elapse(const Duration(seconds: 2));
+          r.agent.answer('Cody 在问第 10 步。');
+          async.elapse(const Duration(seconds: 3));
+          expect(r.said.toList(), [ack, 'Cody 在问第 10 步。']);
+          expect(r.completes, 1);
+        });
+      });
+
+      test('${provider.name}: an answer before the acknowledgment is due '
+          'gets none; one right after it takes back the lead-in that has not '
+          'sounded', () {
+        fakeAsync((async) {
+          final r = Rig(
+            nowMs: () => async.elapsed.inMilliseconds,
+            provider: provider,
+            keepsClips: true,
+          );
+          r.connect(async);
+          r.voice.person('下一件');
+          async.elapse(const Duration(milliseconds: 300));
+          r.agent.answer('第 10 步。');
+          async.elapse(const Duration(seconds: 3));
+          expect(r.said.toList(), ['第 10 步。']);
+          expect(r.voice.leads, isEmpty);
+        });
+        fakeAsync((async) {
+          final r = Rig(
+            nowMs: () => async.elapsed.inMilliseconds,
+            provider: provider,
+            keepsClips: true,
+          );
+          r.connect(async);
+          r.voice.person('读一下动态');
+          async.elapse(const Duration(milliseconds: 700));
+          final lead = r.voice.leads.single.handle;
+          expect(lead.started, isFalse);
+          r.agent.answer('有 3 条。');
+          async.flushMicrotasks();
+          expect(lead.cancelled, isTrue);
+          async.elapse(const Duration(seconds: 3));
+          expect(r.said.length, 2);
+          expect(r.said.last, '有 3 条。');
+        });
+      });
+
+      test('${provider.name}: without kept sound the lead-in is asked for at '
+          '80 ms and the acknowledgment waits for it, as before', () {
+        fakeAsync((async) {
+          final r = Rig(
+            nowMs: () => async.elapsed.inMilliseconds,
+            provider: provider,
+            leadStarts: false,
+          );
+          r.connect(async);
+          r.voice.person('读');
+          async.elapse(const Duration(milliseconds: 90));
+          expect(r.voice.leads, isEmpty);
+          async.elapse(const Duration(milliseconds: 20));
+          expect(r.voice.leads, hasLength(1));
+        });
+      });
+
+      test('${provider.name}: the time of the turn is told a piece at a '
+          'time: the transcript, our own settling and our own timers', () {
+        fakeAsync((async) {
+          final r = Rig(
+            nowMs: () => async.elapsed.inMilliseconds,
+            provider: provider,
+            keepsClips: true,
+          );
+          r.connect(async);
+          r.voice.parts.onSpeechStopped!();
+          async.elapse(const Duration(milliseconds: 300));
+          r.voice.parts.onInputText!('读一下动态');
+          r.voice.parts.onInputDone!();
+          async.elapse(const Duration(milliseconds: 700));
+          final names = {for (final s in r.segments) s.$1: s.$2};
+          expect(names['forward'], inInclusiveRange(15, 25));
+          expect(names['request'], inInclusiveRange(250, 300));
+          expect(
+            r.logs.where(
+              (l) => l.startsWith('voice-turn segment name=forward'),
+            ),
+            hasLength(1),
+          );
+        });
+      });
+    }
+
+    test('what a model repeats of the language lines of its prompt is never '
+        'said', () {
+      for (final language in AgentLanguage.values) {
+        fakeAsync((async) {
+          final r = Rig(
+            nowMs: () => async.elapsed.inMilliseconds,
+            language: language,
+          );
+          r.connect(async);
+          r.session.sendText('读');
+          async.elapse(const Duration(milliseconds: 30));
+          r.agent.answer(
+            '${language.line}${AgentLanguage.en.line}'
+            '${language == AgentLanguage.zh ? '没有了。' : 'Nothing new.'}',
+          );
+          async.elapse(const Duration(seconds: 4));
+          final said = r.said.join();
+          for (final l in AgentLanguage.values) {
+            expect(said, isNot(contains(l.line)));
+            expect(said, isNot(contains(l.relayLine)));
+          }
+          expect(said, language == AgentLanguage.zh ? '没有了。' : 'Nothing new.');
+        });
+      }
+      expect(AgentLanguage.scrub('A。${AgentLanguage.zh.line}B。'), 'A。B。');
+    });
+  });
 
   group('the device\'s voice with a relay voice service', () {
     test('with 转述 off (App 朗读) the service only listens and the device '

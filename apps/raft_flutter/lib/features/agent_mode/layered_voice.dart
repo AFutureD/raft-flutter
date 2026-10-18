@@ -131,7 +131,8 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.confirmWait = const Duration(seconds: 3),
     this.voiceProvider = AgentVoiceProvider.gemini,
     this.agentApiKey,
-    this.preambleAfter = const Duration(milliseconds: 150),
+    this.preambleAfter = const Duration(milliseconds: 80),
+    this.ackTarget = const Duration(milliseconds: 600),
     this.leadGrace = const Duration(milliseconds: 700),
     this.liveLeadGrace = const Duration(milliseconds: 450),
     this.playbackPending,
@@ -167,6 +168,11 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
           _log(voiceTurnLine('user-dropped', {'why': why, 'text': text})),
       guarding: () => _speaking || (_echoTail?.isActive ?? false),
       echoOf: _echoOf,
+      // The transcript of a relay voice is final when it says so: no time to
+      // wait for more.
+      settle: realtime
+          ? const Duration(milliseconds: 20)
+          : const Duration(milliseconds: 80),
     );
     _live = !listen
         ? null
@@ -188,7 +194,8 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
                     playbackPending: playbackPending,
                     onAudio: _realtimeAudio,
                     onInputText: _forwarder.heard,
-                    onInputDone: _forwarder.modelActed,
+                    onInputDone: _inputDone,
+                    onTiming: _segment,
                     onOutputText: _ignored,
                     onSpeechStarted: _voiceSpeechStarted,
                     onSpeechStopped: _userSpeechStopped,
@@ -277,6 +284,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     onAudio: p.onAudio,
     onInputText: p.onInputText,
     onInputDone: p.onInputDone,
+    onTiming: p.onTiming,
     onOutputText: p.onOutputText,
     onSpeechStarted: p.onSpeechStarted,
     onSpeechStopped: p.onSpeechStopped,
@@ -401,6 +409,12 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// own lead-in (a quick fast-path answer comes before and has none).
   final Duration preambleAfter;
 
+  /// When a voice service speaks (OpenAI, Grok), the time from the end of the
+  /// person's speech by which the acknowledgment should be heard: a kept clip
+  /// of a canned line is instant, a response of the service takes about a
+  /// second to start to sound.
+  final Duration ackTarget;
+
   /// How long the app waits for a lead-in that was asked for before it falls
   /// back on a canned acknowledgment.
   final Duration leadGrace;
@@ -416,6 +430,14 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   /// The clock of the timings, in milliseconds (the wall clock by default).
   final int Function()? nowMs;
+
+  /// Told where the time of a turn goes, a piece at a time, in milliseconds:
+  /// `rtt`, `transcribe`, `say.created`, `say.firstAudio`, `lead.created`,
+  /// `lead.firstAudio` (from the voice service, see `OpenAiRealtimeSession`),
+  /// `forward` (the transcript complete to the agent being asked: our own
+  /// settling) and `request` (that to the first line asked of the voice: our
+  /// own timers). The evaluation puts the medians in its report.
+  void Function(String segment, int ms)? onSegment;
 
   /// Told what the voice said while the agent worked: `lead` (the voice's own
   /// words) or `ack` (the app's canned line), with the words (the evaluation
@@ -517,7 +539,8 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   );
 
   void _agentFinished() {
-    final text = '$_words'.trim();
+    // Whatever of the prompt's language lines the model repeated is not said.
+    final text = AgentLanguage.scrub('$_words').trim();
     _words.clear();
     if (_asks.isNotEmpty) _asks.removeFirst().done.complete(text);
   }
@@ -581,6 +604,10 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
         'agentThinking': thinking.name,
       }),
     );
+    // The sound of the canned acknowledgments is made once, in the
+    // background: afterwards they are said at once.
+    final speaker = _voiceSpeech;
+    if (speaker != null) unawaited(speaker.prewarm(ackPhrases(language)));
     final Object? info = speech;
     if (info is SpeechVoiceInfo) {
       unawaited(
@@ -628,7 +655,12 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     SpeechHandle? leading;
     var leadAt = 0;
     Timer? lead;
-    if (speaksLead && _voiceSpeech != null) {
+    // With the sound of the acknowledgments kept, the acknowledgment is the
+    // first thing heard (instant), and the voice's own lead-in goes on from
+    // it; otherwise the lead-in is asked for at once and the acknowledgment
+    // steps in when it does not come.
+    final cachedAck = speaksLead && _ackIsInstant;
+    if (speaksLead && _voiceSpeech != null && !cachedAck) {
       lead = Timer(preambleAfter, () {
         leading = _startLead(request);
         leadAt = _now();
@@ -655,9 +687,28 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
         if (!l.started) l.cancel();
       }
       acked = _acknowledge();
+      if (acked && cachedAck && !_closed) {
+        _stage('lead-requested');
+        leading = _startLead(request, after: _lastAck);
+        leadAt = _now();
+      }
     }
 
-    ack = Timer(_appDriven ? ackAfter : ackAfter + liveLeadGrace, tryAck);
+    // The time the acknowledgment is due: after the ask has been out for
+    // [ackAfter]; for a voice service, by [ackTarget] after the person's
+    // speech ended when that is later.
+    Duration ackDue() {
+      if (!_appDriven) return ackAfter + liveLeadGrace;
+      if (_voiceSpeech == null) return ackAfter;
+      // The floor leaves a fast path (a command the app does without a model,
+      // answered in well under that) its chance to answer first.
+      const floor = Duration(milliseconds: 200);
+      final least = ackAfter < floor ? ackAfter : floor;
+      final late = ackTarget - Duration(milliseconds: _now() - _userEndedAt);
+      return late > least ? late : least;
+    }
+
+    ack = Timer(ackDue(), tryAck);
     final slow = Timer(slowAfter, () {
       // A voice already sounding (a lead-in, a streamed sentence) is the cue.
       if (!acked && !_turnVoiced) onSlow?.call();
@@ -916,6 +967,21 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     _userEndedAt = _now();
     _timedVoice = _timedAnswer = false;
     _stopPending = true;
+    _stage('speech-stopped');
+  }
+
+  int? _inputDoneAt, _forwardedAt;
+  bool _requestTimed = false;
+
+  /// The transcript of the person's words is complete.
+  void _inputDone() {
+    _inputDoneAt = _now();
+    _forwarder.modelActed();
+  }
+
+  void _segment(String name, int ms) {
+    _log(voiceTurnLine('segment', {'name': name, 'ms': ms}));
+    onSegment?.call(name, ms);
   }
 
   /// The turn of the person is forwarded: the clock runs from the end of
@@ -924,6 +990,14 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (!_stopPending) _userSpeechStopped();
     _stopPending = false;
     _turnVoiced = false;
+  }
+
+  /// One line of the log for the timeline of a turn: how long after the end of
+  /// the person's speech each step happened (speech stopped, transcript done
+  /// and forwarded, the acknowledgment and the lead-in asked for, the first
+  /// sound).
+  void _stage(String name) {
+    _log(voiceTurnLine('stage', {'name': name, 'ms': _now() - _userEndedAt}));
   }
 
   /// A sound began: [kind] is `ack`, `lead`, `answer`, `confirm` (the app's
@@ -958,6 +1032,12 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (_speaking) _bargeIn();
     _recentSpoken = '';
     _turnBegan();
+    _stage('forwarded');
+    _forwardedAt = _now();
+    _requestTimed = false;
+    final done = _inputDoneAt;
+    if (done != null) _segment('forward', _forwardedAt! - done);
+    _inputDoneAt = null;
     unawaited(_answer(text));
   }
 
@@ -1026,6 +1106,10 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// behind what is being said, like the rest of the answer.
   void _speakDraft(String sentence) {
     if (_closed) return;
+    // The answer itself has begun: a lead-in that has not sounded is not
+    // wanted any more.
+    final lead = _leadHandle;
+    if (lead != null && !lead.started) lead.cancel();
     final generation = _speechGeneration;
     _speechTail = _speechTail.then((_) => _speakSentence(sentence, generation));
   }
@@ -1150,6 +1234,23 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   // What the app says while the agent works, in turn.
   final AckPicker _acks;
+  String? _lastAck;
+
+  /// The first line asked of the voice in this turn: how long after the
+  /// agent was asked.
+  bool _timeRequest() {
+    final at = _forwardedAt;
+    if (!_requestTimed && at != null) _segment('request', _now() - at);
+    return true;
+  }
+
+  /// Whether the acknowledgment of a voice service is said at once (the sound
+  /// of some canned line is kept).
+  bool get _ackIsInstant {
+    final voice = _voiceSpeech;
+    return voice != null && ackPhrases(language).any(voice.hasClip);
+  }
+
   final _recentLeads = <String>[];
   bool _acking = false;
 
@@ -1157,13 +1258,18 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
   /// queued like any other speech so that the answer follows and does not
   /// overlap. Not reported to [onSpoken] or the captions (it is not part of
   /// the answer), but it counts as the voice's echo.
-  SpeechHandle? _startLead(String request) {
+  SpeechHandle? _leadHandle;
+
+  SpeechHandle? _startLead(String request, {String? after}) {
     final voice = _voiceSpeech;
-    if (_closed || voice == null || _turnVoiced) return null;
+    // (A lead-in that goes on from the acknowledgment is not stopped by it.)
+    if (_closed || voice == null || (_turnVoiced && after == null)) return null;
     final generation = _speechGeneration;
+    _requestTimed = _timeRequest();
     final handle = voice.lead(
       request,
       avoid: [..._recentLeads],
+      after: after,
       onStart: () {
         if (generation != _speechGeneration) return;
         _turnVoiced = true;
@@ -1173,6 +1279,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
       onTranscript: (piece) =>
           _recentSpoken += UserTurnForwarder.compact(piece),
     );
+    _leadHandle = handle;
     late final Future<void> mine;
     mine = _speechTail = _speechTail.then((_) async {
       if (_closed || generation != _speechGeneration) return;
@@ -1208,7 +1315,15 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     if (_closed || _turnVoiced) return false;
     if (!_appDriven && _liveVoicedThisTurn) return false;
     final out = _voice;
-    final text = _acks.next(language);
+    final voiceSpeech = _voiceSpeech;
+    // A line whose sound is kept is said at once.
+    final text = voiceSpeech == null
+        ? _acks.next(language)
+        : (_acks.nextWhere(language, voiceSpeech.hasClip) ??
+              _acks.next(language));
+    _lastAck = text;
+    _stage('ack-requested');
+    _requestTimed = _timeRequest();
     _recentSpoken += UserTurnForwarder.compact(text);
     if (out == null) {
       // Gemini Live relaying with no voice of the device's: Live says it, as
@@ -1405,7 +1520,8 @@ class _Draft {
 
   void add(String delta) {
     _text.write(delta);
-    final text = '$_text';
+    // A language line of the prompt that the model repeats is not an answer.
+    final text = AgentLanguage.scrub('$_text');
     final sentences = orbSentences(text);
     // The last one is complete only if the text ends with its stop.
     final last = text.trimRight();
@@ -1440,6 +1556,7 @@ class LiveParts {
     this.onAudio,
     this.onInputText,
     this.onInputDone,
+    this.onTiming,
     this.onOutputText,
     this.onTurnComplete,
     this.onInterrupted,
@@ -1477,6 +1594,9 @@ class LiveParts {
 
   /// The transcript of one thing the person said is complete (a relay voice).
   final void Function()? onInputDone;
+
+  /// Where the time goes (see `OpenAiRealtimeSession.onTiming`).
+  final void Function(String segment, int ms)? onTiming;
   final void Function(String text)? onOutputText;
   final void Function()? onTurnComplete;
   final void Function()? onInterrupted;

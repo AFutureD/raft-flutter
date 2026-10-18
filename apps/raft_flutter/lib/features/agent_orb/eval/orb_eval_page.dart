@@ -10,6 +10,7 @@ import '../../../platform/app_services.dart';
 import '../../agent_mode/voice_provider.dart';
 import '../../agent_mode/agent_audio.dart';
 import '../../agent_mode/agent_engine.dart';
+import '../../agent_mode/agent_language.dart';
 import '../../agent_mode/layered_voice_mode.dart';
 import '../../agent_mode/agent_thinking.dart';
 import '../../workspace_view.dart';
@@ -50,6 +51,7 @@ class OrbEvalPage extends StatefulWidget {
     this.engine,
     this.voiceMode,
     this.voiceProvider,
+    this.language,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -84,6 +86,9 @@ class OrbEvalPage extends StatefulWidget {
 
   /// The voice service of the layered harness (null: the setting).
   final AgentVoiceProvider? voiceProvider;
+
+  /// The language of the run (null: 中文).
+  final AgentLanguage? language;
 
   @override
   State<OrbEvalPage> createState() => _OrbEvalPageState();
@@ -129,6 +134,7 @@ class _OrbEvalPageState extends State<OrbEvalPage> implements OrbEvalStage {
       engine: widget.engine,
       voiceMode: widget.voiceMode,
       voiceProvider: widget.voiceProvider,
+      language: widget.language,
       sessionFactory: widget.sessionFactory,
       voiceKey: widget.voiceKey,
       onProgress: (p) {

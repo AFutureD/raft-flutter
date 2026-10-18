@@ -113,6 +113,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
     this.relay = false,
     this.language = AgentLanguage.zh,
     this.onInputDone,
+    this.onTiming,
     this.onSpeechStarted,
     this.onSpeechStopped,
     this.relayLead = const Duration(milliseconds: 600),
@@ -164,6 +165,11 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   /// Optional session settings a model may refuse; each is dropped (for the
   /// rest of the run) after one refusal that names it.
   static bool _reasoning = true;
+
+  /// The relay voice asks for the least reasoning (`minimal`): it only reads
+  /// lines out, and reasoning is first-sound latency. Dropped for the rest of
+  /// the run after one refusal that names it.
+  static bool _relayReasoning = true;
   static bool _truncation = true;
   static String _transcribeModel = 'gpt-4o-mini-transcribe';
 
@@ -173,6 +179,8 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   @visibleForTesting
   static void resetFallbacks() {
     _reasoning = true;
+    _relayReasoning = true;
+    _clips.clear();
     _truncation = true;
     _transcribeModel = 'gpt-4o-mini-transcribe';
     _grokTranscription = true;
@@ -195,6 +203,15 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   /// The transcript of one thing the person said is complete (the end of the
   /// person's turn, for a relay voice, which does not answer).
   final void Function()? onInputDone;
+
+  /// Where the time goes, a piece at a time (relay only), in milliseconds:
+  /// `rtt` (the socket's round trip: a request that changes nothing and its
+  /// answer, once when the session opens), `transcribe` (the person stopped
+  /// speaking to their transcript being complete), and for each line `say.` or
+  /// `lead.` plus `created` (the request sent to the service's response being
+  /// created: the network and the service's queue) and `firstAudio` (created to
+  /// the first sound: the model).
+  final void Function(String segment, int ms)? onTiming;
 
   /// The person began, or stopped, speaking (relay only; the server's voice
   /// activity detection).
@@ -352,7 +369,9 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
           } else {
             rethrow;
           }
-        } else if (_reasoning && named.contains('reasoning')) {
+        } else if (relay && _relayReasoning && named.contains('reasoning')) {
+          _relayReasoning = false;
+        } else if (!relay && _reasoning && named.contains('reasoning')) {
           final lower = GeminiLiveSession.lowerThinking(_effort);
           if (lower == null) {
             _reasoning = false;
@@ -405,7 +424,10 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
     'output_modalities': ['audio'],
     'instructions': systemPrompt,
     if (!relay) 'tools': functionTools(tools),
-    if (_reasoning) 'reasoning': {'effort': _effort.name},
+    if (relay && _relayReasoning)
+      'reasoning': {'effort': 'minimal'}
+    else if (!relay && _reasoning)
+      'reasoning': {'effort': _effort.name},
     if (_truncation)
       // Drops a fifth of a full conversation at once instead of a little each
       // turn, which would break the cached prefix every turn.
@@ -478,7 +500,11 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
           case 'session.created':
             if (!created.isCompleted) created.complete();
           case 'session.updated':
-            if (!ready.isCompleted) ready.complete();
+            if (!ready.isCompleted) {
+              ready.complete();
+            } else {
+              _handle(event);
+            }
           case 'error' when !ready.isCompleted:
             final error = event['error'] as Map<String, dynamic>? ?? const {};
             final failure = OpenAiRealtimeException(
@@ -536,7 +562,22 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
     }
     _resetConversation();
     _startClock();
+    if (relay) _probeRoundTrip();
   }
+
+  final _probe = Stopwatch();
+
+  /// Sends the session's own settings again (it changes nothing) and times
+  /// the answer: the round trip of the socket, network and service together,
+  /// with no model in it.
+  void _probeRoundTrip() {
+    _probe
+      ..reset()
+      ..start();
+    _send({'type': 'session.update', 'session': sessionConfig()});
+  }
+
+  final _stoppedAt = Stopwatch();
 
   void _resetConversation() {
     _lastSent = _lastReceived = '-';
@@ -631,11 +672,13 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
           final id = '${event['item_id']}';
           _inputTranscript(id, event['transcript']);
           _inputStreamed.remove(id);
+          _transcribed();
           onInputDone?.call();
           return;
         }
         // Models that stream deltas have said it all already.
         final streamed = _inputDeltaItems.remove('${event['item_id']}');
+        _transcribed();
         final transcript = event['transcript'];
         if (!streamed && transcript is String && transcript.isNotEmpty) {
           onInputText?.call(transcript);
@@ -849,6 +892,13 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
     _playbackSettled = false;
   }
 
+  /// The transcript of what the person said is complete.
+  void _transcribed() {
+    if (!relay || !_stoppedAt.isRunning) return;
+    _stoppedAt.stop();
+    onTiming?.call('transcribe', _stoppedAt.elapsedMilliseconds);
+  }
+
   Future<void> _fail(String reason) async {
     final socket = _socket;
     _socket = null;
@@ -859,9 +909,89 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
 
   // ---- relay: the voice of the layered brain -----------------------------
 
+  /// The sound of short lines already said (the canned acknowledgments),
+  /// kept for the run: playing one is instant, where a response of the
+  /// service takes a second to start. Keyed by service, model, voice and
+  /// language, so another choice never plays the old voice.
+  static final _clips = <String, List<Uint8List>>{};
+
+  String _clipKey(String text) =>
+      '${service.name}|${modelId ?? ''}|$voice|${language.name}|$text';
+
+  @override
+  bool hasClip(String text) => _clips.containsKey(_clipKey(text));
+
+  /// Has the service say each of [phrases] once, in the background, keeping
+  /// the sound (not played). Waits for a quiet moment, stops at the first
+  /// busy one (a real line is more important), and what was kept is used
+  /// from then on by [say] when the same text is asked for.
+  @override
+  Future<void> prewarm(Iterable<String> phrases) async {
+    if (!relay) return;
+    for (final phrase in phrases) {
+      final key = _clipKey(phrase);
+      if (_clips.containsKey(key)) continue;
+      for (var i = 0; i < 40; i++) {
+        if (_socket == null) return;
+        if (_line == null && _speechQueue.isEmpty && !_userSpeaking) break;
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        if (i == 39) return;
+      }
+      final line = _Line(
+        kind: _LineKind.exact,
+        text: phrase,
+        tag: '${_lineTag++}',
+        capture: true,
+        handle: SpeechHandle(text: phrase, onCancel: _cancelHandle),
+      );
+      _speechQueue.add(line);
+      _pumpSpeech();
+      await line.handle.done;
+      if (line.handle.cancelled || line.handle.failed || line.clip.isEmpty) {
+        continue;
+      }
+      _clips[key] = line.clip;
+    }
+  }
+
+  /// A real line is more important than a clip being made: it goes first.
+  void _dropCaptures() {
+    final line = _line;
+    if (line != null && line.capture) _cancelHandle(line.handle);
+    final waiting = _speechQueue.where((l) => l.capture).toList();
+    for (final l in waiting) {
+      _cancelHandle(l.handle);
+    }
+  }
+
+  /// Plays a kept clip: its sound goes to the player at once; the line is
+  /// over for the queue straight away, and done for the caller when the sound
+  /// has nearly played out.
+  void _playClip(_Line line) {
+    final clip = line.clipToPlay!;
+    line.handle
+      ..markStarted()
+      ..addTranscript(line.text);
+    for (final chunk in clip) {
+      onAudio?.call(chunk);
+    }
+    _log('line played from a kept clip (${clip.length} chunks)');
+    _lineEnded(line, 'completed', cancelOnServer: false);
+  }
+
   final _speechQueue = Queue<_Line>();
   _Line? _line;
   int _lineTag = 0;
+
+  /// The time since the line being generated was asked for (the log tells how
+  /// long the service takes to start to sound).
+  final _asked = Stopwatch();
+
+  /// Grok: how many responses of lines taken back before they were created
+  /// are still to come (an untagged response is told from the line that is
+  /// waiting by this).
+  int _swallow = 0;
+  final _swallowSince = Stopwatch();
 
   /// Responses the server started that are not lines the app asked for (or
   /// that were cut off): their sound is dropped.
@@ -870,6 +1000,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   void _relayReset() {
     _speechQueue.clear();
     _line = null;
+    _swallow = 0;
     _dropped.clear();
   }
 
@@ -886,6 +1017,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
       kind: _LineKind.exact,
       text: text,
       tag: '${_lineTag++}',
+      clipToPlay: relay ? _clips[_clipKey(text)] : null,
       handle: SpeechHandle(
         text: text,
         onStart: onStart,
@@ -899,6 +1031,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   SpeechHandle lead(
     String request, {
     List<String> avoid = const [],
+    String? after,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   }) => _enqueue(
@@ -906,6 +1039,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
       kind: _LineKind.lead,
       text: request,
       avoid: avoid,
+      after: after,
       tag: '${_lineTag++}',
       handle: SpeechHandle(
         text: request,
@@ -926,6 +1060,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
         ..complete();
       return line.handle;
     }
+    if (!line.capture) _dropCaptures();
     _speechQueue.add(line);
     _pumpSpeech();
     return line.handle;
@@ -935,6 +1070,12 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
   void _pumpSpeech() {
     if (_line != null || _speechQueue.isEmpty || _socket == null) return;
     final line = _line = _speechQueue.removeFirst();
+    if (line.clipToPlay != null) {
+      _playClip(line);
+      return;
+    }
+    _asked.reset();
+    _asked.start();
     _awaitingCreated = true;
     final ok = _send(_requestFor(line));
     if (!ok) {
@@ -975,7 +1116,12 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
       case _LineKind.lead:
         return _responseCreate(
           line,
-          leadInstructionsFor(language, line.text, avoid: line.avoid),
+          leadInstructionsFor(
+            language,
+            line.text,
+            avoid: line.avoid,
+            after: line.after,
+          ),
         );
     }
   }
@@ -1005,7 +1151,17 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
         return true;
       case 'input_audio_buffer.speech_stopped':
         _userSpeaking = false;
+        _stoppedAt
+          ..reset()
+          ..start();
         onSpeechStopped?.call();
+        return true;
+      case 'session.updated':
+        if (_probe.isRunning) {
+          _probe.stop();
+          onTiming?.call('rtt', _probe.elapsedMilliseconds);
+          _log('socket round trip ${_probe.elapsedMilliseconds} ms');
+        }
         return true;
       case 'response.created':
         _relayCreated(event['response'] as Map<String, dynamic>? ?? const {});
@@ -1015,8 +1171,23 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
         if (delta is! String) return true;
         final line = _lineOf(event['response_id']);
         if (line == null) return true;
+        final pcm = base64Decode(delta);
+        if (line.capture) {
+          line.clip.add(pcm);
+          return true;
+        }
+        if (!line.handle.started) {
+          onTiming?.call(
+            '${line.timingName}.firstAudio',
+            _asked.elapsedMilliseconds - line.createdMs,
+          );
+          _log(
+            'first sound of a ${line.kind.name} line '
+            '${_asked.elapsedMilliseconds} ms after it was asked for',
+          );
+        }
         line.handle.markStarted();
-        onAudio?.call(base64Decode(delta));
+        onAudio?.call(pcm);
         return true;
       case 'response.output_audio_transcript.delta':
         final delta = event['delta'];
@@ -1070,9 +1241,21 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
         line != null &&
         line.kind == _LineKind.exact &&
         !(meta is Map && meta['relay'] != null);
+    // The response of a line that was taken back before it was created: it
+    // is not the line that is waiting now.
+    if (!tagged && _swallow > 0 && _swallowSince.elapsed.inSeconds < 3) {
+      _swallow--;
+      _dropped.add(id);
+      _send({'type': 'response.cancel', 'response_id': id});
+      return;
+    }
     if (line != null && !line.created && (tagged || forced)) {
       line.created = true;
       line.responseId = id;
+      line.createdMs = _asked.elapsedMilliseconds;
+      if (!line.capture) {
+        onTiming?.call('${line.timingName}.created', line.createdMs);
+      }
       _awaitingCreated = false;
       _responseActive = true;
       _log('response $id created (line)');
@@ -1119,7 +1302,7 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
 
   Future<void> _completeAfterPlayback(_Line line) async {
     try {
-      if (!line.handle.cancelled && !line.handle.failed) {
+      if (!line.capture && !line.handle.cancelled && !line.handle.failed) {
         final pending = (await playbackPending?.call()) ?? Duration.zero;
         final wait = pending - relayLead;
         if (wait > Duration.zero) await Future<void>.delayed(wait);
@@ -1143,6 +1326,12 @@ class OpenAiRealtimeSession implements VoiceSession, RealtimeVoiceOut {
       }
       // Not created yet: its response is cancelled when it shows up (it is
       // not one of the app's lines then).
+      else if (line.kind == _LineKind.exact && _grok && !line.created) {
+        _swallow++;
+        _swallowSince
+          ..reset()
+          ..start();
+      }
       handle
         ..markCancelled()
         ..complete();
@@ -1326,6 +1515,9 @@ class _Line {
     required this.tag,
     required this.handle,
     this.avoid = const [],
+    this.after,
+    this.capture = false,
+    this.clipToPlay,
   });
 
   final _LineKind kind;
@@ -1333,7 +1525,21 @@ class _Line {
   final String tag;
   final SpeechHandle handle;
   final List<String> avoid;
+
+  /// A lead-in that follows this acknowledgment, already said.
+  final String? after;
+
+  /// The sound is kept (a clip being made), not played.
+  final bool capture;
+  final clip = <Uint8List>[];
+
+  /// A kept clip to play instead of asking the service.
+  final List<Uint8List>? clipToPlay;
   String? responseId;
   bool created = false;
+  int createdMs = 0;
   Timer? watchdog;
+
+  /// What the timings of this line are called.
+  String get timingName => kind == _LineKind.lead ? 'lead' : 'say';
 }

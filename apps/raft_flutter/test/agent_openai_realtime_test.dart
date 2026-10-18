@@ -58,7 +58,11 @@ class FakeRealtime {
               }),
             );
           } else {
-            ws.add(jsonEncode({'type': 'session.updated', 'session': {}}));
+            try {
+              ws.add(jsonEncode({'type': 'session.updated', 'session': {}}));
+            } catch (_) {
+              /* the client has gone */
+            }
           }
         }
       });

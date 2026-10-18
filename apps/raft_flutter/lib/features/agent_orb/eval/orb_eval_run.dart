@@ -151,6 +151,12 @@ class OrbEvalTurn {
   /// The same to the first sentence of the answer itself.
   int firstAnswerMs = 0;
 
+  /// Where the time of the turn went, a piece at a time, in milliseconds
+  /// (the first of each in the turn): `rtt` (the socket's round trip),
+  /// `transcribe`, `forward`, `request`, `say.created`, `say.firstAudio`,
+  /// `lead.created`, `lead.firstAudio`. See `LayeredVoiceSession.onSegment`.
+  final segments = <String, int>{};
+
   /// What the voice said while the agent worked, in order: `lead：…` (the
   /// voice's own words) or `ack：…` (the app's canned line).
   final feedback = <String>[];
@@ -191,6 +197,7 @@ class OrbEvalTurn {
     if (firstVoiceMs > 0) 'firstVoiceMs': firstVoiceMs,
     if (firstAnswerMs > 0) 'firstAnswerMs': firstAnswerMs,
     if (feedback.isNotEmpty) 'feedback': feedback,
+    if (segments.isNotEmpty) 'segments': segments,
     if (asks.isNotEmpty) 'askMs': askMs,
     if (fastPath != null) 'fastPath': fastPath,
     if (liveFiller) 'liveFiller': true,

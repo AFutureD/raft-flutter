@@ -73,6 +73,7 @@ String leadInstructionsFor(
   AgentLanguage language,
   String request, {
   List<String> avoid = const [],
+  String? after,
 }) {
   final rules = leadStyleRules(language);
   final skip = avoid.isEmpty
@@ -83,17 +84,25 @@ String leadInstructionsFor(
           AgentLanguage.en =>
             '\nLines you already used, do not repeat them: ${avoid.map((a) => '"$a"').join(' ')}.',
         };
+  final goOn = after == null
+      ? ''
+      : switch (language) {
+          AgentLanguage.zh =>
+            '\n他已经听到你说了“$after”。你接着往下说一句，要具体到他问的事，不要再说一遍“我看看”之类的话，也不要以同样的字开头。',
+          AgentLanguage.en =>
+            '\nThey already heard you say "$after". Go on from that with one line that is specific to what they asked; do not say "let me look" again or start with the same words.',
+        };
   return switch (language) {
     AgentLanguage.zh =>
       '你是 Raft 语音助手的嗓子。用户刚对助手说了：“$request”。助手正在去查、去做，还没有结果。\n'
           '你现在只说一句很短的口语接话，让他知道你听到了、在办。不回答，不要说结果。\n'
-          '$rules$skip\n'
+          '$rules$skip$goOn\n'
           '只说这一句话，说完就停。${language.relayLine}',
     AgentLanguage.en =>
       'You are the voice of the Raft assistant. The person just said to it: "$request". '
           'The assistant is looking into it and has no result yet.\n'
           'Say one very short, conversational line so they know you heard them and are on it. Do not answer or state a result.\n'
-          '$rules$skip\n'
+          '$rules$skip$goOn\n'
           'Say only that one line, then stop. ${language.relayLine}',
   };
 }
@@ -142,8 +151,16 @@ class AckPicker {
   final math.Random _random;
   final _recent = <String>[];
 
-  String next(AgentLanguage language) {
-    final all = ackPhrases(language);
+  String next(AgentLanguage language) => nextWhere(language, null)!;
+
+  /// The next one among those [available] says yes to (the ones that can be
+  /// said at once, their sound being kept); null when there is none.
+  String? nextWhere(AgentLanguage language, bool Function(String)? available) {
+    final all = [
+      for (final a in ackPhrases(language))
+        if (available == null || available(a)) a,
+    ];
+    if (all.isEmpty) return null;
     final fresh = [
       for (final a in all)
         if (!_recent.contains(a)) a,

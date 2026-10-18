@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_audio.dart';
+import 'package:raft_flutter/features/agent_mode/agent_voice_settings.dart';
 import 'package:raft_flutter/features/agent_mode/gemini_live.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice.dart';
 import 'package:raft_flutter/features/agent_mode/layered_voice_mode.dart';
@@ -142,6 +143,7 @@ void main() {
     bool exact = false,
     bool leadStarts = true,
     List<FakeVoice>? made,
+    List<AgentLanguage>? seen,
   }) =>
       ({
         required provider,
@@ -164,6 +166,10 @@ void main() {
         voiceProvider: provider,
         apiKey: apiKey,
         agentApiKey: 'gemini',
+        language: (
+          seen?..add(AgentVoiceSettings.instance.language),
+          AgentVoiceSettings.instance.language,
+        ).$2,
         systemPrompt: systemPrompt,
         tools: tools,
         onToolCall: onToolCall,
@@ -242,6 +248,9 @@ void main() {
         expect(turn['firstAnswerMs'], isNotNull);
         expect(turn['firstAnswerMs'], greaterThan(turn['firstVoiceMs'] as num));
         expect(turn['feedback'], ['lead：好嘞，翻一下未读。']);
+        // Where the time went, a piece at a time.
+        expect((turn['segments'] as Map)['say.created'], 111);
+        expect((json['segmentP50Ms'] as Map)['say.created'], 111);
         for (final k in [
           'firstVoiceP50Ms',
           'firstVoiceP90Ms',
@@ -254,6 +263,9 @@ void main() {
           '${reports.listSync().whereType<Directory>().single.path}/report.md',
         ).readAsStringSync();
         expect(md, contains('首次出声 p50'));
+        expect(md, contains('分段 p50'));
+        expect(md, contains('确认·响应创建 111ms'));
+        expect(md, contains('语言 zh'));
         expect(md, contains('答案首句 p50'));
         expect(md, contains('等待时说了：lead：好嘞，翻一下未读。'));
         expect(md, contains('从说完到出声'));
@@ -278,6 +290,22 @@ void main() {
     });
   }
 
+  testWidgets('the run is pinned to 中文 whatever the device has saved, and '
+      'the report says so; the saved choice is left alone', (t) async {
+    AgentVoiceSettings.instance.language = AgentLanguage.en;
+    addTearDown(() => AgentVoiceSettings.instance.language = AgentLanguage.zh);
+    final languages = <AgentLanguage>[];
+    final json = await run(
+      t,
+      realtime(t, made: null, seen: languages),
+      AgentVoiceProvider.openai,
+    );
+    expect(json['language'], 'zh');
+    expect(languages, [AgentLanguage.zh]);
+    expect(AgentVoiceSettings.languageOverride, isNull);
+    expect(AgentVoiceSettings.instance.language, AgentLanguage.en);
+  });
+
   group('the link names the voice service', () {
     OrbEvalRequest? link(String query) =>
         OrbEvalRequest.fromLink(Uri.parse('raft://orb-eval/run?$query'));
@@ -300,6 +328,13 @@ void main() {
       expect(link('voice=app')!.voiceProvider, isNull);
       expect(link('voice=relay')!.voiceMode, LayeredVoiceMode.liveRelays);
       expect(link('harness=layered')!.voiceProvider, isNull);
+    });
+
+    test('lang= pins the language of the run', () {
+      expect(link('harness=layered&lang=en')!.language, AgentLanguage.en);
+      expect(link('harness=layered&lang=zh')!.language, AgentLanguage.zh);
+      expect(link('harness=layered')!.language, isNull);
+      expect(link('harness=layered&lang=xx')!.language, isNull);
     });
 
     test('both at once: speak= and provider=', () {

@@ -2120,6 +2120,10 @@ class OrbController extends ChangeNotifier {
     final proposed =
         await _replyInstead(runs, run) ?? await _nextTaskCard(runs, run);
     if (proposed != null) return proposed;
+    // The rules below rewrite the reply with words of the app's own, which
+    // are Chinese (as are the patterns that find what the reply says): in
+    // another language they would put Chinese into the answer.
+    if (AgentVoiceSettings.instance.language != AgentLanguage.zh) return null;
     // Whichever tool the model read the page with, what the person is told
     // about "nothing for you" and about tasks follows the briefing's data.
     final seen = await orbWithBriefing(

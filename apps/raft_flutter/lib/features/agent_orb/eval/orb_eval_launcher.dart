@@ -4,6 +4,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../../private_route_guard.dart' show PrivateRouteGuard;
 import '../../agent_mode/agent_engine.dart';
+import '../../agent_mode/agent_language.dart';
 import '../../agent_mode/layered_voice_mode.dart';
 import '../../agent_mode/voice_provider.dart' show AgentVoiceProvider;
 import '../../agent_mode/agent_thinking.dart';
@@ -21,6 +22,7 @@ class OrbEvalRequest {
     this.engine,
     this.voiceMode,
     this.voiceProvider,
+    this.language,
   });
 
   /// Scenario ids or groups (`B2`, `C`); all when empty.
@@ -51,6 +53,11 @@ class OrbEvalRequest {
   /// this run only: the voice service that listens and speaks. Null: the one
   /// chosen in the voice settings.
   final AgentVoiceProvider? voiceProvider;
+
+  /// `lang=zh|en`, for this run only: the language the agent is pinned to.
+  /// The run is `zh` when the link names none (the scenarios are Chinese; the
+  /// language saved on the device does not change what is measured).
+  final AgentLanguage? language;
 
   /// The voice service a link names (`openai`, `grok`, `gemini`), or null.
   static AgentVoiceProvider? parseVoiceProvider(String? name) {
@@ -94,6 +101,9 @@ class OrbEvalRequest {
       voiceMode: LayeredVoiceMode.parse(
         uri.queryParameters['speak'] ?? uri.queryParameters['voice'],
       ),
+      language: AgentLanguage.values
+          .where((l) => l.name == uri.queryParameters['lang']?.toLowerCase())
+          .firstOrNull,
       voiceProvider: parseVoiceProvider(
         uri.queryParameters['provider'] ?? uri.queryParameters['voice'],
       ),
@@ -232,6 +242,7 @@ class OrbEvalLauncher {
                   engine: request.engine,
                   voiceMode: request.voiceMode,
                   voiceProvider: request.voiceProvider,
+                  language: request.language,
                 ),
           ),
         )

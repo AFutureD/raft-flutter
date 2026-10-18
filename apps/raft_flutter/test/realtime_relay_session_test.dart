@@ -26,6 +26,7 @@ void main() {
   final audio = <Uint8List>[];
   final inputs = <String>[];
   var inputDone = 0, started = 0, stopped = 0, interrupted = 0;
+  final timings = <(String, int)>[];
   Duration pending = Duration.zero;
   final calls = <String>[];
 
@@ -39,6 +40,7 @@ void main() {
     inputs.clear();
     calls.clear();
     inputDone = started = stopped = interrupted = 0;
+    timings.clear();
     pending = Duration.zero;
   });
   tearDown(() => server.stop());
@@ -67,6 +69,7 @@ void main() {
     onAudio: audio.add,
     onInputText: inputs.add,
     onInputDone: () => inputDone++,
+    onTiming: (name, ms) => timings.add((name, ms)),
     onSpeechStarted: () => started++,
     onSpeechStopped: () => stopped++,
     onInterrupted: () => interrupted++,
@@ -507,6 +510,151 @@ void main() {
       });
       await until(() => inputDone == 1);
       expect(inputs.join(), '读一下动态');
+    });
+  });
+
+  group('where the time goes, and the first sound within a second', () {
+    for (final service in RealtimeService.values) {
+      test('${service.name}: the socket round trip is measured once, with a '
+          'request that changes nothing', () async {
+        await connected(service);
+        await until(() => timings.any((t) => t.$1 == 'rtt'));
+        expect(timings.where((t) => t.$1 == 'rtt'), hasLength(1));
+        expect(server.of('session.update'), hasLength(2));
+        final a = server.of('session.update').first['session'];
+        final b = server.of('session.update').last['session'];
+        expect(jsonEncode(b), jsonEncode(a), reason: 'the same settings');
+        expect(logs.join('\n'), contains('socket round trip'));
+      });
+
+      test('${service.name}: the transcript takes (speech stopped to '
+          'transcript complete), and for a line the request to the response '
+          'and the response to the first sound', () async {
+        final s = await connected(service);
+        server.send({'type': 'input_audio_buffer.speech_stopped'});
+        await until(() => stopped == 1);
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        server.send({
+          'type': 'conversation.item.input_audio_transcription.completed',
+          'item_id': 'i1',
+          'transcript': '读一下',
+        });
+        await until(() => timings.any((t) => t.$1 == 'transcribe'));
+        expect(
+          timings.firstWhere((t) => t.$1 == 'transcribe').$2,
+          greaterThanOrEqualTo(25),
+        );
+        final h = s.say('好。');
+        final isGrok = service == RealtimeService.grok;
+        final event = await server.waitFor(
+          isGrok ? 'conversation.item.create' : 'response.create',
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        final tag = isGrok
+            ? null
+            : (response(event)['metadata'] as Map)['relay'];
+        await created('r1', metadata: tag == null ? null : {'relay': tag});
+        await until(() => timings.any((t) => t.$1 == 'say.created'));
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        sound('r1');
+        await until(() => timings.any((t) => t.$1 == 'say.firstAudio'));
+        expect(
+          timings.firstWhere((t) => t.$1 == 'say.created').$2,
+          greaterThanOrEqualTo(25),
+        );
+        expect(
+          timings.firstWhere((t) => t.$1 == 'say.firstAudio').$2,
+          greaterThanOrEqualTo(25),
+        );
+        expect(
+          timings.where((t) => t.$1 == 'say.firstAudio'),
+          hasLength(1),
+          reason: 'the first sound only',
+        );
+        done('r1');
+        await h.done.timeout(const Duration(seconds: 2));
+      });
+
+      test('${service.name}: the sound of a line is kept once and then '
+          'played at once, with no request to the service', () async {
+        final s = await connected(service);
+        final isGrok = service == RealtimeService.grok;
+        final making = s.prewarm(['嗯，我看看。']);
+        final event = await server.waitFor(
+          isGrok ? 'conversation.item.create' : 'response.create',
+        );
+        final tag = isGrok
+            ? null
+            : (response(event)['metadata'] as Map)['relay'];
+        await created('c1', metadata: tag == null ? null : {'relay': tag});
+        sound('c1');
+        sound('c1');
+        done('c1');
+        await making.timeout(const Duration(seconds: 3));
+        expect(audio, isEmpty, reason: 'made, not played');
+        expect(s.hasClip('嗯，我看看。'), isTrue);
+        expect(s.hasClip('别的。'), isFalse);
+        final before = server.received.length;
+        var begun = 0;
+        final h = s.say('嗯，我看看。', onStart: () => begun++);
+        expect(begun, 1, reason: 'sounds at once');
+        expect(audio, hasLength(2));
+        expect(h.transcript, '嗯，我看看。');
+        await h.done.timeout(const Duration(seconds: 2));
+        expect(server.received.length, before, reason: 'nothing was asked');
+      });
+
+      test(
+        '${service.name}: a clip being made gives way to a real line',
+        () async {
+          final s = await connected(service);
+          final isGrok = service == RealtimeService.grok;
+          final making = s.prewarm(['嗯，我看看。']);
+          await server.waitFor(
+            isGrok ? 'conversation.item.create' : 'response.create',
+          );
+          await created('c1', metadata: null);
+          s.say('真的一句。');
+          final cancel = await server.waitFor('response.cancel');
+          expect(cancel['response_id'], 'c1');
+          await making.timeout(const Duration(seconds: 3));
+          expect(s.hasClip('嗯，我看看。'), isFalse);
+        },
+      );
+    }
+
+    test('the relay asks for the least reasoning, and does without it when '
+        'the model refuses it', () async {
+      await connected(RealtimeService.openai);
+      final first = (await server.waitFor('session.update'))['session'] as Map;
+      expect(first['reasoning'], {'effort': 'minimal'});
+      await server.stop();
+      OpenAiRealtimeSession.resetFallbacks();
+      server = FakeRealtime()
+        ..rejectUpdates = 1
+        ..rejectParam = 'reasoning.effort';
+      await server.start();
+      await connected(RealtimeService.openai);
+      final updates = server.of('session.update').toList();
+      expect(updates.length, greaterThanOrEqualTo(2));
+      expect(
+        (updates.last['session'] as Map).containsKey('reasoning'),
+        isFalse,
+      );
+      expect(
+        (updates.last['session'] as Map)['instructions'],
+        relayVoicePromptFor(AgentLanguage.zh),
+      );
+    });
+
+    test('a lead-in that goes on from the acknowledgment says so', () async {
+      final s = await connected(RealtimeService.openai);
+      s.lead('看一下消息', after: '嗯，我看看。');
+      final text =
+          response(await server.waitFor('response.create'))['instructions']
+              as String;
+      expect(text, contains('“嗯，我看看。”'));
+      expect(text, contains('不要再说一遍'));
     });
   });
 

@@ -85,12 +85,21 @@ abstract interface class RealtimeVoiceOut {
     void Function(String piece)? onTranscript,
   });
 
+  /// Whether the sound of [text] is kept: saying it is instant.
+  bool hasClip(String text);
+
+  /// Has the voice say each of [phrases] once in the background and keep the
+  /// sound, so that [say] of the same text is instant afterwards.
+  Future<void> prewarm(Iterable<String> phrases);
+
   /// Has the voice phrase and say one short lead-in for what the person just
   /// asked ([request]), in its own words, while the agent works. [avoid] are
-  /// the lead-ins already used.
+  /// the lead-ins already used; [after] is the acknowledgment already said
+  /// (the lead-in goes on from it).
   SpeechHandle lead(
     String request, {
     List<String> avoid,
+    String? after,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   });
@@ -149,17 +158,25 @@ class RealtimeSpeech implements SpeechOut, SpeechVoiceInfo {
   SpeechHandle lead(
     String request, {
     List<String> avoid = const [],
+    String? after,
     void Function()? onStart,
     void Function(String piece)? onTranscript,
   }) => out.lead(
     layeredForVoice(request),
     avoid: avoid,
+    after: after,
     onStart: onStart,
     onTranscript: onTranscript,
   );
 
   /// Completes when the speech has played to its end.
   Future<void> drained() => out.drained();
+
+  /// Whether [text] is said instantly (its sound is kept).
+  bool hasClip(String text) => out.hasClip(text);
+
+  /// Keeps the sound of [phrases] (in the background).
+  Future<void> prewarm(Iterable<String> phrases) => out.prewarm(phrases);
 
   @override
   Future<void> stop() async => out.cancelSpeech();

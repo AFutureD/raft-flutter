@@ -276,8 +276,15 @@ class AgentVoiceSettings extends ChangeNotifier {
     AgentVoiceProvider.grok => grokModel,
   };
 
+  /// A language for this run only, over the setting (the evaluation pins one
+  /// so that the saved choice of the device does not change what it measures).
+  /// Never stored.
+  static AgentLanguage? languageOverride;
+
   /// The language the agent answers in, whatever the person's words mix in.
+  /// 中文 unless the person chose another.
   AgentLanguage get language =>
+      languageOverride ??
       _enum(AgentLanguage.values, 'language', AgentLanguage.zh);
   set language(AgentLanguage v) => _write('language', v.name);
 

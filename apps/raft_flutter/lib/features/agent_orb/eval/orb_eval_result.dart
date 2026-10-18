@@ -133,6 +133,7 @@ class OrbEvalReport {
     this.engine,
     this.agentModel,
     this.voiceMode,
+    this.language,
     this.combination,
     this.cancelled = false,
     this.abortReason,
@@ -162,6 +163,9 @@ class OrbEvalReport {
   /// the agent's words with a voice of its own; `liveRelays`).
   final String? voiceMode;
 
+  /// The language the agent was pinned to for the run (`zh`, `en`).
+  final String? language;
+
   /// What was run, in a line: the brain (the realtime voice model alone, or a
   /// voice model with the text Agent) and each side of it.
   final String? combination;
@@ -190,6 +194,23 @@ class OrbEvalReport {
       _percentile(_turnTimes((t) => t.firstAnswerMs), .5);
   int? get firstAnswerP90 =>
       _percentile(_turnTimes((t) => t.firstAnswerMs), .9);
+
+  /// The median of each piece of the time to the first sound (see
+  /// `OrbEvalTurn.segments`), over the turns that have it.
+  Map<String, int> get segmentP50 {
+    final by = <String, List<int>>{};
+    for (final r in results) {
+      for (final run in r.runs) {
+        for (final t in run.run.scoredTurns) {
+          t.segments.forEach((k, v) => by.putIfAbsent(k, () => []).add(v));
+        }
+      }
+    }
+    return {
+      for (final e in by.entries)
+        e.key: (e.value..sort())[(e.value.length - 1) ~/ 2],
+    };
+  }
 
   /// The time the asks to the agent took in a turn.
   int? get askP50 => _percentile(_turnTimes((t) => t.askMs), .5);
@@ -222,6 +243,7 @@ class OrbEvalReport {
     if (engine != null) 'engine': engine,
     if (agentModel != null) 'agentModel': agentModel,
     if (voiceMode != null) 'voiceMode': voiceMode,
+    if (language != null) 'language': language,
     if (combination != null) 'combination': combination,
     if (latencyP50 != null) 'latencyP50Ms': latencyP50,
     if (latencyP90 != null) 'latencyP90Ms': latencyP90,
@@ -231,6 +253,7 @@ class OrbEvalReport {
     if (firstVoiceP90 != null) 'firstVoiceP90Ms': firstVoiceP90,
     if (firstAnswerP50 != null) 'firstAnswerP50Ms': firstAnswerP50,
     if (firstAnswerP90 != null) 'firstAnswerP90Ms': firstAnswerP90,
+    if (segmentP50.isNotEmpty) 'segmentP50Ms': segmentP50,
     if (askP50 != null) 'askP50Ms': askP50,
     if (askP90 != null) 'askP90Ms': askP90,
     if (cancelled) 'cancelled': true,

@@ -51,4 +51,17 @@ enum AgentLanguage {
 
   /// The 【语言】 section of a prompt.
   String get promptSection => '【语言】$line\n\n';
+
+  /// [text] without any of the language instructions of the prompts: a model
+  /// sometimes repeats a line of its instruction as if it were part of the
+  /// answer, and what is spoken must never carry one.
+  static String scrub(String text) {
+    var out = text;
+    for (final l in values) {
+      for (final line in [l.line, l.relayLine]) {
+        out = out.replaceAll(line, '');
+      }
+    }
+    return out;
+  }
 }

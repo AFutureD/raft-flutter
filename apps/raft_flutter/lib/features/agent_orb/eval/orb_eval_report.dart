@@ -29,6 +29,23 @@ String _percentiles(String name, int? p50, int? p90) => p50 == null
     : ' · $name p50 ${(p50 / 1000).toStringAsFixed(1)}s'
           ' p90 ${((p90 ?? p50) / 1000).toStringAsFixed(1)}s';
 
+const _segmentNames = {
+  'rtt': '往返',
+  'transcribe': '转写',
+  'forward': '转发',
+  'request': '请求发出',
+  'say.created': '确认·响应创建',
+  'say.firstAudio': '确认·模型出声',
+  'lead.created': '接话·响应创建',
+  'lead.firstAudio': '接话·模型出声',
+};
+
+/// " · 分段 p50 往返 80ms 转写 420ms ...", or nothing.
+String _segments(Map<String, int> p50) => p50.isEmpty
+    ? ''
+    : ' · 分段 p50 ${[for (final e in _segmentNames.entries)
+        if (p50.containsKey(e.key)) '${e.value} ${p50[e.key]}ms'].join(' ')}';
+
 String _cell(String text) =>
     text.replaceAll('|', r'\|').replaceAll(RegExp(r'\s*\n\s*'), '<br>');
 
@@ -65,11 +82,13 @@ String orbEvalMarkdown(OrbEvalReport report) {
       '${report.engine == null ? '' : ' · 引擎 ${report.engine}'}'
       '${report.agentModel == null ? '' : ' · Agent 模型 ${report.agentModel}'}'
       '${report.voiceMode == null ? '' : ' · 语音 ${report.voiceMode}'}'
+      '${report.language == null ? '' : ' · 语言 ${report.language}'}'
       '${_percentiles('时延', report.latencyP50, report.latencyP90)}'
       '${_percentiles('首声', report.firstAudioP50, report.firstAudioP90)}'
       '${_percentiles('首次出声', report.firstVoiceP50, report.firstVoiceP90)}'
       '${_percentiles('答案首句', report.firstAnswerP50, report.firstAnswerP90)}'
       '${_percentiles('Agent 耗时', report.askP50, report.askP90)}'
+      '${_segments(report.segmentP50)}'
       '${report.cancelled ? ' · 中途停止' : ''}'
       '${report.abortReason == null ? '' : '（${report.abortReason}）'}',
     )
@@ -141,6 +160,11 @@ String orbEvalMarkdown(OrbEvalReport report) {
         if (t.liveFiller) b.writeln('  - Live 说了垫话（和 say 不像）');
         for (final f in t.feedback) {
           b.writeln('  - 等待时说了：$f');
+        }
+        if (t.segments.isNotEmpty) {
+          b.writeln(
+            '  - 分段：${[for (final e in t.segments.entries) '${e.key} ${e.value}ms'].join('，')}',
+          );
         }
         if (t.firstVoiceMs > 0 || t.firstAnswerMs > 0) {
           b.writeln(

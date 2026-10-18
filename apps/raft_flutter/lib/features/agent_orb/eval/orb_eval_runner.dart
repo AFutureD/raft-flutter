@@ -90,6 +90,7 @@ class OrbEvalRunner {
     this.engine,
     this.voiceMode,
     this.voiceProvider,
+    this.language,
     this.layeredGrace = const Duration(seconds: 4),
     this.settle = const Duration(milliseconds: 1200),
     this.sessionFactory,
@@ -132,6 +133,13 @@ class OrbEvalRunner {
   /// Live, OpenAI Realtime or Grok Voice); the voice settings' choice when
   /// null.
   final AgentVoiceProvider? voiceProvider;
+
+  /// The language the run is pinned to (中文 when null): the evaluation does
+  /// not take the language saved on the device, which would change what it
+  /// measures. It is never stored.
+  final AgentLanguage? language;
+
+  AgentLanguage get _language => language ?? AgentLanguage.zh;
 
   AgentVoiceProvider get _provider =>
       voiceProvider ?? AgentVoiceSettings.instance.layeredProvider;
@@ -187,6 +195,7 @@ class OrbEvalRunner {
     _liveThinking = null;
     final started = DateTime.now();
     final results = <OrbEvalScenarioResult>[];
+    AgentVoiceSettings.languageOverride = _language;
     for (final (i, s) in scenarios.indexed) {
       if (_stop) break;
       if (s.status == OrbEvalStatus.skipped) {
@@ -219,6 +228,7 @@ class OrbEvalRunner {
       if (done.isEmpty) break;
       results.add(OrbEvalScenarioResult(s, done));
     }
+    AgentVoiceSettings.languageOverride = null;
     final settings = AgentVoiceSettings.instance;
     // The agent harness ignores the voice settings: they would only mislead.
     final agent = harness.isTextAgent && harness != OrbEvalHarness.layered;
@@ -246,6 +256,7 @@ class OrbEvalRunner {
           : null,
       agentModel: layered ? _agentModel : null,
       voiceMode: layered ? _voiceMode.name : null,
+      language: _language.name,
       combination: _combination(settings, agent: agent, layered: layered),
       cancelled: _stop,
       abortReason: _abortReason,
@@ -923,6 +934,8 @@ class _Recorder {
           }
         })
         ..onFeedback = ((kind, text) => _turn?.feedback.add('$kind：$text'))
+        ..onSegment = ((name, ms) =>
+            _turn?.segments.putIfAbsent(name, () => ms))
         ..onCorrection = ((say, missing) => _turn?.corrections.add(missing))
         ..addAskingListener(_askingChanged);
     }
