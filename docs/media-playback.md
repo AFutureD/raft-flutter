@@ -189,8 +189,7 @@ reopen. Now:
   A viewer opened with no card, or a card prepared again by a tap after its player was released, streams again and
   reads only what is played: ExoPlayer's read-ahead is about 50 s of media, so on a long clip that is a fraction of the
   file (the suite's 16 MB / 287 s clip: about 2.5 MB), a clip shorter than the read-ahead is fetched whole but streamed.
-  That is the accepted behaviour; there is no app-level file cache for video (the attachment disk cache of Settings >
-  Storage serves images, documents, PDF and the audio viewer, not video).
+  Without the video cache (below) that was the whole story; the cache makes the second open free.
 * **Rate limit** (`packages/raft_client/lib/src/server_rate_limits.dart`: every request under `/api/attachments`
   counts, 120 per minute per user). The player's own requests do not pass through `AttachmentHttp.governor`. A
   presigned storage URL on another host is not counted at all. When the Raft server streams the bytes itself (a URL path
@@ -202,6 +201,38 @@ reopen. Now:
 * **Proxy.** mpv (Windows/Linux) gets `http-proxy` from the app's decision at run time; ExoPlayer and AVPlayer follow the
   OS proxy only, so Settings > Network *Manual*/*No proxy* do not apply to streamed media on Android/iOS/macOS (see
   [system proxy](system-proxy.md)).
+
+## Video cache
+
+Streamed video is kept on disk so that opening it again costs no download (`platform/video_cache.dart`,
+`platform/video_cache_proxy.dart`). On by default; `kVideoCacheEnabled` is the kill switch (`false`: players get the
+signed URL directly, as before).
+
+* **How.** The player is not given the signed URL but `http://127.0.0.1:<port>/<token>/<name>.mp4`, served by a loopback
+  `dart:io` server (`VideoCacheProxy`) that reads like the file itself (200, 206, HEAD, 416, `Accept-Ranges`) while it
+  fetches the bytes from the signed URL in 1 MiB chunks (windows of up to 4 chunks per upstream request, two chunks
+  requested ahead of the one being read) and keeps each chunk on disk. Every player works the same way (ExoPlayer,
+  AVPlayer, mpv); no platform cache code. Android's network security config already allows cleartext to `127.0.0.1`
+  only; Apple's ATS needs no exception for the IP literal (verified on macOS and the iOS simulator).
+* **Keys and accounts.** Chunks are keyed by the attachment id, not by the URL, so a re-signed URL keeps its cache. The
+  cache is per account: `<app cache>/raft-video/<hash of origin and user id>/`, one proxy (and one random token) per
+  account, started lazily by the first video that account plays (nothing runs or is scanned at app start). A source
+  without an account is never cached. Sign-out, an ended session and an account switch (`AppRoot.logout`) delete the
+  account's folder; the start-up housekeeping removes folders of accounts with no saved session.
+* **Limits.** 500 MB per account (`kVideoCacheMaxBytes`), least recently used chunk first (pinned while being read).
+* **Safety.** Bound to loopback; a request without the process's random token path learns nothing (404). The signed URL
+  and headers live in memory only. A chunk reaches disk complete (temporary file, then rename). An upstream 4xx
+  (an expired signature above all) reaches the player as the same status so its own re-sign logic runs; a transient
+  failure (connection drop, timeout, 408/429/5xx) is retried up to 3 times with growing pauses, resuming at the first
+  missing byte; after bytes went out a failure cuts the connection.
+* **The disk is optional.** A chunk that cannot be written (disk full, folder gone, no permission) is served from
+  memory anyway; after 3 failures in a row the proxy stops writing until the cache is cleared or the app restarts.
+  A folder that cannot be created only means nothing is stored. A file that cannot be deleted (held open on Windows) is
+  retried, kept out of the index and counted in the size until it goes.
+* **Not covered.** Audio (`hasPicture: false` / `video: false` players) streams as before. Poster frames and thumbnails read
+  the signed URL directly (they need the first frame only). Downloads and the audio/PDF previews use the attachment disk
+  cache as before. Upstream requests carry `User-Agent: RaftVideoCache/1`, so a server log (or the interaction suite's
+  counters) tells them from the app's own downloads.
 
 ## Media browser
 

@@ -11,6 +11,7 @@ import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_flutter/platform/attachment_preview_files.dart';
 import 'package:raft_flutter/platform/cache_hygiene.dart';
 import 'package:raft_flutter/platform/cache_staging.dart';
+import 'package:raft_flutter/platform/video_cache.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
 
 const _origin = 'https://x.invalid';
@@ -244,6 +245,50 @@ void main() {
       expect(await removeOrphanAttachmentAccounts(cache, () async => {}), 1);
       expect(await cache.entryCount(), 0);
       expect(await cache.sizeBytes(), 0);
+    });
+  });
+
+  group('orphan video accounts', () {
+    Directory folderOf(String origin, String user) =>
+        Directory(p.join(root.path, VideoCacheAccount.segmentOf(origin, user)))
+          ..createSync(recursive: true);
+
+    setUp(() => VideoCache.debugRoot = root);
+    tearDown(() => VideoCache.debugRoot = null);
+
+    test('only accounts without a saved session lose their videos', () async {
+      final alice = folderOf(_origin, 'alice');
+      final bob = folderOf(_origin, 'bob');
+      final removed = await removeOrphanVideoAccounts(
+        () async => {'$_origin/': session('alice')},
+      );
+      expect(removed, 1);
+      expect(alice.existsSync(), isTrue);
+      expect(bob.existsSync(), isFalse);
+    });
+
+    test('an unreadable or incomplete session list deletes nothing', () async {
+      final bob = folderOf(_origin, 'bob');
+      expect(
+        await removeOrphanVideoAccounts(() async => throw StateError('keychain')),
+        0,
+      );
+      expect(
+        await removeOrphanVideoAccounts(() async => {_origin: session(null)}),
+        0,
+      );
+      expect(bob.existsSync(), isTrue);
+    });
+
+    test('the start-up pass covers videos too, and starts no proxy', () async {
+      final bob = folderOf(_origin, 'bob');
+      final cache = open();
+      await runStartupCacheHygiene(
+        cache: cache,
+        savedSessions: () async => {_origin: session('alice')},
+      );
+      expect(bob.existsSync(), isFalse);
+      expect(VideoCache.debugStarted, 0);
     });
   });
 

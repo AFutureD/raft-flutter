@@ -9,6 +9,7 @@ import 'package:raft_client/system_proxy.dart';
 import 'attachment_player_log.dart';
 import 'media_failure.dart';
 import 'media_probe.dart';
+import 'video_cache.dart';
 
 class AttachmentPlayback {
   const AttachmentPlayback({
@@ -46,6 +47,8 @@ class AttachmentSource {
     : url = null,
       headers = const {},
       refresh = null,
+      cacheKey = null,
+      cacheAccount = null,
       start = Duration.zero;
 
   /// [url] is the signed attachment URL (it is the only credential: [headers]
@@ -58,6 +61,8 @@ class AttachmentSource {
     this.headers = const {},
     this.refresh,
     this.start = Duration.zero,
+    this.cacheKey,
+    this.cacheAccount,
   }) : file = null;
 
   final File? file;
@@ -65,7 +70,26 @@ class AttachmentSource {
   final Map<String, String> headers;
   final Future<Uri> Function()? refresh;
   final Duration start;
+
+  /// What the on-disk video cache needs to keep this video: [cacheKey] names
+  /// the content (the attachment id; it must stay the same when the URL is
+  /// signed again) and [cacheAccount] says whose cache it goes into. Without
+  /// both the source is streamed and never cached.
+  final String? cacheKey;
+  final VideoCacheAccount? cacheAccount;
   bool get isNetwork => url != null;
+
+  /// This source signed again: a new [url] (and, usually, a new [start]), the
+  /// same headers and the same place in the cache. The new source has no
+  /// [refresh]: a signature is renewed once.
+  AttachmentSource resigned(Uri url, {required Duration start}) =>
+      AttachmentSource.network(
+        url,
+        headers: headers,
+        start: start,
+        cacheKey: cacheKey,
+        cacheAccount: cacheAccount,
+      );
 }
 
 abstract interface class AttachmentPlayer {
@@ -430,7 +454,15 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     attempt++;
     recent.clear();
     final native = player.platform;
-    final target = source.isNetwork ? source.url!.toString() : source.file!.path;
+    // Through the on-disk cache when it applies: mpv gets a loopback URL (and
+    // never goes via an HTTP proxy for it); failures are diagnosed against
+    // [source], the real URL.
+    final mine = attempt;
+    // Video only: audio is streamed as before.
+    final routed = controller == null ? source : await VideoCache.route(source);
+    if (closed || mine != attempt) return;
+    final cached = !identical(routed, source);
+    final target = source.isNetwork ? routed.url.toString() : source.file!.path;
     if (native is NativePlayer) {
       for (final property in const [
         'cache-on-disk',
@@ -449,12 +481,20 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       if (source.isNetwork) {
         await native.setProperty('demuxer-max-bytes', '${maxVideoSize.width > 1000 ? 64 : 32}MiB');
         await native.setProperty('demuxer-max-back-bytes', '8MiB');
-        await native.setProperty('http-proxy', httpProxyFor(source.url!));
-        await native.setProperty('stream-lavf-o', lavfOptionsFor(source.url!));
-        await native.setProperty(
-          'http-header-fields',
-          source.headers.entries.map((e) => '${e.key}: ${e.value}').join(','),
-        );
+        if (cached) {
+          // The loopback URL never goes through a proxy, and the cache holds
+          // the headers: nothing is sent to it.
+          await native.setProperty('http-proxy', '');
+          await native.setProperty('stream-lavf-o', 'http_proxy=');
+          await native.setProperty('http-header-fields', '');
+        } else {
+          await native.setProperty('http-proxy', httpProxyFor(source.url!));
+          await native.setProperty('stream-lavf-o', lavfOptionsFor(source.url!));
+          await native.setProperty(
+            'http-header-fields',
+            source.headers.entries.map((e) => '${e.key}: ${e.value}').join(','),
+          );
+        }
       }
       await native.setProperty(
         'start',
@@ -525,9 +565,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       if (closed) return false;
       final at = resignPosition(player.state.position, current.start);
       failed = false;
-      await open(
-        AttachmentSource.network(url, headers: current.headers, start: at),
-      );
+      await open(current.resigned(url, start: at));
       refreshed = true;
       return true;
     } on Object {

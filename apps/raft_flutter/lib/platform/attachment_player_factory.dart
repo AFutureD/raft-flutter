@@ -46,6 +46,7 @@ AttachmentPlayer createAttachmentPlayer({
   AttachmentBackend.system => VideoPlayerAttachmentPlayer(
     transparentVideo: transparentVideo,
     platformView: hdr,
+    hasPicture: video,
   ),
   AttachmentBackend.mediaKit =>
     debugMediaKit?.call() ??

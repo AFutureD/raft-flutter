@@ -8,6 +8,7 @@ import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_flutter/platform/attachment_player_factory.dart';
 import 'package:raft_flutter/platform/media_failure.dart';
 import 'package:raft_flutter/platform/media_probe.dart';
+import 'package:raft_flutter/platform/video_cache.dart';
 import 'package:raft_flutter/platform/video_player_attachment_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
@@ -168,6 +169,73 @@ void main() {
         VideoViewType.platformView,
       ],
     ]);
+  });
+
+  group('the video cache', () {
+    late Directory root;
+    final account = VideoCacheAccount('https://raft.example', 'alice');
+    final url = Uri.parse('https://bucket.storage.invalid/a1.mp4?sig=1');
+    setUp(() async {
+      root = await Directory.systemTemp.createTemp('vp-cache');
+      VideoCache.debugRoot = root;
+      VideoCache.debugEnabled = true;
+    });
+    tearDown(() async {
+      await VideoCache.debugReset();
+      VideoCache.debugRoot = null;
+      VideoCache.debugEnabled = null;
+      await root.delete(recursive: true);
+    });
+
+    AttachmentSource streamed({VideoCacheAccount? who}) =>
+        AttachmentSource.network(url, cacheKey: 'a1', cacheAccount: who);
+
+    test('a video of a known account plays from the loopback cache', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(streamed(who: account));
+      await player.dispose();
+      final opened = Uri.parse(fake.sources.single.uri!);
+      expect(opened.host, '127.0.0.1');
+      expect(opened.toString(), isNot(contains('sig=')));
+    });
+
+    test('a source that does not know its account streams as before', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(streamed());
+      await player.dispose();
+      expect(fake.sources.single.uri, url.toString());
+    });
+
+    test('audio is never cached', () async {
+      final player = VideoPlayerAttachmentPlayer(hasPicture: false);
+      await player.open(streamed(who: account));
+      await player.dispose();
+      expect(fake.sources.single.uri, url.toString());
+      expect(VideoCache.debugStarted, 0);
+    });
+
+    test('the kill switch streams the real URL', () async {
+      VideoCache.debugEnabled = false;
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(streamed(who: account));
+      await player.dispose();
+      expect(fake.sources.single.uri, url.toString());
+    });
+
+    test('a re-signed source stays in the cache', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      await player.open(
+        AttachmentSource.network(
+          url,
+          cacheKey: 'a1',
+          cacheAccount: account,
+          refresh: () async => Uri.parse('https://bucket.storage.invalid/a1.mp4?sig=2'),
+        ),
+      );
+      final first = fake.sources.single.uri;
+      await player.dispose();
+      expect(Uri.parse(first!).host, '127.0.0.1');
+    });
   });
 
   group('VideoPlayerAttachmentPlayer', () {

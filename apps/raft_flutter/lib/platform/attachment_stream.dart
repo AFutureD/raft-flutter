@@ -5,6 +5,7 @@ import '../data/workspace_controller.dart';
 import 'attachment_files.dart';
 import 'attachment_http.dart';
 import 'attachment_player.dart';
+import 'video_cache.dart' show VideoCacheAccount;
 
 /// The session-cache key of an attachment's media: one player per attachment
 /// version, shared by its inline card and its viewer.
@@ -45,11 +46,21 @@ Future<AttachmentSource> attachmentStreamSource(
   return AttachmentSource.network(
     uri,
     start: start,
+    cacheKey: id,
+    cacheAccount: _account(controller),
     refresh: () {
       controller.attachmentMedia.invalidateUrl(id);
       return sign(refresh: true);
     },
   );
+}
+
+/// Whose cache a video of [controller]'s session goes into; null (no cache)
+/// when the session does not name its user.
+VideoCacheAccount? _account(WorkspaceController controller) {
+  final principal = controller.client.user?.id;
+  if (principal == null || principal.isEmpty) return null;
+  return VideoCacheAccount(controller.client.origin, principal);
 }
 
 /// Admits one request to [uri] when the Raft server counts it.

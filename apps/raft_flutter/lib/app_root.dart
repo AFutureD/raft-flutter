@@ -11,7 +11,7 @@ import 'package:raft_updater/raft_updater.dart' show AppUpdater;
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'data/attachment_disk_cache.dart';
+import 'platform/cache_hygiene.dart' show purgeAccountCaches;
 import 'data/device_preferences.dart';
 import 'data/workspace_controller.dart';
 import 'data/user_error.dart';
@@ -1970,9 +1970,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         // Nothing more is written for this account once its data is cleared.
         final flushed = workspace?.retireCache() ?? Future<void>.value();
         flushed.then((_) => cache?.clearAccount(c.origin, principal));
-        unawaited(
-          AttachmentDiskCache.purgeInstalledAccount(c.origin, principal),
-        );
+        unawaited(purgeAccountCaches(c.origin, principal));
         content.bindWorkspace(null);
         workspace
           ?..removeListener(workspaceChanged)
@@ -2036,8 +2034,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final shareCleanup = clearSharesForAccount(c.origin, principal);
       await cache?.clearAccount(c.origin, principal);
       await shareCleanup;
-      // Cached attachments of this account go with its other cached data.
-      await AttachmentDiskCache.purgeInstalledAccount(c.origin, principal);
+      // Cached attachments and videos of this account go with its other
+      // cached data.
+      await purgeAccountCaches(c.origin, principal);
     }
     await loggingOut;
     oldWorkspace?.dispose();

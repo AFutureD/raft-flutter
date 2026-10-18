@@ -28,6 +28,22 @@ void main() {
     expect(source.start, const Duration(seconds: 4));
   });
 
+  test('the source names the attachment and whose video cache it belongs to', () async {
+    final (w, api) = (await fixture('owner'));
+    addTearDown(w.dispose);
+    api.routes['GET /attachments/a1/url'] = (_) => {
+      'url': 'https://bucket.storage.invalid/a1.mp4?sig=1',
+    };
+    final source = await attachmentStreamSource(w, 'a1');
+    expect(source.cacheKey, 'a1');
+    expect(source.cacheAccount, isNotNull);
+    expect(source.cacheAccount!.principal, w.client.user!.id);
+    expect(source.cacheAccount!.origin, w.client.origin.replaceFirst(RegExp(r'/$'), ''));
+    // Signing again keeps the place in the cache (it is keyed by the id, not the signature).
+    final fresh = await source.refresh!();
+    expect(source.resigned(fresh, start: Duration.zero).cacheKey, 'a1');
+  });
+
   test('the refresh signs again (the cached URL is dropped), once per call', () async {
     final (w, api) = (await fixture('owner'));
     addTearDown(w.dispose);

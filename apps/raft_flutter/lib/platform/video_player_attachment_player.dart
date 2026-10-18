@@ -7,6 +7,7 @@ import 'attachment_player.dart';
 import 'attachment_player_log.dart';
 import 'media_failure.dart';
 import 'media_probe.dart';
+import 'video_cache.dart';
 
 /// The platform's own player behind [AttachmentPlayer]: ExoPlayer (Media3) on
 /// Android, AVPlayer on iOS and macOS, through the official `video_player`
@@ -28,7 +29,12 @@ class VideoPlayerAttachmentPlayer
   VideoPlayerAttachmentPlayer({
     this.transparentVideo = false,
     this.platformView = false,
+    this.hasPicture = true,
   });
+
+  /// A video (not audio only): only a video goes through the on-disk cache
+  /// (and, short enough, repeats).
+  final bool hasPicture;
 
   /// Render into the plugin's native view ([VideoViewType.platformView]:
   /// `SurfaceView` on Android, `AVPlayerLayer` on iOS and macOS) instead of a
@@ -120,7 +126,11 @@ class VideoPlayerAttachmentPlayer
     _failure = null;
     _hasFrame = false;
     _last = null;
-    final controller = _build(source);
+    // Through the on-disk cache when it applies: the player gets a loopback
+    // URL; failures are still diagnosed against [source], the real URL.
+    final routed = hasPicture ? await VideoCache.route(source) : source;
+    if (_closed) return;
+    final controller = _build(routed);
     controller.addListener(_publish);
     _controller.value = controller;
     if (!_observing) {
@@ -139,9 +149,14 @@ class VideoPlayerAttachmentPlayer
       // from one probe request where it has not. An expired signature (or a
       // cause nobody could name) signs once more and tries again, at the
       // position this open was asked for (a resume), not at zero.
-      final found = await _diagnose(mediaErrorText(error), source, started: false);
+      final found = await _diagnose(
+        mediaErrorText(error),
+        source,
+        started: false,
+      );
       if (_closed || _active != controller) return;
-      if (found.worthResigning && await _retryWithFreshUrl(source, source.start)) {
+      if (found.worthResigning &&
+          await _retryWithFreshUrl(source, source.start)) {
         return;
       }
       // The re-sign attempt failed too and already reported its own failure.
@@ -154,7 +169,10 @@ class VideoPlayerAttachmentPlayer
 
   /// One re-sign per source: the first failure of a streamed source asks its
   /// `refresh` for a new URL and reopens at [position].
-  Future<bool> _retryWithFreshUrl(AttachmentSource source, Duration position) async {
+  Future<bool> _retryWithFreshUrl(
+    AttachmentSource source,
+    Duration position,
+  ) async {
     final refresh = source.refresh;
     if (_closed || !source.isNetwork || refresh == null || _refreshed) {
       return false;
@@ -163,11 +181,7 @@ class VideoPlayerAttachmentPlayer
     try {
       final url = await refresh();
       if (_closed) return false;
-      final next = AttachmentSource.network(
-        url,
-        headers: source.headers,
-        start: position,
-      );
+      final next = source.resigned(url, start: position);
       _source = next;
       await _open(next);
       return true;
