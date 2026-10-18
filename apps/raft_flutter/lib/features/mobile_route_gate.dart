@@ -1,3 +1,4 @@
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../data/raft_location.dart';
@@ -65,8 +66,20 @@ class MobileRouteGate extends InheritedWidget {
     required bool covered,
     required RaftLocation location,
   }) {
+    final changed = _covered[state] != covered;
     _covered[state] = covered;
     _location[state] = location;
+    if (changed) _flips[state]?.notifyListeners();
+  }
+
+  /// Notifies when the route's covered flag flips, so what was held while it
+  /// was covered is built again the moment it is current, whether or not a
+  /// ticker mode or an ancestor changes with it.
+  static final _flips = Expando<_Flips>();
+
+  static _Flips? _flipsOf(BuildContext context) {
+    final state = _state(context);
+    return state == null ? null : (_flips[state] ??= _Flips());
   }
 
   /// The location stored for the phone route that contains [context].
@@ -141,6 +154,20 @@ final _retained = Expando<_Retained>();
 class _Retained {
   Widget? last;
   bool Function()? covered;
+  VoidCallback? release;
+}
+
+/// The listeners of one route's covered flag. Not a [ChangeNotifier]: the
+/// route state that owns it has no place to dispose one.
+class _Flips {
+  final _listeners = <VoidCallback>[];
+  void addListener(VoidCallback listener) => _listeners.add(listener);
+  void removeListener(VoidCallback listener) => _listeners.remove(listener);
+  void notifyListeners() {
+    for (final listener in List.of(_listeners)) {
+      listener();
+    }
+  }
 }
 
 /// Builds [build] unless the phone page of [owner] is covered or leaving and
@@ -155,16 +182,47 @@ class _Retained {
 /// workspace, when it is shown again. A page that was never built (born under
 /// another one) builds normally. Outside a phone route nothing is retained.
 Widget retainWhileCovered(
-  Object owner,
+  State owner,
   BuildContext context,
   Widget Function(BuildContext context) build,
 ) {
   final held = _retained[owner] ??= _Retained();
-  final covered = held.covered ??= MobileRouteGate.coveredReader(context);
+  if (held.covered == null) {
+    held.covered = MobileRouteGate.coveredReader(context);
+    final flips = MobileRouteGate._flipsOf(context);
+    if (flips != null) {
+      void refresh() {
+        if (!owner.mounted) {
+          flips.removeListener(refresh);
+        } else if (!held.covered!()) {
+          void rebuild() {
+            // ignore: invalid_use_of_protected_member
+            if (owner.mounted) owner.setState(() {});
+          }
+
+          // The flag also flips while the tree builds (the route's widget
+          // changed): that build reads the new flag on its own, so nothing
+          // is marked dirty from inside it.
+          if (SchedulerBinding.instance.schedulerPhase ==
+              SchedulerPhase.persistentCallbacks) {
+            SchedulerBinding.instance.addPostFrameCallback((_) => rebuild());
+          } else {
+            rebuild();
+          }
+        }
+      }
+
+      flips.addListener(refresh);
+      held.release = () => flips.removeListener(refresh);
+    }
+  }
   final last = held.last;
-  if (last != null && covered()) return last;
+  if (last != null && held.covered!()) return last;
   return held.last = build(context);
 }
+
+/// Stops [owner] listening to its route; called when its state is disposed.
+void releaseRetained(Object owner) => _retained[owner]?.release?.call();
 
 /// [retainWhileCovered] for a subtree that is built from a method.
 class RetainWhileCovered extends StatefulWidget {
@@ -177,6 +235,12 @@ class RetainWhileCovered extends StatefulWidget {
 
 class _RetainWhileCoveredState extends State<RetainWhileCovered> {
   @override
+  void dispose() {
+    releaseRetained(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) =>
       retainWhileCovered(this, context, widget.builder);
 }
@@ -186,6 +250,12 @@ class _RetainWhileCoveredState extends State<RetainWhileCovered> {
 abstract class PhonePageState<T extends StatefulWidget> extends State<T>
     with WidgetsBindingObserver {
   Widget buildLive(BuildContext context);
+
+  @override
+  void dispose() {
+    releaseRetained(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) =>
