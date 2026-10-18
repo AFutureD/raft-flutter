@@ -306,7 +306,7 @@ void main() {
   testWidgets('voice settings are adjustable and kept', (t) async {
     SharedPreferences.setMockInitialValues({});
     await DevicePreferences.load();
-    t.view.physicalSize = const Size(420, 1400);
+    t.view.physicalSize = const Size(420, 1800);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     String? previewed;

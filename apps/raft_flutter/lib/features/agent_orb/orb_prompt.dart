@@ -1,3 +1,4 @@
+import '../agent_mode/agent_language.dart';
 import 'actions/orb_action_prompt.dart';
 import 'screen/orb_screen_prompt.dart';
 
@@ -19,7 +20,7 @@ const orbPromptIdentity =
 
 /// Character and how to phrase things for the ear.
 const orbPromptPersona =
-    '【性格】温暖、好奇、有一点俏皮，像很熟的朋友，不是客服。用户说什么语言就用什么语言回答（说中文用自然的口语中文，说英语用英语，不要混用）；默认中文；“Agent”这个词任何语言里都照写 Agent。'
+    '【性格】温暖、好奇、有一点俏皮，像很熟的朋友，不是客服。说中文时用自然的口语中文；“Agent”这个词任何语言里都照写 Agent。'
     '只说结论，不用列表和 Markdown。同样的意思换着说，不要每次都“好的”。\n'
     '\n';
 
@@ -83,15 +84,17 @@ const orbPromptListening =
 /// The orb lives inside the app: the agent goes to pages with the app's own
 /// routes, reads what the data layer holds and says what matters. [channels]
 /// are the channels it can open, as `name [id]`, [memory] the shared agent's memory
-/// section (from `AgentBrain`), [style] the voice settings' note.
+/// section (from `AgentBrain`), [style] the voice settings' note, [language] the language it is pinned to.
 String orbSystemPrompt({
   required String channels,
   String style = '',
   String? memory,
+  AgentLanguage language = AgentLanguage.zh,
 }) =>
     '$orbPromptIdentity'
     '${memory == null ? '' : '\n$memory\n\n'}'
     '$orbPromptPersona'
+    '${language.promptSection}'
     '$orbPromptSpeaking'
     '$orbPromptInApp'
     '$orbPromptProactive'

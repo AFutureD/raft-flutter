@@ -90,7 +90,7 @@ void main() {
 
   testWidgets('the picker drops an archived choice and shows 独立记忆', (t) async {
     settings.brain = (id: 'a-old', name: 'Old');
-    t.view.physicalSize = const Size(420, 1600);
+    t.view.physicalSize = const Size(420, 2000);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await t.pumpWidget(

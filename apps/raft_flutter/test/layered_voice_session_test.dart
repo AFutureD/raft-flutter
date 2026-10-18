@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_mode/agent_engine.dart';
+import 'package:raft_flutter/features/agent_mode/agent_language.dart';
 import 'package:raft_flutter/features/agent_mode/agent_steering.dart';
 import 'package:raft_flutter/features/agent_mode/genkit_agent.dart';
 import 'package:raft_flutter/features/agent_mode/agent_thinking.dart';
@@ -165,7 +166,10 @@ void main() {
   late List<String> outText;
   var completes = 0;
 
-  LayeredVoiceSession make({Map<String, Object?>? Function(String)? tool}) {
+  LayeredVoiceSession make({
+    Map<String, Object?>? Function(String)? tool,
+    AgentLanguage language = AgentLanguage.zh,
+  }) {
     api = FakeApi();
     appTools = [];
     outText = [];
@@ -173,6 +177,7 @@ void main() {
     return LayeredVoiceSession(
       apiKey: 'test-key',
       systemPrompt: 'full prompt',
+      language: language,
       tools: const [
         {'name': 'navigate'},
       ],
@@ -205,6 +210,16 @@ void main() {
       ),
     );
   }
+
+  test('the voice layer relays in the language that is chosen', () {
+    make(language: AgentLanguage.en);
+    expect(live.parts.systemPrompt, layeredVoicePromptFor(AgentLanguage.en));
+    expect(live.parts.systemPrompt, contains(AgentLanguage.en.relayLine));
+    expect(live.parts.languageCode, 'en-US');
+    make();
+    expect(live.parts.systemPrompt, contains(AgentLanguage.zh.relayLine));
+    expect(live.parts.languageCode, 'cmn-CN');
+  });
 
   test('the voice layer has one tool and a short instruction', () async {
     final s = make();

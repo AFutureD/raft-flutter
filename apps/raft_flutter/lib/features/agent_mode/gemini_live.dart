@@ -29,6 +29,7 @@ class GeminiLiveSession implements VoiceSession {
     this.reasoning = AgentReasoning.low,
     this.fast = false,
     this.preferredModel,
+    this.languageCode,
     this.listenOnly = false,
     this.onGenerating,
     this.onAudio,
@@ -258,6 +259,12 @@ class GeminiLiveSession implements VoiceSession {
   /// the key has it; otherwise the automatic pick stands in for it.
   final String? preferredModel;
 
+  /// The language of the voice (`speechConfig.languageCode`, a BCP-47 code
+  /// such as `cmn-CN`), or null to leave it to the model. Not every Live model
+  /// takes it (the native-audio ones choose the language themselves): a model
+  /// that refuses it has it dropped and is remembered ([SetupMemory]).
+  final String? languageCode;
+
   /// Models picked so far, by [_pickKey]: the choice is part of the key, so a
   /// changed setting never gets the model of the old one.
   static final _picked = <String, String>{};
@@ -443,6 +450,7 @@ class GeminiLiveSession implements VoiceSession {
             'modality': responseModality,
             if (responseModality == 'AUDIO') 'voice': voice,
             'thinking': thinkingUsed,
+            if (_sendsLanguage) 'language': languageCode,
             'affective': _setup.affective && !listenOnly,
             'nonBlocking': nb,
             'tries': tries,
@@ -480,6 +488,10 @@ class GeminiLiveSession implements VoiceSession {
       _setup.nonBlocking = false;
       return 'nonBlocking';
     }
+    if (names(r'language') && _sendsLanguage) {
+      _setup.languageCode = false;
+      return 'languageCode';
+    }
     if (names('affective') && _setup.affective) {
       _setup.affective = false;
       return 'affective';
@@ -487,6 +499,11 @@ class GeminiLiveSession implements VoiceSession {
     if (listenOnly && _setup.textOnly) {
       _setup.textOnly = false;
       return 'textOnly';
+    }
+    // A refusal that names nothing: the newest ask goes first.
+    if (_sendsLanguage) {
+      _setup.languageCode = false;
+      return 'languageCode';
     }
     if (_setup.affective) {
       _setup.affective = false;
@@ -498,6 +515,12 @@ class GeminiLiveSession implements VoiceSession {
     }
     return null;
   }
+
+  /// Whether the setup asks for a language now.
+  bool get _sendsLanguage =>
+      languageCode != null &&
+      _setup.languageCode &&
+      responseModality == 'AUDIO';
 
   Future<void> _connect({
     required bool affective,
@@ -580,6 +603,8 @@ class GeminiLiveSession implements VoiceSession {
         if (_thinkingConfig != null) 'thinkingConfig': _thinkingConfig,
         if (responseModality == 'AUDIO')
           'speechConfig': {
+            if (languageCode != null && _setup.languageCode)
+              'languageCode': languageCode,
             'voiceConfig': {
               'prebuiltVoiceConfig': {'voiceName': voice},
             },
@@ -818,6 +843,9 @@ class SetupMemory {
   /// A listening session's text-only response.
   bool textOnly = true;
 
+  /// `speechConfig.languageCode` (the model may not take one).
+  bool languageCode = true;
+
   /// A relaying session's step in `GeminiLiveSession.relayThinking` that the
   /// model took (0: the first, as asked).
   int relayStep = 0;
@@ -831,6 +859,7 @@ class SetupMemory {
     ..affective = affective
     ..nonBlocking = nonBlocking
     ..textOnly = textOnly
+    ..languageCode = languageCode
     ..relayStep = relayStep
     ..levelKnown = levelKnown
     ..levelCeiling = levelCeiling;

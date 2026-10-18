@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 import 'agent_engine.dart';
+import 'agent_language.dart';
 import 'agent_steering.dart';
 import 'agent_thinking.dart';
 import 'agent_voice_settings.dart' show AgentVoiceSettings;
@@ -48,7 +49,7 @@ String layeredForVoice(String text) =>
 
 /// The instruction of the voice layer: it listens and speaks, and gives
 /// everything about Raft to `ask_agent`.
-const layeredVoicePrompt =
+String layeredVoicePromptFor(AgentLanguage language) =>
     '你是用户在 Raft 里的语音助手，以一个悬浮球的形态待在 App 里。你只负责听和说：所有和 Raft 有关的事，都交给 ask_agent。\n'
     '\n'
     '【交给 Agent】用户说的任何和 Raft、App、消息、任务、频道、简报、驾驶模式有关的话——读、查、去哪里、回复、改、"下一件"，'
@@ -66,7 +67,10 @@ const layeredVoicePrompt =
     '\n'
     '【没听清就问】如果转写出来的话乱码、几种语言混在一起、被截断，不要猜着回答；用他的语言简短说一句没听清，请他再说一遍。这样的话不要调用 ask_agent。\n'
     '\n'
-    '【语言】用户说什么语言就用什么语言回答，说中文用自然的口语中文，默认中文；“Agent”这个词任何语言里都照写 Agent。温暖、简短，像很熟的朋友。';
+    '【语言】${language.relayLine}“Agent”这个词任何语言里都照写 Agent。温暖、简短，像很熟的朋友。';
+
+/// [layeredVoicePromptFor] for the default language.
+final layeredVoicePrompt = layeredVoicePromptFor(AgentLanguage.zh);
 
 /// The instruction of Live when it only listens ([LayeredVoiceMode.appSpeaks]):
 /// what it generates is thrown away, so it is asked to generate nothing.
@@ -107,6 +111,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     this.voice = 'Sulafat',
     this.reasoning = AgentReasoning.low,
     this.liveModel,
+    this.language = AgentLanguage.zh,
     this.mode = LayeredVoiceMode.liveRelays,
     this.speech,
     this.listen = true,
@@ -161,12 +166,13 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
                   )
                 : LiveParts(
                     apiKey: apiKey,
-                    systemPrompt: layeredVoicePrompt,
+                    systemPrompt: layeredVoicePromptFor(language),
                     tools: const [askAgentDeclaration],
                     onToolCall: _liveTool,
                     voice: voice,
                     reasoning: reasoning,
                     liveModel: liveModel,
+                    languageCode: language.speechCode,
                     onAudio: _relayAudio,
                     onInputText: onInputText,
                     onOutputText: _relayOutput,
@@ -184,6 +190,7 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
     voice: p.voice,
     reasoning: p.reasoning,
     preferredModel: p.liveModel,
+    languageCode: p.languageCode,
     systemPrompt: p.systemPrompt,
     tools: p.tools,
     onToolCall: p.onToolCall,
@@ -310,6 +317,10 @@ class LayeredVoiceSession implements VoiceSession, AppSpeaker {
 
   /// The Live model the person chose; null lets the app pick.
   final String? liveModel;
+
+  /// The language the voice is pinned to (the prompt says it; Live is also
+  /// asked for it, where the model takes that).
+  final AgentLanguage language;
   @override
   final void Function(Uint8List pcm24k)? onAudio;
   @override
@@ -888,6 +899,7 @@ class LiveParts {
     required this.voice,
     required this.reasoning,
     this.liveModel,
+    this.languageCode,
     this.listenOnly = false,
     this.onGenerating,
     this.onAudio,
@@ -909,6 +921,9 @@ class LiveParts {
 
   /// The Live model the person chose; null lets the app pick.
   final String? liveModel;
+
+  /// The language of the voice (see `GeminiLiveSession.languageCode`).
+  final String? languageCode;
   final void Function(Uint8List pcm24k)? onAudio;
   final void Function(String text)? onInputText;
   final void Function(String text)? onOutputText;
@@ -985,6 +1000,7 @@ VoiceSession createLayeredSession({
   voice: voice,
   reasoning: reasoning,
   liveModel: AgentVoiceSettings.instance.liveModel,
+  language: AgentVoiceSettings.instance.language,
   onAudio: onAudio,
   onInputText: onInputText,
   onOutputText: onOutputText,

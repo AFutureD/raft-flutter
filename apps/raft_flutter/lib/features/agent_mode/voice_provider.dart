@@ -116,6 +116,7 @@ VoiceSession createVoiceSession({
     reasoning: reasoning,
     // Read now: a change of the setting reaches the next session.
     preferredModel: AgentVoiceSettings.instance.liveModel,
+    languageCode: AgentVoiceSettings.instance.language.speechCode,
     systemPrompt: systemPrompt,
     tools: tools,
     onToolCall: onToolCall,

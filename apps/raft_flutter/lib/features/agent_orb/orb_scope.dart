@@ -1,3 +1,4 @@
+import '../agent_mode/agent_language.dart';
 import '../agent_mode/agent_steering.dart';
 import 'actions/orb_action_declarations.dart'
     show orbActionCapabilities, orbDrivingCapabilities;
@@ -128,6 +129,7 @@ AgentScope orbAgentScope({
   String? memory,
   String? pending,
   String? extra,
+  AgentLanguage language = AgentLanguage.zh,
 }) => AgentScope(
   systemPrompt: orbAgentPrompt(
     mode: mode,
@@ -137,6 +139,7 @@ AgentScope orbAgentScope({
     memory: memory,
     pending: pending,
     extra: extra,
+    language: language,
   ),
   tools: _inState(declarations, mode, driving),
 );
@@ -166,11 +169,13 @@ String orbAgentPrompt({
   String? memory,
   String? pending,
   String? extra,
+  AgentLanguage language = AgentLanguage.zh,
 }) {
   final b = StringBuffer(orbPromptIdentity);
   if (memory != null) b.write('\n$memory\n\n');
   b
     ..write(orbPromptPersona)
+    ..write(language.promptSection)
     ..write(orbPromptSpeaking)
     ..write(orbPromptContextAgent);
   switch (mode) {

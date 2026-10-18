@@ -1374,6 +1374,7 @@ class OrbController extends ChangeNotifier {
   }
 
   String _systemPrompt() => orbSystemPrompt(
+    language: AgentVoiceSettings.instance.language,
     style: AgentVoiceSettings.instance.styleNote,
     memory: _brainContext,
     channels: orbChannelsLine(orbDirectoryOf(workspace)),
@@ -1810,6 +1811,7 @@ class OrbController extends ChangeNotifier {
       mode: orbModeOf(pending: pending != null, driving: _driving),
       driving: _driving,
       declarations: _declared(),
+      language: AgentVoiceSettings.instance.language,
       style: AgentVoiceSettings.instance.styleNote,
       memory: _brainContext,
       channels: orbChannelsLine(orbDirectoryOf(workspace)),

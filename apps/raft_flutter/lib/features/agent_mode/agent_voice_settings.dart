@@ -10,10 +10,13 @@ import '../../data/device_preferences.dart';
 import '../agent_orb/orb_preference.dart' show AgentOrbPreference;
 import 'agent_audio.dart';
 import 'agent_engine.dart';
+import 'agent_language.dart';
 import 'agent_thinking.dart';
 import 'gemini_live.dart' show GeminiLiveSession;
 import 'layered_voice_mode.dart';
 import 'voice_provider.dart';
+
+export 'agent_language.dart';
 
 enum AgentPace { slow, normal, fast }
 
@@ -88,6 +91,11 @@ class AgentVoiceSettings extends ChangeNotifier {
   static const liveModelLabels = {
     liveModelAuto: '自动（${GeminiLiveSession.preferredFamily}）',
     ...GeminiLiveSession.selectableModels,
+  };
+
+  /// The languages to choose from, as they are shown.
+  static final languageLabels = {
+    for (final l in AgentLanguage.values) l: l.label,
   };
 
   static const warmthLabels = {
@@ -192,6 +200,11 @@ class AgentVoiceSettings extends ChangeNotifier {
     final v = liveModelChoice;
     return v == liveModelAuto ? null : v;
   }
+
+  /// The language the agent answers in, whatever the person's words mix in.
+  AgentLanguage get language =>
+      _enum(AgentLanguage.values, 'language', AgentLanguage.zh);
+  set language(AgentLanguage v) => _write('language', v.name);
 
   AgentPace get pace => _enum(AgentPace.values, 'pace', AgentPace.normal);
   set pace(AgentPace v) => _write('pace', v.name);
@@ -395,6 +408,17 @@ class AgentVoiceSettingsPage extends StatelessWidget {
                   style: t.body(12, color: t.hint),
                 ),
               ],
+              section('Agent 语言'),
+              choices(
+                AgentVoiceSettings.languageLabels,
+                s.language,
+                (v) => s.language = v,
+              ),
+              section(
+                '始终用这个语言回答，你夹几个别的语言的词也不会换。下一次对话生效。',
+                key: const ValueKey('agent-language-note'),
+                style: t.body(12, color: t.hint),
+              ),
               section('声音'),
               for (final e in AgentVoiceSettings.voicesOf(provider).entries)
                 ListTile(
