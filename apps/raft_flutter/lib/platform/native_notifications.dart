@@ -69,6 +69,7 @@ class NativeNotificationService extends ChangeNotifier {
   Future<void> _preferenceTail = Future.value();
   int _preferenceRevision = 0;
   Future<void>? _initializing;
+  Future<bool>? _initialPermission;
   Future<void> _tail = Future.value();
   String? _scope;
   int _epoch = 0, _id = 0;
@@ -288,6 +289,55 @@ class NativeNotificationService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Only an authenticated workspace may initiate the device's first prompt.
+  /// Ordinary initialization, login and service binds never ask for permission.
+  Future<void> bindAuthenticatedWorkspace(String? scope) async {
+    await bind(scope);
+    if (_scope != scope ||
+        scope == null ||
+        !available ||
+        _platform != TargetPlatform.macOS) {
+      return;
+    }
+    final recorded = await (_initialPermission ??= _requestInitialPermission());
+    // A reply belongs to the device, but requestEnable fences its old account.
+    // Re-read for the currently bound workspace after an in-flight account change.
+    if (recorded && _scope != null) await refreshPermission();
+  }
+
+  Future<bool> _requestInitialPermission() async {
+    final key = 'raft.notifications.initial-permission.${_platform.name}.v1';
+    try {
+      if (!available || _scope == null) {
+        _initialPermission = null;
+        return false;
+      }
+      if (await _preferences.read(key) == true) return true;
+      if (_scope == null) {
+        _initialPermission = null;
+        return false;
+      }
+      // Persist before asking: a denied prompt must not recur after a restart.
+      if (!await _preferences.write(key, true)) {
+        throw StateError('Permission request marker could not be saved.');
+      }
+      if (_scope == null) {
+        // Logout won the storage await, before any system prompt was shown.
+        await _preferences.write(key, false);
+        _initialPermission = null;
+        return false;
+      }
+      if (!permitted) await requestEnable(true);
+      return true;
+    } catch (_) {
+      if (_scope != null) {
+        error = 'Notification settings could not be saved on this device.';
+        notifyListeners();
+      }
+      return false;
+    }
+  }
+
   String _key(String scope) => notificationPreferenceKey(scope);
 
   Future<void> requestEnable(bool value) async {
@@ -424,9 +474,7 @@ class NativeNotificationService extends ChangeNotifier {
         final key = conversation ?? _conversationOf(payload);
         final id = _notificationId(payload, key);
         final previous = key == null ? null : _live[key];
-        final count = (unread ?? 0) > 0
-            ? unread!
-            : (previous?.unread ?? 0) + 1;
+        final count = (unread ?? 0) > 0 ? unread! : (previous?.unread ?? 0) + 1;
         // A count refresh keeps the notification where it is (an alert that
         // already popped up stays on the messages channel) and never alerts.
         final asQuiet = quiet && (previous == null || previous.quiet);

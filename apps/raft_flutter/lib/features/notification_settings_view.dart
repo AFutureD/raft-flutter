@@ -427,13 +427,17 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
         key: const ValueKey('notification-settings-card'),
         title: 'Desktop notifications',
         description: 'Raft Desktop shows system notifications for new DMs, direct mentions, and followed thread replies while the window is in the background. Web push is not used on desktop.',
-        status: unavailable ? 'Unavailable' : 'Managed by the system',
+        status: unavailable
+            ? 'Unavailable'
+            : platform == TargetPlatform.macOS && service.initialized
+            ? service.permitted
+                  ? 'Enabled'
+                  : 'Off in system settings'
+            : 'Managed by the system',
         hint: unavailable
             ? 'This desktop build cannot show system notifications.'
             : desktopHint(context, platform),
-        error:
-            error ??
-            (platform == TargetPlatform.windows ? service.error : null),
+        error: error ?? (service.canOpenSettings ? service.error : null),
         message: testPosted ? testSentMessage(context, platform) : null,
         actionLabel: 'Send a test notification',
         actionTone: RaftButtonRecipeVariant.success,
@@ -450,7 +454,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
               ),
         muted: false,
       );
-      if (platform != TargetPlatform.windows) return card;
+      if (!service.canOpenSettings) return card;
       return RaftGapColumn(
         gap: RaftSpace.x3,
         children: [
