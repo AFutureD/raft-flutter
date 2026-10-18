@@ -382,6 +382,8 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
       context,
       platform == TargetPlatform.windows
           ? 'Manage notifications for Raft in {path}. Do Not Disturb may send notifications directly to the notification center without showing a banner.'
+          : platform == TargetPlatform.macOS
+          ? 'Whether these notifications appear is decided by the system, not by Raft: {path}. A Focus mode or Do Not Disturb may delay or silence banners.'
           : 'Whether these notifications appear is decided by the system, not by Raft: {path}. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.',
       {'path': path},
     );
@@ -470,7 +472,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
                   : () => nativeAction(service.openSettings),
             ),
           ),
-          const WindowsTraySettings(),
+          if (platform == TargetPlatform.windows) const WindowsTraySettings(),
         ],
       );
     }

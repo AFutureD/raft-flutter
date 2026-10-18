@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_flutter/features/windows_tray_settings.dart';
 
 import 'native_notifications_test.dart' show deferredMacNotifications;
 import 'notification_settings_view_test.dart' show host, fixture, card;
@@ -52,6 +53,8 @@ void main() {
         );
         await t.pumpAndSettle();
         expect(card(t).status, 'Off in system settings');
+        expect(find.byType(WindowsTraySettings), findsNothing);
+        expect(card(t).hint, isNot(contains('首次发出通知')));
         expect(find.text('系统里没开'), findsOneWidget);
         final settings = find.text('打开通知设置');
         expect(settings, findsOneWidget);
