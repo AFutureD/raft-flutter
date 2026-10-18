@@ -1,0 +1,42 @@
+{
+  "pull_request": "https://github.com/kevinzhow/raft-flutter/pull/234",
+  "before_source": "b22b6b9628b2688db3a363e39d32e153e1778a62",
+  "after_source": "8f07569593b428a079cb000bbd4189feada34ce2",
+  "sdk": "Flutter 3.47.6 / Dart 3.13.5",
+  "render": "Flutter widget preview; synthetic data; bundled fonts; desktop density; 2x capture",
+  "not_claimed": [
+    "native device",
+    "pixel parity",
+    "performance"
+  ],
+  "files": [
+    {
+      "name": "before-brutal.png",
+      "sha256": "e4caa98e5349b1c491c06d79322977f9413a3ad6d1ff418832ed28084d1d03fe",
+      "bytes": 84644,
+      "width": 1800,
+      "height": 1200
+    },
+    {
+      "name": "after-brutal.png",
+      "sha256": "9e2cc6861e398fd7e0a88b01a84e12d1ca26c2c272e102d4c3acdb004410b5e1",
+      "bytes": 84659,
+      "width": 1800,
+      "height": 1200
+    },
+    {
+      "name": "before-elegant.png",
+      "sha256": "ce9813645bd98d28d191c93b76253677d742061d271a53f373879b91c6eff0bc",
+      "bytes": 96418,
+      "width": 1800,
+      "height": 1200
+    },
+    {
+      "name": "after-elegant.png",
+      "sha256": "1014d5ad39231bf6b2e8d3be65bff0edb07d6bbd188c026084731db5244c2b8b",
+      "bytes": 96423,
+      "width": 1800,
+      "height": 1200
+    }
+  ]
+}
