@@ -475,7 +475,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
       );
     }
     final chinese = Localizations.maybeLocaleOf(context)?.languageCode == 'zh';
-    return RaftNotificationSettingsCard(
+    final card = RaftNotificationSettingsCard(
       key: const ValueKey('notification-settings-card'),
       title: 'Phone notifications',
       description: platform == TargetPlatform.android
@@ -485,6 +485,10 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
           ? 'Unavailable'
           : service.enabled
           ? (chinese ? '已开启' : 'Enabled')
+          : platform == TargetPlatform.iOS &&
+                service.initialized &&
+                !service.permitted
+          ? 'Off in system settings'
           : 'Not enabled',
       hint: unavailable
           ? 'System notifications are unavailable on this device.'
@@ -541,6 +545,27 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
             }),
       saveLabel: busy && !nativeBusy ? 'Saving…' : 'Save',
       onSave: blocked || !verified || muted == savedMuted ? null : save,
+    );
+    if (platform != TargetPlatform.iOS ||
+        !service.initialized ||
+        service.permitted)
+      return card;
+    return RaftGapColumn(
+      gap: RaftSpace.x3,
+      children: [
+        card,
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: RaftButton(
+            label: 'Open notification settings',
+            tone: RaftButtonRecipeVariant.outline,
+            size: RaftButtonRecipeSize.sm,
+            onPressed: blocked || unavailable
+                ? null
+                : () => nativeAction(service.openSettings),
+          ),
+        ),
+      ],
     );
   }
 }

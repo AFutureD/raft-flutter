@@ -141,6 +141,9 @@ class NativeNotificationService extends ChangeNotifier {
       _platform == TargetPlatform.windows ||
       _platform == TargetPlatform.linux;
 
+  bool get _requestsPermissionOnWorkspace =>
+      const {TargetPlatform.macOS, TargetPlatform.iOS}.contains(_platform);
+
   // Desktop has no app-owned opt-in; the system notification switch owns it
   // (on Linux the notification daemon: Do Not Disturb, per-app settings).
   void _updateEnabled() {
@@ -276,7 +279,9 @@ class NativeNotificationService extends ChangeNotifier {
     if (scope != null && !systemManaged) {
       try {
         await _preferenceTail;
-        final wanted = await _preferences.read(_key(scope)) ?? false;
+        final wanted =
+            await _preferences.read(_key(scope)) ??
+            _requestsPermissionOnWorkspace;
         if (epoch != _epoch || revision != _preferenceRevision) return;
         _wanted = wanted;
       } catch (_) {
@@ -296,7 +301,7 @@ class NativeNotificationService extends ChangeNotifier {
     if (_scope != scope ||
         scope == null ||
         !available ||
-        _platform != TargetPlatform.macOS) {
+        !_requestsPermissionOnWorkspace) {
       return;
     }
     final recorded = await (_initialPermission ??= _requestInitialPermission());
@@ -381,11 +386,11 @@ class NativeNotificationService extends ChangeNotifier {
       return;
     }
     enabled = value && available && permitted;
-    _wanted = enabled;
+    _wanted = _requestsPermissionOnWorkspace ? value : enabled;
     error = value && !enabled
         ? 'Allow notifications in system settings to receive alerts.'
         : null;
-    final savedValue = enabled;
+    final savedValue = _wanted;
     _preferenceTail = _preferenceTail.then((_) async {
       if (!current()) return;
       try {
