@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/agent_orb/briefing/orb_briefing_models.dart';
 import 'package:raft_flutter/features/agent_orb/nav/orb_resolver.dart';
+import 'package:raft_flutter/features/agent_orb/orb_driving_surface.dart'
+    show OrbSurfaceKind;
 import 'package:raft_flutter/features/agent_orb/orb_fast_path.dart';
 
 /// Commands the app does by itself: unambiguous words, one tool, a sentence
@@ -17,6 +19,7 @@ OrbFastCommand? parse(
   bool activity = false,
   bool queue = false,
   bool inConversation = false,
+  OrbSurfaceKind surface = OrbSurfaceKind.deck,
 }) => orbFastCommand(
   said,
   driving: driving,
@@ -24,7 +27,11 @@ OrbFastCommand? parse(
   queue: queue,
   directory: directory,
   inConversation: inConversation,
+  surface: surface,
 );
+
+const onList = OrbSurfaceKind.list;
+const onDetail = OrbSurfaceKind.detail;
 
 void main() {
   group('which words are a command', () {
@@ -113,8 +120,8 @@ void main() {
       }
     });
 
-    test('not driving, and not in a conversation', () {
-      expect(parse('没读的', driving: true), isNull);
+    test('not in a conversation; while driving it is a list instead', () {
+      expect(parse('没读的', driving: true)?.tool, 'show_list');
       expect(parse('有什么新的', driving: true, activity: true), isNull);
       expect(parse('没读的', inConversation: true), isNull);
       expect(parse('没读的', inConversation: true, activity: true), isNull);
@@ -185,6 +192,141 @@ void main() {
         '打开了吗',
       ]) {
         expect(parse(said), isNull, reason: said);
+      }
+    });
+  });
+
+  group('driving: the surfaces', () {
+    test('the unread, listed: from any surface, even in a conversation', () {
+      for (final said in [
+        '列一下未读',
+        '列一下没读的',
+        '未读的列一下',
+        '把未读的拿出来',
+        '把没读的列出来',
+        '未读',
+        '有什么没读的',
+        '好的，把未读的列一下',
+      ]) {
+        for (final surface in OrbSurfaceKind.values) {
+          final c = parse(said, driving: true, surface: surface);
+          expect((c?.kind, c?.tool), ('list', 'show_list'), reason: said);
+          expect(c?.args, {'kind': 'unread'}, reason: said);
+        }
+      }
+      expect(
+        parse('列一下未读', driving: true, inConversation: true)?.tool,
+        'show_list',
+      );
+      // Not driving it is the Activity's cards, as before.
+      expect(parse('列一下未读', activity: true)?.tool, 'get_briefing');
+    });
+
+    test('mentions and my tasks', () {
+      for (final said in ['@我的', '点名我的消息', '把@我的列一下', '看看点名我的']) {
+        expect(parse(said, driving: true)?.args, {
+          'kind': 'mentions',
+        }, reason: said);
+      }
+      for (final said in ['我的任务', '把我的任务列出来', '看一下我的任务']) {
+        expect(parse(said, driving: true)?.args, {
+          'kind': 'tasks',
+        }, reason: said);
+      }
+      expect(parse('我的任务'), isNull, reason: 'not driving');
+    });
+
+    test('"第 N 个" opens that row, on a list and on a detail only', () {
+      for (final said in ['第 2 个', '第2个', '第二个', '第三条', '打开第 2 个', '打开第一个吧']) {
+        for (final surface in [onList, onDetail]) {
+          final c = parse(said, driving: true, surface: surface);
+          expect((c?.kind, c?.tool), ('row', 'open_item'), reason: said);
+        }
+        expect(parse(said, driving: true), isNull, reason: 'the deck has none');
+        expect(parse(said, surface: onList), isNull, reason: 'not driving');
+      }
+      expect(parse('第 2 个', driving: true, surface: onList)?.args, {'n': 2});
+      expect(parse('第十二条', driving: true, surface: onList)?.args, {'n': 12});
+      expect(parse('第 0 个', driving: true, surface: onList), isNull);
+      expect(parse('第 99 个', driving: true, surface: onList), isNull);
+    });
+
+    test('"下一批" pages a list; on a detail "下一个" is the next row', () {
+      for (final said in ['下一批', '下一页', '还有呢', '更多', '再来一批']) {
+        final c = parse(said, driving: true, surface: onList);
+        expect((c?.kind, c?.tool), ('page', 'driving_next'), reason: said);
+        expect(
+          parse(said, driving: true, surface: onDetail),
+          isNull,
+          reason: said,
+        );
+      }
+      expect(
+        parse('下一个', driving: true, surface: onDetail)?.tool,
+        'driving_next',
+      );
+      expect(
+        parse('下一件', driving: true, surface: onDetail)?.tool,
+        'driving_next',
+      );
+      expect(
+        parse('上一个', driving: true, surface: onDetail)?.tool,
+        'driving_previous',
+      );
+    });
+
+    test('"下一件" is the deck\'s; on a list it is not guessed', () {
+      expect(parse('下一件', driving: true)?.tool, 'driving_next');
+      expect(parse('下一件', driving: true, surface: onList), isNull);
+      expect(parse('上一件', driving: true, surface: onList), isNull);
+      // The pass over the tasks keeps "下一个".
+      expect(
+        parse('下一个', driving: true, queue: true, surface: onList)?.tool,
+        'next_task',
+      );
+    });
+
+    test(
+      '"返回" goes back from a list or a detail, and means nothing on the deck',
+      () {
+        for (final said in ['返回', '回去', '刚才那几个', '回到刚才那几个', '返回吧', '上一屏']) {
+          for (final surface in [onList, onDetail]) {
+            final c = parse(said, driving: true, surface: surface);
+            expect((c?.kind, c?.tool), ('back', 'driving_back'), reason: said);
+          }
+          expect(parse(said, driving: true), isNull, reason: said);
+          expect(parse(said, surface: onList), isNull, reason: 'not driving');
+        }
+      },
+    );
+
+    test('stopping works on every surface', () {
+      for (final surface in OrbSurfaceKind.values) {
+        expect(
+          parse('停车了', driving: true, surface: surface)?.tool,
+          'set_driving_mode',
+        );
+      }
+    });
+
+    test('words that only look like them go to the model', () {
+      for (final said in [
+        '第二个人怎么说',
+        '第 2 个是谁',
+        '返回上一件事怎么样了',
+        '未读的标成已读',
+        '回复第 2 个',
+        '我的任务有几个了',
+        '把未读的回复一下',
+        '下一批人是谁',
+      ]) {
+        for (final surface in OrbSurfaceKind.values) {
+          expect(
+            parse(said, driving: true, surface: surface),
+            isNull,
+            reason: said,
+          );
+        }
       }
     });
   });

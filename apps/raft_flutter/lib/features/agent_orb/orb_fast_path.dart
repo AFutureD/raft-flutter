@@ -2,6 +2,7 @@ import '../agent_mode/agent_steering.dart';
 import 'briefing/orb_briefing_models.dart' show OrbBriefing;
 import 'nav/orb_resolver.dart';
 import 'orb_key_facts.dart';
+import 'orb_driving_surface.dart' show OrbSurfaceKind;
 import 'orb_open.dart';
 
 /// A command the app can carry out with no model at all: unambiguous words,
@@ -9,7 +10,8 @@ import 'orb_open.dart';
 class OrbFastCommand {
   const OrbFastCommand(this.kind, this.tool, [this.args = const {}]);
 
-  /// `next`, `previous`, `park`, `drive`, `item`, `open`, `unread`.
+  /// `next`, `previous`, `park`, `drive`, `item`, `open`, `unread`, and while
+  /// driving `list`, `row`, `page`, `back`.
   final String kind;
   final String tool;
   final Map<String, Object?> args;
@@ -36,7 +38,7 @@ final _item = RegExp(
 // no "标为已读", no "回复"): what is more than this goes to the model.
 const _unreadVerbs =
     '(?:把|给我|帮我|我想要?|我要|让我|想|再|看一下|看看|看|听一下|听听|听|读一下|读读|读|念一下|念念|念|'
-    '说一下|说说|说|拿出来|拿|查一下|查看|查|找出来|找|打开|显示|展示|列出来|列出|汇总|总结|整理|一下|都|全部|所有的?|'
+    '说一下|说说|说|列一下|列一列|拿出来|拿|查一下|查看|查|找出来|找|打开|显示|展示|列出来|列出|汇总|总结|整理|一下|都|全部|所有的?|'
     '那些|这些|那几条|这几条|吧|啊|呀|嘛|麻烦|请)';
 const _notRead = '(?:我)?(?:还)?(?:没有?|未)(?:读|看|查看)(?:过)?(?:的)?';
 const _unreadNoun =
@@ -54,6 +56,22 @@ final _unreadHas = RegExp('^$_hasPrefix$_notRead$_hasTail\$');
 final _newAsk = RegExp('^$_unreadVerbs*新的?$_unreadNoun$_unreadVerbs*\$');
 final _newHas = RegExp('^$_hasPrefix新的?$_hasTail\$');
 final _summaries = RegExp('^$_unreadVerbs*(?:动态的?)?摘要$_unreadVerbs*\$');
+
+// While driving: the surfaces. "第 2 个" is the row of the list on the screen.
+final _nth = RegExp(
+  r'^(?:打开|点开|点进去|看一下|看看|看|读一下|读|念一下|念)?第([0-9一二三四五六七八九十两]+)[个条件项位](?:吧|啊|呀)?$',
+);
+final _nextPage = RegExp(
+  r'^(?:下一[批页组波]|再来(?:一批|几个|几条)?|还有呢|还有吗|更多|后面的呢?|翻页|往后翻)(?:吧|啊|呀)?$',
+);
+final _back = RegExp(
+  r'^(?:返回|回去|退回去?|回到(?:刚才|上面|前面|上一屏)(?:那几个|的?列表)?|刚才那几个|上一屏)(?:吧|啊|呀)?$',
+);
+const _listVerbs = '(?:把|给我|帮我|看看|看一下|看|列一下|列一列|列出来|列出|拿出来)';
+final _mentionsAsk = RegExp(
+  '^$_listVerbs*(?:@我的|点名我的|@我|点名我)(?:消息|的)?$_listVerbs*\$',
+);
+final _tasksAsk = RegExp('^$_listVerbs*我的任务$_listVerbs*\$');
 
 int? _number(String s) {
   final n = int.tryParse(s);
@@ -76,7 +94,8 @@ int? _number(String s) {
 /// [onActivity] say where the person is; [queue]: a pass over the stale tasks
 /// is under way (then "下一个" is its next task); [inConversation]: a channel
 /// or private conversation is open (there "未读" may mean its own, the model
-/// decides).
+/// decides). [surface]: what the driving layer shows (a list or a detail has
+/// its own "第 N 个", "下一批", "返回").
 OrbFastCommand? orbFastCommand(
   String said, {
   required bool driving,
@@ -84,17 +103,46 @@ OrbFastCommand? orbFastCommand(
   required bool queue,
   required OrbDirectory directory,
   bool inConversation = false,
+  OrbSurfaceKind surface = OrbSurfaceKind.deck,
 }) {
   final s = _plain(said);
   if (s.isEmpty) return null;
   if (driving) {
     if (_next.hasMatch(s)) {
-      return queue
-          ? const OrbFastCommand('next', 'next_task')
+      if (queue) return const OrbFastCommand('next', 'next_task');
+      // On a list "下一个" may be the next page or the next row: the model
+      // decides.
+      return surface == OrbSurfaceKind.list
+          ? null
           : const OrbFastCommand('next', 'driving_next');
     }
     if (_previous.hasMatch(s)) {
-      return const OrbFastCommand('previous', 'driving_previous');
+      return surface == OrbSurfaceKind.list
+          ? null
+          : const OrbFastCommand('previous', 'driving_previous');
+    }
+    if (surface != OrbSurfaceKind.deck) {
+      if (_back.hasMatch(s)) {
+        return const OrbFastCommand('back', 'driving_back');
+      }
+      if (surface == OrbSurfaceKind.list && _nextPage.hasMatch(s)) {
+        return const OrbFastCommand('page', 'driving_next');
+      }
+      final nth = _nth.firstMatch(s);
+      final n = nth == null ? null : _number(nth.group(1)!);
+      if (n != null && n >= 1 && n <= 50) {
+        return OrbFastCommand('row', 'open_item', {'n': n});
+      }
+    }
+    // The lists, from any surface (a new list replaces the one on the screen).
+    if (s.length <= 24 && (_unreadAsk.hasMatch(s) || _unreadHas.hasMatch(s))) {
+      return const OrbFastCommand('list', 'show_list', {'kind': 'unread'});
+    }
+    if (_mentionsAsk.hasMatch(s)) {
+      return const OrbFastCommand('list', 'show_list', {'kind': 'mentions'});
+    }
+    if (_tasksAsk.hasMatch(s)) {
+      return const OrbFastCommand('list', 'show_list', {'kind': 'tasks'});
     }
     if (_park.hasMatch(s)) {
       return const OrbFastCommand('park', 'set_driving_mode', {'on': false});
