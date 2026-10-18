@@ -10,7 +10,6 @@ import 'package:flutter/rendering.dart';
 import 'design_primitives.dart';
 import 'form_controls.dart';
 import 'icons.dart';
-import 'primitive_tokens.dart';
 import 'recipes/button_variants.g.dart';
 
 import 'recipe_surface.dart';
@@ -569,10 +568,13 @@ class RaftSectionHeader extends StatelessWidget {
 /// sections do, and the row is one button for pointer, keyboard and screen
 /// readers (`expanded` state, `label, count` name).
 ///
-/// The caller owns [expanded] (see `SidebarDisclosureStore` for the
-/// device-local memory pattern) and the content; this widget owns nothing but
-/// the disclosure affordance.
-class RaftCollapsibleSectionHeader extends StatelessWidget {
+/// Opening and closing are animated instead of jumping: the content slides
+/// open from under the header while it fades in, and folds back the same way
+/// (shortened to zero under `MediaQuery.disableAnimations`). The caller owns
+/// [expanded] (see `SidebarDisclosureStore` for the device-local memory
+/// pattern) and the content; this widget owns the disclosure affordance and
+/// its motion.
+class RaftCollapsibleSectionHeader extends StatefulWidget {
   const RaftCollapsibleSectionHeader({
     super.key,
     required this.label,
@@ -601,18 +603,81 @@ class RaftCollapsibleSectionHeader extends StatelessWidget {
   final double gap;
 
   @override
+  State<RaftCollapsibleSectionHeader> createState() =>
+      _RaftCollapsibleSectionHeaderState();
+}
+
+class _RaftCollapsibleSectionHeaderState
+    extends State<RaftCollapsibleSectionHeader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _openDuration,
+    reverseDuration: _closeDuration,
+    value: widget.expanded ? 1 : 0,
+  );
+
+  // Long enough to read as motion rather than a jump, short enough that the
+  // section still feels immediate under the thumb.
+  static const Duration _openDuration = Duration(milliseconds: 240);
+  static const Duration _closeDuration = Duration(milliseconds: 200);
+
+  /// Height of the body as a fraction of its laid-out size: the disclosure
+  /// opens from zero under the header and folds back to it. It decelerates on
+  /// the way open and starts gently on the way closed.
+  late final CurvedAnimation _size = CurvedAnimation(
+    parent: _controller,
+    curve: const Cubic(.2, 0, 0, 1),
+    reverseCurve: const Cubic(.4, 0, .7, 1),
+  );
+
+  /// The content fades a beat behind the height, so rows do not pop while the
+  /// gap is still opening, and lingers a beat on the way out.
+  late final CurvedAnimation _fade = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(.1, 1, curve: Curves.easeOut),
+    reverseCurve: const Interval(0, .8, curve: Curves.easeIn),
+  );
+
+  @override
+  void didUpdateWidget(RaftCollapsibleSectionHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expanded == widget.expanded) return;
+    // `MediaQuery.disableAnimations` turns the fold into a cut.
+    final reducedMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    _controller.duration = reducedMotion ? Duration.zero : _openDuration;
+    _controller.reverseDuration = reducedMotion
+        ? Duration.zero
+        : _closeDuration;
+    if (widget.expanded) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _size.dispose();
+    _fade.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : RaftPrimitives.controlDuration;
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    // The chevron turns over the same beat as the fold it announces.
+    final duration = reducedMotion ? Duration.zero : _openDuration;
     final header = RaftSectionHeader(
-      label: label,
-      icon: icon,
-      count: count,
-      action: action,
+      label: widget.label,
+      icon: widget.icon,
+      count: widget.count,
+      action: widget.action,
       leading: AnimatedRotation(
-        turns: expanded ? .25 : 0,
+        turns: widget.expanded ? .25 : 0,
         duration: duration,
         child: RaftIcon(
           RaftGlyph.chevronRight,
@@ -628,27 +693,47 @@ class RaftCollapsibleSectionHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Semantics(
-          expanded: expanded,
+          expanded: widget.expanded,
           child: RaftControl(
-            key: disclosureKey,
+            key: widget.disclosureKey,
             kind: RaftControlKind.textLink,
             visualHeight: 16,
             minimumTargetSize: 16,
             shadow: false,
-            semanticLabel: count == null ? label : '$label, $count',
-            onPressed: () => onExpandedChanged(!expanded),
+            semanticLabel: widget.count == null
+                ? widget.label
+                : '${widget.label}, ${widget.count}',
+            onPressed: () => widget.onExpandedChanged(!widget.expanded),
             // The control's own name is the row's name: the chevron and the
             // eyebrow must not be read again.
             child: ExcludeSemantics(child: header),
           ),
         ),
-        if (expanded) ...[
-          SizedBox(height: gap),
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) SizedBox(height: gap),
-            children[i],
-          ],
-        ],
+        // The body leaves the tree only once it is fully folded, so a closed
+        // section stays one row for layout, tests and screen readers.
+        ListenableBuilder(
+          listenable: _controller,
+          child: Padding(
+            padding: EdgeInsets.only(top: widget.gap),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < widget.children.length; i++) ...[
+                  if (i > 0) SizedBox(height: widget.gap),
+                  widget.children[i],
+                ],
+              ],
+            ),
+          ),
+          builder: (context, child) => _controller.isDismissed
+              ? const SizedBox.shrink()
+              : SizeTransition(
+                  sizeFactor: _size,
+                  alignment: AlignmentDirectional.topStart,
+                  child: FadeTransition(opacity: _fade, child: child),
+                ),
+        ),
       ],
     );
   }

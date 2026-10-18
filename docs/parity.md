@@ -1850,16 +1850,20 @@ parity never caught it. Causes and fixes:
 
 ## Agent profile Skills: collapsed by default (owner decision 2026-10-18)
 
-Kevin: "我们 skill 非常多，需要滑动很久才可以看到最后，这里我们可以做成一个收起展开吗？默认是收起状态".
 Web's embedded `AgentSkills` renders every card of every source path, so on an agent with many skills the
-profile's Actions and every section after them sat far below the first screens.
+profile's Actions and every section after them sat far below the first screens. Owner request: make the list a
+disclosure that starts collapsed.
 
 Flutter now renders the section as one collapsible header row (`RaftCollapsibleSectionHeader`, raft_ui):
 
 * Collapsed is the default and is the whole section: the `SKILLS` eyebrow with its count and a right chevron
-  (the same quarter-turn chevron the sidebar sections use, 100 ms `RaftPrimitives.controlDuration`, none when
-  animations are reduced). Tapping the row, Enter/Space, or the screen reader's tap opens it; the row is one
-  button that announces `Skills, N` with an expanded/collapsed state.
+  (the same quarter-turn chevron the sidebar sections use, none when animations are reduced). Tapping the row,
+  Enter/Space, or the screen reader's tap opens it; the row is one button that announces `Skills, N` with an
+  expanded/collapsed state.
+* Opening and closing are animated, not a cut: the body unfolds from under the header while it fades in (240 ms
+  open, 200 ms close, decelerating in and easing out again) and the chevron turns over the same beat. The body
+  leaves the tree only once it is fully folded, so a closed section is still exactly one header row for layout,
+  tests and screen readers. `MediaQuery.disableAnimations` reduces both to a cut.
 * Expanded adds the Global and Workspace sub-sections exactly as Web renders them (path groups, cards, `/command`
   badges, descriptions clamped to two lines, empty lines) below the unchanged header. Collapsing hides them again;
   the header never moves.

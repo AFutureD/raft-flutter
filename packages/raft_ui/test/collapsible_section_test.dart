@@ -107,6 +107,62 @@ void main() {
     );
   }
 
+  testWidgets('opening and closing animate instead of jumping', (
+    tester,
+  ) async {
+    Widget animatedHost(bool expanded) => host(
+      expanded: expanded,
+      onExpandedChanged: (_) {},
+    );
+    await tester.pumpWidget(animatedHost(false));
+    final closed = tester.getSize(find.byType(RaftCollapsibleSectionHeader));
+
+    await tester.pumpWidget(animatedHost(true));
+    // One frame in: the body is present but still shorter than its final
+    // height, i.e. it unfolds rather than appearing at full size.
+    await tester.pump(const Duration(milliseconds: 60));
+    final opening = tester.getSize(find.byType(RaftCollapsibleSectionHeader));
+    await tester.pumpAndSettle();
+    final open = tester.getSize(find.byType(RaftCollapsibleSectionHeader));
+    expect(opening.height, greaterThan(closed.height));
+    expect(opening.height, lessThan(open.height));
+
+    await tester.pumpWidget(animatedHost(false));
+    await tester.pump(const Duration(milliseconds: 60));
+    final closing = tester.getSize(find.byType(RaftCollapsibleSectionHeader));
+    expect(closing.height, lessThan(open.height));
+    expect(closing.height, greaterThan(closed.height));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(RaftCollapsibleSectionHeader)).height,
+      closed.height,
+    );
+  });
+
+  testWidgets('reduced motion opens and closes without a transition', (
+    tester,
+  ) async {
+    Widget reduced(bool expanded) => MediaQuery(
+      data: const MediaQueryData(disableAnimations: true),
+      child: host(expanded: expanded, onExpandedChanged: (_) {}),
+    );
+    await tester.pumpWidget(reduced(false));
+    final closed = tester.getSize(find.byType(RaftCollapsibleSectionHeader));
+    await tester.pumpWidget(reduced(true));
+    // A single frame is enough: no animation is left running.
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(RaftCollapsibleSectionHeader)).height,
+      greaterThan(closed.height),
+    );
+    await tester.pumpWidget(reduced(false));
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(RaftCollapsibleSectionHeader)).height,
+      closed.height,
+    );
+  });
+
   testWidgets('the header is one button that announces its state', (
     tester,
   ) async {
