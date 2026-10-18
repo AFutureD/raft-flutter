@@ -182,6 +182,11 @@ reopen. Now:
   shows a centred spinner (Web's `<video>` has no custom loading UI), a failure shows `RaftLoadError(onDark: true)` in
   light text, and the close control stays in the header. The panel remains for PDF and for the audio viewer, which play the
   cached file (`AttachmentPreviewFiles.loadCached`, Settings > Storage) on the light stage.
+* **Looping.** A video of 60 s or less (`kLoopingVideoMaxDuration`, one constant in `attachment_player.dart`) repeats by
+  itself, in the card and in the viewer: `setLooping(true)` once ExoPlayer/AVPlayer know the length, mpv's `loop-file=inf`
+  when media_kit reports it (`no` again on every open). A longer clip stops at the end as before, and so does audio. A
+  looping clip never reaches the "playback ended" state, so a card whose short clip is playing does not release its player
+  at the end; it still does when scrolled out, hidden or backgrounded.
 * **Taps are never dropped.** A tap on a card whose player is not ready (idle, loading, released) is queued and plays as
   soon as the player is ready (`playRequested`); the picture is interactive in every state but failed.
 * **Re-opening.** `video_player_android` (ExoPlayer, Media3 1.9) has no disk cache option and `video_player` exposes no

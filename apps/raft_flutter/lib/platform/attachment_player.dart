@@ -11,6 +11,16 @@ import 'media_failure.dart';
 import 'media_probe.dart';
 import 'video_cache.dart';
 
+/// Videos at most this long repeat by themselves (the player's own repeat
+/// mode, so a loop is gapless where the platform can do it); longer ones stop
+/// at the end. The one place the limit lives.
+const Duration kLoopingVideoMaxDuration = Duration(seconds: 60);
+
+/// Whether a video of [length] loops. Unknown (zero) lengths do not: nothing
+/// is known about the clip yet.
+bool loopsAtEnd(Duration length) =>
+    length > Duration.zero && length <= kLoopingVideoMaxDuration;
+
 class AttachmentPlayback {
   const AttachmentPlayback({
     this.playing = false,
@@ -188,6 +198,11 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         }, onError: (_) {}),
       );
     }
+    // A short clip repeats by itself (mpv's loop-file), once its length is
+    // known; audio never does.
+    if (controller != null) {
+      subscriptions.add(player.stream.duration.listen(_loopShortClip));
+    }
     // media_kit's error stream also fires for harmless libmpv errors (a
     // hardware decoder that is absent, no sound card) while the video plays.
     // Failure comes from classified log lines only; every warn+ line is kept
@@ -214,6 +229,22 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         }
       }),
     );
+  }
+
+  /// mpv's `loop-file` for a video of [length]: `inf` for a short clip,
+  /// otherwise `no`.
+  @visibleForTesting
+  static String loopFileFor(Duration length) => loopsAtEnd(length) ? 'inf' : 'no';
+
+  Future<void> _loopShortClip(Duration length) async {
+    if (closed || length <= Duration.zero) return;
+    final native = player.platform;
+    if (native is! NativePlayer) return;
+    try {
+      await native.setProperty('loop-file', loopFileFor(length));
+    } on Object {
+      // Looping is a nicety; playback goes on without it.
+    }
   }
 
   /// The libmpv text since the last open (warn and above), the evidence a
@@ -503,6 +534,9 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       // media_kit.open uses an intermediate playlist. Keep external references
       // disabled and load the already-authorized input directly instead.
       await native.setProperty('pause', 'yes');
+      // The previous source's repeat setting does not carry over; the length
+      // of this one sets it again once it is known.
+      await native.setProperty('loop-file', 'no');
       await native.command(['loadfile', target, 'replace']);
       return;
     }

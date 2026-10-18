@@ -32,8 +32,8 @@ class VideoPlayerAttachmentPlayer
     this.hasPicture = true,
   });
 
-  /// A video (not audio only): only a video goes through the on-disk cache
-  /// (and, short enough, repeats).
+  /// A video (not audio only): only a video goes through the on-disk cache,
+  /// and a short one repeats by itself, see [kLoopingVideoMaxDuration].
   final bool hasPicture;
 
   /// Render into the plugin's native view ([VideoViewType.platformView]:
@@ -142,6 +142,11 @@ class VideoPlayerAttachmentPlayer
       await controller.initialize();
       if (_closed || _active != controller) return;
       if (source.start > Duration.zero) await controller.seekTo(source.start);
+      // A short clip repeats by itself (ExoPlayer's and AVPlayer's own repeat
+      // mode); a long one stops at the end as before.
+      if (hasPicture && loopsAtEnd(controller.value.duration)) {
+        await controller.setLooping(true);
+      }
     } on Object catch (error) {
       if (_closed || _active != controller) return;
       // video_player reports "Source error" for a rejected request without the

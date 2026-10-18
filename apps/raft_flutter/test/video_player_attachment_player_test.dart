@@ -18,6 +18,7 @@ class _Platform extends VideoPlayerPlatform {
   final volumes = <double>[];
   final seeks = <Duration>[];
   final sources = <DataSource>[];
+  final loops = <bool>[];
   final viewTypes = <VideoViewType>[];
   bool failOpen = false;
 
@@ -58,7 +59,10 @@ class _Platform extends VideoPlayerPlatform {
   @override
   Future<void> pause(int playerId) async => calls.add('pause');
   @override
-  Future<void> setLooping(int playerId, bool looping) async {}
+  Future<void> setLooping(int playerId, bool looping) async {
+    calls.add('loop');
+    loops.add(looping);
+  }
   @override
   Future<void> setVolume(int playerId, double volume) async {
     calls.add('volume');
@@ -239,6 +243,83 @@ void main() {
   });
 
   group('VideoPlayerAttachmentPlayer', () {
+    group('looping', () {
+      // The plugin switches looping off itself when it creates a controller;
+      // what counts is how often the player switched it on.
+      int switchedOn() => fake.loops.where((on) => on).length;
+
+      Future<void> openClip(
+        Duration length, {
+        bool video = true,
+      }) async {
+        fake.duration = length;
+        final player = VideoPlayerAttachmentPlayer(hasPicture: video);
+        await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
+        await Future<void>.delayed(Duration.zero);
+        await player.dispose();
+      }
+
+      test('the limit is 60 seconds', () {
+        expect(kLoopingVideoMaxDuration, const Duration(seconds: 60));
+        expect(loopsAtEnd(Duration.zero), isFalse);
+        expect(loopsAtEnd(const Duration(milliseconds: 1)), isTrue);
+        expect(loopsAtEnd(const Duration(seconds: 60)), isTrue);
+        expect(loopsAtEnd(const Duration(seconds: 60, milliseconds: 1)), isFalse);
+        expect(loopsAtEnd(const Duration(minutes: 5)), isFalse);
+      });
+
+      test('a short clip loops', () async {
+        await openClip(const Duration(seconds: 10));
+        expect(switchedOn(), 1);
+      });
+
+      test('a clip of exactly 60 seconds loops', () async {
+        await openClip(const Duration(seconds: 60));
+        expect(switchedOn(), 1);
+      });
+
+      test('a longer clip stops at the end as before', () async {
+        await openClip(const Duration(seconds: 61));
+        await openClip(const Duration(minutes: 20));
+        expect(switchedOn(), 0);
+      });
+
+      test('an unknown length does not loop', () async {
+        await openClip(Duration.zero);
+        expect(switchedOn(), 0);
+      });
+
+      test('audio never loops', () async {
+        await openClip(const Duration(seconds: 10), video: false);
+        expect(switchedOn(), 0);
+      });
+
+      test('the factory passes video through, so audio players do not loop', () async {
+        fake.duration = const Duration(seconds: 10);
+        final audio = createAttachmentPlayer(
+          video: false,
+          platform: TargetPlatform.android,
+        );
+        await audio.open(AttachmentSource.file(File('/tmp/raft-test/a.wav')));
+        await audio.dispose();
+        expect(switchedOn(), 0);
+        final video = createAttachmentPlayer(platform: TargetPlatform.android);
+        await video.open(AttachmentSource.file(File('/tmp/raft-test/v.mp4')));
+        await video.dispose();
+        expect(switchedOn(), 1);
+      });
+
+      test('a re-signed clip keeps looping', () async {
+        fake.duration = const Duration(seconds: 10);
+        final player = VideoPlayerAttachmentPlayer();
+        await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
+        await player.open(AttachmentSource.file(File('/tmp/raft-test/c.mp4')));
+        await Future<void>.delayed(Duration.zero);
+        await player.dispose();
+        expect(switchedOn(), 2);
+      });
+    });
+
     test('opens paused and maps state', () async {
       final player = VideoPlayerAttachmentPlayer();
       final seen = <AttachmentPlayback>[];
