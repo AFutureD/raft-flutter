@@ -18,7 +18,7 @@ import 'package:raft_flutter/features/attachment_view.dart' show AttachmentView;
 import 'package:raft_flutter/features/media_browser.dart';
 import 'package:raft_flutter/features/media_image_page.dart' show AttachmentLightboxImage, AttachmentLightboxImageState;
 import 'package:raft_flutter/features/media_video_page.dart';
-import 'package:raft_flutter/platform/attachment_player.dart' show AttachmentPlayback;
+import 'package:raft_flutter/platform/attachment_player.dart' show AttachmentPlayback, kLoopingVideoMaxDuration;
 import 'package:raft_flutter/platform/video_cache.dart';
 import 'package:raft_flutter/platform/video_frame_scheduler.dart';
 import 'package:raft_flutter/platform/video_player_attachment_player.dart';
@@ -1408,6 +1408,58 @@ void main() {
       await closeViewer(tester, 'key', 'video-cache-reopen-$i-close');
       await until(tester, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'the closed viewer to free its player');
     }
+    await shutdown(tester);
+  });
+
+  scenario('video loop: a clip of 60 seconds or less repeats by itself; the repeat costs the server nothing', (tester) async {
+    await freshVideoCache();
+    await launch(tester, [_portrait]);
+    await lab.host(tester, 'record-start:video-loop-short');
+    await playFromPoster(tester, 'portrait.mp4', past: const Duration(milliseconds: 1000));
+    final total = viewerOf(tester).duration;
+    expect(total, lessThanOrEqualTo(kLoopingVideoMaxDuration));
+    // Watch two wraps worth of time: the position climbs to the end, falls back near the start and the clip is still playing.
+    var late = false, wrapped = 0, stopped = 0;
+    var last = viewerOf(tester).position;
+    final started = Stopwatch()..start();
+    while (started.elapsed < total * 2 + const Duration(seconds: 4) && wrapped < 2) {
+      await tester.pump(const Duration(milliseconds: 100));
+      final now = viewerOf(tester);
+      if (!now.playing) stopped++;
+      if (now.position > total - const Duration(seconds: 4)) late = true;
+      if (late && now.position < last - total * .5) {
+        wrapped++;
+        late = false;
+        expect(now.playing, true, reason: 'the clip stopped at its end instead of repeating');
+      }
+      last = now.position;
+    }
+    await lab.host(tester, 'record-stop');
+    final stats = await lab.stats();
+    report('video-loop-short', {'totalMs': total.inMilliseconds, 'wraps': wrapped, 'samplesNotPlaying': stopped, 'proxyBytes': viaProxy(stats, 'portrait.mp4').bytes});
+    expect(wrapped, greaterThanOrEqualTo(2), reason: 'the position must wrap from the end back to the start, twice');
+    expect(stopped, lessThan(5), reason: 'it keeps playing through the repeat');
+    expect(viaProxy(stats, 'portrait.mp4').bytes, lessThanOrEqualTo(5416578), reason: 'repeating read nothing again');
+    await closeViewer(tester, 'key', 'video-loop-short-close');
+    await shutdown(tester);
+  });
+
+  scenario('video loop: a clip over 60 seconds stops at its end and stays there', (tester) async {
+    await freshVideoCache();
+    await launch(tester, [_long]);
+    await playFromPoster(tester, 'long.mp4', past: const Duration(milliseconds: 1000));
+    final total = viewerOf(tester).duration;
+    expect(total, greaterThan(kLoopingVideoMaxDuration));
+    await lab.host(tester, 'record-start:video-loop-long-end');
+    await seekOnRail(tester, .985);
+    await until(tester, () => !viewerOf(tester).playing && viewerOf(tester).position >= total - const Duration(milliseconds: 1500), 'the long clip to stop at its end', timeout: const Duration(seconds: 40));
+    final ended = viewerOf(tester).position;
+    await tester.pump(const Duration(seconds: 5));
+    await lab.host(tester, 'record-stop');
+    report('video-loop-long', {'totalMs': total.inMilliseconds, 'endedAtMs': ended.inMilliseconds, 'after5sMs': viewerOf(tester).position.inMilliseconds, 'playing': viewerOf(tester).playing});
+    expect(viewerOf(tester).playing, false, reason: 'a long clip must not repeat');
+    expect(viewerOf(tester).position, greaterThanOrEqualTo(total - const Duration(milliseconds: 1500)), reason: 'it stayed at the end');
+    await closeViewer(tester, 'key', 'video-loop-long-close');
     await shutdown(tester);
   });
 

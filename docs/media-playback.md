@@ -480,6 +480,7 @@ Scenarios (`PS-REPORT` lines in `suite.log` carry the measured numbers):
 | HDR | an HLG-tagged clip: native view at the card's position, exit without a native view on the first frames of the pop, card resumes; handoff time and requested ranges reported |
 | background | an inline card plays, the app goes to the background for 4 s (longer than the card's 3 s release grace) and returns: no crash (the still is not photographed from the background, flutter/flutter#192365), the decoder is released, the card is not playing, a tap plays on from the position it had |
 | video cache: reopen | a clip viewed once (play, seek on the rail with a real tap) is read through the proxy exactly once (proxy bytes = file size, the chunks on disk); closing with the Back key and opening it twice more (a new player each time, rail seeks) sends the range server no further request or byte; the opens and closes are recorded |
+| video loop: short / long | the 19 s clip, played in the viewer, wraps from its end back to the start twice while still playing and reads nothing more from the server; the 287 s clip, sought to 98.5 %, stops at its end and is still there 5 s later; recorded |
 | Download | system save dialog, whole file written to Downloads, size matches |
 | expired URL | the host answers 403 once: signed again once, plays |
 | undecodable | "Download to view" |
