@@ -69,10 +69,11 @@ const _scrimAlpha = .55, _blurSigma = 12.0, _closeAt = .25;
 const _flingToClose = 700.0;
 
 /// The immersive layer (design frames 05, 06, 07 and 10): the app behind it
-/// is blurred and dimmed; the agent's latest line is the big text, the
-/// briefing cards, the transcript and the tool lines are under it, the input
-/// is at the bottom and the orb is docked at the bottom right with its call
-/// pill.
+/// is blurred and dimmed; the briefing (its sentence and cards) and the card
+/// to confirm are the content, the input is at the bottom and the orb is
+/// docked at the bottom right with its call pill. What the agent says is the
+/// bubble beside the orb, as outside the layer; what was said and done is
+/// behind "对话记录".
 ///
 /// A swipe down anywhere on it (while its text is scrolled to the top) pulls
 /// it away: the content follows the finger, fades, and the scrim and the blur
@@ -101,6 +102,9 @@ class _OrbLayerState extends State<OrbLayer>
   late final AnimationController pulled = AnimationController(vsync: this);
   final scroll = ScrollController();
   final focus = FocusNode();
+
+  /// Whether the conversation so far is shown instead of the content.
+  bool _history = false;
 
   // The finger on the layer.
   int? _pointer;
@@ -294,6 +298,14 @@ class _OrbLayerState extends State<OrbLayer>
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.end,
     children: [
+      // What the agent says, beside the orb (not over the screen).
+      Padding(
+        padding: const EdgeInsets.only(bottom: RaftSpace.x2),
+        child: OrbSubtitleBubble(
+          controller: c,
+          maxWidth: MediaQuery.sizeOf(context).width - _side * 2,
+        ),
+      ),
       ListenableBuilder(
         listenable: c,
         builder: (context, _) => _pillHidden
@@ -340,32 +352,49 @@ class _OrbLayerState extends State<OrbLayer>
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: RaftSpace.x1_5),
-                ListenableBuilder(
-                  listenable: c,
-                  builder: (context, _) {
-                    final hint = Text(
-                      c.driving ? '向下划退出' : '向下划收起',
-                      style: RaftTypography.body(
-                        t,
-                        size: 12,
-                        line: 16,
-                        weight: FontWeight.w600,
-                        color: quiet,
-                      ),
-                    );
-                    if (!c.driving) return hint;
-                    return Row(
-                      children: [
-                        const OrbDrivingTag(),
-                        const SizedBox(width: RaftSpace.x2),
-                        Expanded(child: hint),
-                      ],
-                    );
-                  },
-                ),
               ],
             ),
+          ),
+          const SizedBox(height: RaftSpace.x1_5),
+          Row(
+            children: [
+              Expanded(
+                child: IgnorePointer(
+                  child: ListenableBuilder(
+                    listenable: c,
+                    builder: (context, _) {
+                      final hint = Text(
+                        c.driving ? '向下划退出' : '向下划收起',
+                        style: RaftTypography.body(
+                          t,
+                          size: 12,
+                          line: 16,
+                          weight: FontWeight.w600,
+                          color: quiet,
+                        ),
+                      );
+                      if (!c.driving) return hint;
+                      return Row(
+                        children: [
+                          const OrbDrivingTag(),
+                          const SizedBox(width: RaftSpace.x2),
+                          Expanded(child: hint),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+              RaftButton(
+                key: const ValueKey('orb-layer-history'),
+                label: _history ? '返回' : '对话记录',
+                variant: RaftControlVariant.ghost,
+                visualHeight: RaftMetrics.buttonSm,
+                // ds-allow: the immersive layer is dark in every theme (design frames 05 and 10): white text on a black scrim, white dot rim and black pill ink
+                foreground: Colors.white,
+                onPressed: () => setState(() => _history = !_history),
+              ),
+            ],
           ),
           Expanded(
             child: Align(
@@ -382,7 +411,9 @@ class _OrbLayerState extends State<OrbLayer>
                         ? RaftSpace.x2
                         : orbPillHeight + RaftSpace.x6 + RaftSpace.x3,
                   ),
-                  child: _lines(context, t, quiet),
+                  child: _history
+                      ? _transcript(t, quiet)
+                      : _lines(context, t, quiet),
                 ),
               ),
             ),
@@ -393,39 +424,37 @@ class _OrbLayerState extends State<OrbLayer>
     );
   }
 
-  /// The big line (the briefing's sentence, or the agent's latest line), the
-  /// cards, then what was said and done, the newest first.
-  Widget _lines(BuildContext context, RaftTokens t, Color quiet) {
+  /// What was said and done, the newest first (behind "对话记录").
+  Widget _transcript(RaftTokens t, Color quiet) {
     final entries = c.entries;
+    if (entries.isEmpty) {
+      return Text(
+        '还没有对话',
+        style: RaftTypography.body(t, size: 15, line: 22, color: quiet),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final entry in entries.reversed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+            child: _EntryView(entry: entry, quiet: quiet),
+          ),
+      ],
+    );
+  }
+
+  /// The briefing's sentence and its cards (one at a time while driving), the
+  /// card to confirm and its outcome. The agent's words are not here: they
+  /// are the bubble beside the orb.
+  Widget _lines(BuildContext context, RaftTokens t, Color quiet) {
     final briefing = c.shownBriefing;
     final driving = c.driving;
-    // The agent's latest line, unless the person has spoken since.
-    OrbEntry? headline;
-    if (briefing == null || driving) {
-      for (final e in entries.reversed) {
-        if (e.kind == OrbEntryKind.user) break;
-        if (e.kind == OrbEntryKind.agent) {
-          headline = e;
-          break;
-        }
-      }
-    }
-    // Driving: the agent's line, else the overview; one card, no transcript.
-    final big = driving
-        ? (headline?.text ?? briefing?.overview)
-        : (briefing?.overview ?? headline?.text);
-    final rest = [
-      if (!driving)
-        for (final e in entries.reversed)
-          if (!identical(e, headline)) e,
-    ];
+    final big = briefing?.overview;
     final pending = c.actions.pending;
     final outcome = c.actions.outcome;
-    if (big == null &&
-        rest.isEmpty &&
-        briefing == null &&
-        pending == null &&
-        outcome == null) {
+    if (big == null && briefing == null && pending == null && outcome == null) {
       return Text(
         driving ? '驾驶模式：直接说就行，我一次只说一件' : '说点什么，或者长按球直接对话',
         style: RaftTypography.body(t, size: 15, line: 22, color: quiet),
@@ -485,11 +514,6 @@ class _OrbLayerState extends State<OrbLayer>
               onDark: true,
               onOpen: c.openBriefItemTapped,
             ),
-          ),
-        for (final entry in rest)
-          Padding(
-            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
-            child: _EntryView(entry: entry, quiet: quiet),
           ),
       ],
     );

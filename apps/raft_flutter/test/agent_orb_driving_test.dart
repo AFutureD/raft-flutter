@@ -213,10 +213,20 @@ void main() {
       // The second item and the progress rows wait.
       expect(find.text('Alice 问你周五有没有空'), findsNothing);
       expect(find.textContaining('CodexMac'), findsNothing);
-      // The agent's line stays above the card.
+      // The agent's line is the bubble by the orb, not on the layer.
       expect(
-        t.getRect(find.text('Cody 在等你批准。')).bottom,
-        lessThan(t.getRect(title).top),
+        find.descendant(
+          of: find.byKey(const ValueKey('orb-layer-content')),
+          matching: find.text('Cody 在等你批准。'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('orb-layer-dock')),
+          matching: find.text('Cody 在等你批准。'),
+        ),
+        findsOneWidget,
       );
       expect(next, findsOneWidget);
       expect(later, findsOneWidget);

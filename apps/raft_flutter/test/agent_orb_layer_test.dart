@@ -69,8 +69,8 @@ void main() {
       expect(find.text('page'), findsOneWidget);
     });
 
-    testWidgets('the agent line is the big text, the rest of the transcript '
-        'and the tool lines are below it', (t) async {
+    testWidgets('what the agent says is the bubble beside the orb, not the '
+        'layer; the conversation is behind 对话记录', (t) async {
       await fixture(
         t,
         tools: [
@@ -88,16 +88,43 @@ void main() {
       f.sessions.single.onOutputText!('到了，这里有一件要你看。');
       await t.pump();
 
-      expect(find.text('说点什么，或者长按球直接对话'), findsNothing);
-      final big = t.getRect(find.text('到了，这里有一件要你看。'));
-      final said = t.getRect(find.text('去 raft-flutter'));
-      final activity = t.getRect(find.text('已打开 #raft-flutter'));
-      expect(big.top, lessThan(said.top));
-      expect(big.top, lessThan(activity.top));
-      expect(
-        t.widget<Text>(find.text('到了，这里有一件要你看。')).style!.fontSize,
-        greaterThan(24.0),
+      final dock = find.byKey(const ValueKey('orb-layer-dock'));
+      final inContent = find.descendant(
+        of: content,
+        matching: find.text('到了，这里有一件要你看。'),
       );
+      // The agent's line: in the bubble by the docked orb, nowhere else on
+      // the layer; nor the person's words or the tool lines.
+      expect(
+        find.descendant(of: dock, matching: find.text('到了，这里有一件要你看。')),
+        findsOneWidget,
+      );
+      expect(inContent, findsNothing);
+      expect(
+        find.descendant(of: content, matching: find.text('去 raft-flutter')),
+        findsNothing,
+      );
+      expect(find.text('说点什么，或者长按球直接对话'), findsOneWidget);
+
+      // 对话记录: what was said and done, the newest first.
+      await t.tap(find.byKey(const ValueKey('orb-layer-history')));
+      await t.pump();
+      final said = t.getRect(
+        find.descendant(of: content, matching: find.text('去 raft-flutter')),
+      );
+      final activity = t.getRect(
+        find.descendant(of: content, matching: find.text('已打开 #raft-flutter')),
+      );
+      final agent = t.getRect(inContent);
+      expect(agent.top, lessThan(activity.top));
+      expect(activity.top, lessThan(said.top));
+      expect(find.text('返回'), findsOneWidget);
+
+      // 返回: the content again.
+      await t.tap(find.byKey(const ValueKey('orb-layer-history')));
+      await t.pump();
+      expect(inContent, findsNothing);
+      expect(find.text('对话记录'), findsOneWidget);
     });
 
     testWidgets('the orb docks bottom-right with the live pill while a call '
