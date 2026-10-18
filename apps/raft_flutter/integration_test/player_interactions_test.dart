@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:raft_flutter/features/attachment_view.dart' show AttachmentView;
+import 'package:raft_flutter/features/computer_detail_view.dart' show computerFileSize;
 import 'package:raft_flutter/features/media_browser.dart';
 import 'package:raft_flutter/features/media_image_page.dart' show AttachmentLightboxImage, AttachmentLightboxImageState;
 import 'package:raft_flutter/features/media_video_page.dart';
@@ -1460,6 +1461,84 @@ void main() {
     expect(viewerOf(tester).playing, false, reason: 'a long clip must not repeat');
     expect(viewerOf(tester).position, greaterThanOrEqualTo(total - const Duration(milliseconds: 1500)), reason: 'it stayed at the end');
     await closeViewer(tester, 'key', 'video-loop-long-close');
+    await shutdown(tester);
+  });
+
+  /// From a channel to Settings > [destination] with real taps (the Back key leaves the channel).
+  Future<void> openSettings(WidgetTester tester, String destination) async {
+    final tab = find.byKey(const Key('mobile-tab-settings'));
+    for (var i = 0; i < 3 && tab.evaluate().isEmpty; i++) {
+      await lab.host(tester, 'back');
+      await tester.pump(const Duration(milliseconds: 700));
+    }
+    await realTap(tester, tester.getCenter(tab));
+    final item = find.byKey(ValueKey('workspace-settings-nav-$destination'));
+    await until(tester, () => item.evaluate().isNotEmpty, 'the Settings list');
+    await tester.ensureVisible(item);
+    await tester.pump(const Duration(milliseconds: 300));
+    await realTap(tester, tester.getCenter(item));
+    await until(tester, () => find.byKey(ValueKey('settings-page-$destination')).evaluate().isNotEmpty || find.byKey(const Key('storage-video-size')).evaluate().isNotEmpty || find.byKey(const Key('account-logout')).evaluate().isNotEmpty, 'the $destination page');
+  }
+
+  String videoCacheLine(WidgetTester tester) => tester
+      .widget<Text>(find.descendant(of: find.byKey(const Key('storage-video-size')), matching: find.byType(Text)))
+      .data!;
+
+  scenario('video cache: Settings > Storage shows the size, and Clear empties it', (tester) async {
+    await freshVideoCache();
+    await launch(tester, [_portrait]);
+    await playFromPoster(tester, 'portrait.mp4', past: const Duration(milliseconds: 1500));
+    await waitForBytes(tester, 'portrait.mp4', 5416578);
+    final onDisk = await cachedVideoBytes();
+    expect(onDisk, greaterThanOrEqualTo(5416578));
+    await closeViewer(tester, 'key', 'video-cache-settings-close');
+    await lab.host(tester, 'record-start:video-cache-settings');
+    await openSettings(tester, 'storage');
+    final block = find.byKey(const Key('storage-video-size'));
+    await tester.ensureVisible(block);
+    await until(tester, () => !videoCacheLine(tester).contains('Calculating'), 'the size to be measured');
+    await lab.host(tester, 'shot:video-cache-settings-size');
+    expect(videoCacheLine(tester), 'Video cache: ${computerFileSize(onDisk)}');
+    final clear = find.byKey(const Key('storage-video-clear'));
+    await tester.ensureVisible(clear);
+    await tester.pump(const Duration(milliseconds: 300));
+    await realTap(tester, tester.getCenter(clear));
+    await until(tester, () => videoCacheLine(tester) == 'Video cache: 0 B', 'the size to read 0 B after Clear');
+    await lab.host(tester, 'shot:video-cache-settings-cleared');
+    await lab.host(tester, 'record-stop');
+    final after = await cachedVideoBytes();
+    report('video-cache-clear', {'beforeBytes': onDisk, 'afterBytes': after, 'line': videoCacheLine(tester)});
+    expect(after, 0, reason: 'Clear emptied the folder on disk');
+    expect(tester.widget<RaftSettingsRecipeButton>(clear).onPressed, isNull, reason: 'nothing left to clear');
+    await shutdown(tester);
+  });
+
+  scenario('video cache: logging out deletes the account\'s cached videos', (tester) async {
+    await freshVideoCache();
+    await launch(tester, [_portrait]);
+    await playFromPoster(tester, 'portrait.mp4', past: const Duration(milliseconds: 1500));
+    await waitForBytes(tester, 'portrait.mp4', 5416578);
+    await closeViewer(tester, 'key', 'video-cache-logout-close');
+    final root = Directory('${(await getApplicationCacheDirectory()).path}/raft-video');
+    final folders = root.listSync().whereType<Directory>().toList();
+    expect(folders, hasLength(1), reason: 'one account, one folder');
+    expect(await cachedVideoBytes(), greaterThanOrEqualTo(5416578));
+    await openSettings(tester, 'account');
+    final logout = find.byKey(const Key('account-logout'));
+    await tester.ensureVisible(logout);
+    await tester.pump(const Duration(milliseconds: 300));
+    await realTap(tester, tester.getCenter(logout));
+    final confirm = find.byKey(const Key('account-logout-confirm-button'));
+    await until(tester, () => confirm.evaluate().isNotEmpty, 'the log-out confirmation');
+    await realTap(tester, tester.getCenter(confirm));
+    // Signed out: the sign-in screen is up and the account's folder is gone.
+    for (var i = 0; i < 100 && folders.first.existsSync(); i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    report('video-cache-logout', {'folderExists': folders.first.existsSync(), 'bytes': await cachedVideoBytes()});
+    expect(folders.first.existsSync(), isFalse, reason: 'the account folder is deleted at log-out');
+    expect(await cachedVideoBytes(), 0);
+    await lab.host(tester, 'shot:video-cache-logout');
     await shutdown(tester);
   });
 

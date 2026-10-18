@@ -484,6 +484,7 @@ Scenarios (`PS-REPORT` lines in `suite.log` carry the measured numbers):
 | background | an inline card plays, the app goes to the background for 4 s (longer than the card's 3 s release grace) and returns: no crash (the still is not photographed from the background, flutter/flutter#192365), the decoder is released, the card is not playing, a tap plays on from the position it had |
 | video cache: reopen | a clip viewed once (play, seek on the rail with a real tap) is read through the proxy exactly once (proxy bytes = file size, the chunks on disk); closing with the Back key and opening it twice more (a new player each time, rail seeks) sends the range server no further request or byte; the opens and closes are recorded |
 | video loop: short / long | the 19 s clip, played in the viewer, wraps from its end back to the start twice while still playing and reads nothing more from the server; the 287 s clip, sought to 98.5 %, stops at its end and is still there 5 s later; recorded |
+| video cache: Settings, log-out | after one view, Settings > Storage (real taps) reads `Video cache: <size>` equal to the bytes on disk; Clear (a real tap) reads `0 B` and empties the folder; in another run, Settings > Account > Log out deletes the account's cache folder; recorded / screenshots |
 | Download | system save dialog, whole file written to Downloads, size matches |
 | expired URL | the host answers 403 once: signed again once, plays |
 | undecodable | "Download to view" |
