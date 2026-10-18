@@ -60,7 +60,11 @@ String _content(OrbPendingAction p) {
       }
     case 'tasks.nudge':
       final who = _row(p, '催');
-      if (who != null && text != null) return '催 $who：${_clip(text)}';
+      // Which task: its number, as the card shows it ("#141 整理发布说明").
+      final task = RegExp(r'#\d+').firstMatch(_row(p, '任务') ?? '')?[0];
+      if (who != null && text != null) {
+        return '催 $who${task == null ? '' : '（$task）'}：${_clip(text)}';
+      }
     case 'tasks.set_status':
       final m = RegExp(r'^把\s*(#\d+)\b.*?\s改为\s*(\S+)$').firstMatch(p.summary);
       if (m != null) {

@@ -63,6 +63,13 @@ void main() {
         OrbCardRow('内容', '现在到哪了'),
       ]);
       expect(orbRestate(nudge), '催 Cody：现在到哪了，要催吗？');
+      // The task it is about, by number, when the card names it.
+      final withTask = card('tasks.nudge', '催 Cody（#136 重构）：“现在到哪了”', const [
+        OrbCardRow('催', 'Cody'),
+        OrbCardRow('任务', '#136 重构'),
+        OrbCardRow('内容', '现在到哪了'),
+      ]);
+      expect(orbRestate(withTask), '催 Cody（#136）：现在到哪了，要催吗？');
       final snooze = card(
         'attention.snooze',
         '把 Cody 的提问 先放一放，今晚再提醒你',
