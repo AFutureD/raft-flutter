@@ -229,6 +229,9 @@ signed URL directly, as before).
   memory anyway; after 3 failures in a row the proxy stops writing until the cache is cleared or the app restarts.
   A folder that cannot be created only means nothing is stored. A file that cannot be deleted (held open on Windows) is
   retried, kept out of the index and counted in the size until it goes.
+* **Desktop.** `integration_test/video_cache_linux_test.dart` runs the same on mpv (Linux under `xvfb-run`, Windows): a
+  clip played and sought once is read from the range server once (through the proxy only, `User-Agent: RaftVideoCache/1`)
+  and two reopens with a new player and a newly signed URL read nothing; purging the account deletes its folder.
 * **Not covered.** Audio (`hasPicture: false` / `video: false` players) streams as before. Poster frames and thumbnails read
   the signed URL directly (they need the first frame only). Downloads and the audio/PDF previews use the attachment disk
   cache as before. Upstream requests carry `User-Agent: RaftVideoCache/1`, so a server log (or the interaction suite's
