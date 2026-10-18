@@ -225,6 +225,7 @@ signed URL directly, as before).
   without an account is never cached. Sign-out, an ended session and an account switch (`AppRoot.logout`) delete the
   account's folder; the start-up housekeeping removes folders of accounts with no saved session.
 * **Limits.** 500 MB per account (`kVideoCacheMaxBytes`), least recently used chunk first (pinned while being read).
+  Settings > Storage > Video cache shows the signed-in account's size (live) and has its own Clear.
 * **Safety.** Bound to loopback; a request without the process's random token path learns nothing (404). The signed URL
   and headers live in memory only. A chunk reaches disk complete (temporary file, then rename). An upstream 4xx
   (an expired signature above all) reaches the player as the same status so its own re-sign logic runs; a transient

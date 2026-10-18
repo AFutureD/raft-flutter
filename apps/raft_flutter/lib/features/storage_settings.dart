@@ -7,6 +7,7 @@ import '../data/attachment_disk_cache.dart';
 import '../data/cache_budget.dart';
 import '../data/cache_clear.dart';
 import '../data/workspace_controller.dart';
+import '../platform/video_cache.dart';
 import 'message_history_settings.dart';
 import 'local_error_diagnostics.dart';
 import 'computer_detail_view.dart' show computerFileSize;
@@ -24,14 +25,24 @@ import 'computer_detail_view.dart' show computerFileSize;
 /// the layers. Only rebuildable data goes; the sign-in, drafts, settings, the
 /// workspace database, files the user saved and files received from other apps
 /// are stored elsewhere and are never touched.
+///
+/// Below it, "Video cache" shows how much video this account keeps (live, as
+/// videos are watched) and has its own "Clear" (no confirmation: a video is
+/// downloaded again on demand and nothing of the user's is in it). It is the
+/// signed-in account's folder only (`VideoCache`).
 class StorageSettingsPage extends StatefulWidget {
   const StorageSettingsPage({
     super.key,
     this.cache,
     this.coordinator,
     this.workspace,
+    this.videoAccount,
   });
   final WorkspaceController? workspace;
+
+  /// Whose video cache is shown; the workspace's signed-in account by
+  /// default. Without one the video block is not shown.
+  final VideoCacheAccount? videoAccount;
 
   /// The cache whose size is shown; the app's installed cache by default.
   final AttachmentDiskCache? cache;
@@ -51,6 +62,16 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
 
   /// The chosen cap of the whole cache.
   late int budget = CacheBudget.stored();
+
+  late final VideoCacheAccount? videoAccount =
+      widget.videoAccount ?? _accountOf(widget.workspace);
+  bool clearingVideos = false;
+
+  static VideoCacheAccount? _accountOf(WorkspaceController? workspace) {
+    final user = workspace?.client.user?.id;
+    if (workspace == null || user == null || user.isEmpty) return null;
+    return VideoCacheAccount(workspace.client.origin, user);
+  }
 
   /// Null while the sizes are being measured.
   int? attachmentBytes, publicBytes;
@@ -91,6 +112,69 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
     await cache?.setMaxBytes(value);
     if (mounted) await measure();
   }
+
+  /// Empties this account's video cache and says how it went. The size line
+  /// follows the cache on its own (it is live).
+  Future<void> clearVideos(VideoCacheAccount account) async {
+    setState(() => clearingVideos = true);
+    var left = 0;
+    try {
+      await VideoCache.clear(account);
+      left = await VideoCache.sizeBytes(account);
+    } on Object {
+      left = -1;
+    }
+    if (!mounted) return;
+    setState(() => clearingVideos = false);
+    showRaftToast(
+      context,
+      left == 0
+          ? 'Video cache cleared.'
+          : 'Some of the video cache could not be cleared. Try again.',
+      tone: left == 0 ? RaftToastRecipeTone.success : RaftToastRecipeTone.error,
+    );
+  }
+
+  Widget videoCache(
+    BuildContext context,
+    VideoCacheAccount account,
+    RaftSettingsText text,
+  ) => RaftSettingsPreference(
+    gapBefore: RaftSpace.x6,
+    title: 'Video cache',
+    description: 'Videos you watch are kept on this device so they play again without downloading. They are removed when you sign out.',
+    child: ValueListenableBuilder<int?>(
+      valueListenable: VideoCache.watchSize(account),
+      builder: (context, bytes, _) => Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              key: const Key('storage-video-size'),
+              container: true,
+              liveRegion: true,
+              child: Text(
+                bytes == null
+                    ? raftText(context, 'Calculating…')
+                    : raftFormat(context, 'Video cache: {size}', {
+                        'size': computerFileSize(bytes),
+                      }),
+                style: text.description,
+              ),
+            ),
+          ),
+          const SizedBox(width: RaftSpace.x3),
+          RaftSettingsRecipeButton(
+            key: const Key('storage-video-clear'),
+            label: 'Clear',
+            glyph: RaftGlyph.trash2,
+            onPressed: bytes == null || bytes == 0 || clearingVideos
+                ? null
+                : () => clearVideos(account),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Future<void> confirmClear() async {
     final cleared = await RaftConfirmDialog.show(
@@ -217,6 +301,8 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
                       : confirmClear,
                 ),
               ),
+              if (videoAccount case final account? when VideoCache.enabled)
+                videoCache(context, account, text),
             ],
           ),
         ),

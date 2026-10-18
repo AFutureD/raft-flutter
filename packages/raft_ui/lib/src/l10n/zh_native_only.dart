@@ -149,6 +149,13 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Calculating…": "正在计算…",
   "Cache size: {size}": "缓存大小：{size}",
   "Cache limit": "缓存上限",
+  // Settings > Resources > Storage > Video cache (videos kept per account; cleared on sign-out).
+  "Video cache": "视频缓存",
+  "Videos you watch are kept on this device so they play again without downloading. They are removed when you sign out.":
+      "看过的视频会保存在此设备上，再次播放无需重新下载。退出登录时会一并删除。",
+  "Video cache: {size}": "视频缓存：{size}",
+  "Video cache cleared.": "视频缓存已清除。",
+  "Some of the video cache could not be cleared. Try again.": "部分视频缓存未能清除，请重试。",
   "The most space the cache may use on this device. When it is full, the attachments and previews you opened longest ago are removed first. Profile pictures and icons keep their own small limit.":
       "缓存最多可占用此设备的空间。占满后，会先移除最久没打开过的附件和预览。头像和图标有各自的小额上限，不受此项影响。",
   // Channel settings: a stale mounted action is refused (Web has no copy).

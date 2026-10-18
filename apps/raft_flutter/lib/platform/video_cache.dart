@@ -117,6 +117,20 @@ class VideoCache {
 
   static int _started = 0;
   static final _proxies = <String, Future<VideoCacheProxy>>{};
+  static final _sizes = <String, _CacheSize>{};
+
+  static _CacheSize _sizeOf(VideoCacheAccount account) =>
+      _sizes.putIfAbsent(account.segment, _CacheSize.new);
+
+  /// The bytes [account]'s cache holds, kept current while anyone listens:
+  /// null until measured, then updated as chunks are stored, evicted or
+  /// cleared (Settings > Storage shows it live). Measuring reads the folder;
+  /// it starts no proxy.
+  static ValueListenable<int?> watchSize(VideoCacheAccount account) {
+    final size = _sizeOf(account);
+    unawaited(sizeBytes(account).then((_) {}, onError: (Object _) {}));
+    return size;
+  }
 
   static Future<Directory> _root() async =>
       debugRoot ??
@@ -147,6 +161,8 @@ class VideoCache {
           debugClientFactory ?? () => SystemProxy.instance.createHttpClient(),
     );
     proxy.trace = debugTrace;
+    final size = _sizeOf(account);
+    proxy.onSizeChanged = (bytes) => size.value = bytes;
     await proxy.start();
     _started++;
     return proxy;
@@ -204,12 +220,16 @@ class VideoCache {
     final running = _proxies[account.segment];
     if (running != null) {
       try {
-        return (await running).totalBytes;
+        final bytes = (await running).totalBytes;
+        _sizeOf(account).value = bytes;
+        return bytes;
       } on Object {
         // Not running after all: count the folder.
       }
     }
-    return _folderSize(await directoryOf(account));
+    final bytes = await _folderSize(await directoryOf(account));
+    _sizeOf(account).value = bytes;
+    return bytes;
   }
 
   /// Deletes [account]'s cached videos but keeps the account (the Settings
@@ -225,6 +245,7 @@ class VideoCache {
       }
     }
     await _deleteFolder(await directoryOf(account));
+    _sizeOf(account).value = 0;
   }
 
   /// Removes everything cached for [account]: stops its proxy (a player of
@@ -241,6 +262,7 @@ class VideoCache {
       }
     }
     await _deleteFolder(await directoryOf(account));
+    _sizeOf(account).value = 0;
   }
 
   /// Removes the folders of accounts that are not in [keep]: what a sign-out
@@ -304,6 +326,7 @@ class VideoCache {
   static Future<void> debugReset() async {
     final running = List.of(_proxies.values);
     _proxies.clear();
+    _sizes.clear();
     for (final proxy in running) {
       try {
         await (await proxy).close();
@@ -314,4 +337,29 @@ class VideoCache {
     _started = 0;
     debugStartGate = null;
   }
+}
+
+/// The bytes one account's cache holds, for a widget to listen to. Process
+/// long (one per account), so it is not a `ChangeNotifier`, which is meant to
+/// be disposed.
+class _CacheSize implements ValueListenable<int?> {
+  int? _value;
+  final _listeners = <VoidCallback>[];
+
+  @override
+  int? get value => _value;
+
+  set value(int? next) {
+    if (next == _value) return;
+    _value = next;
+    for (final listener in List.of(_listeners)) {
+      listener();
+    }
+  }
+
+  @override
+  void addListener(VoidCallback listener) => _listeners.add(listener);
+
+  @override
+  void removeListener(VoidCallback listener) => _listeners.remove(listener);
 }

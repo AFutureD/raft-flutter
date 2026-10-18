@@ -345,6 +345,17 @@ class VideoCacheProxy {
   int get totalBytes =>
       _bytes + _undeleted.values.fold<int>(0, (sum, size) => sum + size);
 
+  /// Called with [totalBytes] whenever it changed (a chunk stored, evicted or
+  /// cleared): Settings > Storage shows the size live from it.
+  void Function(int bytes)? onSizeChanged;
+  int _notifiedSize = -1;
+  void _notifySize() {
+    final now = totalBytes;
+    if (now == _notifiedSize) return;
+    _notifiedSize = now;
+    onSizeChanged?.call(now);
+  }
+
   /// True once the disk stopped taking chunks (see [maxWriteFailures]) or the
   /// folder could not be opened: playback streams through, nothing is stored.
   bool get cachingSuspended => _suspended;
@@ -370,6 +381,7 @@ class VideoCacheProxy {
       // No usable folder: the proxy still serves, it just does not store.
       _suspended = true;
     }
+    _notifySize();
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _server = server;
     server.listen(
@@ -484,6 +496,7 @@ class VideoCacheProxy {
         await _deleteTree(item);
       }
     }
+    _notifySize();
   }
 
   /// Deletes [item] (a chunk folder), trying again when something holds a
@@ -1218,6 +1231,7 @@ class VideoCacheProxy {
     } on Object {
       // Eviction is housekeeping; the next chunk tries again.
     }
+    _notifySize();
   }
 
   Future<void> _purge(_Entry entry) async {
@@ -1267,6 +1281,7 @@ class VideoCacheProxy {
     } else {
       _perEntry[chunk.hash] = left;
     }
+    _notifySize();
   }
 
   /// Deletes [file] (of [size] bytes), trying again for a moment when it is
