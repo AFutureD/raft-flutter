@@ -11,7 +11,11 @@ import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'native_notifications_test.dart' show deferredMacNotifications;
+import 'native_notifications_test.dart'
+    show
+        deferredMacNotifications,
+        MacPermissionFixture,
+        NotificationPluginFixture;
 import 'notification_first_workspace_test.dart' show turn;
 import 'workspace_source_location_contract_test.dart' show pageFixture;
 
@@ -35,13 +39,26 @@ Widget host(
   ),
 );
 
+class _ObservedNotifications extends NativeNotificationService {
+  _ObservedNotifications()
+    : super(plugin: _plugin(), platform: TargetPlatform.macOS);
+
+  bool get hasConsumers => hasListeners;
+
+  static NotificationPluginFixture _plugin() {
+    final plugin = NotificationPluginFixture()..mac = MacPermissionFixture();
+    plugin.initialized.complete(false);
+    return plugin;
+  }
+}
+
 void main() {
   testWidgets(
     'activation consumers release borrowed services on swap and unmount',
     (t) async {
       SharedPreferences.setMockInitialValues({});
-      final (first, _, _) = deferredMacNotifications();
-      final (second, _, _) = deferredMacNotifications();
+      final first = _ObservedNotifications();
+      final second = _ObservedNotifications();
       addTearDown(first.dispose);
       addTearDown(second.dispose);
       await first.bindAuthenticatedWorkspace('alice');
@@ -52,16 +69,16 @@ void main() {
       );
       await t.pumpWidget(tree(first));
       await turn(t);
-      expect(first.hasListeners, isTrue);
-      expect(second.hasListeners, isFalse);
+      expect(first.hasConsumers, isTrue);
+      expect(second.hasConsumers, isFalse);
       await t.pumpWidget(tree(second));
       await turn(t);
-      expect(first.hasListeners, isFalse);
-      expect(second.hasListeners, isTrue);
+      expect(first.hasConsumers, isFalse);
+      expect(second.hasConsumers, isTrue);
       await t.pumpWidget(const SizedBox());
       await t.pumpAndSettle();
-      expect(first.hasListeners, isFalse);
-      expect(second.hasListeners, isFalse);
+      expect(first.hasConsumers, isFalse);
+      expect(second.hasConsumers, isFalse);
       // Pages must leave borrowed app-session services usable by the next page.
       for (final service in [first, second]) {
         var notifications = 0;
