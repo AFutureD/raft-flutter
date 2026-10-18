@@ -11,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Raft</string>
+	<string>VideoCache209iOS</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,25 +26,14 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>app.raft.content</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>raft</string>
-			</array>
-		</dict>
-	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Select photos and videos to share in Raft.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save images from Raft to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Select photos and videos to share in Raft.</string>
 	<key>RaftAppGroup</key>
 	<string>$(RAFT_APP_GROUP)</string>
 	<key>RaftShareKeychainGroup</key>
@@ -72,10 +61,6 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

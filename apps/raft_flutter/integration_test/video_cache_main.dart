@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_flutter/platform/attachment_player_factory.dart';
 import 'package:raft_flutter/platform/video_cache.dart';
@@ -380,7 +381,40 @@ Future<void> netProbe(String file) async {
   }
 }
 
+final qaStart = Completer<void>();
+bool qaScenarioEntered = false;
+Future<void> qaControl() async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 19629);
+  server.listen((r) async {
+    if (r.uri.path == '/present' && Platform.isMacOS) {
+      await const MethodChannel('app.raft/window')
+          .invokeMethod<void>('present');
+    }
+    if (r.uri.path == '/start' && !qaStart.isCompleted) qaStart.complete();
+    final active = Platform.isMacOS
+        ? await const MethodChannel('app.raft/window')
+              .invokeMethod<bool>('isActive')
+        : WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    r.response.headers.contentType = ContentType.json;
+    r.response.write(
+      jsonEncode({
+        'pid': pid,
+        'active': active,
+        'started': qaStart.isCompleted,
+        'lifecycle': WidgetsBinding.instance.lifecycleState?.name,
+        'scenarioEntered': qaScenarioEntered,
+        'base': base,
+        'files': files,
+        'phases': phases,
+      }),
+    );
+    await r.response.close();
+  });
+}
+
 Future<void> scenario() async {
+  qaScenarioEntered = true;
+  await qaStart.future;
   VideoCache.debugTrace = (line) => log('proxy $line');
   await Future<void>.delayed(const Duration(seconds: 1));
   log(
@@ -418,6 +452,7 @@ Future<void> scenario() async {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(qaControl());
   runApp(
     MaterialApp(
       debugShowCheckedModeBanner: false,
