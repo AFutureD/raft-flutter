@@ -50,6 +50,13 @@ void main() {
 
   Future<void> openLayer(WidgetTester t) => f.openLayer();
 
+  /// Shows (or hides again) what was said and done: the layer keeps it
+  /// behind 对话记录.
+  Future<void> toggleHistory(WidgetTester t) async {
+    await t.tap(find.byKey(const ValueKey('orb-layer-history')));
+    await t.pump();
+  }
+
   Future<void> settleSession(WidgetTester t) async {
     for (var i = 0; i < 4; i++) {
       await t.pump();
@@ -91,7 +98,9 @@ void main() {
       await t.tap(find.byKey(const ValueKey('orb-send')));
       await settleSession(t);
       // The input is cleared and the person's turn is in the transcript.
+      await toggleHistory(t);
       expect(find.text('看看动态里什么要我处理'), findsOneWidget);
+      await toggleHistory(t);
       await connected(t);
       expect(f.sessions, hasLength(1));
       expect(f.sessions.single.sentTexts, ['看看动态里什么要我处理']);
@@ -182,8 +191,10 @@ void main() {
       await t.tap(find.byKey(const ValueKey('orb-send')));
       await settleSession(t);
       expect(f.sessions, isEmpty);
-      expect(find.text('你好'), findsOneWidget);
+      // The note stays on the layer; the person's words are in the record.
       expect(find.textContaining('还没有语音 Key'), findsOneWidget);
+      await toggleHistory(t);
+      expect(find.text('你好'), findsOneWidget);
     });
 
     testWidgets('a long-press opens the layer with the same note', (t) async {
@@ -237,6 +248,7 @@ void main() {
       expect(seen!.operating, same(f.controller.operating));
       expect(seen!.navigatorContext.mounted, isTrue);
       expect(result['title'], '#raft-flutter');
+      await toggleHistory(t);
       expect(find.text('已打开 #raft-flutter'), findsOneWidget);
     });
 
@@ -383,6 +395,7 @@ void main() {
       f.sessions.single.onInputText!('看看动态');
       f.sessions.single.onInputText!('里什么要我处理');
       await t.pump();
+      await toggleHistory(t);
       expect(find.text('看看动态里什么要我处理'), findsOneWidget);
     });
   });

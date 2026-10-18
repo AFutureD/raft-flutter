@@ -452,9 +452,21 @@ class _OrbLayerState extends State<OrbLayer>
     final briefing = c.shownBriefing;
     final driving = c.driving;
     final big = briefing?.overview;
+    // A note from the app (no voice key, a failure) since the person last
+    // spoke stays on the layer: it is not the agent's talk, it asks for them.
+    final notices = [
+      for (final e in c.entries.reversed.takeWhile(
+        (e) => e.kind != OrbEntryKind.user,
+      ))
+        if (e.kind == OrbEntryKind.notice) e,
+    ];
     final pending = c.actions.pending;
     final outcome = c.actions.outcome;
-    if (big == null && briefing == null && pending == null && outcome == null) {
+    if (big == null &&
+        notices.isEmpty &&
+        briefing == null &&
+        pending == null &&
+        outcome == null) {
       return Text(
         driving ? '驾驶模式：直接说就行，我一次只说一件' : '说点什么，或者长按球直接对话',
         style: RaftTypography.body(t, size: 15, line: 22, color: quiet),
@@ -482,6 +494,11 @@ class _OrbLayerState extends State<OrbLayer>
                 color: Colors.white,
               ),
             ),
+          ),
+        for (final note in notices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+            child: _EntryView(entry: note, quiet: quiet),
           ),
         if (outcome != null)
           Padding(

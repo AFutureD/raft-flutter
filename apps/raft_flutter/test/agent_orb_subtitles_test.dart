@@ -80,19 +80,25 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
-  testWidgets('it is not shown while the layer is open, and not left behind '
-      'after it closes', (t) async {
+  testWidgets('with the layer open it is beside the docked orb, once; the '
+      'transcript is not on the layer', (t) async {
     await fixture(t);
     f.sessions.single.onInputText!('你好');
     await t.pump();
     expect(bubble, findsOneWidget);
     await f.openLayerInCall();
-    expect(bubble, findsNothing);
     f.sessions.single.onOutputText!('你好呀');
     await t.pump();
-    expect(find.byKey(const ValueKey('orb-subtitle')), findsNothing);
-    // The line is in the layer's transcript instead.
-    expect(find.text('你好呀'), findsOneWidget);
+    final dock = find.byKey(const ValueKey('orb-layer-dock'));
+    expect(bubble, findsOneWidget);
+    expect(find.descendant(of: dock, matching: bubble), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('orb-layer-content')),
+        matching: find.text('你好呀'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('a long line stays on one line', (t) async {
