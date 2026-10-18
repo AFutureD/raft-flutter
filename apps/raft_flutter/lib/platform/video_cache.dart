@@ -18,7 +18,10 @@ const Duration kLoopingVideoMaxDuration = Duration(seconds: 60);
 class VideoCache {
   VideoCache._();
 
-  static const _defined = bool.fromEnvironment('RAFT_VIDEO_CACHE');
+  // `bool.fromEnvironment` is true only for the literal `true`; the
+  // documented switch is `=1`, so accept both.
+  static const _flag = String.fromEnvironment('RAFT_VIDEO_CACHE');
+  static const _defined = _flag == '1' || _flag == 'true';
 
   /// Lets the evidence harness compare the cache against the direct URL in
   /// one process.
