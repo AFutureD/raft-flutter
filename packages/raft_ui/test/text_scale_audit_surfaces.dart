@@ -20,6 +20,7 @@ import 'package:raft_ui/channel_management_previews.dart';
 import 'package:raft_ui/channel_resolution_previews.dart';
 import 'package:raft_ui/chat_composition_previews.dart';
 import 'package:raft_ui/combobox_previews.dart';
+import 'package:raft_ui/collapsible_section_previews.dart';
 import 'package:raft_ui/composer_expand_previews.dart';
 import 'package:raft_ui/conversation_card_previews.dart';
 import 'package:raft_ui/css_recipe_radius_previews.dart';
@@ -387,6 +388,13 @@ final auditSurfaces = <AuditSurface>[
     'Long mounted chat sidebar',
     longMountedChatSidebarPreview,
     Size(320, 560),
+    representative: true,
+  ),
+  AuditSurface(
+    'collapsibleSectionPreview',
+    'Collapsible section header',
+    collapsibleSectionPreview,
+    Size(420, 520),
     representative: true,
   ),
   AuditSurface(

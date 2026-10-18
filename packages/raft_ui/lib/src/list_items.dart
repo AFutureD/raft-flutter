@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 import 'design_primitives.dart';
 import 'form_controls.dart';
 import 'icons.dart';
+import 'primitive_tokens.dart';
 import 'recipes/button_variants.g.dart';
 
 import 'recipe_surface.dart';
@@ -482,6 +483,7 @@ class RaftSectionHeader extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
+    this.leading,
     this.count,
     this.action,
     this.wrap = false,
@@ -489,6 +491,10 @@ class RaftSectionHeader extends StatelessWidget {
 
   final String label;
   final Widget? icon;
+
+  /// Disclosure affordance in front of [icon] (a rotating chevron when the
+  /// header opens and closes a section).
+  final Widget? leading;
   final int? count;
   final Widget? action;
 
@@ -502,6 +508,7 @@ class RaftSectionHeader extends StatelessWidget {
     final left = Row(
       mainAxisSize: wrap ? MainAxisSize.min : MainAxisSize.max,
       children: [
+        if (leading != null) ...[leading!, const SizedBox(width: 6)],
         if (icon != null) ...[
           IconTheme.merge(
             data: IconThemeData(
@@ -548,6 +555,99 @@ class RaftSectionHeader extends StatelessWidget {
         if (action != null) ...[
           const SizedBox(width: 8),
           RaftInlineBox(child: action!),
+        ],
+      ],
+    );
+  }
+}
+
+/// Section header that opens and closes the content below it.
+///
+/// Collapsed it is a single [RaftSectionHeader] row (label, optional icon,
+/// count and action); expanded the same row stays in place and sits above
+/// [children]. The chevron turns a quarter turn, the way the sidebar's
+/// sections do, and the row is one button for pointer, keyboard and screen
+/// readers (`expanded` state, `label, count` name).
+///
+/// The caller owns [expanded] (see `SidebarDisclosureStore` for the
+/// device-local memory pattern) and the content; this widget owns nothing but
+/// the disclosure affordance.
+class RaftCollapsibleSectionHeader extends StatelessWidget {
+  const RaftCollapsibleSectionHeader({
+    super.key,
+    required this.label,
+    required this.expanded,
+    required this.onExpandedChanged,
+    required this.children,
+    this.icon,
+    this.count,
+    this.action,
+    this.disclosureKey,
+    this.gap = 8,
+  });
+
+  final String label;
+  final bool expanded;
+  final ValueChanged<bool> onExpandedChanged;
+  final List<Widget> children;
+  final Widget? icon;
+  final int? count;
+
+  /// Stays outside the disclosure target so it keeps its own action.
+  final Widget? action;
+  final Key? disclosureKey;
+
+  /// Gap between the header row and [children] while expanded.
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : RaftPrimitives.controlDuration;
+    final header = RaftSectionHeader(
+      label: label,
+      icon: icon,
+      count: count,
+      action: action,
+      leading: AnimatedRotation(
+        turns: expanded ? .25 : 0,
+        duration: duration,
+        child: RaftIcon(
+          RaftGlyph.chevronRight,
+          size: 12,
+          color: t.brutal
+              ? RaftPrimitiveColors.black.withValues(alpha: .6)
+              : t.semantic.foregroundMuted,
+        ),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          expanded: expanded,
+          child: RaftControl(
+            key: disclosureKey,
+            kind: RaftControlKind.textLink,
+            visualHeight: 16,
+            minimumTargetSize: 16,
+            shadow: false,
+            semanticLabel: count == null ? label : '$label, $count',
+            onPressed: () => onExpandedChanged(!expanded),
+            // The control's own name is the row's name: the chevron and the
+            // eyebrow must not be read again.
+            child: ExcludeSemantics(child: header),
+          ),
+        ),
+        if (expanded) ...[
+          SizedBox(height: gap),
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(height: gap),
+            children[i],
+          ],
         ],
       ],
     );

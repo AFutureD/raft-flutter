@@ -1847,3 +1847,26 @@ parity never caught it. Causes and fixes:
   (does Web have it, does Flutter, which parity case covers it, gap size). `test/state_parity_guard_test.dart` fails when a
   listed state has neither a resolvable case id nor an intentional / NA justification, when a navigation-registry section is
   not mapped, or when a `flutterEntry` file is gone. A new screen or panel must add its states there.
+
+## Agent profile Skills: collapsed by default (owner decision 2026-10-18)
+
+Kevin: "我们 skill 非常多，需要滑动很久才可以看到最后，这里我们可以做成一个收起展开吗？默认是收起状态".
+Web's embedded `AgentSkills` renders every card of every source path, so on an agent with many skills the
+profile's Actions and every section after them sat far below the first screens.
+
+Flutter now renders the section as one collapsible header row (`RaftCollapsibleSectionHeader`, raft_ui):
+
+* Collapsed is the default and is the whole section: the `SKILLS` eyebrow with its count and a right chevron
+  (the same quarter-turn chevron the sidebar sections use, 100 ms `RaftPrimitives.controlDuration`, none when
+  animations are reduced). Tapping the row, Enter/Space, or the screen reader's tap opens it; the row is one
+  button that announces `Skills, N` with an expanded/collapsed state.
+* Expanded adds the Global and Workspace sub-sections exactly as Web renders them (path groups, cards, `/command`
+  badges, descriptions clamped to two lines, empty lines) below the unchanged header. Collapsing hides them again;
+  the header never moves.
+* The disclosure is local view state: `/agents/:id/skills` is still fetched once when the profile opens (Web's
+  eager read), a re-open keeps the accepted list, and the loading / "Failed to load skills" + Retry states are
+  unchanged. With no skills at all the header keeps its `0` and stays a plain label, like Web.
+* Parity cases that compare the profile (`components.members-ext.agent.profile*`,
+  `components.members-pages.*.agent.profile-fast-mode`, …) therefore differ from Web by the collapsed body on
+  purpose: the React hosts always render the cards. The state cases for this section still apply — expand it in
+  the Flutter case before comparing the list.

@@ -1709,7 +1709,7 @@
      "flutter": "yes",
      "parityCase": [],
      "status": "gap",
-     "justification": "Embedded skills block (AgentSkills): \"Loading skills…\", \"Failed to load skills\" + Retry, \"No global skills installed on this computer\", \"No skills in this agent's workspace\". Flutter has all strings (agent_detail_view.dart:1048); no case drives any of them.",
+     "justification": "Embedded skills block (AgentSkills): \"Loading skills…\", \"Failed to load skills\" + Retry, \"No global skills installed on this computer\", \"No skills in this agent's workspace\". The populated list is collapsed by default (owner decision 2026-10-18), so a case must expand it before comparing cards; no case drives the loading / error / empty copy yet.",
      "size": "S",
      "gapKind": "case-missing"
     },

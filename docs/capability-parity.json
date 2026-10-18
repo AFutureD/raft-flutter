@@ -7122,7 +7122,7 @@
    "kind": "ui",
    "id": "ui:agents.skills-section",
    "area": "agents-computers-runtimes",
-   "capability": "Skills list (global / workspace groups with /commands)",
+   "capability": "Skills list (global / workspace groups with /commands), collapsed to its header by default",
    "background": false,
    "status": "covered",
    "webEntry": "Profile > Skills (AgentSkills embedded)",
@@ -7138,7 +7138,7 @@
      "needle": "/skills"
     }
    ],
-   "justification": "",
+   "justification": "Owner decision (2026-10-18): the section opens and closes on a tap of its header and starts collapsed, so a long skill list does not push the rest of the profile off screen. Web always renders every skill card; the header, count, groups, cards and /command badges are unchanged.",
    "impact": "",
    "size": ""
   },

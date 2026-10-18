@@ -1357,7 +1357,11 @@ class RaftSkillItem {
 /// Web `AgentSkills embedded`: `SectionHeader` + count, then Global and
 /// Workspace sub-sections grouped by source path of `SurfaceListItem` cards.
 /// Loading / error(+Retry) replace the section body like Web.
-class RaftSkillsSection extends StatelessWidget {
+///
+/// Owner decision (2026-10-18): the list is collapsed by default and opens on
+/// a tap of its header. Agents carry many skills, and expanded they pushed the
+/// profile's Actions and every section after them off the first screens.
+class RaftSkillsSection extends StatefulWidget {
   const RaftSkillsSection({
     super.key,
     required this.global,
@@ -1365,11 +1369,33 @@ class RaftSkillsSection extends StatelessWidget {
     this.loading = false,
     this.error,
     this.onRetry,
+    this.initiallyExpanded = false,
+    this.expanded,
+    this.onExpandedChanged,
   });
   final List<RaftSkillItem> global, workspace;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
+
+  /// Opens the list on its first frame (a caller that remembers the choice).
+  final bool initiallyExpanded;
+
+  /// Controlled disclosure; when null the section keeps its own state.
+  final bool? expanded;
+  final ValueChanged<bool>? onExpandedChanged;
+
+  @override
+  State<RaftSkillsSection> createState() => _RaftSkillsSectionState();
+}
+
+class _RaftSkillsSectionState extends State<RaftSkillsSection> {
+  late bool open = widget.expanded ?? widget.initiallyExpanded;
+
+  void hold(bool value) {
+    if (widget.expanded == null) setState(() => open = value);
+    widget.onExpandedChanged?.call(value);
+  }
 
   Widget _group(
     BuildContext context,
@@ -1456,7 +1482,8 @@ class RaftSkillsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    if (loading) {
+    final expanded = widget.expanded ?? open;
+    if (widget.loading) {
       return RaftPanelSection(
         children: [
           RaftCssText(
@@ -1466,34 +1493,50 @@ class RaftSkillsSection extends StatelessWidget {
         ],
       );
     }
-    if (error != null) {
+    if (widget.error != null) {
       // AgentSkills.tsx: centred `gap-3` column, mono muted message and an
       // outline `sm` Retry with the RefreshCw icon.
-      return RaftLoadError(error!, onRetry: onRetry);
+      return RaftLoadError(widget.error!, onRetry: widget.onRetry);
     }
-    final total = global.length + workspace.length;
+    final total = widget.global.length + widget.workspace.length;
+    // Web renders the header alone (with its 0) when nothing is installed;
+    // with nothing to disclose the header stays a plain label.
+    if (total == 0) {
+      return RaftPanelSection(
+        children: [
+          RaftSectionHeader(label: raftText(context, 'Skills'), count: total),
+        ],
+      );
+    }
     return RaftPanelSection(
       gap: 16,
       children: [
-        RaftSectionHeader(label: raftText(context, 'Skills'), count: total),
-        if (total > 0) ...[
-          _group(
-            context,
-            t,
-            'Global',
-            RaftGlyph.globe,
-            global,
-            'No global skills installed on this computer',
-          ),
-          _group(
-            context,
-            t,
-            'Workspace',
-            RaftGlyph.folderOpen,
-            workspace,
-            "No skills in this agent's workspace",
-          ),
-        ],
+        RaftCollapsibleSectionHeader(
+          label: raftText(context, 'Skills'),
+          count: total,
+          expanded: expanded,
+          onExpandedChanged: hold,
+          disclosureKey: const ValueKey('agent-skills-disclosure'),
+          gap: 16,
+          children: [
+            _group(
+              context,
+              t,
+              'Global',
+              RaftGlyph.globe,
+              widget.global,
+              'No global skills installed on this computer',
+            ),
+            _group(
+              context,
+              t,
+              'Workspace',
+              RaftGlyph.folderOpen,
+              widget.workspace,
+              "No skills in this agent's workspace",
+            ),
+          ],
+        ),
       ],
     );
   }
