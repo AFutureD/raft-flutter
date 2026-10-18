@@ -132,6 +132,7 @@ void main() {
         '自动（gemini-3.8-live）',
         'Gemini 3.8 Live',
         'Gemini 3.1 Flash Live',
+        'Gemini 2.5 Flash 原生音频',
       ]);
     });
 

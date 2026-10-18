@@ -285,6 +285,9 @@ class GeminiLiveSession implements VoiceSession {
   static const selectableModels = {
     'models/gemini-3.8-live': 'Gemini 3.8 Live',
     'models/gemini-3.1-flash-live-preview': 'Gemini 3.1 Flash Live',
+    // Not affected by the newer models' occasional switch to another voice
+    // for a whole reply (Google forum, 2026-10-07), for comparing.
+    'models/gemini-2.5-flash-native-audio-latest': 'Gemini 2.5 Flash 原生音频',
   };
 
   static String _bare(String name) =>
