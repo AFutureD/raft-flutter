@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/features/agent_detail_view.dart';
 import 'package:raft_flutter/features/member_profile_view.dart';
+import 'package:raft_flutter/features/workspace_dm_header.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'workspace_shell_contract_test.dart' show mountShell, retire;
@@ -89,5 +91,49 @@ void main() {
         expect(t.takeException(), isNull);
       });
     }
+  }
+  for (final agent in [false, true]) {
+    testWidgets(
+      'DM profile action honours live selection state (agent: $agent)',
+      (t) async {
+        final (w, _) = await pageFixture(t, section: 'chat');
+        addTearDown(() => retire(t));
+        var selecting = true;
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(RaftFamily.brutal),
+            home: Scaffold(
+              body: WorkspaceDmHeader(
+                headerKey: const Key('selection-guard-header'),
+                controller: w,
+                channel: RaftChannel({'id': 'dm-guard', 'peerId': 'peer-1'}),
+                agent: agent,
+                name: 'Taylor',
+                profile: null,
+                avatar: const SizedBox.square(dimension: 36),
+                selectionActive: () => selecting,
+                onSearch: () {},
+                onSettings: () {},
+              ),
+            ),
+          ),
+        );
+        await t.tap(find.byKey(const Key('dm-header-avatar-button')));
+        expect(w.location.profile, isNull);
+        selecting = false;
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pumpAndSettle();
+        expect(w.location.profile?.id, 'peer-1');
+        expect(
+          w.location.profile?.kind,
+          agent ? RaftProfileKind.agent : RaftProfileKind.human,
+        );
+        w.closeProfile();
+        selecting = true;
+        await t.sendKeyEvent(LogicalKeyboardKey.space);
+        await t.pumpAndSettle();
+        expect(w.location.profile, isNull);
+      },
+    );
   }
 }

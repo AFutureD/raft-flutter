@@ -2593,8 +2593,8 @@
    "flutterEntry": "DM header shows it (RaftDmHeader muted); regular channel header (RaftChannelHeader) has only an Archived badge",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "mutedLabel: tr('Activity muted. Direct mentions can still notify you.')"
+     "file": "apps/raft_flutter/lib/features/workspace_dm_header.dart",
+     "needle": "muted: channel.flag('activityMuted')"
     }
    ],
    "justification": "Channel header does not show the muted badge; mute state is still visible in the sidebar row and the settings switch.",
@@ -2974,8 +2974,8 @@
      "needle": "final VoidCallback? onBack, onSearch, onSettings, onAvatarTap;"
     },
     {
-     "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "onAvatarTap: !canOpenProfile"
+     "file": "apps/raft_flutter/lib/features/workspace_dm_header.dart",
+     "needle": "onAvatarTap: peerId.isEmpty"
     }
    ],
    "justification": "",

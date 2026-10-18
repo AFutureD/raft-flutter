@@ -14,7 +14,9 @@ import 'error_presentation.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
 import 'raft_selection_area.dart';
+
 import 'package:flutter/services.dart';
 
 import 'system_inset.dart';
@@ -947,12 +949,11 @@ class RaftKeyValueRow extends StatelessWidget {
 
 /// Text with inline references linkified (`RefText.tsx`): [style] is the base
 /// of the surrounding text, the result its spans.
-typedef RaftActivityLinkify =
-    List<InlineSpan> Function(
-      BuildContext context,
-      String text,
-      TextStyle style,
-    );
+typedef RaftActivityLinkify = List<InlineSpan> Function(
+  BuildContext context,
+  String text,
+  TextStyle style,
+);
 
 class RaftActivityLogEntry {
   const RaftActivityLogEntry({

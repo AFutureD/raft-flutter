@@ -77,6 +77,7 @@ import 'resource_cards.dart' show resourceRelativeTime;
 import 'saved_sidebar_entry.dart';
 import 'system_notification_center.dart';
 import 'workspace_browser.dart';
+import 'workspace_dm_header.dart';
 import 'management_support.dart' show managementLaunch;
 import 'sender_avatar_projection.dart';
 import '../platform/app_services.dart';
@@ -3196,69 +3197,26 @@ class _WorkspaceViewState extends State<WorkspaceView>
   Widget dmHeader({bool mobile = false}) {
     final c = w.channel!;
     final peer = dmPeer(c, requestSize: 36);
-    final row = peer.profile;
-    // Web resolveAgentDisplayState: external presence from lastSeenAt, typed
-    // detail kinds, activityKind ?? activity.
-    final display = !peer.agent || row == null
-        ? null
-        : agentRowAmbientDisplay(row);
-    final activity = !peer.agent
-        ? null
-        : switch (display?.activity) {
-            'thinking' => RaftActivityTone.thinking,
-            'working' => RaftActivityTone.working,
-            'error' => RaftActivityTone.error,
-            'offline' => RaftActivityTone.offline,
-            'online' => RaftActivityTone.online,
-            _ => RaftActivityTone.offline,
-          };
-    final peerId = c.string('peerId');
-    final canOpenProfile = peerId.isNotEmpty;
-    return RaftDmHeader(
-      key: Key(
+    return WorkspaceDmHeader(
+      headerKey: Key(
         mobile ? 'workspace-mobile-detail-header' : 'workspace-channel-header',
       ),
+      controller: w,
+      channel: c,
+      agent: peer.agent,
       name: peer.name,
+      profile: peer.profile,
       avatar: mountedPeerAvatar(
         peer.name,
         peer.agent,
         peer.avatar,
         avatarContext: RaftMountedAvatarContext.panelHeader,
       ),
-      activity: activity,
-      external: peer.agent && row?['runtime'] == 'external',
-      activityText: activity == null
-          ? null
-          : display == null
-          ? tr('Offline')
-          : agentDisplayText(
-              display,
-              lastSeenAt: DateTime.tryParse('${row?['lastSeenAt']}'),
-              relativeTime: (seen) => resourceRelativeTime(
-                seen.toIso8601String(),
-                chinese: Localizations.localeOf(context).languageCode == 'zh',
-              ),
-              translate: (source, values) =>
-                  raftFormat(context, source, values),
-            ),
-      muted: c.flag('activityMuted'),
-      mutedLabel: tr('Activity muted. Direct mentions can still notify you.'),
+      selectionActive: () => mainSelection.active,
       onBack: mobile ? dismissPanel : null,
       backKey: mobile ? const Key('mobile-detail-back') : null,
-      backLabel: mainSelection.active ? tr('Exit selection') : tr('Back'),
       onSearch: searchThisChannel,
       onSettings: channelSettings,
-      onAvatarTap: !canOpenProfile
-          ? null
-          : () {
-              if (mainSelection.active) return;
-              w.openProfile(
-                peer.agent ? RaftProfileKind.agent : RaftProfileKind.human,
-                peerId,
-              );
-            },
-      searchLabel: tr('Search this channel'),
-      settingsLabel: tr('Channel details and settings'),
     );
   }
 
