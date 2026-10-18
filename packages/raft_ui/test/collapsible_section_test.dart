@@ -22,24 +22,27 @@ void main() {
   }) => MaterialApp(
     theme: raftTheme(family, dark: dark),
     home: Scaffold(
-      body: SingleChildScrollView(
-        child: RaftPanelSection(
-          topBorder: false,
-          gap: 16,
-          children: [
-            RaftCollapsibleSectionHeader(
-              disclosureKey: disclosureKey,
-              label: 'Skills',
-              count: 3,
-              expanded: expanded,
-              onExpandedChanged: onExpandedChanged,
-              action: action,
-              children: const [
-                RaftSurfaceListItem(child: Text('deploy')),
-                RaftSurfaceListItem(child: Text('feature-map')),
-              ],
-            ),
-          ],
+      body: RaftDensityScope(
+        density: RaftDensity.desktop,
+        child: SingleChildScrollView(
+          child: RaftPanelSection(
+            topBorder: false,
+            gap: 16,
+            children: [
+              RaftCollapsibleSectionHeader(
+                disclosureKey: disclosureKey,
+                label: 'Skills',
+                count: 3,
+                expanded: expanded,
+                onExpandedChanged: onExpandedChanged,
+                action: action,
+                children: const [
+                  RaftSurfaceListItem(child: Text('deploy')),
+                  RaftSurfaceListItem(child: Text('feature-map')),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -107,13 +110,9 @@ void main() {
     );
   }
 
-  testWidgets('opening and closing animate instead of jumping', (
-    tester,
-  ) async {
-    Widget animatedHost(bool expanded) => host(
-      expanded: expanded,
-      onExpandedChanged: (_) {},
-    );
+  testWidgets('opening and closing animate instead of jumping', (tester) async {
+    Widget animatedHost(bool expanded) =>
+        host(expanded: expanded, onExpandedChanged: (_) {});
     await tester.pumpWidget(animatedHost(false));
     final closed = tester.getSize(find.byType(RaftCollapsibleSectionHeader));
 

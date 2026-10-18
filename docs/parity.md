@@ -1856,7 +1856,7 @@ disclosure that starts collapsed.
 
 Flutter now renders the section as one collapsible header row (`RaftCollapsibleSectionHeader`, raft_ui):
 
-* Collapsed is the default and is the whole section: the `SKILLS` eyebrow with its count and a right chevron
+* Collapsed is the default and is the whole section: the `SKILLS` eyebrow with its count and a trailing right chevron
   (the same quarter-turn chevron the sidebar sections use, none when animations are reduced). Tapping the row,
   Enter/Space, or the screen reader's tap opens it; the row is one button that announces `Skills, N` with an
   expanded/collapsed state.
@@ -1864,6 +1864,9 @@ Flutter now renders the section as one collapsible header row (`RaftCollapsibleS
   open, 200 ms close, decelerating in and easing out again) and the chevron turns over the same beat. The body
   leaves the tree only once it is fully folded, so a closed section is still exactly one header row for layout,
   tests and screen readers. `MediaQuery.disableAnimations` reduces both to a cut.
+* The label shares the left edge of neighbouring section titles; the chevron stays at the far right of the
+  disclosure. On touch devices the header keeps a 48px minimum target. Any independent action remains outside
+  the disclosure button, with its own pointer, keyboard and screen-reader target.
 * Expanded adds the Global and Workspace sub-sections exactly as Web renders them (path groups, cards, `/command`
   badges, descriptions clamped to two lines, empty lines) below the unchanged header. Collapsing hides them again;
   the header never moves.

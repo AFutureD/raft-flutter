@@ -482,7 +482,6 @@ class RaftSectionHeader extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
-    this.leading,
     this.count,
     this.action,
     this.wrap = false,
@@ -491,9 +490,6 @@ class RaftSectionHeader extends StatelessWidget {
   final String label;
   final Widget? icon;
 
-  /// Disclosure affordance in front of [icon] (a rotating chevron when the
-  /// header opens and closes a section).
-  final Widget? leading;
   final int? count;
   final Widget? action;
 
@@ -507,7 +503,6 @@ class RaftSectionHeader extends StatelessWidget {
     final left = Row(
       mainAxisSize: wrap ? MainAxisSize.min : MainAxisSize.max,
       children: [
-        if (leading != null) ...[leading!, const SizedBox(width: 6)],
         if (icon != null) ...[
           IconTheme.merge(
             data: IconThemeData(
@@ -671,43 +666,60 @@ class _RaftCollapsibleSectionHeaderState
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     // The chevron turns over the same beat as the fold it announces.
     final duration = reducedMotion ? Duration.zero : _openDuration;
-    final header = RaftSectionHeader(
-      label: widget.label,
-      icon: widget.icon,
-      count: widget.count,
-      action: widget.action,
-      leading: AnimatedRotation(
-        turns: widget.expanded ? .25 : 0,
-        duration: duration,
-        child: RaftIcon(
-          RaftGlyph.chevronRight,
-          size: 12,
-          color: t.brutal
-              ? RaftPrimitiveColors.black.withValues(alpha: .6)
-              : t.semantic.foregroundMuted,
+    final header = Row(
+      children: [
+        Expanded(
+          child: RaftSectionHeader(
+            label: widget.label,
+            icon: widget.icon,
+            count: widget.count,
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        AnimatedRotation(
+          turns: widget.expanded ? .25 : 0,
+          duration: duration,
+          child: RaftIcon(
+            RaftGlyph.chevronRight,
+            size: 12,
+            color: t.brutal
+                ? RaftPrimitiveColors.black.withValues(alpha: .6)
+                : t.semantic.foregroundMuted,
+          ),
+        ),
+      ],
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Semantics(
-          expanded: widget.expanded,
-          child: RaftControl(
-            key: widget.disclosureKey,
-            kind: RaftControlKind.textLink,
-            visualHeight: 16,
-            minimumTargetSize: 16,
-            shadow: false,
-            semanticLabel: widget.count == null
-                ? widget.label
-                : '${widget.label}, ${widget.count}',
-            onPressed: () => widget.onExpandedChanged(!widget.expanded),
-            // The control's own name is the row's name: the chevron and the
-            // eyebrow must not be read again.
-            child: ExcludeSemantics(child: header),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                expanded: widget.expanded,
+                child: RaftControl(
+                  key: widget.disclosureKey,
+                  kind: RaftControlKind.textLink,
+                  visualHeight: 16,
+                  flexibleHeight: true,
+                  shadow: false,
+                  padding: EdgeInsets.zero,
+                  semanticLabel: widget.count == null
+                      ? widget.label
+                      : '${widget.label}, ${widget.count}',
+                  onPressed: () => widget.onExpandedChanged(!widget.expanded),
+                  // Only the disclosure's repeated label and decoration are
+                  // excluded. An independent action keeps its own semantics.
+                  child: ExcludeSemantics(child: header),
+                ),
+              ),
+            ),
+            if (widget.action != null) ...[
+              const SizedBox(width: 8),
+              widget.action!,
+            ],
+          ],
         ),
         // The body leaves the tree only once it is fully folded, so a closed
         // section stays one row for layout, tests and screen readers.
