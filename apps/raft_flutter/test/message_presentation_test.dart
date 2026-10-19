@@ -15,6 +15,7 @@ import 'package:raft_flutter/features/private_route_guard.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'support/app_services_fixture.dart';
 
 class MessageAdapter implements HttpClientAdapter {
@@ -168,114 +169,111 @@ void main() {
       ]);
     },
   );
-  test(
-    'ambiguous directory names and bare DM handles require an explicit identity type',
-    () async {
-      final (w, a) = await fixture('owner');
-      a.routes['GET /agents'] = (_) => [
-        {'id': 'agent-same', 'name': 'same'},
-      ];
-      a.routes['GET /servers/s1/members'] = (_) => [
-        {'userId': 'user-same', 'name': 'same'},
-      ];
-      final directory = MessageReferenceDirectory(w);
-      // Complete both fresh directory reads without using any native fixture.
-      // Agents and members settle independently; wait for both, not a count.
-      for (
-        var i = 0;
-        i < 40 && !directory.references.any((r) => r.text == '@same~human');
-        i++
-      ) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      expect(
-        directory.references.map((r) => r.text),
-        unorderedEquals(['@same~agent', '@same~human']),
-      );
-      w.dms = [
-        RaftChannel({
-          'id': 'dm-agent',
-          'type': 'dm',
-          'peerType': 'agent',
-          'peerId': 'agent-same',
-          'peerName': 'same',
-        }),
-        RaftChannel({
-          'id': 'dm-user',
-          'type': 'dm',
-          'peerType': 'user',
-          'peerId': 'user-same',
-          'peerName': 'same',
-        }),
-      ];
-      final presentation = MessagePresentation(
-        controller: w,
-        message: RaftMessage({
-          'id': 'm',
-          'content': 'dm:@same dm:@same~agent dm:@same~human',
-        }),
-        onExternalLink: (_) {},
-        directoryReferences: directory.references,
-      );
-      expect(
-        presentation.references.map((r) => r.text),
-        isNot(contains('dm:@same')),
-      );
-      expect(
-        presentation.references
-            .singleWhere((r) => r.text == 'dm:@same~agent')
-            .href,
-        'raft-ref://channel/dm-agent',
-      );
-      expect(
-        presentation.references
-            .singleWhere((r) => r.text == 'dm:@same~human')
-            .href,
-        'raft-ref://channel/dm-user',
-      );
-      directory.dispose();
-      w.dispose();
-    },
-  );
+  test('ambiguous directory names and bare DM handles require an explicit identity type', () async {
+    final (w, a) = await fixture('owner');
+    a.routes['GET /agents'] = (_) => [
+      {'id': 'agent-same', 'name': 'same'},
+    ];
+    a.routes['GET /servers/s1/members'] = (_) => [
+      {'userId': 'user-same', 'name': 'same'},
+    ];
+    final directory = MessageReferenceDirectory(w);
+    // Complete both fresh directory reads without using any native fixture.
+    // Agents and members settle independently; wait for both, not a count.
+    for (
+      var i = 0;
+      i < 40 && !directory.references.any((r) => r.text == '@same~human');
+      i++
+    ) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(
+      directory.references.map((r) => r.text),
+      unorderedEquals(['@same~agent', '@same~human']),
+    );
+    w.dms = [
+      RaftChannel({
+        'id': 'dm-agent',
+        'type': 'dm',
+        'peerType': 'agent',
+        'peerId': 'agent-same',
+        'peerName': 'same',
+      }),
+      RaftChannel({
+        'id': 'dm-user',
+        'type': 'dm',
+        'peerType': 'user',
+        'peerId': 'user-same',
+        'peerName': 'same',
+      }),
+    ];
+    final presentation = MessagePresentation(
+      controller: w,
+      message: RaftMessage({
+        'id': 'm',
+        'content': 'dm:@same dm:@same~agent dm:@same~human',
+      }),
+      onExternalLink: (_) {},
+      directoryReferences: directory.references,
+    );
+    expect(
+      presentation.references.map((r) => r.text),
+      isNot(contains('dm:@same')),
+    );
+    expect(
+      presentation.references
+          .singleWhere((r) => r.text == 'dm:@same~agent')
+          .href,
+      'raft-ref://channel/dm-agent',
+    );
+    expect(
+      presentation.references
+          .singleWhere((r) => r.text == 'dm:@same~human')
+          .href,
+      'raft-ref://channel/dm-user',
+    );
+    directory.dispose();
+    w.dispose();
+  });
 
   for (final dark in raftThemeMatrix([false, true])) {
-    testWidgets('linked-only task keeps bare label external ${dark ? 'dark' : 'light'}', (
-      tester,
-    ) async {
-      final (w, _) = (await tester.runAsync(() => fixture('owner')))!;
-      addTearDown(w.dispose);
-      final linked = {'taskNumber': 1487, 'status': 'in_review'};
-      Widget body(bool known) => MaterialApp(
-        theme: raftTheme(dark: dark),
-        home: Scaffold(
-          body: MessagePresentation(
-            controller: w,
-            message: RaftMessage({
-              'id': 'm1',
-              'channelId': 'c1',
-              'content':
-                  'Review [#1487 link title](https://example.org/review/1487) then task #1487.',
-            }),
-            taskByNumber: (n) => n == 1487 ? linked : null,
-            knownTaskNumber: (_) => known,
-            onExternalLink: (_) {},
+    testWidgets(
+      'linked-only task keeps bare label external ${dark ? 'dark' : 'light'}',
+      (tester) async {
+        final (w, _) = (await tester.runAsync(() => fixture('owner')))!;
+        addTearDown(w.dispose);
+        final linked = {'taskNumber': 1487, 'status': 'in_review'};
+        Widget body(bool known) => MaterialApp(
+          theme: raftTheme(dark: dark),
+          home: Scaffold(
+            body: MessagePresentation(
+              controller: w,
+              message: RaftMessage({
+                'id': 'm1',
+                'channelId': 'c1',
+                'content': 'Review [#1487 link title](https://example.org/review/1487) then task #1487.',
+              }),
+              taskByNumber: (n) => n == 1487 ? linked : null,
+              knownTaskNumber: (_) => known,
+              onExternalLink: (_) {},
+            ),
           ),
-        ),
-      );
-      await tester.pumpWidget(body(false));
-      await tester.pump();
-      expect(find.byType(RaftReferenceChip), findsOneWidget);
-      final spans = find.byWidgetPredicate(
-        (w) =>
-            w is RichText &&
-            w.text.toPlainText().contains('Review #1487 link title'),
-      );
-      expect(spans, findsOneWidget);
-      await tester.pumpWidget(body(true));
-      await tester.pump();
-      expect(find.byType(RaftReferenceChip), findsNWidgets(2));
-      expect(tester.takeException(), isNull);
-    });
+        );
+        await tester.pumpWidget(body(false));
+        await tester.pump();
+        expect(find.byType(RaftReferenceChip), findsOneWidget);
+        final spans = find.byWidgetPredicate(
+          (w) =>
+              w is RichText &&
+              w.text.toPlainText().contains('Review #1487 link title'),
+        );
+        expect(spans, findsOneWidget);
+        await tester.pumpWidget(body(true));
+        await tester.pump();
+        expect(find.byType(RaftReferenceChip), findsNWidgets(2));
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
   testWidgets(
     'inline action submits exact state/version and shows canonical server result',
@@ -390,6 +388,10 @@ void main() {
       await tester.enterText(
         find.byKey(const ValueKey('field-name')),
         'edited',
+      );
+      // The 0.7.1 controls are taller: scroll the dialog to the row first.
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('action-member-agent-a1')),
       );
       await tester.tap(find.byKey(const ValueKey('action-member-agent-a1')));
       await tester.pump();
@@ -591,8 +593,7 @@ void main() {
       expect(
         mountedAtRemoval,
         isTrue,
-        reason:
-            'the old route state is still mounted when the same-frame submission completes',
+        reason: 'the old route state is still mounted when the same-frame submission completes',
       );
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Private editor'), findsNothing);

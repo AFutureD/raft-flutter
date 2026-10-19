@@ -85,7 +85,14 @@ Future<void> loadAuditFonts(WidgetTester t, AuditFonts fonts) => _fontsLoaded
           for (final f in cjkTestFonts())
             if (f.existsSync()) ByteData.sublistView(f.readAsBytesSync()),
         ];
-        for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
+        for (final family in [
+          'SpaceGrotesk',
+          'SpaceMono',
+          'HankenGrotesk',
+          'Inter',
+          'Geist',
+          'GeistMono',
+        ]) {
           ByteData bytes;
           if (fonts == AuditFonts.tall && cjk.isNotEmpty) {
             bytes = cjk.first;

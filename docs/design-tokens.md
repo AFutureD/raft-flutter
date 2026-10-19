@@ -154,6 +154,17 @@ entry or an entry points at a token that does not exist:
   pixels (1.5px paints 1px), so the parity harness sets `RaftBorderSnap.emulatedDeviceScaleFactor`. Rings and inset
   rings (`ring-*`, `inset-ring-*`, the focus ring) are not snapped.
 
+## Core components: hand-ported, not generated
+
+Button, Badge, Status, Avatar, IconTile, Input, Switch, Checkbox, Tabs, SegmentedControl and ListRow live in
+`packages/raft_ui/lib/src/raft/` and read the 0.7.1 tokens directly. They are not emitted by `tool/recipes`: that
+pipeline targets raft-ui 0.5.52 (`docs/component-recipes.md`, a theme axis on every recipe), its extractor cannot
+evaluate the helper-composed class lists of 0.7.1 (`sticker("bg-danger")`, `outline(...)`), and regenerating it would
+flip all 121 recipes (and every component not yet ported) at once. Each ported component is pinned instead by a
+pixel diff against the real React specimen (`tool/parity-ui`, docs/parity.md) and by widget tests of the
+numbers (heights 32 / 44 / 52, sticker fills, disabled and press colours). The remaining generated recipes keep
+serving the other components until their ports land.
+
 ## Typography policy token
 
 `tool/design-source/control-typography.json` (authored, Flutter-only; no Web CSS

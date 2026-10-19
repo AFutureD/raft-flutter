@@ -27,6 +27,7 @@ Every file or directory under `docs/` is listed here (path — what it is — wh
 - `auth-keyboard.md`, `keyboard-repro.md`, `login-acceptance.md` — soft keyboard and login/onboarding rules and QA — when touching auth screens or IME insets.
 - `widget-acceptance.md`, `current-acceptance.md`, `mobile-navigation.md`, `action-card-feasibility.md` — acceptance matrices read by guards and the report — when claiming component or navigation coverage.
 - `diagram-font-provenance.json`, `inter-font-provenance.json` — provenance of derived fonts — when regenerating fonts.
+- `space-font-provenance.json` — revision and sha256 of the bundled Space Grotesk / Space Mono — when refreshing the Raft Design System fonts.
 - `desktop-cases.json`, `parity-reference-defects.json` — inputs of `tool/desktop-parity` and `tool/parity` — when adding a desktop case or known defect.
 - `theme-tokens/` — theme token JSON read by `tool/gen-tokens` — when changing theme colors.
 

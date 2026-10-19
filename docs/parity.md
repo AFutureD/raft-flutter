@@ -1537,8 +1537,43 @@ References are never committed (output `build/parity-ui/`, override `PARITY_UI_O
 tool/parity-ui/run run [--cases 'components.raft-ui.button.*']   # capture
 tool/parity-ui/run check                                          # capture twice: byte-identical PNGs; official validate + diff round trip
 tool/parity-ui/run cases                                          # ids and which have no Flutter preview case yet
-tool/parity-ui/run diff                                           # official diff + site once Flutter captures exist
+tool/parity-ui/run flutter [--cases ...]                          # Flutter side: apps/raft_flutter/test/parity/cases/ui_raft_specimens.dart
+tool/parity-ui/run diff [--cases ...]                             # official diff + site, then a per-case score table
+tool/parity-ui/run dom-dump [--cases ...] [--out DIR]             # DOM rects + computed styles of the React specimens (diagnostic)
 ```
+
+The Flutter specimens (`ui_raft_specimens.dart` and `ui_raft_specimens/<group>.dart`, keyed by specimen id, both modes)
+render the real `raft_ui` widgets through the shared parity harness (`PARITY_MANIFEST` = `build/parity-ui/cases.json`; the
+manifest props carry `parityTheme`). The harness sets `RaftBorderSnap.emulatedDeviceScaleFactor`: the reference is captured
+with an emulated device scale factor, where Blink floors `border-[1.5px]` to a whole CSS pixel (1px), and
+`raftControlBorderPx` reproduces that only here. Translucent tokens on a known fill go through `raftChromeBlend`
+(Chromium truncates the destination term of source-over; Flutter rounds, one level off on whole borders). Mono labels carry a
+1px baseline shift where Blink's rounded ascent/descent differ from Flutter's (`raft/text_baseline.dart`). Pass thresholds of
+the official CLI: > 99% pass, > 96% basic-pass.
+
+Result, raft-ui 0.7.1 core components (before = the base branch's widgets in the same layouts, old fonts and tokens; `-` = the
+component did not exist or has no comparable widget; after = this change):
+
+| case | before light / dark | after light / dark |
+| --- | --- | --- |
+| button.variants | 82.43 / 62.88 | 98.90 / 97.64 |
+| button.sizes | 60.71 / 44.73 | 98.60 / 96.67 |
+| button.states | 69.26 / 71.26 | 98.51 / 98.39 |
+| badge.variants | 71.93 / 61.60 | 96.67 / 96.07 |
+| status.lights | - | 99.11 / 99.07 |
+| avatar.faces | 72.53 / 68.01 | 99.26 / 98.27 |
+| avatar.sizes | 77.60 / 75.11 | 99.34 / 98.12 |
+| avatar.presence | - | 99.07 / 98.15 |
+| input.states | 59.55 / 38.80 | 98.74 / 98.77 |
+| switch.states | 84.85 / 60.25 | 98.46 / 96.67 |
+| checkbox.states | 90.99 / 86.76 | 98.66 / 98.86 |
+| tabs.variants | - | 97.72 / 97.63 |
+| segmented-control.states | 65.67 / 61.63 | 98.03 / 96.77 |
+| list-row.variants | - | 97.70 / 96.72 |
+| icon-tile.variants | - | 99.61 / 99.43 |
+
+What is left in these cases is glyph anti-aliasing (Flutter's strokes are ~5% lighter than Chromium's at 12-13px) and
+1-level edge pixels.
 
 ## Composed screens (extension suite, `components.screens-ext.*`)
 

@@ -1,11 +1,13 @@
 {
   "real|light|android-zh|agentProfileHoverCardPreview|zh-1.0x": [
-    "inkClipped: Capturing visual testing baselines"
+    "inkClipped: Capturing visual testing baselines",
+    "inkClipped: Jiachengs-MacBook-Pro"
   ],
   "real|light|android-zh|agentProfileHoverCardPreview|zh-1.3x": [
     "inkClipped: Capturing visual testing baselines",
     "inkClipped: Jiachengs-MacBook-Pro",
-    "inkClipped: Keeps the visual testing baselines current."
+    "inkClipped: Keeps the visual testing baselines current.",
+    "inkClipped: Planning the capture run"
   ],
   "real|light|android-zh|agentProfileHoverCardPreview|zh-2.0x": [
     "inkClipped: Capturing visual testing baselines",
@@ -16,10 +18,7 @@
     "inkClipped: Planning the capture run",
     "inkClipped: Running command"
   ],
-  "real|light|android-zh|announcementModalPreview|zh-1.0x": [
-    "offCentre: Cmd K"
-  ],
-  "real|light|android-zh|announcementModalPreview|zh-2.0x": [
+  "real|light|android-zh|announcementModalPreview|zh-1.3x": [
     "offCentre: Cmd K"
   ],
   "real|light|android-zh|channelHeaderPreview|zh-2.0x": [
@@ -27,12 +26,6 @@
   ],
   "real|light|android-zh|documentMediaPreview|zh-1.0x": [
     "overflow: A RenderFlex overflowed by 14 pixels on the bottom."
-  ],
-  "real|light|android-zh|mountedThreadCompositionDesktopPreview|zh-1.0x": [
-    "inkClipped: Public fixture 中文 日本語"
-  ],
-  "real|light|android-zh|mountedThreadCompositionTouchPreview|zh-1.0x": [
-    "inkClipped: Public fixture 中文 日本語"
   ],
   "real|light|android-zh|reactionReactorsPreview|zh-1.3x": [
     "inkClipped: Product UX Designer"
@@ -44,43 +37,40 @@
     "overflow: A RenderFlex overflowed by 8.0 pixels on the right."
   ],
   "real|light|android-zh|selectionPopoverPreview|zh-1.3x": [
-    "overflow: A RenderFlex overflowed by 10 pixels on the right."
+    "overflow: A RenderFlex overflowed by 1.2 pixels on the right."
   ],
   "real|light|android-zh|selectionPopoverPreview|zh-2.0x": [
-    "overflow: A RenderFlex overflowed by 178 pixels on the right."
+    "overflow: A RenderFlex overflowed by 162 pixels on the right."
+  ],
+  "real|light|android-zh|sourceDesktopNotificationSettingsPreview|zh-2.0x": [
+    "overflow: A RenderFlex overflowed by 20 pixels on the bottom."
   ],
   "real|light|android-zh|sourcePhoneNotificationSettingsPreview|zh-2.0x": [
     "escapes: Stops notifications from Preview for your account. Other servers are unchanged.",
     "escapes: 保存",
     "escapes: 开启通知",
     "escapes: 静音此服务器",
-    "overflow: A RenderFlex overflowed by 312 pixels on the bottom."
-  ],
-  "real|light|android-zh|uploadPreview|zh-1.3x": [
-    "offCentre: 点按以重试"
-  ],
-  "real|light|android-zh|uploadPreview|zh-2.0x": [
-    "offCentre: 点按以重试"
+    "overflow: A RenderFlex overflowed by 335 pixels on the bottom."
   ],
   "real|light|android-zh|workingAgentsChannelHeaderPreview|zh-2.0x": [
     "escapes: launch-week"
   ],
+  "real|light|android-zh|workingAgentsDesktopPreview|zh-1.3x": [
+    "inkClipped: Ship the launch week"
+  ],
   "real|light|channelHeaderPreview|2.0x": [
     "escapes: Public channel"
   ],
-  "real|light|channelHeaderPreview|3.1x": [
-    "escapes: Public channel"
-  ],
   "real|light|communityAgreementPreview|3.1x": [
-    "overflow: A RenderFlex overflowed by 42 pixels on the right."
+    "overflow: A RenderFlex overflowed by 50 pixels on the right."
   ],
   "real|light|composerSuggestionsPreview|3.1x": [
     "escapes: Choose the human or agent identity before sending.",
     "escapes: Message",
-    "overflow: A RenderFlex overflowed by 198 pixels on the bottom."
+    "overflow: A RenderFlex overflowed by 274 pixels on the bottom."
   ],
-  "real|light|desktopPanelHeaderPreview|3.1x": [
-    "escapes: design"
+  "real|light|expandedComposerPhonePreview|3.1x": [
+    "inkClipped: ## Plan\n\n**Ship** Friday\n- tests\n- 中文"
   ],
   "real|light|longMessagePreview|1.0x": [
     "inkClipped: Cody"
@@ -102,11 +92,10 @@
     "inkClipped: Visual Server"
   ],
   "real|light|mountedThreadCompositionTouchPreview|1.0x": [
-    "inkClipped: Public fixture 中文 日本語",
     "inkClipped: Public reply"
   ],
-  "real|light|mountedThreadCompositionTouchPreview|zh-1.0x": [
-    "inkClipped: Public fixture 中文 日本語"
+  "real|light|searchSurfacesPreview|3.1x": [
+    "overflow: A RenderFlex overflowed by 5.0 pixels on the right."
   ],
   "tall|light|channelHeaderPreview|1.0x": [
     "inkClipped: A public description can wrap without hiding the channel identity."

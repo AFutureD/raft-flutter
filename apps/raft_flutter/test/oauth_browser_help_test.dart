@@ -12,6 +12,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_flutter/platform/oauth_broker.dart';
 import 'package:raft_ui/raft_ui.dart';
+
 import 'flutter_test_config.dart' show leakDebt;
 
 const _authorizationUrl =
@@ -92,6 +93,10 @@ void main() {
   leakDebt(const ['ValueNotifier<Uri?>']);
   HttpOverrides.global = null;
   testWidgets('a browser that never opens: help appears after 3 s', (t) async {
+    // 0.7.1 buttons are taller (32 / 44 px); the 800x600 default no longer shows the whole stack.
+    t.view.physicalSize = const Size(800, 720);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     final opened = <Uri>[];
     final brokers = <NativeOAuthBroker>[];
     final copied = <String>[];
@@ -142,6 +147,10 @@ void main() {
   });
 
   testWidgets('a launcher that fails shows the help at once', (t) async {
+    // 0.7.1 buttons are taller (32 / 44 px); the 800x600 default no longer shows the whole stack.
+    t.view.physicalSize = const Size(800, 720);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     final attempts = <Uri>[];
     final brokers = <NativeOAuthBroker>[];
     await _mount(t, (url) async {

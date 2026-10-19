@@ -91,23 +91,27 @@ class RaftAvatarInitials extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // FittedBox: two initials in the smallest stickers shrink to the box instead of being cut off.
     return Center(
-      child: Text(
-        text,
-        maxLines: 1,
-        softWrap: false,
-        // The avatar is a fixed-size sticker (px sizes, no rem): its initials keep their size, and a tall CJK glyph
-        // may pass the 1.0 line box (the avatar clips them).
-        overflow: TextOverflow.visible,
-        textScaler: TextScaler.noScaling,
-        style: t
-            .scale(
-              RaftTypeScale.body,
-              weight: FontWeight.w700,
-              color: t.ui.stickerInk,
-              trackingEm: -0.01,
-            )
-            .copyWith(fontSize: size.text, height: 1),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          maxLines: 1,
+          softWrap: false,
+          // The avatar is a fixed-size sticker (px sizes, no rem): its initials keep their size, and a tall CJK glyph
+          // may pass the 1.0 line box (the avatar clips them).
+          overflow: TextOverflow.visible,
+          textScaler: TextScaler.noScaling,
+          style: t
+              .scale(
+                RaftTypeScale.body,
+                weight: FontWeight.w700,
+                color: t.ui.stickerInk,
+                trackingEm: -0.01,
+              )
+              .copyWith(fontSize: size.text, height: 1),
+        ),
       ),
     );
   }

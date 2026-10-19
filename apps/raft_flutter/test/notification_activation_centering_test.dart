@@ -65,7 +65,7 @@ void main() {
             final button = t.getRect(
               find.descendant(
                 of: find.byType(RaftButton),
-                matching: find.byType(RaftRecipeBox),
+                matching: find.byType(RaftCssBox),
               ),
             );
             final label = t.getRect(
