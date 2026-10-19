@@ -231,8 +231,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 2784,
-        "tokens": 15035,
+        "lines": 2763,
+        "tokens": 14949,
         "field.WorkspaceController._presentation": 0,
         "field.WorkspaceController.reactions": 0
       },

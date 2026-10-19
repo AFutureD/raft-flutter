@@ -475,24 +475,7 @@ class WorkspaceController extends ChangeNotifier
 
 
 
-  /// Source socketBridge `readMessageDisplayPrefsUpdate`: null unless the
-  /// frame carries a string `serverId`/`scopeId` and a boolean
-  /// `prefs.collapseLongMessages`.
-  static ({String serverId, String channelId, bool collapse, int? version})?
-  readMessageDisplayPrefsUpdate(dynamic payload) =>
-      ChannelRepository.readMessageDisplayPrefsUpdate(payload);
 
-  /// Source `applyMessageDisplayPrefsState` for one row: a patch older than
-  /// the row's `displayPrefsVersion` is ignored.
-  static RaftChannel applyMessageDisplayPrefsToChannel(
-    RaftChannel value, {
-    required bool collapse,
-    int? version,
-  }) => ChannelRepository.applyMessageDisplayPrefsToChannel(
-    value,
-    collapse: collapse,
-    version: version,
-  );
 
 
   /// Web serverFeatureFlags `remote_computer_upgrade_v2`: whether the
@@ -1029,10 +1012,6 @@ class WorkspaceController extends ChangeNotifier
 
 
 
-  /// Web `patchChannel` `hiddenAllChannel`: an admin hiding `#all` turns it
-  /// into a private channel named `all`, which leaves the list.
-  static bool isHiddenAllChannelRow(Map<String, dynamic> row) =>
-      ChannelRepository.isHiddenAllChannelRow(row);
 
   /// Source `ensureChannel(id, {refresh: true})`: reads one channel and
   /// upserts its row. Lost access (403/404, or a private row the lists would

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_cache.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/channel_repository.dart';
 
 RaftChannel _row(String id, {String type = 'public'}) => RaftChannel({
   'id': id,
@@ -413,7 +414,7 @@ void main() {
   test(
     'public static display helpers keep their record and row identity contract',
     () {
-      final parsed = WorkspaceController.readMessageDisplayPrefsUpdate(
+      final parsed = ChannelRepository.readMessageDisplayPrefsUpdate(
         _display('c1', 3.9),
       );
       expect(parsed, (
@@ -423,17 +424,17 @@ void main() {
         version: 3,
       ));
       expect(
-        WorkspaceController.readMessageDisplayPrefsUpdate({'serverId': 3}),
+        ChannelRepository.readMessageDisplayPrefsUpdate({'serverId': 3}),
         isNull,
       );
       final held = _row('c1');
-      final ignored = WorkspaceController.applyMessageDisplayPrefsToChannel(
+      final ignored = ChannelRepository.applyMessageDisplayPrefsToChannel(
         held,
         collapse: true,
         version: 1,
       );
       expect(identical(ignored, held), isTrue);
-      final next = WorkspaceController.applyMessageDisplayPrefsToChannel(
+      final next = ChannelRepository.applyMessageDisplayPrefsToChannel(
         held,
         collapse: true,
       );
