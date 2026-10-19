@@ -5,6 +5,14 @@ Independent checks (host tests, analysis, sharded Dart tests) run concurrently.
 Dart test files are split into balanced shards, one `flutter test` process each.
 Theme-parametrized Dart tests run the default theme plus one sampled variant per
 file; `--all-themes` (or RAFT_TEST_ALL_THEMES=1) runs the full theme matrix.
+
+Test tiers (RAFT_TEST_TIER, `gate` by default, `full` for the nightly and for `--all-themes`):
+a file that starts with `@Tags(['slow'])` is a long scenario. The gate runs it only when the diff
+against the merge-base with ${RAFT_CHECK_BASE:-origin/cindy/integration} (committed, staged, unstaged,
+untracked) reaches it through the import graph (tool/affected_tests.py), or when a non-Dart input of
+apps/ or packages/ changed, or when the diff cannot be computed. Every other slow file is skipped
+and listed in the summary. `full` runs every slow file, and the tests that cut their matrix on the gate
+(a theme or size subset, see raftFullMatrix in raft_ui/test_themes.dart) run the whole cartesian product.
 A failing or timed-out test is listed in `.local/check-summary.txt`. Knobs:
 RAFT_CHECK_SHARDS, RAFT_CHECK_JOBS (flutter test `-j` per shard),
 RAFT_CHECK_SHARD_TIMEOUT_MINUTES (whole-shard watchdog).
@@ -57,6 +65,7 @@ if sys.version_info < (3, 11):
     raise SystemExit('Engineering checks require Python 3.11 or newer.')
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # also when loaded by the host tests
+import affected_tests  # noqa: E402
 import gate_events  # noqa: E402
 
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -77,6 +86,12 @@ STARTUP_POLL_SECONDS = 0.1
 POLL_SECONDS = 0.5
 COMPILE_GRACE_SECONDS = 3.0  # after the first compiler error: let the file name and more diagnostics arrive
 MAX_DIAGNOSTIC_LINES = 8
+TIER_VARIABLE = 'RAFT_TEST_TIER'
+DEFAULT_BASE_REF = 'origin/cindy/integration'
+SLOW_TAG = re.compile(r"""^@Tags\(\s*\[[^\]]*['"]slow['"]""", re.M)
+SLOW_HEAD_BYTES = 16384  # the annotation sits before the first import
+# Inputs a Dart import graph cannot see: a change to one of these may affect any test.
+OPAQUE_INPUT = re.compile(r'^(apps|packages)/(?!.*\.(dart|md)$)')
 
 
 def tool_command(name):
@@ -113,6 +128,81 @@ def discover_tests(base, dirs=TEST_DIRS):
         for path in sorted((base / directory).rglob('*_test.dart')):
             found.append(pathlib.Path(os.path.relpath(path, base / 'apps/raft_flutter')).as_posix())
     return found
+
+
+def tier_mode(env):
+    """`full` for RAFT_TEST_TIER=full or an all-themes run, else `gate`; anything else is refused."""
+    raw = env.get(TIER_VARIABLE, '').strip().lower()
+    if raw not in ('', 'gate', 'full'):
+        raise SystemExit(f'{TIER_VARIABLE} must be gate or full, got {raw!r}.')
+    return 'full' if raw == 'full' or env.get('RAFT_TEST_ALL_THEMES') == '1' else 'gate'
+
+
+def is_slow_test(path):
+    """True when the test file starts with `@Tags(['slow'])` (the annotation precedes the imports)."""
+    try:
+        with open(path, encoding='utf-8', errors='replace') as handle:
+            return bool(SLOW_TAG.search(handle.read(SLOW_HEAD_BYTES)))
+    except OSError:
+        return False
+
+
+def changed_since_base(base_ref=None, cwd=None):
+    """Repo-relative paths changed since the merge-base with `base_ref` (committed, staged, unstaged,
+    untracked), or None when that cannot be computed (the caller then runs everything)."""
+    base_ref = base_ref or os.environ.get('RAFT_CHECK_BASE') or DEFAULT_BASE_REF
+    try:
+        base = git_text('merge-base', 'HEAD', base_ref, cwd=cwd)
+        names = git_text('-c', 'core.quotepath=off', 'diff', '--name-only', '--no-renames', base, cwd=cwd).splitlines()
+        names += git_text('-c', 'core.quotepath=off', 'ls-files', '--others', '--exclude-standard', cwd=cwd).splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return sorted(set(names))
+
+
+def slow_plan(slow, tier, changed, reach):
+    """Which slow test files (repo-relative) run: {'run', 'skipped', 'why'}.
+
+    `tier` full runs them all. On the gate a slow file runs when `reach(changed)` (the test files that can
+    execute a changed Dart file) names it; a change that cannot be traced through imports (`changed` is
+    None, or a non-Dart input under apps/ or packages/) runs them all, because skipping is only safe
+    when the diff is known.
+    """
+    slow = sorted(slow)
+    if not slow:
+        return {'run': [], 'skipped': [], 'why': 'no slow files'}
+    if tier == 'full':
+        return {'run': slow, 'skipped': [], 'why': f'{TIER_VARIABLE}=full'}
+    if changed is None:
+        return {'run': slow, 'skipped': [], 'why': 'the diff against the base could not be computed'}
+    opaque = [name for name in changed if OPAQUE_INPUT.match(name)]
+    if opaque:
+        return {'run': slow, 'skipped': [], 'why': f'a non-Dart input changed ({opaque[0]})'}
+    reached = set(reach({name for name in changed if name.endswith('.dart')}))
+    return {'run': [f for f in slow if f in reached], 'skipped': [f for f in slow if f not in reached],
+            'why': 'selected by the diff' if reached & set(slow) else 'the diff reaches no slow file'}
+
+
+def reach_by_imports(changed):
+    """Test files that can execute one of the changed Dart files (tool/affected_tests.py)."""
+    if not changed:
+        return set()
+    sources = affected_tests.tracked_dart_sources(root)
+    for name in changed:  # untracked files are not in `git ls-files`
+        if name not in sources and (root / name).is_file():
+            sources[name] = (root / name).read_text(encoding='utf-8', errors='replace')
+    return set(affected_tests.affected_tests(set(changed), sources, affected_tests.workspace_packages(root)))
+
+
+def apply_slow_tier(files, tier, base, changed=None, reach=reach_by_imports):
+    """(files to run, plan) for `files` relative to `base`; `changed` is looked up unless given."""
+    repo = {f: pathlib.Path(os.path.relpath(base / f, root)).as_posix() for f in files}
+    slow = [repo[f] for f in files if is_slow_test(base / f)]
+    if changed is None and slow and tier != 'full':
+        changed = changed_since_base()
+    plan = slow_plan(slow, tier, changed, reach)
+    skipped = set(plan['skipped'])
+    return [f for f in files if repo[f] not in skipped], {**plan, 'tier': tier}
 
 
 def effective_cpus(cpu, load1):
@@ -283,11 +373,24 @@ def slowest_tests(results, count=SLOWEST_TESTS):
     return [{'name': r['name'], 'file': r['file'], 'seconds': r['seconds']} for r in real[:count]]
 
 
-def format_summary(shards, failures, totals, slowest, limit=None, themes=None, stop=None, flaky=(), retry_failed=()):
+def slow_summary(plan):
+    """Lines naming the slow files that ran and the ones the gate skipped (nothing when there are none)."""
+    total = len(plan['run']) + len(plan['skipped'])
+    if not total:
+        return []
+    lines = [f"Test tier: {plan['tier']}. Slow files: {len(plan['run'])} of {total} ran ({plan['why']}), {len(plan['skipped'])} skipped."]
+    lines.extend(f'  slow, ran: {name}' for name in plan['run'])
+    lines.extend(f'  slow, skipped (the nightly or {TIER_VARIABLE}=full runs it): {name}' for name in plan['skipped'])
+    return lines
+
+
+def format_summary(shards, failures, totals, slowest, limit=None, themes=None, stop=None, flaky=(), retry_failed=(), slow=None):
     """Human-readable gate summary; failures are listed by test name (first `limit` if given)."""
     lines = [f"Dart tests: {totals['passed']} passed, {totals['skipped']} skipped, {len(failures)} failed across {len(shards)} shard(s)" + (f' (themes: {themes}).' if themes else '.')]
     if totals.get('hidden'):
         lines.append(f"  ({totals['hidden']} hidden setUpAll/tearDownAll entries are not counted as tests.)")
+    if slow:
+        lines.extend(slow_summary(slow))
     if stop:
         lines.append(f"Run stopped early: {stop['message']}")
         lines.extend(f'  {line}' for line in stop['lines'])
@@ -782,21 +885,22 @@ def read_pass_record(tree, env=None):
     return record if ok else None
 
 
-def pass_covers(record, themes):
-    """A recorded all-themes pass covers a sampled request; a sampled pass does not cover all themes."""
-    return record.get('themes', 'sampled') == 'all' or themes == 'sampled'
+def pass_covers(record, themes, tier='gate'):
+    """A recorded all-themes pass covers a sampled request; a sampled pass does not cover all themes.
+    Likewise a full-tier pass covers a gate-tier request (a record without a tier ran every file)."""
+    return (record.get('themes', 'sampled') == 'all' or themes == 'sampled') and (record.get('tier', 'full') == 'full' or tier == 'gate')
 
 
-def record_pass(tree, commit, result, themes, engineering_run=None, env=None, now=None):
+def record_pass(tree, commit, result, themes, engineering_run=None, env=None, now=None, tier='gate'):
     """Remember a full pass of `tree`; never raises (a cache that cannot be written only costs a re-run)."""
     try:
         existing = read_pass_record(tree, env)
-        if existing and not pass_covers({'themes': themes}, existing.get('themes', 'sampled')):
+        if existing and not pass_covers({'themes': themes, 'tier': tier}, existing.get('themes', 'sampled'), existing.get('tier', 'full')):
             return None  # keep the stronger all-themes record
         path = passed_record_path(tree, env)
         path.parent.mkdir(parents=True, exist_ok=True)
         stamp = (now or time.gmtime())
-        record = {'tree': tree, 'time': time.strftime('%Y-%m-%dT%H:%M:%SZ', stamp), 'commit': commit, 'themes': themes,
+        record = {'tree': tree, 'time': time.strftime('%Y-%m-%dT%H:%M:%SZ', stamp), 'commit': commit, 'themes': themes, 'tier': tier,
                   'result': result, 'engineeringRun': engineering_run}
         temporary = path.with_name(f'{path.name}.{os.getpid()}.tmp')
         temporary.write_text(json.dumps(record, indent=2), encoding='utf-8')
@@ -807,11 +911,11 @@ def record_pass(tree, commit, result, themes, engineering_run=None, env=None, no
         return None
 
 
-def reusable_pass(themes, cwd=None, env=None):
+def reusable_pass(themes, cwd=None, env=None, tier='gate'):
     """The recorded pass to reuse for the current clean tree, else None (dirty tree, no record, weaker themes)."""
     tree = clean_tree_hash(cwd)
     record = read_pass_record(tree, env) if tree else None
-    return record if record and pass_covers(record, themes) else None
+    return record if record and pass_covers(record, themes, tier) else None
 
 
 def reuse_message(record):
@@ -904,15 +1008,17 @@ def run_gate(check_env, emit, started):
     results = {}
     cpu = os.cpu_count() or 2
     load = os.getloadavg()[0] if hasattr(os, 'getloadavg') else 0.0
-    files = discover_tests(root)
+    files, slow = apply_slow_tier(discover_tests(root), tier_mode(check_env), app_dir)
     sizes = {f: (app_dir / f).stat().st_size for f in files if (app_dir / f).is_file()}
     shard_count, jobs = plan_parallelism(cpu, load)
     plan = partition(files, history_weights(root), shard_count, sizes)
     timeout_override = os.environ.get('RAFT_CHECK_SHARD_TIMEOUT_MINUTES')
     max_failures = int(env_number('RAFT_CHECK_MAX_FAILURES', DEFAULT_MAX_FAILURES))
     stall_minutes = env_number('RAFT_CHECK_STALL_MINUTES', DEFAULT_STALL_MINUTES)
-    print(f'check-project: {len(files)} test files in {len(plan)} shard(s) x -j{jobs} on {cpu} CPUs (load {load:.1f}); themes: {themes_mode(check_env)}.', file=sys.stderr)
-    emit('START', shards=len(plan), jobs=jobs, files=len(files), cpus=cpu, load=f'{load:.1f}', themes=themes_mode(check_env))
+    print(f'check-project: {len(files)} test files in {len(plan)} shard(s) x -j{jobs} on {cpu} CPUs (load {load:.1f}); themes: {themes_mode(check_env)}; tier: {slow["tier"]}.', file=sys.stderr)
+    for line in slow_summary(slow):
+        print(f'check-project: {line}', file=sys.stderr)
+    emit('START', shards=len(plan), jobs=jobs, files=len(files), cpus=cpu, load=f'{load:.1f}', themes=themes_mode(check_env), tier=slow['tier'], slow_skipped=len(slow['skipped']))
 
     # A branch that merged new dependencies without `pub get` would fail every
     # test file at compile time, slowly; resolve the workspace first and stop.
@@ -1048,7 +1154,7 @@ def run_gate(check_env, emit, started):
     results = ordered
 
     slowest = slowest_tests(all_results)
-    summary_text = format_summary(shards, failures, totals, slowest, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed)
+    summary_text = format_summary(shards, failures, totals, slowest, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed, slow=slow)
     (local / 'check-summary.txt').write_text(summary_text, encoding='utf-8')
     write_aggregate_log(shards, summary_text, tests_passed)
     previous = read_json(local / 'check-durations.json').get('files', {})
@@ -1057,12 +1163,13 @@ def run_gate(check_env, emit, started):
     (local / 'check-durations.json').write_text(json.dumps({
         'sourceHash': source_hash, 'wallSeconds': round(time.monotonic() - started, 1), 'shards': len(shards), 'jobsPerShard': jobs,
         'slowestTests': slowest, 'files': dict(sorted(merged.items()))}, indent=2), encoding='utf-8')
-    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed))
+    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed, slow=slow))
 
     changed = stamp() != source_hash
     ok = all(results.values()) and not changed and not stop
     run_record = {
-        'sourceHash': source_hash, 'completed': ok, 'themes': themes_mode(check_env), 'checks': results,
+        'sourceHash': source_hash, 'completed': ok, 'themes': themes_mode(check_env), 'tier': slow['tier'],
+        'slowSkipped': slow['skipped'], 'slowRan': slow['run'], 'checks': results,
         'shards': [{'index': s['index'], 'passed': s['passed'], 'exitCode': s['code'], 'seconds': round(s['seconds'], 1), 'files': len(s['files']), 'log': s['log'],
                     'startup': {'result': s['startup'][0], 'seconds': round(s['startup'][1], 1)} if s.get('startup') else None} for s in shards],
         'stoppedEarly': {'reason': stop['reason'], 'message': stop['message'], 'lines': stop['lines']} if stop else None,
@@ -1139,8 +1246,10 @@ def main():
     if all_themes:
         check_env['RAFT_TEST_ALL_THEMES'] = '1'
     themes = themes_mode(check_env)
+    tier = tier_mode(check_env)
+    check_env[TIER_VARIABLE] = tier  # the Dart tests read it (raftFullMatrix)
     if reuse:
-        record = reusable_pass(themes)
+        record = reusable_pass(themes, tier=tier)
         if record:
             emit, started = gate_events.Events(root), time.monotonic()
             print(reuse_message(record))
@@ -1162,7 +1271,7 @@ def main():
         outcome = run_gate(check_env, emit, started)
         finish(emit, started, outcome)
         if outcome['ok'] and start_tree and clean_tree_hash() == start_tree:  # only a clean tree that stayed clean is worth remembering
-            record_pass(start_tree, git_text('rev-parse', 'HEAD'), outcome['result'], themes, outcome.get('run_record'))
+            record_pass(start_tree, git_text('rev-parse', 'HEAD'), outcome['result'], themes, outcome.get('run_record'), tier=tier)
     except BaseException as error:  # every other path still ends with a terminal event
         kill_children()
         if isinstance(error, SystemExit) and error.code in (0, None):

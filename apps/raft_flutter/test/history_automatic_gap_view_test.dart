@@ -1,3 +1,6 @@
+@Tags(['slow'])
+library;
+
 import 'package:raft_flutter/data/history_capacity.dart';
 
 import 'dart:async';

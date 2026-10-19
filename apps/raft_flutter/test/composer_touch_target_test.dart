@@ -3,6 +3,9 @@
 // edges for every control inside it). Probes a 0.5dp grid around each
 // RaftComposerAction on the real phone channel page (412x915 dp, DPR 2.625,
 // 48px gesture inset) and measures the hit-testable region.
+@Tags(['slow'])
+library;
+
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';

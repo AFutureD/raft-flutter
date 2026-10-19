@@ -9,6 +9,9 @@
 // clients, which count against the same per-user bucket), nothing may be
 // answered with a 429, and an identical question must not be asked twice in a
 // short window.
+@Tags(['slow'])
+library;
+
 import 'dart:async';
 import 'dart:io';
 

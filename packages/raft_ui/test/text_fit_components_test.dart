@@ -15,6 +15,9 @@
 // (text_scale_audit_*_test.dart) covers the previews; this test names the
 // components, so a pill that no preview shows is still caught. Add new
 // label-bearing components to [_cases].
+@Tags(['slow'])
+library;
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';

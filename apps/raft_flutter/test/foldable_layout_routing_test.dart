@@ -2,6 +2,9 @@
 // projected as columns (wide) or as a page stack (phone); crossing the
 // breakpoint must keep the visible page and make Back walk the phone chain,
 // not the history wide panels left behind.
+@Tags(['slow'])
+library;
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';

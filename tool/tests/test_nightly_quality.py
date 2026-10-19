@@ -249,5 +249,20 @@ class SummaryTests(unittest.TestCase):
         self.assertIn('1 个开放 PR，1 个有未执行的改动行', text)
 
 
+class TestEnvironmentTests(unittest.TestCase):
+    def test_the_nightly_runs_the_full_tier_with_sampled_themes(self):
+        import os
+        import types
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            args = types.SimpleNamespace(date='2026-10-19', out_dir=tmp, worktree=str(Path(tmp) / 'wt'), max_hours=1, seed=1)
+            run = nq.Run(args)
+            run.tmp = Path(tmp) / 'tmp'
+            with mock.patch.dict(os.environ, {'RAFT_TEST_ALL_THEMES': '1', 'RAFT_TEST_TIER': 'gate'}):
+                env = run.test_env()
+        self.assertEqual(env['RAFT_TEST_TIER'], 'full')
+        self.assertNotIn('RAFT_TEST_ALL_THEMES', env)
+
+
 if __name__ == '__main__':
     unittest.main()

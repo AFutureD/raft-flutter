@@ -657,6 +657,106 @@ def git(cwd, *args):
     return subprocess.check_output(['git', *args], cwd=cwd, text=True, env=dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t', GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')).strip()
 
 
+class SlowTierTests(unittest.TestCase):
+    SLOW = ['apps/raft_flutter/test/slow_a_test.dart', 'apps/raft_flutter/test/slow_b_test.dart', 'packages/raft_ui/test/slow_c_test.dart']
+
+    def reach_a(self, changed):
+        return {'apps/raft_flutter/test/slow_a_test.dart', 'apps/raft_flutter/test/plain_test.dart'} if 'apps/raft_flutter/lib/a.dart' in changed else set()
+
+    def test_tier_is_gate_unless_full_or_all_themes(self):
+        self.assertEqual(check.tier_mode({}), 'gate')
+        self.assertEqual(check.tier_mode({'RAFT_TEST_TIER': 'gate'}), 'gate')
+        self.assertEqual(check.tier_mode({'RAFT_TEST_TIER': ' FULL '}), 'full')
+        self.assertEqual(check.tier_mode({'RAFT_TEST_ALL_THEMES': '1'}), 'full')
+        with self.assertRaises(SystemExit):
+            check.tier_mode({'RAFT_TEST_TIER': 'nightly'})
+
+    def test_slow_tag_is_read_from_the_annotation_before_the_imports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def write(name, text):
+                path = Path(tmp) / name
+                path.write_text(text)
+                return path
+            self.assertTrue(check.is_slow_test(write('a.dart', "// notes\n@Tags(['slow'])\nlibrary;\n\nimport 'x.dart';\n")))
+            self.assertTrue(check.is_slow_test(write('b.dart', '@Tags(["fast", "slow"])\nlibrary;\n')))
+            self.assertFalse(check.is_slow_test(write('c.dart', "import 'x.dart';\n// @Tags(['slow']) in a comment\n")))
+            self.assertFalse(check.is_slow_test(write('d.dart', "@Tags(['golden'])\nlibrary;\n")))
+            self.assertFalse(check.is_slow_test(Path(tmp) / 'missing.dart'))
+
+    def test_full_tier_runs_every_slow_file(self):
+        plan = check.slow_plan(self.SLOW, 'full', [], self.reach_a)
+        self.assertEqual((plan['run'], plan['skipped']), (self.SLOW, []))
+
+    def test_gate_runs_only_the_slow_files_the_diff_reaches(self):
+        plan = check.slow_plan(self.SLOW, 'gate', ['apps/raft_flutter/lib/a.dart', 'README.md'], self.reach_a)
+        self.assertEqual(plan['run'], [self.SLOW[0]])
+        self.assertEqual(plan['skipped'], self.SLOW[1:])
+        self.assertEqual(plan['why'], 'selected by the diff')
+
+    def test_gate_skips_all_when_the_diff_reaches_none(self):
+        plan = check.slow_plan(self.SLOW, 'gate', ['tool/check-project', 'docs/x.md'], self.reach_a)
+        self.assertEqual((plan['run'], plan['skipped']), ([], self.SLOW))
+
+    def test_an_unknown_or_opaque_diff_runs_everything(self):
+        self.assertEqual(check.slow_plan(self.SLOW, 'gate', None, self.reach_a)['skipped'], [])
+        for name in ('apps/raft_flutter/pubspec.yaml', 'packages/raft_ui/assets/fonts/x.ttf', 'apps/raft_flutter/test/fixtures/a.json'):
+            plan = check.slow_plan(self.SLOW, 'gate', [name], self.reach_a)
+            self.assertEqual((plan['run'], plan['skipped']), (self.SLOW, []), name)
+            self.assertIn(name, plan['why'])
+
+    def test_apply_filters_the_app_relative_file_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            top = Path(tmp)
+            app = top / 'apps/raft_flutter'
+            (app / 'test').mkdir(parents=True)
+            (top / 'packages/raft_ui/test').mkdir(parents=True)
+            names = {'test/slow_a_test.dart': True, 'test/slow_b_test.dart': True, 'test/plain_test.dart': False, '../../packages/raft_ui/test/slow_c_test.dart': True}
+            for name, slow in names.items():
+                (app / name).write_text(("@Tags(['slow'])\nlibrary;\n" if slow else '') + 'void main() {}\n')
+            with unittest.mock.patch.object(check, 'root', top):
+                files, plan = check.apply_slow_tier(list(names), 'gate', app, ['apps/raft_flutter/lib/a.dart'], self.reach_a)
+                self.assertEqual(files, ['test/slow_a_test.dart', 'test/plain_test.dart'])
+                self.assertEqual((plan['tier'], plan['run'], plan['skipped']), ('gate', [self.SLOW[0]], self.SLOW[1:]))
+                files, plan = check.apply_slow_tier(list(names), 'full', app, [], self.reach_a)
+                self.assertEqual(files, list(names))
+
+    def test_changed_files_come_from_the_merge_base_and_the_working_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            git(repo, 'init', '-q', '-b', 'main')
+            (repo / 'a.dart').write_text('one\n')
+            (repo / 'b.dart').write_text('one\n')
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-q', '-m', 'one')
+            git(repo, 'checkout', '-q', '-b', 'topic')
+            (repo / 'a.dart').write_text('two\n')
+            git(repo, 'commit', '-q', '-am', 'two')
+            git(repo, 'checkout', '-q', 'main')
+            (repo / 'other.dart').write_text('x\n')  # main moved on: not part of the topic's diff
+            git(repo, 'add', '.')
+            git(repo, 'commit', '-q', '-m', 'main moves')
+            git(repo, 'checkout', '-q', 'topic')
+            (repo / 'b.dart').write_text('dirty\n')
+            (repo / 'new.dart').write_text('x\n')
+            self.assertEqual(check.changed_since_base('main', repo), ['a.dart', 'b.dart', 'new.dart'])
+            self.assertIsNone(check.changed_since_base('no-such-ref', repo))
+
+    def test_summary_names_the_skipped_and_the_selected_slow_files(self):
+        plan = {'tier': 'gate', 'run': ['t/a_test.dart'], 'skipped': ['t/b_test.dart', 't/c_test.dart'], 'why': 'selected by the diff'}
+        text = check.format_summary([], [], {'passed': 1, 'skipped': 0}, [], slow=plan)
+        self.assertIn('Test tier: gate. Slow files: 1 of 3 ran (selected by the diff), 2 skipped.', text)
+        self.assertIn('slow, ran: t/a_test.dart', text)
+        self.assertIn('slow, skipped', text)
+        self.assertIn('t/c_test.dart', text)
+        self.assertNotIn('Test tier', check.format_summary([], [], {'passed': 1, 'skipped': 0}, [], slow={'tier': 'gate', 'run': [], 'skipped': [], 'why': 'no slow files'}))
+
+    def test_a_full_tier_pass_covers_a_gate_request_but_not_the_reverse(self):
+        self.assertTrue(check.pass_covers({'themes': 'sampled', 'tier': 'full'}, 'sampled', 'gate'))
+        self.assertFalse(check.pass_covers({'themes': 'sampled', 'tier': 'gate'}, 'sampled', 'full'))
+        self.assertTrue(check.pass_covers({'themes': 'sampled'}, 'sampled', 'full'))  # records from before tiers ran every file
+        self.assertFalse(check.pass_covers({'themes': 'sampled', 'tier': 'full'}, 'all', 'full'))
+
+
 class ReuseTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

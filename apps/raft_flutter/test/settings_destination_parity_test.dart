@@ -5,6 +5,9 @@
 // service populated at the desktop and the phone width and compares what the
 // user can reach: the destination ids, and a coarse signature of each
 // destination's content.
+@Tags(['slow'])
+library;
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';

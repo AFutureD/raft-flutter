@@ -1,3 +1,6 @@
+@Tags(['slow'])
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -383,7 +386,11 @@ List<String> raisedErrors(WorkspaceController w) {
 
 void main() {
   // Leak debt (app root, share flow): see docs/development.md, Leak tracking.
-  leakDebt(const ['IncomingShareStaging', 'LocalNotifications', 'ValueNotifier<RaftTransferProgress?>']);
+  leakDebt(const [
+    'IncomingShareStaging',
+    'LocalNotifications',
+    'ValueNotifier<RaftTransferProgress?>',
+  ]);
   late Directory dir;
   setUp(() {
     dir = Directory.systemTemp.createTempSync('raft-instant-share-');
@@ -1125,7 +1132,9 @@ void main() {
       'latency 300 ms, notification warm: loaded and settled',
       await framesUntil(
         t,
-        () => !s.w.messageDomain.state.channelLoading && s.w.location.messageId == 'mcx',
+        () =>
+            !s.w.messageDomain.state.channelLoading &&
+            s.w.location.messageId == 'mcx',
       ),
     );
     await settle(t, s, 8);
