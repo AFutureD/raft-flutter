@@ -771,12 +771,12 @@ class _AttachmentViewState extends State<AttachmentView> {
     final info = widget.mediaMessage?.call();
     final messageId = widget.messageId;
     final channelId = ownerChannel;
-    // A phone held sideways is wider than a window the page layouts switch
-    // at, but still a phone: it gets the immersive stage (without the strip).
-    final phone =
-        page ||
-        (RaftDensityScope.of(context) == RaftDensity.touch &&
-            MediaQuery.sizeOf(context).shortestSide < 600);
+    // The immersive stage (swipe down to dismiss, tap toggles the chrome, long
+    // press saves / shares) is how a finger views media, at any window size: a
+    // phone held sideways, an unfolded foldable and a tablet all get it. The
+    // desktop lightbox (click outside closes, header buttons, strip) is for a
+    // pointer, also in a narrow window. [page] only says the window is narrow.
+    final phone = RaftInteraction.of(context).touch;
     final hero = !MediaQuery.disableAnimationsOf(context);
     final opener = imageProvider ?? videoPoster.value;
     if (hero && opener != null) setState(() => heroActive = true);
@@ -990,7 +990,7 @@ class _AttachmentViewState extends State<AttachmentView> {
       isImage &&
       !widget.exportMode &&
       files.gallerySupported &&
-      RaftAdaptiveWorkspace.compactOf(context);
+      RaftInteraction.of(context).touch;
 
   Widget card(BuildContext context) => RaftAttachmentCard(
     summary: webChip.summary,

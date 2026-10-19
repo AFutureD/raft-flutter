@@ -145,7 +145,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                   contextMenuBuilder: RaftTextSelectionToolbar.editableText,
                   autofillHints: null,
                   controller: search,
-                  autofocus: true,
+                  autofocus: RaftInteraction.of(context).pointer,
                   style: RaftTypography.mono(t, size: 12, line: 16),
                   decoration: InputDecoration(
                     isDense: true,

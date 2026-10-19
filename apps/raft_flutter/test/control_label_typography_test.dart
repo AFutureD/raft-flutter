@@ -3,6 +3,7 @@
 // "mark all read" button. A local TextStyle that restates height or leading
 // would bypass the recipes and fail here (a style-propagation leak).
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
@@ -75,6 +76,10 @@ void main() {
     await t.pumpWidget(
       MaterialApp(
         theme: theme.copyWith(platform: platform),
+        // The touch Activity list refreshes by pulling: RefreshIndicator needs
+        // Material localizations for every locale this test mounts.
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         home: Builder(
           builder: (context) => Localizations.override(
             context: context,

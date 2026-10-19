@@ -188,14 +188,21 @@ void main() {
       );
     }
   }
-  for (final width in [390.0, 1280.0]) {
+  // (width, platform): a phone, an unfolded foldable (wide layout, touched) and
+  // a desktop window. Layout follows the width; the media viewer follows the
+  // input.
+  for (final (width, platform) in [
+    (390.0, TargetPlatform.android),
+    (856.0, TargetPlatform.android),
+    (1280.0, TargetPlatform.linux),
+  ]) {
     for (final (name, mime) in [
       ('photo.png', 'image/png'),
       ('research.md', 'text/markdown'),
       ('page.html', 'text/html'),
     ]) {
       testWidgets(
-        'Actual attachment $name uses platform page on phone $width',
+        'Actual attachment $name uses platform page on phone $width $platform',
         (t) async {
           t.view.physicalSize = Size(width, 844);
           t.view.devicePixelRatio = 1;
@@ -209,7 +216,7 @@ void main() {
           final routes = _Routes();
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(RaftFamily.elegant),
+              theme: raftTheme(RaftFamily.elegant).copyWith(platform: platform),
               navigatorObservers: [routes],
               home: Scaffold(
                 body: Align(
@@ -238,6 +245,7 @@ void main() {
             expect(previewSurface, findsOneWidget);
             final image = mime.startsWith('image/');
             final phone = width < RaftAdaptiveWorkspace.desktopMinWidth;
+            final touch = platform == TargetPlatform.android;
             if (image) {
               // Images open in the media browser: a fading route (the card's
               // picture flies in), immersive and black on a phone.
@@ -245,7 +253,8 @@ void main() {
               expect(routes.latest?.settings.name, '/attachment-preview');
               expect(
                 find.byType(RaftMediaImmersiveShell).evaluate().isNotEmpty,
-                phone,
+                touch,
+                reason: 'the immersive stage follows touch, not width',
               );
             } else if (phone) {
               expect(routes.latest, isA<MaterialPageRoute<void>>());
@@ -265,7 +274,7 @@ void main() {
               expect(find.byType(RaftMobilePageHeader), findsNothing);
             }
             await t.tap(
-              image && phone
+              image && touch
                   ? find.bySemanticsLabel('Back')
                   : find.byTooltip('Close preview'),
             );

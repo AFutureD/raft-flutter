@@ -305,23 +305,28 @@ void main() {
 
     Widget chip(RaftRuntimeUsageData value, {VoidCallback? onOpen}) =>
         surfaceHost(
-          // Inline in a wrapping row like Detected Runtimes.
-          Wrap(
-            children: [
-              RaftRuntimeUsageChip(
-                label: 'Claude Code',
-                data: value,
-                onOpen: onOpen ?? () {},
-                onRefresh: () {},
-                chip: RaftRuntimeChip(
+          // A pointer window: the hover card is for a mouse, at any width
+          // (a touch screen opens the sheet instead).
+          RaftInteractionScope(
+            interaction: RaftInteraction.pointerMode,
+            // Inline in a wrapping row like Detected Runtimes.
+            child: Wrap(
+              children: [
+                RaftRuntimeUsageChip(
                   label: 'Claude Code',
-                  detected: true,
-                  trailing: value.known
-                      ? RaftRuntimeUsageStatus(attention: value.attention)
-                      : null,
+                  data: value,
+                  onOpen: onOpen ?? () {},
+                  onRefresh: () {},
+                  chip: RaftRuntimeChip(
+                    label: 'Claude Code',
+                    detected: true,
+                    trailing: value.known
+                        ? RaftRuntimeUsageStatus(attention: value.attention)
+                        : null,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
 

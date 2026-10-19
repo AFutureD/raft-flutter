@@ -72,10 +72,17 @@ void main() {
     String? initialQuery,
     bool restore = true,
     Future<void> Function(String, String?)? onMessage,
+    Size? size,
+    TargetPlatform? platform,
   }) async {
+    if (size != null) {
+      t.view.physicalSize = size;
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+    }
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(RaftFamily.elegant).copyWith(platform: platform),
         home: Scaffold(
           body: ResourceView(
             controller: w,
@@ -117,7 +124,8 @@ void main() {
     (t) async {
       memory.rememberQuery(scope, 'Android');
       memory.rememberQuery(scope, 'Other');
-      await mount(t, initialQuery: '');
+      // A mouse hovers a tag to reveal its X: a pointer window, not touch.
+      await mount(t, initialQuery: '', platform: TargetPlatform.linux);
       await t.tap(find.bySemanticsLabel('Search history: Android'));
       await t.pump(const Duration(milliseconds: 210));
       expect(w.queries.last, 'Android');
@@ -299,4 +307,36 @@ void main() {
       );
     },
   );
+
+  // Search home and focus follow the input, not the width: a foldable's inner
+  // display is wide and touched, a narrow desktop window is narrow and clicked.
+  for (final (label, size, platform, touch) in [
+    ('foldable 856x944', const Size(856, 944), TargetPlatform.android, true),
+    ('foldable landscape', const Size(944, 856), TargetPlatform.android, true),
+    ('phone 390x844', const Size(390, 844), TargetPlatform.android, true),
+    (
+      'narrow desktop 390x844',
+      const Size(390, 844),
+      TargetPlatform.linux,
+      false,
+    ),
+    (
+      'wide desktop 1280x800',
+      const Size(1280, 800),
+      TargetPlatform.linux,
+      false,
+    ),
+  ]) {
+    testWidgets('search on $label: ${touch ? 'touch' : 'pointer'}', (t) async {
+      memory.rememberQuery(scope, 'Android');
+      await mount(t, initialQuery: '', size: size, platform: platform);
+      // History: a finger edits (Edit / Done), a mouse hovers the tag's X.
+      expect(find.text('Edit').evaluate().isNotEmpty, touch);
+      // A touch screen never raises the keyboard on open, a pointer window
+      // focuses the field.
+      final focused = FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<TextField>();
+      expect(focused != null, !touch);
+    });
+  }
 }

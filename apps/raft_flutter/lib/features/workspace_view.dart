@@ -3654,7 +3654,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 onSecondaryTapDown: (d) => openSurfaceMenu(d.globalPosition),
                 onLongPressStart: (d) => openSurfaceMenu(d.globalPosition),
                 child: RaftPullToRefresh(
-                  enabled: mobileHome,
+                  enabled: mobileHome || RaftInteraction.of(context).touch,
                   onRefresh: () => Future.wait([
                     w.refreshChannels(),
                     w.refreshUnread(),

@@ -573,11 +573,12 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
       body: widget.computers
           ? computersList(t, computers)
           : RaftPullToRefresh(
-              enabled: widget.mobileRoot,
+              enabled: widget.mobileRoot || RaftInteraction.of(context).touch,
               onRefresh: refreshDirectory,
               child: ListView.builder(
                 key: const Key('desktop-directory-list'),
-                physics: widget.mobileRoot
+                physics:
+                    widget.mobileRoot || RaftInteraction.of(context).touch
                     ? const AlwaysScrollableScrollPhysics()
                     : null,
                 padding: directoryPadding(recipe),

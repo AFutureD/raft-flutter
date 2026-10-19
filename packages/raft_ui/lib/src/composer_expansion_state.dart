@@ -115,7 +115,7 @@ extension _RaftComposerExpansion on _RaftComposerState {
             RaftComposerExpandedLayout.pad,
             RaftComposerExpandedLayout.gap,
           ),
-          hint: phone
+          hint: phone || RaftInteraction.of(context).touch
               ? null
               : raftText(
                   context,

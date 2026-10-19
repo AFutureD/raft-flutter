@@ -66,7 +66,9 @@ Future<(WorkspaceController, MessageAdapter)> _mount(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      // A pointer window: touch has no hover bar and adds the inline "+".
+      theme: raftTheme(RaftFamily.elegant)
+          .copyWith(platform: TargetPlatform.linux),
       home: Scaffold(
         body: RaftDensityScope(
           density: RaftDensity.desktop,

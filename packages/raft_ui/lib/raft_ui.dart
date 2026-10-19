@@ -21,6 +21,7 @@ export 'src/form_dialog.dart';
 
 export 'src/collapsible.dart';
 export 'src/viewport_breakpoints.dart';
+export 'src/interaction.dart';
 export 'src/secret_view.dart';
 export 'src/attachment_card.dart';
 

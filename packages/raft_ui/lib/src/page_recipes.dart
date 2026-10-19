@@ -301,7 +301,6 @@ class RaftSearchHomeRecipe {
   static const tagInset = EdgeInsets.fromLTRB(10, 2, 4, 2);
   static const tagHeight = 28.0;
   static const desktopColumnsBreakpoint = 640.0;
-  static const touchHistoryBreakpoint = 768.0;
   Color get tagBackground => tokens.brutal ? Colors.white : tokens.card;
   Color get tagBorder =>
       tokens.brutal ? tokens.strong.withValues(alpha: .2) : tokens.line;

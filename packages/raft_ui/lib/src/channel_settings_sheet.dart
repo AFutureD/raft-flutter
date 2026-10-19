@@ -5,6 +5,7 @@
 // passes them in as plain values and callbacks.
 import 'package:flutter/material.dart';
 
+import 'interaction.dart';
 import 'system_inset.dart';
 import 'panel_edge.dart';
 import 'design_primitives.dart';
@@ -264,7 +265,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
                 child: RaftDialogTextInput(
                   controller: nameController!,
                   placeholder: 'e.g. ai-research',
-                  autofocus: !page,
+                  autofocus: !page && RaftInteraction.of(context).pointer,
                   enabled: nameEnabled && !busy,
                   onSubmitted: onSubmitName,
                 ),

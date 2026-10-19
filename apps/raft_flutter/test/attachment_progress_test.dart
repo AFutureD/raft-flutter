@@ -162,7 +162,10 @@ Future<Mounted> mount(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(
+        family,
+        dark: dark,
+      ).copyWith(platform: TargetPlatform.linux),
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
@@ -533,7 +536,8 @@ void main() {
       var closed = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(RaftFamily.elegant)
+              .copyWith(platform: TargetPlatform.linux),
           home: AttachmentPreviewDialog(
             controller: w,
             metadata: const {
@@ -582,7 +586,8 @@ void main() {
       final files = _PreviewFiles()..failFirst = true;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(RaftFamily.brutal)
+              .copyWith(platform: TargetPlatform.linux),
           home: AttachmentPreviewDialog(
             controller: w,
             metadata: const {

@@ -145,7 +145,9 @@ void main() {
   }
 
   Widget host(Widget child) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    // Hover cards belong to a pointer: the platform decides, not the width.
+    theme: raftTheme(RaftFamily.elegant)
+        .copyWith(platform: TargetPlatform.linux),
     home: Scaffold(
       body: Align(alignment: Alignment.topLeft, child: child),
     ),

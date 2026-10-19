@@ -17,6 +17,11 @@ const closeSizes = <(String, Size)>[
   ('desktop', Size(1280, 800)),
 ];
 
+/// What drives a window of [size]: fingers on the phone and the foldable's
+/// inner display (a wide layout, still touched), a mouse on the desktop.
+TargetPlatform closePlatform(Size size) =>
+    size.width >= 1000 ? TargetPlatform.linux : TargetPlatform.android;
+
 Future<void> frames(WidgetTester t, [int n = 14]) async {
   for (var i = 0; i < n; i++) {
     await t.pump(const Duration(milliseconds: 50));

@@ -1,3 +1,4 @@
+import 'interaction.dart';
 import 'hover_region.dart';
 import 'mermaid_toolbar_recipe.dart';
 import 'markdown_autolink.dart';
@@ -2156,8 +2157,7 @@ class _RaftCodeBlockState extends State<RaftCodeBlock> {
                             tooltip: copied ? 'Copied' : 'Copy code',
                             onPressed: widget.code.isEmpty ? null : copy,
                             visualSize: RaftMetrics.buttonXs,
-                            minimumTargetSize:
-                                raftBreakpointWidth(context) < 768
+                            minimumTargetSize: RaftInteraction.of(context).touch
                                 ? RaftMetrics.touchTarget
                                 : RaftMetrics.buttonXs,
                             glyphSize: RaftMetrics.iconSm,

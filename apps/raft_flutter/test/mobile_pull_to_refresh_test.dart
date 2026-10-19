@@ -335,4 +335,61 @@ void main() {
       );
     }
   }
+
+  // Pull to refresh is a finger gesture: it follows the input, not the width.
+  for (final (label, size, platform, pulls) in [
+    (
+      'foldable 856x944, touch',
+      const Size(856, 944),
+      TargetPlatform.android,
+      true,
+    ),
+    (
+      'landscape 944x856, touch',
+      const Size(944, 856),
+      TargetPlatform.android,
+      true,
+    ),
+    (
+      'narrow 390x844, desktop',
+      const Size(390, 844),
+      TargetPlatform.linux,
+      false,
+    ),
+  ]) {
+    testWidgets('Activity pull refresh on $label', (t) async {
+      t.view.physicalSize = size;
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final (client, w) = activityFixture();
+      addTearDown(() async {
+        w.dispose();
+        await client.dispose();
+      });
+      w.inbox = [
+        {...channelRow(3, unread: 2), 'channelName': 'Held conversation'},
+      ];
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant).copyWith(platform: platform),
+          home: Scaffold(
+            body: ResourceView(
+              controller: w,
+              section: 'activity',
+              activitySidebarEnabled: true,
+              onMessage: (_, _) async {},
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(shown('Held conversation'), findsOneWidget);
+      expect(find.byType(RefreshIndicator).evaluate().isNotEmpty, pulls);
+      if (!pulls) return;
+      final reads = w.inboxQueries.length;
+      await pull(t);
+      await t.pumpAndSettle();
+      expect(w.inboxQueries.length, reads + 1);
+    });
+  }
 }

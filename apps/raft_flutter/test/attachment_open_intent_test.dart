@@ -93,7 +93,10 @@ Future<(_Client, WorkspaceController, _Files)> mountImage(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(
+        family,
+        dark: dark,
+      ).copyWith(platform: TargetPlatform.linux),
       home: Scaffold(
         body: AttachmentView(
           controller: w,

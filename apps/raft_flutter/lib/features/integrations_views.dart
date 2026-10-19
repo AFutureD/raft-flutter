@@ -751,9 +751,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
           sections: RaftConnectedAppsTab.values,
           value: tab,
           onChanged: (value) => setState(() => tab = value),
-          swipeEnabled:
-              MediaQuery.sizeOf(context).width <
-              RaftLayoutMetrics.desktopBreakpoint,
+          swipeEnabled: RaftInteraction.of(context).touch,
           builder: page,
         );
       },

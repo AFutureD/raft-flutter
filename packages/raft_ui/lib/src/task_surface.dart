@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'interaction.dart';
 import 'system_inset.dart';
 import 'auth_page.dart';
 import 'agent_profile.dart' show RaftPanelSection, raftPanelRuleColor;
@@ -315,7 +316,9 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
             // the tooltip, whose own box would otherwise clip the hit test).
             RaftTouchTargetExpander(
               minSize: Size.square(
-                mobile || widget.page ? RaftMetrics.touchTarget : 0,
+                RaftInteraction.of(context).touch || mobile || widget.page
+                    ? RaftMetrics.touchTarget
+                    : 0,
               ),
               child: RaftTooltip(
                 message: raftText(context, 'Close task'),

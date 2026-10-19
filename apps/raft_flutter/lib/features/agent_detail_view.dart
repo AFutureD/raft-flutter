@@ -528,9 +528,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
               sections: visible,
               value: current,
               onChanged: (value) => setState(() => tab = value),
-              swipeEnabled:
-                  MediaQuery.sizeOf(context).width <
-                  RaftLayoutMetrics.desktopBreakpoint,
+              swipeEnabled: RaftInteraction.of(context).touch,
               builder: _content,
             ),
           ),

@@ -303,6 +303,11 @@ Future<_Rig> _mount(
   Size? thumbBitmap,
   BoxFit? fit,
   bool waitForPreview = false,
+
+  /// The input the window is driven with. A [_wide] mount is a desktop window
+  /// (pointer); every other size is a touch screen, whatever its width: an
+  /// unfolded foldable is as wide as a desktop window and still a phone.
+  TargetPlatform? platform,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -354,7 +359,11 @@ Future<_Rig> _mount(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(RaftFamily.elegant).copyWith(
+        platform:
+            platform ??
+            (size == _wide ? TargetPlatform.linux : TargetPlatform.android),
+      ),
       builder: (context, child) => RaftToastHost(
         controller: toasts,
         child: textScale == 1 ? child! : RaftTextScaling(child: child!),
@@ -527,6 +536,8 @@ class _Frame {
 }
 
 const _wide = Size(1280, 800);
+// An unfolded foldable's inner display (856x944 dp) in portrait and landscape.
+const _fold = Size(856, 944), _foldLandscape = Size(944, 856);
 const _phone = Size(390, 844);
 
 /// Three files share this suite (`image_viewer_part2_test.dart` ...), each
@@ -555,6 +566,7 @@ void registerImageViewerTests(TestPart part) {
     'closing and page changes': 5,
     'accessibility': 5,
     'phone long-press menu': 6,
+    'touch on a wide window': 8,
     'header actions per layout': 5,
     'reduced motion': 4,
     'preloading': 2,
@@ -3607,6 +3619,83 @@ void registerImageViewerTests(TestPart part) {
       await tester.pump(const Duration(milliseconds: 400));
       expect(_viewer(tester).zoomed, isTrue);
       handle.dispose();
+    });
+  });
+
+  // Interaction follows the input, not the width: a foldable's inner display is
+  // as wide as a desktop window and is still touched with fingers.
+  part.group('touch on a wide window', () {
+    for (final (label, size) in [
+      ('portrait', _fold),
+      ('landscape', _foldLandscape),
+    ]) {
+      testWidgets('foldable $label: the immersive stage, not the lightbox', (
+        tester,
+      ) async {
+        await _mount(tester, size: size, gallery: true, message: _alice);
+        await _open(tester, 0);
+        expect(find.byType(RaftMediaImmersiveShell), findsOneWidget);
+        expect(find.byType(RaftAttachmentLightbox), findsNothing);
+        expect(find.byKey(const ValueKey('viewer-share')), findsOneWidget);
+        expect(find.byKey(const ValueKey('viewer-more')), findsOneWidget);
+        expect(find.byKey(const ValueKey('attachment-download')), findsNothing);
+      });
+
+      testWidgets('foldable $label: dragging down dismisses', (tester) async {
+        await _mount(tester, size: size, gallery: true, message: _alice);
+        await _open(tester, 0);
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+        );
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 130));
+        await gesture.up(timeStamp: const Duration(seconds: 3));
+        await _settle(tester, 10);
+        expect(find.byType(MediaBrowser), findsNothing);
+      });
+    }
+
+    testWidgets('foldable: a long press opens Save and Share', (tester) async {
+      final rig = await _mount(tester, size: _fold, gallery: true, count: 1);
+      await _open(tester, 0);
+      await _stored(tester, rig, 0);
+      await tester.longPressAt(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+      );
+      await _settle(tester, 4);
+      expect(find.byKey(const ValueKey('viewer-menu-save')), findsOneWidget);
+      expect(find.byKey(const ValueKey('viewer-menu-share')), findsOneWidget);
+    });
+
+    testWidgets('foldable: the inline image tile has no hover overlay', (
+      tester,
+    ) async {
+      await _mount(tester, size: _fold, gallery: true);
+      expect(find.byTooltip('Share photo-0.png'), findsNothing);
+      expect(find.byTooltip('Download photo-0.png'), findsNothing);
+    });
+
+    testWidgets('a narrow desktop window keeps the lightbox, no drag dismiss', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: false,
+        share: false,
+        message: _alice,
+        platform: TargetPlatform.linux,
+      );
+      await _open(tester, 0);
+      expect(find.byType(RaftMediaImmersiveShell), findsNothing);
+      expect(find.byKey(const ValueKey('attachment-download')), findsOneWidget);
+      await tester.flingFrom(
+        const Offset(195, 300),
+        const Offset(0, 400),
+        3000,
+      );
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
     });
   });
 }

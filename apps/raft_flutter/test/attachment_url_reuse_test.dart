@@ -95,7 +95,8 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(RaftFamily.elegant)
+            .copyWith(platform: TargetPlatform.linux),
         home: Scaffold(
           body: AttachmentView(
             controller: w,

@@ -1,3 +1,4 @@
+import 'interaction.dart';
 import 'hover_region.dart';
 
 import 'package:flutter/material.dart';
@@ -522,8 +523,9 @@ class _RaftRuntimeUsageChipState extends State<RaftRuntimeUsageChip> {
     super.dispose();
   }
 
-  /// Web `useMediaQuery("(max-width: 767px)")`.
-  bool get mobile => MediaQuery.sizeOf(context).width < 768;
+  /// Web `useMediaQuery("(max-width: 767px)")` stands in for "no hover" there.
+  /// A finger taps a sheet; a pointer hovers a card, at any window width.
+  bool get mobile => RaftInteraction.of(context).touch;
 
   @override
   Widget build(BuildContext context) {

@@ -110,9 +110,7 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
       }, MediaQuery.sizeOf(context).width),
       tokens: rui.RaftRecipeTokens(t),
     ).viewport;
-    final touch =
-        MediaQuery.sizeOf(context).width <
-        RaftSearchHomeRecipe.touchHistoryBreakpoint;
+    final touch = RaftInteraction.of(context).touch;
     if (widget.history.isEmpty && widget.frequent.isEmpty) {
       // Web `centeredEmptyState`: search.emptyTitle / search.emptyBody.
       return RaftQuickSwitcherEmpty(

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'interaction.dart';
+
 /// The host's pointer capability, independent of the viewport width. Native
 /// touch hosts disable hover for their entire navigator, including overlays.
 /// Layout density does not change pointer capability. Previews opt in explicitly.
@@ -15,10 +17,7 @@ class RaftHoverScope extends InheritedWidget {
   factory RaftHoverScope.forPlatform({Key? key, required Widget child}) =>
       RaftHoverScope(
         key: key,
-        enabled:
-            defaultTargetPlatform != TargetPlatform.android &&
-            defaultTargetPlatform != TargetPlatform.iOS &&
-            defaultTargetPlatform != TargetPlatform.fuchsia,
+        enabled: !RaftInteraction.platformIsTouch(defaultTargetPlatform),
         child: child,
       );
 

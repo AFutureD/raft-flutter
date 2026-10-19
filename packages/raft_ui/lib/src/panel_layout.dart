@@ -6,6 +6,7 @@
 // Geometry and colour come from the generated raft-ui recipes (panelHeader,
 // panelAction, tabs) and, for classes written directly in Web JSX, from the
 // Tailwind classes cited next to each value (packages/web/src paths).
+import 'interaction.dart';
 import 'hover_region.dart';
 
 import 'dart:math' as math;
@@ -179,11 +180,7 @@ class RaftPanelAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => RaftTouchTargetExpander(
     minSize: Size.square(
-      minHitExtent > 0 &&
-              MediaQuery.sizeOf(context).width <
-                  RaftLayoutMetrics.desktopBreakpoint
-          ? minHitExtent
-          : 0,
+      minHitExtent > 0 && RaftInteraction.of(context).touch ? minHitExtent : 0,
     ),
     child: _interactive(context),
   );

@@ -23,7 +23,9 @@ const viewerSurfaces = <CloseSurface>[
     // A phone's tap on the empty stage toggles the chrome (Photos idiom); it
     // closes by Back, Esc, the system back or a drag down.
     phone: {_back, _esc, _sys},
-    fold: {_x, _esc, _scrim, _sys},
+    // The foldable's inner display is wide but touched: the same immersive
+    // page as the phone (interaction follows the input, not the width).
+    fold: {_back, _esc, _sys},
     desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/attachment_view.dart',

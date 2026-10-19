@@ -5,6 +5,7 @@
 // AvatarSlot compact-list + description tooltip, pinned "Create a New Agent"
 // entry, "Add selected (N)"). The app adapter owns roster data, selection and
 // commands.
+import 'interaction.dart';
 import 'hover_region.dart';
 
 import 'package:flutter/material.dart';
@@ -450,7 +451,7 @@ class RaftChannelMembersModal extends StatelessWidget {
               controller: search,
               placeholder: 'Name',
               leadingGlyph: RaftGlyph.search,
-              autofocus: !page,
+              autofocus: !page && RaftInteraction.of(context).pointer,
             ),
           ),
         ),
@@ -1277,7 +1278,11 @@ class _MemberPageRowState extends State<_MemberPageRow> {
             children: [?roleAction, ?remove],
           );
     Widget? trailing;
-    if (wide && (tag != null || actions != null)) {
+    // Hover swaps the role tag for the actions: a pointer affordance. A finger
+    // has no hover, so touch keeps both in view at any width.
+    if (wide &&
+        !RaftInteraction.of(context).touch &&
+        (tag != null || actions != null)) {
       trailing = Stack(
         alignment: Alignment.centerRight,
         children: [

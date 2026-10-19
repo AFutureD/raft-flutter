@@ -1,4 +1,5 @@
 import 'hover_region.dart';
+import 'interaction.dart';
 import 'raft_underline.dart';
 import 'anchored_popup.dart';
 import 'dismiss_scope.dart';
@@ -40,13 +41,9 @@ class RaftDensityScope extends InheritedWidget {
   });
   final RaftDensity density;
   static RaftDensity of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<RaftDensityScope>()?.density ??
-      switch (Theme.of(context).platform) {
-        TargetPlatform.android ||
-        TargetPlatform.iOS ||
-        TargetPlatform.fuchsia => RaftDensity.touch,
-        _ => RaftDensity.desktop,
-      };
+      RaftInteraction.of(context).touch
+      ? RaftDensity.touch
+      : RaftDensity.desktop;
   @override
   bool updateShouldNotify(RaftDensityScope oldWidget) =>
       density != oldWidget.density;

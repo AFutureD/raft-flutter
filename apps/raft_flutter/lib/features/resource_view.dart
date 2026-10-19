@@ -1705,11 +1705,10 @@ class _ResourceViewState extends State<ResourceView> {
     if (widget.section == 'search') {
       widget.searchFocusRequests?.addListener(focusSearchField);
       // Source MessageSearchPage focuses the field on mount (and selects a
-      // restored query). A phone keeps the keyboard down until a tap.
+      // restored query). A touch screen keeps the keyboard down until a tap,
+      // at any width; a pointer window focuses it at any width.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted &&
-            MediaQuery.sizeOf(context).width >=
-                RaftLayoutMetrics.desktopBreakpoint) {
+        if (mounted && RaftInteraction.of(context).pointer) {
           focusSearchField();
         }
       });
@@ -2691,7 +2690,7 @@ class _ResourceViewState extends State<ResourceView> {
   }
 
   bool get mobileActivityRefresh =>
-      widget.section == 'activity' && RaftAdaptiveWorkspace.compactOf(context);
+      widget.section == 'activity' && RaftInteraction.of(context).touch;
 
   Widget resourceResultsBody(BuildContext context) {
     final scope = authority;

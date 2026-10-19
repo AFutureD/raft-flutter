@@ -5,6 +5,7 @@
 // class list (hands-feedback CSS and the raft-ui Tabs / TaskCard / Badge /
 // MessageReferenceChip / EmptyState / Skeleton / Banner recipes it composes)
 // is resolved here.
+import 'interaction.dart';
 import 'hover_region.dart';
 
 import 'package:flutter/material.dart';
@@ -29,7 +30,6 @@ import 'recipes/tabs.g.dart';
 import 'recipes/task_card.g.dart';
 import 'theme.dart';
 import 'section_pager.dart';
-import 'design_primitives.dart' show RaftLayoutMetrics;
 
 /// `.hands-feedback-root { font-family: ui-sans-serif, system-ui, ... }`:
 /// the platform UI face (an unknown family name resolves to the platform
@@ -292,8 +292,7 @@ class RaftFeedbackInbox extends StatelessWidget {
                         child:
                             any &&
                                 ticketsForFilter != null &&
-                                MediaQuery.sizeOf(context).width <
-                                    RaftLayoutMetrics.desktopBreakpoint
+                                RaftInteraction.of(context).touch
                             ? RaftSectionPager<RaftFeedbackFilter>(
                                 sections: RaftFeedbackFilter.values,
                                 value: filter,

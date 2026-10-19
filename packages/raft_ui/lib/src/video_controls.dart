@@ -3,6 +3,7 @@
 // rail, full screen, open, download, seek rail), the click / hover / tap
 // behaviour around it, and the thin rails. No Material Slider.
 // (test/media_controls_guard_test.dart)
+import 'interaction.dart';
 import 'hover_region.dart';
 
 import 'dart:async';
@@ -190,9 +191,7 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
   double mutedFrom = 100;
 
   bool get touch =>
-      widget.touch ??
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+      widget.touch ?? RaftInteraction.platformIsTouch(defaultTargetPlatform);
 
   @override
   void dispose() {

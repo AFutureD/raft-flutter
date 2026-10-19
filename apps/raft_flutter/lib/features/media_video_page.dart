@@ -25,13 +25,11 @@ abstract final class MediaBrowserFlags {
   static bool? phoneLayout;
 }
 
-/// A phone: a touch device whose short side is under 600 dp (also a phone held
-/// sideways). Its video cards show the poster only and open the viewer to play;
-/// a narrow desktop window keeps desktop viewer chrome.
+/// A touch device, whatever its window size (a phone held sideways, an
+/// unfolded foldable, a tablet). Its video cards show the poster only and open
+/// the viewer to play; a narrow desktop window keeps desktop viewer chrome.
 bool phoneMediaLayout(BuildContext context) =>
-    MediaBrowserFlags.phoneLayout ??
-    (RaftDensityScope.of(context) == RaftDensity.touch &&
-        MediaQuery.sizeOf(context).shortestSide < 600);
+    MediaBrowserFlags.phoneLayout ?? RaftInteraction.of(context).touch;
 
 /// A video up to this size prepares by itself once its page has rested; a
 /// larger one waits for the first Play (the cards' rule).

@@ -516,9 +516,11 @@ void main() {
       'updatedPerScrollFrame=${perFrame.toStringAsFixed(1)} '
       'updatedOnRebuild=$rebuildUpdates',
     );
-    // Row node + Show more + reaction; header, avatar, prose and the
-    // collapsed tail add none.
-    expect(counts, everyElement(lessThanOrEqualTo(3)));
+    // Row node + Show more + reaction + the inline add-reaction "+" that a
+    // touch screen has instead of the hover bar (at any width, this window is
+    // 1280 wide on Android); header, avatar, prose and the collapsed tail add
+    // none.
+    expect(counts, everyElement(lessThanOrEqualTo(4)));
     // Edge rows are re-sent as one node each, not with their whole subtree.
     expect(perFrame, lessThan(10));
     expect(rebuildUpdates, 0);

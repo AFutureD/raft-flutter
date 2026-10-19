@@ -1,3 +1,4 @@
+import 'interaction.dart';
 import 'hover_region.dart';
 
 import 'text_selection_toolbar.dart';
@@ -1813,7 +1814,7 @@ class RaftMessageTile extends StatelessWidget {
                             );
                           })
                           .toList(),
-                      if (MediaQuery.sizeOf(context).width < 768 &&
+                      if (RaftInteraction.of(context).touch &&
                           reactions.any(
                             (r) =>
                                 r['emoji'] is String &&

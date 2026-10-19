@@ -279,8 +279,7 @@ class _ConversationPanelState extends State<ConversationPanel> {
             swipeEnabled:
                 hasTabs &&
                 !widget.hideHeader &&
-                MediaQuery.sizeOf(context).width <
-                    RaftLayoutMetrics.desktopBreakpoint,
+                RaftInteraction.of(context).touch,
             onChanged: selectTab,
             // Reuse the same widget for a visited data owner. Changing only
             // the selected section must not update every page's root widget.

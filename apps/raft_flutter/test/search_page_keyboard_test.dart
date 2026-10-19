@@ -78,6 +78,7 @@ void main() {
     Size size = const Size(1280, 800),
     String query = 'note',
     Locale locale = const Locale('en'),
+    TargetPlatform platform = TargetPlatform.linux,
   }) async {
     t.view.physicalSize = size;
     t.view.devicePixelRatio = 1;
@@ -88,7 +89,7 @@ void main() {
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(RaftFamily.elegant).copyWith(platform: platform),
         home: Scaffold(
           body: ResourceView(
             controller: w,
@@ -121,9 +122,32 @@ void main() {
   });
 
   testWidgets('a phone keeps the keyboard down until a tap', (t) async {
-    await mount(t, size: const Size(390, 844));
+    await mount(
+      t,
+      size: const Size(390, 844),
+      platform: TargetPlatform.android,
+    );
     final field = t.widget<TextField>(find.byType(TextField).first);
     expect(field.focusNode!.hasFocus, isFalse);
+  });
+
+  // The keyboard follows the input, not the width: an unfolded foldable is as
+  // wide as a desktop window and a narrow desktop window as narrow as a phone.
+  testWidgets('an unfolded foldable keeps the keyboard down until a tap', (
+    t,
+  ) async {
+    for (final size in const [Size(856, 944), Size(944, 856)]) {
+      await mount(t, size: size, platform: TargetPlatform.android);
+      final field = t.widget<TextField>(find.byType(TextField).first);
+      expect(field.focusNode!.hasFocus, isFalse, reason: '$size');
+      await t.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('a narrow desktop window focuses its field on mount', (t) async {
+    await mount(t, size: const Size(390, 844));
+    final field = t.widget<TextField>(find.byType(TextField).first);
+    expect(field.focusNode!.hasFocus, isTrue);
   });
 
   testWidgets('the first result is the selected one before any key', (t) async {

@@ -100,7 +100,8 @@ Future<void> mountAttachment(
   });
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(RaftFamily.elegant)
+          .copyWith(platform: closePlatform(size)),
       home: Scaffold(
         body: AttachmentView(
           controller: w,
@@ -514,7 +515,9 @@ void registerCloseViewerTests(TestPart part) {
       });
       await t.tap(find.byTooltip('Preview image.png'));
       await settleImage(t);
-      final phone = size.width < 640;
+      // The phone page is how a finger views media at any width, so the
+      // foldable's inner display gets the phone's close set, not the desktop's.
+      final phone = closePlatform(size) == TargetPlatform.android;
       return SurfaceProbe(
         isOpen: lightboxOpen,
         x: find.byTooltip('Close preview'),

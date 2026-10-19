@@ -739,7 +739,7 @@ class _PublicServerViewState extends State<PublicServerView> {
           }),
           closeLabel: tr('Close thread'),
           onClose: closeThread,
-          showClose: wide,
+          showClose: wide || RaftInteraction.of(context).pointer,
           parent: row(parent, parent: true),
           replies: [for (final m in threadMessages) row(m, thread: true)],
           loading: threadLoading,
