@@ -1,3 +1,4 @@
+// budget: per-surface (one case group per registered popup in the close registry; grows with every new popup)
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,9 +35,8 @@ Future<void> mountHost(
   await t.pumpWidget(
     MaterialApp(
       navigatorKey: nav,
-      theme: raftTheme(
-        RaftFamily.elegant,
-      ).copyWith(platform: platformFor(size)),
+      theme: raftTheme(RaftFamily.elegant)
+          .copyWith(platform: platformFor(size)),
       home: const Scaffold(body: Text('root-page')),
     ),
   );
@@ -338,9 +338,8 @@ void main() {
         size,
         (context) => RaftButton(
           label: 'Show snack',
-          onPressed: () => ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Download failed'))),
+          onPressed: () => ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Download failed'))),
         ),
       );
       await t.tap(find.text('Show snack'));
@@ -368,8 +367,14 @@ void main() {
           ],
         }),
       ];
-      w.messageDomain.ledger.ingest(rows, expectedGeneration: w.messageDomain.ledger.generation);
-      w.messageDomain.visibleIds['c1'] = {...?w.messageDomain.visibleIds['c1'], 'mr'};
+      w.messageDomain.ledger.ingest(
+        rows,
+        expectedGeneration: w.messageDomain.ledger.generation,
+      );
+      w.messageDomain.visibleIds['c1'] = {
+        ...?w.messageDomain.visibleIds['c1'],
+        'mr',
+      };
       w.notifyListeners();
       await frames(t, 20);
       if (size.width < 768) {
