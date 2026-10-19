@@ -31,19 +31,25 @@ class CheckTests(unittest.TestCase):
     def test_a_small_new_file_passes(self):
         self.assertEqual(self.verdict({'new_test.dart': {'cases': 60, 'seconds': 30.0}})['violations'], [])
 
-    def test_a_new_file_over_either_limit_fails_unless_exempt(self):
-        for now in ({'cases': 61, 'seconds': 2.0}, {'cases': 3, 'seconds': 31.0}):
-            result = self.verdict({'new_test.dart': now})
-            self.assertEqual(len(result['violations']), 1, now)
-            self.assertIn('nightly-full', result['violations'][0])
-            self.assertEqual(self.verdict({'new_test.dart': now}, exempt=True)['violations'], [])
+    def test_a_new_file_over_the_case_limit_fails_unless_exempt(self):
+        now = {'cases': 61, 'seconds': 2.0}
+        result = self.verdict({'new_test.dart': now})
+        self.assertEqual(len(result['violations']), 1)
+        self.assertIn('nightly-full', result['violations'][0])
+        self.assertEqual(self.verdict({'new_test.dart': now}, exempt=True)['violations'], [])
 
-    def test_a_listed_file_may_not_gain_cases_or_run_much_longer(self):
+    def test_seconds_only_warn_because_gate_timings_depend_on_the_other_shards(self):
+        result = self.verdict({'new_test.dart': {'cases': 3, 'seconds': 31.0}})
+        self.assertEqual((result['violations'], len(result['warnings'])), ([], 1))
+        self.assertEqual(self.verdict({'new_test.dart': {'cases': 3, 'seconds': 31.0}}, exempt=True)['warnings'], [])
+
+    def test_a_listed_file_may_not_gain_cases_and_running_much_longer_warns(self):
         name = 'apps/raft_flutter/test/big_test.dart'
         self.assertEqual(self.verdict({name: {'cases': 100, 'seconds': 80.0}})['violations'], [])
-        self.assertEqual(self.verdict({name: {'cases': 90, 'seconds': 120.0}})['violations'], [])  # noise inside 1.5x + 10 s
+        self.assertEqual(self.verdict({name: {'cases': 90, 'seconds': 120.0}})['warnings'], [])  # noise inside 1.5x + 10 s
         self.assertIn('grew from 100 to 101', self.verdict({name: {'cases': 101, 'seconds': 80.0}})['violations'][0])
-        self.assertIn('slower', self.verdict({name: {'cases': 100, 'seconds': 131.0}})['violations'][0])
+        slower = self.verdict({name: {'cases': 100, 'seconds': 131.0}})
+        self.assertEqual((slower['violations'], len(slower['warnings'])), ([], 1))
 
     def test_stale_entries_are_notes_never_failures(self):
         name = 'apps/raft_flutter/test/big_test.dart'

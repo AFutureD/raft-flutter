@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Per-file budget for the Dart test suite, a ratchet like tool/ds-audit-baseline.json.
 
-A test file that takes more than MAX_SECONDS to run (file seconds minus the time to load it) or declares more
-than MAX_CASES cases is expensive enough to need a decision. It must either
+A test file that declares more than MAX_CASES cases is expensive enough to need a decision. It must either
 
   * start with `@Tags(['slow'])` (a long scenario the gate runs only when the diff reaches it, see
     tool/check-project), or
@@ -10,6 +9,10 @@ than MAX_CASES cases is expensive enough to need a decision. It must either
     nightly runs the whole product, see raftFullMatrix in packages/raft_ui/lib/test_themes.dart), or
   * be listed in tool/test-budget-baseline.json, the files that were over the limit when the budget
     started. That list only shrinks: a listed file may not gain cases, and nothing is added to it.
+
+Seconds only warn. A file's run time on the gate depends on what the other shards are doing (one file measured
+52 s and 90 s on two gates with no change), so a seconds limit would fail gates at random. A file that runs past
+MAX_SECONDS, or a listed file that runs far past its entry, is reported as a warning for the integration owner.
 
 The numbers come from `.local/check-durations.json`, which tool/check-project rewrites after every run; the
 gate calls `check()` with the files it just ran, so a new over-budget file fails the gate that first runs it.
@@ -63,27 +66,36 @@ def over_limit(entry):
     return entry['cases'] > MAX_CASES or entry['seconds'] > MAX_SECONDS
 
 
-def check(measured, baseline, exempt=is_exempt, exists=lambda name: True):
-    """{'violations': [...], 'notes': [...]} for the freshly measured files.
+def over_cases(entry):
+    return entry['cases'] > MAX_CASES
 
-    A violation: an over-limit file that is neither exempt nor listed, or a listed file that gained cases or
-    ran far longer than its entry. A note (never a failure): a listed file that no longer needs its entry.
+
+def check(measured, baseline, exempt=is_exempt, exists=lambda name: True):
+    """{'violations': [...], 'warnings': [...], 'notes': [...]} for the freshly measured files.
+
+    A violation (fails the gate): a file over MAX_CASES that is neither exempt nor listed, or a listed file
+    that gained cases. A warning (never a failure): a non-exempt file over MAX_SECONDS, or a listed file that
+    ran far longer than its entry. A note: a listed file that no longer needs its entry.
     """
     listed = baseline.get('files', {})
-    violations, notes = [], []
+    violations, warnings, notes = [], [], []
     for name, now in sorted(measured.items()):
         entry = listed.get(name)
         if entry is None:
-            if over_limit(now) and not exempt(name):
+            if exempt(name):
+                continue
+            if over_cases(now):
                 violations.append(
-                    f"{name}: {now['cases']} cases, {now['seconds']:.0f} s (limit {MAX_CASES} cases, {MAX_SECONDS:.0f} s). "
+                    f"{name}: {now['cases']} cases (limit {MAX_CASES}). "
                     "Cut the matrix on the gate and mark it `// matrix: nightly-full`, tag it `@Tags(['slow'])` if it is a long "
                     'scenario, or split it.')
+            elif now['seconds'] > MAX_SECONDS:
+                warnings.append(f"{name}: ran {now['seconds']:.0f} s (limit {MAX_SECONDS:.0f} s).")
             continue
         if now['cases'] > entry['cases']:
             violations.append(f"{name}: grew from {entry['cases']} to {now['cases']} cases; a file listed in tool/test-budget-baseline.json may only shrink.")
         elif now['seconds'] > entry['seconds'] * SECONDS_SLACK + SECONDS_MARGIN:
-            violations.append(f"{name}: ran {now['seconds']:.0f} s, listed at {entry['seconds']:.0f} s; a listed file may not get slower.")
+            warnings.append(f"{name}: ran {now['seconds']:.0f} s, listed at {entry['seconds']:.0f} s.")
     for name in sorted(listed):
         if not exists(name):
             notes.append(f'{name}: listed in the baseline but gone; run tool/test_budget.py --update-baseline')
@@ -91,7 +103,7 @@ def check(measured, baseline, exempt=is_exempt, exists=lambda name: True):
             notes.append(f'{name}: now slow-tagged or marked nightly-full; its baseline entry can go (tool/test_budget.py --update-baseline)')
         elif name in measured and not over_limit(measured[name]):
             notes.append(f'{name}: back under the limit; its baseline entry can go (tool/test_budget.py --update-baseline)')
-    return {'violations': violations, 'notes': notes}
+    return {'violations': violations, 'warnings': warnings, 'notes': notes}
 
 
 def lowered(baseline, measured, exempt=is_exempt, exists=lambda name: True):
@@ -138,9 +150,11 @@ def run_check(durations_path, baseline_path=BASELINE):
     result = check(measured, load_baseline(baseline_path), lambda name: is_exempt(ROOT / name), lambda name: (ROOT / name).is_file())
     for line in result['notes']:
         print(f'test-budget: note: {line}')
+    for line in result['warnings']:
+        print(f'test-budget: warning: {line}')
     for line in result['violations']:
         print(f'test-budget: FAIL {line}')
-    print(f"test-budget: {len(measured)} files measured, {len(result['violations'])} over budget.")
+    print(f"test-budget: {len(measured)} files measured, {len(result['violations'])} over budget, {len(result['warnings'])} slow warnings.")
     return result
 
 

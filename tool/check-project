@@ -392,9 +392,10 @@ def format_summary(shards, failures, totals, slowest, limit=None, themes=None, s
         lines.append(f"  ({totals['hidden']} hidden setUpAll/tearDownAll entries are not counted as tests.)")
     if slow:
         lines.extend(slow_summary(slow))
-    if budget and (budget['violations'] or budget['notes']):
-        lines.append(f"Test budget: {len(budget['violations'])} file(s) over budget (tool/test_budget.py).")
+    if budget and (budget['violations'] or budget.get('warnings') or budget['notes']):
+        lines.append(f"Test budget: {len(budget['violations'])} file(s) over budget, {len(budget.get('warnings', ()))} slow warning(s) (tool/test_budget.py).")
         lines.extend(f'  FAIL {line}' for line in budget['violations'])
+        lines.extend(f'  warn {line}' for line in budget.get('warnings', ()))
         lines.extend(f'  note {line}' for line in budget['notes'])
     if stop:
         lines.append(f"Run stopped early: {stop['message']}")

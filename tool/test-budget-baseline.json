@@ -122,7 +122,7 @@
    "seconds": 30.2
   },
   "packages/raft_client/test/logout_policy_test.dart": {
-   "cases": 95,
+   "cases": 96,
    "seconds": 38.1
   },
   "packages/raft_ui/test/text_scale_audit_android_zh_test.dart": {
