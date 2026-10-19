@@ -69,6 +69,12 @@ Future<RootFixture> _mount(
   return f;
 }
 
+/// Whether the gate runs [theme] at [size]: every size on the default theme,
+/// the others everywhere but the desktop width (measured: the extra desktop
+/// cells cover no line the phone and foldable cells of the same theme miss).
+bool _gateRuns(String theme, String size) =>
+    raftFullMatrix || theme == _themes.first || size != 'desktop-1280';
+
 /// The vertical columns under the status bar and where to sample them: the
 /// column centre, plus its divider (the right edge of the rail / sidebar, the
 /// left edge of the thread / profile panels). Phones are one column.
@@ -270,6 +276,9 @@ void registerStatusbarStandardTests(TestPart part) {
   leakDebt(const ['ValueNotifier<bool>']);
   final shots = Platform.environment['RAFT_STATUSBAR_STANDARD_DIR'];
   final registry = _registryPages();
+  // matrix: nightly-full -- the gate drops the other themes at 1280 wide
+  // (default theme at every size, the others on the phone and the foldable;
+  // those cells add no line of coverage); RAFT_TEST_TIER=full runs the product.
   for (final size in _sizes.entries) {
     final wide = size.value.width >= 768;
     final routes = [
@@ -279,6 +288,7 @@ void registerStatusbarStandardTests(TestPart part) {
         if (wide ? r.wide : r.phone) r.page,
     ];
     for (final theme in raftThemeMatrix(_themes, full: true)) {
+      if (!_gateRuns(theme, size.key)) continue;
       for (final p in routes) {
         if (!part.claim()) continue;
         testWidgets('statusbar standard ${p.name} ${size.key} $theme', (
@@ -297,6 +307,7 @@ void registerStatusbarStandardTests(TestPart part) {
   }
   for (final size in _coverSizes.entries) {
     for (final theme in raftThemeMatrix(_themes, full: true)) {
+      if (!_gateRuns(theme, size.key)) continue;
       for (final p in _wideCoverPages) {
         if (!part.claim()) continue;
         testWidgets('statusbar standard ${p.name} ${size.key} $theme', (

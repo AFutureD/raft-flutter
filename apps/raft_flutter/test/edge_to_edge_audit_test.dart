@@ -160,9 +160,8 @@ Future<Map<String, Object?>> shoot(
     final out = await picture.toImage(w, h);
     picture.dispose();
     final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
-    File(
-      '${outDir().path}/$name.png',
-    ).writeAsBytesSync(bytes!.buffer.asUint8List());
+    File('${outDir().path}/$name.png')
+        .writeAsBytesSync(bytes!.buffer.asUint8List());
     image.dispose();
     out.dispose();
   });
@@ -714,18 +713,20 @@ Future<void> composerKeyboardScenario(
 void main() {
   mqProbeTests();
   tearDownAll(() {
-    File(
-      '${outDir().path}/metrics.json',
-    ).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(metrics));
+    File('${outDir().path}/metrics.json')
+        .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(metrics));
   });
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ], full: true)) {
+  // matrix: nightly-full -- the gate runs the 3-button scenarios on the default
+  // theme only (gesture bar scenarios keep every theme); RAFT_TEST_TIER=full
+  // runs them all.
+  const themes = ['brutal', 'elegant-light', 'elegant-dark'];
+  for (final theme in raftThemeMatrix(themes, full: true)) {
     final dark = theme == 'elegant-dark';
     for (final s in scenarios) {
       if (dark && (!s.dark || s.nav != Nav.gesture)) continue;
+      if (!raftMatrixCell(theme: themes.indexOf(theme), size: s.nav.index)) {
+        continue;
+      }
       testWidgets('${s.name} $theme ${s.nav.id}', (t) async {
         final f = await mountAt(
           t,

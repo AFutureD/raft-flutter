@@ -8,6 +8,9 @@
 /// pick spreads the suite across the variants: roughly half of the files
 /// sample elegant-light, the other half elegant-dark.
 ///
+/// Matrices that cross themes with sizes are further cut to an L on the gate,
+/// see [raftMatrixCell]; `RAFT_TEST_TIER=full` (the nightly) runs the product.
+///
 /// Set `RAFT_TEST_ALL_THEMES=1` to run every variant of every test. Use it
 /// before merging to main, and whenever theme, token or recipe code changes
 /// (`python3 tool/check-project --all-themes` passes it on).
@@ -28,6 +31,31 @@ const raftAllThemesVariable = 'RAFT_TEST_ALL_THEMES';
 
 /// True when every test must run its whole theme matrix.
 bool get raftAllThemes => Platform.environment[raftAllThemesVariable] == '1';
+
+/// The environment variable that picks the test tier: `gate` (the default) or
+/// `full`. `tool/check-project` sets it; the nightly runs `full`.
+const raftTestTierVariable = 'RAFT_TEST_TIER';
+
+/// True when a matrix that the gate cuts must run whole: the nightly
+/// (`RAFT_TEST_TIER=full`) and every all-themes run.
+bool get raftFullMatrix =>
+    Platform.environment[raftTestTierVariable] == 'full' || raftAllThemes;
+
+/// Whether the cell ([theme], [size]) of a theme x size matrix runs in this tier.
+///
+/// The gate runs an L: the default theme (index 0) at every size, and every
+/// other theme at the first size (the phone, the cheapest and the one that
+/// carries the most layout code). The full tier runs the whole product.
+/// Declare the tests in the same loop order either way so names do not change.
+bool raftMatrixCell({required int theme, required int size}) =>
+    matrixCellRuns(full: raftFullMatrix, theme: theme, size: size);
+
+/// The pure rule behind [raftMatrixCell].
+bool matrixCellRuns({
+  required bool full,
+  required int theme,
+  required int size,
+}) => full || theme == 0 || size == 0;
 
 /// The variants of [variants] the calling test file should run.
 ///

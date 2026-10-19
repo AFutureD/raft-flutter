@@ -27,6 +27,7 @@ import 'package:raft_flutter/features/search_home.dart';
 import 'package:raft_flutter/features/source_channel_files_view.dart';
 import 'package:raft_flutter/data/source_channel_files_store.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart' show raftFullMatrix;
 
 import '../../../tool/testing/ink_alignment.dart';
 import '../../../tool/testing/text_scale_audit.dart'
@@ -43,7 +44,9 @@ const _profiles = [
   _Profile('android-zh', TargetPlatform.android, Locale('zh', 'CN')),
   _Profile('web-en', TargetPlatform.macOS, Locale('en', 'US')),
 ];
-const _scales = [1.0, 1.3, 2.0];
+// matrix: nightly-full -- the gate drops the middle scale (1.3x); the nightly
+// (RAFT_TEST_TIER=full) runs all three.
+final _scales = raftFullMatrix ? [1.0, 1.3, 2.0] : [1.0, 2.0];
 
 /// A control family to measure: [root] holds the controls; every widget of
 /// [box] type under it is one control.

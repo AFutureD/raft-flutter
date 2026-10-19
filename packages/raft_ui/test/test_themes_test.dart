@@ -185,4 +185,33 @@ void main() {
     expect(sampled.first, 'brutal-light');
     expect(sampled, raftAllThemes ? _three : hasLength(2));
   });
+
+  group('theme x size L-shape', () {
+    int count({required bool full, int themes = 3, int sizes = 3}) => [
+      for (var t = 0; t < themes; t++)
+        for (var z = 0; z < sizes; z++)
+          if (matrixCellRuns(full: full, theme: t, size: z)) (t, z),
+    ].length;
+
+    test('the gate runs the default theme at every size and the others at the first', () {
+      expect(count(full: false), 3 + 2); // brutal x 3 sizes, 2 themes x phone
+      expect(matrixCellRuns(full: false, theme: 0, size: 2), isTrue);
+      expect(matrixCellRuns(full: false, theme: 1, size: 0), isTrue);
+      expect(matrixCellRuns(full: false, theme: 1, size: 1), isFalse);
+      expect(matrixCellRuns(full: false, theme: 2, size: 2), isFalse);
+    });
+
+    test('the full tier runs the whole product', () {
+      expect(count(full: true), 9);
+    });
+
+    test('the tier comes from the environment', () {
+      expect(
+        raftFullMatrix,
+        Platform.environment[raftTestTierVariable] == 'full' || raftAllThemes,
+      );
+      expect(raftMatrixCell(theme: 1, size: 1), raftFullMatrix);
+      expect(raftMatrixCell(theme: 0, size: 2), isTrue);
+    });
+  });
 }

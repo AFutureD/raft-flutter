@@ -520,7 +520,12 @@ void _wideTests(TestPart part) {
     'desktop 1280': Size(1280, 800),
     'breakpoint 768': Size(768, 900),
   };
+  // matrix: nightly-full -- the gate runs the wide size and resize cells on the
+  // default theme only (the routes at 816 and the phone cells keep every
+  // theme: they cover code the others miss); RAFT_TEST_TIER=full runs them all.
   for (final theme in _themes) {
+    final themeIndex = _themes.indexOf(theme);
+    final wideRuns = raftMatrixCell(theme: themeIndex, size: 1);
     for (final route in _wideRoutes.entries) {
       if (!part.claim()) continue;
       testWidgets('statusbar wide route ${route.key} $theme', (t) async {
@@ -537,7 +542,7 @@ void _wideTests(TestPart part) {
       });
     }
     for (final entry in sizes.entries) {
-      if (!part.claim()) continue;
+      if (!wideRuns || !part.claim()) continue;
       testWidgets('statusbar wide ${entry.key} $theme', (t) async {
         try {
           await _mountAt(t, theme, entry.value);
@@ -548,7 +553,7 @@ void _wideTests(TestPart part) {
       });
     }
 
-    if (part.claim()) {
+    if (wideRuns && part.claim()) {
       testWidgets('statusbar resize across the breakpoint $theme', (t) async {
         const wide = Size(816, 920), phone = Size(412, 915);
         try {
