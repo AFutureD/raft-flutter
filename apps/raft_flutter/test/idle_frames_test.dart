@@ -153,7 +153,7 @@ void main() {
     });
   }
 
-  testWidgets('a live agent activity bar adds no frames', (t) async {
+  testWidgets('a working-agents summary adds no frames', (t) async {
     final (w, client) = await boot(t);
     client.stream.add(
       RaftEvent('agent:activity', {
@@ -165,9 +165,9 @@ void main() {
       }),
     );
     await t.pump(const Duration(milliseconds: 100));
-    expect(find.byKey(const Key('live-agent-activity-bar')), findsOneWidget);
-    // One more wake-up: the 90 s safety expiry removes the bar.
-    await expectQuiet(t, 'live activity bar', allowed: 3);
+    expect(find.byKey(const Key('working-agents-summary')), findsOneWidget);
+    // One more wake-up: the 90 s safety expiry removes the agent.
+    await expectQuiet(t, 'working agents summary', allowed: 3);
   });
 
   testWidgets('a hidden or paused app does no frame or timer work', (t) async {

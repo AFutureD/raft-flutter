@@ -206,8 +206,8 @@ void main() {
       );
       expect(w.entityDirectory.agent('cindy'), isNotNull);
 
-      // The first working signal shows the live activity bar (a real layout
-      // change); the burst below only refreshes it.
+      // The first working signal shows the working-agents summary (a real
+      // layout change); the burst below only refreshes it.
       for (final id in ['cindy', 'bob']) {
         client.stream.add(
           RaftEvent('agent:activity', {
@@ -219,7 +219,7 @@ void main() {
         );
       }
       await t.pump(const Duration(milliseconds: 16));
-      expect(find.byKey(const Key('live-agent-activity-bar')), findsOneWidget);
+      expect(find.byKey(const Key('working-agents-summary')), findsOneWidget);
 
       final counts = _Rebuilds()..start();
       addTearDown(counts.stop);

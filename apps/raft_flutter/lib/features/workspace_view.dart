@@ -3382,6 +3382,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
       onContextMenu: (at) => openAgentMenu(at, agent, entry.channel),
       contextMenuOnLongPress: !reorderable,
       description: pinned || custom || description.isEmpty ? null : description,
+      // What a working agent is doing takes the place of its runtime.
+      activityText: liveActivities.rowText('${agent['id']}'),
       selected:
           w.section == 'chat' &&
           entry.channel != null &&

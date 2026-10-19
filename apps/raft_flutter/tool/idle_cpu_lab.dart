@@ -190,7 +190,7 @@ Future<void> _main() async {
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         }));
         await wait(800);
-        note = 'live bar: ${find(const ValueKey('live-agent-activity-bar')) != null}';
+        note = 'summary: ${find(const ValueKey('working-agents-summary')) != null}';
       case 'activity':
         await tap(const ValueKey('rail-activity'));
       case 'search':

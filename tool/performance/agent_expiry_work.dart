@@ -70,15 +70,15 @@ Future<void> main() async {
     signal('older');
     now = now.add(const Duration(seconds: 30));
     signal('latest');
-    final shown = activity.latest;
     now = now.add(const Duration(seconds: 61));
     final older = measure();
-    if (activity.items.length != 1 || activity.latest != shown) {
-      errors.add('cycle $i: latest changed while only older work expired');
+    if (activity.items.length != 1 ||
+        activity.working.map((i) => i.agentId).join() != 'latest') {
+      errors.add('cycle $i: only the older work should have expired');
     }
     now = now.add(const Duration(seconds: 30));
     final latest = measure();
-    if (activity.latest != null || activity.items.isNotEmpty) {
+    if (activity.working.isNotEmpty || activity.items.isNotEmpty) {
       errors.add('cycle $i: expired latest work was not cleared');
     }
     final empty = measure();

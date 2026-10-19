@@ -16,7 +16,7 @@ import 'message_presentation_test.dart' show MessageAdapter;
 import 'source_feedback_store_test.dart' as fb;
 import 'support/app_services_fixture.dart';
 
-/// Server-level data (agents, members, Saved total, live activity) belongs to
+/// Server-level data (agents, members, Saved total, working agents) belongs to
 /// the server identity, not the open channel: switching or joining channels
 /// keeps every already-painted row identical frame by frame.
 class _EventClient extends RaftClient {
@@ -134,7 +134,7 @@ Future<void> _everyFrame(WidgetTester t, void Function(int) check) async {
 
 void main() {
   testWidgets(
-    'channel switch and join keep the pinned agent, Saved badge and live activity bar identical every frame',
+    'channel switch and join keep the pinned agent, Saved badge and working-agents summary identical every frame',
     (t) async {
       final (w, a, client) = await _fixture(t);
       w.section = 'chat';
@@ -172,7 +172,7 @@ void main() {
       await t.pump();
 
       final pinned = find.byKey(const ValueKey('sidebar-agent:cindy'));
-      final bar = find.byKey(const Key('live-agent-activity-bar'));
+      final summary = find.byKey(const Key('working-agents-summary'));
       final saved = find.byWidgetPredicate(
         (widget) =>
             widget is RaftNavItem && widget.role == RaftNavItemRole.saved,
@@ -180,8 +180,15 @@ void main() {
       List<Object?> facts() => [
         pinned.evaluate().length,
         if (pinned.evaluate().isNotEmpty) t.getRect(pinned),
-        bar.evaluate().length,
-        find.textContaining('Drafting tokens').evaluate().length,
+        summary.evaluate().length,
+        // The pinned agent's row says what it is doing, in place.
+        find
+            .descendant(
+              of: pinned,
+              matching: find.textContaining('Drafting tokens'),
+            )
+            .evaluate()
+            .length,
         t.widget<RaftNavItem>(saved).count,
       ];
       final before = facts();
@@ -222,7 +229,7 @@ void main() {
       w.notifyListeners();
       await t.pump();
       expect(pinned, findsNothing);
-      expect(bar, findsNothing);
+      expect(summary, findsNothing);
       await _settle(t);
 
       await t.pumpWidget(const SizedBox());
