@@ -124,7 +124,7 @@ class WorkspaceController extends ChangeNotifier
       channelId: () => channel?.id,
       threadChannelId: () => threadChannelId,
       mobileNavigation: () => this.mobileNavigation,
-      mayMarkRead: _mayMarkRead,
+      mayMarkRead: (id) => _channels.mayMarkRead(id),
       markRead: (id) => markRead(id),
       channelRows: () => [...channels, ...dms],
       messages: (id) => _messages.ledger.messages(id),
@@ -150,7 +150,12 @@ class WorkspaceController extends ChangeNotifier
       identity: _session.syncIdentity,
       isDisposed: () => _disposed,
       revokedChannels: () => _session.revokedChannels,
-      acceptLists: _acceptChannelLists,
+      acceptLists: (nextChannels, nextDms, {required readmit}) =>
+          _channels.acceptChannelLists(
+            nextChannels,
+            nextDms,
+            readmit: readmit,
+          ),
       saveDirectory: (record) {
         deviceStore.write('channels', '', record);
       },
@@ -296,7 +301,7 @@ class WorkspaceController extends ChangeNotifier
       isDisposed: () => _disposed,
       entityScope: _session.entityScope,
       panelIdentity: _session.panelCacheIdentity,
-      channelFilesAuthority: _channelFilesAuthority,
+      channelFilesAuthority: _channels.channelFilesAuthority,
       readEntities: cache == null ? null : deviceStore.readEntities,
       writeEntities: cache == null ? null : deviceStore.writeEntities,
       entityDirectory: entityDirectory,
@@ -426,7 +431,6 @@ class WorkspaceController extends ChangeNotifier
   ServerBoundCache<String, TaskHistorySnapshot> get taskHistoryCache =>
       services.taskHistoryCache;
 
-  String? _channelFilesAuthority(String id) => _channels.channelFilesAuthority(id);
 
   /// The controller-owned Files projection of [channelId]. The same store is
   /// returned on every visit, so a revisit paints the last list immediately
@@ -470,7 +474,6 @@ class WorkspaceController extends ChangeNotifier
 
 
 
-  void _consumeNotificationPrefs(dynamic payload) => _channels.consumeNotificationPrefs(payload);
 
   /// Source socketBridge `readMessageDisplayPrefsUpdate`: null unless the
   /// frame carries a string `serverId`/`scopeId` and a boolean
@@ -491,10 +494,6 @@ class WorkspaceController extends ChangeNotifier
     version: version,
   );
 
-  /// Source socketBridge `message_display_prefs:updated`: written onto the
-  /// channel row so chat folding follows another device's toggle.
-  void _consumeMessageDisplayPrefs(dynamic payload) =>
-      _channels.consumeMessageDisplayPrefs(payload);
 
   /// Web serverFeatureFlags `remote_computer_upgrade_v2`: whether the
   /// Computer detail may offer the one-click upgrade (fail-closed).
@@ -742,7 +741,7 @@ class WorkspaceController extends ChangeNotifier
     final source = presentationSource;
     if (source != null) return source.putSharedChannelRow(row);
     _channels.recordRowWrite(row.id);
-    _putChannelRow(row);
+    _channels.putRow(row);
   }
 
   static const multipartUploadSafeLimitBytes =
@@ -936,22 +935,8 @@ class WorkspaceController extends ChangeNotifier
     onCacheMiss: onCacheMiss,
   );
 
-  void _persistReadState() => _channels.persistReadState();
 
-  /// Latest activity seq per scope from the last unread snapshot; live
-  /// messages raise it. Lets a read receipt clear a count without a GET.
 
-  /// Source messageStore `message:new`: +1 for a conversation the member is
-  /// not reading, never for the member's own message. Counts only what the
-  /// unread snapshot counts (joined channels, DMs, tracked threads).
-  void _receiveUnread(Map<String, dynamic> row) =>
-      _channels.receiveUnread(row);
-
-  /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
-  /// recounts the scope from held messages when they cover it, and clears
-  /// it when it reaches the latest known activity. Otherwise the count
-  /// waits for the next reconcile.
-  void _projectReadState(String id) => _channels.projectReadState(id);
 
   Future<void> refreshUnread() async {
     final source = presentationSource;
@@ -992,7 +977,7 @@ class WorkspaceController extends ChangeNotifier
   }
 
   @override
-  void persistSessionReadState() => _persistReadState();
+  void persistSessionReadState() => _channels.persistReadState();
 
   @override
   Future<void> loadSidebar() async {
@@ -1041,24 +1026,8 @@ class WorkspaceController extends ChangeNotifier
     return _channels.refreshChannels();
   }
 
-  /// The one place channel lists change after selection. A row missing from
-  /// the next lists lost access and is revoked; [readmit] are rows the
-  /// server just confirmed readable.
-  void _acceptChannelLists(
-    List<RaftChannel> nextChannels,
-    List<RaftChannel> nextDms, {
-    required Set<String> readmit,
-  }) => _channels.acceptChannelLists(nextChannels, nextDms, readmit: readmit);
 
-  /// Replaces [next]'s row in place, or adds it (a new DM goes first, as the
-  /// server's recency-ordered DM list would place it).
-  void _putChannelRow(RaftChannel next) => _channels.putRow(next);
 
-  /// Source channelRealtimeSync: a channel event changes one row. A carried
-  /// row is patched in place; an id re-reads that one channel; only an event
-  /// without an id reloads both lists.
-  void _channelRealtime(String name, dynamic payload) =>
-      _channels.consumeRealtime(name, payload);
 
   /// Web `patchChannel` `hiddenAllChannel`: an admin hiding `#all` turns it
   /// into a private channel named `all`, which leaves the list.
@@ -1130,7 +1099,6 @@ class WorkspaceController extends ChangeNotifier
 
 
 
-  bool _mayMarkRead(String id) => _channels.mayMarkRead(id);
 
 
 
@@ -1383,7 +1351,7 @@ class _WorkspaceSessionBindings
   @override
   void recordRowWrite(String id) => w._channels.recordRowWrite(id);
   @override
-  void putRow(RaftChannel row) => w._putChannelRow(row);
+  void putRow(RaftChannel row) => w._channels.putRow(row);
   @override
   void assignChannels(List<RaftChannel> value) => w.channels = value;
   @override
@@ -1406,17 +1374,17 @@ class _WorkspaceSessionBindings
 
   @override
   void channelRealtime(String name, dynamic payload) =>
-      w._channelRealtime(name, payload);
+      w._channels.consumeRealtime(name, payload);
   @override
   void consumeNotificationPrefs(dynamic payload) =>
-      w._consumeNotificationPrefs(payload);
+      w._channels.consumeNotificationPrefs(payload);
   @override
   void consumeMessageDisplayPrefs(dynamic payload) =>
-      w._consumeMessageDisplayPrefs(payload);
+      w._channels.consumeMessageDisplayPrefs(payload);
   @override
-  void projectReadState(String id) => w._projectReadState(id);
+  void projectReadState(String id) => w._channels.projectReadState(id);
   @override
-  void persistReadState() => w._persistReadState();
+  void persistReadState() => w._channels.persistReadState();
 
   @override
   bool get mainPresented => w._mainPresented;
@@ -1556,7 +1524,8 @@ class _WorkspaceSessionBindings
   void overlayMessageReactions(Map<String, dynamic> row) =>
       w._overlayPendingReactions(row);
   @override
-  void receiveMessageUnread(Map<String, dynamic> row) => w._receiveUnread(row);
+  void receiveMessageUnread(Map<String, dynamic> row) =>
+      w._channels.receiveUnread(row);
   @override
   Future<void> revalidateMessageTail(String id) => w._messages.revalidateTail(id);
   @override
