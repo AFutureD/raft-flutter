@@ -8,7 +8,7 @@ Source of truth (vendored, hashed in tool/design-source/manifest.json):
   tailwindcss 4.3.3 theme.css          default scale (spacing, radius, text, weights, ...)
   raft-source a98ae00 web index.css    product @theme overrides (+ :root.dark code colours)
 
-Second source, parallel and not yet wired into RaftTokens (the Raft single look):
+Second source, the Raft single look. RaftTokens reads it through packages/raft_ui/lib/src/tokens/raft_token_mapping.dart:
   raft-ui 0.7.1 dist/tokens.json      DTCG tokens, light + dark (no theme axis) -> raft_tokens.g.dart
   raft-ui 0.7.1 dist/styles.css       radii, type scale and easing that live only in CSS
   raft-ui 0.7.1 dist/foundation.css   generated from tokens.json; cross-check in tool/tests
@@ -866,34 +866,40 @@ def emit_primitives(m: Model):
     return '\n'.join(lines) + '\n'
 
 
-def emit_color_class(m: Model, cls, names, doc, value_of, source_of, extra_doc=None, drop_prefix=None):
+def emit_color_class(m: Model, cls, names, doc, extra_doc=None, drop_prefix=None):
+    """The field schema of one colour tier. Values are not emitted: since the Raft collapse they come from
+    RaftLight / RaftDark through packages/raft_ui/lib/src/tokens/raft_token_mapping.dart (hand-written)."""
     lines = [f'/// {doc}', '@immutable', f'class {cls} {{', f'  const {cls}({{']
     fields = [(n, camel(n, drop_prefix)) for n in names]
     for _, f in fields:
         lines.append(f'    required this.{f},')
     lines.append('  });')
     lines.append('')
+    lines.append('  /// Builds the tier from a map keyed by CSS custom-property name (without `--`); throws')
+    lines.append('  /// a [StateError] naming the first missing key, so no field can be left unmapped.')
+    lines.append(f'  factory {cls}.fromCssMap(Map<String, Color> map) {{')
+    lines.append("    Color of(String key) => map[key] ?? (throw StateError('" + cls + ": no value for $key'));")
+    lines.append(f'    return {cls}(')
+    for n, f in fields:
+        lines.append(f"      {f}: of('{n[2:]}'),")
+    lines.append('    );')
+    lines.append('  }')
+    lines.append('')
     for n, f in fields:
         lines.append(f'  /// `{n}`' + (f' — {extra_doc(n)}' if extra_doc else ''))
         lines.append(f'  final Color {f};')
+    lines.append('')
+    lines.append('  /// Every CSS name of this tier, in field order (without the leading `--`).')
+    lines.append('  static const List<String> cssNames = [')
+    for n, _ in fields:
+        lines.append(f"    '{n[2:]}',")
+    lines.append('  ];')
     lines.append('')
     lines.append('  /// All tokens keyed by CSS custom-property name (without the leading `--`).')
     lines.append('  Map<String, Color> toCssMap() => {')
     for n, f in fields:
         lines.append(f"    '{n[2:]}': {f},")
     lines.append('  };')
-    lines.append('')
-    for theme in THEMES:
-        lines.append(f'  /// `{THEME_CSS[theme]}` resolved values.')
-        lines.append(f'  static const {theme} = {cls}(')
-        for n, f in fields:
-            src = source_of(theme, n)
-            lines.append(f'    // {doc_css(src)}')
-            fit = m.chrome_fit(theme, n)
-            if fit is not None:
-                lines.append(f'    // Chrome-composite fit, CSS alpha {fmt_num(value_of(theme, n).alpha)} (see docs/design-tokens.md)')
-            lines.append(f'    {f}: {dart_color(value_of(theme, n), fit)},')
-        lines.append('  );')
     lines.append('}')
     return lines
 
@@ -904,13 +910,12 @@ def emit_semantic(m: Model):
 
     lines += emit_color_class(
         m, 'RaftSemanticColors', names,
-        'Tier 2: every colour variable of the raft-ui theme blocks, resolved per theme.\n'
+        'Tier 2: the colour variables of the raft-ui 0.5.52 theme blocks, as a field schema.\n'
         '///\n'
-        '/// Cascade (all on the html element): `:where(:root),[data-theme=brutal]` →\n'
-        '/// `[data-theme=elegant]` → `[data-theme=elegant].dark`. var() and\n'
-        '/// color-mix() resolve against the merged scope, so e.g. elegant-dark\n'
-        '/// `primary-active` mixes elegant-dark `--ink` into `--primary-400`.',
-        lambda t, n: m.color(t, n), lambda t, n: m.scopes[t].decls[n],
+        '/// Components still read these names. The per-theme values are no longer\n'
+        '/// generated from the 0.5.52 CSS: [RaftTokenSet] fills this tier for the Raft\n'
+        '/// light and dark looks from [RaftLight] / [RaftDark] through the explicit\n'
+        '/// old-name to new-token table in raft_token_mapping.dart.',
         extra_doc=lambda n: 'declared in ' + ', '.join(m.declared_in[n]))
     return '\n'.join(lines) + '\n'
 
@@ -931,8 +936,8 @@ def emit_product(m: Model):
         '///\n'
         '/// raft-ui styles.css @theme declares the bare brutal aliases; the Web product\n'
         '/// index.css @theme re-declares several with hex literals and wins (later\n'
-        '/// @theme declaration). These are NOT the `--primary-*` ladders.',
-        lambda t, n: m.color(t, n), lambda t, n: m.scopes[t].decls[n],
+        '/// @theme declaration). These are NOT the `--primary-*` ladders. Values: see\n'
+        '/// [RaftSemanticColors] and raft_token_mapping.dart.',
         extra_doc=origin, drop_prefix='color-')
     return '\n'.join(lines) + '\n'
 
@@ -945,8 +950,8 @@ def emit_components(m: Model):
         'Tier 3: component colour roles from tool/design-source/component-roles.css.\n'
         '///\n'
         '/// Each role is the CSS a raft-ui recipe class resolves to (see the comment\n'
-        '/// on each role in the .css file); values resolve through the same cascade.',
-        lambda t, n: m.color(t, n), lambda t, n: m.scopes[t].decls[n])
+        '/// on each role in the .css file). Values: see [RaftSemanticColors] and\n'
+        '/// raft_token_mapping.dart.')
     return '\n'.join(lines) + '\n'
 
 
@@ -1034,25 +1039,23 @@ def emit_shadows(m: Model):
     lines = [header(['foundation', 'web', 'tailwind']),
              "import 'package:flutter/painting.dart';", "import 'package:flutter/foundation.dart';", SHADOW_RUNTIME]
     names = m.shadow_names()
-    lines += ['/// `--theme-shadow-*` (Tailwind `shadow-raft-*`) per theme.', '@immutable',
+    lines += ['/// `--theme-shadow-*` (Tailwind `shadow-raft-*`): the field schema of the 0.5.52 control and',
+              '/// overlay shadows. Raft 0.7.1 has no control shadows; raft_token_mapping.dart fills these',
+              '/// from [RaftLight] / [RaftDark] (`xs`/`sm`/`md` empty, `lg`/`xl` the float elevation).',
+              '@immutable',
               'class RaftThemeShadows {', '  const RaftThemeShadows({']
     lines += [f'    required this.{camel(n, "theme-shadow-")},' for n in names]
     lines += ['  });']
     lines += [f'  /// `{n}`\n  final RaftShadow {camel(n, "theme-shadow-")};' for n in names]
     lines.append('')
+    lines.append('  /// Every CSS name, in field order (without the leading `--`).')
+    lines.append('  static const List<String> cssNames = [')
+    lines += [f"    '{n[2:]}'," for n in names]
+    lines.append('  ];')
+    lines.append('')
     lines.append('  Map<String, RaftShadow> toCssMap() => {')
     lines += [f"    '{n[2:]}': {camel(n, 'theme-shadow-')}," for n in names]
     lines.append('  };')
-    for theme in THEMES:
-        lines.append(f'  static const {theme} = RaftThemeShadows(')
-        for n in names:
-            raw = m.scopes[theme].decls[n]
-            lines.append(f'    // {doc_css(raw, 140)}')
-            layers = parse_shadows(m.scopes[theme].resolve(n))
-            lines.append(f'    {camel(n, "theme-shadow-")}: RaftShadow([')
-            lines += [f'      {dart_shadow(s)},' for s in layers]
-            lines.append('    ]),')
-        lines.append('  );')
     lines.append('}')
     lines.append('')
     lines.append('/// Product (`packages/web/src/index.css` @theme) shadows and the Tailwind default')
@@ -1070,25 +1073,15 @@ def emit_shadows(m: Model):
     return '\n'.join(lines) + '\n'
 
 
-FONT_ASSETS = {
-    'Hanken Grotesk': 'packages/raft_ui/HankenGrotesk',
-    'Geist': 'packages/raft_ui/Geist',
-    'Geist Mono': 'packages/raft_ui/GeistMono',
-    'Inter': 'packages/raft_ui/Inter',
-}
-
-
-def font_stack(value):
-    return [f.strip().strip('"\'') for f in split_top(value, ',')]
-
-
 def emit_metrics(m: Model):
     lines = [header(['foundation', 'fonts', 'styles', 'tailwind']),
              "import 'package:flutter/animation.dart';", "import 'package:flutter/foundation.dart';", '']
     metric = m.metric_names()
-    lines += ['/// Per-theme non-colour axes: field + card-title metrics (foundation.css) and',
-              '/// font stacks (fonts.css). [headingFont]/[sansFont]/[monoFont] are the bundled',
-              '/// Flutter asset families for the first face of each CSS stack.',
+    lines += ['/// Per-theme non-colour axes: field + card-title metrics and font stacks, as a field',
+              '/// schema. raft_token_mapping.dart fills the metrics from [RaftLight] / [RaftDark];',
+              '/// the fonts stay the bundled Elegant faces until the Space Grotesk / Space Mono',
+              '/// follow-up. [headingFont]/[sansFont]/[monoFont] are the bundled Flutter asset',
+              '/// families for the first face of each CSS stack.',
               '@immutable', 'class RaftThemeMetrics {', '  const RaftThemeMetrics({']
     lines += [f'    required this.{camel(n)},' for n in metric]
     lines += ['    required this.headingFontStack,', '    required this.sansFontStack,', '    required this.monoFontStack,',
@@ -1100,22 +1093,6 @@ def emit_metrics(m: Model):
               '  /// `--sans-font` CSS stack.', '  final List<String> sansFontStack;',
               '  /// `--mono-font` CSS stack.', '  final List<String> monoFontStack;',
               '  final String headingFont;', '  final String sansFont;', '  final String monoFont;']
-    for theme in THEMES:
-        scope = m.scopes[theme]
-        lines.append(f'  static const {theme} = RaftThemeMetrics(')
-        for n in metric:
-            v = scope.resolve(n)
-            num = parse_length(v) if v.endswith('px') else float(v)
-            lines.append(f'    {camel(n)}: {fmt_double(num)}, // {v}')
-        for key, var in (('heading', '--heading-font'), ('sans', '--sans-font'), ('mono', '--mono-font')):
-            stack = font_stack(scope.resolve(var))
-            lines.append(f'    {key}FontStack: [{", ".join(repr(f) for f in stack)}],')
-        for key, var in (('heading', '--heading-font'), ('sans', '--sans-font'), ('mono', '--mono-font')):
-            first = font_stack(scope.resolve(var))[0]
-            if first not in FONT_ASSETS:
-                raise SystemExit(f'gen-tokens: no bundled asset for font {first!r}')
-            lines.append(f"    {key}Font: '{FONT_ASSETS[first]}',")
-        lines.append('  );')
     lines.append('}')
     lines.append('')
     lines += emit_scale(m)
@@ -1245,34 +1222,11 @@ def emit_media_motion():
     return '\n'.join(lines) + '\n'
 
 
-def emit_token_set():
-    lines = [header(['foundation']).replace(SOURCES['foundation'], 'the generated tier files in this directory'),
-             "import 'package:flutter/foundation.dart';", '',
-             "import 'component_colors.g.dart';", "import 'metrics.g.dart';", "import 'product_colors.g.dart';", "import 'semantic_colors.g.dart';",
-             "import 'shadows.g.dart';", '',
-             '/// The three Web theme presets.',
-             'enum RaftThemeId { brutal, elegantLight, elegantDark }', '',
-             '/// Everything one theme resolves to: semantic, product and component colours,',
-             '/// shadows and metrics.',
-             '@immutable', 'class RaftTokenSet {',
-             '  const RaftTokenSet._(this.id, this.colors, this.product, this.components, this.shadows, this.metrics);',
-             '  final RaftThemeId id;', '  final RaftSemanticColors colors;', '  final RaftProductColors product;',
-             '  final RaftComponentColors components;',
-             '  final RaftThemeShadows shadows;', '  final RaftThemeMetrics metrics;', '']
-    for theme in THEMES:
-        lines.append(f'  static const {theme} = RaftTokenSet._(RaftThemeId.{theme}, RaftSemanticColors.{theme}, '
-                     f'RaftProductColors.{theme}, RaftComponentColors.{theme}, RaftThemeShadows.{theme}, '
-                     f'RaftThemeMetrics.{theme});')
-    lines += ['', '  static RaftTokenSet of(RaftThemeId id) => switch (id) {']
-    lines += [f'    RaftThemeId.{t} => {t},' for t in THEMES]
-    lines += ['  };', '}']
-    return '\n'.join(lines) + '\n'
-
-
 # ─── raft-ui 0.7.1 token set (tokens.json) ───────────────────────────────────
 # A second, parallel source: the official DTCG file of the Raft Design System
 # single look (light + dark, no theme axis). It is emitted as raft_tokens.g.dart
-# (RaftLight / RaftDark) and is NOT yet wired into RaftTokens / theme.dart.
+# (RaftLight / RaftDark). RaftTokenSet fills the 0.5.52 field schemas from it through
+# the hand-written table in raft_token_mapping.dart.
 # Token names are the official 0.7.1 names in lowerCamel (`--layer-canvas` ->
 # layerCanvas). They are never mapped from the 0.5.52 names: `layer-canvas`
 # means the old `layer-panel` now, and the old `layer-canvas` has no successor.
@@ -1450,7 +1404,7 @@ def emit_raft_tokens():
                   '/// [layerCanvas]), not the 0.5.52 names; see [RaftDeprecatedTokenNames]. Opaque colours',
                   "/// use the Chromium-exact oklch conversion of `tool/gen-tokens` (docs/design-tokens.md).",
                   '/// Translucent colours keep the authored alpha exactly and are not yet fitted to a',
-                  '/// Chrome oracle. Not wired into `RaftTokens` yet.',
+                  '/// Chrome oracle. [RaftTokenSet] maps it onto the legacy field names.',
                   f'abstract final class {cls} {{']
         for n in colors:
             t = m.tokens[n]
@@ -1549,7 +1503,6 @@ def render():
         'metrics.g.dart': emit_metrics(m),
         'typography.g.dart': emit_typography(),
         'media_motion.g.dart': emit_media_motion(),
-        'token_set.g.dart': emit_token_set(),
         RAFT_TOKENS_FILE: emit_raft_tokens(),
     }
 

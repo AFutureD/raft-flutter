@@ -14,7 +14,7 @@ import 'shadows.g.dart';
 /// [layerCanvas]), not the 0.5.52 names; see [RaftDeprecatedTokenNames]. Opaque colours
 /// use the Chromium-exact oklch conversion of `tool/gen-tokens` (docs/design-tokens.md).
 /// Translucent colours keep the authored alpha exactly and are not yet fitted to a
-/// Chrome oracle. Not wired into `RaftTokens` yet.
+/// Chrome oracle. [RaftTokenSet] maps it onto the legacy field names.
 abstract final class RaftLight {
   /// `--palette-yellow-50`: `oklch(0.984 0.017 84.56)`
   static const Color paletteYellow50 = Color(0xfffff9ed);
@@ -746,7 +746,7 @@ abstract final class RaftLight {
 /// [layerCanvas]), not the 0.5.52 names; see [RaftDeprecatedTokenNames]. Opaque colours
 /// use the Chromium-exact oklch conversion of `tool/gen-tokens` (docs/design-tokens.md).
 /// Translucent colours keep the authored alpha exactly and are not yet fitted to a
-/// Chrome oracle. Not wired into `RaftTokens` yet.
+/// Chrome oracle. [RaftTokenSet] maps it onto the legacy field names.
 abstract final class RaftDark {
   /// `--palette-yellow-50`: `oklch(0.984 0.017 84.56)`
   static const Color paletteYellow50 = Color(0xfffff9ed);

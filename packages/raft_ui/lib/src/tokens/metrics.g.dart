@@ -6,9 +6,11 @@
 import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
 
-/// Per-theme non-colour axes: field + card-title metrics (foundation.css) and
-/// font stacks (fonts.css). [headingFont]/[sansFont]/[monoFont] are the bundled
-/// Flutter asset families for the first face of each CSS stack.
+/// Per-theme non-colour axes: field + card-title metrics and font stacks, as a field
+/// schema. raft_token_mapping.dart fills the metrics from [RaftLight] / [RaftDark];
+/// the fonts stay the bundled Elegant faces until the Space Grotesk / Space Mono
+/// follow-up. [headingFont]/[sansFont]/[monoFont] are the bundled Flutter asset
+/// families for the first face of each CSS stack.
 @immutable
 class RaftThemeMetrics {
   const RaftThemeMetrics({
@@ -46,48 +48,6 @@ class RaftThemeMetrics {
   final String headingFont;
   final String sansFont;
   final String monoFont;
-  static const brutal = RaftThemeMetrics(
-    fieldFontSize: 16.0, // 16px
-    fieldFontWeight: 400.0, // 400
-    fieldLineHeight: 24.0, // 24px
-    cardTitleFontSize: 18.0, // 18px
-    cardTitleFontWeight: 700.0, // 700
-    cardTitleLineHeight: 20.0, // 20px
-    headingFontStack: ['Hanken Grotesk', 'system-ui', 'sans-serif'],
-    sansFontStack: ['Hanken Grotesk', 'system-ui', 'sans-serif'],
-    monoFontStack: ['Geist Mono', 'ui-monospace', 'monospace'],
-    headingFont: 'packages/raft_ui/HankenGrotesk',
-    sansFont: 'packages/raft_ui/HankenGrotesk',
-    monoFont: 'packages/raft_ui/GeistMono',
-  );
-  static const elegantLight = RaftThemeMetrics(
-    fieldFontSize: 14.0, // 14px
-    fieldFontWeight: 400.0, // 400
-    fieldLineHeight: 20.0, // 20px
-    cardTitleFontSize: 16.0, // 16px
-    cardTitleFontWeight: 500.0, // 500
-    cardTitleLineHeight: 22.0, // 22px
-    headingFontStack: ['Inter', 'system-ui', 'sans-serif'],
-    sansFontStack: ['Geist', 'system-ui', 'sans-serif'],
-    monoFontStack: ['Geist Mono', 'ui-monospace', 'monospace'],
-    headingFont: 'packages/raft_ui/Inter',
-    sansFont: 'packages/raft_ui/Geist',
-    monoFont: 'packages/raft_ui/GeistMono',
-  );
-  static const elegantDark = RaftThemeMetrics(
-    fieldFontSize: 14.0, // 14px
-    fieldFontWeight: 400.0, // 400
-    fieldLineHeight: 20.0, // 20px
-    cardTitleFontSize: 16.0, // 16px
-    cardTitleFontWeight: 500.0, // 500
-    cardTitleLineHeight: 22.0, // 22px
-    headingFontStack: ['Inter', 'system-ui', 'sans-serif'],
-    sansFontStack: ['Geist', 'system-ui', 'sans-serif'],
-    monoFontStack: ['Geist Mono', 'ui-monospace', 'monospace'],
-    headingFont: 'packages/raft_ui/Inter',
-    sansFont: 'packages/raft_ui/Geist',
-    monoFont: 'packages/raft_ui/GeistMono',
-  );
 }
 
 /// Tailwind 4 @theme scale (tailwindcss 4.3.3 theme.css + raft-ui/product @theme),

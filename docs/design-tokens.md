@@ -26,20 +26,25 @@ tool/design-source/                       (vendored, sha256-pinned in manifest.j
         ▼  tool/gen-tokens  (python3, stdlib only)
 packages/raft_ui/lib/src/tokens/
   primitive_colors.g.dart   RaftPrimitiveColors   tier 1
-  semantic_colors.g.dart    RaftSemanticColors    tier 2 (×3 themes)
-  product_colors.g.dart     RaftProductColors     tier 2b (×3 themes)
-  component_colors.g.dart   RaftComponentColors   tier 3 (×3 themes)
-  shadows.g.dart            RaftCssShadow, RaftShadow, RaftThemeShadows, RaftProductShadows
-  metrics.g.dart            RaftThemeMetrics (×3), RaftScale, RaftTextStep
-  token_set.g.dart          RaftThemeId, RaftTokenSet
+  semantic_colors.g.dart    RaftSemanticColors    tier 2 field schema
+  product_colors.g.dart     RaftProductColors     tier 2b field schema
+  component_colors.g.dart   RaftComponentColors   tier 3 field schema
+  shadows.g.dart            RaftCssShadow, RaftShadow, RaftThemeShadows (schema), RaftProductShadows
+  metrics.g.dart            RaftThemeMetrics (schema), RaftScale, RaftTextStep
+  raft_tokens.g.dart        RaftLight / RaftDark (raft-ui 0.7.1 tokens.json), RaftRadius, ...
+  raft_token_mapping.dart   HAND-WRITTEN old-name -> 0.7.1-token tables
+  token_set.dart            HAND-WRITTEN RaftThemeId {light, dark}, RaftTokenSet.light / .dark
   tokens.dart               barrel (hand-written), exported by package:raft_ui
         │
         ▼
 RaftTokens (ThemeExtension, theme.dart) ── RaftTokens.of(context)
 ```
 
-`raftTheme(family, dark:)` installs `RaftTokens.theme(family, dark:)`. From a
-`RaftTokens` you get:
+The 0.5.52 tiers are only field schemas now (the names components still read).
+`RaftTokenSet.light` / `.dark` fill every field from `RaftLight` / `RaftDark`
+through `raft_token_mapping.dart`, chosen by what each colour is for, never by
+name alone (see "raft-ui 0.7.1 single look"). Brutal and Elegant no longer exist:
+`raftTheme(dark:)` installs `RaftTokens.theme(dark:)`. From a `RaftTokens` you get:
 
 | Getter | Type | Content |
 | --- | --- | --- |
@@ -54,15 +59,15 @@ RaftTokens (ThemeExtension, theme.dart) ── RaftTokens.of(context)
 `RaftPrimitiveColors`, `RaftScale` and `RaftProductShadows` are theme-invariant
 static classes.
 
-## raft-ui 0.7.1 single look (parallel, not wired yet)
+## raft-ui 0.7.1 single look
 
 The Raft Design System 0.7.x has no theme axis: one look, light and dark. Its
 official token file is vendored in `tool/design-source/raft-ui-0.7.1/`
 (`tokens.json`, `styles.css`, `foundation.css`, MIT `LICENSE`; sha256-pinned in
 `manifest.json`) and `tool/gen-tokens` emits it as
 `packages/raft_ui/lib/src/tokens/raft_tokens.g.dart`, next to the 0.5.52 files
-above. `RaftTokens`, `theme.dart` and every existing `.g.dart` are untouched, so
-nothing renders differently until a later change switches over.
+above. `RaftTokens` reads it through `RaftTokenSet` and the tables in
+`tokens/raft_token_mapping.dart` (see "How the old names are filled").
 
 | Generated | Content |
 | --- | --- |
@@ -85,7 +90,8 @@ Rules:
 - **Colour conversion** is the Chromium-exact rule above. Translucent colours
   are emitted with the authored alpha and 8-bit channels. They are **not** yet
   fitted against a Chrome oracle: `chrome-oracle.json` was sampled for the
-  0.5.52 CSS. Re-sample once the single look is wired in.
+  0.5.52 CSS and no Dart test compares against it any more. Re-sampling is
+  pending.
 - Refresh: `tool/gen-tokens --import-raft-ui-071 <unpacked @botiverse/raft-ui dir>`,
   then `tool/gen-tokens`.
 - Checks: `packages/raft_ui/test/raft_tokens_test.dart` recomputes every value
@@ -95,6 +101,37 @@ Rules:
   (`RaftUi071Tokens`) also checks that the generated cascade gives the same bytes
   as upstream's generated `foundation.css` for all 450 colour resolutions, and
   that the generated file is current.
+
+### How the old names are filled
+
+Components still read the 0.5.52 names (`t.colors['layer-panel']`,
+`t.product.brutalLime`, `t.themeShadows.sm`). The generated tier classes are
+only field schemas (`cssNames`, `fromCssMap`); `tokens/raft_token_mapping.dart`
+holds the explicit tables, one entry per field, and
+`packages/raft_ui/test/raft_token_mapping_test.dart` fails when a field has no
+entry or an entry points at a token that does not exist:
+
+- Renames follow `RaftDeprecatedTokenNames` (`primary-*` to `brand-*`, `accent-*`
+  to `attention-*`, `secondary-*` to `palette-stone-*`, `line` to `line-seam`,
+  `line-muted` to `line-hairline`, `layer-canvas-muted` to `layer-sidebar`,
+  `layer-inset` to `fill-muted`, ...).
+- `layer-canvas` keeps its spelling but not its meaning: the old `layer-panel`
+  (content paper) is the new `layer-canvas`. The old `layer-canvas` (the page
+  under the panels) has no successor and is folded into the same paper.
+- Names without a successor are chosen by role: the `brutal-*` hue aliases map to
+  the status/brand token with the same bytes (`brutal-lime` to `success`,
+  `brutal-cyan` to `info`, `brutal-pink` to `attention-400`, ...), switch thumbs
+  to `sticker-paper`, the dark input ring to `line-hairline`.
+- Shadows: `theme-shadow-xs/sm/md` are empty (controls cast no shadow),
+  `theme-shadow-lg/xl` are `elevation-float`.
+- Metrics: `field-*` / `card-title-*` are 16/24 and 16/24/600 in 0.7.1, but the
+  Elegant structure is dimensioned for 14/20 and 16/22/500 (input height 38, not
+  42), so `RaftTokenSet` carries Elegant's numbers (`raftCarriedMetrics`) until the
+  typography change moves tokens and structure together. The font faces stay the
+  bundled Elegant ones until Space Grotesk / Space Mono are bundled.
+- `RaftTokens.brutal` is always false: the ~1900 remaining `brutal ? a : b` sites
+  resolve to their Elegant side until follow-up changes convert them to the Raft
+  structure cluster by cluster.
 
 ## Typography policy token
 
