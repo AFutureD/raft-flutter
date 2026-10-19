@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart' show ThemeMode;
-import 'package:raft_ui/raft_ui.dart' show RaftAppearance, RaftFamily;
+import 'package:raft_ui/raft_ui.dart' show RaftAppearance;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Synchronous view of the device preferences, preloaded once at app start so
@@ -78,10 +78,26 @@ class FeatureFlagMemory {
   }
 }
 
-/// The appearance stored by the Appearance settings (`raft.mode`, `raft.light`),
-/// read synchronously so the very first built MaterialApp already uses the
-/// chosen family and mode. Missing, unknown or unavailable values fall back to
-/// the defaults one by one instead of failing the whole read.
+/// The key that held the retired theme family (`brutal` | `elegant`). The Raft
+/// Design System has one look in light and dark, so only `raft.mode` remains.
+const retiredAppearanceThemeKey = 'raft.light';
+
+/// The mode a stored `raft.mode` value means. Besides `light` | `dark` | `system`
+/// it reads the retired theme ids: `brutal` and `elegantLight` are Light,
+/// `elegantDark` is Dark. Unknown values mean no value.
+ThemeMode? storedThemeMode(String? value) => switch (value) {
+  'light' || 'brutal' || 'elegantLight' => ThemeMode.light,
+  'dark' || 'elegantDark' => ThemeMode.dark,
+  'system' => ThemeMode.system,
+  _ => null,
+};
+
+/// The appearance stored by the Appearance settings (`raft.mode`), read
+/// synchronously so the very first built MaterialApp already uses the chosen
+/// mode. A missing, unknown or unavailable value falls back to the default
+/// (System). The retired `raft.light` family key is ignored: every earlier
+/// family (Brutal, Elegant) is the one Raft look now, and `raft.mode` already
+/// said Light, Dark or System.
 RaftAppearance storedAppearance([SharedPreferences? preferences]) {
   final p = preferences ?? DevicePreferences.current;
   String? read(String key) {
@@ -94,13 +110,16 @@ RaftAppearance storedAppearance([SharedPreferences? preferences]) {
 
   const defaults = RaftAppearance();
   return RaftAppearance(
-    mode: ThemeMode.values.firstWhere(
-      (mode) => mode.name == read('raft.mode'),
-      orElse: () => defaults.mode,
-    ),
-    light: RaftFamily.values.firstWhere(
-      (family) => family.name == read('raft.light'),
-      orElse: () => defaults.light,
-    ),
+    mode: storedThemeMode(read('raft.mode')) ?? defaults.mode,
   );
+}
+
+/// Drops the retired `raft.light` key once, so the native launch screens (which
+/// still read it) fall back to their default light canvas. Failures are ignored.
+Future<void> retireStoredAppearanceTheme(SharedPreferences preferences) async {
+  try {
+    if (preferences.containsKey(retiredAppearanceThemeKey)) {
+      await preferences.remove(retiredAppearanceThemeKey);
+    }
+  } catch (_) {}
 }

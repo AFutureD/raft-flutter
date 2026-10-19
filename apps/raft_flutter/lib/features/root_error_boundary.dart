@@ -265,8 +265,8 @@ class _RootErrorApp extends StatelessWidget {
       locale: chinese ? const Locale('zh', 'CN') : const Locale('en'),
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(appearance.light),
-      darkTheme: raftTheme(RaftFamily.elegant, dark: true),
+      theme: raftTheme(),
+      darkTheme: raftTheme(dark: true),
       themeMode: appearance.mode,
       builder: (context, child) => RaftTextScaling(child: child!),
       // Web prints `error.message` on the page; a native exception message is

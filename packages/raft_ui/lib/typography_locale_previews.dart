@@ -23,7 +23,6 @@ class _GlyphPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final original = RaftTokens.of(context);
     final theme = raftTheme(
-      original.family,
       dark: original.dark,
       locale: const Locale('en'),
       textLocale: locale,

@@ -1,6 +1,6 @@
 // Renders the media-viewer video player from the real raft_ui widgets for
-// design review: the overlay control bar, three
-// themes, a portrait and a landscape clip, in four states. Skipped unless
+// design review: the overlay control bar, light
+// and dark themes, a portrait and a landscape clip, in four states. Skipped unless
 // VIEWER_MOCKUPS_OUT names a directory; frames come from VIEWER_MOCKUPS_FRAMES
 // (p0.png p1.png l0.png l1.png: the first frame and a mid-clip frame).
 //
@@ -28,11 +28,7 @@ void main() {
     );
     return;
   }
-  const themes = {
-    'brutal': (RaftFamily.brutal, false),
-    'elegant': (RaftFamily.elegant, false),
-    'elegant-dark': (RaftFamily.elegant, true),
-  };
+  const themes = {'light': false, 'dark': true};
   const clips = {
     'portrait': ('p', Size(720, 1280), 'kevin.mp4'),
     'landscape': ('l', Size(1280, 720), 'walkthrough.mp4'),
@@ -68,7 +64,7 @@ void main() {
                 key: key,
                 child: MaterialApp(
                   debugShowCheckedModeBanner: false,
-                  theme: raftTheme(theme.value.$1, dark: theme.value.$2),
+                  theme: raftTheme(dark: theme.value),
                   home: Scaffold(
                     body: RaftAttachmentPreviewShell(
                       filename: name,

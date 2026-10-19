@@ -332,7 +332,7 @@ class _HostState extends State<_Host> {
     locale: const Locale('en'),
     supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     builder: (context, child) => RaftTooltipProvider(
       delay: const Duration(milliseconds: 600),
       child: RaftViewportBreakpointScope(
@@ -356,10 +356,7 @@ class _HostState extends State<_Host> {
             key: ValueKey(generation),
             controller: controller!,
             presentation: presentation,
-            appearance: const RaftAppearance(
-              mode: ThemeMode.light,
-              light: RaftFamily.elegant,
-            ),
+            appearance: const RaftAppearance(mode: ThemeMode.light),
             onAppearance: (_) async {},
             onLogout: () async {},
             notifications: notifications,

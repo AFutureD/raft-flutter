@@ -178,7 +178,6 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Browser notification permission was denied.": "浏览器通知权限已被拒绝。",
   "Browser permission is denied. Re-enable notifications in browser site settings, then come back here.":
       "浏览器权限已被拒绝。请在浏览器的站点设置中重新启用通知，然后返回此处。",
-  "Brutal": "Brutal",
   "Brutal palette in real surfaces": "真实界面中的 Brutal 调色板",
   "Built-in Pi is ready to use without local runtime setup. It uses the provider key entered here.":
       "内置 Pi 无需本地运行时设置即可使用。它会使用这里填写的提供方密钥。",

@@ -183,7 +183,6 @@ const Map<String, String> zhCatalogWeb3 = <String, String>{
   "Danger Zone": "危险区域",
   "Danger zone": "危险区",
   "Dark": "深色",
-  "Dark appearance": "深色外观",
   "Data & Analytics": "数据与分析",
   "Data groups": "数据组",
   "Date & Time": "日期与时间",
@@ -331,7 +330,6 @@ const Map<String, String> zhCatalogWeb3 = <String, String>{
   "Edit server": "编辑服务器",
   "Edit server profile fields or avatar when this agent's server role has server management authority (slock server update).":
       "当此 Agent 的服务器角色拥有服务器管理权限时，编辑服务器资料字段或头像（slock server update）。",
-  "Elegant": "Elegant",
   "Elegant dark": "Elegant Dark",
   "Email": "邮箱",
   "Email address": "邮箱地址",

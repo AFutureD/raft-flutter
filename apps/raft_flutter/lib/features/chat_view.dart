@@ -3181,7 +3181,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
 
   String rowExtentScope(BuildContext context) {
     final tokens = RaftTokens.of(context);
-    return '${tokens.family.name}|${tokens.dark}|${widget.thread}';
+    return '${tokens.dark}|${widget.thread}';
   }
 
   /// Total-extent estimate for a row not laid out yet: its last measured

@@ -7,11 +7,8 @@ import 'previews.dart';
 Widget agentAvatarEditorPreview() => _AvatarPreview();
 
 /// Controlled avatar editor: public artwork, no API or credentials.
-Widget agentAvatarPickerPreview({
-  RaftFamily family = RaftFamily.brutal,
-  bool dark = false,
-}) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+Widget agentAvatarPickerPreview({bool dark = false}) => MaterialApp(
+  theme: raftTheme(dark: dark),
   home: Scaffold(body: _AvatarPreview()),
 );
 

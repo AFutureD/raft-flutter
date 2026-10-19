@@ -28,11 +28,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../../test/parity/parity_harness.dart' show loadParityFonts;
 
-const _themes = [
-  ('brutal-light', RaftFamily.brutal, false),
-  ('elegant-light', RaftFamily.elegant, false),
-  ('elegant-dark', RaftFamily.elegant, true),
-];
+const _themes = [('elegant-light', false), ('elegant-dark', true)];
 const mb = 1024 * 1024;
 final _outDir = Platform.environment['ATTACH_PROGRESS_OUT'];
 
@@ -220,7 +216,7 @@ void main() {
         });
       }
 
-      for (final (theme, family, dark) in _themes) {
+      for (final (theme, dark) in _themes) {
         Future<(WorkspaceController, _Server, _Client)> mount(
           Widget Function(BuildContext, WorkspaceController, AttachmentFiles)
           body, {
@@ -240,7 +236,7 @@ void main() {
               key: boundary,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 builder: (context, child) => Stack(
                   children: [
                     Positioned.fill(
@@ -417,7 +413,7 @@ void main() {
               key: boundary,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 builder: (context, child) => Stack(
                   children: [
                     Positioned.fill(

@@ -16,19 +16,13 @@ final class RichVisualPreviews extends MultiPreview {
   List<Preview> get previews => [
     Preview(
       group: 'Visual rich',
-      name: '$component · Brutal light',
+      name: '$component · Light',
       size: const Size(640, 480),
-      wrapper: _brutal,
+      wrapper: _light,
     ),
     Preview(
       group: 'Visual rich',
-      name: '$component · Elegant light',
-      size: const Size(640, 480),
-      wrapper: _elegant,
-    ),
-    Preview(
-      group: 'Visual rich',
-      name: '$component · Elegant dark',
+      name: '$component · Dark',
       size: const Size(640, 480),
       wrapper: _dark,
     ),
@@ -39,8 +33,7 @@ Widget _viewport(Widget child) => MediaQuery(
   data: const MediaQueryData(size: Size(640, 480)),
   child: child,
 );
-Widget _brutal(Widget child) => brutalWrapper(_viewport(child));
-Widget _elegant(Widget child) => elegantWrapper(_viewport(child));
+Widget _light(Widget child) => lightWrapper(_viewport(child));
 Widget _dark(Widget child) => darkWrapper(_viewport(child));
 
 @RichVisualPreviews('Flowchart')

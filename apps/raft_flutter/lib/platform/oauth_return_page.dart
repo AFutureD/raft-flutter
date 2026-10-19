@@ -156,7 +156,7 @@ abstract final class OAuthReturnPage {
   }
 
   static String _vars(bool dark) {
-    final c = RaftTokens.theme(RaftFamily.elegant, dark: dark).colors;
+    final c = RaftTokens.theme(dark: dark).colors;
     String t(String name) => _hex(c[name]!);
     return '--canvas:${t('layer-canvas')};--ink:${t('foreground-strong')};'
         '--text:${t('foreground')};--muted:${t('foreground-muted')};'

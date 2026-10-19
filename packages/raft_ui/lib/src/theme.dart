@@ -4,25 +4,18 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'control_typography.dart';
 import 'tokens/tokens.dart';
 
-enum RaftFamily { brutal, elegant }
-
+/// The appearance setting: Light, Dark or System (follow the platform). The
+/// Raft Design System has one look in two modes, so there is no theme choice.
 class RaftAppearance {
-  const RaftAppearance({
-    this.mode = ThemeMode.system,
-    this.light = RaftFamily.brutal,
-  });
+  const RaftAppearance({this.mode = ThemeMode.system});
   final ThemeMode mode;
-  final RaftFamily light;
-  RaftAppearance copyWith({ThemeMode? mode, RaftFamily? light}) =>
-      RaftAppearance(mode: mode ?? this.mode, light: light ?? this.light);
+  RaftAppearance copyWith({ThemeMode? mode}) =>
+      RaftAppearance(mode: mode ?? this.mode);
 }
 
-/// Generated token set for a family/brightness pair (dark is always elegant).
-RaftThemeId raftThemeId(RaftFamily family, {bool dark = false}) => dark
-    ? RaftThemeId.elegantDark
-    : family == RaftFamily.brutal
-    ? RaftThemeId.brutal
-    : RaftThemeId.elegantLight;
+/// The token set of a brightness.
+RaftThemeId raftThemeId({bool dark = false}) =>
+    dark ? RaftThemeId.dark : RaftThemeId.light;
 
 final Map<RaftThemeId, Map<String, Color>> _colorMaps = {};
 
@@ -77,10 +70,9 @@ class RaftUnderlineMetrics {
 }
 
 class RaftTokens extends ThemeExtension<RaftTokens> {
-  /// [colors] is the string-keyed view; [tokens] defaults to the generated
-  /// set for [family]/[dark].
+  /// [colors] is the string-keyed view; [tokens] defaults to the Raft set for
+  /// [dark].
   const RaftTokens(
-    this.family,
     this.dark,
     this.colors, {
     RaftTokenSet? tokens,
@@ -89,17 +81,15 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
     this.textLocale,
   }) : _tokens = tokens;
 
-  /// Tokens generated from raft-ui CSS for a theme (dark forces elegant).
-  factory RaftTokens.theme(
-    RaftFamily family, {
+  /// The Raft light or dark tokens ([RaftTokenSet]).
+  factory RaftTokens.theme({
     bool dark = false,
     bool systemFonts = false,
     RaftFontFamilies systemFontFamilies = const RaftFontFamilies(),
     Locale? textLocale,
   }) {
-    final set = RaftTokenSet.of(raftThemeId(family, dark: dark));
+    final set = RaftTokenSet.of(raftThemeId(dark: dark));
     return RaftTokens(
-      dark ? RaftFamily.elegant : family,
       dark,
       raftColorMap(set),
       tokens: set,
@@ -108,7 +98,6 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
       textLocale: textLocale,
     );
   }
-  final RaftFamily family;
   final bool dark;
   final bool systemFonts;
   final RaftFontFamilies systemFontFamilies;
@@ -120,14 +109,21 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
 
   /// Every generated tier for this theme.
   RaftTokenSet get tokenSet =>
-      _tokens ?? RaftTokenSet.of(raftThemeId(family, dark: dark));
+      _tokens ?? RaftTokenSet.of(raftThemeId(dark: dark));
   RaftSemanticColors get semantic => tokenSet.colors;
   RaftProductColors get product => tokenSet.product;
   RaftComponentColors get components => tokenSet.components;
   RaftThemeShadows get themeShadows => tokenSet.shadows;
   RaftThemeMetrics get metrics => tokenSet.metrics;
 
-  bool get brutal => family == RaftFamily.brutal;
+  /// Always false: Brutal is gone and the Raft look resolves to the structure the
+  /// Elegant branches describe. Left so the ~1900 `t.brutal ? a : b` sites
+  /// compile unchanged.
+  ///
+  /// TODO(raft-design): not `@Deprecated` only because the analyzer would report
+  /// every site; the follow-up PRs convert them cluster by cluster to the Raft
+  /// structure and delete this getter.
+  bool get brutal => false;
   Color get ink => colors['foreground']!;
   Color get strong => colors['foreground-strong']!;
   Color get muted => colors['foreground-muted']!;
@@ -136,8 +132,8 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
   Color get panel => colors['layer-panel']!;
   Color get card => colors['layer-card']!;
   Color get popover => colors['layer-popover']!;
-  Color get line => colors[brutal ? 'line-strong' : 'line-muted']!;
-  Color get fieldLine => colors[brutal ? 'line-strong' : 'line-field']!;
+  Color get line => colors['line-muted']!;
+  Color get fieldLine => colors['line-field']!;
   Color get accent => colors['accent-strong']!;
   Color get accentSoft => colors['accent-soft']!;
   Color get accentFill => colors['accent']!;
@@ -197,32 +193,27 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
     color: ink,
   );
 
-  /// `--theme-shadow-sm` outer layers (Brutal, Elegant light). Elegant dark
-  /// keeps the `--theme-shadow-xs` outer pair the ported surfaces were matched
-  /// against. Inset layers are drawn separately by surfaces.
-  List<BoxShadow> get shadows =>
-      !brutal && dark ? themeShadows.xs.outer : themeShadows.sm.outer;
+  /// The control shadow: `theme-shadow-sm`, which the Raft look maps to nothing
+  /// (controls never cast a shadow, so the list is empty). Inset layers are
+  /// drawn separately by surfaces.
+  List<BoxShadow> get shadows => themeShadows.sm.outer;
 
-  /// Brutal focus lift is `--theme-shadow-md` (4px 4px line-strong).
-  List<BoxShadow> get focusShadows => brutal ? themeShadows.md.outer : shadows;
+  /// The focus lift was Brutal's `--theme-shadow-md`; the Raft focus ring is a
+  /// follow-up, so focus adds nothing here.
+  List<BoxShadow> get focusShadows => shadows;
   static RaftTokens of(BuildContext context) {
     final theme = Theme.of(context);
     return theme.extension<RaftTokens>() ??
-        RaftTokens.theme(
-          RaftFamily.elegant,
-          dark: theme.brightness == Brightness.dark,
-        );
+        RaftTokens.theme(dark: theme.brightness == Brightness.dark);
   }
 
   @override
   RaftTokens copyWith({
-    RaftFamily? family,
     bool? dark,
     Map<String, Color>? colors,
     Locale? textLocale,
-  }) => family == null && dark == null
+  }) => dark == null
       ? RaftTokens(
-          this.family,
           this.dark,
           colors ?? this.colors,
           tokens: _tokens,
@@ -231,14 +222,8 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
           textLocale: textLocale ?? this.textLocale,
         )
       : RaftTokens(
-          family ?? this.family,
-          dark ?? this.dark,
-          colors ??
-              raftColorMap(
-                RaftTokenSet.of(
-                  raftThemeId(family ?? this.family, dark: dark ?? this.dark),
-                ),
-              ),
+          dark,
+          colors ?? raftColorMap(RaftTokenSet.of(raftThemeId(dark: dark))),
           systemFonts: systemFonts,
           systemFontFamilies: systemFontFamilies,
           textLocale: textLocale ?? this.textLocale,
@@ -423,8 +408,7 @@ class RaftFieldBorder extends OutlineInputBorder {
 FontWeight raftFontWeight(double weight) =>
     FontWeight.values[((weight / 100).round() - 1).clamp(0, 8)];
 
-ThemeData raftTheme(
-  RaftFamily family, {
+ThemeData raftTheme({
   bool dark = false,
   bool systemFonts = false,
   RaftFontFamilies systemFontFamilies = const RaftFontFamilies(),
@@ -439,9 +423,7 @@ ThemeData raftTheme(
   Locale? textLocale,
   TargetPlatform? platform,
 }) {
-  if (dark) family = RaftFamily.elegant;
   final t = RaftTokens.theme(
-    family,
     dark: dark,
     systemFonts: systemFonts,
     systemFontFamilies: systemFontFamilies,
@@ -468,8 +450,10 @@ ThemeData raftTheme(
     onTertiary: t.colors['foreground-inverse']!,
     tertiaryContainer: t.colors['info-soft']!,
     onTertiaryContainer: t.colors['info-strong']!,
-    error: t.colors['danger']!,
-    onError: t.colors['danger-foreground']!,
+    // The Raft solid `danger` is a salmon sticker; error text and borders use
+    // the readable `danger-strong`.
+    error: t.colors['danger-strong']!,
+    onError: t.colors['foreground-inverse']!,
     errorContainer: t.colors['danger-soft']!,
     onErrorContainer: t.colors['danger-strong']!,
     surface: t.canvas,

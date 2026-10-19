@@ -29,7 +29,7 @@ Future<void> main() async {
   await lab.start();
   runApp(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       navigatorKey: lab.navigator,
       builder: (_, child) =>
           AppWindowCommands(navigatorKey: lab.navigator, child: child!),

@@ -10,23 +10,16 @@ Widget accessiblePreview(Widget child) {
   return child;
 }
 
-Widget brutalWrapper(Widget child) => accessiblePreview(
+Widget lightWrapper(Widget child) => accessiblePreview(
   MaterialApp(
-    theme: raftTheme(RaftFamily.brutal),
-    debugShowCheckedModeBanner: false,
-    home: Scaffold(body: child),
-  ),
-);
-Widget elegantWrapper(Widget child) => accessiblePreview(
-  MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     debugShowCheckedModeBanner: false,
     home: Scaffold(body: child),
   ),
 );
 Widget darkWrapper(Widget child) => accessiblePreview(
   MaterialApp(
-    theme: raftTheme(RaftFamily.elegant, dark: true),
+    theme: raftTheme(dark: true),
     debugShowCheckedModeBanner: false,
     home: Scaffold(body: child),
   ),
@@ -40,19 +33,13 @@ final class RaftPreviews extends MultiPreview {
   List<Preview> get previews => [
     Preview(
       group: component,
-      name: '$component · Brutal light',
-      wrapper: brutalWrapper,
+      name: '$component · Light',
+      wrapper: lightWrapper,
       size: size,
     ),
     Preview(
       group: component,
-      name: '$component · Elegant light',
-      wrapper: elegantWrapper,
-      size: size,
-    ),
-    Preview(
-      group: component,
-      name: '$component · Elegant dark',
+      name: '$component · Dark',
       wrapper: darkWrapper,
       size: size,
     ),
@@ -346,9 +333,8 @@ final class RaftWorkspacePreviews extends MultiPreview {
   @override
   List<Preview> get previews => [
     for (final configuration in [
-      ('Brutal light', brutalWrapper),
-      ('Elegant light', elegantWrapper),
-      ('Elegant dark', darkWrapper),
+      ('Light', lightWrapper),
+      ('Dark', darkWrapper),
     ]) ...[
       Preview(
         group: 'Adaptive workspace',

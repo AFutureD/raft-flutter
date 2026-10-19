@@ -5,15 +5,9 @@ import 'previews.dart';
 import 'raft_ui.dart';
 
 @Preview(
-  name: 'Hover input · Brutal',
+  name: 'Hover input · Light',
   group: 'Input policy',
-  wrapper: brutalWrapper,
-  size: Size(640, 440),
-)
-@Preview(
-  name: 'Hover input · Elegant',
-  group: 'Input policy',
-  wrapper: elegantWrapper,
+  wrapper: lightWrapper,
   size: Size(640, 440),
 )
 @Preview(

@@ -3,11 +3,8 @@ import 'package:flutter/material.dart';
 import 'raft_ui.dart';
 
 /// Source-controlled Meet Cindy presentation; no API claims or setup writes.
-Widget cindySetupScreenPreview({
-  RaftFamily family = RaftFamily.brutal,
-  bool dark = false,
-}) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+Widget cindySetupScreenPreview({bool dark = false}) => MaterialApp(
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: SingleChildScrollView(
       child: RaftCindySetupScreen(

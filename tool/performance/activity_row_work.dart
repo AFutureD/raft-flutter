@@ -103,7 +103,7 @@ Future<Map<String, dynamic>> run(int size) async {
   final key = GlobalKey();
   runApp(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: Scaffold(
         body: ResourceView(
           key: key,

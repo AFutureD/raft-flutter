@@ -628,7 +628,7 @@ class _SelectorPainter extends CustomPainter {
 
     canvas.drawPath(
       path(2),
-      Paint()..color = RaftProductColors.brutal.brutalBlack,
+      Paint()..color = RaftTokenSet.light.product.brutalBlack,
     );
     canvas.drawPath(path(0), Paint()..color = Colors.black);
     canvas.restore();

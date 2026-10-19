@@ -164,7 +164,6 @@ Widget workspaceSettingsSurface({
     controller.location.settingsPath.isEmpty,
     revision,
     appearance.mode,
-    appearance.light,
     onAppearance,
     notifications,
     onLogout,

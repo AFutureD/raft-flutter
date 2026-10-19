@@ -95,12 +95,8 @@ void main() {
     test('share capture (set SHARE_SHEET_OUT)', () {}, skip: true);
     return;
   }
-  const themes = {
-    'brutal': (RaftFamily.brutal, false),
-    'elegant': (RaftFamily.elegant, false),
-    'elegant-dark': (RaftFamily.elegant, true),
-  };
-  for (final MapEntry(key: name, value: (family, dark)) in themes.entries) {
+  const themes = {'elegant': (false), 'elegant-dark': (true)};
+  for (final MapEntry(key: name, value: (dark)) in themes.entries) {
     for (final locale in const ['en', 'zh']) {
       for (final share in const ['files', 'text']) {
         testWidgets('$name $locale $share', (t) async {
@@ -116,7 +112,7 @@ void main() {
           final staging = IncomingShareStaging(
             share == 'files' ? _files : _text,
           );
-          final raft = raftTheme(family, dark: dark);
+          final raft = raftTheme(dark: dark);
           await t.pumpWidget(
             MaterialApp(
               debugShowCheckedModeBanner: false,

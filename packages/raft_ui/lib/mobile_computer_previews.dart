@@ -5,15 +5,9 @@ import 'previews.dart';
 import 'raft_ui.dart';
 
 @Preview(
-  name: 'Computers · Brutal',
+  name: 'Computers · Light',
   group: 'Mobile computers',
-  wrapper: brutalWrapper,
-  size: Size(390, 844),
-)
-@Preview(
-  name: 'Computers · Elegant',
-  group: 'Mobile computers',
-  wrapper: elegantWrapper,
+  wrapper: lightWrapper,
   size: Size(390, 844),
 )
 @Preview(

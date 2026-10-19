@@ -183,7 +183,7 @@ class _LabState extends State<_Lab> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Column(
       children: [
         Material(
@@ -217,7 +217,7 @@ class _LabState extends State<_Lab> {
             },
             child: WorkspaceView(
               controller: widget.w,
-              appearance: const RaftAppearance(light: RaftFamily.elegant),
+              appearance: const RaftAppearance(),
               onAppearance: (_) async {},
               onLogout: () async {},
             ),

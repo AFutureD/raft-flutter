@@ -19,11 +19,11 @@ class NativeLaunchTheme {
       !kIsWeb &&
       (platformOverride ?? defaultTargetPlatform) == TargetPlatform.android;
 
-  /// Reports the stored appearance (`raft.mode`, `raft.light`).
-  Future<void> set(RaftAppearance appearance) => _call('set', {
-    'mode': appearance.mode.name,
-    'light': appearance.light.name,
-  });
+  /// Reports the stored appearance (`raft.mode`). The native side still takes a
+  /// theme family; it is always null now, which selects its default (white) light
+  /// splash.
+  Future<void> set(RaftAppearance appearance) =>
+      _call('set', {'mode': appearance.mode.name, 'light': null});
 
   /// Re-applies the native splash theme, e.g. after the launcher icon changed.
   Future<void> refresh() => _call('refresh');

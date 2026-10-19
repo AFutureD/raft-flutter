@@ -61,7 +61,6 @@ class RaftFeedbackPortalTheme extends StatelessWidget {
     final t = RaftTokens.of(context);
     if (!t.dark) return child;
     final light = raftTheme(
-      RaftFamily.elegant,
       systemFonts: t.systemFonts,
       systemFontFamilies: t.systemFontFamilies,
     );

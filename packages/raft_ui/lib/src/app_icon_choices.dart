@@ -9,7 +9,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'settings_layout.dart';
 import 'theme.dart';
-import 'tokens/product_colors.g.dart';
+import 'tokens/tokens.dart';
 
 /// Packaged brand palettes. The choice is independent of the page theme.
 enum RaftAppIconPalette {
@@ -22,11 +22,11 @@ enum RaftAppIconPalette {
   const RaftAppIconPalette(this.label);
   final String label;
   Color get background => switch (this) {
-    yellow => RaftProductColors.brutal.brutalYellow,
-    blue => RaftProductColors.brutal.brutalCyan,
-    green => RaftProductColors.brutal.brutalLime,
-    white => RaftProductColors.brutal.codeSurface,
-    pink => RaftProductColors.brutal.brutalPink,
+    yellow => RaftTokenSet.light.product.brutalYellow,
+    blue => RaftTokenSet.light.product.brutalCyan,
+    green => RaftTokenSet.light.product.brutalLime,
+    white => RaftTokenSet.light.product.codeSurface,
+    pink => RaftTokenSet.light.product.brutalPink,
   };
 }
 

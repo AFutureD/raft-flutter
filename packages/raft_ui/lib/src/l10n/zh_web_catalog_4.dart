@@ -406,7 +406,6 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
       "允许某个应用代表这个 Agent 行动。只列出此服务器上可用的应用。",
   "Let's Go": "开始吧",
   "Light": "浅色",
-  "Light appearance": "浅色外观",
   "Linear": "Linear",
   "Link copied. Paste it into Safari, Chrome, or your system browser.":
       "链接已复制，请粘贴到 Safari、Chrome 或系统浏览器。",

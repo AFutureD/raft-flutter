@@ -83,8 +83,7 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "Syncing changes": "正在同步修改",
   "System": "系统",
   "System Channels": "系统频道",
-  "System follows your device while keeping separate Light and Dark theme choices.":
-      "跟随系统会随设备切换明暗，同时保留各自的主题选择。",
+  "System follows your device.": "跟随系统会随设备切换明暗。",
   "System updates can't be forwarded. They must stay with their original conversation.":
       "系统更新无法转发。它们必须留在原会话中。",
   "Tab overview": "标签总览",
