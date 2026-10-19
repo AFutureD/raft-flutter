@@ -415,14 +415,14 @@ P2 基准确认后逐项落值。
 
 ---
 
-## 9. 需要 Kevin 拍板的四件事
+## 9. 已定的四件事（Kevin，2026-10-19）
 
-| # | 问题 | 我的建议 |
+| # | 问题 | 决定 |
 | --- | --- | --- |
-| Q1 | 颜色词汇：沿用 159 个旧角色名（省 900 处改动）还是重命名成一套干净的？ | **沿用**，只清 `color-brutal-*` 这类调色板别名。理由是这笔钱花在几何/字级上回报更高 |
-| Q2 | Raft 包是否带全量 96 个调色板值？ | **带**。它们是官方 token 的一部分，且 Raft 角色要靠它们解析；用户包只在引用时提供 |
-| Q3 | 大小写（全大写）怎么表达？ | **三个数值令牌**（§3.5）：`case.heading` / `case.label` / `case.badge`，Raft 全填 none，Brutal 填 uppercase。`textTransform` 只改显示不改字符串，与决策 0002 不冲突，100% 复刻需要它 |
-| Q4 | Brutal 深色怎么办？旧版没有单独的 Brutal 深色 | **Brutal 包的 `modes.dark` = Elegant dark 的取值**，这就是旧版的真实行为（选 Brutal 时深色永远渲染 Elegant）。不做一套没人设计过的配色 |
+| Q1 | 颜色词汇：沿用 159 个旧角色名，还是重命名成一套干净的？ | **沿用** 159 个角色名，只清理 `color-brutal-*` 这类调色板别名（§2） |
+| Q2 | Raft 包是否带全量调色板？ | **带全量调色板**。用户包只在角色引用时提供 |
+| Q3 | 大小写（全大写）怎么表达？ | **三个数值令牌**（§3.5）：`case.heading` / `case.label` / `case.badge`；Raft 全填 none，Brutal 按旧版填大写。只改显示，不改字符串 |
+| Q4 | Brutal 深色怎么办？ | **Brutal 包的 `modes.dark` = Elegant dark**，与旧版一致（选 Brutal 时深色永远渲染 Elegant） |
 
 ---
 
