@@ -5,6 +5,7 @@ environment:
 workspace:
   - apps/raft_flutter
   - packages/raft_ui
+  - packages/raft_theme
   - packages/raft_client
   - packages/raft_sync
   - packages/desktop_drop

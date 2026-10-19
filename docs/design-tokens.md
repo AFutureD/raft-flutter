@@ -40,6 +40,11 @@ packages/raft_ui/lib/src/tokens/
 RaftTokens (ThemeExtension, theme.dart) ── RaftTokens.of(context)
 ```
 
+A theme is data: `packages/raft_theme/assets/themes/raft.theme.json` is the
+generated pack (`tool/theme-adapters/build_raft_pack.py`) of the same values, and
+`docs/theme-contract.md` defines what a theme may set. The tiers below remain the
+in-code view that components read.
+
 The 0.5.52 tiers are only field schemas now (the names components still read).
 `RaftTokenSet.light` / `.dark` fill every field from `RaftLight` / `RaftDark`
 through `raft_token_mapping.dart`, chosen by what each colour is for, never by

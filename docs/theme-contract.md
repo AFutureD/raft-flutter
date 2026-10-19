@@ -325,6 +325,11 @@ P2 基准确认后逐项落值。
 
 ### 5.3 三套内置包怎么来（构建期适配器，`tool/theme-adapters/`）
 
+Raft 包已经落地：`packages/raft_theme/assets/themes/raft.theme.json`，由
+`tool/theme-adapters/build_raft_pack.py` 从生成的 0.7.1 token 里读出并生成，
+`tool/tests/test_theme_values.py` 跑 `--check` 防漂移；`packages/raft_theme/test/
+raft_tokens_parity_test.dart` 证明它与现行 `RaftTokenSet` 逐值相等。
+
 | 包 | 来源 | 做法 |
 | --- | --- | --- |
 | `raft.theme.json` | `tool/design-source/raft-ui-0.7.1/tokens.json` | 现有 `gen-tokens` 管线加一个导出步骤：把 159 个角色按 `raft_token_mapping.dart` 解析成具体值，调色板原样带上；几何/字级/阴影从 `styles.css @theme` 与 `tokens.json` 取 |

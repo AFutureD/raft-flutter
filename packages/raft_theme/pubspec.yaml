@@ -1,0 +1,23 @@
+name: raft_theme
+description: The theme contract — theme packs, parsing, validation and resolution, with no dependency on raft_ui.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # Only for the parity test: the pack must equal what raft_ui resolves.
+  raft_ui:
+    path: ../raft_ui
+
+flutter:
+  assets:
+    - assets/themes/

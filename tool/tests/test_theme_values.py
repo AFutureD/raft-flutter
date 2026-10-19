@@ -17,18 +17,24 @@ from pathlib import Path
 
 TOOL = Path(__file__).resolve().parents[1]
 SCRIPT = TOOL / 'theme-contract' / 'dump_theme_values.py'
+PACK_SCRIPT = TOOL / 'theme-adapters' / 'build_raft_pack.py'
 
 
 class ThemeValuesTest(unittest.TestCase):
-    def test_appendix_is_current(self):
+    def check(self, script, what):
         completed = subprocess.run(
-            [sys.executable, str(SCRIPT), '--check'],
+            [sys.executable, str(script), '--check'],
             capture_output=True, text=True, check=False)
         self.assertEqual(
             completed.returncode, 0,
-            'theme value appendix is stale; run '
-            f'`python3 {SCRIPT.relative_to(TOOL.parent)}`\n'
+            f'{what} is stale; run `python3 {script.relative_to(TOOL.parent)}`\n'
             f'{completed.stdout}{completed.stderr}')
+
+    def test_appendix_is_current(self):
+        self.check(SCRIPT, 'the theme value appendix')
+
+    def test_raft_theme_pack_is_current(self):
+        self.check(PACK_SCRIPT, 'the Raft theme pack')
 
 
 if __name__ == '__main__':
