@@ -11,7 +11,6 @@ import 'attachment_lightbox.dart' show RaftFileTypeBadge;
 import 'attachment_tokens.dart';
 import 'attachment_transfer.dart';
 import 'localization.dart';
-import 'hover_card.dart';
 import 'text_scaling.dart';
 import 'tooltip.dart';
 
@@ -248,100 +247,58 @@ class RaftAttachmentCard extends StatelessWidget {
             width: size.width,
             height: size.height,
             // RaftTooltip: rows scrolled under a resting pointer stay quiet.
-            child: RaftHoverReveal(
-              alwaysVisible: RaftDensityScope.of(context) == RaftDensity.touch,
-              builder: (context, revealed) => RaftTooltip(
-                message: '${raftText(context, 'Preview')} $filename',
-                child: Material(
-                  color: t.panel,
-                  clipBehavior: Clip.antiAlias,
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                      color: t.strong,
-                      width: t.brutal ? t.border : 0,
-                    ),
-                    borderRadius: recipe.radius,
+            child: RaftTooltip(
+              message: '${raftText(context, 'Preview')} $filename',
+              child: Material(
+                color: t.panel,
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(
+                    color: t.strong,
+                    width: t.brutal ? t.border : 0,
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Semantics(
-                        label: '${raftText(context, 'Preview')} $filename',
-                        button: !exportMode,
-                        child: InkWell(
-                          hoverColor: RaftHoverScope.materialHoverColor(
-                            context,
-                          ),
-                          onTap: exportMode ? null : onOpen,
-                          child:
-                              preview ??
-                              (previewPending && error == null ||
-                                      error != null && onRetry != null
-                                  ? const RaftTransferPlaceholder()
-                                  : null) ??
-                              Center(
-                                child: busy
-                                    ? const CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      )
-                                    : Text(
-                                        error ?? filename,
-                                        style: recipe.title,
-                                      ),
-                              ),
+                  borderRadius: recipe.radius,
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Semantics(
+                      label: '${raftText(context, 'Preview')} $filename',
+                      button: !exportMode,
+                      child: InkWell(
+                        hoverColor: RaftHoverScope.materialHoverColor(context),
+                        onTap: exportMode ? null : onOpen,
+                        child:
+                            preview ??
+                            (previewPending && error == null ||
+                                    error != null && onRetry != null
+                                ? const RaftTransferPlaceholder()
+                                : null) ??
+                            Center(
+                              child: busy
+                                  ? const CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    )
+                                  : Text(
+                                      error ?? filename,
+                                      style: recipe.title,
+                                    ),
+                            ),
+                      ),
+                    ),
+                    if (!exportMode &&
+                        preview == null &&
+                        error != null &&
+                        onRetry != null)
+                      // Option A: tap the failed chip's band to retry;
+                      // the rest of the tile still opens the viewer,
+                      // which fetches the original itself.
+                      Positioned.fill(
+                        child: RaftImageTransferOverlay.failed(
+                          onRetry: onRetry,
                         ),
                       ),
-                      if (!exportMode &&
-                          preview == null &&
-                          error != null &&
-                          onRetry != null)
-                        // Option A: tap the failed chip's band to retry;
-                        // the rest of the tile still opens the viewer,
-                        // which fetches the original itself.
-                        Positioned.fill(
-                          child: RaftImageTransferOverlay.failed(
-                            onRetry: onRetry,
-                          ),
-                        ),
-                      if (!exportMode)
-                        Positioned(
-                          right: 4,
-                          bottom: 4,
-                          // MessageImageGalleryAction: `hidden
-                          // group-hover/img:flex focus:flex` on pointer
-                          // layouts; touch keeps the actions at rest.
-                          child: Opacity(
-                            key: const ValueKey('image-actions'),
-                            opacity: revealed ? 1 : 0,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (onShare != null)
-                                  RaftIconButton(
-                                    glyph: RaftGlyph.share2,
-                                    tooltip:
-                                        '${raftText(context, 'Share')} $filename',
-                                    onPressed: busy ? null : onShare,
-                                    visualSize: 24,
-                                    minimumTargetSize: 48,
-                                    glyphSize: 12,
-                                  ),
-                                if (onDownload != null)
-                                  RaftIconButton(
-                                    glyph: RaftGlyph.download,
-                                    tooltip:
-                                        '${raftText(context, 'Download')} $filename',
-                                    onPressed: busy ? null : onDownload,
-                                    visualSize: 24,
-                                    minimumTargetSize: 48,
-                                    glyphSize: 12,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),

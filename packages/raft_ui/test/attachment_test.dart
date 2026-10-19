@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +12,7 @@ void main() {
     (RaftFamily.elegant, true),
   ])) {
     testWidgets(
-      '${family.name} dark=$dark attachment has separate accessible open/download actions',
+      '${family.name} dark=$dark file has separate accessible open/download actions',
       (tester) async {
         final semantics = tester.ensureSemantics();
         try {
@@ -21,8 +22,8 @@ void main() {
               theme: raftTheme(family, dark: dark),
               home: Scaffold(
                 body: RaftAttachmentCard(
-                  filename: '日本語.png',
-                  mimeType: 'image/png',
+                  filename: '日本語.pdf',
+                  mimeType: 'application/pdf',
                   sizeBytes: 2048,
                   onOpen: () => opened++,
                   onDownload: () => downloaded++,
@@ -30,9 +31,9 @@ void main() {
               ),
             ),
           );
-          expect(find.byTooltip('Preview 日本語.png'), findsOneWidget);
-          await tester.tap(find.byTooltip('Preview 日本語.png'));
-          await tester.tap(find.byTooltip('Download 日本語.png'));
+          expect(find.text('日本語.pdf'), findsOneWidget);
+          await tester.tap(find.text('日本語.pdf'));
+          await tester.tap(find.byTooltip('Download 日本語.pdf'));
           expect(opened, 1);
           expect(downloaded, 1);
           await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
@@ -43,6 +44,74 @@ void main() {
         }
       },
     );
+    for (final density in RaftDensity.values) {
+      testWidgets(
+        '${family.name} dark=$dark $density image opens without share/download overlays',
+        (tester) async {
+          final semantics = tester.ensureSemantics();
+          try {
+            var opened = 0, downloaded = 0, shared = 0;
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: raftTheme(family, dark: dark),
+                home: Scaffold(
+                  body: RaftDensityScope(
+                    density: density,
+                    child: RaftAttachmentCard(
+                      filename: '日本語.png',
+                      mimeType: 'image/png',
+                      preview: const ColoredBox(color: Colors.blue),
+                      onOpen: () => opened++,
+                      onDownload: () => downloaded++,
+                      onShare: () => shared++,
+                    ),
+                  ),
+                ),
+              ),
+            );
+            final card = find.byType(RaftAttachmentCard);
+            void expectNoOverlay() {
+              expect(find.byTooltip('Share 日本語.png'), findsNothing);
+              expect(find.byTooltip('Download 日本語.png'), findsNothing);
+            }
+
+            expectNoOverlay();
+            final mouse = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
+            );
+            await mouse.addPointer(location: const Offset(700, 550));
+            await mouse.moveTo(tester.getCenter(card));
+            await tester.pump();
+            expectNoOverlay();
+            await mouse.removePointer();
+
+            // Both former action targets now belong to the image itself.
+            final bottomRight = tester.getBottomRight(card);
+            await tester.tapAt(bottomRight - const Offset(28, 28));
+            await tester.tapAt(bottomRight - const Offset(76, 28));
+            expect(opened, 2);
+            expect(downloaded, 0);
+            expect(shared, 0);
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            expect(opened, 3);
+            expectNoOverlay();
+            await expectLater(
+              tester,
+              meetsGuideline(androidTapTargetGuideline),
+            );
+            await expectLater(
+              tester,
+              meetsGuideline(labeledTapTargetGuideline),
+            );
+            expect(tester.takeException(), isNull);
+            await tester.pumpWidget(const SizedBox());
+          } finally {
+            semantics.dispose();
+          }
+        },
+      );
+    }
   }
   testWidgets(
     'pending image preview reserves its final box without a spinner',
