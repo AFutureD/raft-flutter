@@ -210,7 +210,7 @@ void main() {
       {'messageId': 'm2', 'channelId': 'channel', 'translation': 'late'},
     ]);
     await pumpEventQueue();
-    expect(f.w.cacheWritable, isFalse);
+    expect(f.w.deviceStore.writable, isFalse);
     expect(retired, isFalse);
     expect(f.cache.closeCalls, 0);
 

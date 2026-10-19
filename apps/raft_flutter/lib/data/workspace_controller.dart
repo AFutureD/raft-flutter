@@ -130,7 +130,7 @@ class WorkspaceController extends ChangeNotifier
       messages: (id) => _messages.ledger.messages(id),
       isContext: (id) => messageWindows.isContext(id),
       hasNewer: () => _messages.state.hasNewer,
-      save: (kind, id, value) => _save(kind, id, value),
+      save: (kind, id, value) => deviceStore.write(kind, id, value),
       changed: notifyListeners,
       prefetch: () => prefetchLikelyChannels(),
       isDiskOnly: (id) => messageWindows.isDiskOnly(id),
@@ -152,7 +152,7 @@ class WorkspaceController extends ChangeNotifier
       revokedChannels: () => _revokedChannels,
       acceptLists: _acceptChannelLists,
       saveDirectory: (record) {
-        _save('channels', '', record);
+        deviceStore.write('channels', '', record);
       },
       acceptSelection: (accessible) => _messages.adoptAcceptedChannelSelection(accessible),
       patchSelected: (patch) {
@@ -210,8 +210,8 @@ class WorkspaceController extends ChangeNotifier
           loadAuthority: () =>
               jsonEncode([client.user?.id, server?.id, server?.string('role')]),
           isDisposed: () => _disposed,
-          readDevice: () => _cached('sidebar-order', ''),
-          saveDevice: (value) => _save('sidebar-order', '', value),
+          readDevice: () => deviceStore.read('sidebar-order', ''),
+          saveDevice: (value) => deviceStore.write('sidebar-order', '', value),
           changed: notifyListeners,
           reload: () => loadSidebar(),
         );
@@ -235,8 +235,8 @@ class WorkspaceController extends ChangeNotifier
         presentationSource?.composer ??
         WorkspaceComposer(
           owner: this,
-          read: _cached,
-          write: _save,
+          read: deviceStore.read,
+          write: deviceStore.write,
           authority: () => (
             client.origin,
             client.generation,
@@ -297,8 +297,8 @@ class WorkspaceController extends ChangeNotifier
       entityScope: _entityScope,
       panelIdentity: _panelCacheIdentity,
       channelFilesAuthority: _channelFilesAuthority,
-      readEntities: cache == null ? null : _readEntities,
-      writeEntities: cache == null ? null : _writeEntities,
+      readEntities: cache == null ? null : deviceStore.readEntities,
+      writeEntities: cache == null ? null : deviceStore.writeEntities,
       entityDirectory: entityDirectory,
       followedThreads: followedThreads,
     );
@@ -392,16 +392,7 @@ class WorkspaceController extends ChangeNotifier
   AnnouncementOnboardingGate get announcementGate => services.announcementGate;
   WorkspaceEntityScope? _entityScope() => _session.entityScope();
 
-  Future<dynamic> _readEntities(
-    WorkspaceEntityScope scope,
-    WorkspaceEntityKind kind,
-  ) => deviceStore.readEntities(scope, kind);
 
-  void _writeEntities(
-    WorkspaceEntityScope scope,
-    WorkspaceEntityKind kind,
-    Map<String, dynamic>? record,
-  ) => deviceStore.writeEntities(scope, kind, record);
 
   @override
   Future<List<Map<String, dynamic>>> readDeviceTranslations(String serverId) =>
@@ -610,22 +601,7 @@ class WorkspaceController extends ChangeNotifier
   void closeRevokedServerProjection() =>
       _session.closeRevokedServerProjection();
 
-  Future<dynamic> _cached(String kind, String id, {String? server}) =>
-      deviceStore.read(kind, id, server: server);
 
-  Future<void> _save(
-    String kind,
-    String id,
-    dynamic value, {
-    String? server,
-    bool requiredSuccess = false,
-  }) => deviceStore.write(
-    kind,
-    id,
-    value,
-    server: server,
-    requiredSuccess: requiredSuccess,
-  );
 
   void saveDraft(String text, {bool thread = false}) =>
       _editor.saveDraft(text, thread: thread);
@@ -643,8 +619,6 @@ class WorkspaceController extends ChangeNotifier
   ValueListenable<int> draftChanges({bool thread = false}) =>
       _editor.draftChanges(thread: thread);
 
-  /// Device writes stop before logout purges are queued.
-  bool get cacheWritable => deviceStore.writable;
   Object messageHistoryTicket(String id) => _messages.messageHistoryTicket(id);
 
   StreamSubscription<RaftEvent> get subscription => _session.subscription;
@@ -1401,7 +1375,7 @@ class _WorkspaceSessionBindings
   bool get writable => w.deviceStore.writable;
   @override
   Future<dynamic> read(String kind, String id, {String? server}) =>
-      w._cached(kind, id, server: server);
+      w.deviceStore.read(kind, id, server: server);
   @override
   Future<void> save(
     String kind,
@@ -1409,7 +1383,7 @@ class _WorkspaceSessionBindings
     dynamic value, {
     String? server,
     bool requiredSuccess = false,
-  }) => w._save(
+  }) => w.deviceStore.write(
     kind,
     id,
     value,

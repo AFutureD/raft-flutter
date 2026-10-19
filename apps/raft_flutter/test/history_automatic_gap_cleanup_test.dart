@@ -57,7 +57,7 @@ void main() {
           ),
         );
         expect(find.byType(RaftChatView), findsNothing);
-        expect(w.cacheWritable, isFalse);
+        expect(w.deviceStore.writable, isFalse);
         expect(client.arrivals.isClosed, isTrue);
         expect(db.messageHistory.reads.closed, isTrue);
       } finally {

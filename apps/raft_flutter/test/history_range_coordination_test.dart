@@ -157,7 +157,7 @@ void main() {
       addTearDown(c.close);
       await c.open();
       final request = c.w.messageWindows.request(
-        allowed: () => c.w.cacheWritable,
+        allowed: () => c.w.deviceStore.writable,
       );
       Future<Object?> read(int before) => MessageHistoryVerification.readRange(
         c.w,
@@ -304,7 +304,7 @@ void main() {
     addTearDown(c.close);
     await c.open();
     final request = c.w.messageWindows.request(
-      allowed: () => c.w.cacheWritable,
+      allowed: () => c.w.deviceStore.writable,
     );
     Future<Object?> read() => MessageHistoryVerification.readRange(
       c.w,
@@ -359,7 +359,7 @@ void main() {
     );
     final count = c.client.beforeReads.length;
     final request = c.w.messageWindows.request(
-      allowed: () => c.w.cacheWritable,
+      allowed: () => c.w.deviceStore.writable,
     );
     await MessageHistoryVerification.readRange(
       c.w,
