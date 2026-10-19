@@ -32,7 +32,6 @@ import 'select_field.dart';
 import 'settings_controls.dart';
 import 'settings_layout.dart';
 import 'theme.dart';
-import 'tokens/shadows.g.dart' show RaftProductShadows;
 import 'tooltip.dart';
 import 'viewport_breakpoints.dart';
 import 'sized_image.dart';
@@ -400,7 +399,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
                 t,
                 size: 12,
                 line: 16,
-                color: t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
+                color: t.muted,
               ),
             ),
           ],
@@ -521,9 +520,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
                           t,
                           size: 12,
                           line: 16,
-                          color: t.brutal
-                              ? Colors.black.withValues(alpha: .55)
-                              : t.muted,
+                          color: t.muted,
                         ),
                       ),
                     ),
@@ -799,26 +796,6 @@ class RaftAppLogo extends StatelessWidget {
             height: box,
             errorBuilder: (_, _, _) => fallback(style),
           );
-    if (t.brutal) {
-      return Container(
-        width: box,
-        height: box,
-        clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: t.product.softSignal,
-          border: Border.all(color: Colors.black, width: 2),
-          boxShadow: RaftProductShadows.shadowBrutalSm.outer,
-        ),
-        child: content(
-          RaftTypography.heading(
-            t,
-            size: size.fontSize,
-            line: size.lineHeight,
-            weight: FontWeight.w700,
-          ).copyWith(color: Colors.black),
-        ),
-      );
-    }
     final placeholder = t.colors['foreground-placeholder']!;
     return Container(
       width: box,
@@ -904,9 +881,7 @@ class _MarketplaceCard extends StatelessWidget {
                   t,
                   size: 12,
                   line: 16,
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .55)
-                      : t.muted,
+                  color: t.muted,
                 ),
               ),
               if (!grid && app.description != null) _Summary(app.description!),
@@ -933,16 +908,9 @@ class _MarketplaceCard extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: t.brutal ? Colors.white : t.panel,
-            border: Border.all(
-              color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
-            boxShadow: t.brutal
-                ? (hovered
-                      ? RaftProductShadows.shadowBrutal.outer
-                      : RaftProductShadows.shadowBrutalSm.outer)
-                : (hovered ? t.themeShadows.md : t.themeShadows.sm).outer,
+            color: t.panel,
+            border: Border.all(color: t.colors['line-muted']!, width: 1),
+            boxShadow: (hovered ? t.themeShadows.md : t.themeShadows.sm).outer,
           ),
           child: grid
               ? Column(
@@ -988,10 +956,8 @@ class _InstallPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         // Translucent fills sit over the card, not over its outer shadow.
-        color: t.brutal
-            ? t.product.brutalPink
-            : Color.alphaBlend(t.colors['accent-soft']!, t.panel),
-        borderRadius: t.brutal ? null : BorderRadius.circular(4),
+        color: Color.alphaBlend(t.colors['accent-soft']!, t.panel),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: t.colors['line-strong']!),
         boxShadow: t.themeShadows.xs.outer,
       ),
@@ -1002,7 +968,7 @@ class _InstallPill extends StatelessWidget {
           size: 12,
           line: 16,
           weight: FontWeight.w700,
-        ).copyWith(color: t.brutal ? Colors.black : t.colors['accent-strong']),
+        ).copyWith(color: t.colors['accent-strong']),
       ),
     );
   }
@@ -1031,7 +997,7 @@ class _Summary extends StatelessWidget {
             t,
             size: 14,
             line: 14 * 1.375,
-            color: t.brutal ? Colors.black.withValues(alpha: .65) : t.muted,
+            color: t.muted,
           ),
         ),
       ),
@@ -1063,9 +1029,7 @@ class RaftConnectedAppUrlLink extends StatelessWidget {
         onPressed: onOpen,
         semanticLabel: visible,
         builder: (context, st) {
-          final color = st.hovered
-              ? (t.brutal ? Colors.black : t.strong)
-              : (t.brutal ? Colors.black.withValues(alpha: .55) : t.muted);
+          final color = st.hovered ? t.strong : t.muted;
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1167,12 +1131,7 @@ class _AppRowCard extends StatelessWidget {
                       row.statusHint!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: _relaxed(
-                        t,
-                        t.brutal
-                            ? Colors.black.withValues(alpha: .55)
-                            : t.muted,
-                      ),
+                      style: _relaxed(t, t.muted),
                     ),
                   ),
                 ),
@@ -1263,13 +1222,8 @@ class RaftConnectedAppDetailSection extends StatelessWidget {
     final text = RaftSettingsText(t);
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: RaftSettingsCard.decoration(t).copyWith(
-        color: cream
-            ? (t.brutal
-                  ? t.product.brutalCream
-                  : t.colors['layer-canvas-muted'])
-            : null,
-      ),
+      decoration: RaftSettingsCard.decoration(t)
+          .copyWith(color: cream ? t.colors['layer-canvas-muted'] : null),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1307,7 +1261,7 @@ class RaftConnectedAppDetailRow extends StatelessWidget {
       t,
       size: 14,
       line: 20,
-      color: t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
+      color: t.muted,
     );
     final value = DefaultTextStyle.merge(
       style: RaftTypography.body(
@@ -1411,9 +1365,7 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
-    final soft = t.brutal
-        ? Colors.black.withValues(alpha: .15)
-        : t.colors['line-muted']!;
+    final soft = t.colors['line-muted']!;
     final summary = RaftTypography.body(
       t,
       size: 12,
@@ -1427,21 +1379,12 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: widget.resourceScopes.contains(scope)
-              ? (t.brutal
-                    ? Color.alphaBlend(
-                        t.product.softSignal.withValues(alpha: .2),
-                        Colors.white,
-                      )
-                    : Color.alphaBlend(
-                        t.colors['accent-soft']!.withValues(alpha: .3),
-                        t.panel,
-                      ))
-              : (t.brutal ? Colors.white : t.panel),
-          border: Border.all(
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .2)
-                : t.colors['line-strong']!,
-          ),
+              ? Color.alphaBlend(
+                  t.colors['accent-soft']!.withValues(alpha: .3),
+                  t.panel,
+                )
+              : t.panel,
+          border: Border.all(color: t.colors['line-strong']!),
         ),
         child: Text(
           scope,
@@ -1450,7 +1393,7 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
             size: 11,
             line: 11 * 1.5,
             weight: FontWeight.w700,
-            color: t.brutal ? Colors.black.withValues(alpha: .7) : t.muted,
+            color: t.muted,
           ),
         ),
       ),
@@ -1468,10 +1411,8 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: t.brutal
-                ? t.product.brutalCream
-                : t.colors['layer-canvas-muted'],
-            border: Border.all(color: soft, width: t.brutal ? 2 : 1),
+            color: t.colors['layer-canvas-muted'],
+            border: Border.all(color: soft, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1508,8 +1449,8 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: t.brutal ? Colors.white : t.panel,
-                      border: Border.all(color: soft, width: t.brutal ? 2 : 1),
+                      color: t.panel,
+                      border: Border.all(color: soft, width: 1),
                     ),
                     child: Text(
                       widget.emptyLabel ?? '',
@@ -1585,10 +1526,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
     final text = RaftSettingsText(t);
     final topRule = BoxDecoration(
       border: Border(
-        top: BorderSide(
-          color: t.brutal ? Colors.black : t.colors['line-strong']!,
-          width: 2,
-        ),
+        top: BorderSide(color: t.colors['line-strong']!, width: 2),
       ),
     );
     if (loading != null) {
@@ -1618,12 +1556,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .15)
-                : t.colors['line-muted']!,
-            width: 2,
-          ),
+          top: BorderSide(color: t.colors['line-muted']!, width: 2),
         ),
       ),
       child: Column(
@@ -1644,9 +1577,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                   size: 12,
                   line: 16,
                   weight: FontWeight.w700,
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .45)
-                      : t.muted,
+                  color: t.muted,
                 ),
               ),
             )
@@ -1662,12 +1593,8 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: t.brutal ? Colors.white : t.panel,
-                      border: Border.all(
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .2)
-                            : t.colors['line-strong']!,
-                      ),
+                      color: t.panel,
+                      border: Border.all(color: t.colors['line-strong']!),
                     ),
                     child: Text(
                       v,
@@ -1676,9 +1603,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                         size: 11,
                         line: 11 * 1.5,
                         weight: FontWeight.w700,
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .7)
-                            : t.muted,
+                        color: t.muted,
                       ),
                     ),
                   ),
@@ -1728,9 +1653,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                             t,
                             size: 12,
                             line: 16,
-                            color: t.brutal
-                                ? Colors.black.withValues(alpha: .55)
-                                : t.muted,
+                            color: t.muted,
                           ),
                         ),
                       ],
@@ -1840,9 +1763,7 @@ class RaftConnectedAppDetailCard extends StatelessWidget {
                     t,
                     size: 12,
                     line: 16,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .55)
-                        : t.muted,
+                    color: t.muted,
                   ),
                 ),
               ],
@@ -1947,7 +1868,7 @@ class RaftConnectedAppParagraph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final color = t.brutal ? Colors.black.withValues(alpha: .7) : t.muted;
+    final color = t.muted;
     return Text(
       text,
       style: small
@@ -2014,7 +1935,7 @@ class RaftAppPermissionsApproval extends StatelessWidget {
             size: 12,
             line: 16,
             weight: FontWeight.w700,
-            color: t.brutal ? Colors.black.withValues(alpha: .7) : t.muted,
+            color: t.muted,
           ),
         ),
         const SizedBox(height: 8),
@@ -2026,12 +1947,8 @@ class RaftAppPermissionsApproval extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: t.brutal ? Colors.white : t.panel,
-                  border: Border.all(
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .2)
-                        : t.colors['line-strong']!,
-                  ),
+                  color: t.panel,
+                  border: Border.all(color: t.colors['line-strong']!),
                 ),
                 child: Text(
                   g,
@@ -2040,9 +1957,7 @@ class RaftAppPermissionsApproval extends StatelessWidget {
                     size: 11,
                     line: 11 * 1.5,
                     weight: FontWeight.w700,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .7)
-                        : t.muted,
+                    color: t.muted,
                   ),
                 ),
               ),
@@ -2053,18 +1968,8 @@ class RaftAppPermissionsApproval extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: t.brutal
-            ? Color.alphaBlend(
-                t.product.softSignal.withValues(alpha: .2),
-                Colors.white,
-              )
-            : t.colors['warning-soft'],
-        border: Border(
-          left: BorderSide(
-            color: t.brutal ? t.product.softSignal : t.colors['warning']!,
-            width: 4,
-          ),
-        ),
+        color: t.colors['warning-soft'],
+        border: Border(left: BorderSide(color: t.colors['warning']!, width: 4)),
       ),
       child: raftBreakpointWidth(context) >= 640 && action != null
           ? Row(

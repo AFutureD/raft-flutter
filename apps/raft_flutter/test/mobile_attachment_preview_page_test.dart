@@ -250,11 +250,7 @@ void main() {
               // Native-only page: Web's phone PanelHeader (62 brutal / 56
               // elegant, px-5, boxed 26x28 / 32x32 Back).
               expect(find.byType(RaftMobilePageHeader), findsNothing);
-              final brutal = RaftTokens.of(t.element(previewSurface)).brutal;
-              expect(
-                t.getSize(find.byType(RaftPanelHeaderBar)).height,
-                brutal ? 62 : 56,
-              );
+              expect(t.getSize(find.byType(RaftPanelHeaderBar)).height, 56);
               expect(t.getTopLeft(find.byType(RaftPanelAction)).dx, 20);
             } else {
               expect(routes.latest, isA<DialogRoute<void>>());

@@ -512,11 +512,7 @@ class RaftReleaseNoteCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       applyText: false,
       decorationOverride: release.current
-          ? (d) => d.copyWith(
-              color: t.brutal
-                  ? t.product.softSignal.withValues(alpha: .35)
-                  : t.colors['primary-soft'],
-            )
+          ? (d) => d.copyWith(color: t.colors['primary-soft'])
           : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,13 +564,9 @@ class RaftReleaseNoteEntryGroups extends StatelessWidget {
       size: 14,
       line: 20,
       weight: emphasis ? FontWeight.w700 : FontWeight.w400,
-      color: emphasis
-          ? text.strong
-          : t.brutal
-          ? Colors.black.withValues(alpha: .8)
-          : t.muted,
+      color: emphasis ? text.strong : t.muted,
     );
-    final marker = t.brutal ? Colors.black.withValues(alpha: .7) : t.muted;
+    final marker = t.muted;
     final groups = [
       for (final kind in RaftReleaseNoteKind.values)
         if (release.entries.any((e) => e.kind == kind))

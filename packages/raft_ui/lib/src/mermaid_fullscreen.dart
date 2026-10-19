@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'design_primitives.dart' show RaftInteractive;
-import 'dialog_card.dart' show RaftCloseButton;
 import 'diagram_theme.dart';
 import 'localization.dart';
 import 'theme.dart';
@@ -78,16 +77,7 @@ class _RaftMermaidFullscreenState extends State<RaftMermaidFullscreen> {
     final inset = MediaQuery.paddingOf(context);
     final background = raftMermaidBackground(t.dark);
     final label = raftText(context, 'Close fullscreen');
-    final close = t.brutal
-        ? RaftTooltip(
-            message: label,
-            excludeFromSemantics: true,
-            child: RaftCloseButton(
-              onPressed: widget.onClose,
-              tooltip: 'Close fullscreen',
-            ),
-          )
-        : _RoundClose(label: label, onPressed: widget.onClose);
+    final close = _RoundClose(label: label, onPressed: widget.onClose);
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): widget.onClose,
@@ -106,12 +96,10 @@ class _RaftMermaidFullscreenState extends State<RaftMermaidFullscreen> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: widget.onClose,
-                  child: t.brutal
-                      ? ColoredBox(color: t.colors['layer-backdrop']!)
-                      : BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-                          child: const ColoredBox(color: Color(0xB8000000)),
-                        ),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+                    child: const ColoredBox(color: Color(0xB8000000)),
+                  ),
                 ),
               ),
               Positioned.fill(

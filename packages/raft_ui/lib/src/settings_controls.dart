@@ -888,7 +888,7 @@ class _RaftDialogShellState extends State<RaftDialogShell> {
     // Brutal: padded content with `gap-4`; Elegant: an unpadded popup whose
     // header (`px-6 py-3`), body (`px-6 py-5`) and footer (`px-6 py-3`) own
     // their padding and sit flush.
-    final gap = d.content.rowGap ?? (t.brutal ? 16.0 : 0.0);
+    final gap = d.content.rowGap ?? (0.0);
     final titleStyle = _slotText(t, d.title);
     return Center(
       child: Material(
@@ -916,14 +916,14 @@ class _RaftDialogShellState extends State<RaftDialogShell> {
                       label: '',
                       glyph: RaftGlyph.x,
                       // DialogClose: brutal `outline` / `icon-md`, X `size-5`.
-                      variant: t.brutal || widget.outlineClose
+                      variant: widget.outlineClose
                           ? RaftButtonRecipeVariant.outline
                           : RaftButtonRecipeVariant.ghost,
-                      size: t.brutal || widget.outlineClose
+                      size: widget.outlineClose
                           ? RaftButtonRecipeSize.iconMd
                           : RaftButtonRecipeSize.iconSm,
-                      glyphSize: t.brutal || widget.outlineClose ? 20 : 16,
-                      restColor: t.brutal || widget.outlineClose
+                      glyphSize: widget.outlineClose ? 20 : 16,
+                      restColor: widget.outlineClose
                           ? null
                           : t.colors['foreground-placeholder'],
                       onPressed: raftGuardedClose(context, onClose),
@@ -986,18 +986,13 @@ class RaftSettingsActionCard extends StatelessWidget {
             size: 14,
             line: 20,
             weight: FontWeight.w700,
-            color: t.brutal ? Colors.black : t.strong,
+            color: t.strong,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           raftText(context, description),
-          style: RaftTypography.body(
-            t,
-            size: 12,
-            line: 16,
-            color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
-          ),
+          style: RaftTypography.body(t, size: 12, line: 16, color: t.muted),
         ),
       ],
     );
@@ -1092,7 +1087,7 @@ class RaftSettingsReadonlyValue extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: text.insetFill,
-        border: Border.all(color: text.softEdge, width: t.brutal ? 2 : 1),
+        border: Border.all(color: text.softEdge, width: 1),
       ),
       child: Text(value, style: text.mono.copyWith(color: text.muted)),
     );
@@ -1144,15 +1139,11 @@ class RaftServerProfileTile extends StatelessWidget {
                 if (active && !busy)
                   Positioned.fill(
                     child: Padding(
-                      padding: RaftTokens.of(context).brutal
-                          ? EdgeInsets.zero
-                          : const EdgeInsets.all(2),
+                      padding: const EdgeInsets.all(2),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: const Color(0x66000000),
-                          shape: RaftTokens.of(context).brutal
-                              ? BoxShape.rectangle
-                              : BoxShape.circle,
+                          shape: BoxShape.circle,
                         ),
                         child: const Center(
                           child: RaftIcon(
@@ -1181,65 +1172,38 @@ class RaftServerProfileTile extends StatelessWidget {
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => fallback,
           );
-    if (!t.brutal) {
-      // Elegant Avatar (human recipe): `border-2 border-transparent
-      // bg-clip-padding`, the `rounded-full bg-fill-muted` fallback whose
-      // `text-sm text-foreground-placeholder/70` wins over the slot's
-      // text-2xl (font-display bold carries through).
-      return SizedBox.square(
-        dimension: 64,
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: t.colors['fill-muted'],
-              shape: BoxShape.circle,
-            ),
-            child: ClipOval(
-              child: image(
-                Center(
-                  child: Text(
-                    initial,
-                    style:
-                        RaftTypography.heading(
-                          t,
-                          size: 14,
-                          line: 20,
-                          weight: FontWeight.w700,
-                        ).copyWith(
-                          color: t.colors['foreground-placeholder']!.withValues(
-                            alpha: t.colors['foreground-placeholder']!.a * .7,
-                          ),
+    // Elegant Avatar (human recipe): `border-2 border-transparent
+    // bg-clip-padding`, the `rounded-full bg-fill-muted` fallback whose
+    // `text-sm text-foreground-placeholder/70` wins over the slot's
+    // text-2xl (font-display bold carries through).
+    return SizedBox.square(
+      dimension: 64,
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: t.colors['fill-muted'],
+            shape: BoxShape.circle,
+          ),
+          child: ClipOval(
+            child: image(
+              Center(
+                child: Text(
+                  initial,
+                  style:
+                      RaftTypography.heading(
+                        t,
+                        size: 14,
+                        line: 20,
+                        weight: FontWeight.w700,
+                      ).copyWith(
+                        color: t.colors['foreground-placeholder']!.withValues(
+                          alpha: t.colors['foreground-placeholder']!.a * .7,
                         ),
-                  ),
+                      ),
                 ),
               ),
             ),
-          ),
-        ),
-      );
-    }
-    return Container(
-      width: 64,
-      height: 64,
-      alignment: Alignment.center,
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: t.brutal
-            ? t.colors['color-soft-signal']
-            : t.colors['fill-muted'],
-        border: Border.all(color: RaftSettingsText(t).edge, width: 2),
-      ),
-      child: image(
-        Center(
-          child: Text(
-            initial,
-            style: RaftTypography.heading(
-              t,
-              size: 24,
-              line: 32,
-              weight: FontWeight.w700,
-            ).copyWith(color: RaftSettingsText(t).strong),
           ),
         ),
       ),
@@ -1293,9 +1257,7 @@ class RaftSettingsPreference extends StatelessWidget {
                 raftText(context, notice),
                 style: text.description.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: t.brutal
-                      ? t.colors['color-brutal-orange']
-                      : t.colors['warning-strong'],
+                  color: t.colors['warning-strong'],
                 ),
               ),
             ),
@@ -1328,12 +1290,9 @@ class RaftSettingsSavedNote extends StatelessWidget {
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           t.product.brutalLime.withValues(alpha: .3),
-          t.brutal ? const Color(0xFFFFFFFF) : t.panel,
+          t.panel,
         ),
-        border: Border.all(
-          color: t.brutal ? const Color(0xFF000000) : t.semantic.lineMuted,
-          width: t.brutal ? 2 : 1,
-        ),
+        border: Border.all(color: t.semantic.lineMuted, width: 1),
       ),
       child: Text(text, style: RaftTypography.heading(t, size: 12, line: 16)),
     );

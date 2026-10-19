@@ -14,7 +14,6 @@ import 'localization.dart';
 import 'message_semantics.dart';
 import 'pointer_intent.dart';
 import 'viewport_breakpoints.dart';
-import 'tokens/tokens.dart';
 import 'css_border.dart';
 import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
@@ -57,85 +56,71 @@ class RaftMessageRowRecipe {
       : 28;
   bool get attention => hovered || popupOpen;
   bool get toolbarVisible => hovered || focused || popupOpen;
-  double get borderWidth => tokens.brutal ? 2 : 1;
+  double get borderWidth => 1;
   double get minimumHeight => continuation ? 0 : 48;
-  EdgeInsets get margin => tokens.brutal
-      ? EdgeInsets.fromLTRB(12, continuation ? 0 : 6, 12, 4)
-      : EdgeInsets.zero;
-  EdgeInsets get padding => tokens.brutal
-      ? const EdgeInsets.symmetric(horizontal: 6, vertical: 4)
-      : EdgeInsets.fromLTRB(
-          horizontalPadding,
-          continuation
-              ? 6
-              : mobile
-              ? 8
-              : 14,
-          horizontalPadding,
-          continuation
-              ? 6
-              : nextContinuation
-              ? (mobile ? 0 : 2)
-              : (mobile ? 6 : 12),
-        );
-  double get gutterWidth => tokens.brutal || !mobile ? 36 : 32;
+  EdgeInsets get margin => EdgeInsets.zero;
+  EdgeInsets get padding => EdgeInsets.fromLTRB(
+    horizontalPadding,
+    continuation
+        ? 6
+        : mobile
+        ? 8
+        : 14,
+    horizontalPadding,
+    continuation
+        ? 6
+        : nextContinuation
+        ? (mobile ? 0 : 2)
+        : (mobile ? 6 : 12),
+  );
+  double get gutterWidth => !mobile ? 36 : 32;
   double get avatarExtent => 36; // AvatarSlot(panel-header): !size-9 !border-2.
   double get avatarTop =>
       2; // MessageSenderAvatar: mt-0.5; flex slot avoids baseline drift.
-  double get gap => tokens.brutal || !mobile ? 12 : 8;
+  double get gap => !mobile ? 12 : 8;
   double get headerReserve => 96;
-  double get headerGap => tokens.brutal ? 8 : 6;
-  double get headerLine => tokens.brutal ? 20 : 21;
-  double get bodyGap => tokens.brutal || continuation
+  double get headerGap => 6;
+  double get headerLine => 21;
+  double get bodyGap => continuation
       ? 0
       : mobile
       ? 4
       : 6;
   double get attachmentGap => 4;
-  double get translationLine => tokens.brutal ? 20 : 21;
+  double get translationLine => 21;
   // Baseline alignment puts the status' centre just above the line's centre.
-  double get translationLift => tokens.brutal ? 2.6 : 1;
+  double get translationLift => 1;
   double get footerGap =>
       6; // Mounted MessageItemFooter overrides generic Elegant desktop mt10.
-  double get toolbarTop => tokens.brutal ? -14 : 4;
-  double get toolbarRight => tokens.brutal ? 8 : 29;
-  double get toolbarButtonExtent => tokens.brutal ? 24 : 28;
-  double get toolbarGap => tokens.brutal ? 0 : 2;
-  EdgeInsets get toolbarPadding => tokens.brutal
-      ? EdgeInsets.zero
-      : const EdgeInsets.symmetric(horizontal: 4, vertical: 2);
+  double get toolbarTop => 4;
+  double get toolbarRight => 29;
+  double get toolbarButtonExtent => 28;
+  double get toolbarGap => 2;
+  EdgeInsets get toolbarPadding =>
+      const EdgeInsets.symmetric(horizontal: 4, vertical: 2);
   Color get background => highlighted
-      ? tokens.colors[tokens.brutal ? 'color-brutal-cyan' : 'info']!.withValues(
-          alpha: tokens.brutal ? .25 : .1,
-        )
+      ? tokens.colors['info']!.withValues(alpha: .1)
       : attention
-      ? (tokens.brutal ? tokens.panel : tokens.colors['ink-2']!)
+      ? (tokens.colors['ink-2']!)
       : Colors.transparent;
-  Color get border => tokens.brutal && attention
-      ? (popupOpen ? RaftPrimitiveColors.black : tokens.strong)
-      : Colors.transparent;
+  Color get border => Colors.transparent;
   TextStyle get body => TextStyle(
     locale: tokens.textLocale,
     // Mounted host uses font-display, not Elegant's generic font-sans (Geist).
     fontFamily: tokens.headingFont,
     fontSize: 14,
     height: 20 / 14,
-    letterSpacing: tokens.brutal ? 0 : -.14,
-    color: tokens.brutal ? RaftPrimitiveColors.black : tokens.muted,
+    letterSpacing: -.14,
+    color: tokens.muted,
   );
-  TextStyle get author => body.copyWith(
-    height: tokens.brutal ? 20 / 14 : 1,
-    fontWeight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
-  );
+  TextStyle get author => body.copyWith(height: 1, fontWeight: FontWeight.w500);
   TextStyle get time => TextStyle(
     locale: tokens.textLocale,
-    fontFamily: tokens.brutal ? tokens.monoFont : tokens.bodyFont,
+    fontFamily: tokens.bodyFont,
     fontSize: 12,
-    height: tokens.brutal ? 16 / 12 : 1,
-    letterSpacing: tokens.brutal ? 0 : -.14,
-    color: tokens.brutal
-        ? RaftPrimitiveColors.black.withValues(alpha: .4)
-        : tokens.muted.withValues(alpha: tokens.muted.a * .7),
+    height: 1,
+    letterSpacing: -.14,
+    color: tokens.muted.withValues(alpha: tokens.muted.a * .7),
   );
   TextStyle get continuationTime => TextStyle(
     locale: tokens.textLocale,
@@ -143,9 +128,7 @@ class RaftMessageRowRecipe {
     fontSize: 10,
     height: 1,
     color: hovered
-        ? (tokens.brutal
-              ? RaftPrimitiveColors.black.withValues(alpha: .4)
-              : tokens.colors['foreground-placeholder']!)
+        ? (tokens.colors['foreground-placeholder']!)
         : Colors.transparent,
   );
   // The focus fill is translucent and the idle fill transparent: the brutal
@@ -154,13 +137,7 @@ class RaftMessageRowRecipe {
   BoxDecoration get decoration => RaftCssBoxDecoration(
     color: background,
     border: Border.all(color: border, width: borderWidth),
-    boxShadow: tokens.brutal && (highlighted || popupOpen)
-        // Mounted index.css91–92 overrides the generic RUI elevation.
-        ? (highlighted
-                  ? RaftProductShadows.shadowBrutal
-                  : RaftProductShadows.shadowBrutalSm)
-              .outer
-        : null,
+    boxShadow: null,
   );
   BoxDecoration? get highlightRing => highlighted
       ? BoxDecoration(
@@ -173,15 +150,11 @@ class RaftMessageRowRecipe {
   BoxDecoration get toolbarDecoration => BoxDecoration(
     color: tokens.panel,
     border: Border.all(
-      color: tokens.brutal
-          ? tokens.strong
-          : tokens.dark
-          ? Colors.transparent
-          : tokens.colors['line-muted']!,
-      width: tokens.brutal ? 2 : raftCssBorderWidth(.5, devicePixelRatio),
+      color: tokens.dark ? Colors.transparent : tokens.colors['line-muted']!,
+      width: raftCssBorderWidth(.5, devicePixelRatio),
     ),
-    borderRadius: BorderRadius.circular(tokens.brutal ? 0 : 8),
-    boxShadow: tokens.brutal || tokens.dark
+    borderRadius: BorderRadius.circular(8),
+    boxShadow: tokens.dark
         ? tokens.shadows
         : const [
             // foundation.css360: --theme-shadow-xs, original OKLCH atom resolved to sRGB.
@@ -646,7 +619,7 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
       inertWhenDisabled: true,
       kind: RaftControlKind.textLink,
       shadow: false,
-      visualHeight: recipe.tokens.brutal ? 20 : 14,
+      visualHeight: 14,
       minimumTargetSize: 0,
       padding: EdgeInsets.zero,
       child: Text(
@@ -673,7 +646,7 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
         lineHeight: recipe.headerLine,
         reserve: recipe.headerReserve,
         gap: recipe.headerGap,
-        baseline: !recipe.tokens.brutal,
+        baseline: true,
         subtitleIndex: widget.subtitle != null && widget.subtitle!.isNotEmpty
             ? (widget.metadata == null ? 1 : 2)
             : null,
@@ -1078,7 +1051,7 @@ class RaftMessageToolbarAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final extent = t.brutal ? 24.0 : 28.0;
+    final extent = 28.0;
     return RaftControl(
       onPressed: onPressed,
       tooltip: label,
@@ -1104,28 +1077,20 @@ class _MessageActionRecipe extends RaftControlRecipe {
   @override
   bool get transformsOnInteraction => false;
   @override
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
+  BorderRadius get radius => BorderRadius.circular(6);
   @override
   Color get foreground => foregroundFor();
   @override
   Color foregroundFor({bool hovered = false}) => active
-      ? tokens.colors[tokens.brutal ? 'color-brutal-orange' : 'accent-strong']!
-      : tokens.brutal
-      ? RaftPrimitiveColors.black.withValues(
-          alpha: hovered || popupOpen ? 1 : .5,
-        )
+      ? tokens.colors['accent-strong']!
       : hovered || popupOpen
       ? tokens.strong
       : tokens.colors['foreground-icon']!;
   @override
-  Color backgroundFor({bool hovered = false}) => hovered || popupOpen
-      ? tokens.brutal
-            ? tokens.primaryFill.withValues(alpha: .3)
-            : tokens.colors['fill-muted']!
-      : Colors.transparent;
+  Color backgroundFor({bool hovered = false}) =>
+      hovered || popupOpen ? tokens.colors['fill-muted']! : Colors.transparent;
   @override
-  Color get focusRing =>
-      tokens.brutal ? Colors.transparent : tokens.colors['primary-500']!;
+  Color get focusRing => tokens.colors['primary-500']!;
   @override
   BorderSide side({bool hovered = false}) =>
       const BorderSide(color: Colors.transparent, width: 0);
@@ -1134,9 +1099,7 @@ class _MessageActionRecipe extends RaftControlRecipe {
     bool hovered = false,
     bool pressed = false,
     bool focused = false,
-  }) => focused && !tokens.brutal
-      ? [BoxShadow(color: focusRing, spreadRadius: .5)]
-      : const [];
+  }) => focused ? [BoxShadow(color: focusRing, spreadRadius: .5)] : const [];
 }
 
 class _MessageToolbarClip extends CustomClipper<Rect> {

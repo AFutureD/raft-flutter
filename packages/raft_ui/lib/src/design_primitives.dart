@@ -97,14 +97,8 @@ abstract final class RaftLayoutMetrics {
   static double shellHeaderHeight(RaftTokens t, double viewportHeight) =>
       viewportHeight <= 600
       ? RaftMetrics.compactPanelHeader
-      : t.brutal
-      ? RaftMetrics.brutalPanelHeader
       : RaftMetrics.panelHeader;
-  static double railWidth(RaftTokens t, double viewportHeight) => t.brutal
-      ? viewportHeight <= 600
-            ? 50
-            : 64
-      : 56;
+  static double railWidth(RaftTokens t, double viewportHeight) => 56;
   static const double desktopBreakpoint = 768, threadOverlayBreakpoint = 1024;
   // index.css900–940: actual thread-layout container + portrait xl rule.
   static const threadSplitContainerWidth = 680.0;
@@ -135,18 +129,14 @@ class RaftSidebarRecipe {
   final bool workspaceEnabled;
   bool get desktop => viewportWidth >= RaftLayoutMetrics.desktopBreakpoint;
   bool get product => variant == RaftSidebarVariant.mountedProduct;
-  bool get headerOverlaysContent => !product && !tokens.brutal;
+  bool get headerOverlaysContent => !product;
   // SidebarBody3151–3204 and mounted Sidebar3754 use the muted canvas;
   // the Brutal mobile product explicitly replaces its cream with white.
-  Color get bodyBackground => tokens.brutal
-      ? desktop
-            ? tokens.colors['brutal-cream']!
-            : tokens.panel
-      : tokens.sidebar;
+  Color get bodyBackground => tokens.sidebar;
   double get headerHeight => product && desktop && workspaceEnabled
       ? RaftMetrics.compactPanelHeader
       : RaftLayoutMetrics.shellHeaderHeight(tokens, viewportHeight);
-  EdgeInsetsDirectional get headerInset => product || tokens.brutal
+  EdgeInsetsDirectional get headerInset => product
       ? EdgeInsetsDirectional.symmetric(
           horizontal: desktop && !workspaceEnabled ? 20 : 16,
         )
@@ -162,23 +152,23 @@ class RaftSidebarRecipe {
     /// the bottom, so the list reserves no capsule clearance.
     bool bottomBar = true,
   }) => EdgeInsetsDirectional.only(
-    start: product || tokens.brutal
+    start: product
         ? 8
         : desktop
         ? 26
         : 28,
-    end: product || tokens.brutal
+    end: product
         ? 8
         : desktop
         ? 18
         : 28,
-    top: product || tokens.brutal
+    top: product
         ? 12
         : headerInFlow
         ? 0
         : headerHeight,
     bottom: product
-        ? !desktop && !tokens.brutal
+        ? !desktop
               ? (bottomBar ? 68 : 12) + bottomInset
               : 12
         : 12,
@@ -201,33 +191,25 @@ class RaftPanelHeaderRecipe {
   final bool mobile;
   double get height =>
       RaftLayoutMetrics.shellHeaderHeight(tokens, viewportHeight);
-  Color get background =>
-      mobile && tokens.brutal && variant == RaftPanelHeaderVariant.tasks
-      ? tokens.colors['color-soft-signal']!
-      : variant == RaftPanelHeaderVariant.tasks || tokens.brutal
+  Color get background => variant == RaftPanelHeaderVariant.tasks
       ? tokens.panel
       : tokens.colors['layer-canvas-muted']!;
-  Color get iconBackground =>
-      tokens.brutal ? tokens.primaryFill : tokens.colors['primary-soft']!;
+  Color get iconBackground => tokens.colors['primary-soft']!;
   Color get foreground => tokens.strong;
-  BorderSide get border =>
-      !tokens.brutal && variant == RaftPanelHeaderVariant.canonical
+  BorderSide get border => variant == RaftPanelHeaderVariant.canonical
       ? BorderSide.none
       // Brutal PanelHeader `border-b-2 border-black`: pure black, not ink.
-      : BorderSide(
-          color: tokens.brutal ? Colors.black : tokens.line,
-          width: tokens.border,
-        );
-  BorderRadius get iconRadius => BorderRadius.circular(tokens.brutal ? 0 : 6);
+      : BorderSide(color: tokens.line, width: tokens.border);
+  BorderRadius get iconRadius => BorderRadius.circular(6);
   EdgeInsets get inset =>
       const EdgeInsets.symmetric(horizontal: RaftLayoutMetrics.panelInset);
   TextStyle get title => variant == RaftPanelHeaderVariant.tasks
       ? RaftTypography.heading(tokens, size: 16, line: 20)
       : RaftTypography.heading(
           tokens,
-          size: tokens.brutal ? 18 : 17,
-          line: tokens.brutal ? 22.5 : 21.25,
-          weight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
+          size: 17,
+          line: 21.25,
+          weight: FontWeight.w500,
         );
   TextStyle get subtitle => RaftTypography.mono(tokens);
 }
@@ -238,29 +220,19 @@ class RaftRailRecipe {
   final RaftTokens tokens;
   final double viewportHeight;
   double get width => RaftLayoutMetrics.railWidth(tokens, viewportHeight);
-  double get glyphSize => tokens.brutal ? 18 : 16;
-  double get itemSize => tokens.brutal && viewportHeight <= 600
-      ? RaftMetrics.railItemCompact
-      : RaftMetrics.railItem;
+  double get glyphSize => 16;
+  double get itemSize => RaftMetrics.railItem;
   // AppRailRoot's bg-primary resolves the primary-400 ramp; primaryFill is
   // the separate product Button alias and differs by one blue channel.
-  Color get background =>
-      tokens.brutal ? tokens.colors['primary-400']! : tokens.sidebar;
-  Color get selectedBackground => tokens.brutal
-      ? tokens.panel
-      : tokens.dark
-      ? tokens.card
-      : tokens.colors['fill-strong']!;
-  Color get identityBackground =>
-      tokens.brutal ? tokens.colors['brutal-cream']! : tokens.panel;
+  Color get background => tokens.sidebar;
+  Color get selectedBackground =>
+      tokens.dark ? tokens.card : tokens.colors['fill-strong']!;
+  Color get identityBackground => tokens.panel;
   Color get foreground => tokens.strong;
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
-  BorderRadius get avatarRadius => BorderRadius.circular(tokens.brutal ? 0 : 8);
+  BorderRadius get radius => BorderRadius.circular(6);
+  BorderRadius get avatarRadius => BorderRadius.circular(8);
   // AppRailRoot `theme-brutal:border-r-2 border-black`: pure black, not the ink line token.
-  BorderSide get border => BorderSide(
-    color: tokens.brutal ? Colors.black : tokens.line,
-    width: tokens.border,
-  );
+  BorderSide get border => BorderSide(color: tokens.line, width: tokens.border);
 }
 
 @immutable
@@ -282,9 +254,7 @@ class RaftAttachmentRecipe {
       const Size(RaftMetrics.attachmentWidth, RaftMetrics.attachmentHeight);
   Color get background => tokens.panel;
   BorderSide border({bool hovered = false, bool focused = false}) => BorderSide(
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: hovered || focused ? .3 : .15)
-        : tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
+    color: tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
   );
   BorderRadius get radius => RaftShapes.attachment(tokens);
   TextStyle get title =>
@@ -326,7 +296,7 @@ abstract final class RaftTypography {
   }) => TextStyle(
     locale: t.textLocale,
     fontFamily: t.headingFont,
-    fontVariations: t.brutal || t.systemFonts
+    fontVariations: t.systemFonts
         ? null
         : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
     fontFamilyFallback: t.fontFallback,
@@ -437,18 +407,11 @@ abstract final class RaftTypography {
 
 abstract final class RaftShapes {
   static BorderRadius control(RaftTokens t, double visualHeight) =>
-      BorderRadius.circular(
-        t.brutal
-            ? 0
-            : visualHeight < 32
-            ? 4
-            : 6,
-      );
+      BorderRadius.circular(visualHeight < 32 ? 4 : 6);
   static BorderRadius field(RaftTokens t) =>
       BorderRadius.circular(t.fieldRadius);
   static BorderRadius panel(RaftTokens t) => BorderRadius.circular(t.radius);
-  static BorderRadius attachment(RaftTokens t) =>
-      BorderRadius.circular(t.brutal ? 0 : 6);
+  static BorderRadius attachment(RaftTokens t) => BorderRadius.circular(6);
 }
 
 enum RaftControlKind {
@@ -492,28 +455,23 @@ class RaftControlRecipe {
     bool hovered = false,
     bool pressed = false,
   }) => backgroundFor(hovered: hovered);
-  Color get focusRing => tokens.brutal
-      ? Colors.transparent
-      : switch (variant) {
-          RaftControlVariant.surface ||
-          RaftControlVariant.outline => tokens.ink,
-          RaftControlVariant.ghost => tokens.colors['line-hairline']!,
-          RaftControlVariant.danger => tokens.colors['danger']!,
-          RaftControlVariant.primary => tokens.colors['primary-strong']!,
-          RaftControlVariant.accent => tokens.colors['accent-strong']!,
-        };
+  Color get focusRing => switch (variant) {
+    RaftControlVariant.surface || RaftControlVariant.outline => tokens.ink,
+    RaftControlVariant.ghost => tokens.colors['line-hairline']!,
+    RaftControlVariant.danger => tokens.colors['danger']!,
+    RaftControlVariant.primary => tokens.colors['primary-strong']!,
+    RaftControlVariant.accent => tokens.colors['accent-strong']!,
+  };
   Color get background => kind == RaftControlKind.savedAction
       ? tokens.colors['accent-soft']!.withValues(
           alpha: tokens.colors['accent-soft']!.a * .3,
         )
       : kind == RaftControlKind.textLink
       ? Colors.transparent
-      : highContrast && !tokens.brutal && variant == RaftControlVariant.danger
+      : highContrast && variant == RaftControlVariant.danger
       ? tokens.colors['button-danger-high-contrast']!
       : kind == RaftControlKind.sidebar && selected
-      ? tokens.brutal
-            ? tokens.accentFill
-            : tokens.dark
+      ? tokens.dark
             ? tokens.card
             : tokens.panel
       : kind == RaftControlKind.tab
@@ -523,40 +481,24 @@ class RaftControlRecipe {
             ? tokens.colors['fill-muted']!
             : tokens.panel
       : switch (variant) {
-          RaftControlVariant.primary =>
-            tokens.brutal ? tokens.primaryFill : tokens.colors['primary-soft']!,
-          RaftControlVariant.accent =>
-            tokens.brutal ? tokens.accentFill : tokens.colors['accent-soft']!,
-          RaftControlVariant.danger =>
-            tokens.brutal
-                ? tokens.colors['color-brutal-red']!
-                : tokens.colors['button-danger-fill']!,
+          RaftControlVariant.primary => tokens.colors['primary-soft']!,
+          RaftControlVariant.accent => tokens.colors['accent-soft']!,
+          RaftControlVariant.danger => tokens.colors['button-danger-fill']!,
           RaftControlVariant.ghost => Colors.transparent,
           RaftControlVariant.outline =>
-            tokens.brutal || !tokens.dark
-                ? tokens.panel
-                : tokens.colors['fill-muted']!,
-          RaftControlVariant.surface =>
-            tokens.brutal
-                ? tokens.panel
-                : tokens.colors['button-default-fill']!,
+            !tokens.dark ? tokens.panel : tokens.colors['fill-muted']!,
+          RaftControlVariant.surface => tokens.colors['button-default-fill']!,
         };
   Color get foreground => kind == RaftControlKind.savedAction
-      ? tokens.colors[tokens.brutal ? 'color-brutal-orange' : 'accent-strong']!
+      ? tokens.colors['accent-strong']!
       : kind == RaftControlKind.textLink
-      ? tokens.brutal
-            ? Colors.black.withValues(alpha: .6)
-            : tokens.muted
-      : highContrast && !tokens.brutal && variant == RaftControlVariant.danger
+      ? tokens.muted
+      : highContrast && variant == RaftControlVariant.danger
       ? tokens.colors['button-danger-high-contrast-foreground']!
       : kind == RaftControlKind.tab
-      ? selected && !tokens.brutal
+      ? selected
             ? tokens.colors['primary-950']!
-            : tokens.brutal
-            ? tokens.strong
             : tokens.ink
-      : tokens.brutal
-      ? tokens.strong
       : switch (variant) {
           RaftControlVariant.primary => tokens.colors['primary-strong']!,
           RaftControlVariant.accent => tokens.colors['accent-strong']!,
@@ -569,9 +511,7 @@ class RaftControlRecipe {
   Color backgroundFor({bool hovered = false}) {
     if (kind == RaftControlKind.savedAction) return background;
     if (kind == RaftControlKind.textLink) return Colors.transparent;
-    if (!hovered ||
-        tokens.brutal ||
-        highContrast && variant == RaftControlVariant.danger)
+    if (!hovered || highContrast && variant == RaftControlVariant.danger)
       return background;
     if (kind == RaftControlKind.tab) return background;
     return switch (variant) {
@@ -586,8 +526,7 @@ class RaftControlRecipe {
   }
 
   Gradient? get overlayGradient {
-    if (tokens.brutal ||
-        kind == RaftControlKind.savedAction ||
+    if (kind == RaftControlKind.savedAction ||
         kind == RaftControlKind.textLink ||
         kind == RaftControlKind.tab ||
         variant == RaftControlVariant.ghost)
@@ -619,9 +558,7 @@ class RaftControlRecipe {
   }
 
   double get insetHighlightAlpha =>
-      tokens.brutal ||
-          kind == RaftControlKind.textLink ||
-          kind == RaftControlKind.savedAction
+      kind == RaftControlKind.textLink || kind == RaftControlKind.savedAction
       ? 0
       : kind == RaftControlKind.tab
       ? .05
@@ -634,7 +571,7 @@ class RaftControlRecipe {
   BorderRadius get radius => kind == RaftControlKind.textLink
       ? BorderRadius.zero
       : kind == RaftControlKind.tab
-      ? BorderRadius.circular(tokens.brutal ? 0 : 4)
+      ? BorderRadius.circular(4)
       : RaftShapes.control(tokens, visualHeight);
   double get iconSize => kind == RaftControlKind.segmentedButton
       ? 12
@@ -649,7 +586,7 @@ class RaftControlRecipe {
       : 16;
   TextStyle get textStyle => TextStyle(
     locale: tokens.textLocale,
-    fontFamily: tokens.brutal ? tokens.headingFont : tokens.bodyFont,
+    fontFamily: tokens.bodyFont,
     fontFamilyFallback: tokens.systemFonts ? tokens.fontFallback : null,
     fontSize: kind == RaftControlKind.segmentedButton
         ? 12
@@ -678,10 +615,8 @@ class RaftControlRecipe {
         ? 20 / 14
         : 24 / 16,
     fontWeight: kind == RaftControlKind.tab
-        ? tokens.brutal
-              ? FontWeight.w600
-              : FontWeight.w500
-        : kind == RaftControlKind.filter || tokens.brutal
+        ? FontWeight.w500
+        : kind == RaftControlKind.filter
         ? FontWeight.w700
         : FontWeight.w500,
     letterSpacing: 0,
@@ -691,9 +626,7 @@ class RaftControlRecipe {
       ? EdgeInsets.zero
       : EdgeInsets.symmetric(
           horizontal: kind == RaftControlKind.sidebar
-              ? tokens.brutal
-                    ? 8
-                    : 6
+              ? 6
               : kind == RaftControlKind.segmentedButton
               ? 10
               : kind == RaftControlKind.tab
@@ -714,43 +647,21 @@ class RaftControlRecipe {
             variant == RaftControlVariant.ghost && !hovered
         ? Colors.transparent
         : tokens.line,
-    width: tokens.brutal && kind != RaftControlKind.textLink ? 2 : 0,
-    style: tokens.brutal && kind != RaftControlKind.textLink
-        ? BorderStyle.solid
-        : BorderStyle.none,
+    width: 0,
+    style: BorderStyle.none,
   );
   List<BoxShadow> shadows({
     bool hovered = false,
     bool pressed = false,
     bool focused = false,
   }) {
-    if (kind == RaftControlKind.savedAction && !tokens.brutal) {
+    if (kind == RaftControlKind.savedAction) {
       return focused
           ? [BoxShadow(color: tokens.colors['primary-500']!, spreadRadius: .5)]
           : const [];
     }
     if (kind == RaftControlKind.textLink) return const [];
-    if (variant == RaftControlVariant.ghost ||
-        kind == RaftControlKind.tab && tokens.brutal)
-      return const [];
-    if (tokens.brutal)
-      return [
-        BoxShadow(
-          color: tokens.strong,
-          offset: Offset(
-            pressed
-                ? 1
-                : hovered
-                ? 4
-                : 2,
-            pressed
-                ? 1
-                : hovered
-                ? 4
-                : 2,
-          ),
-        ),
-      ];
+    if (variant == RaftControlVariant.ghost) return const [];
     if (kind == RaftControlKind.tab) {
       if (tokens.dark)
         return [
@@ -987,7 +898,6 @@ class _RaftControlState extends State<RaftControl> {
         );
     final scale =
         recipe.transformsOnInteraction &&
-            !t.brutal &&
             pressed &&
             !reducedMotion &&
             widget.kind != RaftControlKind.textLink &&
@@ -1107,26 +1017,7 @@ class _RaftControlState extends State<RaftControl> {
                     width: widget.visualWidth,
                     transformAlignment: Alignment.center,
                     transform: Matrix4.diagonal3Values(scale, scale, 1)
-                      ..setTranslationRaw(
-                        recipe.transformsOnInteraction &&
-                                t.brutal &&
-                                pressed &&
-                                !reducedMotion &&
-                                widget.kind != RaftControlKind.textLink
-                            ? 1
-                            : 0,
-                        recipe.transformsOnInteraction &&
-                                t.brutal &&
-                                !reducedMotion &&
-                                widget.kind != RaftControlKind.textLink
-                            ? pressed
-                                  ? 1
-                                  : hovered
-                                  ? -1
-                                  : 0
-                            : 0,
-                        0,
-                      ),
+                      ..setTranslationRaw(0, 0, 0),
                     decoration: RaftCssBoxDecoration(
                       color: bg,
                       borderRadius: recipe.radius,
@@ -1170,16 +1061,12 @@ class _RaftControlState extends State<RaftControl> {
                             ),
                           ),
                         if (focused &&
-                            (widget.kind == RaftControlKind.textLink ||
-                                widget.kind == RaftControlKind.savedAction &&
-                                    t.brutal))
+                            (widget.kind == RaftControlKind.textLink))
                           Positioned.fill(
                             child: IgnorePointer(
                               child: CustomPaint(
                                 painter: _TextLinkFocusPainter(
-                                  t.brutal
-                                      ? Colors.black
-                                      : t.colors['line-strong']!,
+                                  t.colors['line-strong']!,
                                 ),
                               ),
                             ),
@@ -1351,8 +1238,7 @@ class RaftSavedActionButton extends StatelessWidget {
   final String tooltip;
   @override
   Widget build(BuildContext context) {
-    final tokens = RaftTokens.of(context);
-    final dimension = tokens.brutal ? 28.0 : 32.0;
+    final dimension = 32.0;
     return RaftControl(
       onPressed: onPressed,
       tooltip: raftText(context, tooltip),
@@ -1361,7 +1247,7 @@ class RaftSavedActionButton extends StatelessWidget {
       visualHeight: dimension,
       visualWidth: dimension,
       variant: RaftControlVariant.outline,
-      child: RaftIcon(RaftGlyph.bookmarkFilled, size: tokens.brutal ? 14 : 16),
+      child: RaftIcon(RaftGlyph.bookmarkFilled, size: 16),
     );
   }
 }
@@ -1447,11 +1333,7 @@ class _RaftFieldSurfaceState extends State<RaftFieldSurface> {
       child: DecoratedBox(
         decoration: RaftCssBoxDecoration(
           borderRadius: RaftShapes.field(t),
-          boxShadow: t.brutal
-              ? focused
-                    ? t.focusShadows
-                    : t.shadows
-              : focused
+          boxShadow: focused
               ? [
                   BoxShadow(
                     color: t.dark
@@ -1462,16 +1344,14 @@ class _RaftFieldSurfaceState extends State<RaftFieldSurface> {
                 ]
               : null,
         ),
-        child: t.brutal
-            ? widget.child
-            : Theme(
-                data: theme.copyWith(
-                  inputDecorationTheme: inputs.copyWith(
-                    focusedBorder: inputs.enabledBorder,
-                  ),
-                ),
-                child: widget.child,
-              ),
+        child: Theme(
+          data: theme.copyWith(
+            inputDecorationTheme: inputs.copyWith(
+              focusedBorder: inputs.enabledBorder,
+            ),
+          ),
+          child: widget.child,
+        ),
       ),
     );
   }
@@ -1488,41 +1368,31 @@ class RaftMenuRecipe {
   final RaftMenuKind kind;
   final double viewportHeight;
   Color get background => tokens.popover;
-  Color get foreground => tokens.brutal ? tokens.strong : tokens.muted;
-  Color get highlightedBackground => tokens.brutal
-      ? tokens.primaryFill.withValues(alpha: .3)
-      : tokens.colors['ink-4']!;
+  Color get foreground => tokens.muted;
+  Color get highlightedBackground => tokens.colors['ink-4']!;
   BorderRadius get radius => RaftShapes.field(tokens);
-  BorderSide get border => tokens.brutal
-      ? const BorderSide(color: Colors.black, width: 2)
-      : BorderSide.none;
-  EdgeInsets get inset => EdgeInsets.all(tokens.brutal ? 0 : 4);
+  BorderSide get border => BorderSide.none;
+  EdgeInsets get inset => EdgeInsets.all(4);
   EdgeInsets get rowInset => const EdgeInsets.symmetric(horizontal: 12);
   double get rowVisualHeight => kind == RaftMenuKind.selectionPopover
       ? 36
-      : tokens.brutal
-      ? viewportHeight <= 600
-            ? 28
-            : 36
       : viewportHeight <= 600
       ? 27.5
       : 31.5;
   double get rowTargetHeight => RaftMetrics.touchTarget;
-  double get popupGap => tokens.brutal ? 4 : 6;
+  double get popupGap => 6;
   TextStyle get label => kind == RaftMenuKind.selectionPopover
       ? RaftTypography.body(tokens, size: 12, line: 16, weight: FontWeight.w700)
       : RaftTypography.body(
           tokens,
-          size: tokens.brutal ? 14 : 13,
-          line: tokens.brutal ? 20 : 19.5,
-          weight: tokens.brutal ? FontWeight.w500 : FontWeight.w400,
+          size: 13,
+          line: 19.5,
+          weight: FontWeight.w400,
           color: foreground,
-        ).copyWith(letterSpacing: tokens.brutal ? 0 : -.065);
+        ).copyWith(letterSpacing: -.065);
   TextStyle get meta =>
       RaftTypography.body(tokens, size: 12, line: 16, color: tokens.muted);
-  List<BoxShadow> get shadows => tokens.brutal
-      ? const [BoxShadow(color: Colors.black, offset: Offset(4, 4))]
-      : tokens.dark
+  List<BoxShadow> get shadows => tokens.dark
       ? [
           BoxShadow(
             color: Colors.black.withValues(alpha: .45),
@@ -1570,9 +1440,8 @@ class _RaftSpinnerState extends State<RaftSpinner>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final t = RaftTokens.of(context);
     reduced = MediaQuery.disableAnimationsOf(context);
-    spin.duration = Duration(milliseconds: t.brutal ? 1000 : 1600);
+    spin.duration = Duration(milliseconds: 1600);
     if (reduced) {
       spin.stop();
       dash.stop();
@@ -1580,7 +1449,7 @@ class _RaftSpinnerState extends State<RaftSpinner>
       // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
       spin.repeat();
       // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
-      if (!t.brutal) dash.repeat();
+      dash.repeat();
     }
   }
 
@@ -1594,13 +1463,11 @@ class _RaftSpinnerState extends State<RaftSpinner>
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final dimension = widget.size ?? (t.brutal ? 16 : 14);
+    final dimension = widget.size ?? (14);
     // [inverse]: on a dark surface (the video stage, a dark button) in every
     // theme; elegant used to ignore it and drew an ink spinner on black.
     final color = widget.inverse
         ? Colors.white
-        : t.brutal
-        ? Colors.black
         : IconTheme.of(context).color ?? t.ink;
     // The spinner repaints every frame while it is mounted. Its own repaint
     // boundary keeps that to the spinner's layer instead of re-recording the
@@ -1613,7 +1480,6 @@ class _RaftSpinnerState extends State<RaftSpinner>
             animation: Listenable.merge([spin, dash]),
             builder: (_, _) => CustomPaint(
               painter: _SpinnerPainter(
-                brutal: t.brutal,
                 color: color,
                 rotation: reduced ? 0 : spin.value,
                 phase: reduced ? .5 : dash.value,
@@ -1629,21 +1495,20 @@ class _RaftSpinnerState extends State<RaftSpinner>
 
 class _SpinnerPainter extends CustomPainter {
   const _SpinnerPainter({
-    required this.brutal,
     required this.color,
     required this.rotation,
     required this.phase,
     required this.reduced,
   });
-  final bool brutal, reduced;
+  final bool reduced;
   final Color color;
   final double rotation, phase;
   @override
   void paint(Canvas canvas, Size size) {
-    final stroke = brutal ? 2.0 : size.width * 2.5 / 24;
+    final stroke = size.width * 2.5 / 24;
     final rect = Rect.fromCircle(
       center: size.center(Offset.zero),
-      radius: brutal ? size.width / 2 - 1 : size.width * 10 / 24,
+      radius: size.width * 10 / 24,
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -1653,8 +1518,8 @@ class _SpinnerPainter extends CustomPainter {
     canvas.translate(-size.width / 2, -size.height / 2);
     paint.color = color.withValues(alpha: .2);
     canvas.drawOval(rect, paint);
-    paint.color = color.withValues(alpha: brutal ? 1 : .8);
-    paint.strokeCap = brutal ? StrokeCap.butt : StrokeCap.round;
+    paint.color = color.withValues(alpha: .8);
+    paint.strokeCap = StrokeCap.round;
     final eased = Curves.easeInOut.transform(phase);
     final length = reduced
         ? 72.0
@@ -1665,7 +1530,7 @@ class _SpinnerPainter extends CustomPainter {
     canvas.drawArc(
       rect,
       -math.pi / 2 + offset / 150 * math.pi * 2,
-      brutal ? math.pi / 2 : length / 150 * math.pi * 2,
+      length / 150 * math.pi * 2,
       false,
       paint,
     );
@@ -1676,7 +1541,6 @@ class _SpinnerPainter extends CustomPainter {
       old.rotation != rotation ||
       old.phase != phase ||
       old.color != color ||
-      old.brutal != brutal ||
       old.reduced != reduced;
 }
 
@@ -1710,15 +1574,11 @@ class RaftMessageEmbedRecipe {
   final RaftTokens tokens;
   double get maxWidth => 544;
   BorderRadius get radius => BorderRadius.circular(8);
-  BorderSide get border => BorderSide(
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .2)
-        : tokens.colors['line-muted']!,
-    width: tokens.brutal ? 1 : .5,
-  );
+  BorderSide get border =>
+      BorderSide(color: tokens.colors['line-muted']!, width: .5);
   EdgeInsets get inset => const EdgeInsets.all(2);
   EdgeInsets get itemInset =>
-      EdgeInsets.symmetric(horizontal: 12, vertical: tokens.brutal ? 8 : 14);
+      EdgeInsets.symmetric(horizontal: 12, vertical: 14);
   EdgeInsets get itemPadding => itemInset;
   EdgeInsets get headerPadding =>
       const EdgeInsets.symmetric(horizontal: 12, vertical: 8);
@@ -1729,21 +1589,14 @@ class RaftMessageEmbedRecipe {
     borderRadius: radius,
     border: Border.fromBorderSide(border),
   );
-  TextStyle get author => metadata.copyWith(
-    fontWeight: tokens.brutal ? FontWeight.w700 : FontWeight.w600,
-    color: tokens.brutal ? Colors.black.withValues(alpha: .75) : tokens.strong,
-  );
+  TextStyle get author =>
+      metadata.copyWith(fontWeight: FontWeight.w600, color: tokens.strong);
   TextStyle get count => header.copyWith(
-    fontWeight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .55)
-        : tokens.colors['foreground-placeholder']!,
+    fontWeight: FontWeight.w500,
+    color: tokens.colors['foreground-placeholder']!,
   );
-  TextStyle get source => count.copyWith(
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .5)
-        : tokens.colors['foreground-placeholder']!,
-  );
+  TextStyle get source =>
+      count.copyWith(color: tokens.colors['foreground-placeholder']!);
   TextStyle get footer => showMore;
   TextStyle get header =>
       RaftTypography.body(tokens, size: 11, line: 16, color: tokens.muted);
@@ -2204,13 +2057,11 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                                     )
                                       if (widget.entries[i].label == null)
                                         SizedBox(
-                                          height: t.brutal ? 2 : 9,
+                                          height: 9,
                                           child: Center(
                                             child: Container(
-                                              height: t.brutal ? 2 : .5,
-                                              color: t.brutal
-                                                  ? Colors.black
-                                                  : t.colors['line-hairline'],
+                                              height: .5,
+                                              color: t.colors['line-hairline'],
                                             ),
                                           ),
                                         )
@@ -2277,9 +2128,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                     variant: RaftControlVariant.outline,
                     visualHeight:
                         widget.triggerStyle == RaftDropdownTriggerStyle.picker
-                        ? t.brutal
-                              ? 32
-                              : 28
+                        ? 28
                         : 32,
                     recipe:
                         widget.triggerStyle == RaftDropdownTriggerStyle.picker
@@ -2305,7 +2154,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                             size:
                                 widget.triggerStyle ==
                                     RaftDropdownTriggerStyle.picker
-                                ? (t.brutal ? 14 : 12)
+                                ? (12)
                                 : 14,
                           ),
                           const SizedBox(width: 6),
@@ -2529,15 +2378,9 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                 color: enabled && (hovered || focused)
                     ? recipe.highlightedBackground
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+                borderRadius: BorderRadius.circular(2),
                 border: widget.divider
-                    ? Border(
-                        bottom: BorderSide(
-                          color: t.brutal
-                              ? Colors.black.withValues(alpha: .1)
-                              : t.colors['line-muted']!,
-                        ),
-                      )
+                    ? Border(bottom: BorderSide(color: t.colors['line-muted']!))
                     : null,
               ),
               child: Opacity(
@@ -2557,16 +2400,14 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                       else
                         RaftIcon(
                           widget.glyph!,
-                          size: t.brutal ? 14 : 16,
-                          strokeWidth: t.brutal ? 2 : 1.5,
+                          size: 16,
+                          strokeWidth: 1.5,
                           color: enabled && (hovered || focused)
                               ? t.ink
                               : recipe.foreground,
                         ),
                       SizedBox(
-                        width:
-                            t.brutal ||
-                                widget.kind == RaftMenuKind.selectionPopover
+                        width: widget.kind == RaftMenuKind.selectionPopover
                             ? 8
                             : 10,
                       ),
@@ -2585,11 +2426,7 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                                 ? FontWeight.w700
                                 : recipe.label.fontWeight,
                             fontStyle: widget.italic ? FontStyle.italic : null,
-                            color: widget.italic
-                                ? (t.brutal
-                                      ? Colors.black.withValues(alpha: .7)
-                                      : t.muted)
-                                : null,
+                            color: widget.italic ? t.muted : null,
                           ),
                         ),
                       ),
@@ -2735,7 +2572,7 @@ class _TextLinkFocusPainter extends CustomPainter {
 class RaftTaskSectionRecipe {
   const RaftTaskSectionRecipe(this.tokens);
   final RaftTokens tokens;
-  EdgeInsets get inset => EdgeInsets.all(tokens.brutal ? 0 : 12);
+  EdgeInsets get inset => EdgeInsets.all(12);
 
   /// TasksPanel.tsx1178 applies p-4 over the raft-ui dark viewport p-7.
   EdgeInsets get viewportInset => const EdgeInsets.all(16);
@@ -2752,20 +2589,14 @@ class RaftTaskSectionRecipe {
   );
   double get itemGap => 10;
   double get sectionGap => 24;
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 10);
+  BorderRadius get radius => BorderRadius.circular(10);
   Color get background => tokens.colors['task-section-fill']!;
   BoxDecoration get decoration =>
       BoxDecoration(color: background, borderRadius: radius);
-  TextStyle get heading => RaftTypography.body(
-    tokens,
-    size: 12,
-    line: 16,
-    weight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
-  );
+  TextStyle get heading =>
+      RaftTypography.body(tokens, size: 12, line: 16, weight: FontWeight.w500);
   TextStyle get count => RaftTypography.mono(tokens, size: 12, line: 16);
-  Color get chevron => tokens.brutal
-      ? tokens.strong.withValues(alpha: .5)
-      : tokens.colors['foreground-icon']!;
+  Color get chevron => tokens.colors['foreground-icon']!;
 }
 
 @immutable
@@ -2951,65 +2782,45 @@ class RaftPickerTriggerRecipe extends RaftControlRecipe {
   bool get transformsOnInteraction => false;
   @override
   Color get background => selected
-      ? tokens.brutal
-            ? tokens.primaryFill
-            : tokens.colors['primary-soft']!
+      ? tokens.colors['primary-soft']!
       : tokens.dark
       ? tokens.colors['fill-muted']!
       : tokens.panel;
   @override
-  Color backgroundFor({bool hovered = false}) =>
-      selected || !hovered || tokens.brutal
+  Color backgroundFor({bool hovered = false}) => selected || !hovered
       ? background
       : tokens.colors[tokens.dark ? 'fill-strong' : 'ink-2']!;
   @override
-  Color get foreground => selected
-      ? tokens.strong
-      : tokens.brutal
-      ? RaftPrimitiveColors.black.withValues(alpha: .7)
-      : tokens.colors['foreground-placeholder']!;
+  Color get foreground =>
+      selected ? tokens.strong : tokens.colors['foreground-placeholder']!;
   @override
   Color get focusRing => tokens.colors['primary-400']!;
   @override
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
+  BorderRadius get radius => BorderRadius.circular(6);
   @override
-  BorderSide side({bool hovered = false}) => tokens.brutal
-      ? BorderSide(
-          color: selected || hovered || popupOpen
-              ? RaftPrimitiveColors.black
-              : RaftPrimitiveColors.black.withValues(alpha: .3),
-          width: 2,
-        )
-      : BorderSide.none;
+  BorderSide side({bool hovered = false}) => BorderSide.none;
   @override
-  EdgeInsets get padding =>
-      EdgeInsets.symmetric(horizontal: tokens.brutal ? 12 : 10);
+  EdgeInsets get padding => EdgeInsets.symmetric(horizontal: 10);
   @override
   TextStyle get textStyle => RaftTypography.body(
     tokens,
     size: 12,
     line: 16,
-    weight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
+    weight: FontWeight.w500,
     color: foreground,
-  ).copyWith(letterSpacing: tokens.brutal ? 0 : -.06);
+  ).copyWith(letterSpacing: -.06);
   @override
-  double get insetHighlightAlpha => tokens.brutal
-      ? 0
-      : tokens.dark
-      ? .045
-      : .05;
+  double get insetHighlightAlpha => tokens.dark ? .045 : .05;
   @override
   List<BoxShadow> shadows({
     bool hovered = false,
     bool pressed = false,
     bool focused = false,
   }) => [
-    if (tokens.brutal && selected)
-      const BoxShadow(color: Colors.black, offset: Offset(2, 2)),
-    if (!tokens.brutal && selected) ...tokens.shadows,
-    if (!tokens.brutal && !selected && !tokens.dark)
+    if (selected) ...tokens.shadows,
+    if (!selected && !tokens.dark)
       BoxShadow(color: tokens.colors['line-muted']!, spreadRadius: 1),
-    if (!tokens.brutal && !selected && tokens.dark) ...[
+    if (!selected && tokens.dark) ...[
       BoxShadow(color: Colors.black.withValues(alpha: .4), spreadRadius: 1),
       BoxShadow(
         color: Colors.black.withValues(alpha: .22),
@@ -3017,7 +2828,7 @@ class RaftPickerTriggerRecipe extends RaftControlRecipe {
         blurRadius: 3,
       ),
     ],
-    if (focused && !tokens.brutal) BoxShadow(color: focusRing, spreadRadius: 2),
+    if (focused) BoxShadow(color: focusRing, spreadRadius: 2),
   ];
 }
 
@@ -3047,7 +2858,7 @@ class RaftPickerTriggerButton extends StatelessWidget {
       onPressed: enabled ? onPressed : null,
       focusNode: focusNode,
       tooltip: tooltip,
-      visualHeight: t.brutal ? 32 : 28,
+      visualHeight: 28,
       variant: RaftControlVariant.outline,
       recipe: RaftPickerTriggerRecipe(t, selected: selected),
       child: Row(

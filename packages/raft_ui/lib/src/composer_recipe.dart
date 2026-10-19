@@ -7,7 +7,6 @@ import 'localization.dart';
 import 'recipe_surface.dart';
 import 'recipes/composer_suggestion_list.g.dart';
 import 'theme.dart';
-import 'tokens/tokens.dart';
 
 /// MessageInput normal/compact host, distinct from the generic RUI Composer.
 enum RaftComposerVariant { normal, compact }
@@ -39,29 +38,18 @@ class RaftComposerRecipe {
     border: compact
         ? null
         : Border(
-            top: BorderSide(
-              color: tokens.brutal
-                  ? Colors.black
-                  : tokens.colors['line-muted']!,
-              width: tokens.brutal ? 2 : 1,
-            ),
+            top: BorderSide(color: tokens.colors['line-muted']!, width: 1),
           ),
   );
-  EdgeInsets get shellInset =>
-      tokens.brutal ? const EdgeInsets.all(8) : EdgeInsets.zero;
+  EdgeInsets get shellInset => EdgeInsets.zero;
   double get shellGap => 8;
-  double get shellRadius => tokens.brutal ? 0 : 8;
+  double get shellRadius => 8;
   BoxDecoration shellDecoration({required bool focused}) => BoxDecoration(
     color: tokens.panel,
     borderRadius: BorderRadius.circular(shellRadius),
     // CSS ring sits outside the border box: use a spread shadow, never an
     // interior Flutter Border that changes the editor's content bounds.
-    border: tokens.brutal ? Border.all(color: Colors.black, width: 2) : null,
-    boxShadow: tokens.brutal
-        ? focused
-              ? tokens.focusShadows
-              : tokens.shadows
-        : tokens.dark
+    boxShadow: tokens.dark
         ? [
             if (focused)
               BoxShadow(
@@ -78,61 +66,47 @@ class RaftComposerRecipe {
   // MessageInput product override wins over generic Elegant min-h-16.
   double get editorMinimum => desktop ? 40 : 20;
   double get editorMaximum => 128;
-  EdgeInsets get editorInset => tokens.brutal
-      ? EdgeInsets.zero
-      : const EdgeInsets.fromLTRB(12, 12, 12, 0);
+  EdgeInsets get editorInset => const EdgeInsets.fromLTRB(12, 12, 12, 0);
   TextStyle get editorText => RaftTypography.heading(
     tokens,
     size: desktop ? 14 : 16,
     line: 20,
     weight: FontWeight.w400,
-  ).copyWith(color: tokens.brutal ? Colors.black : tokens.strong);
-  TextStyle get placeholder => editorText.copyWith(
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .35)
-        : tokens.colors['foreground-placeholder'],
-  );
-  EdgeInsets get toolbarInset => tokens.brutal
-      ? EdgeInsets.zero
-      : const EdgeInsets.fromLTRB(10, 4, 10, 10);
-  Offset get toolbarPaintOffset =>
-      tokens.brutal ? Offset.zero : const Offset(0, 4);
-  double get toolbarGap => tokens.brutal ? 12 : 8;
-  double get actionGap => tokens.brutal ? 8 : 6;
+  ).copyWith(color: tokens.strong);
+  TextStyle get placeholder =>
+      editorText.copyWith(color: tokens.colors['foreground-placeholder']);
+  EdgeInsets get toolbarInset => const EdgeInsets.fromLTRB(10, 4, 10, 10);
+  Offset get toolbarPaintOffset => const Offset(0, 4);
+  double get toolbarGap => 8;
+  double get actionGap => 6;
   double get metaGap => 12; // Actual task + submit wrapper, MessageInput2970.
-  double get actionFace => tokens.brutal ? 26 : 28;
+  double get actionFace => 28;
   double get submitFace => 28;
   double get glyphSize => 14;
 
   // composer-suggestion.recipe.ts / index.mjs13809–13910.
-  double get suggestionMaximum => tokens.brutal ? 192 : 204;
-  double get suggestionBottomGap => tokens.brutal ? 8 : 4;
+  double get suggestionMaximum => 204;
+  double get suggestionBottomGap => 4;
   // Brutal `border-2` sits inside the box: content starts inside it.
-  EdgeInsets get suggestionInset => EdgeInsets.all(tokens.brutal ? 2 : 4);
+  EdgeInsets get suggestionInset => EdgeInsets.all(4);
   BoxDecoration get suggestionDecoration => BoxDecoration(
-    color: tokens.brutal ? Colors.white : tokens.popover,
-    border: tokens.brutal ? Border.all(color: Colors.black, width: 2) : null,
-    borderRadius: BorderRadius.circular(tokens.brutal ? 0 : 8),
-    boxShadow: tokens.brutal
-        ? tokens.focusShadows
-        : [
-            ...tokens.shadows,
-            if (!tokens.dark)
-              BoxShadow(color: tokens.colors['ink-6']!, spreadRadius: 1),
-          ],
+    color: tokens.popover,
+    borderRadius: BorderRadius.circular(8),
+    boxShadow: [
+      ...tokens.shadows,
+      if (!tokens.dark)
+        BoxShadow(color: tokens.colors['ink-6']!, spreadRadius: 1),
+    ],
   );
-  EdgeInsets get suggestionGroupInset => tokens.brutal
-      ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
-      : const EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+  EdgeInsets get suggestionGroupInset =>
+      const EdgeInsets.symmetric(horizontal: 12, vertical: 8);
   TextStyle get suggestionGroupLabel => RaftTypography.body(
     tokens,
-    size: tokens.brutal ? 12 : 11,
-    line: tokens.brutal ? 16 : 11,
-    weight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .6)
-        : tokens.strong.withValues(alpha: .45),
-  ).copyWith(letterSpacing: tokens.brutal ? null : -.055);
+    size: 11,
+    line: 11,
+    weight: FontWeight.w500,
+    color: tokens.strong.withValues(alpha: .45),
+  ).copyWith(letterSpacing: -.055);
   Color suggestionBackground({
     required bool highlighted,
     bool hovered = false,
@@ -151,20 +125,14 @@ class RaftComposerRecipe {
     bool hovered = false,
   }) => RaftTypography.body(
     tokens,
-    size: tokens.brutal ? 14 : 13,
-    line: tokens.brutal ? 20 : 19.5,
-    weight: tokens.brutal && highlighted ? FontWeight.w700 : FontWeight.w500,
-    color: tokens.brutal
-        ? Colors.black
-        : highlighted || hovered
-        ? tokens.ink
-        : tokens.muted,
-  ).copyWith(letterSpacing: tokens.brutal ? 0 : -.065);
+    size: 13,
+    line: 19.5,
+    weight: FontWeight.w500,
+    color: highlighted || hovered ? tokens.ink : tokens.muted,
+  ).copyWith(letterSpacing: -.065);
 
   /// `ComposerSuggestionIcon variant="auxiliary"`: brutal `text-black/40`.
-  Color get suggestionAuxiliary => tokens.brutal
-      ? RaftPrimitiveColors.black.withValues(alpha: .4)
-      : tokens.colors['foreground-placeholder']!;
+  Color get suggestionAuxiliary => tokens.colors['foreground-placeholder']!;
 
   /// `ComposerSuggestionMeta variant="code"`: `text-xs font-mono`
   /// (brutal `text-black/40`), bold with the highlighted option.
@@ -173,9 +141,7 @@ class RaftComposerRecipe {
     fontSize: 12,
     height: 16 / 12,
     fontWeight: highlighted ? FontWeight.w700 : FontWeight.w500,
-    color: tokens.brutal
-        ? RaftPrimitiveColors.black.withValues(alpha: .4)
-        : tokens.colors['foreground-placeholder'],
+    color: tokens.colors['foreground-placeholder'],
   );
 
   TextStyle get suggestionMeta => suggestionMetaFor();
@@ -187,12 +153,8 @@ class RaftComposerRecipe {
         tokens,
         size: 12,
         line: 16,
-        weight: tokens.brutal && highlighted
-            ? FontWeight.w700
-            : FontWeight.w500,
-        color: tokens.brutal
-            ? Colors.black.withValues(alpha: .5)
-            : tokens.colors['foreground-placeholder'],
+        weight: FontWeight.w500,
+        color: tokens.colors['foreground-placeholder'],
       );
 }
 
@@ -201,33 +163,26 @@ class _ComposerAttachRecipe extends RaftControlRecipe {
   const _ComposerAttachRecipe(RaftTokens tokens)
     : super(tokens, variant: RaftControlVariant.ghost);
   @override
-  Color get background => tokens.brutal ? Colors.white : Colors.transparent;
+  Color get background => Colors.transparent;
   @override
   Color backgroundForInteraction({
     bool hovered = false,
     bool pressed = false,
-  }) => tokens.brutal
-      ? Colors.white
-      : hovered || pressed
+  }) => hovered || pressed
       ? tokens.colors['fill-strong']!.withValues(alpha: .8)
       : Colors.transparent;
   @override
-  Color foregroundFor({bool hovered = false}) => tokens.brutal
-      ? Colors.black
-      : hovered
-      ? tokens.strong
-      : tokens.colors['foreground-icon']!;
+  Color foregroundFor({bool hovered = false}) =>
+      hovered ? tokens.strong : tokens.colors['foreground-icon']!;
   @override
   Color get foreground => foregroundFor();
   @override
-  BorderSide side({bool hovered = false}) => tokens.brutal
-      ? const BorderSide(color: Colors.black, width: 2)
-      : BorderSide.none;
+  BorderSide side({bool hovered = false}) => BorderSide.none;
   @override
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
+  BorderRadius get radius => BorderRadius.circular(6);
   @override
   // ds-allow: Web raft-ui/composer.recipe.ts iconButton `p-[7px]` (elegant), `p-1` (brutal)
-  EdgeInsets get padding => EdgeInsets.all(tokens.brutal ? 4 : 7);
+  EdgeInsets get padding => EdgeInsets.all(7);
   @override
   Gradient? get overlayGradient => null;
   @override
@@ -237,18 +192,7 @@ class _ComposerAttachRecipe extends RaftControlRecipe {
     bool hovered = false,
     bool pressed = false,
     bool focused = false,
-  }) => [
-    if (tokens.brutal)
-      BoxShadow(
-        color: Colors.black,
-        offset: pressed
-            ? const Offset(1, 1)
-            : hovered
-            ? const Offset(4, 4)
-            : const Offset(2, 2),
-      ),
-    if (focused) BoxShadow(color: focusRing, spreadRadius: 2),
-  ];
+  }) => [if (focused) BoxShadow(color: focusRing, spreadRadius: 2)];
 }
 
 /// Pointer activation preserves editor focus; keyboard traversal remains enabled.
@@ -286,11 +230,7 @@ class _RaftComposerActionState extends State<RaftComposerAction> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final size = widget.submit
-        ? 28.0
-        : t.brutal
-        ? 26.0
-        : 28.0;
+    final size = widget.submit ? 28.0 : 28.0;
     // Web sizes these buttons 26-28px with no touch inflation; Android's
     // 48dp guideline is met by routing nearby touches to them instead
     // (RaftTapSlopHost in the composer). Desktop keeps the exact box.

@@ -19,21 +19,12 @@ class RaftSwitchSemanticTokens {
     bool hovered = false,
   }) {
     if (disabled) {
-      return tokens.brutal
-          ? tokens.colors['fill-muted']!
-          : tokens.dark
-          ? tokens.colors['layer-inset']!
-          : tokens.panel;
+      return tokens.dark ? tokens.colors['layer-inset']! : tokens.panel;
     }
     if (value) {
-      return hovered && !tokens.brutal
+      return hovered
           ? tokens.colors['button-primary-hover']!
           : tokens.colors['primary-400']!;
-    }
-    if (tokens.brutal) {
-      return hovered
-          ? tokens.colors['primary-400']!.withValues(alpha: .3)
-          : tokens.panel;
     }
     if (tokens.dark) {
       return hovered ? tokens.panel : tokens.card;
@@ -42,9 +33,6 @@ class RaftSwitchSemanticTokens {
   }
 
   Color thumb({required bool value, bool disabled = false}) {
-    if (tokens.brutal) {
-      return tokens.colors[disabled ? 'line' : 'line-strong']!;
-    }
     if (disabled) {
       return value
           ? tokens.components.switchThumbCheckedDisabled
@@ -64,18 +52,11 @@ class RaftSwitchRecipe {
   final RaftSwitchSize size;
   Size get visualSize =>
       size == RaftSwitchSize.md ? const Size(36, 20) : const Size(28, 16);
-  double get thumbSize => size == RaftSwitchSize.md
-      ? tokens.brutal
-            ? 14
-            : 16
-      : tokens.brutal
-      ? 10
-      : 12;
-  double get thumbInset => tokens.brutal ? 3 : 2;
+  double get thumbSize => size == RaftSwitchSize.md ? 16 : 12;
+  double get thumbInset => 2;
   double get travel => size == RaftSwitchSize.md ? 16 : 12;
-  double get borderWidth => tokens.brutal ? 2 : 0;
-  BorderRadius get radius =>
-      BorderRadius.circular(tokens.brutal ? 0 : visualSize.height / 2);
+  double get borderWidth => 0;
+  BorderRadius get radius => BorderRadius.circular(visualSize.height / 2);
   RaftSwitchSemanticTokens get semantics => RaftSwitchSemanticTokens(tokens);
 }
 
@@ -185,7 +166,7 @@ class _RaftSwitchState extends State<RaftSwitch> {
               widthFactor: 1,
               heightFactor: 1,
               child: AnimatedScale(
-                scale: enabled && pressed && !t.brutal && !reduced ? .96 : 1,
+                scale: enabled && pressed && !reduced ? .96 : 1,
                 duration: reduced
                     ? Duration.zero
                     : RaftPrimitives.switchDuration,
@@ -261,7 +242,7 @@ class _SwitchPainter extends CustomPainter {
       canvas.restore();
     }
 
-    if (!t.brutal && !disabled) {
+    if (!disabled) {
       if (t.dark && !value) {
         outerShadow(t.components.switchShadowBottom, 1, 0, 0);
       } else {
@@ -296,52 +277,42 @@ class _SwitchPainter extends CustomPainter {
           progress,
         )!,
     );
-    if (t.brutal) {
-      canvas.drawRRect(
-        outer.deflate(1),
-        Paint()
-          ..color = t.colors[disabled ? 'line-hairline' : 'line-strong']!
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
+    canvas.save();
+    canvas.clipRRect(outer);
+    void ring(Color color, double width) {
+      canvas.drawPath(
+        Path()
+          ..fillType = PathFillType.evenOdd
+          ..addRRect(outer)
+          ..addRRect(outer.deflate(width)),
+        Paint()..color = color,
       );
-    } else {
-      canvas.save();
-      canvas.clipRRect(outer);
-      void ring(Color color, double width) {
-        canvas.drawPath(
-          Path()
-            ..fillType = PathFillType.evenOdd
-            ..addRRect(outer)
-            ..addRRect(outer.deflate(width)),
-          Paint()..color = color,
-        );
-      }
-
-      void top(Color color, double sigma) {
-        canvas.drawPath(
-          Path()
-            ..fillType = PathFillType.evenOdd
-            ..addRect(rect.inflate(4))
-            ..addRRect(outer.shift(const Offset(0, 1))),
-          Paint()
-            ..color = color
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, sigma),
-        );
-      }
-
-      if (disabled) {
-        ring(
-          t.dark ? Colors.black.withValues(alpha: .5) : t.colors['line-muted']!,
-          1,
-        );
-      } else if (t.dark && !value) {
-        ring(Colors.black.withValues(alpha: .4), 1);
-        top(Colors.black.withValues(alpha: .35), 1);
-      } else {
-        top(Colors.white.withValues(alpha: value ? .12 : .05), .25);
-      }
-      canvas.restore();
     }
+
+    void top(Color color, double sigma) {
+      canvas.drawPath(
+        Path()
+          ..fillType = PathFillType.evenOdd
+          ..addRect(rect.inflate(4))
+          ..addRRect(outer.shift(const Offset(0, 1))),
+        Paint()
+          ..color = color
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, sigma),
+      );
+    }
+
+    if (disabled) {
+      ring(
+        t.dark ? Colors.black.withValues(alpha: .5) : t.colors['line-muted']!,
+        1,
+      );
+    } else if (t.dark && !value) {
+      ring(Colors.black.withValues(alpha: .4), 1);
+      top(Colors.black.withValues(alpha: .35), 1);
+    } else {
+      top(Colors.white.withValues(alpha: value ? .12 : .05), .25);
+    }
+    canvas.restore();
     final thumbRect = Rect.fromLTWH(
       recipe.thumbInset + recipe.travel * progress,
       (size.height - recipe.thumbSize) / 2,
@@ -350,9 +321,9 @@ class _SwitchPainter extends CustomPainter {
     );
     final thumb = RRect.fromRectAndRadius(
       thumbRect,
-      Radius.circular(t.brutal ? 0 : recipe.thumbSize / 2),
+      Radius.circular(recipe.thumbSize / 2),
     );
-    if (!t.brutal && !disabled) {
+    if (!disabled) {
       canvas.drawRRect(
         thumb.inflate(.5),
         Paint()..color = Colors.black.withValues(alpha: .04),

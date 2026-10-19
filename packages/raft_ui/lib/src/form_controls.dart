@@ -17,7 +17,6 @@ import 'recipes/recipe_utilities.g.dart';
 import 'recipes/textarea.g.dart';
 import 'recipes/textarea_counter.g.dart';
 import 'theme.dart';
-import 'tokens/tokens.dart';
 
 /// Web `FormField` (thin adapter over raft-ui `Field`): label (+ required
 /// asterisk / optional marker), control, then error or hint.
@@ -280,13 +279,9 @@ class _RaftTextInputState extends State<RaftTextInput>
       s = raftRecipeEngine.resolveSlot(
         [
           for (final name in [
-            t.brutal ? 'border-2' : 'border',
-            t.brutal
-                ? 'border-black'
-                : focused
-                ? 'border-line-strong'
-                : 'border-line-field',
-            t.brutal ? 'bg-white' : 'bg-layer-panel',
+            'border',
+            focused ? 'border-line-strong' : 'border-line-field',
+            'bg-layer-panel',
             focused ? 'shadow-raft-sm' : 'shadow-raft-xs',
           ])
             raftRecipeUtilities.indexWhere((u) => u.name == name),
@@ -299,25 +294,17 @@ class _RaftTextInputState extends State<RaftTextInput>
           .merge(base)
           .copyWith(
             fontFamily: t.headingFont,
-            color: t.brutal
-                ? RaftPrimitiveColors.black
-                : t.semantic.foregroundStrong,
+            color: t.semantic.foregroundStrong,
           )
           .merge(widget.style);
       placeholder = t.semantic.foregroundPlaceholder;
-      final shadow = t.brutal
-          ? (focused
-                ? RaftProductShadows.shadowBrutal
-                : RaftProductShadows.shadowBrutalSm)
-          : (focused ? t.themeShadows.sm : t.themeShadows.xs);
+      final shadow = (focused ? t.themeShadows.sm : t.themeShadows.xs);
       legacyDecoration = BoxDecoration(
-        color: t.brutal ? RaftPrimitiveColors.white : t.semantic.layerPanel,
+        color: t.semantic.layerPanel,
         border: Border.all(
-          width: t.brutal ? 2 : 1,
+          width: 1,
           color: widget.invalid
               ? red
-              : t.brutal
-              ? RaftPrimitiveColors.black
               : focused
               ? t.semantic.lineStrong
               : t.semantic.lineField,
@@ -633,7 +620,7 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
           style: g.root,
           tokens: rt,
           width: double.infinity,
-          clip: !t.brutal,
+          clip: true,
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -694,9 +681,7 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
                                   .target('::placeholder')
                                   ?.color
                                   ?.resolve(rt) ??
-                              (t.brutal
-                                  ? Colors.black.withValues(alpha: .4)
-                                  : t.semantic.foregroundPlaceholder),
+                              t.semantic.foregroundPlaceholder,
                         ),
                       ),
                     ),

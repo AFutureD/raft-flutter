@@ -20,37 +20,30 @@ class RaftComposerToolRecipe extends RaftControlRecipe {
   final bool on, framed, prominent;
 
   @override
-  Color get background => tokens.brutal ? Colors.white : Colors.transparent;
+  Color get background => Colors.transparent;
   @override
   Color backgroundForInteraction({
     bool hovered = false,
     bool pressed = false,
   }) => on
-      ? (tokens.brutal
-            ? tokens.colors['color-brutal-cyan']!
-            : tokens.colors['fill-strong']!)
-      : tokens.brutal
-      ? Colors.white
+      ? (tokens.colors['fill-strong']!)
       : hovered || pressed
       ? tokens.colors['fill-strong']!.withValues(alpha: .8)
       : Colors.transparent;
   @override
-  Color foregroundFor({bool hovered = false}) => tokens.brutal
-      ? Colors.black
-      : (hovered || on || (prominent && tokens.dark))
+  Color foregroundFor({bool hovered = false}) =>
+      (hovered || on || (prominent && tokens.dark))
       ? tokens.strong
       : tokens.colors['foreground-icon']!;
   @override
   Color get foreground => foregroundFor();
   @override
-  BorderSide side({bool hovered = false}) => tokens.brutal && (on || framed)
-      ? const BorderSide(color: Colors.black, width: 2)
-      : BorderSide.none;
+  BorderSide side({bool hovered = false}) => BorderSide.none;
   @override
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
+  BorderRadius get radius => BorderRadius.circular(6);
   @override
   // ds-allow: Web raft-ui/composer.recipe.ts iconButton `p-[7px]` (elegant), `p-1` (brutal)
-  EdgeInsets get padding => EdgeInsets.all(tokens.brutal ? 4 : 7);
+  EdgeInsets get padding => EdgeInsets.all(7);
   @override
   Gradient? get overlayGradient => null;
   @override
@@ -60,18 +53,7 @@ class RaftComposerToolRecipe extends RaftControlRecipe {
     bool hovered = false,
     bool pressed = false,
     bool focused = false,
-  }) => [
-    if (tokens.brutal && framed)
-      BoxShadow(
-        color: Colors.black,
-        offset: pressed
-            ? const Offset(1, 1)
-            : hovered
-            ? const Offset(4, 4)
-            : const Offset(2, 2),
-      ),
-    if (focused) BoxShadow(color: focusRing, spreadRadius: 2),
-  ];
+  }) => [if (focused) BoxShadow(color: focusRing, spreadRadius: 2)];
 }
 
 /// A square icon button that leaves the editor focused on pointer press.

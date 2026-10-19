@@ -44,7 +44,7 @@ class RaftProductEmptyState extends StatelessWidget {
     final svg = iconSlot.target('& svg') ?? iconSlot.target('[&_svg]');
     final iconColor =
         iconSlot.textStyle(rt).color ?? t.colors['foreground-placeholder']!;
-    final iconSize = svg?.width ?? (t.brutal ? 36.0 : 18.0);
+    final iconSize = svg?.width ?? (18.0);
     final content = recipe.content;
     return Center(
       child: Padding(
@@ -121,7 +121,7 @@ class RaftProductEmptyPanel extends StatelessWidget {
     return ColoredBox(
       // TasksPanelViewport `dark:bg-transparent`: Elegant dark shows the
       // mounted card surface.
-      color: t.brutal ? t.panel : (t.dark ? Colors.transparent : t.sidebar),
+      color: (t.dark ? Colors.transparent : t.sidebar),
       child: Padding(
         padding: raftScrollPadding(context, const EdgeInsets.all(16)),
         child: SizedBox.expand(

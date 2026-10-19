@@ -59,14 +59,7 @@ class RaftChatSidebarHeading extends StatelessWidget {
       padding: recipe.headerInset,
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: t.brutal
-                ? (workspaceEnabled
-                      ? Colors.black.withValues(alpha: .25)
-                      : Colors.black)
-                : t.colors['line-muted']!,
-            width: t.brutal && !workspaceEnabled ? 2 : 1,
-          ),
+          bottom: BorderSide(color: t.colors['line-muted']!, width: 1),
         ),
       ),
       alignment: AlignmentDirectional.centerStart,
@@ -226,12 +219,9 @@ class _RaftWorkspaceHelpMenuState extends State<RaftWorkspaceHelpMenu> {
       header: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: t.brutal ? t.product.brutalCream : t.panel,
+          color: t.panel,
           border: Border(
-            bottom: BorderSide(
-              color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
+            bottom: BorderSide(color: t.colors['line-muted']!, width: 1),
           ),
         ),
         child: RaftSectionEyebrow(widget.heading),

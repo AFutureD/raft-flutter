@@ -28,7 +28,7 @@ class RaftCindySetupScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), size = MediaQuery.sizeOf(context);
     final desktop = size.width >= 768, wide = size.width >= 640;
-    final border = t.brutal ? Colors.black : t.colors['line-muted']!;
+    final border = t.colors['line-muted']!;
     TextStyle style(
       double font,
       double line,
@@ -107,11 +107,7 @@ class RaftCindySetupScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               DecoratedBox(
-                decoration: RaftCssBoxDecoration(
-                  boxShadow: t.brutal
-                      ? RaftProductShadows.shadowBrutalLg.outer
-                      : null,
-                ),
+                decoration: RaftCssBoxDecoration(boxShadow: null),
                 child: RaftAvatarSlot(
                   name: 'Cindy',
                   avatarUrl: 'pixel:mug',
@@ -230,13 +226,8 @@ class RaftCindySetupScreen extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: t.colors['layer-panel'],
-            border: Border.all(
-              color: t.colors[t.brutal ? 'line-strong' : 'line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
-            boxShadow: t.brutal
-                ? RaftProductShadows.shadowBrutal.outer
-                : t.themeShadows.md.outer,
+            border: Border.all(color: t.colors['line-muted']!, width: 1),
+            boxShadow: t.themeShadows.md.outer,
           ),
           child: body,
         ),

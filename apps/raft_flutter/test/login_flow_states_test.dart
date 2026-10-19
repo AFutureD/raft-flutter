@@ -292,10 +292,7 @@ void main() {
               )
               .first,
         );
-        expect(
-          material.color,
-          tokens.brutal ? tokens.product.brutalCream : tokens.canvas,
-        );
+        expect(material.color, tokens.canvas);
       });
     }
 

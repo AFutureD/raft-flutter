@@ -17,10 +17,10 @@ class RaftMessageTaskChipRecipe extends RaftControlRecipe {
   const RaftMessageTaskChipRecipe(super.tokens, this.status)
     : super(variant: RaftControlVariant.ghost);
   final RaftMessageTaskStatus status;
-  double get chipHeight => tokens.brutal ? 13 * 1.25 + 2 : 19;
-  double get gap => tokens.brutal ? 4 : 6;
-  double get borderWidth => tokens.brutal ? 1 : .5;
-  double get hoverBrightness => tokens.brutal ? .90 : .96;
+  double get chipHeight => 19;
+  double get gap => 6;
+  double get borderWidth => .5;
+  double get hoverBrightness => .96;
   @override
   bool get transformsOnInteraction => false;
   @override
@@ -32,56 +32,38 @@ class RaftMessageTaskChipRecipe extends RaftControlRecipe {
   @override
   Color get focusRing => tokens.colors['line-strong']!;
   @override
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 999);
+  BorderRadius get radius => BorderRadius.circular(999);
   @override
-  EdgeInsets get padding =>
-      EdgeInsets.symmetric(horizontal: tokens.brutal ? 4 : 8);
+  EdgeInsets get padding => EdgeInsets.symmetric(horizontal: 8);
   @override
-  Color get background => tokens.brutal
-      ? tokens.colors[switch (status) {
-          RaftMessageTaskStatus.todo => 'color-brutal-orange',
-          RaftMessageTaskStatus.inProgress => 'color-brutal-cyan',
-          RaftMessageTaskStatus.inReview => 'color-brutal-lavender',
-          RaftMessageTaskStatus.done => 'color-brutal-lime',
-          RaftMessageTaskStatus.closed => 'color-brutal-stone',
-        }]!
-      : switch (status) {
-          RaftMessageTaskStatus.todo ||
-          RaftMessageTaskStatus.closed => tokens.colors['ink-4']!,
-          RaftMessageTaskStatus.inProgress => _opacity(
-            tokens.colors['primary-500']!,
-            .1,
-          ),
-          RaftMessageTaskStatus.inReview => _opacity(
-            tokens.colors['warning']!,
-            .1,
-          ),
-          RaftMessageTaskStatus.done => _opacity(tokens.colors['success']!, .1),
-        };
+  Color get background => switch (status) {
+    RaftMessageTaskStatus.todo ||
+    RaftMessageTaskStatus.closed => tokens.colors['ink-4']!,
+    RaftMessageTaskStatus.inProgress => _opacity(
+      tokens.colors['primary-500']!,
+      .1,
+    ),
+    RaftMessageTaskStatus.inReview => _opacity(tokens.colors['warning']!, .1),
+    RaftMessageTaskStatus.done => _opacity(tokens.colors['success']!, .1),
+  };
   @override
-  Color get foreground => tokens.brutal
-      ? Colors.black
-      : switch (status) {
-          RaftMessageTaskStatus.todo ||
-          RaftMessageTaskStatus.closed => tokens.ink,
-          RaftMessageTaskStatus.inProgress =>
-            tokens.colors[tokens.dark
-                ? 'primary-strong'
-                : 'color-brutal-yellow-800']!,
-          RaftMessageTaskStatus.inReview => tokens.colors['warning-strong']!,
-          RaftMessageTaskStatus.done => tokens.colors['success-strong']!,
-        };
-  Color get iconForeground => tokens.brutal
-      ? Colors.black
-      : switch (status) {
-          RaftMessageTaskStatus.todo =>
-            tokens.colors['foreground-placeholder']!,
-          // Exact source task-status-icon literal OKLCH values converted to sRGB.
-          RaftMessageTaskStatus.inProgress => const Color(0xffefb400),
-          RaftMessageTaskStatus.inReview => const Color(0xffed8725),
-          RaftMessageTaskStatus.done => tokens.colors['success']!,
-          RaftMessageTaskStatus.closed => tokens.colors['inactive']!,
-        };
+  Color get foreground => switch (status) {
+    RaftMessageTaskStatus.todo || RaftMessageTaskStatus.closed => tokens.ink,
+    RaftMessageTaskStatus.inProgress =>
+      tokens.colors[tokens.dark
+          ? 'primary-strong'
+          : 'color-brutal-yellow-800']!,
+    RaftMessageTaskStatus.inReview => tokens.colors['warning-strong']!,
+    RaftMessageTaskStatus.done => tokens.colors['success-strong']!,
+  };
+  Color get iconForeground => switch (status) {
+    RaftMessageTaskStatus.todo => tokens.colors['foreground-placeholder']!,
+    // Exact source task-status-icon literal OKLCH values converted to sRGB.
+    RaftMessageTaskStatus.inProgress => const Color(0xffefb400),
+    RaftMessageTaskStatus.inReview => const Color(0xffed8725),
+    RaftMessageTaskStatus.done => tokens.colors['success']!,
+    RaftMessageTaskStatus.closed => tokens.colors['inactive']!,
+  };
   @override
   Color backgroundFor({bool hovered = false}) => background;
   @override
@@ -94,18 +76,16 @@ class RaftMessageTaskChipRecipe extends RaftControlRecipe {
   @override
   BorderSide side({bool hovered = false}) => BorderSide(
     width: borderWidth,
-    color: tokens.brutal
-        ? Colors.black
-        : _opacity(
-            tokens.colors[switch (status) {
-              RaftMessageTaskStatus.todo ||
-              RaftMessageTaskStatus.closed => 'line-muted',
-              RaftMessageTaskStatus.inProgress => 'primary-500',
-              RaftMessageTaskStatus.inReview => 'warning',
-              RaftMessageTaskStatus.done => 'success',
-            }]!,
-            .75,
-          ),
+    color: _opacity(
+      tokens.colors[switch (status) {
+        RaftMessageTaskStatus.todo ||
+        RaftMessageTaskStatus.closed => 'line-muted',
+        RaftMessageTaskStatus.inProgress => 'primary-500',
+        RaftMessageTaskStatus.inReview => 'warning',
+        RaftMessageTaskStatus.done => 'success',
+      }]!,
+      .75,
+    ),
   );
   @override
   Gradient? get overlayGradient => null;
@@ -121,8 +101,8 @@ class RaftMessageTaskChipRecipe extends RaftControlRecipe {
   TextStyle get textStyle => RaftTypography.body(
     tokens,
     size: 13,
-    line: tokens.brutal ? 13 * 1.25 : 13,
-    weight: tokens.brutal ? FontWeight.w500 : FontWeight.w400,
+    line: 13,
+    weight: FontWeight.w400,
     color: foreground,
   ).copyWith(letterSpacing: 0);
   static Color _opacity(Color color, double factor) =>

@@ -17,25 +17,21 @@ import 'theme.dart';
 class RaftTooltipRecipe {
   const RaftTooltipRecipe(this.tokens);
   final RaftTokens tokens;
-  double get sideOffset => tokens.brutal ? 6 : 8;
+  double get sideOffset => 8;
   double get collisionPadding => 5;
   double get maximumWidth => 320;
-  double get radius => tokens.brutal ? 0 : 6;
+  double get radius => 6;
   EdgeInsets get padding =>
       const EdgeInsets.symmetric(horizontal: 10, vertical: 4);
   Duration get transition => const Duration(milliseconds: 150);
   Curve get curve => const Cubic(.22, 1, .36, 1);
-  bool get hasArrow => !tokens.brutal;
+  bool get hasArrow => true;
   // tooltip recipe `content` brutal background-color: token(primary400).
-  Color get background => tokens.brutal
-      ? tokens.colors['primary-400']!
-      : tokens.dark
+  Color get background => tokens.dark
       ? tokens.popover
       // foundation.css311 oklch(.263 .009 294.9), converted to sRGB.
       : tokens.colors['layer-hud'] ?? const Color(0xff252429);
-  Color get foreground => tokens.brutal
-      ? tokens.strong
-      : tokens.dark
+  Color get foreground => tokens.dark
       ? tokens.ink
       // foundation.css312 oklch(.965 .002 286), converted to sRGB.
       : tokens.colors['layer-hud-foreground'] ?? const Color(0xfff3f3f5);
@@ -44,18 +40,11 @@ class RaftTooltipRecipe {
     fontFamilyFallback: tokens.fontFallback,
     fontSize: 13,
     height: 18 / 13,
-    fontWeight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
-    letterSpacing: tokens.brutal ? 0 : -.065,
+    fontWeight: FontWeight.w500,
+    letterSpacing: -.065,
     color: foreground,
   );
-  List<BoxShadow> get shadows => tokens.brutal
-      ? [
-          BoxShadow(
-            color: tokens.colors['line-strong']!,
-            offset: const Offset(2, 2),
-          ),
-        ]
-      : tokens.dark
+  List<BoxShadow> get shadows => tokens.dark
       ? [
           BoxShadow(
             color: Colors.black.withValues(alpha: .55),
@@ -656,18 +645,15 @@ class _TooltipSurface extends StatelessWidget {
     decoration: BoxDecoration(
       color: recipe.background,
       borderRadius: BorderRadius.circular(recipe.radius),
-      border: recipe.tokens.brutal
-          ? Border.all(color: recipe.tokens.colors['line-strong']!, width: 2)
-          : null,
       boxShadow: recipe.shadows,
     ),
     child: CustomPaint(
-      foregroundPainter: recipe.tokens.dark && !recipe.tokens.brutal
+      foregroundPainter: recipe.tokens.dark
           ? _TooltipInset(recipe.radius)
           : null,
       child: Padding(
         // CSS border-box: the brutal border sits outside the padding.
-        padding: recipe.padding + EdgeInsets.all(recipe.tokens.brutal ? 2 : 0),
+        padding: recipe.padding + EdgeInsets.all(0),
         child: Text(message, style: recipe.text),
       ),
     ),

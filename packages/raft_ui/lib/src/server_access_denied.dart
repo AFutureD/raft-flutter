@@ -9,7 +9,6 @@ import 'design_primitives.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
-import 'tokens/shadows.g.dart' show RaftProductShadows;
 
 /// `flex min-h-0 flex-1 items-center justify-center bg-layer-canvas px-4
 /// font-display safe-top safe-bottom theme-brutal:bg-brutal-cream` around one
@@ -33,17 +32,19 @@ class RaftServerAccessDeniedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final safe = MediaQuery.paddingOf(context);
-    final black = const Color(0xFF000000);
     final body = RaftTypography.heading(
       t,
       size: 14,
       line: 24,
       weight: FontWeight.w400,
-      color: t.brutal ? black.withValues(alpha: .7) : t.muted,
+      color: t.muted,
     );
     final description = serverName == null
         ? TextSpan(
-            text: raftText(context, 'Redirecting to your server list in 3 seconds.'),
+            text: raftText(
+              context,
+              'Redirecting to your server list in 3 seconds.',
+            ),
           )
         : _withName(
             raftText(context, 'Redirecting to <name></name> in 3 seconds.'),
@@ -54,15 +55,10 @@ class RaftServerAccessDeniedPage extends StatelessWidget {
       key: const ValueKey('server-denied-card'),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: t.brutal ? const Color(0xFFFFFFFF) : t.panel,
-        border: Border.all(
-          color: t.brutal ? black : t.semantic.lineMuted,
-          width: t.border,
-        ),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-        boxShadow: t.brutal
-            ? RaftProductShadows.shadowBrutal.paintOrder
-            : t.themeShadows.md.paintOrder,
+        color: t.panel,
+        border: Border.all(color: t.semantic.lineMuted, width: t.border),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: t.themeShadows.md.paintOrder,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -77,7 +73,7 @@ class RaftServerAccessDeniedPage extends StatelessWidget {
                 size: 24,
                 line: 32,
                 weight: RaftTypography.black(t),
-                color: t.brutal ? black : t.strong,
+                color: t.strong,
               ),
             ),
           ),
@@ -98,9 +94,12 @@ class RaftServerAccessDeniedPage extends StatelessWidget {
       ),
     );
     return Material(
-      color: t.brutal ? t.product.brutalCream : t.canvas,
+      color: t.canvas,
       child: DefaultTextStyle.merge(
-        style: TextStyle(fontFamily: t.headingFont, color: t.semantic.foreground),
+        style: TextStyle(
+          fontFamily: t.headingFont,
+          color: t.semantic.foreground,
+        ),
         child: LayoutBuilder(
           builder: (context, box) => SingleChildScrollView(
             primary: false,

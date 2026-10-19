@@ -8,7 +8,6 @@ import 'hover_region.dart';
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
-import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
 import 'localization.dart';
 import 'media_browser.dart' show RaftMediaHero, raftMediaDuration;
@@ -104,7 +103,7 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
       fontFamily: t.headingFont,
       fontSize: 12,
       height: 16 / 12,
-      fontWeight: t.brutal ? FontWeight.w700 : weight,
+      fontWeight: weight,
       color: Colors.white.withValues(alpha: alpha),
     );
     Widget link(
@@ -127,7 +126,7 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
     final extra = widget.onRetry != null || widget.onNetworkSettings != null;
     final body = Column(
       mainAxisSize: MainAxisSize.min,
-      spacing: t.brutal ? 8 : (extra ? 8 : 12),
+      spacing: (extra ? 8 : 12),
       children: [
         if (!extra)
           const RaftIcon(
@@ -582,9 +581,8 @@ class RaftInlineAudio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final brutal = t.brutal;
-    final line = brutal ? Colors.black : t.colors['line-muted']!;
-    final strong = brutal ? Colors.black : t.strong;
+    final line = t.colors['line-muted']!;
+    final strong = t.strong;
     final downloadLabel = raftFormat(context, 'Download {filename}', {
       'filename': filename,
     });
@@ -605,8 +603,8 @@ class RaftInlineAudio extends StatelessWidget {
       height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: brutal ? t.product.softSignal : t.colors['primary-soft'],
-        border: Border.all(color: line, width: brutal ? 2 : 1),
+        color: t.colors['primary-soft'],
+        border: Border.all(color: line, width: 1),
       ),
       child: RaftIcon(RaftGlyph.music, size: 16, color: strong),
     );
@@ -624,11 +622,7 @@ class RaftInlineAudio extends StatelessWidget {
                 onTap: onDownload,
                 child: square(
                   28,
-                  RaftIcon(
-                    RaftGlyph.download,
-                    size: 14,
-                    color: brutal ? Colors.black : t.muted,
-                  ),
+                  RaftIcon(RaftGlyph.download, size: 14, color: t.muted),
                 ),
               ),
             ),
@@ -685,7 +679,7 @@ class RaftInlineAudio extends StatelessWidget {
     final loadingLabel = raftFormat(context, 'Loading {filename}', {
       'filename': filename,
     });
-    final inset = brutal ? t.colors['brutal-cream'] : t.colors['layer-inset'];
+    final inset = t.colors['layer-inset'];
     Widget failedAction(
       Key key,
       RaftGlyph glyph,
@@ -727,7 +721,7 @@ class RaftInlineAudio extends StatelessWidget {
                 fontSize: 12,
                 height: 16 / 12,
                 fontWeight: FontWeight.w700,
-                color: brutal ? Colors.black.withValues(alpha: .7) : t.muted,
+                color: t.muted,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -788,7 +782,7 @@ class RaftInlineAudio extends StatelessWidget {
                   fontSize: 12,
                   height: 16 / 12,
                   fontWeight: FontWeight.w700,
-                  color: brutal ? Colors.black.withValues(alpha: .7) : t.muted,
+                  color: t.muted,
                 ),
                 child: state == RaftInlineMediaState.loading
                     ? Row(
@@ -824,8 +818,8 @@ class RaftInlineAudio extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: brutal ? Colors.white : t.panel,
-            border: Border.all(color: line, width: brutal ? 2 : 1),
+            color: t.panel,
+            border: Border.all(color: line, width: 1),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -866,9 +860,8 @@ class RaftAudioPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final brutal = t.brutal;
-    final line = brutal ? Colors.black : t.colors['line-muted']!;
-    final strong = brutal ? Colors.black : t.strong;
+    final line = t.colors['line-muted']!;
+    final strong = t.strong;
     // Centred when the card fits; scrolls when it does not (landscape, large
     // text, a short window).
     return LayoutBuilder(
@@ -888,11 +881,9 @@ class RaftAudioPreview extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: brutal ? Colors.white : t.panel,
-                  border: Border.all(color: line, width: brutal ? 2 : 1),
-                  boxShadow: brutal
-                      ? RaftShadowSet.brutalSm
-                      : t.themeShadows.sm.outer,
+                  color: t.panel,
+                  border: Border.all(color: line, width: 1),
+                  boxShadow: t.themeShadows.sm.outer,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -908,13 +899,8 @@ class RaftAudioPreview extends StatelessWidget {
                             height: 40,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: brutal
-                                  ? t.product.softSignal
-                                  : t.colors['primary-soft'],
-                              border: Border.all(
-                                color: line,
-                                width: brutal ? 2 : 1,
-                              ),
+                              color: t.colors['primary-soft'],
+                              border: Border.all(color: line, width: 1),
                             ),
                             child: RaftIcon(
                               RaftGlyph.music,
@@ -945,9 +931,7 @@ class RaftAudioPreview extends StatelessWidget {
                                     fontSize: 12,
                                     height: 16 / 12,
                                     fontWeight: FontWeight.w700,
-                                    color: brutal
-                                        ? Colors.black.withValues(alpha: .5)
-                                        : t.muted,
+                                    color: t.muted,
                                   ),
                                 ),
                               ],
@@ -999,8 +983,7 @@ class _AudioPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final brutal = t.brutal;
-    final line = brutal ? Colors.black : t.colors['line-muted']!;
+    final line = t.colors['line-muted']!;
     final known = duration > Duration.zero;
     final bounded = known && position > duration ? duration : position;
     final progress = known
@@ -1017,7 +1000,7 @@ class _AudioPlayer extends StatelessWidget {
       key: const Key('inline-audio-player'),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: brutal ? t.colors['brutal-cream'] : t.colors['layer-inset'],
+        color: t.colors['layer-inset'],
         border: Border.all(color: line),
       ),
       child: Column(
@@ -1044,7 +1027,7 @@ class _AudioPlayer extends StatelessWidget {
                     child: RaftIcon(
                       playing ? RaftGlyph.pause : RaftGlyph.play,
                       size: 14,
-                      color: brutal ? Colors.black : t.strong,
+                      color: t.strong,
                       filled: true,
                     ),
                   ),
@@ -1062,9 +1045,7 @@ class _AudioPlayer extends StatelessWidget {
                   height: 28,
                   rail: 8,
                   thumb: 12,
-                  fill: brutal
-                      ? t.product.brutalCyan
-                      : t.colors['primary-strong']!,
+                  fill: t.colors['primary-strong']!,
                   onChanged: (v) => onSeek?.call(
                     Duration(
                       milliseconds: (v * duration.inMilliseconds).round(),
@@ -1114,9 +1095,7 @@ class _AudioPlayer extends StatelessWidget {
                     height: 24,
                     rail: 6,
                     thumb: 10,
-                    fill: brutal
-                        ? t.product.softSignal
-                        : t.colors['primary-strong']!,
+                    fill: t.colors['primary-strong']!,
                     onChanged: (v) => onVolume?.call(v),
                   ),
                 ),

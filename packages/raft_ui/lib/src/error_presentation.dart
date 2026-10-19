@@ -167,8 +167,6 @@ class RaftLoadError extends StatelessWidget {
               color: onDark
                   // ds-allow: text on the black video stage
                   ? const Color(0xBFFFFFFF)
-                  : t.brutal
-                  ? t.colors['foreground-muted']
                   : t.muted,
             ),
           ),
@@ -284,11 +282,7 @@ class _RaftToastHostState extends State<RaftToastHost> {
         widget.child,
         // The toast viewport sits above route overlays (dialogs, sheets), like
         // Web's portal. The Overlay only paints the toast.
-        Positioned.fill(
-          child: Overlay(
-            initialEntries: [_portal],
-          ),
-        ),
+        Positioned.fill(child: Overlay(initialEntries: [_portal])),
       ],
     ),
   );

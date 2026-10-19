@@ -102,9 +102,7 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
         );
     final homeRecipe = RaftSearchHomeRecipe(t);
     final searchViewport = rui.RaftSearchRecipe.resolve(
-      theme: t.brutal
-          ? rui.RaftRecipeTheme.brutal
-          : rui.RaftRecipeTheme.elegant,
+      theme: rui.RaftRecipeTheme.elegant,
       states: rui.RaftRecipeStates({
         if (t.dark) rui.RaftRecipeStates.dark,
       }, MediaQuery.sizeOf(context).width),
@@ -171,16 +169,13 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
         heading('Frequently Used', RaftGlyph.star),
         if (widget.frequent.isEmpty)
           CustomPaint(
-            foregroundPainter: RaftDashedBorderPainter(
-              homeRecipe.tagBorder,
-              t.brutal ? 2 : 1,
-            ),
+            foregroundPainter: RaftDashedBorderPainter(homeRecipe.tagBorder, 1),
             child: Container(
               width: double.infinity,
               // `px-3 py-4` inside the border box.
               padding: EdgeInsets.symmetric(
-                horizontal: 12.0 + (t.brutal ? 2 : 1),
-                vertical: 16.0 + (t.brutal ? 2 : 1),
+                horizontal: 12.0 + (1),
+                vertical: 16.0 + (1),
               ),
               child: Text(
                 raftText(

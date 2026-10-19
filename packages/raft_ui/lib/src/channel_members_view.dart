@@ -271,9 +271,7 @@ class RaftChannelMembersModal extends StatelessWidget {
       ),
     );
 
-    final eyebrowFill = t.brutal
-        ? Colors.white.withValues(alpha: .5)
-        : t.colors['fill-muted'];
+    final eyebrowFill = t.colors['fill-muted'];
     return RaftRecipeCard(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 288),
@@ -335,10 +333,7 @@ class RaftChannelMembersModal extends StatelessWidget {
     Widget eyebrow(String text) => RaftDialogSectionEyebrow(
       text,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      background: t.brutal
-          ? Colors.white.withValues(alpha: .5)
-          : t.colors['fill-muted'],
-      color: t.brutal ? Colors.black : null,
+      background: t.colors['fill-muted'],
     );
     Widget candidateRow(RaftPickerItem c) => _CandidateRow(
       key: ValueKey('add-candidate-${c.key}'),
@@ -359,12 +354,9 @@ class RaftChannelMembersModal extends StatelessWidget {
       // fills the remaining height: `min-h-0 flex-1`).
       constraints: fill ? null : const BoxConstraints(maxHeight: 288),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
-        boxShadow: t.brutal ? RaftShadowSet.brutalSm : t.themeShadows.sm.outer,
+        color: t.panel,
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
+        boxShadow: t.themeShadows.sm.outer,
       ),
       child: Column(
         mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
@@ -464,18 +456,10 @@ class RaftChannelMembersModal extends StatelessWidget {
         variant: RaftButtonRecipeVariant.primary,
         expand: true,
         gap: 6,
-        // px-3 py-1.5 text-sm font-bold; theme-brutal:bg-brutal-pink.
+        // px-3 py-1.5 text-sm font-bold.
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         textStep: RaftTextSteps.sm,
         disabled: adding || chips.isEmpty,
-        foreground: t.brutal ? Colors.black : null,
-        brutalSurface: (t, hovered) => BoxDecoration(
-          color: t.colors['color-brutal-pink'],
-          border: Border.all(color: t.colors['line-strong']!, width: 2),
-          boxShadow: hovered
-              ? t.themeShadows.md.outer
-              : t.themeShadows.sm.outer,
-        ),
         onPressed: onConfirm,
       ),
     ];
@@ -507,10 +491,8 @@ class _CandidateRowState extends State<_CandidateRow> {
     final t = RaftTokens.of(context);
     final c = widget.candidate;
     final description = c.description?.trim();
-    final fill = hovered && !widget.disabled
-        ? (t.brutal ? t.colors['color-soft-signal'] : t.colors['fill-muted'])
-        : null;
-    final ink = t.brutal ? Colors.black : t.strong;
+    final fill = hovered && !widget.disabled ? t.colors['fill-muted'] : null;
+    final ink = t.strong;
     return Semantics(
       button: true,
       toggled: widget.checked,
@@ -592,20 +574,15 @@ class _CheckMarker extends StatelessWidget {
       height: 14,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: checked
-            ? (t.brutal ? Colors.black : t.strong)
-            : (t.brutal ? Colors.white : t.panel),
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-strong']!,
-          width: t.brutal ? 2 : 1,
-        ),
+        color: checked ? t.strong : t.panel,
+        border: Border.all(color: t.colors['line-strong']!, width: 1),
       ),
       child: checked
           ? RaftIcon(
               RaftGlyph.check,
               size: 10,
               strokeWidth: 4,
-              color: t.brutal ? Colors.white : t.colors['foreground-inverse'],
+              color: t.colors['foreground-inverse'],
             )
           : null,
     );
@@ -621,18 +598,15 @@ class _CreateAgentEntry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final ink = t.brutal ? Colors.black : t.strong;
+    final ink = t.strong;
     return Opacity(
       opacity: enabled ? 1 : .5,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: t.brutal ? Colors.white : t.panel,
+          color: t.panel,
           border: Border(
-            top: BorderSide(
-              color: t.brutal ? Colors.black : t.colors['line-strong']!,
-              width: t.brutal ? 2 : 1,
-            ),
+            top: BorderSide(color: t.colors['line-strong']!, width: 1),
           ),
         ),
         child: Row(
@@ -641,8 +615,8 @@ class _CreateAgentEntry extends StatelessWidget {
               dimension: 24,
               child: CustomPaint(
                 painter: _DashedBoxPainter(
-                  color: t.brutal ? Colors.black : t.colors['line-strong']!,
-                  width: t.brutal ? 2 : 1,
+                  color: t.colors['line-strong']!,
+                  width: 1,
                 ),
                 child: Center(
                   child: RaftIcon(RaftGlyph.plus, size: 14, color: ink),
@@ -676,9 +650,7 @@ class _CreateAgentEntry extends StatelessWidget {
                     style: raftCssTextStyle(
                       family: t.headingFont,
                       step: RaftTextSteps.xs,
-                      color: t.brutal
-                          ? Colors.black.withValues(alpha: .5)
-                          : t.colors['foreground-muted'],
+                      color: t.colors['foreground-muted'],
                     ),
                   ),
                 ],
@@ -745,15 +717,10 @@ class _SelectedChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final fill = t.brutal
-        ? t.colors[agent ? 'color-brutal-cyan' : 'color-brutal-lavender']
-        : t.colors[agent ? 'info-soft' : 'accent-soft'];
+    final fill = t.colors[agent ? 'info-soft' : 'accent-soft'];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: fill,
-        border: t.brutal ? Border.all(color: Colors.black, width: 2) : null,
-      ),
+      decoration: BoxDecoration(color: fill),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -767,7 +734,7 @@ class _SelectedChip extends StatelessWidget {
                 family: t.headingFont,
                 step: RaftTextSteps.xs,
                 weight: FontWeight.w700,
-                color: t.brutal ? Colors.black : t.strong,
+                color: t.strong,
               ),
             ),
           ),
@@ -836,9 +803,7 @@ class _MembersPageState extends State<_MembersPage> {
         onPressed: m.addView ? m.onBack : m.onClose,
       ),
     );
-    final headerColor = (t.brutal
-        ? t.colors['color-soft-signal']
-        : t.colors['layer-inset'])!;
+    final headerColor = t.colors['layer-inset']!;
     return RaftStatusBarSource(
       color: headerColor,
       child: Container(
@@ -851,10 +816,7 @@ class _MembersPageState extends State<_MembersPage> {
         decoration: BoxDecoration(
           color: headerColor,
           border: Border(
-            bottom: BorderSide(
-              color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
+            bottom: BorderSide(color: t.colors['line-muted']!, width: 1),
           ),
         ),
         child: Row(
@@ -874,7 +836,7 @@ class _MembersPageState extends State<_MembersPage> {
                     family: t.bodyFont,
                     step: RaftTextSteps.base,
                     weight: FontWeight.w700,
-                    color: t.brutal ? Colors.black : t.strong,
+                    color: t.strong,
                   ),
                 ),
               ),
@@ -903,7 +865,7 @@ class _MembersPageState extends State<_MembersPage> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final total = m.humans.length + m.agents.length;
-    final paper = t.brutal ? Colors.white : t.panel;
+    final paper = t.panel;
     // Edge-to-edge: the page reaches the screen's bottom edge, so its bottom
     // controls pad themselves by the system gesture / navigation bar inset.
     final inset = raftBottomInset(context);
@@ -912,7 +874,7 @@ class _MembersPageState extends State<_MembersPage> {
       child: Material(
         color: paper,
         child: DefaultTextStyle.merge(
-          style: TextStyle(color: t.brutal ? Colors.black : t.strong),
+          style: TextStyle(color: t.strong),
           child: Column(
             key: const ValueKey('member-page'),
             children: [
@@ -959,13 +921,9 @@ class _MembersPageState extends State<_MembersPage> {
     TextStyle note() => raftCssTextStyle(
       family: t.monoFont,
       step: RaftTextSteps.sm,
-      color: t.brutal ? Colors.black.withValues(alpha: .5) : muted,
+      color: muted,
     );
-    final rule = BorderSide(
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .1)
-          : t.colors['line-muted']!,
-    );
+    final rule = BorderSide(color: t.colors['line-muted']!);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1069,10 +1027,7 @@ class _MembersPageState extends State<_MembersPage> {
             padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
             decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(
-                  color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                  width: 2,
-                ),
+                top: BorderSide(color: t.colors['line-muted']!, width: 2),
               ),
             ),
             child: RaftRecipeButton(
@@ -1118,42 +1073,31 @@ class _MemberSectionState extends State<_MemberSection> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final brutal = t.brutal;
-    final fg = brutal ? Colors.black : t.colors['foreground-icon']!;
+    final fg = t.colors['foreground-icon']!;
     final title = raftCssTextStyle(
       family: t.headingFont,
       step: RaftTextSteps.xs,
-      weight: brutal ? FontWeight.w700 : FontWeight.w500,
+      weight: FontWeight.w500,
       color: fg,
-    ).copyWith(letterSpacing: brutal ? 12 * .1 : 0);
-    final count = brutal
-        ? raftCssTextStyle(
-            family: t.monoFont,
-            step: RaftTextSteps.xs,
-            weight: FontWeight.w500,
-            color: Colors.black.withValues(alpha: .7),
-          )
-        : raftCssTextStyle(
-            family: t.bodyFont,
-            step: RaftTextSteps.xs,
-            weight: FontWeight.w500,
-            color: fg,
-          );
+    ).copyWith(letterSpacing: 0);
+    final count = raftCssTextStyle(
+      family: t.bodyFont,
+      step: RaftTextSteps.xs,
+      weight: FontWeight.w500,
+      color: fg,
+    );
     final reduce = MediaQuery.disableAnimationsOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.only(
-            top: brutal ? 12 : 16,
-            bottom: brutal ? 4 : 0,
-          ),
+          padding: EdgeInsets.only(top: 16, bottom: 0),
           // The toggle row is a minimum height: the label wraps and the row
           // grows once the text is larger than the default.
           child: RaftMinHeightBox(
-            height: brutal ? 24 : 32,
+            height: 32,
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: brutal ? 8 : 0),
+              padding: EdgeInsets.symmetric(horizontal: 0),
               child: RaftHoverRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
@@ -1171,7 +1115,7 @@ class _MemberSectionState extends State<_MemberSection> {
                             dimension: 18,
                             child: Center(
                               child: Opacity(
-                                opacity: brutal ? 1 : .55,
+                                opacity: .55,
                                 child: AnimatedRotation(
                                   turns: open ? .25 : 0,
                                   duration: reduce
@@ -1237,7 +1181,7 @@ class _MemberPageRowState extends State<_MemberPageRow> {
     final r = widget.row;
     final wide =
         MediaQuery.sizeOf(context).width >= RaftLayoutMetrics.desktopBreakpoint;
-    final ink = t.brutal ? Colors.black : t.strong;
+    final ink = t.strong;
     final tag = r.roleLabel == null
         ? null
         : RaftBadge(
@@ -1408,7 +1352,7 @@ class _RemoveMemberButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final fg = t.brutal ? Colors.black : t.colors['danger-strong']!;
+    final fg = t.colors['danger-strong']!;
     return RaftTooltip(
       message: 'Remove $label',
       child: Semantics(
@@ -1422,13 +1366,9 @@ class _RemoveMemberButton extends StatelessWidget {
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: t.brutal
-                  ? t.colors['color-brutal-red']!.withValues(alpha: .2)
-                  : t.colors['danger-soft'],
-              border: Border.all(
-                color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              ),
-              borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+              color: t.colors['danger-soft'],
+              border: Border.all(color: t.colors['line-muted']!),
+              borderRadius: BorderRadius.circular(2),
             ),
             child: RaftIcon(RaftGlyph.userMinus, size: 14, color: fg),
           ),

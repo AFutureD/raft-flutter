@@ -665,7 +665,7 @@ class RaftSideFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final line = t.brutal ? Colors.black : t.colors['line-muted']!;
+    final line = t.colors['line-muted']!;
     return Align(
       alignment: AlignmentDirectional.centerEnd,
       child: SizedBox(
@@ -674,9 +674,7 @@ class RaftSideFrame extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: t.panel,
-            border: BorderDirectional(
-              start: BorderSide(color: line, width: t.brutal ? 2 : 1),
-            ),
+            border: BorderDirectional(start: BorderSide(color: line, width: 1)),
           ),
           child: SafeArea(child: child),
         ),

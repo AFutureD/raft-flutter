@@ -36,9 +36,7 @@ class RaftAgentUnavailablePanel extends StatelessWidget {
             // `iconBg="bg-fill-muted theme-brutal:bg-gray-200"`
             iconSlot: RaftPanelHeaderIconTile(
               glyph: RaftGlyph.bot,
-              background: t.brutal
-                  ? const Color(0xFFE5E7EB)
-                  : t.colors['fill-muted']!,
+              background: t.colors['fill-muted']!,
             ),
             actions: [
               if (onClose != null && wide)

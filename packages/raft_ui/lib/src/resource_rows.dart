@@ -34,34 +34,26 @@ class RaftSavedItemMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final black = t.colors['color-black']!;
     final muted = t.colors['foreground-muted']!;
-    TextStyle meta(Color brutal, Color elegant) => RaftTypography.body(
+    TextStyle meta(Color color) => RaftTypography.body(
       t,
       size: 12,
       line: 16,
       weight: FontWeight.w700,
-      color: t.brutal ? brutal : elegant,
+      color: color,
     );
     return RaftFlexShrinkRow(
       gap: 8, // gap-2
       children: [
-        Text(channelLabel, style: meta(black.withValues(alpha: .5), muted)),
+        Text(channelLabel, style: meta(muted)),
         if (thread)
           Row(
             mainAxisSize: MainAxisSize.min,
             spacing: 4, // gap-1
             children: [
-              RaftIcon(
-                RaftGlyph.messageSquare,
-                size: 10,
-                color: t.brutal ? black.withValues(alpha: .4) : muted,
-              ),
+              RaftIcon(RaftGlyph.messageSquare, size: 10, color: muted),
               Flexible(
-                child: Text(
-                  raftText(context, 'Thread'),
-                  style: meta(black.withValues(alpha: .4), muted),
-                ),
+                child: Text(raftText(context, 'Thread'), style: meta(muted)),
               ),
             ],
           ),
@@ -74,19 +66,14 @@ class RaftSavedItemMeta extends StatelessWidget {
               Flexible(
                 child: Text(
                   sender,
-                  style: meta(black, t.colors['foreground-strong']!),
+                  style: meta(t.colors['foreground-strong']!),
                 ),
               ),
             ],
           ),
         Text(
           time,
-          style: RaftTypography.mono(
-            t,
-            size: 12,
-            line: 16,
-            color: t.brutal ? black.withValues(alpha: .4) : muted,
-          ),
+          style: RaftTypography.mono(t, size: 12, line: 16, color: muted),
         ),
       ],
     );
@@ -110,7 +97,7 @@ class _RaftSavedToggleState extends State<RaftSavedToggle> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), rt = RaftRecipeTokens(t);
     final base = RaftPanelToggleActionRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      theme: RaftRecipeTheme.elegant,
       states: RaftRecipeStates({
         'data-pressed',
         if (hovered) RaftRecipeStates.hover,
@@ -137,22 +124,11 @@ class _RaftSavedToggleState extends State<RaftSavedToggle> {
             offset: base.translate ?? Offset.zero,
             child: Container(
               padding: base.padding,
-              decoration: base
-                  .decoration(rt)
-                  .copyWith(
-                    color: t.brutal
-                        ? Color.alphaBlend(
-                            pressedFill,
-                            t.colors['color-white']!,
-                          )
-                        : pressedFill,
-                  ),
+              decoration: base.decoration(rt).copyWith(color: pressedFill),
               child: RaftIcon(
                 RaftGlyph.bookmarkFilled,
                 size: svg?.width ?? 14,
-                color: t.brutal
-                    ? t.colors['color-brutal-orange']!
-                    : t.colors['accent-strong']!,
+                color: t.colors['accent-strong']!,
               ),
             ),
           ),
@@ -232,7 +208,7 @@ class RaftResourceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), rt = RaftRecipeTokens(t);
     final root = RaftBadgeRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      theme: RaftRecipeTheme.elegant,
       appearance: appearance,
       variant: variant,
       states: RaftRecipeStates({
@@ -262,11 +238,7 @@ class RaftResourceBadge extends StatelessWidget {
       // paints the same capsule at any height.
       decoration: root
           .decoration(rt)
-          .copyWith(
-            borderRadius: t.brutal
-                ? root.borderRadius
-                : BorderRadius.circular(9999),
-          ),
+          .copyWith(borderRadius: BorderRadius.circular(9999)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         spacing: root.columnGap ?? 4,

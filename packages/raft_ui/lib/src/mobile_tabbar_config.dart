@@ -105,9 +105,7 @@ class RaftMobileTabbarConfigView extends StatelessWidget {
     final t = RaftTokens.of(context), text = RaftSettingsText(t);
     final divider = Colors.black.withValues(alpha: .1);
     final ordered = [for (final id in config.order) _tab(id)];
-    final warn = t.brutal
-        ? t.colors['color-brutal-orange']
-        : t.colors['warning-strong'];
+    final warn = t.colors['warning-strong'];
 
     Widget row(int index, RaftMobileTabOption tab) {
       final on = config.enabled.contains(tab.id);
@@ -183,7 +181,7 @@ class RaftMobileTabbarConfigView extends StatelessWidget {
       selectedId: config.visible.firstOrNull ?? settingsTab.id,
       // Keep the capsule's shadow clearance; the dock owns the actual
       // system inset, including navigation bars taller than this gap.
-      bottomInset: RaftTokens.of(context).brutal ? 0 : 16,
+      bottomInset: 16,
       viewportHeight: viewportHeight,
       onSelected: (_) {},
       items: [
@@ -226,9 +224,7 @@ class RaftMobileTabbarConfigView extends StatelessWidget {
                     t,
                     size: 12,
                     line: 16,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .4)
-                        : t.colors['foreground-placeholder'],
+                    color: t.colors['foreground-placeholder'],
                   ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 1.2),
                 ),
               ),
@@ -355,10 +351,8 @@ class _PreviewDock extends StatelessWidget {
     final t = RaftTokens.of(context);
     return RaftBottomInsetSurface(
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
-        border: t.brutal
-            ? null
-            : Border(top: BorderSide(color: t.colors['line-muted']!)),
+        color: t.panel,
+        border: Border(top: BorderSide(color: t.colors['line-muted']!)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -366,10 +360,7 @@ class _PreviewDock extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: RaftSettingsSectionHeader(
-              label: 'Preview',
-              bottom: t.brutal ? 12 : 4,
-            ),
+            child: RaftSettingsSectionHeader(label: 'Preview', bottom: 4),
           ),
           IgnorePointer(
             child: ExcludeSemantics(

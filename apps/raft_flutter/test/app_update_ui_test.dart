@@ -274,14 +274,7 @@ void main() {
         t.element(find.byType(WorkspaceMobileTabBar)),
       );
       final tab = find.byKey(const Key('mobile-tab-settings'));
-      expect(
-        _fills(tab),
-        contains(
-          tokens.brutal
-              ? tokens.colors['color-brutal-pink']
-              : tokens.accentFill,
-        ),
-      );
+      expect(_fills(tab), contains(tokens.accentFill));
       expect(_fills(tab), isNot(contains(tokens.semantic.danger)));
       update.markSeen();
       await t.pumpAndSettle();

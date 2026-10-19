@@ -90,9 +90,7 @@ void main() {
           await mouse.addPointer(location: Offset.zero);
           await mouse.moveTo(t.getCenter(find.byKey(row)));
           await t.pumpAndSettle();
-          final selectedFill = tokens.brutal
-              ? tokens.colors['color-brutal-pink']!
-              : tokens.colors['fill-muted']!;
+          final selectedFill = tokens.colors['fill-muted']!;
           // The blank interior raster catches actual opaque hover/gradient paint.
           expect(await sample(t), selectedFill);
           AnimatedContainer face() => t.widget<AnimatedContainer>(
@@ -103,16 +101,13 @@ void main() {
           );
           final decoration = face().decoration! as BoxDecoration;
           expect(decoration.color, selectedFill);
-          expect(
-            decoration.borderRadius,
-            BorderRadius.circular(tokens.brutal ? 0 : 6),
-          );
+          expect(decoration.borderRadius, BorderRadius.circular(6));
           expect(
             t.widget<Text>(find.text('Owned conversation')).style!.color,
             // Source Sidebar.tsx3754 supplies inherited Brutalist black;
             // DmRow's title at 1001 adds no text-color override.
             // Ordinary channel rendering remains independently asserted here.
-            tokens.brutal ? Colors.black : tokens.colors['foreground-strong'],
+            tokens.colors['foreground-strong'],
           );
           final overlays = t.widgetList<DecoratedBox>(
             find.descendant(
@@ -128,9 +123,7 @@ void main() {
             ),
             isFalse,
           );
-          if (!tokens.brutal) {
-            expect(decoration.boxShadow, isEmpty);
-          }
+          expect(decoration.boxShadow, isEmpty);
           final bounds = t.getRect(find.byKey(row));
           await mouse.down(t.getCenter(find.byKey(row)));
           await t.pumpAndSettle();
@@ -141,9 +134,7 @@ void main() {
           expect(activations, 0);
           update(() => selected = false);
           await t.pumpAndSettle();
-          final hoverFill = tokens.brutal
-              ? Colors.white
-              : tokens.dark
+          final hoverFill = tokens.dark
               ? tokens.colors['ink-6']!
               : tokens.colors['fill-strong']!.withValues(alpha: .8);
           expect((face().decoration! as BoxDecoration).color, hoverFill);

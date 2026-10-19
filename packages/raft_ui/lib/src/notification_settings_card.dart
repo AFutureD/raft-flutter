@@ -57,11 +57,8 @@ class RaftNotificationSettingsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: t.colors[t.brutal ? 'color-soft-signal' : 'primary-soft'],
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-strong']!,
-          width: t.brutal ? 2 : 1,
-        ),
+        color: t.colors['primary-soft'],
+        border: Border.all(color: t.colors['line-strong']!, width: 1),
       ),
       child: Text(
         raftText(context, label),
@@ -75,7 +72,7 @@ class RaftNotificationSettingsCard extends StatelessWidget {
           height: 1.5,
           fontWeight: FontWeight.w700,
           letterSpacing: 0,
-          color: t.brutal ? Colors.black : t.colors['primary-strong'],
+          color: t.colors['primary-strong'],
         ),
       ),
     );
@@ -103,9 +100,7 @@ class RaftNotificationSettingsCard extends StatelessWidget {
         RaftSettingsSectionHeader(label: sectionLabel, glyph: RaftGlyph.bell),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: RaftSettingsCard.decoration(
-            t,
-          ).copyWith(color: t.brutal ? Colors.white : t.card),
+          decoration: RaftSettingsCard.decoration(t).copyWith(color: t.card),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -186,23 +181,17 @@ class RaftNotificationSettingsCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: t.brutal
-                          ? t.colors['color-brutal-lime']!.withValues(alpha: .3)
-                          : t.colors['success-soft'],
+                      color: t.colors['success-soft'],
                       border: Border.all(
-                        color: t.brutal
-                            ? Colors.black
-                            : t.colors['line-muted']!,
-                        width: t.brutal ? 2 : 1,
+                        color: t.colors['line-muted']!,
+                        width: 1,
                       ),
                     ),
                     child: Text(
                       message!,
                       style: hintStyle.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: t.brutal
-                            ? Colors.black
-                            : t.colors['success-strong'],
+                        color: t.colors['success-strong'],
                       ),
                     ),
                   ),
@@ -225,12 +214,7 @@ class RaftNotificationSettingsCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 12),
                   decoration: BoxDecoration(
                     border: Border(
-                      top: BorderSide(
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .2)
-                            : t.colors['line-muted']!,
-                        width: 2,
-                      ),
+                      top: BorderSide(color: t.colors['line-muted']!, width: 2),
                     ),
                   ),
                   child: Column(

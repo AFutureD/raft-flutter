@@ -199,31 +199,16 @@ class SourceChannelFilesRecipe {
       actionBreakpoint;
   double get fetchRemainingExtent => 320;
   double get textGap => 4;
-  Color get background => tokens.brutal
-      ? Colors.white
-      : tokens.dark
-      ? Colors.transparent
-      : tokens.panel;
-  Color get rowBackground =>
-      tokens.brutal ? Colors.white : tokens.colors['layer-card']!;
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 8);
+  Color get background => tokens.dark ? Colors.transparent : tokens.panel;
+  Color get rowBackground => tokens.colors['layer-card']!;
+  BorderRadius get radius => BorderRadius.circular(8);
   BorderSide border(bool hovered) => BorderSide(
-    color: tokens.brutal
-        ? Colors.black
-        : tokens.dark
+    color: tokens.dark
         ? Colors.transparent
         : tokens.colors[hovered ? 'line-strong' : 'line-muted']!,
-    width: tokens.brutal ? 2 : .5,
+    width: .5,
   );
   List<BoxShadow> shadows(bool hovered) {
-    if (tokens.brutal) {
-      return [
-        BoxShadow(
-          color: tokens.strong,
-          offset: Offset(hovered ? 2 : 4, hovered ? 2 : 4),
-        ),
-      ];
-    }
     if (tokens.dark) {
       return hovered
           ? [
@@ -289,14 +274,10 @@ class SourceChannelFilesRecipe {
     size: 14,
     line: 20,
     weight: FontWeight.w700,
-    color: tokens.brutal ? Colors.black : tokens.strong,
+    color: tokens.strong,
   );
-  TextStyle get metadata => RaftTypography.mono(
-    tokens,
-    size: 12,
-    line: 16,
-    color: tokens.brutal ? Colors.black.withValues(alpha: .5) : tokens.muted,
-  );
+  TextStyle get metadata =>
+      RaftTypography.mono(tokens, size: 12, line: 16, color: tokens.muted);
 }
 
 class SourceChannelFilesProjectionView extends StatelessWidget {
@@ -642,11 +623,8 @@ class _FileRowState extends State<SourceChannelFileRow> {
       width: recipe.thumbnailSize,
       height: recipe.thumbnailSize,
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.colors['layer-card'],
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
+        color: t.colors['layer-card'],
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
       ),
       clipBehavior: Clip.hardEdge,
       child: Stack(

@@ -234,13 +234,9 @@ class _Popover extends StatelessWidget {
       fontSize: 12,
       height: 16 / 12,
       fontWeight: FontWeight.w700,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .45)
-          : t.colors['foreground-placeholder'],
+      color: t.colors['foreground-placeholder'],
     );
-    final muted = placeholder.copyWith(
-      color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
-    );
+    final muted = placeholder.copyWith(color: t.muted);
     Widget status(Widget child) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
       child: Center(child: child),
@@ -304,10 +300,10 @@ class _Popover extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: t.brutal ? t.product.brutalCream : t.panel,
+                  color: t.panel,
                   border: Border(
                     bottom: BorderSide(
-                      color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                      color: t.colors['line-muted']!,
                       width: 2,
                     ),
                   ),
@@ -319,7 +315,7 @@ class _Popover extends StatelessWidget {
                     fontSize: 14,
                     height: 20 / 14,
                     fontWeight: FontWeight.w700,
-                    color: t.brutal ? Colors.black : t.strong,
+                    color: t.strong,
                   ),
                 ),
               ),
@@ -393,7 +389,7 @@ class _FollowerRowState extends State<_FollowerRow> {
                                     fontSize: 14,
                                     height: 20 / 14,
                                     fontWeight: FontWeight.w500,
-                                    color: t.brutal ? Colors.black : t.strong,
+                                    color: t.strong,
                                   ),
                                 ),
                               ),
@@ -416,9 +412,7 @@ class _FollowerRowState extends State<_FollowerRow> {
                               fontFamily: t.monoFont,
                               fontSize: 12,
                               height: 16 / 12,
-                              color: t.brutal
-                                  ? Colors.black.withValues(alpha: .6)
-                                  : t.muted,
+                              color: t.muted,
                             ),
                           ),
                         ],

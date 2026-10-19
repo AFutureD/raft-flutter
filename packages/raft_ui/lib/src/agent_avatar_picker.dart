@@ -124,11 +124,7 @@ class RaftAgentAvatarPicker extends StatelessWidget {
                                       child: RaftIcon(
                                         RaftGlyph.upload,
                                         size: 16,
-                                        color: raftPanelInk(
-                                          t,
-                                          .6,
-                                          t.colors['foreground-muted']!,
-                                        ),
+                                        color: t.colors['foreground-muted']!,
                                       ),
                                     ),
                                     for (final key in raftAgentAvatarChoices)
@@ -216,15 +212,11 @@ class _AvatarChoiceState extends State<_AvatarChoice> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final color = widget.selected
-        ? (t.brutal ? t.product.brutalPink : t.colors['accent']!)
+        ? (t.colors['accent']!)
         : hovered
         ? t.colors['line-strong']!
         : t.colors['line-muted']!;
-    final fill = widget.selected
-        ? (t.brutal
-              ? t.product.brutalPink.withValues(alpha: .2)
-              : t.colors['accent-soft']!)
-        : null;
+    final fill = widget.selected ? (t.colors['accent-soft']!) : null;
     return RaftTooltip(
       message: widget.label,
       child: FocusableActionDetector(
@@ -253,11 +245,8 @@ class _AvatarChoiceState extends State<_AvatarChoice> {
                 height: 40,
                 decoration: RaftCssBoxDecoration(
                   color: fill,
-                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-                  border: Border.all(
-                    color: t.brutal && !widget.selected ? Colors.black : color,
-                    width: t.brutal ? 2 : 1,
-                  ),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: color, width: 1),
                   boxShadow: focused
                       ? [
                           BoxShadow(

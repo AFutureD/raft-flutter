@@ -3,6 +3,7 @@
 // app passes the error text and the reload action.
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
 import 'raft_selection_area.dart';
 
 import 'components.dart';
@@ -11,7 +12,6 @@ import 'design_primitives.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
-import 'tokens/shadows.g.dart' show RaftProductShadows;
 
 /// RootErrorFallback: a `RootFallbackScroller` (full size, vertical scroll)
 /// holding a `min-h-full` centred column (`bg-layer-canvas p-6 safe-top
@@ -50,22 +50,16 @@ class RaftRootErrorFallback extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final safe = MediaQuery.paddingOf(context);
-    final black = const Color(0xFF000000);
     final hasStack = stack != null && stack!.isNotEmpty;
     final hasComponents = componentStack != null && componentStack!.isNotEmpty;
     final card = Container(
       key: const ValueKey('root-error-card'),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: t.brutal ? const Color(0xFFFFFFFF) : t.panel,
-        border: Border.all(
-          color: t.brutal ? black : t.semantic.lineMuted,
-          width: t.border,
-        ),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-        boxShadow: t.brutal
-            ? RaftProductShadows.shadowBrutal.paintOrder
-            : t.themeShadows.lg.paintOrder,
+        color: t.panel,
+        border: Border.all(color: t.semantic.lineMuted, width: t.border),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: t.themeShadows.lg.paintOrder,
       ),
       child: Semantics(
         container: true,
@@ -79,16 +73,15 @@ class RaftRootErrorFallback extends StatelessWidget {
             // `has-[+content]:pb-0`).
             Container(
               decoration: BoxDecoration(
-                color: t.brutal ? t.product.softSignal : null,
                 border: Border(
                   bottom: BorderSide(
-                    color: t.brutal ? black : t.semantic.lineMuted,
+                    color: t.semantic.lineMuted,
                     width: t.border,
                   ),
                 ),
               ),
               child: Padding(
-                padding: EdgeInsets.fromLTRB(24, 16, 24, t.brutal ? 16 : 0),
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
                 child: Semantics(
                   header: true,
                   child: Text(
@@ -97,7 +90,7 @@ class RaftRootErrorFallback extends StatelessWidget {
                       t,
                       size: 20,
                       line: 28,
-                      color: t.brutal ? black : t.strong,
+                      color: t.strong,
                     ),
                   ),
                 ),
@@ -153,7 +146,7 @@ class RaftRootErrorFallback extends StatelessWidget {
       ),
     );
     return Material(
-      color: t.brutal ? t.product.brutalCream : t.canvas,
+      color: t.canvas,
       child: DefaultTextStyle.merge(
         style: TextStyle(
           fontFamily: t.headingFont,
@@ -178,7 +171,9 @@ class RaftRootErrorFallback extends StatelessWidget {
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 672),
-                    child: RaftCssPixelSnap(child: RaftSelectionArea(child: card)),
+                    child: RaftCssPixelSnap(
+                      child: RaftSelectionArea(child: card),
+                    ),
                   ),
                 ),
               ),
@@ -192,16 +187,12 @@ class RaftRootErrorFallback extends StatelessWidget {
 
 double _snapLine(BuildContext context, RaftTokens t, double line) {
   final dpr = MediaQuery.devicePixelRatioOf(context);
-  if (!t.brutal && dpr > 1) return line;
-  return (t.brutal ? (line * dpr).floor() : (line * dpr).ceil()) / dpr;
+  if (dpr > 1) return line;
+  return (line * dpr).ceil() / dpr;
 }
 
-TextStyle _mono(RaftTokens t, double size, double line) => RaftTypography.mono(
-  t,
-  size: size,
-  line: line,
-  color: t.brutal ? const Color(0xFF000000) : t.strong,
-);
+TextStyle _mono(RaftTokens t, double size, double line) =>
+    RaftTypography.mono(t, size: size, line: line, color: t.strong);
 
 /// `mb-4 rounded-md border border-line-muted bg-layer-inset p-3` (brutal:
 /// `border-2 border-black bg-white`).
@@ -216,11 +207,8 @@ class _ErrorBox extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: t.brutal ? const Color(0xFFFFFFFF) : t.semantic.layerInset,
-          border: Border.all(
-            color: t.brutal ? const Color(0xFF000000) : t.semantic.lineMuted,
-            width: t.border,
-          ),
+          color: t.semantic.layerInset,
+          border: Border.all(color: t.semantic.lineMuted, width: t.border),
           borderRadius: BorderRadius.circular(6),
         ),
         padding: const EdgeInsets.all(12),
@@ -258,7 +246,6 @@ class _ErrorDisclosureState extends State<_ErrorDisclosure> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final black = const Color(0xFF000000);
     return _ErrorBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -276,10 +263,7 @@ class _ErrorDisclosureState extends State<_ErrorDisclosure> {
                     width: 13,
                     height: 16,
                     child: CustomPaint(
-                      painter: _DisclosureMarker(
-                        open: open,
-                        color: t.brutal ? black : t.strong,
-                      ),
+                      painter: _DisclosureMarker(open: open, color: t.strong),
                     ),
                   ),
                   Expanded(
@@ -289,7 +273,7 @@ class _ErrorDisclosureState extends State<_ErrorDisclosure> {
                         t,
                         size: 12,
                         line: 16,
-                        color: t.brutal ? black : t.strong,
+                        color: t.strong,
                       ),
                     ),
                   ),

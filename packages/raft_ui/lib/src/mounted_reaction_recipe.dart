@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'design_primitives.dart';
 import 'hover_card.dart';
 import 'localization.dart';
-import 'panel_layout.dart' show raftPanelInk;
 import 'popover_surface.dart';
 import 'recipe_surface.dart' show raftCssText;
-import 'tokens/tokens.dart';
 import 'theme.dart';
 import 'icons.dart';
 
@@ -26,15 +24,13 @@ class RaftMountedReactionRecipe extends RaftControlRecipe {
   @override
   double get focusOutlineOffset => 2;
   @override
-  Color get focusRing =>
-      tokens.brutal ? Colors.black : tokens.colors['line-strong']!;
+  Color get focusRing => tokens.colors['line-strong']!;
   @override
   BorderRadius get radius => BorderRadius.circular(4);
   @override
   EdgeInsets get padding => const EdgeInsets.symmetric(horizontal: 6);
   @override
-  Color get foreground =>
-      tokens.brutal ? RaftPrimitiveColors.black : tokens.strong;
+  Color get foreground => tokens.strong;
   @override
   Color foregroundFor({bool hovered = false}) => foreground;
   @override
@@ -43,13 +39,8 @@ class RaftMountedReactionRecipe extends RaftControlRecipe {
   Color backgroundFor({bool hovered = false}) {
     if (hovered)
       return reacted ? tokens.accentSoft : tokens.colors['fill-muted']!;
-    if (failure)
-      return tokens.colors[tokens.brutal ? 'color-brutal-orange' : 'warning']!
-          .withValues(alpha: .3);
-    if (reacted)
-      return tokens.brutal
-          ? tokens.colors['color-brutal-pink']!.withValues(alpha: .2)
-          : tokens.accentSoft;
+    if (failure) return tokens.colors['warning']!.withValues(alpha: .3);
+    if (reacted) return tokens.accentSoft;
     final fill = tokens.colors['fill-muted']!;
     return fill.withValues(alpha: fill.a * .4);
   }
@@ -253,9 +244,8 @@ class RaftMountedReactionAdd extends StatelessWidget {
 class _ReactionAddRecipe extends RaftMountedReactionRecipe {
   const _ReactionAddRecipe(super.tokens);
   @override
-  Color backgroundFor({bool hovered = false}) => tokens.brutal
-      ? Colors.black.withValues(alpha: hovered ? .08 : .03)
-      : super.backgroundFor(hovered: hovered);
+  Color backgroundFor({bool hovered = false}) =>
+      super.backgroundFor(hovered: hovered);
   @override
   Color backgroundForInteraction({
     bool hovered = false,
@@ -321,7 +311,7 @@ class RaftReactionReactors extends StatelessWidget {
         size: 12,
         line: 20,
         weight: FontWeight.w700,
-        color: t.brutal ? Colors.black : t.colors['foreground-strong']!,
+        color: t.colors['foreground-strong']!,
       ),
     );
     final Widget body;
@@ -352,11 +342,7 @@ class RaftReactionReactors extends StatelessWidget {
                     Text(
                       ', ',
                       style: style.copyWith(
-                        color: raftPanelInk(
-                          t,
-                          .45,
-                          t.colors['foreground-placeholder']!,
-                        ),
+                        color: t.colors['foreground-placeholder']!,
                       ),
                     ),
                 ],
@@ -364,9 +350,7 @@ class RaftReactionReactors extends StatelessWidget {
             if (hiddenCount > 0)
               Text(
                 raftFormat(context, '+{count} more', {'count': hiddenCount}),
-                style: style.copyWith(
-                  color: raftPanelInk(t, .5, t.colors['foreground-muted']!),
-                ),
+                style: style.copyWith(color: t.colors['foreground-muted']!),
               ),
           ],
         ),

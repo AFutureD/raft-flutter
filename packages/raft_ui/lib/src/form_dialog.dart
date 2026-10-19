@@ -210,7 +210,7 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
                   t,
                   size: 14,
                   line: 20,
-                  weight: t.brutal ? FontWeight.w700 : FontWeight.w500,
+                  weight: FontWeight.w500,
                 ),
               ),
             ),

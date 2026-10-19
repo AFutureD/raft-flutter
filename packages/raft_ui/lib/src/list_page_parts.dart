@@ -87,7 +87,7 @@ class RaftSearchHomeAction extends StatelessWidget {
               fontSize: 11,
               height: 16.5 / 11,
               fontWeight: FontWeight.w700,
-              color: t.brutal ? t.strong.withValues(alpha: .45) : t.muted,
+              color: t.muted,
             ),
           ),
         ),
@@ -120,11 +120,7 @@ class RaftSelectionPopoverHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
       ),
       child: Row(
         children: [
@@ -152,11 +148,7 @@ class RaftSelectionPopoverSearchSlot extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
       ),
       child: child,
     );
@@ -182,14 +174,9 @@ class RaftTaskLoadingList extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: t.brutal ? Colors.white : t.card,
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 4),
-                border: Border.all(
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .3)
-                      : t.colors['line-muted']!,
-                  width: t.brutal ? 2 : 1,
-                ),
+                color: t.card,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: t.colors['line-muted']!, width: 1),
               ),
               child: const RaftSkeletonRow(lineFractions: [.5, .75]),
             ),

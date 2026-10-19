@@ -124,10 +124,8 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 640;
-    final brutal = t.brutal;
     final hint = t.colors['foreground-hint']!;
     final placeholder = t.colors['foreground-placeholder']!;
-    Color black(double a) => Colors.black.withValues(alpha: a);
     TextStyle style({
       required double size,
       required double line,
@@ -148,8 +146,8 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
     final channel = style(
       size: 11,
       line: 16,
-      weight: brutal ? FontWeight.w700 : FontWeight.w500,
-      color: brutal ? black(.7) : placeholder,
+      weight: FontWeight.w500,
+      color: placeholder,
     );
     final channelBold = channel.copyWith(
       fontWeight: FontWeight.w700,
@@ -159,29 +157,29 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
     final name = style(
       size: 12,
       line: 12,
-      weight: brutal ? FontWeight.w700 : FontWeight.w500,
-      color: brutal ? black(.7) : t.ink,
+      weight: FontWeight.w500,
+      color: t.ink,
     ).copyWith(fontWeight: FontWeight.w700, color: t.strong);
     final meta = style(
-      size: brutal ? 10 : 11,
-      line: brutal ? 12 : 16,
+      size: 11,
+      line: 16,
       weight: FontWeight.w400,
-      color: brutal ? black(.4) : t.muted,
+      color: t.muted,
       mono: true,
     ).copyWith(color: hint);
     final stamp =
         style(
-          size: brutal ? 11 : 11,
+          size: 11,
           line: 16,
           weight: FontWeight.w400,
-          color: brutal ? black(.4) : placeholder,
-          mono: brutal,
-          tabular: !brutal,
+          color: placeholder,
+          mono: false,
+          tabular: true,
         ).copyWith(
           fontSize: 10,
           // `text-[10px]`: Brutal resolves 1.4286 (14.29px); Elegant inherits the
           // content's `leading-5.25` (21px), which also sets the header height.
-          height: brutal ? 20 / 14 : 2.1,
+          height: 2.1,
           color: hint,
           fontFamily: t.monoFont,
         );
@@ -192,12 +190,8 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
       weight: FontWeight.w400,
       color: t.strong,
     );
-    final borderColor = brutal
-        ? black(hovered ? .3 : .15)
-        : t.colors[hovered ? 'line-strong' : 'line-muted']!;
-    final surface = brutal
-        ? (hovered ? black(.05) : Colors.white)
-        : (hovered ? t.colors['fill-muted']! : t.panel);
+    final borderColor = t.colors[hovered ? 'line-strong' : 'line-muted']!;
+    final surface = (hovered ? t.colors['fill-muted']! : t.panel);
     final dot = Text('·', style: channel.copyWith(color: hint));
     final header = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,17 +248,13 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
                     RaftIcon(
                       RaftGlyph.messageSquare,
                       size: 10,
-                      color: brutal
-                          ? t.product.brutalPink
-                          : t.colors['accent-strong'],
+                      color: t.colors['accent-strong'],
                     ),
                     Text(
                       raftTextZh(context, 'Thread', '消息列'),
                       style: channel.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: brutal
-                            ? t.product.brutalPink
-                            : t.colors['accent-strong'],
+                        color: t.colors['accent-strong'],
                       ),
                     ),
                   ],
@@ -303,21 +293,11 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: brutal ? 6 : 8,
-                  vertical: brutal ? 2 : 4,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: brutal
-                      ? t.product.brutalLavender
-                      : t.dark
-                      ? t.colors['fill-muted']
-                      : t.panel,
-                  border: Border.all(
-                    color: brutal ? Colors.black : t.colors['line-muted']!,
-                    width: brutal ? 1.5 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(brutal ? 0 : 4),
+                  color: t.dark ? t.colors['fill-muted'] : t.panel,
+                  border: Border.all(color: t.colors['line-muted']!, width: 1),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 // `<Tag className="font-mono text-[10px] font-bold">` inside.
                 child: RaftBadge(
@@ -329,45 +309,22 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
               ),
             ),
           );
-    final hPad = brutal ? (wide ? 12.0 : 10.0) : 14.0;
-    final headerBox = brutal
-        ? Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: hPad,
-              vertical: wide ? 10 : 8,
-            ),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: black(.15))),
-            ),
-            child: header,
-          )
-        : Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            child: header,
-          );
-    final contentBox = brutal
-        ? Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: wide ? 12 : 10,
-              vertical: wide ? 12 : 10,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [body, ?attachment],
-            ),
-          )
-        : Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: BoxDecoration(
-              color: t.panel,
-              border: Border.all(color: t.colors['line-muted']!),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [body, ?attachment],
-            ),
-          );
+    final headerBox = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: header,
+    );
+    final contentBox = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: t.panel,
+        border: Border.all(color: t.colors['line-muted']!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [body, ?attachment],
+      ),
+    );
     return RaftHoverRegion(
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
@@ -384,7 +341,7 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
             decoration: BoxDecoration(
               color: surface,
               border: Border.all(color: borderColor),
-              borderRadius: BorderRadius.circular(brutal ? 0 : 8),
+              borderRadius: BorderRadius.circular(8),
             ),
             padding: EdgeInsets.symmetric(
               horizontal: wide ? 12 : 10,

@@ -4,11 +4,7 @@ import 'composer_recipe.dart';
 import 'composer_tool_button.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart'
-    show
-        RaftRecipeButton,
-        RaftRecipeCard,
-        RaftRecipeSegmentedControl,
-        RaftShadowSet;
+    show RaftRecipeButton, RaftRecipeCard, RaftRecipeSegmentedControl;
 import 'icons.dart';
 import 'localization.dart';
 import 'markdown_editing.dart';
@@ -290,8 +286,7 @@ class RaftComposerFormatToolbar extends StatelessWidget {
   }
 }
 
-Color _ruleColor(RaftTokens t) =>
-    t.brutal ? Colors.black : t.colors['line-muted']!;
+Color _ruleColor(RaftTokens t) => t.colors['line-muted']!;
 
 class _Rule extends StatelessWidget {
   const _Rule({super.key, this.vertical = false});
@@ -299,7 +294,7 @@ class _Rule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final w = t.brutal ? 2.0 : 1.0;
+    final w = 1.0;
     return vertical
         ? SizedBox(
             width: w,
@@ -484,12 +479,7 @@ class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
       glyph: RaftGlyph.minimize2,
       tooltip: raftText(context, 'Collapse editor'),
       onPressed: widget.onCollapse,
-      foreground: t.brutal ? Colors.black : t.colors['foreground-muted'],
-      brutalSurface: (t, hovered) => BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.black, width: 2),
-        boxShadow: RaftShadowSet.brutalSm,
-      ),
+      foreground: t.colors['foreground-muted'],
     );
 
     if (!phone) {

@@ -29,9 +29,8 @@ class RaftSidebarSectionRecipe {
   /// layout inflation inside the sidebar).
   double get targetSize => RaftSidebarSectionMetrics.headerHeight;
   EdgeInsets get inset => const EdgeInsets.fromLTRB(8, 12, 8, 4);
-  Color get foreground => tokens.brutal ? Colors.black : tokens.strong;
-  Color get hoverForeground =>
-      tokens.brutal ? Colors.black.withValues(alpha: .7) : tokens.muted;
+  Color get foreground => tokens.strong;
+  Color get hoverForeground => tokens.muted;
   // The row inherits the host's heading face (Inter in Elegant, Hanken in
   // Brutal): `button { font: inherit }` under `main.font-display`.
   TextStyle get title => RaftTypography.heading(tokens, size: 12, line: 16);
@@ -39,9 +38,7 @@ class RaftSidebarSectionRecipe {
     tokens,
     size: 12,
     line: 16,
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .4)
-        : tokens.colors['foreground-placeholder'],
+    color: tokens.colors['foreground-placeholder'],
   ).copyWith(fontWeight: FontWeight.w700);
 }
 
@@ -204,13 +201,10 @@ class _DisclosureRecipe extends RaftControlRecipe {
   @override
   bool get transformsOnInteraction => false;
   @override
-  Color get foreground => tokens.brutal ? Colors.black : tokens.strong;
+  Color get foreground => tokens.strong;
   @override
-  Color foregroundFor({bool hovered = false}) => hovered
-      ? tokens.brutal
-            ? Colors.black.withValues(alpha: .7)
-            : tokens.muted
-      : foreground;
+  Color foregroundFor({bool hovered = false}) =>
+      hovered ? tokens.muted : foreground;
   @override
   Color get background => Colors.transparent;
   @override
@@ -230,14 +224,7 @@ class _DisclosureRecipe extends RaftControlRecipe {
     bool hovered = false,
     bool pressed = false,
     bool focused = false,
-  }) => focused
-      ? [
-          BoxShadow(
-            color: tokens.brutal ? Colors.black : tokens.line,
-            spreadRadius: 2,
-          ),
-        ]
-      : const [];
+  }) => focused ? [BoxShadow(color: tokens.line, spreadRadius: 2)] : const [];
 }
 
 /// Product btn-flat-sm: no border, shadow or transform; visible keyboard focus.

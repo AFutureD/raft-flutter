@@ -95,10 +95,7 @@ void main() {
           );
           // Web TasksPanel header: h-panel-header (62 Brutal / 56 Elegant /
           // 48 short viewports), px-5, Brutal soft-signal fill.
-          expect(
-            recipe.height,
-            size.height <= 600 ? 48 : (RaftTokens.of(context).brutal ? 62 : 56),
-          );
+          expect(recipe.height, size.height <= 600 ? 48 : (56));
           expect(tester.widget<Text>(find.text('Tasks')).style!.fontSize, 16);
           expect(
             tester.widget<Text>(find.text('4 channel tasks')).style!.fontSize,

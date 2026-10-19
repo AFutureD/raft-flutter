@@ -165,11 +165,9 @@ class _RaftComboboxPanelState extends State<RaftComboboxPanel> {
                       disabledBorder: InputBorder.none,
                       hintText: raftText(context, 'Search...'),
                       hintStyle: input.copyWith(
-                        color: t.brutal
-                            ? (input.color ?? t.strong).withValues(alpha: .5)
-                            : t.colors['foreground-placeholder']!.withValues(
-                                alpha: .7,
-                              ),
+                        color: t.colors['foreground-placeholder']!.withValues(
+                          alpha: .7,
+                        ),
                       ),
                     ),
                   ),

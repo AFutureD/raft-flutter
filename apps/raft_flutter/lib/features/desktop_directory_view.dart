@@ -327,9 +327,12 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
   /// rows (attached-by-me first, like sidebarMachineOrder.ts), and the
   /// skeleton / "No computers yet" states.
   Widget computersList(RaftTokens t, List<Map<String, dynamic>> rows) {
-    final loading = !w.services.entityDirectory.settled(WorkspaceEntityKind.computers);
+    final loading = !w.services.entityDirectory.settled(
+      WorkspaceEntityKind.computers,
+    );
     final error =
-        w.services.entityDirectory.state(WorkspaceEntityKind.computers).error != null;
+        w.services.entityDirectory.state(WorkspaceEntityKind.computers).error !=
+        null;
     final ordered = [
       ...rows.where((m) => m['computerAttachedByCurrentUser'] == true),
       ...rows.where((m) => m['computerAttachedByCurrentUser'] != true),
@@ -372,9 +375,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
           id: 'directory-machine-group-${entry.key}',
           build: (_) => RaftSidebarMachineGroup(
             key: ValueKey('directory-machine-group-${entry.key}'),
-            topPadding: index == 0
-                ? 2
-                : 6 - (RaftTokens.of(context).brutal ? 4 : 2),
+            topPadding: index == 0 ? 2 : 6 - (2),
             disclosureKey: ValueKey(
               'directory-machine-disclosure-${entry.key}',
             ),
@@ -403,7 +404,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     final inset = recipe
         .contentInset(headerInFlow: true)
         .resolve(Directionality.of(context));
-    final floatingBar = widget.mobileRoot && !RaftTokens.of(context).brutal;
+    final floatingBar = widget.mobileRoot;
     return raftScrollPadding(
       context,
       floatingBar ? inset.copyWith(bottom: 0) : inset,
@@ -551,7 +552,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
               ? 8
               : agents.isEmpty || loading
               ? 12
-              : 12 - (t.brutal ? 4 : 2),
+              : 12 - (2),
           failed: directory.state(WorkspaceEntityKind.members).error != null,
         ),
     ];

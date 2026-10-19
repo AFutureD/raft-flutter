@@ -224,20 +224,15 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
   ).copyWith(leadingDistribution: TextLeadingDistribution.even);
 
   /// `text-foreground-muted theme-brutal:text-black/60`.
-  Color _muted(RaftTokens t) => t.brutal
-      ? Colors.black.withValues(alpha: .6)
-      : t.colors['foreground-muted']!;
+  Color _muted(RaftTokens t) => t.colors['foreground-muted']!;
 
-  Color _strong(RaftTokens t) => t.brutal ? Colors.black : t.strong;
+  Color _strong(RaftTokens t) => t.strong;
 
   /// `border-2 border-line-muted theme-brutal:border-black bg-layer-panel
   /// theme-brutal:bg-white`.
   BoxDecoration _panelBox(RaftTokens t) => BoxDecoration(
-    color: t.brutal ? Colors.white : t.colors['layer-panel'],
-    border: Border.all(
-      color: t.brutal ? Colors.black : t.colors['line-muted']!,
-      width: 2,
-    ),
+    color: t.colors['layer-panel'],
+    border: Border.all(color: t.colors['line-muted']!, width: 2),
   );
 
   Widget _checkRow(
@@ -495,11 +490,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
                       tr(
                         'This report may contain <strong>prompt history, file paths, and command output</strong>. Sensitive data redaction is best-effort and not guaranteed.',
                       ),
-                      style.copyWith(
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .8)
-                            : t.colors['foreground-muted'],
-                      ),
+                      style.copyWith(color: t.colors['foreground-muted']),
                     ),
                   ),
                   _checkRow(
@@ -599,7 +590,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
                   decoration: BoxDecoration(
                     color: t.product.brutalLime,
                     border: Border.all(
-                      color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                      color: t.colors['line-muted']!,
                       width: 2,
                     ),
                   ),

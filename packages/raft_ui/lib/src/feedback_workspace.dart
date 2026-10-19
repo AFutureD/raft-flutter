@@ -357,11 +357,7 @@ class _RaftFeedbackComposerState extends State<RaftFeedbackComposer> {
     final recipe = RaftComposerRecipe(t, desktop: true);
     final style = recipe.editorText;
     final attachmentsFull = widget.busy || widget.attachments.length >= 3;
-    final minimum = widget.newFeedback
-        ? 120.0
-        : t.brutal
-        ? 20.0
-        : 64.0;
+    final minimum = widget.newFeedback ? 120.0 : 64.0;
     // `max-h-32` (border-box) caps the autosized textarea.
     final editor = ConstrainedBox(
       constraints: BoxConstraints(
@@ -424,7 +420,7 @@ class _RaftFeedbackComposerState extends State<RaftFeedbackComposer> {
           children: [
             Expanded(
               child: Row(
-                spacing: t.brutal ? 12 : 16,
+                spacing: 16,
                 children: [
                   RaftComposerAction(
                     key: const ValueKey('feedback-attach-image'),
@@ -457,7 +453,7 @@ class _RaftFeedbackComposerState extends State<RaftFeedbackComposer> {
     );
     final shell = Container(
       padding: recipe.shellInset,
-      clipBehavior: t.brutal ? Clip.none : Clip.antiAlias,
+      clipBehavior: Clip.antiAlias,
       decoration: recipe.shellDecoration(focused: focus.hasFocus),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -473,7 +469,7 @@ class _RaftFeedbackComposerState extends State<RaftFeedbackComposer> {
               .round();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: t.brutal ? 8 : 6,
+      spacing: 6,
       children: [
         if (widget.attachments.isNotEmpty)
           Wrap(
@@ -557,7 +553,7 @@ class _PendingAttachment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final radius = BorderRadius.circular(t.brutal ? 0 : 8);
+    final radius = BorderRadius.circular(8);
     final image = file.bytes != null && file.contentType.startsWith('image/');
     Widget tile = Container(
       width: 64,
@@ -566,10 +562,7 @@ class _PendingAttachment extends StatelessWidget {
       decoration: BoxDecoration(
         color: t.colors['layer-panel'],
         borderRadius: radius,
-        border: Border.all(
-          color: t.brutal ? t.colors['line-strong']! : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
       ),
       child: image
           ? RaftSizedImage.memory(
@@ -796,7 +789,7 @@ class _RaftFeedbackMessageState extends State<RaftFeedbackMessage> {
     // MessageItem's `max-md:` padding, gap and avatar (below 768px).
     final width = MediaQuery.sizeOf(context).width;
     // (Brutal keeps the desktop item at every width.)
-    final compact = width < 768 && !t.brutal;
+    final compact = width < 768;
     final base = t.recipeStates(hovered: hovered);
     final s = RaftMessageItemRecipe.resolve(
       theme: t.recipeTheme,
@@ -813,9 +806,7 @@ class _RaftFeedbackMessageState extends State<RaftFeedbackMessage> {
     // pre-wrap).
     final bodyText = m.body.trim().replaceAll(RegExp(r'\s+'), ' ');
     final header = Row(
-      crossAxisAlignment: t.brutal
-          ? CrossAxisAlignment.center
-          : CrossAxisAlignment.baseline,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       spacing: s.header.columnGap ?? 6,
       children: [
@@ -978,9 +969,7 @@ class _FeedbackAvatar extends StatelessWidget {
             height: size,
             clip: true,
             applyText: false,
-            decorationOverride: t.brutal
-                ? null
-                : (d) => d.copyWith(border: null),
+            decorationOverride: (d) => d.copyWith(),
             child: RaftRecipeBox(
               style: fallback,
               tokens: rt,
@@ -1036,9 +1025,7 @@ class RaftFeedbackConversation extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final narrow = MediaQuery.sizeOf(context).width <= 640;
-    final background = t.brutal
-        ? t.colors['layer-canvas']!
-        : t.dark
+    final background = t.dark
         ? t.colors['layer-card']!
         : t.colors['layer-panel']!;
     final list = ListView(
@@ -1046,10 +1033,7 @@ class RaftFeedbackConversation extends StatelessWidget {
       controller: controller,
       padding: raftScrollPadding(
         context,
-        EdgeInsets.only(
-          top: 2,
-          bottom: 12 + (composer != null && !t.brutal ? 160 : 0),
-        ),
+        EdgeInsets.only(top: 2, bottom: 12 + (composer != null ? 160 : 0)),
       ),
       children: [
         if (error != null)
@@ -1097,14 +1081,6 @@ class RaftFeedbackConversation extends StatelessWidget {
                 .copyWith(
                   bottom: (narrow ? 14 : 18) + raftBottomInset(context),
                 ),
-        decoration: t.brutal
-            ? BoxDecoration(
-                color: t.colors['layer-canvas'],
-                border: Border(
-                  top: BorderSide(color: t.colors['line-strong']!, width: 2),
-                ),
-              )
-            : null,
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: raftFeedbackContentWidth),
@@ -1124,14 +1100,6 @@ class RaftFeedbackConversation extends StatelessWidget {
           Expanded(
             child: footer == null
                 ? centred
-                : t.brutal
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: centred),
-                      footer,
-                    ],
-                  )
                 : Stack(
                     children: [
                       Positioned.fill(child: centred),
@@ -1207,7 +1175,6 @@ class _RaftFeedbackCloseSplitState extends State<RaftFeedbackCloseSplit> {
 
   void _openMenu() {
     if (menu != null) return _closeMenu();
-    final t = RaftTokens.of(context);
     final overlay = Overlay.of(context);
     final theme = Theme.of(context);
     final text = DefaultTextStyle.of(context).style;
@@ -1230,7 +1197,7 @@ class _RaftFeedbackCloseSplitState extends State<RaftFeedbackCloseSplit> {
                   anchorKey: anchor,
                   alignRight: true,
                   snapToPixel: true,
-                  gap: t.brutal ? 4 : 6,
+                  gap: 6,
                   child: Material(
                     type: MaterialType.transparency,
                     textStyle: text,
@@ -1507,8 +1474,7 @@ class _CloseMenuItem extends StatelessWidget {
           rt,
           base: raftCssText.merge(DefaultTextStyle.of(context).style),
         );
-        final svg = item.target('& > svg') ?? item.target('& svg');
-        final glyph = t.brutal ? 14.0 : 16.0;
+        final glyph = 16.0;
         final caption = base.copyWith(
           fontSize: 12,
           height: 1.4,
@@ -1524,7 +1490,7 @@ class _CloseMenuItem extends StatelessWidget {
             spacing: item.columnGap ?? 8,
             children: [
               Transform.translate(
-                offset: t.brutal ? Offset.zero : const Offset(-1, 1),
+                offset: const Offset(-1, 1),
                 child: Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: SizedBox.square(
@@ -1533,12 +1499,10 @@ class _CloseMenuItem extends StatelessWidget {
                         ? RaftIcon(
                             RaftGlyph.check,
                             size: glyph,
-                            strokeWidth: t.brutal ? 2 : 1.5,
-                            color: t.brutal
-                                ? (svg?.color?.resolve(rt) ?? base.color)
-                                : (state.hovered || state.focusVisible
-                                      ? t.colors['foreground']
-                                      : t.colors['foreground-muted']),
+                            strokeWidth: 1.5,
+                            color: (state.hovered || state.focusVisible
+                                ? t.colors['foreground']
+                                : t.colors['foreground-muted']),
                           )
                         : null,
                   ),

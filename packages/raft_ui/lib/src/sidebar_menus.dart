@@ -202,17 +202,12 @@ class _RaftSidebarContextMenuState extends State<RaftSidebarContextMenu> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Text(
               label,
-              style:
-                  RaftTypography.heading(
-                    t,
-                    size: 10,
-                    line: 15,
-                    weight: FontWeight.w700,
-                  ).copyWith(
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .5)
-                        : t.colors['foreground-muted'],
-                  ),
+              style: RaftTypography.heading(
+                t,
+                size: 10,
+                line: 15,
+                weight: FontWeight.w700,
+              ).copyWith(color: t.colors['foreground-muted']),
             ),
           ),
           RaftSidebarMenuItem() => RaftHoverRegion(

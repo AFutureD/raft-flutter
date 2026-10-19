@@ -69,10 +69,7 @@ void main() {
               )
               .first,
         );
-        expect(
-          surface.color,
-          tokens.colors[tokens.brutal ? 'color-soft-signal' : 'primary-soft'],
-        );
+        expect(surface.color, tokens.colors['primary-soft']);
         update(() => width = 320);
         await t.pumpAndSettle();
 

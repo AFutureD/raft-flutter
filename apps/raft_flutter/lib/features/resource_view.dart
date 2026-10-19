@@ -2382,7 +2382,7 @@ class _ResourceViewState extends State<ResourceView> {
     // when the column is on the right (it draws that line).
     final BoxDecoration? surface = activityEdge
         ? BoxDecoration(
-            color: t.brutal ? t.panel : t.sidebar,
+            color: t.sidebar,
             border: RaftPanelEdge.besideNavigation(
               context,
               RaftPanelEdgeStyle.activityInbox,
@@ -2390,13 +2390,13 @@ class _ResourceViewState extends State<ResourceView> {
           )
         // SavedPanel: `bg-layer-canvas-muted theme-brutal:bg-white`.
         : widget.section == 'saved'
-        ? BoxDecoration(color: t.brutal ? t.panel : t.sidebar)
+        ? BoxDecoration(color: t.sidebar)
         : widget.section == 'search'
         ? searchSlots(context).frame.decoration(rui.RaftRecipeTokens(t))
         // TasksPanelViewport is `dark:bg-transparent`: Elegant dark shows the
         // mounted ancestor, ConversationPanelContent's card in a channel tab
         // and the canvas-muted page surface on the Tasks page.
-        : widget.section == 'tasks' && t.dark && !t.brutal
+        : widget.section == 'tasks' && t.dark
         ? BoxDecoration(
             color: widget.channelId != null
                 ? t.card
@@ -2795,9 +2795,7 @@ class _ResourceViewState extends State<ResourceView> {
         : widget.section == 'activity' && advanced.groupByChannel
         ? groupedActivity()
         : Material(
-            color: RaftTokens.of(context).brutal
-                ? RaftTokens.of(context).panel
-                : RaftTokens.of(context).sidebar,
+            color: RaftTokens.of(context).sidebar,
             child: Stack(
               children: [
                 Positioned.fill(child: resourceList()),
@@ -3155,9 +3153,7 @@ class _ResourceViewState extends State<ResourceView> {
   rui.RaftSearchRecipeStyle searchSlots(BuildContext context) {
     final t = RaftTokens.of(context);
     return rui.RaftSearchRecipe.resolve(
-      theme: t.brutal
-          ? rui.RaftRecipeTheme.brutal
-          : rui.RaftRecipeTheme.elegant,
+      theme: rui.RaftRecipeTheme.elegant,
       states: rui.RaftRecipeStates({
         if (t.dark) rui.RaftRecipeStates.dark,
       }, MediaQuery.sizeOf(context).width),
@@ -3561,10 +3557,7 @@ class _ResourceViewState extends State<ResourceView> {
       decoration: BoxDecoration(
         color: t.panel,
         border: Border(
-          bottom: BorderSide(
-            color: t.brutal ? t.colors['color-black']! : t.line,
-            width: t.border,
-          ),
+          bottom: BorderSide(color: t.line, width: t.border),
         ),
       ),
       child: Row(
@@ -4001,9 +3994,7 @@ class _ResourceViewState extends State<ResourceView> {
                               child: RaftIcon(
                                 RaftGlyph.user,
                                 size: 10,
-                                color: RaftTokens.of(context).brutal
-                                    ? RaftTokens.of(context).ink
-                                    : RaftTokens.of(context).muted,
+                                color: RaftTokens.of(context).muted,
                               ),
                             )
                           : null,
@@ -4409,7 +4400,7 @@ class _ResourceViewState extends State<ResourceView> {
             // of `p-4` (Brutal resets it).
             padding: raftScrollPadding(
               context,
-              !t.brutal && MediaQuery.sizeOf(context).width < 768
+              MediaQuery.sizeOf(context).width < 768
                   ? const EdgeInsets.fromLTRB(20, 16, 14, 16)
                   : RaftTaskSectionRecipe(t).viewportInset,
             ),
@@ -5116,7 +5107,7 @@ class _ResourceViewState extends State<ResourceView> {
     };
     final t = RaftTokens.of(context), rt = RaftRecipeTokens(t);
     final toolbar = RaftTasksPanelRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      theme: RaftRecipeTheme.elegant,
       states: RaftRecipeStates({
         if (t.dark) RaftRecipeStates.dark,
       }, MediaQuery.sizeOf(context).width),
@@ -5380,7 +5371,7 @@ class _ResourceViewState extends State<ResourceView> {
   /// TasksPanelViewport `bg-layer-canvas-muted theme-brutal:bg-white
   /// dark:bg-transparent`: dark shows the ancestor surface (see build).
   Color taskViewportFill(RaftTokens t) =>
-      t.brutal ? t.panel : (t.dark ? t.sidebar.withAlpha(0) : t.sidebar);
+      (t.dark ? t.sidebar.withAlpha(0) : t.sidebar);
 
   /// TasksPanel channel mode with no task at all: the centred EmptyState
   /// (`sortedTasks.length === 0 && isChannelMode`) instead of empty lanes.

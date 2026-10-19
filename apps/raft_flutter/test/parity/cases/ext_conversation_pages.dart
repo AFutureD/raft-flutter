@@ -490,7 +490,7 @@ final ParityCase _windowCase = ParityCase(
 /// The column background messages sit on (`bg-layer-panel`, brutal white).
 Color _panel(BuildContext context) {
   final t = RaftTokens.of(context);
-  return t.brutal ? Colors.white : t.panel;
+  return t.panel;
 }
 
 /// [ChatStage] whose capture canvas is painted with the panel colour (the

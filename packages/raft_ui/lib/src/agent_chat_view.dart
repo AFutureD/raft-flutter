@@ -91,11 +91,9 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final bg = t.brutal ? Colors.white : t.colors['layer-panel']!;
-    final rule = t.brutal ? Colors.black : t.colors['line-muted']!;
-    final sectionRule = t.brutal
-        ? Colors.black.withValues(alpha: .1)
-        : t.colors['line-muted']!;
+    final bg = t.colors['layer-panel']!;
+    final rule = t.colors['line-muted']!;
+    final sectionRule = t.colors['line-muted']!;
     final empty =
         widget.channels.isEmpty &&
         widget.dms.isEmpty &&
@@ -112,9 +110,7 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
                 color: bg,
-                border: Border(
-                  bottom: BorderSide(color: rule, width: t.brutal ? 2 : 1),
-                ),
+                border: Border(bottom: BorderSide(color: rule, width: 1)),
               ),
               child: RaftSectionEyebrow(raftText(context, 'Channels & DMs')),
             ),
@@ -179,11 +175,8 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
         const SizedBox(height: 4),
         RaftCssText(
           text,
-          style: RaftPanelText.caption(t).copyWith(
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .6)
-                : t.colors['foreground-muted'],
-          ),
+          style: RaftPanelText.caption(t)
+              .copyWith(color: t.colors['foreground-muted']),
         ),
       ],
     ),
@@ -206,23 +199,13 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: t.brutal
-            ? Colors.black.withValues(alpha: .015)
-            : t.colors['fill-muted'],
-        border: Border.all(
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .15)
-              : t.colors['line-muted']!,
-        ),
+        color: t.colors['fill-muted'],
+        border: Border.all(color: t.colors['line-muted']!),
       ),
       child: Row(
         children: [
           IconTheme.merge(
-            data: IconThemeData(
-              color: t.brutal
-                  ? Colors.black.withValues(alpha: .35)
-                  : t.colors['foreground-placeholder'],
-            ),
+            data: IconThemeData(color: t.colors['foreground-placeholder']),
             child: icon,
           ),
           const SizedBox(width: 12),
@@ -236,9 +219,7 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
                     family: t.bodyFont,
                     step: RaftTextSteps.sm,
                     weight: FontWeight.w700,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .65)
-                        : t.colors['foreground-muted'],
+                    color: t.colors['foreground-muted'],
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -247,9 +228,7 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
                   style: raftCssTextStyle(
                     family: t.bodyFont,
                     step: RaftTextSteps.xs,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .45)
-                        : t.colors['foreground-placeholder'],
+                    color: t.colors['foreground-placeholder'],
                   ),
                 ),
               ],
@@ -325,12 +304,8 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
     RaftTokens t,
     RaftAgentChannelRow c,
   ) {
-    final placeholder = t.brutal
-        ? Colors.black.withValues(alpha: .45)
-        : t.colors['foreground-placeholder']!;
-    final muted = t.brutal
-        ? Colors.black.withValues(alpha: .6)
-        : t.colors['foreground-muted'];
+    final placeholder = t.colors['foreground-placeholder']!;
+    final muted = t.colors['foreground-muted'];
     final description = c.description?.trim();
     return RaftSurfaceListItem(
       onTap: c.onTap,
@@ -358,7 +333,7 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
                           family: t.bodyFont,
                           step: RaftTextSteps.sm,
                           weight: FontWeight.w700,
-                          color: t.brutal ? Colors.black : t.strong,
+                          color: t.strong,
                         ),
                       ),
                     ),
@@ -389,20 +364,14 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .2)
-                      : t.colors['line-muted']!,
-                ),
+                border: Border.all(color: t.colors['line-muted']!),
               ),
               child: RaftCssText(
                 raftText(context, c.type == 'private' ? 'Private' : 'Joint'),
                 style: raftCssTextStyle(
                   family: t.monoFont,
                   step: (11, 16.5),
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .55)
-                      : t.colors['foreground-muted'],
+                  color: t.colors['foreground-muted'],
                 ),
               ),
             ),
@@ -489,14 +458,9 @@ class RaftConversationPreviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.colors['layer-panel'],
-        border: Border.all(
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .3)
-              : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+        color: t.colors['layer-panel'],
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,7 +495,7 @@ class RaftConversationPreviewCard extends StatelessWidget {
                           family: t.bodyFont,
                           step: (12, 16),
                           weight: FontWeight.w700,
-                          color: t.brutal ? Colors.black : t.strong,
+                          color: t.strong,
                         ),
                       ),
                     ),
@@ -565,7 +529,7 @@ class RaftConversationPreviewCard extends StatelessWidget {
             style: raftCssTextStyle(
               family: t.bodyFont,
               step: RaftTextSteps.sm,
-              color: t.brutal ? Colors.black : t.strong,
+              color: t.strong,
             ),
           ),
           if (footer != null) ...[

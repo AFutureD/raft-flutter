@@ -82,9 +82,7 @@ class RaftCreateJointChannelDialogView extends StatelessWidget {
       family: t.headingFont,
       step: RaftTextSteps.xs,
       weight: FontWeight.w700,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .6)
-          : t.colors['foreground-muted'],
+      color: t.colors['foreground-muted'],
     );
     // Web `flex justify-end gap-3`; on a phone-width dialog the two buttons
     // wrap instead of overflowing (same layout whenever they fit).

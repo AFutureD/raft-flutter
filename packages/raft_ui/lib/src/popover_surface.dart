@@ -20,12 +20,11 @@ class RaftPopoverShadow {
 class RaftPopoverSurfaceRecipe {
   const RaftPopoverSurfaceRecipe(this.tokens);
   final RaftTokens tokens;
-  double get borderWidth => tokens.brutal ? 2 : 0;
-  double get radius => tokens.brutal ? 0 : 6;
+  double get borderWidth => 0;
+  double get radius => 6;
   Color get background => tokens.popover;
   Color get borderColor => tokens.colors['line-strong']!;
-  RaftShadow get _shadow =>
-      tokens.brutal ? tokens.themeShadows.lg : tokens.themeShadows.xl;
+  RaftShadow get _shadow => tokens.themeShadows.xl;
 
   /// The Elegant dark popover drew a top-edge light and an inner hairline as inset
   /// layers. raft-ui 0.7.1 has none: its dark ring is the 1px outer layer of

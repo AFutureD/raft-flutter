@@ -79,9 +79,7 @@ class RaftThreadReplies extends StatelessWidget {
       padding: const EdgeInsets.only(top: 6),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: tokens.brutal
-              ? Colors.black.withValues(alpha: .03)
-              : tokens.card,
+          color: tokens.card,
           borderRadius: RaftShapes.field(tokens),
         ),
         child: Material(
@@ -227,7 +225,7 @@ class _RaftThreadRepliesBadgeState extends State<RaftThreadRepliesBadge> {
     final tokens = RaftTokens.of(context);
     final resolver = RaftRecipeTokens(tokens);
     final s = RaftBadgeRecipe.resolve(
-      theme: tokens.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      theme: RaftRecipeTheme.elegant,
       appearance: hasUnread
           ? RaftBadgeRecipeAppearance.soft
           : RaftBadgeRecipeAppearance.solid,

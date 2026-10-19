@@ -26,17 +26,14 @@ class RaftComposerDropOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final pink = t.product.brutalPink;
-    final frame = t.brutal ? pink : t.accent;
-    final fill = t.brutal
-        ? pink.withValues(alpha: .15)
-        : t.accentSoft.withValues(
-            // Chromium quantises the `/50` alpha to 8 bits before blending:
-            // measured one level darker than float blending on white.
-            alpha: t.dark
-                ? t.accentSoft.a * .5
-                : (t.accentSoft.a * 255 * .5).ceilToDouble() / 255,
-          );
+    final frame = t.accent;
+    final fill = t.accentSoft.withValues(
+      // Chromium quantises the `/50` alpha to 8 bits before blending:
+      // measured one level darker than float blending on white.
+      alpha: t.dark
+          ? t.accentSoft.a * .5
+          : (t.accentSoft.a * 255 * .5).ceilToDouble() / 255,
+    );
     // `absolute inset-0` resolves against the composer root's padding box,
     // below its `border-t` (2px Brutal, 1px Elegant).
     return IgnorePointer(
@@ -55,14 +52,12 @@ class RaftComposerDropOverlay extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: t.brutal ? const Color(0xffffffff) : t.panel,
+                    color: t.panel,
                     border: Border.all(
-                      color: t.brutal
-                          ? const Color(0xff000000)
-                          : t.colors['line-strong']!,
-                      width: t.brutal ? 2 : 1,
+                      color: t.colors['line-strong']!,
+                      width: 1,
                     ),
-                    borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+                    borderRadius: BorderRadius.circular(6),
                     boxShadow: t.shadows,
                   ),
                   child: Text(
@@ -73,7 +68,7 @@ class RaftComposerDropOverlay extends StatelessWidget {
                       fontSize: 14,
                       height: 20 / 14,
                       fontWeight: FontWeight.w700,
-                      color: t.brutal ? const Color(0xff000000) : t.strong,
+                      color: t.strong,
                     ),
                   ),
                 ),

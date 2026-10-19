@@ -116,14 +116,6 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
   RaftThemeShadows get themeShadows => tokenSet.shadows;
   RaftThemeMetrics get metrics => tokenSet.metrics;
 
-  /// Always false: Brutal is gone and the Raft look resolves to the structure the
-  /// Elegant branches describe. Left so the ~1900 `t.brutal ? a : b` sites
-  /// compile unchanged.
-  ///
-  /// TODO(raft-design): not `@Deprecated` only because the analyzer would report
-  /// every site; the follow-up PRs convert them cluster by cluster to the Raft
-  /// structure and delete this getter.
-  bool get brutal => false;
   Color get ink => colors['foreground']!;
   Color get strong => colors['foreground-strong']!;
   Color get muted => colors['foreground-muted']!;
@@ -170,9 +162,9 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
           ],
           _ => const ['Noto Sans CJK JP', 'Noto Sans CJK SC', 'sans-serif'],
         };
-  double get radius => brutal ? 0 : 8;
-  double get fieldRadius => brutal ? 0 : 6;
-  double get border => brutal ? 2 : 1;
+  double get radius => 8;
+  double get fieldRadius => 6;
+  double get border => 1;
 
   /// The hyperlink underline every underlined run shares (Web `underline
   /// decoration-2 underline-offset-2`; no theme overrides it, so Brutal and
@@ -182,9 +174,7 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
   TextStyle get fieldStyle => TextStyle(
     locale: textLocale,
     fontFamily: headingFont,
-    fontVariations: brutal || systemFonts
-        ? null
-        : const [FontVariation('opsz', 14)],
+    fontVariations: systemFonts ? null : const [FontVariation('opsz', 14)],
     fontFamilyFallback: fontFallback,
     fontSize: metrics.fieldFontSize,
     height: metrics.fieldLineHeight / metrics.fieldFontSize,
@@ -237,32 +227,29 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
 class RaftFieldRecipe {
   const RaftFieldRecipe(this.tokens);
   final RaftTokens tokens;
-  Color fill({bool disabled = false}) => disabled && !tokens.brutal
+  Color fill({bool disabled = false}) => disabled
       // `bg-fill-muted/50`: Chromium quantises the alpha to 8 bits first.
       ? tokens.colors['fill-muted']!.withAlpha(
           (tokens.colors['fill-muted']!.a * .5 * 255).round(),
         )
-      : tokens.dark && !tokens.brutal
+      : tokens.dark
       ? tokens.card
       : tokens.panel;
   Color placeholder({bool disabled = false}) {
     final placeholder = tokens.colors['foreground-placeholder'] ?? tokens.muted;
-    if (disabled && !tokens.brutal) {
+    if (disabled) {
       return tokens.colors['foreground-disabled'] ?? placeholder;
     }
-    return tokens.brutal
-        ? placeholder
-        : placeholder.withValues(alpha: placeholder.a * .7);
+    return placeholder.withValues(alpha: placeholder.a * .7);
   }
 
-  Color border({bool disabled = false, bool hovered = false}) =>
-      disabled && !tokens.brutal
+  Color border({bool disabled = false, bool hovered = false}) => disabled
       ? tokens.colors['line-muted']!.withValues(
           alpha: tokens.colors['line-muted']!.a * .6,
         )
-      : tokens.dark && !tokens.brutal
+      : tokens.dark
       ? Colors.transparent
-      : hovered && !tokens.brutal
+      : hovered
       ? tokens.colors['line-field-hover']!
       : tokens.fieldLine;
 }
@@ -433,7 +420,7 @@ ThemeData raftTheme({
     double radius, {
     BorderSide side = BorderSide.none,
   }) => RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(t.brutal ? 0 : radius),
+    borderRadius: BorderRadius.circular(radius),
     side: side,
   );
   final scheme = ColorScheme(
@@ -484,7 +471,7 @@ ThemeData raftTheme({
   }) => TextStyle(
     locale: t.textLocale,
     fontFamily: heading ? t.headingFont : t.bodyFont,
-    fontVariations: heading && !t.brutal && !t.systemFonts
+    fontVariations: heading && !t.systemFonts
         ? [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())]
         : null,
     fontFamilyFallback: t.fontFallback,
@@ -527,12 +514,7 @@ ThemeData raftTheme({
     bodyLarge: t.fieldStyle.copyWith(fontFamilyFallback: t.fontFallback),
     bodyMedium: text(16, 24),
     bodySmall: text(12, 16, color: t.muted),
-    labelLarge: text(
-      14,
-      20,
-      heading: t.brutal,
-      weight: t.brutal ? FontWeight.w700 : FontWeight.w500,
-    ),
+    labelLarge: text(14, 20, heading: false, weight: FontWeight.w500),
     labelMedium: text(12, 16, weight: FontWeight.w500),
     labelSmall: text(11, 16, weight: FontWeight.w500),
   );
@@ -553,9 +535,7 @@ ThemeData raftTheme({
     elevation: const WidgetStatePropertyAll(0),
     animationDuration: const Duration(milliseconds: 100),
     overlayColor: WidgetStatePropertyAll(
-      t.brutal
-          ? Colors.transparent
-          : t.colors['fill-strong']!.withValues(alpha: .3),
+      t.colors['fill-strong']!.withValues(alpha: .3),
     ),
     foregroundColor: WidgetStateProperty.resolveWith(
       (states) => states.contains(WidgetState.disabled)
@@ -565,7 +545,7 @@ ThemeData raftTheme({
   );
   OutlineInputBorder fieldBorder(Color color, [double? width]) =>
       RaftFieldBorder(
-        insets: t.dark && !t.brutal ? RaftFieldInsetRecipe(t) : null,
+        insets: t.dark ? RaftFieldInsetRecipe(t) : null,
         borderRadius: BorderRadius.circular(t.fieldRadius),
         borderSide: BorderSide(color: color, width: width ?? t.border),
       );
@@ -622,10 +602,7 @@ ThemeData raftTheme({
       border: fieldBorder(RaftFieldRecipe(t).border()),
       enabledBorder: fieldBorder(RaftFieldRecipe(t).border()),
       disabledBorder: fieldBorder(RaftFieldRecipe(t).border(disabled: true)),
-      focusedBorder: fieldBorder(
-        t.brutal ? t.strong : t.primaryFill,
-        t.brutal ? 2 : 1,
-      ),
+      focusedBorder: fieldBorder(t.primaryFill, 1),
       errorBorder: fieldBorder(scheme.error),
       focusedErrorBorder: fieldBorder(scheme.error),
     ),
@@ -636,9 +613,7 @@ ThemeData raftTheme({
             alpha: s.contains(WidgetState.disabled) ? .4 : 1,
           ),
         ),
-        foregroundColor: WidgetStatePropertyAll(
-          t.brutal ? t.strong : t.colors['accent-950']!,
-        ),
+        foregroundColor: WidgetStatePropertyAll(t.colors['accent-950']!),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -649,9 +624,7 @@ ThemeData raftTheme({
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: buttonStyle.copyWith(
-        backgroundColor: WidgetStatePropertyAll(
-          t.brutal ? t.panel : Colors.transparent,
-        ),
+        backgroundColor: WidgetStatePropertyAll(Colors.transparent),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
@@ -675,7 +648,7 @@ ThemeData raftTheme({
     ),
     listTileTheme: ListTileThemeData(
       shape: shape(6),
-      selectedTileColor: t.brutal ? t.accentFill : t.card,
+      selectedTileColor: t.card,
       textColor: t.ink,
       iconColor: t.colors['foreground-icon']!,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -691,16 +664,14 @@ ThemeData raftTheme({
         8,
         side: BorderSide(color: t.line, width: t.border),
       ),
-      titleTextStyle: t.brutal
-          ? textTheme.titleLarge
-          : text(14, 20, heading: true, weight: FontWeight.w500),
+      titleTextStyle: text(14, 20, heading: true, weight: FontWeight.w500),
       contentTextStyle: textTheme.bodyMedium,
       elevation: 0,
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: t.popover,
       surfaceTintColor: Colors.transparent,
-      elevation: t.brutal ? 0 : 3,
+      elevation: 3,
       shape: shape(
         6,
         side: BorderSide(color: t.line, width: t.border),
@@ -744,16 +715,16 @@ ThemeData raftTheme({
     ),
     chipTheme: ChipThemeData(
       backgroundColor: t.panel,
-      selectedColor: t.brutal ? t.accentFill : t.accentSoft,
+      selectedColor: t.accentSoft,
       labelStyle: control(textTheme.labelMedium),
-      side: BorderSide(color: t.line, width: t.brutal ? 1 : .5),
+      side: BorderSide(color: t.line, width: .5),
       shape: shape(4),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       showCheckmark: false,
     ),
     checkboxTheme: CheckboxThemeData(
       shape: shape(2),
-      side: BorderSide(color: t.line, width: t.brutal ? 2 : 1),
+      side: BorderSide(color: t.line, width: 1),
       fillColor: WidgetStateProperty.resolveWith(
         (s) => s.contains(WidgetState.selected) ? t.primaryFill : t.panel,
       ),
@@ -777,9 +748,7 @@ ThemeData raftTheme({
       style: buttonStyle.copyWith(
         backgroundColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? t.brutal
-                    ? t.primaryFill
-                    : t.panel
+              ? t.panel
               : t.colors['fill-muted']!,
         ),
       ),
@@ -787,7 +756,7 @@ ThemeData raftTheme({
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: t.canvas,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: t.brutal ? t.accentFill : t.card,
+      indicatorColor: t.card,
       elevation: 0,
       iconTheme: WidgetStatePropertyAll(IconThemeData(size: 18, color: t.ink)),
       labelTextStyle: WidgetStatePropertyAll(control(textTheme.labelMedium)),
@@ -796,7 +765,7 @@ ThemeData raftTheme({
       waitDuration: const Duration(milliseconds: 600),
       decoration: BoxDecoration(
         color: scheme.inverseSurface,
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 4),
+        borderRadius: BorderRadius.circular(4),
       ),
       textStyle: textTheme.bodySmall!.copyWith(color: scheme.onInverseSurface),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -812,11 +781,7 @@ ThemeData raftTheme({
         color: scheme.onInverseSurface,
       ),
     ),
-    dividerTheme: DividerThemeData(
-      color: t.line,
-      thickness: t.brutal ? 2 : 1,
-      space: 1,
-    ),
+    dividerTheme: DividerThemeData(color: t.line, thickness: 1, space: 1),
   );
 }
 

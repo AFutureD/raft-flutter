@@ -152,7 +152,7 @@ class RaftAppIconChoices extends StatelessWidget {
                               borderRadius: BorderRadius.circular(t.radius),
                               border: Border.all(
                                 color: state.focusVisible || selected == choice
-                                    ? (t.brutal ? text.strong : t.accent)
+                                    ? t.accent
                                     : Colors.transparent,
                                 width: RaftSpace.half,
                               ),

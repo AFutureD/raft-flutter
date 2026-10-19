@@ -217,7 +217,7 @@ class RaftDialog extends StatelessWidget {
                       style: s.content,
                       tokens: rt,
                       width: width,
-                      clip: !t.brutal,
+                      clip: true,
                       child: _Gapped(gap: gap, child: body),
                     ),
                   ),
@@ -410,18 +410,13 @@ class RaftDialogClose extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
     return RaftGlyphButton(
       glyph: RaftGlyph.x,
       semanticLabel: raftText(context, semanticLabel),
-      tone: t.brutal
-          ? RaftButtonRecipeVariant.outline
-          : RaftButtonRecipeVariant.ghost,
-      size: t.brutal
-          ? RaftButtonRecipeSize.iconMd
-          : RaftButtonRecipeSize.iconSm,
-      glyphSize: t.brutal ? 20 : 16,
-      quiet: !t.brutal,
+      tone: RaftButtonRecipeVariant.ghost,
+      size: RaftButtonRecipeSize.iconSm,
+      glyphSize: 16,
+      quiet: true,
       onPressed: onPressed ?? () => Navigator.of(context).maybePop(),
     );
   }
@@ -600,10 +595,7 @@ class RaftDialogBarrier extends StatelessWidget {
         // rounds 35.6 up to 36 and the tint tips two channels: pure black at
         // 0.6525 gives 35 there. Only for dialogs stacked on a Modal; over a
         // page the tinted token already matches.
-        if (overModal && t.brutal && (color.a - 0.650858).abs() < .001) {
-          color = Colors.black.withValues(alpha: .6525);
-        }
-        final blur = t.brutal ? 0.0 : 2.0;
+        final blur = 2.0;
         Widget layer = ColoredBox(color: color, child: const SizedBox.expand());
         if (blur > 0) {
           layer = BackdropFilter(

@@ -98,20 +98,17 @@ void main() {
             of: channel,
             matching: find.byType(RaftControl),
           );
-          expect(
-            tester.widget<RaftControl>(control).visualHeight,
-            tokens.brutal ? 32 : 30,
-          );
+          expect(tester.widget<RaftControl>(control).visualHeight, 30);
           // The row box is Web's in every density; touch only widens the hit
           // and semantics rectangle to 48dp (RaftTouchTarget).
-          expect(tester.getSize(control).height, tokens.brutal ? 32 : 30);
+          expect(tester.getSize(control).height, 30);
           if (density == RaftDensity.touch) {
             expect(find.byType(RaftTouchTarget), findsWidgets);
           }
           final dm = find.byKey(const ValueKey('dm'));
           expect(
             tester.getRect(dm).top - tester.getRect(control).bottom,
-            tokens.brutal ? 4 : 2,
+            2,
             reason: 'Mounted SidebarItem bottom margin is separate from the row box.',
           );
           final badge = find.descendant(

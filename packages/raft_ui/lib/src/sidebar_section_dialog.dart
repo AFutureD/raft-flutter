@@ -78,7 +78,6 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
   /// optional "No emoji" row, then the picker (`width: min(340px, 100vw - 48px)`,
   /// `height: 360`), anchored below the trigger.
   Widget emojiPopover(BuildContext context) {
-    final t = RaftTokens.of(context);
     final width = math.min(340.0, MediaQuery.sizeOf(context).width - 48);
     return Stack(
       children: [
@@ -109,7 +108,7 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
                       if (emoji.isNotEmpty)
                         _NoEmojiRow(onPressed: () => chooseEmoji('')),
                       RaftEmojiPicker(
-                        width: width - (t.brutal ? 4 : 0),
+                        width: width - (0),
                         onEmojiClick: chooseEmoji,
                       ),
                     ],

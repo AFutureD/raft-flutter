@@ -187,9 +187,7 @@ class _RaftSosDialogState extends State<RaftSosDialog> {
                       ),
                       style: body.copyWith(
                         height: 1.625, // leading-relaxed
-                        color: t.brutal
-                            ? const Color(0xff000000).withValues(alpha: .75)
-                            : t.muted,
+                        color: t.muted,
                       ),
                     ),
                   ),

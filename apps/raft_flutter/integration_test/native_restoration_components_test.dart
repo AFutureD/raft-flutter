@@ -178,12 +178,7 @@ void main() {
         );
         final decoration = face.decoration! as BoxDecoration;
         final tokens = RaftTokens.of(t.element(row));
-        expect(
-          decoration.color,
-          tokens.brutal
-              ? tokens.colors['color-brutal-pink']
-              : tokens.colors['fill-muted'],
-        );
+        expect(decoration.color, tokens.colors['fill-muted']);
         expect(decoration.gradient, isNull);
         await mouse.removePointer();
       }

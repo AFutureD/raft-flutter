@@ -76,7 +76,7 @@ class RaftAttachmentCard extends StatelessWidget {
   /// `text-[10px]` summary / meta lines: Brutal resolves the utility's 1.4286
   /// line height (14.29px); Elegant inherits the message content's
   /// `leading-5.25` (21px).
-  static double metaLineHeight(RaftTokens t) => t.brutal ? 20 / 14 : 21 / 10;
+  static double metaLineHeight(RaftTokens t) => 21 / 10;
 
   @override
   Widget build(BuildContext context) {
@@ -175,9 +175,7 @@ class RaftAttachmentCard extends StatelessWidget {
                     style: component.metadata.copyWith(
                       height: metaLineHeight(t),
                       fontWeight: FontWeight.w500,
-                      color: t.brutal
-                          ? Colors.black.withValues(alpha: .7)
-                          : t.colors['foreground-muted'],
+                      color: t.colors['foreground-muted'],
                     ),
                   ),
                 ),
@@ -198,9 +196,7 @@ class RaftAttachmentCard extends StatelessWidget {
                   height: metaLineHeight(t),
                   color: downloadFailed ? failedColor : null,
                 ),
-                separator: t.brutal
-                    ? Colors.black.withValues(alpha: .35)
-                    : t.colors['foreground-placeholder']!,
+                separator: t.colors['foreground-placeholder']!,
                 glyph: previewAffordance ? RaftGlyph.eye : RaftGlyph.download,
                 glyphColor: component.actionForeground,
                 wrap: grows,
@@ -256,10 +252,7 @@ class RaftAttachmentCard extends StatelessWidget {
                   color: t.panel,
                   clipBehavior: Clip.antiAlias,
                   shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                      color: t.strong,
-                      width: t.brutal ? t.border : 0,
-                    ),
+                    side: BorderSide(color: t.strong, width: 0),
                     borderRadius: recipe.radius,
                   ),
                   child: Stack(

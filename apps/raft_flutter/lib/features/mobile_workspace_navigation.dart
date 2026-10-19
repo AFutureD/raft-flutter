@@ -98,7 +98,6 @@ class WorkspaceMobileTabBar extends StatelessWidget {
         !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS);
-    final t = RaftTokens.of(context);
     final tabIds =
         tabs ??
         MobileTabbarSettings.defaults.effective(
@@ -164,15 +163,6 @@ class WorkspaceMobileTabBar extends StatelessWidget {
       );
       // The in-flow bar paints beneath the system navigation / home indicator;
       // the floating capsule has no strip fill.
-      if (t.brutal) {
-        navigation = ColoredBox(
-          color: RaftMobileNavRecipe(
-            t,
-            viewportHeight: MediaQuery.sizeOf(context).height,
-          ).background,
-          child: navigation,
-        );
-      }
     }
     return navigation;
   }

@@ -394,14 +394,12 @@ class _AgreementCard extends StatelessWidget {
             constraints: const BoxConstraints(maxHeight: 224),
             child: Container(
               decoration: BoxDecoration(
-                color: t.brutal ? t.product.brutalCream : t.sidebar,
+                color: t.sidebar,
                 border: Border.all(
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .3)
-                      : t.semantic.lineMuted,
+                  color: t.semantic.lineMuted,
                   width: t.border,
                 ),
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: SingleChildScrollView(
                 primary: false,

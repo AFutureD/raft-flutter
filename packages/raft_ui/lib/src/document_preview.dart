@@ -6,11 +6,9 @@ import 'localization.dart';
 import 'lazy_markdown_document.dart';
 import 'message_body.dart';
 import 'design_primitives.dart';
-import 'dialog_card.dart' show RaftShadowSet;
 import 'message_content_tokens.dart';
 import 'text_measure.dart';
 import 'theme.dart';
-import 'tokens/tokens.dart';
 
 /// Markdown longer than this many characters is laid out as a lazy list of
 /// blocks (only the blocks near the viewport are built, parsed off the UI
@@ -277,7 +275,7 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                                 ],
                                 recipe.tableText.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: t.brutal ? Colors.black : t.strong,
+                                  color: t.strong,
                                 ),
                                 recipe.tableHeader,
                               ),
@@ -336,12 +334,10 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
       fontSize: 12,
       height: 16 / 12,
       fontWeight: FontWeight.w700,
-      color: t.brutal
-          ? RaftPrimitiveColors.black.withValues(alpha: .55)
-          : t.muted,
+      color: t.muted,
     );
     // `shadow-raft-sm theme-brutal:shadow-brutal-sm`
-    final shadow = t.brutal ? RaftShadowSet.brutalSm : t.themeShadows.sm.outer;
+    final shadow = t.themeShadows.sm.outer;
     Widget pane(Widget child) => ColoredBox(
       color: kind == 'markdown' ? recipe.background : recipe.background,
       child: SingleChildScrollView(
@@ -558,7 +554,7 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                         fontSize: 14,
                         height: 20 / 14,
                         fontWeight: FontWeight.w700,
-                        color: t.brutal ? Colors.black : t.strong,
+                        color: t.strong,
                       ),
                     ),
                   ),
@@ -618,9 +614,7 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                                               : headers[i],
                                           style: recipe.tableText.copyWith(
                                             fontWeight: FontWeight.w700,
-                                            color: t.brutal
-                                                ? Colors.black
-                                                : t.strong,
+                                            color: t.strong,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,

@@ -30,7 +30,6 @@ import 'recipes/avatar.g.dart';
 import 'recipes/badge.g.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/recipe_runtime.dart';
-import 'recipes/recipe_utilities.g.dart';
 import 'recipes/spinner.g.dart';
 import 'recipes/token_binding.dart';
 import 'list_items.dart';
@@ -98,9 +97,7 @@ class RaftActivityDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-strong']!,
-        ),
+        border: Border.all(color: t.colors['line-strong']!),
       ),
     );
   }
@@ -294,9 +291,7 @@ class RaftAvatarSlot extends StatelessWidget {
         : 12.0;
     final key = pixelKey(avatarUrl);
     final base = s.root.decoration(rt);
-    final radius = t.brutal
-        ? base.borderRadius
-        : BorderRadius.circular((sizeOverride ?? slot.size) / 2);
+    final radius = BorderRadius.circular((sizeOverride ?? slot.size) / 2);
     // Elegant `border-2 border-transparent bg-clip-padding`: the fill stops
     // at the padding box, so the transparent border shows the surface behind
     // (a BoxDecoration colour would also paint under the border).
@@ -330,11 +325,7 @@ class RaftAvatarSlot extends StatelessWidget {
       height: sizeOverride ?? slot.size,
       clipBehavior: Clip.antiAlias,
       decoration: base.copyWith(
-        color: server && t.brutal
-            ? t.product.softSignal
-            : clipPadding
-            ? Colors.transparent
-            : null,
+        color: clipPadding ? Colors.transparent : null,
         // `rounded-full` in Elegant at every AvatarSlot size.
         borderRadius: radius,
         border: Border.all(
@@ -511,14 +502,7 @@ class RaftPanelSection extends StatelessWidget {
 /// The product JSX's border-black/10 literal uses the generated CSS composite
 /// colour; do not replace it with a separately rounded alpha.
 Color raftPanelRuleColor(RaftTokens t) {
-  if (!t.brutal) return t.colors['line-muted']!;
-  final rt = RaftRecipeTokens(t);
-  final compiled = raftRecipeEngine.resolveSlot(
-    [raftRecipeUtilities.indexWhere((u) => u.name == 'border-black/10')],
-    RaftRecipeStates.none,
-    rt,
-  );
-  return compiled.borderColor!.resolve(rt);
+  return t.colors['line-muted']!;
 }
 
 /// Eyebrow followed by optional inline edit pencil (`flex items-center
@@ -555,13 +539,11 @@ class RaftEditableEyebrow extends StatelessWidget {
 /// Text styles shared by the panels.
 abstract final class RaftPanelText {
   static TextStyle value(RaftTokens t) => RaftInfoRow.valueStyle(t);
-  static TextStyle placeholder(RaftTokens t) => value(t).copyWith(
-    fontStyle: FontStyle.italic,
-    color: raftPanelInk(t, .4, t.colors['foreground-muted']!),
-  );
+  static TextStyle placeholder(RaftTokens t) => value(
+    t,
+  ).copyWith(fontStyle: FontStyle.italic, color: t.colors['foreground-muted']!);
   static TextStyle muted(RaftTokens t) =>
-      value(t)
-          .copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!));
+      value(t).copyWith(color: t.colors['foreground-muted']!);
   static TextStyle mono(RaftTokens t) =>
       value(t).copyWith(fontFamily: t.monoFont);
   static TextStyle monoSemibold(RaftTokens t) =>
@@ -572,7 +554,7 @@ abstract final class RaftPanelText {
       size: 12,
       line: 16,
       weight: FontWeight.w400,
-    ).copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!)),
+    ).copyWith(color: t.colors['foreground-muted']!),
   );
   static TextStyle caption(RaftTokens t) => raftCssText.merge(
     RaftTypography.heading(
@@ -583,10 +565,7 @@ abstract final class RaftPanelText {
     ).copyWith(color: t.colors['foreground-muted']),
   );
   static TextStyle monoCaption(RaftTokens t) => raftCssText.merge(
-    RaftTypography.mono(
-      t,
-      color: raftPanelInk(t, .5, t.colors['foreground-muted']!),
-    ),
+    RaftTypography.mono(t, color: t.colors['foreground-muted']!),
   );
 }
 
@@ -734,11 +713,7 @@ class RaftProfileIdentity extends StatelessWidget {
                               line: 20,
                               color: agent
                                   ? t.colors['foreground-muted']
-                                  : raftPanelInk(
-                                      t,
-                                      .5,
-                                      t.colors['foreground-muted']!,
-                                    ),
+                                  : t.colors['foreground-muted']!,
                             ),
                           ),
                         ),
@@ -753,11 +728,7 @@ class RaftProfileIdentity extends StatelessWidget {
                               t,
                               size: 14,
                               line: 20,
-                              color: raftPanelInk(
-                                t,
-                                .6,
-                                t.colors['foreground-muted']!,
-                              ),
+                              color: t.colors['foreground-muted']!,
                             ),
                           ),
                         ),
@@ -781,11 +752,7 @@ class RaftProfileIdentity extends StatelessWidget {
                                   t,
                                   size: 14,
                                   line: 20,
-                                  color: raftPanelInk(
-                                    t,
-                                    .6,
-                                    t.colors['foreground-muted']!,
-                                  ),
+                                  color: t.colors['foreground-muted']!,
                                 ),
                               ),
                             ),
@@ -876,9 +843,7 @@ class RaftEnvVarChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final style = raftCssText.merge(
-      RaftTypography.mono(t, color: t.brutal ? Colors.black : t.strong),
-    );
+    final style = raftCssText.merge(RaftTypography.mono(t, color: t.strong));
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -887,11 +852,8 @@ class RaftEnvVarChips extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: t.brutal ? Colors.white : t.colors['layer-card'],
-              border: Border.all(
-                color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                width: t.brutal ? 2 : 1,
-              ),
+              color: t.colors['layer-card'],
+              border: Border.all(color: t.colors['line-muted']!, width: 1),
             ),
             child: RaftCssText.rich(
               TextSpan(
@@ -1043,7 +1005,7 @@ class _RaftActivityLogViewState extends State<RaftActivityLogView> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return ColoredBox(
-      color: t.brutal ? Colors.white : t.colors['layer-panel']!,
+      color: t.colors['layer-panel']!,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1051,10 +1013,7 @@ class _RaftActivityLogViewState extends State<RaftActivityLogView> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(
-                  color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                  width: t.brutal ? 2 : 1,
-                ),
+                bottom: BorderSide(color: t.colors['line-muted']!, width: 1),
               ),
             ),
             child: Row(
@@ -1066,22 +1025,15 @@ class _RaftActivityLogViewState extends State<RaftActivityLogView> {
                 ),
                 // `CopyableCodeAction` of a `CopyableCodeRoot size="sm"`: the
                 // outline icon button on Brutal, a ghost 24px one on Elegant.
-                if (t.brutal)
-                  RaftPanelIconButton(
-                    glyph: RaftGlyph.copy,
-                    tooltip: raftText(context, 'Copy Diagnostic Info'),
-                    onPressed: onCopy,
-                  )
-                else
-                  RaftRecipeButton(
-                    variant: RaftButtonRecipeVariant.ghost,
-                    size: RaftButtonRecipeSize.iconXs,
-                    glyph: RaftGlyph.copy,
-                    glyphSize: 12,
-                    tooltip: raftText(context, 'Copy Diagnostic Info'),
-                    foreground: t.colors['foreground-muted'],
-                    onPressed: onCopy,
-                  ),
+                RaftRecipeButton(
+                  variant: RaftButtonRecipeVariant.ghost,
+                  size: RaftButtonRecipeSize.iconXs,
+                  glyph: RaftGlyph.copy,
+                  glyphSize: 12,
+                  tooltip: raftText(context, 'Copy Diagnostic Info'),
+                  foreground: t.colors['foreground-muted'],
+                  onPressed: onCopy,
+                ),
               ],
             ),
           ),
@@ -1154,7 +1106,7 @@ class _RaftActivityRowState extends State<_RaftActivityRow> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final e = widget.entry;
-    final strong = t.brutal ? Colors.black : t.strong;
+    final strong = t.strong;
     final primary = raftCssText.merge(
       RaftTypography.heading(
         t,
@@ -1175,11 +1127,11 @@ class _RaftActivityRowState extends State<_RaftActivityRow> {
         ? monoMuted.copyWith(height: 20 / 12, letterSpacing: 0.05)
         : primary.copyWith(
             fontWeight: FontWeight.w400,
-            color: raftPanelInk(t, .6, t.colors['foreground-muted']!),
+            color: t.colors['foreground-muted']!,
           );
     final badgeH = e.badge == null ? 0.0 : _badgeHeight(t);
     // The badge centre sits 11.55 (Brutal) / 11.17 (Elegant) below the line top.
-    final badgeTop = math.max(0.0, (t.brutal ? 11.55 : 11.17) - badgeH / 2);
+    final badgeTop = math.max(0.0, (11.17) - badgeH / 2);
     // CSS grows the line box when the middle-aligned badge ends below it;
     // [RaftCssText] keeps whole 20px lines, so the row takes the difference.
     final badgeGrowth = e.badge == null
@@ -1275,11 +1227,7 @@ class _RaftActivityRowState extends State<_RaftActivityRow> {
               style: raftCssText.merge(
                 RaftTypography.mono(
                   t,
-                  color: raftPanelInk(
-                    t,
-                    .4,
-                    t.colors['foreground-placeholder']!,
-                  ),
+                  color: t.colors['foreground-placeholder']!,
                 ),
               ),
             ),
@@ -1565,7 +1513,7 @@ class RaftReminderListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final muted = raftPanelInk(t, .5, t.colors['foreground-muted']!);
+    final muted = t.colors['foreground-muted']!;
     final bold = raftCssText.merge(
       RaftTypography.heading(
         t,
@@ -1576,7 +1524,7 @@ class RaftReminderListView extends StatelessWidget {
       ),
     );
     return ColoredBox(
-      color: t.brutal ? Colors.white : t.colors['layer-panel']!,
+      color: t.colors['layer-panel']!,
       child: ListView(
         padding: raftScrollPadding(context, const EdgeInsets.all(20)),
         children: [
@@ -1626,7 +1574,7 @@ class RaftReminderListView extends StatelessWidget {
   }
 
   Widget _card(RaftTokens t, RaftReminderItem r) {
-    final meta60 = raftPanelInk(t, .6, t.colors['foreground-muted']!);
+    final meta60 = t.colors['foreground-muted']!;
     return RaftSurfaceListItem(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1671,12 +1619,8 @@ class RaftReminderListView extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: t.brutal
-                        ? t.product.brutalLavender.withValues(alpha: .3)
-                        : t.colors['accent-soft'],
-                    border: Border.all(
-                      color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                    ),
+                    color: t.colors['accent-soft'],
+                    border: Border.all(color: t.colors['line-muted']!),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1782,14 +1726,8 @@ class RaftWorkspaceTreeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final hairline = BorderSide(
-      color: raftPanelInk(t, .1, t.colors['line-muted']!),
-    );
-    final placeholder = raftPanelInk(
-      t,
-      .4,
-      t.colors['foreground-placeholder']!,
-    );
+    final hairline = BorderSide(color: t.colors['line-muted']!);
+    final placeholder = t.colors['foreground-placeholder']!;
     final wide = MediaQuery.sizeOf(context).width >= 768;
     final pathBar = Container(
       height: 37,
@@ -1877,9 +1815,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                       RaftIcon(
                         RaftGlyph.triangleAlert,
                         size: 20,
-                        color: t.brutal
-                            ? t.product.brutalOrange
-                            : t.colors['warning-strong'] ?? t.strong,
+                        color: t.colors['warning-strong'] ?? t.strong,
                       ),
                       const SizedBox(height: 6),
                       RaftCssText(
@@ -1889,9 +1825,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                           t,
                           size: 14,
                           line: 20,
-                          color: t.brutal
-                              ? t.colors['foreground-muted']
-                              : t.muted,
+                          color: t.muted,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1910,12 +1844,12 @@ class RaftWorkspaceTreeView extends StatelessWidget {
             : [for (final n in nodes) _node(context, t, n)],
       ),
     );
-    final panel = t.brutal ? Colors.white : t.colors['layer-panel']!;
+    final panel = t.colors['layer-panel']!;
     if (!wide && preview != null) {
       // The phone shows the open file alone under the path bar (the tree pane
       // is `hidden`); the container is `bg-layer-canvas-muted`.
       return ColoredBox(
-        color: t.brutal ? t.colors['color-brutal-cream']! : t.sidebar,
+        color: t.sidebar,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1938,9 +1872,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                 position: DecorationPosition.foreground,
                 decoration: BoxDecoration(
                   border: Border(
-                    right: t.brutal
-                        ? const BorderSide(color: Colors.black, width: 2)
-                        : BorderSide(color: t.colors['line-muted']!),
+                    right: BorderSide(color: t.colors['line-muted']!),
                   ),
                 ),
                 child: Column(
@@ -1957,7 +1889,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
     // the file pane on `bg-layer-canvas-muted`.
     return ColoredBox(
       // `bg-layer-canvas-muted` (Brutal paints the cream here).
-      color: t.brutal ? t.colors['color-brutal-cream']! : t.sidebar,
+      color: t.sidebar,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1971,9 +1903,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: panel,
                     border: Border(
-                      right: t.brutal
-                          ? const BorderSide(color: Colors.black, width: 2)
-                          : BorderSide(color: t.colors['line-muted']!),
+                      right: BorderSide(color: t.colors['line-muted']!),
                     ),
                   ),
                   child: Column(
@@ -1993,9 +1923,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                               child: RaftIcon(
                                 RaftGlyph.file,
                                 size: 32,
-                                color: t.brutal
-                                    ? Colors.black.withValues(alpha: .3)
-                                    : placeholder,
+                                color: placeholder,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -2005,9 +1933,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                                 t,
                                 size: 14,
                                 line: 20,
-                                color: t.brutal
-                                    ? Colors.black.withValues(alpha: .3)
-                                    : placeholder,
+                                color: placeholder,
                               ),
                             ),
                           ],
@@ -2023,7 +1949,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
   }
 
   Widget _node(BuildContext context, RaftTokens t, RaftWorkspaceNode n) {
-    final dim = raftPanelInk(t, .4, t.colors['foreground-placeholder']!);
+    final dim = t.colors['foreground-placeholder']!;
     if (n.loading || n.hint) {
       // `py-1 text-xs font-mono` placeholder rows at `padding-left` depth*16+22
       // (the root hint: 8).
@@ -2071,32 +1997,19 @@ class RaftWorkspaceTreeView extends StatelessWidget {
             ? FontWeight.w700
             : FontWeight.w400,
         // `text-foreground-muted theme-brutal:text-black/55` for `isHidden`.
-        color: n.hidden
-            ? (t.brutal
-                  ? Colors.black.withValues(alpha: .55)
-                  : t.colors['foreground-muted'])
-            : null,
+        color: n.hidden ? t.colors['foreground-muted'] : null,
       ),
     );
-    final folder = t.brutal
-        ? t.product.brutalOrange
-        : t.colors['warning-strong'] ?? t.strong;
+    final folder = t.colors['warning-strong'] ?? t.strong;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: n.onTap,
       child: Container(
         decoration: n.selected
             ? BoxDecoration(
-                color: t.brutal
-                    ? t.product.brutalPink.withValues(alpha: .2)
-                    : t.colors['accent-soft'],
+                color: t.colors['accent-soft'],
                 border: Border(
-                  right: BorderSide(
-                    color: t.brutal
-                        ? t.product.brutalPink
-                        : t.colors['line-strong']!,
-                    width: t.brutal ? 2 : 1,
-                  ),
+                  right: BorderSide(color: t.colors['line-strong']!, width: 1),
                 ),
               )
             : null,
@@ -2127,7 +2040,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
               RaftIcon(
                 RaftGlyph.fileText,
                 size: 14,
-                color: raftPanelInk(t, .5, t.colors['foreground-muted']!),
+                color: t.colors['foreground-muted']!,
               ),
             const SizedBox(width: 4),
             Expanded(
@@ -2184,12 +2097,8 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: t.brutal ? Colors.white : t.colors['layer-panel'],
-            border: Border(
-              bottom: BorderSide(
-                color: raftPanelInk(t, .1, t.colors['line-muted']!),
-              ),
-            ),
+            color: t.colors['layer-panel'],
+            border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
           ),
           child: Row(
             children: [
@@ -2211,7 +2120,7 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
                     t,
                     size: 14,
                     line: 20,
-                    color: t.brutal ? Colors.black : t.strong,
+                    color: t.strong,
                   ).copyWith(fontWeight: FontWeight.w500),
                 ),
               ),
@@ -2227,7 +2136,7 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
                 t,
                 size: 14,
                 line: 20,
-                color: t.brutal ? Colors.black : t.strong,
+                color: t.strong,
               ),
             ),
           ),
@@ -2242,7 +2151,7 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
       t,
       size: 14,
       line: 20,
-      color: raftPanelInk(t, .4, t.colors['foreground-placeholder']!),
+      color: t.colors['foreground-placeholder']!,
     ),
   );
 
@@ -2257,9 +2166,7 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
           t,
           size: 14,
           line: 20,
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .4)
-              : t.colors['foreground-placeholder'],
+          color: t.colors['foreground-placeholder'],
         ),
       ),
     ),
@@ -2281,7 +2188,7 @@ class RaftPanelGroups extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return ColoredBox(
-      color: t.brutal ? Colors.white : t.colors['layer-panel']!,
+      color: t.colors['layer-panel']!,
       child: ListView(
         padding: raftScrollPadding(
           context,
@@ -2420,14 +2327,9 @@ class RaftPanelErrorStrip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
-          color: t.brutal
-              ? t.product.brutalOrange.withValues(alpha: .2)
-              : t.colors['warning-soft'],
+          color: t.colors['warning-soft'],
           border: Border(
-            bottom: BorderSide(
-              color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
+            bottom: BorderSide(color: t.colors['line-muted']!, width: 1),
           ),
         ),
         child: Row(
@@ -2442,7 +2344,7 @@ class RaftPanelErrorStrip extends StatelessWidget {
                   size: 14,
                   line: 20,
                   weight: FontWeight.w700,
-                  color: t.brutal ? Colors.black : t.strong,
+                  color: t.strong,
                 ),
               ),
             ),

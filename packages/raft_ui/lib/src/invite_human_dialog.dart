@@ -446,9 +446,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                     fontSize: 12,
                     height: 16 / 12,
                     fontWeight: FontWeight.w700,
-                    color: t.brutal
-                        ? t.product.brutalPink
-                        : t.colors['accent-strong'],
+                    color: t.colors['accent-strong'],
                   ),
                 ),
               ),

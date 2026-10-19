@@ -58,14 +58,12 @@ class RaftArchivedChannelsSection extends StatelessWidget {
     _ => RaftGlyph.hash,
   };
 
-  static String typeLabel(BuildContext context, String type) => raftText(
-    context,
-    switch (type) {
-      'private' => 'Private channel',
-      'joint' => 'Joint channel',
-      _ => 'Public channel',
-    },
-  );
+  static String typeLabel(BuildContext context, String type) =>
+      raftText(context, switch (type) {
+        'private' => 'Private channel',
+        'joint' => 'Joint channel',
+        _ => 'Public channel',
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +100,12 @@ class RaftArchivedChannelsSection extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context, RaftTokens t, RaftArchivedChannelRow row, bool wide) {
+  Widget _row(
+    BuildContext context,
+    RaftTokens t,
+    RaftArchivedChannelRow row,
+    bool wide,
+  ) {
     final text = RaftSettingsText(t);
     final label = typeLabel(context, row.type);
     final unarchive = RaftSettingsRecipeButton(
@@ -113,7 +116,9 @@ class RaftArchivedChannelsSection extends StatelessWidget {
       variant: RaftButtonRecipeVariant.success,
       size: RaftButtonRecipeSize.sm,
       expand: !wide,
-      semanticLabel: raftFormat(context, 'Unarchive {name}', {'name': row.name}),
+      semanticLabel: raftFormat(context, 'Unarchive {name}', {
+        'name': row.name,
+      }),
       onPressed: busyId == null ? () => onUnarchive(row.id) : null,
     );
     final info = Row(
@@ -126,19 +131,11 @@ class RaftArchivedChannelsSection extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: t.brutal
-                    ? t.product.brutalStone
-                    : t.semantic.fillMuted,
+                color: t.semantic.fillMuted,
                 border: Border.all(color: text.softEdge, width: t.border),
               ),
               child: Center(
-                child: RaftIcon(
-                  typeGlyph(row.type),
-                  size: 16,
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .65)
-                      : t.muted,
-                ),
+                child: RaftIcon(typeGlyph(row.type), size: 16, color: t.muted),
               ),
             ),
           ),
@@ -168,7 +165,9 @@ class RaftArchivedChannelsSection extends StatelessWidget {
                 row.metadata,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: text.description.copyWith(color: text.faint.withValues(alpha: t.brutal ? .55 : 1)),
+                style: text.description.copyWith(
+                  color: text.faint.withValues(alpha: 1),
+                ),
               ),
             ],
           ),

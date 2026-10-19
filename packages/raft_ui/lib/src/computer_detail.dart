@@ -187,9 +187,8 @@ class _Ink {
   _Ink(this.t);
   final RaftTokens t;
 
-  Color get strong => t.brutal ? Colors.black : t.colors['foreground-strong']!;
-  Color muted(double brutalAlpha) =>
-      raftPanelInk(t, brutalAlpha, t.colors['foreground-muted']!);
+  Color get strong => t.colors['foreground-strong']!;
+  Color get muted => t.colors['foreground-muted']!;
   Color get orange => t.product.brutalOrange;
 
   TextStyle body(double size, double line, {Color? color, FontWeight? w}) =>
@@ -213,7 +212,7 @@ class _Ink {
       );
 
   /// `text-xs leading-5 text-foreground-muted theme-brutal:text-black/60`.
-  TextStyle get note => body(12, 20, color: muted(.6));
+  TextStyle get note => body(12, 20, color: muted);
 }
 
 /// `border-b border-line-muted theme-brutal:border-black/10` (also border-t).
@@ -261,7 +260,7 @@ class _KeyValue extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        RaftCssText(label, style: ink.body(12, 16, color: ink.muted(.5))),
+        RaftCssText(label, style: ink.body(12, 16, color: ink.muted)),
         const SizedBox(height: 4),
         DefaultTextStyle.merge(
           style: ink.body(14, 20, color: ink.strong),
@@ -291,16 +290,7 @@ Widget _smallButton(
   RaftGlyph? glyph,
   RaftButtonRecipeVariant variant = RaftButtonRecipeVariant.outline,
   VoidCallback? onPressed,
-  bool brutalDisabledFill = false,
 }) => RaftRecipeButton(
-  // `theme-brutal:disabled:bg-gray-200` (bulk action bar).
-  brutalSurface: brutalDisabledFill && onPressed == null
-      ? (t, _) => BoxDecoration(
-          color: const Color(0xFFE5E7EB),
-          border: Border.all(color: Colors.black, width: 2),
-          boxShadow: RaftShadowSet.brutalSm,
-        )
-      : null,
   key: key,
   label: label,
   glyph: glyph,
@@ -543,8 +533,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           done: true,
           error: RaftErrorScope.of(context)(
             e,
-            fallback:
-                'Failed to request restart. The Computer must be online.',
+            fallback: 'Failed to request restart. The Computer must be online.',
           ),
         ),
       );
@@ -660,9 +649,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
     final count = selected.length;
     final mode = await showDialog<RaftComputerBulk>(
       context: context,
-      barrierColor: RaftTokens.of(context).brutal
-          ? Colors.black.withValues(alpha: .6)
-          : RaftTokens.of(context).colors['layer-backdrop'],
+      barrierColor: RaftTokens.of(context).colors['layer-backdrop'],
       // Web `DialogCard` without `closeOnBackdrop`: a stray press on the
       // scrim keeps the choice; Escape and Back still close it.
       barrierDismissible: false,
@@ -685,7 +672,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           _header(context, t),
           Expanded(
             child: ColoredBox(
-              color: t.brutal ? Colors.white : t.colors['layer-panel']!,
+              color: t.colors['layer-panel']!,
               child: SingleChildScrollView(
                 key: const Key('fleet-detail'),
                 padding: raftScrollPadding(context),
@@ -699,8 +686,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         child: RaftBanner(
                           key: const ValueKey('computer-disk-low-banner'),
                           title: diskTitle,
-                          description:
-                              'Agents on this computer may fail to save work or start. Raft removes its own old migration data automatically; if space stays low, free up space on this computer.',
+                          description: 'Agents on this computer may fail to save work or start. Raft removes its own old migration data automatically; if space stays low, free up space on this computer.',
                           size: RaftBannerRecipeSize.sm,
                           titleGap: 4,
                         ),
@@ -751,12 +737,12 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
   /// PanelHeader with the Monitor 18 icon, `iconBg="bg-primary-soft
   /// theme-brutal:bg-soft-signal ..."` and `iconAlwaysVisible`.
   Widget _header(BuildContext context, RaftTokens t) => RaftStatusBarSource(
-    color: t.brutal ? Colors.white : t.colors['layer-canvas-muted']!,
+    color: t.colors['layer-canvas-muted']!,
     child: Container(
       key: widget.headerKey ?? const ValueKey('computer-section-header'),
       // MainLayout's content column (`bg-layer-canvas-muted`) shows through
       // the transparent Elegant PanelHeader; Brutal paints white.
-      color: t.brutal ? Colors.white : t.colors['layer-canvas-muted'],
+      color: t.colors['layer-canvas-muted'],
       child: RaftPanelHeaderBar(
         title: '${d.name}',
         iconAlwaysVisible: true,
@@ -766,8 +752,8 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           glyph: RaftGlyph.monitor,
           // bg-primary-soft theme-brutal:bg-soft-signal; elegant border-0
           // bg-fill-muted (`in-data-[theme=elegant]` wins).
-          background: t.brutal ? t.product.softSignal : t.colors['fill-muted']!,
-          borderless: !t.brutal,
+          background: t.colors['fill-muted']!,
+          borderless: true,
         ),
       ),
     ),
@@ -824,7 +810,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                       Flexible(
                         child: RaftCssText(
                           online ? 'Connected' : 'Offline',
-                          style: ink.mono(14, 20, color: ink.muted(.6)),
+                          style: ink.mono(14, 20, color: ink.muted),
                         ),
                       ),
                     ],
@@ -834,7 +820,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                       d.hostname!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: ink.mono(14, 20, color: ink.muted(.5)),
+                      style: ink.mono(14, 20, color: ink.muted),
                     ),
                 ],
               ),
@@ -979,7 +965,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
               const Spacer(),
               RaftCssText(
                 '${descriptionField.text.length}/500',
-                style: ink.mono(11, 16, color: ink.muted(.4)),
+                style: ink.mono(11, 16, color: ink.muted),
               ),
             ],
           ),
@@ -994,7 +980,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           description.isEmpty ? 'No description' : description,
           style: description.isEmpty
               ? ink
-                    .body(14, 22.75, color: ink.muted(.4))
+                    .body(14, 22.75, color: ink.muted)
                     .copyWith(fontStyle: FontStyle.italic)
               : ink.body(14, 22.75, color: ink.strong),
         ),
@@ -1025,7 +1011,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
               if (d.versionKind == RaftComputerVersionKind.current)
                 TextSpan(
                   text: ' · Up to date',
-                  style: ink.body(12, 16, color: ink.muted(.6)),
+                  style: ink.body(12, 16, color: ink.muted),
                 ),
               if (d.versionKind == RaftComputerVersionKind.outdated)
                 TextSpan(
@@ -1044,7 +1030,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       return RaftCssText(
         online ? 'Reading version…' : '—',
         style: ink
-            .body(14, 20, color: ink.muted(.4))
+            .body(14, 20, color: ink.muted)
             .copyWith(fontStyle: FontStyle.italic),
       );
     }
@@ -1109,14 +1095,14 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                           const SizedBox(width: 8),
                           RaftCssText(
                             '@${creator.handle}',
-                            style: ink.mono(12, 16, color: ink.muted(.5)),
+                            style: ink.mono(12, 16, color: ink.muted),
                           ),
                         ],
                       )
                     : RaftCssText(
                         'No creator assigned',
                         style: ink
-                            .body(14, 20, color: ink.muted(.4))
+                            .body(14, 20, color: ink.muted)
                             .copyWith(fontStyle: FontStyle.italic),
                       ),
               ),
@@ -1133,7 +1119,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       children: [
         RaftCssText(
           label,
-          style: ink.body(12, 16, color: ink.muted(.6), w: FontWeight.w700),
+          style: ink.body(12, 16, color: ink.muted, w: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         RaftCopyableCode(
@@ -1179,7 +1165,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
         const SizedBox(height: 8),
         RaftCssText(
           'Connect commands and API key rotation are admin-only.',
-          style: ink.mono(12, 16, color: ink.muted(.4)),
+          style: ink.mono(12, 16, color: ink.muted),
         ),
       ],
     );
@@ -1199,7 +1185,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
         if (!manage)
           RaftCssText(
             'This computer is offline . Bringing it back online is admin-only.',
-            style: ink.body(12, 20, color: ink.muted(.5)),
+            style: ink.body(12, 20, color: ink.muted),
           )
         else if (c != null)
           _gapColumn(16, [
@@ -1251,7 +1237,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         style: ink.body(
                           12,
                           16,
-                          color: ink.muted(.6),
+                          color: ink.muted,
                           w: FontWeight.w700,
                         ),
                         onPressed: () => setState(
@@ -1363,7 +1349,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                 activityText,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: ink.mono(12, 16, color: ink.muted(.5)),
+                style: ink.mono(12, 16, color: ink.muted),
               ),
             ),
           ),
@@ -1400,8 +1386,6 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
             ? t.colors['success-soft']
             : selectionMode && isSelected
             ? null
-            : t.brutal
-            ? const Color(0xFFF3F4F6)
             : t.colors['layer-canvas-muted'],
         onTap: selectionMode
             ? () => setState(() {
@@ -1426,7 +1410,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           RaftCssText(
             'No agents assigned to this computer yet.',
             style: ink
-                .body(14, 20, color: ink.muted(.4))
+                .body(14, 20, color: ink.muted)
                 .copyWith(fontStyle: FontStyle.italic),
           )
         else
@@ -1436,9 +1420,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
               RaftSurfaceListItem(
                 selected: true,
                 interactive: false,
-                selectedBackground: t.brutal
-                    ? const Color(0xFFF3F4F6)
-                    : t.colors['layer-canvas-muted'],
+                selectedBackground: t.colors['layer-canvas-muted'],
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 8,
@@ -1463,7 +1445,6 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                               : 'Start',
                           glyph: RaftGlyph.play,
                           variant: RaftButtonRecipeVariant.success,
-                          brutalDisabledFill: true,
                           onPressed:
                               bulkAction == null &&
                                   selectedOffline.isNotEmpty &&
@@ -1475,7 +1456,6 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                           'Stop',
                           key: const ValueKey('computer-bulk-stop'),
                           glyph: RaftGlyph.square,
-                          brutalDisabledFill: true,
                           onPressed:
                               bulkAction == null && selectedOnline.isNotEmpty
                               ? showStopConfirm
@@ -1485,7 +1465,6 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                           'Restart / Reset',
                           key: const ValueKey('computer-bulk-restart-reset'),
                           glyph: RaftGlyph.rotateCcw,
-                          brutalDisabledFill: true,
                           onPressed: bulkAction == null && online
                               ? showResetOptions
                               : null,
@@ -1495,7 +1474,6 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                             'Change model',
                             key: const ValueKey('computer-bulk-change-model'),
                             glyph: RaftGlyph.refreshCw,
-                            brutalDisabledFill: true,
                             onPressed: bulkAction != null || changingModel
                                 ? null
                                 : () async {
@@ -1565,14 +1543,14 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           RaftCssText(
             'Click Scan to check for workspace directories on this computer.',
             style: ink
-                .body(12, 16, color: ink.muted(.4))
+                .body(12, 16, color: ink.muted)
                 .copyWith(fontStyle: FontStyle.italic),
           ),
         if (scanned && workspaces.isEmpty)
           RaftCssText(
             'No workspace directories found.',
             style: ink
-                .body(12, 16, color: ink.muted(.4))
+                .body(12, 16, color: ink.muted)
                 .copyWith(fontStyle: FontStyle.italic),
           ),
         if (scanned && orphan > 0)
@@ -1651,7 +1629,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         const SizedBox(height: 2),
                         RaftCssText(
                           'Permanently remove this computer. All agents must be deleted first.',
-                          style: _Ink(t).body(12, 16, color: _Ink(t).muted(.6)),
+                          style: _Ink(t).body(12, 16, color: _Ink(t).muted),
                         ),
                       ],
                     ),
@@ -1705,7 +1683,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         size: 14,
                         color: progress.error != null
                             ? t.product.brutalRed
-                            : ink.muted(.7),
+                            : ink.muted,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -1716,7 +1694,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                             16,
                             color: progress.error != null
                                 ? t.product.brutalRed
-                                : ink.muted(.7),
+                                : ink.muted,
                           ),
                         ),
                       ),
@@ -1873,7 +1851,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                   child: RaftIcon(
                     RaftGlyph.chevronRight,
                     size: 16,
-                    color: ink.muted(.6),
+                    color: ink.muted,
                   ),
                 ),
               ],
@@ -1939,11 +1917,8 @@ class _DeletedWorkspaceNote extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: t.brutal ? const Color(0xFFE5E7EB) : t.colors['fill-muted'],
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: 2,
-        ),
+        color: t.colors['fill-muted'],
+        border: Border.all(color: t.colors['line-muted']!, width: 2),
       ),
       child: Text.rich(
         TextSpan(
@@ -1974,22 +1949,11 @@ class _WorkspaceRow extends StatelessWidget {
     final ink = _Ink(t);
     final status = ws.status;
     final (border, fill) = switch (status) {
-      'orphan' => (
-        t.brutal ? t.product.brutalOrange : t.colors['warning']!,
-        t.brutal
-            ? t.product.brutalOrange.withValues(alpha: .1)
-            : t.colors['warning-soft'],
-      ),
-      'deleted' => (
-        t.brutal ? Colors.black : t.colors['line-muted']!,
-        t.brutal ? const Color(0xFFF3F4F6) : t.colors['fill-muted'],
-      ),
-      _ => (
-        t.brutal ? Colors.black.withValues(alpha: .3) : t.colors['line-muted']!,
-        null,
-      ),
+      'orphan' => (t.colors['warning']!, t.colors['warning-soft']),
+      'deleted' => (t.colors['line-muted']!, t.colors['fill-muted']),
+      _ => (t.colors['line-muted']!, null),
     };
-    final meta = ink.mono(10, 15, color: ink.muted(.5));
+    final meta = ink.mono(10, 15, color: ink.muted);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -1998,7 +1962,7 @@ class _WorkspaceRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          RaftIcon(RaftGlyph.folderOpen, size: 14, color: ink.muted(.4)),
+          RaftIcon(RaftGlyph.folderOpen, size: 14, color: ink.muted),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -2034,7 +1998,7 @@ class _WorkspaceRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 RaftCssText(
                   '~/.slock/agents/${ws.directoryName}/',
-                  style: ink.mono(10, 15, color: ink.muted(.4)),
+                  style: ink.mono(10, 15, color: ink.muted),
                 ),
                 if (status == 'deleted' || status == 'orphan') ...[
                   const SizedBox(height: 2),
@@ -2046,9 +2010,7 @@ class _WorkspaceRow extends StatelessWidget {
                         .body(
                           10,
                           15,
-                          color: status == 'orphan'
-                              ? ink.orange
-                              : ink.muted(.6),
+                          color: status == 'orphan' ? ink.orange : ink.muted,
                           w: FontWeight.w700,
                         )
                         .copyWith(letterSpacing: .25),
@@ -2105,25 +2067,19 @@ class _BulkResetDialogState extends State<_BulkResetDialog> {
         RaftComputerBulk.restart,
         'Restart',
         'Stop and restart the selected agents. Runtime sessions and workspace files are preserved.',
-        t.brutal
-            ? t.product.brutalCyan.withValues(alpha: .2)
-            : t.colors['info-soft']!,
+        t.colors['info-soft']!,
       ),
       (
         RaftComputerBulk.session,
         'Reset Session & Restart',
         'Clear runtime sessions and restart the selected agents. Workspace files are preserved.',
-        t.brutal
-            ? t.product.brutalOrange.withValues(alpha: .2)
-            : t.colors['warning-soft']!,
+        t.colors['warning-soft']!,
       ),
       (
         RaftComputerBulk.full,
         'Full Reset & Restart',
         'Clear runtime sessions, delete workspace files, and restart the selected agents.',
-        t.brutal
-            ? t.product.brutalRed.withValues(alpha: .2)
-            : t.colors['danger-soft']!,
+        t.colors['danger-soft']!,
       ),
     ];
     // ignore: raft_lints/avoid_render_where_without_or_else -- `options` is a fixed list holding every mode the state can take.
@@ -2163,7 +2119,7 @@ class _BulkResetDialogState extends State<_BulkResetDialog> {
                           const SizedBox(height: 4),
                           RaftCssText(
                             description,
-                            style: ink.body(12, 16, color: ink.muted(.6)),
+                            style: ink.body(12, 16, color: ink.muted),
                           ),
                         ],
                       ),
@@ -2173,8 +2129,7 @@ class _BulkResetDialogState extends State<_BulkResetDialog> {
                   const SizedBox(height: 12),
                   const RaftBanner(
                     size: RaftBannerRecipeSize.sm,
-                    description:
-                        'Full reset permanently deletes workspace files including MEMORY.md and notes/. This cannot be undone.',
+                    description: 'Full reset permanently deletes workspace files including MEMORY.md and notes/. This cannot be undone.',
                   ),
                 ],
                 const SizedBox(height: 20),

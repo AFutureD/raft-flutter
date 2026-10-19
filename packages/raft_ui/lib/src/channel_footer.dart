@@ -19,12 +19,7 @@ import 'theme.dart';
 /// `border-t border-line-muted bg-layer-panel` / brutal `border-t-2 border-black bg-white`.
 BoxDecoration _footerDecoration(RaftTokens t, {Color? color}) => BoxDecoration(
   color: color ?? t.panel,
-  border: Border(
-    top: BorderSide(
-      color: t.brutal ? Colors.black : t.colors['line-muted']!,
-      width: t.brutal ? 2 : 1,
-    ),
-  ),
+  border: Border(top: BorderSide(color: t.colors['line-muted']!, width: 1)),
 );
 
 /// The joint over-limit grace banner (`px-3 pt-3` host) above the footer.
@@ -91,16 +86,11 @@ class RaftChannelArchivedFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final color = t.brutal ? Colors.black : t.colors['warning-strong'];
+    final color = t.colors['warning-strong'];
     final text = RaftTypography.heading(t, size: 14, line: 20, color: color);
     return Container(
       key: const ValueKey('channel-archived-footer'),
-      decoration: _footerDecoration(
-        t,
-        color: t.brutal
-            ? t.colors['color-brutal-orange']!.withValues(alpha: .2)
-            : t.colors['warning-soft'],
-      ),
+      decoration: _footerDecoration(t, color: t.colors['warning-soft']),
       padding: const EdgeInsets.all(12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -115,9 +105,7 @@ class RaftChannelArchivedFooter extends StatelessWidget {
                 cursor: SystemMouseCursors.click,
                 child: RaftUnderlinedText(
                   raftText(context, linkLabel!),
-                  style: text.copyWith(
-                    color: t.brutal ? Colors.black : t.strong,
-                  ),
+                  style: text.copyWith(color: t.strong),
                 ),
               ),
             ),
@@ -179,7 +167,7 @@ class RaftChannelJoinFooter extends StatelessWidget {
                 size: 12,
                 line: 16,
                 weight: FontWeight.w500,
-                color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
+                color: t.muted,
               ),
             ),
         ],

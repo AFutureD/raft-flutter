@@ -17,7 +17,6 @@ class RaftConversationSurfaceRecipe {
   final RaftTokens tokens;
 
   Color background(RaftConversationSurfaceRole role) {
-    if (tokens.brutal) return Colors.white;
     return switch (role) {
       RaftConversationSurfaceRole.threadTimeline when tokens.dark =>
         tokens.card,
@@ -38,9 +37,8 @@ class RaftConversationSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = RaftConversationSurfaceRecipe(
-      RaftTokens.of(context),
-    ).background(role);
+    final color = RaftConversationSurfaceRecipe(RaftTokens.of(context))
+        .background(role);
     // The surface is the column's top surface under a transparent header.
     return RaftStatusBarSource(
       color: color,

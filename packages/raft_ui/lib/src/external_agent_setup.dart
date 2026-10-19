@@ -110,9 +110,6 @@ TextStyle _xs(
   leadingDistribution: TextLeadingDistribution.even,
 );
 
-Color _brutalMuted(RaftTokens t, double alpha) =>
-    t.brutal ? Colors.black.withValues(alpha: alpha) : _muted(t);
-
 RaftRecipeButton _smOutline(
   BuildContext context,
   String label,
@@ -176,13 +173,9 @@ class RaftExternalAgentToken extends StatelessWidget {
                 key: const ValueKey('external-token-value'),
                 padding: const EdgeInsets.all(8),
                 decoration: RaftCssBoxDecoration(
-                  color: t.brutal ? Colors.white : t.colors['layer-panel'],
-                  border: Border.all(
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .2)
-                        : t.colors['line-muted']!,
-                  ),
-                  borderRadius: t.brutal ? null : BorderRadius.circular(6),
+                  color: t.colors['layer-panel'],
+                  border: Border.all(color: t.colors['line-muted']!),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: RaftCssText(
                   maskToken(state.token),
@@ -301,12 +294,8 @@ class RaftExternalAgentToken extends StatelessWidget {
       key: ValueKey('external-credential-${c.id}'),
       padding: const EdgeInsets.all(8),
       decoration: RaftCssBoxDecoration(
-        border: Border.all(
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .2)
-              : t.colors['line-muted']!,
-        ),
-        borderRadius: t.brutal ? null : BorderRadius.circular(6),
+        border: Border.all(color: t.colors['line-muted']!),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -444,16 +433,9 @@ class RaftExternalSetupSection extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: RaftCssBoxDecoration(
-              color: t.brutal
-                  ? t.product.brutalCyan.withValues(alpha: .15)
-                  : t.colors['info-soft'],
-              border: Border.all(
-                color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                width: t.brutal ? 2 : 1,
-              ),
-              boxShadow: t.brutal
-                  ? RaftShadowSet.brutalSm
-                  : t.themeShadows.sm.outer,
+              color: t.colors['info-soft'],
+              border: Border.all(color: t.colors['line-muted']!, width: 1),
+              boxShadow: t.themeShadows.sm.outer,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -472,14 +454,10 @@ class RaftExternalSetupSection extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: RaftCssBoxDecoration(
-                        color: t.brutal
-                            ? Colors.white
-                            : t.colors['layer-panel'],
+                        color: t.colors['layer-panel'],
                         border: Border.all(
-                          color: t.brutal
-                              ? Colors.black
-                              : t.colors['line-muted']!,
-                          width: t.brutal ? 2 : 1,
+                          color: t.colors['line-muted']!,
+                          width: 1,
                         ),
                       ),
                       child: RaftCssText(
@@ -488,17 +466,13 @@ class RaftExternalSetupSection extends StatelessWidget {
                           'credential_minted' => 'Credential minted',
                           _ => 'Waiting for login',
                         }),
-                        style: _xs(
-                          t,
-                          weight: FontWeight.w700,
-                          color: t.brutal ? Colors.black : t.strong,
-                        ),
+                        style: _xs(t, weight: FontWeight.w700, color: t.strong),
                       ),
                     ),
                     if (lastUsed != null)
                       RaftCssText(
                         lastUsed!,
-                        style: _xs(t, mono: true, color: _brutalMuted(t, .5)),
+                        style: _xs(t, mono: true, color: _muted(t)),
                       ),
                   ],
                 ),
@@ -537,9 +511,7 @@ class RaftExternalSetupSection extends StatelessWidget {
                           style: _xs(
                             t,
                             weight: FontWeight.w700,
-                            color: t.brutal
-                                ? t.product.brutalOrange
-                                : t.colors['warning-strong'],
+                            color: t.colors['warning-strong'],
                           ),
                         ),
                     ],
@@ -563,14 +535,14 @@ class RaftExternalSetupSection extends StatelessWidget {
       RaftExternalSetupTab.claudeCode => 'claude-code',
       RaftExternalSetupTab.otherAgents => 'other-agents',
     };
-    final note = _xs(t, color: _brutalMuted(t, .6));
+    final note = _xs(t, color: _muted(t));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 12,
       children: [
         RaftCssText(
           tr('Run these steps in the terminal.'),
-          style: _xs(t, weight: FontWeight.w700, color: _brutalMuted(t, .7)),
+          style: _xs(t, weight: FontWeight.w700, color: _muted(t)),
         ),
         // `<ol className="space-y-4">`
         Column(
@@ -594,7 +566,7 @@ class RaftExternalSetupSection extends StatelessWidget {
                         style: _xs(
                           t,
                           weight: FontWeight.w700,
-                          color: _brutalMuted(t, .6),
+                          color: _muted(t),
                         ),
                       ),
                       _smOutline(
@@ -615,7 +587,7 @@ class RaftExternalSetupSection extends StatelessWidget {
                       fontSize: 14,
                       height: 20 / 14,
                       fontWeight: FontWeight.w700,
-                      color: t.brutal ? Colors.black : t.strong,
+                      color: t.strong,
                       leadingDistribution: TextLeadingDistribution.even,
                     ),
                   ),
@@ -625,22 +597,12 @@ class RaftExternalSetupSection extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: RaftCssBoxDecoration(
-                      color: t.brutal
-                          ? Colors.white.withValues(alpha: .8)
-                          : t.colors['layer-panel'],
-                      border: Border.all(
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .2)
-                            : t.colors['line-muted']!,
-                      ),
+                      color: t.colors['layer-panel'],
+                      border: Border.all(color: t.colors['line-muted']!),
                     ),
                     child: RaftCssText(
                       step.command,
-                      style: _xs(
-                        t,
-                        mono: true,
-                        color: t.brutal ? Colors.black : t.strong,
-                      ),
+                      style: _xs(t, mono: true, color: t.strong),
                     ),
                   ),
                   if (step.description.isNotEmpty)
@@ -678,19 +640,12 @@ class RaftExternalSetupSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: RaftCssBoxDecoration(
-            color: t.brutal ? Colors.white : t.colors['layer-panel'],
-            border: Border.all(
-              color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
+            color: t.colors['layer-panel'],
+            border: Border.all(color: t.colors['line-muted']!, width: 1),
           ),
           child: RaftCssText(
             otherInstruction,
-            style: _xs(
-              t,
-              mono: true,
-              color: t.brutal ? Colors.black : t.strong,
-            ),
+            style: _xs(t, mono: true, color: t.strong),
           ),
         ),
         RaftCssText(
@@ -698,7 +653,7 @@ class RaftExternalSetupSection extends StatelessWidget {
             context,
             'Use this flow for another agent runtime or custom harness.',
           ),
-          style: _xs(t, color: _brutalMuted(t, .6)),
+          style: _xs(t, color: _muted(t)),
         ),
       ],
     );

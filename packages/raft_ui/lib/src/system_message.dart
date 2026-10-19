@@ -19,24 +19,17 @@ class RaftSystemMessageRecipe {
   Color get contentColor =>
       (tokens.dark ? tokens.strong : Colors.black).withValues(alpha: .5);
   TextStyle get clock =>
-      (tokens.brutal
-              ? RaftTypography.mono(tokens, size: 12, line: 16)
-              : RaftTypography.body(
-                  tokens,
-                  size: 11,
-                  line: 16.5,
-                  weight: FontWeight.w500,
-                ))
-          .copyWith(
-            color: clockColor,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          );
-  TextStyle get content => RaftTypography.body(
-    tokens,
-    size: 12,
-    line: tokens.brutal ? 16 : 18,
-    color: contentColor,
-  );
+      RaftTypography.body(
+        tokens,
+        size: 11,
+        line: 16.5,
+        weight: FontWeight.w500,
+      ).copyWith(
+        color: clockColor,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+  TextStyle get content =>
+      RaftTypography.body(tokens, size: 12, line: 18, color: contentColor);
 }
 
 class RaftSystemMessage extends StatelessWidget {

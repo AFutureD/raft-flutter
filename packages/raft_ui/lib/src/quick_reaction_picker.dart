@@ -24,11 +24,8 @@ class RaftQuickReactionRecipe extends RaftControlRecipe {
   @override
   Color get background => Colors.transparent;
   @override
-  Color backgroundFor({bool hovered = false}) => !hovered
-      ? background
-      : tokens.brutal
-      ? tokens.colors['color-brutal-pink']!.withValues(alpha: .2)
-      : tokens.accentSoft;
+  Color backgroundFor({bool hovered = false}) =>
+      !hovered ? background : tokens.accentSoft;
   @override
   Color backgroundForInteraction({
     bool hovered = false,

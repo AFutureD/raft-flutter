@@ -48,7 +48,7 @@ class RaftConversationCardRecipe {
   static const gap = 8.0;
   // ThreadsInbox timestamp and overlaid action both use transition-opacity.
   static const actionFade = Duration(milliseconds: 150);
-  Color get background => saved || tokens.brutal ? tokens.panel : tokens.card;
+  Color get background => saved ? tokens.panel : tokens.card;
   Color get hoverBackground => tokens.colors['fill-muted']!;
 
   /// Persistent selected row (the row whose preview is open in the detail
@@ -57,46 +57,27 @@ class RaftConversationCardRecipe {
   /// light tint of the accent plus a leading accent bar; no border, shadow or
   /// text-colour change. The accent is `info` (elegant) / `brutal-cyan` tint
   /// with a black bar (brutal).
-  Color get selectedTint => tokens.brutal
-      ? tokens.colors['color-brutal-cyan']!.withValues(alpha: .08)
-      : tokens.colors['info']!.withValues(alpha: tokens.dark ? .06 : .05);
+  Color get selectedTint =>
+      tokens.colors['info']!.withValues(alpha: tokens.dark ? .06 : .05);
 
   /// Fill of a selected row over [base] (the normal or hover fill).
   Color selectedFill(Color base) => Color.alphaBlend(selectedTint, base);
 
   /// Leading accent bar. Brutal 4px black, elegant 3px `info`.
-  Color get selectedEdge =>
-      tokens.brutal ? tokens.colors['color-black']! : tokens.colors['info']!;
-  double get selectedEdgeWidth => tokens.brutal ? 4 : 3;
+  Color get selectedEdge => tokens.colors['info']!;
+  double get selectedEdgeWidth => 3;
   BorderSide get border => BorderSide(
     // SavedItem Card: `theme-brutal:border-2 theme-brutal:border-black`.
-    color: saved && tokens.brutal
-        ? tokens.colors['color-black']!
-        : tokens.dark
-        ? Colors.transparent
-        : tokens.brutal && !saved
-        ? tokens.colors['color-black']!.withValues(alpha: .3)
-        : tokens.colors[saved && tokens.brutal ? 'line-strong' : 'line-muted']!,
-    width: saved && !tokens.brutal ? .5 : tokens.border,
+    color: tokens.dark ? Colors.transparent : tokens.colors['line-muted']!,
+    width: saved ? .5 : tokens.border,
   );
-  BorderRadius get radius => BorderRadius.circular(
-    tokens.brutal
-        ? 0
-        : saved
-        ? 8
-        : 6,
-  );
-  TextStyle get body =>
-      RaftTypography.body(
-        tokens,
-        size: saved ? 14 : 12,
-        line: saved ? 20 : 16,
-        color: saved ? tokens.ink : tokens.strong,
-      ).copyWith(
-        fontFamily: saved || tokens.brutal
-            ? tokens.bodyFont
-            : tokens.headingFont,
-      );
+  BorderRadius get radius => BorderRadius.circular(saved ? 8 : 6);
+  TextStyle get body => RaftTypography.body(
+    tokens,
+    size: saved ? 14 : 12,
+    line: saved ? 20 : 16,
+    color: saved ? tokens.ink : tokens.strong,
+  ).copyWith(fontFamily: saved ? tokens.bodyFont : tokens.headingFont);
   TextStyle get metadata =>
       RaftTypography.body(
         tokens,
@@ -104,9 +85,7 @@ class RaftConversationCardRecipe {
         line: 16,
         color: tokens.muted,
       ).copyWith(
-        fontFamily: saved || tokens.brutal
-            ? tokens.bodyFont
-            : tokens.headingFont,
+        fontFamily: saved ? tokens.bodyFont : tokens.headingFont,
         fontWeight: FontWeight.w700,
       );
   TextStyle titleStyle(bool unread) => body.copyWith(
@@ -119,24 +98,12 @@ class RaftConversationCardRecipe {
     tokens,
     size: 12,
     line: saved ? 16 : 20,
-    color: saved
-        ? tokens.muted
-        : tokens.brutal
-        ? tokens.colors['color-black']!.withValues(alpha: .4)
-        : tokens.colors['foreground-placeholder'],
+    color: saved ? tokens.muted : tokens.colors['foreground-placeholder'],
   );
-  Color get titleIconColor => tokens.brutal
-      ? tokens.colors['color-black']!.withValues(alpha: .45)
-      : tokens.colors['foreground-placeholder']!;
-  Color titleColor(bool unread) => tokens.brutal
-      ? tokens.colors['color-black']!.withValues(alpha: unread ? 1 : .55)
-      : unread
-      ? tokens.strong
-      : tokens.muted;
+  Color get titleIconColor => tokens.colors['foreground-placeholder']!;
+  Color titleColor(bool unread) => unread ? tokens.strong : tokens.muted;
 
-  Color get senderColor => tokens.brutal
-      ? tokens.colors['color-black']!.withValues(alpha: .7)
-      : tokens.muted;
+  Color get senderColor => tokens.muted;
 }
 
 /// Explicit semantic paint keeps Ink surfaces from borrowing a distant Material
@@ -260,7 +227,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
     // SavedItem opts out with `shadow-none`.
     final selected = widget.selected && !widget.saved;
     final cardStyle = RaftCardRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      theme: RaftRecipeTheme.elegant,
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: rt,
     ).root;

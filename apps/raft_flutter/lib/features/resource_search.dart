@@ -199,8 +199,7 @@ class SearchHighlight extends StatelessWidget {
           text: match.group(0),
           style: TextStyle(
             backgroundColor: RaftSearchRecipe(t, mobile: false).highlight,
-            color: t.brutal ? t.strong : t.colors['primary-950'],
-            fontWeight: t.brutal ? FontWeight.w700 : null,
+            color: t.colors['primary-950'],
           ),
         ),
       );
@@ -409,9 +408,7 @@ class ResourceSearchResults extends StatelessWidget {
     // SearchResultsSectionHeading / SearchResultsList (MessageSearchPage.tsx).
     final rt = rui.RaftRecipeTokens(t);
     final slots = rui.RaftSearchRecipe.resolve(
-      theme: t.brutal
-          ? rui.RaftRecipeTheme.brutal
-          : rui.RaftRecipeTheme.elegant,
+      theme: rui.RaftRecipeTheme.elegant,
       states: rui.RaftRecipeStates({
         if (t.dark) rui.RaftRecipeStates.dark,
       }, MediaQuery.sizeOf(context).width),
@@ -607,9 +604,7 @@ class ResourceSearchResults extends StatelessWidget {
                             alignment: Alignment.center,
                             // SearchEntityResultIcon (searchEntity entityIcon).
                             decoration: rui.RaftSearchEntityRecipe.resolve(
-                              theme: t.brutal
-                                  ? rui.RaftRecipeTheme.brutal
-                                  : rui.RaftRecipeTheme.elegant,
+                              theme: rui.RaftRecipeTheme.elegant,
                               tokens: rt,
                             ).entityIcon.decoration(rt),
                             child: RaftIcon(
@@ -735,7 +730,7 @@ class ResourceSearchResults extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: t.colors['warning-soft'],
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 12),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         raftText(context, label),

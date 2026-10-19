@@ -12,7 +12,6 @@ import 'preview_route.dart';
 import 'large_content_viewer.dart';
 import 'localization.dart';
 import 'text_scaling.dart';
-import 'dialog_card.dart' show RaftShadowSet;
 import 'theme.dart';
 import 'tokens/media_motion.g.dart';
 import 'video_controls.dart' show raftMediaChromeFade;
@@ -658,7 +657,7 @@ class _RaftMediaStripState extends State<RaftMediaStrip> {
     final item = widget.items[i];
     final active = i == widget.index;
     final border = active
-        ? (t.brutal ? t.product.softSignal : t.colors['accent-strong']!)
+        ? (t.colors['accent-strong']!)
         : Colors.white.withValues(alpha: .3);
     final image = item.thumbnail;
     final thumb = _thumb;
@@ -667,11 +666,7 @@ class _RaftMediaStripState extends State<RaftMediaStrip> {
       height: thumb,
       decoration: BoxDecoration(
         border: Border.all(color: border, width: 2),
-        boxShadow: !active
-            ? null
-            : t.brutal
-            ? RaftShadowSet.brutalSm
-            : t.themeShadows.sm.outer,
+        boxShadow: !active ? null : t.themeShadows.sm.outer,
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -811,26 +806,12 @@ class RaftMediaChromeButton extends StatelessWidget {
             width: 38,
             height: 38,
             alignment: Alignment.center,
-            decoration: t.brutal
-                ? BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(width: 2),
-                    boxShadow: RaftShadowSet.brutalSm,
-                  )
-                : BoxDecoration(
-                    color: Colors.black.withValues(
-                      alpha: state.pressed ? .62 : .42,
-                    ),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .16),
-                    ),
-                  ),
-            child: RaftIcon(
-              glyph,
-              size: 18,
-              color: t.brutal ? Colors.black : Colors.white,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: state.pressed ? .62 : .42),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: .16)),
             ),
+            child: RaftIcon(glyph, size: 18, color: Colors.white),
           ),
         ),
       ),
@@ -1197,10 +1178,7 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
       // The bar is fixed chrome (bounded text, Large Content Viewer); its
       // title and sender line wrap and the bar grows above the default size.
       final grows = RaftScaled.grows(context);
-      final rule = t.brutal
-          ? const Border(bottom: BorderSide(color: Colors.white, width: 2))
-          : null;
-      final barHeight = topBar + (t.brutal ? 2 : 0);
+      final barHeight = topBar + (0);
       final row = Container(
         height: grows ? null : barHeight,
         constraints: grows ? BoxConstraints(minHeight: barHeight) : null,
@@ -1272,18 +1250,16 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
-                decoration: t.brutal
-                    ? BoxDecoration(color: Colors.black, border: rule)
-                    : BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: .8),
-                            Colors.black.withValues(alpha: 0),
-                          ],
-                        ),
-                      ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: .8),
+                      Colors.black.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -1313,30 +1289,23 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
-                decoration: t.brutal
-                    ? const BoxDecoration(
-                        color: Colors.black,
-                        border: Border(
-                          top: BorderSide(color: Colors.white, width: 2),
-                        ),
-                      )
-                    : BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0),
-                            Colors.black.withValues(alpha: .78),
-                          ],
-                        ),
-                      ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0),
+                      Colors.black.withValues(alpha: .78),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(
               safe.left,
-              t.brutal ? 6 : 12,
+              12,
               safe.right,
               safe.bottom + 8,
             ),

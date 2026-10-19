@@ -141,7 +141,7 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final rt = RaftRecipeTokens(t);
-    final theme = t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant;
+    final theme = RaftRecipeTheme.elegant;
     // Badge (appearance soft, variant from caller) merged with the editor's
     // className: `mt-0.5 inline-flex items-center gap-1
     // theme-brutal:border-2 theme-brutal:border-black px-2 py-0.5 text-xs
@@ -191,9 +191,7 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
           decoration: BoxDecoration(
             color: widget.background,
             borderRadius: badgeRadius,
-            border: t.brutal
-                ? Border.all(color: Colors.black, width: 2)
-                : Border.all(color: Colors.transparent),
+            border: Border.all(color: Colors.transparent),
           ),
           foregroundDecoration: state.hovered && widget.enabled
               // Product InlineBadgeEditor: hover:brightness-90 in both families.
@@ -448,7 +446,7 @@ class _RaftInlineBadgeMenuState extends State<RaftInlineBadgeMenu> {
     final t = RaftTokens.of(context);
     final rt = RaftRecipeTokens(t);
     final content = RaftDropdownMenuRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      theme: RaftRecipeTheme.elegant,
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: rt,
     ).content;
@@ -542,7 +540,7 @@ class _InlineBadgeMenuRowState extends State<_InlineBadgeMenuRow> {
       onPressed: widget.option.disabled ? null : widget.onPressed,
       builder: (context, state) {
         final button = RaftButtonRecipe.resolve(
-          theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+          theme: RaftRecipeTheme.elegant,
           variant: RaftButtonRecipeVariant.ghost,
           size: RaftButtonRecipeSize.sm,
           states: t.recipeStates(
@@ -553,12 +551,8 @@ class _InlineBadgeMenuRowState extends State<_InlineBadgeMenuRow> {
           ),
           tokens: rt,
         ).root;
-        final foreground = widget.option.disabled
-            ? (t.brutal ? Colors.black.withValues(alpha: .3) : t.muted)
-            : (t.brutal ? Colors.black : t.strong);
-        final hoverFill = t.brutal
-            ? t.colors['color-soft-signal']!.withValues(alpha: .3)
-            : t.colors['fill-muted']!;
+        final foreground = widget.option.disabled ? t.muted : t.strong;
+        final hoverFill = t.colors['fill-muted']!;
         return Semantics(
           role: SemanticsRole.menuItem,
           selected: widget.selected,
@@ -571,12 +565,8 @@ class _InlineBadgeMenuRowState extends State<_InlineBadgeMenuRow> {
             style: button,
             tokens: rt,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decorationOverride: (d) => d.copyWith(
-              color: state.hovered ? hoverFill : null,
-              border: t.brutal
-                  ? Border.all(color: Colors.transparent, width: 2)
-                  : null,
-            ),
+            decorationOverride: (d) =>
+                d.copyWith(color: state.hovered ? hoverFill : null),
             child: DefaultTextStyle.merge(
               style: button
                   .textStyle(rt)

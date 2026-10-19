@@ -27,9 +27,7 @@ class RaftRailAttention extends StatelessWidget {
     final status = RaftStatusRecipe.resolve(
       theme: t.recipeTheme,
       size: RaftStatusRecipeSize.sm,
-      variant: t.brutal
-          ? RaftStatusRecipeVariant.accent
-          : RaftStatusRecipeVariant.primary,
+      variant: RaftStatusRecipeVariant.primary,
       attention: true,
       states: t.recipeStates(),
       tokens: t.recipeTokens,
@@ -50,7 +48,7 @@ class RaftRailAttention extends StatelessWidget {
           clipBehavior: Clip.none,
           fit: StackFit.expand,
           children: [
-            if (!t.brutal && gradient is CssFunction && tint != null)
+            if (gradient is CssFunction && tint != null)
               ShaderMask(
                 key: const ValueKey('rail-attention-mask'),
                 blendMode: BlendMode.dstIn,
@@ -109,9 +107,8 @@ ui.Shader _radialMask(CssFunction gradient, Rect bounds) {
     final stop = (value as CssSeq).items;
     final literal = stop.first as CssColor;
     // A mask consumes CSS alpha, not the source-over colour paint fit.
-    final explicitAlpha = RegExp(
-      r'/\s*([\d.]+)',
-    ).firstMatch(literal.source ?? '');
+    final explicitAlpha = RegExp(r'/\s*([\d.]+)')
+        .firstMatch(literal.source ?? '');
     final alpha = explicitAlpha == null
         ? (literal.argb >> 24) / 255
         : double.parse(explicitAlpha.group(1)!);

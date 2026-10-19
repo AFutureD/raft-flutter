@@ -34,24 +34,19 @@ class RaftInlineThreadRecipe {
       const EdgeInsets.symmetric(horizontal: 10, vertical: 8);
   double get topGap => 6;
   double get rowGap => 4;
-  double get summaryBottomGap => tokens.brutal ? 0 : 6;
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
-  BorderSide get border => tokens.brutal
-      ? BorderSide.none
-      : BorderSide(
-          color: tokens.dark
-              ? Colors.transparent
-              : tokens.colors['line-muted']!,
-          width: .5,
-        );
-  Color get normal =>
-      tokens.brutal ? Colors.black.withValues(alpha: .03) : tokens.card;
+  double get summaryBottomGap => 6;
+  BorderRadius get radius => BorderRadius.circular(6);
+  BorderSide get border => BorderSide(
+    color: tokens.dark ? Colors.transparent : tokens.colors['line-muted']!,
+    width: .5,
+  );
+  Color get normal => tokens.card;
   Color get muted => tokens.muted;
   TextStyle get summary => TextStyle(
     fontFamily: tokens.bodyFont,
     fontFamilyFallback: tokens.systemFonts ? tokens.fontFallback : null,
     fontSize: 12.5,
-    height: tokens.brutal ? 20 / 14 : 21 / 12.5,
+    height: 21 / 12.5,
     fontWeight: FontWeight.w700,
     color: muted,
   );
@@ -65,7 +60,7 @@ class RaftInlineThreadRecipe {
   );
   TextStyle get preview => sender.copyWith(fontWeight: FontWeight.w400);
   TextStyle get clock => TextStyle(
-    fontFamily: tokens.brutal ? tokens.bodyFont : tokens.monoFont,
+    fontFamily: tokens.monoFont,
     fontSize: 11.5,
     height: 1.25,
     color: tokens.colors['foreground-placeholder'],
@@ -135,9 +130,7 @@ class _RaftInlineThreadSurfaceState extends State<RaftInlineThreadSurface> {
       padding: recipe.padding,
       decoration: RaftCssBoxDecoration(
         color: hovered
-            ? t.brutal
-                  ? Colors.black.withValues(alpha: .08)
-                  : widget.hoverBackground ?? recipe.normal
+            ? widget.hoverBackground ?? recipe.normal
             : recipe.normal,
         border: Border.fromBorderSide(recipe.border),
         borderRadius: recipe.radius,
@@ -342,17 +335,8 @@ class RaftInlineReplyAvatar extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: t.colors['fill-muted'],
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: 1,
-        ),
-        borderRadius: BorderRadius.circular(
-          t.brutal
-              ? 0
-              : circular
-              ? 10
-              : 4,
-        ),
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
+        borderRadius: BorderRadius.circular(circular ? 10 : 4),
       ),
       child: child,
     );

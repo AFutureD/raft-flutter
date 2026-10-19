@@ -41,7 +41,7 @@ class RaftPublicServerLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return ColoredBox(
-      color: t.brutal ? t.product.brutalCream : t.colors['layer-canvas-muted']!,
+      color: t.colors['layer-canvas-muted']!,
       child: Center(
         child: Text(
           raftText(context, label),
@@ -92,18 +92,18 @@ class RaftPublicChannelSidebar extends StatelessWidget {
     final text = RaftSettingsText(t);
     final sm = raftBreakpointWidth(context) >= 640;
     final headerHeight = _publicHeaderHeight(context);
-    final edge = t.brutal ? Colors.black : t.colors['line-hairline'];
-    final rule = BorderSide(color: edge ?? text.edge, width: t.brutal ? 2 : 1);
+    final edge = t.colors['line-hairline'];
+    final rule = BorderSide(color: edge ?? text.edge, width: 1);
     return Semantics(
       container: true,
       label: raftText(context, label),
       child: RaftStatusBarSource(
-        color: t.brutal ? t.product.brutalCream : t.colors['layer-inset']!,
+        color: t.colors['layer-inset']!,
         child: Container(
           key: const ValueKey('public-server-channel-sidebar'),
           width: sm ? (width ?? 240) : 144,
           decoration: BoxDecoration(
-            color: t.brutal ? t.product.brutalCream : t.colors['layer-inset'],
+            color: t.colors['layer-inset'],
             border: Border(right: rule),
           ),
           child: Column(
@@ -182,10 +182,8 @@ class _ChannelButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
-    final radius = t.brutal ? BorderRadius.zero : BorderRadius.circular(6);
-    final color = selected
-        ? (t.brutal ? Colors.black : t.colors['accent-strong'])
-        : text.strong;
+    final radius = BorderRadius.circular(6);
+    final color = selected ? t.colors['accent-strong'] : text.strong;
     return Padding(
       padding: const EdgeInsets.only(bottom: RaftSpace.x1),
       child: RaftInteractive(
@@ -195,10 +193,8 @@ class _ChannelButton extends StatelessWidget {
         onPressed: onPressed,
         builder: (context, state) {
           final fill = selected
-              ? (t.brutal ? t.product.brutalPink : t.colors['accent-soft'])
-              : (state.hovered
-                    ? (t.brutal ? Colors.white : t.panel)
-                    : Colors.transparent);
+              ? t.colors['accent-soft']
+              : (state.hovered ? t.panel : Colors.transparent);
           final content = Row(
             spacing: 6,
             children: [
@@ -424,10 +420,8 @@ class RaftPublicEmptyMessage extends StatelessWidget {
 
 /// `border-r/border-l border-line-hairline` (Brutal `border-2 border-black`).
 BorderSide _publicRule(RaftTokens t) => BorderSide(
-  color: t.brutal
-      ? Colors.black
-      : (t.colors['line-hairline'] ?? t.colors['line-muted']!),
-  width: t.brutal ? 2 : 1,
+  color: (t.colors['line-hairline'] ?? t.colors['line-muted']!),
+  width: 1,
 );
 
 /// The page canvas: `bg-layer-canvas theme-brutal:bg-white`.
@@ -437,10 +431,7 @@ class RaftPublicSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return ColoredBox(
-      color: t.brutal ? Colors.white : t.colors['layer-canvas']!,
-      child: child,
-    );
+    return ColoredBox(color: t.colors['layer-canvas']!, child: child);
   }
 }
 
@@ -486,12 +477,12 @@ class RaftPublicSettingsSidebar extends StatelessWidget {
     final t = RaftTokens.of(context);
     final sm = raftBreakpointWidth(context) >= 640;
     return RaftStatusBarSource(
-      color: t.brutal ? t.product.brutalCream : t.colors['layer-inset']!,
+      color: t.colors['layer-inset']!,
       child: Container(
         key: const ValueKey('public-server-settings-sidebar'),
         width: sm ? 240 : 144,
         decoration: BoxDecoration(
-          color: t.brutal ? t.product.brutalCream : t.colors['layer-inset'],
+          color: t.colors['layer-inset'],
           border: Border(right: _publicRule(t)),
         ),
         child: Column(
@@ -522,7 +513,7 @@ class RaftPublicThreadColumn extends StatelessWidget {
     return Container(
       width: 380,
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.colors['layer-canvas'],
+        color: t.colors['layer-canvas'],
         border: Border(left: _publicRule(t)),
       ),
       child: child,
@@ -574,10 +565,8 @@ class RaftPublicThreadPanel extends StatelessWidget {
         vertical: RaftSpace.x3,
       ),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
-        border: Border(
-          bottom: BorderSide(color: text.edge, width: t.brutal ? 2 : 1),
-        ),
+        color: t.panel,
+        border: Border(bottom: BorderSide(color: text.edge, width: 1)),
       ),
       child: parent,
     );
@@ -628,7 +617,7 @@ class RaftPublicThreadPanel extends StatelessWidget {
     }
     return Container(
       key: const ValueKey('public-server-thread-panel'),
-      color: t.brutal ? Colors.white : t.colors['layer-canvas'],
+      color: t.colors['layer-canvas'],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -694,7 +683,7 @@ class RaftPublicServerLayout extends StatelessWidget {
       // Edge to edge: the status bar shows the header under it (published by
       // RaftPanelHeaderBar), else the page surface.
       child: RaftStatusBarHost(
-        fallback: t.brutal ? Colors.white : t.colors['layer-canvas']!,
+        fallback: t.colors['layer-canvas']!,
         expand: true,
         child: Stack(
           children: [
@@ -759,10 +748,8 @@ class RaftPublicChannelHeader extends StatelessWidget {
       // AppPanelHeader `icon` with the default `bg-primary`.
       iconSlot: RaftPanelHeaderIconTile(
         glyph: RaftGlyph.hash,
-        background: t.brutal
-            ? t.colors['primary-400']!
-            : t.colors['fill-muted']!,
-        borderless: !t.brutal,
+        background: t.colors['fill-muted']!,
+        borderless: true,
       ),
     );
   }
@@ -830,10 +817,8 @@ class RaftPublicMessageRow extends StatelessWidget {
   const RaftPublicMessageRow({super.key, required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) => RaftCollapsedBottomMargin(
-    amount: RaftTokens.of(context).brutal ? 4 : 0,
-    child: child,
-  );
+  Widget build(BuildContext context) =>
+      RaftCollapsedBottomMargin(amount: 0, child: child);
 }
 
 /// The public rail logo: `size-10 border-2 border-black bg-black font-display
@@ -921,11 +906,9 @@ class RaftPublicRail extends StatelessWidget {
           Container(
             height: headerHeight,
             decoration: BoxDecoration(
-              border: t.brutal
-                  ? null
-                  : const Border(
-                      bottom: BorderSide(color: Colors.black, width: 2),
-                    ),
+              border: const Border(
+                bottom: BorderSide(color: Colors.black, width: 2),
+              ),
             ),
             child: header,
           ),

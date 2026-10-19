@@ -80,9 +80,9 @@ class RaftRolePermissionHelpDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final strong = t.brutal ? Colors.black : t.strong;
-    final summary = t.brutal ? Colors.black.withValues(alpha: .6) : t.muted;
-    final details = t.brutal ? Colors.black.withValues(alpha: .75) : t.muted;
+    final strong = t.strong;
+    final summary = t.muted;
+    final details = t.muted;
     return RaftAgentDialogCard(
       surfaceKey: const ValueKey('role-help-dialog'),
       title: agent ? 'Agent roles' : 'Human roles',
@@ -90,7 +90,8 @@ class RaftRolePermissionHelpDialog extends StatelessWidget {
       onBackdrop: onClose,
       children: [
         // `space-y-3`
-        for (final (i, (role, sum, text)) in (agent ? _agentRoles : _humanRoles).indexed) ...[
+        for (final (i, (role, sum, text))
+            in (agent ? _agentRoles : _humanRoles).indexed) ...[
           if (i > 0) const SizedBox(height: 12),
           RaftRecipeCard(
             padding: const EdgeInsets.all(12), // p-3

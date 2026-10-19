@@ -167,10 +167,8 @@ void main() {
         final ordinary = tester.widget<RaftAgentInlineText>(
           find.byType(RaftAgentInlineText),
         );
-        if (!tokens.brutal) {
-          expect(ordinary.style!.color, isNot(tokens.muted));
-          expect(ordinary.actionForeground, ordinary.style!.color);
-        }
+        expect(ordinary.style!.color, isNot(tokens.muted));
+        expect(ordinary.actionForeground, ordinary.style!.color);
         await tester.pumpWidget(warning(true));
         await tester.pumpAndSettle();
         final explicit = tester.widget<RaftAgentInlineText>(

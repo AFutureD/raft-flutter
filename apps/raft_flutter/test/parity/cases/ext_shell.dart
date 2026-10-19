@@ -221,9 +221,7 @@ Widget _desktop(ParityContext ctx) {
         child: Builder(
           builder: (context) {
             final t = RaftTokens.of(context);
-            return ColoredBox(
-              color: t.brutal ? t.colors['color-brutal-cream']! : t.sidebar,
-            );
+            return ColoredBox(color: t.sidebar);
           },
         ),
       ),
@@ -452,17 +450,12 @@ Widget _bottomSheet(ParityContext ctx) {
                 const SizedBox(height: 8),
                 Text(
                   'Install Raft for faster access and notifications.',
-                  style:
-                      RaftTypography.heading(
-                        t,
-                        size: 14,
-                        line: 20,
-                        weight: FontWeight.w400,
-                      ).copyWith(
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .7)
-                            : t.muted,
-                      ),
+                  style: RaftTypography.heading(
+                    t,
+                    size: 14,
+                    line: 20,
+                    weight: FontWeight.w400,
+                  ).copyWith(color: t.muted),
                 ),
                 const SizedBox(height: 16),
                 Row(

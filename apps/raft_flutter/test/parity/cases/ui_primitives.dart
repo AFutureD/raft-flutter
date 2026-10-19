@@ -123,7 +123,11 @@ Widget _fixtureLabel(String text) => Text(
 /// `flex items-center gap-N` row whose line box is the `text-sm` 20px.
 Widget _labelRow(double gap, Widget lead, String label) => Row(
   mainAxisSize: MainAxisSize.min,
-  children: [lead, SizedBox(width: gap), _fixtureLabel(label)],
+  children: [
+    lead,
+    SizedBox(width: gap),
+    _fixtureLabel(label),
+  ],
 );
 
 Widget _reducedMotion(Widget child) => Builder(
@@ -323,7 +327,7 @@ final ParityCase _textarea = ParityCase(
                   style: TextStyle(
                     fontSize: 12,
                     height: 16 / 12,
-                    color: t.brutal ? t.product.brutalRed : t.semantic.danger,
+                    color: t.semantic.danger,
                   ),
                 ),
               ),
@@ -344,7 +348,11 @@ final ParityCase _checkbox = ParityCase(
     ctx,
     height: 132,
     child: _column(12, [
-      _labelRow(8, RaftCheckbox(value: true, onChanged: (_) {}), 'As Task selected'),
+      _labelRow(
+        8,
+        RaftCheckbox(value: true, onChanged: (_) {}),
+        'As Task selected',
+      ),
       _labelRow(
         8,
         RaftCheckbox(
@@ -506,7 +514,8 @@ final ParityCase _progressBar = ParityCase(
 
 final ParityCase _skeleton = ParityCase(
   widgets: const ['raft_ui:RaftSkeleton', 'raft_ui:RaftSkeletonRow'],
-  notes: 'Pulse frozen at full opacity via reduced motion (React frame ~0.999).',
+  notes:
+      'Pulse frozen at full opacity via reduced motion (React frame ~0.999).',
   build: (ctx) => _frame(
     ctx,
     height: 150,
@@ -737,33 +746,33 @@ final ParityCase _menuItem = ParityCase(
       child: Semantics(
         role: SemanticsRole.menu,
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          RaftMenuButtonItem(
-            label: 'Open Channel',
-            onPressed: () {},
-            trailing: Builder(
-              builder: (context) => Text(
-                '⌘K',
-                style: TextStyle(
-                  fontFamily: RaftTokens.of(context).monoFont,
-                  fontSize: 12,
-                  height: 16 / 12,
-                  color: Colors.black.withValues(alpha: .4),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            RaftMenuButtonItem(
+              label: 'Open Channel',
+              onPressed: () {},
+              trailing: Builder(
+                builder: (context) => Text(
+                  '⌘K',
+                  style: TextStyle(
+                    fontFamily: RaftTokens.of(context).monoFont,
+                    fontSize: 12,
+                    height: 16 / 12,
+                    color: Colors.black.withValues(alpha: .4),
+                  ),
                 ),
               ),
             ),
-          ),
-          RaftMenuButtonItem(label: 'Mark as Read', onPressed: () {}),
-          const RaftMenuButtonItem(label: 'Archive unavailable'),
-          RaftMenuButtonItem(
-            label: 'Delete Message',
-            onPressed: () {},
-            topDivider: true,
-          ),
-        ],
-      ),
+            RaftMenuButtonItem(label: 'Mark as Read', onPressed: () {}),
+            const RaftMenuButtonItem(label: 'Archive unavailable'),
+            RaftMenuButtonItem(
+              label: 'Delete Message',
+              onPressed: () {},
+              topDivider: true,
+            ),
+          ],
+        ),
       ),
     ),
   ),
@@ -842,14 +851,21 @@ final ParityCase _surfaceListItem = ParityCase(
       RaftSurfaceListItem(
         selected: true,
         interactive: false,
-        child: _surfaceItemBody('Active integration', 'Selected list item state'),
+        child: _surfaceItemBody(
+          'Active integration',
+          'Selected list item state',
+        ),
       ),
     ]),
   ),
 );
 
 final ParityCase _avatarListRow = ParityCase(
-  widgets: const ['raft_ui:RaftAvatarListRow', 'raft_ui:RaftAvatar', 'raft_ui:RaftBadge'],
+  widgets: const [
+    'raft_ui:RaftAvatarListRow',
+    'raft_ui:RaftAvatar',
+    'raft_ui:RaftBadge',
+  ],
   notes:
       'AvatarSlot context="surface-list" humanPlaceholder is rendered with '
       'the generic RaftAvatar(size 32) (no surface-list mounted context).',

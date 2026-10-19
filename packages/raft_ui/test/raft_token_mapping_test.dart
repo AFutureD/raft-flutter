@@ -162,12 +162,4 @@ void main() {
     expect(RaftTokenSet.dark.components.fieldInsetLine, RaftDark.lineHairline);
     expect(RaftTokenSet.dark.components.fieldInsetTop.a, 0);
   });
-
-  test('RaftTokens.brutal stays false in both modes until the follow-ups delete it', () {
-    for (final dark in [false, true]) {
-      final t = raftTheme(dark: dark).extension<RaftTokens>()!;
-      expect(t.brutal, isFalse);
-      expect(t.dark, dark);
-    }
-  });
 }

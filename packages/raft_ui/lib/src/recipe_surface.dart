@@ -17,8 +17,7 @@ import 'theme.dart';
 import 'tokens/tokens.dart';
 
 extension RaftRecipeBinding on RaftTokens {
-  RaftRecipeTheme get recipeTheme =>
-      brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant;
+  RaftRecipeTheme get recipeTheme => RaftRecipeTheme.elegant;
 
   RaftRecipeTokens get recipeTokens => RaftRecipeTokens(this);
 

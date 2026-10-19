@@ -52,8 +52,8 @@ void main() {
           states: t.recipeStates(),
           tokens: resolver,
         ).root;
-        final specifiedWidth = t.brutal ? 2.0 : 0.5;
-        final usedWidth = t.brutal ? 2.0 : 1.0;
+        final specifiedWidth = 0.5;
+        final usedWidth = 1.0;
         expect(specified.borderWidth, EdgeInsets.all(specifiedWidth));
 
         const probeKey = ValueKey('card-child');

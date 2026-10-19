@@ -7,7 +7,6 @@ import 'icons.dart';
 import 'recipes/button_variants.g.dart';
 import 'localization.dart';
 import 'theme.dart';
-import 'tokens/tokens.dart';
 
 /// A file the app could not show in its own preview: the file head, the
 /// specific reason, and what still gets the user to the content. [onOpen]
@@ -45,15 +44,9 @@ class RaftPreviewUnavailable extends StatelessWidget {
                 height: 88,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: t.brutal ? Colors.white : t.card,
-                  border: Border.all(
-                    color: t.brutal
-                        ? RaftPrimitiveColors.black
-                        : t.colors['line-muted']!,
-                    width: t.brutal ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-                  boxShadow: t.brutal ? t.shadows : null,
+                  color: t.card,
+                  border: Border.all(color: t.colors['line-muted']!, width: 1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: RaftFileTypeBadge(
                   filename: filename,
@@ -163,14 +156,8 @@ class RaftPreviewNotice extends StatelessWidget {
       key: const ValueKey('preview-notice'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: t.brutal ? t.components.brutalCream : t.panel,
-        border: Border(
-          bottom: BorderSide(
-            color: t.brutal
-                ? RaftPrimitiveColors.black
-                : t.colors['line-muted']!,
-          ),
-        ),
+        color: t.panel,
+        border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
       ),
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,

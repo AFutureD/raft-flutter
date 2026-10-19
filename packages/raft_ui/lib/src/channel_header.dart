@@ -96,7 +96,7 @@ class RaftConversationHeader extends StatelessWidget {
     final gap = recipe.header.columnGap ?? recipe.header.length('gap') ?? 12;
     final actionGap =
         recipe.actions.columnGap ?? recipe.actions.length('gap') ?? 6;
-    final surface = t.brutal ? Colors.white : t.colors['layer-canvas-muted'];
+    final surface = t.colors['layer-canvas-muted'];
     return RaftStatusBarSource(
       color: switch (recipe.header.decoration(rt).color) {
         final c? when c.a != 0 => c,
@@ -107,9 +107,7 @@ class RaftConversationHeader extends StatelessWidget {
         tokens: rt,
         decorationOverride: (d) => d.copyWith(
           color: d.color == null || d.color!.a == 0 ? surface : d.color,
-          border: t.brutal
-              ? d.border
-              : Border(bottom: BorderSide(color: t.colors['line-muted']!)),
+          border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
         ),
         child: Row(
           children: [
@@ -378,14 +376,9 @@ class _ArchivedBadge extends StatelessWidget {
       key: const ValueKey('channel-archived-badge'),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        color:
-            (t.brutal ? t.colors['color-brutal-orange'] : t.colors['warning'])!
-                .withValues(alpha: .3),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
+        color: t.colors['warning']!.withValues(alpha: .3),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
       ),
       child: Text(
         label,
@@ -393,7 +386,7 @@ class _ArchivedBadge extends StatelessWidget {
           t,
           size: 11,
           line: 11,
-          color: t.brutal ? Colors.black : t.strong,
+          color: t.strong,
         ).copyWith(fontWeight: FontWeight.w700),
       ),
     );

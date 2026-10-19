@@ -240,16 +240,13 @@ class RaftAnnouncementCard extends StatelessWidget {
     final radius = root.borderRadius?.resolve(TextDirection.ltr);
     final last = pageIndex >= pageCount - 1;
     // `text-foreground-strong theme-brutal:text-black`.
-    final ink = t.brutal ? Colors.black : t.strong;
-    final rule = BorderSide(
-      color: t.brutal ? Colors.black : t.colors['line-muted']!,
-      width: t.brutal ? 2 : 1,
-    );
+    final ink = t.strong;
+    final rule = BorderSide(color: t.colors['line-muted']!, width: 1);
     final header = Container(
       key: const ValueKey('announcement-header'),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: t.brutal ? t.product.softSignal : t.colors['primary-soft'],
+        color: t.colors['primary-soft'],
         border: Border(bottom: rule),
       ),
       child: Row(
@@ -311,7 +308,7 @@ class RaftAnnouncementCard extends StatelessWidget {
       key: const ValueKey('announcement-footer'),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
+        color: t.panel,
         border: Border(top: rule),
       ),
       child: Row(
@@ -323,7 +320,7 @@ class RaftAnnouncementCard extends StatelessWidget {
               style: raftCssTextStyle(
                 family: t.monoFont,
                 step: RaftTextSteps.xs,
-                color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
+                color: t.muted,
               ),
             ),
           const Spacer(),
@@ -675,7 +672,7 @@ class _MarkdownBlocks {
     );
     // Elegant InlineCode is `inline-flex` (an atomic box that can grow its
     // line); brutal code is an inline box that never does.
-    final atomic = !t.brutal && _hasWidgetSpan(spans);
+    final atomic = _hasWidgetSpan(spans);
     return atomic ? _CssAtomicLines(style: style, child: text) : text;
   }
 
@@ -767,7 +764,6 @@ class _MarkdownBlocks {
       leadingDistribution: TextLeadingDistribution.even,
       fontFamilyFallback: parent.fontFamilyFallback,
     );
-    final elegant = !t.brutal;
     return WidgetSpan(
       alignment: PlaceholderAlignment.baseline,
       baseline: TextBaseline.alphabetic,
@@ -779,16 +775,12 @@ class _MarkdownBlocks {
         padding: EdgeInsets.symmetric(
           horizontal: 4,
           // ds-allow: Web raft-ui/inline-code.tsx py-[1.5px]
-          vertical: elegant ? 1.5 : 0,
+          vertical: 1.5,
         ),
         decorationOverride: (d) => d.copyWith(
           // `bg-layer-inset theme-brutal:bg-white` (dark keeps the
           // recipe's later `dark:bg-fill-muted`).
-          color: t.brutal
-              ? Colors.white
-              : t.dark
-              ? d.color
-              : t.colors['layer-inset'],
+          color: t.dark ? d.color : t.colors['layer-inset'],
           borderRadius: BorderRadius.circular(4),
         ),
         // Blink: the content area is the rounded ascent + descent; the
@@ -800,15 +792,12 @@ class _MarkdownBlocks {
               fontSize: MediaQuery.textScalerOf(context).scale(size),
             );
             final (ascent, descent) = raftCssContentMetrics(scaled);
-            final box = elegant
-                ? scaled.fontSize! * (scaled.height ?? 1)
-                : ascent + descent;
+            final box = scaled.fontSize! * (scaled.height ?? 1);
             return SizedBox(
               height: box,
               child: Baseline(
-                baseline: elegant
-                    ? ascent + ((box - (ascent + descent)) / 2).floorToDouble()
-                    : ascent,
+                baseline:
+                    ascent + ((box - (ascent + descent)) / 2).floorToDouble(),
                 baselineType: TextBaseline.alphabetic,
                 child: Text(
                   text,
@@ -851,14 +840,10 @@ class _MarkdownBlocks {
           padding: EdgeInsets.symmetric(
             horizontal: 4,
             // ds-allow: Web raft-ui/inline-code.tsx py-[1.5px]
-            vertical: t.brutal ? 0 : 1.5,
+            vertical: 1.5,
           ),
           decorationOverride: (d) => d.copyWith(
-            color: t.brutal
-                ? Colors.white
-                : t.dark
-                ? d.color
-                : t.colors['layer-inset'],
+            color: t.dark ? d.color : t.colors['layer-inset'],
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(trimmed, style: style, softWrap: false),

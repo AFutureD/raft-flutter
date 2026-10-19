@@ -8,7 +8,6 @@ import 'design_primitives.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
-import 'tokens/shadows.g.dart' show RaftProductShadows;
 
 /// `pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4
 /// pb-4` around a `max-w-[560px]` row (`flex-wrap items-center
@@ -32,21 +31,15 @@ class RaftSetupResumeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final black = const Color(0xFF000000);
-    final foreground = t.brutal ? black : t.strong;
+    final foreground = t.strong;
     final bar = Container(
       key: const ValueKey('server-setup-resume-bar'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: t.brutal ? t.product.softSignal : t.semantic.primarySoft,
-        border: Border.all(
-          color: t.brutal ? black : t.semantic.lineMuted,
-          width: t.border,
-        ),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-        boxShadow: t.brutal
-            ? RaftProductShadows.shadowBrutal.paintOrder
-            : t.themeShadows.md.paintOrder,
+        color: t.semantic.primarySoft,
+        border: Border.all(color: t.semantic.lineMuted, width: t.border),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: t.themeShadows.md.paintOrder,
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,

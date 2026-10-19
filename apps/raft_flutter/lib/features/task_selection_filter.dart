@@ -71,9 +71,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final pickerHeight = widget.picker && !t.brutal
-        ? 28.0
-        : RaftMetrics.buttonMd;
+    final pickerHeight = widget.picker ? 28.0 : RaftMetrics.buttonMd;
     final width = math.min(220.0, MediaQuery.sizeOf(context).width - 24);
     final entries = widget.options.entries
         .where(
@@ -267,7 +265,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                                 'Creator' || 'From' => RaftGlyph.userCircle2,
                                 _ => RaftGlyph.user,
                               },
-                          size: t.brutal ? 14 : 12,
+                          size: 12,
                         ),
                         Text(
                           widget.label ??

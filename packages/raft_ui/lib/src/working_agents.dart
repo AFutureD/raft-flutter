@@ -105,10 +105,8 @@ class _RaftWorkingFacesState extends State<RaftWorkingFaces> {
                   child: DecoratedBox(
                     // A panel-colour ring separates the overlapping circles.
                     decoration: BoxDecoration(
-                      shape: t.brutal ? BoxShape.rectangle : BoxShape.circle,
-                      boxShadow: t.brutal
-                          ? null
-                          : [BoxShadow(color: t.panel, spreadRadius: 1)],
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: t.panel, spreadRadius: 1)],
                     ),
                     child: RaftMountedAvatarFrame(
                       name: faces[i].name,
@@ -271,7 +269,7 @@ class _RaftWorkingSummaryState extends State<RaftWorkingSummary> {
                               t,
                               size: 12,
                               line: 16,
-                              color: t.brutal ? Colors.black : t.strong,
+                              color: t.strong,
                             ),
                           ),
                         ],
@@ -317,14 +315,10 @@ class _SummaryButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: state.hovered || state.pressed || selected
-                ? (t.brutal
-                      ? Colors.black.withValues(alpha: .08)
-                      : t.colors['fill-muted'])
+                ? t.colors['fill-muted']
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-            border: state.focusVisible
-                ? Border.all(color: t.brutal ? Colors.black : t.strong)
-                : null,
+            borderRadius: BorderRadius.circular(6),
+            border: state.focusVisible ? Border.all(color: t.strong) : null,
           ),
           alignment: Alignment.center,
           child: child,
@@ -372,7 +366,7 @@ class RaftWorkingNow extends StatelessWidget {
         child: Material(
           type: MaterialType.transparency,
           child: DefaultTextStyle.merge(
-            style: TextStyle(color: t.brutal ? Colors.black : t.strong),
+            style: TextStyle(color: t.strong),
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Column(
@@ -391,7 +385,7 @@ class RaftWorkingNow extends StatelessWidget {
                           size: 14,
                           line: 20,
                           weight: FontWeight.w700,
-                          color: t.brutal ? Colors.black : t.strong,
+                          color: t.strong,
                         ),
                       ),
                     ),
@@ -442,14 +436,10 @@ class RaftWorkingNowRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: state.hovered || state.pressed
-              ? (t.brutal
-                    ? Colors.black.withValues(alpha: .08)
-                    : t.colors['fill-muted'])
+              ? t.colors['fill-muted']
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-          border: state.focusVisible
-              ? Border.all(color: t.brutal ? Colors.black : t.strong)
-              : null,
+          borderRadius: BorderRadius.circular(6),
+          border: state.focusVisible ? Border.all(color: t.strong) : null,
         ),
         child: ExcludeSemantics(
           child: Row(
@@ -481,7 +471,7 @@ class RaftWorkingNowRow extends StatelessWidget {
                         size: 14,
                         line: 20,
                         weight: FontWeight.w700,
-                        color: t.brutal ? Colors.black : t.strong,
+                        color: t.strong,
                       ),
                     ),
                     Text(
@@ -494,9 +484,7 @@ class RaftWorkingNowRow extends StatelessWidget {
                         size: 12,
                         line: 16,
                         weight: FontWeight.w500,
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .6)
-                            : t.colors['foreground-muted'],
+                        color: t.colors['foreground-muted'],
                       ),
                     ),
                   ],

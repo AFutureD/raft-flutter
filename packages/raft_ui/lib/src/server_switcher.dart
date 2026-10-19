@@ -185,10 +185,10 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
                 // AppRailRoot's CSS right border is part of its border box;
                 // AppRailHeader's positioned containing block excludes it.
                 widget.mobile
-                    ? Offset(8, rect.bottom - (t.brutal ? 2 : 1) + 4)
+                    ? Offset(8, rect.bottom - (1) + 4)
                     : onRight
-                    ? Offset(rect.left + (t.brutal ? 2 : 0) - 8, rect.top + 4)
-                    : Offset(rect.right - (t.brutal ? 2 : 0) + 8, rect.top + 4),
+                    ? Offset(rect.left + (0) - 8, rect.top + 4)
+                    : Offset(rect.right - (0) + 8, rect.top + 4),
                 mobileWidth: widget.mobile ? size.width - 16 : null,
                 leftOfAnchor: !widget.mobile && onRight,
               ),
@@ -239,13 +239,7 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
               : DecoratedBox(
                   // AppRailHeader `border-b-2 border-black` (Brutal): the
                   // border sits inside the 62px box, the avatar centres in 60.
-                  decoration: BoxDecoration(
-                    border: t.brutal
-                        ? const Border(
-                            bottom: BorderSide(color: Colors.black, width: 2),
-                          )
-                        : null,
-                  ),
+                  decoration: BoxDecoration(),
                   child: Center(
                     child: RaftInteractive(
                       key: const Key('rail-workspace'),
@@ -371,30 +365,28 @@ class RaftServerMenuPanel extends StatelessWidget {
       tokens: t.recipeTokens,
       states: t.recipeStates(),
     ).content;
-    final panel = !t.brutal
-        ? RaftSlotStyle(
-            {
-              ...style.properties,
-              'background-color': const CssVar(
-                '--color-layer-panel',
-                null,
-                'layerPanel',
-              ),
-              for (final side in ['top', 'right', 'bottom', 'left']) ...{
-                'border-$side-width': const CssNum(1, 'px'),
-                'border-$side-style': const CssKeyword('solid'),
-                'border-$side-color': const CssVar(
-                  '--color-line-muted',
-                  null,
-                  'lineMuted',
-                ),
-              },
-            },
-            style.targets,
-            style.classes,
-            style.tokens,
-          )
-        : style;
+    final panel = RaftSlotStyle(
+      {
+        ...style.properties,
+        'background-color': const CssVar(
+          '--color-layer-panel',
+          null,
+          'layerPanel',
+        ),
+        for (final side in ['top', 'right', 'bottom', 'left']) ...{
+          'border-$side-width': const CssNum(1, 'px'),
+          'border-$side-style': const CssKeyword('solid'),
+          'border-$side-color': const CssVar(
+            '--color-line-muted',
+            null,
+            'lineMuted',
+          ),
+        },
+      },
+      style.targets,
+      style.classes,
+      style.tokens,
+    );
     final separator = RaftContextMenuRecipe.resolve(
       theme: t.recipeTheme,
       tokens: t.recipeTokens,
@@ -466,7 +458,7 @@ class RaftServerResolutionBody extends StatelessWidget {
     // double underline). `safe-top` pads the status bar like the Web div.
     // Brutal keeps the Web `bg-brutal-cream`; elegant (light and dark) uses
     // the theme canvas, so the splash never flashes cream in dark mode.
-    final canvas = t.brutal ? t.product.brutalCream : t.canvas;
+    final canvas = t.canvas;
     return RaftStatusBarHost(
       fallback: canvas,
       expand: true,
@@ -531,16 +523,10 @@ class _ServerRow extends StatelessWidget {
         },
         builder: (context, state) {
           final active = state.hovered || state.focusVisible;
-          final foreground = active
-              ? t.colors[t.brutal ? 'primary-950' : 'primary-strong']!
-              : t.brutal
-              ? Colors.black
-              : t.strong;
+          final foreground = active ? t.colors['primary-strong']! : t.strong;
           return Container(
             height: 48,
-            color: active
-                ? t.colors[t.brutal ? 'primary-400' : 'primary-soft']!
-                : Colors.transparent,
+            color: active ? t.colors['primary-soft']! : Colors.transparent,
             child: Row(
               children: [
                 const SizedBox(width: 12),
@@ -576,11 +562,7 @@ class _ServerRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: RaftTypography.mono(
                           t,
-                          color: active
-                              ? foreground
-                              : t.brutal
-                              ? Colors.black.withValues(alpha: .4)
-                              : t.muted,
+                          color: active ? foreground : t.muted,
                         ),
                       ),
                     ],
@@ -628,7 +610,7 @@ class _ServerUnreadCount extends StatelessWidget {
             t,
             size: 10,
             line: 10,
-            color: t.brutal ? Colors.black.withValues(alpha: .5) : t.muted,
+            color: t.muted,
           ).copyWith(fontWeight: FontWeight.w500),
         ),
       );
@@ -762,7 +744,7 @@ class _ServerAvatar extends StatelessWidget {
           size: initialSize,
           line: 16,
           weight: FontWeight.w700,
-          color: t.brutal ? Colors.black : (fallbackInk ?? t.strong),
+          color: (fallbackInk ?? t.strong),
         ),
       ),
     );
@@ -797,25 +779,11 @@ class _ServerAction extends StatelessWidget {
           : () => onActivate(entry.onPressed),
       builder: (context, state) {
         final active = state.hovered || state.focusVisible;
-        final invite =
-            entry is RaftServerMenuAction &&
-            (entry as RaftServerMenuAction).tone ==
-                RaftServerMenuActionTone.invite;
-        final ink = active
-            ? t.colors[t.brutal && !invite ? 'primary-950' : 'primary-strong']!
-            : t.brutal
-            ? Colors.black
-            : t.strong;
+        final ink = active ? t.colors['primary-strong']! : t.strong;
         return Container(
           height: MediaQuery.sizeOf(context).height <= 600 ? 28 : 36,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          color: active
-              ? t.brutal && invite && state.hovered
-                    ? t.product.brutalPink
-                    : t.colors[t.brutal && !invite
-                          ? 'primary-400'
-                          : 'primary-soft']!
-              : null,
+          color: active ? t.colors['primary-soft']! : null,
           child: Row(
             children: [
               if (entry.glyph != null) ...[

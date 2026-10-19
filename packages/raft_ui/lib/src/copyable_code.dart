@@ -65,7 +65,7 @@ class _RaftCopyableCodeState extends State<RaftCopyableCode> {
     );
     // Callsite `text-xs` (12/16) wins over the recipe's `leading-5` on the
     // brutal code box; elegant keeps `leading-5` on the inner span.
-    final line = t.brutal ? 16.0 : 20.0;
+    final line = 20.0;
     final text = raftCssText.merge(
       RaftTypography.mono(
         t,
@@ -75,7 +75,6 @@ class _RaftCopyableCodeState extends State<RaftCopyableCode> {
     );
     // Callsite `px-3 py-2` wins over the recipe padding (tailwind-merge);
     // elegant keeps its `py-0` code box and pads the dashed inner span.
-    final elegant = !t.brutal;
     // Inner span: `border-x border-dashed border-ink-10 bg-layer-panel px-1
     // py-2 leading-5` (only the x borders exist; the generic decoration
     // would invent CSS-medium top/bottom borders).
@@ -86,33 +85,26 @@ class _RaftCopyableCodeState extends State<RaftCopyableCode> {
       key: widget.codeKey,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: s.code.withCssUsedBorderWidths().decoration(rt),
-      child: elegant
-          ? CustomPaint(
-              foregroundPainter: _DashedSides(dash),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: RaftSpace.x1 + RaftSpace.hairline,
-                  vertical: 8,
-                ),
-                color: inner.backgroundColor?.resolve(rt),
-                child: Text(_breakAll(widget.command), style: text),
-              ),
-            )
-          : SizedBox(
-              width: double.infinity,
-              child: Text(_breakAll(widget.command), style: text),
-            ),
+      child: CustomPaint(
+        foregroundPainter: _DashedSides(dash),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: RaftSpace.x1 + RaftSpace.hairline,
+            vertical: 8,
+          ),
+          color: inner.backgroundColor?.resolve(rt),
+          child: Text(_breakAll(widget.command), style: text),
+        ),
+      ),
     );
     final action = RaftRecipeButton(
-      variant: elegant
-          ? RaftButtonRecipeVariant.ghost
-          : RaftButtonRecipeVariant.outline,
-      size: elegant ? RaftButtonRecipeSize.iconXs : RaftButtonRecipeSize.iconSm,
+      variant: RaftButtonRecipeVariant.ghost,
+      size: RaftButtonRecipeSize.iconXs,
       glyph: copied ? RaftGlyph.check : RaftGlyph.copy,
       glyphSize: 12,
       tooltip: widget.copyLabel,
-      foreground: elegant ? t.colors['foreground-muted'] : null,
+      foreground: t.colors['foreground-muted'],
       onPressed: copy,
     );
     return Row(

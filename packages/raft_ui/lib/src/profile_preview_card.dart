@@ -7,7 +7,6 @@ import 'hover_card.dart';
 import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
-import 'panel_layout.dart';
 import 'recipe_surface.dart';
 import 'theme.dart';
 import 'tooltip.dart';
@@ -98,9 +97,8 @@ class RaftProfilePreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    Color muted(double brutal) =>
-        raftPanelInk(t, brutal, t.colors['foreground-muted']!);
-    final strong = t.brutal ? Colors.black : t.colors['foreground-strong']!;
+    final muted = t.colors['foreground-muted']!;
+    final strong = t.colors['foreground-strong']!;
     TextStyle sans(double size, double line, Color color, [FontWeight? w]) =>
         raftCssText.merge(
           RaftTypography.body(
@@ -132,13 +130,9 @@ class RaftProfilePreviewCard extends StatelessWidget {
           : label;
     }
 
-    final rule = t.brutal ? Colors.black : t.colors['line-muted']!;
-    final factStyle = mono(11, 11 * 1.25, muted(.7));
-    final factLabel = mono(
-      11,
-      11 * 1.25,
-      raftPanelInk(t, .45, t.colors['foreground-placeholder']!),
-    );
+    final rule = t.colors['line-muted']!;
+    final factStyle = mono(11, 11 * 1.25, muted);
+    final factLabel = mono(11, 11 * 1.25, t.colors['foreground-placeholder']!);
     final header = Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -172,20 +166,16 @@ class RaftProfilePreviewCard extends StatelessWidget {
                         external: status!.external,
                         size: RaftStatusDotSize.sm,
                       ),
-                      line(status!.text, mono(12, 16, muted(.6))),
+                      line(status!.text, mono(12, 16, muted)),
                     ],
                   ),
-                if (subtitle != null) line(subtitle!, mono(12, 16, muted(.6))),
+                if (subtitle != null) line(subtitle!, mono(12, 16, muted)),
                 for (final note in notes)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: line(
                       note,
-                      sans(
-                        12,
-                        16,
-                        raftPanelInk(t, .5, t.colors['foreground-hint']!),
-                      ),
+                      sans(12, 16, t.colors['foreground-hint']!),
                     ),
                   ),
                 if (facts != null)
@@ -194,11 +184,7 @@ class RaftProfilePreviewCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8),
                     decoration: BoxDecoration(
                       border: Border(
-                        top: BorderSide(
-                          color: t.brutal
-                              ? Colors.black.withValues(alpha: .2)
-                              : t.colors['line-muted']!,
-                        ),
+                        top: BorderSide(color: t.colors['line-muted']!),
                       ),
                     ),
                     child: Table(
@@ -264,7 +250,7 @@ class RaftProfilePreviewCard extends StatelessWidget {
             decoration: BoxDecoration(border: Border(top: section)),
             child: line(
               description!.replaceAll('\n', ' '),
-              sans(12, 16, muted(.7)),
+              sans(12, 16, muted),
               tooltip: true,
             ),
           ),
@@ -290,11 +276,7 @@ class RaftProfilePreviewCard extends StatelessWidget {
                           style: mono(
                             10,
                             15,
-                            raftPanelInk(
-                              t,
-                              .4,
-                              t.colors['foreground-placeholder']!,
-                            ),
+                            t.colors['foreground-placeholder']!,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -306,7 +288,7 @@ class RaftProfilePreviewCard extends StatelessWidget {
                         Expanded(
                           child: line(
                             row.text,
-                            sans(12, 16, muted(.7)),
+                            sans(12, 16, muted),
                             tooltip: true,
                           ),
                         ),
@@ -332,8 +314,8 @@ class _ActivityHeading extends StatelessWidget {
     final label = raftText(context, 'Recent activity');
     TextStyle style(bool hovered) {
       final color = hovered
-          ? (t.brutal ? Colors.black : t.colors['foreground-strong']!)
-          : raftPanelInk(t, .5, t.colors['foreground-muted']!);
+          ? (t.colors['foreground-strong']!)
+          : t.colors['foreground-muted']!;
       return raftCssText.merge(
         RaftTypography.body(
           t,

@@ -230,9 +230,7 @@ class _MemberPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final eyebrowFill = t.brutal
-        ? Colors.white.withValues(alpha: .5)
-        : t.colors['fill-muted'];
+    final eyebrowFill = t.colors['fill-muted'];
     Widget eyebrow(String text) => RaftDialogSectionEyebrow(
       text,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -313,9 +311,9 @@ class _MemberRowState extends State<_MemberRow> {
     final t = RaftTokens.of(context);
     final pink = t.colors['color-brutal-pink']!;
     final fill = widget.selected
-        ? (t.brutal ? pink.withValues(alpha: .2) : t.colors['accent-soft'])
+        ? t.colors['accent-soft']
         : hovered
-        ? (t.brutal ? t.colors['color-soft-signal'] : t.colors['primary-soft'])
+        ? t.colors['primary-soft']
         : null;
     final c = widget.candidate;
     return Semantics(
@@ -344,7 +342,7 @@ class _MemberRowState extends State<_MemberRow> {
                       family: t.headingFont,
                       step: RaftTextSteps.sm,
                       weight: FontWeight.w500,
-                      color: t.brutal ? Colors.black : t.strong,
+                      color: t.strong,
                     ),
                   ),
                 ),
@@ -436,9 +434,7 @@ class RaftArchivedNameBanner extends StatelessWidget {
                 style: raftCssTextStyle(
                   family: t.headingFont,
                   step: RaftTextSteps.xs,
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .7)
-                      : t.colors['foreground-muted'],
+                  color: t.colors['foreground-muted'],
                 ),
               ),
             Wrap(

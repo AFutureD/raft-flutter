@@ -122,9 +122,7 @@ class SearchFilterBar extends StatelessWidget {
           : RaftGlyph.arrowDownUp,
       trailingGlyph: RaftGlyph.chevronDown,
       triggerStyle: RaftDropdownTriggerStyle.picker,
-      minimumTargetSize: RaftTokens.of(context).brutal
-          ? RaftMetrics.buttonMd
-          : RaftMetrics.buttonSm,
+      minimumTargetSize: RaftMetrics.buttonSm,
       // activeFilterClass when the value differs from the default.
       selected: title == 'Search date range'
           ? filters.timeRange != 'any'

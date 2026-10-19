@@ -255,9 +255,7 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
     if (guest) return const SizedBox.shrink();
     final t = RaftTokens.of(context);
     final narrow = MediaQuery.sizeOf(context).width < 768;
-    final headerFill = t.brutal
-        ? RaftPrimitiveColors.white
-        : t.colors['layer-canvas-muted']!;
+    final headerFill = t.colors['layer-canvas-muted']!;
     return RaftPanelTextScope(
       child: Column(
         key: const ValueKey('member-graph-page'),
@@ -286,10 +284,8 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
                 ),
                 iconSlot: RaftPanelHeaderIconTile(
                   glyph: RaftGlyph.gitBranch,
-                  background: t.brutal
-                      ? t.product.softSignal
-                      : t.colors['fill-muted']!,
-                  borderless: !t.brutal,
+                  background: t.colors['fill-muted']!,
+                  borderless: true,
                 ),
               ),
             ),

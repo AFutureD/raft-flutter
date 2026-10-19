@@ -44,10 +44,8 @@ class RaftMobilePageHeader extends StatelessWidget
 
   /// Web panelHeader bottom edge: brutal `border-b-2 border-black`; elegant
   /// keeps the 1px muted divider the desktop header draws.
-  static BorderSide defaultBorder(RaftTokens t) => BorderSide(
-    color: t.brutal ? Colors.black : t.colors['line-muted']!,
-    width: t.brutal ? 2 : 1,
-  );
+  static BorderSide defaultBorder(RaftTokens t) =>
+      BorderSide(color: t.colors['line-muted']!, width: 1);
 
   @override
   Size get preferredSize => Size.fromHeight(headerHeight ?? height);

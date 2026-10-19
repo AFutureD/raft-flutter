@@ -20,7 +20,6 @@ class PanelEdgeSurface {
     required this.web,
     required this.files,
     required this.style,
-    this.brutalWidth = 2,
     this.elegantDraws = true,
   });
 
@@ -34,9 +33,6 @@ class PanelEdgeSurface {
   /// must call `RaftPanelEdge`.
   final List<String> files;
   final RaftPanelEdgeStyle style;
-
-  /// The Brutal line width (Elegant is 1 everywhere).
-  final double brutalWidth;
 
   /// False when the Elegant theme has no such edge (the rounded drawer card).
   final bool elegantDraws;
@@ -97,7 +93,6 @@ const panelEdgeSurfaces = <PanelEdgeSurface>[
         'className="theme-brutal:!border-l">`',
     files: ['lib/features/resource_view.dart'],
     style: RaftPanelEdgeStyle.activityInbox,
-    brutalWidth: 1,
   ),
   PanelEdgeSurface(
     'activity-thread-detail',
@@ -106,7 +101,6 @@ const panelEdgeSurfaces = <PanelEdgeSurface>[
         'theme-brutal:border-black` (Activity: 1px), thread detail in col 3',
     files: ['lib/features/desktop_master_detail.dart'],
     style: RaftPanelEdgeStyle.attachedPanel,
-    brutalWidth: 1,
   ),
   PanelEdgeSurface(
     'search-detail',

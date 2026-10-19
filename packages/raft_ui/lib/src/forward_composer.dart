@@ -92,11 +92,7 @@ class RaftForwardPageHeader extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 56),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: t.brutal
-              ? const BorderSide(color: Colors.black, width: 2)
-              : BorderSide(color: t.colors['line-hairline']!),
-        ),
+        border: Border(bottom: BorderSide(color: t.colors['line-hairline']!)),
       ),
       child: Row(
         children: [
@@ -506,12 +502,8 @@ class RaftForwardPreviewStep extends StatelessWidget {
         RaftBottomInsetSurface(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: t.brutal ? Colors.white : t.colors['layer-panel'],
-            border: Border(
-              top: t.brutal
-                  ? const BorderSide(color: Colors.black, width: 2)
-                  : BorderSide(color: t.colors['line-hairline']!),
-            ),
+            color: t.colors['layer-panel'],
+            border: Border(top: BorderSide(color: t.colors['line-hairline']!)),
           ),
           child: action != null
               ? Column(
@@ -593,14 +585,10 @@ class _RaftForwardTargetRowState extends State<RaftForwardTargetRow> {
             alpha: t.colors['fill-muted']!.a * .4,
           )
         : widget.selected
-        ? (t.brutal
-              ? t.colors['color-soft-signal']!
-              : t.colors['primary-soft']!)
+        ? (t.colors['primary-soft']!)
         : hovered
-        ? (t.brutal
-              ? t.colors['color-brutal-cyan']!.withValues(alpha: .15)
-              : t.colors['fill-muted']!)
-        : (t.brutal ? Colors.white : t.colors['layer-panel']!);
+        ? (t.colors['fill-muted']!)
+        : (t.colors['layer-panel']!);
     return Semantics(
       button: !widget.checkbox,
       checked: widget.checkbox ? widget.selected : null,
@@ -623,10 +611,8 @@ class _RaftForwardTargetRowState extends State<RaftForwardTargetRow> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: fill,
-                border: t.brutal
-                    ? Border.all(color: Colors.black, width: 2)
-                    : Border.all(color: t.colors['line-muted']!),
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+                border: Border.all(color: t.colors['line-muted']!),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 children: [

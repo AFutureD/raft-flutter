@@ -125,7 +125,7 @@ class RaftBanner extends StatelessWidget {
                   // Measured: Web's Banner grid leaves 2px (Brutal) / 4px between title and description
                   // (also at `lg`) although the recipe declares no row gap.
                   padding: recipe.title.margin.copyWith(
-                    bottom: titleGap ?? (RaftTokens.of(context).brutal ? 2 : 4),
+                    bottom: titleGap ?? (4),
                   ),
                   child: Text(
                     raftText(context, title!),

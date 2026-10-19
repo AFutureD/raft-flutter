@@ -86,19 +86,29 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
   void didUpdateWidget(MemberProfileView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != w) {
-      oldWidget.controller.services.entityDirectory.removeListener(directoryChanged);
+      oldWidget.controller.services.entityDirectory.removeListener(
+        directoryChanged,
+      );
       w.services.entityDirectory.addListener(directoryChanged);
       rebindManagementController();
-      profile = {...profile, ...?w.services.entityDirectory.member(widget.userId)};
+      profile = {
+        ...profile,
+        ...?w.services.entityDirectory.member(widget.userId),
+      };
     } else if (oldWidget.userId != widget.userId) {
       refreshAuthority();
-      profile = {...profile, ...?w.services.entityDirectory.member(widget.userId)};
+      profile = {
+        ...profile,
+        ...?w.services.entityDirectory.member(widget.userId),
+      };
     }
   }
 
   void directoryChanged() {
     if (!mounted) return;
-    final failure = w.services.entityDirectory.state(WorkspaceEntityKind.members).error;
+    final failure = w.services.entityDirectory
+        .state(WorkspaceEntityKind.members)
+        .error;
     if (failure is RaftApiException && [401, 403].contains(failure.status)) {
       setState(() {
         profile = {};
@@ -313,28 +323,19 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
 
   /// HumanDetailPanel.tsx ROLE_CONFIG brutal backgrounds (`theme-brutal:bg-*`)
   /// and elegant soft tokens.
-  Color roleInk(RaftTokens t, String role) => t.brutal
-      ? t.product.brutalBlack
-      : switch (role) {
-          'owner' => t.colors['warning-strong']!,
-          'admin' => t.colors['accent-strong']!,
-          'guest' => t.colors['info-strong']!,
-          _ => t.colors['foreground-strong']!,
-        };
+  Color roleInk(RaftTokens t, String role) => switch (role) {
+    'owner' => t.colors['warning-strong']!,
+    'admin' => t.colors['accent-strong']!,
+    'guest' => t.colors['info-strong']!,
+    _ => t.colors['foreground-strong']!,
+  };
 
-  Color roleColor(RaftTokens t, String role) => t.brutal
-      ? switch (role) {
-          'owner' => t.product.brutalOrange,
-          'admin' => t.product.brutalPink,
-          'guest' => t.product.brutalCyan,
-          _ => t.product.brutalLavender,
-        }
-      : switch (role) {
-          'owner' => t.colors['warning-soft']!,
-          'admin' => t.colors['accent-soft']!,
-          'guest' => t.colors['info-soft']!,
-          _ => t.colors['fill-muted']!,
-        };
+  Color roleColor(RaftTokens t, String role) => switch (role) {
+    'owner' => t.colors['warning-soft']!,
+    'admin' => t.colors['accent-soft']!,
+    'guest' => t.colors['info-soft']!,
+    _ => t.colors['fill-muted']!,
+  };
 
   /// Live agent activity (`agent:activity`) else the summary's status: the
   /// created-agent row's StatusDot (`computeAgentDisplayState`).
@@ -498,9 +499,8 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
         .toList();
     final joinedRaw = profile['joinedAt'];
     final joined = joinedRaw is String && DateTime.tryParse(joinedRaw) != null
-        ? DateFormat.yMMMd(
-            Localizations.localeOf(context).toLanguageTag(),
-          ).format(DateTime.parse(joinedRaw).toLocal())
+        ? DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
+              .format(DateTime.parse(joinedRaw).toLocal())
         : null;
     final status = profile['membershipStatus'];
     final departure = humanDepartureLabel(status);

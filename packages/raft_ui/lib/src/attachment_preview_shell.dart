@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import 'attachment_lightbox.dart';
 import 'design_primitives.dart' show RaftLightboxRecipe, RaftSpinner;
-import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart' show RaftPanelHeaderBar;
@@ -103,10 +102,8 @@ class _RaftAttachmentPreviewShellState
     final bodyColor = widget.dark
         ? Colors.black
         : widget.canvas
-        ? (t.brutal
-              ? t.components.brutalCream
-              : t.colors['layer-canvas-muted']!)
-        : (t.brutal ? Colors.white : t.panel);
+        ? (t.colors['layer-canvas-muted']!)
+        : t.panel;
     final actions = [
       if (comments != null)
         RaftLightboxIconAction(
@@ -150,7 +147,7 @@ class _RaftAttachmentPreviewShellState
             onClose: widget.onClose,
             actions: actions,
           );
-    final rule = t.brutal ? 2.0 : 1.0;
+    final rule = 1.0;
     final inset = raftBottomInset(context);
     // Collapsed, the sheet is exactly its header row (`py-2` around the 28px
     // expand button or the scaled 12/16 title) plus the system inset: a fixed
@@ -207,19 +204,16 @@ class _RaftAttachmentPreviewShellState
         right: 0,
         bottom: 0,
         child: RaftNavigationBarStyle(
-          background: t.brutal ? Colors.white : t.panel,
+          background: t.panel,
           child: AnimatedContainer(
             key: const ValueKey('attachment-comments-sheet'),
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             height: height,
             decoration: BoxDecoration(
-              color: t.brutal ? Colors.white : t.panel,
+              color: t.panel,
               border: Border(
-                top: BorderSide(
-                  color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                  width: rule,
-                ),
+                top: BorderSide(color: t.colors['line-muted']!, width: rule),
               ),
             ),
             child: ClipRect(
@@ -289,8 +283,8 @@ class RaftPreviewPreparing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final panel = t.brutal ? Colors.white : t.panel;
-    final rule = t.brutal ? 2.0 : 1.0;
+    final panel = t.panel;
+    final rule = 1.0;
     return ColoredBox(
       color: Colors.white,
       child: ColoredBox(
@@ -302,13 +296,8 @@ class RaftPreviewPreparing extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: panel,
-                border: Border.all(
-                  color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                  width: rule,
-                ),
-                boxShadow: t.brutal
-                    ? RaftShadowSet.brutalSm
-                    : t.themeShadows.sm.outer,
+                border: Border.all(color: t.colors['line-muted']!, width: rule),
+                boxShadow: t.themeShadows.sm.outer,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -325,7 +314,7 @@ class RaftPreviewPreparing extends StatelessWidget {
                       fontSize: 12,
                       height: 16 / 12,
                       fontWeight: FontWeight.w700,
-                      color: t.brutal ? Colors.black : t.strong,
+                      color: t.strong,
                     ),
                   ),
                 ],

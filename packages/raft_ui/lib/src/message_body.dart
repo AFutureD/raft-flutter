@@ -1365,7 +1365,7 @@ class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
     final t = RaftTokens.of(context);
     final recipe = RaftCodeRecipe(t);
     final surface = recipe.background;
-    final border = t.brutal ? Colors.black : t.colors['line'] ?? t.line;
+    final border = t.colors['line'] ?? t.line;
     final height = (MediaQuery.sizeOf(context).height * .5).clamp(320.0, 560.0);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1497,7 +1497,7 @@ class _MermaidToolbar extends StatelessWidget {
           sourceTabWidth: tabWidth('Code'),
         );
         final desktop = toolbarRecipe.desktop;
-        final line = t.brutal ? Colors.black : t.colors['line'] ?? t.line;
+        final line = t.colors['line'] ?? t.line;
         Widget control(
           RaftGlyph icon,
           String tooltip,
@@ -1521,7 +1521,7 @@ class _MermaidToolbar extends StatelessWidget {
             key: ValueKey((icon, desktop)),
             kind: RaftControlKind.tab,
             selected: selected,
-            shadow: !t.brutal,
+            shadow: true,
             onPressed: action,
             tooltip: raftText(context, tooltip),
             visualHeight: toolbarRecipe.tabVisualHeight,
@@ -2298,13 +2298,8 @@ InlineSpan _searchMarkSpan(BuildContext context, String text, TextStyle base) {
   final t = RaftTokens.of(context);
   return RaftBackgroundSpan(
     text: text,
-    background: (t.brutal
-        ? t.product.softSignal.withValues(alpha: .7)
-        : t.colors['primary-soft'])!,
-    style: base.copyWith(
-      backgroundColor: Colors.transparent,
-      color: t.brutal ? base.color : t.strong,
-    ),
+    background: t.colors['primary-soft']!,
+    style: base.copyWith(backgroundColor: Colors.transparent, color: t.strong),
   );
 }
 

@@ -116,7 +116,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
       );
     }
     final canonical = variant == RaftPanelHeaderVariant.canonical;
-    if (canonical && !t.brutal) {
+    if (canonical) {
       // Elegant desktop PanelHeader: the 36px `fill-muted` icon tile and the
       // title with its meta inline (the same bar the Agent / Human panels use).
       return RaftPanelHeaderBar(
@@ -141,10 +141,10 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
     final titleStyle = canonical
         ? source.title.text(t.recipeTokens, base: RaftTypography.body(t))
         : recipe.title;
-    final subtitleStyle = canonical && !t.brutal
+    final subtitleStyle = canonical
         ? source.meta.text(t.recipeTokens, base: RaftTypography.body(t))
         : recipe.subtitle;
-    final gap = canonical && !t.brutal
+    final gap = canonical
         ? RaftResourceMetrics.elegantHeaderGap
         : RaftLayoutMetrics.panelGap;
     // Above the default text size the header height is a minimum and the
@@ -152,7 +152,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
     final grows = RaftScaled.grows(context);
     final lines = grows ? null : 1;
     final clip = grows ? TextOverflow.clip : TextOverflow.ellipsis;
-    final restingPadding = canonical && !t.brutal && mobile
+    final restingPadding = canonical && mobile
         ? RaftResourceMetrics.elegantMobileHeaderInset
         : EdgeInsets.symmetric(horizontal: RaftLayoutMetrics.panelInset);
     final header = Container(
@@ -172,7 +172,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
       decoration: BoxDecoration(
         color: recipe.background,
         border: Border(
-          bottom: canonical && !t.brutal && mobile
+          bottom: canonical && mobile
               ? BorderSide(color: t.line)
               : recipe.border,
         ),
@@ -215,10 +215,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
                     overflow: clip,
                     style: titleStyle,
                   ),
-                if (canonical &&
-                    !t.brutal &&
-                    subtitle != null &&
-                    subtitle!.isNotEmpty)
+                if (canonical && subtitle != null && subtitle!.isNotEmpty)
                   const SizedBox(
                     height: RaftResourceMetrics.elegantHeaderMetaGap,
                   ),

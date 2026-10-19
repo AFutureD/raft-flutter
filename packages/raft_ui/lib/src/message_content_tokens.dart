@@ -25,19 +25,11 @@ class MessageContentSemantic {
   Color get link => tokens.dark
       ? MessageContentPrimitive.linkDark
       : MessageContentPrimitive.linkLight;
-  Color get quote => tokens.brutal
-      ? RaftPrimitiveColors.black.withValues(alpha: .7)
-      : tokens.muted;
-  Color get quoteEdge => tokens.brutal
-      ? RaftPrimitiveColors.black.withValues(alpha: .4)
-      : tokens.colors['line-muted']!;
-  Color get collapseFade =>
-      tokens.brutal ? RaftPrimitiveColors.white : tokens.panel;
-  Color get toggleHover =>
-      tokens.brutal ? RaftPrimitiveColors.black : tokens.strong;
-  Color get toggle => tokens.brutal
-      ? RaftPrimitiveColors.black.withValues(alpha: .6)
-      : tokens.muted;
+  Color get quote => tokens.muted;
+  Color get quoteEdge => tokens.colors['line-muted']!;
+  Color get collapseFade => tokens.panel;
+  Color get toggleHover => tokens.strong;
+  Color get toggle => tokens.muted;
 }
 
 class MessageContentRecipe {
@@ -78,23 +70,18 @@ class MessageContentRecipe {
         // raft-ui messageItem `body`: brutal `text-sm text-black`.
         color:
             foreground ??
-            (mountedMessage && !document
-                ? (tokens.brutal ? RaftPrimitiveColors.black : tokens.muted)
-                : tokens.strong),
+            (mountedMessage && !document ? tokens.muted : tokens.strong),
       ).copyWith(
         fontFamily: document ? tokens.headingFont : tokens.bodyFont,
-        letterSpacing: mountedMessage && !document && !tokens.brutal
-            ? -fontSize * .01
-            : 0,
+        letterSpacing: mountedMessage && !document ? -fontSize * .01 : 0,
       );
-  TextStyle get toggle =>
-      RaftTypography.body(
-        tokens,
-        size: MessageContentPrimitive.toggleSize,
-        line: 16,
-        weight: RaftTypography.black(tokens),
-        color: semantic.toggle,
-      );
+  TextStyle get toggle => RaftTypography.body(
+    tokens,
+    size: MessageContentPrimitive.toggleSize,
+    line: 16,
+    weight: RaftTypography.black(tokens),
+    color: semantic.toggle,
+  );
   TextStyle heading(int level) {
     final size = document
         ? switch (level) {
@@ -119,14 +106,10 @@ class MessageContentRecipe {
       color: level == 6
           ? tokens.muted
           : foreground ??
-                (mountedMessage && !document && !tokens.brutal
-                    ? tokens.muted
-                    : tokens.strong),
+                (mountedMessage && !document ? tokens.muted : tokens.strong),
     ).copyWith(
       fontFamily: document ? tokens.headingFont : tokens.bodyFont,
-      letterSpacing: mountedMessage && !document && !tokens.brutal
-          ? -fontSize * .01
-          : 0,
+      letterSpacing: mountedMessage && !document ? -fontSize * .01 : 0,
     );
   }
 
@@ -174,92 +157,72 @@ class MessageContentRecipe {
   // each shared stroke across neighboring cells and contain outer paint with
   // half-stroke padding. Brutal's mixed header/body strokes require a separate
   // per-row renderer; do not pretend uniform allocation is correct there.
-  double get collapsedTableHalfStroke => tokens.brutal ? 0 : tokens.border / 2;
+  double get collapsedTableHalfStroke => tokens.border / 2;
   EdgeInsets get tableCellInset =>
       MessageContentPrimitive.tableInset +
       EdgeInsets.all(collapsedTableHalfStroke);
   EdgeInsets get tableOuterInset =>
       const EdgeInsets.symmetric(vertical: 4) +
       EdgeInsets.all(collapsedTableHalfStroke);
-  MarkdownStyleSheet stylesheet(BuildContext context) =>
-      MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-        p: body,
-        // `border-t border-line-muted`; brutal `border-t-2 border-black`.
-        horizontalRuleDecoration: BoxDecoration(
-          border: Border(
-            top: tokens.brutal
-                ? const BorderSide(color: Colors.black, width: 2)
-                : BorderSide(color: tokens.colors['line-muted']!),
-          ),
-        ),
-        blockSpacing: document
-            ? MessageContentPrimitive.documentGap
-            : MessageContentPrimitive.compactGap,
-        listIndent: document
-            ? MessageContentPrimitive.documentListIndent
-            : MessageContentPrimitive.compactListIndent,
-        listBulletPadding: EdgeInsets.zero,
-        listBullet: body,
-        h1: heading(1),
-        h2: heading(2),
-        h3: heading(3),
-        h4: heading(4),
-        h5: heading(5),
-        h6: heading(6),
-        h1Padding: EdgeInsets.only(top: document ? 12 : 8, bottom: 0),
-        h2Padding: EdgeInsets.only(top: document ? 8 : 4, bottom: 0),
-        h3Padding: EdgeInsets.only(top: 4, bottom: 0),
-        h4Padding: const EdgeInsets.only(top: 0, bottom: 0),
-        h5Padding: const EdgeInsets.only(top: 0, bottom: 0),
-        h6Padding: const EdgeInsets.only(top: 0, bottom: 0),
-        blockquote: body.copyWith(
-          color: semantic.quote,
-          fontStyle: FontStyle.italic,
-        ),
-        blockquotePadding: const EdgeInsets.only(left: 12),
-        blockquoteDecoration: BoxDecoration(
-          border: Border(left: BorderSide(color: semantic.quoteEdge, width: 2)),
-        ),
-        tableHead: body.copyWith(
-          fontWeight: FontWeight.w700,
-          color: tokens.brutal ? RaftPrimitiveColors.black : tokens.strong,
-        ),
-        tableHeadAlign: TextAlign.left,
-        tableBody: body,
-        tableColumnWidth: const IntrinsicColumnWidth(),
-        tablePadding: tableOuterInset,
-        tableHeadCellsDecoration: BoxDecoration(
-          color: tokens.brutal
-              ? tokens.colors['color-brutal-cyan']
-              : tokens.colors['info-soft'],
-        ),
-        tableCellsPadding: tableCellInset,
-        tableHeadCellsPadding: tableCellInset,
-        tableBorder: tokens.brutal
-            ? TableBorder.all(
-                color: RaftPrimitiveColors.black,
-                width: tokens.border,
-              )
-            : MessageCollapsedTableBorder(
-                color: tokens.colors['line-muted']!,
-                width: tokens.border,
-              ),
-        // The link underline is painted by RaftUnderlines (message_body).
-        a: body.copyWith(color: semantic.link),
-        // raft-ui InlineCode appearance="message": brutal `bg-black/5
-        // text-black`, elegant `bg-fill-muted text-foreground-strong`.
-        code:
-            RaftTypography.mono(
-              tokens,
-              size: fontSize * MessageContentPrimitive.inlineCodeScale,
-              line: fontSize * MessageContentPrimitive.inlineCodeScale * 1.3,
-              color: tokens.brutal ? RaftPrimitiveColors.black : tokens.strong,
-            ).copyWith(
-              backgroundColor: tokens.brutal
-                  ? RaftPrimitiveColors.black.withValues(alpha: .05)
-                  : tokens.colors['fill-muted'],
-            ),
-      );
+  MarkdownStyleSheet stylesheet(
+    BuildContext context,
+  ) => MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+    p: body,
+    // `border-t border-line-muted`; brutal `border-t-2 border-black`.
+    horizontalRuleDecoration: BoxDecoration(
+      border: Border(top: BorderSide(color: tokens.colors['line-muted']!)),
+    ),
+    blockSpacing: document
+        ? MessageContentPrimitive.documentGap
+        : MessageContentPrimitive.compactGap,
+    listIndent: document
+        ? MessageContentPrimitive.documentListIndent
+        : MessageContentPrimitive.compactListIndent,
+    listBulletPadding: EdgeInsets.zero,
+    listBullet: body,
+    h1: heading(1),
+    h2: heading(2),
+    h3: heading(3),
+    h4: heading(4),
+    h5: heading(5),
+    h6: heading(6),
+    h1Padding: EdgeInsets.only(top: document ? 12 : 8, bottom: 0),
+    h2Padding: EdgeInsets.only(top: document ? 8 : 4, bottom: 0),
+    h3Padding: EdgeInsets.only(top: 4, bottom: 0),
+    h4Padding: const EdgeInsets.only(top: 0, bottom: 0),
+    h5Padding: const EdgeInsets.only(top: 0, bottom: 0),
+    h6Padding: const EdgeInsets.only(top: 0, bottom: 0),
+    blockquote: body.copyWith(
+      color: semantic.quote,
+      fontStyle: FontStyle.italic,
+    ),
+    blockquotePadding: const EdgeInsets.only(left: 12),
+    blockquoteDecoration: BoxDecoration(
+      border: Border(left: BorderSide(color: semantic.quoteEdge, width: 2)),
+    ),
+    tableHead: body.copyWith(fontWeight: FontWeight.w700, color: tokens.strong),
+    tableHeadAlign: TextAlign.left,
+    tableBody: body,
+    tableColumnWidth: const IntrinsicColumnWidth(),
+    tablePadding: tableOuterInset,
+    tableHeadCellsDecoration: BoxDecoration(color: tokens.colors['info-soft']),
+    tableCellsPadding: tableCellInset,
+    tableHeadCellsPadding: tableCellInset,
+    tableBorder: MessageCollapsedTableBorder(
+      color: tokens.colors['line-muted']!,
+      width: tokens.border,
+    ),
+    // The link underline is painted by RaftUnderlines (message_body).
+    a: body.copyWith(color: semantic.link),
+    // raft-ui InlineCode appearance="message": brutal `bg-black/5
+    // text-black`, elegant `bg-fill-muted text-foreground-strong`.
+    code: RaftTypography.mono(
+      tokens,
+      size: fontSize * MessageContentPrimitive.inlineCodeScale,
+      line: fontSize * MessageContentPrimitive.inlineCodeScale * 1.3,
+      color: tokens.strong,
+    ).copyWith(backgroundColor: tokens.colors['fill-muted']),
+  );
 }
 
 /// AttachmentPreviewSurfaces table/text reader component recipe.
@@ -275,18 +238,12 @@ class DocumentAttachmentRecipe {
 
   /// The pane surface: `bg-layer-canvas-muted` / brutal `bg-brutal-cream/45`,
   /// over the shell's own canvas (brutal cream), so the same cream.
-  Color get background => tokens.brutal
-      ? tokens.components.brutalCream
-      : tokens.colors['layer-canvas-muted']!;
+  Color get background => tokens.colors['layer-canvas-muted']!;
   Color get paper => tokens.panel;
   double get maxColumnWidth => 220;
   // `text-[11px]` inherits the root's `line-height: 1.5`: 16.5px.
-  TextStyle get tableText => RaftTypography.mono(
-    tokens,
-    size: 11,
-    line: 16.5,
-    color: tokens.brutal ? RaftPrimitiveColors.black : tokens.strong,
-  );
+  TextStyle get tableText =>
+      RaftTypography.mono(tokens, size: 11, line: 16.5, color: tokens.strong);
   TextStyle get text =>
       RaftTypography.mono(tokens, size: 12, line: 20, color: tokens.strong);
   TextStyle get heading => RaftTypography.body(
@@ -294,30 +251,20 @@ class DocumentAttachmentRecipe {
     size: 12,
     line: 16,
     weight: FontWeight.w700,
-    color: tokens.brutal ? tokens.strong.withValues(alpha: .55) : tokens.muted,
+    color: tokens.muted,
   );
-  Color get tableHeader => tokens.brutal
-      ? tokens.components.brutalCream
-      : tokens.colors['layer-canvas-muted']!;
+  Color get tableHeader => tokens.colors['layer-canvas-muted']!;
   Color get rowStripe => RaftPrimitiveColors.black.withValues(alpha: .03);
-  BorderSide get border => BorderSide(
-    color: tokens.brutal
-        ? RaftPrimitiveColors.black
-        : tokens.colors['line-muted']!,
-    width: tokens.border,
-  );
+  BorderSide get border =>
+      BorderSide(color: tokens.colors['line-muted']!, width: tokens.border);
   // Collapsed 1px borders add 0.5px to each side of a cell's row.
   EdgeInsets get cellInset =>
       // ds-allow: Web MarkdownContent.tsx td `py-1` under border-collapse (4px + 0.25px measured row growth)
       const EdgeInsets.symmetric(horizontal: 8, vertical: 4.25);
 
   /// Inner cell grid: `border border-line-muted theme-brutal:border-black/40`.
-  BorderSide get cellBorder => BorderSide(
-    color: tokens.brutal
-        ? RaftPrimitiveColors.black.withValues(alpha: .4)
-        : tokens.colors['line-muted']!,
-    width: 1,
-  );
+  BorderSide get cellBorder =>
+      BorderSide(color: tokens.colors['line-muted']!, width: 1);
 }
 
 /// Per-build heading padding, never cached across account/content changes.

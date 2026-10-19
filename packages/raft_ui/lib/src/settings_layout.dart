@@ -19,7 +19,6 @@ import 'recipes/token_binding.dart';
 import 'status_bar.dart';
 import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
-import 'tokens/shadows.g.dart';
 
 /// Shared Settings page pieces from the Web client:
 /// - [RaftSettingsSidebarList]: components/settings/SettingsSidebarList.tsx
@@ -73,7 +72,7 @@ class RaftSettingsSidebarList extends StatelessWidget {
   /// Elegant SidebarItem rows hang `-mx-(--sidebar-row-inset-x,6px)` past
   /// the Sidebar's `px-2` scroll inset (`w-[calc(100%+12px)]`); Brutal rows
   /// sit inside it.
-  static double rowOverhang(RaftTokens t) => t.brutal ? 0 : 6;
+  static double rowOverhang(RaftTokens t) => 6;
 
   /// The Sidebar scroll surface (`px-2 py-3`) minus the row overhang, so the
   /// rows can span it while the group labels keep their `px-2`.
@@ -93,14 +92,14 @@ class RaftSettingsSidebarList extends StatelessWidget {
       size: 10,
       line: 15,
       weight: FontWeight.w700,
-    ).copyWith(color: t.brutal ? Colors.black.withValues(alpha: .4) : t.muted);
+    ).copyWith(color: t.muted);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < visible.length; i++) ...[
           // `space-y-3` between group divs; the last row's `mb-*` collapses
           // into it (block margins), so the visible gap stays 12px.
-          if (i > 0) SizedBox(height: 12 - (t.brutal ? 4 : 2)),
+          if (i > 0) SizedBox(height: 12 - (2)),
           Padding(
             padding: EdgeInsets.fromLTRB(8 + overhang, 0, 8 + overhang, 4),
             child: Text(raftText(context, visible[i].label), style: label),
@@ -341,11 +340,8 @@ class RaftSettingsPanelFrame extends StatelessWidget {
 
   /// SettingsPanel's content div for the Feedback tab: `bg-layer-panel
   /// dark:bg-layer-card theme-brutal:bg-white`.
-  static Color feedbackSurface(RaftTokens t) => t.brutal
-      ? Colors.white
-      : t.dark
-      ? t.colors['layer-card']!
-      : t.panel;
+  static Color feedbackSurface(RaftTokens t) =>
+      t.dark ? t.colors['layer-card']! : t.panel;
 
   /// Null when the page brings its own header inside the content
   /// (AboutFeedbackPanel's PanelHeader sits in SettingsPanel's content div).
@@ -363,19 +359,19 @@ class RaftSettingsPanelFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final edge = t.brutal ? Colors.black : t.colors['line-muted']!;
+    final edge = t.colors['line-muted']!;
     // `Panel edge="attached"`: the shared rule (RaftPanelEdge) decides, the
     // phone page is the only presentation without the line.
     final edgeBorder = attached ? RaftPanelEdge.left(context) : null;
     return Material(
       // SettingsPanel's Panel supplies bg-layer-canvas-muted to the transparent
       // desktop Elegant header. Its content div owns bg-layer-panel separately.
-      color: t.brutal ? Colors.white : t.sidebar,
+      color: t.sidebar,
       // Container insets the child by the border width, as CSS does.
       // The left edge continues up under the status bar on wide layouts; the
       // header (when flush) publishes the colour over the panel.
       child: RaftStatusBarSource(
-        color: t.brutal ? Colors.white : t.sidebar,
+        color: t.sidebar,
         border: edgeBorder,
         child: Container(
           decoration: edgeBorder == null
@@ -388,7 +384,7 @@ class RaftSettingsPanelFrame extends StatelessWidget {
               // (Elegant 1px line-muted inside the header box; Brutal's header
               // recipe already draws border-b-2 black).
               if (header != null)
-                if (t.brutal || !attached)
+                if (!attached)
                   header!
                 else
                   Container(
@@ -400,11 +396,8 @@ class RaftSettingsPanelFrame extends StatelessWidget {
               Expanded(
                 // Without a frame header the content surface is the top one.
                 child: RaftStatusBarSource(
-                  color: contentColor ?? (t.brutal ? Colors.white : t.panel),
-                  child: Material(
-                    color: contentColor ?? (t.brutal ? Colors.white : t.panel),
-                    child: child,
-                  ),
+                  color: contentColor ?? t.panel,
+                  child: Material(color: contentColor ?? t.panel, child: child),
                 ),
               ),
             ],
@@ -434,7 +427,7 @@ TextStyle raftSettingsBody(
       weight: weight,
       color: color ?? t.strong,
     ).copyWith(
-      fontVariations: t.brutal || t.systemFonts
+      fontVariations: t.systemFonts
           ? null
           : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
       leadingDistribution: TextLeadingDistribution.even,
@@ -487,11 +480,7 @@ class RaftSettingsSectionHeader extends StatelessWidget {
       child: Row(
         children: [
           if (glyph != null) ...[
-            RaftIcon(
-              glyph!,
-              size: 16,
-              color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
-            ),
+            RaftIcon(glyph!, size: 16, color: t.muted),
             const SizedBox(width: 8),
           ],
           Expanded(
@@ -508,9 +497,7 @@ class RaftSettingsSectionHeader extends StatelessWidget {
                             t,
                             size: 12,
                             line: 16,
-                            color: t.brutal
-                                ? Colors.black.withValues(alpha: .4)
-                                : t.colors['foreground-placeholder'],
+                            color: t.colors['foreground-placeholder'],
                           ).copyWith(
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.2,
@@ -547,14 +534,9 @@ class RaftSettingsCard extends StatelessWidget {
     vertical: 12,
   );
   static BoxDecoration decoration(RaftTokens t) => BoxDecoration(
-    color: t.brutal ? Colors.white : t.panel,
-    border: Border.all(
-      color: t.brutal ? Colors.black : t.colors['line-muted']!,
-      width: t.brutal ? 2 : 1,
-    ),
-    boxShadow: t.brutal
-        ? RaftProductShadows.shadowBrutalSm.outer
-        : t.themeShadows.sm.outer,
+    color: t.panel,
+    border: Border.all(color: t.colors['line-muted']!, width: 1),
+    boxShadow: t.themeShadows.sm.outer,
   );
   @override
   Widget build(BuildContext context) =>
@@ -580,7 +562,7 @@ class RaftSettingsCard extends StatelessWidget {
         ? null
         : BoxConstraints(minHeight: minHeight);
     final base = decoration(t).copyWith(color: color, borderRadius: radius);
-    final inset = t.brutal ? const <RaftCssShadow>[] : t.themeShadows.sm.inset;
+    final inset = t.themeShadows.sm.inset;
     if (inset.isEmpty) {
       return Container(
         height: height,
@@ -647,40 +629,34 @@ class RaftSettingsText {
   final RaftTokens t;
 
   /// `text-foreground-strong theme-brutal:text-black`
-  Color get strong => t.brutal ? Colors.black : t.strong;
+  Color get strong => t.strong;
 
   /// `text-foreground-muted theme-brutal:text-black/60`
-  Color get muted => t.brutal ? Colors.black.withValues(alpha: .6) : t.muted;
+  Color get muted => t.muted;
 
   /// `text-foreground-muted theme-brutal:text-black/50`
-  Color get faint => t.brutal ? Colors.black.withValues(alpha: .5) : t.muted;
+  Color get faint => t.muted;
 
   /// `border-black/30` (brutal) / `border-line-muted`.
-  Color get softEdge =>
-      t.brutal ? Colors.black.withValues(alpha: .3) : t.colors['line-muted']!;
+  Color get softEdge => t.colors['line-muted']!;
 
   /// `theme-brutal:border-black` / `border-line-muted`.
-  Color get edge => t.brutal ? Colors.black : t.colors['line-muted']!;
+  Color get edge => t.colors['line-muted']!;
 
   /// `bg-layer-inset theme-brutal:bg-gray-50` (gray-50 = oklch(98.5% 0.002
   /// 247.839) = #F9FAFB).
-  Color get insetFill =>
-      t.brutal ? const Color(0xFFF9FAFB) : t.colors['layer-inset']!;
+  Color get insetFill => t.colors['layer-inset']!;
 
   /// `bg-layer-panel theme-brutal:bg-white`
-  Color get panel => t.brutal ? Colors.white : t.panel;
+  Color get panel => t.panel;
 
   /// Read-only SlugInput group (`border-line-strong bg-layer-inset
   /// theme-brutal:border-black/30 theme-brutal:bg-gray-50`); in elegant dark
   /// InputGroup's `dark:bg-layer-card` and `dark:not-has-[invalid]:
   /// border-transparent` outrank the callsite classes.
-  Color get readonlyGroupBorder => t.brutal
-      ? softEdge
-      : t.dark
-      ? Colors.transparent
-      : t.colors['line-strong']!;
-  Color get readonlyGroupFill =>
-      !t.brutal && t.dark ? t.colors['layer-card']! : insetFill;
+  Color get readonlyGroupBorder =>
+      t.dark ? Colors.transparent : t.colors['line-strong']!;
+  Color get readonlyGroupFill => t.dark ? t.colors['layer-card']! : insetFill;
 
   /// `text-sm font-bold`
   TextStyle get title => RaftTypography.inherited(

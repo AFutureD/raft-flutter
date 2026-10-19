@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'system_inset.dart';
 import 'components.dart';
 import 'design_primitives.dart';
-import 'dialog_card.dart';
 import 'feedback_inbox.dart' show RaftDashedBorderPainter;
 import 'icons.dart';
 import 'indicators.dart';
@@ -71,14 +70,9 @@ class RaftMobileComputerList extends StatelessWidget {
             // `flex items-center justify-between gap-3 p-3 text-sm`.
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: t.brutal
-                  ? t.colors['color-soft-signal']
-                  : t.colors['primary-soft'],
-              border: Border.all(
-                color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                width: t.brutal ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+              color: t.colors['primary-soft'],
+              border: Border.all(color: t.colors['line-muted']!, width: 1),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
               children: [
@@ -90,7 +84,7 @@ class RaftMobileComputerList extends StatelessWidget {
                       size: 14,
                       line: 20,
                       weight: FontWeight.w600,
-                      color: t.brutal ? Colors.black : t.strong,
+                      color: t.strong,
                     ),
                   ),
                 ),
@@ -137,20 +131,16 @@ class RaftMobileComputerList extends StatelessWidget {
           semanticLabel: addLabel,
           onPressed: onAdd,
           builder: (context, state) {
-            final border = t.brutal
-                ? Colors.black.withValues(alpha: state.hovered ? 1 : .4)
-                : t.colors[state.hovered ? 'line-strong' : 'line-muted']!;
+            final border =
+                t.colors[state.hovered ? 'line-strong' : 'line-muted']!;
             return ClipRRect(
-              borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+              borderRadius: BorderRadius.circular(6),
               child: CustomPaint(
-                foregroundPainter: RaftDashedBorderPainter(
-                  border,
-                  t.brutal ? 2 : 1,
-                ),
+                foregroundPainter: RaftDashedBorderPainter(border, 1),
                 child: Container(
                   color: t.panel,
                   // `p-3` inside the border box (the dashed border adds to it).
-                  padding: EdgeInsets.all(12.0 + (t.brutal ? 2 : 1)),
+                  padding: EdgeInsets.all(12.0 + (1)),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -193,11 +183,8 @@ class RaftMobileComputerList extends StatelessWidget {
 
   BoxDecoration _card(RaftTokens t) => BoxDecoration(
     color: t.panel,
-    border: Border.all(
-      color: t.brutal ? Colors.black : t.colors['line-muted']!,
-      width: t.brutal ? 2 : 1,
-    ),
-    borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-    boxShadow: t.brutal ? RaftShadowSet.brutalSm : t.themeShadows.sm.paintOrder,
+    border: Border.all(color: t.colors['line-muted']!, width: 1),
+    borderRadius: BorderRadius.circular(6),
+    boxShadow: t.themeShadows.sm.paintOrder,
   );
 }

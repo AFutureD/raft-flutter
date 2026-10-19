@@ -99,7 +99,7 @@ class _RaftSearchInputState extends State<RaftSearchInput> {
         style: g.root,
         tokens: rt,
         width: double.infinity,
-        clip: !t.brutal,
+        clip: true,
         child: Row(
           children: [
             Expanded(

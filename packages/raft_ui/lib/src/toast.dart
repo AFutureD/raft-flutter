@@ -88,7 +88,7 @@ class RaftToast extends StatelessWidget {
     // Elegant (light) tone compound variants: `**:data-[slot=toast-icon]:
     // text-info / text-success / text-warning / text-brutal-red` (dark keeps
     // `text-foreground-muted`, brutal keeps `text-foreground-strong`).
-    final iconColor = !t.brutal && !t.dark
+    final iconColor = !t.dark
         ? switch (tone) {
             RaftToastRecipeTone.info => t.colors['info'],
             RaftToastRecipeTone.success => t.colors['success'],
@@ -125,9 +125,9 @@ class RaftToast extends StatelessWidget {
                   child: Center(
                     child: RaftIcon(
                       glyph,
-                      size: t.brutal ? 16 : 18,
+                      size: 18,
                       // `[&_svg]:stroke-[2.5]` (brutal) / `stroke-[1.5]` (elegant).
-                      strokeWidth: t.brutal ? 2.5 : 1.5,
+                      strokeWidth: 1.5,
                       color: iconColor ?? s.icon.textStyle(rt).color,
                     ),
                   ),
@@ -212,7 +212,7 @@ class RaftToast extends StatelessWidget {
     );
     // Elegant root `saturate-150` (`dark:saturate-100`): a CSS filter over the
     // whole toast (fill, icon and text), standard sRGB saturate matrix.
-    if (!t.brutal && !t.dark) {
+    if (!t.dark) {
       root = ColorFiltered(colorFilter: _saturate(1.5), child: root);
     }
     // The host's overlay sits above the router, outside any Material or

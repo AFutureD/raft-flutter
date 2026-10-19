@@ -53,13 +53,10 @@ class RaftChatSidebarGroupRecipe {
     tokens,
     size: 12,
     line: 16.5,
-    color: tokens.brutal
-        ? Colors.black.withValues(
-            alpha: kind == RaftChatSidebarGroupKind.pinned ? .45 : .5,
-          )
-        : tokens.colors[kind == RaftChatSidebarGroupKind.pinned
-              ? 'foreground-placeholder'
-              : 'foreground-muted'],
+    color:
+        tokens.colors[kind == RaftChatSidebarGroupKind.pinned
+            ? 'foreground-placeholder'
+            : 'foreground-muted'],
   );
 }
 
@@ -361,50 +358,28 @@ class RaftConversationTabsRecipe {
   final RaftTokens tokens;
   final bool mobile;
   final RaftDensity density;
-  double get sourceTabHeight => tokens.brutal
-      ? 28
-      : mobile
-      ? 40
-      : 28;
-  double get sourceListHeight => tokens.brutal
-      ? 28
-      : mobile
-      ? 40
-      : 48;
+  double get sourceTabHeight => mobile ? 40 : 28;
+  double get sourceListHeight => mobile ? 40 : 48;
   // ChatPanel mounts h-7 tabs (Elegant mobile is overridden to h-10 by
   // ConversationPanelTabs). Its flow stays source-sized on coarse input too;
   // the generic 48px native target must not enlarge this specific tab strip.
   double get targetHeight => sourceTabHeight;
   double get effectiveListHeight => math.max(sourceListHeight, targetHeight);
-  double get outerBottomBorder => tokens.brutal
-      ? 2
-      : mobile
-      ? 1
-      : 0;
-  Color get background => tokens.brutal
-      ? Colors.white
-      : mobile
+  double get outerBottomBorder => mobile ? 1 : 0;
+  Color get background => mobile
       ? tokens.colors['layer-canvas-muted']!
       // ConversationPanelContent is the mounted ancestor: dark tabs are
       // transparent over its card surface, independently of the panel timeline.
       : tokens.dark
       ? tokens.card
       : tokens.panel;
-  Color get border =>
-      tokens.brutal ? Colors.black : tokens.colors['line-muted']!;
-  double get gap => tokens.brutal ? 0 : 4;
-  EdgeInsets get listInset =>
-      EdgeInsets.symmetric(horizontal: tokens.brutal ? 0 : 16);
-  double horizontalInset(int index) => tokens.brutal
-      ? index == 0
-            ? 22
-            : 16
-      : 12;
-  EdgeInsets tabInset(int index) => tokens.brutal
-      ? EdgeInsets.only(left: index == 0 ? 22 : 16, right: 16)
-      : const EdgeInsets.symmetric(horizontal: 12);
+  Color get border => tokens.colors['line-muted']!;
+  double get gap => 4;
+  EdgeInsets get listInset => EdgeInsets.symmetric(horizontal: 16);
+  double horizontalInset(int index) => 12;
+  EdgeInsets tabInset(int index) => const EdgeInsets.symmetric(horizontal: 12);
   double get glyphSize => 14;
-  double get glyphStroke => tokens.brutal ? 2.5 : 1.5;
+  double get glyphStroke => 1.5;
   double get indicatorHeight => mobile ? 1 : 2;
   Color get indicator => tokens.colors['primary-400']!;
 }
@@ -414,26 +389,17 @@ class _ConversationTabControlRecipe extends RaftControlRecipe {
   @override
   bool get transformsOnInteraction => false;
   @override
-  Color get background => tokens.brutal
-      ? selected
-            // raft-ui styles.css: --color-primary aliases --primary-400,
-            // separately from the legacy component role --primary.
-            ? tokens.semantic.primary400
-            : Colors.white
-      : Colors.transparent;
+  Color get background => Colors.transparent;
   // Product direct-child bg-white selector overrides the lower-specificity
   // generic Brutal tab hover background. Active hover stays primary.
   @override
   Color backgroundFor({bool hovered = false}) => background;
   @override
-  Color get foreground => tokens.brutal
-      ? Colors.black
-      : selected
-      ? tokens.ink
-      : tokens.colors['foreground-placeholder']!;
+  Color get foreground =>
+      selected ? tokens.ink : tokens.colors['foreground-placeholder']!;
   @override
   Color foregroundFor({bool hovered = false}) =>
-      tokens.brutal || selected || !hovered ? foreground : tokens.muted;
+      selected || !hovered ? foreground : tokens.muted;
   @override
   Gradient? get overlayGradient => null;
   @override
@@ -451,10 +417,10 @@ class _ConversationTabControlRecipe extends RaftControlRecipe {
   @override
   TextStyle get textStyle => RaftTypography.body(
     tokens,
-    size: tokens.brutal ? 12 : 13,
-    line: tokens.brutal ? 16 : 19.5,
-    weight: tokens.brutal ? FontWeight.w600 : FontWeight.w500,
-  ).copyWith(letterSpacing: tokens.brutal ? 0 : -.065);
+    size: 13,
+    line: 19.5,
+    weight: FontWeight.w500,
+  ).copyWith(letterSpacing: -.065);
 }
 
 /// Controlled selected/query value. Host supplies scoped persisted order and
@@ -605,13 +571,6 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
                       ],
                       // Source TabsList owns the final right border; separators
                       // belong to the following tab and do not consume its width.
-                      if (recipe.tokens.brutal)
-                        SizedBox(
-                          key: const ValueKey('conversation-tab-list-edge'),
-                          width: 2,
-                          height: recipe.sourceTabHeight,
-                          child: const ColoredBox(color: Colors.black),
-                        ),
                     ],
                   ),
                 ),
@@ -687,20 +646,7 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
                   ),
                 ),
               ),
-              if (recipe.tokens.brutal && index > 0)
-                Positioned(
-                  key: ValueKey('conversation-tab-separator-${tab.id.name}'),
-                  left: 0,
-                  top: grows
-                      ? 0
-                      : (recipe.effectiveListHeight - recipe.sourceTabHeight) /
-                            2,
-                  height: grows ? null : recipe.sourceTabHeight,
-                  bottom: grows ? 0 : null,
-                  width: 2,
-                  child: IgnorePointer(child: ColoredBox(color: Colors.black)),
-                ),
-              if (selected && !recipe.tokens.brutal)
+              if (selected)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -805,7 +751,7 @@ class RaftConversationHeaderActionsRecipe {
   final bool mobile;
   double get visualSize => 28;
   double get glyphSize => 14;
-  double get gap => mobile && !tokens.brutal ? 2 : 6;
+  double get gap => mobile ? 2 : 6;
 }
 
 /// The two real sibling header actions; opening the settings drawer is app-owned.
@@ -860,29 +806,23 @@ class RaftConversationDateHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final text =
-        RaftTypography.mono(
-          t,
-          size: t.brutal ? 10 : 11,
-          line: t.brutal ? 15 : 16.5,
-          color: t.brutal ? Colors.black.withValues(alpha: .5) : t.muted,
-        ).copyWith(
-          fontFamily: t.brutal ? t.bodyFont : t.monoFont,
-          fontWeight: t.brutal ? FontWeight.w700 : FontWeight.w400,
-        );
+    final text = RaftTypography.mono(
+      t,
+      size: 11,
+      line: 16.5,
+      color: t.muted,
+    ).copyWith(fontFamily: t.monoFont, fontWeight: FontWeight.w400);
     final line = Divider(
-      height: t.brutal ? 2 : 1,
-      thickness: t.brutal ? 2 : 1,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .15)
-          : t.colors[t.dark ? 'ink-4' : 'line-hairline'],
+      height: 1,
+      thickness: 1,
+      color: t.colors[t.dark ? 'ink-4' : 'line-hairline'],
     );
     return Semantics(
       header: true,
       label: label,
       excludeSemantics: true,
       child: Opacity(
-        opacity: t.brutal ? 1 : .7,
+        opacity: .7,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: LayoutBuilder(
@@ -905,7 +845,7 @@ class RaftConversationDateHeader extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Transform.translate(
-                      offset: Offset(0, t.brutal ? 1.5 : 0),
+                      offset: Offset(0, 0),
                       child: line,
                     ),
                   ),
@@ -923,7 +863,7 @@ class RaftConversationDateHeader extends StatelessWidget {
                   ),
                   Expanded(
                     child: Transform.translate(
-                      offset: Offset(0, t.brutal ? 1.5 : 0),
+                      offset: Offset(0, 0),
                       child: line,
                     ),
                   ),
@@ -942,8 +882,7 @@ class _ComposerTaskControlRecipe extends _ConversationTabControlRecipe {
   @override
   Color get background => Colors.transparent;
   @override
-  Color get foreground =>
-      tokens.brutal ? Colors.black.withValues(alpha: .6) : tokens.strong;
+  Color get foreground => tokens.strong;
   @override
   Color foregroundFor({bool hovered = false}) => foreground;
   @override
@@ -1021,14 +960,10 @@ class _ComposerTaskToggleState extends State<RaftComposerTaskToggle> {
                   width: 14,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: widget.checked
-                        ? t.brutal
-                              ? Colors.black
-                              : t.strong
-                        : t.panel,
+                    color: widget.checked ? t.strong : t.panel,
                     border: Border.all(
-                      color: t.brutal ? Colors.black : t.colors['line-strong']!,
-                      width: t.brutal ? 2 : 1,
+                      color: t.colors['line-strong']!,
+                      width: 1,
                     ),
                   ),
                   child: widget.checked
@@ -1037,9 +972,7 @@ class _ComposerTaskToggleState extends State<RaftComposerTaskToggle> {
                             RaftGlyph.check,
                             size: 10,
                             strokeWidth: 4,
-                            color: t.brutal
-                                ? Colors.white
-                                : t.colors['foreground-inverse'],
+                            color: t.colors['foreground-inverse'],
                           ),
                         )
                       : null,

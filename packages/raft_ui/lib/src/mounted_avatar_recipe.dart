@@ -91,37 +91,24 @@ class RaftMountedAvatarRecipe {
       : membersRow
       ? 8
       : 6;
-  double get radius => tokens.brutal ? 0 : extent / 2;
-  Color get border => tokens.brutal ? Colors.black : Colors.transparent;
-  Color get fallbackFill => tokens.brutal
-      ? identity == RaftMountedAvatarIdentity.agent
-            ? tokens.colors['color-brutal-cyan']!
-            : identity == RaftMountedAvatarIdentity.human
-            ? tokens.colors['color-brutal-lavender']!
-            : tokens.primaryFill
-      : tokens.colors[identity == RaftMountedAvatarIdentity.human
-            ? 'fill-strong'
-            : 'fill-muted']!;
-  Color get placeholderForeground => tokens.brutal
-      ? Colors.black
-      : tokens.colors['foreground-placeholder']!.withValues(
-          alpha: tokens.colors['foreground-placeholder']!.a * .7,
-        );
+  double get radius => extent / 2;
+  Color get border => Colors.transparent;
+  Color get fallbackFill =>
+      tokens.colors[identity == RaftMountedAvatarIdentity.human
+          ? 'fill-strong'
+          : 'fill-muted']!;
+  Color get placeholderForeground => tokens.colors['foreground-placeholder']!
+      .withValues(alpha: tokens.colors['foreground-placeholder']!.a * .7);
 
   // Absolute CSS badge positions are relative to the padding box. The panel
   // value is also checked against actual mounted DOM: global inset1 Elegant,
   // global inset-2.75 Brutal. Compact badge is source-recipe only: the public
   // MessageReplies fixture mounts compact avatars without presence chrome.
-  double get badgeInset => tokens.brutal
-      ? borderWidth - (panelHeader ? 4.75 : 2.75)
-      : panelHeader || sidebarList
-      ? 1
-      : borderWidth + .333;
-  Color get badgeBorder =>
-      tokens.brutal ? Colors.black : tokens.colors['line-strong']!;
-  List<BoxShadow> get badgeOutline => tokens.brutal
-      ? const []
-      : [BoxShadow(color: tokens.panel, spreadRadius: 2)];
+  double get badgeInset => panelHeader || sidebarList ? 1 : borderWidth + .333;
+  Color get badgeBorder => tokens.colors['line-strong']!;
+  List<BoxShadow> get badgeOutline => [
+    BoxShadow(color: tokens.panel, spreadRadius: 2),
+  ];
 
   /// Tier 2: fixed status roles; the busy lamp never inherits a skin accent.
   Color activityFill(RaftAvatarPresence presence) =>
@@ -186,7 +173,7 @@ class RaftMountedAvatarFallback extends StatelessWidget {
                 fontWeight: identity == RaftMountedAvatarIdentity.app
                     ? RaftTypography.black(t)
                     : FontWeight.w700,
-                color: t.brutal ? Colors.black : r.placeholderForeground,
+                color: r.placeholderForeground,
               ),
             ),
     );
@@ -233,7 +220,7 @@ class RaftMountedAvatarFrame extends StatelessWidget {
         ? presence
         : null;
     final dimension = extent ?? r.extent;
-    final radius = BorderRadius.circular(r.tokens.brutal ? 0 : dimension / 2);
+    final radius = BorderRadius.circular(dimension / 2);
     Widget frame = SizedBox.square(
       dimension: dimension,
       child: Stack(

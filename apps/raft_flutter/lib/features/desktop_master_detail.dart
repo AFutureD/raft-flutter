@@ -30,7 +30,7 @@ class DesktopMasterDetail extends StatefulWidget {
     this.compactWidth = DesktopMasterPanelBounds.compactDefault,
     this.compact = false,
     this.directoryWidth,
-    this.masterEdge,
+    this.masterEdge = false,
     this.onWidthChanged,
   });
   final Widget master;
@@ -42,10 +42,10 @@ class DesktopMasterDetail extends StatefulWidget {
   final double? directoryWidth;
 
   /// Web's master column divider (`MainLayout` col-2 `border-r border-line-muted`)
-  /// beside an open detail: null for a master that draws its own (the
-  /// directory sidebar frame), otherwise whether Brutal draws it 2px (Search)
-  /// or 1px (Activity). Shown by [RaftPanelEdge]'s rule, never on a phone page.
-  final bool? masterEdge;
+  /// beside an open detail: false for a master that draws its own (the
+  /// directory sidebar frame). Shown by [RaftPanelEdge]'s rule, never on a
+  /// phone page.
+  final bool masterEdge;
   final void Function(double width, bool compact)? onWidthChanged;
   @override
   State<DesktopMasterDetail> createState() => _DesktopMasterDetailState();
@@ -120,13 +120,9 @@ class _DesktopMasterDetailState extends State<DesktopMasterDetail> {
         widget.onWidthChanged?.call(accepted, compact);
       }
 
-      final Widget column = widget.masterEdge == null
-          ? master
-          : RaftPanelMasterEdge(
-              split: split,
-              brutalThick: widget.masterEdge!,
-              child: master,
-            );
+      final Widget column = widget.masterEdge
+          ? RaftPanelMasterEdge(split: split, child: master)
+          : master;
       return Stack(
         fit: StackFit.expand,
         children: [

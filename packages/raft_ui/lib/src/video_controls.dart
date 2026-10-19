@@ -310,7 +310,6 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
     final playLabel = raftFormat(
       context,
       widget.playing ? 'Pause video {filename}' : 'Play video {filename}',
@@ -364,12 +363,10 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: .6),
-                          shape: t.brutal
-                              ? BoxShape.rectangle
-                              : BoxShape.circle,
+                          shape: BoxShape.circle,
                           border: Border.all(
                             color: Colors.white.withValues(alpha: .9),
-                            width: t.brutal ? 2 : 1,
+                            width: 1,
                           ),
                         ),
                         child: const RaftIcon(
@@ -963,14 +960,10 @@ class _VideoRailState extends State<_VideoRail> {
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: .88),
-                                borderRadius: t.brutal
-                                    ? null
-                                    : BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: Colors.white.withValues(
-                                    alpha: t.brutal ? .9 : .25,
-                                  ),
-                                  width: t.brutal ? 1.5 : 1,
+                                  color: Colors.white.withValues(alpha: .25),
+                                  width: 1,
                                 ),
                               ),
                               child: Text(

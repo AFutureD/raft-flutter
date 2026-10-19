@@ -11,7 +11,7 @@ import 'error_presentation.dart' show RaftErrorBanner;
 import 'icons.dart';
 import 'localization.dart';
 import 'indicators.dart' show RaftSkeletonRow;
-import 'panel_layout.dart' show raftRecipeTheme, raftPanelInk, RaftCssText;
+import 'panel_layout.dart' show raftRecipeTheme, RaftCssText;
 import 'recipe_surface.dart' show raftCssText, RaftCssOverflowY, RaftRecipeBox;
 import 'recipes/badge.g.dart';
 import 'recipes/card.g.dart';
@@ -57,7 +57,7 @@ class RaftPanelHeaderIconTile extends StatelessWidget {
         glyph,
         size: 18,
         // `text-foreground-strong theme-brutal:text-black`.
-        color: t.brutal ? Colors.black : t.colors['foreground-strong'],
+        color: t.colors['foreground-strong'],
       ),
     );
   }
@@ -90,11 +90,9 @@ class RaftRuntimeChip extends StatelessWidget {
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: rt,
     ).root;
-    final fill = detected
-        ? (t.brutal ? t.product.brutalCyan : t.colors['info-soft']!)
-        : t.colors['fill-muted']!;
+    final fill = detected ? (t.colors['info-soft']!) : t.colors['fill-muted']!;
     final ink = detected
-        ? (t.brutal ? Colors.black : t.colors['info-strong']!)
+        ? (t.colors['info-strong']!)
         : t.colors['foreground-muted']!;
     final text = RaftCssText(
       label,
@@ -189,15 +187,13 @@ class RaftOptionCard extends StatelessWidget {
       // Elegant Card root `border-[0.5px] … dark:border-transparent`: the
       // callsite `border-line-muted` / `hover:border-line-strong` do not
       // override the `dark:` variant.
-      final border = !t.brutal && t.dark
+      final border = t.dark
           ? Colors.transparent
           : selected
-          ? (t.brutal ? Colors.black : t.colors['line-muted']!)
+          ? (t.colors['line-muted']!)
           : state.hovered
-          ? (t.brutal ? Colors.black : t.colors['line-strong']!)
-          : (t.brutal
-                ? Colors.black.withValues(alpha: .3)
-                : t.colors['line-muted']!);
+          ? (t.colors['line-strong']!)
+          : (t.colors['line-muted']!);
       // RaftRecipeBox keeps the recipe's inset layers (elegant dark
       // `shadow-raft-xs` top light, `inset 0 1px 0`) above the fill.
       return RaftRecipeBox(
@@ -210,17 +206,10 @@ class RaftOptionCard extends StatelessWidget {
           // A translucent tint (`bg-brutal-cyan/20`) composites over the
           // dialog surface.
           color: selected
-              ? Color.alphaBlend(
-                  selectedFill,
-                  t.brutal ? Colors.white : t.colors['layer-panel']!,
-                )
-              : (t.brutal ? Colors.white : t.colors['layer-panel']),
-          border: Border.all(color: border, width: t.brutal ? 2 : 1),
-          boxShadow: t.brutal && selected
-              ? RaftShadowSet.brutalSm
-              : t.brutal
-              ? const []
-              : base.boxShadow,
+              ? Color.alphaBlend(selectedFill, t.colors['layer-panel']!)
+              : t.colors['layer-panel'],
+          border: Border.all(color: border, width: 1),
+          boxShadow: base.boxShadow,
         ),
         child: child,
       );
@@ -250,7 +239,7 @@ class RaftComputerSidebarHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final strong = t.brutal ? Colors.black : t.colors['foreground-strong']!;
+    final strong = t.colors['foreground-strong']!;
     final style = raftCssText.merge(
       RaftTypography.body(
         t,
@@ -276,9 +265,7 @@ class RaftComputerSidebarHeading extends StatelessWidget {
                       text: '$count',
                       style: TextStyle(
                         fontFamily: t.monoFont,
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .4)
-                            : t.colors['foreground-placeholder'],
+                        color: t.colors['foreground-placeholder'],
                       ),
                     ),
                   ],
@@ -345,7 +332,6 @@ class RaftComputerRow extends StatelessWidget {
     selected: selected,
     builder: (context, state) {
       final t = RaftTokens.of(context);
-      final brutal = t.brutal;
       final hover = state.hovered && !selected;
       // Selected `border-line-strong bg-fill-muted shadow-raft-sm` /
       // brutal `border-black bg-brutal-pink shadow-brutal-sm`; hover the same
@@ -354,54 +340,38 @@ class RaftComputerRow extends StatelessWidget {
       Color? fill;
       Color border;
       List<BoxShadow>? shadow;
-      if (brutal) {
-        fill = selected
-            ? t.product.brutalPink
-            : hover
-            ? Colors.white
-            : null;
-        border = selected || hover ? Colors.black : Colors.transparent;
-        if (selected || hover) shadow = RaftShadowSet.brutalSm;
-      } else {
-        // Callsite hover classes win over the recipe's (tailwind-merge):
-        // `hover:border-line-strong hover:bg-fill-muted hover:shadow-raft-sm`.
-        fill = selected
-            ? (t.dark ? t.colors['layer-card'] : t.colors['layer-panel'])
-            : hover
-            // `dark:hover:bg-ink-6` outranks the callsite hover fill.
-            ? (t.dark ? t.colors['ink-6'] : t.colors['fill-muted'])
-            : null;
-        border = hover ? t.colors['line-strong']! : Colors.transparent;
-        if (hover) shadow = t.themeShadows.sm.paintOrder;
-        if (selected) {
-          shadow = [
-            if (!t.dark)
-              BoxShadow(
-                color: t.colors['line-muted']!.withValues(alpha: .45),
-                spreadRadius: 1,
-              ),
-            ...t.themeShadows.sm.paintOrder,
-          ];
-        }
+      // Callsite hover classes win over the recipe's (tailwind-merge):
+      // `hover:border-line-strong hover:bg-fill-muted hover:shadow-raft-sm`.
+      fill = selected
+          ? (t.dark ? t.colors['layer-card'] : t.colors['layer-panel'])
+          : hover
+          // `dark:hover:bg-ink-6` outranks the callsite hover fill.
+          ? (t.dark ? t.colors['ink-6'] : t.colors['fill-muted'])
+          : null;
+      border = hover ? t.colors['line-strong']! : Colors.transparent;
+      if (hover) shadow = t.themeShadows.sm.paintOrder;
+      if (selected) {
+        shadow = [
+          if (!t.dark)
+            BoxShadow(
+              color: t.colors['line-muted']!.withValues(alpha: .45),
+              spreadRadius: 1,
+            ),
+          ...t.themeShadows.sm.paintOrder,
+        ];
       }
       if (mobile) {
         fill = t.panel;
-        border = brutal ? Colors.black : t.colors['line-muted']!;
-        shadow = brutal
-            ? RaftShadowSet.brutalSm
-            : (hover ? t.themeShadows.md : t.themeShadows.sm).paintOrder;
+        border = t.colors['line-muted']!;
+        shadow = (hover ? t.themeShadows.md : t.themeShadows.sm).paintOrder;
       }
-      final ink = brutal ? Colors.black : t.colors['foreground-strong']!;
+      final ink = t.colors['foreground-strong']!;
       final muted = mobile
           ? t.colors['foreground-hint']!
-          : raftPanelInk(t, .5, t.colors['foreground-muted']!);
+          : t.colors['foreground-muted']!;
       // Text inherits the item's line box: brutal `text-sm` (20/14),
       // elegant `text-[13px]` (19.5/13 = 1.5).
-      final metaLine = mobile
-          ? 16.5
-          : brutal
-          ? 11 * 20 / 14
-          : 11 * 1.5;
+      final metaLine = mobile ? 16.5 : 11 * 1.5;
       final meta = raftCssText.merge(
         RaftTypography.mono(
           t,
@@ -432,11 +402,7 @@ class RaftComputerRow extends StatelessWidget {
         style: offline
             ? meta.copyWith(
                 fontStyle: FontStyle.italic,
-                color: mobile
-                    ? muted
-                    : brutal
-                    ? Colors.black.withValues(alpha: .3)
-                    : t.colors['foreground-placeholder'],
+                color: mobile ? muted : t.colors['foreground-placeholder'],
               )
             : meta,
       );
@@ -451,9 +417,7 @@ class RaftComputerRow extends StatelessWidget {
       ];
       return Container(
         // 40px icon tile + 2 x p-3 + the border box (Brutal 2px, Elegant 1px).
-        constraints: mobile
-            ? BoxConstraints(minHeight: brutal ? 68 : 66)
-            : null,
+        constraints: mobile ? BoxConstraints(minHeight: 66) : null,
         transform: mobile && (state.pressed || hover)
             ? Matrix4.translationValues(
                 state.pressed ? 1 : 0,
@@ -464,11 +428,11 @@ class RaftComputerRow extends StatelessWidget {
         // The list owns `mb-1.5` and elegant's 6px bleed.
         padding: mobile
             ? const EdgeInsets.all(12)
-            : EdgeInsets.symmetric(horizontal: 10, vertical: brutal ? 4 : 6),
+            : EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: paint,
-          borderRadius: brutal ? null : BorderRadius.circular(6),
-          border: Border.all(color: border, width: brutal ? 2 : 1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: border, width: 1),
           boxShadow: shadow,
         ),
         child: Row(
@@ -482,14 +446,10 @@ class RaftComputerRow extends StatelessWidget {
                     child: mobile
                         ? Container(
                             decoration: BoxDecoration(
-                              color: brutal
-                                  ? Colors.white
-                                  : t.colors['layer-inset'],
+                              color: t.colors['layer-inset'],
                               border: Border.all(
-                                color: brutal
-                                    ? Colors.black
-                                    : t.colors['line-muted']!,
-                                width: brutal ? 2 : 1,
+                                color: t.colors['line-muted']!,
+                                width: 1,
                               ),
                             ),
                             child: Center(
@@ -512,8 +472,8 @@ class RaftComputerRow extends StatelessWidget {
                   ),
                   // `absolute -right-1 -top-1` against the card's padding box.
                   Positioned(
-                    right: (mobile ? (brutal ? 2 : 1) : cardBorder) - 4,
-                    top: (mobile ? (brutal ? 2 : 1) : cardBorder) - 4,
+                    right: (mobile ? (1) : cardBorder) - 4,
+                    top: (mobile ? (1) : cardBorder) - 4,
                     child: Container(
                       width: 10,
                       height: 10,
@@ -524,11 +484,7 @@ class RaftComputerRow extends StatelessWidget {
                           RaftComputerDot.online => t.product.brutalLime,
                           RaftComputerDot.offline => raftGray400,
                         },
-                        border: Border.all(
-                          color: brutal
-                              ? Colors.black
-                              : t.colors['line-strong']!,
-                        ),
+                        border: Border.all(color: t.colors['line-strong']!),
                       ),
                     ),
                   ),
@@ -571,11 +527,7 @@ class RaftComputerRow extends StatelessWidget {
                             weight: mobile ? FontWeight.w400 : FontWeight.w500,
                             color: mobile
                                 ? t.colors['foreground-muted']
-                                : raftPanelInk(
-                                    t,
-                                    .6,
-                                    t.colors['foreground-muted']!,
-                                  ),
+                                : t.colors['foreground-muted']!,
                           ),
                         ),
                       ),
@@ -643,69 +595,45 @@ class RaftMachineTypeOption extends StatelessWidget {
     semanticLabel: title,
     builder: (context, state) {
       final t = RaftTokens.of(context);
-      final brutal = t.brutal;
       final Color fill;
       final Color border;
       List<BoxShadow>? shadow;
       Color titleInk, descInk, iconInk;
       if (disabled) {
-        fill = brutal ? Colors.white : t.colors['layer-panel']!;
-        border = brutal
-            ? Colors.black.withValues(alpha: .3)
-            : t.colors['line-muted']!;
-        titleInk = brutal
-            ? Colors.black.withValues(alpha: .3)
-            : t.colors['foreground-muted']!;
-        descInk = brutal
-            ? Colors.black.withValues(alpha: .25)
-            : t.colors['foreground-muted']!;
+        fill = t.colors['layer-panel']!;
+        border = t.colors['line-muted']!;
+        titleInk = t.colors['foreground-muted']!;
+        descInk = t.colors['foreground-muted']!;
         iconInk = descInk;
       } else if (selected) {
-        fill = brutal ? t.product.softSignal : t.colors['primary-soft']!;
-        border = brutal ? Colors.black : t.colors['line-muted']!;
-        shadow = brutal
-            ? RaftShadowSet.brutalSm
-            : [BoxShadow(color: t.colors['primary-edge']!, spreadRadius: 1)];
-        titleInk = brutal ? Colors.black : t.colors['primary-strong']!;
-        descInk = brutal
-            ? Colors.black.withValues(alpha: .5)
-            : t.colors['primary-strong']!.withValues(alpha: .7);
+        fill = t.colors['primary-soft']!;
+        border = t.colors['line-muted']!;
+        shadow = [BoxShadow(color: t.colors['primary-edge']!, spreadRadius: 1)];
+        titleInk = t.colors['primary-strong']!;
+        descInk = t.colors['primary-strong']!.withValues(alpha: .7);
         iconInk = titleInk;
       } else {
-        fill = brutal ? Colors.white : t.colors['layer-panel']!;
+        fill = t.colors['layer-panel']!;
         border = state.hovered
-            ? (brutal ? Colors.black : t.colors['line-strong']!)
-            : (brutal
-                  ? Colors.black.withValues(alpha: .3)
-                  : t.colors['line-muted']!);
-        titleInk = brutal ? Colors.black : t.colors['foreground-strong']!;
-        descInk = brutal
-            ? Colors.black.withValues(alpha: .5)
-            : t.colors['foreground-muted']!;
+            ? (t.colors['line-strong']!)
+            : (t.colors['line-muted']!);
+        titleInk = t.colors['foreground-strong']!;
+        descInk = t.colors['foreground-muted']!;
         iconInk = titleInk;
       }
       // Composite translucent tints (`bg-primary-soft`) over the dialog
       // surface so the ring shadow does not show through them.
-      final surface = Color.alphaBlend(
-        fill,
-        brutal ? Colors.white : t.colors['layer-panel']!,
-      );
+      final surface = Color.alphaBlend(fill, t.colors['layer-panel']!);
       return CustomPaint(
         foregroundPainter: disabled
-            ? _DashedBorder(
-                color: border,
-                width: brutal ? 2 : 1,
-                radius: brutal ? 0 : 6,
-              )
+            ? _DashedBorder(color: border, width: 1, radius: 6)
             : null,
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: surface,
-            borderRadius: brutal ? null : BorderRadius.circular(6),
-            border: disabled
-                ? null
-                : Border.all(color: border, width: brutal ? 2 : 1),
+            borderRadius: BorderRadius.circular(6),
+            border: disabled ? null : Border.all(color: border, width: 1),
             boxShadow: shadow,
           ),
           child: Row(
@@ -810,16 +738,14 @@ class RaftComputerSidebarList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final bleed = t.brutal ? 0.0 : 6.0;
+    final bleed = 6.0;
     // SidebarSectionDescription: `px-2 text-xs font-mono leading-snug
     // text-foreground-muted theme-brutal:text-black/50`.
     final description = RaftTypography.mono(
       t,
       size: 12,
       line: 16.5,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .5)
-          : t.colors['foreground-muted'],
+      color: t.colors['foreground-muted'],
     );
     return ListView(
       key: listKey,

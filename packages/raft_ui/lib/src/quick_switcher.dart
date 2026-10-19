@@ -92,10 +92,7 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final recipe = RaftSearchRecipe(t, mobile: false);
-    final line = BorderSide(
-      color: t.brutal ? t.strong : t.colors['line-muted']!,
-      width: t.brutal ? 2 : 1,
-    );
+    final line = BorderSide(color: t.colors['line-muted']!, width: 1);
     final hint = recipe.metadata.copyWith(fontSize: 11);
     final rt = t.recipeTokens;
     final shell = gen.RaftSearchRecipe.resolve(
@@ -351,11 +348,7 @@ class RaftQuickSwitcherIconBox extends StatelessWidget {
         theme: t.recipeTheme,
         tokens: rt,
       ).entityIcon.decoration(rt),
-      child: RaftIcon(
-        glyph,
-        size: 14,
-        color: t.brutal ? t.strong : t.colors['foreground-icon'],
-      ),
+      child: RaftIcon(glyph, size: 14, color: t.colors['foreground-icon']),
     );
   }
 }
@@ -443,9 +436,7 @@ class RaftQuickSwitcherRow extends StatelessWidget {
                   // `text-black/50` (Brutal), `text-foreground-muted/70`.
                   style: recipe.metadata.copyWith(
                     fontWeight: FontWeight.w400,
-                    color: (t.brutal ? t.strong : t.muted).withValues(
-                      alpha: t.brutal ? .5 : .7,
-                    ),
+                    color: t.muted.withValues(alpha: .7),
                   ),
                 ),
               ],

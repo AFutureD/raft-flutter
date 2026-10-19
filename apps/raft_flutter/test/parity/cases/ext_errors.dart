@@ -14,7 +14,7 @@ import '../parity_harness.dart';
 
 Color _panel(BuildContext context) {
   final t = RaftTokens.of(context);
-  return t.brutal ? Colors.white : t.panel;
+  return t.panel;
 }
 
 String _message(ParityContext ctx) => '${ctx.props['message']}';
@@ -143,7 +143,9 @@ Widget _loadError(ParityContext ctx) {
       height: 200,
       padding: EdgeInsets.zero,
       background: _panel(context),
-      child: embedded ? Align(alignment: Alignment.topLeft, child: error) : error,
+      child: embedded
+          ? Align(alignment: Alignment.topLeft, child: error)
+          : error,
     ),
   );
 }

@@ -184,11 +184,10 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
 
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context),
-        recipe = ForwardedSnapshotRecipe(
-          RaftTokens.of(context),
-          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-        );
+    final recipe = ForwardedSnapshotRecipe(
+      RaftTokens.of(context),
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
     final items = raftForwardedItems(widget.metadata);
     if (items.isEmpty)
       return Text(raftText(context, 'Forwarded messages unavailable.'));
@@ -297,9 +296,9 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
       decoration: recipe.contentDecoration,
       child: collapsed
           ? ClipRRect(
-              borderRadius: t.brutal
-                  ? BorderRadius.zero
-                  : BorderRadius.circular(RichCardPrimitive.contentRadius),
+              borderRadius: BorderRadius.circular(
+                RichCardPrimitive.contentRadius,
+              ),
               child: Stack(
                 children: [
                   ConstrainedBox(

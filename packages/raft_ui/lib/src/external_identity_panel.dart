@@ -28,15 +28,11 @@ class RaftExternalIdentityBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final strong = t.brutal ? Colors.black : t.strong;
-    final muted = t.brutal ? Colors.black.withValues(alpha: .6) : t.muted;
+    final strong = t.strong;
+    final muted = t.muted;
     return ColoredBox(
       // `ProfilePanelBody`: `bg-layer-panel theme-brutal:bg-white dark:bg-layer-card`.
-      color: t.brutal
-          ? Colors.white
-          : t.dark
-          ? t.card
-          : t.panel,
+      color: t.dark ? t.card : t.panel,
       child: SingleChildScrollView(
         key: const Key('external-identity-body'),
         child: Column(
@@ -51,11 +47,7 @@ class RaftExternalIdentityBody extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(
-                      color: t.brutal
-                          ? Colors.black.withValues(alpha: .1)
-                          : t.colors['line-muted']!,
-                    ),
+                    bottom: BorderSide(color: t.colors['line-muted']!),
                   ),
                 ),
                 child: Column(
@@ -155,8 +147,8 @@ class RaftExternalInitials extends StatelessWidget {
           fontFamily: t.headingFont,
           fontSize: large ? 24 : 14,
           height: 1,
-          fontWeight: t.brutal ? FontWeight.w700 : FontWeight.w600,
-          color: t.brutal ? Colors.black : t.muted,
+          fontWeight: FontWeight.w600,
+          color: t.muted,
         ),
       ),
     );
@@ -170,6 +162,6 @@ class RaftProfilePanelSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return ColoredBox(color: t.brutal ? Colors.white : t.panel, child: child);
+    return ColoredBox(color: t.panel, child: child);
   }
 }

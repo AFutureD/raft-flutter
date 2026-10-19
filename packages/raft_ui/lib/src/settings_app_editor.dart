@@ -83,11 +83,6 @@ class RaftAppEditorStack extends StatelessWidget {
   );
 }
 
-Color _brutalCream35(RaftTokens t) => Color.alphaBlend(
-  t.product.brutalCream.withValues(alpha: .35),
-  Colors.white,
-);
-
 /// raft-ui `Card` root with a callsite fill and optional clip / size.
 class _EditorCard extends StatelessWidget {
   const _EditorCard({
@@ -252,9 +247,7 @@ class _RaftConnectedAppEditorCardState
     final wide = band >= 768;
     final inline = band >= 640;
     final maxHeight = math.min(832.0, MediaQuery.sizeOf(context).height - 32);
-    final headerFill = t.brutal
-        ? t.product.brutalCream
-        : t.colors['layer-canvas-muted']!;
+    final headerFill = t.colors['layer-canvas-muted']!;
     final edge = BorderSide(color: text.edge, width: 2);
     String tr(String s) => raftText(context, s);
 
@@ -294,9 +287,7 @@ class _RaftConnectedAppEditorCardState
                   t,
                   size: 12,
                   line: 16,
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .55)
-                      : t.muted,
+                  color: t.muted,
                 ),
               ),
             ],
@@ -366,9 +357,7 @@ class _RaftConnectedAppEditorCardState
           child: RaftSettingsCard.box(
             t,
             radius: radius,
-            color: selected
-                ? (t.brutal ? t.product.softSignal : t.colors['primary-soft']!)
-                : (t.brutal ? Colors.white : t.panel),
+            color: selected ? (t.colors['primary-soft']!) : t.panel,
             padding: const EdgeInsets.symmetric(
               horizontal: RaftSpace.x3,
               vertical: RaftSpace.x2,
@@ -411,9 +400,7 @@ class _RaftConnectedAppEditorCardState
                       size: 10,
                       line: wide ? 10 * 4 / 3 : 13,
                       weight: FontWeight.w700,
-                      color: t.brutal
-                          ? Colors.black.withValues(alpha: .5)
-                          : t.muted,
+                      color: t.muted,
                     ),
                   ),
                 ),
@@ -458,7 +445,7 @@ class _RaftConnectedAppEditorCardState
     );
     final content = Container(
       key: const ValueKey('connected-app-editor-content'),
-      color: t.brutal ? Colors.white : t.panel,
+      color: t.panel,
       child: SingleChildScrollView(
         controller: scroll,
         padding: const EdgeInsets.all(RaftSpace.x4),
@@ -482,7 +469,7 @@ class _RaftConnectedAppEditorCardState
         maxWidth: 1024,
         height: maxHeight,
         clip: true,
-        fill: t.brutal ? Colors.white : t.panel,
+        fill: t.panel,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -494,7 +481,7 @@ class _RaftConnectedAppEditorCardState
                   vertical: RaftSpace.x3,
                 ),
                 decoration: BoxDecoration(
-                  color: t.brutal ? Colors.white : t.panel,
+                  color: t.panel,
                   border: Border(bottom: edge),
                 ),
                 child: widget.banner,
@@ -535,16 +522,9 @@ class RaftAppEditorSectionCard extends StatelessWidget {
     final inline = raftBreakpointWidth(context) >= 640;
     final warning = section.warning;
     final fill = warning
-        ? (t.brutal
-              ? Color.alphaBlend(
-                  t.product.brutalPink.withValues(alpha: .15),
-                  Colors.white,
-                )
-              : t.colors['warning-soft']!)
-        : (t.brutal ? _brutalCream35(t) : t.colors['layer-canvas-muted']!);
-    final headerFill = t.brutal
-        ? t.product.brutalCream
-        : t.colors['layer-canvas-muted']!;
+        ? (t.colors['warning-soft']!)
+        : (t.colors['layer-canvas-muted']!);
+    final headerFill = t.colors['layer-canvas-muted']!;
     final title = Wrap(
       spacing: RaftSpace.x2,
       runSpacing: RaftSpace.x2,
@@ -592,8 +572,8 @@ class RaftAppEditorSectionCard extends StatelessWidget {
         vertical: RaftSpace.x1,
       ),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
-        border: Border.all(color: text.edge, width: t.brutal ? 2 : 1),
+        color: t.panel,
+        border: Border.all(color: text.edge, width: 1),
       ),
       child: Text(
         section.status,
@@ -637,7 +617,7 @@ class RaftAppEditorSectionCard extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.all(RaftSpace.x4),
-            color: t.brutal ? Colors.white : t.panel,
+            color: t.panel,
             child: section.child,
           ),
         ],
@@ -718,16 +698,14 @@ class RaftAppEditorLogoWell extends StatelessWidget {
       children: [
         CustomPaint(
           foregroundPainter: _DashedBorder(
-            color: t.brutal ? Colors.black : t.colors['line-strong']!,
+            color: t.colors['line-strong']!,
             width: 2,
           ),
           child: Container(
             width: 120,
             height: 120,
             alignment: Alignment.center,
-            color: t.brutal
-                ? t.product.brutalCream
-                : t.colors['layer-canvas-muted'],
+            color: t.colors['layer-canvas-muted'],
             child: RaftAppLogo(
               initials: initials,
               logoUrl: logoUrl,
@@ -805,29 +783,19 @@ class RaftAppEditorCallout extends StatelessWidget {
     final t = RaftTokens.of(context);
     final (edge, fill) = switch (tone) {
       RaftAppEditorCalloutTone.muted => (
-        t.brutal ? Colors.black.withValues(alpha: .3) : t.colors['line-muted']!,
-        t.brutal ? t.product.brutalCream : t.colors['layer-canvas-muted']!,
+        t.colors['line-muted']!,
+        t.colors['layer-canvas-muted']!,
       ),
       RaftAppEditorCalloutTone.warning => (
-        t.brutal ? t.product.softSignal : t.colors['warning']!,
-        t.brutal
-            ? Color.alphaBlend(
-                t.product.softSignal.withValues(alpha: .2),
-                Colors.white,
-              )
-            : t.colors['warning-soft']!,
+        t.colors['warning']!,
+        t.colors['warning-soft']!,
       ),
       RaftAppEditorCalloutTone.success => (
         t.product.brutalLime,
-        Color.alphaBlend(
-          t.product.brutalLime.withValues(alpha: .15),
-          t.brutal ? Colors.white : t.panel,
-        ),
+        Color.alphaBlend(t.product.brutalLime.withValues(alpha: .15), t.panel),
       ),
     };
-    final color = tone == RaftAppEditorCalloutTone.muted
-        ? (t.brutal ? Colors.black.withValues(alpha: .6) : t.muted)
-        : (t.brutal ? Colors.black.withValues(alpha: .7) : t.muted);
+    final color = tone == RaftAppEditorCalloutTone.muted ? t.muted : t.muted;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: RaftSpace.x3,
@@ -875,9 +843,7 @@ class RaftAppEditorBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
-    final fill = cream
-        ? (t.brutal ? t.product.brutalCream : t.colors['layer-canvas-muted']!)
-        : (t.brutal ? Colors.white : t.panel);
+    final fill = cream ? (t.colors['layer-canvas-muted']!) : t.panel;
     if (shadow && !softBorder) {
       return RaftSettingsCard.box(
         t,
@@ -890,12 +856,7 @@ class RaftAppEditorBox extends StatelessWidget {
       padding: const EdgeInsets.all(RaftSpace.x3),
       decoration: BoxDecoration(
         color: fill,
-        border: Border.all(
-          color: softBorder && t.brutal
-              ? Colors.black.withValues(alpha: .2)
-              : text.edge,
-          width: t.brutal ? 2 : 1,
-        ),
+        border: Border.all(color: text.edge, width: 1),
       ),
       child: child,
     );
@@ -939,12 +900,7 @@ class RaftAppEditorActionRow extends StatelessWidget {
           const SizedBox(height: RaftSpace.x2),
           Text(
             extra!,
-            style: RaftTypography.body(
-              t,
-              size: 12,
-              line: 16,
-              color: t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
-            ),
+            style: RaftTypography.body(t, size: 12, line: 16, color: t.muted),
           ),
         ],
       ],
@@ -990,9 +946,9 @@ class RaftAppEditorSecretReveal extends StatelessWidget {
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           t.product.brutalLime.withValues(alpha: .2),
-          t.brutal ? Colors.white : t.panel,
+          t.panel,
         ),
-        border: Border.all(color: text.edge, width: t.brutal ? 2 : 1),
+        border: Border.all(color: text.edge, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1015,11 +971,8 @@ class RaftAppEditorSecretReveal extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(RaftSpace.x2),
                   decoration: BoxDecoration(
-                    color: t.brutal ? Colors.white : t.panel,
-                    border: Border.all(
-                      color: text.edge,
-                      width: t.brutal ? 2 : 1,
-                    ),
+                    color: t.panel,
+                    border: Border.all(color: text.edge, width: 1),
                   ),
                   child: SelectableText(
                     secret,
@@ -1080,15 +1033,13 @@ class RaftDeclaredScopesPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
-    final chipBorder = t.brutal
-        ? Colors.black.withValues(alpha: .2)
-        : t.colors['line-strong']!;
+    final chipBorder = t.colors['line-strong']!;
     final chipText = RaftTypography.body(
       t,
       size: 11,
       line: 11 * 1.5,
       weight: FontWeight.w700,
-      color: t.brutal ? Colors.black.withValues(alpha: .7) : t.muted,
+      color: t.muted,
     );
     Widget chip(String scope, {required bool checkable, double vertical = 4}) {
       final selected = value.contains(scope);
@@ -1099,7 +1050,7 @@ class RaftDeclaredScopesPicker extends StatelessWidget {
           vertical: vertical,
         ),
         decoration: BoxDecoration(
-          color: t.brutal ? Colors.white : t.panel,
+          color: t.panel,
           border: Border.all(color: chipBorder),
         ),
         child: checkable
@@ -1124,15 +1075,8 @@ class RaftDeclaredScopesPicker extends StatelessWidget {
     Widget group(String title, Widget chips, {String? note}) => Container(
       padding: const EdgeInsets.all(RaftSpace.x2),
       decoration: BoxDecoration(
-        color: t.brutal
-            ? t.product.brutalCream
-            : t.colors['layer-canvas-muted'],
-        border: Border.all(
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .15)
-              : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
+        color: t.colors['layer-canvas-muted'],
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1158,7 +1102,7 @@ class RaftDeclaredScopesPicker extends StatelessWidget {
                 size: 12,
                 line: 16,
                 weight: FontWeight.w700,
-                color: t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
+                color: t.muted,
               ),
             ),
           ],
@@ -1368,12 +1312,8 @@ class RaftAppEditorCheckTile extends StatelessWidget {
         vertical: RaftSpace.x1_5,
       ),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
-        border: Border.all(
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .15)
-              : t.colors['line-muted']!,
-        ),
+        color: t.panel,
+        border: Border.all(color: t.colors['line-muted']!),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1395,9 +1335,7 @@ class RaftAppEditorCheckTile extends StatelessWidget {
                     size: 12,
                     line: 16,
                     weight: FontWeight.w700,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .7)
-                        : t.muted,
+                    color: t.muted,
                   ),
                 ),
                 if (caption != null)
@@ -1407,9 +1345,7 @@ class RaftAppEditorCheckTile extends StatelessWidget {
                       t,
                       size: 10,
                       line: 15,
-                      color: t.brutal
-                          ? Colors.black.withValues(alpha: .45)
-                          : t.muted,
+                      color: t.muted,
                     ),
                   ),
               ],
@@ -1478,13 +1414,8 @@ class RaftAppEditorPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(RaftSpace.x3),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
-        border: Border.all(
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .2)
-              : t.colors['line-muted']!,
-          width: 2,
-        ),
+        color: t.panel,
+        border: Border.all(color: t.colors['line-muted']!, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1493,12 +1424,7 @@ class RaftAppEditorPanel extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: RaftSpace.x2),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .1)
-                      : t.colors['line-muted']!,
-                  width: 2,
-                ),
+                bottom: BorderSide(color: t.colors['line-muted']!, width: 2),
               ),
             ),
             child: Row(
@@ -1525,9 +1451,7 @@ class RaftAppEditorPanel extends StatelessWidget {
                           t,
                           size: 12,
                           line: 12 * 1.625,
-                          color: t.brutal
-                              ? Colors.black.withValues(alpha: .55)
-                              : t.muted,
+                          color: t.muted,
                         ),
                       ),
                     ],
@@ -1622,9 +1546,7 @@ class RaftAppEditorSwitchRow extends StatelessWidget {
                     size: 11,
                     line: 16.5,
                     weight: FontWeight.w700,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .45)
-                        : t.muted,
+                    color: t.muted,
                   ),
                 ),
               ],
@@ -1670,12 +1592,7 @@ class RaftAppEditorActionLine extends StatelessWidget {
       children: [
         Text(
           message,
-          style: RaftTypography.body(
-            t,
-            size: 12,
-            line: 16,
-            color: t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
-          ),
+          style: RaftTypography.body(t, size: 12, line: 16, color: t.muted),
         ),
         Wrap(
           spacing: RaftSpace.x2,
@@ -1730,12 +1647,8 @@ class RaftAppEditorSigningSecret extends StatelessWidget {
     final code = Container(
       padding: const EdgeInsets.all(RaftSpace.x2),
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.panel,
-        border: Border.all(
-          color: t.brutal
-              ? Colors.black.withValues(alpha: .2)
-              : t.colors['line-strong']!,
-        ),
+        color: t.panel,
+        border: Border.all(color: t.colors['line-strong']!),
       ),
       child: SelectableText(
         secret,
@@ -1760,7 +1673,7 @@ class RaftAppEditorSigningSecret extends StatelessWidget {
       decoration: BoxDecoration(
         color: Color.alphaBlend(
           t.product.brutalLime.withValues(alpha: .15),
-          t.brutal ? Colors.white : t.panel,
+          t.panel,
         ),
         border: Border(left: BorderSide(color: t.product.brutalLime, width: 4)),
       ),
@@ -1859,12 +1772,7 @@ class RaftAppEditorEventGroup extends StatelessWidget {
       padding: const EdgeInsets.only(top: RaftSpace.x2),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .15)
-                : t.colors['line-muted']!,
-            width: 2,
-          ),
+          top: BorderSide(color: t.colors['line-muted']!, width: 2),
         ),
       ),
       child: Column(

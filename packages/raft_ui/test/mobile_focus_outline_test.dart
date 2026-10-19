@@ -101,7 +101,6 @@ void main() {
             final pointerPaint =
                 tester.widget<AnimatedContainer>(surface).decoration!
                     as BoxDecoration;
-            final tokens = RaftTokens.of(tester.element(tasks));
             expect(
               pointerPaint.boxShadow,
               control.recipe!.shadows(focused: false),
@@ -132,12 +131,10 @@ void main() {
                   .length,
               paintCount + 1,
             );
-            if (!tokens.brutal) {
-              final capsule = tester.getSize(
-                find.byKey(const ValueKey('mobile-nav-source-capsule')),
-              );
-              expect(capsule, const Size(208, 52)); // Source face geometry independent of transparent touch48 target.
-            }
+            final capsule = tester.getSize(
+              find.byKey(const ValueKey('mobile-nav-source-capsule')),
+            );
+            expect(capsule, const Size(208, 52)); // Source face geometry independent of transparent touch48 target.
             await tester.tap(find.byKey(const ValueKey('focus-tab-home')));
             await tester.pump(const Duration(milliseconds: 200));
             expect(selected, 'home');

@@ -23,7 +23,7 @@ class RaftOnboardingDotPane extends StatelessWidget {
     final padding = MediaQuery.sizeOf(context).width >= 1280 ? 32.0 : 24.0;
     return ClipRect(
       child: ColoredBox(
-        color: t.brutal ? t.product.brutalCream : t.semantic.layerCanvasMuted,
+        color: t.semantic.layerCanvasMuted,
         child: CustomPaint(
           painter: _DotGridPainter(t.semantic.lineStrong.withValues(alpha: .6)),
           child: Padding(
@@ -519,17 +519,14 @@ class RaftIdentityImpactPreview extends StatelessWidget {
                 width: size,
                 height: size,
                 decoration: BoxDecoration(
-                  color: t.brutal
-                      ? t.product.brutalLavender
-                      : t.semantic.fillMuted,
-                  border: t.brutal ? Border.all(color: _black) : null,
-                  shape: t.brutal ? BoxShape.rectangle : BoxShape.circle,
+                  color: t.semantic.fillMuted,
+                  shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: RaftIcon(
                     RaftGlyph.user,
                     size: 16,
-                    color: t.brutal ? _black : t.semantic.foregroundMuted,
+                    color: t.semantic.foregroundMuted,
                   ),
                 ),
               ));

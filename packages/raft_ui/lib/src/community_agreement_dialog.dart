@@ -64,7 +64,6 @@ class _RaftCommunityAgreementDialogState
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final black = const Color(0xFF000000);
     final bodyStyle = raftCssTextStyle(
       family: t.bodyFont,
       step: RaftTextSteps.sm,
@@ -99,7 +98,7 @@ class _RaftCommunityAgreementDialogState
                                 family: t.bodyFont,
                                 step: RaftTextSteps.lg,
                                 weight: FontWeight.w700,
-                                color: t.brutal ? black : t.ink,
+                                color: t.ink,
                               ),
                             ),
                           ),
@@ -111,9 +110,7 @@ class _RaftCommunityAgreementDialogState
                             style: raftCssTextStyle(
                               family: t.bodyFont,
                               step: RaftTextSteps.xs,
-                              color: t.brutal
-                                  ? black.withValues(alpha: .5)
-                                  : t.muted,
+                              color: t.muted,
                             ),
                           ),
                         ],
@@ -129,11 +126,8 @@ class _RaftCommunityAgreementDialogState
                 ),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: t.brutal ? Colors.white : t.panel,
-                    border: Border.all(
-                      color: t.brutal ? black : t.semantic.lineMuted,
-                      width: 2,
-                    ),
+                    color: t.panel,
+                    border: Border.all(color: t.semantic.lineMuted, width: 2),
                   ),
                   child: SingleChildScrollView(
                     primary: false,

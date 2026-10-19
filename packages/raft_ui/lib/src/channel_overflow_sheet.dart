@@ -72,20 +72,16 @@ class RaftOverflowSheet extends StatelessWidget {
     // `h-panel-header` reads `--shell-header-height`, which the AppShell root
     // sets; the drawer portals out of it, so Web paints the 62px fallback.
     const headerHeight = RaftMetrics.brutalPanelHeader;
-    final headerColor = t.brutal
-        ? t.colors['color-soft-signal']!
-        : t.colors['layer-panel']!;
-    final edge = t.brutal ? Colors.black : t.colors['line-muted']!;
+    final headerColor = t.colors['layer-panel']!;
+    final edge = t.colors['line-muted']!;
     final titleStyle = raftCssTextStyle(
       family: t.bodyFont,
       // text-base font-bold leading-tight (16px / 1.25).
       step: (16, 20),
       weight: FontWeight.w700,
-      color: t.brutal ? Colors.black : t.strong,
+      color: t.strong,
     );
-    final subtitleColor = (t.brutal ? Colors.black : t.strong).withValues(
-      alpha: .85,
-    );
+    final subtitleColor = t.strong.withValues(alpha: .85);
     // Above the default text size the header grows with its title and
     // description, which wrap instead of truncating.
     final grows = RaftScaled.grows(context);
@@ -145,9 +141,7 @@ class RaftOverflowSheet extends StatelessWidget {
             : const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: headerColor,
-          border: Border(
-            bottom: BorderSide(color: edge, width: t.brutal ? 2 : 1),
-          ),
+          border: Border(bottom: BorderSide(color: edge, width: 1)),
         ),
         child: Row(
           children: [
@@ -230,22 +224,20 @@ class _OverflowDrawerFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final size = MediaQuery.sizeOf(context);
-    final paper = t.brutal
-        ? t.colors['color-brutal-cream']!
-        : t.colors['layer-panel']!;
+    final paper = t.colors['layer-panel']!;
     return Align(
       alignment: Alignment.centerRight,
       child: SizedBox(
         key: const ValueKey('channel-overflow-sheet'),
         width: page
             ? size.width
-            : RaftOverflowSheet.widthFor(size.width, brutal: t.brutal),
+            : RaftOverflowSheet.widthFor(size.width, brutal: false),
         height: double.infinity,
         child: Material(
           color: paper,
           // Elegant: the drawer is a `rounded-xl` card; brutal `rounded-none`.
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(page || t.brutal ? 0 : 12),
+            borderRadius: BorderRadius.circular(page ? 0 : 12),
           ),
           clipBehavior: Clip.antiAlias,
           child: Container(
@@ -281,13 +273,7 @@ class RaftOverflowPanelBody extends StatelessWidget {
     final t = RaftTokens.of(context);
     if (_sliver) {
       final decoration = BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .1)
-                : t.colors['line-muted']!,
-          ),
-        ),
+        border: Border(top: BorderSide(color: t.colors['line-muted']!)),
       );
       return DecoratedSliver(
         key: const ValueKey('channel-settings-panel'),
@@ -313,13 +299,7 @@ class RaftOverflowPanelBody extends StatelessWidget {
         16 + MediaQuery.paddingOf(context).bottom,
       ),
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .1)
-                : t.colors['line-muted']!,
-          ),
-        ),
+        border: Border(top: BorderSide(color: t.colors['line-muted']!)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -405,9 +385,7 @@ class RaftChannelInfoForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final hairline = t.brutal
-        ? Colors.black.withValues(alpha: .1)
-        : t.colors['line-muted']!;
+    final hairline = t.colors['line-muted']!;
     final cancelButton = RaftSettingsRecipeButton(
       key: const ValueKey('channel-settings-discard-draft'),
       label: 'Cancel',
@@ -613,13 +591,13 @@ class RaftMembersStrip extends StatelessWidget {
       family: t.bodyFont,
       step: RaftTextSteps.base,
       weight: FontWeight.w700,
-      color: t.brutal ? Colors.black : t.strong,
+      color: t.strong,
     );
     final summaryStyle = raftCssTextStyle(
       family: t.bodyFont,
       step: RaftTextSteps.xs,
       weight: FontWeight.w700,
-      color: t.brutal ? Colors.black : muted,
+      color: muted,
     );
     final headingText = Text(
       raftText(context, heading),
@@ -792,7 +770,7 @@ class _TextTile extends StatelessWidget {
             fontSize: large ? 18 : 14,
             height: large ? 28 / 18 : 20 / 14,
             fontWeight: FontWeight.w700,
-            color: t.brutal ? Colors.black : r.placeholderForeground,
+            color: r.placeholderForeground,
           ),
         ),
       ),
@@ -808,7 +786,6 @@ class _TextTile extends StatelessWidget {
                 color: r.border,
                 width: r.borderWidth,
                 radius: r.radius,
-                cover: t.brutal ? t.colors['color-brutal-lavender']! : null,
               ),
             ),
           ),
@@ -824,11 +801,9 @@ class _DashedEdgePainter extends CustomPainter {
     required this.color,
     required this.width,
     required this.radius,
-    this.cover,
   });
   final Color color;
   final double width, radius;
-  final Color? cover;
   @override
   void paint(Canvas canvas, Size size) {
     final inset = width / 2;
@@ -845,16 +820,7 @@ class _DashedEdgePainter extends CustomPainter {
           Radius.circular(math.max(0, radius - inset)),
         ),
       );
-    // Repaint the ring in the fill colour, then dash it on top.
-    if (cover != null) {
-      canvas.drawPath(
-        path,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = width
-          ..color = cover!,
-      );
-    }
+    // Dash the ring on top of the avatar's solid border.
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = width
@@ -874,10 +840,7 @@ class _DashedEdgePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedEdgePainter old) =>
-      old.color != color ||
-      old.width != width ||
-      old.radius != radius ||
-      old.cover != cover;
+      old.color != color || old.width != width || old.radius != radius;
 }
 
 /// `channel-overflow-unsaved-prompt`: `Modal layer={1}` holding a
@@ -1029,9 +992,6 @@ class _PromptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    if (t.brutal) {
-      return RaftRecipeCard(maxWidth: maxWidth, padding: padding, child: child);
-    }
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: Container(

@@ -35,7 +35,7 @@ Map<String, dynamic> _fx(ParityContext ctx) =>
 /// The column background messages sit on (`bg-layer-panel`, brutal white).
 Color _panel(BuildContext context) {
   final t = RaftTokens.of(context);
-  return t.brutal ? Colors.white : t.panel;
+  return t.panel;
 }
 
 // --------------------------------------------------------------------------
@@ -185,7 +185,9 @@ ParityCase _rowCase() => ParityCase(
         await mouse.up();
         await _pumpFrames(t);
         if (state == 'picker-emoji-hover') {
-          await mouse.moveTo(t.getCenter(find.byKey(const ValueKey('quick-reaction-🎉'))));
+          await mouse.moveTo(
+            t.getCenter(find.byKey(const ValueKey('quick-reaction-🎉'))),
+          );
         }
     }
     await _pumpFrames(t);
@@ -197,8 +199,12 @@ ParityCase _rowCase() => ParityCase(
 // --------------------------------------------------------------------------
 
 ParityCase _forwardCase() => ParityCase(
-  widgets: const ['raft_flutter:MessagePresentation', 'raft_ui:RaftForwardedBundle'],
-  notes: 'Extension suite (not official). MessagePresentation mounts '
+  widgets: const [
+    'raft_flutter:MessagePresentation',
+    'raft_ui:RaftForwardedBundle',
+  ],
+  notes:
+      'Extension suite (not official). MessagePresentation mounts '
       'RaftForwardedBundle for a forwarded-bundle actionMetadata.',
   settle: const Duration(milliseconds: 400),
   build: (ctx) {
@@ -275,7 +281,8 @@ ParityCase _forwardCase() => ParityCase(
 
 ParityCase _mermaidCase() => ParityCase(
   widgets: const ['raft_ui:RaftMermaidBlock'],
-  notes: 'Extension suite (not official). Toolbar and frame are comparable; '
+  notes:
+      'Extension suite (not official). Toolbar and frame are comparable; '
       'the diagram SVG comes from the package renderer, not Mermaid.js.',
   settle: const Duration(milliseconds: 600),
   build: (ctx) {
@@ -319,7 +326,8 @@ ParityCase _bannerCase() => ParityCase(
     'raft_ui:RaftRecipeButton',
     'raft_ui:RaftCloseButton',
   ],
-  notes: 'Extension suite (not official). The Flutter app has no Web Push '
+  notes:
+      'Extension suite (not official). The Flutter app has no Web Push '
       'activation banner; the closest real widgets are composed.',
   settle: const Duration(milliseconds: 300),
   build: (ctx) {
@@ -335,7 +343,9 @@ ParityCase _bannerCase() => ParityCase(
               width: width,
               color: _panel(context),
               // desktop placement: `mx-3 mb-0 mt-2 w-auto min-w-0`.
-              padding: mobile ? EdgeInsets.zero : const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              padding: mobile
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: RaftBanner(
                 status: RaftBannerRecipeStatus.info,
                 size: RaftBannerRecipeSize.sm,
@@ -356,7 +366,10 @@ ParityCase _bannerCase() => ParityCase(
                       onPressed: () {},
                     ),
                     const SizedBox(width: 8),
-                    RaftCloseButton(onPressed: () {}, tooltip: 'Hide notification reminder for this session'),
+                    RaftCloseButton(
+                      onPressed: () {},
+                      tooltip: 'Hide notification reminder for this session',
+                    ),
                   ],
                 ),
               ),
@@ -374,7 +387,8 @@ ParityCase _bannerCase() => ParityCase(
 
 ParityCase _sosCase() => ParityCase(
   widgets: const ['raft_ui:RaftSosDialog', 'raft_ui:RaftModalBackdrop'],
-  notes: 'Extension suite (not official). Real RaftSosDialog over the modal '
+  notes:
+      'Extension suite (not official). Real RaftSosDialog over the modal '
       'backdrop; stop / resume callbacks resolve like a 200 from the API.',
   settle: const Duration(milliseconds: 300),
   build: (ctx) {
@@ -409,7 +423,10 @@ ParityCase _sosCase() => ParityCase(
     }
     if (ctx.id.contains('.sos-guidance.')) {
       final sos = _fx(ctx)['sos'] as Map<String, dynamic>;
-      await t.enterText(find.byType(EditableText).last, sos['guidance'] as String);
+      await t.enterText(
+        find.byType(EditableText).last,
+        sos['guidance'] as String,
+      );
       await _pumpFrames(t, 4);
     }
   },
@@ -447,7 +464,11 @@ final Map<String, ParityCase> extThreadMessageCases = () {
   }
   add('mobile', 'forward-single', _forwardCase());
   add('mobile', 'forward-multi', _forwardCase());
-  for (final s in const ['mermaid-toolbar', 'mermaid-code', 'mermaid-diagram']) {
+  for (final s in const [
+    'mermaid-toolbar',
+    'mermaid-code',
+    'mermaid-diagram',
+  ]) {
     add('desktop', s, _mermaidCase());
   }
   add('mobile', 'mermaid-toolbar', _mermaidCase());

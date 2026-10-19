@@ -57,9 +57,7 @@ class RaftAddComputerDialog extends StatefulWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      barrierColor: t.brutal
-          ? Colors.black.withValues(alpha: .6)
-          : t.colors['layer-backdrop'],
+      barrierColor: t.colors['layer-backdrop'],
       builder: builder,
     );
   }
@@ -69,13 +67,7 @@ class RaftAddComputerDialog extends StatefulWidget {
     final t = RaftTokens.of(context);
     return Stack(
       children: [
-        Positioned.fill(
-          child: ColoredBox(
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .6)
-                : t.colors['layer-backdrop']!,
-          ),
-        ),
+        Positioned.fill(child: ColoredBox(color: t.colors['layer-backdrop']!)),
         dialog,
       ],
     );
@@ -296,9 +288,7 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: t.colors['warning'],
-              border: Border.all(
-                color: t.brutal ? Colors.black : t.colors['line-strong']!,
-              ),
+              border: Border.all(color: t.colors['line-strong']!),
             ),
           ),
         ),
@@ -375,10 +365,7 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: t.colors['layer-panel'],
-          border: Border.all(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-            width: 2,
-          ),
+          border: Border.all(color: t.colors['line-muted']!, width: 2),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,7 +427,7 @@ class RaftComputerCommandGuide extends StatelessWidget {
         RaftIcon(
           RaftGlyph.terminal,
           size: 16,
-          color: t.brutal ? Colors.black : t.colors['foreground-strong'],
+          color: t.colors['foreground-strong'],
         ),
         const SizedBox(width: 8),
         const Flexible(child: RaftSectionEyebrow('Connect command')),
@@ -450,18 +437,14 @@ class RaftComputerCommandGuide extends StatelessWidget {
       t,
       size: 12,
       line: 20,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .6)
-          : t.colors['foreground-muted'],
+      color: t.colors['foreground-muted'],
     );
     final label = RaftTypography.body(
       t,
       size: 12,
       line: 16,
       weight: FontWeight.w700,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .6)
-          : t.colors['foreground-muted'],
+      color: t.colors['foreground-muted'],
     );
     return Column(
       mainAxisSize: MainAxisSize.min,

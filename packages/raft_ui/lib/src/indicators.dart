@@ -10,7 +10,6 @@ import 'recipe_surface.dart';
 import 'recipes/badge.g.dart';
 import 'recipes/checkbox.g.dart';
 import 'recipes/progress.g.dart';
-import 'recipes/checkbox_indicator.g.dart';
 import 'design_primitives.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/recipe_utilities.g.dart';
@@ -225,9 +224,7 @@ class RaftStatusDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: fill,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: t.brutal ? RaftPrimitiveColors.black : t.semantic.lineStrong,
-        ),
+        border: Border.all(color: t.semantic.lineStrong),
       ),
     );
   }
@@ -257,17 +254,11 @@ class RaftAttentionDot extends StatelessWidget {
     final size = compact ? 4.0 : 10.0;
     final fill = danger
         ? t.semantic.danger
-        : t.brutal
-        ? (warning ? t.product.brutalOrange : t.product.brutalPink)
         : (warning ? t.semantic.warning : t.colors['accent']!);
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: fill,
-        shape: BoxShape.circle,
-        border: t.brutal ? Border.all(color: RaftPrimitiveColors.black) : null,
-      ),
+      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
     );
   }
 }
@@ -314,19 +305,11 @@ class RaftCheckMarker extends StatelessWidget {
     final Color fill;
     final Color ink;
     if (checked) {
-      fill = yellow
-          ? (t.brutal ? t.product.softSignal : s.primarySoft)
-          : (t.brutal ? RaftPrimitiveColors.black : s.foregroundStrong);
-      ink = yellow
-          ? (t.brutal ? RaftPrimitiveColors.black : s.primaryStrong)
-          : (t.brutal ? RaftPrimitiveColors.white : s.foregroundInverse);
+      fill = yellow ? s.primarySoft : s.foregroundStrong;
+      ink = yellow ? s.primaryStrong : s.foregroundInverse;
     } else {
-      fill = t.brutal ? RaftPrimitiveColors.white : s.layerPanel;
-      ink = previewOnHover && hovered
-          ? (t.brutal
-                ? RaftPrimitiveColors.black.withValues(alpha: .2)
-                : s.foregroundMuted)
-          : Colors.transparent;
+      fill = s.layerPanel;
+      ink = previewOnHover && hovered ? s.foregroundMuted : Colors.transparent;
     }
     Widget box = Container(
       width: size.box,
@@ -335,10 +318,7 @@ class RaftCheckMarker extends StatelessWidget {
       decoration: BoxDecoration(
         color: fill,
         shape: circle ? BoxShape.circle : BoxShape.rectangle,
-        border: Border.all(
-          color: t.brutal ? RaftPrimitiveColors.black : s.lineStrong,
-          width: t.brutal ? 2 : 1,
-        ),
+        border: Border.all(color: s.lineStrong, width: 1),
       ),
       child: checked || previewOnHover
           ? RaftIcon(
@@ -412,43 +392,6 @@ class RaftCheckbox extends StatelessWidget {
           states: states,
           tokens: rt,
         );
-        if (t.brutal) {
-          final i = RaftCheckboxIndicatorRecipe.resolve(
-            theme: t.recipeTheme,
-            shape: circle
-                ? RaftCheckboxIndicatorRecipeShape.circle
-                : RaftCheckboxIndicatorRecipeShape.square,
-            size: RaftCheckboxIndicatorRecipeSize.values.byName(size.name),
-            fill: primary
-                ? RaftCheckboxIndicatorRecipeFill.yellow
-                : RaftCheckboxIndicatorRecipeFill.black,
-            checked: value,
-            disabled: disabled,
-            states: states,
-            tokens: rt,
-          ).root;
-          final svg = i.target("& svg:not([class*='size-'])");
-          final stroke = i.target('& svg')?.length('stroke-width');
-          return RaftRecipeBox(
-            style: c.root,
-            tokens: rt,
-            child: RaftRecipeBox(
-              style: i,
-              tokens: rt,
-              alignment: Alignment.center,
-              child: value
-                  ? Builder(
-                      builder: (context) => RaftIcon(
-                        RaftGlyph.check,
-                        size: svg?.width ?? 10,
-                        strokeWidth: stroke ?? 4,
-                        color: DefaultTextStyle.of(context).style.color,
-                      ),
-                    )
-                  : null,
-            ),
-          );
-        }
         final fill =
             RaftColorRef.fromCss(c.outerRect['fill'])?.resolve(rt) ??
             t.semantic.layerPanel;
@@ -591,9 +534,7 @@ class RaftProgressBar extends StatelessWidget {
         fontFamily: t.monoFont,
         fontSize: 12,
         height: 16 / 12,
-        color: t.brutal
-            ? RaftPrimitiveColors.black.withValues(alpha: .6)
-            : t.semantic.foregroundMuted,
+        color: t.semantic.foregroundMuted,
       ),
       child: Row(
         children: [
@@ -686,10 +627,7 @@ class _RaftSkeletonState extends State<RaftSkeleton>
     const black = RaftPrimitiveColors.black;
     final t = RaftTokens.of(context);
     final themedFill = t.colors['foreground-strong']!.withValues(alpha: .08);
-    final box =
-        widget.themed &&
-            !t.brutal &&
-            widget.variant != RaftSkeletonVariant.circle
+    final box = widget.themed && widget.variant != RaftSkeletonVariant.circle
         ? Container(
             width: widget.width,
             height:

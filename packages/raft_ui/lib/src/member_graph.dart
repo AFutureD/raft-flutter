@@ -26,7 +26,6 @@ import 'member_graph_layout.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'recipes/button_variants.g.dart';
 import 'system_inset.dart' show raftScrollPadding;
-import 'tokens/tokens.dart' show RaftPrimitiveColors;
 import 'theme.dart';
 
 export 'member_graph_layout.dart'
@@ -69,7 +68,7 @@ class RaftMemberGraphPageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return ColoredBox(
-      color: t.brutal ? RaftPrimitiveColors.white : t.colors['layer-panel']!,
+      color: t.colors['layer-panel']!,
       child: ListView(
         key: const PageStorageKey('member-graph-scroll'),
         padding: raftScrollPadding(
@@ -298,10 +297,8 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     String tr(String s) => raftText(context, s);
-    final muted = t.brutal
-        ? Colors.black.withValues(alpha: .55)
-        : t.colors['foreground-muted']!;
-    final strong = t.brutal ? Colors.black : t.strong;
+    final muted = t.colors['foreground-muted']!;
+    final strong = t.strong;
     TextStyle text({
       double size = 12,
       double line = 16,
@@ -357,11 +354,8 @@ class _Sidebar extends StatelessWidget {
               if (rows.isEmpty)
                 RaftCssText(
                   tr(empty),
-                  style: text(
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .4)
-                        : t.colors['foreground-placeholder'],
-                  ).copyWith(fontStyle: FontStyle.italic),
+                  style: text(color: t.colors['foreground-placeholder'])
+                      .copyWith(fontStyle: FontStyle.italic),
                 )
               else
                 Column(
@@ -637,7 +631,7 @@ class _RaftMemberGraphCanvasState extends State<RaftMemberGraphCanvas> {
     final m = model;
     final width = MediaQuery.sizeOf(context).width;
     final svgHeight = width >= 768 ? 520.0 : 360.0;
-    final border = t.brutal ? 2.0 : 1.0;
+    final border = 1.0;
     // `rounded-md border border-line-muted bg-layer-panel shadow-raft-sm
     // theme-brutal:border-2 theme-brutal:border-black theme-brutal:rounded-none
     // theme-brutal:bg-white theme-brutal:shadow-brutal-sm`
@@ -645,13 +639,10 @@ class _RaftMemberGraphCanvasState extends State<RaftMemberGraphCanvas> {
       key: const ValueKey('member-graph-canvas'),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: t.brutal ? Colors.white : t.colors['layer-panel'],
-        borderRadius: t.brutal ? null : BorderRadius.circular(6),
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: border,
-        ),
-        boxShadow: t.brutal ? RaftShadowSet.brutalSm : t.themeShadows.sm.outer,
+        color: t.colors['layer-panel'],
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: t.colors['line-muted']!, width: border),
+        boxShadow: t.themeShadows.sm.outer,
       ),
       child: LayoutBuilder(
         builder: (context, box) {
@@ -698,9 +689,7 @@ class _RaftMemberGraphCanvasState extends State<RaftMemberGraphCanvas> {
                                       positions: m.layout.positions,
                                       dense: m.dense,
                                       viewBox: vb,
-                                      color: t.brutal
-                                          ? Colors.black
-                                          : t.colors['line-strong']!,
+                                      color: t.colors['line-strong']!,
                                     ),
                                   ),
                                 ),
@@ -739,14 +728,8 @@ class _RaftMemberGraphCanvasState extends State<RaftMemberGraphCanvas> {
         shape: BoxShape.circle,
         // `var(--info-soft)` / `var(--secondary-400)`: only Brutal declares
         // secondary-400 (the lavender); elsewhere the var is unset.
-        color: member.agent
-            ? t.colors['info-soft']
-            : t.brutal
-            ? t.product.brutalLavender
-            : null,
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-        ),
+        color: member.agent ? t.colors['info-soft'] : null,
+        border: Border.all(color: t.colors['line-muted']!),
       ),
       child: ClipOval(child: widget.avatar(context, member, compact: false)),
     );
@@ -778,7 +761,7 @@ class _RaftMemberGraphCanvasState extends State<RaftMemberGraphCanvas> {
     bool dense,
   ) {
     final name = raftGraphShortLabel(member.label, dense ? 12 : 16);
-    final strong = t.brutal ? Colors.black : t.strong;
+    final strong = t.strong;
     final nameStyle = TextStyle(
       fontFamily: t.headingFont,
       fontFamilyFallback: t.fontFallback,
@@ -819,9 +802,7 @@ class _RaftMemberGraphCanvasState extends State<RaftMemberGraphCanvas> {
                   fontFamilyFallback: t.fontFallback,
                   fontSize: 10,
                   height: 15 / 10,
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .55)
-                      : t.colors['foreground-muted'],
+                  color: t.colors['foreground-muted'],
                   leadingDistribution: TextLeadingDistribution.even,
                 ),
               ),
@@ -871,9 +852,7 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final color = t.brutal
-        ? Colors.black.withValues(alpha: .3)
-        : t.colors['line-muted']!;
+    final color = t.colors['line-muted']!;
     return CustomPaint(
       key: const ValueKey('member-graph-empty'),
       foregroundPainter: _DashedBorderPainter(color: color, width: 2),
@@ -881,7 +860,7 @@ class _EmptyState extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 320),
         alignment: Alignment.center,
         padding: const EdgeInsets.all(2),
-        color: t.brutal ? Colors.white : t.colors['layer-panel'],
+        color: t.colors['layer-panel'],
         child: RaftCssText(
           label,
           style: TextStyle(
@@ -890,9 +869,7 @@ class _EmptyState extends StatelessWidget {
             fontSize: 14,
             height: 20 / 14,
             fontWeight: FontWeight.w700,
-            color: t.brutal
-                ? Colors.black.withValues(alpha: .4)
-                : t.colors['foreground-placeholder'],
+            color: t.colors['foreground-placeholder'],
             leadingDistribution: TextLeadingDistribution.even,
           ),
         ),

@@ -46,8 +46,7 @@ import 'recipes/textarea.g.dart';
 import 'recipes/textarea_counter.g.dart';
 import 'theme.dart';
 
-RaftRecipeTheme _theme(RaftTokens t) =>
-    t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant;
+RaftRecipeTheme _theme(RaftTokens t) => RaftRecipeTheme.elegant;
 RaftRecipeStates _states(RaftTokens t, [Set<String> flags = const {}]) =>
     RaftRecipeStates({...flags, if (t.dark) RaftRecipeStates.dark});
 
@@ -55,8 +54,7 @@ RaftRecipeStates _states(RaftTokens t, [Set<String> flags = const {}]) =>
 const double _tw = 4;
 
 /// Modal.tsx backdrop: `bg-layer-backdrop … theme-brutal:bg-black/60`.
-Color raftAgentModalBarrier(RaftTokens t) =>
-    t.brutal ? Colors.black.withValues(alpha: .6) : t.colors['layer-backdrop']!;
+Color raftAgentModalBarrier(RaftTokens t) => t.colors['layer-backdrop']!;
 
 /// Opens [builder] like Web `Modal`: full-window backdrop that does not close
 /// on tap (closeOnBackdrop=false), Escape closes, content scrolls inside a
@@ -201,7 +199,7 @@ class _RaftAgentDialogCardState extends State<RaftAgentDialogCard> {
       type: MaterialType.transparency,
       child: _CardSurface(
         key: widget.surfaceKey,
-        plain: widget.plainCard && !t.brutal,
+        plain: widget.plainCard,
         style: card_.root.withCssUsedBorderWidths(),
         child: DefaultTextStyle(
           style: base,
@@ -350,7 +348,7 @@ class RaftAgentCloseButton extends StatelessWidget {
       // Web hit area is the 28px button itself.
       minimumTargetSize: size.width ?? 28,
       glyphSize: glyph,
-      variant: t.brutal ? RaftControlVariant.outline : RaftControlVariant.ghost,
+      variant: RaftControlVariant.ghost,
       onPressed: onPressed,
     );
   }
@@ -403,12 +401,7 @@ class RaftStableField extends StatelessWidget {
       fontSize: 12, // text-xs
       height: 16 / 12,
       fontWeight: error != null ? FontWeight.w700 : null,
-      color: error != null
-          ? t.colors[t.brutal ? 'color-brutal-red' : 'danger-strong']
-          : t.brutal
-          ? t.colors['color-black']?.withValues(alpha: .5) ??
-                t.strong.withValues(alpha: .5)
-          : t.muted,
+      color: error != null ? t.colors['danger-strong'] : t.muted,
     );
     final counterRecipe = RaftTextareaCounterRecipe.resolve(
       theme: _theme(t),
@@ -422,9 +415,7 @@ class RaftStableField extends StatelessWidget {
             const WidgetSpan(child: SizedBox(width: _tw)), // ml-1
             TextSpan(
               text: '*',
-              style: TextStyle(
-                color: t.brutal ? t.strong : t.colors['danger-strong'],
-              ),
+              style: TextStyle(color: t.colors['danger-strong']),
             ),
           ],
         ],
@@ -473,9 +464,7 @@ class RaftStableField extends StatelessWidget {
                       // theme-brutal:text-black/50`
                       fontFamily: counterRecipe.fontFamily ?? t.monoFont,
                       fontFeatures: const [FontFeature.tabularFigures()],
-                      color: t.brutal
-                          ? t.strong.withValues(alpha: .5)
-                          : t.muted,
+                      color: t.muted,
                     ),
                   ),
                 ],

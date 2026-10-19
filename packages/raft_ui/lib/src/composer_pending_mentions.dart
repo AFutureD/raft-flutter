@@ -93,14 +93,10 @@ class RaftPendingMentionActionStrip extends StatelessWidget {
       // bg-brutal-cream shadow-brutal-sm`.
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: t.brutal
-            ? t.colors['color-brutal-cream']
-            : t.colors['layer-panel'],
-        border: t.brutal
-            ? Border.all(color: Colors.black, width: 2)
-            : Border.all(color: t.colors['line-muted']!),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-        boxShadow: (t.brutal ? t.themeShadows.sm : t.themeShadows.xs).outer,
+        color: t.colors['layer-panel'],
+        border: Border.all(color: t.colors['line-muted']!),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: t.themeShadows.xs.outer,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -166,23 +162,14 @@ class RaftPendingMentionActionStrip extends StatelessWidget {
       // brutal `border-2 border-black/20 bg-black/[0.04] text-black/40`.
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: t.brutal
-            ? Colors.black.withValues(alpha: .04)
-            : t.colors['fill-muted'],
-        border: t.brutal
-            ? Border.all(color: Colors.black.withValues(alpha: .2), width: 2)
-            : Border.all(color: t.colors['line-hairline']!),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+        color: t.colors['fill-muted'],
+        border: Border.all(color: t.colors['line-hairline']!),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          RaftIcon(
-            RaftGlyph.check,
-            size: 12,
-            strokeWidth: 3,
-            color: t.brutal ? Colors.black.withValues(alpha: .4) : hint,
-          ),
+          RaftIcon(RaftGlyph.check, size: 12, strokeWidth: 3, color: hint),
           const SizedBox(width: 4),
           Text(
             raftText(context, label),
@@ -190,7 +177,7 @@ class RaftPendingMentionActionStrip extends StatelessWidget {
               fontFamily: t.headingFont,
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: t.brutal ? Colors.black.withValues(alpha: .4) : hint,
+              color: hint,
             ),
           ),
         ],
@@ -367,18 +354,11 @@ class RaftPendingMentionSlot extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .04)
-                      : t.colors['fill-muted']!.withValues(
-                          alpha: t.colors['fill-muted']!.a * .5,
-                        ),
-                  border: Border.all(
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .35)
-                        : t.colors['line-muted']!,
-                    width: t.brutal ? 2 : 1,
+                  color: t.colors['fill-muted']!.withValues(
+                    alpha: t.colors['fill-muted']!.a * .5,
                   ),
-                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+                  border: Border.all(color: t.colors['line-muted']!, width: 1),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   notice!,
@@ -387,9 +367,7 @@ class RaftPendingMentionSlot extends StatelessWidget {
                     fontSize: 11,
                     height: 16 / 11,
                     fontWeight: FontWeight.w700,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .7)
-                        : t.colors['foreground-muted'],
+                    color: t.colors['foreground-muted'],
                     leadingDistribution: TextLeadingDistribution.even,
                   ),
                 ),
@@ -433,7 +411,7 @@ class RaftComposerNotice extends StatelessWidget {
           // Measured on Web: the `icon-xs` button is 24px in Brutal but 16px in
           // Elegant (the recipe resolves 24 for both); its 12px glyph stays.
           action: SizedBox.square(
-            dimension: t.brutal ? 24 : 16,
+            dimension: 16,
             child: RaftRecipeButton(
               variant: RaftButtonRecipeVariant.ghost,
               size: RaftButtonRecipeSize.iconXs,
@@ -449,7 +427,7 @@ class RaftComposerNotice extends StatelessWidget {
     }
     final resolver = RaftRecipeTokens(t);
     final s = RaftBannerRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      theme: RaftRecipeTheme.elegant,
       status: RaftBannerRecipeStatus.warning,
       size: RaftBannerRecipeSize.sm,
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),

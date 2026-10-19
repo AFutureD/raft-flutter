@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
-import 'tokens/tokens.dart';
 import 'design_primitives.dart';
 
 /// raft-ui 0.5.27 FilePreviewBadge and message-image-gallery primitives.
@@ -106,26 +105,19 @@ class AttachmentComponentRecipe {
     size: 9,
     line: 9,
     color: semantics.badgeForeground(extension),
-  ).copyWith(fontWeight: tokens.brutal ? FontWeight.w700 : FontWeight.w600);
-  BorderRadius get badgeRadius => BorderRadius.circular(tokens.brutal ? 0 : 4);
-  Border? get badgeBorder => tokens.brutal
-      ? Border.all(color: RaftPrimitiveColors.black, width: 2)
-      : null;
+  ).copyWith(fontWeight: FontWeight.w600);
+  BorderRadius get badgeRadius => BorderRadius.circular(4);
+  Border? get badgeBorder => null;
 
   /// FilePreviewBadge brutal `shadow-raft-sm`; elegant has none.
-  List<BoxShadow>? get badgeShadows =>
-      tokens.brutal ? tokens.themeShadows.sm.outer : null;
+  List<BoxShadow>? get badgeShadows => null;
   TextStyle get metadata => RaftTypography.body(
     tokens,
     size: 10,
     line: 20,
-    color: tokens.brutal
-        ? RaftPrimitiveColors.black.withValues(alpha: .45)
-        : tokens.colors['foreground-placeholder'],
+    color: tokens.colors['foreground-placeholder'],
   );
-  Color get actionForeground => tokens.brutal
-      ? RaftPrimitiveColors.black.withValues(alpha: .6)
-      : tokens.colors['foreground-icon']!;
+  Color get actionForeground => tokens.colors['foreground-icon']!;
   Size imageSize({
     required double viewportWidth,
     required double availableWidth,

@@ -156,7 +156,7 @@ class _QuickReactionRow extends StatelessWidget {
       key: const ValueKey('message-menu-reaction-quick-row'),
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      color: t.brutal ? Colors.white : t.colors['layer-panel'],
+      color: t.colors['layer-panel'],
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -68,8 +68,8 @@ class _RaftVideoViewerState extends State<RaftVideoViewer> {
 
   Widget stage(BuildContext context, BoxConstraints constraints) {
     final t = RaftTokens.of(context);
-    final rule = t.brutal ? 2.0 : 1.0;
-    final frame = t.brutal ? Colors.black : t.colors['line-muted']!;
+    final rule = 1.0;
+    final frame = t.colors['line-muted']!;
     final pad = fullscreen ? 0.0 : 16.0;
     final border = fullscreen ? 0.0 : rule;
     // The <video> keeps its intrinsic content size and the frame wraps it

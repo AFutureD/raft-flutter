@@ -47,10 +47,7 @@ void main() {
       final stripColor = raftStatusBarResolvedColor(
         tester.renderObject(find.byType(RaftStatusBarStrip)),
       );
-      expect(
-        stripColor,
-        tokens.brutal ? tokens.product.softSignal : tokens.panel,
-      );
+      expect(stripColor, tokens.panel);
       final boundary =
           boundaryKey.currentContext!.findRenderObject()!
               as RenderRepaintBoundary;

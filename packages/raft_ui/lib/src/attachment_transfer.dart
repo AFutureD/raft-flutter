@@ -12,7 +12,6 @@ import 'localization.dart';
 import 'text_scaling.dart';
 import 'space.dart';
 import 'theme.dart';
-import 'tokens/tokens.dart';
 
 /// How much of an attachment's bytes has arrived. Pure data: the app owns the
 /// transfer, raft_ui only draws it.
@@ -98,23 +97,20 @@ class RaftTransferRecipe {
   final RaftTokens tokens;
 
   /// Bar flush with the bottom edge of an image tile or stage.
-  double get edgeHeight => tokens.brutal ? 10 : 4;
+  double get edgeHeight => 4;
 
   /// Standalone bar of a file preview.
-  double get inlineHeight => tokens.brutal ? 12 : 6;
+  double get inlineHeight => 6;
   double get rule => 2;
-  Color get fill =>
-      tokens.brutal ? RaftPrimitiveColors.brutalYellow400 : tokens.accent;
+  Color get fill => tokens.accent;
   Color get danger => tokens.colors['danger']!;
   Color get dangerForeground => tokens.colors['danger-foreground']!;
 
   /// Danger text on a plain surface (file card, preview panel).
   Color get dangerText => tokens.colors['danger-strong'] ?? danger;
-  Color track({required bool onImage}) => tokens.brutal
-      ? Colors.white
-      : (onImage
-            ? Colors.black.withValues(alpha: .35)
-            : tokens.muted.withValues(alpha: .18));
+  Color track({required bool onImage}) => (onImage
+      ? Colors.black.withValues(alpha: .35)
+      : tokens.muted.withValues(alpha: .18));
 }
 
 enum RaftTransferBarStyle {
@@ -182,7 +178,6 @@ class _RaftTransferBarState extends State<RaftTransferBar>
   @override
   Widget build(BuildContext context) {
     final recipe = RaftTransferRecipe(RaftTokens.of(context));
-    final t = recipe.tokens;
     final edge = widget.style == RaftTransferBarStyle.edge;
     return ExcludeSemantics(
       child: RepaintBoundary(
@@ -195,11 +190,8 @@ class _RaftTransferBarState extends State<RaftTransferBar>
               value: widget.failed ? 1 : widget.value,
               failed: widget.failed,
               edge: edge,
-              brutal: t.brutal,
-              rule: recipe.rule,
               fill: widget.failed ? recipe.danger : recipe.fill,
               track: recipe.track(onImage: edge),
-              border: RaftPrimitiveColors.black,
               sweep: sweep,
               frozenSegment: reduced,
             ),
@@ -216,18 +208,14 @@ class _BarPainter extends CustomPainter {
     required this.value,
     required this.failed,
     required this.edge,
-    required this.brutal,
-    required this.rule,
     required this.fill,
     required this.track,
-    required this.border,
     required this.sweep,
     required this.frozenSegment,
   }) : super(repaint: repaint);
   final double? value;
-  final bool failed, edge, brutal, frozenSegment;
-  final double rule;
-  final Color fill, track, border;
+  final bool failed, edge, frozenSegment;
+  final Color fill, track;
   final Animation<double> sweep;
   static const segment = .3;
 
@@ -235,9 +223,9 @@ class _BarPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final h = size.height, w = size.width;
     final bounds = Offset.zero & size;
-    // Elegant inline bars are pills; edge strips are flush (the tile clips
-    // the corners) and brutal is always square.
-    final pill = !brutal && !edge;
+    // Inline bars are pills; edge strips are flush (the tile clips the
+    // corners).
+    final pill = !edge;
     final trackShape = RRect.fromRectAndRadius(
       bounds,
       pill ? Radius.circular(h / 2) : Radius.zero,
@@ -253,12 +241,10 @@ class _BarPainter extends CustomPainter {
       left = 0;
       width = w * frac;
     }
-    // Brutal: a hard black rule above the strip (edge) or around the bar.
-    final inner = brutal && !edge ? bounds.deflate(rule) : bounds;
-    final top = brutal && edge ? rule : inner.top;
+    final inner = bounds;
     final fillRect = Rect.fromLTRB(
       inner.left + left,
-      top,
+      inner.top,
       inner.left + left + width,
       inner.bottom,
     );
@@ -271,48 +257,11 @@ class _BarPainter extends CustomPainter {
     );
     if (width > 0) {
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          fillRect,
-          brutal ? Radius.zero : Radius.circular(fillRect.height / 2),
-        ),
+        RRect.fromRectAndRadius(fillRect, Radius.circular(fillRect.height / 2)),
         Paint()..color = fill,
       );
-      if (brutal && !failed && (frac == null || frac < 1)) {
-        final ink = Paint()..color = border;
-        canvas.drawRect(
-          Rect.fromLTRB(
-            fillRect.right - rule,
-            fillRect.top,
-            fillRect.right,
-            fillRect.bottom,
-          ),
-          ink,
-        );
-        if (frac == null) {
-          canvas.drawRect(
-            Rect.fromLTRB(
-              fillRect.left,
-              fillRect.top,
-              fillRect.left + rule,
-              fillRect.bottom,
-            ),
-            ink,
-          );
-        }
-      }
     }
     canvas.restore();
-    if (brutal) {
-      final ink = Paint()
-        ..color = border
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = rule;
-      if (edge) {
-        canvas.drawLine(Offset(0, rule / 2), Offset(w, rule / 2), ink);
-      } else {
-        canvas.drawRect(bounds.deflate(rule / 2), ink);
-      }
-    }
   }
 
   @override
@@ -321,7 +270,6 @@ class _BarPainter extends CustomPainter {
       old.failed != failed ||
       old.fill != fill ||
       old.track != track ||
-      old.brutal != brutal ||
       old.edge != edge ||
       old.frozenSegment != frozenSegment;
 }
@@ -350,14 +298,12 @@ class RaftTransferPlaceholder extends StatelessWidget {
       );
     }
     return ColoredBox(
-      color: t.brutal ? t.components.brutalCream : t.colors['fill-muted']!,
+      color: t.colors['fill-muted']!,
       child: Center(
         child: RaftIcon(
           RaftGlyph.image,
           size: 30,
-          color: t.brutal
-              ? RaftPrimitiveColors.black.withValues(alpha: .38)
-              : t.muted.withValues(alpha: .6),
+          color: t.muted.withValues(alpha: .6),
         ),
       ),
     );
@@ -381,23 +327,15 @@ class RaftTransferChip extends StatelessWidget {
     final t = RaftTokens.of(context);
     final recipe = RaftTransferRecipe(t);
     final foreground = danger
-        ? (t.brutal ? RaftPrimitiveColors.black : recipe.dangerForeground)
-        : (t.brutal
-              ? RaftPrimitiveColors.black
-              : Colors.white.withValues(alpha: .95));
+        ? recipe.dangerForeground
+        : Colors.white.withValues(alpha: .95);
     final style = danger
         ? RaftTypography.body(t, size: 11, line: 14, color: foreground)
         : RaftTypography.mono(t, size: 11, line: 14, color: foreground);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: danger
-            ? recipe.danger
-            : (t.brutal ? Colors.white : Colors.black.withValues(alpha: .62)),
-        border: t.brutal
-            ? Border.all(color: RaftPrimitiveColors.black, width: 2)
-            : null,
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 999),
-        boxShadow: t.brutal && !danger ? t.themeShadows.xs.outer : null,
+        color: danger ? recipe.danger : Colors.black.withValues(alpha: .62),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -648,15 +586,12 @@ class RaftFileTransferPanel extends StatelessWidget {
                     minHeight: RaftScaled.extent(context, 88, fontSize: 9),
                   ),
                   decoration: BoxDecoration(
-                    color: t.brutal ? Colors.white : t.card,
+                    color: t.card,
                     border: Border.all(
-                      color: t.brutal
-                          ? RaftPrimitiveColors.black
-                          : t.colors['line-muted']!,
-                      width: t.brutal ? 2 : 1,
+                      color: t.colors['line-muted']!,
+                      width: 1,
                     ),
-                    borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-                    boxShadow: t.brutal ? t.shadows : null,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
                     widthFactor: 1,
@@ -753,7 +688,7 @@ class RaftPreviewTransferStage extends StatelessWidget {
       onCancel: onCancel,
     );
     return ColoredBox(
-      color: t.brutal ? Colors.white : t.panel,
+      color: t.panel,
       // Above the default text size the panel can outgrow the stage: it
       // scrolls instead of overflowing (still centred when it fits).
       child: RaftScaled.grows(context)

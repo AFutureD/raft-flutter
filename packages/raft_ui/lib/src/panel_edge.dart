@@ -64,16 +64,11 @@ abstract final class RaftPanelEdge {
   static BorderSide? side(RaftTokens t, RaftPanelEdgeStyle style) {
     switch (style) {
       case RaftPanelEdgeStyle.attachedPanel:
-        return BorderSide(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        );
+        return BorderSide(color: t.colors['line-muted']!, width: 1);
       case RaftPanelEdgeStyle.activityInbox:
-        return BorderSide(color: t.brutal ? t.colors['color-black']! : t.line);
+        return BorderSide(color: t.line);
       case RaftPanelEdgeStyle.drawer:
-        return t.brutal
-            ? BorderSide(color: t.colors['line-strong']!, width: 2)
-            : null;
+        return null;
     }
   }
 
@@ -113,22 +108,13 @@ abstract final class RaftPanelEdge {
     return line == null ? null : Border(left: line);
   }
 
-  /// Web master/detail (`MainLayout` col-2 wrapper `border-r border-line-muted`,
-  /// Brutal Search `border-r-2 border-black`, Brutal Activity 1px black): the
+  /// Web master/detail (`MainLayout` col-2 wrapper `border-r border-line-muted`): the
   /// divider between the list and the detail beside it. It is the same edge as
   /// the detail's left edge, drawn inside the master's width like Web does.
-  static Border? masterRight(
-    BuildContext context, {
-    required bool brutalThick,
-  }) {
+  static Border? masterRight(BuildContext context) {
     if (!drawsEdge(presentationOf(context))) return null;
     final t = RaftTokens.of(context);
-    return Border(
-      right: BorderSide(
-        color: t.brutal ? Colors.black : t.colors['line-muted']!,
-        width: t.brutal && brutalThick ? 2 : 1,
-      ),
-    );
+    return Border(right: BorderSide(color: t.colors['line-muted']!, width: 1));
   }
 }
 
@@ -172,17 +158,14 @@ class RaftPanelMasterEdge extends StatelessWidget {
   const RaftPanelMasterEdge({
     super.key,
     required this.split,
-    required this.brutalThick,
     required this.child,
   });
-  final bool split, brutalThick;
+  final bool split;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final edge = split
-        ? RaftPanelEdge.masterRight(context, brutalThick: brutalThick)
-        : null;
+    final edge = split ? RaftPanelEdge.masterRight(context) : null;
     final backdrop = RaftTokens.of(context).canvas;
     return RaftStatusBarSource(
       color: Colors.transparent,

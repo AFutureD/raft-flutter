@@ -194,7 +194,7 @@ class ActivitySelectedRows extends StatelessWidget {
     return RaftDensityScope(
       density: RaftDensity.desktop,
       child: ColoredBox(
-        color: t.colors[t.brutal ? 'color-white' : 'layer-canvas-muted']!,
+        color: t.colors['layer-canvas-muted']!,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -234,7 +234,7 @@ class ActivitySelectedMasterDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final recipe = RaftConversationCardRecipe(t);
-    final line = t.colors[t.brutal ? 'color-black' : 'line-muted']!;
+    final line = t.colors['line-muted']!;
     return RaftDensityScope(
       density: RaftDensity.desktop,
       child: Row(
@@ -242,7 +242,7 @@ class ActivitySelectedMasterDetail extends StatelessWidget {
           SizedBox(
             width: listWidth,
             child: ColoredBox(
-              color: t.colors[t.brutal ? 'color-white' : 'layer-canvas-muted']!,
+              color: t.colors['layer-canvas-muted']!,
               child: ListView(
                 padding: const EdgeInsets.all(12),
                 children: [

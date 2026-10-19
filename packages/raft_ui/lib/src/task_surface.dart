@@ -30,7 +30,6 @@ import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
 import 'thread_composition.dart';
 import 'thread_resolution_body.dart';
-import 'tokens/shadows.g.dart';
 import 'status_bar.dart';
 
 /// LegacyTaskPanel's container is selected by MainLayout, independently of
@@ -133,8 +132,8 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
     // borders take space and outer shadows never paint over the box, so the
     // frame is a bordered container whose shadow is painted underneath.
     final bordered = !(overlay || mobile);
-    final borderWidth = bordered ? (t.brutal ? 2.0 : 1.0) : 0.0;
-    final radius = BorderRadius.circular(t.brutal || legacy ? 0 : 8);
+    final borderWidth = bordered ? (1.0) : 0.0;
+    final radius = BorderRadius.circular(legacy ? 0 : 8);
     final frameKey = ValueKey(
       legacy ? 'legacy-task-panel' : 'task-thread-modal',
     );
@@ -177,12 +176,7 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
       ),
     );
     final edge = side && size.width >= 1024
-        ? Border(
-            left: BorderSide(
-              color: t.brutal ? t.ink : t.colors['line-hairline']!,
-              width: t.brutal ? 2 : 1,
-            ),
-          )
+        ? Border(left: BorderSide(color: t.colors['line-hairline']!, width: 1))
         : null;
     final framed = overlay || mobile
         // A full-height panel is a column under the status bar: its surface
@@ -201,22 +195,15 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
               onTap: () {},
               child: CustomPaint(
                 painter: RaftOuterShadowPainter(
-                  t.brutal
-                      ? RaftProductShadows.shadowBrutal.paintOrder
-                      : (legacy ? t.themeShadows.md : t.themeShadows.xl)
-                            .paintOrder,
+                  (legacy ? t.themeShadows.md : t.themeShadows.xl).paintOrder,
                   radius,
                 ),
                 child: Container(
                   key: frameKey,
                   decoration: RaftRecipeDecoration(
-                    color: t.brutal
-                        ? Colors.white
-                        : legacy
-                        ? t.canvas
-                        : t.popover,
+                    color: legacy ? t.canvas : t.popover,
                     border: Border.all(
-                      color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                      color: t.colors['line-muted']!,
                       width: borderWidth,
                     ),
                     borderRadius: radius,
@@ -288,20 +275,14 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
       // The height is a minimum: larger text grows the bar, whose two-line
       // title would otherwise spill out of it.
       constraints: BoxConstraints(
-        minHeight: widget.legacy
-            ? (t.brutal
-                  ? RaftMetrics.brutalPanelHeader
-                  : RaftMetrics.panelHeader)
-            : (t.brutal ? 54 : 53),
+        minHeight: widget.legacy ? RaftMetrics.panelHeader : (53),
       ),
       padding: EdgeInsets.symmetric(horizontal: widget.legacy ? 20 : 16),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: t.brutal
-                ? t.ink
-                : t.colors[widget.legacy ? 'line-hairline' : 'line-muted']!,
-            width: t.brutal ? 2 : 1,
+            color: t.colors[widget.legacy ? 'line-hairline' : 'line-muted']!,
+            width: 1,
           ),
         ),
       ),
@@ -524,9 +505,9 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ColoredBox(color: t.brutal ? Colors.white : t.panel, child: section),
+        ColoredBox(color: t.panel, child: section),
         ColoredBox(
-          color: t.colors[t.brutal ? 'line-strong' : 'line-hairline']!,
+          color: t.colors['line-hairline']!,
           child: SizedBox(height: t.border),
         ),
       ],
@@ -566,7 +547,7 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
                           size: 12,
                           line: 16,
                           weight: FontWeight.w700,
-                          color: t.brutal ? Colors.black : t.strong,
+                          color: t.strong,
                         ),
                       ),
                       RaftIcon(
@@ -574,7 +555,7 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
                             ? RaftGlyph.chevronDown
                             : RaftGlyph.chevronRight,
                         size: 14,
-                        color: t.brutal ? Colors.black : t.strong,
+                        color: t.strong,
                       ),
                       const Spacer(),
                     ],
@@ -595,29 +576,18 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
 
   /// raft-ui `DescriptionDetails`: elegant `text-sm leading-5
   /// text-foreground-muted`, brutal `text-sm text-foreground`.
-  TextStyle detailsStyle(RaftTokens t) => RaftTypography.body(
-    t,
-    size: 14,
-    line: 20,
-    color: t.brutal ? t.ink : t.muted,
-  );
+  TextStyle detailsStyle(RaftTokens t) =>
+      RaftTypography.body(t, size: 14, line: 20, color: t.muted);
 
   /// raft-ui `DescriptionTerm`: elegant `text-[11px] font-medium leading-none
   /// text-foreground-placeholder`, brutal `text-xs text-foreground-strong/50`.
-  TextStyle termStyle(RaftTokens t) => t.brutal
-      ? RaftTypography.body(
-          t,
-          size: 12,
-          line: 16,
-          color: t.strong.withValues(alpha: .5),
-        )
-      : RaftTypography.body(
-          t,
-          size: 11,
-          line: 11,
-          weight: FontWeight.w500,
-          color: t.colors['foreground-placeholder'],
-        );
+  TextStyle termStyle(RaftTokens t) => RaftTypography.body(
+    t,
+    size: 11,
+    line: 11,
+    weight: FontWeight.w500,
+    color: t.colors['foreground-placeholder'],
+  );
 
   String createdBy(BuildContext context) {
     final task = widget.task;
@@ -721,8 +691,8 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
               'Completed tasks cannot change assignees. Reopen the task first.',
             )
           : null,
-      background: t.brutal ? Colors.white : t.panel,
-      foreground: t.brutal ? Colors.black : t.strong,
+      background: t.panel,
+      foreground: t.strong,
       onSelect: (_) {},
       onOpenChanged: (open) {
         if (!open) return;
@@ -774,7 +744,6 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
     return RaftSelectionPopover(
       title: raftText(context, 'Assignee'),
       width: 240,
-      brutalProductShadow: true,
       surfaceStyle: assigneeSurface(t),
       searchController: assigneeSearch,
       searchPlaceholder: raftText(context, 'Search people and agents'),
@@ -843,11 +812,11 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
           'shadow-raft-sm',
         }.contains(name),
       ),
-      t.brutal ? 'border-2' : 'border',
-      t.brutal ? 'border-black' : 'border-line-muted',
-      t.brutal ? 'bg-white' : 'bg-layer-popover',
-      t.brutal ? 'text-black' : 'text-foreground-strong',
-      if (!t.brutal) 'shadow-raft-md',
+      'border',
+      'border-line-muted',
+      'bg-layer-popover',
+      'text-foreground-strong',
+      'shadow-raft-md',
     ];
     return raftRecipeEngine.resolveSlot(
       [
@@ -888,20 +857,10 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
     if (events.isEmpty) {
       return Text(
         raftText(context, 'No history yet.'),
-        style: RaftTypography.body(
-          t,
-          size: 12,
-          line: 16,
-          color: t.brutal ? Colors.black.withValues(alpha: .5) : t.muted,
-        ),
+        style: RaftTypography.body(t, size: 12, line: 16, color: t.muted),
       );
     }
-    final detail = RaftTypography.body(
-      t,
-      size: 12,
-      line: 16,
-      color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
-    );
+    final detail = RaftTypography.body(t, size: 12, line: 16, color: t.muted);
     String label(dynamic status) =>
         raftText(context, raftTaskStatusLabel('$status'));
     return RaftTimelineSm(

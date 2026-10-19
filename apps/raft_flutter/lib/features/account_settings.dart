@@ -352,7 +352,6 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
               fieldKey: const Key('account-profile-display-name'),
               controller: profileName,
               // `theme-brutal:p-2`
-              padding: t.brutal ? const EdgeInsets.all(8) : null,
               onChanged: (_) => setState(() => profileSaved = false),
               onSubmitted: (_) => saveProfile(),
             ),

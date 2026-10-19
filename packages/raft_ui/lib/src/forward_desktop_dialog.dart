@@ -9,14 +9,12 @@ import 'package:flutter/material.dart';
 
 import 'raft_underline.dart';
 import 'design_primitives.dart';
-import 'dialog_card.dart' show RaftShadowSet;
 import 'error_presentation.dart' show RaftErrorBanner;
 import 'icons.dart';
 import 'theme.dart';
 
-Color _rule(RaftTokens t) => t.brutal ? Colors.black : t.colors['line-muted']!;
-Color _panel(RaftTokens t) =>
-    t.brutal ? Colors.white : t.colors['layer-panel']!;
+Color _rule(RaftTokens t) => t.colors['line-muted']!;
+Color _panel(RaftTokens t) => t.colors['layer-panel']!;
 
 /// `text-xs font-bold` strong label (selected count, Clear, error).
 TextStyle _label(RaftTokens t) => TextStyle(
@@ -97,8 +95,8 @@ class RaftForwardDesktopDialog extends StatelessWidget {
           height: height,
           decoration: BoxDecoration(
             color: panel,
-            border: Border.all(color: rule, width: t.brutal ? 2 : 1),
-            borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
+            border: Border.all(color: rule, width: 1),
+            borderRadius: BorderRadius.circular(8),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -132,9 +130,7 @@ class RaftForwardDesktopDialog extends StatelessWidget {
                               t,
                               size: 12,
                               line: 16,
-                              color: t.brutal
-                                  ? Colors.black.withValues(alpha: .55)
-                                  : t.muted,
+                              color: t.muted,
                             ),
                           ),
                         ],
@@ -259,12 +255,7 @@ class _NoteBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 4,
         children: [
-          Text(
-            noteLabel,
-            style: _label(t).copyWith(
-              color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
-            ),
-          ),
+          Text(noteLabel, style: _label(t).copyWith(color: t.muted)),
           // Web MessageInput's own error row: `Banner intent="warning"
           // density="sm" font-bold` above the editor.
           if (error != null) RaftErrorBanner(error!, small: true, bold: true),
@@ -273,7 +264,7 @@ class _NoteBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: panel,
               border: Border.all(color: rule, width: 2),
-              borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -321,16 +312,11 @@ class RaftForwardDesktopSearch extends StatelessWidget {
       decoration: BoxDecoration(
         color: _panel(t),
         border: Border.all(color: _rule(t), width: 2),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-        boxShadow: t.brutal ? RaftShadowSet.brutalSm : null,
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
-          RaftIcon(
-            RaftGlyph.search,
-            size: 14,
-            color: t.brutal ? Colors.black.withValues(alpha: .5) : t.muted,
-          ),
+          RaftIcon(RaftGlyph.search, size: 14, color: t.muted),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(

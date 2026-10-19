@@ -80,10 +80,7 @@ class RaftActivityScopeToolbar extends StatelessWidget {
       decoration: BoxDecoration(
         color: t.panel,
         border: Border(
-          bottom: BorderSide(
-            color: t.brutal ? Colors.black : t.line,
-            width: t.border,
-          ),
+          bottom: BorderSide(color: t.line, width: t.border),
         ),
       ),
       child: compact
@@ -561,7 +558,6 @@ class _ActivityButton extends StatelessWidget {
       selected: selected,
       onPressed: onPressed,
       builder: (context, state) {
-        final black = t.colors['color-black']!;
         final fill = dialog
             ? (selected
                   ? t.colors['fill-muted']!
@@ -581,18 +577,14 @@ class _ActivityButton extends StatelessWidget {
               : null,
           padding: padding,
           decoration: RaftCssBoxDecoration(
-            color: t.brutal && group && selected
-                ? black.withValues(alpha: .08)
-                : fill,
+            color: fill,
             boxShadow: shadowed ? t.themeShadows.sm.paintOrder : null,
             border: border
                 ? Border.all(
                     color: state.focusVisible || selected || strongBorder
-                        ? (t.brutal ? black : t.colors['line-strong']!)
+                        ? (t.colors['line-strong']!)
                         : group
                         ? Colors.transparent
-                        : t.brutal
-                        ? black.withValues(alpha: .2)
                         : t.line,
                     width: t.border,
                   )
@@ -611,7 +603,7 @@ class _ActivityButton extends StatelessWidget {
                     ? 20
                     : 16,
                 weight: FontWeight.w700,
-                color: t.brutal ? black : t.ink,
+                color: t.ink,
               ),
             ),
             child: ExcludeSemantics(child: child),
@@ -635,12 +627,7 @@ class RaftActivityGroupIcon extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: dm ? t.colors['primary-soft'] : t.colors['fill-muted'],
-        border: Border.all(
-          color: t.brutal
-              ? t.colors['color-black']!.withValues(alpha: .2)
-              : t.line,
-          width: t.border,
-        ),
+        border: Border.all(color: t.line, width: t.border),
       ),
       child: dm
           ? const RaftDirectMessageIcon(size: 12)
@@ -714,10 +701,7 @@ class RaftActivityLoadingList extends StatelessWidget {
             color: t.panel,
             // `border border-line-muted theme-brutal:border-2`: the muted rule
             // colour stays in Brutal, only the width grows.
-            border: Border.all(
-              color: t.colors['line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
+            border: Border.all(color: t.colors['line-muted']!, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

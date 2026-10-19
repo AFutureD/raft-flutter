@@ -124,15 +124,11 @@ class RaftChannelSettingsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     // theme-brutal:bg-brutal-cream / bg-layer-canvas-muted.
-    final paper = t.brutal
-        ? t.colors['color-brutal-cream']!
-        : t.colors['layer-canvas-muted']!;
-    final strongEdge = t.brutal ? Colors.black : t.colors['line-muted']!;
-    final edgeWidth = t.brutal ? 2.0 : 1.0;
+    final paper = t.colors['layer-canvas-muted']!;
+    final strongEdge = t.colors['line-muted']!;
+    final edgeWidth = 1.0;
     final muted = t.colors['foreground-muted']!;
-    final hairline = t.brutal
-        ? Colors.black.withValues(alpha: .1)
-        : t.colors['line-muted']!;
+    final hairline = t.colors['line-muted']!;
     final width = MediaQuery.sizeOf(context).width;
     // px-4 py-2 on the sm action/footer buttons.
     const buttonPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
@@ -140,9 +136,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
     final header = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: t.brutal
-            ? t.colors['color-soft-signal']
-            : t.colors['primary-soft'],
+        color: t.colors['primary-soft'],
         border: Border(
           bottom: BorderSide(color: strongEdge, width: edgeWidth),
         ),
@@ -160,9 +154,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
                     family: t.headingFont,
                     step: (10, 15),
                     weight: FontWeight.w700,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .55)
-                        : muted,
+                    color: muted,
                     trackingEm: .025,
                   ),
                 ),
@@ -176,7 +168,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
                       family: t.headingFont,
                       step: RaftTextSteps.xl,
                       weight: FontWeight.w700,
-                      color: t.brutal ? Colors.black : t.strong,
+                      color: t.strong,
                     ),
                   ),
                 ),
@@ -187,9 +179,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
                   style: raftCssTextStyle(
                     family: t.monoFont,
                     step: RaftTextSteps.xs,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .6)
-                        : muted,
+                    color: muted,
                   ),
                 ),
               ],
@@ -509,9 +499,7 @@ Widget raftSheetSection(
   bool busy = false,
   String? family,
 }) {
-  final divider = t.brutal
-      ? Colors.black.withValues(alpha: .1)
-      : t.colors['line-muted']!;
+  final divider = t.colors['line-muted']!;
   final muted = t.colors['foreground-muted'];
   return Padding(
     key: s.key,

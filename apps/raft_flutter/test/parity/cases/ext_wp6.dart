@@ -46,7 +46,7 @@ Widget _tasksFilter(ParityContext ctx) {
           width: ctx.width,
           height: 200,
           child: Material(
-            color: t.brutal ? Colors.white : t.colors['layer-canvas-muted']!,
+            color: t.colors['layer-canvas-muted'],
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Align(
@@ -157,6 +157,7 @@ const _settingsKeys = [
 final Map<String, ParityCase> extWp6Cases = {
   for (final theme in const ['brutal', 'elegant', 'elegant-dark']) ...{
     for (final key in _taskKeys) 'components.wp6.$key.$theme': _tasksCase,
-    for (final key in _settingsKeys) 'components.wp6.$key.$theme': _settingsCase,
+    for (final key in _settingsKeys)
+      'components.wp6.$key.$theme': _settingsCase,
   },
 };

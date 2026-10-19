@@ -40,16 +40,13 @@ abstract final class RaftSheetMetrics {
   static const handleArea = RaftSpace.x5 + RaftSpace.x1;
   static const handleWidth = 36.0, handleHeight = RaftSpace.x1;
 
-  static double topRadius(RaftTokens t) => t.brutal ? 0 : RaftSpace.x4;
+  static double topRadius(RaftTokens t) => RaftSpace.x4;
 
   /// The sheet's surface: panel color, rounded (elegant) or square (brutal)
   /// top corners and the frame line.
   static ShapeBorder shape(RaftTokens t) => RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(topRadius(t))),
-    side: BorderSide(
-      color: t.brutal ? Colors.black : t.colors['line-muted']!,
-      width: t.brutal ? 2 : 1,
-    ),
+    side: BorderSide(color: t.colors['line-muted']!, width: 1),
   );
 }
 
@@ -152,9 +149,7 @@ class RaftSheetHandle extends StatelessWidget {
           height: RaftSheetMetrics.handleHeight,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: t.brutal
-                  ? Colors.black
-                  : t.colors['foreground-placeholder']!.withValues(alpha: .5),
+              color: t.colors['foreground-placeholder']!.withValues(alpha: .5),
               borderRadius: BorderRadius.circular(
                 RaftSheetMetrics.handleHeight,
               ),

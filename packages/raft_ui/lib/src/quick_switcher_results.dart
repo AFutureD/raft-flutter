@@ -54,12 +54,7 @@ class RaftQuickSwitcherSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final line = BorderSide(
-      color: t.brutal
-          ? t.strong.withValues(alpha: .3)
-          : t.colors['line-muted']!,
-      width: t.brutal ? 2 : 1,
-    );
+    final line = BorderSide(color: t.colors['line-muted']!, width: 1);
     Widget bar([double? width]) =>
         RaftSkeleton(variant: RaftSkeletonVariant.line, width: width);
     return Column(
@@ -70,7 +65,7 @@ class RaftQuickSwitcherSkeleton extends StatelessWidget {
         for (var i = 0; i < 5; i++)
           Container(
             decoration: BoxDecoration(
-              color: t.brutal ? t.canvas : t.card,
+              color: t.card,
               border: Border.fromBorderSide(line),
             ),
             child: Padding(
@@ -114,11 +109,8 @@ class RaftQuickSwitcherErrorCard extends StatelessWidget {
     return Container(
       key: const Key('quick-switcher-error'),
       decoration: BoxDecoration(
-        color: t.brutal ? t.canvas : t.card,
-        border: Border.all(
-          color: t.brutal ? t.strong : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
-        ),
+        color: t.card,
+        border: Border.all(color: t.colors['line-muted']!, width: 1),
         boxShadow: t.shadows,
       ),
       child: Padding(
@@ -321,7 +313,7 @@ class RaftQuickSwitcherThreadGroup extends StatelessWidget {
       size: 11,
       line: 16,
       weight: FontWeight.w700,
-      color: t.brutal ? t.strong.withValues(alpha: .7) : t.muted,
+      color: t.muted,
     ).copyWith(height: 1.5);
     return RaftRecipeBox(
       key: const Key('quick-switcher-thread-group'),
@@ -400,9 +392,7 @@ class RaftQuickSwitcherEmpty extends StatelessWidget {
           RaftIcon(
             RaftGlyph.search,
             size: iconSize,
-            color: (t.brutal ? t.strong : t.muted).withValues(
-              alpha: t.brutal ? .2 : .3,
-            ),
+            color: t.muted.withValues(alpha: .3),
           ),
           const SizedBox(height: 12),
           Text(
@@ -413,7 +403,7 @@ class RaftQuickSwitcherEmpty extends StatelessWidget {
               size: 14,
               line: 20,
               weight: FontWeight.w700,
-              color: t.brutal ? t.strong.withValues(alpha: .5) : t.muted,
+              color: t.muted,
             ),
           ),
           const SizedBox(height: 4),
@@ -424,9 +414,7 @@ class RaftQuickSwitcherEmpty extends StatelessWidget {
               t,
               size: 12,
               line: 16,
-              color: (t.brutal ? t.strong : t.muted).withValues(
-                alpha: t.brutal ? .4 : .7,
-              ),
+              color: t.muted.withValues(alpha: .7),
             ),
           ),
         ],

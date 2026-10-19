@@ -39,7 +39,7 @@ class RaftRadioMark extends StatelessWidget {
       tokens: rt,
     );
     final item = s.item, dot = s.dot;
-    final size = item.width ?? (t.brutal ? 16.0 : 14.0);
+    final size = item.width ?? (14.0);
     return Container(
       width: size,
       height: item.height ?? size,
@@ -127,7 +127,7 @@ class _RaftResetAgentDialogState extends State<RaftResetAgentDialog> {
       (o) => o.$1 == mode,
       orElse: () => choices.first,
     );
-    final strong = t.brutal ? Colors.black : t.strong;
+    final strong = t.strong;
     return RaftConfirmDialog(
       surfaceKey: const ValueKey('agent-dialog'),
       title: raftFormat(context, 'Restart {name}', {'name': widget.agentName}),
@@ -343,8 +343,8 @@ class _RaftAgentProfileEditDialogState
       t,
       size: 14,
       line: 20,
-      weight: t.brutal ? FontWeight.w700 : FontWeight.w500,
-      color: t.brutal ? Colors.black : t.ink,
+      weight: FontWeight.w500,
+      color: t.ink,
     ),
   );
 
@@ -400,7 +400,7 @@ class _RaftAgentProfileEditDialogState
                         size: 14,
                         line: 20,
                         weight: FontWeight.w500,
-                        color: t.brutal ? Colors.black : t.ink,
+                        color: t.ink,
                       ),
                     ),
                   ],

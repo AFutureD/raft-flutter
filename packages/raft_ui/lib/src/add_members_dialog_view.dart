@@ -81,15 +81,11 @@ class RaftAddMembersDialogView extends StatelessWidget {
             Container(
               key: const ValueKey('add-members-target'),
               margin: const EdgeInsets.only(bottom: 12),
-              padding: EdgeInsets.all(8.0 + (t.brutal ? 2 : 1)),
+              padding: EdgeInsets.all(8.0 + (1)),
               decoration: BoxDecoration(
-                color: t.brutal
-                    ? t.colors['color-brutal-cream']
-                    : t.colors['layer-inset'],
+                color: t.colors['layer-inset'],
                 border: Border.all(
-                  color: t.brutal
-                      ? Colors.black.withValues(alpha: .15)
-                      : t.colors['line-muted']!,
+                  color: t.colors['line-muted']!,
                   width: t.border,
                 ),
               ),
@@ -99,7 +95,7 @@ class RaftAddMembersDialogView extends StatelessWidget {
                   RaftIcon(
                     privateChannel ? RaftGlyph.lock : RaftGlyph.hash,
                     size: 14,
-                    color: t.brutal ? Colors.black : t.strong,
+                    color: t.strong,
                   ),
                   Flexible(
                     child: Text.rich(
@@ -114,9 +110,7 @@ class RaftAddMembersDialogView extends StatelessWidget {
                           TextSpan(
                             text: ' ${raftText(context, '— target channel')}',
                             style: TextStyle(
-                              color: t.brutal
-                                  ? Colors.black.withValues(alpha: .55)
-                                  : t.colors['foreground-muted'],
+                              color: t.colors['foreground-muted'],
                             ),
                           ),
                         ],
@@ -124,7 +118,7 @@ class RaftAddMembersDialogView extends StatelessWidget {
                       style: raftCssTextStyle(
                         family: t.headingFont,
                         step: RaftTextSteps.sm,
-                        color: t.brutal ? Colors.black : t.strong,
+                        color: t.strong,
                       ),
                     ),
                   ),
@@ -138,12 +132,7 @@ class RaftAddMembersDialogView extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 8),
                 decoration: BoxDecoration(
                   border: Border(
-                    left: BorderSide(
-                      color: t.brutal
-                          ? Colors.black.withValues(alpha: .2)
-                          : t.colors['line-muted']!,
-                      width: 2,
-                    ),
+                    left: BorderSide(color: t.colors['line-muted']!, width: 2),
                   ),
                 ),
                 child: Text(
@@ -151,9 +140,7 @@ class RaftAddMembersDialogView extends StatelessWidget {
                   style: raftCssTextStyle(
                     family: t.headingFont,
                     step: RaftTextSteps.xs,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .55)
-                        : t.colors['foreground-muted'],
+                    color: t.colors['foreground-muted'],
                   ).copyWith(fontStyle: FontStyle.italic),
                 ),
               ),
@@ -165,13 +152,11 @@ class RaftAddMembersDialogView extends StatelessWidget {
             if (nothingToAdd)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: EdgeInsets.all(12.0 + (t.brutal ? 2 : 1)),
+                padding: EdgeInsets.all(12.0 + (1)),
                 decoration: BoxDecoration(
                   color: t.panel,
                   border: Border.all(
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .15)
-                        : t.colors['line-muted']!,
+                    color: t.colors['line-muted']!,
                     width: t.border,
                   ),
                 ),
@@ -183,9 +168,7 @@ class RaftAddMembersDialogView extends StatelessWidget {
                   style: raftCssTextStyle(
                     family: t.headingFont,
                     step: RaftTextSteps.sm,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .55)
-                        : t.colors['foreground-muted'],
+                    color: t.colors['foreground-muted'],
                   ),
                 ),
               )
@@ -264,16 +247,14 @@ class _MemberListShell extends StatelessWidget {
     Widget header(String text) => Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: t.brutal
-          ? Colors.white.withValues(alpha: .5)
-          : t.colors['fill-muted'],
+      color: t.colors['fill-muted'],
       child: Text(
         raftText(context, text),
         style: raftCssTextStyle(
           family: t.headingFont,
           step: RaftTextSteps.xs,
           weight: FontWeight.w700,
-          color: t.brutal ? Colors.black : t.colors['foreground-muted'],
+          color: t.colors['foreground-muted'],
           trackingEm: .1,
         ),
       ),
@@ -403,9 +384,7 @@ class _RemoveButtonState extends State<_RemoveButton> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final fill = t.brutal
-        ? t.colors['color-brutal-red']!.withValues(alpha: hovered ? .6 : .2)
-        : hovered
+    final fill = hovered
         ? t.colors['danger']!.withValues(alpha: .3)
         : t.colors['danger-soft'];
     return Semantics(
@@ -427,15 +406,13 @@ class _RemoveButtonState extends State<_RemoveButton> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: fill,
-                border: Border.all(
-                  color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                ),
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+                border: Border.all(color: t.colors['line-muted']!),
+                borderRadius: BorderRadius.circular(2),
               ),
               child: RaftIcon(
                 RaftGlyph.x,
                 size: 12,
-                color: t.brutal ? Colors.black : t.colors['danger-strong'],
+                color: t.colors['danger-strong'],
               ),
             ),
           ),

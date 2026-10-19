@@ -278,7 +278,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
     // and a Brutal rail draws its own divider; an Elegant rail on the right
     // would have none facing the content (on the left the content panel's
     // own edge is that line).
-    final divider = onRight && !t.brutal && !widget.sidebarVisible
+    final divider = onRight && !widget.sidebarVisible
         ? Border(left: BorderSide(color: t.colors['line-muted']!))
         : null;
     return SizedBox(
@@ -378,12 +378,9 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         MediaQuery.sizeOf(context).height,
       );
       final onRight = widget.navigationOnRight;
-      final sidebarColor = t.brutal ? t.colors['brutal-cream']! : t.sidebar;
+      final sidebarColor = t.sidebar;
       // The divider always faces the content.
-      final sidebarLine = BorderSide(
-        color: t.brutal ? Colors.black : t.colors['line-muted']!,
-        width: t.brutal ? 2 : 1,
-      );
+      final sidebarLine = BorderSide(color: t.colors['line-muted']!, width: 1);
       final sidebarBorder = onRight
           ? Border(left: sidebarLine)
           : Border(right: sidebarLine);
@@ -550,7 +547,7 @@ class _ResizeHandleState extends State<RaftPanelResizeHandle> {
                 child: Container(
                   width: 1,
                   color: focused && !hovering && dragValue == null
-                      ? (t.brutal ? Colors.black : t.colors['foreground']!)
+                      ? (t.colors['foreground']!)
                       : Colors.transparent,
                 ),
               ),
@@ -649,27 +646,16 @@ class RaftWorkspaceRail extends StatelessWidget {
     final footerScrolls = phone && MediaQuery.sizeOf(context).height <= 600;
     // Reserve the regular divider's inset on every route. Painting Activity's
     // thinner divider must not resize the rail or recenter any of its slots.
-    final divider = thinDivider
-        ? recipe.border.copyWith(width: 1)
-        : recipe.border;
     // On the window's right edge (rail on the end side) the divider faces the
     // content, which is now on the left.
-    final onRight = RaftRailEdgeScope.onRightOf(context);
-    final railBorder = t.brutal
-        ? (onRight ? Border(left: divider) : Border(right: divider))
-        : null;
+    final railBorder = null;
     // The rail colour and its divider continue up under the status bar.
     return RaftStatusBarSource(
       color: recipe.background,
       border: railBorder,
       child: Container(
         width: recipe.width,
-        padding: t.brutal
-            ? EdgeInsets.only(
-                left: onRight ? recipe.border.width : 0,
-                right: onRight ? 0 : recipe.border.width,
-              )
-            : EdgeInsets.zero,
+        padding: EdgeInsets.zero,
         decoration: BoxDecoration(color: recipe.background),
         foregroundDecoration: BoxDecoration(border: railBorder),
         child: SafeArea(
@@ -736,9 +722,7 @@ class RaftWorkspaceRail extends StatelessWidget {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: recipe.radius,
                                   ),
-                                  foregroundColor: t.brutal
-                                      ? t.strong
-                                      : t.muted,
+                                  foregroundColor: t.muted,
                                   backgroundColor: Colors.transparent,
                                 ),
                                 icon: Container(
@@ -751,19 +735,9 @@ class RaftWorkspaceRail extends StatelessWidget {
                                         : Colors.transparent,
                                     borderRadius: recipe.radius,
                                     border: Border.all(
-                                      color: selected == d.id && t.brutal
-                                          ? t.strong
-                                          : Colors.transparent,
-                                      width: t.brutal ? 2 : 1,
+                                      color: Colors.transparent,
+                                      width: 1,
                                     ),
-                                    boxShadow: selected == d.id && t.brutal
-                                        ? [
-                                            BoxShadow(
-                                              color: t.strong,
-                                              offset: const Offset(2, 2),
-                                            ),
-                                          ]
-                                        : null,
                                   ),
                                   child: Stack(
                                     alignment: Alignment.center,

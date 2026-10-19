@@ -49,31 +49,23 @@ class RaftThreadCompositionRecipe {
       presentation == RaftThreadPresentation.side && viewportWidth >= 1024;
   double get headerHeight =>
       RaftLayoutMetrics.shellHeaderHeight(tokens, viewportHeight);
-  EdgeInsetsDirectional get headerInset => tokens.brutal
-      ? const EdgeInsetsDirectional.symmetric(horizontal: 20)
-      : EdgeInsetsDirectional.only(
-          start: viewportWidth < 768 ? 20 : 36,
-          end: viewportWidth < 768 ? 14 : 20,
-        );
-  double get headerGap => tokens.brutal ? 12 : 8;
-  double get actionGap => tokens.brutal || viewportWidth >= 768 ? 6 : 2;
-  Color get headerBackground => tokens.brutal
-      ? Colors.white
-      : viewportWidth < 768
+  EdgeInsetsDirectional get headerInset => EdgeInsetsDirectional.only(
+    start: viewportWidth < 768 ? 20 : 36,
+    end: viewportWidth < 768 ? 14 : 20,
+  );
+  double get headerGap => 8;
+  double get actionGap => viewportWidth >= 768 ? 6 : 2;
+  Color get headerBackground => viewportWidth < 768
       ? tokens.colors['layer-canvas-muted']!
       : Colors.transparent;
-  BorderSide get headerBorder => tokens.brutal
-      ? const BorderSide(color: Colors.black, width: 2)
-      // Mounted ThreadPanelRoot gives its AppPanelHeader a bottom rule.
-      : BorderSide(color: tokens.colors['line-muted']!);
+  BorderSide get headerBorder =>
+      BorderSide(color: tokens.colors['line-muted']!);
   Color get parentBackground =>
       RaftConversationSurfaceRecipe(tokens)
           .background(RaftConversationSurfaceRole.threadParent);
   EdgeInsets get parentInset => const EdgeInsets.all(12);
-  BorderSide get parentBorder => BorderSide(
-    color: tokens.brutal ? Colors.black : tokens.colors['line-muted']!,
-    width: tokens.brutal ? 2 : 1,
-  );
+  BorderSide get parentBorder =>
+      BorderSide(color: tokens.colors['line-muted']!, width: 1);
   EdgeInsets get summaryInset =>
       const EdgeInsets.only(left: 12, right: 12, top: 8);
   TextStyle get title => RaftTypography.body(
@@ -81,31 +73,19 @@ class RaftThreadCompositionRecipe {
     size: 16,
     line: 24,
     weight: FontWeight.w700,
-    color: tokens.brutal ? Colors.black : tokens.strong,
+    color: tokens.strong,
   );
-  TextStyle get titleSuffix => title.copyWith(
-    fontWeight: FontWeight.w400,
-    color: tokens.brutal ? Colors.black.withValues(alpha: .5) : tokens.muted,
-  );
-  TextStyle get history => RaftTypography.mono(
-    tokens,
-    color: tokens.brutal ? Colors.black.withValues(alpha: .5) : tokens.muted,
-  );
+  TextStyle get titleSuffix =>
+      title.copyWith(fontWeight: FontWeight.w400, color: tokens.muted);
+  TextStyle get history => RaftTypography.mono(tokens, color: tokens.muted);
   TextStyle get replyCount => RaftTypography.mono(tokens, color: tokens.muted);
-  TextStyle get beginning => history.copyWith(
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .4)
-        : tokens.colors['foreground-placeholder']!,
-  );
+  TextStyle get beginning =>
+      history.copyWith(color: tokens.colors['foreground-placeholder']!);
   BorderSide get summaryBorder =>
       BorderSide(color: tokens.colors['line-muted']!);
-  BorderSide get limitedBorder => BorderSide(
-    color: tokens.brutal
-        ? Colors.black.withValues(alpha: .2)
-        : tokens.colors['line-muted']!,
-  );
-  Color get limitedBackground =>
-      tokens.brutal ? Colors.white.withValues(alpha: .7) : tokens.panel;
+  BorderSide get limitedBorder =>
+      BorderSide(color: tokens.colors['line-muted']!);
+  Color get limitedBackground => tokens.panel;
 }
 
 /// Controlled chrome only. Navigation, follower data, menus, permissions,
@@ -331,29 +311,22 @@ class RaftThreadSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final muted = t.brutal ? Colors.black.withValues(alpha: .5) : t.muted;
+    final muted = t.muted;
     final hint = raftText(context, 'Search this thread');
     final fieldText = RaftTypography.inherited(
       t,
       size: 14,
       line: 20,
       weight: FontWeight.w500,
-      color: t.brutal ? Colors.black : t.ink,
+      color: t.ink,
     );
     return Container(
       key: const Key('thread-search-bar'),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: t.brutal
-            ? Colors.white
-            : t.dark
-            ? t.card
-            : t.panel,
+        color: t.dark ? t.card : t.panel,
         border: Border(
-          bottom: BorderSide(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-            width: t.brutal ? 2 : 1,
-          ),
+          bottom: BorderSide(color: t.colors['line-muted']!, width: 1),
         ),
       ),
       child: Row(
@@ -371,12 +344,10 @@ class RaftThreadSearchBar extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: t.brutal ? Colors.white : t.panel,
+                    color: t.panel,
                     border: Border.all(
-                      color: t.brutal
-                          ? Colors.black
-                          : t.colors[focused ? 'line-strong' : 'line-muted']!,
-                      width: t.brutal ? 2 : 1,
+                      color: t.colors[focused ? 'line-strong' : 'line-muted']!,
+                      width: 1,
                     ),
                     boxShadow: focused ? t.themeShadows.sm.outer : const [],
                   ),
@@ -422,9 +393,7 @@ class RaftThreadSearchBar extends StatelessWidget {
                         focusedBorder: InputBorder.none,
                         hintText: hint,
                         hintStyle: fieldText.copyWith(
-                          color: t.brutal
-                              ? Colors.black.withValues(alpha: .4)
-                              : t.semantic.foregroundPlaceholder,
+                          color: t.semantic.foregroundPlaceholder,
                         ),
                       ),
                     ),
@@ -486,7 +455,7 @@ class _ThreadTitleRecipe extends RaftControlRecipe {
   @override
   Color backgroundFor({bool hovered = false}) => Colors.transparent;
   @override
-  Color get foreground => tokens.brutal ? Colors.black : tokens.strong;
+  Color get foreground => tokens.strong;
   @override
   BorderSide side({bool hovered = false}) => BorderSide.none;
   @override
@@ -511,64 +480,43 @@ class _ThreadBackRecipe extends RaftControlRecipe {
   const _ThreadBackRecipe(super.tokens)
     : super(variant: RaftControlVariant.outline, visualHeight: 28);
   @override
-  bool get transformsOnInteraction => tokens.brutal;
+  bool get transformsOnInteraction => false;
   @override
-  BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
+  BorderRadius get radius => BorderRadius.circular(6);
   @override
   Color backgroundForInteraction({
     bool hovered = false,
     bool pressed = false,
   }) => backgroundFor(hovered: hovered || pressed);
   @override
-  Color get background => tokens.brutal ? Colors.white : Colors.transparent;
+  Color get background => Colors.transparent;
   @override
-  Color backgroundFor({bool hovered = false}) => hovered && !tokens.brutal
+  Color backgroundFor({bool hovered = false}) => hovered
       ? tokens.colors['fill-strong']!.withValues(
           alpha: tokens.colors['fill-strong']!.a * .8,
         )
       : background;
   @override
-  Color get foreground =>
-      tokens.brutal ? Colors.black : tokens.colors['foreground-icon']!;
+  Color get foreground => tokens.colors['foreground-icon']!;
   @override
   Color foregroundFor({bool hovered = false}) =>
-      hovered && !tokens.brutal ? tokens.strong : foreground;
+      hovered ? tokens.strong : foreground;
   @override
   Gradient? get overlayGradient => null;
   @override
   double get insetHighlightAlpha => 0;
   @override
-  BorderSide side({bool hovered = false}) => tokens.brutal
-      ? const BorderSide(color: Colors.black, width: 2)
-      : BorderSide.none;
+  BorderSide side({bool hovered = false}) => BorderSide.none;
   @override
-  double get focusOutlineWidth => tokens.brutal ? 2 : 0;
+  double get focusOutlineWidth => 0;
   @override
-  double get focusOutlineOffset => tokens.brutal ? 2 : 0;
+  double get focusOutlineOffset => 0;
   @override
   List<BoxShadow> shadows({
     bool hovered = false,
     bool pressed = false,
     bool focused = false,
-  }) => tokens.brutal
-      ? [
-          BoxShadow(
-            color: Colors.black,
-            offset: Offset(
-              pressed
-                  ? 1
-                  : hovered
-                  ? 4
-                  : 2,
-              pressed
-                  ? 1
-                  : hovered
-                  ? 4
-                  : 2,
-            ),
-          ),
-        ]
-      : focused
+  }) => focused
       ? [BoxShadow(color: tokens.colors['primary-500']!, spreadRadius: .5)]
       : const [];
 }
@@ -585,10 +533,10 @@ class _ThreadCloseRecipe extends _ThreadBackRecipe {
     bool pressed = false,
   }) => backgroundFor(hovered: hovered);
   @override
-  Color get foreground => tokens.brutal ? Colors.black : tokens.muted;
+  Color get foreground => tokens.muted;
   @override
   Color backgroundFor({bool hovered = false}) =>
-      hovered && !tokens.brutal ? tokens.colors['fill-muted']! : background;
+      hovered ? tokens.colors['fill-muted']! : background;
 }
 
 /// Parent + older-history hint + loaded reply count live in the SAME sliver
