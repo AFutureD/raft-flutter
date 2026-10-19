@@ -457,7 +457,7 @@ class _TechnicalDetailsState extends State<_TechnicalDetails> {
                   ),
                   const SizedBox(width: RaftSpace.x1),
                   Text(
-                    raftText(context, 'Technical details'),
+                    raftText(context, 'Technical Details'),
                     style: _bold(t, widget.style),
                   ),
                 ],
@@ -524,7 +524,7 @@ class _MigrationReferenceState extends State<MigrationReference> {
           glyph: copied ? RaftGlyph.check : RaftGlyph.copy,
           visualSize: 20,
           glyphSize: 12,
-          tooltip: copied ? 'Migration ID copied' : 'Copy migration ID',
+          tooltip: copied ? 'Migration ID Copied' : 'Copy Migration ID',
           onPressed: copy,
         ),
       ],

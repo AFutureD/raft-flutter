@@ -204,8 +204,8 @@ class RaftAddMembersDialogView extends StatelessWidget {
                   label: submitting
                       ? 'Adding…'
                       : selectedCount == 1
-                      ? 'Add 1 member'
-                      : raftFormat(context, 'Add {count} members', {
+                      ? 'Add 1 Member'
+                      : raftFormat(context, 'Add {count} Members', {
                           'count': selectedCount,
                         }),
                   variant: RaftButtonRecipeVariant.accent,

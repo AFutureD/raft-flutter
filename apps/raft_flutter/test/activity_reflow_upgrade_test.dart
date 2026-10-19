@@ -112,7 +112,7 @@ void main() {
           if (mode == 'late') {
             await t.pump(const Duration(milliseconds: 151));
           } else {
-            await t.tap(find.byTooltip('Close detail'));
+            await t.tap(find.byTooltip('Close Detail'));
             expect(w.location.route, RaftRoute.activity);
             expect(w.location.content, isNull);
             await t.pump();

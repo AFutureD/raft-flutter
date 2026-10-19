@@ -40,7 +40,7 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          await tester.tap(find.byTooltip('Show source'));
+          await tester.tap(find.byTooltip('Show Source'));
           await tester.pumpAndSettle();
           expect(find.text(code), findsOneWidget);
           final sourceRect = tester.getRect(find.byType(RaftMermaidBlock));
@@ -114,9 +114,9 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.text('Show more'), findsOneWidget);
+          expect(find.text('Show More'), findsOneWidget);
           final before = tester.getSize(find.byType(RaftCollapsible));
-          await tester.tap(find.text('Show more'));
+          await tester.tap(find.text('Show More'));
           await tester.pumpAndSettle();
           final expanded = tester.getSize(find.byType(RaftCollapsible));
           expect(expanded.height, greaterThan(before.height));

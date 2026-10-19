@@ -555,7 +555,7 @@ void main() {
       );
       expect(stored.visible, ['chat', 'tasks', 'members', 'activity']);
       // Reset restores the default and removes the stored choice.
-      await t.tap(find.text('Reset to default'));
+      await t.tap(find.text('Reset to Default'));
       await f.flush(t);
       expect(
         DevicePreferences.current!.containsKey(MobileTabbarStore.preferenceKey),

@@ -207,7 +207,7 @@ void main() {
         await tester.tap(find.text('Private task'));
         await tester.pump();
         expect(find.byType(SourceTaskSurface), findsOneWidget);
-        await tester.tap(find.byTooltip('Close task'));
+        await tester.tap(find.byTooltip('Close Task'));
         await tester.pumpAndSettle();
         details.complete({'task': task});
         await tester.pumpAndSettle();
@@ -298,7 +298,7 @@ void main() {
         await tester.tap(find.text('Private task'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 1));
-        await tester.tap(find.byTooltip('Close task'));
+        await tester.tap(find.byTooltip('Close Task'));
         await tester.pumpAndSettle();
         history.complete({'error': 'Late history failed'});
         await tester.pumpAndSettle();
@@ -322,10 +322,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Filter tasks by creator'));
       await tester.pumpAndSettle();
-      expect(find.text('Created by me'), findsOneWidget);
+      expect(find.text('Created by Me'), findsOneWidget);
       _role(w, 'guest');
       await tester.pumpAndSettle();
-      expect(find.text('Created by me'), findsNothing);
+      expect(find.text('Created by Me'), findsNothing);
       a.routes['GET /channels/inbox'] = (_) => {
         'items': <dynamic>[],
         'hasMore': false,

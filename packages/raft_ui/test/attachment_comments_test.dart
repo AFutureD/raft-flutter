@@ -72,7 +72,7 @@ void main() {
                       variant: RaftComposerVariant.compact,
                       accessoryRow: RaftCommentAnchorChip(
                         label: 'L2–4',
-                        removeLabel: 'Remove anchor',
+                        removeLabel: 'Remove Anchor',
                         onRemove: () => ++removes,
                       ),
                       onSend: (_) async => true,
@@ -111,7 +111,7 @@ void main() {
         await t.pump();
         await t.sendKeyEvent(LogicalKeyboardKey.enter);
         expect(removes, 1);
-        await t.tap(find.bySemanticsLabel('Remove anchor'));
+        await t.tap(find.bySemanticsLabel('Remove Anchor'));
         expect(removes, 2);
         await t.pumpWidget(host(blocked: true));
         expect(find.byType(RaftComposer), findsNothing);

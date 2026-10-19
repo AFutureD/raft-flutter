@@ -536,14 +536,14 @@ class MediaBrowserState extends State<MediaBrowser>
               if (canDownload)
                 RaftMessageContextMenuItem(
                   key: const ValueKey('viewer-menu-download'),
-                  label: raftText(menuContext, 'Download file'),
+                  label: raftText(menuContext, 'Download File'),
                   icon: raftMessageMenuIcon(RaftGlyph.arrowDown),
                   onPressed: () => pick('download'),
                 ),
               if (canShow)
                 RaftMessageContextMenuItem(
                   key: const ValueKey('viewer-menu-show'),
-                  label: raftText(menuContext, 'Show in message'),
+                  label: raftText(menuContext, 'Show in Message'),
                   icon: raftMessageMenuIcon(RaftGlyph.messageSquare),
                   onPressed: () => pick('show'),
                 ),
@@ -801,13 +801,13 @@ class MediaBrowserState extends State<MediaBrowser>
       container: true,
       label: label,
       customSemanticsActions: {
-        CustomSemanticsAction(label: raftText(context, 'Zoom in')): () =>
+        CustomSemanticsAction(label: raftText(context, 'Zoom In')): () =>
             pageKeys[i]?.currentState?.surfaceKey.currentState?.zoomStep(1.5),
-        CustomSemanticsAction(label: raftText(context, 'Zoom out')): () =>
+        CustomSemanticsAction(label: raftText(context, 'Zoom Out')): () =>
             pageKeys[i]?.currentState?.surfaceKey.currentState?.zoomStep(
               1 / 1.5,
             ),
-        CustomSemanticsAction(label: raftText(context, 'Fit to screen')): () =>
+        CustomSemanticsAction(label: raftText(context, 'Fit to Screen')): () =>
             pageKeys[i]?.currentState?.surfaceKey.currentState?.resetZoom(),
       },
       child: _imageRoom(

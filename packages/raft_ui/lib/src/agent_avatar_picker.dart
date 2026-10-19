@@ -118,7 +118,7 @@ class RaftAgentAvatarPicker extends StatelessWidget {
                                   children: [
                                     _AvatarChoice(
                                       key: const ValueKey('avatar-upload'),
-                                      label: raftText(context, 'Upload image'),
+                                      label: raftText(context, 'Upload Image'),
                                       selected: uploadSelected,
                                       onPressed: busy ? null : onUpload,
                                       child: RaftIcon(

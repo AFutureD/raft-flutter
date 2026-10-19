@@ -301,7 +301,7 @@ Widget? raftComposerAccessory(
           context,
           'Message sent, but this agent is stopped and was not notified.',
         ),
-        dismissLabel: raftText(context, 'Dismiss delivery warning'),
+        dismissLabel: raftText(context, 'Dismiss Delivery Warning'),
         onDismiss: () => w.dismissSendWarnings(thread: thread),
       ),
     if (unresolved)
@@ -311,7 +311,7 @@ Widget? raftComposerAccessory(
           'Not notified: {handles}. Select a person or agent from the mention picker and try again if needed.',
           {'handles': warnings.unresolved.join(', ')},
         ),
-        dismissLabel: raftText(context, 'Dismiss unnotified mention warning'),
+        dismissLabel: raftText(context, 'Dismiss Unnotified Mention Warning'),
         onDismiss: () => w.dismissSendWarnings(thread: thread),
       ),
   ];

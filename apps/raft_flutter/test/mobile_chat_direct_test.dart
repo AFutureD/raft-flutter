@@ -127,7 +127,7 @@ void main() {
     final pixels = viewport.position.pixels;
     final (anchor, rect) = visibleAnchor(t);
 
-    await t.tap(find.byTooltip('Channel details and settings'));
+    await t.tap(find.byTooltip('Channel Details and Settings'));
     await f.flush(t);
     expect(await t.binding.handlePopRoute(), isTrue);
     await f.flush(t);
@@ -168,7 +168,7 @@ void main() {
     await f.flush(t);
     expect(t.widget<EditableText>(field).focusNode.hasFocus, isTrue);
 
-    await t.tap(find.byTooltip('Channel details and settings'));
+    await t.tap(find.byTooltip('Channel Details and Settings'));
     await f.flush(t);
     final coveredChat = channelChat(skipOffstage: false);
     final covered = t.widget<RaftChatView>(coveredChat);

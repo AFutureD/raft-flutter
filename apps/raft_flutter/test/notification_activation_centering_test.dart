@@ -69,7 +69,7 @@ void main() {
               ),
             );
             final label = t.getRect(
-              find.text(chinese ? '开启通知' : 'Enable notifications'),
+              find.text(chinese ? '开启通知' : 'Enable Notifications'),
             );
             final close = t.getRect(find.byType(RaftCloseButton));
             expect(close.size, const Size(28, 28));

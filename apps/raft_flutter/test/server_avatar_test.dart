@@ -120,12 +120,12 @@ void main() {
     await mount(t);
     expect(tile(t).onUpload, isNotNull);
     expect(tile(t).imageUrl, isNull);
-    expect(find.bySemanticsLabel('Upload image'), findsOneWidget);
+    expect(find.bySemanticsLabel('Upload Image'), findsOneWidget);
     w.server = RaftRecord({...w.server!.json, 'role': 'member'});
     w.notifyListeners();
     await t.pump();
     expect(tile(t).onUpload, isNull);
-    expect(find.bySemanticsLabel('Upload image'), findsNothing);
+    expect(find.bySemanticsLabel('Upload Image'), findsNothing);
     await tapAvatar(t);
     expect(client.avatar, isEmpty);
     w.server = RaftRecord({...w.server!.json, 'role': 'admin'});

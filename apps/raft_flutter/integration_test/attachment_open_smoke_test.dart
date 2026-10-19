@@ -280,7 +280,7 @@ Future<Outcome> openHtml(WidgetTester tester, SmokeCase c, {required Future<void
     tester,
     htmlReady,
     'the HTML preview',
-    failed: () => shown(HtmlAttachmentPreviewDialog) && find.text('Retry preview').evaluate().isNotEmpty,
+    failed: () => shown(HtmlAttachmentPreviewDialog) && find.text('Retry Preview').evaluate().isNotEmpty,
     timeout: const Duration(seconds: 40),
   );
   final webView = shown(AttachmentHtmlWebView);
@@ -293,7 +293,7 @@ Future<Outcome> openHtml(WidgetTester tester, SmokeCase c, {required Future<void
     tester,
     htmlReady,
     'the HTML preview (reopen)',
-    failed: () => shown(HtmlAttachmentPreviewDialog) && find.text('Retry preview').evaluate().isNotEmpty,
+    failed: () => shown(HtmlAttachmentPreviewDialog) && find.text('Retry Preview').evaluate().isNotEmpty,
     timeout: const Duration(seconds: 40),
   );
   // Let the first WebView's delayed destroy run while the second is on screen, then check it is still showing.

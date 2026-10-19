@@ -70,7 +70,7 @@ class _ProbeState extends State<_Probe> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: Center(
-      child: ElevatedButton(onPressed: open, child: const Text('Open preview')),
+      child: ElevatedButton(onPressed: open, child: const Text('Open Preview')),
     ),
   );
 }

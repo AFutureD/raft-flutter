@@ -77,7 +77,7 @@ Future<void> verifyMessageSelection(
   expect(more.hitTestable(), findsOneWidget);
   await tester.tap(more);
   await tester.pump(const Duration(milliseconds: 300));
-  await tester.tap(find.text('Generate image'));
+  await tester.tap(find.text('Generate Image'));
   for (
     var i = 0;
     i < 200 && find.byType(MessageImageReview).evaluate().isEmpty;
@@ -106,12 +106,12 @@ Future<void> verifyMessageSelection(
   expect(
     find.descendant(
       of: find.byType(MessageImageReview),
-      matching: find.byTooltip('Show source'),
+      matching: find.byTooltip('Show Source'),
     ),
     findsNothing,
   );
   await capture('linux-message-selection-preview');
-  await tester.tap(find.byTooltip('Close preview'));
+  await tester.tap(find.byTooltip('Close Preview'));
   await tester.pump(const Duration(milliseconds: 400));
   expect(find.byType(MessageImageReview), findsNothing);
   expect(find.byType(RaftSelectionToolbar), findsOneWidget);

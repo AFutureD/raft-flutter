@@ -7,8 +7,8 @@ const Map<String, String> zhCatalogUpdateReleaseNotes = <String, String>{
   "Couldn't load what's new.": "无法加载更新内容。",
   "No release notes for this update.": "这次更新没有更新说明。",
   // Older skipped releases fold behind one toggle row.
-  "{count} more updates": "还有 {count} 个版本的更新",
-  "1 more update": "还有 1 个版本的更新",
+  "{count} More Updates": "还有 {count} 个版本的更新",
+  "1 More Update": "还有 1 个版本的更新",
   // Settings > Release Notes: a release newer than the installed one.
   "New version": "新版本",
   // Settings > Release Notes: a refresh failed, the shown list is kept.

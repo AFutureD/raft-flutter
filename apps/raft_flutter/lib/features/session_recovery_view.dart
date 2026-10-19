@@ -50,7 +50,7 @@ class SessionRecoveryView extends StatelessWidget {
         description: tr(explanation),
         gapBeforeButton: 4,
         buttonKey: const Key('session-recovery-retry'),
-        buttonLabel: tr('Try again'),
+        buttonLabel: tr('Try Again'),
         onButton: busy ? null : onRetry,
         below: [
           RaftAuthTextLink(

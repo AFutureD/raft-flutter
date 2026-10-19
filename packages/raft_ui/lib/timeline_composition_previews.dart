@@ -31,7 +31,7 @@ class _TimelinePreviewState extends State<_TimelinePreview> {
       children: [
         TextButton(
           onPressed: () => setState(() => long = !long),
-          child: Text(long ? 'Show sparse rows' : 'Show long rows'),
+          child: Text(long ? 'Show Sparse Rows' : 'Show Long Rows'),
         ),
         Expanded(
           child: CustomScrollView(

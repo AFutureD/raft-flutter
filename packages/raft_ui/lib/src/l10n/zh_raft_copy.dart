@@ -44,6 +44,6 @@ const Map<String, String> zhCatalogRaftCopy = <String, String>{
   "Loading reminders…": "正在加载提醒…",
   "Loading usage…": "正在加载用量…",
   "Loading file…": "正在加载文件…",
-  "Loading replies…": "正在加载回复…",
+  "Loading Replies…": "正在加载回复…",
   "Refreshing…": "正在刷新…",
 };

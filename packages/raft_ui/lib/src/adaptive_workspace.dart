@@ -589,7 +589,7 @@ class RaftWorkspaceRail extends StatelessWidget {
     required this.onSelected,
     required this.workspaceName,
     required this.onWorkspace,
-    this.workspaceTooltip = 'Switch server',
+    this.workspaceTooltip = 'Switch Server',
     this.workspaceHeader,
     this.footer,
     this.thinDivider = false,

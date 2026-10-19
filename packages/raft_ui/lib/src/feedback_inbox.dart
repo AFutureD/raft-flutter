@@ -225,7 +225,7 @@ class RaftFeedbackInbox extends StatelessWidget {
                       action: onRetry == null
                           ? null
                           : RaftButton(
-                              label: 'Try again',
+                              label: 'Try Again',
                               variant: RaftControlVariant.outline,
                               size: RaftButtonRecipeSize.sm,
                               onPressed: onRetry,

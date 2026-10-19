@@ -453,7 +453,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
               if (widget.onBack == null && widget.showClose)
                 RaftPanelIconButton(
                   glyph: RaftGlyph.x,
-                  tooltip: raftText(context, 'Close profile'),
+                  tooltip: raftText(context, 'Close Profile'),
                   onPressed: widget.onClose,
                 ),
             ],

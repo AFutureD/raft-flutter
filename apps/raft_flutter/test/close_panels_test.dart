@@ -46,7 +46,7 @@ void main() {
       final panel = find.byKey(const Key('profile-panel'));
       return SurfaceProbe(
         isOpen: () => panel.evaluate().isNotEmpty,
-        x: inPanel(panel, 'Close profile'),
+        x: inPanel(panel, 'Close Profile'),
         back: inPanel(panel, 'Back'),
         scrim: size.width >= 768 ? outsideProfile(t, size) : null,
       );
@@ -58,7 +58,7 @@ void main() {
       final panel = find.byKey(const Key('profile-panel'));
       return SurfaceProbe(
         isOpen: () => panel.evaluate().isNotEmpty,
-        x: inPanel(panel, 'Close profile'),
+        x: inPanel(panel, 'Close Profile'),
         back: inPanel(panel, 'Back'),
         scrim: size.width >= 768 ? outsideProfile(t, size) : null,
       );

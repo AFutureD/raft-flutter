@@ -24,9 +24,9 @@ void main() {
       );
       await tester.pumpWidget(frame());
       await tester.pumpAndSettle();
-      expect(find.text('Show more'), findsOneWidget);
+      expect(find.text('Show More'), findsOneWidget);
       expect(tester.getSize(find.byType(ClipRect).last).height, 320);
-      await tester.tap(find.text('Show more'));
+      await tester.tap(find.text('Show More'));
       await tester.pumpAndSettle();
       expect(find.text('Collapse'), findsOneWidget);
       expect(tester.getSize(find.byType(ClipRect).last).height, 700);
@@ -75,7 +75,7 @@ void main() {
     expect(find.text('Hidden action').hitTestable(), findsNothing);
     visibleFocus.requestFocus();
     await tester.pumpAndSettle();
-    expect(find.text('Show more'), findsOneWidget);
+    expect(find.text('Show More'), findsOneWidget);
     focus.requestFocus();
     await tester.pumpAndSettle();
     expect(find.text('Collapse'), findsOneWidget);

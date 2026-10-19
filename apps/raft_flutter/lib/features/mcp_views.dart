@@ -288,7 +288,7 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
                         ),
                       RaftMcpAction(
                         glyph: RaftGlyph.flaskConical,
-                        tooltip: 'Test and refresh tools',
+                        tooltip: 'Test and Refresh Tools',
                         onPressed: busy || !ready
                             ? null
                             : () => run(() async {
@@ -299,7 +299,7 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
                       ),
                       RaftMcpAction(
                         glyph: RaftGlyph.pencil,
-                        tooltip: 'Edit server',
+                        tooltip: 'Edit Server',
                         onPressed: busy ? null : () => edit(server),
                       ),
                       RaftMcpAction(

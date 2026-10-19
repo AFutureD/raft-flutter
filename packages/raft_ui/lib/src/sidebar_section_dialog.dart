@@ -96,7 +96,7 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
                   setState(emojiPortal.hide),
             },
             child: Semantics(
-              label: raftText(context, 'Choose section emoji'),
+              label: raftText(context, 'Choose Section Emoji'),
               container: true,
               child: SizedBox(
                 width: width,
@@ -304,7 +304,7 @@ class _NoEmojiRowState extends State<_NoEmojiRow> {
                 RaftIcon(RaftGlyph.x, size: 14, color: t.strong),
                 const SizedBox(width: 8),
                 Text(
-                  raftText(context, 'No emoji'),
+                  raftText(context, 'No Emoji'),
                   style: raftCssTextStyle(
                     family: t.headingFont,
                     step: RaftTextSteps.xs,

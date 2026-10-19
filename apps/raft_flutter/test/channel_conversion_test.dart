@@ -191,7 +191,7 @@ void main() {
           'jobId': 'j1',
         },
       );
-      await t.tap(find.text('Check conversion status'));
+      await t.tap(find.text('Check Conversion Status'));
       await flush(t);
       expect(find.text('Cancel Conversion'), findsOneWidget);
       a.routes['GET /channels/conversion-jobs/j1'] = (_) => {

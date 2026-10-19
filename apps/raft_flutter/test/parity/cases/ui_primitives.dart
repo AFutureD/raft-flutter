@@ -229,7 +229,7 @@ final ParityCase _card = ParityCase(
             style: RaftPanelStyle.legacyCard,
             child: _column(8, [
               const Text(
-                'Channel settings',
+                'Channel Settings',
                 style: TextStyle(
                   fontSize: 16,
                   height: 20 / 16,
@@ -245,7 +245,7 @@ final ParityCase _card = ParityCase(
                 ),
               ),
               RaftButton(
-                label: 'Save changes',
+                label: 'Save Changes',
                 onPressed: () {},
                 tone: RaftButtonRecipeVariant.primary,
                 size: RaftButtonRecipeSize.sm,

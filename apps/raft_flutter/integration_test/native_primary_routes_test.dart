@@ -644,7 +644,7 @@ void main() {
         } else {
           await capture('thread-open');
         }
-        await t.tap(find.byTooltip('Close thread').first);
+        await t.tap(find.byTooltip('Close Thread').first);
         await until(
           () =>
               w.messageDomain.state.threadParent == null &&

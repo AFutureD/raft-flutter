@@ -594,12 +594,12 @@ class _ProviderConnectionsState
                                 'provider-edit-${connection['id']}',
                               ),
                               child: action(
-                                'Edit connection',
+                                'Edit Connection',
                                 () => run(() => edit(connection)),
                               ),
                             ),
                             action(
-                              'Assigned agents',
+                              'Assigned Agents',
                               () => run(
                                 () => assigned(connection),
                                 refresh: false,
@@ -610,7 +610,7 @@ class _ProviderConnectionsState
                               () => run(() => verify(connection)),
                             ),
                             action(
-                              'Verification history',
+                              'Verification History',
                               () => run(
                                 () => history(connection),
                                 refresh: false,
@@ -618,11 +618,11 @@ class _ProviderConnectionsState
                             ),
                             if (w.can('rotateServerSecrets'))
                               action(
-                                'Rotate credential',
+                                'Rotate Credential',
                                 () => run(() => rotate(connection)),
                               ),
                             action(
-                              'Delete connection',
+                              'Delete Connection',
                               () => run(() async {
                                 await confirm(
                                   'Delete ${connection['name']}?',

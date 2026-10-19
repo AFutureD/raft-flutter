@@ -249,11 +249,11 @@ class _InteractivePreviewState extends State<_InteractivePreview> {
             onChanged: (value) => setState(() => failDelivery = value),
           ),
           RaftButton(
-            label: 'Open form',
+            label: 'Open Form',
             onPressed: () => showDialog(
               context: context,
               builder: (_) => RaftFormDialog(
-                title: 'Create task',
+                title: 'Create Task',
                 submitLabel: 'Create',
                 fields: const [
                   RaftFormField('title', 'Title', required: true),
@@ -460,7 +460,7 @@ class _WorkspacePreviewState extends State<_WorkspacePreview> {
             ),
             const SizedBox(height: 16),
             RaftButton(
-              label: 'Open thread',
+              label: 'Open Thread',
               onPressed: () => setState(() => thread = true),
             ),
             const SizedBox(height: 16),
@@ -483,7 +483,7 @@ class _WorkspacePreviewState extends State<_WorkspacePreview> {
                 ListTile(
                   title: const Text('Thread'),
                   trailing: RaftTooltip(
-                    message: 'Close thread',
+                    message: 'Close Thread',
                     child: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => setState(() => thread = false),
@@ -823,7 +823,7 @@ Widget timelineBottomButtonPreview() => Stack(
   fit: StackFit.expand,
   children: [
     const Center(child: Text('History window')),
-    RaftTimelineBottomButton(label: '3 new messages', onPressed: () {}),
+    RaftTimelineBottomButton(label: '3 New Messages', onPressed: () {}),
   ],
 );
 
@@ -832,7 +832,7 @@ Widget newUpdatesButtonPreview() => Stack(
   fit: StackFit.expand,
   children: [
     const Center(child: Text('Activity list scrolled down')),
-    RaftNewUpdatesButton(label: '3 new updates', onPressed: () {}),
+    RaftNewUpdatesButton(label: '3 New Updates', onPressed: () {}),
   ],
 );
 
@@ -973,7 +973,7 @@ class _ServerSwitcherPreviewState extends State<_ServerSwitcherPreview> {
         mobile: widget.mobile,
         controller: controller,
         workspaceName: 'Visual Server',
-        label: 'Switch server',
+        label: 'Switch Server',
         rows: [
           RaftServerMenuRow(
             id: 'visual',

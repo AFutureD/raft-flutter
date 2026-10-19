@@ -228,7 +228,7 @@ class _RaftSelectionToolbarState extends State<RaftSelectionToolbar> {
                               RaftDropdownMenu(
                                 label: raftText(
                                   context,
-                                  'More selected message actions',
+                                  'More Selected Message Actions',
                                 ),
                                 enabled: widget.selected > 0,
                                 side: RaftDropdownSide.top,
@@ -237,7 +237,7 @@ class _RaftSelectionToolbarState extends State<RaftSelectionToolbar> {
                                 triggerBuilder: (context, node, pressed) =>
                                     action(
                                       context,
-                                      'More selected message actions',
+                                      'More Selected Message Actions',
                                       RaftGlyph.ellipsis,
                                       pressed,
                                       compact: true,
@@ -250,7 +250,7 @@ class _RaftSelectionToolbarState extends State<RaftSelectionToolbar> {
                                       context,
                                       widget.busy
                                           ? 'Rendering...'
-                                          : 'Generate image',
+                                          : 'Generate Image',
                                     ),
                                     leading: widget.busy
                                         ? Semantics(
@@ -361,7 +361,7 @@ class RaftImageReview extends StatelessWidget {
                 ),
               ),
               RaftTooltip(
-                message: raftText(context, 'Close preview'),
+                message: raftText(context, 'Close Preview'),
                 child: IconButton(
                   onPressed: busy ? null : onClose,
                   icon: const Icon(Icons.close),
@@ -403,7 +403,7 @@ class RaftImageReview extends StatelessWidget {
                 ),
               if (onShare != null)
                 RaftButton(
-                  label: 'Share image',
+                  label: 'Share Image',
                   icon: Icons.share_outlined,
                   secondary: true,
                   onPressed: busy ? null : onShare,

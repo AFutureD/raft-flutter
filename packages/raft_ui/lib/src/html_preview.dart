@@ -124,7 +124,7 @@ class RaftHtmlPreview extends StatelessWidget {
               ),
               if (onInteractive != null)
                 RaftButton(
-                  label: 'Open interactive preview in browser',
+                  label: 'Open Interactive Preview in Browser',
                   onPressed: busy ? null : onInteractive,
                   busy: busy,
                 ),

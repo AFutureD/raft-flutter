@@ -212,9 +212,9 @@ void main() {
           ),
         );
     for (final entry in {
-      'inline-video-toggle': 'Play video clip.mp4',
-      'inline-video-mute': 'Mute video clip.mp4',
-      'inline-video-fullscreen': 'Full screen clip.mp4',
+      'inline-video-toggle': 'Play Video clip.mp4',
+      'inline-video-mute': 'Mute Video clip.mp4',
+      'inline-video-fullscreen': 'Full Screen clip.mp4',
       'inline-video-download-action': 'Download clip.mp4',
     }.entries) {
       final data = node(entry.key).getSemanticsData();

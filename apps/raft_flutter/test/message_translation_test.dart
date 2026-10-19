@@ -166,7 +166,7 @@ void main() {
       expect(
         find.descendant(
           of: _indicator('m1'),
-          matching: find.text('Show original'),
+          matching: find.text('Show Original'),
         ),
         findsOneWidget,
       );
@@ -174,7 +174,7 @@ void main() {
       await t.tap(
         find.descendant(
           of: _indicator('m1'),
-          matching: find.text('Show original'),
+          matching: find.text('Show Original'),
         ),
       );
       await t.pump();
@@ -184,11 +184,11 @@ void main() {
       expect(
         find.descendant(
           of: _indicator('m1'),
-          matching: find.text('Show translation'),
+          matching: find.text('Show Translation'),
         ),
         findsOneWidget,
       );
-      await t.tap(find.text('Show translation'));
+      await t.tap(find.text('Show Translation'));
       await t.pump();
       expect(find.text('EN m1'), findsOneWidget);
       // Rebuilds and new controller events do not request again.
@@ -263,7 +263,7 @@ void main() {
         findsOneWidget,
       );
       // Show original hides the translation and the bilingual block.
-      await t.tap(find.text('Show original'));
+      await t.tap(find.text('Show Original'));
       await t.pump();
       expect(original, findsNothing);
       expect(find.text('EN m1'), findsNothing);
@@ -286,8 +286,8 @@ void main() {
       // Auto mode still fetches, but the original view has no skeleton.
       expect(_batches(a), hasLength(1));
       expect(find.text('Hola'), findsOneWidget);
-      expect(find.text('Show translation'), findsOneWidget);
-      await t.tap(find.text('Show translation'));
+      expect(find.text('Show Translation'), findsOneWidget);
+      await t.tap(find.text('Show Translation'));
       await t.pump();
       expect(find.text('EN m1'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
@@ -336,7 +336,7 @@ void main() {
     reply.complete();
     await _settle(t);
     expect(find.text('EN m1'), findsOneWidget);
-    expect(find.text('Show original'), findsOneWidget);
+    expect(find.text('Show Original'), findsOneWidget);
     // Translated rows no longer offer Translate; own rows still do (manual).
     await _openMenu(t, 'EN m1');
     expect(find.byKey(const ValueKey('message-menu-translate')), findsNothing);

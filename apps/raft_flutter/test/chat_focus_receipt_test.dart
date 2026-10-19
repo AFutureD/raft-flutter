@@ -149,7 +149,7 @@ void main() {
               .highlighted,
           true,
         );
-        expect(find.text('3 new messages'), findsOneWidget);
+        expect(find.text('3 New Messages'), findsOneWidget);
         await tester.pump(const Duration(milliseconds: 1700));
         expect(w.messageDomain.state.highlightedMessageId, 'target-40');
         await tester.pump(const Duration(milliseconds: 400));
@@ -171,7 +171,7 @@ void main() {
           return latestResponse.future;
         };
         api.routes['POST /channels/c1/read'] = (_) => {};
-        await tester.tap(find.text('3 new messages'));
+        await tester.tap(find.text('3 New Messages'));
         for (var i = 0; i < 20 && !latestRequested.isCompleted; i++) {
           await tester.pump(const Duration(milliseconds: 16));
         }
@@ -190,7 +190,7 @@ void main() {
         expect(paintedMessage(tester, 'latest-7'), isNotNull);
         final dynamic state = tester.state(find.byType(RaftChatView));
         expect(state.distanceFromLatest(state.viewport.position), 0);
-        expect(find.text('Back to bottom'), findsNothing);
+        expect(find.text('Back to Bottom'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pump();

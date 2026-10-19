@@ -693,7 +693,7 @@ class RaftProfileIdentity extends StatelessWidget {
                           key: const ValueKey('agent-edit-display-name'),
                           glyph: RaftGlyph.pencil,
                           size: 14,
-                          tooltip: raftText(context, 'Edit display name'),
+                          tooltip: raftText(context, 'Edit Display Name'),
                           onPressed: onEditName,
                         ),
                       ],
@@ -1747,7 +1747,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
           const SizedBox(width: 8),
           RaftInlineIconButton(
             glyph: RaftGlyph.copy,
-            tooltip: raftText(context, 'Copy path'),
+            tooltip: raftText(context, 'Copy Path'),
             onPressed: onCopyPath,
           ),
         ],
@@ -1765,7 +1765,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
               child: RaftInlineIconButton(
                 glyph: showHidden ? RaftGlyph.eye : RaftGlyph.eyeOff,
                 size: 13,
-                tooltip: raftText(context, 'Hidden files'),
+                tooltip: raftText(context, 'Hidden Files'),
                 onPressed: onToggleHidden,
               ),
             ),
@@ -2460,7 +2460,7 @@ class RaftDescriptionBlock extends StatelessWidget {
           raftText(context, 'Description'),
           onEdit: onEdit,
           editKey: editKey,
-          editLabel: raftText(context, 'Edit description'),
+          editLabel: raftText(context, 'Edit Description'),
         ),
         const SizedBox(height: 4),
         text.isEmpty
@@ -2516,7 +2516,7 @@ class RaftRoleField extends StatelessWidget {
             RaftInlineIconButton(
               key: helpKey,
               glyph: RaftGlyph.circleHelp,
-              tooltip: raftText(context, 'Role permissions'),
+              tooltip: raftText(context, 'Role Permissions'),
               onPressed: onHelp,
             ),
             if (onEdit != null && editor == null) ...[
@@ -2524,7 +2524,7 @@ class RaftRoleField extends StatelessWidget {
               RaftInlineIconButton(
                 key: editKey,
                 glyph: RaftGlyph.pencil,
-                tooltip: raftText(context, 'Edit role'),
+                tooltip: raftText(context, 'Edit Role'),
                 onPressed: onEdit,
               ),
             ],

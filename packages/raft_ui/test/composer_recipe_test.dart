@@ -54,8 +54,8 @@ void main() {
           of: find.byTooltip(label),
           matching: find.byType(RaftComposerAction),
         );
-        final image = tester.getRect(action('Attach media'));
-        final file = tester.getRect(action('Attach file'));
+        final image = tester.getRect(action('Attach Media'));
+        final file = tester.getRect(action('Attach File'));
         final send = tester.getRect(action('Send'));
         final size = 28.0;
         expect(image.size, Size.square(size));
@@ -374,7 +374,7 @@ void main() {
       var images = 0, files = 0, tasks = 0, sends = 0;
       final task = TextButton(
         onPressed: () => tasks++,
-        child: const Text('As task'),
+        child: const Text('As Task'),
       );
       await tester.pumpWidget(
         host(
@@ -392,7 +392,7 @@ void main() {
         ),
       );
       await tester.tap(find.byType(TextField));
-      await tester.tap(find.byTooltip('Attach media'));
+      await tester.tap(find.byTooltip('Attach Media'));
       expect(images, 1);
       expect(files, 0);
       expect(
@@ -402,9 +402,9 @@ void main() {
             .hasFocus,
         isTrue,
       );
-      await tester.tap(find.byTooltip('Attach file'));
+      await tester.tap(find.byTooltip('Attach File'));
       expect(files, 1);
-      await tester.tap(find.text('As task'));
+      await tester.tap(find.text('As Task'));
       expect(tasks, 1);
       expect(sends, 0);
       await tester.pumpWidget(
@@ -456,7 +456,7 @@ void main() {
       );
       expect(actual.padding, EdgeInsets.zero);
       expect((actual.decoration! as BoxDecoration).border, isNull);
-      expect(find.byTooltip('Attach file'), findsNothing);
+      expect(find.byTooltip('Attach File'), findsNothing);
       final editor = tester.widget<ConstrainedBox>(
         find.byKey(const ValueKey('composer-editor-slot')),
       );

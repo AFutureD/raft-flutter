@@ -134,7 +134,7 @@ Future<void> verifyAttachmentFlow(
     await tester.tap(loadingAction);
     await tester.pump();
     expect(
-      find.byTooltip('Close preview'),
+      find.byTooltip('Close Preview'),
       findsOneWidget,
       reason: '[K11] Real loading-image click must open immediately.',
     );
@@ -147,7 +147,7 @@ Future<void> verifyAttachmentFlow(
     }
     expect(loadingImage, findsOneWidget);
     expect(tester.widget<Image>(loadingImage).image, isA<MemoryImage>());
-    final closeLoadingPreview = find.byTooltip('Close preview');
+    final closeLoadingPreview = find.byTooltip('Close Preview');
     for (
       var i = 0;
       i < 150 && closeLoadingPreview.hitTestable().evaluate().isEmpty;
@@ -189,7 +189,7 @@ Future<void> verifyAttachmentFlow(
     final image = tester.widget<Image>(decoded);
     expect(image.image, isA<MemoryImage>());
     await capture('linux-attachment-preview');
-    await tester.tap(find.byTooltip('Close preview'));
+    await tester.tap(find.byTooltip('Close Preview'));
     await tester.pumpAndSettle();
   } finally {
     if (!releaseImageUrl.isCompleted) releaseImageUrl.complete();

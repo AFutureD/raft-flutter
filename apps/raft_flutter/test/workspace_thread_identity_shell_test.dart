@@ -174,7 +174,7 @@ void main() {
             expect(header.interactiveTitle, isFalse);
             expect(header.onJumpToStart, isNull);
             expect(header.actions, isEmpty);
-            expect(find.byTooltip('Jump to beginning'), findsNothing);
+            expect(find.byTooltip('Jump to Beginning'), findsNothing);
             expect(
               find.byKey(const Key('mobile-detail-back')),
               width < 768 ? findsOneWidget : findsNothing,

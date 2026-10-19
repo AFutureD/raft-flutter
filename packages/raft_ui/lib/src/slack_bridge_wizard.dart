@@ -53,7 +53,7 @@ class RaftSlackWizardView extends StatelessWidget {
     this.pairLabels = const [],
     this.onRemovePair,
     this.pairInvalid = false,
-    this.finishLabel = 'Save mappings and enable',
+    this.finishLabel = 'Save Mappings and Enable',
     this.finishEnabled = false,
     this.onFinish,
     // preflight / enable
@@ -423,7 +423,7 @@ class RaftSlackWizardView extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: _accent(
-                    'Verify and finish setup',
+                    'Verify and Finish Setup',
                     busy ? null : onVerify,
                     key: 'slack-bridge-verify',
                   ),
@@ -454,7 +454,7 @@ class RaftSlackWizardView extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerRight,
                   child: _accent(
-                    'Verify and finish setup',
+                    'Verify and Finish Setup',
                     busy ? null : onEnable,
                     key: 'slack-bridge-enable',
                   ),
@@ -951,14 +951,14 @@ class RaftSlackWizardView extends StatelessWidget {
                       children: [
                         RaftSettingsRecipeButton(
                           key: const ValueKey('slack-bridge-invite-steps'),
-                          label: 'How to invite the app',
+                          label: 'How to Invite the App',
                           variant: RaftButtonRecipeVariant.default_,
                           size: RaftButtonRecipeSize.sm,
                           restColor: t.colors['warning-strong'],
                           onPressed: onToggleInviteSteps,
                         ),
                         RaftSettingsRecipeButton(
-                          label: 'Refresh and recheck',
+                          label: 'Refresh and Recheck',
                           glyph: RaftGlyph.refreshCw,
                           glyphSize: 13,
                           variant: RaftButtonRecipeVariant.accent,
@@ -1041,7 +1041,7 @@ class RaftSlackWizardView extends StatelessWidget {
                     if (canManage)
                       RaftSettingsRecipeButton(
                         key: const ValueKey('slack-bridge-manage'),
-                        label: 'Manage channel mappings',
+                        label: 'Manage Channel Mappings',
                         variant: RaftButtonRecipeVariant.default_,
                         size: RaftButtonRecipeSize.sm,
                         onPressed: onManage,

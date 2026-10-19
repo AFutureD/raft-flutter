@@ -1744,7 +1744,7 @@ class RaftMessageTile extends StatelessWidget {
                     onPressed: onThread,
                     icon: const Icon(Icons.forum_outlined, size: 15),
                     label: Text(
-                      threadLabel ?? raftText(context, 'Reply in thread'),
+                      threadLabel ?? raftText(context, 'Reply in Thread'),
                     ),
                   ),
               ],

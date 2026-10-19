@@ -218,8 +218,8 @@ void main() {
       'Update now installs the release with its checksum and signature',
       (t) async {
         final (_, _, image, launched) = await mount(t);
-        expect(find.text('Update now'), findsOneWidget);
-        expect(find.text('View release'), findsNothing);
+        expect(find.text('Update Now'), findsOneWidget);
+        expect(find.text('View Release'), findsNothing);
         await t.tap(_action);
         await t.pumpAndSettle();
         expect(image.installed, hasLength(1));
@@ -246,7 +246,7 @@ void main() {
         findsOneWidget,
       );
       // No second update and no recheck while one runs.
-      expect(find.text('Check for updates'), findsOneWidget);
+      expect(find.text('Check for Updates'), findsOneWidget);
       expect(
         t
             .widget<RaftButton>(
@@ -318,7 +318,7 @@ void main() {
         await t.tap(find.byKey(const ValueKey('settings-about-update-check')));
         await t.pumpAndSettle();
         expect(image.resets, 1);
-        expect(find.text('Update now'), findsOneWidget);
+        expect(find.text('Update Now'), findsOneWidget);
         await t.pumpWidget(const SizedBox());
       },
     );
@@ -357,8 +357,8 @@ void main() {
           _FakeUpdater(available: false),
           TargetPlatform.linux,
         );
-        expect(find.text('View release'), findsOneWidget);
-        expect(find.text('Update now'), findsNothing);
+        expect(find.text('View Release'), findsOneWidget);
+        expect(find.text('Update Now'), findsNothing);
         await t.tap(_action);
         await t.pumpAndSettle();
         expect(launched, [
@@ -379,8 +379,8 @@ void main() {
         addTearDown(service.dispose);
         final updater = _FakeUpdater();
         final launched = await _mount(t, service, updater, platform);
-        expect(find.text('Update now'), findsOneWidget);
-        expect(find.text('View release'), findsNothing);
+        expect(find.text('Update Now'), findsOneWidget);
+        expect(find.text('View Release'), findsNothing);
         await t.tap(_action);
         await t.pumpAndSettle();
         expect(updater.calls, 1);
@@ -424,11 +424,11 @@ void main() {
         addTearDown(service.dispose);
         final updater = _FakeUpdater();
         await _mount(t, service, updater, platform);
-        expect(find.text('Update now'), findsOneWidget);
+        expect(find.text('Update Now'), findsOneWidget);
         updater._availability.value = false;
         await t.pumpAndSettle();
-        expect(find.text('Update now'), findsNothing);
-        expect(find.text('View release'), findsOneWidget);
+        expect(find.text('Update Now'), findsNothing);
+        expect(find.text('View Release'), findsOneWidget);
         await t.pumpWidget(const SizedBox());
       });
     });
@@ -440,8 +440,8 @@ void main() {
       addTearDown(service.dispose);
       final updater = _FakeUpdater(available: false);
       final launched = await _mount(t, service, updater, platform);
-      expect(find.text('View release'), findsOneWidget);
-      expect(find.text('Update now'), findsNothing);
+      expect(find.text('View Release'), findsOneWidget);
+      expect(find.text('Update Now'), findsNothing);
       await t.tap(_action);
       await t.pumpAndSettle();
       expect(updater.calls, 0);
@@ -457,8 +457,8 @@ void main() {
     addTearDown(service.dispose);
     final updater = _FakeUpdater();
     final launched = await _mount(t, service, updater, TargetPlatform.android);
-    expect(find.text('Download update'), findsOneWidget);
-    expect(find.text('Update now'), findsNothing);
+    expect(find.text('Download Update'), findsOneWidget);
+    expect(find.text('Update Now'), findsNothing);
     await t.tap(_action);
     await t.pumpAndSettle();
     expect(updater.calls, 0);
@@ -475,8 +475,8 @@ void main() {
     addTearDown(service.dispose);
     final updater = _FakeUpdater();
     final launched = await _mount(t, service, updater, TargetPlatform.linux);
-    expect(find.text('View release'), findsOneWidget);
-    expect(find.text('Update now'), findsNothing);
+    expect(find.text('View Release'), findsOneWidget);
+    expect(find.text('Update Now'), findsNothing);
     await t.tap(_action);
     await t.pumpAndSettle();
     expect(updater.calls, 0);
@@ -497,7 +497,7 @@ void main() {
     );
     addTearDown(service.dispose);
     await _mount(t, service, _FakeUpdater(), TargetPlatform.macOS);
-    expect(find.text('Update now'), findsNothing);
+    expect(find.text('Update Now'), findsNothing);
     expect(_action, findsNothing);
     expect(find.text("You're on the latest version"), findsOneWidget);
     await t.pumpWidget(const SizedBox());
@@ -580,7 +580,7 @@ void _updatesCardTests() {
           expect(find.text("You're on the latest version"), findsOneWidget);
           expect(find.text('Last checked: this minute'), findsOneWidget);
           expect(_check, findsOneWidget);
-          expect(find.text('Check for updates'), findsOneWidget);
+          expect(find.text('Check for Updates'), findsOneWidget);
           expect(_action, findsNothing);
           await t.pumpWidget(const SizedBox());
         });

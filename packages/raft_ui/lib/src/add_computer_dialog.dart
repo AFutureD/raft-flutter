@@ -253,7 +253,7 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
           const SizedBox(width: 12),
           RaftRecipeButton(
             key: const ValueKey('add-computer-next'),
-            label: registering ? 'Setting up…' : 'Next',
+            label: registering ? 'Setting Up…' : 'Next',
             variant: RaftButtonRecipeVariant.accent,
             size: RaftButtonRecipeSize.md,
             disabled: registering,

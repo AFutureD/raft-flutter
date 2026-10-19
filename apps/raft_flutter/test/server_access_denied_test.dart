@@ -21,7 +21,7 @@ void main() {
         find.textContaining('Redirecting to Alpha in 3 seconds.', findRichText: true),
         findsOneWidget,
       );
-      expect(find.text('Go to my server'), findsOneWidget);
+      expect(find.text('Go to My Server'), findsOneWidget);
       expect(find.byType(GlobalServerSelector), findsNothing);
       expect(f.router(t).currentConfiguration.path, '/s/ghost');
       // After 3 seconds the app opens that server.
@@ -62,7 +62,7 @@ void main() {
       find.textContaining('Redirecting to Beta in 3 seconds.', findRichText: true),
       findsOneWidget,
     );
-    await t.tap(find.text('Go to my server'));
+    await t.tap(find.text('Go to My Server'));
     await f.flush(t);
     expect(find.byType(WorkspaceView), findsOneWidget);
     expect(f.workspace(t).server!.id, 'b');

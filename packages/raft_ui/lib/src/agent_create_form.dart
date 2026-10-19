@@ -1376,7 +1376,7 @@ class _RaftAgentKeyValueRowsState extends State<RaftAgentKeyValueRows> {
               RaftIconButton(
                 key: ValueKey('env-remove-$i'),
                 glyph: RaftGlyph.trash2,
-                tooltip: tr('Remove environment variable'),
+                tooltip: tr('Remove Environment Variable'),
                 visualSize: 24,
                 minimumTargetSize: 24,
                 glyphSize: 14,

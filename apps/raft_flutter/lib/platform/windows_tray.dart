@@ -79,7 +79,7 @@ class WindowsTray {
     final labels = {
       'lab': lab,
       'open': localize('Open Raft'),
-      'hide': localize('Hide window'),
+      'hide': localize('Hide Window'),
       'quit': localize('Quit Raft'),
       'unread': localize('unread'),
       'checkUpdates': '${localize('Check for updates')}…',

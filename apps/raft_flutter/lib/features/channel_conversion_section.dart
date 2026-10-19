@@ -500,7 +500,7 @@ class _ConversionSectionState
                     : 'Waiting for server confirmation.',
               ),
             ),
-            action('Check conversion status', guard(reload)),
+            action('Check Conversion Status', guard(reload)),
           ],
           if (uploads.isNotEmpty) ...[
             Text(raftText(context, 'Uploads still in progress')),
@@ -515,7 +515,7 @@ class _ConversionSectionState
                   guard(() => cancelUpload(upload)),
                 ),
               ),
-            action('Return to channel', guard(openChannel)),
+            action('Return to Channel', guard(openChannel)),
           ],
           if (snapshot.job.isNotEmpty && pending == null)
             ChannelConversionProgress(

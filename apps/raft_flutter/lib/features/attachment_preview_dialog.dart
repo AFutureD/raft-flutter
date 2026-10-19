@@ -1075,13 +1075,13 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         if (actions.networkSettings && widget.onNetworkSettings != null)
           RaftLoadErrorAction(
             key: const Key('viewer-network-settings'),
-            label: 'Network settings',
+            label: 'Network Settings',
             glyph: RaftGlyph.network,
             onPressed: widget.onNetworkSettings,
           ),
         RaftLoadErrorAction(
           key: const Key('viewer-download'),
-          label: 'Download original',
+          label: 'Download Original',
           glyph: RaftGlyph.download,
           onPressed: current ? () => unawaited(widget.onDownload()) : null,
         ),
@@ -1094,7 +1094,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     children: [
       RaftIconButton(
         glyph: RaftGlyph.chevronLeft,
-        tooltip: 'Previous page',
+        tooltip: 'Previous Page',
         visualSize: 28,
         minimumTargetSize: 48,
         variant: RaftControlVariant.ghost,
@@ -1103,7 +1103,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       Text('${page + 1} / $pageCount'),
       RaftIconButton(
         glyph: RaftGlyph.chevronRight,
-        tooltip: 'Next page',
+        tooltip: 'Next Page',
         visualSize: 28,
         minimumTargetSize: 48,
         variant: RaftControlVariant.ghost,

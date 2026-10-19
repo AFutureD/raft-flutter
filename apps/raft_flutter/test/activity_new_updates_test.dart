@@ -109,7 +109,7 @@ void main() {
         expect(state.rows.first['channelId'], 'ch25');
         expect(tester.getRect(card('Channel $anchor')), before);
         expect(scroll.position.pixels, greaterThan(700));
-        expect(find.text('1 new update'), findsOneWidget);
+        expect(find.text('1 New Update'), findsOneWidget);
         for (var frame = 0; frame < 6; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
           expect(tester.getRect(card('Channel $anchor')), before);
@@ -120,7 +120,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 150));
         await tester.pumpAndSettle();
         expect(tester.getRect(card('Channel $anchor')), before);
-        expect(find.text('1 new update'), findsOneWidget);
+        expect(find.text('1 New Update'), findsOneWidget);
 
         // A visible row moving to the top is not the anchor; the reader's row
         // still stays where it was.
@@ -129,7 +129,7 @@ void main() {
         await tester.pump();
         expect(state.rows.first['channelId'], 'ch$visibleMover');
         expect(tester.getRect(card('Channel $anchor')), before);
-        expect(find.text('2 new updates'), findsOneWidget);
+        expect(find.text('2 New Updates'), findsOneWidget);
 
         // The pill sits at the top centre of the list (Web `sticky top-0
         // left-1/2 -translate-x-1/2`).
@@ -155,14 +155,14 @@ void main() {
         await tester.pump();
         expect(state.rows.first['channelId'], 'ch$anchor');
         expect(tester.getRect(next), nextBefore);
-        expect(find.text('3 new updates'), findsOneWidget);
+        expect(find.text('3 New Updates'), findsOneWidget);
         serverMoves(anchor, 2002, 'n3');
         await tester.pump(const Duration(milliseconds: 150));
         await tester.pumpAndSettle();
         expect(tester.getRect(next), nextBefore);
 
         // Tapping the pill returns to the top and clears it.
-        await tester.tap(find.text('3 new updates'));
+        await tester.tap(find.text('3 New Updates'));
         await tester.pumpAndSettle();
         expect(scroll.position.pixels, 0);
         expect(find.byType(RaftNewUpdatesButton), findsNothing);
@@ -198,13 +198,13 @@ void main() {
         await tester.pump();
         client.emit('message:new', live('t2', 22, 2001));
         await tester.pump();
-        expect(find.text('1 new update'), findsOneWidget);
+        expect(find.text('1 New Update'), findsOneWidget);
         serverMoves(22, 2001, 't2');
         await tester.pump(const Duration(milliseconds: 150));
         await tester.pumpAndSettle();
         scroll.position.jumpTo(60);
         await tester.pump();
-        expect(find.text('1 new update'), findsOneWidget);
+        expect(find.text('1 New Update'), findsOneWidget);
         scroll.position.jumpTo(40);
         await tester.pump();
         expect(find.byType(RaftNewUpdatesButton), findsNothing);
@@ -231,7 +231,7 @@ void main() {
         await tester.pump();
         expect(state.rows.first['channelId'], 'ch60');
         expect(tester.getRect(card('Channel $anchor')), before);
-        expect(find.text('1 new update'), findsOneWidget);
+        expect(find.text('1 New Update'), findsOneWidget);
         await tester.pumpAndSettle();
         expect(tester.getRect(card('Channel $anchor')), before);
         expect(tester.takeException(), isNull);
@@ -263,8 +263,8 @@ void main() {
       await tester.pump();
       expect(state.rows.first['messageId'], 'savedNew');
       expect(tester.getRect(saved(anchor)), before);
-      expect(find.text('1 new update'), findsOneWidget);
-      await tester.tap(find.text('1 new update'));
+      expect(find.text('1 New Update'), findsOneWidget);
+      await tester.tap(find.text('1 New Update'));
       await tester.pumpAndSettle();
       expect(scroll.position.pixels, 0);
       expect(find.byType(RaftNewUpdatesButton), findsNothing);

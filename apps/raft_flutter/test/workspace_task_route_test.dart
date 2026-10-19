@@ -95,7 +95,7 @@ void main() {
           expect(w.threadChannelId, 'old-side');
           expect(w.navigationRevision, mainRevision);
           if (width < 768) {
-            await t.tap(find.byTooltip('Close task'));
+            await t.tap(find.byTooltip('Close Task'));
           } else {
             await t.sendKeyEvent(LogicalKeyboardKey.escape);
           }
@@ -182,7 +182,7 @@ void main() {
           ),
           isEmpty,
         );
-        await t.tap(find.byTooltip('Close task'));
+        await t.tap(find.byTooltip('Close Task'));
         await flush(t);
         // The closed task page stays live for the platform pop transition.
         await t.pump(const Duration(milliseconds: 500));
@@ -312,7 +312,7 @@ void main() {
           final retired = t
               .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
               .owner;
-          await t.tap(find.byTooltip('Close task'));
+          await t.tap(find.byTooltip('Close Task'));
           await flush(t);
           // The owner retires with its page once the pop transition ends.
           await t.pump(const Duration(milliseconds: 500));
@@ -343,7 +343,7 @@ void main() {
             contains('pending-main'),
           );
           expect(w.navigationRevision, mainRevision);
-          await t.tap(find.byTooltip('Close task'));
+          await t.tap(find.byTooltip('Close Task'));
           await flush(t);
           expect(t.takeException(), isNull);
           await t.pumpWidget(const SizedBox.shrink());

@@ -161,7 +161,7 @@ void main() {
         // The route's first frame is built off stage while the Hero measures.
         await tester.pump();
         expect(
-          find.byTooltip('Close preview'),
+          find.byTooltip('Close Preview'),
           findsOneWidget,
           reason: 'Source opens the lightbox at intent while image bytes are pending.',
         );
@@ -177,10 +177,10 @@ void main() {
           await tester.tap(find.byTooltip('Preview image.png'));
           await tester.pump();
           await tester.pump();
-          expect(find.byTooltip('Close preview'), findsOneWidget);
+          expect(find.byTooltip('Close Preview'), findsOneWidget);
           await tester.pump(const Duration(milliseconds: 300));
           if (retirement == 'close') {
-            await tester.tap(find.byTooltip('Close preview'));
+            await tester.tap(find.byTooltip('Close Preview'));
           } else {
             w.revokeServer('server');
           }
@@ -192,7 +192,7 @@ void main() {
           for (var i = 0; i < 5; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          expect(find.byTooltip('Close preview'), findsNothing);
+          expect(find.byTooltip('Close Preview'), findsNothing);
           expect(
             find.byKey(const ValueKey('attachment-image-image')),
             findsNothing,
@@ -220,7 +220,7 @@ void main() {
         await tester.tapAt(paintedCenter);
         await tester.pump();
         await tester.pump();
-        expect(find.byTooltip('Close preview'), findsOneWidget);
+        expect(find.byTooltip('Close Preview'), findsOneWidget);
         // The card's picture flies to the stage; the stage's own picture
         // takes over when the flight lands.
         await tester.pump(const Duration(milliseconds: 400));
@@ -250,14 +250,14 @@ void main() {
         await tester.tap(find.byTooltip('Preview image.png'));
         await tester.pump();
         await tester.pump();
-        expect(find.byTooltip('Close preview'), findsOneWidget);
+        expect(find.byTooltip('Close Preview'), findsOneWidget);
         files.bytes.completeError(StateError('owned image failure'));
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 30)),
         );
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('Failed to load image'), findsOneWidget);
-        expect(find.byTooltip('Close preview'), findsOneWidget);
+        expect(find.byTooltip('Close Preview'), findsOneWidget);
         expect(tester.takeException(), isNull);
         expect(files.reads, 1);
       },
@@ -289,6 +289,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
     await tester.pump();
     expect(zoom.value, Matrix4.identity());
-    expect(find.byTooltip('Close preview'), findsOneWidget);
+    expect(find.byTooltip('Close Preview'), findsOneWidget);
   });
 }

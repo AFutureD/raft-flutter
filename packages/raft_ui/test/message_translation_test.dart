@@ -20,7 +20,7 @@ void main() {
                   const RaftMessageTranslationSkeleton(fontSize: 16),
                   RaftMessageTranslationStatus(
                     tone: RaftMessageTranslationTone.normal,
-                    actionLabel: 'Show original',
+                    actionLabel: 'Show Original',
                     tooltip: 'Translated. Show original',
                     onAction: () => toggles++,
                   ),
@@ -50,8 +50,8 @@ void main() {
           const Size(800, 24),
         );
         expect(t.getSize(find.byType(RaftSkeleton)), const Size(176, 12));
-        expect(find.bySemanticsLabel('Show original'), findsOneWidget);
-        await t.tap(find.text('Show original'));
+        expect(find.bySemanticsLabel('Show Original'), findsOneWidget);
+        await t.tap(find.text('Show Original'));
         expect(toggles, 1);
         // Neither family sets the original label in all caps (decision 0002).
         expect(find.text('Original'), findsOneWidget);

@@ -1908,7 +1908,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                             if (route == 'chat' &&
                                                 w.channel != null)
                                               RaftIconButton(
-                                                tooltip: 'Channel settings',
+                                                tooltip: 'Channel Settings',
                                                 onPressed: () =>
                                                     channelSettings(),
                                                 glyph:
@@ -2075,11 +2075,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
           ),
           presentation: RaftThreadPresentation.side,
           threadLabel: tr('Thread'),
-          jumpLabel: tr('Jump to beginning'),
-          backLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
+          jumpLabel: tr('Jump to Beginning'),
+          backLabel: threadSelection.active ? 'Exit Selection' : 'Close Thread',
           closeLabel: threadSelection.active
-              ? 'Exit selection'
-              : 'Close thread',
+              ? 'Exit Selection'
+              : 'Close Thread',
           backKey: mobile
               ? const Key('mobile-detail-back')
               : const Key('thread-back'),
@@ -2645,7 +2645,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
             actions: [
               RaftIconButton(
                 glyph: RaftGlyph.x,
-                tooltip: 'Close detail',
+                tooltip: 'Close Detail',
                 onPressed: closeDesktopDetail,
               ),
             ],
@@ -2764,7 +2764,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           ? (id == 'search' ? openSearchFromRail() : select(id))
           : selectRailDestination(id),
       workspaceName: w.server?.name ?? 'Raft',
-      workspaceTooltip: tr('Switch server'),
+      workspaceTooltip: tr('Switch Server'),
       workspaceHeader: workspaceServerMenu(),
       onWorkspace: () => showWorkspaceSwitcher(),
       footer: RaftWorkspaceRailFooter(
@@ -2867,7 +2867,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         w.client.origin,
         w.server?.json['avatarUrl'] as String?,
       ),
-      label: tr('Switch server'),
+      label: tr('Switch Server'),
       rows: [
         for (final server in w.servers)
           RaftServerMenuRow(
@@ -3013,7 +3013,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: Text(tr('Switch server')),
+        title: Text(tr('Switch Server')),
         children: [
           for (final server in w.servers)
             SimpleDialogOption(
@@ -3036,7 +3036,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         workspaceBrowserOrigin(w.client.origin) != null)
                       RaftIconButton(
                         key: ValueKey('workspace-browser-${server.id}'),
-                        tooltip: tr('Open server in browser'),
+                        tooltip: tr('Open Server in Browser'),
                         glyph: RaftGlyph.arrowUpRight,
                         onPressed: () {
                           Navigator.pop(context);
@@ -3176,11 +3176,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
         kind: channel.type,
         onBack: mobile ? dismissPanel : null,
         backKey: mobile ? const Key('mobile-detail-back') : null,
-        backLabel: mainSelection.active ? tr('Exit selection') : tr('Back'),
+        backLabel: mainSelection.active ? tr('Exit Selection') : tr('Back'),
         onSearch: searchThisChannel,
         onSettings: channelSettings,
-        searchLabel: tr('Search this channel'),
-        settingsLabel: tr('Channel details and settings'),
+        searchLabel: tr('Search This Channel'),
+        settingsLabel: tr('Channel Details and Settings'),
         archivedLabel: channel.archived ? tr('Archived') : null,
         workingAgents: working,
       ),
@@ -3230,18 +3230,18 @@ class _WorkspaceViewState extends State<WorkspaceView>
           mobile: true,
           backKey: const Key('mobile-detail-back'),
           backLabel: thread
-              ? (threadSelection.active ? 'Exit selection' : 'Close thread')
-              : (mainSelection.active ? 'Exit selection' : 'Back'),
+              ? (threadSelection.active ? 'Exit Selection' : 'Close Thread')
+              : (mainSelection.active ? 'Exit Selection' : 'Back'),
           onBack: dismissPanel,
           actions: [
             if (w.section == 'chat' && w.channel != null && !thread)
               RaftIconButton(
-                tooltip: 'Channel settings',
+                tooltip: 'Channel Settings',
                 onPressed: channelSettings,
                 glyph: RaftGlyph.slidersHorizontal,
               ),
             RaftIconButton(
-              tooltip: 'Search messages',
+              tooltip: 'Search Messages',
               onPressed: () => select('search'),
               glyph: RaftGlyph.search,
             ),

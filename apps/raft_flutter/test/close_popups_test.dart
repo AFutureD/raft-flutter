@@ -454,17 +454,17 @@ void main() {
         t,
         size,
         (_) => RaftOverflowMenuButton(
-          tooltip: 'More actions',
+          tooltip: 'More Actions',
           entries: [
             RaftMenuEntry(label: 'Rename agent', onPressed: () {}),
-            RaftMenuEntry(label: 'Delete Agent', onPressed: () {}),
+            RaftMenuEntry(label: 'Archive Agent', onPressed: () {}),
           ],
         ),
       );
       await t.tap(find.byType(RaftOverflowMenuButton));
       await frames(t, 15);
       return SurfaceProbe(
-        isOpen: openWhile(find.text('Delete Agent')),
+        isOpen: openWhile(find.text('Archive Agent')),
         scrim: farPoint(size),
       );
     },
@@ -548,16 +548,16 @@ void main() {
         t,
         size,
         (context) => RaftButton(
-          label: 'New section',
+          label: 'New Section',
           onPressed: () => showRaftSidebarSectionDialog(
             context,
-            title: 'New section',
+            title: 'New Section',
             submitLabel: 'Create',
             onSubmit: (_, _) {},
           ),
         ),
       );
-      await t.tap(find.text('New section'));
+      await t.tap(find.text('New Section'));
       await frames(t, 15);
       await t.tap(find.byKey(sectionEmojiButtonKey));
       await frames(t, 20);

@@ -2,7 +2,7 @@
 // English source text is the key. Part of `raftChinese` (merged by the generated zh_index.g.dart).
 const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Open Raft": "打开 Raft",
-  "Hide window": "隐藏窗口",
+  "Hide Window": "隐藏窗口",
   "Quit Raft": "退出 Raft",
   "Keep Raft running when the window closes": "关闭窗口后保持 Raft 运行",
   "Closing the window keeps messages and notifications connected. Open Raft or quit completely from its system tray icon.":
@@ -16,8 +16,8 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
       "Raft 连接时，会对新私信、直接提及和已关注消息串的回复弹出系统通知。",
   "To receive notifications in the background, turn off battery optimization for Raft.":
       "要在后台接收通知，请为 Raft 关闭电池优化。",
-  "Open battery settings": "打开电池设置",
-  "Close profile": "关闭资料",
+  "Open Battery Settings": "打开电池设置",
+  "Close Profile": "关闭资料",
   "Profile could not be loaded.": "无法加载资料。",
   "Create direct message": "创建私信",
   "Mention action failed. Try again.": "提及操作失败，请重试。",
@@ -26,18 +26,18 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Conversion complete. Invite another server from Joint Channels.":
       "转换完成。可在联合频道中邀请其他服务器。",
   "Conversion canceled. The original channel is available.": "转换已取消，原频道仍可使用。",
-  "Download original": "下载原文件",
+  "Download Original": "下载原文件",
   "Preview unavailable. Download the original file.": "无法预览，请下载原文件。",
   "Channel is no longer available": "该频道已不可用",
   "Reconnecting": "正在重新连接",
-  "Jump to beginning": "跳转到开头",
-  "Thread options": "消息列选项",
+  "Jump to Beginning": "跳转到开头",
+  "Thread Options": "消息列选项",
   "Following thread": "已关注消息列",
   "Thread notifications off": "消息列通知已关闭",
   "Loading thread settings…": "正在加载消息列设置…",
   "Joint channel conversion": "联合频道转换",
-  "Show direct message": "显示私信",
-  "Hide direct message": "隐藏私信",
+  "Show Direct Message": "显示私信",
+  "Hide Direct Message": "隐藏私信",
   "Enter one unique KEY=value per line.": "每行输入一个唯一的 KEY=value。",
   "Choices are unavailable. Retry after connecting the computer.":
       "无法获取可选项。请在连接计算机后重试。",
@@ -53,7 +53,7 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Invite method": "邀请方式",
   "Describe what this agent does": "描述此 Agent 的用途",
   "No reminders": "没有提醒",
-  "Hidden files": "隐藏文件",
+  "Hidden Files": "隐藏文件",
   "Preview truncated. Download the full file.": "预览已截断，请下载完整文件。",
   "First {count} rows": "前 {count} 行",
   "Pause": "暂停",
@@ -65,7 +65,7 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "You're on the latest version": "已是最新版本",
   "Last checked: {time}": "上次检查：{time}",
   "Checking for updates…": "正在检查更新…",
-  "Check for updates": "检查更新",
+  "Check for Updates": "检查更新",
   "Couldn't check for updates": "无法检查更新",
   "Not checked for updates yet": "尚未检查更新",
   "Update checks aren't available for this build": "此版本不支持检查更新",
@@ -74,9 +74,9 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Only the AppImage build can check for updates.": "只有 AppImage 版本可以检查更新。",
   "This is a development build without a CI build number.": "这是没有 CI 构建号的开发版本。",
   "This platform isn't updated from GitHub releases.": "此平台不通过 GitHub 发布更新。",
-  "Download update": "下载更新",
-  "Update now": "立即更新",
-  "View release": "查看发布",
+  "Download Update": "下载更新",
+  "Update Now": "立即更新",
+  "View Release": "查看发布",
   // Error and status copy with no Web counterpart (zh approved by the owner).
   "Join a channel before creating a task.": "创建任务前请先加入一个频道。",
   "Refresh Activity before marking this conversation done.": "请先刷新动态，再将此会话标为完成。",
@@ -119,10 +119,10 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "This file is no longer available.": "此文件已不可用。",
   "This audio may use a codec this app cannot play.": "此音频使用的编解码器可能无法在本应用中播放。",
   "The media could not be played.": "无法播放该媒体。",
-  "Network settings": "网络设置",
+  "Network Settings": "网络设置",
   // Documents the server would not preview: read the original or hand it to the system app (Kevin approved 2026-10-13).
-  "Open with system app": "用系统应用打开",
-  "Open full file": "打开完整文件",
+  "Open with System App": "用系统应用打开",
+  "Open Full File": "打开完整文件",
   "This file is too large to open here. Download it instead.": "文件太大，无法在此打开，请下载后查看。",
   "The file could not be downloaded. Try again.": "文件下载失败，请重试。",
   // Image viewer on phones (native-only: Web has no photo-library save; its
@@ -173,7 +173,7 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Restart Raft to finish updating.": "重启 Raft 以完成更新。",
   "Raft couldn't restart itself. Quit it and start it again to finish updating.":
       "Raft 无法自动重启，请退出后重新打开以完成更新。",
-  "Restart to finish": "重启以完成更新",
+  "Restart to Finish": "重启以完成更新",
   "Couldn't install the update": "更新安装失败",
   "Couldn't reach {host}. Check your connection and try again.":
       "无法连接 {host}，请检查网络后重试。",

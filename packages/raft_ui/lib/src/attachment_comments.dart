@@ -90,8 +90,8 @@ class RaftCommentAnchorChip extends StatelessWidget {
               child: RaftInteractive(
                 onPressed: onRemove,
                 semanticLabel:
-                    removeLabel ?? raftText(context, 'Remove anchor'),
-                tooltip: removeLabel ?? raftText(context, 'Remove anchor'),
+                    removeLabel ?? raftText(context, 'Remove Anchor'),
+                tooltip: removeLabel ?? raftText(context, 'Remove Anchor'),
                 builder: (_, state) => RaftIcon(
                   RaftGlyph.x,
                   size: 9,
@@ -193,8 +193,8 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
                           : RaftGlyph.chevronUp,
                       glyphSize: 10,
                       tooltip: sheet!.expanded
-                          ? 'Collapse comments'
-                          : 'Expand comments',
+                          ? 'Collapse Comments'
+                          : 'Expand Comments',
                       onPressed: sheet!.onToggle,
                     ),
                   ],
@@ -378,7 +378,7 @@ class _CommentCard extends StatelessWidget {
       onPressed: c.onJump,
       tooltip: c.quote?.isNotEmpty == true
           ? c.quote
-          : raftText(context, 'Jump to location'),
+          : raftText(context, 'Jump to Location'),
       builder: (_, state) => card(hovered: state.hovered),
     );
   }

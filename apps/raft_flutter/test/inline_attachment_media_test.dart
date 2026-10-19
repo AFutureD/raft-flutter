@@ -168,7 +168,7 @@ void main() {
         playerFactory: () => player,
       ),
     );
-    expect(find.text('Download to view'), findsOneWidget);
+    expect(find.text('Download to View'), findsOneWidget);
     // The header download action is hidden once the load failed; the
     // placeholder itself downloads.
     expect(find.byKey(const Key('audio-download')), findsNothing);

@@ -375,7 +375,7 @@ class ResourceSearchResults extends StatelessWidget {
     final action = !broad
         ? ('Retry', onRetry)
         : onSortRecent != null
-        ? ('Sort by newest', onSortRecent)
+        ? ('Sort by Newest', onSortRecent)
         : (null, null);
     return RaftQuickSwitcherErrorCard(
       title: raftText(context, title),

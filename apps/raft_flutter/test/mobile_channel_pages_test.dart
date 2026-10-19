@@ -65,7 +65,7 @@ void main() {
         final base = w.location;
         final pages = mobilePageEntries(w.navigation).length;
         for (var cycle = 0; cycle < 3; cycle++) {
-          await t.tap(find.byTooltip('Channel details and settings'));
+          await t.tap(find.byTooltip('Channel Details and Settings'));
           await t.pump();
           final context = t.element(find.byType(ChannelSettings));
           expect(ModalRoute.of(context)?.animation?.value, lessThan(1));
@@ -129,7 +129,7 @@ void main() {
           expect(find.byType(ChannelSettings), findsNothing);
           expect(t.takeException(), isNull);
         }
-        await t.tap(find.byTooltip('Channel details and settings'));
+        await t.tap(find.byTooltip('Channel Details and Settings'));
         await flush(t);
         await t.pumpAndSettle();
         await t.enterText(
@@ -180,7 +180,7 @@ void main() {
         await t.tap(find.text('Discard Changes'));
         await t.pumpAndSettle();
         expect(w.location.uri, base.uri);
-        await t.tap(find.byTooltip('Channel details and settings'));
+        await t.tap(find.byTooltip('Channel Details and Settings'));
         await flush(t);
         await t.pumpAndSettle();
         // A lost membership retires the settings route.

@@ -50,7 +50,7 @@ class _InputPreviewState extends State<_InputPreview> {
             child: RaftTooltip(
               message: 'Keyboard focus and activation work in both modes.',
               child: RaftButton(
-                label: 'Activate preview',
+                label: 'Activate Preview',
                 onPressed: () => setState(() => presses++),
               ),
             ),

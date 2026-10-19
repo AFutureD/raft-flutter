@@ -279,8 +279,8 @@ void main() {
       expect(chip.top, greaterThan(notice.bottom));
       expect(shell.top - chip.bottom, 8);
       // Web: media button, then file button.
-      expect(find.byTooltip('Attach media'), findsOneWidget);
-      expect(find.byTooltip('Attach file'), findsOneWidget);
+      expect(find.byTooltip('Attach Media'), findsOneWidget);
+      expect(find.byTooltip('Attach File'), findsOneWidget);
     },
   );
 

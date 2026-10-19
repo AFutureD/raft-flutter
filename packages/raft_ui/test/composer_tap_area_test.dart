@@ -74,7 +74,7 @@ void main() {
 
   testWidgets('buttons keep their own taps', (tester) async {
     final probe = await pumpComposer(tester);
-    await tester.tap(find.byTooltip('Attach file'));
+    await tester.tap(find.byTooltip('Attach File'));
     await tester.pump();
     expect(probe.attached, ['attach']);
     expect(editable(tester).focusNode.hasFocus, isFalse);

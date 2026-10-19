@@ -166,7 +166,7 @@ Future<void> mobileHome(WidgetTester tester) async {
     // HumanDetailPanel returns with its Source Close profile action.
     final profileClose = find.descendant(
       of: find.byType(MemberProfileView),
-      matching: find.byTooltip('Close profile'),
+      matching: find.byTooltip('Close Profile'),
     );
     // Actual metadata resolution can still be pending after settled frames.
     // Wait for its real unavailable Back action, rather than clicking a
@@ -1089,7 +1089,7 @@ void main() {
       );
       await screenshot(tester, 'linux-thread');
       final nativeReply = w.replies.singleWhere((m) => m.content == replyText);
-      await tester.tap(find.byTooltip('Close thread'));
+      await tester.tap(find.byTooltip('Close Thread'));
       await until(tester, () => w.messageDomain.state.threadParent == null);
       final inlineReply = find.byKey(
         ValueKey('inline-reply-${nativeReply.id}'),
@@ -1331,7 +1331,7 @@ void main() {
       expect(acceptedAssignment['task']['claimedById'], w.client.user!.id);
       expect(acceptedAssignment['task']['claimedByType'], 'user');
       await screenshot(tester, 'linux-task-assignee');
-      await tester.tap(find.byTooltip('Close task'));
+      await tester.tap(find.byTooltip('Close Task'));
       await until(
         tester,
         () => find.byKey(const ValueKey('task-thread-modal')).evaluate().isEmpty,
@@ -1516,7 +1516,7 @@ void main() {
         isTrue,
       );
       await screenshot(tester, 'linux-task-history');
-      await tester.tap(find.byTooltip('Close task'));
+      await tester.tap(find.byTooltip('Close Task'));
       await until(
         tester,
         () => find.byKey(const ValueKey('task-thread-modal')).evaluate().isEmpty,
@@ -1584,8 +1584,8 @@ void main() {
       // Open Chat through the actual rail before using its channel header.
       await section(tester, 'chat');
       await until(tester, () => w.section == 'chat' &&
-          find.bySemanticsLabel('Search this channel').evaluate().isNotEmpty);
-      await tester.tap(find.bySemanticsLabel('Search this channel'));
+          find.bySemanticsLabel('Search This Channel').evaluate().isNotEmpty);
+      await tester.tap(find.bySemanticsLabel('Search This Channel'));
       await tester.pumpAndSettle();
       final channelSearch = tester.widget<ResourceView>(
         find.byType(ResourceView),
@@ -1669,7 +1669,7 @@ void main() {
       final createdId = w.channel!.id;
       await verifyAttachmentFlow(tester, w, (name) => screenshot(tester, name));
       Future<void> openSettings() async {
-        await tester.tap(find.byTooltip('Channel settings'));
+        await tester.tap(find.byTooltip('Channel Settings'));
         await tester.pumpAndSettle();
         await until(
           tester,
@@ -1764,8 +1764,8 @@ void main() {
             w.channel?.archived == true,
       );
       await tester.pumpAndSettle();
-      if (find.byTooltip('Close channel settings').evaluate().isNotEmpty) {
-        await tester.tap(find.byTooltip('Close channel settings'));
+      if (find.byTooltip('Close Channel Settings').evaluate().isNotEmpty) {
+        await tester.tap(find.byTooltip('Close Channel Settings'));
       }
       await tester.pumpAndSettle();
       expect(
@@ -1869,7 +1869,7 @@ void main() {
       await tester.tap(find.text('Create invitation link'));
       await tester.pumpAndSettle();
       await tester.enterText(field('Maximum uses'), '1');
-      await tester.tap(find.widgetWithText(RaftButton, 'Create link'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Create Link'));
       await until(
         tester,
         () => find.text('Invitation link').evaluate().isNotEmpty,
@@ -1907,7 +1907,7 @@ void main() {
         await tester.pumpAndSettle();
         await until(tester, () => memberRow.hitTestable().evaluate().isNotEmpty);
         await tester.tap(memberRow);
-        final editRole = find.byTooltip('Edit role');
+        final editRole = find.byTooltip('Edit Role');
         await until(tester, () => editRole.hitTestable().evaluate().isNotEmpty);
         await screenshot(tester, 'linux-workspace-member-profile');
         await tester.tap(editRole);
@@ -1964,7 +1964,7 @@ void main() {
             tester,
             () => find.text('Credential hidden').evaluate().isNotEmpty,
           );
-          expect(find.text('Reveal credential'), findsOneWidget);
+          expect(find.text('Reveal Credential'), findsOneWidget);
           // Do not reveal/copy the real key during automated tests.
           await tester.tap(find.text('Close'));
         }
@@ -2006,9 +2006,9 @@ void main() {
         }
 
         if (computers) {
-          await detailAction('Edit computer');
+          await detailAction('Edit Computer');
         } else {
-          final edit = find.byTooltip('Edit display name');
+          final edit = find.byTooltip('Edit Display Name');
           await tester.ensureVisible(edit);
           await tester.tap(edit);
           await tester.pumpAndSettle();
@@ -2048,7 +2048,7 @@ void main() {
           computers ? 'linux-computer-details' : 'linux-agent-details',
         );
         if (!computers) {
-          final editRole = find.byTooltip('Edit role');
+          final editRole = find.byTooltip('Edit Role');
           await tester.ensureVisible(editRole);
           await tester.tap(editRole);
           await tester.pumpAndSettle();
@@ -2073,12 +2073,12 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(permissions);
           await tester.scrollUntilVisible(
-            find.widgetWithText(RaftButton, 'Save permissions'),
+            find.widgetWithText(RaftButton, 'Save Permissions'),
             180,
             scrollable: scopeScroll,
           );
           await tester.pumpAndSettle();
-          await tester.tap(find.widgetWithText(RaftButton, 'Save permissions'));
+          await tester.tap(find.widgetWithText(RaftButton, 'Save Permissions'));
           await until(
             tester,
             () => find.text('Agent permissions saved').evaluate().isNotEmpty,
@@ -2102,9 +2102,9 @@ void main() {
           await until(tester, () => dismissToast.evaluate().isNotEmpty);
           await tester.tap(dismissToast);
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('Restore default permissions'));
+          await tester.ensureVisible(find.text('Restore Default Permissions'));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Restore default permissions'));
+          await tester.tap(find.text('Restore Default Permissions'));
           tester.state<ScrollableState>(scopeScroll).position.jumpTo(0);
           await tester.pump(const Duration(milliseconds: 500));
           await until(
@@ -2138,7 +2138,7 @@ void main() {
         if (computers) {
           await detailAction('Delete Computer');
         } else {
-          final delete = find.widgetWithText(RaftButton, 'Delete Agent');
+          final delete = find.widgetWithText(RaftButton, 'Archive Agent');
           await tester.ensureVisible(delete);
           await tester.tap(delete);
           await tester.pumpAndSettle();
@@ -2290,8 +2290,8 @@ void main() {
       await w.selectChannel(general);
       await tester.pumpAndSettle();
 
-      if (find.byTooltip('Close thread').evaluate().isNotEmpty) {
-        await tester.tap(find.byTooltip('Close thread').first);
+      if (find.byTooltip('Close Thread').evaluate().isNotEmpty) {
+        await tester.tap(find.byTooltip('Close Thread').first);
       }
       await tester.pump();
       await openAccountSettings(tester);
@@ -2303,9 +2303,9 @@ void main() {
           key: w.client.user!.json[key],
       };
       try {
-        await tester.ensureVisible(find.text('Reading preferences'));
+        await tester.ensureVisible(find.text('Reading Preferences'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Reading preferences'));
+        await tester.tap(find.text('Reading Preferences'));
         await tester.pumpAndSettle();
         await tester.tap(
           find.byKey(const ValueKey('field-preferredTimeFormat')),

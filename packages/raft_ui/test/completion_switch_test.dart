@@ -153,7 +153,7 @@ void main() {
             timestamp: '09:41',
             badge: 'Agent',
             modelLabel: model,
-            threadLabel: 'Open thread',
+            threadLabel: 'Open Thread',
             onThread: () => threads++,
           ),
         ),
@@ -162,7 +162,7 @@ void main() {
     await render('Actual model');
     expect(find.text('Actual model'), findsOneWidget);
     expect(find.text('Agent'), findsOneWidget);
-    await tester.tap(find.text('Open thread'));
+    await tester.tap(find.text('Open Thread'));
     expect(threads, 1);
     await render(null);
     expect(find.text('Actual model'), findsNothing);

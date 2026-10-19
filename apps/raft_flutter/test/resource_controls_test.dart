@@ -141,9 +141,9 @@ void main() {
       w.inboxUnread = 1; // Mark all read shows only while something is unread.
       await mount(t, 'activity');
       expect(find.byTooltip('Filters'), findsNothing);
-      expect(find.byTooltip('Activity actions'), findsNothing);
-      expect(find.text('Unfollowed threads'), findsNothing);
-      expect(find.text('Group by channel'), findsNothing);
+      expect(find.byTooltip('Activity Actions'), findsNothing);
+      expect(find.text('Unfollowed Threads'), findsNothing);
+      expect(find.text('Group by Channel'), findsNothing);
       expect(find.text('All'), findsOneWidget);
       expect(find.text('Unread'), findsOneWidget);
       expect(find.text('Mentions'), findsOneWidget);
@@ -169,9 +169,9 @@ void main() {
         of: dialog,
         matching: find.byType(TextField),
       );
-      await t.enterText(search, 'Assigned to me');
+      await t.enterText(search, 'Assigned to Me');
       await t.pumpAndSettle();
-      await t.tap(find.widgetWithText(RaftMenuItem, 'Assigned to me'));
+      await t.tap(find.widgetWithText(RaftMenuItem, 'Assigned to Me'));
       await t.pumpAndSettle();
       await t.enterText(search, 'Unassigned');
       await t.pumpAndSettle();
@@ -226,25 +226,25 @@ void main() {
   ) async {
     await mount(t, 'search');
     expect(w.calls.where((r) => r.path == '/messages/search'), isEmpty);
-    await menu(t, 'Filter by channel', '#General');
+    await menu(t, 'Filter by Channel', '#General');
     expect(w.calls.last.query!['q'], '');
     expect(w.calls.last.query!['channelId'], 'c');
     expect(find.text('Authorized match'), findsOneWidget);
-    await menu(t, 'Filter by sender', 'Bob · Human');
+    await menu(t, 'Filter by Sender', 'Bob · Human');
     expect(w.calls.last.query!['senderId'], 'bob');
     expect(w.calls.last.query!.containsKey('senderType'), false);
-    await t.tap(find.byTooltip('Search scope'));
+    await t.tap(find.byTooltip('Search Scope'));
     await t.pumpAndSettle();
-    await t.tap(find.widgetWithText(RaftMenuItem, 'Mentions me'));
+    await t.tap(find.widgetWithText(RaftMenuItem, 'Mentions Me'));
     await t.sendKeyEvent(LogicalKeyboardKey.escape);
     await t.pumpAndSettle();
     expect(w.calls.last.query!['mentionTarget'], 'self');
-    await menu(t, 'Search date range', 'Today');
+    await menu(t, 'Search Date Range', 'Today');
     expect(w.calls.last.query!['after'], isA<String>());
     await t.enterText(find.byType(TextField), 'hello');
     await t.testTextInput.receiveAction(TextInputAction.done);
     await t.pumpAndSettle();
-    await menu(t, 'Sort search results', 'Recent');
+    await menu(t, 'Sort Search Results', 'Recent');
     expect(w.calls.last.query!['sort'], 'recent');
     expect(t.takeException(), isNull);
   });
@@ -256,10 +256,10 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is TaskSelectionFilter &&
-              widget.tooltip == 'Filter by sender',
+              widget.tooltip == 'Filter by Sender',
         ),
       );
-      await t.tap(find.byTooltip('Filter by sender'));
+      await t.tap(find.byTooltip('Filter by Sender'));
       await t.pumpAndSettle();
       expect(find.text('Bob · Human'), findsOneWidget);
       w.server = RaftRecord({'id': 's', 'role': 'guest'});
@@ -287,7 +287,7 @@ void main() {
       },
     ];
     await mount(t, 'activity');
-    await t.tap(find.byTooltip('Mark conversation done'));
+    await t.tap(find.byTooltip('Mark Conversation Done'));
     await t.pumpAndSettle();
     expect(c.mutations, isEmpty);
     expect(
@@ -313,14 +313,14 @@ void main() {
     await mount(t, 'search');
     await menu(
       t,
-      'Filter by channel',
+      'Filter by Channel',
       '#A very long accessible conversation name for the native filter menu',
     );
     expect(t.takeException(), isNull);
   });
   for (final special in [
-    ('Done conversations', '/channels/inbox/done'),
-    ('Unfollowed threads', '/channels/inbox/unfollowed'),
+    ('Done Conversations', '/channels/inbox/done'),
+    ('Unfollowed Threads', '/channels/inbox/unfollowed'),
   ]) {
     testWidgets(
       'Activity ${special.$1} protocol state returns to visible All with one click',
@@ -330,7 +330,7 @@ void main() {
         // historical terminal-view request remains a protocol contract; seed the
         // real ResourceView state without inventing an unsupported UI entry.
         final dynamic state = t.state(find.byType(ResourceView));
-        state.filter = special.$1 == 'Done conversations'
+        state.filter = special.$1 == 'Done Conversations'
             ? 'done'
             : 'unfollowed';
         await state.load();
@@ -392,7 +392,7 @@ void main() {
       await t.pumpAndSettle();
       expect(c.mutations.last.path, '/channels/threads/follow');
       expect(c.mutations.last.data, {'parentMessageId': 'p'});
-      await t.tap(find.byTooltip('Mark conversation done'));
+      await t.tap(find.byTooltip('Mark Conversation Done'));
       await t.pumpAndSettle();
       // Source inboxStore1427–1441 performs Done, starts a human-self read-all,
       // and owns one awaited refresh. Preserve the exact storage-domain write.
@@ -436,7 +436,7 @@ void main() {
       {'userId': 'bob', 'displayName': 'Private old Bob'},
     ]);
     await t.pumpAndSettle();
-    await t.tap(find.byTooltip('Filter by sender'));
+    await t.tap(find.byTooltip('Filter by Sender'));
     await t.pumpAndSettle();
     expect(find.textContaining('Private old Bob'), findsNothing);
     expect(t.takeException(), isNull);
@@ -629,7 +629,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('Mark done'), findsNothing);
-      expect(find.text('Close task'), findsNothing);
+      expect(find.text('Close Task'), findsNothing);
       expect(c.mutations, isEmpty);
     },
   );

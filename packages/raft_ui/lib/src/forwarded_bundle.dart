@@ -432,8 +432,8 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                             : raftFormat(
                                 context,
                                 items.length == 1
-                                    ? 'View all {count} message'
-                                    : 'View all {count} messages',
+                                    ? 'View All {count} Message'
+                                    : 'View All {count} Messages',
                                 {'count': items.length},
                               ),
                         onPressed: () => setState(() {

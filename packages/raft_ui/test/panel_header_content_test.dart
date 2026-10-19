@@ -59,7 +59,7 @@ void main() {
                       actions: [
                         RaftPanelIconButton(
                           glyph: RaftGlyph.x,
-                          tooltip: 'Close profile',
+                          tooltip: 'Close Profile',
                           onPressed: () => closes++,
                         ),
                       ],
@@ -100,8 +100,8 @@ void main() {
           final meta = t.widget<RaftCssText>(css('Product and UI decisions'));
           expect(heading.style!.fontFamily, 'packages/raft_ui/Inter');
           expect(meta.style!.fontFamily, 'packages/raft_ui/Geist');
-          await t.tap(find.bySemanticsLabel('Search this channel'));
-          await t.tap(find.bySemanticsLabel('Close profile'));
+          await t.tap(find.bySemanticsLabel('Search This Channel'));
+          await t.tap(find.bySemanticsLabel('Close Profile'));
           expect([searches, closes], [1, 1]);
           expect(t.takeException(), isNull);
         },
@@ -134,7 +134,7 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
-        await t.tap(find.bySemanticsLabel('Search this channel'));
+        await t.tap(find.bySemanticsLabel('Search This Channel'));
         expect(searches, 1);
         expect(t.takeException(), isNull);
       },

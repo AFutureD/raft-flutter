@@ -109,7 +109,7 @@ class _MediaBrowserPreviewState extends State<_MediaBrowserPreview> {
   Widget build(BuildContext context) => closed
       ? Center(
           child: RaftButton(
-            label: 'Open media',
+            label: 'Open Media',
             onPressed: () => setState(() => closed = false),
           ),
         )

@@ -543,7 +543,7 @@ void main() {
         ('Bold', '**'),
         ('Italic', '*'),
         ('Strikethrough', '~~'),
-        ('Inline code', '`'),
+        ('Inline Code', '`'),
       ]) {
         _setValue(tester, 'say hi now\nb\nc', 4, 6);
         await press(tester, tip);
@@ -607,9 +607,9 @@ void main() {
       await _open(tester);
       for (final (tip, expected) in [
         ('Quote', '> a\n> b\nc\nd'),
-        ('Bulleted list', '- a\n- b\nc\nd'),
-        ('Numbered list', '1. a\n2. b\nc\nd'),
-        ('Task list', '- [ ] a\n- [ ] b\nc\nd'),
+        ('Bulleted List', '- a\n- b\nc\nd'),
+        ('Numbered List', '1. a\n2. b\nc\nd'),
+        ('Task List', '- [ ] a\n- [ ] b\nc\nd'),
       ]) {
         _setValue(tester, 'a\nb\nc\nd', 0, 3);
         await press(tester, tip);
@@ -640,7 +640,7 @@ void main() {
       await tester.pumpWidget(_host(_Rig().composer(draft: 'a\nb\nc')));
       await _open(tester);
       _setValue(tester, 'a\nb\nc', 2, 3);
-      await press(tester, 'Code block');
+      await press(tester, 'Code Block');
       expect(_controller(tester).text, 'a\n```\nb\n```\n\nc');
       _setValue(tester, 'see docs', 4, 8);
       await press(tester, 'Link');
@@ -662,7 +662,7 @@ void main() {
       await press(tester, 'Mention');
       expect(_controller(tester).text, 'hi @');
       _setValue(tester, 'hi ', 3);
-      await press(tester, 'Channel or task');
+      await press(tester, 'Channel or Task');
       expect(_controller(tester).text, 'hi #');
     });
 
@@ -679,18 +679,18 @@ void main() {
         'Strikethrough',
         'Heading',
         'Quote',
-        'Bulleted list',
-        'Numbered list',
-        'Task list',
-        'Inline code',
-        'Code block',
+        'Bulleted List',
+        'Numbered List',
+        'Task List',
+        'Inline Code',
+        'Code Block',
         'Link',
         'Table',
         'Divider',
         'Mention',
-        'Channel or task',
-        'Hide preview',
-        'Collapse editor',
+        'Channel or Task',
+        'Hide Preview',
+        'Collapse Editor',
       ]) {
         expect(find.bySemanticsLabel(tip), findsWidgets, reason: tip);
       }

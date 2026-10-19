@@ -220,7 +220,7 @@ class SourceChannelFilesActions {
             titleBold: true,
             onClose: () => _close(route),
             footer: RaftTextButton(
-              label: raftText(context(), 'Download original'),
+              label: raftText(context(), 'Download Original'),
               glyph: RaftGlyph.download,
               onPressed: () => download(file),
             ),

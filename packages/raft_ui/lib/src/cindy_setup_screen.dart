@@ -244,7 +244,7 @@ class RaftCindySessionLink extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return RaftInteractive(
-      semanticLabel: raftText(context, 'Switch server'),
+      semanticLabel: raftText(context, 'Switch Server'),
       onPressed: onPressed,
       builder: (context, state) => CustomPaint(
         foregroundPainter: RaftCssFocusOutline(
@@ -254,7 +254,7 @@ class RaftCindySessionLink extends StatelessWidget {
         child: Opacity(
           opacity: state.enabled ? 1 : .5,
           child: RaftCssText(
-            raftText(context, 'Switch server'),
+            raftText(context, 'Switch Server'),
             underline: true,
             style: TextStyle(
               fontFamily: t.bodyFont,

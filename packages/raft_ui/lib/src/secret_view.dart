@@ -84,13 +84,13 @@ class _RaftSecretViewState extends State<RaftSecretView> {
           RaftTextButton(
             variant: RaftControlVariant.ghost,
             glyph: visible ? RaftGlyph.eyeOff : RaftGlyph.eye,
-            label: visible ? 'Hide credential' : 'Reveal credential',
+            label: visible ? 'Hide Credential' : 'Reveal Credential',
             onPressed: () => setState(() => visible = !visible),
           ),
           RaftTextButton(
             variant: RaftControlVariant.ghost,
             glyph: RaftGlyph.copy,
-            label: 'Copy credential',
+            label: 'Copy Credential',
             onPressed: copying
                 ? null
                 : () async {

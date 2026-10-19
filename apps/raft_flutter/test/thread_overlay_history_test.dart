@@ -370,7 +370,7 @@ void main() {
           index = w.navigation.index;
       expect(withTask.task?.toString(), 'c1:task-parent');
 
-      await t.tap(find.byTooltip('Close task').hitTestable().first);
+      await t.tap(find.byTooltip('Close Task').hitTestable().first);
       await frames(t, check: unchanged);
       expect(find.byType(SourceTaskSurface), findsNothing);
       expect(w.location, withTask.withQuery({'task': null}));
@@ -468,7 +468,7 @@ void main() {
             originEntries = w.navigation.entries.length;
         await t.tap(find.byKey(const Key('thread-options')).hitTestable());
         await frames(t);
-        await t.tap(find.text('View in channel').hitTestable());
+        await t.tap(find.text('View in Channel').hitTestable());
         await frames(t);
         // The replaced thread page stays live for the platform transition.
         await t.pump(const Duration(milliseconds: 500));

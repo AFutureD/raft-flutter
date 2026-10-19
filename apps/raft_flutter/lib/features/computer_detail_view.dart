@@ -426,7 +426,7 @@ class _ComputerDetailPanelState extends State<ComputerDetailPanel> {
           if (!value.success && canManage)
             RaftAgentDialogButton(
               key: const ValueKey('bulk-model-try-again'),
-              label: raftText(context, 'Try again'),
+              label: raftText(context, 'Try Again'),
               size: RaftButtonRecipeSize.sm,
               onPressed: () =>
                   _changeModels(value.unfinished.keys.toList(), retry: value),

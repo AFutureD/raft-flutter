@@ -341,7 +341,7 @@ void main() {
     await tester.tap(find.byTooltip('Preview image.png'));
     await hop(tester);
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byTooltip('Close preview'), findsOneWidget);
+    expect(find.byTooltip('Close Preview'), findsOneWidget);
     // One request in total, one url lookup for the original.
     expect(server.routes['/original']!.requests, 1);
     expect(m.client.urlReads, 1);
@@ -355,7 +355,7 @@ void main() {
     expect(find.text('3.0 / 4.0 MB'), findsOneWidget);
     expect(barValue(tester), closeTo(.75, 1e-9));
     // Leaving the viewer does not cancel what the timeline still waits for.
-    await tester.tap(find.byTooltip('Close preview'));
+    await tester.tap(find.byTooltip('Close Preview'));
     // The dialog fades out, then the route (and the viewer) is gone.
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
@@ -387,7 +387,7 @@ void main() {
       await tester.tap(find.byTooltip('Preview image.png'));
       await hop(tester);
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byTooltip('Close preview'), findsOneWidget);
+      expect(find.byTooltip('Close Preview'), findsOneWidget);
       expect(bars, findsOneWidget);
       expect(find.text('Connecting…'), findsOneWidget);
       server.routes['/original']!.chunk(mib);
@@ -397,7 +397,7 @@ void main() {
       expect(barValue(tester), closeTo(.25, 1e-9));
       expect(server.routes['/original']!.cancelled, isFalse);
       // Back out of the viewer: the original download is cancelled.
-      await tester.tap(find.byTooltip('Close preview'));
+      await tester.tap(find.byTooltip('Close Preview'));
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 400));
       await hop(tester);

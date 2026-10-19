@@ -97,7 +97,7 @@ void main() {
               await tester.pumpAndSettle();
               expect(
                 tester.getSemantics(_key('mcp-editor-test')).label,
-                contains('Test connection'),
+                contains('Test Connection'),
               );
               await tester.ensureVisible(_key('mcp-editor-save'));
               await tester.pumpAndSettle();

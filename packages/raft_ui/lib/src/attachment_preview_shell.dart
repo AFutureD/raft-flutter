@@ -137,7 +137,7 @@ class _RaftAttachmentPreviewShellState
             iconSlot: RaftFileTypeBadge(filename: widget.filename),
             iconAlwaysVisible: true,
             onBack: widget.onClose,
-            backTooltip: 'Close preview',
+            backTooltip: 'Close Preview',
             actions: actions,
           )
         : RaftLightboxHeader(

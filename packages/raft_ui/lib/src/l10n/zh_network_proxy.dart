@@ -5,9 +5,9 @@ const Map<String, String> zhCatalogNetworkProxy = <String, String>{
   'Proxy': '代理',
   'Choose how Raft reaches the network. Only HTTP proxies are supported.':
       '选择 Raft 如何连接网络。仅支持 HTTP 代理。',
-  'Use system proxy': '自动检测',
-  'Manual setup': '手动配置',
-  'No proxy': '不使用代理',
+  'Use System Proxy': '自动检测',
+  'Manual Setup': '手动配置',
+  'No Proxy': '不使用代理',
   'HTTP proxy host': 'HTTP 代理主机',
   'Port': '端口',
   'Username (optional)': '用户名（可选）',

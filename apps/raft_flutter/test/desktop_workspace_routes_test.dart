@@ -455,7 +455,7 @@ void main() {
           expect(t.takeException(), isNull);
         }
         // A real close action removes only the content slot and retains the master.
-        await t.tap(find.byTooltip('Close detail'));
+        await t.tap(find.byTooltip('Close Detail'));
         await t.pumpAndSettle();
         expect(w.location.content, isNull);
         expect(w.location.route.name, 'activity');
@@ -514,7 +514,7 @@ void main() {
         t.widget<TextField>(find.byType(TextField).first).controller!.text,
         'public',
       );
-      await t.tap(find.byTooltip('Close detail'));
+      await t.tap(find.byTooltip('Close Detail'));
       await t.pumpAndSettle();
       expect(find.byType(RaftChatView), findsNothing);
       expect(w.section, 'search');

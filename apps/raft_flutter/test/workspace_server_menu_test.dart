@@ -199,7 +199,7 @@ void main() {
           find.byKey(const ValueKey('invite-email-0')),
           ' invalid@.email ',
         );
-        await t.tap(find.text('Send invites'));
+        await t.tap(find.text('Send Invites'));
         await frames(t, () {});
         expect(posted, isEmpty);
         expect(find.text('Enter a valid email address'), findsOneWidget);
@@ -207,7 +207,7 @@ void main() {
           find.byKey(const ValueKey('invite-email-0')),
           ' person@example.com ',
         );
-        await t.tap(find.text('Send invites'));
+        await t.tap(find.text('Send Invites'));
         await frames(t, () {});
         await t.pumpAndSettle();
         expect(posted, [

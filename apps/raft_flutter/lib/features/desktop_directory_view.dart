@@ -176,8 +176,8 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
 
   Widget addAgentMenu() => RaftDropdownMenu(
     controller: agentMenu,
-    label: 'Add agent',
-    tooltip: 'Add agent',
+    label: 'Add Agent',
+    tooltip: 'Add Agent',
     width: 190,
     align: RaftDropdownAlign.end,
     sideOffset: 8,
@@ -201,8 +201,8 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     ],
     triggerBuilder: (context, focus, open) => RaftControl(
       key: const ValueKey('desktop-directory-add-agent'),
-      semanticLabel: raftText(context, 'Add agent'),
-      tooltip: raftText(context, 'Add agent'),
+      semanticLabel: raftText(context, 'Add Agent'),
+      tooltip: raftText(context, 'Add Agent'),
       focusNode: focus,
       visualHeight: 24,
       visualWidth: 24,

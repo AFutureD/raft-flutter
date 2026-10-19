@@ -105,7 +105,7 @@ void main() {
         await t.pumpAndSettle();
         await t.tap(find.byKey(const ValueKey('sidebar-channel-c')));
         await t.pumpAndSettle();
-        await t.tap(find.bySemanticsLabel('Search this channel'));
+        await t.tap(find.bySemanticsLabel('Search This Channel'));
         await t.pumpAndSettle();
         final entry = t.widget<ResourceView>(find.byType(ResourceView));
         expect(w.location.query('channelId'), 'c');

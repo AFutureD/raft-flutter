@@ -389,7 +389,7 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
               n.destination == SystemNoticeDestination.billing
                   ? 'Upgrade'
                   : n.destination == SystemNoticeDestination.feedback
-                  ? 'View feedback'
+                  ? 'View Feedback'
                   : 'View',
             ),
             primary: true,
@@ -527,10 +527,10 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
                 RaftMobileNotificationButton(
                   open: popup != null,
                   semanticLabel: store.entries.isEmpty
-                      ? raftText(context, 'Notification center')
+                      ? raftText(context, 'Notification Center')
                       : raftFormat(
                           context,
-                          'Notification center ({count} active)',
+                          'Notification Center ({count} active)',
                           {'count': store.entries.length},
                         ),
                   visualSize: widget.mobile ? 32 : 40,

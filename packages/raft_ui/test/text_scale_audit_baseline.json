@@ -44,10 +44,10 @@
     "overflow: A RenderFlex overflowed by 8.0 pixels on the right."
   ],
   "real|light|android-zh|selectionPopoverPreview|zh-1.3x": [
-    "overflow: A RenderFlex overflowed by 1.9 pixels on the right."
+    "overflow: A RenderFlex overflowed by 10 pixels on the right."
   ],
   "real|light|android-zh|selectionPopoverPreview|zh-2.0x": [
-    "overflow: A RenderFlex overflowed by 165 pixels on the right."
+    "overflow: A RenderFlex overflowed by 178 pixels on the right."
   ],
   "real|light|android-zh|sourcePhoneNotificationSettingsPreview|zh-2.0x": [
     "escapes: Stops notifications from Preview for your account. Other servers are unchanged.",

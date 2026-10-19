@@ -283,7 +283,7 @@ class _ThreadAgentFollowersViewState extends State<ThreadAgentFollowersView> {
                 removeLabel: roster?.canManage != true
                     ? null
                     : canRemove
-                    ? raftFormat(context, 'Remove {agent} from followers', {
+                    ? raftFormat(context, 'Remove {agent} from Followers', {
                         'agent': agent.label,
                       })
                     : raftFormat(

@@ -263,7 +263,7 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is RaftButton &&
-              widget.label == 'Open interactive preview in browser',
+              widget.label == 'Open Interactive Preview in Browser',
         ),
       );
       expect(button.onPressed, isNotNull);
@@ -587,9 +587,9 @@ void main() {
         find.textContaining('did not provide an isolated HTML preview'),
         findsOneWidget,
       );
-      expect(find.text('Download file'), findsOneWidget);
-      expect(find.text('Open interactive preview in browser'), findsNothing);
-      expect(find.text('Retry preview'), findsNothing);
+      expect(find.text('Download File'), findsOneWidget);
+      expect(find.text('Open Interactive Preview in Browser'), findsNothing);
+      expect(find.text('Retry Preview'), findsNothing);
     },
   );
   testWidgets(
@@ -603,9 +603,9 @@ void main() {
         find.textContaining('could not display the HTML preview'),
         findsOneWidget,
       );
-      expect(find.text('Open interactive preview in browser'), findsOneWidget);
-      expect(find.text('Download file'), findsOneWidget);
-      expect(find.text('Retry preview'), findsOneWidget);
+      expect(find.text('Open Interactive Preview in Browser'), findsOneWidget);
+      expect(find.text('Download File'), findsOneWidget);
+      expect(find.text('Retry Preview'), findsOneWidget);
     },
   );
   testWidgets(
@@ -637,9 +637,9 @@ void main() {
       await waitForHtmlCompletion(tester, () => loader.attempted);
       await tester.pumpAndSettle();
       expect(find.textContaining('too large for the in-app preview'), findsOneWidget);
-      expect(find.text('Retry preview'), findsNothing);
-      expect(find.text('Open interactive preview in browser'), findsOneWidget);
-      await tester.tap(find.text('Download file'));
+      expect(find.text('Retry Preview'), findsNothing);
+      expect(find.text('Open Interactive Preview in Browser'), findsOneWidget);
+      await tester.tap(find.text('Download File'));
       expect(downloads, 1);
     },
   );

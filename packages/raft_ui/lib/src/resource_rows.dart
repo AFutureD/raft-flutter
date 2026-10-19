@@ -110,7 +110,7 @@ class _RaftSavedToggleState extends State<RaftSavedToggle> {
     return Semantics(
       button: true,
       toggled: true,
-      label: raftText(context, widget.label ?? 'Remove saved message'),
+      label: raftText(context, widget.label ?? 'Remove Saved Message'),
       excludeSemantics: true,
       onTap: widget.onPressed,
       child: RaftHoverRegion(

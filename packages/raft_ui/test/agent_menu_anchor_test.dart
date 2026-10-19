@@ -25,7 +25,7 @@ void main() {
                       title: 'Agent',
                       actions: [
                         RaftOverflowMenuButton(
-                          tooltip: 'More actions',
+                          tooltip: 'More Actions',
                           entries: [
                             RaftMenuEntry(
                               label: 'Direct message',

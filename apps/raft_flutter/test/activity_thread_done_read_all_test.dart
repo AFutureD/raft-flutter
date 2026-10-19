@@ -89,7 +89,7 @@ class _MountedDone {
   }
 
   Future<void> click(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('Mark conversation done'));
+    await tester.tap(find.byTooltip('Mark Conversation Done'));
     await _dispatch(tester);
   }
 

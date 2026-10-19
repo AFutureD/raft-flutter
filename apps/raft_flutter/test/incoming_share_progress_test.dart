@@ -333,7 +333,7 @@ void main() {
               find.byKey(const Key('incoming-share-continue')),
             );
             expect(continueButton.onPressed, isNull);
-            await t.tap(find.byTooltip('Back to destinations'));
+            await t.tap(find.byTooltip('Back to Destinations'));
             await _advance(t);
             expect(find.text('Select destinations'), findsOneWidget);
           },

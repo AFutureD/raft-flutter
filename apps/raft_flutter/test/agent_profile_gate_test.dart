@@ -15,7 +15,7 @@ import 'package:raft_flutter/features/fleet_views.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'message_presentation_test.dart' show fixture;
+import 'message_presentation_test.dart' show MessageAdapter, fixture;
 import '../../../tool/testing/system_fonts.dart';
 
 void main() {
@@ -161,7 +161,7 @@ void main() {
       );
       expect(find.text('Activity'), findsOneWidget);
       expect(find.text('Copy Diagnostic Info'), findsOneWidget);
-      expect(find.text('Delete Agent'), findsOneWidget);
+      expect(find.text('Archive Agent'), findsOneWidget);
       expect(
         find.byKey(const Key('agent-profile-inline-start-stop')),
         findsOneWidget,
@@ -180,7 +180,7 @@ void main() {
       );
       expect(find.text('Activity'), findsNothing);
       expect(find.text('Copy Diagnostic Info'), findsNothing);
-      expect(find.text('Delete Agent'), findsNothing);
+      expect(find.text('Archive Agent'), findsNothing);
       expect(
         find.byKey(const Key('agent-profile-inline-start-stop')),
         findsOneWidget,
@@ -210,7 +210,7 @@ void main() {
         );
         expect(find.text('Stop Agent'), findsNothing);
         expect(find.text('Start Agent'), findsNothing);
-        expect(find.text('Delete Agent'), findsNothing);
+        expect(find.text('Archive Agent'), findsNothing);
         expect(find.text('Copy Diagnostic Info'), findsNothing);
       },
     );
@@ -224,13 +224,46 @@ void main() {
         agent: localAgent(creatorId: 'bob'),
       );
       expect(find.text('Activity'), findsOneWidget);
-      expect(find.text('Delete Agent'), findsOneWidget);
+      expect(find.text('Archive Agent'), findsOneWidget);
       expect(find.textContaining('Runtime Config'), findsOneWidget);
       expect(
         find.byKey(const Key('agent-profile-inline-start-stop')),
         findsOneWidget,
       );
     });
+
+    testWidgets(
+      'Archive Agent confirms in plain words and still calls DELETE',
+      (tester) async {
+        final api = await openFleet(
+          tester,
+          role: 'owner',
+          agent: localAgent(creatorId: 'bob'),
+        );
+        api.routes['DELETE /agents/bajie'] = (_) => <String, dynamic>{};
+        expect(find.text('Delete Agent'), findsNothing);
+        await tester.ensureVisible(find.text('Archive Agent'));
+        await tester.tap(find.text('Archive Agent'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            'Archive "八戒"? It stops working and leaves your active agents. '
+            'Its messages stay, and the app has no way to unarchive it.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Keep Agent'), findsOneWidget);
+        expect(api.calls.where((c) => c.method == 'DELETE'), isEmpty);
+        await tester.tap(find.text('Archive Agent').last);
+        await tester.pumpAndSettle();
+        expect(
+          api.calls.where(
+            (c) => c.method == 'DELETE' && c.path == '/agents/bajie',
+          ),
+          hasLength(1),
+        );
+      },
+    );
 
     testWidgets('elevated flags still cannot open a remote agent', (
       tester,
@@ -457,7 +490,7 @@ void expectPublicProfile(WidgetTester tester, {required String? from}) {
   expect(find.text('Stop Agent'), findsNothing);
   expect(find.text('Start Agent'), findsNothing);
   expect(find.text('Restart / Reset'), findsNothing);
-  expect(find.text('Delete Agent'), findsNothing);
+  expect(find.text('Archive Agent'), findsNothing);
   expect(find.text('Copy Diagnostic Info'), findsNothing);
   expect(find.text('Direct Message'), findsNothing);
   expect(find.text('No computer assigned'), findsNothing);
@@ -474,7 +507,7 @@ void expectPublicProfile(WidgetTester tester, {required String? from}) {
   }
 }
 
-Future<void> openFleet(
+Future<MessageAdapter> openFleet(
   WidgetTester tester, {
   required String role,
   required Map<String, dynamic> agent,
@@ -508,6 +541,7 @@ Future<void> openFleet(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
   await tester.pumpAndSettle();
+  return api;
 }
 
 Future<void> openMenu(

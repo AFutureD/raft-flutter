@@ -818,7 +818,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             : '${app?['name'] ?? app?['clientId'] ?? 'App'}',
       ),
       logoUrl: app?['logoUrl'] as String?,
-      closeLabel: tr('Close app form'),
+      closeLabel: tr('Close App Form'),
       onClose: widget.onClose,
       submitLabel: tr(
         submitting
@@ -1166,7 +1166,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
                   action: RaftSettingsRecipeButton(
                     label: webhookBusy == 'endpoint'
                         ? 'Saving...'
-                        : 'Save endpoint',
+                        : 'Save Endpoint',
                     size: small,
                     onPressed: busy || endpoint.text.trim().isEmpty
                         ? null
@@ -1184,7 +1184,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
                       RaftSettingsRecipeButton(
                         label: webhookBusy == 'rotate'
                             ? 'Rotating...'
-                            : 'Rotate secret',
+                            : 'Rotate Secret',
                         glyph: RaftGlyph.rotateCw,
                         glyphSize: 13,
                         size: small,
@@ -1317,10 +1317,10 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
                     children: [
                       RaftSettingsRecipeButton(
                         label: shareLoading
-                            ? 'Creating link…'
+                            ? 'Creating Link…'
                             : shareLink != null
                             ? 'Regenerate'
-                            : 'Create link',
+                            : 'Create Link',
                         size: small,
                         onPressed: shareLoading ? null : createShare,
                       ),
@@ -1360,7 +1360,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
               action: RaftSettingsRecipeButton(
                 label: savingId == '${app['id']}'
                     ? 'Requesting…'
-                    : 'Request publish',
+                    : 'Request Publish',
                 variant: RaftButtonRecipeVariant.accent,
                 size: small,
                 onPressed: savingId == '${app['id']}' ? null : requestPublish,

@@ -275,7 +275,7 @@ Future<void> closeViewer(WidgetTester tester, String how, String name) async {
   await tester.pump(const Duration(milliseconds: 700));
   switch (how) {
     case 'button':
-      await tapCentre(tester, find.byTooltip('Close preview'));
+      await tapCentre(tester, find.byTooltip('Close Preview'));
     case 'key':
       final host = await lab.host(tester, 'back');
       if (host == null) await tester.binding.handlePopRoute();

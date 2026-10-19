@@ -45,7 +45,7 @@ class _ProfileTabsAndCardPreviewState
               children: [
                 Text('Selected: $tab; saved: $saved'),
                 RaftButton(
-                  label: 'Save changes',
+                  label: 'Save Changes',
                   onPressed: () => setState(() => saved++),
                 ),
               ],

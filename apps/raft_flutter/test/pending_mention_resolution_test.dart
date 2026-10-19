@@ -136,7 +136,7 @@ void main() {
   ) async {
     await mount(t);
     w.answers['r2'] = 'dropped';
-    await t.tap(find.text('Add all'));
+    await t.tap(find.text('Add All'));
     await settle(t);
     expect(w.requests, ['add:r1,r2']);
     expect(find.text('@ann'), findsNothing);

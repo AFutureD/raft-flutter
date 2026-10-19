@@ -140,7 +140,7 @@ void main() {
       // Existing members are dropped from the suggestion.
       expect(find.text('Old agent'), findsNothing);
       expect(find.text('Member'), findsNothing);
-      expect(find.text('Add 2 members'), findsOneWidget);
+      expect(find.text('Add 2 Members'), findsOneWidget);
     });
 
     testWidgets('removing a row adds only the effective selection', (t) async {
@@ -158,8 +158,8 @@ void main() {
       expect(find.text('Product UX Designer'), findsNothing);
       // The Agents header stays while the agent candidate exists.
       expect(find.text('Agents'), findsOneWidget);
-      expect(find.text('Add 1 member'), findsOneWidget);
-      await t.tap(find.text('Add 1 member'));
+      expect(find.text('Add 1 Member'), findsOneWidget);
+      await t.tap(find.text('Add 1 Member'));
       await t.pumpAndSettle();
       expect(events, ['start']);
       expect(w.commands.single.$1, 'POST');
@@ -185,12 +185,12 @@ void main() {
         body: {'error': 'Boom'},
       );
       await open(t, (_) => dialog(failed: (e) => failed = e));
-      await t.tap(find.text('Add 2 members'));
+      await t.tap(find.text('Add 2 Members'));
       await t.pumpAndSettle();
       expect(failed, isA<RaftApiException>());
       expect(find.text('Boom'), findsOneWidget);
       expect(find.text('Add Members'), findsOneWidget);
-      expect(find.text('Add 2 members'), findsOneWidget);
+      expect(find.text('Add 2 Members'), findsOneWidget);
     });
 
     testWidgets('everyone already a member: nothing to add, submit disabled', (
@@ -329,7 +329,7 @@ void main() {
       await t.tap(find.byKey(const ValueKey('joint-create-submit')));
       await t.pumpAndSettle();
       expect(find.text('Unarchive'), findsOneWidget);
-      expect(find.text('Change name'), findsOneWidget);
+      expect(find.text('Change Name'), findsOneWidget);
       await t.tap(find.text('Unarchive'));
       await t.pumpAndSettle();
       expect(unarchived, 'old');

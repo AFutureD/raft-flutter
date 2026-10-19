@@ -46,7 +46,7 @@ void main() {
           expect(t.getCenter(back).dy, 56 / 2);
         }
         final title = name == 'dm'
-            ? 'Conversation settings'
+            ? 'Conversation Settings'
             : name == 'document'
             ? 'research.md'
             : '日本語・设计.png';
@@ -79,14 +79,14 @@ void main() {
           expect(t.widget<RaftSwitch>(find.byType(RaftSwitch)).value, isTrue);
           await t.tap(find.byType(RaftPanelAction));
           await t.pump();
-          expect(find.text('Open settings'), findsOneWidget);
+          expect(find.text('Open Settings'), findsOneWidget);
         } else {
-          await t.tap(find.text('Download original'));
+          await t.tap(find.text('Download Original'));
           await t.pump();
           expect(find.text('Download requested'), findsOneWidget);
           await t.sendKeyEvent(LogicalKeyboardKey.escape);
           await t.pump();
-          expect(find.text('Open preview'), findsOneWidget);
+          expect(find.text('Open Preview'), findsOneWidget);
         }
         expect(t.takeException(), isNull);
         await t.pumpWidget(const SizedBox.shrink());

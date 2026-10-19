@@ -380,24 +380,24 @@ void _loadOlderTests() {
     t,
   ) async {
     await mountWith(t, page(100, 50), page(50, 20));
-    expect(find.text('Load older messages'), findsOneWidget);
+    expect(find.text('Load Older Messages'), findsOneWidget);
     expect(find.text('Row 50'), findsNothing);
-    await t.tap(find.text('Load older messages'));
+    await t.tap(find.text('Load Older Messages'));
     await t.pumpAndSettle();
     expect(find.text('Row 50', skipOffstage: false), findsOneWidget);
-    expect(find.text('Load older messages'), findsNothing);
+    expect(find.text('Load Older Messages'), findsNothing);
   });
 
   testWidgets('an older page that comes back empty ends the button', (t) async {
     await mountWith(t, page(100, 50), const []);
-    await t.tap(find.text('Load older messages'));
+    await t.tap(find.text('Load Older Messages'));
     await t.pumpAndSettle();
-    expect(find.text('Load older messages'), findsNothing);
+    expect(find.text('Load Older Messages'), findsNothing);
     expect(find.text('Row 100', skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('a channel with a short history never offers it', (t) async {
     await mountWith(t, page(100, 12), const []);
-    expect(find.text('Load older messages'), findsNothing);
+    expect(find.text('Load Older Messages'), findsNothing);
   });
 }

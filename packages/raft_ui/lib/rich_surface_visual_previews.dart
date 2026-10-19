@@ -191,7 +191,7 @@ class _SurfaceFixtureState extends State<_SurfaceFixture> {
       'lightbox' =>
         !lightboxOpen
             ? RaftButton(
-                label: 'Open preview',
+                label: 'Open Preview',
                 onPressed: () => setState(() => lightboxOpen = true),
               )
             : RaftAttachmentLightbox(
@@ -209,7 +209,7 @@ class _SurfaceFixtureState extends State<_SurfaceFixture> {
                   ),
                 ),
                 footer: RaftTextButton(
-                  label: 'Download original',
+                  label: 'Download Original',
                   glyph: RaftGlyph.download,
                   onPressed: () =>
                       setState(() => result = 'Download requested'),

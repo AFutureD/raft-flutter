@@ -379,7 +379,7 @@ void main() {
             evaluation.complete(flag(enabled));
             await tester.pumpAndSettle();
             expect(find.byTooltip('Filters'), findsNothing);
-            expect(find.text('Unfollowed threads'), findsNothing);
+            expect(find.text('Unfollowed Threads'), findsNothing);
             if (!enabled) {
               expect(find.byType(RaftActivityScopeToolbar), findsNothing);
               expect(find.byType(RaftSegmentedControl<String>), findsOneWidget);
@@ -448,7 +448,7 @@ void main() {
               find.byKey(const ValueKey('activity-channel-done-channel')),
               findsOneWidget,
             );
-            expect(find.byTooltip('Restore conversation'), findsOneWidget);
+            expect(find.byTooltip('Restore Conversation'), findsOneWidget);
             expect(find.text('5 active · 2 unread'), findsOneWidget);
             expect(
               find.byKey(const ValueKey('activity-switcher-dialog')),
@@ -465,7 +465,7 @@ void main() {
             await select('saved');
             expect(find.text('Accepted saved result'), findsOneWidget);
             expect(
-              find.byTooltip('Mark conversation done'),
+              find.byTooltip('Mark Conversation Done'),
               findsNothing,
               reason: 'Source Saved activity rows have doneAction=none.',
             );

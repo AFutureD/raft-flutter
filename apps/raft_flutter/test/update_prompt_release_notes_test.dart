@@ -157,7 +157,7 @@ void main() {
         expect(find.text(text), findsNothing, reason: text);
       }
       expect(_toggle, findsOneWidget);
-      expect(find.text('3 more updates'), findsOneWidget);
+      expect(find.text('3 More Updates'), findsOneWidget);
       // The notes come before the buttons: readable before updating.
       expect(_top(t, 'Nine notes'), lessThan(t.getTopLeft(_action).dy));
       await t.ensureVisible(_toggle);
@@ -184,11 +184,11 @@ void main() {
       ];
       expect(order, orderedEquals([...order]..sort()));
       expect(_top(t, 'Six notes'), lessThan(t.getTopLeft(_action).dy));
-      expect(find.text('Show fewer'), findsOneWidget);
+      expect(find.text('Show Fewer'), findsOneWidget);
       await t.tap(_toggle);
       await t.pumpAndSettle();
       expect(find.text('Eight notes'), findsNothing);
-      expect(find.text('3 more updates'), findsOneWidget);
+      expect(find.text('3 More Updates'), findsOneWidget);
       expect(notes.requests, hasLength(1));
       expect(t.takeException(), isNull);
       await t.pumpWidget(const SizedBox());
@@ -281,9 +281,9 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('two versions say "1 more update" in both languages', (t) async {
+  testWidgets('two versions say "1 More Update" in both languages', (t) async {
     for (final (locale, text) in [
-      (const Locale('en'), '1 more update'),
+      (const Locale('en'), '1 More Update'),
       (const Locale('zh'), '还有 1 个版本的更新'),
     ]) {
       final service = _service(_Notes(), installed: 'v0.1.0+7');

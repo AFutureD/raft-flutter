@@ -151,7 +151,7 @@ void main() {
           final beforeTaskClose = Map<String, String>.from(
             w.location.uri.queryParameters,
           );
-          await tester.tap(find.byTooltip('Close task'));
+          await tester.tap(find.byTooltip('Close Task'));
           await tester.pump();
           expect(
             w.location.uri.queryParameters,

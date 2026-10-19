@@ -58,7 +58,7 @@ void main() {
         final rosterReads = api.calls
             .where((r) => r.path == '/channels/c1/members')
             .length;
-        await t.tap(find.byTooltip('Channel details and settings'));
+        await t.tap(find.byTooltip('Channel Details and Settings'));
         await t.pump();
         expect(
           ModalRoute.of(t.element(find.byType(ChannelSettings)))

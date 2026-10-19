@@ -246,10 +246,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Preview private.png'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Close preview'), findsOneWidget);
+    expect(find.byTooltip('Close Preview'), findsOneWidget);
     w.revokeServer('server');
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Close preview'), findsNothing);
+    expect(find.byTooltip('Close Preview'), findsNothing);
     expect(
       tester
           .widget<RaftAttachmentCard>(find.byType(RaftAttachmentCard))
@@ -304,11 +304,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Preview private.png'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Close preview'), findsOneWidget);
+      expect(find.byTooltip('Close Preview'), findsOneWidget);
       w.messageDomain.visibleIds['channel'] = {};
       w.notifyListeners();
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Close preview'), findsNothing);
+      expect(find.byTooltip('Close Preview'), findsNothing);
       expect(
         PaintingBinding.instance.imageCache.containsKey(MemoryImage(bytes)),
         false,
@@ -418,10 +418,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Preview private.png'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Close preview'), findsOneWidget);
+    expect(find.byTooltip('Close Preview'), findsOneWidget);
     show.value = false;
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Close preview'), findsNothing);
+    expect(find.byTooltip('Close Preview'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     show.dispose();

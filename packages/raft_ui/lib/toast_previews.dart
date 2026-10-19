@@ -30,7 +30,7 @@ class _ToastPreviewState extends State<_ToastPreview> {
             label: 'Copy MD',
             onPressed: () => controller.show('Copied Markdown'),
           ),
-          RaftButton(label: 'Clear feedback', onPressed: controller.clear),
+          RaftButton(label: 'Clear Feedback', onPressed: controller.clear),
           const Text('Hover feedback to pause its five-second timeout.'),
         ],
       ),

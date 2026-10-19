@@ -116,7 +116,7 @@ void main() {
         final mute = find.byKey(const Key('inline-video-mute'));
         await tester.tap(mute);
         await tester.pump();
-        expect(find.bySemanticsLabel(RegExp('Unmute video')), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp('Unmute Video')), findsOneWidget);
         final seek = find.byKey(const Key('inline-video-seek'));
         final rail = tester.getRect(seek);
         final strip = find.byKey(const ValueKey('lightbox-thumbnails'));

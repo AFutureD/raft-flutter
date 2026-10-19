@@ -372,7 +372,7 @@ void main() {
                   TextField(focusNode: editorFocus),
                   RaftComposerTaskToggle(
                     checked: checked,
-                    label: 'As task',
+                    label: 'As Task',
                     onChanged: (value) {
                       calls++;
                       update(() => checked = value);
@@ -420,8 +420,8 @@ void main() {
               RaftConversationHeaderActions(
                 onSearch: () => searches++,
                 onSettings: () => settings++,
-                searchLabel: 'Search conversation',
-                settingsLabel: 'Conversation settings',
+                searchLabel: 'Search Conversation',
+                settingsLabel: 'Conversation Settings',
               ),
               const SizedBox(
                 width: 180,

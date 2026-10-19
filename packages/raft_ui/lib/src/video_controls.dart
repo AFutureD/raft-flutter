@@ -312,7 +312,7 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
   Widget build(BuildContext context) {
     final playLabel = raftFormat(
       context,
-      widget.playing ? 'Pause video {filename}' : 'Play video {filename}',
+      widget.playing ? 'Pause Video {filename}' : 'Play Video {filename}',
       {'filename': widget.filename},
     );
     return Semantics(
@@ -541,7 +541,7 @@ class _RaftVideoControlBarState extends State<RaftVideoControlBar> {
         '${raftAudioTimestamp(bounded)} / ${raftAudioTimestamp(widget.duration)}';
     const box = 48.0;
     final muted = widget.volume <= 0;
-    final openLabel = raftFormat(context, 'Open {filename} in preview', {
+    final openLabel = raftFormat(context, 'Open {filename} in Preview', {
       'filename': widget.filename,
     });
     Widget button({
@@ -651,8 +651,8 @@ class _RaftVideoControlBarState extends State<RaftVideoControlBar> {
                           label: raftFormat(
                             context,
                             muted
-                                ? 'Unmute video {filename}'
-                                : 'Mute video {filename}',
+                                ? 'Unmute Video {filename}'
+                                : 'Mute Video {filename}',
                             {'filename': widget.filename},
                           ),
                           onTap: widget.onMute,
@@ -667,8 +667,8 @@ class _RaftVideoControlBarState extends State<RaftVideoControlBar> {
                         label: raftFormat(
                           context,
                           widget.fullscreen
-                              ? 'Exit full screen {filename}'
-                              : 'Full screen {filename}',
+                              ? 'Exit Full Screen {filename}'
+                              : 'Full Screen {filename}',
                           {'filename': widget.filename},
                         ),
                         onTap: widget.onFullscreen,

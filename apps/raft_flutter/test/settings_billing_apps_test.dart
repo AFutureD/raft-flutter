@@ -348,7 +348,7 @@ void main() {
     testWidgets('a scheduled cancellation offers reactivation', (t) async {
       await mount(t, _pro(cancelAtPeriodEnd: true));
       expect(find.byKey(const ValueKey('billing-cancel')), findsNothing);
-      expect(find.text('Reactivate subscription'), findsOneWidget);
+      expect(find.text('Reactivate Subscription'), findsOneWidget);
       expect(
         find.text('Billing interval: Yearly · cancellation scheduled'),
         findsOneWidget,
@@ -659,7 +659,7 @@ void main() {
       );
       expect(find.text('App detail'), findsOneWidget);
       expect(find.text('example.com'), findsOneWidget);
-      expect(find.text('Install to this server'), findsOneWidget);
+      expect(find.text('Install to This Server'), findsOneWidget);
       final before = a.calls
           .where((c) => c.path == '/integrations/marketplace')
           .length;
@@ -722,7 +722,7 @@ void main() {
       );
       await t.tap(find.byKey(const ValueKey('connected-app-slack')));
       await t.pumpAndSettle();
-      expect(find.text('Install to this server'), findsNothing);
+      expect(find.text('Install to This Server'), findsNothing);
       expect(
         a.calls.where((c) => c.method != 'GET' && !c.path.startsWith('/auth')),
         isEmpty,

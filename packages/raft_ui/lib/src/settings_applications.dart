@@ -272,7 +272,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
                 ),
                 (
                   RaftConnectedAppsTab.myApps,
-                  'My apps',
+                  'My Apps',
                   counts.myApps,
                   'my-apps',
                 ),
@@ -691,14 +691,14 @@ class _LayoutToggle extends StatelessWidget {
           RaftConnectedAppsLayout.grid,
           RaftGlyph.layoutGrid,
           16.0,
-          'Grid view',
+          'Grid View',
           'grid',
         ),
         (
           RaftConnectedAppsLayout.list,
           RaftGlyph.list,
           17.0,
-          'List view',
+          'List View',
           'list',
         ),
       ])

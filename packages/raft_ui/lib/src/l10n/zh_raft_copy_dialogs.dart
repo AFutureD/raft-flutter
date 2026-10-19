@@ -87,9 +87,9 @@ const Map<String, String> zhCatalogRaftCopyDialogs = <String, String>{
   "Uninstall {name}": "卸载 {name}",
   "Update Seats": "更新席位",
   "Verify Connection": "验证连接",
-  "Delete \"{name}\"? This removes the Raft agent identity, credentials, and associated Raft data. It will not stop, uninstall, or clean up the external runtime, local profile, or harness.": "删除“{name}”？这会移除 Raft Agent 身份、凭据以及相关 Raft 数据。它不会停止、卸载或清理外部运行时、本地 profile 或 harness。",
-  "Delete \"{name}\"? This removes all associated data and cannot be undone.":
-      "删除“{name}”？这会删除所有关联数据，且无法撤销。",
+  "Archive \"{name}\"? It leaves your active agents and stops working in Raft, and the app has no way to unarchive it. The external runtime, local profile, and harness are not stopped or cleaned up.": "归档“{name}”？它会从你的活跃 Agent 中移除，并在 Raft 中停止工作；应用内无法取消归档。外部运行时、本地 profile 和 harness 不会被停止或清理。",
+  "Archive \"{name}\"? It stops working and leaves your active agents. Its messages stay, and the app has no way to unarchive it.":
+      "归档“{name}”？它会停止工作，并从你的活跃 Agent 中移除。它的消息会保留；应用内无法取消归档。",
   "Stop \"{name}\"? The agent will stop processing messages.":
       "停止“{name}”？该 Agent 将停止处理消息。",
   "The invite to {email} will be revoked. They will no longer be able to join using this invite link.":

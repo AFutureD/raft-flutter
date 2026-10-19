@@ -159,13 +159,13 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
               link(
                 const Key('inline-video-network-settings'),
                 RaftGlyph.network,
-                'Network settings',
+                'Network Settings',
                 widget.onNetworkSettings,
               ),
             link(
               const Key('inline-video-download'),
               RaftGlyph.download,
-              'Download to view',
+              'Download to View',
               widget.onDownload,
             ),
           ],
@@ -197,7 +197,7 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
       tokens: rt,
     ).action;
     final width = MediaQuery.sizeOf(context).width;
-    final openLabel = raftFormat(context, 'Open {filename} in preview', {
+    final openLabel = raftFormat(context, 'Open {filename} in Preview', {
       'filename': widget.filename,
     });
     final Widget fallback = switch (widget.state) {
@@ -399,7 +399,7 @@ class RaftVideoPosterCard extends StatelessWidget {
     );
     final screen = MediaQuery.sizeOf(context);
     final maxWidth = (screen.width - 112).clamp(0, maxCardWidth).toDouble();
-    final label = raftFormat(context, 'Play video {filename}', {
+    final label = raftFormat(context, 'Play Video {filename}', {
       'filename': filename,
     });
     return Align(
@@ -744,13 +744,13 @@ class RaftInlineAudio extends StatelessWidget {
                         failedAction(
                           const Key('audio-network-settings'),
                           RaftGlyph.network,
-                          'Network settings',
+                          'Network Settings',
                           onNetworkSettings,
                         ),
                       failedAction(
                         const Key('audio-placeholder'),
                         RaftGlyph.download,
-                        'Download to view',
+                        'Download to View',
                         onDownload,
                       ),
                     ],
@@ -799,7 +799,7 @@ class RaftInlineAudio extends StatelessWidget {
                         spacing: 6,
                         children: [
                           const RaftIcon(RaftGlyph.download, size: 13),
-                          Text(raftText(context, 'Download to view')),
+                          Text(raftText(context, 'Download to View')),
                         ],
                       )
                     : Text(loadingLabel),
@@ -993,7 +993,7 @@ class _AudioPlayer extends StatelessWidget {
         '${raftAudioTimestamp(bounded)} / ${raftAudioTimestamp(duration)}';
     final playLabel = raftFormat(
       context,
-      playing ? 'Pause audio {filename}' : 'Play audio {filename}',
+      playing ? 'Pause Audio {filename}' : 'Play Audio {filename}',
       {'filename': filename},
     );
     return Container(

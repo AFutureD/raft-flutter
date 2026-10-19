@@ -62,7 +62,7 @@ class _DialogPreviewState extends State<_DialogPreview> {
       mainAxisSize: MainAxisSize.min,
       children: [
         RaftButton(
-          label: widget.alert ? 'Open alert dialog' : 'Open dialog',
+          label: widget.alert ? 'Open Alert Dialog' : 'Open Dialog',
           onPressed: open,
         ),
         const SizedBox(height: 16),

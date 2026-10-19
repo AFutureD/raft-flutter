@@ -491,7 +491,7 @@ void main() {
           final before = '${w.location.uri}';
           final calls = api.calls.length;
           if (remove) {
-            await t.tap(find.bySemanticsLabel('Remove saved message'));
+            await t.tap(find.bySemanticsLabel('Remove Saved Message'));
           } else {
             await t.tap(find.byKey(const ValueKey('saved-parent')));
           }

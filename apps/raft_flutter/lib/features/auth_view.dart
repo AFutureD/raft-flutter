@@ -431,7 +431,7 @@ class _AuthState extends State<AuthView> {
         // client takes the link or code here. Pinned over the page bottom so
         // the Web composition keeps its geometry.
         overlayLink: RaftAuthTextLink(
-          label: tr('I have a reset link'),
+          label: tr('I Have a Reset Link'),
           onTap: () => switchMode('reset'),
         ),
       );

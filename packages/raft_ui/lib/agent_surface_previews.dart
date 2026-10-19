@@ -69,7 +69,7 @@ class _AgentSurfacePreviewState extends State<AgentSurfacePreview> {
         RaftAgentDialogFooter(
           children: [
             RaftButton(
-              label: caller ? 'Use recipe' : 'Use capacity caller',
+              label: caller ? 'Use Recipe' : 'Use Capacity Caller',
               onPressed: () => setState(() => caller = !caller),
             ),
             RaftAgentDialogButton(

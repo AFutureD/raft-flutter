@@ -189,8 +189,8 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                 value: tab,
                 label: raftText(context, 'Invite method'),
                 items: const [
-                  ('email', null, 'By email'),
-                  ('link', null, 'By link'),
+                  ('email', null, 'By Email'),
+                  ('link', null, 'By Link'),
                 ],
                 onChanged: (v) => setState(() => tab = v),
               ),
@@ -218,7 +218,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                   key: const ValueKey('invite-send'),
                   label: sending
                       ? raftText(context, 'Sending…')
-                      : raftText(context, 'Send invites'),
+                      : raftText(context, 'Send Invites'),
                   glyph: RaftGlyph.mail,
                   glyphSize: 14,
                   variant: RaftButtonRecipeVariant.accent,
@@ -303,7 +303,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                     glyphSize: 14,
                     variant: RaftButtonRecipeVariant.danger,
                     size: RaftButtonRecipeSize.iconXs,
-                    tooltip: raftFormat(context, 'Remove invitee {index}', {
+                    tooltip: raftFormat(context, 'Remove Invitee {index}', {
                       'index': index + 1,
                     }),
                     onPressed: () => setState(() => invitees.remove(invitee)),
@@ -369,7 +369,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
               glyph: link.copied ? RaftGlyph.check : RaftGlyph.copy,
               glyphSize: 14,
               size: RaftButtonRecipeSize.iconMd,
-              tooltip: raftText(context, 'Copy invite link'),
+              tooltip: raftText(context, 'Copy Invite Link'),
               disabled: link.url == null || link.loading,
               onPressed: widget.onCopyLink,
             ),
@@ -428,7 +428,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
             ),
             RaftRecipeButton(
               key: const ValueKey('invite-link-apply'),
-              label: raftText(context, 'Update link'),
+              label: raftText(context, 'Update Link'),
               size: RaftButtonRecipeSize.sm,
               disabled: link.loading,
               onPressed: widget.onApplyLink == null

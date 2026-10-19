@@ -656,7 +656,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       RaftForwardPageHeader(
         leading: RaftForwardIconAction(
           glyph: RaftGlyph.arrowLeft,
-          tooltip: raftText(context, 'Back to destinations'),
+          tooltip: raftText(context, 'Back to Destinations'),
           onPressed: busy ? cancel : () => setState(() => review = false),
         ),
         title: raftText(context, 'Add shared content'),

@@ -475,7 +475,7 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
             ? true
             // ignore: raft_lints/avoid_render_index_assertion -- Channel pair rows always carry both ids (the pair editor and parse fill them).
             : _pairsValid && pairs.every((pair) => _isMember(p, pair['slackChannelId']!))),
-        finishLabel: editingMappings ? 'Apply mapping changes' : 'Save mappings and enable',
+        finishLabel: editingMappings ? 'Apply Mapping Changes' : 'Save Mappings and Enable',
         finishEnabled: (editingMappings && pairs.isEmpty
                 ? true
                 // ignore: raft_lints/avoid_render_index_assertion -- Channel pair rows always carry both ids (the pair editor and parse fill them).

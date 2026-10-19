@@ -31,8 +31,8 @@ class _State extends State<_Preview> {
             hint:
                 'Whether notifications appear is decided by the system: on Android, Settings → Apps → Raft → Notifications. With Do Not Disturb or a Focus mode on, the system may delay or silence notifications.',
             actionLabel: enabled
-                ? 'Send test notification'
-                : 'Enable notifications',
+                ? 'Send Test Notification'
+                : 'Enable Notifications',
             actionTone: enabled
                 ? RaftButtonRecipeVariant.success
                 : RaftButtonRecipeVariant.accent,
@@ -53,7 +53,7 @@ class _State extends State<_Preview> {
             message: sent
                 ? 'Test notification posted to the system. If no banner appeared, allow notifications for Raft in System Settings → Notifications, then try again.'
                 : null,
-            actionLabel: 'Send a test notification',
+            actionLabel: 'Send a Test Notification',
             onAction: () => setState(() => sent = true),
             muted: false,
           ),

@@ -411,7 +411,7 @@ void main() {
       'https://hooks.example/raft',
     );
     await t.pump();
-    await t.tap(find.text('Save endpoint'));
+    await t.tap(find.text('Save Endpoint'));
     await t.pumpAndSettle();
     expect(find.text('whsec_once'), findsOneWidget);
   });

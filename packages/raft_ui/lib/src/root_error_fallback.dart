@@ -132,7 +132,7 @@ class RaftRootErrorFallback extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: RaftButton(
                       key: const ValueKey('root-error-reload'),
-                      label: raftText(context, 'Reload app'),
+                      label: raftText(context, 'Reload App'),
                       variant: RaftControlVariant.accent,
                       size: RaftButtonRecipeSize.md,
                       onPressed: onReload,

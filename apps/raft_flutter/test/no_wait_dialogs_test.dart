@@ -86,7 +86,7 @@ void main() {
     );
     expect(inDialog('Dana'), findsOneWidget);
     expect(inDialog('Bob'), findsNothing);
-    expect(find.text('Add 2 members'), findsOneWidget);
+    expect(find.text('Add 2 Members'), findsOneWidget);
     expect(find.textContaining('Nothing to add'), findsNothing);
   });
 
@@ -135,7 +135,7 @@ void main() {
 
     await openInvite();
     await frames(t, 20);
-    await t.tap(find.text('By link'));
+    await t.tap(find.text('By Link'));
     await frames(t, 4);
     expect(find.textContaining('tok123'), findsWidgets);
     await t.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -143,7 +143,7 @@ void main() {
     api.hangAll = true;
     await openInvite();
     await frames(t, 4);
-    await t.tap(find.text('By link'));
+    await t.tap(find.text('By Link'));
     await frames(t, 4);
     expect(
       find.textContaining('tok123'),

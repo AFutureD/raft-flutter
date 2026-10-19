@@ -65,7 +65,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('中文と日本語', findRichText: true), findsOneWidget);
-        await tester.tap(find.text('Open interactive preview in browser'));
+        await tester.tap(find.text('Open Interactive Preview in Browser'));
         expect(interactive, 1);
         await tester.tap(find.text('Reference', findRichText: true));
         expect(opened, 'https://example.com');

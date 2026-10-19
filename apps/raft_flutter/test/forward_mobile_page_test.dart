@@ -145,7 +145,7 @@ void main() {
           expect(find.byType(ForwardComposerPage), findsOneWidget);
           expect(find.text('Select destinations'), findsOneWidget);
           expect(find.text('1 selected from #general'), findsOneWidget);
-          expect(find.text('Select multiple'), findsOneWidget);
+          expect(find.text('Select Multiple'), findsOneWidget);
           expect(find.text('Recent'), findsOneWidget);
           expect(find.byType(RaftCheckbox), findsNothing);
           // @Cindy (newest), then #design; the source channel is a target too.
@@ -185,7 +185,7 @@ void main() {
         t,
       ) async {
         await _open(t, dark: dark);
-        await t.tap(find.text('Select multiple'));
+        await t.tap(find.text('Select Multiple'));
         await t.pumpAndSettle();
         expect(find.text('0 selected'), findsOneWidget);
         expect(find.byType(RaftCheckbox), findsNWidgets(3));

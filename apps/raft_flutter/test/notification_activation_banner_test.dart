@@ -133,7 +133,7 @@ void main() {
             ),
             findsOneWidget,
           );
-          final enable = find.text(chinese ? '开启通知' : 'Enable notifications');
+          final enable = find.text(chinese ? '开启通知' : 'Enable Notifications');
           await t.ensureVisible(enable);
           await t.tap(enable);
           await turn(t);
@@ -224,7 +224,7 @@ void main() {
       );
       await t.pumpWidget(host(child(), s));
       await turn(t);
-      await t.tap(find.text('Enable notifications'));
+      await t.tap(find.text('Enable Notifications'));
       await turn(t);
       expect(p.requests, 1);
       expect(s.permitted, isFalse);
@@ -319,7 +319,7 @@ void main() {
         ),
       );
       await turn(t);
-      await t.tap(find.text('Enable notifications'));
+      await t.tap(find.text('Enable Notifications'));
       await turn(t);
       expect(find.text('Enabling…'), findsOneWidget);
       expect(p.requests, 1);

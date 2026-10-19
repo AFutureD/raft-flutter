@@ -18,7 +18,7 @@ void main() {
         home: Scaffold(
           body: Center(
             child: RaftSidebarSectionDialog(
-              title: 'New section',
+              title: 'New Section',
               submitLabel: 'Create section',
               initialEmoji: initialEmoji,
               onClose: () {},

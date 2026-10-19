@@ -115,7 +115,7 @@ void main() {
           expect(states.last['updates'], isFalse);
           await t.tap(
             find.byWidgetPredicate(
-              (widget) => widget is RaftButton && widget.label == 'Try again',
+              (widget) => widget is RaftButton && widget.label == 'Try Again',
             ),
           );
           await t.pumpAndSettle();

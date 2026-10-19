@@ -285,8 +285,8 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
                     child: RaftShowMoreToggle(
                       key: const ValueKey('agent-channels-show-all'),
                       label: expanded
-                          ? raftText(context, 'Show fewer')
-                          : raftFormat(context, 'Show all {count} channels', {
+                          ? raftText(context, 'Show Fewer')
+                          : raftFormat(context, 'Show All {count} Channels', {
                               'count': widget.channels.length,
                             }),
                       onPressed: () => setState(() => expanded = !expanded),

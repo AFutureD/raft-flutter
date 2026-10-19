@@ -73,7 +73,7 @@ void main() {
                   .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
                   .owner;
               if (cycle.isEven) {
-                await t.tap(find.byTooltip('Close task'));
+                await t.tap(find.byTooltip('Close Task'));
               } else {
                 await t.binding.handlePopRoute();
               }

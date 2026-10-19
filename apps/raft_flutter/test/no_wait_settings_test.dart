@@ -173,13 +173,13 @@ void main() {
   group('provider dialogs open before their data arrives', () {
     final cases = <(String, String, String, String)>[
       (
-        'Assigned agents',
+        'Assigned Agents',
         'Agents using Provider fixture',
         'agents',
         'Loading agents…',
       ),
       (
-        'Verification history',
+        'Verification History',
         'Provider verification history',
         'history',
         'Loading verification history…',

@@ -261,9 +261,9 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
             ? RaftThreadPresentation.mobileModal
             : RaftThreadPresentation.modal,
         threadLabel: raftText(context, 'Thread'),
-        backLabel: raftText(context, 'Close task'),
-        closeLabel: raftText(context, 'Close task'),
-        jumpLabel: raftText(context, 'Jump to beginning'),
+        backLabel: raftText(context, 'Close Task'),
+        closeLabel: raftText(context, 'Close Task'),
+        jumpLabel: raftText(context, 'Jump to Beginning'),
         onBack: widget.onBack ?? widget.onClose,
         onClose: widget.onClose,
       );
@@ -299,7 +299,7 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
                 mobile || widget.page ? RaftMetrics.touchTarget : 0,
               ),
               child: RaftTooltip(
-                message: raftText(context, 'Close task'),
+                message: raftText(context, 'Close Task'),
                 excludeFromSemantics: true,
                 child: RaftRecipeButton(
                   key: const ValueKey('task-back'),
@@ -309,7 +309,7 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
                   size: RaftButtonRecipeSize.iconSm,
                   glyph: RaftGlyph.arrowLeft,
                   glyphSize: 14,
-                  tooltip: 'Close task',
+                  tooltip: 'Close Task',
                   onPressed: widget.legacy
                       ? widget.onClose
                       : widget.onBack ?? widget.onClose,
@@ -355,11 +355,11 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
             // Web `CloseButton` (brutal: bordered, white, shadow-brutal-sm);
             // icon-only, so it carries its name as a tooltip.
             RaftTooltip(
-              message: raftText(context, 'Close task'),
+              message: raftText(context, 'Close Task'),
               excludeFromSemantics: true,
               child: RaftCloseButton(
                 key: const ValueKey('task-close'),
-                tooltip: 'Close task',
+                tooltip: 'Close Task',
                 onPressed: widget.onClose,
               ),
             ),
@@ -450,7 +450,7 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
                     ),
                     if (long)
                       RaftTextButton(
-                        label: descriptionExpanded ? 'Collapse' : 'Show more',
+                        label: descriptionExpanded ? 'Collapse' : 'Show More',
                         onPressed: () => setState(
                           () => descriptionExpanded = !descriptionExpanded,
                         ),

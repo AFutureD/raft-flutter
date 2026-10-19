@@ -119,7 +119,7 @@ void main() {
         ),
       );
       await tester.enterText(find.byType(TextField), '你好 日本語');
-      await tester.tap(find.byTooltip('Attach file'));
+      await tester.tap(find.byTooltip('Attach File'));
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);

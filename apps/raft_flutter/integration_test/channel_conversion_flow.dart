@@ -70,7 +70,7 @@ Future<void> verifyChannelConversionFlow(
     final enabled = evaluations.any(
       (f) => f['key'] == channelConversionFlag && f['enabled'] == true,
     );
-    await _tap(tester, find.byTooltip('Channel settings'));
+    await _tap(tester, find.byTooltip('Channel Settings'));
     await _until(
       tester,
       () =>

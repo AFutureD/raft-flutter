@@ -505,7 +505,7 @@ class _FleetViewState extends State<FleetView> {
             child: TextButton.icon(
               onPressed: managed,
               icon: const RaftIcon(RaftGlyph.bot, size: 14),
-              label: Text(raftText(context, 'Create managed agent')),
+              label: Text(raftText(context, 'Create Managed Agent')),
             ),
           ),
         ),
@@ -992,7 +992,7 @@ class _FleetDetailState extends State<FleetDetail> {
       () => allowed(cap),
       form: true,
       (_) => RaftFormDialog(
-        title: widget.computers ? 'Edit computer' : 'Edit agent',
+        title: widget.computers ? 'Edit Computer' : 'Edit Agent',
         fields: [
           RaftFormField(
             widget.computers ? 'name' : 'displayName',
@@ -1079,21 +1079,22 @@ class _FleetDetailState extends State<FleetDetail> {
   Future<void> remove() async {
     bool removed = false;
     if (!widget.computers) {
-      // AgentDetailPanel `ConfirmDialog` "Delete Agent" (external agents get
-      // their own copy: the external runtime is left alone).
+      // AgentDetailPanel `ConfirmDialog` (Web: "Delete Agent"; the Raft Design
+      // System names it Archive Agent: the server soft-deletes via deletedAt).
+      // External agents get their own copy: the external runtime is left alone.
       final name = nonEmptyOr(row['displayName'], row['name']);
       await webConfirm(
-        title: raftText(context, 'Delete Agent'),
+        title: raftText(context, 'Archive Agent'),
         message: raftFormat(
           context,
           external
-              ? 'Delete "{name}"? This removes the Raft agent identity, credentials, and associated Raft data. It will not stop, uninstall, or clean up the external runtime, local profile, or harness.'
-              : 'Delete "{name}"? This removes all associated data and cannot be undone.',
+              ? 'Archive "{name}"? It leaves your active agents and stops working in Raft, and the app has no way to unarchive it. The external runtime, local profile, and harness are not stopped or cleaned up.'
+              : 'Archive "{name}"? It stops working and leaves your active agents. Its messages stay, and the app has no way to unarchive it.',
           {'name': name},
         ),
-        confirmLabel: raftText(context, 'Delete Agent'),
+        confirmLabel: raftText(context, 'Archive Agent'),
         cancelLabel: raftText(context, 'Keep Agent'),
-        loadingLabel: raftText(context, 'Deleting…'),
+        loadingLabel: raftText(context, 'Archiving…'),
         variant: RaftButtonRecipeVariant.danger,
         operation: () async {
           require('deleteAgents');
@@ -1105,16 +1106,16 @@ class _FleetDetailState extends State<FleetDetail> {
       return;
     }
     await confirm(
-      widget.computers ? 'Delete Computer' : 'Delete Agent',
+      widget.computers ? 'Delete Computer' : 'Archive Agent',
       widget.computers
           ? 'Disconnect this computer from the server. Its agents can no longer use this connection.'
-          : 'Delete this agent and stop its managed runtime. This cannot be undone.',
+          : 'Archive this agent and stop its managed runtime.',
       () async {
         require(widget.computers ? 'removeMachines' : 'deleteAgents');
         await w.command('DELETE', base);
         removed = true;
       },
-      submit: widget.computers ? 'Delete Computer' : 'Delete Agent',
+      submit: widget.computers ? 'Delete Computer' : 'Archive Agent',
       cancel: widget.computers ? 'Keep Computer' : 'Keep Agent',
       destructive: true,
     );

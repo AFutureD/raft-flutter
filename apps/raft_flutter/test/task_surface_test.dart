@@ -120,7 +120,7 @@ void main() {
           ),
           isEmpty,
         );
-        await t.tap(find.byTooltip('Close task'));
+        await t.tap(find.byTooltip('Close Task'));
         await flush(t);
         expect(find.byType(SourceTaskSurface), findsNothing);
         expect(t.takeException(), isNull);
@@ -146,7 +146,7 @@ void main() {
             .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
             .owner;
         expect(find.byType(RaftComposer), findsOneWidget);
-        await t.tap(find.byTooltip('Close task'));
+        await t.tap(find.byTooltip('Close Task'));
         await flush(t);
         replies.complete({
           'messages': [row('private-late', 'task-thread', 1)],

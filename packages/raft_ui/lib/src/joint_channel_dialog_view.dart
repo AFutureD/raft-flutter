@@ -202,7 +202,7 @@ class RaftCreateJointChannelDialogView extends StatelessWidget {
                       const SizedBox(width: 12), // gap-3
                       RaftRecipeButton(
                         key: const ValueKey('joint-add-server'),
-                        label: 'Add server',
+                        label: 'Add Server',
                         glyph: RaftGlyph.plus,
                         glyphSize: 14,
                         gap: 4,
@@ -319,7 +319,7 @@ class _InviteCard extends StatelessWidget {
                   variant: RaftButtonRecipeVariant.danger,
                   size: RaftButtonRecipeSize.sm,
                   padding: const EdgeInsets.all(4),
-                  tooltip: raftFormat(context, 'Remove server invite {n}', {
+                  tooltip: raftFormat(context, 'Remove Server Invite {n}', {
                     'n': index + 1,
                   }),
                   disabled: submitting,

@@ -54,12 +54,12 @@ void main() {
         expect(copied, 1);
         await tester.tap(find.byTooltip('More'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Generate image'));
+        await tester.tap(find.text('Generate Image'));
         await tester.pumpAndSettle();
         expect(find.text('Actual content'), findsOneWidget);
         await tester.tap(find.text('Save Image'));
         expect(saved, 1);
-        await tester.tap(find.byTooltip('Close preview'));
+        await tester.tap(find.byTooltip('Close Preview'));
         await tester.pumpAndSettle();
         expect(selected, 3);
         await tester.tap(find.byTooltip('Cancel'));

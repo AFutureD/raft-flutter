@@ -418,7 +418,7 @@ class RaftAttachmentCard extends StatelessWidget {
                     ),
                     if (!exportMode && onRetry != null)
                       RaftTextButton(
-                        label: 'Retry preview',
+                        label: 'Retry Preview',
                         onPressed: onRetry,
                         variant: RaftControlVariant.ghost,
                       ),

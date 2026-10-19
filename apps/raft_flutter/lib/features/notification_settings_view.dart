@@ -441,7 +441,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
             : desktopHint(context, platform),
         error: error ?? (service.canOpenSettings ? service.error : null),
         message: testPosted ? testSentMessage(context, platform) : null,
-        actionLabel: 'Send a test notification',
+        actionLabel: 'Send a Test Notification',
         actionTone: RaftButtonRecipeVariant.success,
         onAction: blocked || unavailable
             ? null
@@ -464,7 +464,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: RaftButton(
-              label: 'Open notification settings',
+              label: 'Open Notification Settings',
               tone: RaftButtonRecipeVariant.outline,
               size: RaftButtonRecipeSize.sm,
               onPressed: blocked
@@ -496,7 +496,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
       notice: showBatteryNotice
           ? 'To receive notifications in the background, turn off battery optimization for Raft.'
           : null,
-      noticeActionLabel: 'Open battery settings',
+      noticeActionLabel: 'Open Battery Settings',
       onNoticeAction: () => unawaited(battery.openSettings()),
       error: error ?? service.backgroundError ?? service.error,
       message: testPosted
@@ -510,8 +510,8 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
           ? () => unawaited(load())
           : null,
       actionLabel: service.enabled
-          ? 'Send test notification'
-          : 'Enable notifications',
+          ? 'Send Test Notification'
+          : 'Enable Notifications',
       actionTone: service.enabled
           ? RaftButtonRecipeVariant.success
           : RaftButtonRecipeVariant.accent,
@@ -554,7 +554,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: RaftButton(
-            label: 'Open notification settings',
+            label: 'Open Notification Settings',
             tone: RaftButtonRecipeVariant.outline,
             size: RaftButtonRecipeSize.sm,
             onPressed: blocked || unavailable

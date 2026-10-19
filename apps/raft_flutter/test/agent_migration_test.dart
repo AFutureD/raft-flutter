@@ -195,7 +195,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('not enabled'), findsOneWidget);
       expect(find.text('Move Agent'), findsNothing);
-      expect(find.text('Assign computer'), findsNothing);
+      expect(find.text('Assign Computer'), findsNothing);
     },
   );
   Future<(_MigrationTransport, WorkspaceController)> mount(
@@ -535,13 +535,13 @@ void main() {
         );
         // Technical details are collapsed until opened.
         expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsNothing);
-        await tester.tap(find.text('Technical details'));
+        await tester.tap(find.text('Technical Details'));
         await tester.pump();
         expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsOneWidget);
         // The reference shows on a failure, with a copy action.
         expect(find.text('Migration ID'), findsOneWidget);
         expect(find.text('fixture-ref'), findsOneWidget);
-        expect(find.text('Try migration again'), findsOneWidget);
+        expect(find.text('Try Migration Again'), findsOneWidget);
         expect(find.text('Cancel Migration'), findsNothing);
       },
     );
@@ -606,7 +606,7 @@ void main() {
       );
       expect(find.text('Migration to Target needs attention'), findsOneWidget);
       expect(find.text("Cancellation couldn't finish"), findsOneWidget);
-      await tester.tap(find.text('Technical details'));
+      await tester.tap(find.text('Technical Details'));
       await tester.pump();
       expect(find.textContaining('CLEANUP_TIMEOUT'), findsOneWidget);
       expect(find.text('Migration ID'), findsOneWidget);
@@ -815,9 +815,9 @@ void main() {
         find.textContaining('Source does not support Codex CLI.'),
         findsOneWidget,
       );
-      expect(find.text('Open computer settings'), findsOneWidget);
+      expect(find.text('Open Computer Settings'), findsOneWidget);
       // The submit action now reads Try again.
-      expect(find.widgetWithText(RaftButton, 'Try again'), findsOneWidget);
+      expect(find.widgetWithText(RaftButton, 'Try Again'), findsOneWidget);
       expect(_moveSubmit, findsNothing);
     });
 
@@ -865,7 +865,7 @@ void main() {
       expect(find.text('Move Agent'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await mount(tester, state: 'failed');
-      expect(find.text('Try migration again'), findsOneWidget);
+      expect(find.text('Try Migration Again'), findsOneWidget);
     });
 
     testWidgets('a status read failure is a banner and keeps Move', (

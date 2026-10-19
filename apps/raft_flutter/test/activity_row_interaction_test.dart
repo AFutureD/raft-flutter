@@ -33,7 +33,7 @@ void main() {
                             visualSize: 28,
                             minimumTargetSize: 28,
                             glyph: RaftGlyph.check,
-                            tooltip: 'Mark conversation done',
+                            tooltip: 'Mark Conversation Done',
                             onPressed: () => completed++,
                           ),
                           child: Row(

@@ -41,7 +41,7 @@ void main() {
       expect(tester.getSize(find.byType(ClipRect).last).height, 700);
       await tester.pumpAndSettle();
       expect(find.text('Collapse'), findsOneWidget);
-      expect(find.text('Show more'), findsNothing);
+      expect(find.text('Show More'), findsNothing);
       expect(tester.getTopLeft(find.text('Reading line')), top);
       expect(tester.takeException(), isNull);
     },
@@ -50,7 +50,7 @@ void main() {
   testWidgets('a read message starts collapsed', (tester) async {
     await tester.pumpWidget(frame(initiallyExpanded: false, height: 700));
     await tester.pumpAndSettle();
-    expect(find.text('Show more'), findsOneWidget);
+    expect(find.text('Show More'), findsOneWidget);
     expect(tester.getSize(find.byType(ClipRect).last).height, 320);
     expect(tester.takeException(), isNull);
   });
@@ -73,7 +73,7 @@ void main() {
       expect(tester.getTopLeft(find.text('Reading line')), top);
       expect(tester.getSize(find.byType(ClipRect).last).height, 700);
       expect(find.text('Collapse'), findsOneWidget);
-      expect(find.text('Show more'), findsNothing);
+      expect(find.text('Show More'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -97,7 +97,7 @@ void main() {
       await tester.tap(find.text('Collapse'));
       await tester.pumpAndSettle();
       expect(seen, [false]);
-      expect(find.text('Show more'), findsOneWidget);
+      expect(find.text('Show More'), findsOneWidget);
       expect(tester.getSize(find.byType(ClipRect).last).height, 320);
 
       await tester.pumpWidget(
@@ -110,7 +110,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(seen, [false]);
-      expect(find.text('Show more'), findsOneWidget);
+      expect(find.text('Show More'), findsOneWidget);
       expect(tester.getSize(find.byType(ClipRect).last).height, 320);
       expect(tester.takeException(), isNull);
     },
@@ -140,7 +140,7 @@ void main() {
     await tester.pumpAndSettle();
     final top = tester.getTopLeft(find.text('Reading line'));
     expect(find.text('Below the fold').hitTestable(), findsNothing);
-    await tester.tap(find.text('Show more'));
+    await tester.tap(find.text('Show More'));
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Reading line')), top);
     expect(tester.getSize(find.byType(ClipRect).last).height, 700);

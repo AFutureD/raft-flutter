@@ -270,7 +270,7 @@ class RaftInviteAcceptPage extends StatelessWidget {
           RaftAuthWideButton(
             key: const ValueKey('invite-join'),
             label: accepting
-                ? tr('Joining server…')
+                ? tr('Joining Server…')
                 : tr(invite.hasAgreement ? 'Agree & Join' : 'Join Server'),
             variant: RaftControlVariant.accent,
             onPressed: accepting ? null : onJoin,

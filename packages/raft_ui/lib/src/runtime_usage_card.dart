@@ -154,7 +154,7 @@ class RaftRuntimeUsageSurface extends StatelessWidget {
               const SizedBox(width: 12),
               RaftCloseButton(
                 onPressed: onClose,
-                tooltip: 'Close runtime usage',
+                tooltip: 'Close Runtime Usage',
               ),
             ],
           ),

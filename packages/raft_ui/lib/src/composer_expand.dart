@@ -86,7 +86,7 @@ class RaftComposerExpandable extends StatelessWidget {
                 child: RaftComposerToolButton(
                   key: const ValueKey('composer-expand'),
                   glyph: RaftGlyph.maximize2,
-                  tooltip: 'Expand editor',
+                  tooltip: 'Expand Editor',
                   face: _face,
                   framed: true,
                   prominent: true,
@@ -203,13 +203,13 @@ class RaftComposerFormatToolbar extends StatelessWidget {
                     gap,
                     b(
                       RaftGlyph.list,
-                      'Bulleted list',
+                      'Bulleted List',
                       (v) => RaftMarkdownFormat.linePrefix(v, '- '),
                     ),
                     gap,
                     b(
                       RaftGlyph.listOrdered,
-                      'Numbered list',
+                      'Numbered List',
                       (v) => RaftMarkdownFormat.linePrefix(
                         v,
                         '1. ',
@@ -219,20 +219,20 @@ class RaftComposerFormatToolbar extends StatelessWidget {
                     gap,
                     b(
                       RaftGlyph.listChecks,
-                      'Task list',
+                      'Task List',
                       (v) => RaftMarkdownFormat.linePrefix(v, '- [ ] '),
                     ),
                     sep(),
                     b(
                       RaftGlyph.code,
-                      'Inline code',
+                      'Inline Code',
                       (v) =>
                           RaftMarkdownFormat.wrap(v, '`', placeholder: 'code'),
                     ),
                     gap,
                     b(
                       RaftGlyph.terminal,
-                      'Code block',
+                      'Code Block',
                       RaftMarkdownFormat.codeBlock,
                     ),
                     gap,
@@ -262,7 +262,7 @@ class RaftComposerFormatToolbar extends StatelessWidget {
                     gap,
                     b(
                       RaftGlyph.hash,
-                      'Channel or task',
+                      'Channel or Task',
                       (v) => RaftMarkdownFormat.trigger(v, '#'),
                     ),
                   ],
@@ -274,7 +274,7 @@ class RaftComposerFormatToolbar extends StatelessWidget {
               RaftComposerToolButton(
                 key: const ValueKey('composer-preview-toggle'),
                 glyph: preview! ? RaftGlyph.eye : RaftGlyph.eyeOff,
-                tooltip: preview! ? 'Hide preview' : 'Show preview',
+                tooltip: preview! ? 'Hide Preview' : 'Show Preview',
                 on: preview!,
                 onPressed: onPreview,
               ),
@@ -477,7 +477,7 @@ class _RaftComposerExpandedViewState extends State<RaftComposerExpandedView> {
       variant: RaftButtonRecipeVariant.ghost,
       size: RaftButtonRecipeSize.iconSm,
       glyph: RaftGlyph.minimize2,
-      tooltip: raftText(context, 'Collapse editor'),
+      tooltip: raftText(context, 'Collapse Editor'),
       onPressed: widget.onCollapse,
       foreground: t.colors['foreground-muted'],
     );

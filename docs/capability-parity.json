@@ -391,7 +391,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/forward_composer_page.dart",
-     "needle": "Select multiple"
+     "needle": "Select Multiple"
     }
    ],
    "justification": "Flutter joins un-joined public channels silently on Send; Web shows a 'Join selected public channels' banner/button and a confirm-on-second-Send step, and shows a Joint-channel exposure warning banner ('Joint channel destinations may expose this forwarded snapshot...'). Neither banner exists in Flutter (grep finds no such strings).",
@@ -415,7 +415,7 @@
     },
     {
      "file": "packages/raft_ui/lib/src/composer_pending_mentions.dart",
-     "needle": "'Add all'"
+     "needle": "'Add All'"
     }
    ],
    "justification": "",
@@ -726,7 +726,7 @@
    "flutterRefs": [
     {
      "file": "packages/raft_ui/lib/src/collapsible.dart",
-     "needle": "'Show more'"
+     "needle": "'Show More'"
     },
     {
      "file": "apps/raft_flutter/lib/features/channel_settings.dart",
@@ -778,7 +778,7 @@
    "flutterRefs": [
     {
      "file": "packages/raft_ui/lib/src/composer_attachments.dart",
-     "needle": "'Retry uploading {file}'"
+     "needle": "'Retry Uploading {file}'"
     },
     {
      "file": "apps/raft_flutter/lib/features/chat_view.dart",
@@ -837,11 +837,11 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/pending_mention_actions.dart",
-     "needle": "'Dismiss delivery warning'"
+     "needle": "'Dismiss Delivery Warning'"
     },
     {
      "file": "apps/raft_flutter/lib/features/pending_mention_actions.dart",
-     "needle": "'Dismiss unnotified mention warning'"
+     "needle": "'Dismiss Unnotified Mention Warning'"
     }
    ],
    "justification": "",
@@ -1241,7 +1241,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/forward_composer_page.dart",
-     "needle": "Select multiple"
+     "needle": "Select Multiple"
     },
     {
      "file": "apps/raft_flutter/lib/features/forward_composer_page.dart",
@@ -1280,7 +1280,7 @@
    "flutterRefs": [
     {
      "file": "packages/raft_ui/lib/src/forwarded_bundle.dart",
-     "needle": "'View all {count} messages'"
+     "needle": "'View All {count} Messages'"
     }
    ],
    "justification": "",
@@ -1328,7 +1328,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/chat_view.dart",
-     "needle": "'Reply in thread'"
+     "needle": "'Reply in Thread'"
     }
    ],
    "justification": "",
@@ -1376,7 +1376,7 @@
     },
     {
      "file": "packages/raft_ui/lib/src/message_body.dart",
-     "needle": "'Copy code'"
+     "needle": "'Copy Code'"
     }
    ],
    "justification": "",
@@ -1400,7 +1400,7 @@
     },
     {
      "file": "packages/raft_ui/lib/src/mermaid_fullscreen.dart",
-     "needle": "'Close fullscreen'"
+     "needle": "'Close Fullscreen'"
     }
    ],
    "justification": "",
@@ -1692,7 +1692,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/chat_view.dart",
-     "needle": "'Show translation'"
+     "needle": "'Show Translation'"
     },
     {
      "file": "apps/raft_flutter/lib/features/chat_view.dart",
@@ -1891,7 +1891,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "'Mark conversation done'"
+     "needle": "'Mark Conversation Done'"
     }
    ],
    "justification": "",
@@ -1939,7 +1939,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "'Restore conversation'"
+     "needle": "'Restore Conversation'"
     }
    ],
    "justification": "",
@@ -2071,11 +2071,11 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/thread_actions.dart",
-     "needle": "'Search in thread'"
+     "needle": "'Search in Thread'"
     },
     {
      "file": "apps/raft_flutter/lib/features/thread_actions.dart",
-     "needle": "'View in channel'"
+     "needle": "'View in Channel'"
     }
    ],
    "justification": "",
@@ -2183,10 +2183,10 @@
    "status": "covered",
    "webEntry": "channelStore.ensureChannel (ChannelRoute, notification click, search result) | readReceiptStore.fetchScope (background)",
    "gate": "",
-      "flutterEntry": "channel_repository.dart refreshChannel() via controller facade; workspace_presentation.dart resolveConversationChannel() for unknown/deep-link channels",
+   "flutterEntry": "channel_repository.dart refreshChannel() via controller facade; workspace_presentation.dart resolveConversationChannel() for unknown/deep-link channels",
    "flutterRefs": [
     {
-          "file": "apps/raft_flutter/lib/data/workspace_presentation.dart",
+     "file": "apps/raft_flutter/lib/data/workspace_presentation.dart",
      "needle": "final data = await client.get('/channels/$id');"
     },
     {
@@ -2614,11 +2614,11 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "searchLabel: tr('Search this channel')"
+     "needle": "searchLabel: tr('Search This Channel')"
     },
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "settingsLabel: tr('Channel details and settings')"
+     "needle": "settingsLabel: tr('Channel Details and Settings')"
     }
    ],
    "justification": "",
@@ -2730,7 +2730,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/workspace_view_sidebar_menus.dart",
-     "needle": "'Remove from section'"
+     "needle": "'Remove from Section'"
     }
    ],
    "justification": "",
@@ -2831,11 +2831,11 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/workspace_view_sidebar_menus.dart",
-     "needle": "'Show joined channels only'"
+     "needle": "'Show Joined Channels Only'"
     },
     {
      "file": "apps/raft_flutter/lib/features/workspace_view_sidebar_menus.dart",
-     "needle": "'Hide empty sections'"
+     "needle": "'Hide Empty Sections'"
     }
    ],
    "justification": "",
@@ -4878,11 +4878,11 @@
    "status": "covered",
    "webEntry": "Profile > Actions 'Delete Agent' (ConfirmDialog)",
    "gate": "canManageAgent (editAgents or creator); server also checks deleteAgents/creator",
-   "flutterEntry": "fleet_views.dart remove() ('Delete Agent' confirm, gate allowed('deleteAgents'))",
+   "flutterEntry": "fleet_views.dart remove() ('Archive Agent' confirm, gate allowed('deleteAgents'))",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
-     "needle": "Delete Agent"
+     "needle": "Archive Agent"
     },
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
@@ -4960,7 +4960,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/provider_views.dart",
-     "needle": "Delete connection"
+     "needle": "Delete Connection"
     },
     {
      "file": "apps/raft_flutter/lib/features/provider_views.dart",
@@ -5771,7 +5771,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/provider_views.dart",
-     "needle": "Edit connection"
+     "needle": "Edit Connection"
     }
    ],
    "justification": "Edit dialog (name/endpoint/image input/new key) exists. The Enable/Disable toggle (PATCH {enabled}) does not exist in Flutter, and 'Edit saved provider' from agent create/edit cannot be reached because Flutter agent forms have no saved-provider picker.",
@@ -6333,11 +6333,11 @@
    "status": "covered",
    "webEntry": "ConfirmDialogs in AgentDetailPanel",
    "gate": "delete: canManageAgent; stop: canControlAgentRuntime",
-   "flutterEntry": "fleet_views.dart webConfirm Delete Agent / Stop Agent",
+   "flutterEntry": "fleet_views.dart webConfirm Archive Agent / Stop Agent",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
-     "needle": "Delete Agent"
+     "needle": "Archive Agent"
     },
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
@@ -6385,7 +6385,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/agent_detail_view.dart",
-     "needle": "Move to another computer"
+     "needle": "Move to Another Computer"
     },
     {
      "file": "apps/raft_flutter/lib/features/agent_migration_view.dart",
@@ -7728,7 +7728,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/integrations_views.dart",
-     "needle": "Uninstall from this server"
+     "needle": "Uninstall from This Server"
     }
    ],
    "justification": "",
@@ -7911,7 +7911,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/agent_apps_view.dart",
-     "needle": "Grant access"
+     "needle": "Grant Access"
     }
    ],
    "justification": "",
@@ -8214,7 +8214,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/connected_app_editor.dart",
-     "needle": "Request publish"
+     "needle": "Request Publish"
     }
    ],
    "justification": "",
@@ -8325,7 +8325,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/connected_app_editor.dart",
-     "needle": "Rotate secret"
+     "needle": "Rotate Secret"
     }
    ],
    "justification": "",
@@ -8493,7 +8493,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/integrations_views.dart",
-     "needle": "Install to this server"
+     "needle": "Install to This Server"
     }
    ],
    "justification": "Settings entry fully covered; the second Web entry (install while authorizing a third-party login) is not available in the app.",
@@ -8613,7 +8613,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Test and refresh tools"
+     "needle": "Test and Refresh Tools"
     }
    ],
    "justification": "",
@@ -8821,7 +8821,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/connected_app_editor.dart",
-     "needle": "Save endpoint"
+     "needle": "Save Endpoint"
     }
    ],
    "justification": "",
@@ -8845,7 +8845,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/integrations_views.dart",
-     "needle": "Approve update"
+     "needle": "Approve Update"
     }
    ],
    "justification": "",
@@ -8869,7 +8869,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/im_bridges_view.dart",
-     "needle": "Save mappings and enable"
+     "needle": "Save Mappings and Enable"
     }
    ],
    "justification": "",
@@ -8893,7 +8893,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/agent_apps_view.dart",
-     "needle": "Grant access"
+     "needle": "Grant Access"
     }
    ],
    "justification": "",
@@ -9209,7 +9209,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/integrations_views.dart",
-     "needle": "Close installed app details"
+     "needle": "Close Installed App Details"
     }
    ],
    "justification": "",
@@ -9897,11 +9897,11 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Show task board"
+     "needle": "Show Task Board"
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Show task list"
+     "needle": "Show Task List"
     }
    ],
    "justification": "",
@@ -10117,7 +10117,7 @@
     },
     {
      "file": "packages/raft_ui/lib/src/task_surface.dart",
-     "needle": "Show more"
+     "needle": "Show More"
     }
    ],
    "justification": "",
@@ -10224,11 +10224,11 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Created by me"
+     "needle": "Created by Me"
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Assigned to me"
+     "needle": "Assigned to Me"
     }
    ],
    "justification": "",
@@ -10598,7 +10598,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/source_channel_files_view.dart",
-     "needle": "'Download file'"
+     "needle": "'Download File'"
     }
    ],
    "justification": "",
@@ -10840,11 +10840,11 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/source_channel_files_view.dart",
-     "needle": "Jump to original message"
+     "needle": "Jump to Original Message"
     },
     {
      "file": "apps/raft_flutter/lib/features/source_channel_files_actions.dart",
-     "needle": "Download original"
+     "needle": "Download Original"
     }
    ],
    "justification": "",
@@ -10899,7 +10899,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/source_channel_files_view.dart",
-     "needle": "'Jump to original message'"
+     "needle": "'Jump to Original Message'"
     },
     {
      "file": "apps/raft_flutter/lib/features/source_channel_files_view.dart",
@@ -11137,7 +11137,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/search_filter_bar.dart",
-     "needle": "'Search date range'"
+     "needle": "'Search Date Range'"
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_filters.dart",
@@ -11220,7 +11220,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/search_filter_bar.dart",
-     "needle": "'Filter by channel'"
+     "needle": "'Filter by Channel'"
     }
    ],
    "justification": "",
@@ -11240,7 +11240,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/search_filter_bar.dart",
-     "needle": "'Filter by sender'"
+     "needle": "'Filter by Sender'"
     }
    ],
    "justification": "",
@@ -11260,7 +11260,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/search_filter_bar.dart",
-     "needle": "'Search scope'"
+     "needle": "'Search Scope'"
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_filters.dart",
@@ -11284,7 +11284,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/search_filter_bar.dart",
-     "needle": "'Search date range'"
+     "needle": "'Search Date Range'"
     }
    ],
    "justification": "",
@@ -11348,7 +11348,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/quick_switcher.dart",
-     "needle": "'View all results'"
+     "needle": "'View All Results'"
     },
     {
      "file": "apps/raft_flutter/lib/features/quick_switcher.dart",
@@ -11380,7 +11380,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/quick_switcher.dart",
-     "needle": "'View all results'"
+     "needle": "'View All Results'"
     }
    ],
    "justification": "",
@@ -11444,7 +11444,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/quick_switcher.dart",
-     "needle": "'Sort by newest'"
+     "needle": "'Sort by Newest'"
     }
    ],
    "justification": "",
@@ -11504,7 +11504,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/search_filter_bar.dart",
-     "needle": "'Sort search results'"
+     "needle": "'Sort Search Results'"
     }
    ],
    "justification": "",
@@ -11650,7 +11650,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Unfollowed threads"
+     "needle": "Unfollowed Threads"
     }
    ],
    "justification": "No Web user path reaches this endpoint (grep: only the store references loadUnfollowed); Flutter has an extra view for it.",
@@ -11738,7 +11738,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Mark conversation done"
+     "needle": "Mark Conversation Done"
     }
    ],
    "justification": "",
@@ -11786,7 +11786,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Restore conversation"
+     "needle": "Restore Conversation"
     }
    ],
    "justification": "",
@@ -11881,7 +11881,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "{count} new updates"
+     "needle": "{count} New Updates"
     }
    ],
    "justification": "",
@@ -11905,7 +11905,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Mark conversation done"
+     "needle": "Mark Conversation Done"
     }
    ],
    "justification": "",
@@ -11989,7 +11989,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/notification_settings_view.dart",
-     "needle": "Send a test notification"
+     "needle": "Send a Test Notification"
     },
     {
      "file": "apps/raft_flutter/lib/platform/native_notifications.dart",
@@ -12125,7 +12125,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/notification_settings_view.dart",
-     "needle": "Enable notifications"
+     "needle": "Enable Notifications"
     },
     {
      "file": "apps/raft_flutter/lib/platform/background_inbox.dart",
@@ -13860,7 +13860,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/auth_view.dart",
-     "needle": "I have a reset link"
+     "needle": "I Have a Reset Link"
     }
    ],
    "justification": "",
@@ -14505,7 +14505,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/public_server_view.dart",
-     "needle": "Load older messages"
+     "needle": "Load Older Messages"
     }
    ],
    "justification": "",
@@ -14577,7 +14577,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/public_server_view.dart",
-     "needle": "Load older messages"
+     "needle": "Load Older Messages"
     }
    ],
    "justification": "",
@@ -14645,7 +14645,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/public_server_view.dart",
-     "needle": "label: tr('Switch server')"
+     "needle": "label: tr('Switch Server')"
     }
    ],
    "justification": "",
@@ -14872,7 +14872,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_settings.dart",
-     "needle": "'View release'"
+     "needle": "'View Release'"
     },
     {
      "file": "apps/raft_flutter/lib/platform/app_update.dart",
@@ -14975,7 +14975,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_settings.dart",
-     "needle": "'Update now'"
+     "needle": "'Update Now'"
     }
    ],
    "justification": "Web<->Electron/Tauri bridge protocol has no meaning inside a Flutter app. Tray: not found in either codebase. Server windows and title are listed separately.",

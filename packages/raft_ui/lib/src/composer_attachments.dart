@@ -291,7 +291,7 @@ class _AttachmentChipState extends State<_AttachmentChip> {
         button: true,
         label: raftFormat(context, 'Preview {file}', {'file': item.name}),
         child: RaftTooltip(
-          message: raftText(context, 'Preview image'),
+          message: raftText(context, 'Preview Image'),
           child: RaftHoverRegion(
             cursor: SystemMouseCursors.zoomIn,
             child: GestureDetector(
@@ -772,7 +772,7 @@ class _FailureRow extends StatelessWidget {
         if (retry) ...[
           Semantics(
             button: true,
-            label: raftFormat(context, 'Retry uploading {file}', {
+            label: raftFormat(context, 'Retry Uploading {file}', {
               'file': item.name,
             }),
             excludeSemantics: true,

@@ -389,7 +389,7 @@ class _RaftAuthBrowserHelpState extends State<RaftAuthBrowserHelp> {
           children: [
             RaftAuthTextLink(
               key: const ValueKey('auth-copy-sign-in-link'),
-              label: tr(_copied ? 'Link copied' : 'Copy sign-in link'),
+              label: tr(_copied ? 'Link Copied' : 'Copy Sign-in Link'),
               onTap: () {
                 widget.onCopyLink();
                 setState(() => _copied = true);
@@ -398,7 +398,7 @@ class _RaftAuthBrowserHelpState extends State<RaftAuthBrowserHelp> {
             ),
             RaftAuthTextLink(
               key: const ValueKey('auth-open-again'),
-              label: tr('Open again'),
+              label: tr('Open Again'),
               onTap: widget.onOpenAgain,
               bold: true,
             ),
@@ -1196,7 +1196,7 @@ class RaftAuthPage extends StatelessWidget {
             if (onCancelBrowser != null) ...[
               const SizedBox(height: 8),
               RaftAuthTextLink(
-                label: tr('Cancel browser sign-in'),
+                label: tr('Cancel Browser Sign-in'),
                 onTap: onCancelBrowser,
                 centered: true,
               ),
@@ -1403,8 +1403,8 @@ class RaftAuthVerifyPage extends StatelessWidget {
                   key: const Key('verify-manual-toggle'),
                   onPressed: onToggleManual,
                   semanticLabel: manualOpen
-                      ? tr('Hide manual entry')
-                      : tr('Enter code manually'),
+                      ? tr('Hide Manual Entry')
+                      : tr('Enter Code Manually'),
                   builder: (context, state) {
                     final active = state.hovered || state.pressed;
                     final color = active ? t.strong : t.muted;
@@ -1426,8 +1426,8 @@ class RaftAuthVerifyPage extends StatelessWidget {
                             ),
                             RaftUnderlineSpan(
                               text: manualOpen
-                                  ? tr('Hide manual entry')
-                                  : tr('Enter code manually'),
+                                  ? tr('Hide Manual Entry')
+                                  : tr('Enter Code Manually'),
                             ),
                           ],
                         ),

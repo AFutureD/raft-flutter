@@ -173,7 +173,7 @@ void main() {
     await setup(tester, unread: {'c1': 2});
     await longPress(tester, row('c1'));
     final labels = [
-      'Move to section',
+      'Move to Section',
       'Mark as Read',
       'Pin',
       'Mute',
@@ -310,10 +310,10 @@ void main() {
       },
     );
     await longPress(tester, row('c2'));
-    await tester.tap(find.text('Move to section'));
+    await tester.tap(find.text('Move to Section'));
     await tester.pumpAndSettle();
     expect(find.text('Launch'), findsWidgets);
-    final sub = tester.getRect(find.text('New section…').first);
+    final sub = tester.getRect(find.text('New Section…').first);
     expect(sub.left, greaterThanOrEqualTo(8));
     expect(sub.right, lessThanOrEqualTo(390 - 8));
     await tester.tap(find.text('Launch').last);
@@ -363,7 +363,7 @@ void main() {
       return {...w.sidebarOrder};
     };
     await longPress(tester, row('c2'));
-    await tester.tap(find.text('Move to section'));
+    await tester.tap(find.text('Move to Section'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Launch').last);
     await tester.pumpAndSettle();
@@ -743,8 +743,8 @@ void main() {
       );
       await tester.longPressAt(tester.getCenter(header));
       await tester.pumpAndSettle();
-      expect(find.text('Hide empty sections'), findsOneWidget);
-      expect(find.text('Show joined channels only'), findsOneWidget);
+      expect(find.text('Hide Empty Sections'), findsOneWidget);
+      expect(find.text('Show Joined Channels Only'), findsOneWidget);
     });
 
     testWidgets('a right click on a section header opens its menu', (
@@ -755,7 +755,7 @@ void main() {
         tester,
         find.byKey(const ValueKey('sidebar-section-system:channels')),
       );
-      expect(find.text('Hide empty sections'), findsOneWidget);
+      expect(find.text('Hide Empty Sections'), findsOneWidget);
     });
 
     testWidgets('a long press on the list surface opens the surface menu', (
@@ -767,7 +767,7 @@ void main() {
         tester.getBottomLeft(list) + const Offset(24, -30),
       );
       await tester.pumpAndSettle();
-      expect(find.text('New section…'), findsOneWidget);
+      expect(find.text('New Section…'), findsOneWidget);
     });
 
     testWidgets('a right click on the list surface opens the surface menu', (
@@ -781,7 +781,7 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
-      expect(find.text('New section…'), findsOneWidget);
+      expect(find.text('New Section…'), findsOneWidget);
     });
 
     testWidgets('a long press on a row still opens its menu', (tester) async {

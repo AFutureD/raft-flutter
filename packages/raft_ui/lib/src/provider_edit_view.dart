@@ -137,7 +137,7 @@ class RaftEditProviderDialogView extends StatelessWidget {
             ),
             RaftRecipeButton(
               key: const ValueKey('provider-edit-save'),
-              label: 'Save changes',
+              label: 'Save Changes',
               glyph: submitting ? null : RaftGlyph.pencil,
               child: submitting
                   ? const Row(

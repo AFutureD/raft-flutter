@@ -682,7 +682,7 @@ class _FileRowState extends State<SourceChannelFileRow> {
               Expanded(
                 child: _FileOpen(
                   key: ValueKey('channel-file-preview-${widget.file.id}'),
-                  label: raftText(context, 'Preview file'),
+                  label: raftText(context, 'Preview File'),
                   onPressed: widget.onPreview,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,7 +766,7 @@ class _FileRowState extends State<SourceChannelFileRow> {
                             SourceChannelFileGlyph.jump,
                             size: 14,
                           ),
-                          'Jump to original message',
+                          'Jump to Original Message',
                         ),
                         _menuItem(
                           context,
@@ -775,7 +775,7 @@ class _FileRowState extends State<SourceChannelFileRow> {
                             widget.onDownload();
                           },
                           const RaftIcon(RaftGlyph.download, size: 14),
-                          'Download file',
+                          'Download File',
                         ),
                       ],
                     ),
@@ -801,7 +801,7 @@ class _FileRowState extends State<SourceChannelFileRow> {
                     RaftControl(
                       key: ValueKey('channel-file-jump-${widget.file.id}'),
                       visualHeight: recipe.actionSize,
-                      tooltip: raftText(context, 'Jump to original message'),
+                      tooltip: raftText(context, 'Jump to Original Message'),
                       variant: RaftControlVariant.ghost,
                       onPressed: widget.onOpenSource,
                       child: const ChannelFileGlyph(
@@ -815,7 +815,7 @@ class _FileRowState extends State<SourceChannelFileRow> {
                       visualSize: recipe.actionSize,
                       glyphSize: 14,
                       glyph: RaftGlyph.download,
-                      tooltip: raftText(context, 'Download file'),
+                      tooltip: raftText(context, 'Download File'),
                       variant: RaftControlVariant.ghost,
                       onPressed: widget.onDownload,
                     ),

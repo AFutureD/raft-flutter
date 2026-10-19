@@ -492,7 +492,7 @@ void main() {
         find.byKey(const ValueKey('add-members-remove-agent:a1')),
       );
       await tester.pump();
-      await tester.tap(find.text('Add 1 member'));
+      await tester.tap(find.text('Add 1 Member'));
       await tester.pumpAndSettle();
       final batch = a.calls.singleWhere(
         (r) => r.method == 'POST' && r.path == '/channels/c1/members/batch',

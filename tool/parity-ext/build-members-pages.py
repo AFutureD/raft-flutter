@@ -293,7 +293,7 @@ for platform in ('desktop', 'phone'):
     agent_main(platform, 'agent.delete-confirm', 'Agent profile: delete agent confirmation',
                selector=DLG if not phone else VIEW, android_key='agent-dialog' if not phone else None,
                interactions=[click('button:has-text("Delete Agent")'), wait(200)],
-               android_interactions=[tap_text('Delete Agent', 'fleet-detail')])
+               android_interactions=[tap_text('Archive Agent', 'fleet-detail')])
 
     # ---- 7.20 agent unavailable (terminated / no access)
     agent_main(platform, 'agent.unavailable', 'Agent unavailable (terminated or no access)', agent='agent-gone',
@@ -326,7 +326,7 @@ for platform in ('desktop', 'phone'):
             android_key=akey, hint=INVITE_HINT, props={**common, 'guest': 'true'}, route_set='invite-guest')
     add(platform, 'invite.link', 'Invite human dialog: By link tab', 'invite', selector=sel, android_key=akey,
         hint=INVITE_HINT, props={**common, 'guest': 'false'},
-        interactions=[click('[data-testid="invite-tab-link"]'), wait(300)], android_interactions=[tap_text('By link')])
+        interactions=[click('[data-testid="invite-tab-link"]'), wait(300)], android_interactions=[tap_text('By Link')])
 
     # Seat limit: the Free plan's 2 human seats are used; typing an email trips the email path.
     add(platform, 'invite.seat-limit', 'Invite human dialog: human seat limit reached (email typed)', 'invite',

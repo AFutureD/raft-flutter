@@ -326,7 +326,7 @@ class RaftMobileTabbarConfigView extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: RaftSettingsRecipeButton(
-                    label: 'Reset to default',
+                    label: 'Reset to Default',
                     glyph: RaftGlyph.rotateCcw,
                     onPressed: onReset,
                   ),

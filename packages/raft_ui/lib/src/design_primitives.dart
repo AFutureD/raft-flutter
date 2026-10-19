@@ -1232,7 +1232,7 @@ class RaftSavedActionButton extends StatelessWidget {
   const RaftSavedActionButton({
     super.key,
     this.onPressed,
-    this.tooltip = 'Remove from saved',
+    this.tooltip = 'Remove from Saved',
   });
   final VoidCallback? onPressed;
   final String tooltip;

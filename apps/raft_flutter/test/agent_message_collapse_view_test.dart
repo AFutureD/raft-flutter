@@ -85,12 +85,12 @@ void main() {
     testWidgets('$name layout opens an unread agent message', (tester) async {
       await mount(tester, width: width, agent: true, seq: 2, maxRead: 1);
       expect(messageToggle('Collapse'), findsOneWidget);
-      expect(messageToggle('Show more'), findsNothing);
+      expect(messageToggle('Show More'), findsNothing);
     });
 
     testWidgets('$name layout folds a read agent message', (tester) async {
       await mount(tester, width: width, agent: true, seq: 1, maxRead: 1);
-      expect(messageToggle('Show more'), findsOneWidget);
+      expect(messageToggle('Show More'), findsOneWidget);
       expect(messageToggle('Collapse'), findsNothing);
     });
 
@@ -98,7 +98,7 @@ void main() {
       tester,
     ) async {
       await mount(tester, width: width, agent: false, seq: 2, maxRead: 1);
-      expect(messageToggle('Show more'), findsOneWidget);
+      expect(messageToggle('Show More'), findsOneWidget);
       expect(messageToggle('Collapse'), findsNothing);
     });
 
@@ -129,7 +129,7 @@ void main() {
         w.notifyListeners();
         await tester.pumpAndSettle();
         expect(messageToggle('Collapse'), findsOneWidget);
-        expect(messageToggle('Show more'), findsNothing);
+        expect(messageToggle('Show More'), findsNothing);
       },
     );
 
@@ -145,10 +145,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(messageToggle('Collapse'));
       await tester.pumpAndSettle();
-      expect(messageToggle('Show more'), findsOneWidget);
+      expect(messageToggle('Show More'), findsOneWidget);
       w.notifyListeners();
       await tester.pumpAndSettle();
-      expect(messageToggle('Show more'), findsOneWidget);
+      expect(messageToggle('Show More'), findsOneWidget);
       expect(messageToggle('Collapse'), findsNothing);
     });
   }

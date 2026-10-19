@@ -329,7 +329,7 @@ void main() {
           const id = 'shared-id', focus = 'target-1';
           final accepted = RaftChannel({
             'id': id,
-            'name': dm ? 'Search peer' : 'Search channel',
+            'name': dm ? 'Search peer' : 'Search Channel',
             'type': dm ? 'dm' : 'channel',
             'joined': true,
           });

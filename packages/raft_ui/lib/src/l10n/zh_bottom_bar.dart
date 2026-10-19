@@ -11,5 +11,5 @@ const Map<String, String> zhCatalogBottomBar = <String, String>{
   "Limit reached. Turn one off to add another.": "已达上限。关闭一个标签页后才能添加其他。",
   "Keep at least one tab besides Settings.": "除设置外，至少保留一个标签页。",
   "Reorder {name}": "调整{name}的顺序",
-  "Reset to default": "恢复默认",
+  "Reset to Default": "恢复默认",
 };

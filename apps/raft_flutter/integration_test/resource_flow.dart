@@ -62,30 +62,30 @@ Future<void> verifyAdvancedResources(
 
   try {
     await section('search');
-    await menu('Filter by channel', '#$channelName');
+    await menu('Filter by Channel', '#$channelName');
     await loaded(message: true);
     expect(state().advanced.channelId, channelId);
     expect(
       (tester.widget<TextField>(find.byType(TextField))).controller!.text,
       isEmpty,
     );
-    await menu('Search date range', 'Today');
+    await menu('Search Date Range', 'Today');
     await loaded(message: true);
     final self = w.client.user!;
     await menu(
-      'Filter by sender',
+      'Filter by Sender',
       '${self.name.isEmpty ? 'You' : self.name} · Human',
     );
     await loaded(message: true);
     await tester.enterText(find.byType(TextField), query);
     await tester.pump(const Duration(milliseconds: 210));
     await loaded(message: true);
-    await menu('Sort search results', 'Recent');
+    await menu('Sort Search Results', 'Recent');
     await loaded(message: true);
     await capture('native-search-advanced-filters');
-    await tester.tap(find.byTooltip('Search scope'));
+    await tester.tap(find.byTooltip('Search Scope'));
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.widgetWithText(RaftMenuItem, 'Mentions me'));
+    await tester.tap(find.widgetWithText(RaftMenuItem, 'Mentions Me'));
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await loaded();
     expect(state().advanced.scopes.contains('mentioned'), true);
@@ -303,8 +303,8 @@ Future<void> verifyAdvancedTaskFilters(
     for (var retry = 0; retry < 3 && !selected; retry++) {
       try {
         await pick('Channel', ['#$channelName']);
-        await pick('Creator', ['Created by me']);
-        await pick('Assignee', ['Assigned to me', 'Unassigned']);
+        await pick('Creator', ['Created by Me']);
+        await pick('Assignee', ['Assigned to Me', 'Unassigned']);
         selected =
             state().taskAdvanced.channels.isNotEmpty &&
             state().taskAdvanced.creators.isNotEmpty &&
@@ -328,7 +328,7 @@ Future<void> verifyAdvancedTaskFilters(
       true,
     );
     await capture('native-task-typed-multiselect-unassigned');
-    await tester.tap(find.widgetWithText(TextButton, 'Clear filters'));
+    await tester.tap(find.widgetWithText(TextButton, 'Clear Filters'));
     await tester.pump(const Duration(milliseconds: 200));
     expect(state().taskAdvanced.isEmpty, true);
   } finally {
@@ -521,7 +521,7 @@ Future<void> verifyActivityThreadLifecycle(
     await follows(true);
     await locate();
     await capture('activity-classic-thread-refollowed-all');
-    await rowAction('Mark conversation done');
+    await rowAction('Mark Conversation Done');
     // Done removes the row from classic All. The authoritative Done endpoint
     // proves the acknowledged write; it is not a screenshot of a Done page.
     var projectedDone = false;

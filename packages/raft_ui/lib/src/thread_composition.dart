@@ -415,7 +415,7 @@ class RaftThreadSearchBar extends StatelessWidget {
           RaftIconButton(
             key: const Key('thread-search-previous'),
             glyph: RaftGlyph.chevronUp,
-            tooltip: 'Previous match',
+            tooltip: 'Previous Match',
             visualSize: 28,
             minimumTargetSize: 28,
             onPressed: canStep ? () => onStep(-1) : null,
@@ -423,7 +423,7 @@ class RaftThreadSearchBar extends StatelessWidget {
           RaftIconButton(
             key: const Key('thread-search-next'),
             glyph: RaftGlyph.chevronDown,
-            tooltip: 'Next match',
+            tooltip: 'Next Match',
             visualSize: 28,
             minimumTargetSize: 28,
             onPressed: canStep ? () => onStep(1) : null,
@@ -431,8 +431,8 @@ class RaftThreadSearchBar extends StatelessWidget {
           RaftControl(
             key: const Key('thread-search-close'),
             recipe: _ThreadCloseRecipe(t),
-            tooltip: raftText(context, 'Close thread search'),
-            semanticLabel: raftText(context, 'Close thread search'),
+            tooltip: raftText(context, 'Close Thread Search'),
+            semanticLabel: raftText(context, 'Close Thread Search'),
             onPressed: onClose,
             visualWidth: 28,
             visualHeight: 28,

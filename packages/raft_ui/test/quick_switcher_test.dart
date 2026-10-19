@@ -25,7 +25,7 @@ Widget frame(bool dark, {bool selected = true, VoidCallback? onTap}) =>
                 controller: _own(TextEditingController()),
                 focusNode: _own(FocusNode()),
                 hint: 'Channels, people, messages…',
-                clearLabel: 'Clear search',
+                clearLabel: 'Clear Search',
                 onClear: () {},
               ),
               body: RaftQuickSwitcherList(

@@ -111,7 +111,7 @@ class _DesktopLinksSettingsState extends State<DesktopLinksSettings>
                       ),
                       RaftSettingsRecipeButton(
                         key: const ValueKey('raft-uri-scheme-keep'),
-                        label: 'Keep it',
+                        label: 'Keep It',
                         onPressed: service.busy
                             ? null
                             : () => unawaited(service.keepOtherHandler()),

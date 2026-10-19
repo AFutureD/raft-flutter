@@ -238,7 +238,7 @@ void main() {
       '$width editing preserves unchanged secrets and patches only explicit changes',
       (tester) async {
         await mount(tester);
-        await _tap(tester, find.byTooltip('Edit server'));
+        await _tap(tester, find.byTooltip('Edit Server'));
         expect(_key('mcp-server-editor'), findsOneWidget);
         expect(_fields('mcp-header-name-'), findsNWidgets(3));
         expect(_fields('mcp-header-value-'), findsNWidgets(3));
@@ -279,7 +279,7 @@ void main() {
       tester,
     ) async {
       await mount(tester);
-      await _tap(tester, find.byTooltip('Edit server'));
+      await _tap(tester, find.byTooltip('Edit Server'));
       expect(_key('mcp-server-editor'), findsOneWidget);
       await tester.enterText(
         _fields('mcp-header-name-').at(1),
@@ -524,7 +524,7 @@ void main() {
         await mount(tester);
         expect(find.text('Fixture MCP'), findsOneWidget);
         expect(_key('mcp-add-server'), findsNothing);
-        expect(find.byTooltip('Edit server'), findsNothing);
+        expect(find.byTooltip('Edit Server'), findsNothing);
         expect(find.byTooltip('Delete Server'), findsNothing);
         expect(tester.takeException(), isNull);
       },

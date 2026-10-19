@@ -374,14 +374,14 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
         Align(
           alignment: Alignment.centerLeft,
           child: RaftTextButton(
-            label: 'Refresh sign-in methods',
+            label: 'Refresh Sign-in Methods',
             glyph: RaftGlyph.refreshCw,
             onPressed: busy ? null : reload,
           ),
         ),
       if (broker != null)
         RaftTextButton(
-          label: 'Cancel sign-in',
+          label: 'Cancel Sign-in',
           onPressed: () => broker?.cancel(),
         ),
     ];
@@ -474,7 +474,7 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
         ),
       if (broker != null)
         RaftTextButton(
-          label: 'Cancel sign-in',
+          label: 'Cancel Sign-in',
           onPressed: () => broker?.cancel(),
         ),
     ]);

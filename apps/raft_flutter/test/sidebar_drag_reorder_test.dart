@@ -524,7 +524,7 @@ void main() {
         tester.getCenter(row('c2')).dy,
         lessThan(tester.getCenter(row('c1')).dy),
       );
-      expect(find.text('Move to section'), findsNothing);
+      expect(find.text('Move to Section'), findsNothing);
       expect(w.sidebarOrder['sectionPlacements'], hasLength(2));
     });
 
@@ -611,7 +611,7 @@ void main() {
         lessThan(top(tester, 'system:channels')),
       );
       expect(w.sidebarOrder['sectionOrder'], hasLength(4));
-      expect(find.text('Hide empty sections'), findsNothing);
+      expect(find.text('Hide Empty Sections'), findsNothing);
     });
 
     testWidgets('custom section: its header drags above a system section', (
@@ -682,14 +682,14 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Hide empty sections'), findsOneWidget);
+      expect(find.text('Hide Empty Sections'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.text('Hide empty sections'), findsNothing);
+      expect(find.text('Hide Empty Sections'), findsNothing);
 
       await tester.longPress(header('system:channels'));
       await tester.pumpAndSettle();
-      expect(find.text('Hide empty sections'), findsOneWidget);
+      expect(find.text('Hide Empty Sections'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
@@ -711,14 +711,14 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Move to section'), findsOneWidget);
+      expect(find.text('Move to Section'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.text('Move to section'), findsNothing);
+      expect(find.text('Move to Section'), findsNothing);
 
       await tester.longPress(row('c2'));
       await tester.pumpAndSettle();
-      expect(find.text('Move to section'), findsOneWidget);
+      expect(find.text('Move to Section'), findsOneWidget);
       expect(patches, isEmpty);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
@@ -727,7 +727,7 @@ void main() {
       await tester.tap(row('c2'));
       await tester.pumpAndSettle();
       expect(w.location.entityId, 'c2');
-      expect(find.text('Move to section'), findsNothing);
+      expect(find.text('Move to Section'), findsNothing);
       expect(patches, isEmpty);
     });
 
@@ -747,7 +747,7 @@ void main() {
       final (_, patches) = await setup(tester, sectionPrefs);
       await nudge(tester, row('c2'));
       expect(patches, isEmpty);
-      expect(find.text('Move to section'), findsOneWidget);
+      expect(find.text('Move to Section'), findsOneWidget);
     });
 
     testWidgets(
@@ -756,7 +756,7 @@ void main() {
         final (_, patches) = await setup(tester, {'sectionsVersion': 3});
         await nudge(tester, header('system:channels'));
         expect(patches, isEmpty);
-        expect(find.text('Hide empty sections'), findsOneWidget);
+        expect(find.text('Hide Empty Sections'), findsOneWidget);
       },
     );
 
@@ -777,7 +777,7 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Show joined channels only'));
+      await tester.tap(find.text('Show Joined Channels Only'));
       await tester.pumpAndSettle();
       expect(row('c2'), findsNothing);
       final start = tester.getCenter(header('system:channels'));

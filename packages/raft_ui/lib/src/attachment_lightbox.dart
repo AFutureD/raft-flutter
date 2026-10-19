@@ -116,7 +116,7 @@ class RaftLightboxHeader extends StatelessWidget {
     this.actions = const [],
     this.titleBold = false,
     this.borderWidth = 1,
-    this.closeLabel = 'Close preview',
+    this.closeLabel = 'Close Preview',
   });
   final String title, closeLabel;
 
@@ -290,7 +290,7 @@ class RaftAttachmentLightbox extends StatelessWidget {
     this.actions = const [],
     this.footer,
     this.titleBold = false,
-    this.closeLabel = 'Close preview',
+    this.closeLabel = 'Close Preview',
     this.onResetZoom,
     this.meta,
     this.subtitle,

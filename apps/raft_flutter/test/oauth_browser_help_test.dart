@@ -1,6 +1,6 @@
 // Desktop OAuth sign-in when the system browser does not appear: after a few
 // seconds (or at once when the launcher fails) the page offers "Browser didn't
-// open? Copy sign-in link" and "Open again". The loopback flow is unchanged.
+// open? Copy sign-in link" and "Open Again". The loopback flow is unchanged.
 import 'dart:convert';
 import 'dart:io';
 
@@ -115,7 +115,7 @@ void main() {
     await _settle(t, 6);
     // launchUrl "succeeded" (the Linux AppImage case: nothing opened).
     expect(opened.map((u) => u.toString()), [_authorizationUrl]);
-    expect(find.text('Cancel browser sign-in'), findsOneWidget);
+    expect(find.text('Cancel Browser Sign-in'), findsOneWidget);
     expect(_help, findsNothing);
 
     await t.pump(const Duration(milliseconds: 2500));
@@ -123,12 +123,12 @@ void main() {
     await t.pump(const Duration(milliseconds: 700));
     expect(_help, findsOneWidget);
     expect(find.text("Browser didn't open?"), findsOneWidget);
-    expect(find.text('Copy sign-in link'), findsOneWidget);
+    expect(find.text('Copy Sign-in Link'), findsOneWidget);
 
     await t.tap(find.byKey(const ValueKey('auth-copy-sign-in-link')));
     await t.pump();
     expect(copied, [_authorizationUrl], reason: 'the exact OAuth URL');
-    expect(find.text('Link copied'), findsOneWidget);
+    expect(find.text('Link Copied'), findsOneWidget);
 
     await t.tap(find.byKey(const ValueKey('auth-open-again')));
     await t.pump();
@@ -136,7 +136,7 @@ void main() {
     expect(opened.last.toString(), _authorizationUrl);
 
     // Cancelling the attempt takes the help away with it.
-    await t.tap(find.text('Cancel browser sign-in'));
+    await t.tap(find.text('Cancel Browser Sign-in'));
     await _settle(t, 4);
     expect(_help, findsNothing);
   });
@@ -156,12 +156,12 @@ void main() {
     expect(_help, findsOneWidget, reason: 'no 3 s wait when launchUrl failed');
     // The attempt is still waiting (the link can be opened by hand): no error
     // banner, the cancel link is still there.
-    expect(find.text('Cancel browser sign-in'), findsOneWidget);
+    expect(find.text('Cancel Browser Sign-in'), findsOneWidget);
     expect(find.textContaining('Could not open'), findsNothing);
     await t.tap(find.byKey(const ValueKey('auth-open-again')));
     await t.pump();
     expect(attempts, hasLength(2));
-    await t.tap(find.text('Cancel browser sign-in'));
+    await t.tap(find.text('Cancel Browser Sign-in'));
     await _settle(t, 4);
   });
 

@@ -29,7 +29,7 @@ class _PickerState extends State<_Picker> {
       TextButton(
         focusNode: opener,
         onPressed: () => setState(() => open = true),
-        child: const Text('Open reactions'),
+        child: const Text('Open Reactions'),
       ),
       if (open)
         RaftQuickReactionPicker(

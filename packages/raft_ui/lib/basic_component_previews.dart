@@ -181,7 +181,7 @@ class _DesignFieldsState extends State<_DesignFields> {
         Text('Selected $value'),
         const SizedBox(height: 16),
         RaftButton(
-          label: 'Open form',
+          label: 'Open Form',
           secondary: true,
           onPressed: () => showDialog<void>(
             context: context,
@@ -331,7 +331,7 @@ class _SourceMenus extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(24),
     child: RaftDropdownMenu(
-      label: 'Message actions',
+      label: 'Message Actions',
       defaultOpen: true,
       entries: [
         RaftMenuEntry(

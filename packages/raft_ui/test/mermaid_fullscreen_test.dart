@@ -53,7 +53,7 @@ void main() {
         await tester.pumpWidget(
           host(dark, () => closed++, const Size(1280, 800)),
         );
-        await tester.tap(find.byTooltip('Close fullscreen'));
+        await tester.tap(find.byTooltip('Close Fullscreen'));
         expect(closed, 1);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         expect(closed, 2);

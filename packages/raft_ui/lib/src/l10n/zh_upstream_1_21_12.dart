@@ -38,7 +38,7 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   "Starting migration…": "正在开始迁移…",
   "Raft will stop the migration from {source} to {target} and clean up on both computers. Your agent and its workspace stay on whichever computer has them now.":
       "Raft 会停止从 {source} 到 {target} 的迁移，并在两台计算机上完成清理。Agent 及其工作区会保留在当前所在的计算机上。",
-  "Open computer settings": "打开计算机设置",
+  "Open Computer Settings": "打开计算机设置",
   "Copy migration ID {ref}": "复制迁移编号 {ref}",
   "Migration ID": "迁移编号",
   "Move this agent and its workspace to another computer. The agent stops while it migrates, then starts again there.":
@@ -130,7 +130,7 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   "Uses the {runtime} account signed in on this computer.":
       "使用这台计算机上登录的 {runtime} 账号。",
   "Didn't finish": "未完成",
-  "Change model": "更换模型",
+  "Change Model": "更换模型",
   "Loading models…": "正在加载模型…",
   "No runtime on this computer can be changed in bulk.": "这台计算机上没有可以批量更换的运行时。",
   "{failed} of {total} changes didn't finish.": "{total} 项更改中有 {failed} 项未完成。",

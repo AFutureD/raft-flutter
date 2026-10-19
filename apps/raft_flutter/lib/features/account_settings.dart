@@ -187,7 +187,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     await scopedDialog<void>(
       form: true,
       (_) => RaftFormDialog(
-        title: raftText(context, 'Edit profile'),
+        title: raftText(context, 'Edit Profile'),
         fields: [
           RaftFormField(
             'displayName',
@@ -220,7 +220,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     await scopedDialog<void>(
       form: true,
       (_) => RaftFormDialog(
-        title: raftText(context, 'Reading preferences'),
+        title: raftText(context, 'Reading Preferences'),
         fields: [
           RaftFormField(
             'preferredTimeFormat',
@@ -269,7 +269,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     await scopedDialog<void>(
       form: true,
       (_) => RaftFormDialog(
-        title: raftText(context, 'Display language'),
+        title: raftText(context, 'Display Language'),
         fields: [
           RaftFormField(
             'displayLanguage',
@@ -310,7 +310,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     final divider = Container(height: 2, color: RaftSettingsText(t).edge);
     final card = RaftSettingsProfileCard(
       avatar: RaftTooltip(
-        message: raftText(context, 'Change profile image'),
+        message: raftText(context, 'Change Profile Image'),
         child: InkWell(
           hoverColor: RaftHoverScope.materialHoverColor(context),
           key: const Key('account-profile-image'),
@@ -465,17 +465,17 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
                 ),
               RaftButton(
                 key: const Key('account-display-language'),
-                label: raftText(context, 'Display language'),
+                label: raftText(context, 'Display Language'),
                 secondary: true,
                 onPressed: () => language(context),
               ),
               RaftButton(
-                label: raftText(context, 'Edit profile'),
+                label: raftText(context, 'Edit Profile'),
                 secondary: true,
                 onPressed: () => edit(context),
               ),
               RaftButton(
-                label: raftText(context, 'Reading preferences'),
+                label: raftText(context, 'Reading Preferences'),
                 secondary: true,
                 onPressed: () => preferences(context),
               ),

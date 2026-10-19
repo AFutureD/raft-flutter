@@ -381,7 +381,7 @@ class _McpServerEditorState extends State<McpServerEditor> {
       RaftIconButton(
         key: ValueKey('mcp-remove-header-${row.id}'),
         glyph: RaftGlyph.trash2,
-        tooltip: raftText(context, 'Remove header'),
+        tooltip: raftText(context, 'Remove Header'),
         onPressed: () {
           headers.remove(row);
           changed();
@@ -491,7 +491,7 @@ class _McpServerEditorState extends State<McpServerEditor> {
                 alignment: Alignment.centerLeft,
                 child: RaftButton(
                   key: const ValueKey('mcp-editor-test'),
-                  label: testing ? 'Testing…' : 'Test connection',
+                  label: testing ? 'Testing…' : 'Test Connection',
                   glyph: RaftGlyph.flaskConical,
                   size: RaftButtonRecipeSize.sm,
                   onPressed:

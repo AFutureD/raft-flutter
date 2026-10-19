@@ -60,7 +60,7 @@ void main() {
     w.notifyListeners();
     await t.pump();
     expect(find.text(_unresolved), findsOneWidget);
-    await t.tap(find.bySemanticsLabel('Dismiss unnotified mention warning'));
+    await t.tap(find.bySemanticsLabel('Dismiss Unnotified Mention Warning'));
     await t.pump();
     expect(find.text(_unresolved), findsNothing);
     expect(w.sendWarningsFor().unresolved, isEmpty);
@@ -78,7 +78,7 @@ void main() {
     w.notifyListeners();
     await t.pump();
     expect(find.text(_stopped), findsOneWidget);
-    await t.tap(find.bySemanticsLabel('Dismiss delivery warning'));
+    await t.tap(find.bySemanticsLabel('Dismiss Delivery Warning'));
     await t.pump();
     expect(find.text(_stopped), findsNothing);
     await open(t, _channel('c1'));

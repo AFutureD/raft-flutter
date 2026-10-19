@@ -873,7 +873,7 @@ void registerImageViewerTests(TestPart part) {
     ) async {
       await _mount(tester, size: _wide);
       await _open(tester, 0);
-      await tester.tap(find.byTooltip('Close preview'));
+      await tester.tap(find.byTooltip('Close Preview'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 40));
       // Mid-transition the viewer is still painted.
@@ -3578,7 +3578,7 @@ void registerImageViewerTests(TestPart part) {
           .customSemanticsActionIds!
           .map((id) => CustomSemanticsAction.getAction(id)!.label)
           .toSet();
-      expect(actions, {'Zoom in', 'Zoom out', 'Fit to screen'});
+      expect(actions, {'Zoom In', 'Zoom Out', 'Fit to Screen'});
       final selected = tester.getSemantics(
         find.byKey(const ValueKey('lightbox-thumbnail-0')),
       );
@@ -3596,7 +3596,7 @@ void registerImageViewerTests(TestPart part) {
           .getSemanticsData()
           .customSemanticsActionIds!
           .firstWhere(
-            (id) => CustomSemanticsAction.getAction(id)!.label == 'Zoom in',
+            (id) => CustomSemanticsAction.getAction(id)!.label == 'Zoom In',
           );
       tester.semantics.performAction(
         find.semantics.byLabel(RegExp(r'^Image 1 of 3, ')),

@@ -229,7 +229,7 @@ void main() {
           );
           // A page leads with Back (phone / folded); the side column closes.
           final control = [
-            for (final tip in ['Back', 'Close profile', 'Close'])
+            for (final tip in ['Back', 'Close Profile', 'Close'])
               if (inPanel(tip).evaluate().isNotEmpty) inPanel(tip),
           ];
           expect(control, isNotEmpty);

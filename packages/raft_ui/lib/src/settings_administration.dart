@@ -1000,7 +1000,7 @@ class _JoinLinkRow extends StatelessWidget {
                       28,
                       _IconAction(
                         key: ValueKey('admin-join-link-copy-${link.id}'),
-                        tooltip: 'Copy invite link',
+                        tooltip: 'Copy Invite Link',
                         glyph: link.copied ? RaftGlyph.check : RaftGlyph.copy,
                         size: 14,
                         onPressed: link.onCopy,

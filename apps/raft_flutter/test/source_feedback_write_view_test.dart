@@ -73,7 +73,7 @@ void main() {
       'the created ticket', (tester) async {
     final h = _Harness(tickets: [fx.ticket(fx.first)]);
     await h.pump(tester);
-    expect(find.text('New feedback'), findsOneWidget);
+    expect(find.text('New Feedback'), findsOneWidget);
     await tester.tap(_key('feedback-new'));
     await tester.pumpAndSettle();
     expect(find.text('What would you like us to know?'), findsWidgets);

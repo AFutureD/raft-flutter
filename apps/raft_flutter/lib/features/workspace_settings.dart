@@ -622,10 +622,10 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
           detail: _lastChecked(context, service),
           notes: _updateNotes(service, release),
           actionLabel: inPlace
-              ? 'Update now'
+              ? 'Update Now'
               : android
-              ? 'Download update'
-              : 'View release',
+              ? 'Download Update'
+              : 'View Release',
           onAction: !inPlace
               ? openReleasePage
               : () async {
@@ -666,7 +666,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
           message: label,
           detail: _lastChecked(context, service),
           notes: _updateNotes(service, release),
-          actionLabel: 'Update now',
+          actionLabel: 'Update Now',
           onAction: () => unawaited(() async {
             // A release remembered by an older app version has no checksum or
             // signature yet.
@@ -713,7 +713,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
                 ? "Raft couldn't restart itself. Quit it and start it again to finish updating."
                 : 'Restart Raft to finish updating.',
           ),
-          actionLabel: 'Restart to finish',
+          actionLabel: 'Restart to Finish',
           onAction: () async {
             final started = await appImage.restart();
             if (!started && mounted) setState(() => _restartFailed = true);
@@ -724,7 +724,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
           state: RaftAboutUpdateState.failed,
           message: raftText(context, "Couldn't install the update"),
           detail: appImageFailureText(context, status.failure!),
-          actionLabel: 'View release',
+          actionLabel: 'View Release',
           onAction: openReleasePage,
           onCheck: () {
             appImage.reset();

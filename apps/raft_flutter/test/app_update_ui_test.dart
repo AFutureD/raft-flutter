@@ -118,7 +118,7 @@ void main() {
           find.byKey(const ValueKey('settings-about-update-action')),
           findsOneWidget,
         );
-        expect(find.text('View release'), findsOneWidget);
+        expect(find.text('View Release'), findsOneWidget);
         expect(update.hasUnseen, isFalse);
         if (_phone(width)) {
           // The covered list rebuilds when it comes back to the front.
@@ -143,8 +143,8 @@ void main() {
       final w = await mountAppUpdateWorkspace(t, update, width: width);
       await _openSettings(t, w, width);
       await _openDestination(t, 'about');
-      expect(find.text('Download update'), findsOneWidget);
-      expect(find.text('View release'), findsNothing);
+      expect(find.text('Download Update'), findsOneWidget);
+      expect(find.text('View Release'), findsNothing);
       await t.pumpWidget(const SizedBox());
     }, variant: TargetPlatformVariant({TargetPlatform.android}));
 
@@ -331,8 +331,8 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('New version available: 0.1.0 (42)'), findsOneWidget);
-      expect(find.text('Download update'), findsOneWidget);
-      expect(find.text('Check for updates'), findsOneWidget);
+      expect(find.text('Download Update'), findsOneWidget);
+      expect(find.text('Check for Updates'), findsOneWidget);
       await f.close(t);
     });
 

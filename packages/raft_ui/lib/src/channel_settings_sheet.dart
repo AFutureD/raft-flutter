@@ -191,7 +191,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
             variant: RaftButtonRecipeVariant.outline,
             size: RaftButtonRecipeSize.sm,
             padding: const EdgeInsets.all(4), // p-1
-            tooltip: raftText(context, 'Close channel settings'),
+            tooltip: raftText(context, 'Close Channel Settings'),
             onPressed: onClose,
           ),
         ],

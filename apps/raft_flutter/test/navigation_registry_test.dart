@@ -634,7 +634,7 @@ void main() {
     Finder? opens(String label) => switch (label) {
       'Create Channel' => find.byType(CreateChannelDialog),
       'Create Joint Channel' => find.byType(CreateJointChannelDialog),
-      'New section…' || 'Rename / change icon…' => find.byKey(
+      'New Section…' || 'Rename / Change Icon…' => find.byKey(
         const ValueKey('sidebar-section-dialog'),
       ),
       'Archive Channel' ||
@@ -703,15 +703,15 @@ void main() {
       await walkMenu(tester, () async {
         await tester.longPressAt(tester.getCenter(header('channels')));
         await tester.pumpAndSettle();
-      }, expectLabels: {'Create Channel', 'New section…'});
+      }, expectLabels: {'Create Channel', 'New Section…'});
       await walkMenu(tester, () async {
         await tester.longPressAt(tester.getCenter(header('joint')));
         await tester.pumpAndSettle();
-      }, expectLabels: {'Create Joint Channel', 'New section…'});
+      }, expectLabels: {'Create Joint Channel', 'New Section…'});
       await walkMenu(tester, () async {
         await tester.longPressAt(tester.getCenter(header('dms')));
         await tester.pumpAndSettle();
-      }, expectLabels: {'New section…'});
+      }, expectLabels: {'New Section…'});
     });
 
     // Each item of the list-surface menu (long press on empty list space) in
@@ -719,7 +719,7 @@ void main() {
     for (final label in const [
       'Create Channel',
       'Create Joint Channel',
-      'New section…',
+      'New Section…',
     ]) {
       testWidgets('sidebar surface menu: $label', (tester) async {
         await setup(tester);
@@ -785,14 +785,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(RaftMobileNotificationButton));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('View feedback'));
+      await tester.tap(find.text('View Feedback'));
       await tester.pumpAndSettle();
       expect(w.location.route, RaftRoute.settings);
       expect(w.location.settingsPath, ['feedback']);
       expect(find.byKey(const ValueKey('feedback')), findsOneWidget);
     });
 
-    testWidgets('Create Agent "Upgrade for more" closes and opens Billing', (
+    testWidgets('Create Agent "Upgrade for More" closes and opens Billing', (
       tester,
     ) async {
       await setup(tester);
@@ -814,7 +814,7 @@ void main() {
       final context = tester.element(find.byType(WorkspaceView));
       unawaited(showManagedAgentForm(context, w));
       await tester.pumpAndSettle();
-      await tester.tapOnText(find.textRange.ofSubstring('Upgrade for more'));
+      await tester.tapOnText(find.textRange.ofSubstring('Upgrade for More'));
       await tester.pumpAndSettle();
       expect(find.byType(CreateAgentDialog), findsNothing);
       expect(w.location.route, RaftRoute.settings);

@@ -40,7 +40,7 @@ void main() {
         }
         if (name != 'uploading') {
           expect(
-            find.bySemanticsLabel(RegExp('^Play video .*\\.mp4')),
+            find.bySemanticsLabel(RegExp('^Play Video .*\\.mp4')),
             findsOneWidget,
           );
         }
@@ -49,35 +49,36 @@ void main() {
     }
   }
 
-  testWidgets('a tap anywhere on the card opens; the length reads like the strip', (
-    t,
-  ) async {
-    t.view.physicalSize = const Size(390, 700);
-    t.view.devicePixelRatio = 1;
-    addTearDown(t.view.reset);
-    var opened = 0;
-    await t.pumpWidget(
-      MaterialApp(
-        theme: raftTheme(),
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: RaftVideoPosterCard(
-              filename: 'a.mp4',
-              aspectRatio: 1,
-              duration: const Duration(hours: 1, minutes: 2, seconds: 3),
-              onOpen: () => opened++,
+  testWidgets(
+    'a tap anywhere on the card opens; the length reads like the strip',
+    (t) async {
+      t.view.physicalSize = const Size(390, 700);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      var opened = 0;
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: RaftVideoPosterCard(
+                filename: 'a.mp4',
+                aspectRatio: 1,
+                duration: const Duration(hours: 1, minutes: 2, seconds: 3),
+                onOpen: () => opened++,
+              ),
             ),
           ),
         ),
-      ),
-    );
-    expect(find.text('1:02:03'), findsOneWidget);
-    final rect = t.getRect(find.byKey(const Key('inline-video')));
-    for (final spot in [rect.center, rect.topLeft + const Offset(4, 4)]) {
-      await t.tapAt(spot);
-      await t.pump();
-    }
-    expect(opened, 2);
-  });
+      );
+      expect(find.text('1:02:03'), findsOneWidget);
+      final rect = t.getRect(find.byKey(const Key('inline-video')));
+      for (final spot in [rect.center, rect.topLeft + const Offset(4, 4)]) {
+        await t.tapAt(spot);
+        await t.pump();
+      }
+      expect(opened, 2);
+    },
+  );
 }

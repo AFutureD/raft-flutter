@@ -256,7 +256,7 @@ void main() {
         await tester.pumpWidget(
           host(raftTheme(dark: dark), selectionPopoverPreview()),
         );
-        await tester.tap(find.text('Choose channel'));
+        await tester.tap(find.text('Choose Channel'));
         await tester.pumpAndSettle();
         expect(find.byType(EditableText), findsOneWidget);
         expect(

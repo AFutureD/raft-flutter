@@ -102,13 +102,13 @@ class _SelectionPopoverPreviewState extends State<SelectionPopoverPreview> {
             Row(
               children: [
                 RaftButton(
-                  label: 'Choose channel',
+                  label: 'Choose Channel',
                   focusNode: trigger,
                   onPressed: () => setState(() => open = !open),
                 ),
                 const SizedBox(width: 12),
                 RaftButton(
-                  label: caller ? 'Use default' : 'Use caller surface',
+                  label: caller ? 'Use Default' : 'Use Caller Surface',
                   onPressed: () => setState(() => caller = !caller),
                 ),
               ],

@@ -101,7 +101,7 @@ class RaftPreviewUnavailable extends StatelessWidget {
                   if (onOpen != null)
                     RaftRecipeButton(
                       key: const ValueKey('preview-open-system'),
-                      label: raftText(context, 'Open with system app'),
+                      label: raftText(context, 'Open with System App'),
                       glyph: RaftGlyph.externalLink,
                       glyphSize: 12,
                       size: RaftButtonRecipeSize.sm,
@@ -173,7 +173,7 @@ class RaftPreviewNotice extends StatelessWidget {
           if (onOpen != null)
             RaftTextButton(
               key: const ValueKey('preview-open-system'),
-              label: raftText(context, 'Open full file'),
+              label: raftText(context, 'Open Full File'),
               glyph: RaftGlyph.externalLink,
               visualHeight: 28,
               onPressed: onOpen,

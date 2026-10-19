@@ -3,7 +3,7 @@
 const Map<String, String> zhCatalogOauthBrowser = <String, String>{
   // Native-only: the system browser did not open for a desktop sign-in.
   "Browser didn't open?": "浏览器没有打开？",
-  "Copy sign-in link": "复制登录链接",
-  "Link copied": "链接已复制",
-  "Open again": "重新打开",
+  "Copy Sign-in Link": "复制登录链接",
+  "Link Copied": "链接已复制",
+  "Open Again": "重新打开",
 };

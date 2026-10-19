@@ -99,9 +99,9 @@ void main() {
                 viewportHeight: 800,
                 threadLabel: 'Thread',
                 parentLabel: '#公开中文 日本語',
-                jumpLabel: 'Scroll thread to first message',
+                jumpLabel: 'Scroll Thread to First Message',
                 backLabel: 'Back',
-                closeLabel: 'Close thread',
+                closeLabel: 'Close Thread',
                 onBack: () => back++,
                 onClose: () => close++,
                 onJumpToStart: () => jump++,
@@ -111,7 +111,7 @@ void main() {
                 actions: [
                   RaftThreadOverflowAction(
                     key: const ValueKey('thread-menu'),
-                    label: 'Thread actions',
+                    label: 'Thread Actions',
                     onPressed: () => overflow++,
                   ),
                 ],
@@ -128,9 +128,9 @@ void main() {
         final semantics = tester.ensureSemantics();
         try {
           final node = tester.getSemantics(
-            find.bySemanticsLabel('Scroll thread to first message'),
+            find.bySemanticsLabel('Scroll Thread to First Message'),
           );
-          expect(node.label, 'Scroll thread to first message');
+          expect(node.label, 'Scroll Thread to First Message');
           expect(node.flagsCollection.isButton, true);
         } finally {
           semantics.dispose();
@@ -268,9 +268,9 @@ void main() {
               presentation: RaftThreadPresentation.mobileModal,
               threadLabel: 'Thread',
               parentLabel: '@公开用户',
-              jumpLabel: 'Scroll thread to first message',
+              jumpLabel: 'Scroll Thread to First Message',
               backLabel: 'Back',
-              closeLabel: 'Close thread',
+              closeLabel: 'Close Thread',
               onBack: () {},
               onClose: () {},
               onJumpToStart: () => jumps++,

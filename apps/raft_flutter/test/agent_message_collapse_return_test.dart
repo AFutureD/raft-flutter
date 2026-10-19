@@ -32,7 +32,7 @@ Finder chatRows(Finder chat) => find.descendant(
 
 Finder toggle(Finder chat, bool open) => find.descendant(
   of: chatRows(chat),
-  matching: find.text(open ? 'Collapse' : 'Show more', skipOffstage: false),
+  matching: find.text(open ? 'Collapse' : 'Show More', skipOffstage: false),
   skipOffstage: false,
 );
 

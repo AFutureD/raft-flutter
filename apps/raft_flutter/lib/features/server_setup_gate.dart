@@ -358,7 +358,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
               RaftAgentBanner(
                 status: RaftAgentBannerStatus.warning,
                 description: (error ?? setupMachinesError)!,
-                action: createdAgentId == null ? 'Try again' : null,
+                action: createdAgentId == null ? 'Try Again' : null,
                 onAction: createdAgentId == null ? reload : null,
               )
             else if (createdAgentId == null)

@@ -52,7 +52,7 @@ void main() {
     await tester.pumpWidget(
       _app(RaftSecretView(value: 'secret', onCopy: (_) async {})),
     );
-    await tester.tap(find.text('Copy credential'));
+    await tester.tap(find.text('Copy Credential'));
     await tester.pump();
     expect(find.text('Copied'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
@@ -99,7 +99,7 @@ void main() {
     await tester.pumpWidget(
       _app(RaftInviteHumanDialog(onClose: () {}, onSend: (_) async {})),
     );
-    await tester.tap(find.text('Send invites'));
+    await tester.tap(find.text('Send Invites'));
     await tester.pump();
     const prompt = 'Enter at least one email, or copy the invite link above.';
     expect(find.text(prompt), findsOneWidget);

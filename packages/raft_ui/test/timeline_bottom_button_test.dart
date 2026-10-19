@@ -21,7 +21,7 @@ void main() {
                   child: Stack(
                     children: [
                       RaftTimelineBottomButton(
-                        label: '3 new messages',
+                        label: '3 New Messages',
                         onPressed: () => taps++,
                       ),
                     ],
@@ -35,7 +35,7 @@ void main() {
         final button = tester.getRect(find.byType(RaftRecipeButton));
         expect(button.center.dx, timeline.center.dx);
         expect(button.bottom, timeline.bottom - 12);
-        await tester.tap(find.text('3 new messages'));
+        await tester.tap(find.text('3 New Messages'));
         await tester.pumpAndSettle();
         expect(taps, 1);
         expect(tester.takeException(), isNull);

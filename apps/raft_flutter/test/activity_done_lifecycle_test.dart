@@ -65,7 +65,7 @@ void main() {
         workspace.inbox = stale;
         final Future<void> oldRead = state.load(append: true);
         await tester.pump();
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         workspace.inbox = null;
         client.pending.single.complete({});
@@ -85,7 +85,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} failed ACK refresh shows the actual error and retires its bridge before retry',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         final failed = Completer<dynamic>();
         workspace.inbox = failed;
@@ -110,7 +110,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} first owned refresh stays armed until acceptance then retires suppression',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         final held = Completer<dynamic>();
         workspace.inbox = held;
@@ -138,7 +138,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} newer authority activity bypasses suppression while POST is pending and after ACK',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         workspace.row = doneThread(authoritySeq: '13');
         await state.load();
@@ -155,7 +155,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} failed persistence restores canonical row and unread through reconciliation',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         expect(state.rows, isEmpty);
         client.pending.single.completeError(
@@ -171,7 +171,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} principal change rejects late success and old refresh effects',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         client.user = RaftRecord({'id': 'bob'});
         workspace.notifyListeners();
@@ -189,7 +189,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} denied persistence retires rows and never accepts optimistic success',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         client.pending.single.completeError(
           RaftApiException.response(
@@ -208,7 +208,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} old success cannot clear the newer Done generation or drive its refresh',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         workspace.row = {
           ...doneThread(authoritySeq: '13'),
@@ -216,7 +216,7 @@ void main() {
         };
         await state.load();
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         final before = workspace.inboxRequests;
         client.pending[0].complete({});
@@ -239,7 +239,7 @@ void main() {
       (tester) async {
         workspace.row.remove('doneFrontierSeq');
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         expect(client.posts.single.data, {'threadChannelId': 'thread'});
         expect(state.rows, isEmpty);
@@ -258,7 +258,7 @@ void main() {
             'channelId': 'channel',
           };
           final dynamic state = await mount(tester);
-          await tester.tap(find.byTooltip('Mark conversation done'));
+          await tester.tap(find.byTooltip('Mark Conversation Done'));
           await tester.pumpAndSettle();
           expect(client.posts.single.path, '/channels/inbox/done');
           expect(client.posts.single.data, {
@@ -277,7 +277,7 @@ void main() {
       '[Activity Done] ${dark ? 'dark' : 'light'} intent removes exact row before POST and stale ACK refresh stays removed',
       (tester) async {
         final dynamic state = await mount(tester);
-        await tester.tap(find.byTooltip('Mark conversation done'));
+        await tester.tap(find.byTooltip('Mark Conversation Done'));
         await tester.pumpAndSettle();
         expect(client.posts.single.path, '/channels/threads/done');
         expect(client.posts.single.data, {

@@ -61,7 +61,7 @@ void main() {
       final w = f.workspace(t);
       expect(find.text('lab-alpha').hitTestable(), findsWidgets);
 
-      await _tap(t, find.bySemanticsLabel('Search this channel'), 'search');
+      await _tap(t, find.bySemanticsLabel('Search This Channel'), 'search');
       await f.flush(t);
       expect(w.location.route, RaftRoute.search, reason: '${w.location}');
       expect(w.location.query('channelId'), 'alpha', reason: '${w.location}');

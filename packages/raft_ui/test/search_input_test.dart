@@ -23,7 +23,7 @@ void main() {
                     controller: controller,
                     focusNode: focus,
                     hint: 'Search messages',
-                    clearLabel: 'Clear search',
+                    clearLabel: 'Clear Search',
                     showEscape: true,
                     onChanged: changes.add,
                     onClear: controller.clear,
@@ -54,7 +54,7 @@ void main() {
         await t.pump();
         expect(controller.text, '你');
         expect(changes, ['ni', '你']);
-        await t.tap(find.byTooltip('Clear search'));
+        await t.tap(find.byTooltip('Clear Search'));
         await t.pump();
         expect(controller.text, isEmpty);
         expect(t.takeException(), isNull);

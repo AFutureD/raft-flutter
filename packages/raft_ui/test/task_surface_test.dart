@@ -44,7 +44,7 @@ void main() {
           // The extended touch area is the semantics rect of the Back button.
           SemanticsNode? node;
           void visit(SemanticsNode n) {
-            if (n.label == 'Close task') node = n;
+            if (n.label == 'Close Task') node = n;
             n.visitChildren((c) {
               visit(c);
               return true;
@@ -59,13 +59,13 @@ void main() {
           await t.sendKeyEvent(LogicalKeyboardKey.tab);
           await t.sendKeyEvent(LogicalKeyboardKey.enter);
           await t.pump();
-          expect(find.text('Reopen preview'), findsOneWidget);
+          expect(find.text('Reopen Preview'), findsOneWidget);
           // The 28px Back keeps a >= 44px touch area (4px below its edge).
-          await t.tap(find.text('Reopen preview'));
+          await t.tap(find.text('Reopen Preview'));
           await t.pump();
           await t.tapAt(t.getCenter(back) + const Offset(0, 18));
           await t.pump();
-          expect(find.text('Reopen preview'), findsOneWidget);
+          expect(find.text('Reopen Preview'), findsOneWidget);
           expect(t.takeException(), isNull);
           semantics.dispose();
         },
@@ -95,7 +95,7 @@ void main() {
         await t.sendKeyEvent(LogicalKeyboardKey.escape);
         await t.pump();
         expect(find.byKey(const ValueKey('task-thread-modal')), findsNothing);
-        await t.tap(find.text('Reopen preview'));
+        await t.tap(find.text('Reopen Preview'));
         await t.pump();
         expect(find.byKey(const ValueKey('task-thread-modal')), findsOneWidget);
         expect(find.text('Created task'), findsNothing);

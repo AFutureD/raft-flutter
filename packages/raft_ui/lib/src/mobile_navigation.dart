@@ -651,7 +651,7 @@ class RaftMobileNotificationButton extends StatelessWidget {
     super.key,
     this.onPressed,
     this.open = false,
-    this.semanticLabel = 'Notification center',
+    this.semanticLabel = 'Notification Center',
     this.visualSize = 32,
     this.glyphSize = 16,
   });

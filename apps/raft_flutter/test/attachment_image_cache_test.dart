@@ -262,7 +262,7 @@ void main() {
         4000,
         3000,
       ));
-      await tester.tap(find.byTooltip('Close preview'));
+      await tester.tap(find.byTooltip('Close Preview'));
       await tester.pumpAndSettle();
       // Closing the lightbox frees the full bitmap; the preview stays.
       expect(w.attachmentMedia.retainedImageDecodedBytes, 1152 * 864 * 4);

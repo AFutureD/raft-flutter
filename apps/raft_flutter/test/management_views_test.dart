@@ -111,12 +111,12 @@ void main() {
       a.statuses['POST /slack-bridge/provisioning/preflight'] = 403;
       await tester.pumpWidget(host(IMBridgesView(controller: w)));
       await tester.pumpAndSettle();
-      expect(find.text('Verify and finish setup'), findsOneWidget);
-      await tester.ensureVisible(find.text('Verify and finish setup'));
+      expect(find.text('Verify and Finish Setup'), findsOneWidget);
+      await tester.ensureVisible(find.text('Verify and Finish Setup'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Verify and finish setup'));
+      await tester.tap(find.text('Verify and Finish Setup'));
       await tester.pumpAndSettle();
-      expect(find.text('Verify and finish setup'), findsNothing);
+      expect(find.text('Verify and Finish Setup'), findsNothing);
       expect(find.text('Disconnect Slack Workspace'), findsNothing);
       // SlackBridgeSetupWizard: a failed load with no view shows the
       // generic Raft for Slack failure (never the stale projection).
@@ -208,9 +208,9 @@ void main() {
       };
       await tester.pumpWidget(host(IMBridgesView(controller: w)));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Save mappings and enable'));
+      await tester.ensureVisible(find.text('Save Mappings and Enable'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Save mappings and enable'));
+      await tester.tap(find.text('Save Mappings and Enable'));
       await tester.pumpAndSettle();
       expect(a.calls.where((c) => c.path.endsWith('/enable')), hasLength(1));
     },
@@ -225,9 +225,9 @@ void main() {
         host(SingleChildScrollView(child: AccountSettings(controller: w))),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Edit profile'));
+      await tester.ensureVisible(find.text('Edit Profile'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Edit profile'));
+      await tester.tap(find.text('Edit Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(RaftFormDialog), findsOneWidget);
       w.client.user = RaftRecord({'id': 'bob', 'name': 'newaccount'});
@@ -353,7 +353,7 @@ void main() {
     };
     await tester.pumpWidget(host(IMBridgesView(controller: w)));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Verify and finish setup'));
+    await tester.tap(find.text('Verify and Finish Setup'));
     await tester.pumpAndSettle();
     expect(find.text('Failed'), findsOneWidget);
     expect(
@@ -393,9 +393,9 @@ void main() {
       };
       await tester.pumpWidget(host(IMBridgesView(controller: w)));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Manage channel mappings'));
+      await tester.ensureVisible(find.text('Manage Channel Mappings'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Manage channel mappings'));
+      await tester.tap(find.text('Manage Channel Mappings'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(
         find.byKey(const ValueKey('slack-bridge-remove-pair-0')),
@@ -405,9 +405,9 @@ void main() {
         find.byKey(const ValueKey('slack-bridge-remove-pair-0')),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Apply mapping changes'));
+      await tester.ensureVisible(find.text('Apply Mapping Changes'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Apply mapping changes'));
+      await tester.tap(find.text('Apply Mapping Changes'));
       await tester.pumpAndSettle();
       expect(a.calls.where((c) => c.method == 'DELETE'), hasLength(1));
       await tester.ensureVisible(find.text('Disconnect Slack Workspace'));
@@ -429,7 +429,7 @@ void main() {
       });
       w.notifyListeners();
       await tester.pumpAndSettle();
-      expect(find.text('Verify and finish setup'), findsNothing);
+      expect(find.text('Verify and Finish Setup'), findsNothing);
       expect(find.text('Disconnect Slack Workspace'), findsNothing);
     },
   );
@@ -615,9 +615,9 @@ void main() {
       a.routes['GET /provider-connections/p1/probes'] = (_) => pending.future;
       await tester.pumpWidget(host(ProviderConnectionsView(controller: w)));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Verification history'));
+      await tester.ensureVisible(find.text('Verification History'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Verification history'));
+      await tester.tap(find.text('Verification History'));
       await tester.pump();
       w.server = RaftRecord({'id': 's1', 'role': 'member'});
       w.setError(null);
@@ -816,7 +816,7 @@ void main() {
       await tester.pumpAndSettle();
       // ProviderConnectionsSettings renders nothing while the flag is off.
       expect(find.byType(RaftProviderConnectionsFrame), findsNothing);
-      expect(find.text('Add connection'), findsNothing);
+      expect(find.text('Add Connection'), findsNothing);
       expect(a.calls.any((c) => c.path == '/provider-connections'), false);
       expect(a.calls.any((c) => c.path == '/feature-flags/evaluate'), true);
     },

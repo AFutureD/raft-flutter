@@ -9,7 +9,7 @@ import 'chat_focus_receipt_test.dart' show contextRows, paintedMessage;
 import 'message_context_transition_test.dart' show row;
 import 'message_presentation_test.dart' show fixture;
 
-/// ChatPanel.tsx:1514-1525 / ThreadPanel.tsx:2610-2620: the "Back to bottom"
+/// ChatPanel.tsx:1514-1525 / ThreadPanel.tsx:2610-2620: the "Back to Bottom"
 /// button floats centered, 12px above the composer, in the channel timeline and
 /// in the thread timeline; in a centered history window it reloads the latest
 /// page.
@@ -43,14 +43,14 @@ void main() {
 
         final button = find.byType(RaftTimelineBottomButton);
         expect(button, findsOneWidget);
-        expect(find.text('Back to bottom'), findsOneWidget);
+        expect(find.text('Back to Bottom'), findsOneWidget);
         final timeline = tester.getRect(
           find.byKey(const ValueKey('current-timeline')),
         );
         final composer = tester.getRect(find.byType(RaftComposer));
         final control = tester.getRect(
           find.ancestor(
-            of: find.text('Back to bottom'),
+            of: find.text('Back to Bottom'),
             matching: find.byType(RaftRecipeButton),
           ),
         );
@@ -66,14 +66,14 @@ void main() {
           latestRequests.add(1);
           return {'messages': contextRows('latest', count: 8)};
         };
-        await tester.tap(find.text('Back to bottom'));
+        await tester.tap(find.text('Back to Bottom'));
         await tester.pump();
         await tester.runAsync(() => Future<void>.delayed(Duration.zero));
         await tester.pumpAndSettle();
         expect(latestRequests, hasLength(1));
         expect(w.messageDomain.state.hasNewer, false);
         expect(paintedMessage(tester, 'latest-7'), isNotNull);
-        expect(find.text('Back to bottom'), findsNothing);
+        expect(find.text('Back to Bottom'), findsNothing);
         expect(find.byType(RaftTimelineBottomButton), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
@@ -131,14 +131,14 @@ void main() {
 
         viewport.jumpTo(viewport.offset - 600);
         await tester.pumpAndSettle();
-        expect(find.text('Back to bottom'), findsOneWidget);
+        expect(find.text('Back to Bottom'), findsOneWidget);
         final timeline = tester.getRect(
           find.byKey(const ValueKey('current-timeline')),
         );
         final composer = tester.getRect(find.byType(RaftComposer));
         final control = tester.getRect(
           find.ancestor(
-            of: find.text('Back to bottom'),
+            of: find.text('Back to Bottom'),
             matching: find.byType(RaftRecipeButton),
           ),
         );
@@ -157,12 +157,12 @@ void main() {
         });
         await tester.pump(const Duration(milliseconds: 16));
         await tester.pumpAndSettle();
-        expect(find.text('1 new'), findsOneWidget);
+        expect(find.text('1 New'), findsOneWidget);
         expect(state.distanceFromLatest(viewport.position), greaterThan(100));
 
         // The outer channel stays untouched by the thread's button.
         final channelCalls = api.calls.length;
-        await tester.tap(find.text('1 new'));
+        await tester.tap(find.text('1 New'));
         await tester.pumpAndSettle();
         expect(state.distanceFromLatest(viewport.position), 0);
         expect(find.byType(RaftTimelineBottomButton), findsNothing);

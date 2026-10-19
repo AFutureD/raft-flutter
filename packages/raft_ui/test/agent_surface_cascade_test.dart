@@ -322,7 +322,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Laptop'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Use capacity caller'));
+        await tester.tap(find.text('Use Capacity Caller'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Create'));
         await tester.pumpAndSettle();

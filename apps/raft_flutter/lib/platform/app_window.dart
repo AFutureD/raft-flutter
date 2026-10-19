@@ -139,7 +139,7 @@ class _AppWindowCommandsState extends State<AppWindowCommands> {
             context,
             'Check your connection and try again.',
           ),
-          confirmLabel: raftText(context, 'Try again'),
+          confirmLabel: raftText(context, 'Try Again'),
           cancelLabel: raftText(context, 'Cancel'),
         );
         if (!retry) return false;

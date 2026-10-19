@@ -76,7 +76,7 @@ class _RaftMermaidFullscreenState extends State<RaftMermaidFullscreen> {
     final pad = size.width >= 768 ? 24.0 : 12.0;
     final inset = MediaQuery.paddingOf(context);
     final background = raftMermaidBackground(t.dark);
-    final label = raftText(context, 'Close fullscreen');
+    final label = raftText(context, 'Close Fullscreen');
     final close = _RoundClose(label: label, onPressed: widget.onClose);
     return CallbackShortcuts(
       bindings: {

@@ -137,7 +137,7 @@ class _SearchInputPreviewState extends State<_SearchInputPreview> {
           controller: controller,
           focusNode: focus,
           hint: 'Search messages',
-          clearLabel: 'Clear search',
+          clearLabel: 'Clear Search',
           showEscape: true,
           onClear: controller.clear,
         ),

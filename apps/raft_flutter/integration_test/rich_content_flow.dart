@@ -108,13 +108,13 @@ Future<void> verifyRichContent(
     }
   }
 
-  await tapToolbar('Show source');
+  await tapToolbar('Show Source');
   await tester.pump(const Duration(milliseconds: 300));
   expect(
     find.descendant(of: tile, matching: find.text(source)),
     findsOneWidget,
   );
-  await tapToolbar('Copy code');
+  await tapToolbar('Copy Code');
   final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
   expect(clipboard?.text, source);
   expect(
@@ -122,8 +122,8 @@ Future<void> verifyRichContent(
     findsOneWidget,
     reason: 'Copy and highlight expiry must preserve the selected source tab.',
   );
-  await tapToolbar('Show diagram');
-  await tapToolbar('Expand diagram');
+  await tapToolbar('Show Diagram');
+  await tapToolbar('Expand Diagram');
   expect(find.byType(Dialog), findsOneWidget);
   expect(
     find.text('Unable to render this diagram. The source is shown below.'),

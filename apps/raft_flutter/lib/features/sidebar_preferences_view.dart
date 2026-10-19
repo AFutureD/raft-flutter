@@ -127,7 +127,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
         existing?['id'] ??
         'native-section-${DateTime.now().microsecondsSinceEpoch}';
     await form(
-      existing == null ? 'Create sidebar section' : 'Edit sidebar section',
+      existing == null ? 'Create Sidebar Section' : 'Edit Sidebar Section',
       [
         RaftFormField(
           'name',
@@ -370,8 +370,8 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
                         message: raftText(
                           context,
                           hidden.contains(c.id)
-                              ? 'Show direct message'
-                              : 'Hide direct message',
+                              ? 'Show Direct Message'
+                              : 'Hide Direct Message',
                         ),
                         child: IconButton(
                           icon: Icon(
@@ -461,7 +461,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
                 ),
               ),
             RaftButton(
-              label: raftText(context, 'Create sidebar section'),
+              label: raftText(context, 'Create Sidebar Section'),
               onPressed: busy || sections.length >= 50
                   ? null
                   : () => run(editSection),

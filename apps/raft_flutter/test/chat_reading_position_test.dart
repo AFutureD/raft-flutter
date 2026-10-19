@@ -81,7 +81,7 @@ void main() {
         await tester.pumpAndSettle();
         final (anchor, before) = _anchor(tester, rows)!;
         expect(find.byType(RaftTimelineBottomButton), findsOneWidget);
-        expect(find.text('Back to bottom'), findsOneWidget);
+        expect(find.text('Back to Bottom'), findsOneWidget);
 
         Future<void> arrive(String id, int seq, String sender) async {
           w.messageDomain.ledger.ingest([
@@ -103,10 +103,10 @@ void main() {
         }
 
         await arrive('other-1', 900, 'bob');
-        expect(find.textContaining('1 new message'), findsOneWidget);
-        expect(find.text('Back to bottom'), findsNothing);
+        expect(find.textContaining('1 New Message'), findsOneWidget);
+        expect(find.text('Back to Bottom'), findsNothing);
         await arrive('other-2', 901, 'bob');
-        expect(find.textContaining('2 new message'), findsOneWidget);
+        expect(find.textContaining('2 New Message'), findsOneWidget);
         expect(state.distanceFromLatest(viewport.position), greaterThan(100));
 
         // The reader's own send goes back to the latest end, wherever they are.

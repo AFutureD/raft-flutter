@@ -1063,7 +1063,7 @@ class _RuntimeRow extends StatelessWidget {
                           RaftInteractive(
                             onPressed: () =>
                                 onCopyInstallCommand!(runtime.id, command),
-                            semanticLabel: tr('Copy install command'),
+                            semanticLabel: tr('Copy Install Command'),
                             builder: (context, state) => Opacity(
                               opacity: state.pressed ? .6 : 1,
                               child: Row(
@@ -1076,7 +1076,7 @@ class _RuntimeRow extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 4),
                                   RaftUnderlinedText(
-                                    tr('Copy install command'),
+                                    tr('Copy Install Command'),
                                     style: strong,
                                   ),
                                 ],

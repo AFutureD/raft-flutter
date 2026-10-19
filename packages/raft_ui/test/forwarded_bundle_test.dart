@@ -88,8 +88,8 @@ void main() {
         expect(find.textContaining('private-secret-label'), findsNothing);
         expect(find.text('report0.txt'), findsNothing);
         expect(find.text('report1.txt').hitTestable(), findsNothing);
-        await tester.ensureVisible(find.text('View all 3 messages'));
-        await tester.tap(find.text('View all 3 messages'));
+        await tester.ensureVisible(find.text('View All 3 Messages'));
+        await tester.tap(find.text('View All 3 Messages'));
         await tester.pump();
         await tester.ensureVisible(find.text('report1.txt'));
         expect(find.text('report1.txt').hitTestable(), findsOneWidget);

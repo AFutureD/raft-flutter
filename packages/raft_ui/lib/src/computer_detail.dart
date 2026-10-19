@@ -888,7 +888,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       _editableEyebrow(
         'Name',
         canEdit: manage && !editingName,
-        tooltip: 'Edit computer name',
+        tooltip: 'Edit Computer Name',
         key: const ValueKey('computer-edit-name'),
         onEdit: () => setState(() {
           nameField.text = '${d.name}';
@@ -935,7 +935,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       _editableEyebrow(
         'Description',
         canEdit: manage && !editingDescription,
-        tooltip: 'Edit computer description',
+        tooltip: 'Edit Computer Description',
         key: const ValueKey('computer-edit-description'),
         onEdit: () => setState(() {
           descriptionField.text = description;
@@ -1232,7 +1232,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                       child: RaftUnderlineTextButton(
                         key: const ValueKey('computer-recovery-setup-toggle'),
                         label: showRecoverySetup
-                            ? 'Hide install and setup commands'
+                            ? 'Hide Install and Setup Commands'
                             : 'raft-computer: command not found? Install or re-run setup',
                         style: ink.body(
                           12,
@@ -1255,12 +1255,12 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         _commandStep(
                           '1. Install',
                           fresh.install,
-                          copyLabel: 'Copy install command',
+                          copyLabel: 'Copy Install Command',
                         ),
                         _commandStep(
                           '2. Setup',
                           fresh.setup,
-                          copyLabel: 'Copy setup command',
+                          copyLabel: 'Copy Setup Command',
                         ),
                       ]),
                     ],
@@ -1471,7 +1471,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         ),
                         if (widget.actions.changeModel != null)
                           _smallButton(
-                            'Change model',
+                            'Change Model',
                             key: const ValueKey('computer-bulk-change-model'),
                             glyph: RaftGlyph.refreshCw,
                             onPressed: bulkAction != null || changingModel
@@ -1726,7 +1726,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                   ),
                 if (kind == RaftComputerServiceKind.upToDate && webUpgradeOn)
                   _actionButton(
-                    'Up to date',
+                    'Up to Date',
                     glyph: RaftGlyph.checkCircle,
                     variant: RaftButtonRecipeVariant.accent,
                   ),
@@ -1752,12 +1752,12 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                 _commandStep(
                   '1. Install the latest version',
                   upgradeCommands.install,
-                  copyLabel: 'Copy install command',
+                  copyLabel: 'Copy Install Command',
                 ),
                 _commandStep(
                   '2. Restart',
                   upgradeCommands.restartService,
-                  copyLabel: 'Copy restart after fresh install command',
+                  copyLabel: 'Copy Restart After Fresh Install Command',
                 ),
               ]),
             ],
@@ -1834,7 +1834,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
         children: [
           RaftInteractive(
             key: const ValueKey('computer-recovery-guide-toggle'),
-            semanticLabel: open ? 'Hide Recovery guide' : 'Show Recovery guide',
+            semanticLabel: open ? 'Hide Recovery Guide' : 'Show Recovery Guide',
             onPressed: () => setState(() => recoveryGuide = !open),
             builder: (context, _) => Row(
               children: [
@@ -1877,19 +1877,19 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         '1. Restart',
                         'Use this first when the service is stuck or an upgrade is not taking effect.',
                         c.restart,
-                        'Copy command',
+                        'Copy Command',
                       ),
                       step(
                         '2. Fresh install${windows ? ' · Windows x64' : ''}',
                         "Reinstall the binary and supervisor without removing this computer's identity or credentials.",
                         c.install,
-                        'Copy fresh install command',
+                        'Copy Fresh Install Command',
                       ),
                       step(
                         '3. Restart after install',
                         'Run this after the fresh install finishes so the service reloads the newly installed binary.',
                         c.restartService,
-                        'Copy restart after fresh install command',
+                        'Copy Restart After Fresh Install Command',
                       ),
                     ]),
                   ],

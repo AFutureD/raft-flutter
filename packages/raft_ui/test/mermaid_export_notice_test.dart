@@ -31,9 +31,9 @@ void main() {
       await tester.pumpAndSettle();
 
       Future<void> exportSource() async {
-        await tester.tap(find.byTooltip('Download Mermaid diagram'));
+        await tester.tap(find.byTooltip('Download Mermaid Diagram'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Download source'));
+        await tester.tap(find.text('Download Source'));
         await tester.pumpAndSettle();
       }
 

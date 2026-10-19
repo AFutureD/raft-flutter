@@ -316,7 +316,7 @@ class RaftProviderConnectionsFrame extends StatelessWidget {
                   ? null
                   : RaftButton(
                       key: const ValueKey('provider-connections-add'),
-                      label: 'Add connection',
+                      label: 'Add Connection',
                       glyph: RaftGlyph.plus,
                       tone: RaftButtonRecipeVariant.default_,
                       size: RaftButtonRecipeSize.sm,
@@ -610,7 +610,7 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
         );
     Widget addButton({bool primary = false}) => RaftButton(
       key: ValueKey(primary ? 'mcp-empty-add' : 'mcp-add-server'),
-      label: 'Add server',
+      label: 'Add Server',
       glyph: RaftGlyph.plus,
       tone: primary
           ? RaftButtonRecipeVariant.default_

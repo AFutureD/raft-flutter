@@ -27,7 +27,7 @@ void main() {
                     onSubmit: (data) async {
                       requests++;
                       expect(data['title'], '日本語 中文');
-                      if (fail) throw const RaftUserError('Try again');
+                      if (fail) throw const RaftUserError('Try Again');
                       pending = Completer<void>();
                       await pending!.future;
                     },
@@ -47,7 +47,7 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
       expect(find.text('日本語 中文'), findsOneWidget);
-      expect(find.textContaining('Try again'), findsOneWidget);
+      expect(find.textContaining('Try Again'), findsOneWidget);
       fail = false;
       await tester.tap(find.text('Save'));
       await tester.pump();

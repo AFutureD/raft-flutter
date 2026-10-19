@@ -121,7 +121,7 @@ void main() {
                         onChanged: choose,
                       ),
                       'actions' => RaftOverflowMenuButton(
-                        tooltip: 'Choose action',
+                        tooltip: 'Choose Action',
                         entries: [
                           for (var i = 0; i < 40; i++)
                             RaftMenuEntry(

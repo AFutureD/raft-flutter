@@ -344,7 +344,7 @@ void main() {
         final visiblePreview = reads('c');
         await live('live-visible-preview', 'c', 5);
         expect(reads('c'), greaterThan(visiblePreview));
-        await t.tap(find.byTooltip('Close detail'));
+        await t.tap(find.byTooltip('Close Detail'));
         await t.pumpAndSettle();
         expectPreview('activity', null, null);
         final hiddenActivity = reads('c');

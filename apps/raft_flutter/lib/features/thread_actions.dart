@@ -183,7 +183,7 @@ class _ThreadActionsState extends State<ThreadActions> {
                 children: [
                   if (widget.onSearch != null)
                     RaftMenuItem(
-                      label: raftText(context, 'Search in thread'),
+                      label: raftText(context, 'Search in Thread'),
                       glyph: RaftGlyph.search,
                       autofocus: true,
                       onPressed: () {
@@ -193,7 +193,7 @@ class _ThreadActionsState extends State<ThreadActions> {
                     ),
                   if (widget.onViewChannel != null)
                     RaftMenuItem(
-                      label: raftText(context, 'View in channel'),
+                      label: raftText(context, 'View in Channel'),
                       glyph: RaftGlyph.mapPin,
                       onPressed: () {
                         closeMenu();
@@ -242,7 +242,7 @@ class _ThreadActionsState extends State<ThreadActions> {
             groupId: menuGroup,
             child: RaftThreadOverflowAction(
               key: const Key('thread-options'),
-              label: raftText(context, 'Thread options'),
+              label: raftText(context, 'Thread Options'),
               onPressed: current ? () => openMenu(anchor) : null,
             ),
           ),

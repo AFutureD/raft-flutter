@@ -389,7 +389,7 @@ void registerCloseDialogTests(TestPart part) {
           showRaftSidebarSectionDialog(
             context,
             cardKey: const ValueKey('section-dialog'),
-            title: 'New section',
+            title: 'New Section',
             submitLabel: 'Create',
             onSubmit: (_, _) {},
           ),
@@ -719,7 +719,7 @@ void registerCloseDialogTests(TestPart part) {
       return SurfaceProbe(
         isOpen: probe.isOpen,
         x: anyX,
-        back: find.byTooltip('Close forward target selection'),
+        back: find.byTooltip('Close Forward Target Selection'),
         scrim: size.width >= 768 ? _corner : null,
       );
     },
@@ -775,7 +775,7 @@ void registerCloseDialogTests(TestPart part) {
     'material-alert-dialog': (t, size) => fromProviders(
       t,
       size,
-      tap: find.text('Assigned agents'),
+      tap: find.text('Assigned Agents'),
       surface: find.byType(AlertDialog),
     ),
     'mention-link-dialog': (t, size) async {

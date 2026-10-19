@@ -939,7 +939,7 @@ class RaftAppEditorSecretReveal extends StatelessWidget {
     final text = RaftSettingsText(t);
     final label = raftText(
       context,
-      copied ? 'Copied client secret' : 'Copy client secret',
+      copied ? 'Copied Client Secret' : 'Copy Client Secret',
     );
     return Container(
       padding: const EdgeInsets.all(RaftSpace.x3),

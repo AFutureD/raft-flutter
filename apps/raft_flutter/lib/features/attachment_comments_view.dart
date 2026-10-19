@@ -354,7 +354,7 @@ class _AttachmentCommentsViewState extends State<AttachmentCommentsView> {
                 alignment: Alignment.centerLeft,
                 child: RaftCommentAnchorChip(
                   label: attachmentAnchorLabel(context, anchor),
-                  removeLabel: raftText(context, 'Remove anchor'),
+                  removeLabel: raftText(context, 'Remove Anchor'),
                   onRemove: () => setState(() => anchorCleared = true),
                 ),
               ),

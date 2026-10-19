@@ -71,7 +71,7 @@ class RaftAboutUpdate {
     this.detail,
     this.actionLabel,
     this.onAction,
-    this.checkLabel = 'Check for updates',
+    this.checkLabel = 'Check for Updates',
     this.onCheck,
     this.progress,
     this.notes,
@@ -269,7 +269,7 @@ class RaftSettingsAbout extends StatelessWidget {
                       ),
                       RaftButton(
                         key: const ValueKey('mobile-download-ios'),
-                        label: 'Get the iOS beta',
+                        label: 'Get the iOS Beta',
                         variant: RaftControlVariant.outline,
                         size: RaftButtonRecipeSize.sm,
                         onPressed: app.onIos,
@@ -440,7 +440,7 @@ class RaftReleaseNotesView extends StatelessWidget {
             description: 'Release notes are unavailable right now.',
             action: RaftButton(
               key: const ValueKey('release-notes-retry'),
-              label: 'Try again',
+              label: 'Try Again',
               variant: RaftControlVariant.outline,
               size: RaftButtonRecipeSize.sm,
               onPressed: onRetry,
@@ -461,7 +461,7 @@ class RaftReleaseNotesView extends StatelessWidget {
                     const SizedBox(width: 8),
                     RaftButton(
                       key: const ValueKey('release-notes-refresh-retry'),
-                      label: 'Try again',
+                      label: 'Try Again',
                       variant: RaftControlVariant.ghost,
                       size: RaftButtonRecipeSize.sm,
                       onPressed: onRefreshRetry,
@@ -668,7 +668,7 @@ class _UpdateNotesState extends State<_UpdateNotes> {
               const SizedBox(width: 8),
               RaftButton(
                 key: const ValueKey('settings-about-update-notes-retry'),
-                label: 'Try again',
+                label: 'Try Again',
                 variant: RaftControlVariant.ghost,
                 size: RaftButtonRecipeSize.sm,
                 onPressed: notes.onRetry,
@@ -686,10 +686,10 @@ class _UpdateNotesState extends State<_UpdateNotes> {
                   child: RaftButton(
                     key: const ValueKey('settings-about-update-notes-toggle'),
                     label: expanded
-                        ? 'Show fewer'
+                        ? 'Show Fewer'
                         : older.length == 1
-                        ? '1 more update'
-                        : raftFormat(context, '{count} more updates', {
+                        ? '1 More Update'
+                        : raftFormat(context, '{count} More Updates', {
                             'count': older.length,
                           }),
                     variant: RaftControlVariant.ghost,

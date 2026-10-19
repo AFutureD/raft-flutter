@@ -198,7 +198,7 @@ void main() {
       );
       await tester.pump();
       expect(
-        tester.getTopLeft(find.byTooltip('Close preview')).dy,
+        tester.getTopLeft(find.byTooltip('Close Preview')).dy,
         greaterThanOrEqualTo(32),
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);

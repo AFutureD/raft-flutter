@@ -251,7 +251,7 @@ void main() {
       expect(frame.image.height, greaterThan(100));
       frame.image.dispose();
       decoded!.dispose();
-      await tester.tap(find.byTooltip('Close preview'));
+      await tester.tap(find.byTooltip('Close Preview'));
       await tester.pumpAndSettle();
       expect(await tester.runAsync(() => result!), isFalse);
       expect(find.text('Export'), findsOneWidget);

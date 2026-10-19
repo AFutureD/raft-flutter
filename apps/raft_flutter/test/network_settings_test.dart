@@ -106,7 +106,7 @@ void main() {
     'manual settings persist; the password goes to secure storage only',
     (t) async {
       final (proxy, store) = await pump(t);
-      await t.tap(find.text('Manual setup'));
+      await t.tap(find.text('Manual Setup'));
       await t.pump();
       await type(t, 'network-host', 'proxy.corp.test');
       await type(t, 'network-port', '3128');
@@ -188,7 +188,7 @@ void main() {
     t,
   ) async {
     final (proxy, _) = await pump(t);
-    await t.tap(find.text('Manual setup'));
+    await t.tap(find.text('Manual Setup'));
     await t.pump();
     await t.tap(find.byKey(const Key('network-save')));
     await t.pump();
@@ -213,7 +213,7 @@ void main() {
 
   testWidgets('direct mode persists and is reported', (t) async {
     final (proxy, _) = await pump(t);
-    await t.tap(find.text('No proxy'));
+    await t.tap(find.text('No Proxy'));
     await t.pump();
     await t.tap(find.byKey(const Key('network-save')));
     await t.runAsync(
@@ -264,7 +264,7 @@ void main() {
               : const NetworkProbeResult.ok(200);
         },
       );
-      await t.tap(find.text('Manual setup'));
+      await t.tap(find.text('Manual Setup'));
       await t.pump();
       await type(t, 'network-host', 'p.test');
       await type(t, 'network-port', '3128');

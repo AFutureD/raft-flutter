@@ -281,9 +281,9 @@ class _RaftAgentProfileEditDialogState
   }
 
   String get title => switch (widget.field) {
-    'description' => 'Edit description',
-    'role' => 'Edit role',
-    _ => 'Edit display name',
+    'description' => 'Edit Description',
+    'role' => 'Edit Role',
+    _ => 'Edit Display Name',
   };
 
   bool get tooLong =>

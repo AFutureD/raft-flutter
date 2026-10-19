@@ -233,7 +233,7 @@ final _forms = <_Form>[
     'new sidebar section',
     open: (t, context, w, events) => showRaftSidebarSectionDialog(
       context,
-      title: 'New section',
+      title: 'New Section',
       submitLabel: 'Create',
       onSubmit: (name, _) => events.add('section:$name'),
     ),

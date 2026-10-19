@@ -194,7 +194,7 @@ class RaftExternalAgentToken extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: _smOutline(
               context,
-              state.copied ? 'Copied' : 'Copy token',
+              state.copied ? 'Copied' : 'Copy Token',
               actions.onCopy,
               key: const ValueKey('external-token-copy'),
             ),
@@ -204,7 +204,7 @@ class RaftExternalAgentToken extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: _smOutline(
               context,
-              state.pending ? 'Generating token…' : 'Generate login token',
+              state.pending ? 'Generating Token…' : 'Generate Login Token',
               busy ? null : actions.onGenerate,
               key: const ValueKey('external-token-generate'),
             ),
@@ -239,7 +239,7 @@ class RaftExternalAgentToken extends StatelessWidget {
                   ),
                   _smOutline(
                     context,
-                    'Refresh tokens',
+                    'Refresh Tokens',
                     state.loading || busy ? null : actions.onRefresh,
                     key: const ValueKey('external-token-refresh'),
                   ),
@@ -483,7 +483,7 @@ class RaftExternalSetupSection extends StatelessWidget {
                   items: const [
                     (RaftExternalSetupTab.hermes, null, 'Hermes'),
                     (RaftExternalSetupTab.claudeCode, null, 'Claude Code'),
-                    (RaftExternalSetupTab.otherAgents, null, 'Other agents'),
+                    (RaftExternalSetupTab.otherAgents, null, 'Other Agents'),
                   ],
                   onChanged: onTab,
                 ),
@@ -501,7 +501,7 @@ class RaftExternalSetupSection extends StatelessWidget {
                       if (tab == RaftExternalSetupTab.otherAgents)
                         _smOutline(
                           context,
-                          copiedTarget == 'setup' ? 'Copied' : 'Copy setup',
+                          copiedTarget == 'setup' ? 'Copied' : 'Copy Setup',
                           () => onCopy(otherInstruction, 'setup'),
                           key: const ValueKey('external-setup-copy'),
                         ),
@@ -573,7 +573,7 @@ class RaftExternalSetupSection extends StatelessWidget {
                         context,
                         copiedTarget == '$tabName-step-${i + 1}'
                             ? 'Copied'
-                            : 'Copy step',
+                            : 'Copy Step',
                         () => onCopy(step.command, '$tabName-step-${i + 1}'),
                         key: ValueKey('external-step-copy-${i + 1}'),
                       ),

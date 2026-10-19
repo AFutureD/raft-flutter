@@ -89,7 +89,7 @@ void main() {
     final (_, _, patches) = await setup(tester);
     await rightClick(tester, find.byKey(const ValueKey('sidebar-channel-c1')));
     for (final label in [
-      'Move to section',
+      'Move to Section',
       'Mark as Unread',
       'Pin',
       'Mute',
@@ -121,10 +121,10 @@ void main() {
     } on AssertionError {
       // The right click already added the mouse device.
     }
-    await mouse.moveTo(tester.getCenter(find.text('Move to section')));
+    await mouse.moveTo(tester.getCenter(find.text('Move to Section')));
     await tester.pumpAndSettle();
     expect(find.text('Pinned'), findsNWidgets(2));
-    expect(find.text('New section…'), findsOneWidget);
+    expect(find.text('New Section…'), findsOneWidget);
   });
 
   testWidgets('[WP1] DM row: Close Chat hides the DM', (tester) async {
@@ -153,9 +153,9 @@ void main() {
       'Recent',
       'A-Z',
       'Display',
-      'Show joined channels only',
-      'Hide empty sections',
-      'New section…',
+      'Show Joined Channels Only',
+      'Hide Empty Sections',
+      'New Section…',
     ]) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
@@ -176,10 +176,10 @@ void main() {
       buttons: kSecondaryMouseButton,
     );
     await tester.pumpAndSettle();
-    expect(find.text('New section…'), findsOneWidget);
-    await tester.tap(find.text('New section…'));
+    expect(find.text('New Section…'), findsOneWidget);
+    await tester.tap(find.text('New Section…'));
     await tester.pumpAndSettle();
-    expect(find.text('New section'), findsOneWidget);
+    expect(find.text('New Section'), findsOneWidget);
     await tester.enterText(find.byType(EditableText).last, 'Launch');
     await tester.pump();
     await tester.tap(find.text('Create Section'));
@@ -187,6 +187,6 @@ void main() {
     final sections = (patches.single as Map)['customSections'] as List;
     expect((sections.single as Map)['name'], 'Launch');
     expect((sections.single as Map)['sortMode'], 'manual');
-    expect(find.text('New section'), findsNothing);
+    expect(find.text('New Section'), findsNothing);
   });
 }

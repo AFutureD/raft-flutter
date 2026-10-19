@@ -215,7 +215,7 @@ void main() {
                           replyCount: 5,
                           replies: publicReplies,
                           summary: const Text('5 replies ›'),
-                          semanticLabel: 'Open thread',
+                          semanticLabel: 'Open Thread',
                           onOpen: () => calls++,
                         )
                       : const SizedBox.shrink(),

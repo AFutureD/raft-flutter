@@ -2176,7 +2176,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         if (!parent && !widget.thread)
           RaftMessageToolbarAction(
             key: ValueKey('message-thread-${message.id}'),
-            label: raftText(context, 'Reply in thread'),
+            label: raftText(context, 'Reply in Thread'),
             icon: const RaftMessageThreadGlyph(),
             onPressed: presentationActive
                 ? () => _messages.threads.openThread(message)
@@ -2218,7 +2218,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
     return [
       if (!parent && !widget.thread && presentationActive)
         RaftMessageSemanticsAction(
-          raftText(context, 'Reply in thread'),
+          raftText(context, 'Reply in Thread'),
           (_) => _messages.threads.openThread(message),
         ),
       if (canReact)
@@ -2236,7 +2236,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         (_) => Clipboard.setData(ClipboardData(text: message.content)),
       ),
       ...translationSemanticsActions(message),
-      RaftMessageSemanticsAction(raftText(context, 'Message actions'), (row) {
+      RaftMessageSemanticsAction(raftText(context, 'Message Actions'), (row) {
         final box = row.findRenderObject();
         actions(
           message,
@@ -2641,7 +2641,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         tone: RaftMessageTranslationTone.normal,
         actionLabel: raftText(
           context,
-          original ? 'Show translation' : 'Show original',
+          original ? 'Show Translation' : 'Show Original',
         ),
         tooltip: raftText(
           context,
@@ -2687,7 +2687,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         RaftMessageSemanticsAction(
           raftText(
             context,
-            translation.showingOriginal ? 'Show translation' : 'Show original',
+            translation.showingOriginal ? 'Show Translation' : 'Show Original',
           ),
           (_) => w.services.translations.setShowOriginal(
             m.id,
@@ -2806,7 +2806,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
       taskReference: taskReference(m),
       threadRepliesBadge: threadRepliesBadge(m, parentTile: parent),
       threadLabel: _messages.threadSummaries[m.id] is Map
-          ? raftFormat(context, '{count} replies', {
+          ? raftFormat(context, '{count} Replies', {
               'count': _messages.threadSummaries[m.id]['replyCount'] ?? 0,
             })
           : null,
@@ -3601,10 +3601,10 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
                         ? raftFormat(
                             context,
                             // ThreadPanel.tsx:2619 uses its own shorter copy.
-                            thread ? '{count} new' : '{count} new messages',
+                            thread ? '{count} New' : '{count} New Messages',
                             {'count': bottomCount},
                           )
-                        : raftText(context, 'Back to bottom'),
+                        : raftText(context, 'Back to Bottom'),
                     onPressed: returnToBottom,
                   ),
               ],

@@ -60,7 +60,7 @@ void main() {
       final attach = tester.getRect(
         find
             .byWidgetPredicate(
-              (w) => w is RaftComposerAction && w.tooltip == 'Attach media',
+              (w) => w is RaftComposerAction && w.tooltip == 'Attach Media',
             )
             .last,
       );
@@ -119,7 +119,7 @@ void main() {
       final attach = tester.getRect(
         find
             .byWidgetPredicate(
-              (w) => w is RaftComposerAction && w.tooltip == 'Attach media',
+              (w) => w is RaftComposerAction && w.tooltip == 'Attach Media',
             )
             .last,
       );

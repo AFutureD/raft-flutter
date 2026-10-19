@@ -126,11 +126,11 @@ class _GroupPreviewState extends State<_GroupPreview> {
           spacing: 8,
           children: [
             RaftTextButton(
-              label: hideEmpty ? 'Show empty groups' : 'Hide empty groups',
+              label: hideEmpty ? 'Show Empty Groups' : 'Hide Empty Groups',
               onPressed: () => setState(() => hideEmpty = !hideEmpty),
             ),
             RaftTextButton(
-              label: loading ? 'Finish loading' : 'Begin loading',
+              label: loading ? 'Finish Loading' : 'Begin Loading',
               onPressed: () => setState(() => loading = !loading),
             ),
           ],
@@ -178,8 +178,8 @@ class _TabPreviewState extends State<_TabPreview> {
           child: RaftConversationHeaderActions(
             onSearch: () => setState(() => actions++),
             onSettings: () => setState(() => actions++),
-            searchLabel: 'Search conversation',
-            settingsLabel: 'Conversation settings',
+            searchLabel: 'Search Conversation',
+            settingsLabel: 'Conversation Settings',
           ),
         ),
         Text('Fixture panel: ${value.name}; actions: $actions'),
@@ -208,7 +208,7 @@ class _TaskPreviewState extends State<_TaskPreview> {
         },
         taskAction: RaftComposerTaskToggle(
           checked: checked,
-          label: 'As task',
+          label: 'As Task',
           onChanged: (value) => setState(() => checked = value),
         ),
       ),

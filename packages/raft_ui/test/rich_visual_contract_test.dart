@@ -48,7 +48,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Copy code'));
+    await tester.tap(find.byTooltip('Copy Code'));
     await tester.pumpAndSettle();
     expect(copied, 'const n = 3;');
     expect(find.byTooltip('Copied'), findsOneWidget);
@@ -74,7 +74,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
-      await tester.tap(find.byTooltip('Download Mermaid diagram').first);
+      await tester.tap(find.byTooltip('Download Mermaid Diagram').first);
       await tester.pumpAndSettle();
       expect(
         tester
@@ -123,12 +123,12 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('mermaid-toolbar'))).width,
       lessThan(360),
     );
-    expect(find.byTooltip('Expand diagram'), findsOneWidget);
+    expect(find.byTooltip('Expand Diagram'), findsOneWidget);
     expect(
-      tester.getSize(find.byTooltip('Expand diagram')).width,
+      tester.getSize(find.byTooltip('Expand Diagram')).width,
       greaterThanOrEqualTo(48),
     );
-    await tester.tap(find.byTooltip('Show source'));
+    await tester.tap(find.byTooltip('Show Source'));
     await tester.pumpAndSettle();
     expect(find.text('sequenceDiagram\n Alice->>Bob: Review'), findsOneWidget);
     expect(tester.takeException(), isNull);

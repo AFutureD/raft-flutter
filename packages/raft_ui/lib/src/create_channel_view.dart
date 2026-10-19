@@ -458,7 +458,7 @@ class RaftArchivedNameBanner extends StatelessWidget {
                     onPressed: onUnarchive,
                   ),
                 RaftRecipeButton(
-                  label: raftText(context, 'Change name'),
+                  label: raftText(context, 'Change Name'),
                   variant: RaftButtonRecipeVariant.outline,
                   size: RaftButtonRecipeSize.sm,
                   padding: const EdgeInsets.symmetric(

@@ -81,7 +81,7 @@ class _MountedAvatarsState extends State<_MountedAvatars> {
               ),
             TextButton(
               onPressed: () => setState(() => deactivated = !deactivated),
-              child: Text(deactivated ? 'Activate agent' : 'Deactivate agent'),
+              child: Text(deactivated ? 'Activate Agent' : 'Deactivate Agent'),
             ),
             TextButton(
               onPressed: () => setState(() => muted = !muted),

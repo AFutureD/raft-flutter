@@ -117,17 +117,17 @@ class SearchFilterBar extends StatelessWidget {
       key: ValueKey('$scope:$title'),
       tooltip: raftText(context, title),
       label: choiceLabel(context, label),
-      glyph: title == 'Search date range'
+      glyph: title == 'Search Date Range'
           ? RaftGlyph.calendarRange
           : RaftGlyph.arrowDownUp,
       trailingGlyph: RaftGlyph.chevronDown,
       triggerStyle: RaftDropdownTriggerStyle.picker,
       minimumTargetSize: RaftMetrics.buttonSm,
       // activeFilterClass when the value differs from the default.
-      selected: title == 'Search date range'
+      selected: title == 'Search Date Range'
           ? filters.timeRange != 'any'
           : filters.searchSort != 'relevance',
-      enabled: title != 'Sort search results' || !queryIsEmpty,
+      enabled: title != 'Sort Search Results' || !queryIsEmpty,
       entries: [
         for (final entry in choices.entries)
           RaftMenuEntry(
@@ -145,7 +145,7 @@ class SearchFilterBar extends StatelessWidget {
       children: [
         picker(
           'From',
-          'Filter by sender',
+          'Filter by Sender',
           senderOptions,
           {if (filters.sender != null) filters.sender!.key},
           (key) => filters.selectSender(
@@ -160,9 +160,9 @@ class SearchFilterBar extends StatelessWidget {
         ),
         picker(
           'Scope',
-          'Search scope',
+          'Search Scope',
           const {
-            'mentioned': 'Mentions me',
+            'mentioned': 'Mentions Me',
             'humans': 'Humans',
             'agents': 'Agents',
           },
@@ -190,7 +190,7 @@ class SearchFilterBar extends StatelessWidget {
         else
           picker(
             'Channel',
-            'Filter by channel',
+            'Filter by Channel',
             conversations,
             {if (filters.channelId != null) filters.channelId!},
             (id) => filters.channelId = id,
@@ -199,14 +199,14 @@ class SearchFilterBar extends StatelessWidget {
             glyph: RaftGlyph.hash,
           ),
         dropdown(
-          'Search date range',
+          'Search Date Range',
           // ignore: raft_lints/avoid_render_index_assertion -- timeRange is validated when restored (search_memory.dart) and only set from this dropdown.
           timeRanges[filters.timeRange]!,
           timeRanges,
           (value) => filters.timeRange = value,
         ),
         dropdown(
-          'Sort search results',
+          'Sort Search Results',
           filters.searchSort == 'recent' ? 'Recent' : 'Relevant',
           sorts,
           (value) => filters.searchSort = value,

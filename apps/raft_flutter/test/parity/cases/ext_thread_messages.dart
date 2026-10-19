@@ -362,13 +362,13 @@ ParityCase _bannerCase() => ParityCase(
                     RaftRecipeButton(
                       variant: RaftButtonRecipeVariant.accent,
                       size: RaftButtonRecipeSize.sm,
-                      label: 'Enable notifications',
+                      label: 'Enable Notifications',
                       onPressed: () {},
                     ),
                     const SizedBox(width: 8),
                     RaftCloseButton(
                       onPressed: () {},
-                      tooltip: 'Hide notification reminder for this session',
+                      tooltip: 'Hide Notification Reminder for This Session',
                     ),
                   ],
                 ),

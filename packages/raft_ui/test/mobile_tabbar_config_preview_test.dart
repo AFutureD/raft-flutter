@@ -232,10 +232,10 @@ void main() {
     expect(preview('Settings'), findsOneWidget);
 
     // Reset restores today's bar.
-    await t.tap(find.text('Reset to default'));
+    await t.tap(find.text('Reset to Default'));
     await t.pump();
     expect(find.text('4 / 5'), findsOneWidget);
-    expect(find.text('Reset to default'), findsNothing);
+    expect(find.text('Reset to Default'), findsNothing);
 
     // Reorder: drag Members' handle above Tasks.
     final handle = find.bySemanticsLabel('Reorder Members');

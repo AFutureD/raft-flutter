@@ -23,7 +23,7 @@ void main() {
                   child: Stack(
                     children: [
                       RaftNewUpdatesButton(
-                        label: '3 new updates',
+                        label: '3 New Updates',
                         onPressed: () => taps++,
                       ),
                     ],
@@ -46,7 +46,7 @@ void main() {
           ),
         );
         expect(icon, const Size.square(14));
-        final text = tester.widget<Text>(find.text('3 new updates'));
+        final text = tester.widget<Text>(find.text('3 New Updates'));
         expect(text.style?.fontSize, 12);
         expect(
           tester.getSemantics(find.byType(RaftRecipeButton)),
@@ -57,10 +57,10 @@ void main() {
             hasFocusAction: true,
             hasEnabledState: true,
             isEnabled: true,
-            label: '3 new updates',
+            label: '3 New Updates',
           ),
         );
-        await tester.tap(find.text('3 new updates'));
+        await tester.tap(find.text('3 New Updates'));
         await tester.pumpAndSettle();
         expect(taps, 1);
         // Keyboard activation (Web Button).

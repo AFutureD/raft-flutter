@@ -321,17 +321,17 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               items: [
                 RaftSegmentedOption(
                   value: ProxyMode.system,
-                  label: raftText(context, 'Use system proxy'),
+                  label: raftText(context, 'Use System Proxy'),
                   itemKey: const Key('network-mode-system'),
                 ),
                 RaftSegmentedOption(
                   value: ProxyMode.manual,
-                  label: raftText(context, 'Manual setup'),
+                  label: raftText(context, 'Manual Setup'),
                   itemKey: const Key('network-mode-manual'),
                 ),
                 RaftSegmentedOption(
                   value: ProxyMode.direct,
-                  label: raftText(context, 'No proxy'),
+                  label: raftText(context, 'No Proxy'),
                   itemKey: const Key('network-mode-direct'),
                 ),
               ],
@@ -450,7 +450,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                   ),
                   RaftSettingsRecipeButton(
                     key: const Key('network-test'),
-                    label: testing ? 'Testing…' : 'Test connection',
+                    label: testing ? 'Testing…' : 'Test Connection',
                     onPressed: testing ? null : test,
                   ),
                 ],

@@ -291,7 +291,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
                   )
                 : manager
                 ? _small(
-                    raftText(context, 'Grant access'),
+                    raftText(context, 'Grant Access'),
                     busy ? null : () => run(grant),
                   )
                 : null,
@@ -317,7 +317,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
             if (apps.length > 1)
               RaftButtonWrap(
                 children: [
-                  _small(raftText(context, 'All apps'), () {
+                  _small(raftText(context, 'All Apps'), () {
                     setState(() => filter = null);
                     reload();
                   }, selected: filter == null),

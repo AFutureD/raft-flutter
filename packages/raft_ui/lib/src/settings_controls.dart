@@ -1107,7 +1107,7 @@ class RaftServerProfileTile extends StatelessWidget {
     this.imageUrl,
     this.onUpload,
     this.busy = false,
-    this.uploadLabel = 'Upload image',
+    this.uploadLabel = 'Upload Image',
     this.busyLabel = 'Uploading avatar',
   });
   final String initial;

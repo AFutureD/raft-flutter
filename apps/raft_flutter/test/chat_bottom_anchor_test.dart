@@ -116,7 +116,7 @@ void main() {
           // the list replaces an estimated extent with the real one.
           expect(paintedMessage(tester, anchor!), before);
         }
-        expect(find.textContaining('new message'), findsOneWidget);
+        expect(find.textContaining('New Message'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
       },

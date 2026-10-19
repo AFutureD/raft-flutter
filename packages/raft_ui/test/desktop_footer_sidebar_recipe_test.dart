@@ -132,7 +132,7 @@ void main() {
         expect(t.widget<RaftWorkspaceHelpMenu>(help).attention, true);
         await t.tap(help);
         await t.pumpAndSettle();
-        await t.tap(find.text('Mobile app'));
+        await t.tap(find.text('Mobile App'));
         await t.pumpAndSettle();
         expect(t.widget<RaftWorkspaceHelpMenu>(help).attention, false);
         expect(mask, findsNothing);

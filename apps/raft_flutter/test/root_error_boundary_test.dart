@@ -98,11 +98,11 @@ void main() {
       // "Stack trace" disclosure.
       expect(find.textContaining('channel header broke'), findsNothing);
       expect(find.byKey(const ValueKey('root-error-message')), findsNothing);
-      expect(find.text('Reload app'), findsOneWidget);
+      expect(find.text('Reload App'), findsOneWidget);
       expect(find.byType(_Bomb), findsNothing);
 
       broken = false;
-      await tester.tap(find.text('Reload app'));
+      await tester.tap(find.text('Reload App'));
       await tester.pump();
       expect(find.text('Raft stopped unexpectedly'), findsNothing);
       expect(find.text('app'), findsOneWidget);
@@ -247,7 +247,7 @@ void main() {
     await tester.tap(find.text('Stack trace'));
     await tester.pump();
     expect(find.textContaining('TypeError: x'), findsOneWidget);
-    await tester.tap(find.text('Reload app'));
+    await tester.tap(find.text('Reload App'));
     expect(reloaded, 1);
   });
 }

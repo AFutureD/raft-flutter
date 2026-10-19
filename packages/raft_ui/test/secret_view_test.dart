@@ -28,15 +28,15 @@ void main() {
       tester.getSemantics(find.byKey(const Key('credential-hidden'))).label,
       isNot(contains(secret)),
     );
-    await tester.tap(find.text('Copy credential'));
+    await tester.tap(find.text('Copy Credential'));
     await tester.pump();
     expect(copied, secret);
     expect(find.text(secret), findsNothing);
-    await tester.tap(find.text('Reveal credential'));
+    await tester.tap(find.text('Reveal Credential'));
     await tester.pump();
     expect(find.text(secret), findsOneWidget);
     expect(tester.getSemantics(find.text(secret)).label, contains(secret));
-    await tester.tap(find.text('Hide credential'));
+    await tester.tap(find.text('Hide Credential'));
     await tester.pump();
     expect(find.text(secret), findsNothing);
     semantics.dispose();

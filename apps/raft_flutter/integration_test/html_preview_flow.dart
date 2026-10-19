@@ -58,11 +58,11 @@ Future<void> verifyHtmlPreview(
     find.text('[Image: Interactive diagram]', findRichText: true),
     findsOneWidget,
   );
-  expect(find.text('Open interactive preview in browser'), findsOneWidget);
+  expect(find.text('Open Interactive Preview in Browser'), findsOneWidget);
   expect(tester.takeException(), isNull);
   await capture('linux-html-native-preview');
   await tester.tap(
-    find.descendant(of: viewer, matching: find.byTooltip('Close preview')),
+    find.descendant(of: viewer, matching: find.byTooltip('Close Preview')),
   );
   await tester.pump(const Duration(milliseconds: 400));
   expect(viewer, findsNothing);

@@ -82,7 +82,7 @@ void main() {
         expect(w.messageDomain.state.channelLoading, false);
         expect(w.messageDomain.state.hasNewer, false);
         expect(paintedMessage(tester, 'latest-7'), isNotNull);
-        expect(find.text('Back to bottom'), findsNothing);
+        expect(find.text('Back to Bottom'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pump();

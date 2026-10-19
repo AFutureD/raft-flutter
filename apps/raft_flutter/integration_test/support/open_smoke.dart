@@ -36,7 +36,7 @@ class SmokeCase {
   /// The preview service answers HTTP 200 `{status: unsupported, reason}` instead of a preview.
   String? get previewRefusal => json['previewRefusal'] as String?;
 
-  /// The viewer cannot draw it: it shows the reason with "Open with system app".
+  /// The viewer cannot draw it: it shows the reason with "Open with System App".
   bool get panel => json['panel'] == true;
 
   /// Only the first part of the file is shown, with the large-file notice.

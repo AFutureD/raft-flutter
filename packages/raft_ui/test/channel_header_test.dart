@@ -44,7 +44,7 @@ void main() {
         expect(t.getSize(back), const Size(32, 32));
         // `max-md:pl-5`.
         expect(t.getTopLeft(back).dx, 20);
-        for (final label in ['Search this channel', 'Channel settings']) {
+        for (final label in ['Search This Channel', 'Channel Settings']) {
           expect(t.getSize(find.bySemanticsLabel(label)), const Size(28, 28));
         }
         // PanelMeta is `truncate`: ChannelDescription's line clamp never
@@ -61,8 +61,8 @@ void main() {
           findsOneWidget,
         );
         await t.tap(find.bySemanticsLabel('Back'));
-        await t.tap(find.bySemanticsLabel('Search this channel'));
-        await t.tap(find.bySemanticsLabel('Channel settings'));
+        await t.tap(find.bySemanticsLabel('Search This Channel'));
+        await t.tap(find.bySemanticsLabel('Channel Settings'));
         expect([backs, searches, settings], [1, 1, 1]);
         expect(t.takeException(), isNull);
       },
@@ -80,7 +80,7 @@ void main() {
                   density: RaftDensity.touch,
                   child: RaftPanelIconButton(
                     glyph: RaftGlyph.search,
-                    tooltip: 'Search this channel',
+                    tooltip: 'Search This Channel',
                     onPressed: enabled ? () => ++searches : null,
                   ),
                 ),

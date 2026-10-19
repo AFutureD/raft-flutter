@@ -255,9 +255,9 @@ void main() {
       expect(find.text('Copied'), findsOneWidget);
       await tester.pump(const Duration(seconds: 2));
       expect(find.text('Copied'), findsNothing);
-      await tester.tap(find.text('Other agents'));
+      await tester.tap(find.text('Other Agents'));
       await tester.pump();
-      expect(find.text('Copy setup'), findsOneWidget);
+      expect(find.text('Copy Setup'), findsOneWidget);
       expect(
         find.text('Use this flow for another agent runtime or custom harness.'),
         findsOneWidget,

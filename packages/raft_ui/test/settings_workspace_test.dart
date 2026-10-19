@@ -28,7 +28,7 @@ void main() {
               actions: [
                 RaftMcpAction(
                   glyph: RaftGlyph.pencil,
-                  tooltip: 'Edit server',
+                  tooltip: 'Edit Server',
                   onPressed: () => edits++,
                 ),
               ],
@@ -51,7 +51,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey('mcp-tools-toggle-linear')));
     await t.pump();
     expect(find.text('List issues'), findsNWidgets(2));
-    await t.tap(find.byTooltip('Edit server'));
+    await t.tap(find.byTooltip('Edit Server'));
     await t.tap(find.text('Add'));
     expect((edits, adds), (1, 1));
   });
@@ -108,7 +108,7 @@ void main() {
       ),
     );
     expect(find.text('No provider connections yet.'), findsOneWidget);
-    expect(find.text('Add connection'), findsOneWidget);
+    expect(find.text('Add Connection'), findsOneWidget);
   });
 
   testWidgets('Messaging bridges: failure banner replaces the body', (t) async {

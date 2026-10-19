@@ -28,7 +28,7 @@ void main() {
                   mobile: true,
                   controller: controller,
                   workspaceName: 'Visual Server',
-                  label: 'Switch server',
+                  label: 'Switch Server',
                   rows: [
                     RaftServerMenuRow(
                       id: 'visual',
@@ -90,7 +90,7 @@ void main() {
                     builder: (context, update) => RaftServerSwitcher(
                       controller: controller,
                       workspaceName: 'Alpha',
-                      label: 'Switch server',
+                      label: 'Switch Server',
                       rows: [
                         for (final name in names)
                           RaftServerMenuRow(
@@ -178,7 +178,7 @@ void main() {
                     child: RaftServerSwitcher(
                       controller: controller,
                       workspaceName: 'Visual Server',
-                      label: 'Switch server',
+                      label: 'Switch Server',
                       rows: [
                         RaftServerMenuRow(
                           id: 'visual',
@@ -301,7 +301,7 @@ void main() {
                   child: RaftServerSwitcher(
                     controller: controller,
                     workspaceName: 'Visual',
-                    label: 'Switch server',
+                    label: 'Switch Server',
                     rows: [
                       for (var i = 0; i < 20; i++)
                         RaftServerMenuRow(

@@ -184,7 +184,7 @@ void main() {
                 expect(collapse, findsOneWidget);
                 final toggle = find.descendant(
                   of: collapse,
-                  matching: find.text(unread ? 'Collapse' : 'Show more'),
+                  matching: find.text(unread ? 'Collapse' : 'Show More'),
                 );
                 expect(
                   toggle,
@@ -202,7 +202,7 @@ void main() {
                 expect(
                   find.descendant(
                     of: collapse,
-                    matching: find.text(unread ? 'Show more' : 'Collapse'),
+                    matching: find.text(unread ? 'Show More' : 'Collapse'),
                   ),
                   findsOneWidget,
                   reason:

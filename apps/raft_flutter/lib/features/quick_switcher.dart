@@ -509,7 +509,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
           controller: controller,
           focusNode: focus,
           hint: raftText(context, 'Channels, people, messages…'),
-          clearLabel: raftText(context, 'Clear search'),
+          clearLabel: raftText(context, 'Clear Search'),
           onClear: () {
             controller.clear();
             focus.requestFocus();
@@ -609,7 +609,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
                 key: const Key('quick-switcher-all-results'),
                 glyph: RaftGlyph.search,
                 title: trimmed.isEmpty
-                    ? raftText(context, 'View all results')
+                    ? raftText(context, 'View All Results')
                     : raftFormat(context, 'Search for “{query}”', {
                         'query': trimmed,
                       }),
@@ -694,7 +694,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
       actionLabel: !broad
           ? raftText(context, 'Retry')
           : filters.searchSort != 'recent'
-          ? raftText(context, 'Sort by newest')
+          ? raftText(context, 'Sort by Newest')
           : null,
       onAction: !broad
           ? retry

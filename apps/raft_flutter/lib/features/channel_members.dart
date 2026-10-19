@@ -659,15 +659,15 @@ class _ChannelMembersState extends State<ChannelMembers> {
             ? null
             : raftText(
                 context,
-                roleAction.nextRole == 'admin' ? 'Make admin' : 'Demote',
+                roleAction.nextRole == 'admin' ? 'Make Admin' : 'Demote',
               ),
         roleActionSemantics: roleAction == null
             ? null
             : raftFormat(
                 context,
                 roleAction.nextRole == 'admin'
-                    ? 'Make {name} a channel admin'
-                    : 'Remove channel admin from {name}',
+                    ? 'Make {name} a Channel Admin'
+                    : 'Remove Channel Admin from {name}',
                 {'name': '${m['name'] ?? ''}'},
               ),
         roleActionDisabled: roleChanging == '$kind:$id',

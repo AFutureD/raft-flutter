@@ -200,7 +200,7 @@ class RaftNotificationCenter extends StatefulWidget {
     this.countLabel,
     this.emptyTitle = 'No notifications right now',
     this.emptyBody = "You'll see things here that need your attention.",
-    this.semanticLabel = 'Notification center',
+    this.semanticLabel = 'Notification Center',
     this.listLabel = 'Notifications',
     this.width = _NotificationPrimitives.width,
     this.height = _NotificationPrimitives.height,

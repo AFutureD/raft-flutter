@@ -120,23 +120,23 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.byType(RaftMermaidBlock), findsOneWidget);
         expect(find.bySemanticsLabel('Draft'), findsOneWidget);
-        await tester.tap(find.byTooltip('Show source'));
+        await tester.tap(find.byTooltip('Show Source'));
         await tester.pump();
         expect(
           find.text('flowchart LR\n A[Draft] --> B[Review]'),
           findsOneWidget,
         );
-        await tester.tap(find.byTooltip('Copy code'));
+        await tester.tap(find.byTooltip('Copy Code'));
         await tester.pumpAndSettle();
         expect(clipboard, contains('flowchart LR'));
-        await tester.tap(find.byTooltip('Show diagram'));
+        await tester.tap(find.byTooltip('Show Diagram'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Expand diagram'));
+        await tester.tap(find.byTooltip('Expand Diagram'));
 
         await tester.pumpAndSettle();
         expect(find.byType(InteractiveViewer), findsOneWidget);
         expect(find.byKey(const Key('mermaid-fullscreen')), findsOneWidget);
-        await tester.tap(find.byTooltip('Close fullscreen'));
+        await tester.tap(find.byTooltip('Close Fullscreen'));
         await tester.pumpAndSettle();
         expect(find.byType(InteractiveViewer), findsNothing);
         semantics.dispose();
@@ -186,11 +186,11 @@ void main() {
     final toolbar = find.byKey(const ValueKey('mermaid-toolbar'));
     final bounds = tester.getRect(toolbar);
     for (final label in [
-      'Show diagram',
-      'Show source',
-      'Copy code',
-      'Download Mermaid diagram',
-      'Expand diagram',
+      'Show Diagram',
+      'Show Source',
+      'Copy Code',
+      'Download Mermaid Diagram',
+      'Expand Diagram',
     ]) {
       final target = find.descendant(
         of: toolbar,
@@ -199,25 +199,25 @@ void main() {
       expect(target, findsOneWidget);
       expect(bounds.contains(tester.getCenter(target)), isTrue);
     }
-    await tester.tap(find.byTooltip('Show source'));
+    await tester.tap(find.byTooltip('Show Source'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('flowchart LR\n A[Draft] --> B[Review]'), findsOneWidget);
-    await tester.tap(find.byTooltip('Copy code'));
+    await tester.tap(find.byTooltip('Copy Code'));
     await tester.pumpAndSettle();
     expect(clipboard, 'flowchart LR\n A[Draft] --> B[Review]');
-    await tester.tap(find.byTooltip('Show diagram'));
+    await tester.tap(find.byTooltip('Show Diagram'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Download Mermaid diagram'));
+    await tester.tap(find.byTooltip('Download Mermaid Diagram'));
     await tester.pumpAndSettle();
-    expect(find.text('Download source'), findsOneWidget);
+    expect(find.text('Download Source'), findsOneWidget);
     expect(find.text('Download PNG'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Expand diagram'));
+    await tester.tap(find.byTooltip('Expand Diagram'));
     await tester.pumpAndSettle();
     expect(find.byType(InteractiveViewer), findsOneWidget);
-    await tester.tap(find.byTooltip('Close fullscreen'));
+    await tester.tap(find.byTooltip('Close Fullscreen'));
     await tester.pumpAndSettle();
     expect(find.byType(InteractiveViewer), findsNothing);
     expect(tester.takeException(), isNull);
@@ -237,7 +237,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text("Couldn't render this diagram"), findsOneWidget);
       expect(find.text('invalid family hello'), findsNothing);
-      await tester.tap(find.byTooltip('Show source'));
+      await tester.tap(find.byTooltip('Show Source'));
       await tester.pump();
       expect(find.text('invalid family hello'), findsOneWidget);
     },

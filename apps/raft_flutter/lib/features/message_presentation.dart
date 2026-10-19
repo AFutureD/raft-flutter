@@ -711,7 +711,7 @@ class MessagePresentation extends StatelessWidget {
                 Text(raftText(ctx, '${data['role']}')),
               if (data['taskNumber'] != null && data['messageId'] is String)
                 RaftButton(
-                  label: 'Open message',
+                  label: 'Open Message',
                   onPressed: () async {
                     Navigator.pop(ctx);
                     if (current()) {

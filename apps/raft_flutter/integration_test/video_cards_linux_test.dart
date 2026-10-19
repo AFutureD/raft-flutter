@@ -332,7 +332,7 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await waitFor(() => browser.index == 1, 'next video page');
-      await tester.tap(find.byTooltip('Close preview'));
+      await tester.tap(find.byTooltip('Close Preview'));
       await waitFor(
         () =>
             find.byType(MediaBrowser).evaluate().isEmpty &&

@@ -212,7 +212,7 @@ void main() {
                         ),
                       ),
                     ),
-                    child: const Text('Open dialog'),
+                    child: const Text('Open Dialog'),
                   ),
                   Expanded(
                     child: ListView.builder(
@@ -238,8 +238,8 @@ void main() {
       await t.pump(const Duration(milliseconds: 800));
       scroll.jumpTo(1200);
       await t.pumpAndSettle();
-      await mouse.moveTo(t.getCenter(find.text('Open dialog')));
-      await t.tap(find.text('Open dialog'));
+      await mouse.moveTo(t.getCenter(find.text('Open Dialog')));
+      await t.tap(find.text('Open Dialog'));
       await t.pumpAndSettle();
       await mouse.moveTo(t.getCenter(find.byKey(const Key('first-99'))));
       await t.pump(const Duration(milliseconds: 800));
@@ -377,12 +377,12 @@ void main() {
                         toolbar: RaftMessageToolbar(
                           children: [
                             RaftMessageToolbarAction(
-                              label: 'Reply in thread',
+                              label: 'Reply in Thread',
                               icon: const SizedBox(),
                               onPressed: () => activations++,
                             ),
                             RaftMessageToolbarAction(
-                              label: 'More actions',
+                              label: 'More Actions',
                               icon: const SizedBox(),
                               onPressed: () => activations++,
                             ),

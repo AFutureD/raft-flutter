@@ -123,7 +123,7 @@ void main() {
     expect(copied, startsWith('First prose paragraph.'));
     expect(copied, endsWith('Last prose paragraph.'));
     // Code-block controls never join the prose selection.
-    expect(copied, isNot(contains('Copy code')));
+    expect(copied, isNot(contains('Copy Code')));
     expect(tester.takeException(), isNull);
   });
 
@@ -135,8 +135,8 @@ void main() {
       _host(RaftCollapsible(child: RaftMessageBody(content: content))),
     );
     // No second pump: the toggle and the capped viewport are final at once.
-    expect(find.text('Show more'), findsOneWidget);
-    final firstToggle = tester.getRect(find.text('Show more'));
+    expect(find.text('Show More'), findsOneWidget);
+    final firstToggle = tester.getRect(find.text('Show More'));
     final firstSize = tester.getSize(find.byType(RaftCollapsible));
     expect(
       tester
@@ -154,7 +154,7 @@ void main() {
     for (var i = 0; i < 3; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
-    expect(tester.getRect(find.text('Show more')), firstToggle);
+    expect(tester.getRect(find.text('Show More')), firstToggle);
     expect(tester.getSize(find.byType(RaftCollapsible)), firstSize);
     expect(tester.takeException(), isNull);
   });

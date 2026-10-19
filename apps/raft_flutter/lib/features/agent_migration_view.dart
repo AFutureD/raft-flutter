@@ -376,7 +376,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
   Future<void> assign() async {
     if (!manager) return;
     await form(
-      'Assign computer',
+      'Assign Computer',
       [
         RaftFormField(
           'machine',
@@ -606,13 +606,13 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
                   RaftButton(
                     label: raftText(
                       context,
-                      failedPhase ? 'Try migration again' : 'Move Agent',
+                      failedPhase ? 'Try Migration Again' : 'Move Agent',
                     ),
                     onPressed: busy || billingChecking ? null : () => run(move),
                   ),
                   TextButton(
                     onPressed: busy ? null : () => run(assign),
-                    child: Text(raftText(context, 'Assign computer')),
+                    child: Text(raftText(context, 'Assign Computer')),
                   ),
                 ],
               ],
@@ -654,7 +654,7 @@ class _StartDialogState extends State<_StartDialog> {
     ],
     description: 'The source agent will stop while its workspace moves. Check progress for completion.',
     submitLabel: failure?.recoveryOpenComputers == true
-        ? 'Try again'
+        ? 'Try Again'
         : 'Move Agent',
     errorContent: (context, error) => error is _StartFailure
         ? _StartFailureView(error.presentation, widget.openComputers)
@@ -703,7 +703,7 @@ class _StartFailureView extends StatelessWidget {
               label: raftText(
                 context,
                 computerId != null
-                    ? 'Open computer settings'
+                    ? 'Open Computer Settings'
                     : 'Open Computers',
               ),
               glyph: RaftGlyph.externalLink,

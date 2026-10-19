@@ -470,11 +470,11 @@ class RaftActivityScopePicker extends StatelessWidget {
                   if (selectedGroup != null)
                     _ActivityButton(
                       key: const ValueKey('activity-clear-channel-filter'),
-                      label: raftText(context, 'Clear filters'),
+                      label: raftText(context, 'Clear Filters'),
                       onPressed: onClearGroup,
                       fontSize: 10,
                       padding: const EdgeInsets.all(4),
-                      child: Text(raftText(context, 'Clear filters')),
+                      child: Text(raftText(context, 'Clear Filters')),
                     ),
                 ],
               ),

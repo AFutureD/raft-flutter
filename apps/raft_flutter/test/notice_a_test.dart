@@ -250,7 +250,7 @@ void main() {
         await t.tap(find.text('lobby'));
         await t.pumpAndSettle();
         expect(find.text('Add shared content'), findsOneWidget);
-        await t.tap(find.byTooltip('Back to destinations'));
+        await t.tap(find.byTooltip('Back to Destinations'));
         await t.pumpAndSettle();
         expect(
           find.text('The selected destination is no longer available.'),

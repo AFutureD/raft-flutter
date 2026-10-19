@@ -74,7 +74,7 @@ void main() {
           title: 'DMs',
           description: 'Delivery description',
           status: 'Unavailable',
-          actionLabel: 'Enable notifications',
+          actionLabel: 'Enable Notifications',
           muted: false,
           muteDescription: 'Stops notifications.',
           onMutedChanged: (_) {},

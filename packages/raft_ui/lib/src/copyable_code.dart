@@ -21,7 +21,7 @@ class RaftCopyableCode extends StatefulWidget {
   const RaftCopyableCode(
     this.command, {
     super.key,
-    this.copyLabel = 'Copy command',
+    this.copyLabel = 'Copy Command',
     this.codeKey,
     this.onCopied,
   });

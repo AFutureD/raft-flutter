@@ -98,7 +98,7 @@ Future<void> verifySidebarFlow(
       reason: 'Sidebar hiding proof needs an actual DM.',
     );
     await openPreferences();
-    await tap(find.text('Create sidebar section'));
+    await tap(find.text('Create Sidebar Section'));
     await field('name', marker);
     await field('emoji', '🧭');
     await submit();
@@ -206,7 +206,7 @@ Future<void> verifySidebarFlow(
       find.descendant(
         of: dmRow,
         matching: find.byTooltip(
-          hidden ? 'Show direct message' : 'Hide direct message',
+          hidden ? 'Show Direct Message' : 'Hide Direct Message',
         ),
       ),
     );

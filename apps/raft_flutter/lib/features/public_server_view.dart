@@ -737,7 +737,7 @@ class _PublicServerViewState extends State<PublicServerView> {
           channelContext: raftFormat(context, ' — #{name}', {
             'name': channel?['name'],
           }),
-          closeLabel: tr('Close thread'),
+          closeLabel: tr('Close Thread'),
           onClose: closeThread,
           showClose: wide,
           parent: row(parent, parent: true),
@@ -746,7 +746,7 @@ class _PublicServerViewState extends State<PublicServerView> {
           error: threadError.isEmpty ? null : threadError,
           emptyTitle: tr('No replies yet'),
           onLoadOlder: threadHasOlder ? loadOlderThread : null,
-          loadOlderLabel: tr('Load older messages'),
+          loadOlderLabel: tr('Load Older Messages'),
         ),
       ),
     );
@@ -791,7 +791,7 @@ class _PublicServerViewState extends State<PublicServerView> {
                         ),
                         child: Center(
                           child: RaftSettingsRecipeButton(
-                            label: 'Load older messages',
+                            label: 'Load Older Messages',
                             size: RaftButtonRecipeSize.xs,
                             onPressed: loadingMessages ? null : loadOlder,
                           ),
@@ -889,7 +889,7 @@ class _PublicServerViewState extends State<PublicServerView> {
       header: RaftServerSwitcher(
         controller: menu,
         workspaceName: name,
-        label: tr('Switch server'),
+        label: tr('Switch Server'),
         logo: RaftPublicServerLogo(
           initial: initial,
           avatarUrl: server?['avatarUrl'] as String?,

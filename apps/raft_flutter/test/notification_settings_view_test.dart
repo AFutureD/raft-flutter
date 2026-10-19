@@ -316,11 +316,11 @@ void main() {
     await t.pumpAndSettle();
     expect(card(t).title, 'Phone notifications');
     expect(card(t).status, 'Not enabled');
-    expect(card(t).actionLabel, 'Enable notifications');
+    expect(card(t).actionLabel, 'Enable Notifications');
     expect(card(t).hint, contains('on Android, Settings → Apps → Raft'));
     expect(card(t).hint, isNot(contains('iOS')));
     s.gate = Completer<void>();
-    await t.tap(find.text('Enable notifications'));
+    await t.tap(find.text('Enable Notifications'));
     await t.pump();
     expect(s.enables, 1);
     expect(card(t).onAction, isNull);
@@ -329,8 +329,8 @@ void main() {
     await t.pumpAndSettle();
     expect(s.settings, 0);
     expect(card(t).status, 'Enabled');
-    expect(card(t).actionLabel, 'Send test notification');
-    await t.tap(find.text('Send test notification'));
+    expect(card(t).actionLabel, 'Send Test Notification');
+    await t.tap(find.text('Send Test Notification'));
     await t.pumpAndSettle();
     expect(s.tests, 1);
     expect(card(t).message, contains('Test notification sent'));
@@ -357,7 +357,7 @@ void main() {
       find.byKey(const ValueKey('notification-settings-notice')),
       findsOneWidget,
     );
-    await t.tap(find.text('Open battery settings'));
+    await t.tap(find.text('Open Battery Settings'));
     await t.pump();
     expect(battery.opened, 1);
     // Returning from the system screen with the app now exempt hides it.
@@ -366,7 +366,7 @@ void main() {
     t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await t.pumpAndSettle();
     expect(card(t).notice, isNull);
-    expect(find.text('Open battery settings'), findsNothing);
+    expect(find.text('Open Battery Settings'), findsNothing);
   });
   testWidgets('Android: exempt or unknown battery status shows no notice', (
     t,
@@ -413,12 +413,12 @@ void main() {
       s.grant = false;
       await t.pumpWidget(host(w, s));
       await t.pumpAndSettle();
-      await t.tap(find.text('Enable notifications'));
+      await t.tap(find.text('Enable Notifications'));
       await t.pumpAndSettle();
       expect(s.enables, 1);
       expect(s.settings, 1);
       expect(card(t).status, 'Not enabled');
-      expect(card(t).actionLabel, 'Enable notifications');
+      expect(card(t).actionLabel, 'Enable Notifications');
     },
   );
   testWidgets('phone: a prompt the person declined does not open settings', (
@@ -436,7 +436,7 @@ void main() {
     addTearDown(declining.dispose);
     await t.pumpWidget(host(w, declining));
     await t.pumpAndSettle();
-    await t.tap(find.text('Enable notifications'));
+    await t.tap(find.text('Enable Notifications'));
     await t.pumpAndSettle();
     expect(declining.settings, 0);
   });
@@ -495,7 +495,7 @@ void main() {
       expect(card(t).title, 'Desktop notifications');
       expect(card(t).description, startsWith('Raft Desktop shows system'));
       expect(card(t).muteDescription, isNull);
-      expect(card(t).actionLabel, 'Send a test notification');
+      expect(card(t).actionLabel, 'Send a Test Notification');
       expect(
         card(t).hint,
         contains(switch (platform) {
@@ -516,7 +516,7 @@ void main() {
         a.calls.where((o) => o.path.contains('notification-settings')),
         isEmpty,
       );
-      await t.tap(find.text('Send a test notification'));
+      await t.tap(find.text('Send a Test Notification'));
       await t.pumpAndSettle();
       expect(s.tests, 1);
       expect(s.enables, 0);
@@ -531,12 +531,12 @@ void main() {
       );
       expect(card(t).error, isNull);
       s.testResult = false;
-      await t.tap(find.text('Send a test notification'));
+      await t.tap(find.text('Send a Test Notification'));
       await t.pumpAndSettle();
       expect(card(t).message, isNull);
       expect(card(t).error, 'Could not post a test notification.');
       if (platform == TargetPlatform.windows) {
-        await t.tap(find.text('Open notification settings'));
+        await t.tap(find.text('Open Notification Settings'));
         await t.pumpAndSettle();
         expect(s.settings, 1);
         expect(s.enables, 0);

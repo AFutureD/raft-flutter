@@ -441,7 +441,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
         'source': sourceLabel,
       }),
       close: RaftCloseButton(
-        tooltip: 'Close forward composer',
+        tooltip: 'Close Forward Composer',
         onPressed: busy ? null : () => Navigator.of(context).pop(false),
       ),
       search: RaftForwardDesktopSearch(
@@ -479,7 +479,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
         variant: RaftButtonRecipeVariant.accent,
         size: RaftButtonRecipeSize.iconSm,
         glyph: RaftGlyph.send,
-        tooltip: raftText(context, 'Send forward'),
+        tooltip: raftText(context, 'Send Forward'),
         disabled: selected.isEmpty,
         onPressed: busy || selected.isEmpty ? null : send,
       ),
@@ -509,7 +509,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
                 )
               : RaftForwardIconAction(
                   glyph: RaftGlyph.arrowLeft,
-                  tooltip: raftText(context, 'Close forward target selection'),
+                  tooltip: raftText(context, 'Close Forward Target Selection'),
                   onPressed: busy
                       ? null
                       : () => Navigator.of(context).pop(false),
@@ -526,7 +526,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
                       : () => setState(() => preview = true),
                 )
               : RaftForwardTextAction(
-                  label: raftText(context, 'Select multiple'),
+                  label: raftText(context, 'Select Multiple'),
                   onPressed: () {
                     searchFocus.unfocus();
                     setState(() {
@@ -573,7 +573,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
       return [
         RaftForwardSearchStatus(
           message: raftText(context, "Couldn't search destinations."),
-          retryLabel: raftText(context, 'Try again'),
+          retryLabel: raftText(context, 'Try Again'),
           onRetry: () => changedSearch(search.text),
         ),
       ];
@@ -671,7 +671,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
         RaftForwardPageHeader(
           leading: RaftForwardIconAction(
             glyph: RaftGlyph.arrowLeft,
-            tooltip: raftText(context, 'Back to destinations'),
+            tooltip: raftText(context, 'Back to Destinations'),
             onPressed: busy ? null : () => setState(() => preview = false),
           ),
           title: raftText(context, 'Add a note'),
@@ -701,7 +701,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
               bottomSafeInset: 0,
               enabled: !busy && attempt == null,
               submitBusy: busy,
-              submitTooltip: raftText(context, 'Send forward'),
+              submitTooltip: raftText(context, 'Send Forward'),
               initialDraft: note.text,
               onDraftChanged: (text) => note.text = text,
               onSend: (text) {

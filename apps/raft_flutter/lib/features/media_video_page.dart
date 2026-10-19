@@ -626,14 +626,14 @@ class _MediaVideoPageState extends State<MediaVideoPage> {
         if (actions.networkSettings && widget.onNetworkSettings != null)
           RaftLoadErrorAction(
             key: const Key('viewer-network-settings'),
-            label: 'Network settings',
+            label: 'Network Settings',
             glyph: RaftGlyph.network,
             onPressed: widget.onNetworkSettings,
           ),
         if (widget.onDownload != null)
           RaftLoadErrorAction(
             key: const Key('viewer-download'),
-            label: 'Download original',
+            label: 'Download Original',
             glyph: RaftGlyph.download,
             onPressed: () => unawaited(widget.onDownload!()),
           ),

@@ -482,7 +482,7 @@ class _OnboardingState extends State<AccountOnboardingView>
                   key: const Key('onboarding-complete'),
                   variant: RaftControlVariant.accent,
                   onPressed: busy ? null : () => run(completeProfile),
-                  label: tr(busy ? 'Saving identity…' : 'Continue'),
+                  label: tr(busy ? 'Saving Identity…' : 'Continue'),
                 ),
               ],
             ),

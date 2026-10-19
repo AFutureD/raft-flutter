@@ -129,10 +129,10 @@ void main() {
       await tester.tap(find.byTooltip('Preview image.png'));
       await tester.pump();
       await settle(tester);
-      expect(find.byTooltip('Close preview'), findsOneWidget);
-      await tester.tap(find.byTooltip('Close preview'));
+      expect(find.byTooltip('Close Preview'), findsOneWidget);
+      await tester.tap(find.byTooltip('Close Preview'));
       await settle(tester);
-      expect(find.byTooltip('Close preview'), findsNothing);
+      expect(find.byTooltip('Close Preview'), findsNothing);
     }
     expect(
       client.batches.length + client.reads.length,
@@ -167,7 +167,7 @@ void main() {
     );
     expect(files.urls.last, startsWith('https://storage.example.invalid/'));
     expect(files.urls.last, isNot('https://storage.example.invalid/thumb'));
-    await tester.tap(find.byTooltip('Close preview'));
+    await tester.tap(find.byTooltip('Close Preview'));
     await settle(tester);
   });
 

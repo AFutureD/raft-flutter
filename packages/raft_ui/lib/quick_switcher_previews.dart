@@ -40,7 +40,7 @@ class _QuickSwitcherPreviewState extends State<_QuickSwitcherPreview> {
                 controller: controller,
                 focusNode: focus,
                 hint: 'Channels, people, messages…',
-                clearLabel: 'Clear search',
+                clearLabel: 'Clear Search',
                 onClear: controller.clear,
               ),
               body: RaftQuickSwitcherList(

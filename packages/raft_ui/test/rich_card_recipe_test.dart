@@ -123,7 +123,7 @@ void main() {
           find.text('Public message 2', findRichText: true).hitTestable(),
           findsNothing,
         );
-        await tester.tap(find.text('View all 3 messages'));
+        await tester.tap(find.text('View All 3 Messages'));
         await tester.pumpAndSettle();
         await tester.ensureVisible(
           find.text('Public message 2', findRichText: true),
@@ -189,7 +189,7 @@ void main() {
             find.text('Public message 2', findRichText: true).hitTestable(),
             findsNothing,
           );
-          await tester.tap(find.text('View all 3 messages'));
+          await tester.tap(find.text('View All 3 Messages'));
           await tester.pumpAndSettle();
           expect(find.text('Collapse'), findsOneWidget);
           expect(tester.takeException(), isNull);
@@ -207,7 +207,7 @@ void main() {
               body: RaftDensityScope(
                 density: RaftDensity.desktop,
                 child: RaftShowMoreToggle(
-                  label: 'Show more',
+                  label: 'Show More',
                   onPressed: () => presses++,
                 ),
               ),
@@ -218,16 +218,16 @@ void main() {
         final semantic = MessageContentSemantic(RaftTokens.of(context));
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: const Offset(700, 500));
-        await mouse.moveTo(tester.getCenter(find.text('Show more')));
+        await mouse.moveTo(tester.getCenter(find.text('Show More')));
         await tester.pump();
         expect(
-          tester.widget<Text>(find.text('Show more')).style!.color,
+          tester.widget<Text>(find.text('Show More')).style!.color,
           semantic.toggleHover,
         );
         await mouse.removePointer();
         await tester.pump();
         expect(
-          tester.widget<Text>(find.text('Show more')).style!.color,
+          tester.widget<Text>(find.text('Show More')).style!.color,
           semantic.toggle,
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -287,7 +287,7 @@ void main() {
                 child: RaftDensityScope(
                   density: density,
                   child: RaftShowMoreToggle(
-                    label: 'Show more',
+                    label: 'Show More',
                     onPressed: () => pressed = true,
                   ),
                 ),
@@ -299,7 +299,7 @@ void main() {
           tester.getSize(find.byType(RaftShowMoreToggle)).height,
           expectedHeight,
         );
-        await tester.tap(find.text('Show more'));
+        await tester.tap(find.text('Show More'));
         expect(pressed, isTrue);
         expect(tester.takeException(), isNull);
       },

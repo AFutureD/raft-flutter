@@ -84,7 +84,7 @@ class RaftServerAccessDeniedPage extends StatelessWidget {
             key: const ValueKey('server-denied-continue'),
             label: raftText(
               context,
-              serverName == null ? 'Choose a server' : 'Go to my server',
+              serverName == null ? 'Choose a Server' : 'Go to My Server',
             ),
             variant: RaftControlVariant.outline,
             size: RaftButtonRecipeSize.md,

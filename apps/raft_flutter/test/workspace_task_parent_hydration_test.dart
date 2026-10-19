@@ -344,7 +344,7 @@ void main() {
           final retired = t
               .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
               .owner;
-          await t.tap(find.byTooltip('Close task'));
+          await t.tap(find.byTooltip('Close Task'));
           await flush(t);
           // The owner retires with its page once the pop transition ends.
           await t.pump(const Duration(milliseconds: 500));

@@ -326,7 +326,7 @@ class _RaftSearchHistoryTagState extends State<RaftSearchHistoryTag> {
                         visualSize: 20,
                         tooltip: raftFormat(
                           context,
-                          'Remove "{query}" from search history',
+                          'Remove "{query}" from Search History',
                           {'query': widget.query},
                         ),
                         onPressed: widget.onRemove,

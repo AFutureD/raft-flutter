@@ -84,7 +84,7 @@ void main() {
       expect(source.url!.path, '/api/attachments/a1');
       expect(AttachmentHttp.governor.paced + AttachmentHttp.governor.limited, before);
       // A bucket the server closed for longer than a foreground wait: the open
-      // fails (the card says "Download to view") instead of sending a request
+      // fails (the card says "Download to View") instead of sending a request
       // the server would refuse.
       AttachmentHttp.governor.limitedBy(limits, const Duration(minutes: 5));
       await expectLater(attachmentStreamSource(w, 'a1'), throwsA(isA<RateLimitedException>()));

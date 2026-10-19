@@ -63,7 +63,7 @@ void main() {
       RaftAboutUpdate(
         state: RaftAboutUpdateState.available,
         message: 'New',
-        actionLabel: 'Update now',
+        actionLabel: 'Update Now',
         onAction: () => updates++,
         onCheck: () => checks++,
       ),
@@ -128,7 +128,7 @@ void main() {
         RaftAboutUpdate(
           state: RaftAboutUpdateState.restart,
           message: 'Installed',
-          actionLabel: 'Restart to finish',
+          actionLabel: 'Restart to Finish',
           onAction: () => restarts++,
         ),
       );
@@ -199,7 +199,7 @@ void main() {
       find.text('Release notes are unavailable right now.'),
       findsOneWidget,
     );
-    await t.tap(find.text('Try again'));
+    await t.tap(find.text('Try Again'));
     expect(retried, 1);
 
     await t.pumpWidget(

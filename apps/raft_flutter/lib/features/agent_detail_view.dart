@@ -61,7 +61,7 @@ class SourceProfileLoadingPanel extends StatelessWidget {
             if (onClose != null)
               RaftPanelIconButton(
                 glyph: RaftGlyph.x,
-                tooltip: raftText(context, 'Close profile'),
+                tooltip: raftText(context, 'Close Profile'),
                 onPressed: onClose,
               ),
           ],
@@ -491,7 +491,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                   RaftOverflowMenuButton(
                     key: const Key('agent-profile-overflow-trigger'),
                     entries: menu,
-                    tooltip: raftText(context, 'More actions'),
+                    tooltip: raftText(context, 'More Actions'),
                   ),
               // AgentDetailHeader `onClose` (`hidden md:flex`): the profile
               // overlay's close action once the back chevron is gone.
@@ -499,7 +499,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                   MediaQuery.sizeOf(context).width >= 768)
                 RaftPanelIconButton(
                   glyph: RaftGlyph.x,
-                  tooltip: raftText(context, 'Close profile'),
+                  tooltip: raftText(context, 'Close Profile'),
                   onPressed: widget.actions.onClose,
                 ),
             ],
@@ -762,7 +762,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
       if (!external) ...[
         if (widget.actions.onMigrate != null)
           RaftButton(
-            label: raftText(context, 'Move to another computer'),
+            label: raftText(context, 'Move to Another Computer'),
             glyph: RaftGlyph.moveRight,
             tone: RaftButtonRecipeVariant.outline,
             size: RaftButtonRecipeSize.md,
@@ -818,7 +818,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         ),
       if (widget.actions.onDelete != null)
         RaftButton(
-          label: raftText(context, 'Delete Agent'),
+          label: raftText(context, 'Archive Agent'),
           glyph: RaftGlyph.trash2,
           tone: RaftButtonRecipeVariant.danger,
           size: RaftButtonRecipeSize.md,
@@ -901,7 +901,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                   RaftInlineIconButton(
                     key: const ValueKey('agent-role-help'),
                     glyph: RaftGlyph.circleHelp,
-                    tooltip: raftText(context, 'Role permissions'),
+                    tooltip: raftText(context, 'Role Permissions'),
                     onPressed: () =>
                         showRaftRolePermissionHelp(context, agent: true),
                   ),
@@ -909,7 +909,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                     RaftInlineIconButton(
                       key: const ValueKey('agent-edit-role'),
                       glyph: RaftGlyph.pencil,
-                      tooltip: raftText(context, 'Edit role'),
+                      tooltip: raftText(context, 'Edit Role'),
                       onPressed: widget.actions.onEditRole,
                     ),
                 ],
@@ -991,7 +991,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
               RaftEditableEyebrow(
                 raftText(context, 'Runtime Config'),
                 onEdit: canEdit ? widget.actions.onEditRuntime : null,
-                editLabel: raftText(context, 'Edit runtime config'),
+                editLabel: raftText(context, 'Edit Runtime Config'),
                 editKey: const ValueKey('agent-edit-runtime'),
               ),
               RaftInfoRow(

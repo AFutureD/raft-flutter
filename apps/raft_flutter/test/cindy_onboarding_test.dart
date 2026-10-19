@@ -170,9 +170,9 @@ void main() {
     );
     final form = t.widget<CreateAgentDialog>(find.byType(CreateAgentDialog));
     expect(form.machines.single['id'], 'm');
-    await t.ensureVisible(find.text('Switch server'));
+    await t.ensureVisible(find.text('Switch Server'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Switch server'));
+    await t.tap(find.text('Switch Server'));
     await t.pump();
     expect(switches, 1);
     expect(w.commands, isEmpty);
@@ -240,9 +240,9 @@ void main() {
           child: const Text('Conversation'),
         ),
       );
-      await t.ensureVisible(find.text('Switch server'));
+      await t.ensureVisible(find.text('Switch Server'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Switch server'));
+      await t.tap(find.text('Switch Server'));
       await t.pump();
       expect(switches, 1);
       expect(w.commands, isEmpty);
@@ -432,9 +432,9 @@ void main() {
   ) async {
     var switches = 0;
     await host(t, step(onSwitch: () => switches++));
-    await t.ensureVisible(find.text('Switch server'));
+    await t.ensureVisible(find.text('Switch Server'));
     await t.pumpAndSettle();
-    await t.tap(find.text('Switch server'));
+    await t.tap(find.text('Switch Server'));
     await t.pump();
     expect(switches, 1);
     expect(w.commands, isEmpty);

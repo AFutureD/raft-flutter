@@ -119,7 +119,7 @@ class RaftPendingMentionActionStrip extends StatelessWidget {
               child: _StripButton(
                 variant: RaftButtonRecipeVariant.accent,
                 glyph: RaftGlyph.userPlus,
-                label: raftText(context, 'Add all'),
+                label: raftText(context, 'Add All'),
                 onPressed: addable.any(executing.containsKey)
                     ? null
                     : () => onAddAll!(addable),

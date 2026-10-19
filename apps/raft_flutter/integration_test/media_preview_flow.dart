@@ -120,7 +120,7 @@ Future<void> verifyNativeMediaPreviewFlow(
         findsOneWidget,
       );
       await capture('attachment-native-pdf-page-one');
-      await tester.tap(find.byTooltip('Next page'));
+      await tester.tap(find.byTooltip('Next Page'));
       await until(() => find.text('2 / 2').evaluate().isNotEmpty);
       await capture('attachment-native-pdf-page-two');
     } else {
@@ -201,7 +201,7 @@ Future<void> verifyNativeMediaPreviewFlow(
         await until(() => (playback().volume - 50).abs() <= 12);
       }
     }
-    await tester.tap(find.byTooltip('Close preview'));
+    await tester.tap(find.byTooltip('Close Preview'));
     await until(() => find.byType(AttachmentPreviewDialog).evaluate().isEmpty);
     await tester.pump(const Duration(milliseconds: 250));
   }

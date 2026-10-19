@@ -85,7 +85,7 @@ void main() {
         expect(
           t
               .widget<RaftMenuItem>(
-                find.widgetWithText(RaftMenuItem, 'Generate image'),
+                find.widgetWithText(RaftMenuItem, 'Generate Image'),
               )
               .focusNode!
               .hasFocus,

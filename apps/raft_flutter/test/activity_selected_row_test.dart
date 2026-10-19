@@ -280,7 +280,7 @@ void main() {
         expect(_selected(t), ['activity-channel-c2']);
 
         // Closing the preview clears it.
-        await t.tap(find.byTooltip('Close detail'));
+        await t.tap(find.byTooltip('Close Detail'));
         await t.pumpAndSettle();
         expect(w.location.content, isNull);
         expect(_selected(t), isEmpty);

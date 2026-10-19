@@ -64,7 +64,7 @@ void main() {
         );
         await flush(t);
         await t.pumpAndSettle();
-        await t.tap(find.byTooltip('Channel details and settings'));
+        await t.tap(find.byTooltip('Channel Details and Settings'));
         await flush(t);
         await t.pumpAndSettle();
         await t.tap(

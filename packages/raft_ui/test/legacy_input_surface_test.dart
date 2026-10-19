@@ -261,9 +261,9 @@ void main() {
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField), 'Product-QA');
         await tester.pump();
-        await tester.tap(find.text('Mark invalid'));
+        await tester.tap(find.text('Mark Invalid'));
         await tester.pump();
-        await tester.tap(find.text('Caller inset'));
+        await tester.tap(find.text('Caller Inset'));
         await tester.pump();
         expect(
           tester.widget<RaftTextInput>(find.byType(RaftTextInput)).invalid,

@@ -24,7 +24,7 @@ class _CommentsPreviewState extends State<_CommentsPreview> {
           children: [
             TextButton(
               onPressed: () => setState(() => blocked = !blocked),
-              child: const Text('Toggle read-only'),
+              child: const Text('Toggle Read-only'),
             ),
             Text(result),
           ],
@@ -53,7 +53,7 @@ class _CommentsPreviewState extends State<_CommentsPreview> {
                       alignment: Alignment.centerLeft,
                       child: RaftCommentAnchorChip(
                         label: 'L2–4',
-                        removeLabel: 'Remove anchor',
+                        removeLabel: 'Remove Anchor',
                         onRemove: () => setState(() => anchored = false),
                       ),
                     )

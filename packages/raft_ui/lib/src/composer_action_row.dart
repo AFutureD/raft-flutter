@@ -46,7 +46,7 @@ class RaftComposerActionRow extends StatelessWidget {
         if (!recipe.compact && onImagePick != null)
           RaftComposerAction(
             glyph: RaftGlyph.imagePlus,
-            tooltip: 'Attach media',
+            tooltip: 'Attach Media',
             onPressed: busy || !enabled ? null : onImagePick,
           ),
         if (!recipe.compact && onImagePick != null && onAttach != null)
@@ -54,7 +54,7 @@ class RaftComposerActionRow extends StatelessWidget {
         if (!recipe.compact && onAttach != null)
           RaftComposerAction(
             glyph: RaftGlyph.paperclip,
-            tooltip: 'Attach file',
+            tooltip: 'Attach File',
             onPressed: busy || !enabled ? null : onAttach,
           ),
       ],

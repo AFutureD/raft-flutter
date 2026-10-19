@@ -423,19 +423,19 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
                         children: [
                           if (retryable)
                             RaftButton(
-                              label: 'Retry preview',
+                              label: 'Retry Preview',
                               onPressed: current ? load : null,
                             ),
                           if (browserOffered)
                             RaftButton(
-                              label: 'Open interactive preview in browser',
+                              label: 'Open Interactive Preview in Browser',
                               busy: opening,
                               onPressed: current && !opening
                                   ? interactive
                                   : null,
                             ),
                           RaftButton(
-                            label: 'Download file',
+                            label: 'Download File',
                             onPressed: current ? widget.onDownload : null,
                           ),
                         ],

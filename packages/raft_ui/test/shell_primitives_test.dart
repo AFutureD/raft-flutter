@@ -79,7 +79,7 @@ void main() {
         await pump(
           tester,
           dark,
-          RaftToast(title: 'Link copied', icon: true, onClose: () {}),
+          RaftToast(title: 'Link Copied', icon: true, onClose: () {}),
         );
         expect(find.byType(RaftToast), findsOneWidget);
         expect(tester.getSize(find.byType(RaftToast)).height, 56);

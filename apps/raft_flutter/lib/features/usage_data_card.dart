@@ -91,7 +91,7 @@ class _UsageDataSettingsCardState extends State<UsageDataSettingsCard> {
         title: 'Share usage data',
         description:
             'Help improve Raft by sharing which pages and features you use. Never includes your messages or other content.',
-        descriptionLink: 'Learn more',
+        descriptionLink: 'Learn More',
         onDescriptionLink: () =>
             launchUrl(privacyUrl, mode: LaunchMode.externalApplication),
         checked: shared,

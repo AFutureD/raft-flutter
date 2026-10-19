@@ -103,7 +103,7 @@ void main() {
                   RaftComposerAction(
                     key: const ValueKey('send'),
                     glyph: RaftGlyph.send,
-                    tooltip: 'Send reply',
+                    tooltip: 'Send Reply',
                     onPressed: () => submitted++,
                   ),
                 ],
@@ -221,7 +221,7 @@ void main() {
             dark: dark,
           ),
         );
-        expect(find.text('New feedback'), findsOneWidget);
+        expect(find.text('New Feedback'), findsOneWidget);
         expect(find.text('Up to 3 images.'), findsOneWidget);
         await t.tap(find.byKey(const ValueKey('feedback-kind-bug')));
         await t.tap(find.byKey(const ValueKey('feedback-back')));
@@ -284,7 +284,7 @@ void main() {
         expect(find.text('footer'), findsOneWidget);
         expect(find.byKey(const ValueKey('c')), findsOneWidget);
         await pump(error: 'Couldn’t load feedback. Try again.');
-        await t.tap(find.text('Try again'));
+        await t.tap(find.text('Try Again'));
         expect(retried, 1);
         await pump(loading: true);
         await pump(loadingMore: true);

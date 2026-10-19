@@ -736,10 +736,10 @@ void main() {
     );
 
     testWidgets(
-      '[N27] "Search this channel" opens the overlay with that channel as the filter and waits for a query',
+      '[N27] "Search This Channel" opens the overlay with that channel as the filter and waits for a query',
       (t) async {
         final (client, w) = await mount(t);
-        await t.tap(find.byTooltip('Search this channel'));
+        await t.tap(find.byTooltip('Search This Channel'));
         await t.pump();
         expect(find.byType(QuickSwitcher), findsOneWidget);
         expect(find.byKey(const Key('quick-switcher-recent')), findsOneWidget);

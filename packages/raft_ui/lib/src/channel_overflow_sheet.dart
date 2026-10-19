@@ -38,7 +38,7 @@ class RaftOverflowSheet extends StatelessWidget {
     this.badge,
     this.badgeTone = RaftBadgeRecipeVariant.success,
     this.subtitle,
-    this.closeLabel = 'Close channel details and settings',
+    this.closeLabel = 'Close Channel Details and Settings',
     this.bodyKey,
     this.page = false,
   });

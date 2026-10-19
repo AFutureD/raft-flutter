@@ -364,7 +364,7 @@ final ParityCase _noComputer = ParityCase(
 ParityCase _agentDetail({required bool lifecycle}) => agentDetailParityCase(
   'productUx',
   notes: lifecycle
-      ? ' Lifecycle actions = the header "More actions" overflow menu '
+      ? ' Lifecycle actions = the header "More Actions" overflow menu '
             '(Direct Message, Stop Agent, Restart / Reset), opened by the '
             'same mouse click as the React provider, retaining trigger hover.'
       : '',

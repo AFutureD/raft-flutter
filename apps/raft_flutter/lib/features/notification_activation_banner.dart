@@ -213,11 +213,11 @@ class _ActivationBannerState extends State<NotificationActivationBanner> {
                     RaftButton(
                       size: RaftButtonRecipeSize.sm,
                       tone: RaftButtonRecipeVariant.accent,
-                      label: busy ? 'Enabling…' : 'Enable notifications',
+                      label: busy ? 'Enabling…' : 'Enable Notifications',
                       onPressed: busy ? null : enable,
                     ),
                     RaftCloseButton(
-                      tooltip: 'Hide notification reminder for this session',
+                      tooltip: 'Hide Notification Reminder for This Session',
                       onPressed: dismiss,
                     ),
                   ],

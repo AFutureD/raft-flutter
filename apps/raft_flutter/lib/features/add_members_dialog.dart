@@ -290,7 +290,7 @@ class _AddMembersDialogState extends State<AddMembersDialog> {
         avatarContext: RaftMountedAvatarContext.compactList,
         origin: w.client.origin,
       ),
-      removeLabel: raftFormat(context, 'Remove {name} from add list', {
+      removeLabel: raftFormat(context, 'Remove {name} from Add List', {
         'name': candidate.label,
       }),
       onRemove: () => setState(() {

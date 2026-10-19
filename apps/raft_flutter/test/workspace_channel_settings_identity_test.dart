@@ -69,7 +69,7 @@ Future<void> mountSettingsWorkspace(
     find.byWidgetPredicate(
       (widget) =>
           widget is RaftPanelIconButton &&
-          widget.tooltip == 'Channel details and settings',
+          widget.tooltip == 'Channel Details and Settings',
     ),
   );
   await frames(t, () {});

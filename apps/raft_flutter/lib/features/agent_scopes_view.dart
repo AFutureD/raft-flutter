@@ -217,14 +217,14 @@ class _AgentScopesViewState extends State<AgentScopesView> {
                 spacing: 12,
                 children: [
                   RaftButton(
-                    label: 'Save permissions',
+                    label: 'Save Permissions',
                     busy: busy,
                     onPressed: save,
                   ),
                   TextButton(
                     onPressed: busy ? null : () => save(defaults: true),
                     child: Text(
-                      raftText(context, 'Restore default permissions'),
+                      raftText(context, 'Restore Default Permissions'),
                     ),
                   ),
                 ],

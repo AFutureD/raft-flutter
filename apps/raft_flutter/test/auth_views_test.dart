@@ -265,7 +265,7 @@ void main() {
     await tester.tap(find.byKey(const Key('verify-manual-toggle')));
     await tester.pump();
     expect(find.byKey(const Key('verification-token')), findsOneWidget);
-    expect(find.textContaining('Hide manual entry'), findsOneWidget);
+    expect(find.textContaining('Hide Manual Entry'), findsOneWidget);
     await tester.tap(find.byKey(const Key('verify-resend')));
     await tester.pump(const Duration(milliseconds: 300));
     expect(requests, contains('POST /auth/resend-verification'));

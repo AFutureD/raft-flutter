@@ -324,21 +324,21 @@ void main() {
         );
         await settle(t);
         await t.scrollUntilVisible(
-          find.text('Save permissions'),
+          find.text('Save Permissions'),
           200,
           scrollable: find.descendant(
             of: find.byKey(const Key('agent-scope-list')),
             matching: find.byType(Scrollable),
           ),
         );
-        await t.tap(find.text('Save permissions'));
+        await t.tap(find.text('Save Permissions'));
         await settle(t);
         expect(find.text('Agent permissions saved'), findsOneWidget);
         expect(find.byType(SnackBar), findsNothing);
 
         // No PUT route: the fixture answers 404 {"error":"Unexpected endpoint"}.
         api.routes.remove('PUT /agents/a1/scopes');
-        await t.tap(find.text('Save permissions'));
+        await t.tap(find.text('Save Permissions'));
         await settle(t);
         await t.scrollUntilVisible(
           find.byType(RaftErrorBanner),

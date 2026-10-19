@@ -153,9 +153,9 @@ void main() {
   testWidgets('show more toggle announces its label once', (t) async {
     final semantics = t.ensureSemantics();
     await t.pumpWidget(
-      _host(RaftShowMoreToggle(label: 'Show more', onPressed: () {})),
+      _host(RaftShowMoreToggle(label: 'Show More', onPressed: () {})),
     );
-    expect(find.bySemanticsLabel(RegExp(r'^Show more$')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Show More$')), findsOneWidget);
     semantics.dispose();
   });
 
