@@ -124,18 +124,6 @@
   "packages/raft_client/test/logout_policy_test.dart": {
    "cases": 96,
    "seconds": 38.1
-  },
-  "packages/raft_ui/test/text_scale_audit_android_zh_test.dart": {
-   "cases": 198,
-   "seconds": 51.6
-  },
-  "packages/raft_ui/test/text_scale_audit_tall_test.dart": {
-   "cases": 88,
-   "seconds": 32.0
-  },
-  "packages/raft_ui/test/text_scale_audit_test.dart": {
-   "cases": 89,
-   "seconds": 40.7
   }
  },
  "limits": {

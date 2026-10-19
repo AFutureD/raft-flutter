@@ -4,6 +4,7 @@
 // pumped at 1.0x / 1.3x / 2.0x and checked for clipped ink, overflow, text that
 // escapes a fixed-height box and (offCentre) single-line labels that sit off
 // the centre of their pill / button / chip.
+// budget: per-surface (one case per registered surface; grows with every new preview)
 import 'package:flutter/material.dart';
 
 import '../../../tool/testing/text_scale_audit.dart';

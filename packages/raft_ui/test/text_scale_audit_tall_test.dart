@@ -2,6 +2,7 @@
 // Noto Sans CJK, so all text, Latin included, gets the line metrics of the
 // taller CJK system fonts (ascent 1.16, descent 0.288 against ~1.2 for the
 // design fonts). 1.0x must stay clean; 1.3x and 2.0x combine both stressors.
+// budget: per-surface (one case per registered surface; grows with every new preview)
 import 'package:flutter/material.dart';
 
 import '../../../tool/testing/text_scale_audit.dart';

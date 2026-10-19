@@ -82,6 +82,7 @@ class ExemptionTests(unittest.TestCase):
                 return path
             self.assertTrue(budget.is_exempt(write('a.dart', "@Tags(['slow'])\nlibrary;\nimport 'x';\n")))
             self.assertTrue(budget.is_exempt(write('b.dart', "import 'x';\nvoid main() {\n  // matrix: nightly-full -- the gate runs the L\n}\n")))
+            self.assertTrue(budget.is_exempt(write('s.dart', "// budget: per-surface (one case per registered surface)\nimport 'x';\n")))
             self.assertFalse(budget.is_exempt(write('c.dart', "import 'x';\n// we discuss matrix: nightly-full here\n")))
             self.assertFalse(budget.is_exempt(write('d.dart', "@Tags(['golden'])\nlibrary;\n")))
             self.assertFalse(budget.is_exempt(Path(tmp) / 'missing.dart'))

@@ -7,6 +7,9 @@ A test file that declares more than MAX_CASES cases is expensive enough to need 
     tool/check-project), or
   * carry the marker comment `// matrix: nightly-full` (the file cuts its matrix on the gate and the
     nightly runs the whole product, see raftFullMatrix in packages/raft_ui/lib/test_themes.dart), or
+  * carry the marker comment `// budget: per-surface` (a registry audit with one case per registered
+    surface, such as the text-scale audits: every new @RaftPreviews preview must add its cases there, so
+    the file grows by design), or
   * be listed in tool/test-budget-baseline.json, the files that were over the limit when the budget
     started. That list only shrinks: a listed file may not gain cases, and nothing is added to it.
 
@@ -40,16 +43,17 @@ SECONDS_SLACK = 1.5  # a listed file's run time is noisy (a loaded machine): it 
 SECONDS_MARGIN = 10.0
 SLOW_TAG = re.compile(r"""^@Tags\(\s*\[[^\]]*['"]slow['"]""", re.M)
 MARKER = re.compile(r'^\s*//\s*matrix:\s*nightly-full\b', re.M)
+PER_SURFACE = re.compile(r'^\s*//\s*budget:\s*per-surface\b', re.M)
 HEAD_BYTES = 16384  # the tag precedes the imports
 
 
 def is_exempt(path):
-    """True when the file carries the slow tag (in its head) or the nightly-full marker (anywhere)."""
+    """True when the file carries the slow tag (in its head), or the nightly-full or per-surface marker (anywhere)."""
     try:
         text = pathlib.Path(path).read_text(encoding='utf-8', errors='replace')
     except OSError:
         return False
-    return bool(SLOW_TAG.search(text[:HEAD_BYTES]) or MARKER.search(text))
+    return bool(SLOW_TAG.search(text[:HEAD_BYTES]) or MARKER.search(text) or PER_SURFACE.search(text))
 
 
 def measure(durations):
@@ -92,6 +96,8 @@ def check(measured, baseline, exempt=is_exempt, exists=lambda name: True):
             elif now['seconds'] > MAX_SECONDS:
                 warnings.append(f"{name}: ran {now['seconds']:.0f} s (limit {MAX_SECONDS:.0f} s).")
             continue
+        if exempt(name):
+            continue  # tagged or marked since it was listed: the note below says its entry can go
         if now['cases'] > entry['cases']:
             violations.append(f"{name}: grew from {entry['cases']} to {now['cases']} cases; a file listed in tool/test-budget-baseline.json may only shrink.")
         elif now['seconds'] > entry['seconds'] * SECONDS_SLACK + SECONDS_MARGIN:
