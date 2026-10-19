@@ -5,6 +5,8 @@ pixel references for the Flutter port (light + dark, one look).
   tool/parity-ui/run run [--cases <id|glob>[,...]]   # install (locked), build host, capture every case
   tool/parity-ui/run check                           # capture twice, require byte-identical PNGs; official CLI validate + diff round trip
   tool/parity-ui/run cases                           # case ids, and which have no Flutter preview yet
+  tool/parity-ui/run dom-dump [--cases ...] [--out DIR]  # diagnostic: DOM rects + computed styles of the React specimens, no PNGs
+  tool/parity-ui/run flutter [--cases ...]           # capture the Flutter side (test/parity/cases/ui_raft_specimens.dart) into <out>/visual-testing-results/android
   tool/parity-ui/run diff                            # official `cli.mjs diff --pairs react__android` once Flutter captures exist
   tool/parity-ui/run fonts [--refresh]               # verify (or refetch) the sha256-pinned Space Grotesk / Space Mono cache
 
@@ -84,7 +86,8 @@ def build_manifest():
                 'theme': mode,
                 'locale': 'en',
                 'variants': [{'id': 'default', 'name': 'Default',
-                              'props': {'specimen': sp['id'], 'mode': mode, 'raftUi': s['raftUi']}}],
+                              # parityTheme: how test/parity/parity_harness.dart picks the Flutter theme
+                              'props': {'specimen': sp['id'], 'mode': mode, 'raftUi': s['raftUi'], 'parityTheme': mode}}],
                 'capture': {'selector': f'[data-specimen="{sp["id"]}"]', 'crop': 'element',
                             'contract': 'component-bounds', 'androidKey': f'raft-ui-specimen-{sp["id"]}',
                             'interactions': [], 'androidInteractions': []},
@@ -148,7 +151,8 @@ def hashes(out):
 
 def flutter_declared():
     text = '\n'.join(p.read_text() for p in FLUTTER_CASES.rglob('*.dart')) if FLUTTER_CASES.is_dir() else ''
-    return lambda cid: f"'{cid}'" in text
+    # Flutter builders are keyed by specimen id (`'button.variants'`) and expand to both modes.
+    return lambda cid: f"'{cid}'" in text or f"'{cid.removeprefix('components.raft-ui.').rsplit('.', 1)[0]}'" in text
 
 
 def cli(*args, out, manifest, log=None):
@@ -223,12 +227,67 @@ def cmd_diff(a):
                  '(run `tool/parity-ui/run cases` for the ids)')
     cli('diff', '--pairs', PAIR, out=OUT, manifest=manifest, log=OUT / 'diff.log')
     cli('site', '--pairs', PAIR, '--skip-analysis', '--site-dir', str(OUT / 'site'), out=OUT, manifest=manifest, log=OUT / 'diff.log')
+    print_scores(select(cases, a.cases))
+
+
+def print_scores(chosen):
+    """Per-case table from the official diff output: status and pixel-perfect similarity. Official thresholds:
+    > 99% pass, > 96% basic-pass (both count as passing); `missing` = no Flutter capture."""
+    diff = json.loads((OUT / 'visual-testing-results/diff' / f'{PAIR}.json').read_text())
+    by_id = {r['id']: r for r in diff['results']}
+    rows, passing = [], 0
+    for c in chosen:
+        r = by_id.get(c['id'], {})
+        sim = (r.get('metrics') or {}).get('pixelPerfectSimilarity')
+        status = r.get('status', 'missing')
+        passing += status in ('same', 'pass', 'basic-pass')
+        rows.append((c['id'].removeprefix('components.raft-ui.'), status, f'{sim * 100:6.2f}%' if sim is not None else '     -'))
+    width = max(len(r[0]) for r in rows)
+    for name, status, sim in rows:
+        print(f'{name:<{width}}  {status:<10}  {sim}')
+    print(f'{passing}/{len(rows)} cases pass the official thresholds (pass > 99%, basic-pass > 96%)')
 
 
 def fetch(url):
     req = urllib.request.Request(url, headers={'User-Agent': parity.FONT_FETCH_UA})
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read()
+
+
+def cmd_dom_dump(a):
+    manifest, cases = build_manifest()
+    chosen = select(cases, a.cases)
+    ensure_deps()
+    cmd_fonts(argparse.Namespace(refresh=False), quiet=True)
+    out = pathlib.Path(a.out).resolve()
+    env = tool_env()
+    sh(['node', UI / 'capture.mjs', '--manifest', manifest, '--out', OUT / 'dom-dump-run', '--dom-dump', out,
+        '--only', ','.join(c['id'] for c in chosen)], ROOT, env)
+    print(f'DOM dumps in {out}')
+
+
+def cmd_flutter(a):
+    """Flutter provider: the real widgets from test/parity/cases/ui_raft_specimens.dart, captured by
+    the shared parity harness into <out>/visual-testing-results/android (the `diff` input)."""
+    manifest, cases = build_manifest()
+    chosen = select(cases, a.cases)
+    android = OUT / 'visual-testing-results/android'
+    android.mkdir(parents=True, exist_ok=True)
+    for c in chosen:  # stale captures must never survive a failed run
+        for suffix in ('.png', '.metadata.json'):
+            (android / f"{c['id']}{suffix}").unlink(missing_ok=True)
+    shared = OUT / 'flutter-shared'
+    shared.mkdir(parents=True, exist_ok=True)  # the harness reads fixture JSON from here; specimens need none
+    env = {**os.environ, 'TZ': 'Asia/Shanghai', 'PARITY_SHARED_DIR': str(shared),
+           'PARITY_RESULT_ROOT': str(OUT / 'visual-testing-results'), 'PARITY_MANIFEST': str(manifest),
+           'PARITY_CASES': ','.join(c['id'] for c in chosen)}
+    r = subprocess.run(['nice', '-n', '10', str(ROOT / 'tool/flutter'), 'test', 'test/parity/parity_capture_test.dart',
+                        '--no-pub', '--reporter', 'expanded'], cwd=ROOT / 'apps/raft_flutter', env=env)
+    missing = [c['id'] for c in chosen if not (android / f"{c['id']}.png").is_file()]
+    have = len(chosen) - len(missing)
+    print(f'flutter: {have}/{len(chosen)} captures in {android}')
+    if r.returncode != 0 and missing:
+        sys.exit(f'flutter capture failed (exit {r.returncode}); no capture for: {", ".join(missing)}')
 
 
 def cmd_fonts(a, quiet=False):
@@ -278,7 +337,16 @@ def main():
         s.add_argument('--cases', help='ids / globs (default: every case)')
         s.set_defaults(fn=fn)
     sub.add_parser('cases').set_defaults(fn=cmd_cases)
-    sub.add_parser('diff').set_defaults(fn=cmd_diff)
+    s = sub.add_parser('flutter')
+    s.add_argument('--cases', help='ids / globs (default: every case)')
+    s.set_defaults(fn=cmd_flutter)
+    s = sub.add_parser('dom-dump')
+    s.add_argument('--cases', help='ids / globs (default: every case)')
+    s.add_argument('--out', default=str(OUT / 'dom-dump'))
+    s.set_defaults(fn=cmd_dom_dump)
+    s = sub.add_parser('diff')
+    s.add_argument('--cases', help='ids / globs shown in the table (default: every case)')
+    s.set_defaults(fn=cmd_diff)
     s = sub.add_parser('fonts')
     s.add_argument('--refresh', action='store_true')
     s.set_defaults(fn=cmd_fonts)

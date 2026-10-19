@@ -10,6 +10,30 @@ import 'raft_tokens.g.dart';
 import 'semantic_colors.g.dart';
 import 'shadows.g.dart';
 
+/// Bundled design faces (`packages/raft_ui/assets/fonts`, pubspec families).
+const String raftSansFontFamily = 'packages/raft_ui/SpaceGrotesk';
+const String raftMonoFontFamily = 'packages/raft_ui/SpaceMono';
+
+/// raft-ui 0.7.1 `fonts.css`: `--heading-font` and `--sans-font` are the same stack.
+const List<String> raftSansFontStack = [
+  'Space Grotesk',
+  'PingFang SC',
+  'Hiragino Sans GB',
+  'Microsoft YaHei',
+  'Noto Sans SC',
+  'system-ui',
+  'sans-serif',
+];
+
+/// `--mono-font`.
+const List<String> raftMonoFontStack = [
+  'Space Mono',
+  'ui-monospace',
+  'SF Mono',
+  'Menlo',
+  'monospace',
+];
+
 /// The Raft Design System has one look in two modes.
 enum RaftThemeId { light, dark }
 
@@ -79,14 +103,13 @@ class RaftTokenSet {
         cardTitleFontSize: metric('cardTitleFontSize'),
         cardTitleFontWeight: metric('cardTitleFontWeight'),
         cardTitleLineHeight: metric('cardTitleLineHeight'),
-        // TODO(raft-design): Space Grotesk / Space Mono once the fonts are bundled;
-        // until then the Elegant faces carry the text.
-        headingFontStack: const ['Inter', 'system-ui', 'sans-serif'],
-        sansFontStack: const ['Geist', 'system-ui', 'sans-serif'],
-        monoFontStack: const ['Geist Mono', 'ui-monospace', 'monospace'],
-        headingFont: 'packages/raft_ui/Inter',
-        sansFont: 'packages/raft_ui/Geist',
-        monoFont: 'packages/raft_ui/GeistMono',
+        // raft-ui 0.7.1 fonts.css `--heading-font` / `--sans-font` / `--mono-font`.
+        headingFontStack: raftSansFontStack,
+        sansFontStack: raftSansFontStack,
+        monoFontStack: raftMonoFontStack,
+        headingFont: raftSansFontFamily,
+        sansFont: raftSansFontFamily,
+        monoFont: raftMonoFontFamily,
       ),
     );
   }

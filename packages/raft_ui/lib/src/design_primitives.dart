@@ -296,9 +296,6 @@ abstract final class RaftTypography {
   }) => TextStyle(
     locale: t.textLocale,
     fontFamily: t.headingFont,
-    fontVariations: t.systemFonts
-        ? null
-        : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
     fontFamilyFallback: t.fontFallback,
     fontSize: size,
     height: line / size,

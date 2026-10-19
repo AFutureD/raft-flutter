@@ -14,7 +14,11 @@
 // unhinted advances (docs/parity.md "Text rendering"), fixed viewport/density,
 // fresh browser context per case, UTC / en-US.
 //
-//   node capture.mjs --manifest <cases.json> --out <dir> [--only id,id] [--density N]
+//   node capture.mjs --manifest <cases.json> --out <dir> [--only id,id] [--density N] [--dom-dump <dir>]
+//
+// --dom-dump writes <dir>/<case-id>.json instead of PNGs: every element under the capture
+// selector with its rect (CSS px, relative to the target), classes, text and computed styles
+// (plus ::before / ::after when they generate content). Diagnostic for the Flutter port.
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
@@ -106,6 +110,45 @@ async function platformFonts(page, selector) {
   return Object.fromEntries(Object.entries(usage).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])));
 }
 
+// Runs in the page: depth-first dump of the target subtree.
+function domDump(root) {
+  const base = root.getBoundingClientRect();
+  const KEYS = ["display", "position", "flexDirection", "alignItems", "justifyContent", "gap", "rowGap", "columnGap",
+    "width", "height", "minWidth", "minHeight", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "marginTop", "marginRight", "marginBottom", "marginLeft",
+    "color", "backgroundColor", "backgroundImage", "opacity",
+    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+    "borderTopColor", "borderRightColor", "borderBottomColor", "borderLeftColor", "borderTopStyle",
+    "borderTopLeftRadius", "borderTopRightRadius", "borderBottomRightRadius", "borderBottomLeftRadius",
+    "boxShadow", "outline", "outlineOffset", "overflow",
+    "fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "textTransform", "textAlign", "whiteSpace",
+    "textDecorationLine", "transform", "filter", "zIndex", "cursor"];
+  const pick = (cs) => {
+    const o = {};
+    for (const k of KEYS) o[k] = cs[k];
+    return o;
+  };
+  const rectOf = (el) => {
+    const r = el.getBoundingClientRect();
+    return { x: +(r.x - base.x).toFixed(3), y: +(r.y - base.y).toFixed(3), w: +r.width.toFixed(3), h: +r.height.toFixed(3) };
+  };
+  const walk = (el) => {
+    const cs = getComputedStyle(el);
+    const node = { tag: el.tagName.toLowerCase(), cls: el.getAttribute("class") ?? "", rect: rectOf(el), style: pick(cs) };
+    for (const a of el.attributes) if (a.name.startsWith("data-") || a.name === "role" || a.name === "aria-checked" || a.name === "aria-selected" || a.name === "aria-current") (node.attrs ??= {})[a.name] = a.value;
+    for (const pseudo of ["::before", "::after"]) {
+      const ps = getComputedStyle(el, pseudo);
+      if (ps.content !== "none" && ps.content !== "normal") (node.pseudo ??= {})[pseudo] = { content: ps.content, ...pick(ps) };
+    }
+    const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).filter(Boolean).join(" ");
+    if (own) node.text = own;
+    if (el.tagName.toLowerCase() === "svg") node.svg = el.outerHTML.slice(0, 600);
+    node.children = [...el.children].map(walk);
+    return node;
+  };
+  return walk(root);
+}
+
 for (const c of cases) {
   const props = c.variants[0].props;
   const { width, height, density } = c.viewport;
@@ -152,6 +195,13 @@ for (const c of cases) {
     // Two frames so layout, image decode and font swap have settled.
     await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
     const rect = await target.boundingBox();
+    if (args["dom-dump"]) {
+      mkdirSync(args["dom-dump"], { recursive: true });
+      const dump = await target.evaluate(domDump);
+      writeFileSync(join(args["dom-dump"], `${c.id}.json`), JSON.stringify(dump, null, 1) + "\n");
+      console.log(`dumped ${c.id}`);
+      continue;
+    }
     const used = await platformFonts(page, selector);
     const system = Object.keys(used).filter((k) => k.endsWith("(system)"));
     if (system.length) problems.push(`glyphs drawn with system fonts: ${system.join(", ")}`);

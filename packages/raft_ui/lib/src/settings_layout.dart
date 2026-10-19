@@ -427,9 +427,6 @@ TextStyle raftSettingsBody(
       weight: weight,
       color: color ?? t.strong,
     ).copyWith(
-      fontVariations: t.systemFonts
-          ? null
-          : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
       leadingDistribution: TextLeadingDistribution.even,
     );
 

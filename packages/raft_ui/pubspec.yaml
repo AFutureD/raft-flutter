@@ -21,6 +21,15 @@ dev_dependencies:
   leak_tracker_flutter_testing: ^3.0.10
 flutter:
   fonts:
+    # Raft Design System faces (raft-ui 0.7.1 fonts.css): Space Grotesk is what people say, Space Mono is what machines write.
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk.ttf
+    - family: SpaceMono
+      fonts:
+        - asset: assets/fonts/SpaceMono-Regular.ttf
+        - asset: assets/fonts/SpaceMono-Bold.ttf
+          weight: 700
     - family: HankenGrotesk
       fonts:
         - asset: assets/fonts/HankenGrotesk.ttf

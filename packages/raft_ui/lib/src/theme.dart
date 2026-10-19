@@ -19,6 +19,15 @@ RaftThemeId raftThemeId({bool dark = false}) =>
 
 final Map<RaftThemeId, Map<String, Color>> _colorMaps = {};
 
+/// The CJK part of the design stack (raft-ui `fonts.css`): PingFang on Apple platforms, YaHei on Windows,
+/// Noto Sans SC elsewhere. Families a platform does not have are skipped by the engine.
+const List<String> _raftCjkChain = [
+  'PingFang SC',
+  'Hiragino Sans GB',
+  'Microsoft YaHei',
+  'Noto Sans SC',
+];
+
 /// String-keyed compatibility view over the generated tokens, keyed by CSS
 /// custom-property name without `--`: primitives (`color-brutal-yellow-400`),
 /// semantic (`foreground-muted`, `ink-8`), product aliases (`color-brutal-cyan`)
@@ -153,14 +162,14 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
               'Noto Sans CJK JP',
               'sans-serif',
             ],
-          'zh' => const ['Noto Sans CJK SC', 'Noto Sans CJK JP', 'sans-serif'],
+          'zh' => const [..._raftCjkChain, 'Noto Sans CJK SC', 'Noto Sans CJK JP', 'sans-serif'],
           'ko' => const [
             'Noto Sans CJK KR',
             'Noto Sans CJK JP',
             'Noto Sans CJK SC',
             'sans-serif',
           ],
-          _ => const ['Noto Sans CJK JP', 'Noto Sans CJK SC', 'sans-serif'],
+          _ => const [..._raftCjkChain, 'Noto Sans CJK JP', 'Noto Sans CJK SC', 'sans-serif'],
         };
   double get radius => 8;
   double get fieldRadius => 6;
@@ -174,7 +183,6 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
   TextStyle get fieldStyle => TextStyle(
     locale: textLocale,
     fontFamily: headingFont,
-    fontVariations: systemFonts ? null : const [FontVariation('opsz', 14)],
     fontFamilyFallback: fontFallback,
     fontSize: metrics.fieldFontSize,
     height: metrics.fieldLineHeight / metrics.fieldFontSize,
@@ -471,9 +479,6 @@ ThemeData raftTheme({
   }) => TextStyle(
     locale: t.textLocale,
     fontFamily: heading ? t.headingFont : t.bodyFont,
-    fontVariations: heading && !t.systemFonts
-        ? [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())]
-        : null,
     fontFamilyFallback: t.fontFallback,
     fontSize: size,
     height: line / size,
