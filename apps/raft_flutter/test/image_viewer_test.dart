@@ -540,9 +540,9 @@ const _wide = Size(1280, 800);
 const _fold = Size(856, 944), _foldLandscape = Size(944, 856);
 const _phone = Size(390, 844);
 
-/// Three files share this suite (`image_viewer_part2_test.dart` ...), each
-/// registering a third of the groups by weight.
-void main() => registerImageViewerTests(TestPart(0, 3));
+/// Four files share this suite (`image_viewer_part2_test.dart` ...), each
+/// registering a quarter of the groups by weight.
+void main() => registerImageViewerTests(TestPart(0, 4));
 
 void registerImageViewerTests(TestPart part) {
   // Leak debt (other): see docs/development.md, Leak tracking.
