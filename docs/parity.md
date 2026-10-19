@@ -1558,6 +1558,25 @@ they sit on box edges; fractional-width controls (the survey Continue button, co
 rows) are painted unsnapped by Flutter, and the handoff body wraps one word differently from
 Chromium's `text-balance`.
 
+## raft-ui specimen reference (`tool/parity-ui`)
+
+A second React provider for the move to the official raft-ui look (one look, light + dark): it renders the real
+`@botiverse/raft-ui` components (pinned `0.7.1`, React 19, Tailwind CSS v4, versions fixed by
+`tool/parity-ui/host/pnpm-lock.yaml`) as fixed-size specimens, instead of the raft-source Vite host. Specimens are
+listed in `tool/parity-ui/specimens.json` and rendered by `tool/parity-ui/host/src/specimens.tsx` (component doc
+preview code where it exists). Same provider output contract, pinned Chromium 147 and Android text flags as the other
+providers; fonts come only from the sha256-pinned Space Grotesk / Space Mono cache (`tool/parity-ui/fonts`), any other
+external request fails the capture. The official CLI validates and diffs it unmodified (`--manifest build/parity-ui/cases.json`,
+ids `components.raft-ui.<specimen>.<light|dark>`); the Flutter provider writes `android/<id>.png` into the same output.
+References are never committed (output `build/parity-ui/`, override `PARITY_UI_OUT`).
+
+```bash
+tool/parity-ui/run run [--cases 'components.raft-ui.button.*']   # capture
+tool/parity-ui/run check                                          # capture twice: byte-identical PNGs; official validate + diff round trip
+tool/parity-ui/run cases                                          # ids and which have no Flutter preview case yet
+tool/parity-ui/run diff                                           # official diff + site once Flutter captures exist
+```
+
 ## Composed screens (extension suite, `components.screens-ext.*`)
 
 Top missing pages of the page inventory (3.01 channel screen, 3.02 DM screens, 3.20 composer
