@@ -282,7 +282,7 @@ void main() {
         onHydrated: () {
           calls++;
           expect(w.channels.single.id, 'cached');
-          expect(w.unread, {'cached': 2});
+          expect(w.conversationReads.unread, {'cached': 2});
           hydrated.complete();
         },
         onCacheMiss: () => misses++,

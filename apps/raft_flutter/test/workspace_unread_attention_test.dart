@@ -35,7 +35,7 @@ void main() {
             'joined': false,
           }),
         ];
-        w.unread['discovery'] = 17;
+        w.conversationReads.unread['discovery'] = 17;
         w.section = 'search';
         final accepted = Completer<Map<String, dynamic>>();
         api.routes['GET /channels/inbox'] = (_) => accepted.future;
@@ -73,7 +73,7 @@ void main() {
         );
         expect(attention('activity'), findsNothing);
         expect(find.byType(RaftRailUnreadCount), findsNothing);
-        w.unread['c1'] = 3;
+        w.conversationReads.unread['c1'] = 3;
         w.notifyListeners();
         await tester.pumpAndSettle();
         expect(attention('chat'), findsOneWidget);
@@ -98,7 +98,7 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('rail-tasks')));
         await tester.pumpAndSettle();
         expect(attention('activity'), findsOneWidget);
-        w.unread['c1'] = 0;
+        w.conversationReads.unread['c1'] = 0;
         w.notifyListeners();
         await tester.pumpAndSettle();
         expect(attention('chat'), findsNothing);
@@ -177,7 +177,7 @@ void main() {
             'joined': true,
           }),
         ];
-        w.unread['agent-dm'] = 12;
+        w.conversationReads.unread['agent-dm'] = 12;
         api.routes['GET /agents'] = (_) => [
           {'id': 'agent-1', 'name': 'Actual Agent'},
         ];

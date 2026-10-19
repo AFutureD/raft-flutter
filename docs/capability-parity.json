@@ -2682,7 +2682,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/workspace_view_sidebar_menus.dart",
-     "needle": "'Mark as Read' : 'Mark as Unread'"
+     "needle": "'Mark as Read'\n            : 'Mark as Unread'"
     }
    ],
    "justification": "",

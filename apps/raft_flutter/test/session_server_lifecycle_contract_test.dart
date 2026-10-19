@@ -518,9 +518,9 @@ void main() {
     () async {
       final f = _Fixture();
       final w = f.make(owns: true);
-      w.unread = {'c1': 4};
-      w.mentions = {'c1'};
-      w.newFlags = {'c1'};
+      w.conversationReads.unread = {'c1': 4};
+      w.conversationReads.mentions = {'c1'};
+      w.conversationReads.newFlags = {'c1'};
       w.messageDomain.state.historyLimited =
           w.messageDomain.state.threadHistoryLimited = true;
       w.messageDomain.state.highlightedMessageId = 'm1';
@@ -536,9 +536,9 @@ void main() {
         checked = true;
         expect(w.channel, isNull);
         expect(w.messageDomain.messages, isEmpty);
-        expect(w.unread, isEmpty);
-        expect(w.mentions, isEmpty);
-        expect(w.newFlags, isEmpty);
+        expect(w.conversationReads.unread, isEmpty);
+        expect(w.conversationReads.mentions, isEmpty);
+        expect(w.conversationReads.newFlags, isEmpty);
         expect(
           w.messageDomain.state.historyLimited ||
               w.messageDomain.state.threadHistoryLimited,

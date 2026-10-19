@@ -270,7 +270,7 @@ void main() {
             'throughActivitySeq': '12',
             'frontierSpace': 'storage',
           });
-          expect(workspace.unread['channel'], 0);
+          expect(workspace.conversationReads.unread['channel'], 0);
           client.pending.single.complete({});
           await tester.pumpAndSettle();
           expect(state.rows, isEmpty);

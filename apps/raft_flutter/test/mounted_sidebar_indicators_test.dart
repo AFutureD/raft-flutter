@@ -37,7 +37,7 @@ void main() {
             'peerId': 'human',
           }),
         ]);
-        w.unread.addAll({'quiet': 104, 'public': 3});
+        w.conversationReads.unread.addAll({'quiet': 104, 'public': 3});
         w.drafts.addAll({'draft': 'unsent channel', 'dm': 'unsent DM'});
         await mountPage(t, w, family, dark);
         expect(find.byType(RaftSidebarQuietUnreadCount), findsNWidgets(2));

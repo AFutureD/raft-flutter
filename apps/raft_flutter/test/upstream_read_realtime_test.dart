@@ -101,7 +101,7 @@ void main() {
           final (w, _, client) = await _login();
           addTearDown(w.dispose);
           await w.selectChannel(_c1, autoRead: false);
-          w.unread = {'c2': 0};
+          w.conversationReads.unread = {'c2': 0};
           client.emit('read_state:updated', {
             'serverId': 's1',
             'scopeId': 'c2',
@@ -110,7 +110,7 @@ void main() {
           });
           client.emit('message:new', _row('late', 'c2', seq));
           expect(
-            w.unread['c2'],
+            w.conversationReads.unread['c2'],
             0,
             reason: 'the frontier already covers seq 600',
           );
@@ -118,7 +118,7 @@ void main() {
             'message:new',
             _row('fresh', 'c2', seq is int ? 620 : '620'),
           );
-          expect(w.unread['c2'], 1);
+          expect(w.conversationReads.unread['c2'], 1);
         },
       );
     }

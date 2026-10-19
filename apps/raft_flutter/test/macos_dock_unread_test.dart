@@ -120,7 +120,7 @@ void main() {
       expect(writes.last, 13);
       // Same shared accepted inbox used by Activity; the old summary's 10 is
       // replaced, while arbitrary Chat counts never get added to the app badge.
-      w.unread['c1'] = 999;
+      w.conversationReads.unread['c1'] = 999;
       w.activityUnread.acceptWindow({
         'items': [],
         'totalUnreadCount': 2,

@@ -56,7 +56,7 @@ void main() {
             true,
           );
         }
-        w.unread['activity-a'] = 3;
+        w.conversationReads.unread['activity-a'] = 3;
         w.drafts['activity-b'] = 'unsent draft';
         w.messageDomain.ledger.ingestUpdate({
           'id': 'activity-599',

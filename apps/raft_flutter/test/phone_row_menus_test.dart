@@ -75,8 +75,8 @@ void main() {
             'peerDisplayName': 'Cindy',
           }),
         ];
-    w.unread = {...unread};
-    w.mentions = {...mentions};
+    w.conversationReads.unread = {...unread};
+    w.conversationReads.mentions = {...mentions};
     if (serverSummary != null) {
       // The cross-server summary (`GET /servers/unread-summary`) the Home
       // Activity count and the other-server dot read.
@@ -421,7 +421,7 @@ void main() {
     await tester.tap(find.text('Mark as Read'));
     await tester.pumpAndSettle();
     expect(posts.map((p) => p['path']), contains('/channels/d1/read-all'));
-    expect(w.unread['d1'] ?? 0, 0);
+    expect(w.conversationReads.unread['d1'] ?? 0, 0);
   });
 
   testWidgets('Mark as Unread shows the unread state before the reply', (
@@ -432,7 +432,7 @@ void main() {
     expect(find.text('Mark as Unread'), findsOneWidget);
     await tester.tap(find.text('Mark as Unread'));
     await tester.pump();
-    expect(w.unread['c1'], greaterThan(0));
+    expect(w.conversationReads.unread['c1'], greaterThan(0));
     await tester.pumpAndSettle();
     expect(posts.map((p) => p['path']), contains('/channels/c1/unread'));
   });
@@ -615,7 +615,7 @@ void main() {
       };
       await tester.runAsync(w.refreshUnread);
       await tester.pumpAndSettle();
-      expect(w.mentions, {'c1'});
+      expect(w.conversationReads.mentions, {'c1'});
       expect(
         find.descendant(
           of: row('c1'),
@@ -628,7 +628,7 @@ void main() {
       await longPress(tester, row('c1'));
       await tester.tap(find.text('Mark as Read'));
       await tester.pumpAndSettle();
-      expect(w.mentions, isEmpty);
+      expect(w.conversationReads.mentions, isEmpty);
       expect(
         find.byKey(const ValueKey('sidebar-mention-marker')),
         findsNothing,
@@ -663,7 +663,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      w.unread = {'c2': 5};
+      w.conversationReads.unread = {'c2': 5};
       w.notifyListeners();
       await tester.pumpAndSettle();
       expect(dot, findsNothing, reason: 'only a muted channel is unread');

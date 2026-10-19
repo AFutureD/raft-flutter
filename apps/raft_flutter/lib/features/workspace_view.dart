@@ -176,7 +176,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   /// painted without opening the server menu.
   void syncServerUnreadLoad() {
     if (w.client.user == null || w.servers.isEmpty) return;
-    final local = w.unread.values.any((count) => count > 0);
+    final local = w.conversationReads.unread.values.any((count) => count > 0);
     final scope = serverUnread.scope;
     if (serverUnreadBooted &&
         local == serverUnreadLocal &&
@@ -616,7 +616,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   bool get hasChatAttention => [
     ...w.channels.where((c) => c.type != 'channel' || c.joined),
     ...w.dms,
-  ].any((c) => (w.unread[c.id] ?? 0) > 0);
+  ].any((c) => (w.conversationReads.unread[c.id] ?? 0) > 0);
 
   late DesktopActivityFlag activityFlag;
   void activityFlagChanged() {
@@ -3401,7 +3401,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           w.section == 'chat' &&
           entry.channel != null &&
           w.channel?.id == entry.channel!.id,
-      unread: w.unread[entry.channel?.id] ?? 0,
+      unread: w.conversationReads.unread[entry.channel?.id] ?? 0,
       hasDraft: (w.drafts[entry.channel?.id] ?? '').isNotEmpty,
       onTap: () => chooseSidebarAgent(entry),
     );
@@ -3443,7 +3443,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   /// dot when one of its rows has unread messages and is not Activity-muted.
   bool groupHasUnread(Iterable<SidebarEntry> entries) => entries.any((e) {
     final c = e.channel;
-    return c != null && !c.flag('activityMuted') && (w.unread[c.id] ?? 0) > 0;
+    return c != null && !c.flag('activityMuted') && (w.conversationReads.unread[c.id] ?? 0) > 0;
   });
 
   Widget? groupAttention(SidebarGroup group, Iterable<SidebarEntry> entries) =>
@@ -3590,14 +3590,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
           ? RaftConversationNavKind.directMessage
           : RaftConversationNavKind.channel,
       selected: w.section == 'chat' && w.channel?.id == c.id,
-      unread: w.unread[c.id] ?? 0,
+      unread: w.conversationReads.unread[c.id] ?? 0,
       joined: c.joined,
       activityMuted: c.flag('activityMuted'),
       hasDraft: (w.drafts[c.id] ?? '').isNotEmpty,
       mention:
           c.type != 'dm' &&
-          w.mentions.contains(c.id) &&
-          (w.unread[c.id] ?? 0) > 0,
+          w.conversationReads.mentions.contains(c.id) &&
+          (w.conversationReads.unread[c.id] ?? 0) > 0,
       onTap: () => chooseChannel(c, expectedScope: scope),
     );
   }

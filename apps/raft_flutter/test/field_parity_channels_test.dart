@@ -512,13 +512,21 @@ void main() {
     final fixture = (_fixture('realtime-unread-summary') as Map)['response'];
     api.routes['GET /channels/unread'] = (_) => (200, fixture);
     await w.refreshUnread();
-    expect(w.newFlags, {'cccccccc-cccc-4ccc-8ccc-cccccccccccc'});
-    expect(w.unread['77777777-7777-4777-8777-777777777777'], 4);
-    expect(w.unread['cccccccc-cccc-4ccc-8ccc-cccccccccccc'], 0);
+    expect(w.conversationReads.newFlags, {
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    });
+    expect(
+      w.conversationReads.unread['77777777-7777-4777-8777-777777777777'],
+      4,
+    );
+    expect(
+      w.conversationReads.unread['cccccccc-cccc-4ccc-8ccc-cccccccccccc'],
+      0,
+    );
     // The next summary replaces the set.
     api.routes['GET /channels/unread'] = (_) => (200, {'channels': {}});
     await w.refreshUnread();
-    expect(w.newFlags, isEmpty);
+    expect(w.conversationReads.newFlags, isEmpty);
   });
 
   test(

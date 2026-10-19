@@ -41,9 +41,9 @@ void main() {
             c.w.channel = channel;
             c.w.messageDomain.visibleIds['chat'] = {'chat-100'};
           case 'unread':
-            c.w.unread = {'chat': 1};
+            c.w.conversationReads.unread = {'chat': 1};
           case 'mention':
-            c.w.mentions = {'chat'};
+            c.w.conversationReads.mentions = {'chat'};
           case 'pinned channel':
             c.w.sidebarOrder = {
               'pinned': [

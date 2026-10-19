@@ -138,7 +138,7 @@ void main() {
           expect(request.headers.containsKey('Authorization'), isTrue);
           // The real write stays held while the owned refresh is in flight.
           expect(page.inboxCalls, before + 1);
-          page.workspace.unread['thread'] = 1;
+          page.workspace.conversationReads.unread['thread'] = 1;
           page.workspace.notifyListeners();
           refreshed.complete({
             'items': [],
@@ -150,7 +150,7 @@ void main() {
           await _dispatch(tester);
           // Persisted success never blindly clears a newly arrived reply and
           // never starts a second background inbox GET.
-          expect(page.workspace.unread['thread'], 1);
+          expect(page.workspace.conversationReads.unread['thread'], 1);
           expect(page.inboxCalls, before + 1);
           expect(find.byType(RaftConversationCard), findsNothing);
           expect(tester.takeException(), isNull);
@@ -265,13 +265,13 @@ void main() {
           expect(page.writes, hasLength(1));
           page.workspace.client.selectServer('s2');
           page.workspace.server = RaftRecord({'id': 's2', 'role': 'owner'});
-          page.workspace.unread['thread'] = 7;
+          page.workspace.conversationReads.unread['thread'] = 7;
           page.workspace.notifyListeners();
           await _dispatch(tester);
           final before = page.inboxCalls;
           page.read.complete({});
           await _dispatch(tester);
-          expect(page.workspace.unread['thread'], 7);
+          expect(page.workspace.conversationReads.unread['thread'], 7);
           expect(page.inboxCalls, before);
           expect(tester.takeException(), isNull);
         } finally {

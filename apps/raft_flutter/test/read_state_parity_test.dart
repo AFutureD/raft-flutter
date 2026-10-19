@@ -126,13 +126,13 @@ void main() {
       await c.stream.close();
     });
     expect(w.section, 'home');
-    expect(w.unread['c'], 1);
+    expect(w.conversationReads.unread['c'], 1);
     c.pendingRead = Completer<dynamic>();
     final open = w.selectChannel(w.channels.single);
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     // Source clears the local unread on open, before any network round trip.
-    expect(w.unread['c'], 0);
+    expect(w.conversationReads.unread['c'], 0);
     expect(c.calls, contains('POST:/channels/c/read'));
     // Back to Home while the receipt is still in flight.
     w.setSection('home');
@@ -140,7 +140,7 @@ void main() {
     await open;
     await Future<void>.delayed(Duration.zero);
     expect(w.section, 'home');
-    expect(w.unread['c'] ?? 0, 0);
+    expect(w.conversationReads.unread['c'] ?? 0, 0);
   });
 
   test('opening a conversation clears its mention marker with the count (Web clearUnread)', () async {
@@ -150,13 +150,13 @@ void main() {
       w.dispose();
       await c.stream.close();
     });
-    w.mentions = {'c'};
+    w.conversationReads.mentions = {'c'};
     c.pendingRead = Completer<dynamic>();
     final open = w.selectChannel(w.channels.single);
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
-    expect(w.unread['c'], 0);
-    expect(w.mentions, isNot(contains('c')));
+    expect(w.conversationReads.unread['c'], 0);
+    expect(w.conversationReads.mentions, isNot(contains('c')));
     c.pendingRead!.complete({'maxReadSeq': 1, 'readStateVersion': 1});
     await open;
   });
@@ -169,17 +169,17 @@ void main() {
       await c.stream.close();
     });
     await w.selectChannel(w.channels.single);
-    expect(w.unread['c'], 0);
+    expect(w.conversationReads.unread['c'], 0);
     // The member marks it unread, then a read is in flight when they leave.
     w.markUnreadLocally('c');
-    expect(w.unread['c'], 1);
+    expect(w.conversationReads.unread['c'], 1);
     c.pendingRead = Completer<dynamic>();
     final read = w.markRead('c');
     await Future<void>.delayed(Duration.zero);
     w.setSection('home');
     c.pendingRead!.complete({'maxReadSeq': 1, 'readStateVersion': 2});
     await read;
-    expect(w.unread['c'], 0);
+    expect(w.conversationReads.unread['c'], 0);
   });
 
   test(
@@ -196,7 +196,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
       expect(c.reads, 1);
-      expect(w.unread['c'], 1);
+      expect(w.conversationReads.unread['c'], 1);
     },
   );
 
@@ -215,11 +215,11 @@ void main() {
     c.serverUnread = 1;
     c.stream.add(RaftEvent('message:new', _Client.message('newer', 5)));
     await Future<void>.delayed(Duration.zero);
-    expect(w.unread['c'], 1);
+    expect(w.conversationReads.unread['c'], 1);
     c.pendingRead!.complete({'maxReadSeq': 1, 'readStateVersion': 3});
     await read;
     await Future<void>.delayed(Duration.zero);
-    expect(w.unread['c'], 1);
+    expect(w.conversationReads.unread['c'], 1);
   });
 
   test(
@@ -239,12 +239,12 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       // Backgrounded: counted, not read.
       expect(c.reads, before);
-      expect(w.unread['c'], 1);
+      expect(w.conversationReads.unread['c'], 1);
       w.setForeground(true);
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
       expect(c.reads, before + 1);
-      expect(w.unread['c'], 0);
+      expect(w.conversationReads.unread['c'], 0);
     },
   );
 
@@ -263,7 +263,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     expect(c.reads, before + 1);
-    expect(w.unread['c'] ?? 0, 0);
+    expect(w.conversationReads.unread['c'] ?? 0, 0);
   });
 
   test(
@@ -278,12 +278,12 @@ void main() {
       await w.selectChannel(w.channels.single);
       final before = c.reads;
       RaftUserActivity.forget();
-      w.setTimelineAtBottom('c', false);
+      w.conversationReads.setTimelineAtBottom('c', false);
       c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
       expect(c.reads, before);
-      expect(w.unread['c'], 1);
+      expect(w.conversationReads.unread['c'], 1);
     },
   );
 
@@ -303,7 +303,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     expect(c.reads, before);
-    expect(w.unread['c'], 1);
+    expect(w.conversationReads.unread['c'], 1);
     // With recent activity the same arrival is read.
     RaftUserActivity.mark();
     c.stream.add(RaftEvent('message:new', _Client.message('live2', 3)));
@@ -323,15 +323,15 @@ void main() {
     w.setForeground(true);
     await w.selectChannel(w.channels.single);
     final before = c.reads;
-    w.setTimelineAtBottom('c', false);
+    w.conversationReads.setTimelineAtBottom('c', false);
     RaftUserActivity.mark();
     c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     expect(c.reads, before);
-    expect(w.unread['c'], 1);
+    expect(w.conversationReads.unread['c'], 1);
     // Back at the latest end the same arrival is read.
-    w.setTimelineAtBottom('c', true);
+    w.conversationReads.setTimelineAtBottom('c', true);
     RaftUserActivity.mark();
     c.stream.add(RaftEvent('message:new', _Client.message('live2', 3)));
     await Future<void>.delayed(Duration.zero);
@@ -350,13 +350,13 @@ void main() {
     w.setForeground(true);
     await w.selectChannel(w.channels.single);
     final before = c.reads;
-    w.setTimelineAtBottom('c', false);
+    w.conversationReads.setTimelineAtBottom('c', false);
     c.syncRows = [_Client.message('gap1', 2), _Client.message('gap2', 3)];
     await w.messageDomain.navigation.syncVisibleScopes();
     await Future<void>.delayed(Duration.zero);
     expect(w.messageDomain.messages.map((m) => m.id), containsAll(['gap1', 'gap2']));
     expect(c.reads, before, reason: 'the reader never reached these rows');
-    expect(w.unread['c'], 2);
+    expect(w.conversationReads.unread['c'], 2);
   });
 
   test('[BP-READ-024] a gap fill at the latest end reads the arrivals', () async {
@@ -375,7 +375,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     expect(c.reads, before + 1);
-    expect(w.unread['c'] ?? 0, 0);
+    expect(w.conversationReads.unread['c'] ?? 0, 0);
   });
 
   test('[BP-READ-078] a gap sync page takes numeric and decimal-string seq alike (v1.21.2 leaked strings from /messages/sync)', () async {
@@ -444,19 +444,19 @@ void main() {
       await arrive('at-bottom', 998);
       await tester.pump();
       expect(c.reads, 1);
-      expect(w.unread['c'] ?? 0, 0);
+      expect(w.conversationReads.unread['c'] ?? 0, 0);
       viewport.jumpTo(viewport.offset - 2400);
       await tester.pumpAndSettle();
       expect(state.atBottom, false);
       await arrive('above', 999);
       await tester.pump();
       expect(c.reads, 1);
-      expect(w.unread['c'], 1);
+      expect(w.conversationReads.unread['c'], 1);
       viewport.jumpTo(viewport.position.maxScrollExtent);
       await tester.pumpAndSettle();
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       expect(c.reads, 2);
-      expect(w.unread['c'], 0);
+      expect(w.conversationReads.unread['c'], 0);
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -510,7 +510,7 @@ void main() {
           await Future<void>.delayed(Duration.zero);
         });
         await tester.pump();
-        expect(w.unread['c'], 1);
+        expect(w.conversationReads.unread['c'], 1);
         expect(c.reads, 0);
         // Back to the latest end.
         viewport.jumpTo(viewport.position.maxScrollExtent);
@@ -519,7 +519,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(state.atBottom, true);
         expect(c.reads, 1);
-        expect(w.unread['c'], 0);
+        expect(w.conversationReads.unread['c'], 0);
         await tester.pumpWidget(const SizedBox());
       },
     );

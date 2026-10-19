@@ -210,7 +210,8 @@ class _Fixture {
     'newer': w.messageDomain.state.hasNewer,
     'highlight': w.messageDomain.state.highlightedMessageId,
     'unread': {
-      for (final id in w.unread.keys.toList()..sort()) id: w.unread[id],
+      for (final id in w.conversationReads.unread.keys.toList()..sort())
+        id: w.conversationReads.unread[id],
     },
     'uri': w.navigation.location.uri.toString(),
     'draftScopes': w.composer.drafts.keys.toList()..sort(),
@@ -261,14 +262,14 @@ void main() {
     'N01 select channel: notifications bracket reads and saved selection',
     () async {
       final f = _Fixture(), w = f.w;
-      w.unread = {'c2': 3};
-      w.mentions = {'c2'};
+      w.conversationReads.unread = {'c2': 3};
+      w.conversationReads.mentions = {'c2'};
       await f.start();
       await w.selectChannel(w.channels.last);
       expect(w.messageDomain.messages.map((m) => m.id), ['c2-row']);
       expect(w.messageDomain.state.channelLoading, isFalse);
       expect(w.error, isNull);
-      expect(w.unread['c2'], 0);
+      expect(w.conversationReads.unread['c2'], 0);
       await f.finish('select-channel');
     },
   );
@@ -304,12 +305,12 @@ void main() {
     'N04 prefetch: ordered task/page work emits no workspace notification',
     () async {
       final f = _Fixture(), w = f.w;
-      w.unread = {'c2': 3};
+      w.conversationReads.unread = {'c2': 3};
       await f.start();
       await w.prefetchLikelyChannels();
       expect(w.messageWindows.accepted['c2'], isNotNull);
       expect(w.channel?.id, 'c1');
-      expect(w.unread['c2'], 3);
+      expect(w.conversationReads.unread['c2'], 3);
       expect(f.trace.events.where((e) => e['event'] == 'notify'), isEmpty);
       await f.finish('prefetch');
     },

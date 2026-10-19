@@ -233,7 +233,7 @@ void main() {
           final c = _Case(stride);
           addTearDown(c.close);
           await c.start();
-          c.w.setTimelineAtBottom('chat', false);
+          c.w.conversationReads.setTimelineAtBottom('chat', false);
           c.live(101);
           c.live(102);
           c.client.echo = (randomId) async => c.client.incoming.add(

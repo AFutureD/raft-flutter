@@ -844,7 +844,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
     final id = widget.thread ? w.threadChannelId : w.channel?.id;
     if (id == null) return;
     reportedBottomId = bottom ? null : id;
-    w.setTimelineAtBottom(id, bottom);
+    w.conversationReads.setTimelineAtBottom(id, bottom);
   }
 
   void timelineScrolled() {
@@ -872,7 +872,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         // one. Other pages keep the existing receipt rule.
         if (_directTimeline && MobileRouteGate.paused(context, w)) return;
         final id = widget.thread ? w.threadChannelId : w.channel?.id;
-        if (id != null && (w.unread[id] ?? 0) != 0) {
+        if (id != null && (w.conversationReads.unread[id] ?? 0) != 0) {
           unawaited(w.markRead(id));
         }
       }
@@ -963,7 +963,9 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
     saveReadingAnchor();
     MessageHistoryMemory.cancelSample(w, this);
     releaseAgentCollapse(this);
-    if (reportedBottomId case final id?) w.setTimelineAtBottom(id, true);
+    if (reportedBottomId case final id?) {
+      w.conversationReads.setTimelineAtBottom(id, true);
+    }
     WidgetsBinding.instance.removeObserver(this);
     widget.viewportHandle?.release(this);
     boundSearch?.removeListener(threadSearchChanged);
@@ -3505,7 +3507,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         ? _messages.threadWindow?.hasNewer == true
         : _messages.state.hasNewer;
     final bottomCount = historyWindow
-        ? (w.unread[w.channel?.id] ?? 0)
+        ? (w.conversationReads.unread[w.channel?.id] ?? 0)
         : newMessageCount;
     final thread = widget.thread;
     final composeScope = w.draftScope(thread: thread),

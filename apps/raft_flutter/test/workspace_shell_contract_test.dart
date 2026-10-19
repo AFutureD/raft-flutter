@@ -271,7 +271,7 @@ void main() {
           'peerAvatarUrl': 'pixel:robot',
         });
         w.dms = [dm];
-        w.unread['dm1'] = 5;
+        w.conversationReads.unread['dm1'] = 5;
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
         api.routes['GET /messages/channel/dm1'] = (_) => {

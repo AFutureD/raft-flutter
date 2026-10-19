@@ -150,7 +150,7 @@ class _Fixture {
         ('other', 'safe'),
       ]) {
         w.messageDomain.visibleIds[scope] = {id};
-        w.unread[scope] = 1;
+        w.conversationReads.unread[scope] = 1;
         w.readState.consumeUpdate(
           {
             'serverId': 's1',
@@ -209,7 +209,7 @@ void main() {
         expect(w.messageDomain.ledger.messages('c1'), isEmpty);
         expect(w.messageDomain.ledger.messages('t1'), isEmpty);
         expect(w.messageDomain.ledger.messages('other').single['id'], 'safe');
-        expect(w.unread, {'other': 1});
+        expect(w.conversationReads.unread, {'other': 1});
         expect(w.readState.state('s1', 'alice', 't1'), isNull);
         expect(w.readState.state('s1', 'alice', 'other'), isNotNull);
         await w.flushCache();

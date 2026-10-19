@@ -197,7 +197,7 @@ void main() {
     final threadReads = opened.client.reads('task-thread');
     final mainReads = opened.client.reads('c1');
     RaftUserActivity.mark();
-    discussion.setTimelineAtBottom('task-thread', true);
+    discussion.conversationReads.setTimelineAtBottom('task-thread', true);
     opened.client.stream.add(
       RaftEvent(
         'message:new',
@@ -230,7 +230,7 @@ void main() {
     final threadReads = opened.client.reads('task-thread');
     final mainReads = opened.client.reads('c1');
     RaftUserActivity.mark();
-    discussion.setTimelineAtBottom('task-thread', true);
+    discussion.conversationReads.setTimelineAtBottom('task-thread', true);
     opened.client.stream.add(
       RaftEvent(
         'message:new',
@@ -255,7 +255,7 @@ void main() {
     final threadReads = opened.client.reads('task-thread');
     final mainReads = opened.client.reads('c1');
     RaftUserActivity.mark();
-    discussion.setTimelineAtBottom('task-thread', false);
+    discussion.conversationReads.setTimelineAtBottom('task-thread', false);
     opened.client.stream.add(
       RaftEvent(
         'message:new',

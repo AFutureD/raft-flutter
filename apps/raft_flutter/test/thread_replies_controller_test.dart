@@ -196,11 +196,11 @@ void main() {
       int unreadReads() =>
           t.requests.where((o) => o.path == '/channels/unread').length;
       // A tracked followed thread takes the server's own per-thread count.
-      w.unread = {'thread': 5};
+      w.conversationReads.unread = {'thread': 5};
       _emit(w, {..._frame(90), 'unreadCount': 2});
       await _settle();
       expect(w.messageDomain.threadSummaries['parent']['replyCount'], 90);
-      expect(w.unread['thread'], 2);
+      expect(w.conversationReads.unread['thread'], 2);
       _emit(w, _frame(90));
       _emit(w, _frame(9));
       await _settle();

@@ -209,7 +209,7 @@ void main() {
     expect(mobile.channel?.id, 'c');
     expect(c.calls.where((call) => call.startsWith('messages:')), isEmpty);
     mobile.setForeground(true);
-    final unreadBefore = mobile.unread['c'] ?? 0;
+    final unreadBefore = mobile.conversationReads.unread['c'] ?? 0;
     int snapshots() =>
         c.calls.where((call) => call == 'GET:/channels/unread').length;
     final snapshotsBefore = snapshots();
@@ -217,7 +217,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(c.calls.where((call) => call.endsWith('/read')), isEmpty);
     // Hidden behind Home: counted locally, without an unread snapshot GET.
-    expect(mobile.unread['c'], unreadBefore + 1);
+    expect(mobile.conversationReads.unread['c'], unreadBefore + 1);
     expect(snapshots(), snapshotsBefore);
     await mobile.selectChannel(mobile.channels.single);
     expect(mobile.section, 'chat');

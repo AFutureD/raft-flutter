@@ -101,7 +101,7 @@ void main() {
             old.map((r) => r['id']),
           );
         }
-        w.unread['c1'] = 3;
+        w.conversationReads.unread['c1'] = 3;
         await tester.runAsync(() async {
           response.complete({
             'messages': next,

@@ -161,9 +161,9 @@ class _Fixture {
       _row('retained-but-hidden', 99),
     ], expectedGeneration: root.messageDomain.ledger.generation);
     root.messageDomain.visibleIds['c1'] = {'m5'};
-    root.unread = {'c1': 3};
-    root.mentions = {'c1'};
-    root.newFlags = {'c1'};
+    root.conversationReads.unread = {'c1': 3};
+    root.conversationReads.mentions = {'c1'};
+    root.conversationReads.newFlags = {'c1'};
     root.conversationReads.latestActivity['c1'] = BigInt.from(5);
     client.counter = () => root.conversationReads.readPosts['c1'] ?? 0;
     addTearDown(() async {
@@ -238,9 +238,9 @@ void main() {
       await w.flushCache();
       expect(f.client.reads, 0);
       expect(w.conversationReads.readPosts, isEmpty);
-      expect(w.unread['c1'], 3);
-      expect(w.mentions, {'c1'});
-      expect(w.newFlags, {'c1'});
+      expect(w.conversationReads.unread['c1'], 3);
+      expect(w.conversationReads.mentions, {'c1'});
+      expect(w.conversationReads.newFlags, {'c1'});
       expect(f.cache.writes, isEmpty);
       expect(w.notifications, 0);
     });
@@ -257,7 +257,7 @@ void main() {
         expect(f.client.countersAtPost, [1]);
         expect(f.client.bodies.single, {'seq': seq});
         expect(f.client.bodies.single['seq'].runtimeType, seq.runtimeType);
-        expect(w.unread['c1'], 3);
+        expect(w.conversationReads.unread['c1'], 3);
         expect(w.notifications, 0);
         f.client.pendingRead!.complete({
           'maxReadSeq': 5,
@@ -275,7 +275,7 @@ void main() {
     w.messageDomain.visibleIds['c1'] = {};
     await w.markRead('c1');
     expect(f.client.reads, 0);
-    expect(w.unread['c1'], 3);
+    expect(w.conversationReads.unread['c1'], 3);
     expect(w.conversationReads.readPosts, isEmpty);
   });
 
@@ -283,9 +283,9 @@ void main() {
     final f = _Fixture(), w = f.root;
     await w.markRead('c1');
     await w.flushCache();
-    expect(w.unread['c1'], 0);
-    expect(w.mentions, isEmpty);
-    expect(w.newFlags, isEmpty);
+    expect(w.conversationReads.unread['c1'], 0);
+    expect(w.conversationReads.mentions, isEmpty);
+    expect(w.conversationReads.newFlags, isEmpty);
     expect(w.readState.state('s1', 'alice', 'c1')?['maxReadSeq'], 5);
     expect(w.notifications, 1);
     expect(w.refreshes, 0);
@@ -304,9 +304,9 @@ void main() {
     await read;
     await w.flushCache();
     expect(w.readState.state('s1', 'alice', 'c1'), isNull);
-    expect(w.unread['c1'], 0);
-    expect(w.mentions, isEmpty);
-    expect(w.newFlags, isEmpty);
+    expect(w.conversationReads.unread['c1'], 0);
+    expect(w.conversationReads.mentions, isEmpty);
+    expect(w.conversationReads.newFlags, isEmpty);
     expect(w.notifications, 1);
     expect(w.refreshes, 0);
   });
@@ -321,12 +321,12 @@ void main() {
     f.client.pendingRead = Completer<dynamic>();
     final read = w.markRead('c1');
     f.leave();
-    w.unread['c2'] = 9;
+    w.conversationReads.unread['c2'] = 9;
     f.client.pendingRead!.complete({'maxReadSeq': 5, 'readStateVersion': 2});
     await read;
     await w.flushCache();
-    expect(w.unread, {'c1': 0, 'c2': 9});
-    expect(w.mentions, isEmpty);
+    expect(w.conversationReads.unread, {'c1': 0, 'c2': 9});
+    expect(w.conversationReads.mentions, isEmpty);
     expect(w.readState.state('s1', 'alice', 'c1')?['maxReadSeq'], 5);
     expect(w.refreshes, 0);
     expect(w.notifications, 1);
@@ -353,7 +353,7 @@ void main() {
       f.client.pendingRead!.complete({'maxReadSeq': 5, 'readStateVersion': 2});
       await read;
       await w.lastReconcile;
-      expect(w.unread['c1'], 1);
+      expect(w.conversationReads.unread['c1'], 1);
       expect(w.readState.state('s1', 'alice', 'c1')?['maxReadSeq'], 5);
       expect(w.refreshes, 1);
       expect(
@@ -404,7 +404,7 @@ void main() {
       expect(f.client.reads, 1);
       expect(w.conversationReads.readPosts['c1'], 1);
       expect(w.refreshes, 1);
-      expect(w.unread['c1'], 7);
+      expect(w.conversationReads.unread['c1'], 7);
       expect(w.readState.state('s1', 'alice', 'c1'), isNull);
     },
   );
@@ -430,13 +430,13 @@ void main() {
   ]) {
     test('B6 live arrival honors $policy timeline policy', () async {
       final f = _Fixture(mobile: policy.startsWith('phone')), w = f.root;
-      w.setTimelineAtBottom('c1', policy != 'phone-away');
+      w.conversationReads.setTimelineAtBottom('c1', policy != 'phone-away');
       if (policy == 'desktop-recent') RaftUserActivity.mark();
       f.client.bus.add(RaftEvent('message:new', _row('m6', 6)));
       await w.lastMarkRead;
       final autoRead = policy == 'phone-bottom' || policy == 'desktop-recent';
       expect(f.client.reads, autoRead ? 1 : 0);
-      expect(w.unread['c1'], autoRead ? 0 : 4);
+      expect(w.conversationReads.unread['c1'], autoRead ? 0 : 4);
       expect(
         w.conversationReads.scrolledAway.away('c1'),
         policy == 'phone-away',
@@ -457,7 +457,7 @@ void main() {
         {'seq': '5', 'readStateVersion': 1},
       ]) {
         expect(
-          w.acceptReadAllAck(
+          w.conversationReads.acceptReadAllAck(
             'c1',
             receipt,
             serverId: 's1',
@@ -468,7 +468,7 @@ void main() {
       }
       for (final identity in [('s2', 'alice'), ('s1', 'carol')]) {
         expect(
-          w.acceptReadAllAck(
+          w.conversationReads.acceptReadAllAck(
             'c1',
             {'maxReadSeq': 5, 'readStateVersion': 1},
             serverId: identity.$1,
@@ -478,9 +478,9 @@ void main() {
         );
       }
       await w.flushCache();
-      expect(w.unread['c1'], 3);
-      expect(w.mentions, {'c1'});
-      expect(w.newFlags, {'c1'});
+      expect(w.conversationReads.unread['c1'], 3);
+      expect(w.conversationReads.mentions, {'c1'});
+      expect(w.conversationReads.newFlags, {'c1'});
       expect(w.notifications, 0);
       expect(f.cache.writes, isEmpty);
       expect(f.client.reads, 0);
@@ -490,7 +490,7 @@ void main() {
   test('B7 read-all accepts legacy seq without sending another POST', () async {
     final f = _Fixture(), w = f.root;
     expect(
-      w.acceptReadAllAck(
+      w.conversationReads.acceptReadAllAck(
         'c1',
         {'seq': 5, 'readStateVersion': 4},
         serverId: 's1',
@@ -500,9 +500,9 @@ void main() {
     );
     await w.flushCache();
     expect(w.readState.state('s1', 'alice', 'c1')?['readStateVersion'], 4);
-    expect(w.unread['c1'], 0);
-    expect(w.mentions, isEmpty);
-    expect(w.newFlags, isEmpty);
+    expect(w.conversationReads.unread['c1'], 0);
+    expect(w.conversationReads.mentions, isEmpty);
+    expect(w.conversationReads.newFlags, isEmpty);
     expect(w.notifications, 1);
     expect(f.cache.writes.map((e) => e.$3), ['read-frontiers', 'unread']);
     expect(f.client.reads, 0);
@@ -510,15 +510,15 @@ void main() {
 
   test('B8 borrowed markRead dispatches private I/O to the original window receiver once', () async {
     final f = _Fixture(), source = f.root, page = f.make(source: f.root);
-    page.unread = {'c1': 8};
+    page.conversationReads.unread = {'c1': 8};
     await page.markRead('c1');
     expect(f.client.reads, 1);
     expect(source.markEntrypoints, 0);
     expect(page.markEntrypoints, 1);
     expect(source.conversationReads.readPosts['c1'], 1);
     expect(page.conversationReads.readPosts, isEmpty);
-    expect(source.unread['c1'], 0);
-    expect(page.unread['c1'], 8);
+    expect(source.conversationReads.unread['c1'], 0);
+    expect(page.conversationReads.unread['c1'], 8);
     expect(identical(page.readState, source.readState), isTrue);
   });
 
@@ -526,8 +526,8 @@ void main() {
     final f = _Fixture(), w = f.root;
     f.client.pendingPage = Completer<Map<String, dynamic>>();
     final open = w.selectChannel(w.channels.first);
-    expect(w.unread['c1'], 0);
-    expect(w.mentions, isEmpty);
+    expect(w.conversationReads.unread['c1'], 0);
+    expect(w.conversationReads.mentions, isEmpty);
     expect(f.client.reads, 0);
     f.client.pendingPage!.complete({
       'messages': [_row('m5', 5)],
@@ -547,13 +547,13 @@ void main() {
       w.messageWindows.visibleIds.clear();
       f.client.rows = [];
       final open = w.selectChannel(w.channels.first);
-      expect(w.unread['c1'], 0);
+      expect(w.conversationReads.unread['c1'], 0);
       await open;
       await w.lastReconcile;
       expect(f.client.reads, 0);
       expect(w.conversationReads.readPosts, isEmpty);
       expect(w.refreshes, 1);
-      expect(w.unread['c1'], 7);
+      expect(w.conversationReads.unread['c1'], 7);
     },
   );
 }

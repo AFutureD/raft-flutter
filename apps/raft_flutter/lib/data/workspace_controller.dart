@@ -860,20 +860,8 @@ class WorkspaceController extends ChangeNotifier
   @override
   List<RaftChannel> get dms => _channels.dms;
   set dms(List<RaftChannel> value) => _channels.dms = value;
-  Map<String, int> get unread => _channels.unread;
-  set unread(Map<String, int> value) => _channels.unread = value;
 
-  /// Source messageStore `mentionFlags`: conversations whose unread messages
-  /// mention the member (unread snapshot `hasMention`, a live `message:new`
-  /// that mentions the member). Cleared with the unread count.
-  Set<String> get mentions => _channels.mentions;
-  set mentions(Set<String> value) => _channels.mentions = value;
 
-  /// Unread summary `hasNew`: non-joined public channels with messages past
-  /// the cursor (no exact count). Lights the quiet dot of a non-joined row;
-  /// cleared with the unread count (Web `newFlags`).
-  Set<String> get newFlags => _channels.newFlags;
-  set newFlags(Set<String> value) => _channels.newFlags = value;
   Map<String, dynamic> get sidebarOrder => _channels.sidebarOrder;
   set sidebarOrder(Map<String, dynamic> value) => _channels.sidebarOrder = value;
   @override
@@ -1194,35 +1182,11 @@ class WorkspaceController extends ChangeNotifier
 
   bool _mayMarkRead(String id) => _channels.mayMarkRead(id);
 
-  /// Open conversations whose timeline is scrolled above the latest end
-  /// (reported by the chat view on the edge only, never per frame).
-
-  void setTimelineAtBottom(String id, bool atBottom) =>
-      _channels.setTimelineAtBottom(id, atBottom);
 
 
 
   Future<void> markRead(String id) => _messages.windowReceiver.channels.markRead(id);
 
-  /// Windows painted from disk whose first fresh page has not arrived yet.
-  /// Their tail may be stale, so they never send a read receipt (nor clear
-  /// the unread count) until revalidated.
-
-  /// Source acceptActivityReadAllAck: an Activity row's persisted read-all
-  /// receipt is a read-state fact for [scopeId]. Folding it into the ledger is
-  /// what keeps a stale inbox response from re-presenting the row as unread.
-  /// Returns false for an invalid receipt or a changed identity.
-  bool acceptReadAllAck(
-    String scopeId,
-    dynamic receipt, {
-    required String serverId,
-    required String principalId,
-  }) => _channels.acceptReadAllAck(
-    scopeId,
-    receipt,
-    serverId: serverId,
-    principalId: principalId,
-  );
 
   Future<bool> send(
     String text, {
@@ -1493,7 +1457,7 @@ class _WorkspaceSessionBindings
   @override
   void assignDms(List<RaftChannel> value) => w.dms = value;
   @override
-  void assignUnread(Map<String, int> value) => w.unread = value;
+  void assignUnread(Map<String, int> value) => w.conversationReads.unread = value;
   @override
   void assignSidebarOrder(Map<String, dynamic> value) => w.sidebarOrder = value;
   @override

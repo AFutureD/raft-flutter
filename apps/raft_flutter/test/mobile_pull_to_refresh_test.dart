@@ -146,7 +146,7 @@ void main() {
         gate.complete();
         await t.pumpAndSettle();
         expect(find.text('Updated channel'), findsOneWidget);
-        expect(w.unread['c1'], 3);
+        expect(w.conversationReads.unread['c1'], 3);
         expect(w.drafts['c1'], 'Unsent draft');
         expect(w.location.uri, location);
         expect(t.takeException(), isNull);

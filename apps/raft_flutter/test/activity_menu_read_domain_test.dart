@@ -21,7 +21,7 @@ void main() {
     client.selectServer('s1');
     w = MenuWorkspace(client)
       ..server = RaftRecord({'id': 's1', 'role': 'owner'})
-      ..unread = {'ch1': 3};
+      ..conversationReads.unread = {'ch1': 3};
   });
   tearDown(() async {
     w.dispose();
@@ -41,7 +41,7 @@ void main() {
       reason: 'read-all never guesses a sequence from the Activity row',
     );
     expect(w.readState.state('s1', 'alice', 'ch1')?['maxReadSeq'], 9);
-    expect(w.unread['ch1'], 0);
+    expect(w.conversationReads.unread['ch1'], 0);
   });
 
   test('late read-all acknowledgement cannot update another server', () async {
@@ -52,7 +52,7 @@ void main() {
     response.complete({'maxReadSeq': 9, 'readStateVersion': 1});
     await pending;
     expect(w.readState.state('s1', 'alice', 'ch1'), isNull);
-    expect(w.unread['ch1'], 3);
+    expect(w.conversationReads.unread['ch1'], 3);
   });
 
   test('mark unread preserves the injected receiver refresh on success and failure', () async {

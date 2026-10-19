@@ -224,7 +224,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
   /// clears the count; Mark as Unread shows the dot first. A failure only
   /// reloads the unread counts (no message).
   Future<void> _toggleRead(String id) async {
-    final unread = (w.unread[id] ?? 0) > 0;
+    final unread = (w.conversationReads.unread[id] ?? 0) > 0;
     if (!unread) w.markUnreadLocally(id);
     try {
       final receipt = await w.command(
@@ -234,7 +234,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
       if (!mounted) return;
       final principal = w.client.user?.id, serverId = w.client.serverId;
       if (unread && principal != null && serverId != null) {
-        w.acceptReadAllAck(
+        w.conversationReads.acceptReadAllAck(
           id,
           receipt,
           serverId: serverId,
@@ -465,8 +465,10 @@ extension _SidebarContextMenus on _WorkspaceViewState {
 
   RaftSidebarMenuItem _readItem(String? dmOrChannelId, VoidCallback close) =>
       _item(
-        (w.unread[dmOrChannelId] ?? 0) > 0 ? 'Mark as Read' : 'Mark as Unread',
-        (w.unread[dmOrChannelId] ?? 0) > 0
+        (w.conversationReads.unread[dmOrChannelId] ?? 0) > 0
+            ? 'Mark as Read'
+            : 'Mark as Unread',
+        (w.conversationReads.unread[dmOrChannelId] ?? 0) > 0
             ? RaftGlyph.messageSquareCheck
             : RaftGlyph.messageSquareDot,
         close,

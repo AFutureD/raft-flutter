@@ -13,7 +13,7 @@ void main() {
     w.messageDomain.ledger.switchServer('s1');
     final two = RaftChannel({'id': 'c2', 'name': 'two', 'joined': true});
     w.channels = [...w.channels, two];
-    w.unread = {'c2': 3};
+    w.conversationReads.unread = {'c2': 3};
     final rows = [
       for (final row in contextRows('two', count: 20)) {...row, 'channelId': 'c2'},
     ];
@@ -26,7 +26,7 @@ void main() {
     api.routes['POST /channels/c2/read'] = (_) => {};
     await w.prefetchLikelyChannels();
     expect(pageRequests, 1);
-    expect(w.unread['c2'], 3, reason: 'Prefetch never marks read');
+    expect(w.conversationReads.unread['c2'], 3, reason: 'Prefetch never marks read');
     expect(w.channel?.id, 'c1', reason: 'Prefetch never selects');
 
     unawaited(w.selectChannel(two));
@@ -45,7 +45,7 @@ void main() {
     w.messageDomain.ledger.switchServer('s1');
     final quiet = RaftChannel({'id': 'c3', 'name': 'quiet', 'joined': true});
     w.channels = [...w.channels, quiet];
-    w.unread = {'c1': 5, 'c3': 0};
+    w.conversationReads.unread = {'c1': 5, 'c3': 0};
     var requests = 0;
     api.routes['GET /messages/channel/c1'] = (_) {
       requests++;

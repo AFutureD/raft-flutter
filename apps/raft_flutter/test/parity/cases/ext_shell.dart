@@ -133,11 +133,11 @@ WorkspaceController shellWorkspace(
     ]
     ..sidebarOrder = order
     ..loading = preset['loading'] == true
-    ..unread = {
+    ..conversationReads.unread = {
       for (final e in (preset['unread'] as Map).entries)
         if (e.key != selected) e.key as String: e.value as int,
     }
-    ..mentions = {
+    ..conversationReads.mentions = {
       for (final id in preset['mentions'] as List)
         if (id != selected) id as String,
     };

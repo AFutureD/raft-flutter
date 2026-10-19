@@ -170,7 +170,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
         expect(c.reads, before + 1);
-        expect(w.unread['c'] ?? 0, 0);
+        expect(w.conversationReads.unread['c'] ?? 0, 0);
       });
     },
   );

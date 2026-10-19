@@ -3350,7 +3350,7 @@ class _ResourceViewState extends State<ResourceView> {
       ..sort((a, b) {
         int priority(Map g) => g['channelId'] == advanced.channelId
             ? 0
-            : (w.unread['${g['channelId']}'] ?? 0) > 0
+            : (w.conversationReads.unread['${g['channelId']}'] ?? 0) > 0
             ? 1
             : 2;
         final delta = priority(a.$2).compareTo(priority(b.$2));
@@ -3856,8 +3856,8 @@ class _ResourceViewState extends State<ResourceView> {
         totalUnreadCount = (totalUnreadCount! - unread).clamp(0, 1 << 53);
       }
     });
-    if ((w.unread[scopeId] ?? 0) != 0) {
-      w.unread = {...w.unread, scopeId: 0};
+    if ((w.conversationReads.unread[scopeId] ?? 0) != 0) {
+      w.conversationReads.unread = {...w.conversationReads.unread, scopeId: 0};
       w.notifyListeners();
     }
     if (totalUnreadCount != null) {
@@ -4931,7 +4931,7 @@ class _ResourceViewState extends State<ResourceView> {
       final channelId =
           row[row['kind'] == 'thread' ? 'threadChannelId' : 'channelId']
               as String;
-      w.unread[channelId] = 0;
+      w.conversationReads.unread[channelId] = 0;
       w.notifyListeners();
       if (totalUnreadCount != null) {
         acceptUnread?.call(totalUnreadCount);

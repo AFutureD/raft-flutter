@@ -231,8 +231,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 2919,
-        "tokens": 15592,
+        "lines": 2883,
+        "tokens": 15451,
         "field.WorkspaceController._presentation": 0,
         "field.WorkspaceController.reactions": 0
       },
@@ -1315,16 +1315,16 @@
     {
       "module": "chat_view",
       "metric": "lines",
-      "limit": 3763,
-      "reason": "This mechanical message caller migration uses a live UI-local message-domain alias; no new state. Approved by Cindy in 09fa9961-2e3d-450e-b0d3-afd9280216d4. Revoke when page view models replace these receivers.",
+      "limit": 3765,
+      "reason": "This mechanical message caller migration uses a live UI-local message-domain alias; no new state. Approved by Cindy in 09fa9961-2e3d-450e-b0d3-afd9280216d4. Revoke when page view models replace these receivers. Read-state caller migration extends this same exception only to the measured value; approved by Cindy in 0ed09255-82e2-4442-a5b4-572eaf376299 (2026-10-19). Original expiry and revocation conditions remain.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     },
     {
       "module": "chat_view",
       "metric": "tokens",
-      "limit": 20620,
-      "reason": "This mechanical message caller migration uses a live UI-local message-domain alias; no new state. Approved by Cindy in 09fa9961-2e3d-450e-b0d3-afd9280216d4. Revoke when page view models replace these receivers.",
+      "limit": 20630,
+      "reason": "This mechanical message caller migration uses a live UI-local message-domain alias; no new state. Approved by Cindy in 09fa9961-2e3d-450e-b0d3-afd9280216d4. Revoke when page view models replace these receivers. Read-state caller migration extends this same exception only to the measured value; approved by Cindy in 0ed09255-82e2-4442-a5b4-572eaf376299 (2026-10-19). Original expiry and revocation conditions remain.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     }

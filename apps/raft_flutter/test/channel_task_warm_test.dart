@@ -233,7 +233,7 @@ void main() {
     (t) async {
       final (w, api, _) = await _fixture(t);
       addTearDown(w.dispose);
-      w.unread = {'c2': 2};
+      w.conversationReads.unread = {'c2': 2};
       final page = Completer<dynamic>();
       var pages = 0;
       final taskReads = <String>[];

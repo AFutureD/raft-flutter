@@ -164,7 +164,7 @@ void main() {
     server.rows['dm1'] = rows;
     // m3 is delivered live and again by the page: still one row.
     client.emit('message:new', _row('m3', 'dm1', 12));
-    final unread = w.unread['dm1'];
+    final unread = w.conversationReads.unread['dm1'];
     await w.jumpToMessage('dm1', 'm1', navigate: false);
     await _drain();
     expect(server.pages(a, 'dm1'), 2);
@@ -174,7 +174,7 @@ void main() {
     final ids = w.messageDomain.messages.map((m) => m.id).toList();
     expect(ids, ['m1', 'm2', 'm3']);
     expect(ids.toSet().length, ids.length);
-    expect(w.unread['dm1'], unread, reason: 'a redelivery counts once');
+    expect(w.conversationReads.unread['dm1'], unread, reason: 'a redelivery counts once');
     expect(w.messageDomain.state.highlightedMessageId, 'm1', reason: 'the target stays focused');
   });
 
