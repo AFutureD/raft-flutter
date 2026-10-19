@@ -124,14 +124,35 @@ entry or an entry points at a token that does not exist:
   to `sticker-paper`, the dark input ring to `line-hairline`.
 - Shadows: `theme-shadow-xs/sm/md` are empty (controls cast no shadow),
   `theme-shadow-lg/xl` are `elevation-float`.
-- Metrics: `field-*` / `card-title-*` are 16/24 and 16/24/600 in 0.7.1, but the
-  Elegant structure is dimensioned for 14/20 and 16/22/500 (input height 38, not
-  42), so `RaftTokenSet` carries Elegant's numbers (`raftCarriedMetrics`) until the
-  typography change moves tokens and structure together. The font faces stay the
-  bundled Elegant ones until Space Grotesk / Space Mono are bundled.
+- Metrics: `field-*` / `card-title-*` are 16/24 and 16/24/600 in 0.7.1; see "Fonts, type scale and the 0.7.1
+  token helpers" for what `RaftTokenSet` carries now.
 - `RaftTokens.brutal` is always false: the ~1900 remaining `brutal ? a : b` sites
   resolve to their Elegant side until follow-up changes convert them to the Raft
   structure cluster by cluster.
+
+## Fonts, type scale and the 0.7.1 token helpers
+
+- **Fonts.** Space Grotesk (variable, wght 300-700) and Space Mono (400, 700) are bundled in
+  `packages/raft_ui/assets/fonts/` (families `SpaceGrotesk`, `SpaceMono` in the package pubspec), unmodified from
+  google/fonts (revision and sha256 in `docs/space-font-provenance.json`; SIL OFL notices beside the assets, in
+  `docs/licenses/` and in THIRD_PARTY_NOTICES.md). `RaftTokenSet` points `headingFont`, `sansFont` and `monoFont`
+  at them; `--heading-font` and `--sans-font` are one stack, as in raft-ui `fonts.css`. The CJK part of that stack
+  (PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC) leads `RaftTokens.fontFallback` for English and
+  Simplified Chinese; Traditional Chinese, Korean and Japanese keep their locale-specific Noto CJK chains because
+  the Han glyph variant depends on the locale. The change is global (every text style resolves a face through
+  these getters); Inter, Geist and Hanken Grotesk stay in the package only for tests and the diagram font.
+- **Type scale.** `RaftTypeScale` (generated from `styles.css` `@theme`: hero, display, title, headline, body,
+  subhead, callout, footnote, caption, label, mono-meta, mono-code) is turned into a `TextStyle` by
+  `RaftTokens.scale(RaftTypeScale.footnote, weight:, color:, mono:)` in `lib/src/raft/ui_tokens.dart`: Space
+  Grotesk or Space Mono, CSS half-leading (`leadingDistribution: even`), the scale's weight and tracking unless
+  overridden.
+- **0.7.1 colours.** `RaftTokens.ui` (`RaftUiColors`) reads the official token names (`sticker-ink`,
+  `fill-pressed`, `presence-online`, ...) straight from `RaftLight` / `RaftDark`. The ported components
+  (`lib/src/raft/`) use it; older code still reads the 0.5.52 field schemas through the mapping tables.
+- **Borders.** `raftControlBorderPx(context, 1.5)` snaps a CSS border width the way Blink does (whole device
+  pixels). The parity reference is captured with an emulated device scale factor, where Blink floors to whole CSS
+  pixels (1.5px paints 1px), so the parity harness sets `RaftBorderSnap.emulatedDeviceScaleFactor`. Rings and inset
+  rings (`ring-*`, `inset-ring-*`, the focus ring) are not snapped.
 
 ## Typography policy token
 

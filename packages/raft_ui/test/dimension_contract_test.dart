@@ -146,8 +146,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    // segmentedControl items (RaftRecipeBox per item).
-    final controls = find.byType(RaftRecipeBox);
+    // segmentedControl items.
+    final controls = find.byType(RaftSegmentedItem);
     expect(controls, findsNWidgets(3));
     expect(
       tester.getTopLeft(controls.last).dy,

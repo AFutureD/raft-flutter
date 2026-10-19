@@ -38,9 +38,9 @@ void main() {
       ),
     );
     expect(tokens.tokenSet.id, RaftThemeId.dark);
-    // The Elegant structure's metrics carry on (raft-ui 0.7.1's 16/24 follow with
-    // the typography change; see raft_token_mapping.dart).
-    expect(tokens.metrics.fieldFontSize, 14);
+    // The 0.7.1 field metrics (16/24) are applied; the card title keeps Elegant's 16/22/500 (see
+    // raft_token_mapping.dart).
+    expect(tokens.metrics.fieldFontSize, 16);
     expect(tokens.metrics.cardTitleLineHeight, 22);
   });
 
@@ -91,8 +91,8 @@ void main() {
 
   test('metrics and Tailwind scale', () {
     final metrics = RaftTokenSet.light.metrics;
-    expect(metrics.fieldFontSize, 14);
-    expect(metrics.fieldLineHeight, 20);
+    expect(metrics.fieldFontSize, 16);
+    expect(metrics.fieldLineHeight, 24);
     expect(metrics.cardTitleFontWeight, 500);
     // The Space Grotesk / Space Mono faces are a follow-up; Elegant's carry on.
     expect(metrics.headingFontStack.first, 'Inter');

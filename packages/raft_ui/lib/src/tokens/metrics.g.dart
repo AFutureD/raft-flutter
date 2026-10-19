@@ -8,8 +8,8 @@ import 'package:flutter/foundation.dart';
 
 /// Per-theme non-colour axes: field + card-title metrics and font stacks, as a field
 /// schema. raft_token_mapping.dart fills the metrics from [RaftLight] / [RaftDark];
-/// the fonts stay the bundled Elegant faces until the Space Grotesk / Space Mono
-/// follow-up. [headingFont]/[sansFont]/[monoFont] are the bundled Flutter asset
+/// the fonts are the bundled Space Grotesk / Space Mono (token_set.dart).
+/// [headingFont]/[sansFont]/[monoFont] are the bundled Flutter asset
 /// families for the first face of each CSS stack.
 @immutable
 class RaftThemeMetrics {

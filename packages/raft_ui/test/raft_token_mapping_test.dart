@@ -98,7 +98,7 @@ void main() {
     }
   });
 
-  test('metrics carry the Elegant structure until the typography change', () {
+  test('field metrics are the 0.7.1 16/24 tokens; the card title still carries Elegant\'s', () {
     // The tokens are 16/24 fields and 16/24/600 card titles ...
     for (final m in [RaftLight.metrics, RaftDark.metrics]) {
       expect(m['field-font-size'], 16);
@@ -106,12 +106,12 @@ void main() {
       expect(m['card-title-line-height'], 24);
       expect(m['card-title-font-weight'], 600);
     }
-    // ... but the structure every component resolves to is dimensioned for
-    // 14/20 and 16/22/500, so those numbers stay (layout does not move here).
+    // ... the field tokens are applied (Input, Material-hosted fields); the card title structure is still
+    // dimensioned for 16/22/500, so those numbers stay.
     for (final id in RaftThemeId.values) {
       final m = RaftTokenSet.of(id).metrics;
-      expect(m.fieldFontSize, 14);
-      expect(m.fieldLineHeight, 20);
+      expect(m.fieldFontSize, 16);
+      expect(m.fieldLineHeight, 24);
       expect(m.cardTitleFontSize, 16);
       expect(m.cardTitleLineHeight, 22);
       expect(m.cardTitleFontWeight, 500);

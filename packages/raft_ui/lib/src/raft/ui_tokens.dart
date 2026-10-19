@@ -67,6 +67,25 @@ class RaftUiColors {
   RaftShadow get focusRing => dark ? RaftDark.focusRing : RaftLight.focusRing;
 }
 
+/// A translucent colour over an opaque backdrop, composited the way Chromium does it: the source is premultiplied
+/// with its 8-bit alpha and the destination term `d * (255 - a) / 255` is truncated, so a hairline (ink at 15%) over
+/// `#f3f3f3` paints 209 where float source-over (and Flutter) gives 210. Use it for solid boxes, borders and text
+/// whose translucent token sits on a known fill; the result is opaque. See docs/design-tokens.md "Translucent colours".
+Color raftChromeBlend(Color source, Color backdrop) {
+  final a = (source.a * 255).round();
+  int channel(double s, double d) {
+    final premultiplied = (s * 255 * a / 255).round();
+    return premultiplied + (d * 255 * (255 - a) / 255).floor();
+  }
+
+  return Color.from(
+    alpha: 1,
+    red: channel(source.r, backdrop.r) / 255,
+    green: channel(source.g, backdrop.g) / 255,
+    blue: channel(source.b, backdrop.b) / 255,
+  );
+}
+
 /// 0.7.1 type styles and colours for the active mode.
 extension RaftTokensUi on RaftTokens {
   RaftUiColors get ui => RaftUiColors.of(dark);

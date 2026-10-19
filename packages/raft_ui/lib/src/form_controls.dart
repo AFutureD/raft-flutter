@@ -16,7 +16,10 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/recipe_utilities.g.dart';
 import 'recipes/textarea.g.dart';
 import 'recipes/textarea_counter.g.dart';
+import 'raft/css_box.dart';
+import 'raft/ui_tokens.dart';
 import 'theme.dart';
+import 'tokens/tokens.dart';
 
 /// Web `FormField` (thin adapter over raft-ui `Field`): label (+ required
 /// asterisk / optional marker), control, then error or hint.
@@ -239,8 +242,75 @@ class _RaftTextInputState extends State<RaftTextInput>
     super.dispose();
   }
 
+  /// raft-ui 0.7.1 `Input` (`inputRecipe`): `h-11 px-3 py-0 text-field rounded-control border-[1.5px] border-line-strong
+  /// bg-layer-card`, `data-invalid:border-danger-strong`, `focus:shadow-focus` and the disabled `fill-muted` /
+  /// `line-hairline` / `foreground-disabled` colours. [RaftTextInput.padding] / [RaftTextInput.style] are the
+  /// callsite overrides (a `padding` lets the height follow the content, as `h-11` is not applied there).
+  Widget _buildRaft(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final ui = t.ui;
+    final focused = focus.hasFocus;
+    final disabled = !widget.enabled;
+    final disabledInk = raftChromeBlend(ui.foregroundDisabled, ui.fillMuted);
+    final textStyle = t
+        .scale(
+          RaftTypeScale.body,
+          color: disabled ? disabledInk : ui.foreground,
+        )
+        .merge(widget.style);
+    final placeholder = disabled ? disabledInk : ui.foregroundHint;
+    final field = TextField(
+      contextMenuBuilder: RaftTextSelectionToolbar.editableText,
+      controller: controller,
+      focusNode: focus,
+      readOnly: widget.readOnly,
+      enabled: widget.enabled,
+      obscureText: widget.obscureText,
+      keyboardType: widget.keyboardType,
+      textInputAction: widget.textInputAction,
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onSubmitted,
+      autofocus: widget.autofocus,
+      autofillHints: widget.autofillHints,
+      inputFormatters: [
+        ...?widget.inputFormatters,
+        if (widget.maxLength != null)
+          LengthLimitingTextInputFormatter(widget.maxLength),
+      ],
+      style: textStyle,
+      strutStyle: StrutStyle.fromTextStyle(textStyle, forceStrutHeight: true),
+      cursorColor: textStyle.color,
+      decoration: _bare(
+        hintText: widget.hintText,
+        hintStyle: textStyle.copyWith(color: placeholder),
+      ),
+    );
+    final box = RaftCssBox(
+      radius: 8,
+      fill: disabled ? ui.fillMuted : ui.layerCard,
+      borderWidth: raftControlBorderPx(context, 1.5),
+      borderColor: disabled
+          ? raftChromeBlend(ui.lineHairline, ui.fillMuted)
+          : widget.invalid
+          ? ui['danger-strong']
+          : ui.lineStrong,
+      rings: [
+        if (focused && !disabled)
+          for (final layer in ui.focusRing.layers)
+            RaftRing(layer.spread, layer.color),
+      ],
+      height: widget.padding == null ? 44 : null,
+      padding: widget.padding ?? const EdgeInsets.symmetric(horizontal: 12),
+      // An `<input>` centres its line in a box taller than the line; a TextField only fills its own line.
+      alignment: Alignment.centerLeft,
+      child: SizedBox(width: double.infinity, child: field),
+    );
+    return Semantics(label: widget.semanticLabel, child: hoverRegion(box));
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.chrome == RaftInputChrome.recipe) return _buildRaft(context);
     final t = RaftTokens.of(context);
     final rt = t.recipeTokens;
     final focused = focus.hasFocus;

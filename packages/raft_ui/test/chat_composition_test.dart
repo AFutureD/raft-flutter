@@ -294,7 +294,8 @@ void main() {
             nodes.where((node) => node.properties.role == SemanticsRole.tabBar),
             hasLength(1),
           );
-          final tasks = nodes.singleWhere(
+          // The strip's own tab node (the RaftTabButton inside it is excluded from the tree).
+          final tasks = nodes.firstWhere(
             (node) =>
                 node.properties.role == SemanticsRole.tab &&
                 node.properties.label == 'Tasks',
@@ -344,7 +345,7 @@ void main() {
             final control = find.byKey(const ValueKey('panel-tab-chat'));
             final face = find.descendant(
               of: control,
-              matching: find.byType(AnimatedContainer),
+              matching: find.byType(RaftCssBox),
             );
             expect(tester.getSize(face).height, recipe.sourceTabHeight);
             expect(tester.getSize(control).height, recipe.targetHeight);

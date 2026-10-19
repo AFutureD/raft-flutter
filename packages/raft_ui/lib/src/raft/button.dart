@@ -232,18 +232,21 @@ class RaftButtonColors {
       );
     }
     if (disabled) {
+      if (variant == RaftButtonVariant.link) {
+        return RaftButtonColors(
+          fill: const Color(0x00000000),
+          border: const Color(0x00000000),
+          foreground: ui.foregroundDisabled,
+        );
+      }
       return RaftButtonColors(
-        fill: variant == RaftButtonVariant.link
-            ? const Color(0x00000000)
-            : ui.fillMuted,
-        border: variant == RaftButtonVariant.link
-            ? const Color(0x00000000)
-            : ui.lineHairline,
-        foreground: ui.foregroundDisabled,
+        fill: ui.fillMuted,
+        border: raftChromeBlend(ui.lineHairline, ui.fillMuted),
+        foreground: raftChromeBlend(ui.foregroundDisabled, ui.fillMuted),
       );
     }
     Color over(Color fill, Color pressed) =>
-        overlay ? Color.alphaBlend(pressed, fill) : fill;
+        overlay ? raftChromeBlend(pressed, fill) : fill;
     const clear = Color(0x00000000);
     return switch (variant) {
       RaftButtonVariant.primary || RaftButtonVariant.accent => RaftButtonColors(

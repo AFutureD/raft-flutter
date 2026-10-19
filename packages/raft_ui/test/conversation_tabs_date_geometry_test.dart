@@ -76,11 +76,13 @@ void main() {
             expect(tester.getRect(chat).left, 16);
             final mobile = width < 768;
             final expectedStrip = mobile ? 41.0 : 48.0;
-            final expectedTarget = mobile ? 40.0 : 28.0;
+            // raft-ui 0.7.1 underline tab: fills the strip, no horizontal padding.
+            final expectedTarget = mobile ? 40.0 : 48.0;
             expect(tester.getSize(strip).height, expectedStrip);
             expect(tester.getSize(chat).height, expectedTarget);
-            final control = tester.widget<RaftControl>(chat);
-            expect(control.padding, const EdgeInsets.symmetric(horizontal: 12));
+            final tab = tester.widget<RaftTabButton>(chat);
+            expect(tab.variant, RaftTabsVariant.underline);
+            expect(tab.padding, isNull);
             final surface = tester.widget<Container>(
               find
                   .descendant(of: strip, matching: find.byType(Container))

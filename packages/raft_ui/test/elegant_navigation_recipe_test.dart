@@ -58,15 +58,18 @@ void main() {
           final frame = find.byType(RaftMountedAvatarFrame);
           final extent = height <= 600 ? 32.0 : 36.0;
           expect(tester.getSize(frame), Size.square(extent));
-          final decorated = tester.widget<DecoratedBox>(
+          // raft-ui 0.7.1 sticker avatar: 4px square, 1.5px ink border (1px at this test's 1.0 device ratio).
+          final sticker = tester.widget<RaftCssBox>(
             find.byKey(const ValueKey('mounted-avatar-frame')),
           );
-          final decoration = decorated.decoration as BoxDecoration;
-          expect(decoration.borderRadius, BorderRadius.circular(extent / 2));
-          expect(decoration.border!.top.width, 2);
-          expect(decoration.border!.top.color, Colors.transparent);
+          expect(sticker.radius, 4);
+          expect(sticker.borderWidth, 1);
+          expect(
+            sticker.borderColor,
+            RaftTokens.of(tester.element(frame)).ui.stickerInk,
+          );
           final initial = tester.widget<Text>(find.text('V'));
-          expect(initial.style!.fontSize, 14);
+          expect(initial.style!.fontSize, 15);
           expect(initial.style!.fontWeight, FontWeight.w700);
           await tester.tap(find.byKey(const Key('rail-workspace')));
           await tester.pump();
@@ -188,9 +191,10 @@ void main() {
           final mobile = width < 768;
           expect(tester.getSize(strip).height, mobile ? 41 : 48);
           final chat = find.byKey(const ValueKey('panel-tab-chat'));
-          expect(tester.getSize(chat).height, mobile ? 40 : 28);
-          final primary = RaftTokens.of(tester.element(strip))
-              .colors['primary-400']!
+          // raft-ui 0.7.1 underline tab: as tall as the strip.
+          expect(tester.getSize(chat).height, mobile ? 40 : 48);
+          // The selected underline tab's 2px bar is `foreground`.
+          final primary = RaftTokens.of(tester.element(strip)).ui.foreground
               .toARGB32();
           final render =
               boundary.currentContext!.findRenderObject()!
@@ -202,7 +206,7 @@ void main() {
               format: ui.ImageByteFormat.rawRgba,
             ))!;
             final border = mobile ? 1 : 0;
-            final height = mobile ? 1 : 2;
+            const height = 2;
             for (
               var row = image.height - border - height;
               row < image.height - border;

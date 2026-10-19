@@ -13,6 +13,7 @@ import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'support/app_services_fixture.dart';
 
 class _Client extends RaftClient {
@@ -735,12 +736,8 @@ void main() {
         tester.widget<RaftNavItem>(dmRow).conversationKind,
         RaftConversationNavKind.directMessage,
       );
-      final dmGlyph = tester.widget<RaftIcon>(
-        find.descendant(of: dmRow, matching: find.byType(RaftIcon)),
-      );
-      expect(dmGlyph.glyph, RaftGlyph.user);
-      // Source AvatarSlot.tsx90–95/126/229–230: the sidebar-list avatar
-      // occupies 18px, contains a 16px face, and its placeholder User is 10px.
+      // raft-ui 0.7.1 sticker avatar: the sidebar-list avatar occupies 18px and its person placeholder is the
+      // sticker `xs` fallback icon (12px; the old 10px User glyph).
       final dmAvatar = find.descendant(
         of: dmRow,
         matching: find.byType(RaftAvatar),
@@ -750,7 +747,14 @@ void main() {
         tester.widget<RaftAvatar>(dmAvatar).mountedContext,
         RaftMountedAvatarContext.sidebarList,
       );
-      expect(dmGlyph.size, 10);
+      final dmPlaceholder = tester.widget<RaftAvatarPlaceholder>(
+        find.descendant(
+          of: dmAvatar,
+          matching: find.byType(RaftAvatarPlaceholder),
+        ),
+      );
+      expect(dmPlaceholder.size, RaftAvatarSize.xs);
+      expect(dmPlaceholder.size.icon, 12);
 
       expect(find.byKey(const Key('nav-tasks')), findsNothing);
       expect(find.byKey(const Key('account-navigation')), findsNothing);

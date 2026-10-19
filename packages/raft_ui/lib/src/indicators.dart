@@ -1,22 +1,21 @@
 // Small status primitives: Badge (raft-ui `badge` recipe), and the Web
 // client's StatusDot / AttentionDot / CheckMarker (packages/web/src/components
 // /ui/*.tsx — plain Tailwind classes, resolved in the comments below).
-import 'hover_region.dart';
 
 import 'package:flutter/material.dart';
 
-import 'icons.dart';
+import 'raft/checkbox.dart';
 import 'recipe_surface.dart';
-import 'recipes/badge.g.dart';
 import 'recipes/checkbox.g.dart';
 import 'recipes/progress.g.dart';
-import 'design_primitives.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/recipe_utilities.g.dart';
-import 'text_scaling.dart' show RaftChrome;
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
+export 'raft/badge.dart' show RaftBadge;
+export 'raft/status.dart'
+    show RaftActivityTone, RaftAttentionDot, RaftStatusDot, RaftStatusDotSize;
 export 'recipes/badge.g.dart'
     show RaftBadgeRecipeAppearance, RaftBadgeRecipeVariant;
 export 'recipes/checkbox.g.dart' show RaftCheckboxRecipeSize;
@@ -42,244 +41,22 @@ abstract final class RaftWebPalette {
   static const neutral500 = Color(0xFF737373);
 }
 
-/// raft-ui `Badge`: `<span>` with the `badge` recipe root.
-class RaftBadge extends StatefulWidget {
-  const RaftBadge({
-    super.key,
-    required this.label,
-    this.appearance = RaftBadgeRecipeAppearance.solid,
-    this.variant = RaftBadgeRecipeVariant.default_,
-    this.leading,
-    this.onPressed,
-    this.foreground,
-    this.radius,
-    this.center = false,
-    this.fontFamily,
-  });
-
-  /// Inherited face where the host overrides the document font (the
-  /// hands-feedback root's `system-ui`).
-  final String? fontFamily;
-
-  /// Callsite overrides (`text-*`, `rounded-[*]`, `justify-center`).
-  final Color? foreground;
-  final double? radius;
-  final bool center;
-
-  final String label;
-  final RaftBadgeRecipeAppearance appearance;
-  final RaftBadgeRecipeVariant variant;
-  final Widget? leading;
-
-  /// Rendered as a `<button>` (`render={<button/>}`): enables hover filter.
-  final VoidCallback? onPressed;
-
-  @override
-  State<RaftBadge> createState() => _RaftBadgeState();
-}
-
-class _RaftBadgeState extends State<RaftBadge> {
-  bool hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final rt = t.recipeTokens;
-    final interactive = widget.onPressed != null;
-    final s = RaftBadgeRecipe.resolve(
-      theme: t.recipeTheme,
-      appearance: widget.appearance,
-      variant: widget.variant,
-      // `enabled:hover:` only matches a real <button>.
-      states: t.recipeStates(
-        hovered: hovered && interactive,
-        extra: [if (interactive) 'enabled'],
-      ),
-      tokens: rt,
-    ).root;
-    Widget badge = RaftRecipeBox(
-      style: s,
-      tokens: rt,
-      controlLabel: true,
-      decorationOverride: widget.radius == null
-          ? null
-          : (d) =>
-                d.copyWith(borderRadius: BorderRadius.circular(widget.radius!)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: widget.center
-            ? MainAxisAlignment.center
-            : MainAxisAlignment.start,
-        children: [
-          if (widget.leading != null) ...[
-            widget.leading!,
-            SizedBox(width: s.columnGap ?? 0),
-          ],
-          Flexible(
-            child: Text(
-              widget.label,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.clip,
-              // Badges are fixed chrome: text growth is bounded.
-              textScaler: RaftChrome.boundedScalerOf(context),
-              style: widget.foreground == null && widget.fontFamily == null
-                  ? null
-                  : TextStyle(
-                      color: widget.foreground,
-                      fontFamily: widget.fontFamily,
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-    final brightness = _brightness(s['filter']);
-    if (brightness != null) {
-      badge = ColorFiltered(
-        colorFilter: ColorFilter.matrix([
-          brightness, 0, 0, 0, 0, //
-          0, brightness, 0, 0, 0, //
-          0, 0, brightness, 0, 0, //
-          0, 0, 0, 1, 0,
-        ]),
-        child: badge,
-      );
-    }
-    if (!interactive) return badge;
-    return Semantics(
-      button: true,
-      child: RaftHoverRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => hovered = true),
-        onExit: (_) => setState(() => hovered = false),
-        child: GestureDetector(onTap: widget.onPressed, child: badge),
-      ),
-    );
-  }
-}
-
-double? _brightness(CssValue? v) {
-  final m = RegExp(r'brightness\(([\d.]+)(%?)\)').firstMatch('$v');
-  if (m == null) return null;
-  final n = double.parse(m.group(1)!);
-  return m.group(2) == '%' ? n / 100 : n;
-}
-
-enum RaftStatusDotSize {
-  /// `size-2`
-  sm(8),
-
-  /// `size-2.5`
-  md(10),
-
-  /// `size-[11px]`
-  lg(11);
-
-  const RaftStatusDotSize(this.px);
-  final double px;
-}
-
-/// Agent activity → dot tone (`getActivityDotClass`, web utils/activity.ts).
-enum RaftActivityTone { online, thinking, working, error, offline }
-
-/// Web `StatusDot`: `inline-block shrink-0 rounded-full border
-/// border-line-strong theme-brutal:border-black` + size + tone.
-class RaftStatusDot extends StatelessWidget {
-  const RaftStatusDot({
-    super.key,
-    this.color,
-    this.activity,
-    this.external = false,
-    this.size = RaftStatusDotSize.md,
-  });
-
-  /// Explicit fill (Web `tone`, e.g. `bg-brutal-lime`); default `bg-gray-400`.
-  final Color? color;
-  final RaftActivityTone? activity;
-
-  /// External agents: neutral `bg-brutal-cyan` regardless of activity.
-  final bool external;
-  final RaftStatusDotSize size;
-
-  static Color activityColor(RaftTokens t, RaftActivityTone a) => switch (a) {
-    RaftActivityTone.online => t.product.brutalLime,
-    RaftActivityTone.thinking ||
-    RaftActivityTone.working => t.product.statusBusy,
-    RaftActivityTone.error => t.product.brutalOrange,
-    RaftActivityTone.offline => RaftWebPalette.gray400,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final fill = external
-        ? t.product.brutalCyan
-        : activity != null
-        ? activityColor(t, activity!)
-        : color ?? RaftWebPalette.gray400;
-    return Container(
-      width: size.px,
-      height: size.px,
-      decoration: BoxDecoration(
-        color: fill,
-        shape: BoxShape.circle,
-        border: Border.all(color: t.semantic.lineStrong),
-      ),
-    );
-  }
-}
-
-/// Web `AttentionDot`. Brutal: `border border-black` + `bg-brutal-pink`
-/// (or the warning `bg-brutal-orange`); elegant: borderless `bg-accent`
-/// (`bg-warning` for warning tones).
-class RaftAttentionDot extends StatelessWidget {
-  const RaftAttentionDot({
-    super.key,
-    this.compact = false,
-    this.warning = false,
-    this.danger = false,
-  });
-
-  /// `sm` = `size-1` (4px); default `lg` = `size-2.5` (10px).
-  final bool compact;
-  final bool warning;
-
-  /// "Update available": the `--danger` red in every theme.
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final size = compact ? 4.0 : 10.0;
-    final fill = danger
-        ? t.semantic.danger
-        : (warning ? t.semantic.warning : t.colors['accent']!);
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-    );
-  }
-}
-
 enum RaftCheckMarkerSize {
-  /// `size-3.5`, Check 10px stroke 4
+  /// `size-3.5`
   sm(14, 10, 4),
 
-  /// `size-4`, Check 12px stroke 4
+  /// `size-4`
   md(16, 12, 4),
 
-  /// `size-5`, Check 13px stroke 3
+  /// `size-5`, the raft-ui 0.7.1 `CheckboxIndicator` size
   lg(20, 13, 3);
 
   const RaftCheckMarkerSize(this.box, this.icon, this.stroke);
   final double box, icon, stroke;
 }
 
-/// Web `CheckMarker` (`check-marker-brutal inline-flex items-center
-/// justify-center border border-line-strong theme-brutal:border-2
-/// theme-brutal:border-black`).
+/// Web `CheckMarker`: the raft-ui 0.7.1 `CheckboxIndicator` graphic (a 20px ink-bordered sticker square or circle
+/// with a check). [yellow] is accepted for call sites; 0.7.1 has no yellow checkbox.
 class RaftCheckMarker extends StatelessWidget {
   const RaftCheckMarker({
     super.key,
@@ -290,53 +67,34 @@ class RaftCheckMarker extends StatelessWidget {
     this.disabled = false,
     this.previewOnHover = false,
     this.hovered = false,
+    this.mark = RaftCheckboxMark.check,
   });
 
   final bool checked, circle, yellow, disabled, previewOnHover;
+
+  /// `mark="minus"` of `CheckboxIndicator`.
+  final RaftCheckboxMark mark;
 
   /// Parent `group` hover (for [previewOnHover]).
   final bool hovered;
   final RaftCheckMarkerSize size;
 
   @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final s = t.semantic;
-    final Color fill;
-    final Color ink;
-    if (checked) {
-      fill = yellow ? s.primarySoft : s.foregroundStrong;
-      ink = yellow ? s.primaryStrong : s.foregroundInverse;
-    } else {
-      fill = s.layerPanel;
-      ink = previewOnHover && hovered ? s.foregroundMuted : Colors.transparent;
-    }
-    Widget box = Container(
-      width: size.box,
-      height: size.box,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: fill,
-        shape: circle ? BoxShape.circle : BoxShape.rectangle,
-        border: Border.all(color: s.lineStrong, width: 1),
-      ),
-      child: checked || previewOnHover
-          ? RaftIcon(
-              RaftGlyph.check,
-              size: size.icon,
-              strokeWidth: size.stroke,
-              color: ink,
-            )
-          : null,
-    );
-    if (disabled) box = Opacity(opacity: .5, child: box);
-    return ExcludeSemantics(child: box);
-  }
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: RaftCheckboxIndicator(
+      checked: checked,
+      mark: mark,
+      shape: circle ? RaftCheckboxShape.circle : RaftCheckboxShape.square,
+      disabled: disabled,
+      previewOnHover: previewOnHover,
+      hovered: hovered,
+      size: size.box,
+    ),
+  );
 }
 
-/// raft-ui `Checkbox` (`checkbox` recipe; brutal draws the
-/// `checkboxIndicator` box with a lucide Check, elegant draws the
-/// `ElegantCheckboxGraphic` rect + `CheckboxCheckIcon`).
+/// raft-ui 0.7.1 `Checkbox`: the 20px sticker square (or [circle]) over [RaftCheckboxControl]. [size], [primary]
+/// and [flatWhenChecked] are accepted for call sites; 0.7.1 has the single size, no yellow variant and no shadow.
 class RaftCheckbox extends StatelessWidget {
   const RaftCheckbox({
     super.key,
@@ -346,102 +104,29 @@ class RaftCheckbox extends StatelessWidget {
     this.primary = false,
     this.circle = false,
     this.flatWhenChecked = false,
+    this.indeterminate = false,
     this.semanticLabel,
   });
 
   final bool value;
   final ValueChanged<bool>? onChanged;
   final RaftCheckboxRecipeSize size;
-
-  /// `data-checked:shadow-none` of the MessageMultiSelectCheckbox slot.
   final bool flatWhenChecked;
-
-  /// `color="primary"` / `variant="primary"`: yellow fill.
   final bool primary;
   final bool circle;
+
+  /// `indeterminate`: the minus mark and `aria-checked="mixed"`.
+  final bool indeterminate;
   final String? semanticLabel;
 
   @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final rt = t.recipeTokens;
-    final disabled = onChanged == null;
-    return RaftInteractive(
-      onPressed: disabled ? null : () => onChanged!(!value),
-      button: false,
-      checked: value,
-      semanticLabel: semanticLabel,
-      builder: (context, st) {
-        final states = t.recipeStates(
-          hovered: st.hovered,
-          pressed: st.pressed,
-          focusVisible: st.focusVisible,
-          extra: [
-            if (value) ...['data-checked', 'group/checkbox:data-checked'],
-            if (disabled) ...['data-disabled', 'group/checkbox:data-disabled'],
-            if (st.hovered) 'group/checkbox:hover',
-            if (st.focusVisible) 'group/checkbox:focus-visible',
-          ],
-        );
-        final c = RaftCheckboxRecipe.resolve(
-          theme: t.recipeTheme,
-          size: size,
-          variant: primary
-              ? RaftCheckboxRecipeVariant.primary
-              : RaftCheckboxRecipeVariant.default_,
-          states: states,
-          tokens: rt,
-        );
-        final fill =
-            RaftColorRef.fromCss(c.outerRect['fill'])?.resolve(rt) ??
-            t.semantic.layerPanel;
-        final ink = c.mark.color?.resolve(rt) ?? t.semantic.foregroundInverse;
-        return RaftRecipeBox(
-          style: c.root,
-          tokens: rt,
-          // `circle` is the SVG `rx` = half the 16-unit viewBox scaled to the
-          // box (a full circle at every size); square keeps `rounded-[3px]`.
-          decorationOverride: (d) => d.copyWith(
-            color: fill,
-            borderRadius: BorderRadius.circular(circle ? 999 : 3),
-            boxShadow: flatWhenChecked && value ? const [] : d.boxShadow,
-          ),
-          alignment: Alignment.center,
-          child: value
-              ? CustomPaint(
-                  size: const Size(10, 8),
-                  painter: _CheckMarkPainter(ink),
-                )
-              : null,
-        );
-      },
-    );
-  }
-}
-
-/// `CheckboxCheckIcon`: `M1 3.5L4 6.5L9 1.5` in a 10×8 box, stroke 1,
-/// round caps and joins.
-class _CheckMarkPainter extends CustomPainter {
-  const _CheckMarkPainter(this.color);
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawPath(
-      Path()
-        ..moveTo(1, 3.5)
-        ..lineTo(4, 6.5)
-        ..lineTo(9, 1.5),
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_CheckMarkPainter old) => old.color != color;
+  Widget build(BuildContext context) => RaftCheckboxControl(
+    value: value,
+    onChanged: onChanged,
+    indeterminate: indeterminate,
+    shape: circle ? RaftCheckboxShape.circle : RaftCheckboxShape.square,
+    semanticLabel: semanticLabel,
+  );
 }
 
 /// Web `ProgressBar` (product labels over raft-ui `Progress`): optional

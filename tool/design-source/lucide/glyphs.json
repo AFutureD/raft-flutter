@@ -22,6 +22,10 @@
     "packages/web/src/components/thread/ThreadsInbox.tsx:17"
    ],
    "npmTarballSha256": "b53d76a053b7295f332d65405ccdccdf013acda067d46345be82105b1da94ee3"
+  },
+  "hostLucide": {
+   "version": "1.59.0",
+   "package": "tool/parity-ui/host/node_modules/lucide-react"
   }
  },
  "usages": {
@@ -1246,6 +1250,10 @@
    "Minimize2": "minimize-2@0.575.0",
    "Strikethrough": "strikethrough@0.575.0",
    "Table": "table@0.575.0"
+  },
+  "flutterHost": {
+   "AppWindow": "app-window@1.59.0",
+   "OctagonAlert": "octagon-alert@1.59.0"
   }
  },
  "icons": {
@@ -1258,6 +1266,41 @@
      "tag": "path",
      "attrs": {
       "d": "M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"
+     }
+    }
+   ]
+  },
+  "app-window@1.59.0": {
+   "icon": "app-window",
+   "version": "1.59.0",
+   "sha256": "a10205d722d6e4518c96c47c57d4515f5372f23a82bf5565f1c931a5801021e0",
+   "nodes": [
+    {
+     "tag": "rect",
+     "attrs": {
+      "x": "2",
+      "y": "4",
+      "width": "20",
+      "height": "16",
+      "rx": "2"
+     }
+    },
+    {
+     "tag": "path",
+     "attrs": {
+      "d": "M10 4v4"
+     }
+    },
+    {
+     "tag": "path",
+     "attrs": {
+      "d": "M2 8h20"
+     }
+    },
+    {
+     "tag": "path",
+     "attrs": {
+      "d": "M6 4v4"
      }
     }
    ]
@@ -4775,6 +4818,31 @@
      "tag": "path",
      "attrs": {
       "d": "M12 12V8"
+     }
+    }
+   ]
+  },
+  "octagon-alert@1.59.0": {
+   "icon": "octagon-alert",
+   "version": "1.59.0",
+   "sha256": "3e338902d375a69439c3ab2cd7a3769b8947354910c717373802c68db9707f09",
+   "nodes": [
+    {
+     "tag": "path",
+     "attrs": {
+      "d": "M12 16h.01"
+     }
+    },
+    {
+     "tag": "path",
+     "attrs": {
+      "d": "M12 8v4"
+     }
+    },
+    {
+     "tag": "path",
+     "attrs": {
+      "d": "M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"
      }
     }
    ]

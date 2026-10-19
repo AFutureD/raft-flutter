@@ -13,6 +13,9 @@ Pipeline:
       iconNode array from dist/esm/icons/<icon>.js(.mjs), and vendor the result
       (nodes, file sha256, usage file:line) in tool/design-source/lucide/glyphs.json
   tool/gen-glyphs           write packages/raft_ui/lib/src/glyphs.g.dart from the vendored JSON
+  tool/gen-glyphs --vendor-host DIR
+      add the HOST_ADDED glyphs (raft-ui 0.7.1 parity specimens: app-window, octagon-alert) from the parity
+      host's lucide-react 1.59.0 (DIR = tool/parity-ui/host/node_modules/lucide-react); rerun after --import-sources
   tool/gen-glyphs --check   exit 1 if glyphs.g.dart is stale
   tool/gen-glyphs --list    print the enum table (name, lucide icon, version, users)
 
@@ -58,6 +61,11 @@ LEGACY = [
 FLUTTER_ADDED = [
     'bold', 'heading', 'italic', 'listOrdered', 'minimize2', 'strikethrough', 'table',
 ]
+# Glyphs the raft-ui 0.7.1 parity specimens draw (tool/parity-ui/host, lucide-react HOST_LUCIDE), which the
+# pinned Web 0.575.0 build does not export under these geometry/names for the specimens' purpose. They keep the
+# HOST_LUCIDE geometry (the reference), vendored with `tool/gen-glyphs --vendor-host DIR`.
+HOST_LUCIDE = '1.59.0'
+HOST_ADDED = ['appWindow', 'octagonAlert']
 # Whole-icon fill (`<Bookmark fill="currentColor">` in Web, see citations).
 FILLED = {
     'bookmarkFilled': ('Bookmark', ['packages/web/src/components/message/MessageItem.tsx:4915',
@@ -328,6 +336,30 @@ def vendor_added(pkg: Path):
     print(f'vendored {len(resolved)} Flutter-only glyphs -> {VENDOR.relative_to(ROOT)}')
 
 
+def vendor_host(pkg: Path):
+    """Add HOST_ADDED geometries from a lucide-react HOST_LUCIDE package (the parity host's) to the vendored JSON."""
+    pkg = Path(os.path.realpath(pkg))
+    if pkg_version(pkg) != HOST_LUCIDE:
+        raise GlyphError(f'{pkg} is {pkg_version(pkg)}, pinned {HOST_LUCIDE}')
+    doc = json.loads(VENDOR.read_text())
+    exports = export_map(pkg)
+    resolved = doc['resolved']['flutterHost'] = {}
+    doc['sources']['hostLucide'] = {'version': HOST_LUCIDE, 'package': 'tool/parity-ui/host/node_modules/lucide-react'}
+    for added in HOST_ADDED:
+        export = added[0].upper() + added[1:]
+        icon = exports.get(export)
+        if icon is None:
+            raise GlyphError(f'host glyph {added} has no {HOST_LUCIDE} export {export}')
+        key = f'{icon}@{HOST_LUCIDE}'
+        if key not in doc['icons']:
+            f = icon_file(pkg, icon)
+            doc['icons'][key] = {'icon': icon, 'version': HOST_LUCIDE, 'sha256': sha256(f), 'nodes': read_icon_nodes(f)}
+        resolved[export] = key
+    doc['icons'] = dict(sorted(doc['icons'].items()))
+    VENDOR.write_text(json.dumps(doc, indent=1, sort_keys=False) + '\n')
+    print(f'vendored {len(resolved)} parity-host glyphs -> {VENDOR.relative_to(ROOT)}')
+
+
 def _git_head(path: Path):
     head = path / '.git/HEAD'
     try:
@@ -358,7 +390,7 @@ def build_model(doc):
 
     def add(name, key, **kw):
         e = entries.setdefault(name, {'name': name, 'key': key, 'filled': False, 'web': [], 'raftUi': [],
-                                      'legacy': False, 'flutter': False, 'citations': []})
+                                      'legacy': False, 'flutter': False, 'host': False, 'citations': []})
         if e['key'] != key:
             raise GlyphError(f'{name}: conflicting geometry {e["key"]} vs {key}')
         for k, v in kw.items():
@@ -384,6 +416,10 @@ def build_model(doc):
         name = lower_camel(export)
         if name not in entries:
             add(name, key, flutter=True)
+    for export, key in doc['resolved'].get('flutterHost', {}).items():
+        name = lower_camel(export)
+        if name not in entries:
+            add(name, key, flutter=True, host=True)
     for name, (export, cites) in FILLED.items():
         add(name, doc['resolved']['legacy'][export], filled=True, citations=cites)
     ordered = [entries[n] for n in sorted(entries, key=lambda n: (n.lower(), n))]
@@ -443,7 +479,8 @@ def render(doc):
     lines = [
         '// GENERATED — do not edit. Regenerate with `tool/gen-glyphs`.',
         f"// Geometry: lucide-react {src['webLucide']['version']} (Web product imports) and "
-        f"{src['raftUiLucide']['version']} (raft-ui {src['raftUi']['version']} imports), ISC;",
+        f"{src['raftUiLucide']['version']} (raft-ui {src['raftUi']['version']} imports)"
+        + (f", {src['hostLucide']['version']} (raft-ui 0.7.1 parity host)" if 'hostLucide' in src else '') + ', ISC;',
         '// see packages/raft_ui/LICENSE-LUCIDE. Vendored source: tool/design-source/lucide/glyphs.json',
         f"// (raft-source {src['raftSourceCommit']}).",
         '// dart format off',
@@ -466,7 +503,9 @@ def render(doc):
             doc_lines.append(f"raft-ui: {e['raftUi'][0]}{more}.")
         if e['legacy']:
             doc_lines.append('Legacy Flutter name; no Web import uses it.')
-        if e['flutter']:
+        if e['host']:
+            doc_lines.append('Flutter-only glyph drawn by the raft-ui 0.7.1 parity specimens (icon-tile); geometry from the parity host lucide-react.')
+        elif e['flutter']:
             doc_lines.append('Flutter-only glyph (message composer Markdown toolbar); no Web import uses it.')
         if e['filled']:
             doc_lines.append(f"Filled with currentColor as in {', '.join(c.removeprefix('packages/web/src/') for c in e['citations'])}.")
@@ -515,6 +554,8 @@ def main(argv=None):
     p.add_argument('--import-sources', action='store_true')
     p.add_argument('--vendor-added', type=Path, metavar='LUCIDE_DIR',
                    help='vendor the Flutter-only glyphs from a lucide-react %s package' % WEB_LUCIDE)
+    p.add_argument('--vendor-host', type=Path, metavar='LUCIDE_DIR',
+                   help='vendor the parity-host glyphs from a lucide-react %s package' % HOST_LUCIDE)
     p.add_argument('--raft-source', type=Path)
     p.add_argument('--raft-ui', type=Path, help='raft-ui package dir (default: Web node_modules/raft-ui)')
     args = p.parse_args(argv)
@@ -525,13 +566,15 @@ def main(argv=None):
             import_sources(args.raft_source, args.raft_ui)
         if args.vendor_added:
             vendor_added(args.vendor_added)
+        if args.vendor_host:
+            vendor_host(args.vendor_host)
         doc = load_vendor()
         if args.list:
             entries, _ = build_model(doc)
             for e in entries:
                 icon = doc['icons'][e['key']]
                 src = ('web' if e['web'] else 'raft-ui' if e['raftUi'] else 'filled' if e['filled']
-                       else 'flutter' if e['flutter'] else 'legacy')
+                       else 'host' if e['host'] else 'flutter' if e['flutter'] else 'legacy')
                 print(f"{e['name']:24} {icon['icon']:24} {icon['version']:8} {src:8} {len(e['web'])} web / {len(e['raftUi'])} raft-ui")
             return 0
         text = render(doc)

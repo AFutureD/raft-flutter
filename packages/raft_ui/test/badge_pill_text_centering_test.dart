@@ -266,7 +266,9 @@ void main() {
                   .descendant(
                     of: badge,
                     matching: find.byWidgetPredicate(
-                      (w) => w is Container && w.decoration != null,
+                      (w) =>
+                          (w is Container && w.decoration != null) ||
+                          w is RaftCssBox,
                     ),
                   )
                   .first,

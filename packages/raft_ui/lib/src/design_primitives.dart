@@ -26,8 +26,10 @@ import 'primitive_tokens.dart';
 import 'tokens/tokens.dart';
 import 'control_typography.dart';
 import 'recipe_surface.dart';
-import 'recipes/recipe_runtime.dart';
-import 'recipes/segmented_control.g.dart';
+import 'raft/css_box.dart';
+import 'raft/ui_tokens.dart';
+import 'raft/segmented_control.dart';
+import 'raft/tabs.dart';
 
 enum RaftDensity { desktop, touch }
 
@@ -1319,28 +1321,21 @@ class _RaftFieldSurfaceState extends State<RaftFieldSurface> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    // Elegant `focus-visible:ring-*`: the field keeps its border and a ring is
-    // drawn OUTSIDE it (1px primary-400; dark: 2px primary-400 at 60%), not the
-    // Material focused-border colour swap.
+    // raft-ui 0.7.1 `focus:shadow-focus`: the field keeps its border and the focus ring (2px surface gap, 2px ink)
+    // is drawn OUTSIDE it, not the Material focused-border colour swap.
     final theme = Theme.of(context);
     final inputs = theme.inputDecorationTheme;
     return Focus(
       skipTraversal: true,
       onFocusChange: (value) => setState(() => focused = value),
-      child: DecoratedBox(
-        decoration: RaftCssBoxDecoration(
-          borderRadius: RaftShapes.field(t),
-          boxShadow: focused
-              ? [
-                  BoxShadow(
-                    color: t.dark
-                        ? t.primaryFill.withValues(alpha: .6)
-                        : t.primaryFill,
-                    spreadRadius: t.dark ? 2 : 1,
-                  ),
-                ]
-              : null,
-        ),
+      child: RaftOuterRings(
+        radius: 8,
+        rings: focused
+            ? [
+                for (final layer in t.ui.focusRing.layers)
+                  RaftRing(layer.spread, layer.color),
+              ]
+            : const [],
         child: Theme(
           data: theme.copyWith(
             inputDecorationTheme: inputs.copyWith(
@@ -2636,7 +2631,11 @@ class RaftSegmentedControl<T> extends StatefulWidget {
     this.visualHeight = 32,
     this.style = RaftSegmentedStyle.buttons,
     this.minimumTargetSize,
+    this.disabled = false,
   });
+
+  /// `SegmentedControl disabled`: every item is inert and its ink greys; the sticker stays.
+  final bool disabled;
   final RaftSegmentedStyle style;
   final T value;
   final List<RaftSegmentedOption<T>> items;
@@ -2694,76 +2693,76 @@ class _RaftSegmentedControlState<T> extends State<RaftSegmentedControl<T>> {
       child: Semantics(
         label: widget.label,
         container: true,
-        child: Wrap(
-          spacing: widget.style == RaftSegmentedStyle.buttons
-              ? _segmentedRoot(context).columnGap ?? 0
-              : 4,
-          runSpacing: widget.style == RaftSegmentedStyle.buttons
-              ? _segmentedRoot(context).rowGap ?? 0
-              : 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (var i = 0; i < widget.items.length; i++) ...[
-              if (widget.style == RaftSegmentedStyle.buttons)
-                _SegmentedItem<T>(
-                  key: widget.items[i].itemKey,
-                  option: widget.items[i],
-                  checked: widget.items[i].value == widget.value,
-                  onPressed:
-                      widget.onChanged == null || !widget.items[i].enabled
-                      ? null
-                      : () => widget.onChanged!(widget.items[i].value),
-                )
-              else if (widget.style == RaftSegmentedStyle.taskViews)
-                RaftTouchTargetExpander(
-                  minSize: const Size.square(RaftMetrics.touchTarget),
-                  child: RaftTaskFilterButton(
-                    selected: widget.items[i].value == widget.value,
-                    onPressed:
-                        widget.onChanged == null || !widget.items[i].enabled
-                        ? null
-                        : () => widget.onChanged!(widget.items[i].value),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: 6,
-                      children: [
-                        if (widget.items[i].glyph != null)
-                          RaftIcon(widget.items[i].glyph!, size: 14),
-                        Text(widget.items[i].label),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                RaftControl(
-                  kind: RaftControlKind.tab,
-                  variant: widget.items[i].value == widget.value
-                      ? RaftControlVariant.primary
-                      : RaftControlVariant.outline,
-                  selected: widget.items[i].value == widget.value,
-                  tooltip: widget.items[i].tooltip,
-                  visualHeight: widget.visualHeight,
-                  minimumTargetSize: widget.minimumTargetSize,
-                  onPressed: widget.onChanged == null
-                      ? null
-                      : () => widget.onChanged!(widget.items[i].value),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.items[i].glyph != null) ...[
-                        RaftIcon(widget.items[i].glyph!, size: 13),
-                        const SizedBox(width: 4),
-                      ],
-                      Text(widget.items[i].label),
-                    ],
-                  ),
-                ),
-            ],
-          ],
-        ),
+        child: _group(context),
       ),
     ),
   );
+
+  VoidCallback? _press(RaftSegmentedOption<T> item) =>
+      widget.onChanged == null || widget.disabled || !item.enabled
+      ? null
+      : () => widget.onChanged!(item.value);
+
+  Widget _group(BuildContext context) => switch (widget.style) {
+    // raft-ui 0.7.1 `SegmentedControl`: the fill-muted track with sticker items.
+    RaftSegmentedStyle.buttons => RaftSegmentedTrack(
+      children: [
+        for (final item in widget.items)
+          RaftSegmentedItem(
+            key: item.itemKey,
+            label: item.label,
+            glyph: item.glyph,
+            count: item.count,
+            labelSuffix: item.labelSuffix,
+            tooltip: item.tooltip,
+            checked: item.value == widget.value,
+            height: widget.visualHeight,
+            onPressed: _press(item),
+          ),
+      ],
+    ),
+    RaftSegmentedStyle.taskViews => Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final item in widget.items)
+          RaftTouchTargetExpander(
+            minSize: const Size.square(RaftMetrics.touchTarget),
+            child: RaftTaskFilterButton(
+              selected: item.value == widget.value,
+              onPressed: _press(item),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 6,
+                children: [
+                  if (item.glyph != null) RaftIcon(item.glyph!, size: 14),
+                  Text(item.label),
+                ],
+              ),
+            ),
+          ),
+      ],
+    ),
+    // Loose tabs without the track: the same sticker tab as raft-ui `Tabs`.
+    RaftSegmentedStyle.tabs => Wrap(
+      spacing: 2,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final item in widget.items)
+          RaftTabButton(
+            key: item.itemKey,
+            label: item.label,
+            glyph: item.glyph,
+            tooltip: item.tooltip,
+            height: widget.visualHeight,
+            selected: item.value == widget.value,
+            onPressed: _press(item),
+          ),
+      ],
+    ),
+  };
 }
 
 /// Original PickerTriggerButton, not the generic Button outline variant.
@@ -3123,141 +3122,5 @@ class _RenderTouchTarget extends RenderProxyBox {
   void describeSemanticsConfiguration(SemanticsConfiguration config) {
     super.describeSemanticsConfiguration(config);
     config.isSemanticBoundary = true;
-  }
-}
-
-RaftSlotStyle _segmentedRoot(BuildContext context) {
-  final t = RaftTokens.of(context);
-  return RaftSegmentedControlRecipe.resolve(
-    theme: t.recipeTheme,
-    states: t.recipeStates(),
-    tokens: t.recipeTokens,
-  ).root;
-}
-
-/// raft-ui `SegmentedControlItem` (+ `SegmentedControlLabel` /
-/// `SegmentedControlCount`) on the `segmentedControl` recipe.
-class _SegmentedItem<T> extends StatelessWidget {
-  const _SegmentedItem({
-    super.key,
-    required this.option,
-    required this.checked,
-    required this.onPressed,
-  });
-  final RaftSegmentedOption<T> option;
-  final bool checked;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final rt = t.recipeTokens;
-    return RaftInteractive(
-      onPressed: onPressed,
-      button: false,
-      checked: checked,
-      tooltip: option.tooltip,
-      builder: (context, st) {
-        final s = RaftSegmentedControlRecipe.resolve(
-          theme: t.recipeTheme,
-          disabled: !option.enabled,
-          states: t.recipeStates(
-            hovered: st.hovered,
-            pressed: st.pressed,
-            focusVisible: st.focusVisible,
-            disabled: !option.enabled,
-            extra: [
-              checked ? 'data-checked' : 'data-unchecked',
-              if (checked) 'group/segmented-control-item:data-checked',
-              if (!option.enabled) 'data-disabled',
-              if (option.count != null) 'has:data-slot=segmented-control-count',
-              if (option.glyph != null) 'has:svg',
-            ],
-          ),
-          tokens: rt,
-        );
-        final svg = s.item.target("& svg:not([class*='size-'])");
-        final gap = s.item.columnGap ?? 0;
-        return RaftRecipeBox(
-          style: s.item,
-          tokens: rt,
-          controlLabel: true,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (option.glyph != null) ...[
-                Builder(
-                  builder: (context) => RaftIcon(
-                    option.glyph!,
-                    size: svg?.width ?? 14,
-                    strokeWidth: 2.5,
-                    color: DefaultTextStyle.of(context).style.color,
-                  ),
-                ),
-                SizedBox(width: gap),
-              ],
-              Flexible(
-                child: Builder(
-                  builder: (context) {
-                    final inherited = RaftInheritedFontScope.active(context);
-                    // The label restates its own style, so the box's control
-                    // profile reaches it only through this resolve.
-                    final label = RaftControlTypography.of(
-                      context,
-                      s.label
-                          .text(rt, base: DefaultTextStyle.of(context).style)
-                          .copyWith(
-                            fontFamily: inherited ? t.headingFont : null,
-                          ),
-                    );
-                    final text = Text(
-                      option.label,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                      style: label,
-                    );
-                    if (option.labelSuffix == null) return text;
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(child: text),
-                        const SizedBox(width: 6),
-                        Text(
-                          option.labelSuffix!,
-                          maxLines: 1,
-                          softWrap: false,
-                          style: label.copyWith(
-                            fontFamily: t.monoFont,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black.withValues(alpha: .6),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              if (option.count != null) ...[
-                SizedBox(width: gap),
-                Builder(
-                  builder: (context) => Text(
-                    option.count!,
-                    style: RaftControlTypography.of(
-                      context,
-                      s.count.text(
-                        rt,
-                        base: DefaultTextStyle.of(context).style,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
   }
 }

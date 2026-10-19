@@ -9,7 +9,7 @@ import 'package:raft_ui/test_themes.dart';
 void main() {
   for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'profile SVG follows tab size, stroke and selection ${dark ? 'dark' : 'light'}',
+      'profile SVG follows tab size (16px, stroke 2) and selection ${dark ? 'dark' : 'light'}',
       (tester) async {
         var selected = 'profile';
         await tester.pumpWidget(
@@ -39,8 +39,8 @@ void main() {
         );
         await tester.pumpAndSettle();
         final svg = find.byType(RaftChatIcon);
-        expect(tester.getSize(svg), const Size.square(14));
-        expect(tester.widget<RaftChatIcon>(svg).strokeWidth, 1.5);
+        expect(tester.getSize(svg), const Size.square(16));
+        expect(tester.widget<RaftChatIcon>(svg).strokeWidth, 2);
         final row = tester.getRect(find.byType(RaftPanelTabBar<String>));
         await tester.tap(find.text('Chat'));
         await tester.pumpAndSettle();
@@ -49,7 +49,7 @@ void main() {
         final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await hover.addPointer(location: tester.getCenter(svg));
         await tester.pumpAndSettle();
-        expect(tester.getSize(svg), const Size.square(14));
+        expect(tester.getSize(svg), const Size.square(16));
         await hover.removePointer();
         expect(tester.takeException(), isNull);
       },

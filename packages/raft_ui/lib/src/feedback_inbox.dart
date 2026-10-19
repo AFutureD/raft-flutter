@@ -25,7 +25,7 @@ import 'recipes/button_variants.g.dart'
     show RaftButtonRecipeSize, RaftButtonRecipeVariant;
 import 'recipes/message_reference.g.dart';
 import 'recipes/skeleton.g.dart';
-import 'recipes/tabs.g.dart';
+import 'raft/tabs.dart';
 import 'recipes/task_card.g.dart';
 import 'theme.dart';
 import 'section_pager.dart';
@@ -343,10 +343,7 @@ class RaftFeedbackHeaderBand extends StatelessWidget {
 }
 
 /// raft-ui `Tabs` (default variant, top placement) as FeedbackInbox renders
-/// it: All / Active / Ended. Elegant: `p-px gap-1` list, `h-9 px-3.5`
-/// tabs and the raised `bg-layer-panel` indicator under the active tab;
-/// Brutal: the `border-2` list with `px-4 py-1.5` tabs, 2px dividers and
-/// the `bg-primary-400` active tab.
+/// it: All / Active / Ended, the selected tab a yellow sticker ([RaftTabsList]).
 class RaftFeedbackFilterTabs extends StatefulWidget {
   const RaftFeedbackFilterTabs({
     super.key,
@@ -367,99 +364,19 @@ class RaftFeedbackFilterTabs extends StatefulWidget {
 }
 
 class _RaftFeedbackFilterTabsState extends State<RaftFeedbackFilterTabs> {
-  RaftFeedbackFilter? hovered;
-
   @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final rt = t.recipeTokens;
-    RaftTabsRecipeStyle style({bool active = false, bool hover = false}) =>
-        RaftTabsRecipe.resolve(
-          theme: t.recipeTheme,
-          variant: RaftTabsRecipeVariant.default_,
-          states: t.recipeStates(
-            hovered: hover,
-            extra: [if (active) 'data-active'],
-          ),
-          tokens: rt,
-        );
-    final base = style();
-    final list = base.list;
-    Widget tab(RaftFeedbackFilter value, int index) {
-      final active = value == widget.value;
-      final s = style(active: active, hover: hovered == value);
-      final slot = s.tab;
-      final text = _system(
-        t,
-        size: slot.fontSize ?? 13,
-        line: slot.lineHeight == null
-            ? null
-            : slot.lineHeight! * (slot.fontSize ?? 13),
-        weight: slot.fontWeight ?? FontWeight.w500,
-        color: slot.color?.resolve(rt),
-      ).copyWith(letterSpacing: slot.letterSpacing);
-      final indicator = s.indicator;
-      Widget body = Container(
-        height: slot.height,
-        padding: slot.padding,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: slot.backgroundColor?.resolve(rt)),
-        child: _line(
-          text,
-          Text(
-            // ignore: raft_lints/avoid_render_index_assertion -- `value` iterates the fixed filter tab ids that labels covers.
-            raftText(context, RaftFeedbackFilterTabs.labels[value]!),
-            maxLines: 1,
-            softWrap: false,
-            style: text,
-          ),
+  Widget build(BuildContext context) => RaftTabsList<RaftFeedbackFilter>(
+    value: widget.value,
+    onChanged: widget.onChanged,
+    tabs: [
+      for (final value in RaftFeedbackFilter.values)
+        RaftTabItem(
+          value: value,
+          // ignore: raft_lints/avoid_render_index_assertion -- `value` iterates the fixed filter tab ids that labels covers.
+          label: RaftFeedbackFilterTabs.labels[value]!,
         ),
-      );
-      if (active) {
-        // The indicator: 1px inset horizontally, ~1.67px vertically.
-        body = Stack(
-          children: [
-            Positioned.fill(
-              left: 1,
-              right: 1,
-              top: 1.671875,
-              bottom: 1.671875,
-              child: DecoratedBox(decoration: indicator.decoration(rt)),
-            ),
-            body,
-          ],
-        );
-      }
-      return RaftHoverRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => hovered = value),
-        onExit: (_) => setState(() => hovered = null),
-        child: Semantics(
-          button: true,
-          selected: active,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => widget.onChanged(value),
-            child: body,
-          ),
-        ),
-      );
-    }
-
-    final values = RaftFeedbackFilter.values;
-    return Container(
-      padding: list.padding,
-      decoration: list.decoration(rt),
-      child: IntrinsicHeight(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: list.columnGap ?? 0,
-          children: [for (final (i, v) in values.indexed) tab(v, i)],
-        ),
-      ),
-    );
-  }
+    ],
+  );
 }
 
 /// One ticket: raft-ui `TaskCard` (`px-3 py-2.5`) + `TaskCardRow`

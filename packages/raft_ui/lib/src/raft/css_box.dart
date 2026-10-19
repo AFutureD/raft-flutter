@@ -48,6 +48,7 @@ class RaftCssBox extends StatelessWidget {
     this.insetRingWidth = 0,
     this.insetRingColor,
     this.rings = const [],
+    this.opaqueRings = false,
     this.width,
     this.height,
     this.padding,
@@ -67,6 +68,10 @@ class RaftCssBox extends StatelessWidget {
   final double insetRingWidth;
   final Color? insetRingColor;
   final List<RaftRing> rings;
+
+  /// The fill and the box fill is opaque: paint each ring as a whole rounded rect under the fill, as Blink
+  /// does for an opaque box (no AA seam where the fill edge meets the ring). Translucent rings need the cut-out.
+  final bool opaqueRings;
   final double? width, height;
   final EdgeInsetsGeometry? padding;
   final AlignmentGeometry? alignment;
@@ -108,8 +113,11 @@ class RaftCssBox extends StatelessWidget {
     if (width != null || height != null) {
       box = SizedBox(width: width, height: height, child: box);
     }
-    if (rings.isEmpty) return box;
-    return CustomPaint(painter: _RingsPainter(radius, rings), child: box);
+    // Always a CustomPaint: a ring appearing (focus) must not re-parent, and so rebuild, the child's state.
+    return CustomPaint(
+      painter: _RingsPainter(radius, rings, opaque: opaqueRings),
+      child: box,
+    );
   }
 }
 
@@ -164,9 +172,10 @@ class _InsetRingPainter extends CustomPainter {
 }
 
 class _RingsPainter extends CustomPainter {
-  _RingsPainter(this.radius, this.rings);
+  _RingsPainter(this.radius, this.rings, {this.opaque = false});
   final double radius;
   final List<RaftRing> rings;
+  final bool opaque;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -176,17 +185,18 @@ class _RingsPainter extends CustomPainter {
     );
     // CSS paints the first shadow on top: draw the last (largest) ring first.
     for (final ring in rings.reversed) {
-      canvas.drawDRRect(
-        box.inflate(ring.spread),
-        box,
-        Paint()..color = ring.color,
-      );
+      final outer = box.inflate(ring.spread);
+      if (opaque) {
+        canvas.drawRRect(outer, Paint()..color = ring.color);
+      } else {
+        canvas.drawDRRect(outer, box, Paint()..color = ring.color);
+      }
     }
   }
 
   @override
   bool shouldRepaint(_RingsPainter old) =>
-      old.radius != radius || !_same(old.rings, rings);
+      old.radius != radius || old.opaque != opaque || !_same(old.rings, rings);
 
   static bool _same(List<RaftRing> a, List<RaftRing> b) {
     if (a.length != b.length) return false;
@@ -195,4 +205,24 @@ class _RingsPainter extends CustomPainter {
     }
     return true;
   }
+}
+
+/// Outer rings (`ring-*`, the focus ring) around an arbitrary child whose own box has the given corner [radius]:
+/// painted outside the child's bounds only, so the child keeps its own fill and layout.
+class RaftOuterRings extends StatelessWidget {
+  const RaftOuterRings({
+    super.key,
+    required this.radius,
+    required this.rings,
+    required this.child,
+  });
+
+  final double radius;
+  final List<RaftRing> rings;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      // Always a CustomPaint: toggling the ring must not re-parent (and so rebuild the state of) the child.
+      CustomPaint(painter: _RingsPainter(radius, rings), child: child);
 }

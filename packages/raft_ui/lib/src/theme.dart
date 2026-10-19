@@ -162,14 +162,24 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
               'Noto Sans CJK JP',
               'sans-serif',
             ],
-          'zh' => const [..._raftCjkChain, 'Noto Sans CJK SC', 'Noto Sans CJK JP', 'sans-serif'],
+          'zh' => const [
+            ..._raftCjkChain,
+            'Noto Sans CJK SC',
+            'Noto Sans CJK JP',
+            'sans-serif',
+          ],
           'ko' => const [
             'Noto Sans CJK KR',
             'Noto Sans CJK JP',
             'Noto Sans CJK SC',
             'sans-serif',
           ],
-          _ => const [..._raftCjkChain, 'Noto Sans CJK JP', 'Noto Sans CJK SC', 'sans-serif'],
+          _ => const [
+            ..._raftCjkChain,
+            'Noto Sans CJK JP',
+            'Noto Sans CJK SC',
+            'sans-serif',
+          ],
         };
   double get radius => 8;
   double get fieldRadius => 6;
@@ -231,35 +241,19 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
       other == null || t < .5 ? this : other;
 }
 
+/// raft-ui 0.7.1 `Input` colours for the Material-hosted text fields (`RaftFieldSurface` + the input decoration
+/// theme): `bg-layer-card border-line-strong`, disabled `bg-fill-muted border-line-hairline`.
 @immutable
 class RaftFieldRecipe {
   const RaftFieldRecipe(this.tokens);
   final RaftTokens tokens;
-  Color fill({bool disabled = false}) => disabled
-      // `bg-fill-muted/50`: Chromium quantises the alpha to 8 bits first.
-      ? tokens.colors['fill-muted']!.withAlpha(
-          (tokens.colors['fill-muted']!.a * .5 * 255).round(),
-        )
-      : tokens.dark
-      ? tokens.card
-      : tokens.panel;
-  Color placeholder({bool disabled = false}) {
-    final placeholder = tokens.colors['foreground-placeholder'] ?? tokens.muted;
-    if (disabled) {
-      return tokens.colors['foreground-disabled'] ?? placeholder;
-    }
-    return placeholder.withValues(alpha: placeholder.a * .7);
-  }
+  Color fill({bool disabled = false}) =>
+      tokens.colors[disabled ? 'fill-muted' : 'layer-card']!;
+  Color placeholder({bool disabled = false}) =>
+      tokens.colors[disabled ? 'foreground-disabled' : 'foreground-hint']!;
 
-  Color border({bool disabled = false, bool hovered = false}) => disabled
-      ? tokens.colors['line-muted']!.withValues(
-          alpha: tokens.colors['line-muted']!.a * .6,
-        )
-      : tokens.dark
-      ? Colors.transparent
-      : hovered
-      ? tokens.colors['line-field-hover']!
-      : tokens.fieldLine;
+  Color border({bool disabled = false, bool hovered = false}) =>
+      tokens.colors[disabled ? 'line-hairline' : 'line-strong']!;
 }
 
 /// Original dark Input's two inset shadows and outer bottom shadow.
@@ -548,11 +542,11 @@ ThemeData raftTheme({
           : t.ink,
     ),
   );
+  // `rounded-control border-[1.5px]`: the 0.7.1 input outline, 8px radius.
   OutlineInputBorder fieldBorder(Color color, [double? width]) =>
       RaftFieldBorder(
-        insets: t.dark ? RaftFieldInsetRecipe(t) : null,
-        borderRadius: BorderRadius.circular(t.fieldRadius),
-        borderSide: BorderSide(color: color, width: width ?? t.border),
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: color, width: width ?? 1.5),
       );
   return ThemeData(
     useMaterial3: true,
@@ -590,10 +584,7 @@ ThemeData raftTheme({
       ),
       isDense: true,
       // CSS field outer height includes borders; Material outlines paint inside.
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8 + t.border,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       hintStyle: WidgetStateTextStyle.resolveWith(
         (states) => t.fieldStyle.copyWith(
           color: RaftFieldRecipe(t)
@@ -607,9 +598,9 @@ ThemeData raftTheme({
       border: fieldBorder(RaftFieldRecipe(t).border()),
       enabledBorder: fieldBorder(RaftFieldRecipe(t).border()),
       disabledBorder: fieldBorder(RaftFieldRecipe(t).border(disabled: true)),
-      focusedBorder: fieldBorder(t.primaryFill, 1),
-      errorBorder: fieldBorder(scheme.error),
-      focusedErrorBorder: fieldBorder(scheme.error),
+      focusedBorder: fieldBorder(RaftFieldRecipe(t).border()),
+      errorBorder: fieldBorder(t.colors['danger-strong']!),
+      focusedErrorBorder: fieldBorder(t.colors['danger-strong']!),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: buttonStyle.copyWith(

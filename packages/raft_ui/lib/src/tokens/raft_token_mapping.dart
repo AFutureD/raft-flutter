@@ -234,12 +234,8 @@ const Map<String, String> raftShadowMapping = {
 /// [RaftThemeMetrics] numeric field to its 0.7.1 metric token (`field-*`,
 /// `card-title-*`).
 ///
-/// These are NOT applied yet: [RaftTokenSet] carries [raftCarriedMetrics]
-/// instead. The tokens are 16/24 fields and 16/24/600 card titles; the Elegant
-/// structure every component still resolves to is dimensioned for 14/20 fields
-/// and 16/22/500 card titles (input height 38, not 42), and switching the
-/// numbers without the structure clips and overflows (text-scale audit,
-/// field-height contracts). The typography PR moves both together.
+/// [RaftTokenSet] carries [raftCarriedMetrics]: the `field-*` tokens (16/24/400) are applied with the ported
+/// Input; the card title (16/24/600 in 0.7.1) still carries the Elegant 16/22/500 its structure is dimensioned for.
 const Map<String, String> raftMetricMapping = {
   'fieldFontSize': 'field-font-size',
   'fieldFontWeight': 'field-font-weight',
@@ -250,11 +246,12 @@ const Map<String, String> raftMetricMapping = {
 };
 
 /// The metric values [RaftTokenSet] uses until the structure follows the
-/// tokens (see [raftMetricMapping]): Elegant's.
+/// tokens (see [raftMetricMapping]). The field metrics are the 0.7.1 `field-*` tokens (16/24/400: the ported
+/// Input, the Material-hosted fields and the field recipes); the card title still carries Elegant's 16/22/500.
 const Map<String, double> raftCarriedMetrics = {
-  'fieldFontSize': 14,
+  'fieldFontSize': 16,
   'fieldFontWeight': 400,
-  'fieldLineHeight': 20,
+  'fieldLineHeight': 24,
   'cardTitleFontSize': 16,
   'cardTitleFontWeight': 500,
   'cardTitleLineHeight': 22,

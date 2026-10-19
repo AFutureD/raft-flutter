@@ -12,7 +12,12 @@ import 'ui_raft_specimens/indicators.dart';
 import 'ui_raft_specimens/navigation.dart';
 import 'ui_raft_specimens/support.dart';
 
-final Map<String, RaftSpecimenBuilder> _specimens = {...raftActionSpecimens};
+final Map<String, RaftSpecimenBuilder> _specimens = {
+  ...raftActionSpecimens,
+  ...raftFormSpecimens,
+  ...raftNavigationSpecimens,
+  ...raftIndicatorSpecimens,
+};
 
 final Map<String, ParityCase> uiRaftSpecimenCases = {
   for (final entry in _specimens.entries)

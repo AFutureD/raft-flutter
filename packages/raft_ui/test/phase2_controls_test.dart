@@ -81,17 +81,21 @@ void main() {
     expect(tester.getSize(find.byType(RaftIcon)), const Size(48, 48));
   });
 
-  testWidgets('Elegant avatar preserves36px layout and32px painted circle', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host(const RaftAvatar(name: 'Human')));
-    expect(tester.getSize(find.byType(RaftAvatar)), const Size(36, 36));
-    final surface = find.descendant(
-      of: find.byType(RaftAvatar),
-      matching: find.byType(Container),
-    );
-    expect(tester.getSize(surface), const Size(32, 32));
-  });
+  testWidgets(
+    'avatar is a 36px square sticker (rounded-sticker, not a circle)',
+    (tester) async {
+      await tester.pumpWidget(host(const RaftAvatar(name: 'Human')));
+      expect(tester.getSize(find.byType(RaftAvatar)), const Size(36, 36));
+      final surface = tester.widget<RaftCssBox>(
+        find.descendant(
+          of: find.byType(RaftAvatar),
+          matching: find.byType(RaftCssBox),
+        ),
+      );
+      expect(surface.radius, 4);
+      expect(surface.width, 36);
+    },
+  );
 
   testWidgets('field outer box preserves source content plus border', (
     tester,
@@ -108,7 +112,8 @@ void main() {
         ),
       ),
     );
-    expect(tester.getSize(find.byType(RaftFieldSurface)).height, 38);
+    // 0.7.1 `h-11`: 24px line + 2 x 10 padding.
+    expect(tester.getSize(find.byType(RaftFieldSurface)).height, 44);
     expect(tester.takeException(), isNull);
   });
 

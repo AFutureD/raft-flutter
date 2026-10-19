@@ -12,7 +12,7 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 void main() {
   for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K08g] ${dark ? 'dark' : 'light'} actual mobile human DM keeps Source 18px avatar and 10px placeholder',
+      '[K08g] ${dark ? 'dark' : 'light'} actual mobile human DM keeps the 18px sticker avatar and its placeholder',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'home');
         w.dms = [
@@ -38,11 +38,15 @@ void main() {
           t.widget<RaftAvatar>(avatar).mountedContext,
           RaftMountedAvatarContext.sidebarList,
         );
-        final placeholder = t.widget<RaftIcon>(
-          find.descendant(of: avatar, matching: find.byType(RaftIcon)),
+        // The person placeholder is the sticker `xs` fallback icon (12px; was the 10px User glyph).
+        final placeholder = t.widget<RaftAvatarPlaceholder>(
+          find.descendant(
+            of: avatar,
+            matching: find.byType(RaftAvatarPlaceholder),
+          ),
         );
-        expect(placeholder.glyph, RaftGlyph.user);
-        expect(placeholder.size, 10);
+        expect(placeholder.size, RaftAvatarSize.xs);
+        expect(placeholder.size.icon, 12);
         final label = t.widget<Text>(
           find.descendant(of: row, matching: find.text('Taylor')),
         );

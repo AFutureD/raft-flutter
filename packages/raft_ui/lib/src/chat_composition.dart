@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'design_primitives.dart';
+import 'raft/tabs.dart';
 import 'viewport_breakpoints.dart';
 import 'icons.dart';
 import 'panel_layout.dart' show RaftCssText;
@@ -358,7 +359,8 @@ class RaftConversationTabsRecipe {
   final RaftTokens tokens;
   final bool mobile;
   final RaftDensity density;
-  double get sourceTabHeight => mobile ? 40 : 28;
+  // raft-ui 0.7.1 underline tabs fill the strip (the list height), the 2px bar sits on its bottom edge.
+  double get sourceTabHeight => sourceListHeight;
   double get sourceListHeight => mobile ? 40 : 48;
   // ChatPanel mounts h-7 tabs (Elegant mobile is overridden to h-10 by
   // ConversationPanelTabs). Its flow stays source-sized on coarse input too;
@@ -374,13 +376,11 @@ class RaftConversationTabsRecipe {
       ? tokens.card
       : tokens.panel;
   Color get border => tokens.colors['line-muted']!;
-  double get gap => 4;
+  // raft-ui `TabsList variant="underline"`: `gap-5`; the tab itself has `px-0`.
+  double get gap => 20;
   EdgeInsets get listInset => EdgeInsets.symmetric(horizontal: 16);
-  double horizontalInset(int index) => 12;
-  EdgeInsets tabInset(int index) => const EdgeInsets.symmetric(horizontal: 12);
   double get glyphSize => 14;
   double get glyphStroke => 1.5;
-  double get indicatorHeight => mobile ? 1 : 2;
   Color get indicator => tokens.colors['primary-400']!;
 }
 
@@ -604,59 +604,28 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
             minHeight: recipe.effectiveListHeight,
             maxHeight: grows ? double.infinity : recipe.effectiveListHeight,
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              RaftControl(
-                key: ValueKey('panel-tab-${tab.id.name}'),
-                focusNode: focus,
-                recipe: _ConversationTabControlRecipe(
-                  recipe.tokens,
-                  selected: selected,
-                ),
-                onPressed: tab.enabled ? () => widget.onChanged(tab.id) : null,
-                visualHeight: recipe.sourceTabHeight,
-                minimumTargetSize: recipe.targetHeight,
-                padding: recipe.tabInset(index),
-                shadow: false,
-                child: Builder(
-                  builder: (context) => Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (tab.id == RaftConversationTabId.tasks)
-                        _ConversationTaskGlyph(
-                          size: recipe.glyphSize,
-                          stroke: recipe.glyphStroke,
-                          color:
-                              DefaultTextStyle.of(context).style.color ??
-                              recipe.tokens.ink,
-                        )
-                      else
-                        RaftIcon(
-                          tab.id == RaftConversationTabId.chat
-                              ? RaftGlyph.messageSquare
-                              : RaftGlyph.paperclip,
-                          size: recipe.glyphSize,
-                          strokeWidth: recipe.glyphStroke,
-                        ),
-                      const SizedBox(width: 6),
-                      RaftCssText(tab.label),
-                    ],
-                  ),
-                ),
-              ),
-              if (selected)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: recipe.indicatorHeight,
-                  child: IgnorePointer(
-                    child: ColoredBox(color: recipe.indicator),
-                  ),
-                ),
-            ],
+          // raft-ui `Tabs` `variant="underline"`: bare callout text, a 2px foreground bar under the selected tab.
+          child: RaftTabButton(
+            key: ValueKey('panel-tab-${tab.id.name}'),
+            focusNode: focus,
+            label: tab.label,
+            variant: RaftTabsVariant.underline,
+            selected: selected,
+            height: recipe.effectiveListHeight,
+            growsWithText: grows,
+            glyph: switch (tab.id) {
+              RaftConversationTabId.chat => RaftGlyph.messageSquare,
+              RaftConversationTabId.files => RaftGlyph.paperclip,
+              RaftConversationTabId.tasks => null,
+            },
+            icon: tab.id == RaftConversationTabId.tasks
+                ? (size, color, stroke) => _ConversationTaskGlyph(
+                    size: size,
+                    stroke: stroke,
+                    color: color,
+                  )
+                : null,
+            onPressed: tab.enabled ? () => widget.onChanged(tab.id) : null,
           ),
         ),
       ),

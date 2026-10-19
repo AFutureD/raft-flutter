@@ -8,7 +8,7 @@ import 'package:raft_ui/test_themes.dart';
 
 void main() {
   testWidgets(
-    'dark source inset paints inside field and survives border tween',
+    'dark 0.7.1 field paints a layer-card fill inside an ink border and survives border tween',
     (tester) async {
       final theme = raftTheme(dark: true);
       final normal =
@@ -16,7 +16,9 @@ void main() {
       final focused =
           theme.inputDecorationTheme.focusedBorder! as RaftFieldBorder;
       final mid = ShapeBorder.lerp(normal, focused, .5)! as RaftFieldBorder;
-      expect(mid.insets, isNotNull);
+      // 0.7.1 fields have no inset shadows (controls never cast shadows): the border is a plain 1.5px outline.
+      expect(mid.insets, isNull);
+      expect(mid.borderSide.width, 1.5);
       final key = GlobalKey();
       await tester.pumpWidget(
         MaterialApp(
@@ -50,15 +52,19 @@ void main() {
         }
       });
       expect(data, isNotNull);
-      // A transparent 1px CSS border retains the fill at the border edge;
-      // the inset ring (line-hairline, a faint light ring on dark) begins
-      // inside it, at the padding edge. The top/bottom glows are transparent.
-      final interior = data!.getUint8((19 * 300 + 150) * 4);
-      expect(data.getUint8(150 * 4), interior);
-      expect(data.getUint8((300 + 150) * 4), greaterThan(interior));
-      expect(data.getUint8((19 * 300) * 4), interior);
-      expect(data.getUint8((19 * 300 + 1) * 4), greaterThan(interior));
-      expect(boundary.size, const Size(300, 38));
+      final ui = RaftUiColors.of(true);
+      int px(int x, int y) => (y * 300 + x) * 4;
+      Color at(int x, int y) => Color.fromARGB(
+        data!.getUint8(px(x, y) + 3),
+        data.getUint8(px(x, y)),
+        data.getUint8(px(x, y) + 1),
+        data.getUint8(px(x, y) + 2),
+      );
+      // The fill is `layer-card`, the outline `line-strong` (the 1.5px border covers pixels 0 and 1).
+      expect(at(150, 22), ui.layerCard);
+      expect(at(150, 0), ui.lineStrong);
+      expect(at(150, 1).a, 1);
+      expect(boundary.size, const Size(300, 44));
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

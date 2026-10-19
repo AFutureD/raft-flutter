@@ -39,7 +39,8 @@ void main() {
             ),
           ),
         );
-        expect(tester.getSize(find.byType(RaftSwitch)), const Size(36, 20));
+        // raft-ui 0.7.1: the single 50x30 switch (the 36x20 `md` is gone).
+        expect(tester.getSize(find.byType(RaftSwitch)), const Size(50, 30));
         await tester.tap(find.byType(RaftSwitch));
         await tester.pumpAndSettle();
         expect(changes, [true]);
@@ -62,7 +63,7 @@ void main() {
       }
     });
   }
-  testWidgets('disabled touch switch keeps48px target and never toggles', (
+  testWidgets('disabled touch switch keeps 48px hit target and never toggles', (
     tester,
   ) async {
     var changed = 0;
@@ -87,7 +88,12 @@ void main() {
           ),
         ),
       );
-      expect(tester.getSize(find.byType(RaftSwitch)), const Size(48, 48));
+      expect(tester.getSize(find.byType(RaftSwitch)), const Size(50, 30));
+      // ... while the hit target and semantics rect still reach 48px.
+      expect(
+        tester.getSemantics(find.byType(RaftSwitch)).rect.size.shortestSide,
+        48,
+      );
       expect(
         tester.getSemantics(find.byType(RaftSwitch)).flagsCollection.isEnabled,
         Tristate.isFalse,
@@ -130,12 +136,25 @@ void main() {
       await gesture.up();
       await tester.pump();
       expect(changed, 0);
-      expect(
-        tester.widget<AnimatedScale>(find.byType(AnimatedScale)).duration,
-        Duration.zero,
-      );
+      // Reduced motion: the thumb is already at its resting place on the first frame.
+      final thumb = tester.getTopLeft(find.byType(RaftCssBox).last).dx;
       await tester.tap(find.byType(RaftSwitch));
       expect(changed, 1);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(),
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(disableAnimations: true),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: RaftSwitch(value: false, onChanged: (_) {}),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.getTopLeft(find.byType(RaftCssBox).last).dx, thumb - 20);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

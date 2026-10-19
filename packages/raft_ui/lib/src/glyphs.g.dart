@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with `tool/gen-glyphs`.
-// Geometry: lucide-react 0.575.0 (Web product imports) and 1.48.0 (raft-ui 0.5.27 imports), ISC;
+// Geometry: lucide-react 0.575.0 (Web product imports) and 1.48.0 (raft-ui 0.5.27 imports), 1.59.0 (raft-ui 0.7.1 parity host), ISC;
 // see packages/raft_ui/LICENSE-LUCIDE. Vendored source: tool/design-source/lucide/glyphs.json
 // (raft-source 26f77ef97c40d3d91aa2c5e42b0fd66b8bf39fe6).
 // dart format off
@@ -20,6 +20,9 @@ enum RaftGlyph {
   /// Web: components/LocalizedToastProvider.tsx:2 (+8 more).
   /// raft-ui: raft-ui@0.5.27/dist/index.mjs:14878 (+3 more).
   alertTriangle(_triangleAlertV0_575_0, 'triangle-alert', '0.575.0'),
+  /// lucide `app-window` 1.59.0.
+  /// Flutter-only glyph drawn by the raft-ui 0.7.1 parity specimens (icon-tile); geometry from the parity host lucide-react.
+  appWindow(_appWindowV1_59_0, 'app-window', '1.59.0'),
   /// lucide `archive` 0.575.0.
   /// Web: components/channel/EditChannelDialog.tsx:19 (+3 more).
   archive(_archiveV0_575_0, 'archive', '0.575.0'),
@@ -410,6 +413,9 @@ enum RaftGlyph {
   /// lucide `network` 0.575.0.
   /// Web: components/layout/Sidebar.tsx:9 (+1 more).
   network(_networkV0_575_0, 'network', '0.575.0'),
+  /// lucide `octagon-alert` 1.59.0.
+  /// Flutter-only glyph drawn by the raft-ui 0.7.1 parity specimens (icon-tile); geometry from the parity host lucide-react.
+  octagonAlert(_octagonAlertV1_59_0, 'octagon-alert', '1.59.0'),
   /// lucide `palette` 0.575.0.
   /// Legacy Flutter name; no Web import uses it.
   palette(_paletteV0_575_0, 'palette', '0.575.0'),
@@ -591,6 +597,13 @@ enum RaftGlyph {
 // activity.js lucide-react 0.575.0 sha256 a297a71e6136739a
 const _activityV0_575_0 = <_LucideNode>[
   _LucideNode.path('M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2'),
+];
+// app-window.js lucide-react 1.59.0 sha256 a10205d722d6e451
+const _appWindowV1_59_0 = <_LucideNode>[
+  _LucideNode(_LucideKind.rect, [2.0, 4.0, 20.0, 16.0, 2.0, 2.0]),
+  _LucideNode.path('M10 4v4'),
+  _LucideNode.path('M2 8h20'),
+  _LucideNode.path('M6 4v4'),
 ];
 // archive-restore.js lucide-react 0.575.0 sha256 9c1ee76ca45a5266
 const _archiveRestoreV0_575_0 = <_LucideNode>[
@@ -1326,6 +1339,12 @@ const _networkV0_575_0 = <_LucideNode>[
   _LucideNode(_LucideKind.rect, [9.0, 2.0, 6.0, 6.0, 1.0, 1.0]),
   _LucideNode.path('M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3'),
   _LucideNode.path('M12 12V8'),
+];
+// octagon-alert.js lucide-react 1.59.0 sha256 3e338902d375a694
+const _octagonAlertV1_59_0 = <_LucideNode>[
+  _LucideNode.path('M12 16h.01'),
+  _LucideNode.path('M12 8v4'),
+  _LucideNode.path('M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z'),
 ];
 // palette.js lucide-react 0.575.0 sha256 8f71ae399eaf69c7
 const _paletteV0_575_0 = <_LucideNode>[

@@ -44,6 +44,7 @@ import 'recipes/composer_suggestion_list.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
 import 'mounted_avatar_recipe.dart';
+import 'raft/avatar.dart';
 import 'design_primitives.dart';
 import 'css_pixel_snap.dart';
 import 'icons.dart';
@@ -155,11 +156,16 @@ class RaftPanel extends StatelessWidget {
 
 enum RaftAvatarKind { human, agent, server, app }
 
+/// raft-ui `Avatar`: a square sticker. [size] is the outer edge in px (the generic sticker sizes are 19 / 27 /
+/// 35 / 51 / 99; any other value is kept and borrows the nearest size's text, icon and badge); [uiSize] picks a
+/// raft-ui size class instead. A person's fallback is the initials of [name] (or the placeholder icon for a
+/// blank name), an agent's its first letter; host artwork comes in through [content] / [imageUrl].
 class RaftAvatar extends StatelessWidget {
   const RaftAvatar({
     super.key,
     required this.name,
     this.size = 36,
+    this.uiSize,
     this.kind = RaftAvatarKind.human,
     this.imageUrl,
     this.content,
@@ -170,6 +176,9 @@ class RaftAvatar extends StatelessWidget {
   });
   final String name;
   final double size;
+
+  /// raft-ui size class; wins over [size].
+  final RaftAvatarSize? uiSize;
   final RaftAvatarKind kind;
   final String? imageUrl;
 
@@ -186,7 +195,6 @@ class RaftAvatar extends StatelessWidget {
   final bool muted;
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
     final mountedRole = mountedContext;
     if (mountedRole != null) {
       final identity = switch (kind) {
@@ -218,60 +226,51 @@ class RaftAvatar extends StatelessWidget {
                   )),
       );
     }
-    final fallback = Center(
-      child: switch (kind) {
-        RaftAvatarKind.human => RaftIcon(
-          RaftGlyph.user,
-          size: size >= 32 ? 18 : 12,
-          color: t.colors['foreground-placeholder']!.withValues(alpha: .7),
-        ),
-        RaftAvatarKind.agent => RaftIcon(
-          RaftGlyph.bot,
-          size: size >= 32 ? 18 : 12,
-          color: t.muted,
-        ),
-        _ => Text(
-          name.isEmpty ? '?' : name.characters.first.toUpperCase(),
-          // Initials fill a fixed-size avatar: they grow with the text size
-          // only up to the chrome bound.
-          textScaler: RaftChrome.boundedScalerOf(context),
-          style: RaftTypography.body(
-            t,
-            size: size * .4,
-            line: size * .5,
-            weight: FontWeight.w700,
-          ),
-        ),
-      },
+    final sizeClass = uiSize ?? RaftAvatarSize.nearest(size);
+    final identity = switch (kind) {
+      RaftAvatarKind.human => RaftMountedAvatarIdentity.human,
+      RaftAvatarKind.agent => RaftMountedAvatarIdentity.agent,
+      RaftAvatarKind.server => RaftMountedAvatarIdentity.server,
+      RaftAvatarKind.app => RaftMountedAvatarIdentity.app,
+    };
+    final initials = switch (kind) {
+      RaftAvatarKind.human => raftAvatarInitials(name),
+      RaftAvatarKind.agent => raftAvatarInitials(name, max: 1),
+      RaftAvatarKind.server =>
+        name.trim().isEmpty ? '' : raftAvatarInitials(name, max: 1),
+      RaftAvatarKind.app =>
+        name.trim().characters.take(2).toString().toUpperCase(),
+    };
+    final fallback = initials.isEmpty
+        ? RaftAvatarPlaceholder(size: sizeClass)
+        : RaftAvatarInitials(initials, size: sizeClass);
+    final admitted = kind == RaftAvatarKind.agent && !deactivated && !muted
+        ? presence
+        : null;
+    Widget avatar = RaftStickerAvatar(
+      size: sizeClass,
+      extent: uiSize == null ? size : null,
+      type: identity == RaftMountedAvatarIdentity.human
+          ? RaftAvatarType.human
+          : RaftAvatarType.agent,
+      presence: admitted?.light,
+      presenceLabel: admitted?.label,
+      child:
+          content ??
+          (imageUrl == null
+              ? fallback
+              : RaftSizedImage.avatar(
+                  imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => fallback,
+                )),
     );
+    if (muted) avatar = Opacity(opacity: .6, child: avatar);
     return Semantics(
       label: name,
       image: true,
       excludeSemantics: true,
-      child: SizedBox.square(
-        dimension: size,
-        child: Padding(
-          padding: EdgeInsets.all(2),
-          child: Container(
-            width: size,
-            height: size,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: t.colors['fill-muted'],
-              borderRadius: BorderRadius.circular(size / 2),
-            ),
-            child:
-                content ??
-                (imageUrl == null
-                    ? fallback
-                    : RaftSizedImage.avatar(
-                        imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => fallback,
-                      )),
-          ),
-        ),
-      ),
+      child: avatar,
     );
   }
 }

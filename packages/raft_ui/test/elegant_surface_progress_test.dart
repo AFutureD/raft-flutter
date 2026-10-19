@@ -134,20 +134,14 @@ void main() {
         await tester.pump();
         expect(focus.hasFocus, true);
         final state = tester.state(find.byType(EditableText));
-        final initial = tester.widget<RaftRecipeBox>(
-          find.byType(RaftRecipeBox),
-        );
-        final layers = initial.style.cssShadows(
-          themes.first.extension<RaftTokens>()!.recipeTokens,
-        );
+        // 0.7.1 `focus:shadow-focus`: the focus ring (2px surface gap, 2px ink) around the input.
+        final ring = RaftUiColors.of(dark).focusRing.layers;
         expect(
-          layers.any(
-            (layer) =>
-                !layer.inset &&
-                layer.spread == (dark ? 2 : 1) &&
-                layer.color.a > 0,
-          ),
-          true,
+          tester
+              .widget<RaftCssBox>(find.byType(RaftCssBox))
+              .rings
+              .map((r) => r.spread),
+          ring.map((l) => l.spread),
           reason: 'Source editable inputs match :focus-visible on autofocus.',
         );
 

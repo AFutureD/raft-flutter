@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/src/components.dart';
-import 'package:raft_ui/src/icons.dart';
 import 'package:raft_ui/src/mounted_avatar_recipe.dart';
+import 'package:raft_ui/src/raft/raft.dart';
 import 'package:raft_ui/src/theme.dart';
 import 'package:raft_ui/src/tooltip.dart';
 import 'package:raft_ui/test_themes.dart';
+
+/// `border-[1.5px]` floored to whole device pixels at the test binding's 3.0 device ratio.
+const _border = 4 / 3;
 
 const busy = RaftAvatarPresence(activity: RaftAvatarActivity.working);
 Widget host(Widget child, bool dark) => MaterialApp(
@@ -17,10 +20,11 @@ Widget host(Widget child, bool dark) => MaterialApp(
 
 void main() {
   for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
-    for (final (context, extent, inner) in [
-      (RaftMountedAvatarContext.panelHeader, 36.0, 32.0),
-      (RaftMountedAvatarContext.compactList, 20.0, 18.0),
-      (RaftMountedAvatarContext.previewMini, 14.0, 12.0),
+    // Square sticker: `border-[1.5px]` paints whole device pixels, 4/3 px at the test's 3.0 ratio.
+    for (final (context, extent) in [
+      (RaftMountedAvatarContext.panelHeader, 36.0),
+      (RaftMountedAvatarContext.compactList, 20.0),
+      (RaftMountedAvatarContext.previewMini, 14.0),
     ]) {
       testWidgets(
         'mounted $context frame and real inner content ${dark ? 'dark' : 'light'}',
@@ -43,26 +47,20 @@ void main() {
             Size.square(extent),
           );
           expect(
-            tester.getSize(find.byKey(const Key('public-content'))),
-            Size.square(inner),
+            tester.getSize(find.byKey(const Key('public-content'))).width,
+            closeTo(extent - 2 * _border, 1e-9),
           );
-          final frame = tester.widget<DecoratedBox>(
+          final frame = tester.widget<RaftCssBox>(
             find.byKey(const ValueKey('mounted-avatar-frame')),
-          );
-          final decoration = frame.decoration as BoxDecoration;
-          expect(decoration.border!.top.width, (extent - inner) / 2);
-          expect(decoration.border!.top.color, Colors.transparent);
-          expect(decoration.borderRadius, BorderRadius.circular(extent / 2));
-          final fill = tester.widget<DecoratedBox>(
-            find.byKey(const ValueKey('mounted-avatar-fallback-fill')),
           );
           final t = Theme.of(
             tester.element(find.byType(RaftMountedAvatarFrame)),
           ).extension<RaftTokens>()!;
-          expect(
-            (fill.decoration as BoxDecoration).color,
-            t.colors['fill-strong'],
-          );
+          expect(frame.borderWidth, closeTo(_border, 1e-9));
+          expect(frame.borderColor, t.ui.stickerInk);
+          // `rounded-sticker`: a 4px square sticker, not a circle.
+          expect(frame.radius, 4);
+          expect(frame.fill, t.ui['palette-lavender-400']);
           expect(
             find.byKey(const ValueKey('mounted-avatar-presence')),
             findsNothing,
@@ -90,13 +88,6 @@ void main() {
           tester.getSize(find.byType(RaftMountedAvatarFrame)),
           const Size.square(20),
         );
-        final frame = tester.widget<DecoratedBox>(
-          find.byKey(const ValueKey('mounted-avatar-frame')),
-        );
-        expect(
-          (frame.decoration as BoxDecoration).border!.top.color,
-          Colors.black.withValues(alpha: .4),
-        );
         expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, .6);
         expect(
           find.byKey(const ValueKey('mounted-avatar-presence')),
@@ -122,55 +113,62 @@ void main() {
         final badge = find.byKey(const ValueKey('mounted-avatar-presence'));
         final row = find.byType(RaftMountedAvatarFrame);
         final delta = tester.getTopLeft(badge) - tester.getTopLeft(row);
-        expect(tester.getSize(badge), const Size.square(10));
-        expect(delta.dx, 25);
-        expect(delta.dy, 25);
+        // md sticker badge: 11px, pinned `-right-1 -bottom-1` of the padding box (36 - border + 4 - 11).
+        expect(tester.getSize(badge), const Size.square(11));
+        expect(delta.dx, closeTo(36 - _border + 4 - 11, 1e-9));
+        expect(delta.dy, closeTo(36 - _border + 4 - 11, 1e-9));
         expect(
           find.ancestor(of: badge, matching: find.byType(ClipRRect)),
           findsNothing,
         );
-        final decoration =
-            tester.widget<DecoratedBox>(badge).decoration as BoxDecoration;
-        expect(decoration.color, const Color(0xffffd440));
-        expect(decoration.border!.top.width, 1);
-        expect(decoration.boxShadow!.length, 1);
+        final dot = tester.widget<RaftCssBox>(
+          find.descendant(of: badge, matching: find.byType(RaftCssBox)),
+        );
         final t = RaftTokens.of(tester.element(row));
-        expect(decoration.boxShadow!.single.color, t.panel);
-        expect(decoration.boxShadow!.single.spreadRadius, 2);
+        expect(dot.fill, t.ui.presence('busy'));
+        expect(dot.borderWidth, closeTo(_border, 1e-9));
+        expect(dot.borderColor, t.ui.stickerInk);
+        expect(dot.radius, 2);
+        expect(dot.rings.length, 1);
+        expect(dot.rings.single.color, t.panel);
+        expect(dot.rings.single.spread, 2);
 
         await tester.pump();
         expect(tester.binding.hasScheduledFrame, isFalse);
       },
     );
     testWidgets(
-      'explicit and nested Gravatar fallbacks use separate source glyph sizes ${dark ? 'dark' : 'light'}',
+      'a named person shows initials, an anonymous one the placeholder icon ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           host(const RaftMountedAvatarFrame(name: 'Public human'), dark),
         );
-        var glyph = tester.widget<RaftIcon>(find.byType(RaftIcon));
-        expect(glyph.size, 18);
+        expect(find.text('PH'), findsOneWidget);
+        expect(find.byType(RaftAvatarPlaceholder), findsNothing);
         final t = RaftTokens.of(
           tester.element(find.byType(RaftMountedAvatarFrame)),
         );
         expect(
-          glyph.color,
-          // opacity-70 over the token's own alpha (Raft hint is translucent).
-          t.colors['foreground-placeholder']!.withValues(
-            alpha: t.colors['foreground-placeholder']!.a * .7,
-          ),
+          tester.widget<Text>(find.text('PH')).style!.color,
+          t.ui.stickerInk,
         );
-        await tester.pumpWidget(
-          host(
-            const RaftMountedAvatarFrame(
-              name: 'Public human',
-              child: RaftMountedAvatarFallback(gravatar: true),
+        for (final gravatar in [false, true]) {
+          await tester.pumpWidget(
+            host(
+              RaftMountedAvatarFrame(
+                name: 'Public human',
+                child: RaftMountedAvatarFallback(gravatar: gravatar),
+              ),
+              dark,
             ),
-            dark,
-          ),
-        );
-        glyph = tester.widget<RaftIcon>(find.byType(RaftIcon));
-        expect(glyph.size, 18);
+          );
+          // The explicit humanPlaceholder branch and the nested Gravatar fallback draw the same icon (md: 18).
+          final placeholder = tester.widget<RaftAvatarPlaceholder>(
+            find.byType(RaftAvatarPlaceholder),
+          );
+          expect(placeholder.size.icon, 18);
+          expect(placeholder.color, isNull);
+        }
       },
     );
   }
@@ -251,19 +249,13 @@ void main() {
         final t = RaftTokens.of(
           tester.element(find.byType(RaftMountedAvatarFrame)),
         );
-        final d =
-            tester
-                    .widget<DecoratedBox>(
-                      find.byKey(const ValueKey('mounted-avatar-presence')),
-                    )
-                    .decoration
-                as BoxDecoration;
-        expect(
-          d.color,
-          online
-              ? RaftAvatarStatusPrimitives.busy
-              : t.colors['color-brutal-cyan'],
+        final dot = tester.widget<RaftCssBox>(
+          find.descendant(
+            of: find.byKey(const ValueKey('mounted-avatar-presence')),
+            matching: find.byType(RaftCssBox),
+          ),
         );
+        expect(dot.fill, t.ui.presence(online ? 'busy' : 'external'));
       }
     },
   );
