@@ -8,7 +8,13 @@ import 'package:raft_ui/selection_popover_previews.dart';
 import 'package:raft_ui/test_themes.dart';
 
 Future<void> loadFonts(WidgetTester tester) => tester.runAsync(() async {
-  for (final name in ['HankenGrotesk', 'Inter', 'GeistMono']) {
+  for (final name in [
+    'SpaceGrotesk',
+    'SpaceMono',
+    'HankenGrotesk',
+    'Inter',
+    'GeistMono',
+  ]) {
     ByteData bytes;
     try {
       bytes = await rootBundle.load('packages/raft_ui/assets/fonts/$name.ttf');

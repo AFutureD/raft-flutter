@@ -416,9 +416,7 @@ class RaftButton extends StatelessWidget {
           disabled: disabled,
           overlay: (st.hovered || st.pressed) && !disabled,
         );
-        final fg = foreground != null && !disabled
-            ? foreground!
-            : colors.foreground;
+        final fg = foreground ?? colors.foreground;
         final inline = sizeValue == RaftButtonSize.inline;
         final borderWidth = inline ? 0.0 : _borderWidth(context);
         final iconSize = metrics.icon;
@@ -458,7 +456,6 @@ class RaftButton extends StatelessWidget {
                 softWrap: false,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: labelStyle,
               ),
             ),
           if (iconWidget != null && iconInlineEnd) ...[
@@ -466,10 +463,18 @@ class RaftButton extends StatelessWidget {
             iconWidget,
           ],
         ];
-        Widget content = Row(
-          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: children,
+        // The label style and icon colour are inherited, like the Web `content` span: a leading slot (brand
+        // mark) and the caller's own text widgets pick them up.
+        Widget content = DefaultTextStyle.merge(
+          style: labelStyle,
+          child: IconTheme.merge(
+            data: IconThemeData(color: fg, size: iconSize),
+            child: Row(
+              mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: children,
+            ),
+          ),
         );
         if (busy) {
           content = Stack(
@@ -483,6 +488,8 @@ class RaftButton extends StatelessWidget {
             ],
           );
         }
+
+        if (semanticLabel != null) content = ExcludeSemantics(child: content);
 
         final start =
             iconWidget != null &&
@@ -519,7 +526,8 @@ class RaftButton extends StatelessWidget {
           width: metrics.square
               ? metrics.height
               : (expand ? double.infinity : null),
-          height: inline ? null : metrics.height,
+          height: metrics.square && !inline ? metrics.height : null,
+          minHeight: metrics.square || inline ? null : metrics.height,
           padding: padding,
           alignment: Alignment.center,
           child: content,

@@ -5,7 +5,14 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 Future<void> fonts(WidgetTester t) => t.runAsync(() async {
-  for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
+  for (final family in [
+    'SpaceGrotesk',
+    'SpaceMono',
+    'HankenGrotesk',
+    'Inter',
+    'Geist',
+    'GeistMono',
+  ]) {
     ByteData bytes;
     try {
       bytes = await rootBundle.load(
@@ -98,8 +105,8 @@ void main() {
           }
           final heading = t.widget<RaftCssText>(css('design'));
           final meta = t.widget<RaftCssText>(css('Product and UI decisions'));
-          expect(heading.style!.fontFamily, 'packages/raft_ui/Inter');
-          expect(meta.style!.fontFamily, 'packages/raft_ui/Geist');
+          expect(heading.style!.fontFamily, 'packages/raft_ui/SpaceGrotesk');
+          expect(meta.style!.fontFamily, 'packages/raft_ui/SpaceGrotesk');
           await t.tap(find.bySemanticsLabel('Search This Channel'));
           await t.tap(find.bySemanticsLabel('Close Profile'));
           expect([searches, closes], [1, 1]);

@@ -14,7 +14,14 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 Future<void> loadFonts(WidgetTester t) => t.runAsync(() async {
-  for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
+  for (final family in [
+    'SpaceGrotesk',
+    'SpaceMono',
+    'HankenGrotesk',
+    'Inter',
+    'Geist',
+    'GeistMono',
+  ]) {
     ByteData bytes;
     try {
       bytes = await rootBundle.load(

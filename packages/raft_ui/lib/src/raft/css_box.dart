@@ -51,6 +51,7 @@ class RaftCssBox extends StatelessWidget {
     this.opaqueRings = false,
     this.width,
     this.height,
+    this.minHeight,
     this.padding,
     this.alignment,
     this.child,
@@ -73,6 +74,9 @@ class RaftCssBox extends StatelessWidget {
   /// does for an opaque box (no AA seam where the fill edge meets the ring). Translucent rings need the cut-out.
   final bool opaqueRings;
   final double? width, height;
+
+  /// `min-h-*`: the box grows past it with its content (large text scales).
+  final double? minHeight;
   final EdgeInsetsGeometry? padding;
   final AlignmentGeometry? alignment;
   final Widget? child;
@@ -112,6 +116,12 @@ class RaftCssBox extends StatelessWidget {
     );
     if (width != null || height != null) {
       box = SizedBox(width: width, height: height, child: box);
+    }
+    if (minHeight != null) {
+      box = ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight!),
+        child: box,
+      );
     }
     // Always a CustomPaint: a ring appearing (focus) must not re-parent, and so rebuild, the child's state.
     return CustomPaint(

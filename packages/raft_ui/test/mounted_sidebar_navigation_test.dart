@@ -95,7 +95,10 @@ void main() {
               expect(widget.visualHeight, expected);
               // Sidebar.tsx row box on every density (no 48dp inflation).
               expect(tester.getSize(nav).height, expected + 4);
-              expect(recipe.textStyle.fontFamily, 'packages/raft_ui/Inter');
+              expect(
+                recipe.textStyle.fontFamily,
+                'packages/raft_ui/SpaceGrotesk',
+              );
               expect(recipe.textStyle.fontWeight, FontWeight.w500);
               expect(
                 recipe.textStyle.fontSize,

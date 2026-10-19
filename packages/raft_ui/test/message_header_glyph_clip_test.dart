@@ -20,7 +20,14 @@ import 'package:raft_ui/test_themes.dart';
 const _pixelRatio = 8.0;
 
 Future<void> _loadFonts() async {
-  for (final name in const ['HankenGrotesk', 'Geist', 'GeistMono', 'Inter']) {
+  for (final name in const [
+    'SpaceGrotesk',
+    'SpaceMono',
+    'HankenGrotesk',
+    'Geist',
+    'GeistMono',
+    'Inter',
+  ]) {
     // Bundled assets, so the test does not depend on the working directory.
     ByteData data;
     try {

@@ -21,7 +21,14 @@ const _labels = ['Claude Code', 'Claude Opus 5.5', 'High', 'gpqy', '默认'];
 const _scales = [1.0, 1.3, 2.0];
 
 Future<void> _loadFonts(WidgetTester t) => t.runAsync(() async {
-  for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
+  for (final family in [
+    'SpaceGrotesk',
+    'SpaceMono',
+    'HankenGrotesk',
+    'Inter',
+    'Geist',
+    'GeistMono',
+  ]) {
     ByteData bytes;
     try {
       bytes = await rootBundle.load(

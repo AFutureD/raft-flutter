@@ -42,11 +42,13 @@ class _RaftPixelSpinnerState extends State<RaftPixelSpinner>
       _controller?.dispose();
       _controller = null;
     } else if (_controller == null) {
-      // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
-      _controller = AnimationController(
+      final controller = AnimationController(
         vsync: this,
         duration: const Duration(seconds: 1),
-      )..repeat();
+      );
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
+      controller.repeat();
+      _controller = controller;
     }
   }
 

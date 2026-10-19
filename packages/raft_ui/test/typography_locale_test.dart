@@ -52,7 +52,9 @@ void main() {
         }
         final editable = tester.widget<EditableText>(find.byType(EditableText));
         expect(editable.style.locale, device);
-        expect(tokens.fontFallback.first, 'Noto Sans CJK SC');
+        // The design stack's CJK chain leads for Simplified Chinese; the Noto face follows it.
+        expect(tokens.fontFallback.first, 'PingFang SC');
+        expect(tokens.fontFallback, contains('Noto Sans CJK SC'));
         expect(RaftTypography.heading(tokens).locale, device);
         expect(RaftTypography.mono(tokens).locale, device);
         final recipeTokens = RaftRecipeTokens(tokens);
@@ -94,7 +96,13 @@ void main() {
     ]) {
       final tokens = RaftTokens.theme(textLocale: locale);
       expect(tokens.fieldStyle.locale, locale);
-      expect(tokens.fontFallback.first, 'Noto Sans CJK $family');
+      // Simplified Chinese leads with the design stack's CJK chain; Traditional, Korean and Japanese keep their
+      // locale-specific Noto face first (the Han glyph variant depends on it).
+      expect(
+        tokens.fontFallback.first,
+        family == 'SC' ? 'PingFang SC' : 'Noto Sans CJK $family',
+      );
+      expect(tokens.fontFallback, contains('Noto Sans CJK $family'));
     }
   });
 }

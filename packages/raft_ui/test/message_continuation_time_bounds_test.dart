@@ -15,13 +15,13 @@ void main() {
             ByteData data;
             try {
               data = await rootBundle.load(
-                'packages/raft_ui/assets/fonts/GeistMono.ttf',
+                'packages/raft_ui/assets/fonts/SpaceMono.ttf',
               );
             } on FlutterError {
-              data = await rootBundle.load('assets/fonts/GeistMono.ttf');
+              data = await rootBundle.load('assets/fonts/SpaceMono.ttf');
             }
             await (FontLoader(
-              'packages/raft_ui/GeistMono',
+              'packages/raft_ui/SpaceMono',
             )..addFont(Future.value(data))).load();
           });
           await t.binding.setSurfaceSize(Size(width, 480));

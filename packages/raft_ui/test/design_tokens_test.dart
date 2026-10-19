@@ -95,8 +95,8 @@ void main() {
     expect(metrics.fieldLineHeight, 24);
     expect(metrics.cardTitleFontWeight, 500);
     // The Space Grotesk / Space Mono faces are a follow-up; Elegant's carry on.
-    expect(metrics.headingFontStack.first, 'Inter');
-    expect(metrics.sansFont, 'packages/raft_ui/Geist');
+    expect(metrics.headingFontStack.first, 'Space Grotesk');
+    expect(metrics.sansFont, 'packages/raft_ui/SpaceGrotesk');
     expect(RaftScale.spacing, 4);
     expect(RaftScale.radius['md'], 6);
     expect(RaftScale.text['sm']!.fontSize, 14);

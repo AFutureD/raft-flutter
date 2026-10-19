@@ -15,12 +15,14 @@ Future<void> loadFonts(WidgetTester tester) async {
   await tester.runAsync(() async {
     ByteData bytes;
     try {
-      bytes = await rootBundle.load('packages/raft_ui/assets/fonts/Geist.ttf');
+      bytes = await rootBundle.load(
+        'packages/raft_ui/assets/fonts/SpaceGrotesk.ttf',
+      );
     } on FlutterError {
-      bytes = await rootBundle.load('assets/fonts/Geist.ttf');
+      bytes = await rootBundle.load('assets/fonts/SpaceGrotesk.ttf');
     }
     await (FontLoader(
-      'packages/raft_ui/Geist',
+      'packages/raft_ui/SpaceGrotesk',
     )..addFont(Future.value(bytes))).load();
   });
 }

@@ -27,7 +27,7 @@ flutter:
         - asset: assets/fonts/SpaceGrotesk.ttf
     - family: SpaceMono
       fonts:
-        - asset: assets/fonts/SpaceMono-Regular.ttf
+        - asset: assets/fonts/SpaceMono.ttf
         - asset: assets/fonts/SpaceMono-Bold.ttf
           weight: 700
     - family: HankenGrotesk

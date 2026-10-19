@@ -14,7 +14,14 @@ import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
 import 'flutter_test_config.dart' show leakDebt;
 
 Future<void> shellFonts(WidgetTester t) => t.runAsync(() async {
-  for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
+  for (final family in [
+    'SpaceGrotesk',
+    'SpaceMono',
+    'HankenGrotesk',
+    'Inter',
+    'Geist',
+    'GeistMono',
+  ]) {
     final data = await rootBundle.load(
       'packages/raft_ui/assets/fonts/$family.ttf',
     );

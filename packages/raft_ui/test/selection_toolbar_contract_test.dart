@@ -56,7 +56,7 @@ void main() {
         );
         await t.pumpAndSettle();
         expect(t.widget<RaftButton>(button('Copy Link')).label, 'Copy Link');
-        expect(t.getSize(button('More')).height, 28);
+        expect(t.getSize(button('More')).height, 32);
         final count = t.widget<Text>(find.text('2 selected'));
         expect(count.style!.fontSize, 12);
         expect(count.style!.height, 16 / 12);
@@ -221,8 +221,8 @@ void main() {
         final tokens = theme.extension<RaftTokens>()!;
         await t.runAsync(() async {
           for (final (name, file) in [
-            (tokens.bodyFont, 'Geist.ttf'),
-            (tokens.monoFont, 'GeistMono.ttf'),
+            (tokens.bodyFont, 'SpaceGrotesk.ttf'),
+            (tokens.monoFont, 'SpaceMono.ttf'),
           ]) {
             ByteData data;
             try {
@@ -260,7 +260,7 @@ void main() {
           expect(t.getRect(button(label)).top, closeTo(top, .01));
         }
 
-        expect(t.getRect(find.byType(RaftSelectionToolbar)).height, 45);
+        expect(t.getRect(find.byType(RaftSelectionToolbar)).height, 49);
         expect(t.takeException(), isNull);
       },
     );

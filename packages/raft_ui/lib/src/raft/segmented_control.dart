@@ -166,16 +166,14 @@ class RaftSegmentedItem extends StatelessWidget {
             ),
           ],
         ];
-        Widget row(List<Widget> c) => LayoutBuilder(
-          builder: (context, box) => Row(
+        // LimitedBox bounds an unbounded parent so the label can be Flexible; unlike a LayoutBuilder it keeps the
+        // intrinsic sizes (IntrinsicHeight rows host segmented controls).
+        Widget row(List<Widget> c) => LimitedBox(
+          maxWidth: 4096,
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final w in c)
-                w is _Shrink && box.hasBoundedWidth
-                    ? Flexible(child: w.child)
-                    : w is _Shrink
-                    ? w.child
-                    : w,
+              for (final w in c) w is _Shrink ? Flexible(child: w.child) : w,
             ],
           ),
         );
@@ -222,6 +220,7 @@ class RaftSegmentedTrack extends StatelessWidget {
         borderRadius: BorderRadius.circular(11),
       ),
       child: Padding(
+        // ignore: raft_lints/off_grid_spacing -- the track's `p-[3px]` is an explicit arbitrary value in the raft-ui source (3px ink-to-sticker inset), not a spacing step.
         padding: const EdgeInsets.all(3),
         child: Wrap(
           spacing: 2,

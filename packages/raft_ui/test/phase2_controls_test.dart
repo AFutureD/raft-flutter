@@ -53,7 +53,7 @@ void main() {
       expect(node.flagsCollection.isButton, isTrue);
       expect(node.flagsCollection.isEnabled, isNot(Tristate.none));
       expect(node.flagsCollection.isEnabled, Tristate.isFalse);
-      expect(find.byType(RaftSpinner), findsOneWidget);
+      expect(find.byType(RaftPixelSpinner), findsOneWidget);
       await tester.tap(find.byType(RaftButton));
       await tester.pump(const Duration(seconds: 2));
       expect(tester.binding.transientCallbackCount, 0);

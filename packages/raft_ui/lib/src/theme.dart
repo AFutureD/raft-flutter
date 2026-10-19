@@ -174,6 +174,7 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
             'Noto Sans CJK SC',
             'sans-serif',
           ],
+          'ja' => const ['Noto Sans CJK JP', 'Noto Sans CJK SC', 'sans-serif'],
           _ => const [
             ..._raftCjkChain,
             'Noto Sans CJK JP',

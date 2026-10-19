@@ -64,11 +64,12 @@ void main() {
     final send = tester.getTopLeft(find.byType(RaftComposerAction));
     expect(
       await pixel(tester, dialog + const Offset(12, 12)),
-      const Color(0xffffeef3),
+      // 0.7.1: a disabled button is fill-muted, not a translucent accent.
+      const Color(0xfff3f3f3),
     );
     expect(
       await pixel(tester, cindy + const Offset(12, 12)),
-      const Color(0xffffeff3),
+      const Color(0xfff3f3f3),
     );
     expect(
       await pixel(tester, send + const Offset(5, 8)),

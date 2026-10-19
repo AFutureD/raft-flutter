@@ -70,7 +70,10 @@ void main() {
     final fonts = await loadParityFonts();
     expect(
       fonts,
-      containsAll(['packages/raft_ui/Geist', 'packages/raft_ui/Inter']),
+      containsAll([
+        'packages/raft_ui/SpaceGrotesk',
+        'packages/raft_ui/SpaceMono',
+      ]),
     );
   });
   for (final dark in raftThemeMatrix([false, true], full: true)) {

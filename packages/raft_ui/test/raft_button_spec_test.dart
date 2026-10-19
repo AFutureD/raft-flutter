@@ -138,7 +138,10 @@ void main() {
         );
         final d = _decoration(tester, find.byKey(const ValueKey('b')));
         expect(d.color, ui.fillMuted);
-        expect((d.border! as Border).top.color, ui.lineHairline);
+        expect(
+          (d.border! as Border).top.color,
+          raftChromeBlend(ui.lineHairline, ui.fillMuted),
+        );
         expect(find.byType(Opacity), findsNothing);
 
         await tester.pumpWidget(
@@ -201,7 +204,7 @@ void main() {
       await tester.pump();
       expect(
         _decoration(tester, find.byKey(const ValueKey('b'))).color,
-        Color.alphaBlend(ui.fillPressed, ui.layerCard),
+        raftChromeBlend(ui.fillPressed, ui.layerCard),
       );
     });
   }

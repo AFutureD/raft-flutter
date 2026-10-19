@@ -183,7 +183,14 @@ Future<ui.Image> _image(WidgetTester tester) async {
 
 Future<void> _loadFonts(WidgetTester tester) async {
   await tester.runAsync(() async {
-    for (final name in const ['HankenGrotesk', 'Geist', 'GeistMono', 'Inter']) {
+    for (final name in const [
+      'SpaceGrotesk',
+      'SpaceMono',
+      'HankenGrotesk',
+      'Geist',
+      'GeistMono',
+      'Inter',
+    ]) {
       ByteData data;
       try {
         data = await rootBundle.load('packages/raft_ui/assets/fonts/$name.ttf');

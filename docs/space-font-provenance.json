@@ -21,10 +21,11 @@
       "bytes": 4495
     },
     {
-      "asset": "packages/raft_ui/assets/fonts/SpaceMono-Regular.ttf",
+      "asset": "packages/raft_ui/assets/fonts/SpaceMono.ttf",
       "source": "https://raw.githubusercontent.com/google/fonts/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/spacemono/SpaceMono-Regular.ttf",
       "sha256": "95837e182baeeada83368f7748db28357f0a1b75c6b84ff7065b5edf933c8e18",
-      "bytes": 99356
+      "bytes": 99356,
+      "note": "SpaceMono-Regular.ttf upstream, renamed to the family file name so test font loaders (`assets/fonts/<Family>.ttf`) find it"
     },
     {
       "asset": "packages/raft_ui/assets/fonts/SpaceMono-Bold.ttf",

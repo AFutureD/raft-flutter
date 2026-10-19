@@ -436,13 +436,13 @@ void main() {
       try {
         // The full app suite bundles dependency assets under the package prefix.
         bytes = await rootBundle.load(
-          'packages/raft_ui/assets/fonts/Geist.ttf',
+          'packages/raft_ui/assets/fonts/SpaceGrotesk.ttf',
         );
       } on FlutterError {
         // Running this package alone uses its local asset manifest instead.
-        bytes = await rootBundle.load('assets/fonts/Geist.ttf');
+        bytes = await rootBundle.load('assets/fonts/SpaceGrotesk.ttf');
       }
-      final font = FontLoader('packages/raft_ui/Geist')
+      final font = FontLoader('packages/raft_ui/SpaceGrotesk')
         ..addFont(Future.value(bytes));
       await font.load();
     });

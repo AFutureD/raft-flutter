@@ -43,8 +43,8 @@ Future<void> loadComputerPageFonts(WidgetTester t) async {
   await loadTaskFonts(t);
   await t.runAsync(() async {
     for (final (alias, asset) in [
-      ('sans-serif', 'packages/raft_ui/assets/fonts/Inter.ttf'),
-      ('monospace', 'packages/raft_ui/assets/fonts/GeistMono.ttf'),
+      ('sans-serif', 'packages/raft_ui/assets/fonts/SpaceGrotesk.ttf'),
+      ('monospace', 'packages/raft_ui/assets/fonts/SpaceMono.ttf'),
       ('MaterialIcons', 'fonts/MaterialIcons-Regular.otf'),
     ]) {
       await (FontLoader(alias)..addFont(rootBundle.load(asset))).load();

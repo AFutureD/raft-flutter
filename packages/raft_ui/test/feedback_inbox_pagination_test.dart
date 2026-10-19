@@ -54,7 +54,18 @@ void main() {
               final button = find.widgetWithText(RaftButton, 'Load More');
               // At large text sizes the action starts beyond the viewport;
               // scrolling builds it before pointer or keyboard interaction.
-              await t.scrollUntilVisible(button, 200);
+              await t.scrollUntilVisible(
+                button,
+                200,
+                // The filter tabs are a horizontal Scrollable too; scroll the page.
+                scrollable: find
+                    .byWidgetPredicate(
+                      (w) =>
+                          w is Scrollable &&
+                          w.axisDirection == AxisDirection.down,
+                    )
+                    .first,
+              );
               expect(button, findsOneWidget);
               await t.pumpAndSettle();
               expect(find.byType(RaftFeedbackEmptyState), findsOneWidget);
@@ -98,7 +109,13 @@ void main() {
               expect(find.text('Load More'), findsNothing);
               expect(find.byType(RaftFeedbackEmptyState), findsOneWidget);
               final terminal = t.state<ScrollableState>(
-                find.byType(Scrollable),
+                find
+                    .byWidgetPredicate(
+                      (w) =>
+                          w is Scrollable &&
+                          w.axisDirection == AxisDirection.down,
+                    )
+                    .first,
               );
               expect(
                 terminal.position.maxScrollExtent,
