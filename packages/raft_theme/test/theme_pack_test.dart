@@ -5,9 +5,25 @@ import 'dart:ui' show Color;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_theme/raft_theme.dart';
 
-/// The pack the app ships, read from disk: `flutter test` runs with the
-/// package root as the working directory.
-String shipPack() => File('assets/themes/raft.theme.json').readAsStringSync();
+/// The pack the app ships, read from disk.
+///
+/// `flutter test` runs from the package directory, the gate runs every test from `apps/raft_flutter`, and a
+/// developer may run it from the repository root, so the file is found by walking up rather than by a relative
+/// path: the pack's address in the repository is what stays fixed.
+String shipPack() => packFile().readAsStringSync();
+
+File packFile() {
+  const relative = 'packages/raft_theme/assets/themes/raft.theme.json';
+  var dir = Directory.current.absolute;
+  while (!File('${dir.path}/$relative').existsSync()) {
+    final parent = dir.parent;
+    if (parent.path == dir.path) {
+      throw StateError('$relative not found above ${Directory.current.path}');
+    }
+    dir = parent;
+  }
+  return File('${dir.path}/$relative');
+}
 
 String packJson({
   Map<String, Object?> light = const {
