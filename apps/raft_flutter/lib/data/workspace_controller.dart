@@ -120,7 +120,7 @@ class WorkspaceController extends ChangeNotifier
     final conversationReads = ConversationReadRepository(
       client,
       readState: () => readState,
-      revokedChannels: () => _revokedChannels,
+      revokedChannels: () => _session.revokedChannels,
       channelId: () => channel?.id,
       threadChannelId: () => threadChannelId,
       mobileNavigation: () => this.mobileNavigation,
@@ -147,9 +147,9 @@ class WorkspaceController extends ChangeNotifier
       channels: () => channels,
       dms: () => dms,
       generation: () => _messages.ledger.generation,
-      identity: _syncIdentity,
+      identity: _session.syncIdentity,
       isDisposed: () => _disposed,
-      revokedChannels: () => _revokedChannels,
+      revokedChannels: () => _session.revokedChannels,
       acceptLists: _acceptChannelLists,
       saveDirectory: (record) {
         deviceStore.write('channels', '', record);
@@ -160,7 +160,7 @@ class WorkspaceController extends ChangeNotifier
       },
       reloadLists: () => refreshChannels(),
       reloadRow: (id) => refreshChannel(id),
-      revokeChannel: _revokeChannel,
+      revokeChannel: _session.revokeChannel,
       closeDeniedThread: (id) {
         if (_messages.state.threadIdentity?.parentChannelId == id) closeThread();
       },
@@ -179,8 +179,8 @@ class WorkspaceController extends ChangeNotifier
       client,
       cache: cache,
       isDisposed: () => _disposed,
-      isChannelRevoked: (id) => _revokedChannels.contains(id),
-      isServerRevoked: (id) => _revokedServers.contains(id),
+      isChannelRevoked: (id) => _session.revokedChannels.contains(id),
+      isServerRevoked: (id) => _session.revokedServers.contains(id),
       historyTicket: messageHistoryTicket,
       readFailed: () {
         if (!_disposed) error ??= 'Local workspace history is unavailable.';
@@ -271,7 +271,7 @@ class WorkspaceController extends ChangeNotifier
           isDisposed: () => _disposed,
           admitsImages: () =>
               client.user != null && server?.id == client.serverId,
-          isRevoked: (id) => _revokedChannels.contains(id),
+          isRevoked: (id) => _session.revokedChannels.contains(id),
           retainedByHistory: _retainsAttachmentByHistory,
           imageStore: attachmentImageStore ?? AttachmentDiskCache.installed,
           urls: attachmentUrls,
@@ -294,8 +294,8 @@ class WorkspaceController extends ChangeNotifier
       this,
       source: presentationSource,
       isDisposed: () => _disposed,
-      entityScope: _entityScope,
-      panelIdentity: _panelCacheIdentity,
+      entityScope: _session.entityScope,
+      panelIdentity: _session.panelCacheIdentity,
       channelFilesAuthority: _channelFilesAuthority,
       readEntities: cache == null ? null : deviceStore.readEntities,
       writeEntities: cache == null ? null : deviceStore.writeEntities,
@@ -306,7 +306,7 @@ class WorkspaceController extends ChangeNotifier
     // last-seen and machine status patches would rebuild every workspace
     // listener. Surfaces that render entities listen to [entityDirectory]
     // (or a [WorkspaceEntitySelection] of it) directly.
-    if (services.ownsEntityDirectory) addListener(_entityAuthorityChanged);
+    if (services.ownsEntityDirectory) addListener(_session.entityAuthorityChanged);
     if (presentationSource == null) {
       this.composer.sends.attach(this, _messages.sendChanged);
     }
@@ -390,7 +390,6 @@ class WorkspaceController extends ChangeNotifier
   /// Web `useOnboardingAnnouncementGateStore` (session memory per account).
   @override
   AnnouncementOnboardingGate get announcementGate => services.announcementGate;
-  WorkspaceEntityScope? _entityScope() => _session.entityScope();
 
 
 
@@ -412,7 +411,6 @@ class WorkspaceController extends ChangeNotifier
   void saveTranslationGate(String serverId, Map<String, dynamic>? gate) =>
       deviceStore.saveTranslationGate(serverId, gate);
 
-  void _entityAuthorityChanged() => _session.entityAuthorityChanged();
 
   /// One media owner for the session and all borrowed presentations.
   @override
@@ -421,10 +419,6 @@ class WorkspaceController extends ChangeNotifier
   AttachmentImageScope get attachmentImageScope =>
       _session.attachmentImageScope;
 
-  /// Server-identity key for panel caches (account, origin, server, role and
-  /// authentication generation). Channel switches, threads and tab changes do
-  /// not change it; null while no signed-in server is selected.
-  String? _panelCacheIdentity() => _session.panelCacheIdentity();
 
   @override
   ServerBoundCache<String, Object> get agentTabCache => services.agentTabCache;
@@ -449,7 +443,7 @@ class WorkspaceController extends ChangeNotifier
         scope: () => attachmentImageScope,
         channels: () => channels,
         dms: () => dms,
-        revokedChannels: () => _revokedChannels,
+        revokedChannels: () => _session.revokedChannels,
         canView: (row) => can('viewChannel', resource: row),
       );
 
@@ -473,9 +467,7 @@ class WorkspaceController extends ChangeNotifier
   set syncCoreNotificationPrefsEnabled(bool value) =>
       _session.syncCoreNotificationPrefsEnabled = value;
 
-  String _syncIdentity() => _session.syncIdentity();
 
-  void _ensureSyncIdentity() => _session.ensureSyncIdentity();
 
 
   void _consumeNotificationPrefs(dynamic payload) => _channels.consumeNotificationPrefs(payload);
@@ -551,8 +543,6 @@ class WorkspaceController extends ChangeNotifier
   }
 
   Map<String, String> get drafts => _editor.drafts;
-  Set<String> get _revokedChannels => _session.revokedChannels;
-  Set<String> get _revokedServers => _session.revokedServers;
   bool get _mainPresented => _presentation.mainPresented;
   bool get _threadPresented => _presentation.threadPresented;
   bool get _chatTabPresented => _presentation.chatTabPresented;
@@ -634,7 +624,7 @@ class WorkspaceController extends ChangeNotifier
     if (presentationSource == null) messageWindows.synchronize();
     if (!_disposed) {
       _editor.synchronizeVisits();
-      _ensureSyncIdentity();
+      _session.ensureSyncIdentity();
       if (presentationSource == null) attachmentMedia.synchronize();
       super.notifyListeners();
     }
@@ -974,7 +964,6 @@ class WorkspaceController extends ChangeNotifier
   Future<void> prefetchLikelyChannels({int limit = 6}) =>
       _channels.prefetchLikelyChannels(limit: limit);
 
-  void _revokeChannel(String id) => _session.revokeChannel(id);
 
   @override
   ChannelRevocationPlan planChannelRevocation(String id) =>
@@ -1284,7 +1273,7 @@ class WorkspaceController extends ChangeNotifier
     composer.sends.detach(this);
     composer.disposeOwnedBy(this);
     if (services.ownsEntityDirectory) {
-      removeListener(_entityAuthorityChanged);
+      removeListener(_session.entityAuthorityChanged);
     }
     services.disposeOwnedStores();
     _removeCacheClear?.call();
@@ -1357,13 +1346,13 @@ class _WorkspaceSessionBindings
     role: w.server?.string('role'),
   );
   @override
-  bool isChannelRevoked(String id) => w._revokedChannels.contains(id);
+  bool isChannelRevoked(String id) => w._session.revokedChannels.contains(id);
   @override
-  bool isServerRevoked(String id) => w._revokedServers.contains(id);
+  bool isServerRevoked(String id) => w._session.revokedServers.contains(id);
   @override
-  String syncIdentity() => w._syncIdentity();
+  String syncIdentity() => w._session.syncIdentity();
   @override
-  String? panelIdentity() => w._panelCacheIdentity();
+  String? panelIdentity() => w._session.panelCacheIdentity();
   @override
   WorkspaceTransitionPort get transitions => _transitions;
   @override
