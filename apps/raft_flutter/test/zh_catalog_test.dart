@@ -1,6 +1,6 @@
 // Every English literal the app passes to `raftText` / `raftFormat` / a local
 // `tr(...)` wrapper must have a Chinese entry in `raftChinese`, otherwise a zh
-// user sees English (for example the channel "Add members" page). Run as a
+// user sees English (for example the channel "Add Members" page). Run as a
 // source scan of apps/raft_flutter/lib and packages/raft_ui/lib.
 //
 // Also rejects interpolated literals (`raftText(c, 'Joins #$name ...')`), which
@@ -269,7 +269,7 @@ void main() {
       'Storage',
       'Cache',
       'Attachments, previews, profile pictures and icons you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
-      'Clear cache',
+      'Clear Cache',
     ]) {
       expect(raftChinese, contains(key));
     }

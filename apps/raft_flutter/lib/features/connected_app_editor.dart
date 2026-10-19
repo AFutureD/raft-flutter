@@ -523,9 +523,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     final confirmed = await RaftConfirmDialog.show(
       context,
       RaftConfirmDialog(
-        title: raftFormat(context, 'Regenerate secret for {name}?', {
-          'name': app['name'],
-        }),
+        title: tr('Regenerate Client Secret'),
         content: RaftInlineCodeMessage(
           prefix: tr('The existing client secret for '),
           code: '${app['clientId']}',
@@ -533,7 +531,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             ' will stop working immediately. The new secret is shown once after regeneration.',
           ),
         ),
-        confirmLabel: tr('Regenerate secret'),
+        confirmLabel: tr('Regenerate Client Secret'),
+        cancelLabel: tr('Keep Secret'),
         loadingLabel: tr('Regenerating...'),
         confirmGlyph: RaftGlyph.alertTriangle,
         confirmVariant: RaftButtonRecipeVariant.primary,
@@ -572,9 +571,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     await RaftConfirmDialog.show(
       context,
       RaftConfirmDialog(
-        title: raftFormat(context, 'Request offline review for {name}?', {
-          'name': app['name'],
-        }),
+        title: tr('Request Offline Review'),
         content: RaftInlineCodeMessage(
           prefix: tr(
             'App Admin must approve before this app is removed from the public marketplace. Until then ',
@@ -584,7 +581,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             ' stays listed, installable, and usable by existing connections. If approved, every installed server will lose access and existing grants and tokens will be revoked.',
           ),
         ),
-        confirmLabel: tr('Request offline'),
+        confirmLabel: tr('Request Offline Review'),
+        cancelLabel: tr('Keep Listed'),
         loadingLabel: tr('Requesting...'),
         confirmGlyph: RaftGlyph.upload,
         confirmVariant: RaftButtonRecipeVariant.danger,
@@ -611,7 +609,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     final deleted = await RaftConfirmDialog.show(
       context,
       RaftConfirmDialog(
-        title: raftFormat(context, 'Delete {name}?', {'name': app['name']}),
+        title: tr('Delete App'),
         content: RaftInlineCodeMessage(
           prefix: tr(
             "This permanently deletes the app's OAuth client, secret, and all grants. Any existing Login with Raft setup using ",
@@ -621,7 +619,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             " will stop working. If this app was privately shared, every server that installed it will lose access too. This can't be undone.",
           ),
         ),
-        confirmLabel: tr('Delete app'),
+        confirmLabel: tr('Delete App'),
+        cancelLabel: tr('Keep App'),
         loadingLabel: tr('Deleting...'),
         confirmGlyph: RaftGlyph.trash2,
         confirmKey: const ValueKey('connected-app-delete-confirm-button'),
@@ -761,7 +760,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         glyph: RaftGlyph.shield,
         railLabel: 'Login with Raft',
         title: 'Login with Raft',
-        description: 'Authorized by the user at login.',
+        description: 'Authorized by the person at login.',
         status: tr(loginStatus),
         child: login(),
       ),
@@ -770,8 +769,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         glyph: RaftGlyph.shield,
         railLabel: 'App permissions',
         title: 'App permissions',
-        description:
-            'Approved by a Server admin at installation. The app accesses data directly.',
+        description: 'Approved by a server admin at installation. The app accesses data directly.',
         status: raftFormat(context, '{count} permissions selected', {
           'count': groups.length,
         }),
@@ -811,7 +809,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     ];
     final showSecret = secret != null;
     return RaftConnectedAppEditorCard(
-      eyebrow: app == null ? 'Register app' : 'Edit app',
+      eyebrow: app == null ? 'Register App' : 'Edit app',
       name: app == null ? tr('New connected app') : '${app['name']}',
       description: 'Configure login, permissions, and events.',
       initials: integrationInitials(
@@ -826,7 +824,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         submitting
             ? 'Saving…'
             : app == null
-            ? 'Register app'
+            ? 'Register App'
             : 'Save',
       ),
       onSubmit:
@@ -945,7 +943,10 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
                   items: [
                     for (final c in integrationCategories)
                       // ds-allow: RaftSelectField items are DropdownMenuItem
-                      DropdownMenuItem(value: c, child: Text(tr(c))),
+                      DropdownMenuItem(
+                        value: c,
+                        child: Text(tr(integrationCategoryDisplay(c))),
+                      ),
                   ],
                   onChanged: (v) {
                     if (v != null) setState(() => category = v);
@@ -1021,7 +1022,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         legacyAgentScopeNote: scopes.contains('agent:read')
             ? 'Existing agent:read login access is preserved. Configure App permissions separately.'
             : null,
-        resourceNote: 'The user chooses the target agent when authorizing.',
+        resourceNote: 'The person chooses the target agent when authorizing.',
       ),
     ],
   );
@@ -1099,7 +1100,6 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
       return const RaftSettingsRecipeBadge(
         label: 'Loading',
         appearance: RaftBadgeRecipeAppearance.outline,
-        uppercase: true,
       );
     }
     final state = notifications;
@@ -1107,20 +1107,17 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
       return const RaftSettingsRecipeBadge(
         label: 'Pending App Review',
         variant: RaftBadgeRecipeVariant.warning,
-        uppercase: true,
       );
     }
     if (managementStrings(state?['current_events']).isNotEmpty) {
       return const RaftSettingsRecipeBadge(
         label: 'Request approved',
         variant: RaftBadgeRecipeVariant.success,
-        uppercase: true,
       );
     }
     return const RaftSettingsRecipeBadge(
       label: 'Disabled',
       appearance: RaftBadgeRecipeAppearance.outline,
-      uppercase: true,
     );
   }
 
@@ -1320,7 +1317,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
                     children: [
                       RaftSettingsRecipeButton(
                         label: shareLoading
-                            ? 'Working...'
+                            ? 'Creating link…'
                             : shareLink != null
                             ? 'Regenerate'
                             : 'Create link',
@@ -1404,7 +1401,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
               key: const ValueKey('connected-app-regenerate-secret-button'),
               label: regenerating
                   ? 'Regenerating...'
-                  : 'Regenerate client secret',
+                  : 'Regenerate Client Secret',
               variant: RaftButtonRecipeVariant.primary,
               size: small,
               onPressed: submitting || regenerating ? null : confirmRegenerate,
@@ -1420,7 +1417,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
               description:
                   'Requesting offline review keeps the app live until App Admin approves removal.',
               action: RaftSettingsRecipeButton(
-                label: 'Request offline',
+                label: 'Request Offline Review',
                 size: small,
                 onPressed: confirmOffline,
               ),
@@ -1434,12 +1431,11 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         }.contains(status))
           RaftSettingsActionCard(
             key: const ValueKey('connected-app-delete-card'),
-            title: 'Delete app',
-            description:
-                'Permanently deletes this app registration and its current credentials.',
+            title: 'Delete App',
+            description: 'Permanently deletes this app registration and its current credentials.',
             stacked: true,
             action: RaftSettingsRecipeButton(
-              label: 'Delete',
+              label: 'Delete App',
               glyph: RaftGlyph.trash2,
               glyphSize: 14,
               variant: RaftButtonRecipeVariant.danger,

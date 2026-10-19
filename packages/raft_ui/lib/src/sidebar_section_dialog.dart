@@ -21,7 +21,7 @@ import 'recipes/card.g.dart';
 import 'theme.dart';
 
 /// layout/SidebarSectionDialog.tsx: `Modal closeOnBackdrop` + `Card w-full
-/// max-w-sm p-5`, a `text-base font-bold uppercase` title with a close
+/// max-w-sm p-5`, a `text-base font-bold` title with a close
 /// button, then the Name field (emoji picker addon + input) and the
 /// Cancel / submit row. The product owns the emoji picker and persistence.
 class RaftSidebarSectionDialog extends StatefulWidget {
@@ -141,7 +141,7 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
-              raftText(context, 'Name').toUpperCase(),
+              raftText(context, 'Name'),
               style: raftCssTextStyle(
                 family: t.headingFont,
                 step: RaftTextSteps.xs,
@@ -235,7 +235,7 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
                   child: Semantics(
                     header: true,
                     child: Text(
-                      raftText(context, widget.title).toUpperCase(),
+                      raftText(context, widget.title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: raftCssTextStyle(

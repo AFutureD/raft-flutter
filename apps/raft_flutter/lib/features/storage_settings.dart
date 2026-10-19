@@ -182,12 +182,13 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
       RaftConfirmDialog(
         surfaceKey: const ValueKey('storage-clear-dialog'),
         confirmKey: const Key('storage-clear-confirm'),
-        title: raftText(context, 'Clear cache'),
+        title: raftText(context, 'Clear Cache'),
         message: raftText(
           context,
           'Downloaded attachments and previews, profile pictures and icons, and temporary preview files are removed from this device. They are downloaded again the next time you open them. Files that are open right now are kept, and so are your sign-in, drafts, settings, files you saved and files shared to Raft.',
         ),
-        confirmLabel: raftText(context, 'Clear cache'),
+        confirmLabel: raftText(context, 'Clear Cache'),
+        cancelLabel: raftText(context, 'Keep Cache'),
         loadingLabel: raftText(context, 'Clearing…'),
         onConfirm: () async {
           final result = await coordinator.run();
@@ -294,7 +295,7 @@ class _StorageSettingsPageState extends State<StorageSettingsPage> {
                 alignment: AlignmentDirectional.centerStart,
                 child: RaftSettingsRecipeButton(
                   key: const Key('storage-clear'),
-                  label: 'Clear cache',
+                  label: 'Clear Cache',
                   glyph: RaftGlyph.trash2,
                   onPressed: cache == null || size == null
                       ? null

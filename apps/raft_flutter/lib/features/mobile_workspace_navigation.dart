@@ -203,7 +203,7 @@ class WorkspaceMobileHomeHeader extends StatelessWidget {
       RaftMobileRootHeader(
         leading: RaftMobileServerSelector(
           key: const Key('mobile-server-selector'),
-          label: controller.server?.name ?? raftText(context, 'Workspace'),
+          label: controller.server?.name ?? raftText(context, 'Server'),
           onPressed: onServer,
         ),
         actions: [

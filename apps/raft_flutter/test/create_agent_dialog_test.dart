@@ -123,10 +123,10 @@ void main() {
 
   testWidgets('zero computers shows the connect-a-computer branch', (t) async {
     await open(t);
-    expect(find.text('CREATE AGENT'), findsOneWidget);
+    expect(find.text('Create Agent'), findsOneWidget);
     expect(find.text('Connect a computer first'), findsOneWidget);
     expect(find.text('Connect a Computer'), findsOneWidget);
-    expect(find.text('COMPUTER'), findsNothing);
+    expect(find.text('Computer'), findsNothing);
   });
 
   testWidgets(
@@ -153,10 +153,10 @@ void main() {
       expect(find.text('Select…'), findsOneWidget);
       expect(find.text('Claude Opus'), findsOneWidget);
       expect(
-        find.textContaining('Could not load models from this Computer.'),
+        find.textContaining('Could not load models from this computer.'),
         findsOneWidget,
       );
-      await t.tap(find.text('Create Agent'));
+      await t.tap(find.text('Create Agent').last);
       await t.pump();
       expect(w.posts, isEmpty);
     },
@@ -187,8 +187,8 @@ void main() {
     final result = await open(t, name: 'Product-QA-Bot', description: 'QA');
     expect(find.text('Codex CLI'), findsOneWidget);
     expect(find.text('GPT-5'), findsOneWidget);
-    expect(find.text('MORE'), findsOneWidget);
-    await t.tap(find.text('Create Agent'));
+    expect(find.text('More'), findsOneWidget);
+    await t.tap(find.text('Create Agent').last);
     await t.pumpAndSettle();
     expect(w.posts, hasLength(1));
     final data = w.posts.single['data'] as Map;
@@ -203,7 +203,7 @@ void main() {
     });
     expect((data['formValues'] as Map)['model'], 'gpt-5');
     expect(await result, {'id': 'agent-new', 'name': 'Product-QA-Bot'});
-    expect(find.text('CREATE AGENT'), findsNothing);
+    expect(find.text('Create Agent'), findsNothing);
   });
 
   testWidgets('OpenCode creation scrolls to and submits the last live model', (
@@ -242,8 +242,8 @@ void main() {
     await t.tap(last);
     await t.pumpAndSettle();
     expect(find.text('Fixture Model 39'), findsOneWidget);
-    await t.ensureVisible(find.text('Create Agent'));
-    await t.tap(find.text('Create Agent'));
+    await t.ensureVisible(find.text('Create Agent').last);
+    await t.tap(find.text('Create Agent').last);
     await t.pumpAndSettle();
     expect(w.posts.single['data']['formValues']['model'], 'fixture-model-39');
     expect(await result, {'id': 'agent-new', 'name': 'Model-Scroll-Check'});

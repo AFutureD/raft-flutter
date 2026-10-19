@@ -132,7 +132,7 @@ class RaftComposerRecipe {
     color: tokens.brutal
         ? Colors.black.withValues(alpha: .6)
         : tokens.strong.withValues(alpha: .45),
-  ).copyWith(letterSpacing: tokens.brutal ? 1.2 : -.055);
+  ).copyWith(letterSpacing: tokens.brutal ? null : -.055);
   Color suggestionBackground({
     required bool highlighted,
     bool hovered = false,

@@ -82,7 +82,7 @@ void _appRoutes(
 }
 
 Future<void> register(WidgetTester tester) async {
-  await tester.tap(find.text('Register app'));
+  await tester.tap(find.text('Register App'));
   await tester.pumpAndSettle();
   await tester.enterText(
     find.byKey(const ValueKey('connected-app-name')),
@@ -117,7 +117,7 @@ void main() {
       await tester.tap(find.text('Verify and finish setup'));
       await tester.pumpAndSettle();
       expect(find.text('Verify and finish setup'), findsNothing);
-      expect(find.text('Disconnect Slack workspace'), findsNothing);
+      expect(find.text('Disconnect Slack Workspace'), findsNothing);
       // SlackBridgeSetupWizard: a failed load with no view shows the
       // generic Raft for Slack failure (never the stale projection).
       expect(
@@ -267,13 +267,13 @@ void main() {
       };
       await tester.pumpWidget(host(AccountConnectionsView(controller: w)));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Set password by email'));
+      await tester.tap(find.text('Set Password by Email'));
       await tester.pumpAndSettle();
       expect(
         a.calls.where((c) => c.path.endsWith('/forgot-password')),
         isEmpty,
       );
-      await tester.tap(find.widgetWithText(RaftButton, 'Send email'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Send Email'));
       await tester.pumpAndSettle();
       expect(
         a.calls.where((c) => c.path.endsWith('/forgot-password')),
@@ -355,7 +355,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Verify and finish setup'));
     await tester.pumpAndSettle();
-    expect(find.text('FAILED'), findsOneWidget);
+    expect(find.text('Failed'), findsOneWidget);
     expect(
       find.text('Preflight has not passed. The bridge cannot be enabled.'),
       findsOneWidget,
@@ -410,13 +410,13 @@ void main() {
       await tester.tap(find.text('Apply mapping changes'));
       await tester.pumpAndSettle();
       expect(a.calls.where((c) => c.method == 'DELETE'), hasLength(1));
-      await tester.ensureVisible(find.text('Disconnect Slack workspace'));
+      await tester.ensureVisible(find.text('Disconnect Slack Workspace'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Disconnect Slack workspace'));
+      await tester.tap(find.text('Disconnect Slack Workspace'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Confirm disconnect'));
+      await tester.ensureVisible(find.text('Disconnect Slack Workspace'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Confirm disconnect'));
+      await tester.tap(find.text('Disconnect Slack Workspace'));
       await tester.pumpAndSettle();
       expect(
         a.calls.where((c) => c.path.endsWith('/disconnect')),
@@ -430,7 +430,7 @@ void main() {
       w.notifyListeners();
       await tester.pumpAndSettle();
       expect(find.text('Verify and finish setup'), findsNothing);
-      expect(find.text('Disconnect Slack workspace'), findsNothing);
+      expect(find.text('Disconnect Slack Workspace'), findsNothing);
     },
   );
 
@@ -494,7 +494,7 @@ void main() {
       host(SingleChildScrollView(child: IntegrationsView(controller: w))),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Register app'), findsOneWidget);
+    expect(find.text('Register App'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('connected-apps-tab-my-apps')),
       findsOneWidget,
@@ -558,11 +558,11 @@ void main() {
       };
       await tester.pumpWidget(host(ProviderConnectionsView(controller: w)));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Verify on computer'));
+      await tester.ensureVisible(find.text('Verify on Computer'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Verify on computer'));
+      await tester.tap(find.text('Verify on Computer'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Verify'));
+      await tester.tap(find.text('Verify Connection'));
       await tester.pumpAndSettle();
       expect(find.text('Provider verified'), findsNothing);
       expect(
@@ -572,7 +572,7 @@ void main() {
         findsOneWidget,
       );
       mismatch = false;
-      await tester.tap(find.text('Verify'));
+      await tester.tap(find.text('Verify Connection'));
       await tester.pumpAndSettle();
       expect(find.text('Provider verified'), findsOneWidget);
       final probes = a.calls
@@ -1033,7 +1033,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(w.client.generation, generation);
       expect(find.text('private-one-time'), findsNothing);
-      expect(find.text('Register app'), findsNothing);
+      expect(find.text('Register App'), findsNothing);
     },
   );
   testWidgets(

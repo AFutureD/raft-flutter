@@ -497,7 +497,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.textContaining('revoke the invite to new@raft.test'),
+        find.textContaining('The invite to new@raft.test will be revoked'),
         findsOneWidget,
       );
       c.routes['GET /servers/s1/invites'] = (_) => [];
@@ -514,7 +514,7 @@ void main() {
       await _pump(t, w);
       await t.tap(find.byKey(const ValueKey('admin-invite-revoke-i1')));
       await t.pumpAndSettle();
-      await t.tap(find.text('Cancel'));
+      await t.tap(find.text('Keep Invite'));
       await t.pumpAndSettle();
       expect(c.sent('DELETE /servers/s1/invites/i1'), isEmpty);
       expect(_in('invites', find.text('new@raft.test')), findsOneWidget);
@@ -607,7 +607,7 @@ void main() {
       await t.pumpAndSettle();
       expect(
         find.text(
-          'Revoke this invite link? Anyone who still has the URL will stop being able to join with it.',
+          'This invite link will be revoked. Anyone who still has the URL will stop being able to join with it.',
         ),
         findsOneWidget,
       );

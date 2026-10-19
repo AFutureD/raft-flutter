@@ -87,7 +87,7 @@ void main() {
       expect(find.text('Delete'), findsOneWidget);
       expect(find.text('Save'), findsOneWidget);
       expect(
-        find.text('回复话题'),
+        find.text('在消息列中回复'),
         findsNothing,
       ); // no reply button when callback omitted.
       expect(tester.takeException(), isNull);
@@ -104,7 +104,7 @@ void main() {
           theme: raftTheme(RaftFamily.elegant),
           home: Scaffold(
             body: RaftFormDialog(
-              title: 'Create channel',
+              title: 'Create Channel',
               fields: const [
                 RaftFormField('name', 'Channel name', required: true),
               ],
@@ -131,10 +131,10 @@ void main() {
           home: Builder(
             builder: (context) => Scaffold(
               body: Text(
-                raftFormat(context, 'Make {name} a {role} in {workspace}.', {
+                raftFormat(context, 'Make {name} a {role} in {server}.', {
                   'name': 'Save {role}',
                   'role': '管理员',
-                  'workspace': 'Delete',
+                  'server': 'Delete',
                 }),
               ),
             ),

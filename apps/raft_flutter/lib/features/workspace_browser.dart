@@ -96,10 +96,7 @@ Future<void> openWorkspaceInBrowser(
     if (!opened) throw const FormatException('Browser unavailable');
   } catch (_) {
     if (context.mounted && current()) {
-      showRaftToast(
-        context,
-        'The workspace could not be opened in the browser.',
-      );
+      showRaftToast(context, 'The server could not be opened in the browser.');
     }
   }
 }

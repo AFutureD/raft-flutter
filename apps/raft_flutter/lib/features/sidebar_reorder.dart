@@ -355,7 +355,7 @@ class _SectionDragCard extends StatelessWidget {
                 const SizedBox(width: RaftSidebarSectionMetrics.inlineGap),
                 Flexible(
                   child: Text(
-                    label.toUpperCase(),
+                    label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

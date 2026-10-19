@@ -85,19 +85,15 @@ class RaftSettingsSidebarList extends StatelessWidget {
     final t = RaftTokens.of(context);
     final overhang = rowOverhang(t);
     final visible = groups.where((g) => g.items.isNotEmpty).toList();
-    // `mb-1 px-2 text-[10px] font-bold uppercase tracking-widest
+    // `mb-1 px-2 text-[10px] font-bold
     // text-foreground-muted theme-brutal:text-black/40`; line-height is the
     // inherited preflight 1.5 under Sidebar's `font-display`.
-    final label =
-        RaftTypography.heading(
-          t,
-          size: 10,
-          line: 15,
-          weight: FontWeight.w700,
-        ).copyWith(
-          letterSpacing: 1,
-          color: t.brutal ? Colors.black.withValues(alpha: .4) : t.muted,
-        );
+    final label = RaftTypography.heading(
+      t,
+      size: 10,
+      line: 15,
+      weight: FontWeight.w700,
+    ).copyWith(color: t.brutal ? Colors.black.withValues(alpha: .4) : t.muted);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -107,10 +103,7 @@ class RaftSettingsSidebarList extends StatelessWidget {
           if (i > 0) SizedBox(height: 12 - (t.brutal ? 4 : 2)),
           Padding(
             padding: EdgeInsets.fromLTRB(8 + overhang, 0, 8 + overhang, 4),
-            child: Text(
-              raftText(context, visible[i].label).toUpperCase(),
-              style: label,
-            ),
+            child: Text(raftText(context, visible[i].label), style: label),
           ),
           for (final item in visible[i].items)
             RaftSettingsSidebarItem(
@@ -449,7 +442,7 @@ TextStyle raftSettingsBody(
 
 /// SectionHeader.tsx: `flex items-center gap-2`, a 16px icon in
 /// `text-foreground-muted theme-brutal:text-black/60`, and SectionEyebrow
-/// `text-xs font-bold uppercase text-foreground-muted tracking-widest`.
+/// `text-xs font-bold text-foreground-muted`.
 class RaftSettingsSectionHeader extends StatelessWidget {
   const RaftSettingsSectionHeader({
     super.key,
@@ -481,7 +474,7 @@ class RaftSettingsSectionHeader extends StatelessWidget {
         line: 16,
         weight: FontWeight.w700,
         color: t.muted,
-      ).copyWith(letterSpacing: 1.2);
+      );
   Widget rich(InlineSpan span, TextStyle style) => display
       ? RaftCssText.rich(span, style: style)
       : Text.rich(span, style: style);
@@ -505,7 +498,7 @@ class RaftSettingsSectionHeader extends StatelessWidget {
             child: rich(
               TextSpan(
                 children: [
-                  TextSpan(text: raftText(context, label).toUpperCase()),
+                  TextSpan(text: raftText(context, label)),
                   if (count != null && count! >= 0) ...[
                     const WidgetSpan(child: SizedBox(width: 8)),
                     TextSpan(

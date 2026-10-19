@@ -225,7 +225,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
           .catchError((Object _) {
             if (!_closed) {
               notifications.setBackgroundError(
-                'Background inbox checks could not be scheduled. Open Raft to retry.',
+                'Background Activity checks could not be scheduled. Open Raft to retry.',
               );
             }
           }),
@@ -529,7 +529,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
       // Content links never switch the signed-in account or coordinator origin.
       // Cross-server links require an explicit server selection in the app first.
       if (server.id != w.client.serverId) {
-        throw const RaftApiException('Unavailable workspace.');
+        throw const RaftApiException('Unavailable server.');
       }
       if (target.parentMessageId != null &&
           !w.can('viewChannel', resource: channel)) {
@@ -542,7 +542,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         if (published) _revert(w, previous, previousIndex, replaceEntry);
         // ignore: raft_lints/avoid_imperative_notice_state -- Workspace-level w.error is shown once as a toast by workspace_view.syncWorkspaceError and cleared there (self-dismissing).
         w.setError(
-          'This link is unavailable for the current account or workspace.',
+          'This link is unavailable for the current account or server.',
         );
       }
     }
@@ -663,7 +663,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         )
         .firstOrNull;
     if (server == null || server.id != client.serverId) {
-      throw const RaftApiException('Unavailable workspace.');
+      throw const RaftApiException('Unavailable server.');
     }
     final channel = await client.get('/channels/${target.channelId}');
     if (!valid() ||

@@ -80,7 +80,6 @@ Widget _field(ParityContext ctx) {
     140,
     () => RaftProductFormField(
       label: error ? 'Email' : 'Server name',
-      uppercase: false,
       error: error ? _message(ctx) : null,
       hint: error ? null : _message(ctx),
       child: RaftDialogTextInput(controller: controller),

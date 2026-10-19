@@ -49,12 +49,12 @@ class _ConversionPreviewState extends State<_ConversionPreview> {
           if (status == 'failed')
             TextButton(
               onPressed: () => setState(() => status = 'running'),
-              child: Text(raftText(context, 'Retry conversion')),
+              child: Text(raftText(context, 'Retry Conversion')),
             ),
           if (status == 'running' || status == 'failed')
             TextButton(
               onPressed: () => setState(() => status = 'canceled'),
-              child: Text(raftText(context, 'Cancel conversion')),
+              child: Text(raftText(context, 'Cancel Conversion')),
             ),
         ],
       ),

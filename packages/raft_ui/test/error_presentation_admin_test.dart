@@ -65,7 +65,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect(find.text('Something went wrong'), findsOneWidget);
+    expect(find.text('Could not complete that. Try again.'), findsOneWidget);
     expect(find.textContaining('nope'), findsNothing);
   });
 
@@ -101,7 +101,7 @@ void main() {
     expect(find.text('Agent is busy'), findsOneWidget);
     await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
-    expect(find.text('Something went wrong'), findsOneWidget);
+    expect(find.text('Could not complete that. Try again.'), findsOneWidget);
     expect(find.textContaining('Socket'), findsNothing);
   });
 

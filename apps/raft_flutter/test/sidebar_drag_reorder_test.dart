@@ -661,7 +661,7 @@ void main() {
             .opacity,
         lessThan(1),
       );
-      expect(find.text('DIRECT MESSAGES'), findsNWidgets(2));
+      expect(find.text('Direct Messages'), findsNWidgets(2));
       // The target marks the edge the section will land on.
       final drop = tester.widget<DecoratedBox>(
         find.byKey(const ValueKey('sidebar-section-drop-system:channels')),
@@ -669,7 +669,7 @@ void main() {
       expect((drop.decoration as BoxDecoration).border, isNotNull);
       await gesture.up();
       await tester.pumpAndSettle();
-      expect(find.text('DIRECT MESSAGES'), findsOneWidget);
+      expect(find.text('Direct Messages'), findsOneWidget);
       expect(patches, hasLength(1));
     });
 
@@ -795,7 +795,7 @@ void main() {
                 final widget = node.widget;
                 if (widget is Text &&
                     widget.data != null &&
-                    widget.data != 'CHANNELS') {
+                    widget.data != 'Channels') {
                   count = widget.data;
                 }
                 node.visitChildElements(walk);
@@ -808,7 +808,7 @@ void main() {
           return count;
         }
 
-        final labels = find.text('CHANNELS').evaluate().toList();
+        final labels = find.text('Channels').evaluate().toList();
         expect(labels, hasLength(2));
         expect(labels.map(countBeside), ['1', '1']);
       } finally {

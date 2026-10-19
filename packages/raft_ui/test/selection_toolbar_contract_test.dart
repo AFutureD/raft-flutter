@@ -59,7 +59,7 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
-        expect(t.widget<RaftButton>(button('Copy link')).label, 'Copy link');
+        expect(t.widget<RaftButton>(button('Copy Link')).label, 'Copy Link');
         expect(t.getSize(button('More')).height, 28);
         final count = t.widget<Text>(find.text('2 selected'));
         expect(count.style!.fontSize, 12);
@@ -80,7 +80,7 @@ void main() {
         update(() => width = 320);
         await t.pumpAndSettle();
         if (family == RaftFamily.brutal) {
-          expect(t.widget<RaftButton>(button('Copy link')).label, isEmpty);
+          expect(t.widget<RaftButton>(button('Copy Link')).label, isEmpty);
         }
         expect(t.takeException(), isNull);
         final trigger = t.getRect(button('More'));
@@ -111,7 +111,7 @@ void main() {
         await t.pumpAndSettle();
         expect(t.widget<RaftButton>(button('Select All')).onPressed, isNull);
         expect(t.widget<RaftButton>(button('Forward')).onPressed, isNull);
-        expect(t.widget<RaftButton>(button('Copy link')).onPressed, isNotNull);
+        expect(t.widget<RaftButton>(button('Copy Link')).onPressed, isNotNull);
         await t.tap(button('More'));
         await t.pump(const Duration(milliseconds: 300));
         expect(find.byType(RaftSpinner), findsOneWidget);
@@ -149,7 +149,7 @@ void main() {
           busy = false;
         });
         await t.pumpAndSettle();
-        expect(t.widget<RaftButton>(button('Copy link')).label, 'Copy link');
+        expect(t.widget<RaftButton>(button('Copy Link')).label, 'Copy Link');
         expect(t.takeException(), isNull);
       },
     );
@@ -173,7 +173,7 @@ void main() {
         );
         expect(find.byTooltip('Select All'), findsNothing);
         expect(t.widget<RaftButton>(button('More')).onPressed, isNull);
-        expect(t.widget<RaftButton>(button('Copy link')).onPressed, isNull);
+        expect(t.widget<RaftButton>(button('Copy Link')).onPressed, isNull);
         expect(
           t.widget<RaftButton>(button('Unavailable target')).onPressed,
           isNull,
@@ -201,10 +201,10 @@ void main() {
             ),
           ),
         );
-        expect(t.widget<RaftButton>(button('Copy link')).label, 'Copied');
-        final labeled = find.bySemanticsLabel('Copy link');
+        expect(t.widget<RaftButton>(button('Copy Link')).label, 'Copied');
+        final labeled = find.bySemanticsLabel('Copy Link');
         expect(labeled, findsOneWidget);
-        expect(t.getSemantics(labeled).label, 'Copy link');
+        expect(t.getSemantics(labeled).label, 'Copy Link');
         expect(
           t
               .getSemantics(labeled)
@@ -272,11 +272,11 @@ void main() {
         );
         await t.pumpAndSettle();
         final top = t.getRect(button('Cancel')).top;
-        for (final label in ['Forward', 'Copy link', 'More']) {
+        for (final label in ['Forward', 'Copy Link', 'More']) {
           expect(t.getRect(button(label)).top, closeTo(top, .01));
         }
         if (family == RaftFamily.brutal) {
-          expect(t.widget<RaftButton>(button('Copy link')).label, isEmpty);
+          expect(t.widget<RaftButton>(button('Copy Link')).label, isEmpty);
         }
         expect(
           t.getRect(find.byType(RaftSelectionToolbar)).height,

@@ -46,11 +46,11 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "{count} feedback conversations have unread replies.": "{count} 条反馈有未读回复。",
   "{count} agent over the limit.": "超出限制 {count} 个 Agent。",
   "{count} agents over the limit.": "超出限制 {count} 个 Agent。",
-  "{count} computer over the limit.": "超出限制 {count} 台 Computer。",
-  "{count} computers over the limit.": "超出限制 {count} 台 Computer。",
+  "{count} computer over the limit.": "超出限制 {count} 台计算机。",
+  "{count} computers over the limit.": "超出限制 {count} 台计算机。",
   "{count} channel over the limit.": "超出限制 {count} 个频道。",
   "{count} channels over the limit.": "超出限制 {count} 个频道。",
-  "Computers need attention: {counts}": "Computer 需要处理：{counts}",
+  "Computers need attention: {counts}": "计算机需要处理：{counts}",
   "{count} needs upgrade": "{count} 台需要升级",
   "{count} need upgrade": "{count} 台需要升级",
   "{count} offline": "{count} 台离线",
@@ -59,17 +59,16 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
       "你添加的 {count} 台计算机磁盘空间不足",
   "{free} free ({percent}%). Agents may fail to save work or start until space is freed.":
       "剩余 {free}（{percent}%）。腾出空间之前，Agent 可能无法保存工作或启动。",
-  "{names} is offline": "共 {count} 台 Computer 离线：{names}",
-  "{names} are offline": "共 {count} 台 Computer 离线：{names}",
+  "{names} is offline": "共 {count} 台计算机离线：{names}",
+  "{names} are offline": "共 {count} 台计算机离线：{names}",
   "{count} agent is active on this computer and can't run until it reconnects.":
       "{count} 个 Agent 正在这台计算机上运行，重连前无法继续。",
   "{count} agents are active on this computer and can't run until it reconnects.":
       "{count} 个 Agent 正在这台计算机上运行，重连前无法继续。",
   "{count} item": "{count} 项",
   "{count} items": "{count} 项",
-  "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.":
-      "这个联合频道有超过 2 个免费服务器，将在 {deadline} 变为只读。要保持可写，需要其中一个服务器的管理员升级，或者一个免费服务器退出。",
-  "Background inbox checks could not be scheduled. Open Raft to retry.":
+  "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.": "这个联合频道有超过 2 个免费服务器，将在 {deadline} 变为只读。要保持可写，需要其中一个服务器的管理员升级，或者一个免费服务器退出。",
+  "Background Activity checks could not be scheduled. Open Raft to retry.":
       "无法安排后台检查。请打开 Raft 重试。",
   "Messages arrive while connected. Background inbox checks provide a fallback when the system allows them; delivery may be delayed.":
       "保持连接时可接收消息。系统允许时，后台收件箱检查会补充接收消息，但通知可能延迟。",
@@ -77,8 +76,8 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "{count} replies": "{count} 条回复",
   "{count} new": "{count} 条新回复",
   "Open reply by {name}: {preview}": "打开 {name} 的回复：{preview}",
-  "Open workspace in browser": "在浏览器中打开工作空间",
-  "The workspace could not be opened in the browser.": "无法在浏览器中打开工作空间。",
+  "Open server in browser": "在浏览器中打开服务器",
+  "The server could not be opened in the browser.": "无法在浏览器中打开服务器。",
   "Static HTML preview": "静态 HTML 预览",
   "Scripts and images open in the interactive browser preview.":
       "脚本和图片可在浏览器中的交互预览里查看。",
@@ -88,8 +87,6 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "The interactive preview could not be opened.": "无法打开交互预览。",
   "This link is unavailable in the HTML preview.": "HTML 预览中无法打开此链接。",
   "The link could not be opened.": "无法打开链接。",
-  "Convert to joint channel": "转换为联合频道",
-  "Retry conversion": "重试转换",
   "Waiting for server confirmation.": "正在等待服务器确认。",
   "Conversion outcome is not confirmed.": "转换结果尚未确认。",
   "Conversion needs attention": "转换需要处理",
@@ -111,18 +108,17 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Connection test succeeded": "连接测试成功",
   "This connection currently exposes no tools.": "此连接当前没有可用工具。",
   "Provider verification history": "提供商验证历史",
-  "No completed verification receipts.": "暂无已完成的验证记录。",
+  "No completed verification receipts.": "没有已完成的验证记录。",
   "Open system settings": "打开系统设置",
   "Check the verification email sent to": "请查看发送至以下地址的验证邮件",
   "Verification link or code": "验证链接或验证码",
   "Verify email": "验证邮箱",
-  "Resend verification email": "重新发送验证邮件",
   "I have verified my email": "我已验证邮箱",
   "Choose a permanent username. Your display name can be changed later.":
       "请选择永久用户名。显示名称可以稍后更改。",
   "Choose profile image": "选择头像",
   "Complete profile": "完成个人资料",
-  "Slack bridging is not enabled for this workspace.": "此工作空间尚未启用 Slack 桥接。",
+  "Slack bridging is not enabled for this workspace.": "此服务器尚未启用 Slack 桥接。",
   "Setup stage": "设置阶段",
   "Last verified": "最近验证时间",
   "Invite @Raft to each Slack channel before pairing. Refresh after completing authorization in your browser.":
@@ -130,27 +126,24 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Agent migration": "Agent 迁移",
   "Cancellation needs attention. Refresh after reconnecting both computers.":
       "取消操作需要处理。请重新连接两台计算机后刷新。",
-  "Move agent": "迁移 Agent",
   "Assign computer": "分配计算机",
-  "An owner or admin manages connections between workspaces.":
-      "工作空间之间的连接由所有者或管理员管理。",
-  "A joint channel can connect up to 30 workspaces, including at most two free workspaces.":
-      "联合频道最多连接 30 个工作空间，其中最多包含两个免费工作空间。",
-  "No pending invitations.": "暂无待处理邀请。",
-  "This joint channel is read-only because its workspace plan limits were exceeded.":
-      "此联合频道已超出工作空间套餐限制，当前为只读。",
+  "An owner or admin manages connections between servers.":
+      "服务器之间的连接由所有者或管理员管理。",
+  "A joint channel can connect up to 30 servers, including at most two free servers.":
+      "联合频道最多连接 30 个服务器，其中最多包含两个免费服务器。",
+  "No pending invitations.": "没有待处理邀请。",
+  "This joint channel is read-only because its server plan limits were exceeded.":
+      "此联合频道已超出服务器套餐限制，当前为只读。",
   "Plan limit grace period ends": "套餐限制宽限期结束时间",
-  "Create joint channel": "创建联合频道",
-  "Remove workspace": "移除工作空间",
+  "Remove workspace": "移除服务器",
   "Use existing workspace slugs and names, @handles or email addresses. Invitations expire and must be accepted by an owner or admin.":
-      "使用已有工作空间标识或名称、@用户名或邮箱地址。邀请有有效期，需由所有者或管理员接受。",
-  "Add workspace": "添加工作空间",
+      "使用已有服务器标识或名称、@用户名或邮箱地址。邀请有有效期，需由所有者或管理员接受。",
+  "Add workspace": "添加服务器",
   "Local members (optional)": "本地成员（可选）",
   "Filter Activity": "筛选动态",
   "Group by channel": "按频道分组",
   "Conversation": "会话",
   "Apply": "应用",
-  "Save message": "保存消息",
   "React 👍": "回应 👍",
   "Create task from message": "将消息创建为任务",
   "Choose a channel or direct message to start.": "选择频道或私信以开始会话。",
@@ -192,8 +185,6 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Sort conversations": "会话排序",
   "Oldest first": "最早优先",
   "Newest first": "最新优先",
-  "Follow thread": "关注话题",
-  "Unfollow thread": "取消关注话题",
   "Not in this conversation": "不在此会话中",
   "The referenced resource is unavailable.": "引用的资源不可用。",
 
@@ -207,7 +198,6 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Share selected messages": "分享所选消息",
   "Close preview": "关闭预览",
   "Preview of selected messages": "所选消息的图片预览",
-  "Save image": "保存图片",
   "Share image": "分享图片",
   "Exit selection": "退出选择",
   "Select all loaded messages": "选择所有已加载消息",
@@ -255,8 +245,6 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Section name": "分组名称",
   "Use up to 80 characters.": "最多使用 80 个字符。",
   "Use one short emoji.": "使用一个简短的表情符号。",
-  "Remove sidebar section?": "移除此侧栏分组？",
-  "Remove section": "移除分组",
   "Move to sidebar section": "移至侧栏分组",
   "Default section": "默认分组",
   "Drag conversations to reorder them. Tap a conversation to choose its section.":
@@ -273,14 +261,14 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Acts on {server}": "作用于 {server}",
   "Completed by {name}": "由 {name} 完成",
   "Action": "操作",
-  "Approve agent login": "批准智能体登录",
+  "Approve agent login": "批准 Agent 登录",
   "Recover app owner": "恢复应用所有者",
   "App identifier": "应用标识符",
   "Switch to the target workspace to use this action.": "切换到目标工作区后才能使用此操作。",
   "The action channel is unavailable.": "此操作所在的频道不可用。",
   "Guests cannot confirm actions.": "访客不能确认操作。",
   "Join this channel before confirming an action.": "请先加入此频道再确认操作。",
-  "You do not have permission to create agents.": "你没有创建智能体的权限。",
+  "You do not have permission to create agents.": "你没有创建 Agent 的权限。",
   "You do not have permission to create channels.": "你没有创建频道的权限。",
   "You do not have permission to add members to this channel.":
       "你没有向此频道添加成员的权限。",
@@ -389,22 +377,21 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "@mention inline highlight is": "@提及的内联高亮为",
   "A Joint invitation has not been sent. Keep editing to send it, or discard all unsaved changes before closing.":
       "Joint 邀请尚未发送。请继续编辑并发送邀请，或放弃所有未保存的修改后关闭。",
-  "A bounded refresh was requested from this Computer. Provider credentials never leave it.":
-      "已向此电脑请求一次受限刷新。提供方凭据永远不会离开该电脑。",
+  "A bounded refresh was requested from this computer. Provider credentials never leave it.":
+      "已向此计算机请求一次受限刷新。提供方凭据永远不会离开该计算机。",
   "A channel binding is paused.": "一组频道映射已暂停。",
   "A channel binding is quarantined.": "一组频道映射已被隔离。",
   "A channel binding was revoked.": "一组频道映射已被撤销。",
-  "A computer is the machine your agents run on. Your server needs at least one online.":
-      "计算机是你的 Agent 运行的机器。你的服务器至少需要一台在线。",
+  "A computer is where your agents run. Your server needs at least one online.":
+      "计算机是你的 Agent 运行的地方。你的服务器至少需要一台在线。",
   "A default is picked for you.": "已为你选了一个默认头像。",
-  "A friendly name for this computer.": "给这台 Computer 起一个好记的名称。",
+  "A friendly name for this computer.": "给这台计算机起一个好记的名称。",
   "A newer version of Raft is available.": "有新版本的 Raft 可用。",
   "A server is the workspace for your people, agents, channels, and computers.":
       "服务器是你的成员、Agent、频道和计算机所在的工作空间。",
-  "A shared workspace for humans and agents.": "为人与智能体打造的协作空间。",
+  "A shared workspace for humans and agents.": "为人与 Agent 打造的协作空间。",
   "A-Z": "A-Z",
-  "AI & Automation": "AI 与自动化",
-  "AI Providers": "AI Provider",
+  "Providers": "提供方",
   "API Key": "API 密钥",
   "API Key is required for a custom provider.": "自定义提供方需要 API 密钥。",
   "API Key is required when a built-in provider is selected.":
@@ -452,7 +439,7 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Browser language resolves to {language} for this browser.":
       "浏览器语言在此浏览器解析为 {language}。",
   "No {status} tasks.": "没有{status}的任务。",
-  "Add Computer": "添加 Computer",
+  "Add Computer": "添加计算机",
   "Add Header": "添加请求头",
   "Add Member": "添加成员",
   "Add Members": "添加成员",
@@ -471,17 +458,12 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Add all": "全部添加",
   "Add an email and password sign-in method before removing your final connected account.":
       "移除最后一个已连接账户前，请先添加邮箱和密码登录方式。",
-  "Add another": "再加一个",
-  "Add computer": "添加计算机",
   "All computers are up to date and online.": "所有计算机都已更新且在线。",
-  "Add a computer to run agents in this workspace.": "添加计算机以在此工作区运行 Agent。",
+  "Add a computer to run agents in this server.": "添加计算机以在此服务器运行 Agent。",
   "Directory could not be loaded.": "无法加载列表。",
   "Add connection": "添加连接",
-  "Add humans or agents to public/private channels when this agent's server role has channel management authority (slock channel add-member).":
-      "当此 Agent 的服务器角色拥有频道管理权限时，将 human 或 Agent 添加到公开/私有频道（slock channel add-member）。",
-  "Add members": "添加成员",
+  "Add humans or agents to public/private channels when this agent's server role has channel management authority (slock channel add-member).": "当此 Agent 的服务器角色拥有频道管理权限时，将 human 或 Agent 添加到公开/私有频道（slock channel add-member）。",
   "Add owner/admin": "添加所有者/管理员",
-  "Add provider connection": "添加 Provider 连接",
   "Add server": "添加服务器",
   "Added": "已添加",
   "Added capacity": "新增容量",
@@ -515,8 +497,8 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Agent messaging requires Raft Agent Login. Cannot send chat as you, speak as the agent, read messages, or take actions.":
       "Agent 消息需要 Raft Agent Login。不能以你的身份发消息、以该 Agent 的身份发言、读取消息，或代你执行操作。",
   "Agent migration is not enabled on this server.": "此服务器未启用 Agent 迁移。",
-  "Agent migration requires the Pro plan. Upgrade this Server to Pro before trying again.":
-      "Agent 迁移需要 Pro 套餐。请先将此 Server 升级到 Pro，再重试。",
+  "Agent migration requires the Pro plan. Upgrade this server to Pro before trying again.":
+      "Agent 迁移需要 Pro 套餐。请先将此服务器升级到 Pro，再重试。",
   "Agent model changed": "Agent 模型已变更",
   "Agent name": "Agent 名称",
   "Agent not found": "未找到 Agent",
@@ -538,8 +520,8 @@ const Map<String, String> zhCatalogWeb1 = <String, String>{
   "Agents cannot add channel members from mention actions. Ask a human member to add them.":
       "Agent 无法通过提及操作添加频道成员。请让人类成员来添加。",
   "Agents keep working after you leave.": "离开后，Agent 仍会继续工作。",
-  "Agents on this computer": "这台 Computer 上的 Agent",
+  "Agents on this computer": "这台计算机上的 Agent",
   "Agents on this computer may fail to save work or start. Raft removes its own old migration data automatically; if space stays low, free up space on this computer.":
       "这台计算机上的 Agent 可能无法保存工作或启动。Raft 会自动清理自己留下的旧迁移数据；如果空间仍然不足，请在这台计算机上腾出空间。",
-  "Agents on your own computers": "在自己的电脑上运行 Agent",
+  "Agents on your own computers": "在自己的计算机上运行 Agent",
 };

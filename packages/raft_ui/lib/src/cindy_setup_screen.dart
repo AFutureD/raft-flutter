@@ -35,7 +35,6 @@ class RaftCindySetupScreen extends StatelessWidget {
       FontWeight weight, {
       Color? color,
       String? family,
-      double tracking = 0,
     }) => TextStyle(
       fontFamily: family ?? t.bodyFont,
       fontSize: font,
@@ -43,7 +42,6 @@ class RaftCindySetupScreen extends StatelessWidget {
       // CSS font-black keeps computed 900 but the served face stops at 700.
       fontWeight: weight == FontWeight.w900 ? RaftTypography.black(t) : weight,
       color: color ?? t.strong,
-      letterSpacing: tracking,
     );
     final muted = t.colors['foreground-muted'];
     final header = Container(
@@ -59,14 +57,13 @@ class RaftCindySetupScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 RaftCssText(
-                  raftText(context, 'Set up your server').toUpperCase(),
+                  raftText(context, 'Set up your server'),
                   style: style(
                     10,
                     15,
                     FontWeight.w700,
                     color: muted,
                     family: t.monoFont,
-                    tracking: .25,
                   ),
                 ),
                 const SizedBox(height: 8),

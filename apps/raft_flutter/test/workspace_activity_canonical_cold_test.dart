@@ -220,7 +220,7 @@ void main() {
             expect(w.messageDomain.threadGeneration, threadGeneration);
             expect(w.threadIdentity, same(identity));
             expect(w.replies.map((row) => row.id), ['mention-reply']);
-            expect(find.text('SELECT A CHANNEL'), findsOneWidget);
+            expect(find.text('Select a channel'), findsOneWidget);
             expect(
               find.byKey(const Key('workspace-channel-header')),
               findsNothing,

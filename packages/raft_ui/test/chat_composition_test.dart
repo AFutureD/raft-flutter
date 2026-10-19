@@ -87,7 +87,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(expanded, false);
         expect(find.text('channel-0'), findsNothing);
-        expect(find.text('CHANNELS'), findsOneWidget);
+        expect(find.text('Channels'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );

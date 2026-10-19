@@ -32,7 +32,7 @@ void main() {
                   mobile: true,
                   controller: controller,
                   workspaceName: 'Visual Server',
-                  label: 'Switch workspace',
+                  label: 'Switch server',
                   rows: [
                     RaftServerMenuRow(
                       id: 'visual',
@@ -49,7 +49,7 @@ void main() {
                       onPressed: () {},
                     ),
                     RaftServerMenuAction(
-                      label: 'Invite human',
+                      label: 'Invite Human',
                       tone: RaftServerMenuActionTone.invite,
                       onPressed: () {},
                     ),
@@ -99,7 +99,7 @@ void main() {
                     builder: (context, update) => RaftServerSwitcher(
                       controller: controller,
                       workspaceName: 'Alpha',
-                      label: 'Switch workspace',
+                      label: 'Switch server',
                       rows: [
                         for (final name in names)
                           RaftServerMenuRow(
@@ -187,7 +187,7 @@ void main() {
                     child: RaftServerSwitcher(
                       controller: controller,
                       workspaceName: 'Visual Server',
-                      label: 'Switch workspace',
+                      label: 'Switch server',
                       rows: [
                         RaftServerMenuRow(
                           id: 'visual',
@@ -211,7 +211,7 @@ void main() {
                         ),
                         RaftServerMenuAction(
                           tone: RaftServerMenuActionTone.invite,
-                          label: 'Invite human',
+                          label: 'Invite Human',
                           glyph: RaftGlyph.userPlus,
                           onPressed: () {},
                         ),
@@ -239,7 +239,7 @@ void main() {
         expect(find.text('88'), findsNothing);
         expect(FocusManager.instance.primaryFocus!.skipTraversal, isTrue);
         final invite = find.byWidgetPredicate(
-          (w) => w is RaftInteractive && w.semanticLabel == 'Invite human',
+          (w) => w is RaftInteractive && w.semanticLabel == 'Invite Human',
         );
         final tokens = RaftTokens.of(t.element(menu));
         final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
@@ -323,7 +323,7 @@ void main() {
                   child: RaftServerSwitcher(
                     controller: controller,
                     workspaceName: 'Visual',
-                    label: 'Switch workspace',
+                    label: 'Switch server',
                     rows: [
                       for (var i = 0; i < 20; i++)
                         RaftServerMenuRow(

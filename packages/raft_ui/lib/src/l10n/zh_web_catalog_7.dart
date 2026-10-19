@@ -11,8 +11,8 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
       "部分所选内容无法转发。请仅保留普通消息后重试。",
   "Some selected members could not be added. They remain selected — press Add again to retry.":
       "部分所选成员未能添加，已保留选中，再次点击添加即可重试。",
-  "Something went wrong": "出了点问题",
-  "Something went wrong during the transfer. Try again.": "传输过程中出了问题，请重试。",
+  "Could not load your servers. Try again.": "无法加载你的服务器，请重试。",
+  "The transfer did not finish. Try again.": "传输未完成，请重试。",
   "Sort": "排序",
   "Sort Activity": "排序动态",
   "Sort by newest": "按最新排序",
@@ -28,7 +28,6 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "Start building with agents.": "开始与 Agent 一起构建。",
   "Start on new computer": "在新计算机上启动",
   "Start one of your computers": "启动其中任意一台计算机",
-  "Start over": "重新开始",
   "Start over?": "重新开始？",
   "Start selected offline agents": "启动选中的离线 Agent",
   "Start the agent to see its activity log.": "启动 Agent 以查看其活动日志。",
@@ -46,8 +45,6 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "Stop": "停止",
   "Stop Agent": "停止 Agent",
   "Stop Agents": "停止 Agent",
-  "Stop All Agents": "停止所有 Agent",
-  "Stop agent": "停止 Agent",
   "Stop all agents in this channel": "停止此频道中的所有 Agent",
   "Stop and restart the agent process. Keeps the runtime session and workspace files.":
       "停止并重新启动 agent 进程，保留运行时会话和工作区文件。",
@@ -60,8 +57,8 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "Stopped — won't receive messages until restarted": "已停止——重启前不会接收消息",
   "Stopping the agent on the new computer": "正在停止新计算机上的 Agent",
   "Stopping…": "停止中…",
-  "Store a provider credential once, then reuse the connection when creating or editing Agents. Credentials are encrypted and never shown again.":
-      "只需保存一次 Provider 凭据，创建或编辑 Agent 时即可复用连接。凭据会被加密，保存后不再回显。",
+  "Store a provider credential once, then reuse the connection when creating or editing agents. Credentials are encrypted and never shown again.":
+      "只需保存一次提供方凭据，创建或编辑 Agent 时即可复用连接。凭据会被加密，保存后不再回显。",
   "Stripe may bill this seat increase immediately after you confirm.":
       "确认后，Stripe 可能会立即对新增席位计费。",
   "Stripe will reactivate this subscription without changing seat count.":
@@ -83,7 +80,6 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "Switch or Create Server": "切换或创建服务器",
   "Switch runtime config": "切换运行时配置",
   "Switch server": "切换服务器",
-  "Switch workspace": "切换工作空间",
   "Syncing changes": "正在同步修改",
   "System": "系统",
   "System Channels": "系统频道",
@@ -130,8 +126,8 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "That target is no longer available.": "该目标已不可用。",
   "That target was not notified right now. Try again.": "该目标当前未收到通知。请重试。",
   "The #all channel cannot be renamed": "#all 频道无法重命名",
-  "The AI agent runtime your agents run on.": "Agent 运行所使用的 AI 运行时。",
-  "The Computer is offline.": "Computer 已离线。",
+  "The runtime your agents run on.": "Agent 运行所使用的运行时。",
+  "The Computer is offline.": "计算机已离线。",
   "The GitHub authorization was declined. Nothing was connected.":
       "GitHub 授权被拒绝，未建立任何连接。",
   "The GitHub connection failed. Try again from the agent's profile.":
@@ -153,9 +149,9 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "The agent now has a GitHub connection you did not start. If you did not expect it, open the agent and disconnect it.":
       "此 Agent 现在有一个不是由你发起的 GitHub 连接。如非预期，请打开 Agent 并断开连接。",
   "The agent's computer is asked for its session record; it may not have one.":
-      "将向 Agent 所在的电脑请求会话记录；它可能没有可用的记录。",
+      "将向 Agent 所在的计算机请求会话记录；它可能没有可用的记录。",
   "The agent's computer was asked for its session record. This screen can't tell whether one was found.":
-      "已向 Agent 所在的电脑请求会话记录。此处无法得知是否找到了会话记录。",
+      "已向 Agent 所在的计算机请求会话记录。此处无法得知是否找到了会话记录。",
   "The agent's source computer is unavailable. Reconnect it and try again.":
       "该 Agent 的源计算机不可用。请重新连接后重试。",
   "The agreement was updated. Open the join action again to review the latest version.":
@@ -198,8 +194,8 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
       "上次搜索请求失败。已尽量保留现有结果，但此查询需要重试。",
   "The leading @ was removed automatically — it is display notation, not part of the name.":
       "开头的 @ 已自动去掉——那是显示写法，不是名字的一部分。",
-  "The machine summary sent with every report (versions, failure counts, trace fields) is structured data with no free text.":
-      "随每份报告一起发送的机器摘要（版本、失败次数、trace 字段）是结构化数据，不含自由文本。",
+  "The computer summary sent with every report (versions, failure counts, trace fields) is structured data with no free text.":
+      "随每份报告一起发送的计算机摘要（版本、失败次数、trace 字段）是结构化数据，不含自由文本。",
   "The migration moved on before your request went through. Check the latest status and try again.":
       "提交取消请求前，迁移已有新进展。请查看最新状态后重试。",
   "The migration changed before this action completed. Refresh and try again.":
@@ -224,8 +220,8 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "The next page is Stripe Checkout, where the payment amount is shown before you pay.":
       "下一页是 Stripe 结账页，付款前会显示支付金额。",
   "The options could not be loaded.": "无法加载可选项。",
-  "The provider connection could not be created.": "无法创建 Provider 连接。",
-  "The provider connection could not be updated.": "无法更新 Provider 连接。",
+  "The provider connection could not be created.": "无法创建提供方连接。",
+  "The provider connection could not be updated.": "无法更新提供方连接。",
   "The published Windows installer currently supports x64 only.":
       "当前发布的 Windows 安装器仅支持 x64。",
   "The reply body is not retained after this page closes; the receipt above is the durable record.":
@@ -239,8 +235,7 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "The selected destinations already received this forward.": "所选目标已经收到这次转发。",
   "The selected destinations are no longer available. Review your selection and try again.":
       "所选目标已不可用。请检查所选目标后重试。",
-  "The selected runtime is not installed on this computer":
-      "所选运行时未安装在这台 Computer 上",
+  "The selected runtime is not installed on this computer": "所选运行时未安装在这台计算机上",
   "The source computer produced transfer metadata that the target computer could not verify. Update Raft Computer on both computers, then try again.":
       "源计算机生成了目标计算机无法验证的传输元数据。请更新两台计算机上的 Raft Computer，然后重试。",
   "The suggested computer is unavailable. Pick a computer to continue.":
@@ -258,8 +253,8 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "The target workspace is committed. This migration version does not report source cleanup or temporary transfer residue.":
       "目标工作区已提交。此迁移版本不会报告来源清理或临时传输残留。",
   "The test request failed. Check the model, credential, and provider access.":
-      "测试请求失败，请检查模型、凭据和 Provider 访问权限。",
-  "The thread couldn't be opened. If this channel just became public, retrying usually fixes it.":
+      "测试请求失败，请检查模型、凭据和提供方访问权限。",
+  "The thread couldn't be opened. If this channel recently became public, try again.":
       "无法打开此消息列。如果此频道刚变为公开，重试通常即可恢复。",
   "The upload could not be completed.": "上传未能完成。",
   "The upload response was lost. Retry to safely resume this upload.":
@@ -270,11 +265,9 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
       "无法获取上传大小限制，请稍后再试。",
   "The upload stopped making progress. Check your connection and try again.":
       "上传已停止传输。请检查网络连接后重试。",
-  "The user chooses the target agent when authorizing.": "发送目标由用户授权时选择。",
+  "The person chooses the target agent when authorizing.": "发送目标由本人授权时选择。",
   "The workspace has too many files and folders to move. Ask the agent to delete folders it no longer needs, or to list them in .raftmigrateignore, then try again.":
       "工作区里的文件和文件夹太多，无法迁移。请让 Agent 删除不再需要的目录，或把它们写进 .raftmigrateignore，然后重试。",
-  "The workspace transfer did not finish before the deadline. Make sure both Computers stay online and the target has enough free disk space, then try again.":
-      "工作区传输未能在截止时间前完成。请确认两台 Computer 持续在线且目标 Computer 有足够可用磁盘空间，然后重试。",
   "The workspace transfer did not finish before the deadline. Make sure both computers stay online and the target has enough free disk space, then try again.":
       "工作区传输未能在截止时间前完成。请确认两台计算机保持在线、且目标有足够空闲磁盘空间，然后重试。",
   "Theme": "主题",
@@ -297,24 +290,22 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This Agent was deleted but still holds the assignment, which keeps the connection undeletable. Detach it to release the connection.":
       "该 Agent 已删除，但仍占用此关联，导致连接无法删除。解除关联后即可删除。",
   "This App is not accessible yet": "该 App 尚不可访问",
-  "This Computer can't be upgraded from the web right now.":
-      "现在不能从网页升级这台 Computer。",
+  "This Computer can't be upgraded from the web right now.": "现在不能从网页升级这台计算机。",
   "This Computer cannot list the options for this runtime.":
-      "此 Computer 无法列出此运行时的可选项。",
-  "This Computer could not list the options.": "此 Computer 无法列出可选项。",
+      "此计算机无法列出此运行时的可选项。",
+  "This Computer could not list the options.": "此计算机无法列出可选项。",
   "This Computer is no longer available in the current server.":
       "此计算机在当前服务器中已不可用。",
-  "This Computer is offline.": "此 Computer 已离线。",
-  "This Computer is offline. Reconnect it, then retry.":
-      "此 Computer 已离线。请重新连接后重试。",
+  "This Computer is offline.": "此计算机已离线。",
+  "This Computer is offline. Reconnect it, then retry.": "此计算机已离线。请重新连接后重试。",
   "This Computer is too old to verify Built-in models. Your saved selection is preserved; update Raft Computer before changing it.":
-      "此 Computer 版本过旧，无法验证 Built-in 模型。已保留原有选择；请先升级 Raft Computer，再更改模型。",
-  "This Computer reported no available options.": "此 Computer 未报告任何可用选项。",
-  "This Computer took too long to list the options.": "此 Computer 列出可选项超时。",
+      "此计算机版本过旧，无法验证 Built-in 模型。已保留原有选择；请先升级 Raft Computer，再更改模型。",
+  "This Computer reported no available options.": "此计算机未报告任何可用选项。",
+  "This Computer took too long to list the options.": "此计算机列出可选项超时。",
   "This Computer's catalog does not list this model. You can still select it; compatibility will be checked when the agent starts.":
-      "此 Computer 的目录未列出这个模型。你仍可选择它，兼容性将在 agent 启动时检查。",
+      "此计算机的目录未列出这个模型。你仍可选择它，兼容性将在 agent 启动时检查。",
   "This Computer's model catalog is unavailable. You can choose from the standard Built-in models, but saving may be refused until the catalog can be read; retry later or choose another Computer.":
-      "暂时无法获取此 Computer 的模型目录。你仍可选择标准 Built-in 模型，但在目录可读之前保存可能会被拒绝；请稍后重试或换一台 Computer。",
+      "暂时无法获取此计算机的模型目录。你仍可选择标准 Built-in 模型，但在目录可读之前保存可能会被拒绝；请稍后重试或换一台计算机。",
   "This Joint Channel already has 2 free servers. Upgrade either side to Pro, or have a free server leave, to continue (30 servers max).":
       "这个联合频道已满 2 个免费服务器。把任一方升级到 Pro，或有免费服务器退出后，可以继续加入（总服务器上限 30 个）",
   "This Joint Channel has unfinished uploads. Open the channel to let the original composer continue, or cancel an upload here.":
@@ -328,11 +319,11 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This Stripe estimate expires after 5 minutes. Reopen the review if it expires.":
       "此 Stripe 估算 5 分钟后失效；若已失效，请重新打开确认页。",
   "This action card requires the specified computer":
-      "这个 action card 要求使用指定 Computer",
+      "这个 action card 要求使用指定计算机",
   "This agent already has a migration in progress. Wait for it to finish before trying again.":
       "该 Agent 已有一个迁移正在进行。请等它完成后再试。",
   "This agent has been terminated or is no longer available in this server.":
-      "这个 Agent 已被终止，或已不在此 Server 中可用。",
+      "这个 Agent 已被终止，或已不在此服务器中可用。",
   "This agent hasn't scheduled anything. To set one, just tell your agent: \"remind me tomorrow to follow up.\"":
       "此 Agent 尚未安排任何提醒。要设置一个，只需告诉你的 Agent：「明天提醒我跟进。」",
   "This agent is no longer available. Refresh and try again.":
@@ -346,11 +337,11 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This app cannot: send chat as you · speak as the agent · read your messages · take actions for you. It can only deliver event/notification payloads to the single agent you select.":
       "此应用不能：以你的身份发消息 · 以该 Agent 的身份发言 · 读取你的消息 · 代你执行操作。它只能向你选定的那一个 Agent 投递事件/通知负载。",
   "This app is not registered for any Raft Server you can access.":
-      "该 App 未在你可访问的任何 Raft Server 上注册。",
+      "该 App 未在你可访问的任何 Raft 服务器上注册。",
   "This app is published in the Marketplace. Offline review is kept in Danger zone because approval revokes active installs and access.":
       "此应用已发布到市场。下架审核放在危险区，因为一旦批准会撤销正在使用的安装和访问权限。",
   "This app requests access to the agent directory in your selected Server, along with the other permissions listed below.":
-      "此应用请求读取所选 Server 的 Agent 列表，以及下方列出的其他权限。",
+      "此应用请求读取所选服务器的 Agent 列表，以及下方列出的其他权限。",
   "This app requests new data access. Review the new data groups before approving the update.":
       "此应用申请了新的数据访问权限。请在批准更新前查看新的数据组。",
   "This browser does not expose the Notification API, so it cannot show system notifications for Raft.":
@@ -391,12 +382,12 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This in-app browser cannot complete secure sign-in. Continue in Safari, Chrome, or your system browser.":
       "应用内浏览器无法完成安全登录，请在 Safari、Chrome 或系统浏览器中继续。",
   "This invite link is invalid or has expired.": "此邀请链接无效或已过期。",
-  "This is a history copy. Only the source workspace can run this action.":
-      "这是历史操作卡片，只能在来源工作空间执行。",
+  "This is a history copy. Only the source server can run this action.":
+      "这是历史操作卡片，只能在来源服务器执行。",
   "This link will show a seat-limit message until you add a human seat.":
       "在你增加人类席位之前，此链接会显示席位上限提示。",
-  "This machine was connected with the retired standalone daemon. Install Raft Computer on it to bring it back:":
-      "这台机器是用已停用的独立守护进程连接的。在它上面安装 Raft Computer 即可恢复：",
+  "This computer was connected with the retired standalone app. Install Raft Computer on it to bring it back:":
+      "这台计算机是用已停用的独立应用连接的。在它上面安装 Raft Computer 即可恢复：",
   "This mention action could not be applied.": "无法应用此提及操作。",
   "This mention action has expired.": "此提及操作已过期。",
   "This mention action is no longer available.": "此提及操作已不可用。",
@@ -408,7 +399,7 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This migration is no longer available. Refresh the migration status.":
       "该迁移已不存在。请刷新迁移状态。",
   "This model is a catalog suggestion and has not been verified to launch with this computer's current runtime config.":
-      "此模型只是目录建议，尚未验证能用这台 Computer 当前的运行时配置启动。",
+      "此模型只是目录建议，尚未验证能用这台计算机当前的运行时配置启动。",
   "This page could not be verified. Follow the native recovery window to retry safely.":
       "无法验证此页面。请按原生恢复窗口的指引安全重试。",
   "This page is not served over HTTPS, so the browser will not register a service worker for push notifications.":
@@ -416,15 +407,14 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This permanently deletes the app's OAuth client, secret, and all grants. Any existing Login with Raft setup using ":
       "这将永久删除该应用的 OAuth 客户端、密钥和所有授权。任何使用 ",
   "This private third-party App is not available on any Raft Server you can access.":
-      "这个私有第三方 App 在你可访问的任何 Raft Server 上均不可用。",
-  "This removes the marketplace app from this server and revokes its existing Login with Raft access for agents on this server. Active grants and tokens will be revoked, and pending agent login requests will be denied. Agents must get a fresh approval before using ":
-      "这会从此服务器移除该市场应用，并撤销此服务器上 Agent 对它现有的 Login with Raft 访问权限。有效的授权和令牌将被撤销，待处理的 Agent 登录请求将被拒绝。Agent 必须获得新的批准后才能再次使用 ",
+      "这个私有第三方 App 在你可访问的任何 Raft 服务器上均不可用。",
+  "This removes the marketplace app from this server and revokes its existing Login with Raft access for agents on this server. Active grants and tokens will be revoked, and pending agent login requests will be denied. Agents must get a fresh approval before using ": "这会从此服务器移除该市场应用，并撤销此服务器上 Agent 对它现有的 Login with Raft 访问权限。有效的授权和令牌将被撤销，待处理的 Agent 登录请求将被拒绝。Agent 必须获得新的批准后才能再次使用 ",
   "This report may contain <strong>prompt history, file paths, and command output</strong>. Sensitive data redaction is best-effort and not guaranteed.":
       "此报告可能包含<strong>提示词历史、文件路径和命令输出</strong>。敏感数据会尽量遮蔽，但无法保证完全遮蔽。",
   "This runtime is not installed on this computer.": "该运行时未安装在此计算机上",
   "This runtime is not logged in on this computer.": "该运行时未在此计算机上登录",
   "This runtime needs configuration on this Computer before it can list the options.":
-      "此运行时需要先在此 Computer 上完成配置，才能列出可选项。",
+      "此运行时需要先在此计算机上完成配置，才能列出可选项。",
   "This saved provider is unavailable. Select another provider.":
       "此已保存提供方不可用，请重新选择。",
   "This secret is only shown once. Copy it now.": "此密钥只显示一次，请立即复制。",
@@ -451,8 +441,8 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This spreadsheet is empty.": "此表格为空。",
   "This tab is running an older app build. Refresh to load the current version; unsent text or unsaved changes in this tab may be lost.":
       "此标签页运行的是较旧的应用版本。请刷新以加载当前版本；此标签页中未发送的文本或未保存的更改可能会丢失。",
-  "This task predates the channel conversion. Only the source workspace can change it.":
-      "这是频道转换前的历史任务，只能由来源工作空间修改。",
+  "This task predates the channel conversion. Only the source server can change it.":
+      "这是频道转换前的历史任务，只能由来源服务器修改。",
   "This thread tab is missing its parent channel and root message identity.":
       "此消息列标签缺少父频道与根消息标识。",
   "This username is already taken.": "该用户名已被占用。",
@@ -463,7 +453,7 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "This will permanently delete ": "这将永久删除 ",
   "This will permanently delete all workspace files including MEMORY.md and notes/. This cannot be undone.":
       "这会永久删除包括 MEMORY.md 和 notes/ 在内的所有工作区文件。此操作无法撤销。",
-  "Thread": "话题",
+  "Thread": "消息列",
   "Thread actions": "消息列操作",
   "Thread discussion": "消息列讨论",
   "Thread has an unsent draft": "消息列有未发送的草稿",
@@ -483,7 +473,7 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "Today": "今天",
   "Todo": "待办",
   "Tokens": "Token",
-  "Too many attempts. Please wait a minute and try again.": "尝试次数过多，请稍等一分钟后重试。",
+  "Too many attempts. Wait a minute and try again.": "尝试次数过多，请稍等一分钟后重试。",
   "Tool calls": "工具调用",
   "Top models": "主要模型",
   "Total": "总价",
@@ -514,7 +504,7 @@ const Map<String, String> zhCatalogWeb7 = <String, String>{
   "Try another channel or clear the channel filter.": "请选择其他频道或清除频道筛选。",
   "Try different keywords or a shorter phrase.": "试试其他关键词或更短的短语。",
   "Try migration again": "重试迁移",
-  "Turn on Server Labs access first.": "需先开启 Server Labs 访问权限",
+  "Turn on Server Labs access first.": "需先开启服务器 Labs 访问权限",
   "Turn on message translation for this server. When this is off, members' language and display preferences will not translate messages here.":
       "为此服务器开启消息翻译。关闭时，成员的语言和显示偏好不会在此翻译消息。",
   "Turn on notifications so you don't miss when they finish or need you.":

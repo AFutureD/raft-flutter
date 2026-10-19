@@ -2,9 +2,6 @@
 // English source text is the key. Part of `raftChinese` (merged by the generated zh_index.g.dart).
 const Map<String, String> zhCatalogSettingsApps = <String, String>{
   // Settings > Applications > app editor (SettingsPanel.tsx IntegrationsSection).
-  "Regenerate secret for {name}?": "确定要为 {name} 重新生成密钥吗？",
-  "Request offline review for {name}?": "确定要为 {name} 申请下架审核吗？",
-  "Delete {name}?": "删除 {name}？",
   "{resource} · read": "{resource} · 只读",
   "{count} permissions selected": "已选 {count} 项",
   "Revision {revision} is pending App Review. Current approved permissions remain active until review completes.":

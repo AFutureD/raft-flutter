@@ -823,7 +823,7 @@ void main() {
         expect(find.byType(WorkspaceView), findsNothing);
         held.complete([]);
         await f.flush(t);
-        expect(find.text('CREATE YOUR FIRST SERVER'), findsOneWidget);
+        expect(find.text('Create your first server'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('global-server-name')),
           findsOneWidget,
@@ -953,7 +953,7 @@ void main() {
       f.adapter.statuses['GET /servers'] = 503;
       await f.mount(t, 'elegant-light', 390);
       expect(find.textContaining('Directory unavailable'), findsOneWidget);
-      expect(find.text('CREATE YOUR FIRST SERVER'), findsNothing);
+      expect(find.text('Create your first server'), findsNothing);
       expect(find.byKey(const ValueKey('global-server-name')), findsNothing);
       expect(f.adapter.calls.where((c) => c.path == '/channels'), isEmpty);
       f.serverDirectory = null;

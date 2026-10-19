@@ -860,7 +860,7 @@ void main() {
         findsOneWidget,
       );
       expect(s.gate.done.isCompleted, isFalse);
-      await t.tap(find.text('Join channel').last);
+      await t.tap(find.text('Join Channel').last);
       await t.pump();
       final polls = await landed(t, s, 'cp');
       metric('share public channel: composer with API closed', polls);
@@ -897,7 +897,7 @@ void main() {
       await t.pump();
       await t.tap(find.byKey(const Key('incoming-share-continue')));
       await t.pump(const Duration(milliseconds: 500));
-      await t.tap(find.text('Join channel').last);
+      await t.tap(find.text('Join Channel').last);
       await t.pump();
       await settle(t, s, 20);
       final w = s.w;

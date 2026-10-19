@@ -269,7 +269,7 @@ void main() {
         expect(shown('Direct thread reply'), findsOneWidget);
         expect(shown('Preview 0'), findsNothing);
         expect(state.rows, hasLength(2));
-        expect(find.text('Mark all read'), findsNothing);
+        expect(find.text('Mark All Read'), findsNothing);
         expect(acceptedUnread.whereType<int>().toSet(), {17});
         if (compact) {
           await openViews(tester);
@@ -302,18 +302,18 @@ void main() {
         await mount(tester, language: language);
         await select(tester, 'dms');
         expect(
-          find.text(language == 'en' ? 'No DM activity' : '暂无私信动态'),
+          find.text(language == 'en' ? 'No DM activity' : '没有私信动态'),
           findsOneWidget,
         );
         expect(
           find.text(
             language == 'en'
                 ? 'DMs and threads in DMs show up here when they have new activity.'
-                : '私信和私信里的话题有新动态时会显示在这里。',
+                : '私信和私信里的消息列有新动态时会显示在这里。',
           ),
           findsOneWidget,
         );
-        expect(find.text('Mark all read'), findsNothing);
+        expect(find.text('Mark All Read'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }
@@ -341,7 +341,7 @@ void main() {
         await select(tester, 'dms');
         expect(state.rows, hasLength(30));
         await tester.scrollUntilVisible(
-          find.text('Load more'),
+          find.text('Load More'),
           500,
           maxScrolls: 30,
           scrollable: find
@@ -351,13 +351,13 @@ void main() {
               )
               .first,
         );
-        expect(find.text('Load more'), findsOneWidget);
-        await tester.tap(find.text('Load more'));
+        expect(find.text('Load More'), findsOneWidget);
+        await tester.tap(find.text('Load More'));
         await tester.pumpAndSettle();
         expect(workspace.dmQueries.last, containsPair('offset', 30));
         expect(workspace.dmQueries.last, containsPair('filter', 'all'));
         expect(state.rows, hasLength(32));
-        expect(find.text('Load more'), findsNothing);
+        expect(find.text('Load More'), findsNothing);
         expect(
           state.rows.any((dynamic row) => row['parentChannelType'] == 'dm'),
           isTrue,

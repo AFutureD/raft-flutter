@@ -50,7 +50,6 @@ class RaftBadge extends StatefulWidget {
     required this.label,
     this.appearance = RaftBadgeRecipeAppearance.solid,
     this.variant = RaftBadgeRecipeVariant.default_,
-    this.uppercase = false,
     this.leading,
     this.onPressed,
     this.foreground,
@@ -71,7 +70,6 @@ class RaftBadge extends StatefulWidget {
   final String label;
   final RaftBadgeRecipeAppearance appearance;
   final RaftBadgeRecipeVariant variant;
-  final bool uppercase;
   final Widget? leading;
 
   /// Rendered as a `<button>` (`render={<button/>}`): enables hover filter.
@@ -93,7 +91,6 @@ class _RaftBadgeState extends State<RaftBadge> {
       theme: t.recipeTheme,
       appearance: widget.appearance,
       variant: widget.variant,
-      uppercase: widget.uppercase,
       // `enabled:hover:` only matches a real <button>.
       states: t.recipeStates(
         hovered: hovered && interactive,
@@ -101,7 +98,6 @@ class _RaftBadgeState extends State<RaftBadge> {
       ),
       tokens: rt,
     ).root;
-    final upper = s.textTransform == 'uppercase';
     Widget badge = RaftRecipeBox(
       style: s,
       tokens: rt,
@@ -122,7 +118,7 @@ class _RaftBadgeState extends State<RaftBadge> {
           ],
           Flexible(
             child: Text(
-              upper ? widget.label.toUpperCase() : widget.label,
+              widget.label,
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.clip,

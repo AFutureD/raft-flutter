@@ -432,19 +432,12 @@ class RaftAvatarListRow extends StatelessWidget {
   }
 }
 
-/// Web `SectionEyebrow`: `text-xs font-bold uppercase text-foreground-muted
-/// tracking-widest` (letter-spacing .1em).
+/// Web `SectionEyebrow`: `text-xs font-bold text-foreground-muted` (sentence
+/// case, no tracking: decision 0002).
 class RaftSectionEyebrow extends StatelessWidget {
-  const RaftSectionEyebrow(
-    this.label, {
-    super.key,
-    this.uppercase = true,
-    this.color,
-    this.trailing,
-  });
+  const RaftSectionEyebrow(this.label, {super.key, this.color, this.trailing});
 
   final String label;
-  final bool uppercase;
 
   /// Callsite colour override (e.g. `!text-black`).
   final Color? color;
@@ -456,7 +449,6 @@ class RaftSectionEyebrow extends StatelessWidget {
     fontSize: 12,
     height: 16 / 12,
     fontWeight: FontWeight.w700,
-    letterSpacing: 1.2,
     color: color ?? t.semantic.foregroundMuted,
   );
 
@@ -464,10 +456,7 @@ class RaftSectionEyebrow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return Text.rich(
-      TextSpan(
-        text: uppercase ? label.toUpperCase() : label,
-        children: trailing,
-      ),
+      TextSpan(text: label, children: trailing),
       style: style(t, color: color),
     );
   }
@@ -951,7 +940,6 @@ class RaftSelectionPopover extends StatelessWidget {
       fontSize: 10,
       height: 1.5,
       fontWeight: FontWeight.w700,
-      letterSpacing: .25,
       color: s.foregroundMuted,
     );
     final card = surfaceStyle ?? _selectionPopoverSurface(t);
@@ -984,7 +972,7 @@ class RaftSelectionPopover extends StatelessWidget {
             decoration: BoxDecoration(border: Border(bottom: divider)),
             child: Row(
               children: [
-                Expanded(child: Text(title.toUpperCase(), style: eyebrow)),
+                Expanded(child: Text(title, style: eyebrow)),
                 if (onClear != null)
                   _ClearAction(
                     label: clearLabel,

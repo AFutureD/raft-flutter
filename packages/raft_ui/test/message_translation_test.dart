@@ -57,11 +57,8 @@ void main() {
       expect(find.bySemanticsLabel('Show original'), findsOneWidget);
       await t.tap(find.text('Show original'));
       expect(toggles, 1);
-      // Brutal uppercases the original label (`uppercase`).
-      expect(
-        find.text(family == RaftFamily.brutal ? 'ORIGINAL' : 'Original'),
-        findsOneWidget,
-      );
+      // Neither family sets the original label in all caps (decision 0002).
+      expect(find.text('Original'), findsOneWidget);
       expect(find.text('·'), findsOneWidget);
       semantics.dispose();
       await t.pumpWidget(const SizedBox());

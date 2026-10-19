@@ -410,7 +410,7 @@ void main() {
         await list;
         expect(identical(w.channels, held), isTrue);
         if (error.status == 500) {
-          expect(w.error, 'Something went wrong');
+          expect(w.error, 'Could not complete that. Try again.');
           expect(w.notifications, 1);
         } else {
           expect(w.error, isNull);

@@ -31,12 +31,12 @@ void main() {
                   .any((s) => s.properties.liveRegion == true),
               isTrue,
             );
-            Focus.of(t.element(find.text('Retry conversion'))).requestFocus();
+            Focus.of(t.element(find.text('Retry Conversion'))).requestFocus();
             await t.pump();
             await t.sendKeyEvent(LogicalKeyboardKey.enter);
             await t.pump();
             expect(find.text('Preparing conversion'), findsOneWidget);
-            Focus.of(t.element(find.text('Cancel conversion'))).requestFocus();
+            Focus.of(t.element(find.text('Cancel Conversion'))).requestFocus();
             await t.pump();
             await t.sendKeyEvent(LogicalKeyboardKey.enter);
             await t.pump();

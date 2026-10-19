@@ -120,7 +120,7 @@ class _FormsPreviewState extends State<_FormsPreview> {
           label: 'Product analytics',
           glyph: RaftGlyph.barChart3,
           child: RaftAdminSwitchCard(
-            title: 'Product analytics for this workspace',
+            title: 'Product analytics for this server',
             description: 'When off, no usage data is recorded.',
             checked: analytics,
             onChanged: (v) => setState(() => analytics = v),

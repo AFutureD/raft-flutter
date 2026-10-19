@@ -107,18 +107,18 @@ class RaftAppearancePicker extends StatelessWidget {
       );
     }
 
-    // `text-xs font-bold uppercase tracking-widest text-foreground-muted`
+    // `text-xs font-bold text-foreground-muted`
     final eyebrow = RaftTypography.body(
       t,
       size: 12,
       line: 16,
       weight: FontWeight.w700,
       color: t.muted,
-    ).copyWith(letterSpacing: 1.2);
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(raftText(context, 'Color mode').toUpperCase(), style: eyebrow),
+        Text(raftText(context, 'Color mode'), style: eyebrow),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,

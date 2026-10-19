@@ -15,7 +15,7 @@ import 'recipes/token_binding.dart';
 import 'theme.dart';
 
 /// One entry of a Sidebar.tsx `ContextMenuPopup`: a `MenuItem` row, the small
-/// uppercase group heading above the sort / display rows, or a
+/// group heading above the sort / display rows, or a
 /// `ContextMenuDivider`.
 @immutable
 sealed class RaftSidebarMenuEntry {
@@ -201,7 +201,7 @@ class _RaftSidebarContextMenuState extends State<RaftSidebarContextMenu> {
           RaftSidebarMenuHeading(:final label) => Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Text(
-              label.toUpperCase(),
+              label,
               style:
                   RaftTypography.heading(
                     t,
@@ -209,7 +209,6 @@ class _RaftSidebarContextMenuState extends State<RaftSidebarContextMenu> {
                     line: 15,
                     weight: FontWeight.w700,
                   ).copyWith(
-                    letterSpacing: 1.5,
                     color: t.brutal
                         ? Colors.black.withValues(alpha: .5)
                         : t.colors['foreground-muted'],

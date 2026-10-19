@@ -160,7 +160,7 @@ void main() {
           expect(w.pending.every((p) => !p.isCompleted), isTrue);
           expect(inDetail(rows[0]['name'] as String), findsWidgets);
           expect(
-            find.descendant(of: detail, matching: find.text('Loading...')),
+            find.descendant(of: detail, matching: find.text('Loading profile…')),
             findsNothing,
           );
           for (final text in invented) {
@@ -243,7 +243,7 @@ void main() {
             ),
           );
           await tester.pump();
-          expect(find.text('Loading...'), findsOneWidget);
+          expect(find.text('Loading profile…'), findsOneWidget);
           for (final text in [
             'Default',
             'offline',
@@ -266,7 +266,7 @@ void main() {
           }
           await tester.pumpAndSettle();
           expect(find.text(rows[0]['name'] as String), findsWidgets);
-          expect(find.text('Loading...'), findsNothing);
+          expect(find.text('Loading profile…'), findsNothing);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pump();

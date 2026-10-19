@@ -60,10 +60,10 @@ void main() {
     ) async {
       await t.pumpWidget(frame(family, dark));
       expect(t.takeException(), isNull);
-      expect(find.text('WHAT IS NEW'), findsOneWidget);
-      expect(find.text('WELCOME'), findsOneWidget);
+      expect(find.text('What is new'), findsOneWidget);
+      expect(find.text('Welcome'), findsOneWidget);
       expect(find.text('inline code'), findsOneWidget);
-      expect(find.text('SECTION'), findsOneWidget);
+      expect(find.text('Section'), findsOneWidget);
       expect(find.text('First item'), findsOneWidget);
       expect(find.text('2. '), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);

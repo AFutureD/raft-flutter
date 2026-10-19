@@ -571,12 +571,12 @@ class RaftConversationPreviewCard extends StatelessWidget {
           if (footer != null) ...[
             const SizedBox(height: 4),
             RaftCssText(
-              raftText(context, footer!).toUpperCase(),
+              raftText(context, footer!),
               style: raftCssTextStyle(
                 family: t.monoFont,
                 step: (11, 16.5),
                 color: Colors.black.withValues(alpha: .45),
-              ).copyWith(letterSpacing: .55),
+              ),
             ),
           ],
         ],

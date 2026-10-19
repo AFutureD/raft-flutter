@@ -119,7 +119,7 @@ void main() {
           w.hold = true;
           await host(t, detail(() {}), family, dark);
           expect(find.text(expected), findsWidgets);
-          expect(find.text('Loading...'), findsNothing);
+          expect(find.text('Loading profile…'), findsNothing);
           expect(find.text('null'), findsNothing);
           // A revisit never re-reads the shared lists; only detail-only
           // fields (agent runtime profile and, like Web's embedded
@@ -139,7 +139,7 @@ void main() {
           w.hold = true;
           var back = 0;
           await host(t, detail(() => back++), family, dark);
-          expect(find.text('Loading...'), findsOneWidget);
+          expect(find.text('Loading profile…'), findsOneWidget);
           expect(find.text(expected), findsNothing);
           expect(find.byType(RaftProfileIdentity), findsNothing);
           for (final invented in ['Default', 'offline', 'Unassigned', 'null']) {

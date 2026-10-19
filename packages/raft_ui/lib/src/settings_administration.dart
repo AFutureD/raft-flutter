@@ -758,7 +758,7 @@ class RaftAdminInvitesCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         _IconAction(
                           key: ValueKey('admin-invite-revoke-${invite.id}'),
-                          tooltip: 'Revoke invite',
+                          tooltip: 'Revoke Invite',
                           glyph: RaftGlyph.x,
                           size: 12,
                           onPressed: invite.onRevoke,
@@ -1026,7 +1026,7 @@ class _JoinLinkRow extends StatelessWidget {
                       28,
                       _IconAction(
                         key: ValueKey('admin-join-link-revoke-${link.id}'),
-                        tooltip: 'Revoke invite link',
+                        tooltip: 'Revoke Invite Link',
                         glyph: RaftGlyph.x,
                         size: 14,
                         onPressed: link.onRevoke,
@@ -1372,14 +1372,14 @@ class RaftAdminAgreementCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   RaftCssText(
-                    raftText(context, 'Preview').toUpperCase(),
+                    raftText(context, 'Preview'),
                     style: raftSettingsBody(
                       t,
                       size: 11,
                       line: 16.5,
                       weight: FontWeight.w700,
                       color: text.faint,
-                    ).copyWith(letterSpacing: 1.1),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   RaftAgreementBody(
@@ -1591,7 +1591,7 @@ class RaftAdminOnboardingCard extends StatelessWidget {
                         RaftCssText(
                           raftText(
                             context,
-                            'Continue the guided Computer and onboarding agent setup.',
+                            'Continue the guided computer and onboarding agent setup.',
                           ),
                           style: raftSettingsBody(
                             t,
@@ -1606,7 +1606,7 @@ class RaftAdminOnboardingCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   RaftSettingsRecipeButton(
                     key: const ValueKey('finish-server-setup'),
-                    label: openingSetup ? 'Opening…' : 'Finish setup',
+                    label: openingSetup ? 'Opening…' : 'Finish Setup',
                     trailingGlyph: openingSetup ? null : RaftGlyph.chevronRight,
                     glyphSize: 14,
                     size: RaftButtonRecipeSize.sm,
@@ -1934,7 +1934,7 @@ class RaftPublicVisibilityCard extends StatelessWidget {
       line: 16,
       weight: FontWeight.w700,
       color: t.muted,
-    ).copyWith(letterSpacing: .3);
+    );
     Widget switchRow(
       String title,
       String description,
@@ -1992,10 +1992,7 @@ class RaftPublicVisibilityCard extends StatelessWidget {
           ),
           if (publicUrl case final url?) ...[
             const SizedBox(height: 16),
-            RaftCssText(
-              raftText(context, 'Public page').toUpperCase(),
-              style: eyebrow,
-            ),
+            RaftCssText(raftText(context, 'Public page'), style: eyebrow),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -2034,7 +2031,7 @@ class RaftPublicVisibilityCard extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           RaftCssText(
-            raftText(context, 'Channels visible to anyone').toUpperCase(),
+            raftText(context, 'Channels visible to anyone'),
             style: eyebrow,
           ),
           const SizedBox(height: 8),

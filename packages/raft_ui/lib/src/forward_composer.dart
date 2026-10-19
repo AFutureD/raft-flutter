@@ -323,7 +323,7 @@ class RaftForwardSearchStatus extends StatelessWidget {
   }
 }
 
-/// `flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase
+/// `flex shrink-0 items-center gap-1 text-[10px] font-bold
 /// text-foreground-hint` with a 10px glyph ("Not joined" / "New DM").
 class RaftForwardTargetBadge extends StatelessWidget {
   const RaftForwardTargetBadge({
@@ -343,7 +343,7 @@ class RaftForwardTargetBadge extends StatelessWidget {
         RaftIcon(glyph, size: 10, color: color),
         const SizedBox(width: 4),
         Text(
-          label.toUpperCase(),
+          label,
           style: TextStyle(
             fontFamily: t.headingFont,
             fontSize: 10,

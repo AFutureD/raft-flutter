@@ -44,7 +44,7 @@ class RaftWorkspaceModeCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    raftText(context, 'Workspace mode'),
+                    raftText(context, 'Server mode'),
                     style: inherited.copyWith(
                       fontSize: 14,
                       height: 20 / 14,
@@ -73,7 +73,7 @@ class RaftWorkspaceModeCard extends StatelessWidget {
             RaftCheckbox(
               value: enabled,
               onChanged: onChanged,
-              semanticLabel: raftText(context, 'Workspace mode'),
+              semanticLabel: raftText(context, 'Server mode'),
             ),
           ],
         ),

@@ -116,9 +116,9 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
-        expect(find.text('NOTIFICATIONS'), findsOneWidget);
+        expect(find.text('Notifications'), findsOneWidget);
         expect(find.text('Desktop notifications'), findsOneWidget);
-        expect(find.text('MANAGED BY THE SYSTEM'), findsOneWidget);
+        expect(find.text('Managed by the system'), findsOneWidget);
         expect(find.text('System hint'), findsOneWidget);
         expect(
           find.text('Test notification posted to the system.'),

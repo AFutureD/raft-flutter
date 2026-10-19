@@ -209,8 +209,8 @@ void main() {
             );
             expect(f.workspace(t).missingConversationChannelId, 'alpha');
             expect(find.text('Message beta'), findsNothing);
-            expect(find.text('SELECT A CHANNEL'), findsOneWidget);
-            expect(find.text('LOADING CHANNEL'), findsNothing);
+            expect(find.text('Select a channel'), findsOneWidget);
+            expect(find.text('Loading channel'), findsNothing);
             expect(f.client.user?.id, 'alice');
             expect(
               await cache.read(_origin, 'alice', 'a', 'window', 'beta'),
@@ -264,7 +264,7 @@ void main() {
             expect(restarted.workspace(t).channel?.id, 'alpha');
             expect(find.text('Message alpha'), findsOneWidget);
             expect(find.text('Message beta'), findsNothing);
-            expect(find.text('LOADING CHANNEL'), findsNothing);
+            expect(find.text('Loading channel'), findsNothing);
           } finally {
             await restarted.close(t);
           }

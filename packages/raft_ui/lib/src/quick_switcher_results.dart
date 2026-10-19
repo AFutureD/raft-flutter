@@ -167,7 +167,6 @@ class RaftQuickSwitcherHit extends StatelessWidget {
     required this.onPressed,
     this.threadLabel,
     this.warnings = const [],
-    this.uppercaseWarnings,
     this.avatar,
     this.sender = '',
     this.time = '',
@@ -179,9 +178,6 @@ class RaftQuickSwitcherHit extends StatelessWidget {
 
   /// Warning badges (archived, beyond history), already localized.
   final List<String> warnings;
-  // Null retains the legacy all-uppercase treatment. Callers can select
-  // individual labels when the source gives badges different casing.
-  final Set<String>? uppercaseWarnings;
   final Widget? avatar;
   final Widget snippet;
   final bool selected, nested, first;
@@ -241,12 +237,9 @@ class RaftQuickSwitcherHit extends StatelessWidget {
                   ),
                 for (final warning in warnings)
                   RaftBadge(
-                    label: uppercaseWarnings?.contains(warning) == true
-                        ? warning.toUpperCase()
-                        : warning,
+                    label: warning,
                     appearance: RaftBadgeRecipeAppearance.soft,
                     variant: RaftBadgeRecipeVariant.warning,
-                    uppercase: uppercaseWarnings?.contains(warning) ?? true,
                   ),
                 if (sender.isNotEmpty)
                   Row(
@@ -322,14 +315,14 @@ class RaftQuickSwitcherThreadGroup extends StatelessWidget {
     TextStyle text(RaftSlotStyle slot) => slot
         .textStyle(rt)
         .copyWith(fontFamily: slot.textStyle(rt).fontFamily ?? t.bodyFont);
-    // `text-[11px] font-bold uppercase tracking-wide text-foreground-muted`.
+    // `text-[11px] font-bold text-foreground-muted` (decision 0002: no caps).
     final metaStyle = RaftTypography.body(
       t,
       size: 11,
       line: 16,
       weight: FontWeight.w700,
       color: t.brutal ? t.strong.withValues(alpha: .7) : t.muted,
-    ).copyWith(letterSpacing: .275, height: 1.5);
+    ).copyWith(height: 1.5);
     return RaftRecipeBox(
       key: const Key('quick-switcher-thread-group'),
       style: g.thread.withCssUsedBorderWidths(),
@@ -353,17 +346,12 @@ class RaftQuickSwitcherThreadGroup extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         RaftBadge(
-                          // The header div's `uppercase` reaches the badge text.
-                          label: badge.toUpperCase(),
-                          uppercase: true,
+                          label: badge,
                           appearance: RaftBadgeRecipeAppearance.outline,
                           leading: RaftThreadIcon(size: 11, color: t.muted),
                         ),
-                        Text(
-                          where.toUpperCase(),
-                          style: metaStyle.merge(text(g.threadMeta)),
-                        ),
-                        Text(hits.toUpperCase(), style: metaStyle),
+                        Text(where, style: metaStyle.merge(text(g.threadMeta))),
+                        Text(hits, style: metaStyle),
                         Text(
                           time,
                           style: metaStyle.merge(text(g.threadTimestamp)),

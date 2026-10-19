@@ -3,9 +3,9 @@
 //
 //   DialogCard          packages/web/src/components/ui/DialogCard.tsx (Modal +
 //                       Card p-6 + CardHeader mb-4 + CardTitle text-lg bold
-//                       uppercase + CloseButton)
+//                       + CloseButton)
 //   StableField         packages/web/src/components/agent/StableField.tsx
-//                       (Field gap + uppercase label + control + reserved
+//                       (Field gap + label + control + reserved
 //                       one-line message row with optional counter)
 //   Input / Textarea    raft-ui `input` / `textarea` recipes
 //   Select trigger      raft-ui SelectTrigger = Button(outline, md) merged with
@@ -79,8 +79,8 @@ Future<T?> showRaftAgentModal<T>(
 }
 
 /// Web DialogCard: Card (`w-full max-w-md p-6`) with header row
-/// (`mb-4 flex items-center justify-between`), title (`text-lg font-bold
-/// uppercase`) and a CloseButton (ghost icon-sm, brutal: bordered white).
+/// (`mb-4 flex items-center justify-between`), title (`text-lg font-bold`)
+/// and a CloseButton (ghost icon-sm, brutal: bordered white).
 ///
 /// In a presented form window on a phone ([showRaftForm], below 768) the card
 /// is the sheet: the title and close button pin to the top, [children] scroll
@@ -214,10 +214,7 @@ class _RaftAgentDialogCardState extends State<RaftAgentDialogCard> {
                   Expanded(
                     child: Semantics(
                       header: true,
-                      child: Text(
-                        raftText(context, title).toUpperCase(),
-                        style: titleStyle,
-                      ),
+                      child: Text(raftText(context, title), style: titleStyle),
                     ),
                   ),
                   if (onClose != null)
@@ -391,7 +388,7 @@ class RaftStableField extends StatelessWidget {
       tokens: tokens,
     );
     final gap = field.root.rowGap ?? 0;
-    // LABEL_CLS = "text-sm font-bold text-foreground-strong uppercase tracking-wide"
+    // LABEL_CLS = "text-sm font-bold text-foreground-strong"
     final labelStyle = field.label
         .textStyle(tokens)
         .copyWith(
@@ -400,7 +397,6 @@ class RaftStableField extends StatelessWidget {
           color: t.dark
               ? field.label.color?.resolve(tokens) ?? t.strong
               : t.strong,
-          letterSpacing: 14 * .025,
         );
     final message = error ?? hint;
     final messageStyle = TextStyle(
@@ -420,7 +416,7 @@ class RaftStableField extends StatelessWidget {
     ).root;
     final labelText = RaftCssText.rich(
       TextSpan(
-        text: raftText(context, label).toUpperCase(),
+        text: raftText(context, label),
         children: [
           if (required) ...[
             const WidgetSpan(child: SizedBox(width: _tw)), // ml-1
@@ -1068,7 +1064,7 @@ class RaftAgentFieldNote extends StatelessWidget {
 }
 
 /// RuntimeConfigFields "More" toggle: `flex items-center gap-1 text-sm
-/// font-bold uppercase tracking-wide text-foreground-muted` with a 16px
+/// font-bold text-foreground-muted` with a 16px
 /// chevron; open content sits `mt-3 space-y-3` below.
 class RaftAgentMoreDisclosure extends StatelessWidget {
   const RaftAgentMoreDisclosure({
@@ -1107,12 +1103,11 @@ class RaftAgentMoreDisclosure extends StatelessWidget {
                   ),
                   const SizedBox(width: _tw), // gap-1
                   Text(
-                    raftText(context, label).toUpperCase(),
+                    raftText(context, label),
                     style: TextStyle(
                       fontSize: 14, // text-sm
                       height: 20 / 14,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 14 * .025, // tracking-wide
                       color: t.muted,
                     ),
                   ),

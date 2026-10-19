@@ -75,6 +75,7 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
     List<RaftFormField> fields,
     Future<void> Function(Map<String, String>) save, {
     String submit = 'Save',
+    String cancel = 'Cancel',
     String? description,
     bool destructive = false,
   }) => super.form(
@@ -82,6 +83,7 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
     fields,
     (values) => withWebError(_failed, () => save(values), where: 'managed mcp'),
     submit: submit,
+    cancel: cancel,
     description: description,
     destructive: destructive,
   );
@@ -119,7 +121,7 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
           sourceAuthority != authority ||
           !w.can('manageIntegrations')) {
         throw const RaftUserError(
-          'The active workspace changed. Reopen this form.',
+          'The active server changed. Reopen this form.',
         );
       }
       try {
@@ -271,14 +273,15 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
                               ? null
                               : () => run(() async {
                                   await confirm(
-                                    'Disconnect account?',
+                                    'Disconnect Account',
                                     'This connection will no longer be authorized to access the provider account.',
                                     () async {
                                       await w.client.delete(
                                         '/mcp/servers/${server['id']}/oauth',
                                       );
                                     },
-                                    submit: 'Disconnect',
+                                    submit: 'Disconnect Account',
+                                    cancel: 'Keep Connection',
                                     destructive: true,
                                   );
                                 }),
@@ -301,20 +304,21 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
                       ),
                       RaftMcpAction(
                         glyph: RaftGlyph.trash2,
-                        tooltip: 'Delete server',
+                        tooltip: 'Delete MCP Server',
                         variant: RaftButtonRecipeVariant.danger,
                         onPressed: busy
                             ? null
                             : () => run(() async {
                                 await confirm(
-                                  'Delete $name?',
+                                  'Delete $name',
                                   'Remove this connection and its agent tool assignments.',
                                   () async {
                                     await w.client.delete(
                                       '/mcp/servers/${server['id']}',
                                     );
                                   },
-                                  submit: 'Delete',
+                                  submit: 'Delete MCP Server',
+                                  cancel: 'Keep MCP Server',
                                   destructive: true,
                                 );
                               }),

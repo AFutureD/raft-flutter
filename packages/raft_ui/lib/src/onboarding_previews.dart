@@ -221,16 +221,7 @@ class RaftServerCreatePreview extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Text(
-              label.toUpperCase(),
-              style: _text(
-                t,
-                11,
-                16.5,
-                FontWeight.w700,
-                _black,
-              ).copyWith(letterSpacing: .88),
-            ),
+            Text(label, style: _text(t, 11, 16.5, FontWeight.w700, _black)),
             const SizedBox(width: 6),
             Text('$count', style: _mono(t, 11, 16.5, FontWeight.w700, dim)),
           ],

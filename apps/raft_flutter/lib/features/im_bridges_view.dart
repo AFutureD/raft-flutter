@@ -125,7 +125,7 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
         !w.can('manageIntegrations') ||
         !enabled) {
       throw StateError(
-        'The active workspace or your permission changed. Refresh before continuing.',
+        'The active server or your permission changed. Refresh before continuing.',
       );
     }
   }

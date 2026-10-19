@@ -71,26 +71,16 @@ const _copy = <String, String>{
       'The selected computer is no longer attached to this server. Refresh and choose another computer.',
   'TARGET_COMPUTER_MATCHES_SOURCE':
       "Choose a computer other than the agent's current computer.",
-  'COMPUTER_CAPABILITY_INSUFFICIENT':
-      'Both computers must run a compatible Raft Computer version and support this agent\'s runtime. Update or reconnect them, or choose another computer, then try again.',
-  'MIGRATION_RESUMABLE_CAPABILITY_REQUIRED':
-      'One of these computers needs a Raft Computer update before it can move agents. Update Raft Computer on both to the latest version, restart them, wait for them to reconnect, then try again.',
-  'TARGET_COMPUTER_OFFLINE':
-      'The target computer is offline. Start Raft Computer on it and try again.',
-  'MIGRATION_ALREADY_IN_PROGRESS':
-      'This agent already has a migration in progress. Wait for it to finish before trying again.',
-  'MIGRATION_PRO_PLAN_REQUIRED':
-      'Agent migration requires the Pro plan. Upgrade this Server to Pro before trying again.',
-  'MIGRATION_TRANSPORT_NOT_PROVISIONED':
-      'Raft could not prepare a secure transfer between these computers. Make sure both computers are online and up to date, then try again.',
-  'MIGRATION_TRANSPORT_PROVISION_FAILED':
-      'Raft could not prepare the transfer. Make sure both computers are online, then try again.',
-  'MIGRATION_TRANSPORT_LOST':
-      'The connection between the two computers dropped during the transfer. Make sure both computers are online, then try again.',
-  'MIGRATION_WORKSPACE_ALREADY_EXISTS':
-      'The target computer could not install the agent because that workspace already exists. Check which copy is current; move or back up the conflicting workspace, then try again. Raft will not delete it automatically.',
-  'MIGRATION_WORKSPACE_COMPLETE_OLD_COPY':
-      'The target computer found a previously completed copy of this workspace and stopped before replacing it. Confirm which copy is current; move or back up the old copy, then try again. Raft will not delete it automatically.',
+  'COMPUTER_CAPABILITY_INSUFFICIENT': 'Both computers must run a compatible Raft Computer version and support this agent\'s runtime. Update or reconnect them, or choose another computer, then try again.',
+  'MIGRATION_RESUMABLE_CAPABILITY_REQUIRED': 'One of these computers needs a Raft Computer update before it can move agents. Update Raft Computer on both to the latest version, restart them, wait for them to reconnect, then try again.',
+  'TARGET_COMPUTER_OFFLINE': 'The target computer is offline. Start Raft Computer on it and try again.',
+  'MIGRATION_ALREADY_IN_PROGRESS': 'This agent already has a migration in progress. Wait for it to finish before trying again.',
+  'MIGRATION_PRO_PLAN_REQUIRED': 'Agent migration requires the Pro plan. Upgrade this server to Pro before trying again.',
+  'MIGRATION_TRANSPORT_NOT_PROVISIONED': 'Raft could not prepare a secure transfer between these computers. Make sure both computers are online and up to date, then try again.',
+  'MIGRATION_TRANSPORT_PROVISION_FAILED': 'Raft could not prepare the transfer. Make sure both computers are online, then try again.',
+  'MIGRATION_TRANSPORT_LOST': 'The connection between the two computers dropped during the transfer. Make sure both computers are online, then try again.',
+  'MIGRATION_WORKSPACE_ALREADY_EXISTS': 'The target computer could not install the agent because that workspace already exists. Check which copy is current; move or back up the conflicting workspace, then try again. Raft will not delete it automatically.',
+  'MIGRATION_WORKSPACE_COMPLETE_OLD_COPY': 'The target computer found a previously completed copy of this workspace and stopped before replacing it. Confirm which copy is current; move or back up the old copy, then try again. Raft will not delete it automatically.',
   'MIGRATION_CHUNK_DIGEST_MISMATCH': _failedGeneric,
   'MIGRATION_WHOLE_BUNDLE_DIGEST_MISMATCH': _failedGeneric,
   'MIGRATION_LEASE_EXPIRED': _failedGeneric,
@@ -123,7 +113,7 @@ const _copy = <String, String>{
       'Migration status could not be loaded. Refresh and try again.',
 };
 
-const _failedGeneric = 'Something went wrong during the transfer. Try again.';
+const _failedGeneric = 'The transfer did not finish. Try again.';
 
 const _abortReasons = <String, String>{
   'prep-deadline':

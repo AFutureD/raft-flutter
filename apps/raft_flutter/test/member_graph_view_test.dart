@@ -144,9 +144,9 @@ void main() {
     final (_, client) = await _pump(tester);
     expect(client.calls, ['GET /servers/s/member-graph']);
     expect(find.text('Graph'), findsOneWidget);
-    expect(find.text('EXPERIMENTAL'), findsOneWidget);
+    expect(find.text('Experimental'), findsOneWidget);
     expect(
-      find.textContaining('CONNECTIONS', findRichText: true),
+      find.textContaining('Connections', findRichText: true),
       findsOneWidget,
     );
     for (final key in ['human:h1', 'human:h2', 'agent:a1']) {

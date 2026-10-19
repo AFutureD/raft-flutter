@@ -92,7 +92,7 @@ class RaftRootErrorFallback extends StatelessWidget {
                 child: Semantics(
                   header: true,
                   child: Text(
-                    raftText(context, 'Something went wrong'),
+                    raftText(context, 'Raft stopped unexpectedly'),
                     style: RaftTypography.heading(
                       t,
                       size: 20,

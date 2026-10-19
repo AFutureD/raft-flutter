@@ -158,20 +158,20 @@ void main() {
         await _open(tester);
       }
 
-      testWidgets('a drag on a changed form asks, Keep editing keeps it, '
-          'Discard closes it', (tester) async {
+      testWidgets('a drag on a changed form asks, Keep Editing keeps it, '
+          'Discard Changes closes it', (tester) async {
         await phoneForm(tester);
         await tester.enterText(find.byKey(const ValueKey('field-f1')), 'mine');
         await tester.fling(handle, const Offset(0, 700), 2500);
         await tester.pumpAndSettle();
         expect(asked, findsOneWidget);
-        await tester.tap(find.text('Keep editing'));
+        await tester.tap(find.text('Keep Editing'));
         await tester.pumpAndSettle();
         expect(find.text('mine'), findsOneWidget);
         expect(find.byType(RaftSheet), findsOneWidget);
         await tester.fling(handle, const Offset(0, 700), 2500);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Discard'));
+        await tester.tap(find.text('Discard Changes'));
         await tester.pumpAndSettle();
         expect(find.byType(RaftFormDialog), findsNothing);
       });
@@ -199,7 +199,7 @@ void main() {
         await tester.tap(find.byType(RaftCloseButton));
         await tester.pumpAndSettle();
         expect(asked, findsOneWidget);
-        await tester.tap(find.text('Keep editing'));
+        await tester.tap(find.text('Keep Editing'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();

@@ -86,7 +86,7 @@ void main() {
             );
             await t.pumpAndSettle();
             if (!computer) {
-              final managed = find.widgetWithText(RaftMenuItem, 'Create agent');
+              final managed = find.widgetWithText(RaftMenuItem, 'Create Agent');
               expect(managed, findsOneWidget);
               await t.tap(managed);
               await t.pumpAndSettle();
@@ -98,7 +98,7 @@ void main() {
               );
               await t.pumpAndSettle();
               await t.tap(
-                find.widgetWithText(RaftMenuItem, 'Create external agent'),
+                find.widgetWithText(RaftMenuItem, 'Create External Agent'),
               );
               await t.pumpAndSettle();
             }
@@ -128,7 +128,10 @@ void main() {
             expect(find.byType(RaftFormDialog), findsOneWidget);
             await t.enterText(find.byType(TextField).first, 'Own resource');
             await t.tap(
-              find.widgetWithText(RaftButton, computer ? 'Register' : 'Create'),
+              find.widgetWithText(
+                RaftButton,
+                computer ? 'Register Computer' : 'Create External Agent',
+              ),
             );
             await t.pumpAndSettle();
             expect(w.commands, hasLength(1));
@@ -173,7 +176,7 @@ void main() {
         await t.tap(add);
         await t.pumpAndSettle();
         expect(
-          find.widgetWithText(RaftMenuItem, 'Create external agent'),
+          find.widgetWithText(RaftMenuItem, 'Create External Agent'),
           findsOneWidget,
         );
         w.server = RaftRecord({'id': 's', 'role': 'viewer'});
@@ -186,11 +189,11 @@ void main() {
         await t.pumpAndSettle();
         await t.tap(add);
         await t.pumpAndSettle();
-        await t.tap(find.widgetWithText(RaftMenuItem, 'Create external agent'));
+        await t.tap(find.widgetWithText(RaftMenuItem, 'Create External Agent'));
         await t.pumpAndSettle();
         await t.enterText(find.byType(TextField).first, 'Old account resource');
         w.pending = Completer<dynamic>();
-        await t.tap(find.widgetWithText(RaftButton, 'Create'));
+        await t.tap(find.widgetWithText(RaftButton, 'Create External Agent'));
         await t.pump();
         c.user = RaftRecord({'id': 'bob'});
         w.notifyListeners();

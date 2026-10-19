@@ -116,7 +116,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
       final server = metadata['targetServerName'];
       return server is String
           ? 'This action runs on $server. Switch to $server to run it.'
-          : 'This is a history copy. Only the source workspace can run this action.';
+          : 'This is a history copy. Only the source server can run this action.';
     }
     final c = carrier;
     if (c == null ||
@@ -136,7 +136,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
       return 'Join #${c.name} to run this.';
     }
     if (type == 'agent:create' && !w.can('createAgents')) {
-      return 'You need the Create Agents permission — ask a Server owner or admin to run this.';
+      return 'You need the Create Agents permission — ask a server owner or admin to run this.';
     }
     if (type == 'channel:create' && !w.can('createChannels')) {
       return 'You do not have permission to create channels.';
@@ -223,7 +223,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
     if (!current(authority) ||
         metadata['state'] != 'prepared' ||
         metadata['confirmationVersion'] != openingVersion) {
-      throw StateError('The active workspace changed. Reopen this form.');
+      throw StateError('The active server changed. Reopen this form.');
     }
   }
 
@@ -453,8 +453,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
       final accepted = await form(
         authority,
         (ctx) => RaftFormDialog(
-          title: 'Create channel',
-          submitLabel: 'Create',
+          title: 'Create Channel',
+          submitLabel: 'Create Channel',
           fields: [
             RaftFormField(
               'name',
@@ -760,7 +760,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
         field('Agent:', '@${action['agentName']}'),
         _scopes(context, agentName: '${action['agentName']}'),
         const RaftActionNote(
-          'Only a Server owner or admin can install this Marketplace app. The Agent cannot install it automatically.',
+          'Only a server owner or admin can install this marketplace app. The agent cannot install it automatically.',
           tone: RaftActionTone.orange,
         ),
       ],
@@ -827,7 +827,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
         'client': result['clientName'],
         'agent': result['agentName'],
       }),
-      'marketplace-app-installation' => f('{client} installed on this Server', {
+      'marketplace-app-installation' => f('{client} installed on this server', {
         'client': result['clientName'],
       }),
       'integration-app-registration' => f(
@@ -889,14 +889,14 @@ class _MessageActionCardState extends State<MessageActionCard> {
     if (_known.contains(type)) return _knownCard(context);
     final presentation = _map(metadata['presentation']);
     final labels = {
-      'channel:create': 'Create channel',
-      'agent:create': 'Create agent',
-      'channel:add_member': 'Add members',
-      'integration:approve_agent_login': 'Approve agent login',
-      'integration:install_marketplace_app': 'Install app',
-      'integration:register_app': 'Register app',
-      'integration:update_app_registration': 'Update app',
-      'integration:recover_app_owner': 'Recover app owner',
+      'channel:create': 'Create Channel',
+      'agent:create': 'Create Agent',
+      'channel:add_member': 'Add Members',
+      'integration:approve_agent_login': 'Approve Agent Login',
+      'integration:install_marketplace_app': 'Install App',
+      'integration:register_app': 'Register App',
+      'integration:update_app_registration': 'Update App',
+      'integration:recover_app_owner': 'Recover App Owner',
     };
     final details = <({String label, String value})>[];
     // Only server-designated safe fields and known non-secret action summaries.
@@ -954,7 +954,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
       hint: action['draftHint'],
       targetServer: metadata['targetServerName'],
       completedBy: metadata['executedByUserName'],
-      confirmLabel: labels[type] ?? 'Confirm',
+      confirmLabel: labels[type] ?? 'Confirm Action',
       blockedReason: blocked,
       error: error,
       busy:

@@ -469,8 +469,8 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
       return;
     }
     await confirm(
-      'Start setup over?',
-      'Every computer connected to this unfinished workspace will be revoked. Its old credentials will stop working; the installed Computer service is not removed.',
+      'Start Over',
+      'Every computer connected to this unfinished server will be revoked. Its old credentials will stop working; the installed Raft Computer is not removed.',
       () async {
         final generation = w.client.generation, scope = authority;
         final result = managementMap(await w.client.post('$base/setup-reset'));
@@ -480,7 +480,8 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
         notice =
             '${result['revokedComputers'] ?? 0} computer connections revoked.';
       },
-      submit: 'Start over',
+      submit: 'Start Over',
+      cancel: 'Keep Setup',
       destructive: true,
     );
     if (mounted) setState(() {});

@@ -1051,7 +1051,7 @@ final auditSurfaces = <AuditSurface>[
   ),
   AuditSurface(
     'workspaceModePreview',
-    'Workspace mode',
+    'Server mode',
     workspaceModePreview,
     Size(390, 160),
   ),

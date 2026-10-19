@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 
-/// Deleting the open workspace must not surface "Something went wrong": work
+/// Deleting the open workspace must not surface "Could not complete that. Try again.": work
 /// still running against the deleted server is stale, not a failure.
 class _Server implements HttpClientAdapter {
   final deleted = <String>{};

@@ -140,8 +140,8 @@ void main() {
       await settle(t);
       expect(f.count('GET /announcements/active'), 1);
       expect(modal, findsOneWidget);
-      expect(find.text('WHAT IS NEW A1'), findsOneWidget);
-      expect(find.text('WELCOME'), findsOneWidget);
+      expect(find.text('What is new a1'), findsOneWidget);
+      expect(find.text('Welcome'), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.byKey(const ValueKey('announcement-back')), findsNothing);
       await t.tap(find.byKey(const ValueKey('announcement-next')));
@@ -218,7 +218,7 @@ void main() {
       await settle(t);
       expect(modal, findsOneWidget);
       // A press inside the card does not close it; one on the backdrop does.
-      await t.tap(find.text('WHAT IS NEW A1'));
+      await t.tap(find.text('What is new a1'));
       await settle(t);
       expect(modal, findsOneWidget);
       await t.tapAt(const Offset(4, 4));

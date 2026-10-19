@@ -258,7 +258,7 @@ class RaftAnnouncementCard extends StatelessWidget {
             child: Semantics(
               header: true,
               child: RaftCssText(
-                title.toUpperCase(),
+                title,
                 key: const ValueKey('announcement-title'),
                 maxLines: 1,
                 softWrap: false,
@@ -298,10 +298,7 @@ class RaftAnnouncementCard extends StatelessWidget {
                           weight: FontWeight.w700,
                           color: ink,
                         ).copyWith(fontFamilyFallback: t.fontFallback);
-                        return RaftCssText(
-                          pageTitle.toUpperCase(),
-                          style: style,
-                        );
+                        return RaftCssText(pageTitle, style: style);
                       },
                     ),
                   ),
@@ -424,7 +421,7 @@ class RaftCssBlock {
 ///
 /// * `p` `mb-2 last:mb-0`; `ul`/`ol` `mb-2 pl-5 list-disc|list-decimal`;
 ///   `li` `mb-0.5`;
-/// * `h1`/`h2` `text-base font-bold uppercase mt-3 mb-2`, `h3` `text-sm`
+/// * `h1`/`h2` `text-base font-bold mt-3 mb-2`, `h3` `text-sm`
 ///   (h4–h6 inherit, no margins);
 /// * `a` `underline font-medium`, `code` InlineCode
 ///   `rounded-sm bg-layer-inset px-1 text-[0.85em] theme-brutal:bg-white`.
@@ -531,7 +528,7 @@ class _MarkdownBlocks {
     final inline = <md.Node>[];
     void flushInline() {
       if (inline.isEmpty) return;
-      final spans = _inlineSpans(List.of(inline), base, upper: false);
+      final spans = _inlineSpans(List.of(inline), base);
       inline.clear();
       if (spans.isEmpty) return;
       out.add(RaftCssBlock(child: _text(spans, base)));
@@ -557,7 +554,7 @@ class _MarkdownBlocks {
     switch (e.tag) {
       case 'p':
         return RaftCssBlock(
-          child: _text(_inlineSpans(children, base, upper: false), base),
+          child: _text(_inlineSpans(children, base), base),
           marginBottom: lastChild ? 0 : 8,
         );
       case 'h1' || 'h2' || 'h3':
@@ -568,14 +565,12 @@ class _MarkdownBlocks {
           color: base.color,
         ).copyWith(fontFamilyFallback: base.fontFamilyFallback);
         return RaftCssBlock(
-          child: _text(_inlineSpans(children, style, upper: true), style),
+          child: _text(_inlineSpans(children, style), style),
           marginTop: 12,
           marginBottom: 8,
         );
       case 'h4' || 'h5' || 'h6':
-        return RaftCssBlock(
-          child: _text(_inlineSpans(children, base, upper: false), base),
-        );
+        return RaftCssBlock(child: _text(_inlineSpans(children, base), base));
       case 'ul' || 'ol':
         return _list(e);
       case 'blockquote':
@@ -587,9 +582,7 @@ class _MarkdownBlocks {
       case 'table':
         return RaftCssBlock(child: _table(e));
       default:
-        return RaftCssBlock(
-          child: _text(_inlineSpans(children, base, upper: false), base),
-        );
+        return RaftCssBlock(child: _text(_inlineSpans(children, base), base));
     }
   }
 
@@ -699,16 +692,11 @@ class _MarkdownBlocks {
   );
 
   /// Inline content with CSS white-space collapsing (soft breaks are spaces).
-  List<InlineSpan> _inlineSpans(
-    List<md.Node> nodes,
-    TextStyle style, {
-    required bool upper,
-  }) {
+  List<InlineSpan> _inlineSpans(List<md.Node> nodes, TextStyle style) {
     final spans = <InlineSpan>[];
     for (final node in nodes) {
       if (node is md.Text) {
         var text = node.text.replaceAll(RegExp(r'\s+'), ' ');
-        if (upper) text = text.toUpperCase();
         spans.add(TextSpan(text: text));
       } else if (node is md.Element) {
         final children = node.children ?? const <md.Node>[];
@@ -717,28 +705,28 @@ class _MarkdownBlocks {
             spans.add(
               TextSpan(
                 style: const TextStyle(fontWeight: FontWeight.w700),
-                children: _inlineSpans(children, style, upper: upper),
+                children: _inlineSpans(children, style),
               ),
             );
           case 'em':
             spans.add(
               TextSpan(
                 style: const TextStyle(fontStyle: FontStyle.italic),
-                children: _inlineSpans(children, style, upper: upper),
+                children: _inlineSpans(children, style),
               ),
             );
           case 'del':
             spans.add(
               TextSpan(
                 style: const TextStyle(decoration: TextDecoration.lineThrough),
-                children: _inlineSpans(children, style, upper: upper),
+                children: _inlineSpans(children, style),
               ),
             );
           case 'br':
             spans.add(const TextSpan(text: '\n'));
           case 'code':
             final text = node.textContent.replaceAll(RegExp(r'\s+'), ' ');
-            spans.add(_inlineCode(upper ? text.toUpperCase() : text, style));
+            spans.add(_inlineCode(text, style));
           case 'a':
             final href = node.attributes['href'] ?? '';
             final link = onLink;
@@ -749,13 +737,13 @@ class _MarkdownBlocks {
                     ? null
                     : (TapGestureRecognizer()..onTap = () => link(href)),
                 mouseCursor: link == null ? null : SystemMouseCursors.click,
-                children: _inlineSpans(children, style, upper: upper),
+                children: _inlineSpans(children, style),
               ),
             );
           case 'img' || 'input':
             break;
           default:
-            spans.addAll(_inlineSpans(children, style, upper: upper));
+            spans.addAll(_inlineSpans(children, style));
         }
       }
     }
@@ -910,7 +898,6 @@ class _MarkdownBlocks {
                         _inlineSpans(
                           row[i].children ?? const <md.Node>[],
                           base,
-                          upper: false,
                         ),
                         row[i].tag == 'th'
                             ? base.copyWith(fontWeight: FontWeight.w700)

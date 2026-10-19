@@ -184,7 +184,8 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
           '{name} will be removed from every channel on this server. Their past messages will remain in history.',
           {'name': name},
         ),
-        confirmLabel: raftText(context, 'Remove'),
+        confirmLabel: raftText(context, 'Remove Member'),
+        cancelLabel: raftText(context, 'Keep Member'),
         loadingLabel: raftText(context, 'Removing…'),
         onConfirm: () async {
           await w.command('DELETE', '/servers/$server/members/$id');

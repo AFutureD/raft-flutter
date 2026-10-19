@@ -76,12 +76,12 @@ void main() {
       'server row': () => find.byKey(const ValueKey('global-server-s0')),
       '+ Create New Server': () =>
           find.byKey(const ValueKey('global-server-create-new')),
-      'Log out': () => find.ancestor(
-        of: find.text('Log out'),
+      'Log Out': () => find.ancestor(
+        of: find.text('Log Out'),
         matching: find.byType(RaftInteractive),
       ),
     };
-    final expected = {'server row': 'select s0', 'Log out': 'logout'};
+    final expected = {'server row': 'select s0', 'Log Out': 'logout'};
 
     for (final MapEntry(key: what, value: find_) in targets.entries) {
       testWidgets('$what shows pressed feedback ($theme)', (t) async {

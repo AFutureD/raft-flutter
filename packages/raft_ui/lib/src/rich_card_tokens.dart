@@ -159,7 +159,7 @@ class ActionSnapshotRecipe extends RaftActionCardRecipe {
     line: tokens.brutal ? 10 : 12,
     weight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
     color: semantic.successText,
-  ).copyWith(letterSpacing: tokens.brutal ? .5 : .22);
+  ).copyWith(letterSpacing: tokens.brutal ? null : .22);
   BoxDecoration get badgeDecoration => BoxDecoration(
     color: semantic.success,
     border: Border.all(

@@ -531,7 +531,7 @@ class _PublicServerViewState extends State<PublicServerView> {
     await RaftConfirmDialog.show(
       context,
       RaftConfirmDialog(
-        title: tr('Join this server?'),
+        title: tr('Join as Guest'),
         message: raftFormat(
           context,
           'You will join {server} as a Guest. You can keep reading without joining by cancelling.',
@@ -777,7 +777,7 @@ class _PublicServerViewState extends State<PublicServerView> {
         Expanded(
           child: messages.isEmpty
               ? loadingMessages
-                    ? RaftPublicEmptyMessage('Loading…', hint: false)
+                    ? RaftPublicEmptyMessage('Loading server…', hint: false)
                     : RaftPublicEmptyMessage(
                         'No messages have been posted here yet.',
                       )
@@ -889,7 +889,7 @@ class _PublicServerViewState extends State<PublicServerView> {
       header: RaftServerSwitcher(
         controller: menu,
         workspaceName: name,
-        label: tr('Switch workspace'),
+        label: tr('Switch server'),
         logo: RaftPublicServerLogo(
           initial: initial,
           avatarUrl: server?['avatarUrl'] as String?,
@@ -934,7 +934,7 @@ class _PublicServerViewState extends State<PublicServerView> {
   @override
   Widget build(BuildContext context) {
     if (server == null && error.isEmpty) {
-      return RaftPublicServerLoading(label: tr('Loading…'));
+      return RaftPublicServerLoading(label: tr('Loading server…'));
     }
     final name = '${server?['name'] ?? widget.slug}';
     final band = raftBreakpointWidth(context);
@@ -959,13 +959,13 @@ class _PublicServerViewState extends State<PublicServerView> {
           ]
         : [
             RaftPublicActionButton(
-              label: tr('Sign in'),
+              label: tr('Sign In'),
               glyph: RaftGlyph.logIn,
               accent: canJoin,
               onPressed: widget.onSignIn,
             ),
             RaftPublicActionButton(
-              label: tr('Create account'),
+              label: tr('Create Account'),
               glyph: RaftGlyph.userPlus,
               accent: !canJoin,
               onPressed: widget.onRegister,
@@ -1012,7 +1012,7 @@ class _PublicServerViewState extends State<PublicServerView> {
               'You are viewing public channels without signing in. Sign in or create an account to continue in Raft.',
             ),
             action: RaftSettingsRecipeButton(
-              label: tr('Sign in'),
+              label: tr('Sign In'),
               size: RaftButtonRecipeSize.xs,
               onPressed: widget.onSignIn,
             ),

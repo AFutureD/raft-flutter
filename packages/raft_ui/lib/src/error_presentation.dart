@@ -45,7 +45,7 @@ class RaftUserError implements Exception {
 
 /// Web `common.confirm.somethingWentWrong`: the copy when an error carries
 /// nothing displayable and the call site names no more specific fallback.
-const raftGenericErrorText = 'Something went wrong';
+const raftGenericErrorText = 'Could not complete that. Try again.';
 
 /// Maps a caught [error] to the English source string to show (the display
 /// layer localizes it). Never returns exception text.

@@ -93,7 +93,7 @@ void main() {
       tester.takeException();
       await tester.pump();
       await tester.pump();
-      expect(find.text('Something went wrong'), findsOneWidget);
+      expect(find.text('Raft stopped unexpectedly'), findsOneWidget);
       // The raw exception is not printed on the page: it sits in the closed
       // "Stack trace" disclosure.
       expect(find.textContaining('channel header broke'), findsNothing);
@@ -104,7 +104,7 @@ void main() {
       broken = false;
       await tester.tap(find.text('Reload app'));
       await tester.pump();
-      expect(find.text('Something went wrong'), findsNothing);
+      expect(find.text('Raft stopped unexpectedly'), findsNothing);
       expect(find.text('app'), findsOneWidget);
       expect(_builds, greaterThan(0));
     });
@@ -124,7 +124,7 @@ void main() {
       handler(StateError('lost state'), StackTrace.current);
       await tester.pump();
       await tester.pump();
-      expect(find.text('Something went wrong'), findsOneWidget);
+      expect(find.text('Raft stopped unexpectedly'), findsOneWidget);
       expect(errors.current?.message, contains('lost state'));
     });
 
@@ -204,7 +204,7 @@ void main() {
         RootErrorBoundary(errors: errors, child: const _Counter()),
       );
       await tester.pump();
-      expect(find.text('出了点问题'), findsOneWidget);
+      expect(find.text('Raft 意外停止了'), findsOneWidget);
       expect(find.text('重新加载应用'), findsOneWidget);
       expect(find.textContaining('boom'), findsNothing);
       await tester.tap(find.text('错误堆栈'));

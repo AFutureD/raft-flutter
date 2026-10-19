@@ -26,8 +26,8 @@ class _AgentScopesViewState extends State<AgentScopesView> {
   late final int generation;
   final names = const {
     'inbox:receive': 'Receive messages and wake notifications',
-    'server:read': 'Read workspace information',
-    'server:update': 'Update workspace settings',
+    'server:read': 'Read server information',
+    'server:update': 'Update server settings',
     'channel:read': 'Read channel membership',
     'channel:create': 'Create channels',
     'channel:update': 'Update channels',

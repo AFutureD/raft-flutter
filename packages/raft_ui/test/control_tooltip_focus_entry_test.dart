@@ -41,7 +41,7 @@ void main() {
                         RaftControl(
                           key: const Key('opener'),
                           focusNode: opener,
-                          tooltip: 'Add reaction',
+                          tooltip: 'Add Reaction',
                           onPressed: () => presses++,
                           child: const Text('Plus'),
                         ),

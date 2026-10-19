@@ -201,7 +201,7 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           RaftAuthIntro(
-            title: tr(create ? 'Create server' : 'Choose server'),
+            title: tr(create ? 'Create Server' : 'Choose server'),
             descriptionSpan: create
                 ? null
                 : raftAuthSignedInAsSpan(context, widget.user.string('email')),
@@ -283,7 +283,7 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
           if (!create) ...[
             const SizedBox(height: RaftSpace.x3), // mt-3
             RaftAuthTextLink(
-              label: tr('Log out'),
+              label: tr('Log Out'),
               bold: true,
               centeredLine: true,
               onTap: widget.onLogout,

@@ -1731,7 +1731,7 @@ class RaftMessageTile extends StatelessWidget {
                       ),
                     ),
                     child: RaftCssText(
-                      departureLabel!.toUpperCase(),
+                      departureLabel!,
                       maxLines: 1,
                       softWrap: false,
                       // Brutal, measured on the Web capture (deleted-human, 3x): the
@@ -1879,7 +1879,7 @@ class RaftMessageTile extends StatelessWidget {
                         Builder(
                           builder: (anchor) => RaftMountedReactionAdd(
                             key: const ValueKey('message-reaction-add'),
-                            label: raftText(context, 'Add reaction'),
+                            label: raftText(context, 'Add Reaction'),
                             onPressed: () {
                               if (onReactionAdd != null) {
                                 onReactionAdd!(anchor);
@@ -2638,9 +2638,6 @@ class _RaftComposerState extends State<RaftComposer> {
     }
   }
 
-  String groupLabelCase(String label, bool uppercase) =>
-      uppercase ? label.toUpperCase() : label;
-
   Widget suggestionPopup(
     RaftComposerRecipe recipe,
     double width, {
@@ -2751,10 +2748,7 @@ class _RaftComposerState extends State<RaftComposer> {
                                 Padding(
                                   padding: recipe.suggestionGroupInset,
                                   child: Text(
-                                    groupLabelCase(
-                                      raftText(context, label),
-                                      recipe.tokens.brutal,
-                                    ),
+                                    raftText(context, label),
                                     style: recipe.suggestionGroupLabel,
                                   ),
                                 ),
@@ -3358,7 +3352,7 @@ class _FramedSuggestionIcon extends StatelessWidget {
 }
 
 /// Web `MentionCandidateBody`: title (`max-w-[12rem] flex-[0_1_auto]`), the
-/// uppercase soft/muted actor Badge, the description meta (`flex-1 basis-0
+/// soft/muted actor Badge, the description meta (`flex-1 basis-0
 /// truncate`) and the `@handle` code meta in the aside (`ml-auto
 /// max-w-[33%]`, `max-w-[7rem] truncate`).
 class _MentionSuggestionBody extends StatelessWidget {
@@ -3452,7 +3446,7 @@ class _MentionSuggestionBody extends StatelessWidget {
   }
 }
 
-/// raft-ui `Badge appearance="soft" variant="muted" uppercase` with the
+/// raft-ui `Badge appearance="soft" variant="muted"` with the
 /// mention option overrides `px-1 py-px text-[10px] leading-none`.
 class RaftActorTypeBadge extends StatelessWidget {
   const RaftActorTypeBadge({super.key, required this.label});
@@ -3465,7 +3459,6 @@ class RaftActorTypeBadge extends StatelessWidget {
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
       appearance: RaftBadgeRecipeAppearance.soft,
       variant: RaftBadgeRecipeVariant.muted,
-      uppercase: true,
       tokens: resolver,
     ).root;
     final text = RaftControlTypography.of(
@@ -3483,7 +3476,7 @@ class RaftActorTypeBadge extends StatelessWidget {
       decoration: s.decoration(resolver),
       text: text,
       height: s.height,
-      label: s.textTransform == 'uppercase' ? label.toUpperCase() : label,
+      label: label,
     );
   }
 
@@ -3516,7 +3509,7 @@ class RaftActorTypeBadge extends StatelessWidget {
   }
 }
 
-/// raft-ui `Badge appearance="soft" variant="muted" uppercase` at its default
+/// raft-ui `Badge appearance="soft" variant="muted"` at its default
 /// size (the channel option's `archived` aside; the mention rows use the
 /// smaller [RaftActorTypeBadge]).
 class RaftArchivedBadge extends StatelessWidget {
@@ -3530,7 +3523,6 @@ class RaftArchivedBadge extends StatelessWidget {
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
       appearance: RaftBadgeRecipeAppearance.soft,
       variant: RaftBadgeRecipeVariant.muted,
-      uppercase: true,
       tokens: resolver,
     ).root;
     return Container(
@@ -3541,7 +3533,7 @@ class RaftArchivedBadge extends StatelessWidget {
       decoration: s.decoration(resolver),
       alignment: Alignment.center,
       child: Text(
-        s.textTransform == 'uppercase' ? label.toUpperCase() : label,
+        label,
         style: RaftControlTypography.of(
           context,
           s

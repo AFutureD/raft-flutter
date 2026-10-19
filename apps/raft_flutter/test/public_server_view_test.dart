@@ -121,20 +121,34 @@ Future<void> _mount(
 
 void main() {
   _loadOlderTests();
-  testWidgets('signed out: channels, the first channel messages and the join banner', (t) async {
-    final client = _PublicClient(_routes());
-    var signIn = 0, register = 0;
-    await _mount(t, client, onSignIn: () => signIn++, onRegister: () => register++);
-    expect(find.text('Public channels'.toUpperCase()), findsOneWidget);
-    expect(find.text('general'), findsWidgets);
-    expect(find.text('Welcome to the community'), findsOneWidget);
-    expect(find.text('Sign in to join Raft Design and be part of the discussion.'), findsOneWidget);
-    expect(client.calls, containsAll(['GET $_base', 'GET $_base/channels/c1/messages']));
-    await t.tap(find.text('Sign in'));
-    await t.tap(find.text('Create account'));
-    expect(signIn, 1);
-    expect(register, 1);
-  });
+  testWidgets(
+    'signed out: channels, the first channel messages and the join banner',
+    (t) async {
+      final client = _PublicClient(_routes());
+      var signIn = 0, register = 0;
+      await _mount(
+        t,
+        client,
+        onSignIn: () => signIn++,
+        onRegister: () => register++,
+      );
+      expect(find.text('Public channels'), findsOneWidget);
+      expect(find.text('general'), findsWidgets);
+      expect(find.text('Welcome to the community'), findsOneWidget);
+      expect(
+        find.text('Sign in to join Raft Design and be part of the discussion.'),
+        findsOneWidget,
+      );
+      expect(
+        client.calls,
+        containsAll(['GET $_base', 'GET $_base/channels/c1/messages']),
+      );
+      await t.tap(find.text('Sign In'));
+      await t.tap(find.text('Create Account'));
+      expect(signIn, 1);
+      expect(register, 1);
+    },
+  );
 
   testWidgets('a view-only server swaps the primary action', (t) async {
     await _mount(t, _PublicClient(_routes(joinable: false)));
@@ -244,16 +258,21 @@ void main() {
     testWidgets('Join as Guest asks for confirmation, joins and hands over', (t) async {
       final client = _PublicClient(_routes(), user: user);
       var joined = 0;
-      await _mount(t, client, account: account(), onJoined: () async => joined++);
-      expect(find.text('Sign in'), findsNothing);
+      await _mount(
+        t,
+        client,
+        account: account(),
+        onJoined: () async => joined++,
+      );
+      expect(find.text('Sign In'), findsNothing);
       await t.tap(find.byKey(const ValueKey('public-join-guest')));
       await t.pumpAndSettle();
-      expect(find.text('JOIN THIS SERVER?'), findsOneWidget);
+      expect(find.text('Join as Guest'), findsNWidgets(3));
       await t.tap(find.byKey(const ValueKey('public-join-confirm')));
       await t.pumpAndSettle();
       expect(client.calls, contains('POST $_base/join-as-guest'));
       expect(joined, 1);
-      expect(find.text('JOIN THIS SERVER?'), findsNothing);
+      expect(find.text('Join as Guest'), findsOneWidget);
     });
 
     testWidgets('cancelling the confirm joins nothing', (t) async {
@@ -276,7 +295,7 @@ void main() {
       await t.tap(find.byKey(const ValueKey('public-join-confirm')));
       await t.pumpAndSettle();
       expect(find.text('Failed to join this public server'), findsWidgets);
-      expect(find.text('JOIN THIS SERVER?'), findsOneWidget);
+      expect(find.text('Join as Guest'), findsNWidgets(3));
     });
 
     testWidgets('a refresh failure after joining never reads as a failed join', (t) async {

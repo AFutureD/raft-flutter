@@ -153,8 +153,8 @@ void main() {
       await t.pump();
     }
 
-    // Web's cold Applications section shows its `Loading...` line.
-    final loadingLine = find.text('Loading...');
+    // Web's cold Applications section shows its loading line.
+    final loadingLine = find.text('Loading apps…');
 
     testWidgets(
       'revisit renders the snapshot at the first frame and revalidates in place',
@@ -270,7 +270,7 @@ void main() {
         await t.pumpWidget(_host(IntegrationsView(controller: w)));
         await t.pumpAndSettle();
         await openMyApps(t);
-        await t.tap(find.text('Register app'));
+        await t.tap(find.text('Register App'));
         await t.pumpAndSettle();
         await t.enterText(
           find.byKey(const ValueKey('connected-app-name')),
@@ -575,7 +575,7 @@ void main() {
       find.text('Chat with members from other servers'),
       find.byType(RaftDialogTextInput).first,
       find.text('Guest access'),
-      find.text('Pin channel'),
+      find.text('Pin Channel'),
       find.text('Mute activity'),
       find.text('Collapse long messages'),
       find.text('Leave Channel'),
@@ -611,8 +611,8 @@ void main() {
       await t.pumpWidget(_host(sheet(w, w.channels.first)));
       expect(find.byType(RaftSpinner), findsNothing);
       expect(_rects(t, layout()).values.toList(), settled.values.toList());
-      expect(switchShown(t, 'Pin channel'), isTrue);
-      expect(t.widget<RaftSwitch>(rowSwitch('Pin channel')).value, isTrue);
+      expect(switchShown(t, 'Pin Channel'), isTrue);
+      expect(t.widget<RaftSwitch>(rowSwitch('Pin Channel')).value, isTrue);
       expect(switchShown(t, 'Collapse long messages'), isTrue);
       await _settleStable(t, a, settled, done: () => true);
     });

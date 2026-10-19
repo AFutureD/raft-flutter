@@ -96,8 +96,8 @@ class RaftSearchHomeAction extends StatelessWidget {
   }
 }
 
-/// SelectionPopover header: `border-b px-3 py-2`, 10px bold uppercase
-/// tracking-wide title and an optional Clear action.
+/// SelectionPopover header: `border-b px-3 py-2`, 10px bold
+/// title and an optional Clear action.
 class RaftSelectionPopoverHeader extends StatelessWidget {
   const RaftSelectionPopoverHeader({
     super.key,
@@ -115,7 +115,6 @@ class RaftSelectionPopoverHeader extends StatelessWidget {
       fontSize: 10,
       height: 16 / 10,
       fontWeight: FontWeight.w700,
-      letterSpacing: .25,
       color: t.muted,
     );
     return Container(
@@ -129,7 +128,7 @@ class RaftSelectionPopoverHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(child: Text(title.toUpperCase(), style: style)),
+          Expanded(child: Text(title, style: style)),
           if (onClear != null)
             GestureDetector(
               behavior: HitTestBehavior.opaque,

@@ -1669,8 +1669,8 @@ void main() {
       await w.selectChannel(general);
       await tester.pumpAndSettle();
       await mobileHome(tester);
-      await revealSidebar(tester, find.byTooltip('Create channel'));
-      await tester.tap(find.byTooltip('Create channel'));
+      await revealSidebar(tester, find.byTooltip('Create Channel'));
+      await tester.tap(find.byTooltip('Create Channel'));
       await tester.pumpAndSettle();
       final createdName = 'native-ui-${DateTime.now().millisecondsSinceEpoch}';
       await tester.enterText(field('Name'), createdName);
@@ -1694,7 +1694,7 @@ void main() {
         await tester.pumpAndSettle();
         await until(
           tester,
-          () => find.text('Pin channel').evaluate().isNotEmpty,
+          () => find.text('Pin Channel').evaluate().isNotEmpty,
         );
       }
 
@@ -1726,7 +1726,7 @@ void main() {
       }
 
       await openSettings();
-      await setting('Pin channel');
+      await setting('Pin Channel');
       await until(
         tester,
         () => (w.sidebarOrder['pinned'] as List? ?? []).any(
@@ -1775,7 +1775,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(RaftConfirmDialog),
-          matching: find.text('Archive'),
+          matching: find.text('Archive Channel'),
         ),
       );
       await until(
@@ -1844,7 +1844,7 @@ void main() {
       );
       await tester.enterText(selectorField('global-server-name'), workspaceName);
       await tester.enterText(selectorField('global-server-slug'), workspaceName);
-      final createServer = find.widgetWithText(RaftAuthSubmit, 'Create server');
+      final createServer = find.widgetWithText(RaftAuthSubmit, 'Create Server');
       await tester.ensureVisible(createServer);
       await tester.pumpAndSettle();
       await tester.tap(createServer);
@@ -1959,7 +1959,7 @@ void main() {
           final add = find.byKey(const ValueKey('desktop-directory-add-agent'));
           await until(tester, () => add.hitTestable().evaluate().isNotEmpty);
           await tester.tap(add);
-          final create = find.widgetWithText(RaftMenuItem, 'Create external agent');
+          final create = find.widgetWithText(RaftMenuItem, 'Create External Agent');
           await until(tester, () => create.hitTestable().evaluate().isNotEmpty);
           await tester.tap(create);
         } else if (!mobileViewport(tester)) {
@@ -1967,14 +1967,14 @@ void main() {
           await until(tester, () => add.hitTestable().evaluate().isNotEmpty);
           await tester.tap(add);
         } else {
-          final add = find.widgetWithText(RaftButton, 'Register computer');
+          final add = find.widgetWithText(RaftButton, 'Register Computer');
           await until(tester, () => add.hitTestable().evaluate().isNotEmpty);
           await tester.tap(add);
         }
         await tester.pumpAndSettle();
         await tester.enterText(field('Name'), name);
         await tester.tap(
-          find.widgetWithText(RaftButton, computers ? 'Register' : 'Create'),
+          find.widgetWithText(RaftButton, computers ? 'Register Computer' : 'Create External Agent'),
         );
         await until(
           tester,
@@ -2149,15 +2149,15 @@ void main() {
             tester,
             () => find.byType(CircularProgressIndicator).evaluate().isEmpty,
           );
-          // Native pointer diagnosis confirms Source's eyebrow is uppercase.
-          expect(find.text('ACTIVITY DIAGNOSTICS'), findsOneWidget);
+          // Native pointer diagnosis confirms the eyebrow reads in title case.
+          expect(find.text('Activity Diagnostics'), findsOneWidget);
           expect(find.byType(RaftActivityLogView), findsOneWidget);
           await screenshot(tester, 'linux-agent-activity-tab');
           await tester.tap(find.bySemanticsLabel('Profile'));
           await tester.pumpAndSettle();
         }
         if (computers) {
-          await detailAction('Delete computer');
+          await detailAction('Delete Computer');
         } else {
           final delete = find.widgetWithText(RaftButton, 'Delete Agent');
           await tester.ensureVisible(delete);

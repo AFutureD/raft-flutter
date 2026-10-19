@@ -768,7 +768,7 @@ void main() {
     await panel(tester, width: 430, scale: 3.1, locale: const Locale('zh'));
     await open(tester);
     await tap(tester, 'bulk-model-next');
-    expect(find.text('为 1 个 AGENT 更换模型'), findsOneWidget);
+    expect(find.text('为 1 个 Agent 更换模型'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tap(tester, 'bulk-model-apply');
     expect(client.agents['a1']!['model'], 'gpt-6-astra');

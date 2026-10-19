@@ -183,7 +183,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     sideOffset: 8,
     entries: [
       RaftMenuEntry(
-        label: raftText(context, 'Create agent'),
+        label: raftText(context, 'Create Agent'),
         glyph: RaftGlyph.bot,
         onPressed: () async {
           final captured = authority;
@@ -194,7 +194,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
         },
       ),
       RaftMenuEntry(
-        label: raftText(context, 'Create external agent'),
+        label: raftText(context, 'Create External Agent'),
         glyph: RaftGlyph.link2,
         onPressed: () => register(false),
       ),
@@ -344,7 +344,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
           : null,
       emptyText: raftText(context, 'No computers yet'),
       addKey: const ValueKey('desktop-directory-add-computer'),
-      addLabel: raftText(context, 'Add computer'),
+      addLabel: raftText(context, 'Add Computer'),
       onAdd: w.can('registerMachines')
           ? () => showAddComputerDialog(context, w)
           : null,
@@ -460,7 +460,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
               kind == DesktopContentKind.computer && w.can('registerMachines')
               ? [
                   RaftSidebarSectionAction(
-                    label: raftText(context, 'Add computer'),
+                    label: raftText(context, 'Add Computer'),
                     key: const ValueKey('desktop-directory-add-computer'),
                     glyph: RaftGlyph.plus,
                     onPressed: () => register(true),
@@ -469,7 +469,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
               : kind == DesktopContentKind.human && w.can('inviteMembers')
               ? [
                   RaftSidebarSectionAction(
-                    label: raftText(context, 'Invite human'),
+                    label: raftText(context, 'Invite Human'),
                     key: const ValueKey('desktop-directory-invite-human'),
                     glyph: RaftGlyph.plus,
                     onPressed: () => showWorkspaceMenuInvite(context, w),

@@ -47,7 +47,7 @@ class RaftApiException implements Exception {
   /// finished. It did not fail: its result is simply no longer wanted, so no
   /// surface should present it as an error.
   const RaftApiException.staleScope([
-    this.message = 'The account or workspace changed.',
+    this.message = 'The account or server changed.',
   ]) : status = null,
        retryAfter = null,
        details = const {},
@@ -1245,7 +1245,7 @@ class RaftClient {
           (authentication != _authenticationGeneration ||
               requestGeneration != generation() && !exit))
         throw const RaftApiException.staleScope(
-          'The account or workspace changed. Please retry.',
+          'The account or server changed. Try again.',
         );
       return response.data;
     } on DioException catch (e) {
@@ -1253,7 +1253,7 @@ class RaftClient {
           (authentication != _authenticationGeneration ||
               requestGeneration != generation() && !exit)) {
         throw const RaftApiException.staleScope(
-          'The account or workspace changed. Please retry.',
+          'The account or server changed. Try again.',
         );
       }
       if (e.response?.statusCode == 401 &&
@@ -1331,7 +1331,7 @@ class RaftClient {
             ? (body['error'] ?? body['message'] ?? 'Request failed').toString()
             : e.type == DioExceptionType.connectionError
             ? 'Cannot connect to the Raft server.'
-            : 'Request failed. Please retry.',
+            : 'The request failed. Try again.',
         status: status,
         body: body is Map ? body : null,
         retryAfter: retryAfter,
@@ -1364,7 +1364,7 @@ class RaftClient {
   Future<void> _rotate() async {
     var old = _session;
     if (old == null) {
-      throw const RaftApiException('Please sign in again.', status: 401);
+      throw const RaftApiException('Sign in again.', status: 401);
     }
     try {
       if (old.refreshAttemptId == null) {

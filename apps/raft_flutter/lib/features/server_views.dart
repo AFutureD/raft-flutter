@@ -23,13 +23,13 @@ class WorkspaceActions {
     await showRaftForm<void>(
       context,
       builder: (_) => RaftFormDialog(
-        title: 'Create workspace',
-        submitLabel: 'Create',
+        title: 'Create Server',
+        submitLabel: 'Create Server',
         fields: [
-          const RaftFormField('name', 'Workspace name', required: true),
+          const RaftFormField('name', 'Server name', required: true),
           RaftFormField(
             'slug',
-            'Workspace address',
+            'Server address',
             required: true,
             help: 'Lowercase letters, numbers and hyphens.',
             validator: (v) => RegExp(r'^[a-z0-9]+(?:-[a-z0-9]+)*$').hasMatch(v)
@@ -55,8 +55,8 @@ class WorkspaceActions {
     await showRaftForm<void>(
       context,
       builder: (dialogContext) => RaftFormDialog(
-        title: 'Join workspace',
-        submitLabel: 'Review invitation',
+        title: 'Join Server',
+        submitLabel: 'Review Invitation',
         fields: [
           RaftFormField(
             'token',
@@ -89,22 +89,22 @@ class WorkspaceActions {
     await showRaftForm<void>(
       context,
       builder: (_) => RaftFormDialog(
-        title: delete ? 'Delete workspace?' : 'Leave workspace?',
+        title: delete ? 'Delete Server' : 'Leave Server',
         description: delete
             ? raftFormat(
                 context,
-                'Delete {workspace}, its channels and messages. This cannot be undone.',
-                {'workspace': server.name},
+                'Delete {server}, its channels and messages. This cannot be undone.',
+                {'server': server.name},
               )
             : raftFormat(
                 context,
-                'Leave {workspace}. A new invitation is required to return.',
-                {'workspace': server.name},
+                'Leave {server}. A new invitation is required to return.',
+                {'server': server.name},
               ),
         fields: [
           RaftFormField(
             'confirm',
-            'Type workspace name',
+            'Type server name',
             required: true,
             validator: (v) => v == server.name
                 ? null
@@ -113,7 +113,8 @@ class WorkspaceActions {
                   }),
           ),
         ],
-        submitLabel: delete ? 'Delete' : 'Leave',
+        submitLabel: delete ? 'Delete Server' : 'Leave Server',
+        cancelLabel: delete ? 'Keep Server' : 'Stay in Server',
         destructive: delete,
         onSubmit: (_) async {
           await w.client.exitServer(server.id, delete: delete);
@@ -261,6 +262,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
       RaftConfirmDialog(
         title: 'Delete Server',
         confirmLabel: 'Delete Server',
+        cancelLabel: 'Keep Server',
         surfaceKey: const ValueKey('server-danger-dialog'),
         confirmKey: const Key('server-delete-confirm-button'),
         content: _DeleteServerConfirm(
@@ -288,6 +290,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
           {'serverName': server.name},
         ),
         confirmLabel: 'Leave Server',
+        cancelLabel: 'Stay in Server',
         surfaceKey: const ValueKey('server-danger-dialog'),
         // confirmColor="bg-brutal-orange" -> warning tone.
         confirmVariant: RaftButtonRecipeVariant.warning,
@@ -667,24 +670,25 @@ class _MembersViewState extends State<MembersView> {
       barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: role == 'remove'
-            ? raftFormat(context, 'Remove {name}?', {'name': name})
-            : raftText(context, 'Change role?'),
+            ? raftText(context, 'Remove Member')
+            : raftText(context, 'Change Role'),
         description: role == 'remove'
             ? raftFormat(
                 context,
-                'Remove this member from {workspace}. They will lose workspace access.',
-                {'workspace': w.server!.name},
+                'Remove {name} from {server}. They will lose access to the server.',
+                {'name': name, 'server': w.server!.name},
               )
-            : raftFormat(context, 'Make {name} a {role} in {workspace}.', {
+            : raftFormat(context, 'Make {name} a {role} in {server}.', {
                 'name': name,
                 'role': raftText(
                   context,
                   '${role[0].toUpperCase()}${role.substring(1)}',
                 ),
-                'workspace': w.server!.name,
+                'server': w.server!.name,
               }),
         fields: [],
-        submitLabel: role == 'remove' ? 'Remove' : 'Confirm',
+        submitLabel: role == 'remove' ? 'Remove Member' : 'Change Role',
+        cancelLabel: role == 'remove' ? 'Keep Member' : 'Cancel',
         destructive: role == 'remove',
         onSubmit: (_) async {
           await w.command(
@@ -782,7 +786,7 @@ class _MembersViewState extends State<MembersView> {
                                     PopupMenuItem(
                                       value: 'remove',
                                       child: Text(
-                                        raftText(context, 'Remove member'),
+                                        raftText(context, 'Remove Member'),
                                       ),
                                     ),
                                 ],

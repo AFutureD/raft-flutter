@@ -281,7 +281,7 @@ void main() {
     await tester.pumpAndSettle();
     final body = client.calls.where((c) => c.$1 == 'PATCH').single.$3 as Map;
     expect((body['runtimeConfig'] as Map)['mode'], {'kind': 'fast'});
-    expect(find.text('EDIT RUNTIME CONFIG'), findsNothing);
+    expect(find.text('Edit runtime config'), findsNothing);
     // The profile behind the closed modal now reads the saved mode.
     expect(
       find.descendant(of: _modeRow(), matching: find.text('Fast mode')),
@@ -293,8 +293,8 @@ void main() {
     tester,
   ) async {
     await _open(tester);
-    expect(find.text('EDIT RUNTIME CONFIG'), findsOneWidget);
-    expect(find.textContaining('RUNTIME', findRichText: true), findsWidgets);
+    expect(find.text('Edit runtime config'), findsOneWidget);
+    expect(find.textContaining('Runtime', findRichText: true), findsWidgets);
     expect(find.text('Codex CLI'), findsWidgets);
     expect(find.text('GPT-5 Codex'), findsWidgets);
     expect(find.text('Medium'), findsWidgets);
@@ -303,7 +303,7 @@ void main() {
     // Detection failed: the retry line and the suggestion note.
     expect(
       find.textContaining(
-        'Could not load models from this Computer.',
+        'Could not load models from this computer.',
         findRichText: true,
       ),
       findsOneWidget,
@@ -413,7 +413,7 @@ void main() {
       expect(config['model'], {'kind': 'preset', 'id': 'gpt-5-codex'});
       expect(config['version'], runtimeConfigVersion);
       // Saved: the modal is gone.
-      expect(find.text('EDIT RUNTIME CONFIG'), findsNothing);
+      expect(find.text('Edit runtime config'), findsNothing);
     },
   );
 
@@ -427,14 +427,14 @@ void main() {
     await _choose(tester, 'runtime-editor-reasoning', 'Low');
     await tester.tap(_k('runtime-editor-save'));
     await tester.pumpAndSettle();
-    expect(find.text('EDIT RUNTIME CONFIG'), findsNothing);
-    expect(find.text('RESTART TO APPLY RUNTIME CONFIG'), findsOneWidget);
+    expect(find.text('Edit runtime config'), findsNothing);
+    expect(find.text('Restart to apply runtime config'), findsOneWidget);
     expect(
       find.text('Apply Reasoning and restart this agent now?'),
       findsOneWidget,
     );
     expect(client.calls.where((c) => c.$1 == 'PATCH'), isEmpty);
-    await tester.tap(find.text('Restart agent'));
+    await tester.tap(find.text('Restart Agent'));
     await tester.pumpAndSettle();
     final body = client.calls.where((c) => c.$1 == 'PATCH').single.$3 as Map;
     expect(body['restartMode'], 'restart');
@@ -453,12 +453,12 @@ void main() {
     await _choose(tester, 'runtime-editor-model', other.label);
     await tester.tap(_k('runtime-editor-save'));
     await tester.pumpAndSettle();
-    expect(find.text('SWITCH MODEL AND RESET SESSION'), findsOneWidget);
+    expect(find.text('Switch model and reset session'), findsOneWidget);
     expect(
       find.textContaining('resets the current runtime session'),
       findsOneWidget,
     );
-    await tester.tap(find.text('Reset'));
+    await tester.tap(find.text('Reset Session'));
     await tester.pumpAndSettle();
     final body = client.calls.where((c) => c.$1 == 'PATCH').single.$3 as Map;
     expect(body['restartMode'], 'session');
@@ -474,15 +474,15 @@ void main() {
       expect(find.textContaining('Opus'), findsWidgets);
       await tester.tap(_k('runtime-editor-save'));
       await tester.pumpAndSettle();
-      expect(find.text('SWITCH RUNTIME CONFIG'), findsOneWidget);
+      expect(find.text('Switch runtime config'), findsOneWidget);
       expect(
         find.text(
           'This will switch the runtime from Codex CLI to Claude Code.',
         ),
         findsOneWidget,
       );
-      expect(find.text('Save runtime change'), findsOneWidget);
-      await tester.tap(find.text('Save runtime change'));
+      expect(find.text('Save Runtime Change'), findsOneWidget);
+      await tester.tap(find.text('Save Runtime Change'));
       await tester.pumpAndSettle();
       final body = client.calls.where((c) => c.$1 == 'PATCH').single.$3 as Map;
       expect(body['runtime'], 'claude');
@@ -518,7 +518,7 @@ void main() {
     await tester.tap(_k('runtime-editor-save'));
     await tester.pumpAndSettle();
     expect(find.text('Rejected'), findsOneWidget);
-    expect(find.text('EDIT RUNTIME CONFIG'), findsOneWidget);
+    expect(find.text('Edit runtime config'), findsOneWidget);
     expect(client.calls.where((c) => c.$1 == 'PATCH'), hasLength(1));
   });
 
@@ -542,7 +542,7 @@ void main() {
       },
     );
     expect(
-      find.text('Could not load models from this Computer.'),
+      find.text('Could not load models from this computer.'),
       findsNothing,
     );
     expect(find.textContaining('catalog suggestion'), findsNothing);
@@ -609,7 +609,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: _k('runtime-editor-more'),
-          matching: find.text('MORE'),
+          matching: find.text('More'),
         ),
       );
       await tester.pump();
@@ -651,7 +651,7 @@ void main() {
     final (_, client) = await _open(tester);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(find.text('EDIT RUNTIME CONFIG'), findsNothing);
+    expect(find.text('Edit runtime config'), findsNothing);
     expect(client.calls.where((c) => c.$1 == 'PATCH'), isEmpty);
   });
 

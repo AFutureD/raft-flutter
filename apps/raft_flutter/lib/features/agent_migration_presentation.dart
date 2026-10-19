@@ -99,7 +99,7 @@ class MigrationNoticePresentation extends MigrationPresentation {
 
 /// Web state.ts MIGRATION_PROGRESS_STEPS.
 const migrationProgressSteps = <String>[
-  'Stop agent',
+  'Stop Agent',
   'Pack workspace',
   'Transfer files',
   'Start on new computer',
@@ -735,10 +735,10 @@ MigrationText _abortDetail(
       values,
     ),
     'transfer-deadline' => const MigrationText(
-      'The workspace transfer did not finish before the deadline. Make sure both Computers stay online and the target has enough free disk space, then try again.',
+      'The workspace transfer did not finish before the deadline. Make sure both computers stay online and the target has enough free disk space, then try again.',
     ),
     'arrival-deadline' => MigrationText(
-      'The target Computer {target} did not finish installing the workspace before the deadline. Make sure the target is running and has enough free disk space, then try again.',
+      'The target computer {target} did not finish installing the workspace before the deadline. Make sure the target is running and has enough free disk space, then try again.',
       values,
     ),
     _ => const MigrationText(

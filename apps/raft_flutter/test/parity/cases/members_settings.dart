@@ -143,7 +143,7 @@ Map<String, dynamic>? _staticSource(String runtime, String source) {
 
 // ---------------------------------------------------------------------------
 // Create agent: showManagedAgentForm → CreateAgentDialog, the dialog every
-// "Create agent" entry opens (FleetView, action cards).
+// "Create Agent" entry opens (FleetView, action cards).
 
 /// react-provider.spec.ts visualBillingInfo() for a non-billing case (Free
 /// plan, 2/2 agents): the capacity Banner React shows on every create case.
@@ -311,9 +311,9 @@ Future<void> _fillCustomProvider(WidgetTester t, ParityContext ctx) async {
     find.byKey(const ValueKey('runtime-apiKey')),
     'visual-test-key',
   );
-  await t.ensureVisible(find.text('MORE'));
+  await t.ensureVisible(find.text('More'));
   await t.pump(const Duration(milliseconds: 100));
-  await t.tap(find.text('MORE'));
+  await t.tap(find.text('More'));
   await t.pump(const Duration(milliseconds: 100));
   await t.enterText(find.byKey(const ValueKey('runtime-command')), 'claude');
   await t.pump(const Duration(milliseconds: 100));

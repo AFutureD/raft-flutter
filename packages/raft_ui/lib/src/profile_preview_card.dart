@@ -322,7 +322,7 @@ class RaftProfilePreviewCard extends StatelessWidget {
 }
 
 /// "Recent Activity" heading: a Title Case link when the surface can open
-/// the agent's activity, otherwise a static uppercase divider.
+/// the agent's activity, otherwise a static divider.
 class _ActivityHeading extends StatelessWidget {
   const _ActivityHeading({this.onPressed});
   final VoidCallback? onPressed;
@@ -341,12 +341,12 @@ class _ActivityHeading extends StatelessWidget {
           line: 15,
           weight: FontWeight.w700,
           color: color,
-        ).copyWith(letterSpacing: .25),
+        ),
       );
     }
 
     if (onPressed == null) {
-      return Text(label.toUpperCase(), style: style(false));
+      return Text(label, style: style(false));
     }
     return RaftInteractive(
       key: const ValueKey('profile-preview-open-activity'),

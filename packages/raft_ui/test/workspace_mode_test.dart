@@ -41,7 +41,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Workspace mode'), findsOneWidget);
+      expect(find.text('Server mode'), findsOneWidget);
       await t.sendKeyEvent(LogicalKeyboardKey.tab);
       await t.sendKeyEvent(LogicalKeyboardKey.space);
       await t.pump();

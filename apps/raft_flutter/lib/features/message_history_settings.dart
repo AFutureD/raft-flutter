@@ -137,12 +137,13 @@ class _MessageHistorySettingsState extends State<MessageHistorySettings> {
         RaftConfirmDialog(
           surfaceKey: const ValueKey('history-lower-dialog'),
           confirmKey: const Key('history-lower-confirm'),
-          title: raftText(context, 'Lower message history limit?'),
+          title: raftText(context, 'Lower message history limit'),
           message: raftText(
             context,
             'Older unused messages may be removed and need a connection to open again. Conversations opened in the last seven days, pinned conversations, drafts, uploads, unread messages, mentions and open windows are protected.',
           ),
-          confirmLabel: raftText(context, 'Lower limit'),
+          confirmLabel: raftText(context, 'Lower Limit'),
+          cancelLabel: raftText(context, 'Keep Limit'),
           loadingLabel: raftText(context, 'Updating…'),
           onConfirm: apply,
         ),

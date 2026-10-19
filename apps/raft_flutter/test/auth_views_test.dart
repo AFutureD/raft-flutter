@@ -270,7 +270,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(requests, contains('POST /auth/resend-verification'));
     expect(
-      find.text('Verification email resent! Check your inbox.'),
+      find.text('Verification email resent. Check your inbox.'),
       findsOneWidget,
     );
   });

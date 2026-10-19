@@ -97,7 +97,7 @@ void main() {
             expect(w.channel?.id, 'c0');
             expect(w.threadIdentity?.parentMessageId, 'parent');
             expect(find.text('Message old-main'), findsNothing);
-            expect(find.text('Loading...'), findsOneWidget);
+            expect(find.text('Loading thread…'), findsOneWidget);
             expect(
               tester.widget<RaftComposer>(find.byType(RaftComposer)).enabled,
               true,

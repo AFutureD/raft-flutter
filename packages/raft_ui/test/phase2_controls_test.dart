@@ -108,7 +108,7 @@ void main() {
               width: 320,
               child: RaftFieldSurface(
                 child: TextField(
-                  decoration: InputDecoration(hintText: 'Workspace name'),
+                  decoration: InputDecoration(hintText: 'Server name'),
                 ),
               ),
             ),
@@ -134,7 +134,7 @@ void main() {
             onDismiss: () => dismissed++,
             children: [
               RaftMenuItem(
-                label: 'Copy link',
+                label: 'Copy Link',
                 autofocus: true,
                 onPressed: () => copied++,
               ),

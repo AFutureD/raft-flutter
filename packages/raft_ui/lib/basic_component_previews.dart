@@ -162,7 +162,7 @@ class _DesignFieldsState extends State<_DesignFields> {
         const RaftFieldSurface(
           child: TextField(
             autofillHints: null,
-            decoration: InputDecoration(hintText: 'Workspace name'),
+            decoration: InputDecoration(hintText: 'Server name'),
           ),
         ),
         const SizedBox(height: 16),
@@ -186,7 +186,7 @@ class _DesignFieldsState extends State<_DesignFields> {
           onPressed: () => showDialog<void>(
             context: context,
             builder: (_) => RaftFormDialog(
-              title: 'Create channel',
+              title: 'Create Channel',
               fields: const [
                 RaftFormField('name', 'Name', required: true),
                 RaftFormField('description', 'Description', multiline: true),
@@ -282,7 +282,7 @@ Widget sourceInputsPreview() => Padding(
       RaftFieldSurface(
         child: TextField(
           autofillHints: null,
-          decoration: InputDecoration(hintText: 'Workspace name'),
+          decoration: InputDecoration(hintText: 'Server name'),
         ),
       ),
       SizedBox(height: 16),
@@ -335,7 +335,7 @@ class _SourceMenus extends StatelessWidget {
       defaultOpen: true,
       entries: [
         RaftMenuEntry(
-          label: 'Copy link',
+          label: 'Copy Link',
           glyph: RaftGlyph.copy,
           onPressed: () {},
         ),

@@ -377,7 +377,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: RaftCssText(
                     tr(
-                      'The machine summary sent with every report (versions, failure counts, trace fields) is structured data with no free text.',
+                      'The computer summary sent with every report (versions, failure counts, trace fields) is structured data with no free text.',
                     ),
                     style: muted12,
                   ),
@@ -444,20 +444,20 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
                             ? null
                             : (v) => setState(() => machineLogTailChoice = v),
                         label: tr(
-                          'Machine runner log tail (your own machine only)',
+                          'Computer runner log tail (your own computer only)',
                         ),
                         labelWidget: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             RaftCssText(
                               tr(
-                                'Machine runner log tail (your own machine only)',
+                                'Computer runner log tail (your own computer only)',
                               ),
                               style: _text(t, color: t.ink),
                             ),
                             RaftCssText(
                               tr(
-                                "Last lines of this machine's runner log — free text, including lines from other agents on it. Size-bounded; visible to everyone who can read this report, including agents. Secret masking covers known credential shapes only — a floor, not a guarantee. Requires the runtime transcript above.",
+                                "Last lines of this computer's runner log — free text, including lines from other agents on it. Size-bounded; visible to everyone who can read this report, including agents. Secret masking covers known credential shapes only — a floor, not a guarantee. Requires the runtime transcript above.",
                               ),
                               style: muted12,
                             ),
@@ -471,7 +471,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
                     padding: const EdgeInsets.only(top: 4),
                     child: RaftCssText(
                       tr(
-                        'Runtime transcript upload is unavailable until the agent is assigned to a machine.',
+                        'Runtime transcript upload is unavailable until the agent is assigned to a computer.',
                       ),
                       style: muted12,
                     ),
@@ -510,7 +510,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
                         ? null
                         : (v) => setState(() => consented = v),
                     label: tr(
-                      'I understand that everyone in the Botiverse workspace, including agents, can read this report and its selected diagnostic data, and I consent to submit it.',
+                      'I understand that everyone in the Botiverse server, including agents, can read this report and its selected diagnostic data, and I consent to submit it.',
                     ),
                     // No colour class: the label inherits the banner's text.
                     style: _text(
@@ -710,7 +710,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         RaftCssText(
-          tr(label).toUpperCase(),
+          tr(label),
           style: _text(
             t,
             size: 12,

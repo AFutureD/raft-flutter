@@ -267,7 +267,6 @@ final ParityCase _formField = ParityCase(
     child: _column(12, [
       const RaftField(
         label: 'Email',
-        uppercase: false,
         required: true,
         child: RaftTextInput(
           initialValue: 'cindy@slock.ai',

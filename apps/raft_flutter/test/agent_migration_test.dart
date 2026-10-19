@@ -172,6 +172,13 @@ Future<WorkspaceController> _fixture(_MigrationTransport transport) async {
   return w;
 }
 
+/// The Move dialog's submit button (the page's own Move Agent button shares
+/// its label).
+final _moveSubmit = find.descendant(
+  of: find.byType(RaftFormDialog),
+  matching: find.widgetWithText(RaftButton, 'Move Agent'),
+);
+
 void main() {
   testWidgets(
     'disabled migration API exposes no actionable transfer controls',
@@ -187,7 +194,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.textContaining('not enabled'), findsOneWidget);
-      expect(find.text('Move agent'), findsNothing);
+      expect(find.text('Move Agent'), findsNothing);
       expect(find.text('Assign computer'), findsNothing);
     },
   );
@@ -346,9 +353,9 @@ void main() {
         now: () => after,
       );
       expect(t.count('GET /billing/subscription'), 1);
-      await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Move Agent'));
       await tester.pumpAndSettle();
-      expect(find.text('UPGRADE TO PRO TO MIGRATE AGENTS'), findsOneWidget);
+      expect(find.text('Upgrade to Pro to migrate agents'), findsOneWidget);
       expect(
         find.textContaining(
           'After upgrading, you can migrate an agent and its workspace',
@@ -358,7 +365,7 @@ void main() {
       expect(find.byType(RaftFormDialog), findsNothing);
       // "Upgrade" opens Plan & Billing settings.
       await tester.tap(
-        find.widgetWithText(RaftSettingsRecipeButton, 'Upgrade'),
+        find.widgetWithText(RaftSettingsRecipeButton, 'Upgrade to Pro'),
       );
       await tester.pumpAndSettle();
       expect(w.section, 'billing');
@@ -374,10 +381,10 @@ void main() {
       );
       await tester.tap(find.widgetWithText(RaftButton, '迁移 Agent'));
       await tester.pumpAndSettle();
-      expect(find.text('升级至 PRO 以迁移 AGENT'), findsOneWidget);
+      expect(find.text('升级至 Pro 以迁移 Agent'), findsOneWidget);
       expect(find.textContaining('升级后，可以把 Agent 连同工作区'), findsOneWidget);
       expect(
-        find.widgetWithText(RaftSettingsRecipeButton, '升级'),
+        find.widgetWithText(RaftSettingsRecipeButton, '升级到 Pro'),
         findsOneWidget,
       );
     });
@@ -389,11 +396,11 @@ void main() {
         plan: 'free',
         now: () => after,
       );
-      await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Move Agent'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Cancel'));
       await tester.pumpAndSettle();
-      expect(find.text('UPGRADE TO PRO TO MIGRATE AGENTS'), findsNothing);
+      expect(find.text('Upgrade to Pro to migrate agents'), findsNothing);
       expect(find.byType(AgentMigrationView), findsOneWidget);
       expect(w.section, isNot('billing'));
     });
@@ -414,10 +421,10 @@ void main() {
           plan: plan,
           now: () => clock,
         );
-        await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+        await tester.tap(find.widgetWithText(RaftButton, 'Move Agent'));
         await tester.pumpAndSettle();
         expect(find.byType(RaftFormDialog), findsOneWidget, reason: plan);
-        expect(find.text('UPGRADE TO PRO TO MIGRATE AGENTS'), findsNothing);
+        expect(find.text('Upgrade to Pro to migrate agents'), findsNothing);
       }
     });
 
@@ -425,7 +432,7 @@ void main() {
       tester,
     ) async {
       await mount(tester, state: 'completed', plan: null, now: () => after);
-      await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Move Agent'));
       await tester.pumpAndSettle();
       expect(find.byType(RaftFormDialog), findsOneWidget);
     });
@@ -437,13 +444,13 @@ void main() {
         final (t, _) = await mount(tester, state: 'completed', plan: 'pro');
         t.startDenied = true;
         final billingReads = t.count('GET /billing/subscription');
-        await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+        await tester.tap(find.widgetWithText(RaftButton, 'Move Agent'));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(RaftButton, 'Move'));
+        await tester.tap(_moveSubmit);
         await tester.pumpAndSettle();
         expect(t.count('POST /agents/a1/migrate'), 1);
         expect(find.byType(RaftFormDialog), findsNothing);
-        expect(find.text('UPGRADE TO PRO TO MIGRATE AGENTS'), findsOneWidget);
+        expect(find.text('Upgrade to Pro to migrate agents'), findsOneWidget);
         expect(find.textContaining('requires the Pro plan'), findsNothing);
         expect(t.count('GET /billing/subscription'), billingReads + 1);
       },
@@ -457,7 +464,7 @@ void main() {
       await mount(tester);
       expect(find.text('Migrating to Target'), findsOneWidget);
       for (final step in [
-        'Stop agent',
+        'Stop Agent',
         'Pack workspace',
         'Transfer files',
         'Start on new computer',
@@ -469,7 +476,7 @@ void main() {
       expect(find.textContaining('Migration status:'), findsNothing);
       // The support reference only appears when something needs attention.
       expect(find.text('Migration ID'), findsNothing);
-      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Cancel Migration'), findsOneWidget);
     });
 
     testWidgets('packing shows the file count and size', (tester) async {
@@ -502,38 +509,42 @@ void main() {
       );
     });
 
-    testWidgets('a failure before the flip says the agent is still on the source', (
-      tester,
-    ) async {
-      await mount(
-        tester,
-        state: 'failed',
-        setup: (t) => t.extra = {
-          'failureReason': 'MIGRATION_LEASE_EXPIRED',
-          'agentId': 'a1',
-        },
-      );
-      expect(find.text('Migration to Target needs attention'), findsOneWidget);
-      expect(find.text('Migration failed'), findsOneWidget);
-      expect(
-        find.text('The agent is still on Source and works as usual.'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Something went wrong during the transfer. Try again.'),
-        findsOneWidget,
-      );
-      // Technical details are collapsed until opened.
-      expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsNothing);
-      await tester.tap(find.text('Technical details'));
-      await tester.pump();
-      expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsOneWidget);
-      // The reference shows on a failure, with a copy action.
-      expect(find.text('Migration ID'), findsOneWidget);
-      expect(find.text('fixture-ref'), findsOneWidget);
-      expect(find.text('Try migration again'), findsOneWidget);
-      expect(find.text('Cancel'), findsNothing);
-    });
+    testWidgets(
+      'a failure before the flip says the agent is still on the source',
+      (tester) async {
+        await mount(
+          tester,
+          state: 'failed',
+          setup: (t) => t.extra = {
+            'failureReason': 'MIGRATION_LEASE_EXPIRED',
+            'agentId': 'a1',
+          },
+        );
+        expect(
+          find.text('Migration to Target needs attention'),
+          findsOneWidget,
+        );
+        expect(find.text('Migration failed'), findsOneWidget);
+        expect(
+          find.text('The agent is still on Source and works as usual.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('The transfer did not finish. Try again.'),
+          findsOneWidget,
+        );
+        // Technical details are collapsed until opened.
+        expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsNothing);
+        await tester.tap(find.text('Technical details'));
+        await tester.pump();
+        expect(find.textContaining('MIGRATION_LEASE_EXPIRED'), findsOneWidget);
+        // The reference shows on a failure, with a copy action.
+        expect(find.text('Migration ID'), findsOneWidget);
+        expect(find.text('fixture-ref'), findsOneWidget);
+        expect(find.text('Try migration again'), findsOneWidget);
+        expect(find.text('Cancel Migration'), findsNothing);
+      },
+    );
 
     testWidgets('a failure after the flip says the agent is on the target', (
       tester,
@@ -578,8 +589,8 @@ void main() {
       expect(find.text('Canceling migration to Target'), findsOneWidget);
       expect(find.text('Stopping the agent on the new computer'), findsOneWidget);
       expect(find.text('Migration ID'), findsNothing);
-      expect(find.text('Cancel'), findsNothing);
-      expect(find.text('Move agent'), findsNothing);
+      expect(find.text('Cancel Migration'), findsNothing);
+      expect(find.text('Move Agent'), findsNothing);
     });
 
     testWidgets('cancellation attention shows the title, code and reference', (
@@ -612,7 +623,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Migration ID'), findsNothing);
-      expect(find.text('Move agent'), findsOneWidget);
+      expect(find.text('Move Agent'), findsOneWidget);
     });
 
     testWidgets('the panel uses the Web zh-cn copy', (tester) async {
@@ -621,7 +632,7 @@ void main() {
       expect(find.text('停止 Agent'), findsOneWidget);
       expect(find.text('迁移完成'), findsOneWidget);
       expect(find.text('正在将工作区传输到 Target。'), findsOneWidget);
-      expect(find.text('取消'), findsOneWidget);
+      expect(find.text('取消迁移'), findsOneWidget);
     });
 
     testWidgets('the steps stack when the row does not fit', (tester) async {
@@ -629,7 +640,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await mount(tester);
-      final first = tester.getTopLeft(find.text('Stop agent'));
+      final first = tester.getTopLeft(find.text('Stop Agent'));
       final second = tester.getTopLeft(find.text('Pack workspace'));
       expect(second.dy, greaterThan(first.dy));
       expect(second.dx, first.dx);
@@ -638,14 +649,14 @@ void main() {
 
   group('cancel (Web AgentMigrationCancelDialog)', () {
     Future<void> openCancel(WidgetTester tester) async {
-      await tester.tap(find.widgetWithText(RaftButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Cancel Migration'));
       await tester.pumpAndSettle();
     }
 
     testWidgets('the dialog explains what cancelling does', (tester) async {
       await mount(tester);
       await openCancel(tester);
-      expect(find.text('CANCEL MIGRATION?'), findsOneWidget);
+      expect(find.text('Cancel Migration'), findsNWidgets(3));
       expect(find.text('Canceling is safe'), findsOneWidget);
       expect(
         find.textContaining(
@@ -660,16 +671,24 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'), findsOneWidget);
-      expect(find.widgetWithText(RaftSettingsRecipeButton, 'Continue'), findsOneWidget);
+      expect(
+        find.widgetWithText(RaftSettingsRecipeButton, 'Cancel Migration'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(RaftSettingsRecipeButton, 'Keep Migrating'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Continue keeps the migration and sends nothing', (tester) async {
       final (t, _) = await mount(tester);
       await openCancel(tester);
-      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Continue'));
+      await tester.tap(
+        find.widgetWithText(RaftSettingsRecipeButton, 'Keep Migrating'),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('CANCEL MIGRATION?'), findsNothing);
+      expect(find.text('Cancel Migration'), findsOneWidget);
       expect(t.requests, isEmpty);
     });
 
@@ -678,7 +697,9 @@ void main() {
     ) async {
       final (t, _) = await mount(tester, setup: (t) => t.staleCancels = 2);
       await openCancel(tester);
-      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'));
+      await tester.tap(
+        find.widgetWithText(RaftSettingsRecipeButton, 'Cancel Migration'),
+      );
       await tester.pumpAndSettle();
       // The revision the dialog opened with, then each re-read revision.
       expect(t.requests, [
@@ -686,7 +707,7 @@ void main() {
         {'migrationRef': 'fixture-ref', 'expectedRevision': 3},
         {'migrationRef': 'fixture-ref', 'expectedRevision': 4},
       ]);
-      expect(find.text('CANCEL MIGRATION?'), findsNothing);
+      expect(find.text('Cancel Migration'), findsNothing);
       expect(find.text('Canceling migration to Target'), findsOneWidget);
     });
 
@@ -695,10 +716,12 @@ void main() {
     ) async {
       final (t, _) = await mount(tester);
       await openCancel(tester);
-      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'));
+      await tester.tap(
+        find.widgetWithText(RaftSettingsRecipeButton, 'Cancel Migration'),
+      );
       await tester.pumpAndSettle();
       expect(t.requests, hasLength(3));
-      expect(find.text('CANCEL MIGRATION?'), findsOneWidget);
+      expect(find.text('Cancel Migration'), findsNWidgets(3));
       expect(
         find.text(
           'The migration moved on before your request went through. Check the latest status and try again. (MIGRATION_REVISION_STALE)',
@@ -714,18 +737,20 @@ void main() {
       final (t, _) = await mount(tester, setup: (t) => t.staleCancels = 2);
       await openCancel(tester);
       t.extra = {'migrationRef': 'other-ref'};
-      await tester.tap(find.widgetWithText(RaftSettingsRecipeButton, 'Stop'));
+      await tester.tap(
+        find.widgetWithText(RaftSettingsRecipeButton, 'Cancel Migration'),
+      );
       await tester.pumpAndSettle();
       expect(t.requests, hasLength(1));
-      expect(find.text('CANCEL MIGRATION?'), findsOneWidget);
+      expect(find.text('Cancel Migration'), findsNWidgets(3));
     });
   });
 
   group('start errors (Web AgentMigrationDialog)', () {
     Future<void> submitMove(WidgetTester tester) async {
-      await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Move Agent'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(RaftButton, 'Move'));
+      await tester.tap(_moveSubmit);
       await tester.pumpAndSettle();
     }
 
@@ -733,7 +758,7 @@ void main() {
       tester,
     ) async {
       await mount(tester, state: 'completed');
-      await tester.tap(find.widgetWithText(RaftButton, 'Move agent'));
+      await tester.tap(find.widgetWithText(RaftButton, 'Move Agent'));
       await tester.pumpAndSettle();
       // The first choice is selected; open the menu to see all of them.
       await tester.tap(find.byType(DropdownButtonFormField<String>));
@@ -793,7 +818,7 @@ void main() {
       expect(find.text('Open computer settings'), findsOneWidget);
       // The submit action now reads Try again.
       expect(find.widgetWithText(RaftButton, 'Try again'), findsOneWidget);
-      expect(find.widgetWithText(RaftButton, 'Move'), findsNothing);
+      expect(_moveSubmit, findsNothing);
     });
 
     testWidgets('a resumable capability gap names the computer to update', (
@@ -828,7 +853,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Open Computers'), findsNothing);
-      expect(find.widgetWithText(RaftButton, 'Move'), findsOneWidget);
+      expect(_moveSubmit, findsOneWidget);
     });
   });
 
@@ -837,7 +862,7 @@ void main() {
       tester,
     ) async {
       await mount(tester);
-      expect(find.text('Move agent'), findsNothing);
+      expect(find.text('Move Agent'), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await mount(tester, state: 'failed');
       expect(find.text('Try migration again'), findsOneWidget);
@@ -853,7 +878,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('Boom internal detail'), findsNothing);
-      expect(find.text('Move agent'), findsOneWidget);
+      expect(find.text('Move Agent'), findsOneWidget);
     });
   });
 }

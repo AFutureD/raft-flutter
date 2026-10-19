@@ -397,7 +397,7 @@ void main() {
       expect(shows('Sending message'), false);
       expect(shows('Output'), true);
       expect(shows('Message'), false);
-      expect(shows('SUBAGENT: EXPLORE'), true);
+      expect(shows('Subagent: Explore'), true);
       expect(shows('Context Compaction Started'), true);
     },
   );

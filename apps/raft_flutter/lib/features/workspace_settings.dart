@@ -106,7 +106,7 @@ class WorkspaceSettings extends StatefulWidget {
   final Uri? frontendOrigin;
 
   static const documentationUrl = 'https://docs.raft.build';
-  static const personal = 'Personal', workspace = 'Workspace';
+  static const personal = 'Personal', workspace = 'Server';
   static const resources = 'Resources';
 
   @override
@@ -305,7 +305,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           if (widget.providerEnabled && w.can('manageExternalAuth'))
             RaftSettingsDestination(
               'providers',
-              'AI Providers',
+              'Providers',
               RaftGlyph.keyRound,
               (_) => ProviderConnectionsView(controller: w),
               group: WorkspaceSettings.workspace,
@@ -791,12 +791,12 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
       workspaceName: server == null
           ? null
           : server.string('name').isEmpty
-          ? raftText(context, 'Current workspace')
+          ? raftText(context, 'Current server')
           : server.string('name'),
       workspaceDetail: slug.isEmpty
           ? raftText(
               context,
-              'Workspace details and administration are available from Settings.',
+              'Server details and administration are available from Settings.',
             )
           : '/$slug',
     );

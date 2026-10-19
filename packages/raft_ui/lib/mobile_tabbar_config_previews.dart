@@ -184,7 +184,7 @@ class MobileSettingsRootPreview extends StatelessWidget {
                       e('administration', 'Administration', RaftGlyph.shield),
                       e('integrations', 'Applications', RaftGlyph.link2),
                       e('mcp', 'MCP Servers', RaftGlyph.blocks),
-                      e('providers', 'AI Providers', RaftGlyph.keyRound),
+                      e('providers', 'Providers', RaftGlyph.keyRound),
                       e('computers', 'Computers', RaftGlyph.monitor),
                     ]),
                     RaftSettingsNavGroup('Resources', [

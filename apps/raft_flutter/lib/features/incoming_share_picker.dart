@@ -296,8 +296,8 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       final accepted = await RaftConfirmDialog.show(
         context,
         RaftConfirmDialog(
-          title: 'Join channel',
-          confirmLabel: 'Join channel',
+          title: 'Join Channel',
+          confirmLabel: 'Join Channel',
           confirmVariant: RaftButtonRecipeVariant.primary,
           message: raftFormat(context, 'Join {name} to add shared content?', {
             'name': destination.label,
@@ -323,8 +323,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       if (mounted && widget.valid()) {
         setState(() {
           busy = false;
-          handoffError =
-              'The shared content could not be added. Please try again.';
+          handoffError = 'The shared content could not be added. Try again.';
         });
       }
     }

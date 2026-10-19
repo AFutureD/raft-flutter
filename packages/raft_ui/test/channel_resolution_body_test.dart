@@ -29,7 +29,7 @@ void main() {
               ),
             ),
           );
-          expect(find.text('SELECT A CHANNEL'), findsOneWidget);
+          expect(find.text('Select a channel'), findsOneWidget);
           expect(
             find.byType(RaftPanelIconButton),
             narrow ? findsOneWidget : findsNothing,
@@ -64,7 +64,7 @@ void main() {
             ),
           ),
         );
-        expect(find.text('LOADING CHANNEL'), findsOneWidget);
+        expect(find.text('Loading channel'), findsOneWidget);
         final surface = tester.getRect(find.byKey(const Key('surface')));
         final line = tester.getRect(find.byType(RaftCssLineBox));
         expect(line.center, surface.center);

@@ -567,7 +567,6 @@ class RaftAppEditorSectionCard extends StatelessWidget {
           const RaftSettingsRecipeBadge(
             label: 'Experimental',
             variant: RaftBadgeRecipeVariant.success,
-            uppercase: true,
           ),
       ],
     );
@@ -597,7 +596,7 @@ class RaftAppEditorSectionCard extends StatelessWidget {
         border: Border.all(color: text.edge, width: t.brutal ? 2 : 1),
       ),
       child: Text(
-        section.status.toUpperCase(),
+        section.status,
         style: RaftTypography.mono(
           t,
           size: 10,
@@ -668,7 +667,6 @@ class RaftAppEditorField extends StatelessWidget {
     optionalLabel: raftText(context, '(optional)'),
     hint: hint == null ? null : raftText(context, hint!),
     error: error,
-    uppercase: false,
     compact: true,
     child: child,
   );

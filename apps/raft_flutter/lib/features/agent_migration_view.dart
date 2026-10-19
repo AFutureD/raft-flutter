@@ -259,7 +259,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       (_) => RaftConfirmDialog(
         title: 'Upgrade to Pro to migrate agents',
         message: 'After upgrading, you can migrate an agent and its workspace to another computer.',
-        confirmLabel: 'Upgrade',
+        confirmLabel: 'Upgrade to Pro',
         confirmVariant: RaftButtonRecipeVariant.accent,
         maxWidth: 448,
       ),
@@ -332,7 +332,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
         openComputers: _openComputers,
         start: (target) async {
           if (!accepts(generation) || sourceAuthority != authority) {
-            throw StateError('The active workspace changed. Reopen this form.');
+            throw StateError('The active server changed. Reopen this form.');
           }
           try {
             await w.command(
@@ -388,17 +388,22 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
           },
         ),
       ],
-      (values) => withWebError('Something went wrong', () async {
-        await w.command(
-          'POST',
-          '$base/assign-machine',
-          data: {
-            'machineId': values['machine']!.isEmpty ? null : values['machine'],
-          },
-        );
-      }, where: 'assign computer'),
-      description:
-          'Change the computer assignment. This does not transfer the existing workspace files.',
+      (values) => withWebError(
+        'Could not change the computer assignment. Try again.',
+        () async {
+          await w.command(
+            'POST',
+            '$base/assign-machine',
+            data: {
+              'machineId': values['machine']!.isEmpty
+                  ? null
+                  : values['machine'],
+            },
+          );
+        },
+        where: 'assign computer',
+      ),
+      description: 'Change the computer assignment. This does not transfer the existing workspace files.',
     );
     await reload();
   }
@@ -416,7 +421,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     String sourceAuthority,
   ) async {
     if (!accepts(generation) || sourceAuthority != authority) {
-      throw StateError('The active workspace changed. Reopen this form.');
+      throw StateError('The active server changed. Reopen this form.');
     }
     final opened = _live.value;
     if (!canCancelMigration(opened)) return;
@@ -465,43 +470,43 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     _live.value = migration;
     _cancellable.value = true;
     await scopedDialog<bool>(
-        (_) => ValueListenableBuilder<Map<String, dynamic>>(
-          valueListenable: _live,
-          builder: (context, current, _) {
-            final source = MigrationText('{name}', {
-              'name': migrationComputerLabel(
-                machines,
-                current['sourceMachineId'],
-              ),
-            }).text(context);
-            final target = MigrationText('{name}', {
-              'name': migrationComputerLabel(
-                machines,
-                current['targetMachineId'],
-              ),
-            }).text(context);
-            final t = RaftTokens.of(context);
-            return RaftConfirmDialog(
-              title: 'Cancel migration?',
-              confirmLabel: 'Stop',
-              cancelLabel: 'Continue',
-              loadingLabel: 'Canceling…',
-              confirmVariant: RaftButtonRecipeVariant.warning,
-              confirmEnabled: _cancellable,
-              maxWidth: 448,
-              onConfirm: () => _submitCancel(generation, sourceAuthority),
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    raftText(context, 'Canceling is safe'),
-                    style: RaftTypography.body(
-                      t,
-                      size: 14,
-                      line: 14 * 1.625,
-                      weight: FontWeight.w700,
-                    ),
+      (_) => ValueListenableBuilder<Map<String, dynamic>>(
+        valueListenable: _live,
+        builder: (context, current, _) {
+          final source = MigrationText('{name}', {
+            'name': migrationComputerLabel(
+              machines,
+              current['sourceMachineId'],
+            ),
+          }).text(context);
+          final target = MigrationText('{name}', {
+            'name': migrationComputerLabel(
+              machines,
+              current['targetMachineId'],
+            ),
+          }).text(context);
+          final t = RaftTokens.of(context);
+          return RaftConfirmDialog(
+            title: 'Cancel Migration',
+            confirmLabel: 'Cancel Migration',
+            cancelLabel: 'Keep Migrating',
+            loadingLabel: 'Canceling…',
+            confirmVariant: RaftButtonRecipeVariant.warning,
+            confirmEnabled: _cancellable,
+            maxWidth: 448,
+            onConfirm: () => _submitCancel(generation, sourceAuthority),
+            content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  raftText(context, 'Canceling is safe'),
+                  style: RaftTypography.body(
+                    t,
+                    size: 14,
+                    line: 14 * 1.625,
+                    weight: FontWeight.w700,
                   ),
+                ),
                   Text(
                     raftFormat(
                       context,
@@ -601,7 +606,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
                   RaftButton(
                     label: raftText(
                       context,
-                      failedPhase ? 'Try migration again' : 'Move agent',
+                      failedPhase ? 'Try migration again' : 'Move Agent',
                     ),
                     onPressed: busy || billingChecking ? null : () => run(move),
                   ),
@@ -637,7 +642,7 @@ class _StartDialogState extends State<_StartDialog> {
 
   @override
   Widget build(BuildContext context) => RaftFormDialog(
-    title: 'Move agent',
+    title: 'Move Agent',
     fields: [
       RaftFormField(
         'target',
@@ -647,9 +652,10 @@ class _StartDialogState extends State<_StartDialog> {
         localizeChoices: false,
       ),
     ],
-    description:
-        'The source agent will stop while its workspace moves. Check progress for completion.',
-    submitLabel: failure?.recoveryOpenComputers == true ? 'Try again' : 'Move',
+    description: 'The source agent will stop while its workspace moves. Check progress for completion.',
+    submitLabel: failure?.recoveryOpenComputers == true
+        ? 'Try again'
+        : 'Move Agent',
     errorContent: (context, error) => error is _StartFailure
         ? _StartFailureView(error.presentation, widget.openComputers)
         : null,

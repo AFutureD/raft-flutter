@@ -58,7 +58,7 @@ void main() {
     expect(find.text('Search members...'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('admin-principal-picker')));
     await t.pumpAndSettle();
-    expect(find.text('MEMBERS'), findsOneWidget);
+    expect(find.text('Members'), findsOneWidget);
     await t.enterText(find.byType(EditableText).last, 'help');
     await t.pumpAndSettle();
     expect(find.text('Dana · dana@raft.test'), findsNothing);
@@ -231,7 +231,7 @@ void main() {
       expect(find.text('Saved'), findsOneWidget);
       expect(find.text('No active invite links.'), findsOneWidget);
       expect(find.text('06/19/2026, 08:24 PM'), findsOneWidget);
-      expect(find.text('Finish setup'), findsOneWidget);
+      expect(find.text('Finish Setup'), findsOneWidget);
       expect(find.text('8/5000'), findsOneWidget);
     });
   }

@@ -154,7 +154,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
       (v) async {
         selected = apps.firstWhere((a) => a['clientId'] == v['clientId']);
       },
-      submit: 'Review permissions',
+      submit: 'Review Permissions',
     );
     if (!picked || selected == null) return;
     final scopes = managementStrings(selected!['scopes']);
@@ -184,9 +184,8 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
           },
         );
       }),
-      submit: 'Grant access',
-      description:
-          'Allow this app to send the approved events or notifications to this agent.',
+      submit: 'Grant Access',
+      description: 'Allow this app to send the approved events or notifications to this agent.',
     );
   }
 
@@ -228,7 +227,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
                   ? RaftErrorBanner(failure.value!, small: true, bold: true)
                   : SelectableText(
                       payload.value == null
-                          ? raftText(context, 'Loading…')
+                          ? raftText(context, 'Loading apps…')
                           : const JsonEncoder.withIndent(
                               '  ',
                             ).convert(payload.value!.$1),
@@ -287,7 +286,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
             ),
             action: loading
                 ? Text(
-                    raftText(context, 'Loading…'),
+                    raftText(context, 'Loading apps…'),
                     style: RaftPanelText.caption(t),
                   )
                 : manager
@@ -311,7 +310,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
                 "Events apps sent to this agent. They're kept for 30 days after they expire.",
               ),
               action: _small(
-                raftText(context, loading ? 'Loading…' : 'Refresh'),
+                raftText(context, loading ? 'Refreshing…' : 'Refresh'),
                 busy || loading ? null : reload,
               ),
             ),
@@ -343,7 +342,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: _small(
-                  raftText(context, 'Load more'),
+                  raftText(context, 'Load More'),
                   () => run(moreEvents, refresh: false),
                 ),
               ),
@@ -361,7 +360,6 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
         variant: pending
             ? RaftBadgeRecipeVariant.warning
             : RaftBadgeRecipeVariant.success,
-        uppercase: true,
       ),
       chips: [
         for (final scope in managementStrings(item['scopes']))
@@ -396,14 +394,15 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
             raftText(context, 'Revoke'),
             () => run(() async {
               await confirm(
-                'Revoke app access?',
+                'Revoke App Access',
                 'Disconnect ${item['clientName']} from this agent.',
                 () => _web('Failed to revoke app access', () async {
                   await w.client.post(
                     '/integrations/grants/${item['id']}/revoke',
                   );
                 }),
-                submit: 'Revoke',
+                submit: 'Revoke App Access',
+                cancel: 'Keep Access',
                 destructive: true,
               );
             }),

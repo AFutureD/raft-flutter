@@ -293,8 +293,8 @@ class RaftRecipeInput extends StatefulWidget {
   /// `inputMode="numeric" pattern="[0-9]*"`: digits only.
   final bool numeric;
 
-  /// Callsite `uppercase` (the value renders upper-cased; the typed text is
-  /// kept, like CSS `text-transform`).
+  /// Capitalise typed characters (data entry such as promotion codes; not a
+  /// display transform).
   final bool upperCase;
 
   /// `type="number"` and friends.
@@ -675,7 +675,7 @@ class RaftConfirmDialog extends StatefulWidget {
   /// dialog open and shows the error under the message.
   final Future<void> Function()? onConfirm;
 
-  /// ConfirmDialog `loadingLabel` (default "Processing…").
+  /// ConfirmDialog `loadingLabel` (default "Working…").
   final String? loadingLabel;
 
   /// Key of the dialog surface itself (`dialog-content`).
@@ -797,7 +797,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
             builder: (context, enabled, _) => RaftSettingsRecipeButton(
               key: widget.confirmKey,
               label: loading
-                  ? widget.loadingLabel ?? 'Processing…'
+                  ? widget.loadingLabel ?? 'Working…'
                   : widget.confirmLabel,
               glyph: loading ? null : widget.confirmGlyph,
               variant: widget.confirmVariant,
@@ -815,7 +815,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
 /// raft-ui `Dialog` chrome as ConfirmDialog.tsx composes it: the centred
 /// `dialog` recipe surface (Brutal padded content with `gap-4`; Elegant
 /// unpadded header `px-6 py-3`, body `px-6 py-5`, footer `px-6 py-3`), the
-/// uppercase title with its close button, the scrolling [body] and the right
+/// title with its close button, the scrolling [body] and the right
 /// aligned [footer] actions. [onClose] null disables the close button.
 ///
 /// In a presented form window on a phone ([showRaftForm], below 768) the shell
@@ -908,10 +908,7 @@ class _RaftDialogShellState extends State<RaftDialogShell> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        raftText(context, title).toUpperCase(),
-                        style: titleStyle,
-                      ),
+                      child: Text(raftText(context, title), style: titleStyle),
                     ),
                     SizedBox(width: d.header.columnGap ?? 12),
                     RaftSettingsRecipeButton(
@@ -1029,13 +1026,11 @@ class RaftSettingsRecipeBadge extends StatelessWidget {
     required this.label,
     this.variant,
     this.appearance,
-    this.uppercase = false,
     this.glyph,
   });
   final String label;
   final RaftBadgeRecipeVariant? variant;
   final RaftBadgeRecipeAppearance? appearance;
-  final bool uppercase;
 
   /// Leading icon (callsite size, e.g. `<Shield size={10} />`).
   final RaftGlyph? glyph;
@@ -1046,7 +1041,6 @@ class RaftSettingsRecipeBadge extends StatelessWidget {
       theme: raftRecipeTheme(t),
       variant: variant,
       appearance: appearance,
-      uppercase: uppercase,
       states: RaftRecipeStates({
         if (glyph != null) 'has:svg',
         if (t.dark) RaftRecipeStates.dark,
@@ -1077,15 +1071,7 @@ class RaftSettingsRecipeBadge extends StatelessWidget {
             RaftIcon(glyph!, size: 10, color: text.color),
             SizedBox(width: s.columnGap ?? 4),
           ],
-          Text(
-            // The recipe's `uppercase` axis only transforms Brutal.
-            uppercase && s.textTransform == 'uppercase'
-                ? value.toUpperCase()
-                : value,
-            maxLines: 1,
-            softWrap: false,
-            style: text,
-          ),
+          Text(value, maxLines: 1, softWrap: false, style: text),
         ],
       ),
     );
@@ -1330,7 +1316,7 @@ class RaftSettingsPreference extends StatelessWidget {
 }
 
 /// SettingsPanel success note: `border border-line-muted theme-brutal:border-2 theme-brutal:border-black
-/// bg-brutal-lime/30 p-2 text-xs font-bold` (the "Password updated!" line).
+/// bg-brutal-lime/30 p-2 text-xs font-bold` (the "Password updated." line).
 class RaftSettingsSavedNote extends StatelessWidget {
   const RaftSettingsSavedNote(this.text, {super.key});
   final String text;

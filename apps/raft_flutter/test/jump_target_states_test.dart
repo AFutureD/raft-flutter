@@ -126,7 +126,7 @@ void main() {
                   ? 3
                   : find.byType(RaftComposer).evaluate().isNotEmpty
                   ? 2
-                  : find.text('LOADING CHANNEL').evaluate().isNotEmpty
+                  : find.text('Loading channel').evaluate().isNotEmpty
                   ? 1
                   : 0;
               expect(next, greaterThanOrEqualTo(stage), reason: when);
@@ -143,7 +143,11 @@ void main() {
               expect(find.text('Start the conversation'), findsNothing);
               if (stage == 1) {
                 // A bare, chrome-less "Loading..." is not a stage.
-                expect(find.text('Loading...'), findsNothing, reason: when);
+                expect(
+                  find.text('Loading thread…'),
+                  findsNothing,
+                  reason: when,
+                );
                 expect(find.byType(RaftComposer), findsNothing);
               }
               if (stage >= 2) {

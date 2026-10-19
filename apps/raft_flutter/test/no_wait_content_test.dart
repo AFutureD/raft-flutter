@@ -496,7 +496,7 @@ void main() {
       api.hangAll = true;
       await t.pumpWidget(page());
       expect(find.text('#shared'), findsOneWidget, reason: 'revisit snapshot');
-      await t.tap(find.text('Create joint channel'));
+      await t.tap(find.text('Create Joint Channel'));
       await frames(t, 6);
       expect(find.byType(CreateJointChannelDialog), findsOneWidget);
       api.hangAll = false;

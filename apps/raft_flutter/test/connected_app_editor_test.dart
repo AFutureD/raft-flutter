@@ -207,7 +207,29 @@ void main() {
     expect(find.text('shown-once-secret'), findsOneWidget);
   });
 
-  testWidgets('a registration failure stays in the editor with the server error', (
+  testWidgets(
+    'a registration failure stays in the editor with the server error',
+    (t) async {
+      final (w, a) = (await t.runAsync(_fixture))!;
+      addTearDown(w.dispose);
+      _routes(a, []);
+      a.routes['POST /integrations/clients'] = (_) => {
+        'error': 'Client ID already exists',
+      };
+      a.statuses['POST /integrations/clients'] = 409;
+      await _mount(t, w, openMyApps: false);
+      await t.tap(find.byKey(const ValueKey('connected-apps-register')));
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const ValueKey('connected-app-name')), 'X');
+      await t.tap(find.byKey(submit));
+      await t.pumpAndSettle();
+      expect(find.byKey(editor), findsOneWidget);
+      expect(find.text('Client ID already exists'), findsOneWidget);
+      expect(find.text('Register App'), findsWidgets);
+    },
+  );
+
+  testWidgets('editing prefills the app, saves with PATCH and closes', (
     t,
   ) async {
     final (w, a) = (await t.runAsync(_fixture))!;
@@ -225,7 +247,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.byKey(editor), findsOneWidget);
     expect(find.text('Client ID already exists'), findsOneWidget);
-    expect(find.text('Register app'), findsWidgets);
+    expect(find.text('Register App'), findsWidgets);
   });
 
   testWidgets('editing prefills the app, saves with PATCH and closes', (t) async {
@@ -237,7 +259,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey('connected-app-action-app-1')));
     await t.pumpAndSettle();
     expect(find.byKey(editor), findsOneWidget);
-    expect(find.text('EDIT APP'), findsOneWidget);
+    expect(find.text('Edit app'), findsOneWidget);
     expect(find.text('db9 Drive'), findsWidgets);
     expect(find.text('OAuth ready'), findsWidgets);
     await t.enterText(
@@ -288,7 +310,7 @@ void main() {
     await t.ensureVisible(button);
     await t.tap(button);
     await t.pumpAndSettle();
-    expect(find.text('REGENERATE SECRET FOR DB9 DRIVE?'), findsOneWidget);
+    expect(find.text('Regenerate Client Secret'), findsNWidgets(3));
     await t.tap(
       find.byKey(const ValueKey('connected-app-regenerate-secret-confirm-button')),
     );
@@ -311,9 +333,11 @@ void main() {
     await t.pumpAndSettle();
     final card = find.byKey(const ValueKey('connected-app-delete-card'));
     await t.ensureVisible(card);
-    await t.tap(find.descendant(of: card, matching: find.text('Delete')));
+    await t.tap(
+      find.descendant(of: card, matching: find.text('Delete App')).last,
+    );
     await t.pumpAndSettle();
-    expect(find.text('DELETE DB9 DRIVE?'), findsOneWidget);
+    expect(find.text('Delete App'), findsWidgets);
     await t.tap(
       find.byKey(const ValueKey('connected-app-delete-confirm-button')),
     );

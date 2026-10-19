@@ -195,7 +195,7 @@ class _RaftTimelineTextState extends State<RaftTimelineText> {
   );
 }
 
-/// A plain soft `Badge` (`appearance="soft" uppercase={false}`) carrying the
+/// A plain soft `Badge` (`appearance="soft"`) carrying the
 /// status colours, as `TimelineDetail` shows the from/to statuses.
 class RaftSoftBadge extends StatelessWidget {
   const RaftSoftBadge({
@@ -212,7 +212,6 @@ class RaftSoftBadge extends StatelessWidget {
     final root = RaftBadgeRecipe.resolve(
       theme: t.recipeTheme,
       appearance: RaftBadgeRecipeAppearance.soft,
-      uppercase: false,
       tokens: t.recipeTokens,
     ).root;
     return RaftRecipeBox(

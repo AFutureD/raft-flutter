@@ -168,7 +168,7 @@ void main() {
       await t.pumpAndSettle();
       final form = t.widget<RaftFormDialog>(find.byType(RaftFormDialog));
       await t.enterText(find.byType(TextField).first, 'Lab');
-      await t.tap(find.text('Register'));
+      await t.tap(find.widgetWithText(RaftButton, 'Register Computer'));
       await t.pump(const Duration(milliseconds: 500));
       await t.pump();
       expect(find.text('Save this credential'), findsOneWidget);
@@ -208,7 +208,7 @@ void main() {
       await t.tap(find.text('Start registration'));
       await t.pumpAndSettle();
       await t.enterText(find.byType(TextField).first, 'Lab');
-      await t.tap(find.text('Register'));
+      await t.tap(find.widgetWithText(RaftButton, 'Register Computer'));
       await t.pump();
       final generation = c.generation;
       c.user = RaftRecord({'id': 'bob'});
@@ -234,10 +234,12 @@ void main() {
       await t.tap(find.byKey(const ValueKey('computer-delete')));
       await t.pumpAndSettle();
       await t.tap(
-        find.descendant(
-          of: find.byType(RaftConfirmDialog),
-          matching: find.text('Delete Computer'),
-        ),
+        find
+            .descendant(
+              of: find.byType(RaftConfirmDialog),
+              matching: find.text('Delete Computer'),
+            )
+            .last,
       );
       await t.pump();
       expect(w.commands, 1);

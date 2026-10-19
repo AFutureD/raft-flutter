@@ -1222,14 +1222,14 @@ class _SummaryCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            raftText(context, m.summaryTitle).toUpperCase(),
+            raftText(context, m.summaryTitle),
             style: RaftTypography.inherited(
               t,
               size: 12,
               line: 16,
               weight: FontWeight.w700,
               color: t.brutal ? Colors.black.withValues(alpha: .5) : t.muted,
-            ).copyWith(letterSpacing: 1.2),
+            ),
           ),
           const SizedBox(height: 12),
           for (final (i, row) in m.summaryRows.indexed) ...[

@@ -693,7 +693,7 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    await t.tap(find.text('Invite workspace'));
+    await t.tap(find.text('Invite Server'));
     await t.pumpAndSettle();
     expect(find.byType(RaftFormDialog), findsOneWidget);
     // The server row has no `capabilities`/`isPrivate`: only the real

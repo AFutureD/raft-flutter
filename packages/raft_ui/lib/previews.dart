@@ -581,14 +581,14 @@ class _ActionCardPreviewState extends State<_ActionCardPreview> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           RaftActionCard(
-            title: 'Create channel',
+            title: 'Create Channel',
             state: state,
             details: const [
               (label: 'Channel name', value: 'design'),
               (label: 'Visibility', value: 'Private channel'),
             ],
             hint: 'Review the draft before creating this channel.',
-            confirmLabel: 'Create channel',
+            confirmLabel: 'Create Channel',
             completedBy: state == 'executed' ? 'Kevin' : null,
             onConfirm: () => setState(() {
               state = 'executed';
@@ -597,7 +597,7 @@ class _ActionCardPreviewState extends State<_ActionCardPreview> {
           ),
           const SizedBox(height: 12),
           const RaftActionCard(
-            title: 'Install app',
+            title: 'Install App',
             state: 'frozen',
             blockedReason:
                 'This action was frozen after the workspace changed.',
@@ -858,8 +858,7 @@ Widget threadResolutionPreview() =>
 Widget threadResolutionRetryPreview() => RaftThreadResolutionBody(
   loadingLabel: 'Loading...',
   errorTitle: "Couldn't load this thread",
-  errorBody:
-      "The thread couldn't be opened. If this channel just became public, retrying usually fixes it.",
+  errorBody: "The thread couldn't be opened. If this channel recently became public, try again.",
   onRetry: () {},
 );
 
@@ -1018,7 +1017,7 @@ class _ServerSwitcherPreviewState extends State<_ServerSwitcherPreview> {
           ),
           RaftServerMenuAction(
             tone: RaftServerMenuActionTone.invite,
-            label: 'Invite human',
+            label: 'Invite Human',
             glyph: RaftGlyph.userPlus,
             onPressed: () {},
           ),

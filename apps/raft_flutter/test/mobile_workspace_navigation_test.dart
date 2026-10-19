@@ -590,8 +590,8 @@ void main() {
           expect(tester.takeException(), isNull);
           expect(c.calls.contains('GET:/channels/gone'), !knownRevoked);
           expect(w.missingConversationChannelId, 'gone');
-          expect(find.text('LOADING CHANNEL'), findsNothing);
-          expect(find.text('SELECT A CHANNEL'), findsWidgets);
+          expect(find.text('Loading channel'), findsNothing);
+          expect(find.text('Select a channel'), findsWidgets);
           expect(w.error, isNull);
           // The unavailable Source body owns its real Back control; the old
           // conversation header is intentionally absent on this route.
@@ -664,7 +664,7 @@ void main() {
     expect(w.location.entityId, 'c');
     expect(w.missingConversationChannelId, isNot('gone'));
     expect(w.error, isNull);
-    expect(find.text('SELECT A CHANNEL'), findsNothing);
+    expect(find.text('Select a channel'), findsNothing);
   });
   testWidgets(
     'actual mobile Home channel drill-in/back and settings reset hide detail tabs',

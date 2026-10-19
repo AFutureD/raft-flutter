@@ -52,8 +52,8 @@ void main() {
                           error: error,
                           emptyTitle: 'No computers yet',
                           emptyDetail:
-                              'Add a computer to run agents in this workspace.',
-                          addLabel: 'Add computer',
+                              'Add a computer to run agents in this server.',
+                          addLabel: 'Add Computer',
                           retryLabel: 'Retry',
                           onAdd: () => added++,
                           onRetry: () => retried++,

@@ -119,12 +119,13 @@ void main() {
           find.textContaining('limit reached ('),
           allowed ? findsNothing : findsOneWidget,
         );
-        await tester.tap(find.text('Create Agent'));
+        // The dialog title and its submit button share the label.
+        await tester.tap(find.text('Create Agent').last);
         await tester.pumpAndSettle();
         expect(workspace.posts, allowed ? ['/agents'] : isEmpty);
         expect(
-          find.text('CREATE AGENT'),
-          allowed ? findsNothing : findsOneWidget,
+          find.text('Create Agent'),
+          allowed ? findsNothing : findsNWidgets(2),
         );
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

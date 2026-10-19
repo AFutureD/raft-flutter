@@ -428,6 +428,7 @@ Future<bool> _confirm(
   required String title,
   required String message,
   required String confirmLabel,
+  String cancelLabel = 'Cancel',
   required String loadingLabel,
   required Future<void> Function() onConfirm,
 }) async =>
@@ -439,6 +440,7 @@ Future<bool> _confirm(
         title: title,
         message: message,
         confirmLabel: confirmLabel,
+        cancelLabel: cancelLabel,
         loadingLabel: loadingLabel,
         onConfirm: onConfirm,
       ),
@@ -493,10 +495,11 @@ class _InvitesState extends State<_InvitesSection>
     title: 'Revoke Invite',
     message: raftFormat(
       context,
-      'Are you sure you want to revoke the invite to {email}? They will no longer be able to join using this invite link.',
+      'The invite to {email} will be revoked. They will no longer be able to join using this invite link.',
       {'email': invite['invitedEmail']},
     ),
     confirmLabel: 'Revoke Invite',
+    cancelLabel: 'Keep Invite',
     loadingLabel: 'Revoking…',
     onConfirm: () async {
       try {
@@ -630,9 +633,9 @@ class _JoinLinksState extends State<_JoinLinksSection>
   Future<void> revoke(Map<String, dynamic> link) => _confirm(
     context,
     title: 'Revoke Invite Link',
-    message:
-        'Revoke this invite link? Anyone who still has the URL will stop being able to join with it.',
-    confirmLabel: 'Revoke Link',
+    message: 'This invite link will be revoked. Anyone who still has the URL will stop being able to join with it.',
+    confirmLabel: 'Revoke Invite Link',
+    cancelLabel: 'Keep Link',
     loadingLabel: 'Revoking…',
     onConfirm: () async {
       try {
@@ -1234,9 +1237,8 @@ class _ProductAnalyticsState extends State<_ProductAnalyticsSection>
       glyph: RaftGlyph.barChart3,
       child: RaftAdminSwitchCard(
         switchKey: const ValueKey('admin-product-analytics'),
-        title: 'Product analytics for this workspace',
-        description:
-            'When off, no usage data is recorded for anyone in this workspace, whatever their own setting.',
+        title: 'Product analytics for this server',
+        description: 'When off, no usage data is recorded for anyone in this server, whatever their own setting.',
         checked: s == null ? true : s['productAnalyticsEnabled'] == true,
         onChanged: saving || s == null || s['canManageProductAnalytics'] != true
             ? null
@@ -1327,8 +1329,7 @@ class _MemberPermissionsState extends State<_MemberPermissionsSection>
         checkboxKey: const ValueKey('admin-hide-humans'),
         saveKey: const ValueKey('admin-hide-humans-save'),
         title: 'Hide human directory and counts from members',
-        description:
-            'Member role users cannot see server-wide human lists, graph surfaces, or human counts.',
+        description: 'Members cannot see server-wide human lists, graph surfaces, or human counts.',
         checked: hidden,
         dimmed: !canEdit,
         onChanged: !canEdit || saving

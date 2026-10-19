@@ -134,9 +134,7 @@ class _RaftComboboxPanelState extends State<RaftComboboxPanel> {
                 style: r.header,
                 tokens: tokens,
                 child: Text(
-                  r.label.textTransform == 'uppercase'
-                      ? raftText(context, widget.label).toUpperCase()
-                      : raftText(context, widget.label),
+                  raftText(context, widget.label),
                   style: r.label.text(tokens, base: base),
                 ),
               ),

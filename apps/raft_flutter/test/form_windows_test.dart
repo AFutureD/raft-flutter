@@ -89,7 +89,7 @@ final _forms = <_Form>[
     open: (t, context, w, _) => WorkspaceActions.create(context, w),
     field: () => _key('field-name'),
     fill: {() => _key('field-slug'): 'beta'},
-    submit: () => find.text('Create'),
+    submit: () => find.widgetWithText(RaftButton, 'Create Server'),
     routes: (api) => api.routes['POST /servers'] = (_) => {'id': 'sx'},
     submitted: (api, _) => _posted(api, 'POST', '/servers'),
   ),
@@ -97,7 +97,7 @@ final _forms = <_Form>[
     'join workspace',
     open: (t, context, w, _) => WorkspaceActions.join(context, w),
     field: () => _key('field-token'),
-    submit: () => find.text('Review invitation'),
+    submit: () => find.widgetWithText(RaftButton, 'Review Invitation'),
     submitted: (api, events) => true,
   ),
   _Form(
@@ -105,7 +105,7 @@ final _forms = <_Form>[
     open: (t, context, w, _) => WorkspaceActions.leave(context, w),
     field: () => _key('field-confirm'),
     routes: (api) => api.routes['POST /servers/s1/leave'] = (_) => {},
-    submit: () => find.text('Leave'),
+    submit: () => find.widgetWithText(RaftButton, 'Leave Server'),
     submitted: (api, _) => _posted(api, 'POST', '/servers/s1/leave'),
   ),
   _Form(
@@ -115,7 +115,7 @@ final _forms = <_Form>[
         CreateChannelDialog.show(context, controller: w),
     routes: (api) =>
         api.routes['POST /channels'] = (_) => {'id': 'c9', 'name': 'made'},
-    submit: () => find.text('Create Channel'),
+    submit: () => find.text('Create Channel').last,
     submitted: (api, _) => _posted(api, 'POST', '/channels'),
   ),
   _Form(
@@ -173,7 +173,7 @@ final _forms = <_Form>[
     field: () => _key('field-name'),
     routes: (api) =>
         api.routes['POST /servers/s1/machines'] = (_) => {'id': 'm9'},
-    submit: () => find.text('Register'),
+    submit: () => find.widgetWithText(RaftButton, 'Register Computer'),
     submitted: (api, _) => _posted(api, 'POST', '/servers/s1/machines'),
   ),
   _Form(
@@ -181,7 +181,7 @@ final _forms = <_Form>[
     open: (t, context, w, _) => showFleetRegistration(context, w),
     field: () => _key('field-name'),
     routes: (api) => api.routes['POST /agents'] = (_) => {'id': 'a9'},
-    submit: () => find.text('Create'),
+    submit: () => find.widgetWithText(RaftButton, 'Create External Agent'),
     submitted: (api, _) => _posted(api, 'POST', '/agents'),
   ),
   _Form(
@@ -413,7 +413,12 @@ void registerFormWindowTests(TestPart part) {
         final visible = t.getRect(scrollView).bottom;
         expect(visible, lessThanOrEqualTo(room + 1));
         for (var i = 0; i < 40 && t.getRect(last).bottom > visible; i++) {
-          await t.drag(scrollView, const Offset(0, -80));
+          // Start at the bottom edge of the body: a drag that starts on a
+          // multi-line field would scroll that field, not the sheet.
+          await t.dragFrom(
+            t.getRect(scrollView).bottomCenter - const Offset(0, 8),
+            const Offset(0, -80),
+          );
           await frames(t, 4);
         }
         expect(t.getRect(last).bottom, lessThanOrEqualTo(visible + 1));
@@ -486,7 +491,7 @@ void registerFormWindowTests(TestPart part) {
           await closeBy(t, how);
           expect(asked, findsOneWidget, reason: '$how asks');
           expect(find.text('unsaved words'), findsOneWidget);
-          await t.tap(find.text('Keep editing'));
+          await t.tap(find.text('Keep Editing'));
           await frames(t, 30);
           expect(asked, findsNothing);
           expect(find.text('unsaved words'), findsOneWidget, reason: 'kept');
@@ -497,7 +502,7 @@ void registerFormWindowTests(TestPart part) {
           );
           await closeBy(t, how);
           expect(asked, findsOneWidget);
-          await t.tap(find.text('Discard'));
+          await t.tap(find.text('Discard Changes'));
           await frames(t, 30);
           expect(find.text('unsaved words'), findsNothing, reason: 'closed');
           expect(asked, findsNothing);

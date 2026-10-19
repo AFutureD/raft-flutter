@@ -323,7 +323,7 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
       ),
     ];
     final other = [
-      tr('Run these commands on the machine that will run this agent.'),
+      tr('Run these commands on the computer that will run this agent.'),
       '',
       install,
       login,

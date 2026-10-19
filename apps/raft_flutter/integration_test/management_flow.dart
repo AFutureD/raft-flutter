@@ -89,9 +89,9 @@ Future<void> verifyManagementFlow(
       tester,
       () =>
           find.byType(IntegrationsView).evaluate().isNotEmpty &&
-          find.text('Register app').evaluate().isNotEmpty,
+          find.text('Register App').evaluate().isNotEmpty,
     );
-    await _tap(tester, find.text('Register app'));
+    await _tap(tester, find.text('Register App'));
     await tester.enterText(
       find.byKey(const ValueKey('connected-app-name')),
       'Native app $marker',

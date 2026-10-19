@@ -357,7 +357,7 @@ void main() {
     expect(w.commands, hasLength(1));
     final d = w.commands.single['data'] as Map;
     expect(d['name'], 'Cindy');
-    expect(d['description'], 'Onboarding Assistant');
+    expect(d['description'], 'Onboarding agent');
     expect(d['avatarUrl'], 'pixel:mug');
     expect(d['onboarding'], true);
     expect(d['runtime'], 'codex');

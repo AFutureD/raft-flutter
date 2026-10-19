@@ -162,8 +162,8 @@ class _PublicVisibilitySectionState extends State<PublicVisibilitySection> {
       RaftConfirmDialog(
         surfaceKey: const ValueKey('public-visibility-confirm'),
         confirmKey: const ValueKey('public-visibility-confirm-button'),
-        title: 'Make this server public?',
-        confirmLabel: 'Make public',
+        title: 'Make Public',
+        confirmLabel: 'Make Public',
         loadingLabel: 'Making public…',
         confirmVariant: RaftButtonRecipeVariant.accent,
         maxWidth: 512,

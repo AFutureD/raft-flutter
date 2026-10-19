@@ -200,7 +200,7 @@ class WorkspaceController extends ChangeNotifier
         if (!_disposed) {
           // ignore: raft_lints/avoid_imperative_notice_state -- Cache-purge device failures raise the existing one-shot notice; the device service reports failure without owning UI state.
           setError(
-            'Revoked workspace data could not be removed from this device.',
+            'Revoked server data could not be removed from this device.',
           );
         }
       },

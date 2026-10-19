@@ -225,8 +225,8 @@ void main() {
       expect(find.byType(RaftQuickSwitcherThreadGroup), findsNWidgets(2));
       expect(find.text('Parent of a'), findsOneWidget);
       expect(find.text('Parent of b'), findsOneWidget);
-      expect(find.text('2 HITS'), findsOneWidget);
-      expect(find.text('1 HIT'), findsOneWidget);
+      expect(find.text('2 hits'), findsOneWidget);
+      expect(find.text('1 hit'), findsOneWidget);
       // The first hit is selected, so its group is the selected card.
       expect(selected(t, 't1'), isTrue);
     },

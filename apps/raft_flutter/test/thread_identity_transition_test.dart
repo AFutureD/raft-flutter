@@ -82,7 +82,7 @@ void main() {
           expect(w.location.thread?.itemId, 'parent');
           expect(w.threadIdentity?.parentMessageId, 'parent');
           expect(w.messageDomain.state.threadParent, isNull);
-          expect(find.text('Loading...'), findsOneWidget);
+          expect(find.text('Loading thread…'), findsOneWidget);
           expect(find.byType(RaftComposer), findsNothing);
           expect(find.text('Private cached parent'), findsNothing);
         }

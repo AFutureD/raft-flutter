@@ -353,7 +353,7 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is RaftInteractive &&
-              widget.semanticLabel == 'Mark all read',
+              widget.semanticLabel == 'Mark All Read',
         ),
       );
       _role(w, 'member');
@@ -447,7 +447,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Board'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Load more'));
+      await tester.tap(find.text('Load More'));
       await tester.pump();
       _role(w, 'guest');
       await tester.pumpAndSettle();
@@ -566,7 +566,7 @@ void main() {
       _taskRoutes(w, a);
       await tester.pumpWidget(_host(w, 'tasks', channelId: 'c1'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('New Task'));
+      await tester.tap(find.text('Create Task'));
       await tester.pumpAndSettle();
       final submit = tester
           .widget<RaftCreateTaskDialogView>(

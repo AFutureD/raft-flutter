@@ -153,7 +153,7 @@ void main() {
       for (var frame = 0; frame < 4; frame++) {
         await t.pump(const Duration(milliseconds: 16));
         expect(_rows(t, rows), first, reason: '${event.name} frame $frame');
-        expect(find.text('Loading...'), findsNothing);
+        expect(find.text('Loading profile…'), findsNothing);
         expect(find.byType(CircularProgressIndicator), findsNothing);
       }
     }
@@ -177,7 +177,7 @@ void main() {
         for (var visit = 0; visit < 2; visit++) {
           await t.pumpWidget(host(view()));
           // First frame: final rows, no loading shell, no request.
-          expect(find.text('Loading...'), findsNothing);
+          expect(find.text('Loading profile…'), findsNothing);
           expect(
             find.text(computers ? 'Source Computer' : 'Source Agent'),
             findsOneWidget,

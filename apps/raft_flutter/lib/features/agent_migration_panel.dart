@@ -134,7 +134,7 @@ class MigrationProgressPanel extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: RaftButton(
-                label: raftText(context, 'Cancel'),
+                label: raftText(context, 'Cancel Migration'),
                 tone: RaftButtonRecipeVariant.outline,
                 size: RaftButtonRecipeSize.sm,
                 onPressed: onCancel,

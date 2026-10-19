@@ -128,7 +128,7 @@ void main() {
           if (replyLoading) {
             expect(find.byType(Chat), findsNothing);
             expect(find.byType(RaftThreadRepliesLoadingBody), findsOneWidget);
-            expect(find.text('Loading...'), findsOneWidget);
+            expect(find.text('Loading thread…'), findsOneWidget);
             expect(find.text('Public parent body'), findsOneWidget);
             expect(
               t.widget<RaftComposer>(find.byType(RaftComposer)).enabled,

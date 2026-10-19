@@ -289,7 +289,7 @@ class RaftSettingsAbout extends StatelessWidget {
           const SizedBox(height: 16),
           section(
             'workspace',
-            'Workspace',
+            'Server',
             RaftGlyph.building2,
             card(workspaceName!, workspaceDetail ?? ''),
           ),
@@ -487,7 +487,7 @@ class RaftReleaseNotesView extends StatelessWidget {
 
 /// One `release-entry` Card (`p-4`; the current release `bg-primary-soft
 /// theme-brutal:bg-soft-signal/35`): the version/date, Current and
-/// Retracted badges, then each non-empty category as a soft uppercase badge
+/// Retracted badges, then each non-empty category as a soft badge
 /// over a `list-disc` list (emphasised entries bold and strong).
 class RaftReleaseNoteCard extends StatelessWidget {
   const RaftReleaseNoteCard({super.key, required this.release});
@@ -549,7 +549,7 @@ class RaftReleaseNoteCard extends StatelessWidget {
   }
 }
 
-/// The categories of one release (each non-empty one as a soft uppercase
+/// The categories of one release (each non-empty one as a soft
 /// badge over a `list-disc` list, emphasised entries bold and strong): the body
 /// of [RaftReleaseNoteCard], also used under an available update.
 class RaftReleaseNoteEntryGroups extends StatelessWidget {
@@ -596,7 +596,6 @@ class RaftReleaseNoteEntryGroups extends StatelessWidget {
                 label: raftText(context, kind.label),
                 appearance: RaftBadgeRecipeAppearance.soft,
                 variant: kind.badge,
-                uppercase: true,
               ),
             ],
           ),

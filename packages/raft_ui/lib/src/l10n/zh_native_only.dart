@@ -23,8 +23,8 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Mention action failed. Try again.": "提及操作失败，请重试。",
   "Channel name is required.": "请填写频道名称。",
   "Activity filters": "动态筛选",
-  "Conversion complete. Invite another workspace from Joint channels.":
-      "转换完成。可在联合频道中邀请其他工作空间。",
+  "Conversion complete. Invite another server from Joint Channels.":
+      "转换完成。可在联合频道中邀请其他服务器。",
   "Conversion canceled. The original channel is available.": "转换已取消，原频道仍可使用。",
   "Download original": "下载原文件",
   "Preview unavailable. Download the original file.": "无法预览，请下载原文件。",
@@ -40,7 +40,7 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Hide direct message": "隐藏私信",
   "Enter one unique KEY=value per line.": "每行输入一个唯一的 KEY=value。",
   "Choices are unavailable. Retry after connecting the computer.":
-      "无法获取可选项。请在连接 Computer 后重试。",
+      "无法获取可选项。请在连接计算机后重试。",
   "Enter an HTTP or HTTPS URL.": "请输入 HTTP 或 HTTPS URL。",
   "Select an available choice.": "请选择一个可用选项。",
   "Update the client to edit this required field.": "请升级客户端后再编辑此必填项。",
@@ -52,7 +52,7 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Upload progress for {name}": "{name} 的上传进度",
   "Invite method": "邀请方式",
   "Describe what this agent does": "描述此 Agent 的用途",
-  "No reminders": "暂无提醒",
+  "No reminders": "没有提醒",
   "Hidden files": "隐藏文件",
   "Preview truncated. Download the full file.": "预览已截断，请下载完整文件。",
   "First {count} rows": "前 {count} 行",
@@ -88,7 +88,8 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Saved {name}": "已保存 {name}",
   "Download failed. Try again.": "下载失败，请重试。",
   "No application can open this file.": "没有可打开此文件的应用。",
-  "Revoked workspace data could not be removed from this device.": "已撤销的工作区数据无法从此设备移除。",
+  "Revoked server data could not be removed from this device.":
+      "已撤销的服务器数据无法从此设备移除。",
   "Select encrypted headers to save a header credential.": "请选择加密请求头后再保存请求头凭据。",
   "Select encrypted headers to test a credential.": "请选择加密请求头后再测试凭据。",
   "Requested. Applies when the computer reconnects.": "已请求。计算机重新连接后生效。",

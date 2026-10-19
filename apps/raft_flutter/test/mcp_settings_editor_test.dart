@@ -525,7 +525,7 @@ void main() {
         expect(find.text('Fixture MCP'), findsOneWidget);
         expect(_key('mcp-add-server'), findsNothing);
         expect(find.byTooltip('Edit server'), findsNothing);
-        expect(find.byTooltip('Delete server'), findsNothing);
+        expect(find.byTooltip('Delete Server'), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

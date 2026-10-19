@@ -181,7 +181,7 @@ void main() {
     );
 
     // Cancel leaves everything as it was.
-    await t.tap(find.text('Cancel'));
+    await t.tap(find.text('Keep Cache'));
     await settle(t);
     expect(find.byKey(const ValueKey('storage-clear-dialog')), findsNothing);
     expect(size(t), 'Cache size: 3.0 MB');

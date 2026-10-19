@@ -170,7 +170,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
 
   Future<void> deleteSection(Map<String, dynamic> section) async {
     await form(
-      'Remove sidebar section?',
+      'Remove Sidebar Section',
       [],
       (_) async {
         await save({
@@ -182,9 +182,9 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
               .toList(),
         }, sectionChange: true);
       },
-      description:
-          'Conversations return to their normal sections. Messages and memberships remain available.',
-      submit: 'Remove',
+      description: 'Conversations return to their normal sections. Messages and memberships remain available.',
+      submit: 'Remove Section',
+      cancel: 'Keep Section',
       destructive: true,
     );
   }
@@ -451,7 +451,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
                 ),
                 onTap: busy ? null : () => run(() => editSection(section)),
                 trailing: RaftTooltip(
-                  message: raftText(context, 'Remove section'),
+                  message: raftText(context, 'Remove Section'),
                   child: IconButton(
                     icon: const RaftIcon(RaftGlyph.trash2, size: 14),
                     onPressed: busy

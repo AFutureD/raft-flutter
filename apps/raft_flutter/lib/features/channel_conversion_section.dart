@@ -305,10 +305,10 @@ class _ConversionSectionState
     }
     final confirmed = await confirm(
       kind == 'cancel'
-          ? 'Cancel conversion'
+          ? 'Cancel Conversion'
           : kind == 'retry'
-          ? 'Retry conversion'
-          : 'Convert to joint channel',
+          ? 'Retry Conversion'
+          : 'Convert to Joint Channel',
       kind == 'cancel'
           ? 'Cancel eligible work before audience cutover and restore the original channel. Completed conversion cannot be reversed.'
           : 'Preserve this channel history and members while preparing a shared conversation. Sending may be temporarily unavailable during conversion.',
@@ -403,10 +403,11 @@ class _ConversionSectionState
         }
       },
       submit: kind == 'cancel'
-          ? 'Cancel conversion'
+          ? 'Cancel Conversion'
           : kind == 'retry'
-          ? 'Retry conversion'
-          : 'Convert to joint channel',
+          ? 'Retry Conversion'
+          : 'Convert to Joint Channel',
+      cancel: kind == 'cancel' ? 'Keep Conversion' : 'Cancel',
       destructive: kind == 'cancel',
     );
     if (!confirmed || !same(source)) return;
@@ -423,7 +424,7 @@ class _ConversionSectionState
   Future<void> cancelUpload(Map<String, dynamic> upload) async {
     final source = authority;
     final saved = await confirm(
-      'Cancel upload',
+      'Cancel Upload',
       'Cancel ${upload['filename']} from this channel. The unfinished attachment will not be sent.',
       () async {
         if (!enabled || !same(source)) {
@@ -437,7 +438,8 @@ class _ConversionSectionState
         canceledUploads.add('${upload['uploadId']}');
         uploads.removeWhere((u) => u['uploadId'] == upload['uploadId']);
       },
-      submit: 'Cancel upload',
+      submit: 'Cancel Upload',
+      cancel: 'Keep Uploading',
       destructive: true,
     );
     if (saved && same(source)) {
@@ -509,7 +511,7 @@ class _ConversionSectionState
                   '${raftText(context, upload['state'] == 'verifying' ? 'Verifying upload' : 'Upload pending')} · ${upload['sizeBytes']} B',
                 ),
                 trailing: action(
-                  'Cancel upload',
+                  'Cancel Upload',
                   guard(() => cancelUpload(upload)),
                 ),
               ),
@@ -533,19 +535,19 @@ class _ConversionSectionState
             children: [
               if (canStart)
                 action(
-                  'Convert to joint channel',
+                  'Convert to Joint Channel',
                   guard(() => command('start')),
                   glyph: RaftGlyph.gitBranch,
                 ),
               if (pending == null && snapshot.job['status'] == 'failed')
-                action('Retry conversion', guard(() => command('retry'))),
+                action('Retry Conversion', guard(() => command('retry'))),
               if (pending == null && snapshot.canCancel)
-                action('Cancel conversion', guard(() => command('cancel'))),
+                action('Cancel Conversion', guard(() => command('cancel'))),
               if (snapshot.status == 'done')
                 Text(
                   raftText(
                     context,
-                    'Conversion complete. Invite another workspace from Joint channels.',
+                    'Conversion complete. Invite another server from Joint Channels.',
                   ),
                 ),
               if (snapshot.status == 'canceled')

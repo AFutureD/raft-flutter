@@ -132,7 +132,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     if (remove) {
       final accepted = await scopedDialog<bool>(
         (context) => AlertDialog(
-          title: Text(raftText(context, 'Remove profile image?')),
+          title: Text(raftText(context, 'Remove Profile Image')),
           content: Text(
             raftText(
               context,
@@ -142,10 +142,10 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text(raftText(context, 'Cancel')),
+              child: Text(raftText(context, 'Keep Image')),
             ),
             RaftButton(
-              label: raftText(context, 'Remove'),
+              label: raftText(context, 'Remove Profile Image'),
               destructive: true,
               onPressed: () => Navigator.pop(context, true),
             ),
@@ -398,14 +398,12 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
                         label: 'Verified',
                         variant: RaftBadgeRecipeVariant.success,
                         appearance: RaftBadgeRecipeAppearance.soft,
-                        uppercase: true,
                         glyph: RaftGlyph.shield,
                       )
                     : const RaftSettingsRecipeBadge(
                         label: 'Unverified',
                         variant: RaftBadgeRecipeVariant.warning,
                         appearance: RaftBadgeRecipeAppearance.soft,
-                        uppercase: true,
                       ),
               ],
             ),
@@ -462,7 +460,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
             children: [
               if (user?.string('avatarUrl').isNotEmpty == true)
                 RaftButton(
-                  label: raftText(context, 'Remove profile image'),
+                  label: raftText(context, 'Remove Profile Image'),
                   secondary: true,
                   onPressed: mediaBusy ? null : () => image(remove: true),
                 ),
@@ -503,12 +501,12 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
           glyph: RaftGlyph.logOut,
         ),
         RaftSettingsActionCard(
-          title: 'Log out',
+          title: 'Log Out',
           description: 'Log out of this browser. Your account and data stay; you can log back in any time.',
           // `variant="warning" size="md"`, text only.
           action: RaftSettingsRecipeButton(
             key: const Key('account-logout'),
-            label: 'Log out',
+            label: 'Log Out',
             variant: RaftButtonRecipeVariant.warning,
             onPressed: widget.onLogout == null
                 ? null
@@ -526,9 +524,10 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     final ok = await RaftConfirmDialog.show(
       context,
       const RaftConfirmDialog(
-        title: 'Log out',
-        message: 'Log out of this browser? Your account and data are kept; you can log back in any time.',
-        confirmLabel: 'Log out',
+        title: 'Log Out',
+        message: 'You will be logged out of this browser. Your account and data are kept; you can log back in any time.',
+        confirmLabel: 'Log Out',
+        cancelLabel: 'Stay Logged In',
         surfaceKey: ValueKey('account-logout-dialog'),
         // confirmColor="bg-brutal-orange" -> warning tone.
         confirmVariant: RaftButtonRecipeVariant.warning,

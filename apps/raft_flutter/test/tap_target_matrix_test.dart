@@ -199,7 +199,7 @@ Future<Ctx> mount(WidgetTester t, TapHost host) async {
           'kind': 'channel',
           'channelId': 'c1',
           'channelName': 'test',
-          'lastMessagePreview': 'Open channel',
+          'lastMessagePreview': 'Open Channel',
           'unreadCount': 1,
           'firstUnreadMessageId': 'first-channel',
           'lastMessageId': 'task-parent',

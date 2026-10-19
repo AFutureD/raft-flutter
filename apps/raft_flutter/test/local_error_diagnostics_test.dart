@@ -40,7 +40,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('LOCAL ERROR DIAGNOSTICS'), findsOneWidget);
+      expect(find.text('Local error diagnostics'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
     },
   );
@@ -276,7 +276,7 @@ void main() {
       await tester.pumpWidget(app(fresh));
       await tester.pumpAndSettle();
       expect(find.text('Copy'), findsOneWidget);
-      expect(find.text('LOCAL ERROR DIAGNOSTICS'), findsOneWidget);
+      expect(find.text('Local error diagnostics'), findsOneWidget);
       expect(find.textContaining('Copy app version'), findsOneWidget);
       await tester.tap(find.text('Copy'));
       await tester.pumpAndSettle();

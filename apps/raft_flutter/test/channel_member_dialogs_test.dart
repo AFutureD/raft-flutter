@@ -126,7 +126,7 @@ void main() {
       t,
     ) async {
       await open(t, (_) => dialog());
-      expect(find.text('ADD MEMBERS'), findsOneWidget);
+      expect(find.text('Add Members'), findsOneWidget);
       expect(
         find.textContaining('design — target channel', findRichText: true),
         findsOneWidget,
@@ -174,7 +174,7 @@ void main() {
       expect(result?.addedAgentIds, isEmpty);
       expect(result?.channelName, 'design');
       // The dialog closed.
-      expect(find.text('ADD MEMBERS'), findsNothing);
+      expect(find.text('Add Members'), findsNothing);
     });
 
     testWidgets('a failed add keeps the dialog with the error', (t) async {
@@ -189,7 +189,7 @@ void main() {
       await t.pumpAndSettle();
       expect(failed, isA<RaftApiException>());
       expect(find.text('Boom'), findsOneWidget);
-      expect(find.text('ADD MEMBERS'), findsOneWidget);
+      expect(find.text('Add Members'), findsOneWidget);
       expect(find.text('Add 2 members'), findsOneWidget);
     });
 
@@ -236,14 +236,14 @@ void main() {
       'free plan banner, one invite card, Add server grows to the cap',
       (t) async {
         await openJoint(t);
-        expect(find.text('CREATE JOINT CHANNEL'), findsOneWidget);
+        expect(find.text('Create Joint Channel'), findsNWidgets(2));
         expect(
           find.textContaining(
             'Free servers can create and join Joint Channels',
           ),
           findsOneWidget,
         );
-        expect(find.text('SERVER INVITE 1'), findsOneWidget);
+        expect(find.text('Server invite 1'), findsOneWidget);
         // A single draft cannot be removed.
         expect(
           find.byKey(const ValueKey('joint-remove-invite-1')),
@@ -253,7 +253,7 @@ void main() {
         await t.ensureVisible(add);
         await t.tap(add);
         await t.pump();
-        expect(find.text('SERVER INVITE 2'), findsOneWidget);
+        expect(find.text('Server invite 2'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('joint-remove-invite-2')),
           findsOneWidget,
@@ -263,7 +263,7 @@ void main() {
         );
         await t.tap(find.byKey(const ValueKey('joint-remove-invite-2')));
         await t.pump();
-        expect(find.text('SERVER INVITE 2'), findsNothing);
+        expect(find.text('Server invite 2'), findsNothing);
         // No banner on a paid plan.
       },
     );
@@ -333,7 +333,7 @@ void main() {
       await t.tap(find.text('Unarchive'));
       await t.pumpAndSettle();
       expect(unarchived, 'old');
-      expect(find.text('CREATE JOINT CHANNEL'), findsNothing);
+      expect(find.text('Create Joint Channel'), findsNothing);
     });
 
     testWidgets('the free-server limit links to Billing', (t) async {
@@ -359,7 +359,7 @@ void main() {
       await t.tap(find.text('View Billing'));
       await t.pumpAndSettle();
       expect(billing, 1);
-      expect(find.text('CREATE JOINT CHANNEL'), findsNothing);
+      expect(find.text('Create Joint Channel'), findsNothing);
     });
   });
 }

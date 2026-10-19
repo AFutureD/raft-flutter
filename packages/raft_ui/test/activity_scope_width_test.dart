@@ -75,7 +75,7 @@ void main() {
                             : null,
                         markAllRead: RaftTextButton(
                           key: const ValueKey('read-all'),
-                          label: 'Mark all read',
+                          label: 'Mark All Read',
                           visualHeight: 32,
                           minimumTargetSize: 32,
                           onPressed: () => reads++,
@@ -103,7 +103,7 @@ void main() {
             expect(bounds.left, greaterThanOrEqualTo(toolbar.left + 16));
             expect(bounds.right, lessThanOrEqualTo(toolbar.right - 16));
             final label = find.text(
-              language == 'zh' ? '全部已读' : 'Mark all read',
+              language == 'zh' ? '全部已读' : 'Mark All Read',
             );
             expect(
               t.renderObject<RenderParagraph>(label).didExceedMaxLines,
@@ -182,7 +182,7 @@ void main() {
                         ),
                         markAllRead: RaftTextButton(
                           key: const ValueKey('read-all'),
-                          label: 'Mark all read',
+                          label: 'Mark All Read',
                           visualHeight: 32,
                           minimumTargetSize: 32,
                           onPressed: () => reads++,

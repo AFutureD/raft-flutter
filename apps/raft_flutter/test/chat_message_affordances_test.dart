@@ -73,9 +73,9 @@ void main() {
           () => Future<void>.delayed(const Duration(milliseconds: 40)),
         );
         await t.pumpAndSettle();
-        expect(find.text('REMOVED'), findsOneWidget);
-        expect(find.text('LEFT'), findsOneWidget);
-        expect(find.text('DELETED'), findsOneWidget);
+        expect(find.text('Removed'), findsOneWidget);
+        expect(find.text('Left'), findsOneWidget);
+        expect(find.text('Deleted'), findsOneWidget);
         for (final id in ['removed', 'left', 'deleted', 'external']) {
           final row = find.ancestor(
             of: find.text('Author $id'),

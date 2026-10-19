@@ -17,7 +17,7 @@ const integrationScopeLabels = <String, String>{
   'profile': 'Basic profile',
   'email': 'Email address',
   'identity': 'Raft identity card',
-  'agent:read': 'Read workspace agent directory',
+  'agent:read': 'Read server agent directory',
   'agent:event:write': 'Send structured events to an agent',
   'agent:notification:write': 'Send notifications to an agent',
   'agent:action_request:write': 'Request agent action',
@@ -39,6 +39,12 @@ const integrationCategories = [
 String integrationCategoryLabel(String? category) =>
     integrationCategories.contains(category) ? category! : 'Other';
 
+/// The words shown for a category. The stored value `AI & Automation` stays as
+/// the server sends it; the interface says Automation (no "AI" in product
+/// copy).
+String integrationCategoryDisplay(String category) =>
+    category == 'AI & Automation' ? 'Automation' : category;
+
 /// lib/oauthScopePresentation.ts: the visible OAuth scopes (in catalog
 /// order), their consent copy and whether the user picks a target agent.
 const integrationVisibleScopes = [
@@ -51,16 +57,11 @@ const integrationVisibleScopes = [
   'agent:notification:write',
 ];
 const integrationScopeCopy = <String, String>{
-  'openid':
-      'Signs you in with Raft and issues a stable identity token. Authentication only.',
-  'profile':
-      'Reads your basic profile fields (display name and similar). No access to messages, files, or agents.',
-  'email':
-      'Reads your verified Raft account email address. No access to messages, files, or agents.',
-  'identity':
-      "Reads who you are — human or agent, your Raft subject, and which server/principal you're acting as. No content access.",
-  'agent:read':
-      'Read the IDs, handles, display names and avatars of agents in the Server you authorize. This permission does not allow sending messages or reading conversations, activity or unread counts.',
+  'openid': 'Signs you in with Raft and issues a stable identity token. Authentication only.',
+  'profile': 'Reads your basic profile fields (display name and similar). No access to messages, files, or agents.',
+  'email': 'Reads your verified Raft account email address. No access to messages, files, or agents.',
+  'identity': "Reads who you are — human or agent, your Raft subject, and which server/principal you're acting as. No content access.",
+  'agent:read': 'Read the IDs, handles, display names and avatars of agents in the server you authorize. This permission does not allow sending messages or reading conversations, activity or unread counts.',
   'agent:event:write':
       'Sends structured event messages to the one agent you authorize.',
   'agent:notification:write':
@@ -152,7 +153,6 @@ RaftConnectedAppBadge? _installBadge(BuildContext context, Object? raw) {
           '1k_plus': '1k+',
         }[badge['bucket']],
       }),
-      uppercase: false,
     ),
     _ => null,
   };
@@ -342,7 +342,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
       RaftConfirmDialog(
         surfaceKey: const ValueKey('connected-app-uninstall-dialog'),
         confirmKey: const ValueKey('connected-app-uninstall-confirm-button'),
-        title: raftFormat(context, 'Uninstall {name}?', {'name': app['name']}),
+        title: raftFormat(context, 'Uninstall {name}', {'name': app['name']}),
         content: RaftInlineCodeMessage(
           prefix: raftText(
             context,
@@ -352,7 +352,8 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
           suffix:
               '${raftText(context, ' again.')}${app['official'] == true ? ' ${raftText(context, 'This also opts this server out of automatic installation. It stays uninstalled until an owner or admin explicitly installs it again.')}' : ''}',
         ),
-        confirmLabel: raftText(context, 'Uninstall app'),
+        confirmLabel: raftText(context, 'Uninstall App'),
+        cancelLabel: raftText(context, 'Keep App'),
       ),
     );
     if (ok != true || !mounted) return false;
@@ -421,7 +422,11 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
               logoUrl: listing['logoUrl'] as String?,
               badge: _installBadge(modal, listing['marketplaceInstallBadge']),
               byline: raftFormat(modal, '{category} · by {developer}', {
-                'category': tr(integrationCategoryLabel(listing['category'])),
+                'category': tr(
+                  integrationCategoryDisplay(
+                    integrationCategoryLabel(listing['category']),
+                  ),
+                ),
                 'developer': developer,
               }),
               closeLabel: tr('Close app detail'),
@@ -771,7 +776,9 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     String byline(
       Map<String, dynamic> app,
     ) => raftFormat(context, '{category} · by {developer}', {
-      'category': tr(integrationCategoryLabel(app['category'])),
+      'category': tr(
+        integrationCategoryDisplay(integrationCategoryLabel(app['category'])),
+      ),
       'developer':
           '${app['publisherServerName'] ?? app['publisherName'] ?? tr('Third-party developer')}',
     });
@@ -816,7 +823,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
             initials: integrationInitials(app.name),
             logoUrl: app.logoUrl,
             meta:
-                '${tr(integrationCategoryLabel(app.category))} · ${app.developer}',
+                '${tr(integrationCategoryDisplay(integrationCategoryLabel(app.category)))} · ${app.developer}',
             badges: [
               ?_distributionBadge(
                 context,
@@ -857,7 +864,11 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
             name: '${app['name'] ?? ''}',
             initials: integrationInitials('${app['name'] ?? app['clientId']}'),
             logoUrl: app['logoUrl'] as String?,
-            meta: tr(integrationCategoryLabel(app['category'])),
+            meta: tr(
+              integrationCategoryDisplay(
+                integrationCategoryLabel(app['category']),
+              ),
+            ),
             badges: [
               ?_distributionBadge(context, app['publishStatus'] as String?),
             ],
@@ -920,7 +931,8 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
         category: category,
         categories: [
           ('all', tr('All categories')),
-          for (final c in integrationCategories) (c, tr(c)),
+          for (final c in integrationCategories)
+            (c, tr(integrationCategoryDisplay(c))),
         ],
         onCategory: (next) => setState(() => category = next),
         layout: layout,
@@ -1082,7 +1094,7 @@ class _InstalledAppPermissionsState extends State<_InstalledAppPermissions> {
       children: [
         RaftAppPermissionsSummary(
           description: tr(
-            'Permissions granted to this app on this Server are independent of user login and webhook delivery. Review and approve any additional access here.',
+            'Permissions granted to this app on this server are independent of sign-in and webhook delivery. Review and approve any additional access here.',
           ),
           badge: managementStrings(s['effective_groups']).isNotEmpty
               ? RaftConnectedAppBadge.success(tr('Enabled'))
@@ -1112,7 +1124,6 @@ class _InstalledAppPermissionsState extends State<_InstalledAppPermissions> {
             child: RaftSettingsRecipeBadge(
               label: tr('App Review pending'),
               variant: RaftBadgeRecipeVariant.warning,
-              uppercase: true,
             ),
           ),
         ],

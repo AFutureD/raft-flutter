@@ -25,7 +25,7 @@ String? jointNameError(String value) {
 String? jointTargetError(String value) =>
     RegExp(r'^[a-z][a-z0-9-]*$').hasMatch(value.trim())
     ? null
-    : 'Enter the existing workspace slug in lowercase.';
+    : 'Enter the address of the existing server in lowercase.';
 List<String> jointPeople(String value) => value
     .split(RegExp(r'[\n,]+'))
     .map((v) => v.trim())
@@ -192,7 +192,7 @@ abstract class _JointState<T extends StatefulWidget>
     String scope,
   ) async {
     if (!current(scope)) {
-      throw StateError('Workspace access changed. Reopen this form.');
+      throw StateError('Server access changed. Reopen this form.');
     }
     try {
       final result = managementMap(await w.client.post(path, data: data));
@@ -327,8 +327,8 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
     final scope = authority;
     Map<String, dynamic>? channel;
     final confirmed = await confirm(
-      'Accept joint channel invitation',
-      '${invite['fromServerName']} invites this workspace to #${invite['channelName']}. Members from participating workspaces share this conversation.',
+      'Accept Invitation',
+      '${invite['fromServerName']} invites this server to #${invite['channelName']}. Members from participating servers share this conversation.',
       () async {
         channel = await mutate(
           '/channels/joint-invites/${invite['id']}/accept',
@@ -336,7 +336,7 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
           scope,
         );
       },
-      submit: 'Accept invitation',
+      submit: 'Accept Invitation',
     );
     if (!confirmed || !current(scope) || channel?['id'] == null) return;
     await w.selectChannel(RaftChannel(channel!));
@@ -348,15 +348,15 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
   Future<void> unarchive(Map<String, dynamic> channel) async {
     final scope = authority;
     final saved = await confirm(
-      'Unarchive joint channel',
-      'Restore #${channel['name']} for its participating workspaces instead of creating another channel with this name.',
+      'Unarchive Channel',
+      'Restore #${channel['name']} for its participating servers instead of creating another channel with this name.',
       () async {
         if (!w.can('archiveChannels')) {
           throw StateError('Channel archive permission is required.');
         }
         await mutate('/channels/${channel['id']}/unarchive', null, scope);
       },
-      submit: 'Unarchive',
+      submit: 'Unarchive Channel',
     );
     if (saved && current(scope)) {
       await refreshScope(scope);
@@ -372,14 +372,14 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
         Text(
           raftText(
             context,
-            'An owner or admin manages connections between workspaces.',
+            'An owner or admin manages connections between servers.',
           ),
         ),
       if (manager) ...[
         Text(
           raftText(
             context,
-            'A joint channel can connect up to 30 workspaces, including at most two free workspaces.',
+            'A joint channel can connect up to 30 servers, including at most two free servers.',
           ),
         ),
         heading('Pending invitations'),
@@ -393,7 +393,7 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
                 '${invite['fromServerName']} / ${invite['fromServerSlug']}\n${invite['channelDescription'] ?? ''}\n${raftText(context, 'Expires')}: ${invite['expiresAt'] ?? ''}',
               ),
               trailing: action(
-                'Accept invitation',
+                'Accept Invitation',
                 guarded(() => accept(invite)),
               ),
             ),
@@ -408,7 +408,10 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
               ),
               trailing:
                   channel['archivedAt'] != null && w.can('archiveChannels')
-                  ? action('Unarchive', guarded(() => unarchive(channel)))
+                  ? action(
+                      'Unarchive Channel',
+                      guarded(() => unarchive(channel)),
+                    )
                   : action(
                       'Manage',
                       guarded(() async {
@@ -432,7 +435,7 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
     ],
     actions: [
       if (manager)
-        action('Create joint channel', guarded(create), glyph: RaftGlyph.plus),
+        action('Create Joint Channel', guarded(create), glyph: RaftGlyph.plus),
     ],
   );
 }
@@ -488,11 +491,11 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
   Future<void> invite() async {
     final scope = authority;
     final saved = await form(
-      'Invite workspace',
+      'Invite Server',
       [
         RaftFormField(
           'targetServerSlug',
-          'Workspace slug',
+          'Server address',
           required: true,
           validator: jointTargetError,
         ),
@@ -505,7 +508,7 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
           validator: (v) => jointPeople(v).isEmpty
               ? 'Invite at least one person.'
               : jointPeople(v).length > 20
-              ? 'Invite at most 20 people per workspace.'
+              ? 'Invite at most 20 people per server.'
               : null,
         ),
       ],
@@ -515,28 +518,34 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
           'invitedPeople': jointPeople(values['invitedPeople']!),
         }, scope);
       },
-      submit: 'Send invitation',
+      submit: 'Send Invitation',
     );
     if (saved && current(scope)) await reload();
   }
 
   Future<void> resend() async {
     final scope = authority;
-    final saved = await confirm('Resend invitations', 'Send fresh invitations issued by this workspace and extend their expiry.', () async {
-      await mutate('$base/joint-invite/resend', null, scope);
-    }, submit: 'Resend invitations');
+    final saved = await confirm(
+      'Resend Invitations',
+      'Send fresh invitations issued by this server and extend their expiry.',
+      () async {
+        await mutate('$base/joint-invite/resend', null, scope);
+      },
+      submit: 'Resend Invitations',
+    );
     if (saved && current(scope)) await reload();
   }
 
   Future<void> disconnect() async {
     final scope = authority;
     final done = await confirm(
-      'Disconnect workspace',
-      'Remove this workspace from the joint channel. Other participating workspaces retain their channel.',
+      'Disconnect Server',
+      'Remove this server from the joint channel. Other participating servers keep their channel.',
       () async {
         await mutate('$base/disconnect', null, scope);
       },
-      submit: 'Disconnect workspace',
+      submit: 'Disconnect Server',
+      cancel: 'Stay Connected',
       destructive: true,
     );
     if (!done || !current(scope)) return;
@@ -556,7 +565,7 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
           Text(
             raftText(
               context,
-              'An owner or admin manages connections between workspaces.',
+              'An owner or admin manages connections between servers.',
             ),
           ),
         if (channel.isNotEmpty) ...[
@@ -565,14 +574,14 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
             Text(
               raftText(
                 context,
-                'This joint channel is read-only because its workspace plan limits were exceeded.',
+                'This joint channel is read-only because its server plan limits were exceeded.',
               ),
             ),
           if (channel['jointOverLimitGraceEndsAt'] != null)
             Text(
               '${raftText(context, 'Plan limit grace period ends')}: ${channel['jointOverLimitGraceEndsAt']}',
             ),
-          heading('Participating workspaces'),
+          heading('Participating servers'),
           for (final server in managementRows(channel['jointServers']))
             ListTile(
               title: Text('${server['serverName']}'),
@@ -588,9 +597,9 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
                 '${invite['serverSlug']} · ${raftText(context, 'Pending')}',
               ),
             ),
-          if (issuedHere) action('Resend invitations', guarded(resend)),
+          if (issuedHere) action('Resend Invitations', guarded(resend)),
           action(
-            'Disconnect workspace',
+            'Disconnect Server',
             guarded(disconnect),
             glyph: RaftGlyph.unplug,
           ),
@@ -598,7 +607,7 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
       ],
       actions: [
         if (manager && channel.isNotEmpty)
-          action('Invite workspace', guarded(invite), glyph: RaftGlyph.mail),
+          action('Invite Server', guarded(invite), glyph: RaftGlyph.mail),
       ],
     );
   }

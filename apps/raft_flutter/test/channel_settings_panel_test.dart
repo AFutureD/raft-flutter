@@ -185,7 +185,7 @@ void main() {
       }
       // Pin, mute and collapse live in Preferences.
       for (final label in [
-        'Pin channel',
+        'Pin Channel',
         'Mute activity',
         'Collapse long messages',
       ]) {
@@ -238,7 +238,7 @@ void main() {
     expect(find.byType(RaftChannelInfoForm), findsNothing);
     expect(find.text('Actions'), findsNothing);
     expect(find.text('Preferences'), findsOneWidget);
-    expect(find.text('Pin channel'), findsOneWidget);
+    expect(find.text('Pin Channel'), findsOneWidget);
     expect(find.text('Collapse long messages'), findsOneWidget);
     expect(find.text('Mute activity'), findsNothing);
     // A DM never asks for the roster.
@@ -246,7 +246,7 @@ void main() {
       t
           .widget<RaftSwitch>(
             find.byWidgetPredicate(
-              (w) => w is RaftSwitch && w.semanticLabel == 'Pin channel',
+              (w) => w is RaftSwitch && w.semanticLabel == 'Pin Channel',
             ),
           )
           .value,
@@ -356,7 +356,7 @@ void main() {
       await t.tapAt(const Offset(20, 20)); // the scrim
       await t.pumpAndSettle();
       expect(_id('channel-overflow-unsaved-prompt'), findsOneWidget);
-      await t.tap(find.text('Keep editing'));
+      await t.tap(find.text('Keep Editing'));
       await t.pumpAndSettle();
       expect(find.byType(RaftOverflowSheet), findsOneWidget);
       expect(_controller(t, 'channel-settings-name').text, 'draft');
@@ -401,10 +401,12 @@ void main() {
 
     Future<void> confirm(WidgetTester t, String label) async {
       await t.tap(
-        find.descendant(
-          of: _id('channel-settings-confirm-dialog'),
-          matching: find.text(label),
-        ),
+        find
+            .descendant(
+              of: _id('channel-settings-confirm-dialog'),
+              matching: find.text(label),
+            )
+            .last,
       );
       await t.pumpAndSettle(const Duration(milliseconds: 100));
     }
@@ -419,7 +421,7 @@ void main() {
         find.textContaining('Members keep read access to "work"'),
         findsOneWidget,
       );
-      await confirm(t, 'Archive');
+      await confirm(t, 'Archive Channel');
       expect(_writes(api).map((c) => '${c.method} ${c.path}'), [
         'POST /channels/c1/archive',
       ]);
@@ -432,7 +434,7 @@ void main() {
       final (_, api) = await _open(t);
       api.routes['POST /channels/c1/archive'] = (_) => throw StateError('x');
       await press(t, 'channel-settings-archive-action');
-      await confirm(t, 'Archive');
+      await confirm(t, 'Archive Channel');
       expect(find.byType(RaftOverflowSheet), findsOneWidget);
       expect(_id('channel-settings-confirm-dialog'), findsNothing);
       expect(find.byType(RaftWarningBanner), findsOneWidget);
@@ -442,8 +444,8 @@ void main() {
       final (_, api) = await _open(t);
       api.routes['PATCH /channels/c1'] = (_) => _row(type: 'private');
       await press(t, 'channel-settings-visibility-action');
-      expect(find.text('MAKE CHANNEL PRIVATE'), findsOneWidget);
-      await confirm(t, 'Private');
+      expect(find.text('Make Private'), findsWidgets);
+      await confirm(t, 'Make Private');
       final patch = _writes(api).single;
       expect(patch.path, '/channels/c1');
       expect(patch.data, {'visibility': 'private'});
@@ -458,7 +460,7 @@ void main() {
       );
       api.routes['POST /channels/c1/leave'] = (_) => {};
       await press(t, 'channel-overflow-leave');
-      await confirm(t, 'Leave');
+      await confirm(t, 'Leave Channel');
       expect(_writes(api).single.path, '/channels/c1/leave');
       expect(find.byType(RaftOverflowSheet), findsNothing);
     });
@@ -470,7 +472,7 @@ void main() {
       await press(t, 'channel-settings-delete-action');
       expect(find.textContaining('permanently deleted'), findsOneWidget);
       expect(_writes(api), isEmpty);
-      await confirm(t, 'Delete');
+      await confirm(t, 'Delete Channel');
       expect(_writes(api).single.method, 'DELETE');
       expect(find.byType(RaftOverflowSheet), findsNothing);
     });

@@ -4,14 +4,13 @@
 // new text our other catalogs did not carry. ICU plural/select messages are not interpreted by raftText and are not listed.
 const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   // activity.*
-  "No DM activity": "暂无私信动态",
-  "DMs and threads in DMs show up here when they have new activity.": "私信和私信里的话题有新动态时会显示在这里。",
+  "No DM activity": "没有私信动态",
+  "DMs and threads in DMs show up here when they have new activity.":
+      "私信和私信里的消息列有新动态时会显示在这里。",
   "{detail} — automatic restarts are paused until you change the model or API key, or restart the agent":
       "{detail}——已暂停自动重启，改了模型或 API 密钥、或手动重启 Agent 后恢复",
-  "Model \"{model}\" is not available for this runtime — it may have been renamed or removed, or its provider has no API key on this computer. Pick another model or fix the key in the agent settings":
-      "该运行时没有可用的模型「{model}」：可能已改名或下架，或它的服务商在这台电脑上没有可用的 API 密钥——请在 Agent 设置里换模型或修正密钥",
-  "This agent's conversation no longer fits its model, and context compaction failed several times in a row, so restarting would fail again. To start a new session, open Restart / Reset and choose Reset Session & Restart (Reset Model for members). Raft messages and workspace files, including MEMORY.md, are kept":
-      "这个 Agent 的对话已经超出模型能容纳的长度，上下文压缩连续失败了好几次，直接重启还会失败。要开新会话，请打开「重启 / 重置」并选择「重置会话并重启」（成员看到的是「重置模型」）。Raft 消息和工作区文件（包括 MEMORY.md）都会保留",
+  "Model \"{model}\" is not available for this runtime — it may have been renamed or removed, or its provider has no API key on this computer. Pick another model or fix the key in the agent settings": "该运行时没有可用的模型「{model}」：可能已改名或下架，或它的服务商在这台计算机上没有可用的 API 密钥——请在 Agent 设置里换模型或修正密钥",
+  "This agent's conversation no longer fits its model, and context compaction failed several times in a row, so restarting would fail again. To start a new session, open Restart / Reset and choose Reset Session & Restart (Reset Model for members). Raft messages and workspace files, including MEMORY.md, are kept": "这个 Agent 的对话已经超出模型能容纳的长度，上下文压缩连续失败了好几次，直接重启还会失败。要开新会话，请打开「重启 / 重置」并选择「重置会话并重启」（成员看到的是「重置模型」）。Raft 消息和工作区文件（包括 MEMORY.md）都会保留",
   // agent.*
   "Set by the hosting administrator for now. Pick a model to use another one.":
       "目前由托管方管理员指定。选一个模型即可改用其他模型。",
@@ -53,11 +52,11 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
       "API 密钥与你修改的已保存设置绑定，请输入新的密钥。",
   "Use “{value}”": "使用“{value}”",
   "Could not check for {runtimeName} on this Computer: permission denied. Check permissions on that machine, then retry.":
-      "无法检查此 Computer 上的 {runtimeName}：权限被拒绝。请检查那台机器的权限后重试。",
+      "无法检查此计算机上的 {runtimeName}：权限被拒绝。请检查那台计算机的权限后重试。",
   "Checking for {runtimeName} on this Computer timed out. Retry, or check this Computer's status.":
-      "检查此 Computer 上的 {runtimeName} 超时。请重试，或查看此 Computer 的状态。",
+      "检查此计算机上的 {runtimeName} 超时。请重试，或查看此计算机的状态。",
   "Could not confirm whether {runtimeName} is available on this Computer. Retry, or check this Computer's status.":
-      "无法确认此 Computer 上是否有 {runtimeName}。请重试，或查看此 Computer 的状态。",
+      "无法确认此计算机上是否有 {runtimeName}。请重试，或查看此计算机的状态。",
   // auth.*
   "Agree to the Terms of Service and acknowledge the Privacy Policy to continue.":
       "请先同意服务条款并确认隐私政策，再继续。",
@@ -92,9 +91,9 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   "This computer is managed by the Raft Computer CLI — use raft-computer in Terminal.":
       "这台计算机由 Raft Computer CLI 管理，请在终端里使用 raft-computer。",
   "Another Computer service on this machine already uses this machine key. Stop it first ({command}), then try again.":
-      "这台机器上已经有另一个 Computer 服务在使用同一个机器密钥。请先停掉它（{command}），再重试。",
+      "这台计算机上已经有另一个计算机服务在使用同一个计算机密钥。请先停掉它（{command}），再重试。",
   "Another Computer service on this machine already uses this machine key. Stop that other service first, then try again.":
-      "这台机器上已经有另一个 Computer 服务在使用同一个机器密钥。请先停掉那个服务，再重试。",
+      "这台计算机上已经有另一个计算机服务在使用同一个计算机密钥。请先停掉那个服务，再重试。",
   "Couldn't complete that — try again.": "操作没有完成，请重试。",
   "Computer host isn't available.": "本机的计算机服务不可用。",
   "This computer is signed in to another Raft account via the CLI.":
@@ -128,11 +127,12 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   "Delete this server": "删除这个服务器",
   "{provider} usage limit reached": "{provider} 已达到用量限制",
   // machine.*
-  "Uses the {runtime} account signed in on this computer.": "使用这台 Computer 上登录的 {runtime} 账号。",
+  "Uses the {runtime} account signed in on this computer.":
+      "使用这台计算机上登录的 {runtime} 账号。",
   "Didn't finish": "未完成",
   "Change model": "更换模型",
   "Loading models…": "正在加载模型…",
-  "No runtime on this computer can be changed in bulk.": "这台 Computer 上没有可以批量更换的运行时。",
+  "No runtime on this computer can be changed in bulk.": "这台计算机上没有可以批量更换的运行时。",
   "{failed} of {total} changes didn't finish.": "{total} 项更改中有 {failed} 项未完成。",
   "Custom settings": "有自定义设置",
   "No change": "无变化",
@@ -146,9 +146,9 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   "{plan} · {percent}% used": "{plan} · 已用 {percent}%",
   "It didn't reconnect after the upgrade to v{version}.": "升级到 v{version} 后没有重新连上。",
   "Upgrading to v{version}. The Computer is restarting and will reconnect when it's done.":
-      "正在升级到 v{version}。Computer 正在重启，完成后会自动重新连接。",
+      "正在升级到 v{version}。计算机正在重启，完成后会自动重新连接。",
   "If it doesn't reconnect within a few minutes, run {command} on that machine to check.":
-      "如果几分钟内没有重新连接，请在那台机器上运行 {command} 查看。",
+      "如果几分钟内没有重新连接，请在那台计算机上运行 {command} 查看。",
   // member.*
   "Members you invite can DM and give instructions to every agent in this server. Keep personal agents in a separate server of your own.":
       "被邀请的成员可以私信并指挥这个服务器里的所有 Agent。个人 Agent 请放在你自己单独的服务器里。",
@@ -162,7 +162,7 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   "Standard mode": "标准模式",
   // settings.*
   "Declares JWT support for this App. Other Servers must separately allow access after installing it.":
-      "声明此 App 支持 JWT。其他 Server 安装后仍需各自允许访问。",
+      "声明此 App 支持 JWT。其他服务器安装后仍需各自允许访问。",
   "Enable Agent JWT support": "启用 Agent JWT 支持",
   "Audience: {audience}. Tokens expire after five minutes. Turning off stops new issuance; existing tokens expire normally.":
       "Audience：{audience}。Token 五分钟后过期。关闭会停止新签发，已有 Token 按原有效期过期。",
@@ -171,8 +171,8 @@ const Map<String, String> zhCatalogUpstream12112 = <String, String>{
   "Could not load or save JWT settings. Retry before relying on this change.":
       "无法加载或保存 JWT 设置，请重试后再确认更改已生效。",
   "Allows this Server’s agents to use JWTs with this installed App. Other Servers are unaffected.":
-      "允许此 Server 的 Agent 向已安装的 App 使用 JWT，不影响其他 Server。",
-  "Allow Agent JWTs on this Server": "允许此 Server 的 Agent 使用 JWT",
+      "允许此服务器的 Agent 向已安装的 App 使用 JWT，不影响其他服务器。",
+  "Allow agent JWTs on this server": "允许此服务器的 Agent 使用 JWT",
   "The App must support JWTs and this installation must be active before access can be enabled.":
       "App 需支持 JWT，且此安装处于有效状态，才能启用访问。",
   "Register the App, then edit its login settings to enable JWT access.":

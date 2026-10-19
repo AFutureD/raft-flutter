@@ -3,9 +3,8 @@
 // Historical Web-catalog order; do not add new strings here, use your own zh_<feature>.dart.
 const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Agents run on your computer. Connect one and Raft will detect the runtimes on it, then you can create agents here.":
-      "Agent 运行在你的 Computer 上。连接一台后，Raft 会检测上面的 runtimes，然后你就可以在这里创建 Agent。",
-  "Agents should not use this browser page or complete human OAuth. Ask the agent to use Raft Agent Login for the registered service. If the service is not available to the agent yet, ask a server owner or admin to register or connect the app first.":
-      "Agent 不应使用此浏览器页面或完成 human OAuth。请让 Agent 针对已注册的服务使用 Raft Agent Login。若该服务尚未对 Agent 开放，请先请服务器所有者或管理员注册或连接该应用。",
+      "Agent 运行在你的计算机上。连接一台后，Raft 会检测上面的 runtimes，然后你就可以在这里创建 Agent。",
+  "Agents should not use this browser page or complete human OAuth. Ask the agent to use Raft Agent Login for the registered service. If the service is not available to the agent yet, ask a server owner or admin to register or connect the app first.": "Agent 不应使用此浏览器页面或完成 human OAuth。请让 Agent 针对已注册的服务使用 Raft Agent Login。若该服务尚未对 Agent 开放，请先请服务器所有者或管理员注册或连接该应用。",
   "Agents:": "Agent：",
   "Agree & Continue": "同意并继续",
   "Agree & Join": "同意并加入",
@@ -13,7 +12,7 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Alex Chen Studio": "Alex Chen Studio",
   "All": "全部",
   "All Raft Servers you can access are shown here. Continue with an installed Server, or install the App where you have permission.":
-      "此处列出你可访问的全部 Raft Server。可通过已安装的 Server 继续，或在你有权限的位置安装该 App。",
+      "此处列出你可访问的全部 Raft 服务器。可通过已安装的服务器继续，或在你有权限的位置安装该 App。",
   "All agents have been stopped.": "所有 Agent 均已停止。",
   "All running agents in #{channel} will stop immediately. You can provide new guidance before resuming them.":
       "#{channel} 中所有正在运行的 Agent 都会立即停止。恢复前，你可以提供新的指导。",
@@ -22,7 +21,7 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "You no longer have permission to control agents here.": "你已无权在此控制 Agent。",
   "All apps": "全部应用",
   "All categories": "全部分类",
-  "All connected computers are up to date.": "所有已连接的 Computer 均为最新状态。",
+  "All connected computers are up to date.": "所有已连接的计算机均为最新状态。",
   "All members added": "所有成员都已添加",
   "All preflight checks passed.": "所有预检均已通过。",
   "All supported": "全部支持的",
@@ -68,8 +67,8 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Approve Login": "批准登录",
   "Approve the request when it opens in your browser.": "浏览器打开请求时批准它。",
   "Approve update": "批准更新",
-  "Approved by a Server admin at installation. The app accesses data directly.":
-      "安装时，由 Server 管理员批准；应用自行访问。",
+  "Approved by a server admin at installation. The app accesses data directly.":
+      "安装时，由服务器管理员批准；应用自行访问。",
   "Approved data": "已批准的数据",
   "Approving...": "正在批准…",
   "Approving…": "正在批准…",
@@ -89,9 +88,9 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Ask admin": "联系管理员",
   "Ask an operator to resolve quarantine": "请运维人员解除隔离",
   "Ask the third party that provides this App to add you to a Raft Server where the App is integrated, or ask them to publish the App to the Raft Marketplace.":
-      "请提供该 App 的第三方将你添加到已集成该 App 的 Raft Server，或请其将该 App 发布到 Raft Marketplace。",
+      "请提供该 App 的第三方将你添加到已集成该 App 的 Raft 服务器，或请其将该 App 发布到 Raft Marketplace。",
   "Ask this computer which runtimes are installed, right now":
-      "立即询问此 Computer 已安装哪些运行时",
+      "立即询问此计算机已安装哪些运行时",
   "Assigned Agents": "已关联的 Agent",
   "Assigned Agents could not be loaded.": "无法加载已关联的 Agent。",
   "Assigned to me": "分配给我的",
@@ -121,7 +120,7 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Authorization pending": "等待授权",
   "Authorize in Slack": "在 Slack 中授权",
   "Authorize with Slack": "使用 Slack 授权",
-  "Authorized by the user at login.": "登录时，由用户授权。",
+  "Authorized by the person at login.": "登录时，由本人授权。",
   "Auto": "自动",
   "Auto translates visible messages. Manual adds Translate to each message menu. Off keeps originals only.":
       "自动会翻译可见消息；手动会在消息菜单中提供翻译；关闭则仅显示原文。",
@@ -140,7 +139,6 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Back to destinations": "返回目标列表",
   "Back to forward preview": "返回转发预览",
   "Back to members": "返回成员列表",
-  "Back to sign in": "返回登录",
   "Back to sign-in options": "返回登录方式",
   "Back to the agent": "返回 Agent",
   "Back to the app": "返回 App",
@@ -155,7 +153,7 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Bilingual": "双语",
   "Billable seats": "计费席位",
   "Billing": "账单",
-  "Billing and ownership. Server settings. Admins and members. Channels, machines, and agents.":
+  "Billing and ownership. Server settings. Admins and members. Channels, computers, and agents.":
       "计费与所有权。服务器设置。管理员与成员。频道、计算机与 Agent。",
   "Billing interval": "账单周期",
   "Billing portal": "账单门户",
@@ -171,7 +169,7 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Bridge health": "桥接健康状态",
   "Briefing the agent will receive (review before sending)":
       "将发给 agent 的交接简报（发送前请过目）",
-  "Bring this computer back online": "让这台 Computer 重新上线",
+  "Bring this computer back online": "让这台计算机重新上线",
   "Browse reviewed marketplace apps, see apps installed on this server, and manage apps registered by this server.":
       "浏览已审核的市场应用，查看本服务器已安装的应用，并管理由本服务器注册的应用。",
   "Browse reviewed marketplace apps, see apps installed on this server, and view apps registered by this server.":
@@ -184,8 +182,8 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Brutal palette in real surfaces": "真实界面中的 Brutal 调色板",
   "Built-in Pi is ready to use without local runtime setup. It uses the provider key entered here.":
       "内置 Pi 无需本地运行时设置即可使用。它会使用这里填写的提供方密钥。",
-  "Built-in models cannot be verified right now. Your saved selection is preserved; reconnect this Computer and retry.":
-      "目前无法验证 Built-in 模型。已保留原有选择；请重新连接此 Computer 后重试。",
+  "Built-in models cannot be verified right now. Your saved selection is preserved; reconnect this computer and retry.":
+      "目前无法验证 Built-in 模型。已保留原有选择；请重新连接此计算机后重试。",
   "Business Ops": "商业运营",
   "By continuing, you agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.":
       "继续即表示你同意<terms>服务条款</terms>和<privacy>隐私政策</privacy>。",
@@ -203,22 +201,18 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Calls": "调用次数",
   "Can't check for a new version right now. Try again later.":
       "暂时查不到新版本信息，稍后再看。",
-  "Can't demote server admins": "无法降级 Server 管理员",
+  "Can't demote server admins": "无法降级服务器管理员",
   "Can't get this computer back?": "这台计算机恢复不了？",
   "Can't locate inside this page — comments will be unanchored":
       "无法在此页面中定位——评论将不带锚点",
   "Can't upgrade right now. Try again later.": "现在不能升级，稍后再试。",
   "Cancel": "取消",
   "Cancel Subscription": "取消订阅",
-  "Cancel conversion": "取消转换",
   "Cancel forward": "取消转发",
   "Cancel migration": "取消迁移",
-  "Cancel migration?": "取消迁移？",
-  "Cancel subscription": "取消订阅",
   "Cancel the whole Pro subscription at period end.": "在当前账单周期结束时取消整个 Pro 订阅。",
   "Cancel the whole Pro subscription at the end of the current billing period. The server keeps Pro capacity until the cancellation date, then returns to Free.":
       "在当前账单周期结束时取消整个 Pro 订阅。服务器会保留 Pro 容量直到取消日期，之后恢复为免费版。",
-  "Cancel upload": "取消上传",
   "Canceled": "已取消",
   "Canceling": "正在取消",
   "Canceling migration": "正在取消迁移",
@@ -244,7 +238,6 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Change emoji": "更改表情",
   "Change it anytime.": "随时可以更换。",
   "Change name": "修改名称",
-  "Change password": "修改密码",
   "Change task status": "更改任务状态",
   "Changed assignee": "变更负责人",
   "Changed status": "变更状态",
@@ -295,8 +288,8 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Install {runtime}, then restart Raft Computer to detect it.":
       "安装 {runtime}，然后重启 Raft Computer 来检测它。",
   "Offline · last seen {when}": "离线 · 最后在线 {when}",
-  "This computer is set up on /{server} but isn't connected right now. Run this on the machine to bring it back:":
-      "这台计算机已在 /{server} 上完成设置，但现在没有连接。在那台机器上运行以下命令让它恢复：",
+  "This computer is set up on /{server} but isn't connected right now. Run this on that computer to bring it back:":
+      "这台计算机已在 /{server} 上完成设置，但现在没有连接。在那台计算机上运行以下命令让它恢复：",
   "Waiting for {computer} to come online…": "等待 {computer} 上线…",
   "{computer} is connected.": "{computer} 已连接。",
   "Runtime detected.": "已检测到运行时。",
@@ -317,13 +310,13 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Checking attachments": "正在检查附件",
   "Checking attachments…": "正在检查附件…",
   "Checking file…": "正在检查文件…",
-  "Checking models on this Computer…": "正在检查此 Computer 上的模型…",
+  "Checking models on this Computer…": "正在检查此计算机上的模型…",
   "Checking…": "检查中…",
   "Checkout summary": "结账摘要",
   "Choose": "选择",
   "Choose Avatar": "选择头像",
   "Choose a Raft Server where this app is available.":
-      "请选择一个可使用该 App 的 Raft Server。",
+      "请选择一个可使用该 App 的 Raft 服务器。",
   "Choose a channel from the sidebar to start a new workspace tab.":
       "从侧栏选择一个频道以开始新的工作区标签。",
   "Choose a computer other than the agent's current computer.":
@@ -332,11 +325,10 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Choose a discovered model or enter a model ID.": "选择已发现的模型，或直接填写模型 ID。",
   "Choose a server": "选择服务器",
   "Choose a target computer before starting the migration.": "开始迁移前请先选择目标计算机。",
-  "Choose an online Computer to check available models.":
-      "请选择一台在线的 Computer 以检查可用模型。",
+  "Choose an online computer to check available models.": "请选择一台在线的计算机以检查可用模型。",
   "Choose another session": "换一个会话",
   "Choose channel pairs": "选择频道映射",
-  "Choose computer setup platform": "选择 Computer 设置平台",
+  "Choose computer setup platform": "选择计算机设置平台",
   "Choose emoji": "选择表情",
   "Choose events for the resources selected in App permissions. Each installation controls its subscriptions separately.":
       "为“应用权限”中已选择的资源声明事件。各安装的订阅分别管理。",
@@ -360,7 +352,7 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Cindy is the onboarding agent that knows Raft inside out.":
       "Cindy 是熟悉 Raft 的 onboarding Agent。",
   "Cindy runs on your computer, and there is none connected yet. Once one is online, Raft detects the runtimes on it and this step fills itself in.":
-      "Cindy 运行在你的 Computer 上，但现在还没有已连接的 Computer。有 Computer 在线后，Raft 会检测上面的 runtimes，并自动填好这一步。",
+      "Cindy 运行在你的计算机上，但现在还没有已连接的计算机。有计算机在线后，Raft 会检测上面的 runtimes，并自动填好这一步。",
   "Cindy was created, but finishing server setup requires server-settings permission.":
       "Cindy 已创建，但完成服务器设置需要服务器设置权限。",
   "Cindy was created, but no active server was found to finish setup.":
@@ -394,7 +386,7 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Clear the runtime session, delete all workspace files, and restart from scratch.":
       "清除运行时会话，删除所有工作区文件，并从零开始重启。",
   "Click Scan to check for workspace directories on this computer.":
-      "点击扫描，检查这台 Computer 上的工作区目录。",
+      "点击扫描，检查这台计算机上的工作区目录。",
   "Click or drag to comment on a region": "点击或拖动以对区域评论",
   "Client ID": "客户端 ID",
   "Client Secret": "客户端密钥",
@@ -423,12 +415,12 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Close runtime usage": "关闭运行时用量",
   "Close task": "关闭任务",
   "Close this page": "关闭此页面",
-  "Close thread": "关闭话题",
+  "Close thread": "关闭消息列",
   "Close thread actions": "关闭消息列操作",
   "Close thread search": "关闭消息列搜索",
   "Closed": "已关闭",
   "Closed task": "关闭任务",
-  "Cloud Computer": "云端 Computer",
+  "Cloud Computer": "云端计算机",
   "Code": "代码",
   "Collapse": "收起",
   "Collapse comments": "收起评论",
@@ -451,60 +443,52 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
       "已完成的任务不能更换负责人，请先重新打开任务。",
   "Component stack": "组件堆栈",
   "Computer": "计算机",
-  "Computer Connected": "Computer 已连接",
-  "Computer Name": "Computer 名称",
-  "Computer Version": "Computer 版本",
-  "Computer connected successfully!": "Computer 已成功连接！",
-  "Computer did not answer in time": "Computer 未按时响应",
+  "Computer Connected": "计算机已连接",
+  "Computer Name": "计算机名称",
+  "Raft Computer version": "Raft Computer 版本",
+  "Computer connected": "计算机已连接",
+  "Computer did not answer in time": "计算机未按时响应",
   "Computer does not support probes": "计算机不支持 probe",
-  "Computer must be online to restart or reset agents":
-      "Computer 必须在线才能重启或重置 Agent",
-  "Computer must be online to start agents": "Computer 必须在线才能启动 Agent",
-  "Computer name": "Computer 名称",
-  "Computer name is required": "Computer 名称不能为空",
+  "Computer must be online to restart or reset agents": "计算机必须在线才能重启或重置 Agent",
+  "Computer must be online to start agents": "计算机必须在线才能启动 Agent",
+  "Computer name": "计算机名称",
+  "Computer name is required": "计算机名称不能为空",
   "Computer not found": "未找到计算机",
   "Computer offline": "计算机离线",
-  "Computer online": "Computer 已上线",
-  "Computer operation failed": "Computer 操作失败",
+  "Computer online": "计算机已上线",
+  "Computer operation failed": "计算机操作失败",
   "Computer panel": "计算机面板",
-  "Computer returned an invalid result": "Computer 返回非法结果",
-  "Computer service is already on the latest version": "Computer 服务已是最新版本",
-  "Computer status": "Computer 状态",
-  "Computer upgrade available": "Computer 有可用升级",
-  "Computer upgrade available · Computer offline":
-      "Computer 有可用升级 · Computer 离线",
-  "Computer version changed": "Computer 版本已变更",
+  "Computer returned an invalid result": "计算机返回非法结果",
+  "Raft Computer is already on the latest version": "Raft Computer 已是最新版本",
+  "Computer status": "计算机状态",
+  "Computer upgrade available": "计算机有可用升级",
+  "Computer upgrade available · Computer offline": "计算机有可用升级 · 计算机离线",
+  "Computer version changed": "计算机版本已变更",
   "Computers": "计算机",
-  "Computers need attention": "Computer 需要处理",
+  "Computers need attention": "计算机需要处理",
   "Configure a channel pair": "配置频道映射",
   "Configure login, permissions, and events.": "配置登录、权限与事件。",
   "Configure the MCP catalog, credentials, and provider connections for this Raft Server.":
-      "配置此 Raft Server 的 MCP 目录、凭据和提供方连接。",
+      "配置此 Raft 服务器的 MCP 目录、凭据和提供方连接。",
   "Configure your Hermes gateway": "配置 Hermes gateway",
   "Configured": "已配置",
-  "Configured uses your machine's Pi auth.json. Other options inject the matching API key as an env var so the Pi SDK picks it up — no auth.json edit on your machine.":
-      "已配置模式会使用你机器上的 Pi auth.json。其他选项会把对应 API 密钥注入为环境变量，让 Pi SDK 自动读取——无需修改机器上的 auth.json。",
+  "Configured uses your machine's Pi auth.json. Other options inject the matching API key as an env var so the Pi SDK picks it up — no auth.json edit on your machine.": "已配置模式会使用你计算机上的 Pi auth.json。其他选项会把对应 API 密钥注入为环境变量，让 Pi SDK 自动读取——无需修改计算机上的 auth.json。",
   "Confirm Password": "确认密码",
-  "Confirm Pro Checkout": "确认 Pro 结账",
-  "Confirm Seat Update": "确认席位更新",
-  "Confirm and update seats": "确认并更新席位",
-  "Confirm disconnect": "确认解绑",
   "Confirm new password": "确认新密码",
   "Confirm password": "确认密码",
-  "Confirm revocation": "确认撤销",
   "Confirm sign-in": "确认登录",
   "Confirm your identity": "确认你的身份",
   "Confirming the GitHub connection…": "正在确认 GitHub 连接…",
   "Connect": "连接",
-  "Connect Computer": "连接 Computer",
+  "Connect Computer": "连接计算机",
   "Connect Slack": "连接 Slack",
   "Connect Slack and choose channel mappings. Raft verifies the bridge and enables delivery for you.":
       "连接 Slack 并选择频道映射；Raft 会自动验证桥接并启用消息传递。",
-  "Connect a Computer": "连接 Computer",
+  "Connect a Computer": "连接计算机",
   "Connect a Slack workspace": "连接 Slack 工作区",
   "Connect a computer": "连接一台计算机",
-  "Connect a computer first": "请先连接一台 Computer",
-  "Connect a machine to run agents from here.": "连接一台机器，即可从这里运行 Agent。",
+  "Connect a computer first": "请先连接一台计算机",
+  "Connect a machine to run agents from here.": "连接一台计算机，即可从这里运行 Agent。",
   "Connect a new GitHub account": "连接新的 GitHub 账户",
   "Connect command": "连接命令",
   "Connect commands and API key rotation are admin-only.":
@@ -529,8 +513,8 @@ const Map<String, String> zhCatalogWeb2 = <String, String>{
   "Continue": "继续",
   "Continue anyway": "仍然继续",
   "Continue login": "继续登录",
-  "Continue the guided Computer and onboarding agent setup.":
-      "继续完成 Computer 与引导 Agent 的向导设置。",
+  "Continue the guided computer and onboarding agent setup.":
+      "继续完成计算机与引导 Agent 的向导设置。",
   "Continue to Enable": "继续启用",
   "Continue to GitHub": "前往 GitHub",
   "Continue to Raft": "进入 Raft",

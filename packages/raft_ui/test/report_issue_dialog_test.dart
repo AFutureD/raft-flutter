@@ -90,7 +90,8 @@ void main() {
         );
       },
     );
-    expect(find.text('REPORT ISSUE'), findsOneWidget);
+    // The dialog title and the submit button share the label.
+    expect(find.text('Report Issue'), findsNWidgets(2));
     expect(find.text('Product UX Designer'), findsOneWidget);
     expect(_enabled(tester, 'report-issue-submit'), isFalse);
     await tester.tap(_key('report-issue-submit'));
@@ -110,7 +111,7 @@ void main() {
     expect(sent!.includeTrajectoryLog, isTrue);
     expect(sent!.includeSessionTranscript, isTrue);
     expect(sent!.includeMachineLogTail, isFalse);
-    expect(find.text('REPORT SUBMITTED'), findsOneWidget);
+    expect(find.text('Report Submitted'), findsOneWidget);
     expect(
       find.text(
         'We opened a feedback ticket for this report. Replies from the Raft team will show up there.',
@@ -136,7 +137,7 @@ void main() {
       find.text('Create report upload failed: HTTP 500: boom'),
       findsOneWidget,
     );
-    expect(find.text('REPORT ISSUE'), findsOneWidget);
+    expect(find.text('Report Issue'), findsNWidgets(2));
     expect(_enabled(tester, 'report-issue-submit'), isTrue);
   });
 
@@ -157,7 +158,7 @@ void main() {
     await _pump(tester, hasMachine: false);
     expect(
       find.text(
-        'Runtime transcript upload is unavailable until the agent is assigned to a machine.',
+        'Runtime transcript upload is unavailable until the agent is assigned to a computer.',
       ),
       findsOneWidget,
     );

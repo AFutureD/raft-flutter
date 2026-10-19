@@ -34,7 +34,7 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
   /// ends as soon as the fields stop having it.
   bool attempted = false;
 
-  /// Web hides "Password updated!" after 2 seconds.
+  /// Web hides "Password updated." after 2 seconds.
   Timer? savedTimer;
   late String scope;
   String get authority =>
@@ -247,7 +247,7 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
               padding: const EdgeInsets.only(top: RaftSpace.x3),
               child: Semantics(
                 liveRegion: true,
-                child: RaftSettingsSavedNote(tr('Password updated!')),
+                child: RaftSettingsSavedNote(tr('Password updated.')),
               ),
             ),
           const SizedBox(height: RaftSpace.x3),

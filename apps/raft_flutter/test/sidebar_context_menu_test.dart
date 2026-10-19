@@ -93,7 +93,7 @@ void main() {
       'Mark as Unread',
       'Pin',
       'Mute',
-      'Archive',
+      'Archive Channel',
     ]) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
@@ -113,7 +113,8 @@ void main() {
   ) async {
     await setup(tester);
     await rightClick(tester, find.byKey(const ValueKey('sidebar-channel-c1')));
-    expect(find.text('Pinned'), findsNothing);
+    // The Pinned group heading is the only match until the submenu opens.
+    expect(find.text('Pinned'), findsOneWidget);
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     try {
       await mouse.addPointer(location: Offset.zero);
@@ -122,7 +123,7 @@ void main() {
     }
     await mouse.moveTo(tester.getCenter(find.text('Move to section')));
     await tester.pumpAndSettle();
-    expect(find.text('Pinned'), findsOneWidget);
+    expect(find.text('Pinned'), findsNWidgets(2));
     expect(find.text('New section…'), findsOneWidget);
   });
 
@@ -147,11 +148,11 @@ void main() {
     );
     for (final label in [
       'Create Channel',
-      'SORT',
+      'Sort',
       'Manual',
       'Recent',
       'A-Z',
-      'DISPLAY',
+      'Display',
       'Show joined channels only',
       'Hide empty sections',
       'New section…',
@@ -178,14 +179,14 @@ void main() {
     expect(find.text('New section…'), findsOneWidget);
     await tester.tap(find.text('New section…'));
     await tester.pumpAndSettle();
-    expect(find.text('NEW SECTION'), findsOneWidget);
+    expect(find.text('New section'), findsOneWidget);
     await tester.enterText(find.byType(EditableText).last, 'Launch');
     await tester.pump();
-    await tester.tap(find.text('Create section'));
+    await tester.tap(find.text('Create Section'));
     await tester.pumpAndSettle();
     final sections = (patches.single as Map)['customSections'] as List;
     expect((sections.single as Map)['name'], 'Launch');
     expect((sections.single as Map)['sortMode'], 'manual');
-    expect(find.text('NEW SECTION'), findsNothing);
+    expect(find.text('New section'), findsNothing);
   });
 }

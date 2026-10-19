@@ -55,7 +55,7 @@ void main() {
         );
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
-        expect(find.text('REVIEW CHANGES'), findsOneWidget);
+        expect(find.text('Review changes'), findsOneWidget);
         final box = tester.getRect(find.byType(RaftDialog));
         expect(
           box.width,

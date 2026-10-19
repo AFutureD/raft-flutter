@@ -218,7 +218,6 @@ class _McpServerEditorState extends State<McpServerEditor> {
       RaftField(
         label: raftText(context, label),
         required: required,
-        uppercase: false,
         compact: true,
         child: input,
       );

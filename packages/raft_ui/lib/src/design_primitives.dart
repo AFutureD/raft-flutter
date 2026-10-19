@@ -2786,7 +2786,7 @@ class RaftSegmentedOption<T> {
   /// Key of the segment (tests, parity interactions).
   final Key? itemKey;
 
-  /// A `font-mono text-[10px] font-bold uppercase text-black/60` note inside
+  /// A `font-mono text-[10px] font-bold text-black/60` note inside
   /// the label (`gap-1.5`), e.g. BillingIntervalSegmentedControl's "Save 12%".
   final String? labelSuffix;
   final RaftGlyph? glyph;
@@ -3416,7 +3416,7 @@ class _SegmentedItem<T> extends StatelessWidget {
                         Flexible(child: text),
                         const SizedBox(width: 6),
                         Text(
-                          option.labelSuffix!.toUpperCase(),
+                          option.labelSuffix!,
                           maxLines: 1,
                           softWrap: false,
                           style: label.copyWith(

@@ -458,14 +458,14 @@ void main() {
           tooltip: 'More actions',
           entries: [
             RaftMenuEntry(label: 'Rename agent', onPressed: () {}),
-            RaftMenuEntry(label: 'Delete agent', onPressed: () {}),
+            RaftMenuEntry(label: 'Delete Agent', onPressed: () {}),
           ],
         ),
       );
       await t.tap(find.byType(RaftOverflowMenuButton));
       await frames(t, 15);
       return SurfaceProbe(
-        isOpen: openWhile(find.text('Delete agent')),
+        isOpen: openWhile(find.text('Delete Agent')),
         scrim: farPoint(size),
       );
     },

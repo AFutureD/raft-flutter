@@ -84,7 +84,7 @@ void main() {
     expect(find.text('Ada Lovelace'), findsWidgets);
     expect(find.text('Slack · Guest'), findsWidgets);
     expect(find.text('Acme Product Studio'), findsOneWidget);
-    expect(find.text('FROM'), findsOneWidget);
+    expect(find.text('From'), findsOneWidget);
     expect(find.text('External identity'), findsOneWidget);
     await tester.tap(find.byTooltip('Close'));
     expect(closed, 1);

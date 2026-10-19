@@ -306,7 +306,6 @@ class RaftFormSheet extends StatelessWidget {
     required this.onClose,
     required this.body,
     this.footer,
-    this.uppercase = true,
     this.titleGlyph,
     this.closeButton,
   });
@@ -318,7 +317,6 @@ class RaftFormSheet extends StatelessWidget {
 
   /// The action row; stays in view while [body] scrolls.
   final Widget? footer;
-  final bool uppercase;
 
   /// A leading icon in the title row.
   final RaftGlyph? titleGlyph;
@@ -338,7 +336,7 @@ class RaftFormSheet extends StatelessWidget {
       weight: FontWeight.w700,
       color: t.ink,
     );
-    final text = uppercase ? title.toUpperCase() : title;
+    final text = title;
     final scaler = MediaQuery.textScalerOf(context);
     return LayoutBuilder(
       builder: (context, box) {

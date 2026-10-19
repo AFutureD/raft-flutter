@@ -32,10 +32,9 @@ const Map<String, String> zhCatalogAgentMigrationPanel = {
       "{target} 的迁移状态为 {state}。",
   "Preparing the workspace on {source} stopped making progress before the deadline. {source} may have gone offline, or packing stalled. Make sure {source} is online, then try again.":
       "{source} 上的工作区在截止时间前停止了进展。可能是 {source} 已离线，或打包卡住了。请确认 {source} 在线后重试。",
-  "Preparing the workspace on {source} stopped making progress before the deadline ({deadline}). {source} may have gone offline, or packing stalled. Make sure {source} is online, then try again.":
-      "{source} 上的工作区在截止时间（{deadline}）前停止了进展。可能是 {source} 已离线，或打包卡住了。请确认 {source} 在线后重试。",
-  "The target Computer {target} did not finish installing the workspace before the deadline. Make sure the target is running and has enough free disk space, then try again.":
-      "目标 Computer {target} 未能在截止时间前完成工作区安装。请确认目标 Computer 正在运行且有足够可用磁盘空间，然后重试。",
+  "Preparing the workspace on {source} stopped making progress before the deadline ({deadline}). {source} may have gone offline, or packing stalled. Make sure {source} is online, then try again.": "{source} 上的工作区在截止时间（{deadline}）前停止了进展。可能是 {source} 已离线，或打包卡住了。请确认 {source} 在线后重试。",
+  "The target computer {target} did not finish installing the workspace before the deadline. Make sure the target is running and has enough free disk space, then try again.":
+      "目标计算机 {target} 未能在截止时间前完成工作区安装。请确认目标计算机正在运行且有足够可用磁盘空间，然后重试。",
   "{computer} has not reported whether {runtime} is available. Start or restart Raft Computer and wait for runtime detection, or choose another computer.":
       "{computer} 尚未报告是否支持 {runtime}。请启动或重启 Raft Computer 并等待运行时检测，或另选一台计算机。",
   "{computer} does not support {runtime}. Install or enable that runtime on this computer, or choose another computer.":

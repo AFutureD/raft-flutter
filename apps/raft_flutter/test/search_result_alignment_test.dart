@@ -133,24 +133,16 @@ void main() {
         },
       );
     }
-    testWidgets('search warning casing follows each Web badge $family/$dark', (
+    testWidgets('search warning badges are not all caps $family/$dark', (
       t,
     ) async {
       await mount(t, family, dark, [
         hit('m1')..['channelArchivedAt'] = '2026-01-01',
       ]);
       final badges = t.widgetList<RaftBadge>(find.byType(RaftBadge)).toList();
-      expect(
-        badges
-            .singleWhere((b) => b.label.toUpperCase() == 'ARCHIVED')
-            .uppercase,
-        isTrue,
-      );
-      expect(
-        badges.singleWhere((b) => b.label == 'Upgrade to view').uppercase,
-        isFalse,
-      );
-      expect(find.text('ARCHIVED'), findsOneWidget);
+      expect(badges.where((b) => b.label == 'Archived'), hasLength(1));
+      expect(badges.where((b) => b.label == 'Upgrade to view'), hasLength(1));
+      expect(find.text('Archived'), findsOneWidget);
       expect(find.text('Upgrade to view'), findsOneWidget);
     });
     testWidgets('empty parent identity stays an individual hit $family/$dark', (

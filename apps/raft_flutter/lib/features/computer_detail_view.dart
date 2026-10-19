@@ -558,7 +558,7 @@ class _ComputerDetailPanelState extends State<ComputerDetailPanel> {
         ),
       ComputerVersionOutdated(:final available) => card(
         RaftComputerServiceKind.commands,
-        'v$available is available. Run these two commands on that machine to upgrade:',
+        'v$available is available. Run these two commands on that computer to upgrade:',
         available,
       ),
     };

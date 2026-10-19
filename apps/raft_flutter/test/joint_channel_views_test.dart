@@ -109,7 +109,7 @@ Widget host(Widget child) => MaterialApp(
   home: Scaffold(body: child),
 );
 Future<void> createForm(WidgetTester t) async {
-  await t.tap(find.text('Create joint channel'));
+  await t.tap(find.text('Create Joint Channel'));
   await t.pumpAndSettle();
 }
 
@@ -139,7 +139,7 @@ void main() {
     addTearDown(w.dispose);
     await t.pumpWidget(host(JointChannelsView(controller: w)));
     await t.pumpAndSettle();
-    expect(find.text('Create joint channel'), findsNothing);
+    expect(find.text('Create Joint Channel'), findsNothing);
     expect(a.calls.where((c) => c.path.startsWith('/channels')), isEmpty);
   });
   testWidgets(
@@ -160,6 +160,8 @@ void main() {
       await text(t, 'joint-description', ' Shared work ');
       await text(t, 'joint-slug-0', 'target');
       await text(t, 'joint-people-0', '@Bob, @Bob\nAlice');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await t.pumpAndSettle();
       await t.ensureVisible(find.text('Cindy'));
       await t.pumpAndSettle();
       await t.tap(find.text('Cindy'));
@@ -203,7 +205,7 @@ void main() {
     a.routes['GET /agents'] = (_) => pending.future;
     await t.pumpWidget(host(JointChannelsView(controller: w)));
     await t.pumpAndSettle();
-    await t.tap(find.text('Create joint channel'));
+    await t.tap(find.text('Create Joint Channel'));
     await t.pump();
     w.server = RaftRecord({'id': 's1', 'role': 'member'});
     w.notifyListeners();
@@ -238,9 +240,9 @@ void main() {
       };
       await t.pumpWidget(host(JointChannelsView(controller: w)));
       await t.pumpAndSettle();
-      await t.tap(find.text('Accept invitation'));
+      await t.tap(find.text('Accept Invitation'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Accept invitation').last);
+      await t.tap(find.text('Accept Invitation').last);
       await t.pumpAndSettle();
       expect(w.selected, 'local-projection');
       expect(w.refreshes, 1);
@@ -268,9 +270,9 @@ void main() {
         host(JointChannelManagementView(controller: w, channelId: 'c1')),
       );
       await t.pumpAndSettle();
-      await t.tap(find.text('Disconnect workspace'));
+      await t.tap(find.text('Disconnect Server'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Disconnect workspace').last);
+      await t.tap(find.text('Disconnect Server').last);
       await t.pumpAndSettle();
       expect(a.calls.where((c) => c.method == 'DELETE'), isEmpty);
       expect(
@@ -298,7 +300,7 @@ void main() {
         host(JointChannelManagementView(controller: w, channelId: 'c1')),
       );
       await t.pumpAndSettle();
-      await t.tap(find.text('Invite workspace'));
+      await t.tap(find.text('Invite Server'));
       await t.pumpAndSettle();
       final retained = t.widget<RaftFormDialog>(find.byType(RaftFormDialog));
       (_client(w)).forwarded
@@ -344,9 +346,9 @@ void main() {
       };
       await t.pumpWidget(host(JointChannelsView(controller: w)));
       await t.pumpAndSettle();
-      await t.tap(find.text('Accept invitation'));
+      await t.tap(find.text('Accept Invitation'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Accept invitation').last);
+      await t.tap(find.text('Accept Invitation').last);
       await t.pumpAndSettle();
       expect(w.selected, 'new-local');
     },
@@ -381,11 +383,11 @@ void main() {
         host(JointChannelManagementView(controller: w, channelId: 'c1')),
       );
       await t.pumpAndSettle();
-      await t.tap(find.text('Invite workspace'));
+      await t.tap(find.text('Invite Server'));
       await t.pumpAndSettle();
       await text(t, 'field-targetServerSlug', 'a');
       await text(t, 'field-invitedPeople', '@Bob, @Bob\nAlice');
-      await t.tap(find.text('Send invitation'));
+      await t.tap(find.text('Send Invitation'));
       await t.pumpAndSettle();
       expect(
         a.calls.singleWhere((c) => c.path == '/channels/c1/joint-invites').data,
@@ -394,9 +396,9 @@ void main() {
           'invitedPeople': ['@Bob', 'Alice'],
         },
       );
-      await t.tap(find.text('Resend invitations'));
+      await t.tap(find.text('Resend Invitations'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Resend invitations').last);
+      await t.tap(find.text('Resend Invitations').last);
       await t.pumpAndSettle();
       expect(
         a.calls
@@ -435,9 +437,9 @@ void main() {
         a.calls.singleWhere((c) => c.path == '/channels').queryParameters,
         {'archived': 'include'},
       );
-      await t.tap(find.text('Unarchive'));
+      await t.tap(find.text('Unarchive Channel'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Unarchive').last);
+      await t.tap(find.text('Unarchive Channel').last);
       await t.pumpAndSettle();
       expect(
         a.calls
@@ -473,11 +475,11 @@ void main() {
       host(JointChannelManagementView(controller: w, channelId: 'c1')),
     );
     await t.pumpAndSettle();
-    await t.tap(find.text('Invite workspace'));
+    await t.tap(find.text('Invite Server'));
     await t.pumpAndSettle();
     await text(t, 'field-targetServerSlug', 'target');
     await text(t, 'field-invitedPeople', 'Bob');
-    await t.tap(find.text('Send invitation'));
+    await t.tap(find.text('Send Invitation'));
     await t.pumpAndSettle();
     expect(find.text('#Private share'), findsNothing);
     expect(find.byType(RaftFormDialog), findsNothing);

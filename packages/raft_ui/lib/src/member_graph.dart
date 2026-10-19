@@ -328,7 +328,7 @@ class _Sidebar extends StatelessWidget {
               style: text(size: 18, line: 28, weight: RaftTypography.black(t)),
             ),
             RaftCssText(
-              tr(label).toUpperCase(),
+              tr(label),
               style: text(
                 size: 10,
                 line: 15,
@@ -350,7 +350,7 @@ class _Sidebar extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: RaftCssText(
-                  tr(title).toUpperCase(),
+                  tr(title),
                   style: text(weight: RaftTypography.black(t), color: strong),
                 ),
               ),

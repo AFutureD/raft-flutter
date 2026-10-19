@@ -190,14 +190,14 @@ class RaftInfiniteScrollSentinel extends StatelessWidget {
   }
 }
 
-/// TasksPanel channel-mode "New Task": Button sm outline `h-8 gap-1 text-xs
+/// TasksPanel channel-mode "Create Task": Button sm outline `h-8 gap-1 text-xs
 /// font-bold` with Plus 12.
 class RaftNewTaskButton extends StatelessWidget {
   const RaftNewTaskButton({super.key, required this.onPressed});
   final VoidCallback? onPressed;
   @override
   Widget build(BuildContext context) => Semantics(
-    label: raftText(context, 'New Task'),
+    label: raftText(context, 'Create Task'),
     button: true,
     excludeSemantics: true,
     child: RaftTaskFilterButton(
@@ -207,7 +207,7 @@ class RaftNewTaskButton extends StatelessWidget {
         spacing: 4,
         children: [
           const RaftIcon(RaftGlyph.plus, size: 12),
-          Text(raftText(context, 'New Task')),
+          Text(raftText(context, 'Create Task')),
         ],
       ),
     ),
@@ -215,7 +215,7 @@ class RaftNewTaskButton extends StatelessWidget {
 }
 
 /// raft-ui Badge (badge recipe) with an optional leading 10px glyph, as the
-/// Activity rows use it (`uppercase={false}`).
+/// Activity rows use it.
 class RaftResourceBadge extends StatelessWidget {
   const RaftResourceBadge({
     super.key,
@@ -235,7 +235,6 @@ class RaftResourceBadge extends StatelessWidget {
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
       appearance: appearance,
       variant: variant,
-      uppercase: false,
       states: RaftRecipeStates({
         if (t.dark) RaftRecipeStates.dark,
         if (glyph != null) 'has:svg',

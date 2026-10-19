@@ -56,7 +56,7 @@ class _RowsState extends State<_Rows> {
           toolbar: RaftMessageToolbar(
             children: [
               RaftMessageToolbarAction(
-                label: saved ? 'Remove from saved' : 'Save message',
+                label: saved ? 'Remove from saved' : 'Save Message',
                 active: saved,
                 icon: RaftIcon(
                   saved ? RaftGlyph.bookmarkFilled : RaftGlyph.bookmark,

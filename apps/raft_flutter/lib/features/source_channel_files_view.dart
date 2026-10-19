@@ -434,7 +434,7 @@ class SourceChannelFilesProjectionView extends StatelessWidget {
                                   style: RaftTypography.mono(t),
                                 )
                               : RaftButton(
-                                  label: raftText(context, 'Load more'),
+                                  label: raftText(context, 'Load More'),
                                   variant: RaftControlVariant.outline,
                                   size: RaftButtonRecipeSize.sm,
                                   onPressed: () => store.load(more: true),

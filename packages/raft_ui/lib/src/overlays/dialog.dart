@@ -325,7 +325,7 @@ class RaftDialogHeader extends StatelessWidget {
   }
 }
 
-/// `DialogTitle` (brutal uppercase; `text-transform` applied to the string).
+/// `DialogTitle` (sentence case; decision 0002).
 class RaftDialogTitle extends StatelessWidget {
   const RaftDialogTitle(this.text, {super.key});
   final String text;
@@ -338,13 +338,7 @@ class RaftDialogTitle extends StatelessWidget {
       base: DefaultTextStyle.of(context).style,
     );
     final value = raftText(context, text);
-    return Semantics(
-      header: true,
-      child: Text(
-        s.textTransform == 'uppercase' ? value.toUpperCase() : value,
-        style: style,
-      ),
-    );
+    return Semantics(header: true, child: Text(value, style: style));
   }
 }
 

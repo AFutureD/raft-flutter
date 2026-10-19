@@ -2186,7 +2186,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
           Builder(
             builder: (anchor) => RaftMessageToolbarAction(
               key: ValueKey('message-react-${message.id}'),
-              label: raftText(context, 'Add reaction'),
+              label: raftText(context, 'Add Reaction'),
               icon: const RaftMessageAddReactionGlyph(),
               popupOpen: pickerMessageId == message.id,
               onPressed: () => openReactionPicker(message, anchor),
@@ -2196,7 +2196,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
           key: ValueKey('message-save-${message.id}'),
           label: raftText(
             context,
-            saved ? 'Remove from Saved' : 'Save message',
+            saved ? 'Remove from Saved' : 'Save Message',
           ),
           icon: const RaftIcon(RaftGlyph.bookmark, size: 13),
           active: saved,
@@ -2223,12 +2223,12 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         ),
       if (canReact)
         RaftMessageSemanticsAction(
-          raftText(context, 'Add reaction'),
+          raftText(context, 'Add Reaction'),
           (row) => openReactionPicker(message, row),
         ),
       if (presentationActive)
         RaftMessageSemanticsAction(
-          raftText(context, saved ? 'Remove from Saved' : 'Save message'),
+          raftText(context, saved ? 'Remove from Saved' : 'Save Message'),
           (_) => saveMessage(message),
         ),
       RaftMessageSemanticsAction(
@@ -3412,7 +3412,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
                   : loading
                   ? Center(
                       child: Text(
-                        raftText(context, 'Loading...'),
+                        raftText(context, 'Loading messages…'),
                         style: RaftTypography.mono(
                           RaftTokens.of(context),
                           size: 14,
@@ -3469,13 +3469,13 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         (_messages.threadResolutionLoading ||
             _messages.threadResolutionError != null)) {
       final body = RaftThreadResolutionBody(
-        loadingLabel: raftText(context, 'Loading...'),
+        loadingLabel: raftText(context, 'Loading thread…'),
         errorTitle: _messages.threadResolutionError == null
             ? null
             : raftText(context, "Couldn't load this thread"),
         errorBody: raftText(
           context,
-          "The thread couldn't be opened. If this channel just became public, retrying usually fixes it.",
+          "The thread couldn't be opened. If this channel recently became public, try again.",
         ),
         retryLabel: raftText(context, 'Retry'),
         onRetry: () {
@@ -3493,7 +3493,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
       return widget.threadParentSlot == null ? body : taskLoadingBody(body);
     }
     final loadingBody = RaftThreadRepliesLoadingBody(
-      loadingLabel: raftText(context, 'Loading...'),
+      loadingLabel: raftText(context, 'Loading thread…'),
       parent: widget.hideThreadParent || w.presentedThreadParent == null
           ? null
           : tile(w.presentedThreadParent!, parent: true),

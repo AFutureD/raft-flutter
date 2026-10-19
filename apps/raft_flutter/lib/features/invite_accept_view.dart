@@ -209,17 +209,14 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
         404 => raftText(context, 'This invite link is invalid or has expired.'),
         429 => raftText(
           context,
-          'Too many attempts. Please wait a minute and try again.',
+          'Too many attempts. Wait a minute and try again.',
         ),
-        _ => raftText(context, 'Failed to load invite link. Please try again.'),
+        _ => raftText(context, 'Failed to load invite link. Try again.'),
       };
     } catch (_) {
       if (!mounted || token != widget.token) return;
       if (info == null) {
-        error = raftText(
-          context,
-          'Failed to load invite link. Please try again.',
-        );
+        error = raftText(context, 'Failed to load invite link. Try again.');
       }
     }
     if (mounted) setState(() => loading = false);

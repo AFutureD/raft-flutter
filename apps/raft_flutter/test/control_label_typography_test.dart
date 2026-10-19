@@ -152,7 +152,7 @@ void main() {
       (const Locale('en'), TargetPlatform.android),
     ]) {
       await mount(t, locale: locale, platform: platform);
-      final markAll = locale.languageCode == 'zh' ? '全部已读' : 'Mark all read';
+      final markAll = locale.languageCode == 'zh' ? '全部已读' : 'Mark All Read';
       for (final entry in controlLabels(t, markAll: markAll).entries) {
         expect(entry.value, isNotEmpty, reason: entry.key);
         for (final style in entry.value) {

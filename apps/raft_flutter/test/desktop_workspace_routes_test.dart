@@ -666,7 +666,7 @@ void main() {
       );
       await t.pump(const Duration(milliseconds: 600));
       final composer = t.state(find.byType(RaftComposer));
-      expect(find.text('Loading...'), findsOneWidget);
+      expect(find.text('Loading messages…'), findsOneWidget);
       client.pendingMessages!.complete({
         'messages': [
           for (var i = 1; i <= 40; i++)
@@ -720,13 +720,13 @@ void main() {
     );
     await t.pumpAndSettle();
     expect(find.byType(RaftComposer), findsOneWidget);
-    expect(find.text('Loading...'), findsOneWidget);
+    expect(find.text('Loading messages…'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     final compose = t.state(find.byType(RaftComposer));
     w.messageDomain.state.channelLoading = false;
     w.notifyListeners();
     await t.pumpAndSettle();
-    expect(find.text('Loading...'), findsNothing);
+    expect(find.text('Loading messages…'), findsNothing);
     expect(find.byType(RaftComposer), findsOneWidget);
     expect(t.state(find.byType(RaftComposer)), same(compose));
   });

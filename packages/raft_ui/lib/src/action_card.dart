@@ -126,12 +126,7 @@ class RaftActionCard extends StatelessWidget {
           children: [
             RaftIcon(RaftGlyph.check, size: 10, color: recipe.badge.color),
             SizedBox(width: recipe.badgeGap),
-            Text(
-              t.brutal
-                  ? raftText(context, 'Done').toUpperCase()
-                  : raftText(context, 'Done'),
-              style: recipe.badge,
-            ),
+            Text(raftText(context, 'Done'), style: recipe.badge),
           ],
         ),
       ),

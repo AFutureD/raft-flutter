@@ -97,7 +97,7 @@ void main() {
           }
           expect(acceptedRect, isNotNull);
           expect(w.messageDomain.state.channelLoading, true);
-          expect(find.text('Loading...'), findsNothing);
+          expect(find.text('Loading thread…'), findsNothing);
           await tester.runAsync(() async {
             response.complete({
               'messages': next,

@@ -412,7 +412,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                 Text(
                   raftText(
                     context,
-                    'Addresses on this machine are never sent through the proxy. The password is stored in the secure storage of this device and sent only to the proxy.',
+                    'Addresses on this device are never sent through the proxy. The password is stored in the secure storage of this device and sent only to the proxy.',
                   ),
                   style: RaftSettingsText(RaftTokens.of(context)).description,
                 ),

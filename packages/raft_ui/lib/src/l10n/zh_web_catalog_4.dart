@@ -46,11 +46,10 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Filter tasks": "筛选任务",
   "Final Trial Period": "最终试用期",
   "Finalize report failed": "完成报告失败",
-  "Find a Server admin": "查找 Server 管理员",
+  "Find a Server admin": "查找服务器管理员",
   "Find a conversation…": "查找会话…",
   "Finish OAuth": "完成 OAuth",
   "Finish Setup": "完成设置",
-  "Finish setup": "完成设置",
   "Finishing sign-in…": "正在完成登录…",
   "Finishing upload…": "正在完成上传…",
   "Finishing…": "完成中…",
@@ -96,8 +95,7 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Fullscreen": "全屏",
   "Gateway model ID": "Gateway 模型 ID",
   "Generate Connect Command": "生成连接命令",
-  "Generate a fresh Computer connect command to continue.":
-      "生成新的 Computer 连接命令以继续。",
+  "Generate a fresh Computer connect command to continue.": "生成新的计算机连接命令以继续。",
   "Generate a fresh connect command to continue.": "生成新的连接命令以继续。",
   "Generate a token for this agent, then use it with Raft CLI login or pass it as the credential to the Raft SDK.":
       "为此 Agent 生成 token，然后用于 Raft CLI 登录，或作为 credential 传给 Raft SDK。",
@@ -132,8 +130,8 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Greater reasoning depth for complex problems": "针对复杂问题提供更深入的推理",
   "Greeting": "问候语",
   "Grid view": "网格视图",
-  "Grok CLI is not signed in. Run grok login on this Computer, then retry.":
-      "Grok CLI 未登录。请在此 Computer 上运行 grok login，然后重试。",
+  "Grok CLI is not signed in. Run grok login on this computer, then retry.":
+      "Grok CLI 未登录。请在此计算机上运行 grok login，然后重试。",
   "Guest": "访客",
   "Guest access": "访客访问",
   "Guest access is read-only. You can read and follow this thread, but you cannot reply or react.":
@@ -204,8 +202,8 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Humans:": "人类：",
   "I agree to the <terms>Terms of Service</terms> and acknowledge the <privacy>Privacy Policy</privacy>.":
       "我同意<terms>服务条款</terms>并确认<privacy>隐私政策</privacy>。",
-  "I understand that everyone in the Botiverse workspace, including agents, can read this report and its selected diagnostic data, and I consent to submit it.":
-      "我理解 Botiverse 工作区的所有成员（包括 Agent）均可查看本报告及其中选择附带的诊断数据，并同意提交。",
+  "I understand that everyone in the Botiverse server, including agents, can read this report and its selected diagnostic data, and I consent to submit it.":
+      "我理解 Botiverse 服务器的所有成员（包括 Agent）均可查看本报告及其中选择附带的诊断数据，并同意提交。",
   "I'll set this up myself": "我自己来设置",
   "IM Bridges": "IM Bridges",
   "Idea": "想法",
@@ -214,10 +212,10 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "If Open browser keeps you here, copy the link and paste it into Safari or Chrome.":
       "如果「打开浏览器」没有跳转，请复制链接并粘贴到 Safari 或 Chrome。",
   "If the app didn't open, tap the button below.": "如果 App 没有自动打开，请点下面的按钮。",
-  "If the command is not installed, run Install first. Then re-run Setup to reconnect this Computer.":
-      "如果命令未安装，请先运行 Install。然后重新运行 Setup 以重新连接这台 Computer。",
+  "If the command is not installed, run Install first. Then re-run Setup to reconnect this computer.":
+      "如果命令未安装，请先运行 Install。然后重新运行 Setup 以重新连接这台计算机。",
   "If this page and the computer seem to disagree, ask the computer itself:":
-      "如果这个页面和 Computer 状态看起来不一致，请直接询问 Computer：",
+      "如果这个页面和计算机状态看起来不一致，请直接询问计算机：",
   "If this tab stays open, close it manually.": "如果此标签页仍然打开，请手动关闭。",
   "Ignore": "忽略",
   "Image input": "图片输入",
@@ -243,23 +241,22 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Install Hermes separately from Raft; current Hermes builds include the Raft adapter used by gateway setup.":
       "Hermes 需与 Raft 分开安装；当前 Hermes 构建包含 gateway 设置使用的 Raft adapter。",
   "Install Raft": "安装 Raft",
-  "Install Raft Computer from PowerShell, then connect this Windows x64 machine to the server.":
-      "从 PowerShell 安装 Raft Computer，然后将这台 Windows x64 机器连接到服务器。",
+  "Install Raft Computer from PowerShell, then connect this Windows x64 computer to the server.":
+      "从 PowerShell 安装 Raft Computer，然后将这台 Windows x64 计算机连接到服务器。",
   "Install and continue": "安装并继续",
-  "Install app": "安装应用",
   "Install connected app": "安装已连接应用",
-  "Install on this Server": "安装到此 Server",
+  "Install on this server": "安装到此服务器",
   "Install one of these on this computer, then hit refresh next to Runtime.":
       "在这台计算机上安装其中一个，然后点运行时旁边的刷新。",
   "Install or upgrade Raft CLI": "安装或升级 Raft CLI",
   "Install or upgrade Raft CLI and the Claude Code channel plugin":
       "安装或升级 Raft CLI 和 Claude Code 频道插件",
   "Install target": "安装目标",
-  "Install the Raft Computer CLI on this macOS or Linux machine, then connect it to this server.":
-      "在这台 macOS 或 Linux 机器上安装 Raft Computer CLI，然后将它连接到此服务器。",
+  "Install the Raft Computer CLI on this macOS or Linux computer, then connect it to this server.":
+      "在这台 macOS 或 Linux 计算机上安装 Raft Computer CLI，然后将它连接到此服务器。",
   "Install to this server": "安装到此服务器",
   "Installation ID": "安装 ID",
-  "Installation on this server": "此 Server 上的安装",
+  "Installation on this server": "此服务器上的安装",
   "Installation status could not be loaded. Reload this page to try again.":
       "无法加载安装状态。请刷新页面重试。",
   "Installation suspended": "安装已暂停",
@@ -279,7 +276,6 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Invite by Email": "通过邮箱邀请",
   "Invite error": "邀请出错",
   "Invite expiry": "邀请有效期",
-  "Invite human": "邀请成员",
   "Invite link unavailable": "邀请链接不可用",
   "Invite resent": "已重新发送",
   "Invite server slug is required": "请填写受邀服务器的 slug",
@@ -319,39 +315,25 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
       "更新应用 <n>{clientKey}</n>",
   "Recover <n>{clientKey}</n> for <n>@{agent}</n>":
       "恢复 <n>{clientKey}</n> 给 <n>@{agent}</n>",
-  "@{agent}":
-      "@{agent}",
-  "{client} installed on this Server":
-      "已在此 Server 安装 {client}",
-  "Committed by <n>{user}</n>":
-      "由 <n>{user}</n> 提交",
-  "Join #{channel} to run this.":
-      "加入 #{channel} 后才能执行。",
-  "{count} added to #{channel}":
-      "已向 #{channel} 添加 {count} 位",
-  "{client} approved for @{agent}":
-      "已批准 {client} 用于 @{agent}",
-  "{client} registered ({clientKey})":
-      "{client} 已注册（{clientKey}）",
-  "{client} updated ({clientKey})":
-      "{client} 已更新（{clientKey}）",
-  "{client} ownership recovered to @{owner}":
-      "{client} 的所有权已恢复给 @{owner}",
-  "Will send to: @{agent}":
-      "将发送给：@{agent}",
-  "Add 1 member to <n>{target}</n>":
-      "向 <n>{target}</n> 添加 1 位成员",
-  "Add {count} members to <n>{target}</n>":
-      "向 <n>{target}</n> 添加 {count} 位成员",
+  "@{agent}": "@{agent}",
+  "{client} installed on this server": "已在此服务器安装 {client}",
+  "Committed by <n>{user}</n>": "由 <n>{user}</n> 提交",
+  "Join #{channel} to run this.": "加入 #{channel} 后才能执行。",
+  "{count} added to #{channel}": "已向 #{channel} 添加 {count} 位",
+  "{client} approved for @{agent}": "已批准 {client} 用于 @{agent}",
+  "{client} registered ({clientKey})": "{client} 已注册（{clientKey}）",
+  "{client} updated ({clientKey})": "{client} 已更新（{clientKey}）",
+  "{client} ownership recovered to @{owner}": "{client} 的所有权已恢复给 @{owner}",
+  "Will send to: @{agent}": "将发送给：@{agent}",
+  "Add 1 member to <n>{target}</n>": "向 <n>{target}</n> 添加 1 位成员",
+  "Add {count} members to <n>{target}</n>": "向 <n>{target}</n> 添加 {count} 位成员",
   "Join channel to comment": "加入频道后才能评论",
   "Join channel to reply": "加入频道以回复",
   "Join selected channels first": "请先加入所选频道",
   "Join selected public channels": "加入所选公开频道",
   "Join this server": "加入此服务器",
-  "Join this server?": "加入此服务器？",
   "Join visible public channels (slock channel join).":
       "加入可见公开频道（slock channel join）。",
-  "Join workspace": "加入工作空间",
   "Joined": "加入时间",
   "Joined channels, DMs, and tasks. Public channel joins. No server-level settings or membership management.":
       "已加入的频道、私信与任务。公开频道加入。无服务器级设置或成员管理权限。",
@@ -381,13 +363,12 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
       "运行该 Agent 时保持 RAFT_PROFILE 已设置。",
   "Keep Stopped": "保持停止",
   "Keep current": "保持当前",
-  "Keep editing": "继续编辑",
   "Keep migration": "继续迁移",
   "Keep this channel pinned to the top of your sidebar.": "将此频道固定在你的侧栏顶部。",
   "Keeps current seats": "保持当前席位",
   "Key": "键",
   "Kimi is not signed in on this Computer. Run <command>kimi login</command> there, then retry the model check.":
-      "此 Computer 尚未登录 Kimi。请在该 Computer 上运行 <command>kimi login</command>，然后重试模型检查。",
+      "此计算机尚未登录 Kimi。请在该计算机上运行 <command>kimi login</command>，然后重试模型检查。",
   "L": "L",
   "LEGACY": "LEGACY",
   "Labs": "Labs",
@@ -401,15 +382,13 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Largest Channels": "最大的频道",
   "Last 30 Days": "最近 30 天",
   "Last 7 Days": "最近 7 天",
-  "Last lines of this machine's runner log — free text, including lines from other agents on it. Size-bounded; visible to everyone who can read this report, including agents. Secret masking covers known credential shapes only — a floor, not a guarantee. Requires the runtime transcript above.":
-      "该机器 runner 日志的最后若干行，是自由文本，含同机其他 Agent 的行；有大小上限，报告读者（含 Agent）都能看到。凭据遮蔽只覆盖已知形状，是下限不是保证。需先勾选上方会话记录。",
+  "Last lines of this computer's runner log — free text, including lines from other agents on it. Size-bounded; visible to everyone who can read this report, including agents. Secret masking covers known credential shapes only — a floor, not a guarantee. Requires the runtime transcript above.": "该计算机 runner 日志的最后若干行，是自由文本，含同一计算机上其他 Agent 的行；有大小上限，报告读者（含 Agent）都能看到。凭据遮蔽只覆盖已知形状，是下限不是保证。需先勾选上方会话记录。",
   "Last owner": "最后一位所有者",
   "Last tool": "最近工具",
   "Last used": "最近使用",
   "Launch this runtime with higher speed at a higher cost per token.":
       "以更高的单 token 成本换取更快速度启动此运行时。",
   "Learn more": "了解更多",
-  "Leave": "离开",
   "Leave Channel": "退出频道",
   "Leave Server": "离开服务器",
   "Leave a channel the agent has joined (slock channel leave).":
@@ -442,9 +421,8 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Live agent activity": "实时 Agent 动态",
   "Load More": "加载更多",
   "Load enabled Pi extensions installed on the computer running this agent. Applying changes restarts a running agent.":
-      "加载运行此 agent 的电脑上已安装并启用的 Pi 扩展。应用修改会重启运行中的 agent。",
+      "加载运行此 agent 的计算机上已安装并启用的 Pi 扩展。应用修改会重启运行中的 agent。",
   "Load local Pi extensions": "加载本机 Pi 扩展",
-  "Load more": "加载更多",
   "Load older messages": "加载更早的消息",
   "Loading": "加载中",
   "Loading App Notifications...": "正在加载 App 通知…",
@@ -453,7 +431,7 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Loading agent DMs…": "正在加载 Agent 私信…",
   "Loading agent channels…": "正在加载 Agent 频道…",
   "Loading assigned Agents…": "正在加载已关联的 Agent…",
-  "Loading available Raft Servers...": "正在加载可用的 Raft Server…",
+  "Loading available Raft Servers...": "正在加载可用的 Raft 服务器…",
   "Loading channel": "正在加载频道",
   "Loading emoji…": "正在加载表情…",
   "Loading feedback…": "正在加载反馈…",
@@ -464,7 +442,7 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Loading members…": "正在加载成员…",
   "Loading more files…": "正在加载更多文件…",
   "Loading more saved messages": "正在加载更多已保存消息",
-  "Loading more…": "加载更多…",
+  "Loading more…": "正在加载更多…",
   "Loading newer messages…": "正在加载更新的消息…",
   "Loading newer replies...": "正在加载更新的回复…",
   "Loading older messages...": "正在加载更早的消息…",
@@ -483,8 +461,6 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Log out": "退出登录",
   "Log out of this browser. Your account and data stay; you can log back in any time.":
       "退出当前浏览器的登录状态。你的账户和数据会保留，随时可以重新登录。",
-  "Log out of this browser? Your account and data are kept; you can log back in any time.":
-      "要退出当前浏览器的登录状态吗？你的账户和数据会保留，随时可以重新登录。",
   "Logging out…": "正在退出…",
   "Login failed": "登录失败",
   "Login with": "登录方式",
@@ -500,16 +476,13 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "MCP server": "MCP 服务器",
   "MCP server URL": "MCP 服务器 URL",
   "MCP servers": "MCP 服务器",
-  "MCP servers this Agent has used. Enabled Server tools are available automatically.":
+  "MCP servers this agent has used. Enabled server tools are available automatically.":
       "此 Agent 使用过的 MCP 服务器。服务器已启用的工具会自动可用。",
   "MCP usage": "MCP 使用记录",
-  "Machine runner log tail (your own machine only)": "机器运行日志尾部（仅你自己的机器）",
-  "Make Channel Private": "将频道设为私密",
-  "Make Channel Public": "将频道设为公开",
+  "Computer runner log tail (your own computer only)": "计算机运行日志尾部（仅你自己的计算机）",
   "Make Private": "设为私密",
   "Make Public": "设为公开",
   "Make admin": "设为管理员",
-  "Make public": "设为公开",
   "Make this server public": "将此服务器设为公开",
   "Make this server public?": "将此服务器设为公开？",
   "Making public…": "正在设为公开…",
@@ -525,8 +498,8 @@ const Map<String, String> zhCatalogWeb4 = <String, String>{
   "Managed MCP request failed": "托管 MCP 请求失败",
   "Managed by the system": "由系统管理",
   "Manual": "手动",
-  "Mark all as read": "全部标记为已读",
-  "Mark all read": "全部已读",
+  "Mark All as Read": "全部标记为已读",
+  "Mark All Read": "全部已读",
   "Mark as Done": "标记为完成",
   "Mark as Read": "标为已读",
   "Mark as Unread": "标为未读",

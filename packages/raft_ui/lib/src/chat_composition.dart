@@ -869,7 +869,6 @@ class RaftConversationDateHeader extends StatelessWidget {
         ).copyWith(
           fontFamily: t.brutal ? t.bodyFont : t.monoFont,
           fontWeight: t.brutal ? FontWeight.w700 : FontWeight.w400,
-          letterSpacing: t.brutal ? 1 : 1.1,
         );
     final line = Divider(
       height: t.brutal ? 2 : 1,
@@ -878,7 +877,6 @@ class RaftConversationDateHeader extends StatelessWidget {
           ? Colors.black.withValues(alpha: .15)
           : t.colors[t.dark ? 'ink-4' : 'line-hairline'],
     );
-    // Announced in the label's own case, not the visual uppercase.
     return Semantics(
       header: true,
       label: label,
@@ -889,7 +887,7 @@ class RaftConversationDateHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final labelText = label.toUpperCase();
+              final labelText = label;
               final painter = TextPainter(
                 text: TextSpan(text: labelText, style: text),
                 textDirection: Directionality.of(context),

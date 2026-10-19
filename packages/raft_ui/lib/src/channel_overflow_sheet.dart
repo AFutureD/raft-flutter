@@ -436,7 +436,6 @@ class RaftChannelInfoForm extends StatelessWidget {
         children: [
           RaftProductFormField(
             label: 'Name',
-            uppercase: false,
             required: true,
             labelWeight: FontWeight.w500,
             family: t.bodyFont,
@@ -452,7 +451,6 @@ class RaftChannelInfoForm extends StatelessWidget {
           const SizedBox(height: 12),
           RaftProductFormField(
             label: 'Description',
-            uppercase: false,
             optional: true,
             labelWeight: FontWeight.w500,
             family: t.bodyFont,
@@ -946,14 +944,14 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
                 runSpacing: 12,
                 children: [
                   RaftSettingsRecipeButton(
-                    label: 'Keep editing',
+                    label: 'Keep Editing',
                     variant: RaftButtonRecipeVariant.outline,
                     size: RaftButtonRecipeSize.sm,
                     onPressed: busy ? null : onKeepEditing,
                   ),
                   RaftSettingsRecipeButton(
                     key: const ValueKey('channel-overflow-unsaved-discard'),
-                    label: 'Discard changes',
+                    label: 'Discard Changes',
                     variant: RaftButtonRecipeVariant.warning,
                     size: RaftButtonRecipeSize.sm,
                     onPressed: busy ? null : onDiscard,
@@ -961,7 +959,7 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
                   if (onSaveAndClose != null) ...[
                     RaftSettingsRecipeButton(
                       key: const ValueKey('channel-overflow-unsaved-save'),
-                      label: busy ? 'Saving…' : 'Save and close',
+                      label: busy ? 'Saving…' : 'Save and Close',
                       variant: RaftButtonRecipeVariant.accent,
                       size: RaftButtonRecipeSize.sm,
                       onPressed: busy ? null : onSaveAndClose,
@@ -981,7 +979,7 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       RaftSettingsRecipeButton(
-                        label: 'Keep editing',
+                        label: 'Keep Editing',
                         variant: RaftButtonRecipeVariant.outline,
                         size: RaftButtonRecipeSize.sm,
                         onPressed: busy ? null : onKeepEditing,
@@ -989,7 +987,7 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
                       const SizedBox(width: 12),
                       RaftSettingsRecipeButton(
                         key: const ValueKey('channel-overflow-unsaved-discard'),
-                        label: 'Discard changes',
+                        label: 'Discard Changes',
                         variant: RaftButtonRecipeVariant.warning,
                         size: RaftButtonRecipeSize.sm,
                         onPressed: busy ? null : onDiscard,
@@ -998,7 +996,7 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
                         const SizedBox(width: 12),
                         RaftSettingsRecipeButton(
                           key: const ValueKey('channel-overflow-unsaved-save'),
-                          label: busy ? 'Saving…' : 'Save and close',
+                          label: busy ? 'Saving…' : 'Save and Close',
                           variant: RaftButtonRecipeVariant.accent,
                           size: RaftButtonRecipeSize.sm,
                           onPressed: busy ? null : onSaveAndClose,

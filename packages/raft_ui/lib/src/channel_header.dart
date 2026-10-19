@@ -364,8 +364,8 @@ class RaftChannelHeader extends StatelessWidget {
 }
 
 /// ChatPanel `regularTitleSuffix` archived badge: `inline-flex items-center
-/// rounded-sm border bg-warning/30 px-1.5 py-1 text-[11px] font-bold uppercase
-/// tracking-wide leading-none`; Brutal `rounded-none border-2 border-black
+/// rounded-sm border bg-warning/30 px-1.5 py-1 text-[11px] font-bold
+/// leading-none`; Brutal `rounded-none border-2 border-black
 /// bg-brutal-orange/30`.
 class _ArchivedBadge extends StatelessWidget {
   const _ArchivedBadge(this.label);
@@ -388,13 +388,13 @@ class _ArchivedBadge extends StatelessWidget {
         ),
       ),
       child: Text(
-        label.toUpperCase(),
+        label,
         style: RaftTypography.mono(
           t,
           size: 11,
           line: 11,
           color: t.brutal ? Colors.black : t.strong,
-        ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 11 * .025),
+        ).copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }

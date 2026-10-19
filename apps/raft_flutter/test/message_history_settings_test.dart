@@ -165,7 +165,7 @@ void main() {
 
       await lower();
       expect(cap.budget, 1 << 30);
-      await t.tap(find.text('Cancel'));
+      await t.tap(find.text('Keep Limit'));
       await t.pumpAndSettle();
       expect(cap.budget, 1 << 30);
       await lower();

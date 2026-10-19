@@ -34,11 +34,7 @@ class RaftSidebarSectionRecipe {
       tokens.brutal ? Colors.black.withValues(alpha: .7) : tokens.muted;
   // The row inherits the host's heading face (Inter in Elegant, Hanken in
   // Brutal): `button { font: inherit }` under `main.font-display`.
-  TextStyle get title => RaftTypography.heading(
-    tokens,
-    size: 12,
-    line: 16,
-  ).copyWith(letterSpacing: 1.2);
+  TextStyle get title => RaftTypography.heading(tokens, size: 12, line: 16);
   TextStyle get count => RaftTypography.mono(
     tokens,
     size: 12,
@@ -129,7 +125,7 @@ class RaftSidebarSectionHeader extends StatelessWidget {
         ],
         Flexible(
           child: Text(
-            label.toUpperCase(),
+            label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: recipe.title,

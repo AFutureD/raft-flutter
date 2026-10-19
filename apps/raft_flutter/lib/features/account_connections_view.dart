@@ -129,7 +129,7 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
       );
     }
     await confirm(
-      'Set password by email',
+      'Set Password by Email',
       'Send a password setup link to your account email address?',
       () async {
         await w.client.post('/auth/forgot-password', data: {'email': email});
@@ -137,7 +137,7 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
           setState(() => passwordSetupSent = true);
         }
       },
-      submit: 'Send email',
+      submit: 'Send Email',
     );
   }
 
@@ -155,14 +155,15 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
       return;
     }
     final accepted = await confirm(
-      'Disconnect this sign-in account?',
+      'Disconnect Account',
       'You can still sign in with your remaining account methods.',
       () async {
         await w.client.delete(
           '/auth/identities/${Uri.encodeComponent(provider)}',
         );
       },
-      submit: 'Disconnect',
+      submit: 'Disconnect Account',
+      cancel: 'Keep Account',
       destructive: true,
     );
     if (accepted && mounted && sourceAuthority == authority) await reload();
@@ -345,7 +346,7 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
             alignment: Alignment.centerLeft,
             // `variant="accent" size="sm"`
             child: RaftSettingsRecipeButton(
-              label: busy ? 'Sending setup email...' : 'Set password by email',
+              label: busy ? 'Sending setup email...' : 'Set Password by Email',
               variant: RaftButtonRecipeVariant.accent,
               size: RaftButtonRecipeSize.sm,
               onPressed: busy
@@ -407,7 +408,7 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
         ),
       ),
       if (passwordStateKnown && !passwordConfigured && !loading)
-        action('Set password by email', () {
+        action('Set Password by Email', () {
           if (mounted && sourceScope == authority) {
             requestPasswordSetup(sourceScope);
           }

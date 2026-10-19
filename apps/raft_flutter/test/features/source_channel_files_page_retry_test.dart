@@ -81,7 +81,7 @@ void main() {
           dark: dark,
           textScale: scale,
         );
-        await tester.tap(find.text('Load more'));
+        await tester.tap(find.text('Load More'));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('channel-file-a')), findsOneWidget);
         expect(find.text('Could not load more files.'), findsOneWidget);
@@ -99,13 +99,13 @@ void main() {
           context: list,
           scrollDelta: 10,
         ).dispatch(list);
-        await tester.ensureVisible(find.text('Load more'));
+        await tester.ensureVisible(find.text('Load More'));
         await tester.pumpAndSettle();
         expect(cursors, [
           null,
           'page-two',
         ], reason: 'scroll must not retry errors');
-        await tester.tap(find.text('Load more'));
+        await tester.tap(find.text('Load More'));
         await tester.pump();
         expect(cursors, [null, 'page-two', 'page-two']);
         expect(find.byKey(const ValueKey('channel-file-a')), findsOneWidget);
@@ -118,7 +118,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('channel-file-a')), findsOneWidget);
         expect(find.byKey(const ValueKey('channel-file-b')), findsOneWidget);
-        expect(find.text('Load more'), findsNothing);
+        expect(find.text('Load More'), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -141,13 +141,13 @@ void main() {
     );
     await store.load();
     await mountFiles(tester, store);
-    await tester.tap(find.text('Load more'));
+    await tester.tap(find.text('Load More'));
     await tester.pumpAndSettle();
     expect(store.error, ChannelFilesFailure.malformed);
     expect(find.byKey(const ValueKey('channel-file-a')), findsOneWidget);
     expect(find.byKey(const ValueKey('channel-file-bad')), findsNothing);
     expect(find.text('Could not load more files.'), findsOneWidget);
-    await tester.tap(find.text('Load more'));
+    await tester.tap(find.text('Load More'));
     await tester.pumpAndSettle();
     expect(cursors, [null, 'page-two', 'page-two']);
   });
@@ -173,11 +173,11 @@ void main() {
     );
     await store.load();
     await mountFiles(tester, store);
-    await tester.tap(find.text('Load more'));
+    await tester.tap(find.text('Load More'));
     await tester.pumpAndSettle();
     expect(find.byType(SourceChannelFileRow), findsNothing);
     expect(find.text('Could not load files.'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
-    expect(find.text('Load more'), findsNothing);
+    expect(find.text('Load More'), findsNothing);
   });
 }

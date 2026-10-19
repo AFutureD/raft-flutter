@@ -331,6 +331,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
         {'name': c.name},
       ),
       confirmLabel: tr('Archive Channel'),
+      cancelLabel: tr('Keep Channel'),
       loadingLabel: tr('Archiving…'),
       confirmVariant: RaftButtonRecipeVariant.warning,
       onConfirm: () async {
@@ -347,7 +348,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
     context,
     cardKey: const ValueKey('sidebar-section-dialog'),
     title: edit == null ? 'New section' : 'Edit section',
-    submitLabel: edit == null ? 'Create section' : 'Save',
+    submitLabel: edit == null ? 'Create Section' : 'Save',
     initialName: '${edit?['name'] ?? ''}',
     initialEmoji: '${edit?['emoji'] ?? ''}',
     onSubmit: (name, emoji) {
@@ -373,13 +374,14 @@ extension _SidebarContextMenus on _WorkspaceViewState {
       context,
       RaftConfirmDialog(
         surfaceKey: const ValueKey('shell-dialog'),
-        title: tr('Delete section'),
+        title: tr('Delete Section'),
         message: raftFormat(
           context,
           'Delete "{name}"? Its conversations will return to their default sections.',
           {'name': '${section['name']}'},
         ),
-        confirmLabel: tr('Delete section'),
+        confirmLabel: tr('Delete Section'),
+        cancelLabel: tr('Keep Section'),
       ),
     );
     if (ok != true || !mounted) return;
@@ -506,7 +508,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
         if (canArchive) ...[
           const RaftSidebarMenuDivider(),
           _item(
-            'Archive',
+            'Archive Channel',
             RaftGlyph.archive,
             close,
             () => _confirmArchive(c),
@@ -694,7 +696,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
           const RaftSidebarMenuDivider(),
           RaftSidebarMenuItem(
             itemKey: const ValueKey('sidebar-menu-delete-section'),
-            label: tr('Delete section'),
+            label: tr('Delete Section'),
             glyph: RaftGlyph.trash2,
             onPressed: () {
               close();

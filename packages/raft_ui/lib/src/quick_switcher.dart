@@ -318,9 +318,7 @@ class RaftQuickSwitcherSection extends StatelessWidget {
               Padding(
                 padding: slots.sectionHeading.padding,
                 child: Text(
-                  slots.sectionHeading.textTransform == 'uppercase'
-                      ? heading!.toUpperCase()
-                      : heading!,
+                  heading!,
                   style: slots.sectionHeading
                       .textStyle(rt)
                       .copyWith(fontFamily: t.bodyFont),
@@ -435,7 +433,6 @@ class RaftQuickSwitcherRow extends StatelessWidget {
                         variant: badge.startsWith(warningPrefix)
                             ? RaftBadgeRecipeVariant.warning
                             : RaftBadgeRecipeVariant.muted,
-                        uppercase: true,
                       ),
                   ],
                 ),

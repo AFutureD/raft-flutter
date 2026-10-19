@@ -66,7 +66,7 @@ void main() {
         tokens.bodyFont,
       );
       expect(
-        tester.widget<Text>(find.text('NAME')).style!.color,
+        tester.widget<Text>(find.text('Name')).style!.color,
         dark ? tokens.colors['foreground-hint'] : tokens.strong,
       );
       expect(tester.takeException(), isNull);

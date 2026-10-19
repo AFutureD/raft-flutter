@@ -157,7 +157,7 @@ void main() {
     await t.tap(start.first);
     await frames(t, 6);
     expect(find.byType(RaftFormDialog), findsOneWidget);
-    expect(find.text('Start agent?'), findsOneWidget);
+    expect(find.text('Start Agent'), findsWidgets);
     api.hangAll = false;
   });
 

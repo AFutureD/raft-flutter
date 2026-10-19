@@ -25,7 +25,7 @@ void main() {
               body: RaftMobileComputerList(
                 emptyTitle: 'No computers yet',
                 emptyDetail: 'Add a computer',
-                addLabel: 'Add computer',
+                addLabel: 'Add Computer',
                 retryLabel: 'Retry',
                 rows: [
                   for (var i = 0; i < 15; i++)

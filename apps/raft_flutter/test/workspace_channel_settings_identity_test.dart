@@ -121,10 +121,12 @@ TextEditingController nameField(WidgetTester t) => t
 
 Future<void> submitConfirmation(WidgetTester t, String label) async {
   await t.tap(
-    find.descendant(
-      of: find.byType(RaftConfirmDialog),
-      matching: find.text(label),
-    ),
+    find
+        .descendant(
+          of: find.byType(RaftConfirmDialog),
+          matching: find.text(label),
+        )
+        .last,
   );
   await frames(t, () {});
 }
@@ -181,7 +183,7 @@ void main() {
           find.byKey(const ValueKey('channel-overflow-unsaved-prompt')),
           findsOneWidget,
         );
-        await t.tap(find.text('Discard changes'));
+        await t.tap(find.text('Discard Changes'));
         await t.pumpAndSettle();
         expect(find.byType(ChannelSettings), findsNothing);
         expect(find.byType(WorkspaceView), findsOneWidget);
@@ -208,7 +210,7 @@ void main() {
         await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
         final openingState = t.state(find.byType(ChannelSettings));
         await tapSheetAction(t, 'Archive Channel');
-        await submitConfirmation(t, 'Archive');
+        await submitConfirmation(t, 'Archive Channel');
         expect(
           api.calls.where((r) => r.path == '/channels/c1/archive'),
           hasLength(1),
@@ -252,7 +254,7 @@ void main() {
         };
         await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
         await tapSheetAction(t, 'Delete Channel');
-        await submitConfirmation(t, 'Delete');
+        await submitConfirmation(t, 'Delete Channel');
         expect(w.channel?.id, 'c1');
         expect(find.byType(RaftConfirmDialog), findsOneWidget);
         await t.runAsync(() async {

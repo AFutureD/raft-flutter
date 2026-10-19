@@ -198,7 +198,7 @@ class RaftThreadReplies extends StatelessWidget {
 }
 
 /// Web `ThreadRepliesBadge.tsx`: the message footer "N replies · M new" chip.
-/// raft-ui `Badge` (uppercase=false) — appearance soft/variant information
+/// raft-ui `Badge` — appearance soft/variant information
 /// with unread replies, solid/default otherwise; MessageSquare/Pencil 12.
 class RaftThreadRepliesBadge extends StatefulWidget {
   const RaftThreadRepliesBadge({
@@ -234,7 +234,6 @@ class _RaftThreadRepliesBadgeState extends State<RaftThreadRepliesBadge> {
       variant: hasUnread
           ? RaftBadgeRecipeVariant.information
           : RaftBadgeRecipeVariant.default_,
-      uppercase: false,
       states: RaftRecipeStates({
         if (hovered && widget.onPressed != null) RaftRecipeStates.hover,
       }),

@@ -160,7 +160,7 @@ void main() {
     api.routes['GET /agents'] = (_) => {'agents': []};
     api.routes['GET /servers/s1/members'] = (_) => {'members': []};
     expect(w.can('federateChannels'), isTrue);
-    await tester.tap(find.bySemanticsLabel('Create joint channel'));
+    await tester.tap(find.bySemanticsLabel('Create Joint Channel'));
     await tester.pumpAndSettle();
     expect(find.byType(CreateJointChannelDialog), findsOneWidget);
     expect(w.section, 'home');
@@ -177,7 +177,7 @@ void main() {
       'Mark as Read',
       'Pin',
       'Mute',
-      'Archive',
+      'Archive Channel',
     ];
     for (final label in labels) {
       expect(find.text(label), findsOneWidget, reason: label);
@@ -416,7 +416,7 @@ void main() {
     await setup(tester, unread: {'d1': 3});
     await longPress(tester, row('d1'));
     expect(find.text('Mute'), findsNothing);
-    expect(find.text('Archive'), findsNothing);
+    expect(find.text('Archive Channel'), findsNothing);
     expect(find.text('Close Chat'), findsOneWidget);
     await tester.tap(find.text('Mark as Read'));
     await tester.pumpAndSettle();
@@ -477,7 +477,7 @@ void main() {
       {'id': 'c2', 'name': 'random', 'joined': true},
     ];
     await longPress(tester, row('c1'));
-    await tester.tap(find.text('Archive'));
+    await tester.tap(find.text('Archive Channel'));
     await tester.pumpAndSettle();
     expect(find.text('Archive Channel'), findsWidgets);
     expect(
@@ -485,11 +485,11 @@ void main() {
       findsOneWidget,
     );
     expect(posts, isEmpty, reason: 'nothing before the confirmation');
-    await tester.tap(find.text('Cancel'));
+    await tester.tap(find.text('Keep Channel'));
     await tester.pumpAndSettle();
     expect(posts, isEmpty);
     await longPress(tester, row('c1'));
-    await tester.tap(find.text('Archive'));
+    await tester.tap(find.text('Archive Channel'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Archive Channel').last);
     await tester.pumpAndSettle();
@@ -502,7 +502,7 @@ void main() {
     await setup(tester);
     api.routes.remove('POST /channels/c1/archive');
     await longPress(tester, row('c1'));
-    await tester.tap(find.text('Archive'));
+    await tester.tap(find.text('Archive Channel'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Archive Channel').last);
     await tester.pumpAndSettle();

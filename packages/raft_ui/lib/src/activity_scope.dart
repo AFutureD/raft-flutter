@@ -460,7 +460,7 @@ class RaftActivityScopePicker extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      raftText(context, 'DM and Channels').toUpperCase(),
+                      raftText(context, 'DM and Channels'),
                       style: RaftTypography.body(
                         t,
                         size: 12,

@@ -224,9 +224,9 @@ void main() {
           home: const Scaffold(body: SizedBox.expand()),
         ),
       );
-      controller.show('Something went wrong', dismissible: true);
+      controller.show('Could not complete that. Try again.', dismissible: true);
       await t.pump();
-      final title = find.text('Something went wrong');
+      final title = find.text('Could not complete that. Try again.');
       expect(title, findsOneWidget);
       final style = DefaultTextStyle.of(t.element(title)).style
           .merge(t.widget<Text>(title).style);

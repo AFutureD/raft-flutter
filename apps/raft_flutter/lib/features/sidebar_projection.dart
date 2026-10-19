@@ -121,7 +121,7 @@ List<SidebarGroup> projectSidebar({
   }
   sort(pinned, preferences['pinnedSortMode']);
   final groups = <String, SidebarGroup>{
-    'system:pinned': SidebarGroup('system:pinned', 'PINNED', pinned),
+    'system:pinned': SidebarGroup('system:pinned', 'Pinned', pinned),
   };
   final placements = rows('sectionPlacements')
     ..sort(
@@ -193,15 +193,15 @@ List<SidebarGroup> projectSidebar({
   sort(direct, preferences['dmSortMode']);
   groups['system:joint'] = SidebarGroup(
     'system:joint',
-    'JOINT CHANNELS',
+    'Joint Channels',
     joint,
   );
   groups['system:channels'] = SidebarGroup(
     'system:channels',
-    'CHANNELS',
+    'Channels',
     normal,
   );
-  groups['system:dms'] = SidebarGroup('system:dms', 'DIRECT MESSAGES', direct);
+  groups['system:dms'] = SidebarGroup('system:dms', 'Direct Messages', direct);
   final order = [
     ...(preferences['sectionOrder'] as List? ?? []).whereType<String>(),
     'system:pinned',

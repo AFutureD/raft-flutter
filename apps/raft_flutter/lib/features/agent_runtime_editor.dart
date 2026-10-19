@@ -32,8 +32,9 @@ class RuntimeEditorConfirm {
     required this.loadingLabel,
     required this.variant,
     required this.operation,
+    this.cancelLabel = 'Cancel',
   });
-  final String title, message, confirmLabel, loadingLabel;
+  final String title, message, confirmLabel, loadingLabel, cancelLabel;
   final RaftButtonRecipeVariant variant;
   final Future<void> Function() operation;
 }
@@ -389,8 +390,9 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
             {'from': from, 'to': to},
           ),
           confirmLabel: tr(
-            isActive ? 'Reset runtime session' : 'Save runtime change',
+            isActive ? 'Reset Runtime Session' : 'Save Runtime Change',
           ),
+          cancelLabel: tr(isActive ? 'Keep Session' : 'Cancel'),
           loadingLabel: tr(isActive ? 'Resetting…' : 'Applying…'),
           variant: RaftButtonRecipeVariant.warning,
           operation: () => patch(fields, restartMode: 'session'),
@@ -435,7 +437,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
                   'Switching to {model} resets the current runtime session.',
                   {'model': modelLabel},
                 ),
-          confirmLabel: tr('Reset'),
+          confirmLabel: tr('Reset Session'),
+          cancelLabel: tr('Keep Session'),
           loadingLabel: tr('Resetting…'),
           variant: RaftButtonRecipeVariant.warning,
           operation: () => patch(fields, restartMode: 'session'),
@@ -462,7 +465,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
           'Apply {changes} and restart this agent now?',
           {'changes': runtimeEditorList(context, labels)},
         ),
-        confirmLabel: tr('Restart agent'),
+        confirmLabel: tr('Restart Agent'),
+        cancelLabel: tr('Keep Working'),
         loadingLabel: tr('Restarting…'),
         variant: RaftButtonRecipeVariant.information,
         operation: () => patch(fields, restartMode: 'restart'),
@@ -527,7 +531,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
           'Apply {changes} and restart this agent now?',
           {'changes': runtimeEditorList(context, labels)},
         ),
-        confirmLabel: tr('Restart agent'),
+        confirmLabel: tr('Restart Agent'),
+        cancelLabel: tr('Keep Working'),
         loadingLabel: tr('Restarting…'),
         variant: RaftButtonRecipeVariant.information,
         operation: () => save('restart'),
@@ -583,7 +588,7 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
       ),
       RuntimeModelIdle() => raftText(
         context,
-        'Choose an online Computer to check available models.',
+        'Choose an online computer to check available models.',
       ),
       RuntimeModelNonLive(kind: 'missing_config') => fmt(
         '{runtimeName} needs configuration on this Computer before its models can be loaded.',
@@ -604,7 +609,7 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
           draft.runtime == 'grok'
               ? raftText(
                   context,
-                  'Grok CLI is not signed in. Run grok login on this Computer, then retry.',
+                  'Grok CLI is not signed in. Run grok login on this computer, then retry.',
                 )
               : fmt(
                   '{runtimeName} requires sign-in on this Computer. Sign in, then retry.',
@@ -622,7 +627,7 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
           context,
           'This Computer is offline. Reconnect it, then retry.',
         ),
-        _ => raftText(context, 'Could not load models from this Computer.'),
+        _ => raftText(context, 'Could not load models from this computer.'),
       },
     };
   }

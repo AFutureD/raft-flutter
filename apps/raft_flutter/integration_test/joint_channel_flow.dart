@@ -97,7 +97,7 @@ Future<void> verifyJointChannelFlow(
     hostId = owned[0];
     targetId = owned[1];
     await switchTo(hostId);
-    await _tap(tester, find.text('Create joint channel'));
+    await _tap(tester, find.text('Create Joint Channel'));
     await _text(tester, 'joint-name', name);
     await _text(
       tester,
@@ -122,8 +122,8 @@ Future<void> verifyJointChannelFlow(
     final initial = await w.client.get('/channels/$hostChannelId');
     expect((initial['jointPendingInvites'] as List).length, 1);
     await _tap(tester, find.text('Manage'));
-    await _tap(tester, find.text('Resend invitations'));
-    await _tap(tester, find.text('Resend invitations'));
+    await _tap(tester, find.text('Resend Invitations'));
+    await _tap(tester, find.text('Resend Invitations'));
     await _until(
       tester,
       () => find.byType(JointChannelManagementView).evaluate().isNotEmpty,
@@ -138,8 +138,8 @@ Future<void> verifyJointChannelFlow(
           .length,
       1,
     );
-    await _tap(tester, find.text('Accept invitation'));
-    await _tap(tester, find.text('Accept invitation'));
+    await _tap(tester, find.text('Accept Invitation'));
+    await _tap(tester, find.text('Accept Invitation'));
     await _until(tester, () => find.byType(RaftFormDialog).evaluate().isEmpty);
     await section('joint-channels');
     await _until(tester, () => find.text('#$name').evaluate().isNotEmpty);
@@ -148,7 +148,7 @@ Future<void> verifyJointChannelFlow(
       () =>
           find.text('Manage').evaluate().isNotEmpty &&
           find.byType(RaftFormDialog).evaluate().isEmpty &&
-          find.text('Accept invitation').evaluate().isEmpty,
+          find.text('Accept Invitation').evaluate().isEmpty,
     );
     final targetRows = await w.client.channels();
     final projection = targetRows.singleWhere(
@@ -168,8 +168,8 @@ Future<void> verifyJointChannelFlow(
       () => find.text('Native joint host').evaluate().isNotEmpty,
     );
     await capture('joint-participating-workspaces');
-    await _tap(tester, find.text('Disconnect workspace'));
-    await _tap(tester, find.text('Disconnect workspace'));
+    await _tap(tester, find.text('Disconnect Server'));
+    await _tap(tester, find.text('Disconnect Server'));
     await _until(tester, () => find.byType(RaftFormDialog).evaluate().isEmpty);
     await _closeManagement(tester);
     final disconnected = await w.client.channels();
@@ -184,10 +184,10 @@ Future<void> verifyJointChannelFlow(
       1,
     );
     await _tap(tester, find.text('Manage'));
-    await _tap(tester, find.text('Invite workspace'));
+    await _tap(tester, find.text('Invite Server'));
     await _text(tester, 'field-targetServerSlug', targetSlug);
     await _text(tester, 'field-invitedPeople', '@$handle');
-    await _tap(tester, find.text('Send invitation'));
+    await _tap(tester, find.text('Send Invitation'));
     await _until(tester, () => find.byType(RaftFormDialog).evaluate().isEmpty);
     await _closeManagement(tester);
     final reinvited = await w.client.get('/channels/$hostChannelId');

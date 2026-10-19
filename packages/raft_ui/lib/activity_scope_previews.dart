@@ -12,7 +12,7 @@ Widget activityCompactScopePreview() => RaftActivityScopeToolbar(
   onOpenSwitcher: () {},
   onSort: (_) {},
   markAllRead: RaftTextButton(
-    label: 'Mark all read',
+    label: 'Mark All Read',
     visualHeight: 32,
     minimumTargetSize: 32,
     onPressed: () {},

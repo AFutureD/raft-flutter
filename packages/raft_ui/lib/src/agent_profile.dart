@@ -113,7 +113,6 @@ class RaftRecipeBadge extends StatelessWidget {
     super.key,
     this.appearance = RaftBadgeRecipeAppearance.soft,
     this.variant,
-    this.uppercase = false,
     this.background,
     this.foreground,
     this.trailing,
@@ -128,7 +127,6 @@ class RaftRecipeBadge extends StatelessWidget {
   final Color? foreground;
   final RaftBadgeRecipeAppearance appearance;
   final RaftBadgeRecipeVariant? variant;
-  final bool uppercase;
   final Color? background;
 
   /// Inline content after the label (a runtime usage health Status).
@@ -141,18 +139,14 @@ class RaftRecipeBadge extends StatelessWidget {
       theme: raftRecipeTheme(t),
       appearance: appearance,
       variant: variant,
-      uppercase: uppercase,
       states: RaftRecipeStates({
         if (t.dark) RaftRecipeStates.dark,
       }, MediaQuery.sizeOf(context).width),
       tokens: rt,
     ).root;
     final decoration = s.decoration(rt);
-    // The recipe's `uppercase` axis only transforms Brutal (`text-transform`).
-    final upper =
-        uppercase && '${s.properties['text-transform']}' == 'uppercase';
     final text = RaftCssText(
-      upper ? label.toUpperCase() : label,
+      label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       controlLabel: true,
@@ -1075,7 +1069,7 @@ class _RaftActivityLogViewState extends State<RaftActivityLogView> {
                 if (t.brutal)
                   RaftPanelIconButton(
                     glyph: RaftGlyph.copy,
-                    tooltip: raftText(context, 'Copy diagnostic info'),
+                    tooltip: raftText(context, 'Copy Diagnostic Info'),
                     onPressed: onCopy,
                   )
                 else
@@ -1084,7 +1078,7 @@ class _RaftActivityLogViewState extends State<RaftActivityLogView> {
                     size: RaftButtonRecipeSize.iconXs,
                     glyph: RaftGlyph.copy,
                     glyphSize: 12,
-                    tooltip: raftText(context, 'Copy diagnostic info'),
+                    tooltip: raftText(context, 'Copy Diagnostic Info'),
                     foreground: t.colors['foreground-muted'],
                     onPressed: onCopy,
                   ),
@@ -1133,7 +1127,6 @@ class _RaftActivityRowState extends State<_RaftActivityRow> {
       theme: raftRecipeTheme(t),
       appearance: RaftBadgeRecipeAppearance.outline,
       variant: RaftBadgeRecipeVariant.default_,
-      uppercase: true,
       tokens: RaftRecipeTokens(t),
     ).root;
     return s.height ??
@@ -1243,7 +1236,6 @@ class _RaftActivityRowState extends State<_RaftActivityRow> {
                                 e.badge!,
                                 appearance: RaftBadgeRecipeAppearance.outline,
                                 variant: RaftBadgeRecipeVariant.default_,
-                                uppercase: true,
                                 mono: true,
                               ),
                             ),
@@ -1593,7 +1585,10 @@ class RaftReminderListView extends StatelessWidget {
           if (loading && reminders.isEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: RaftCssText(raftText(context, 'Loading…'), style: bold),
+              child: RaftCssText(
+                raftText(context, 'Loading reminders…'),
+                style: bold,
+              ),
             ),
           if (error != null)
             // AgentRemindersSection: `<Banner intent="warning" density="sm"
@@ -1723,7 +1718,7 @@ class RaftWorkspaceNode {
   }) : loading = false,
        hint = false;
 
-  /// A folder's listing in flight (`Spinner xs` + "Loading..."), at the depth
+  /// A folder's listing in flight (`Spinner xs` + "Loading files…"), at the depth
   /// of the folder's children.
   const RaftWorkspaceNode.loading({required this.depth})
     : name = '',
@@ -1866,7 +1861,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
           const EdgeInsets.symmetric(vertical: 4),
         ),
         children: loading && nodes.isEmpty
-            ? [message('Loading...')]
+            ? [message('Loading files…')]
             : error != null
             // AgentWorkspace.tsx: `px-3 py-4 text-center` AlertTriangle
             // (warning-strong / brutal-orange), the mono muted message
@@ -2056,7 +2051,10 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  RaftCssText(raftText(context, 'Loading...'), style: style),
+                  RaftCssText(
+                    raftText(context, 'Loading files…'),
+                    style: style,
+                  ),
                 ],
               )
             : RaftCssText(n.name, style: style),
@@ -2161,7 +2159,7 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
   final String path, content;
   final VoidCallback? onBack;
 
-  /// The read is in flight: the pane shows the centred "Loading..." line
+  /// The read is in flight: the pane shows the centred "Loading files…" line
   /// (AgentWorkspace.tsx `loadingFile`), not an empty file.
   final bool loading;
 
@@ -2239,7 +2237,7 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
   }
 
   Widget _loadingText(BuildContext context, RaftTokens t) => RaftCssText(
-    raftText(context, 'Loading...'),
+    raftText(context, 'Loading files…'),
     style: RaftTypography.mono(
       t,
       size: 14,

@@ -432,6 +432,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
     List<RaftFormField> fields,
     Future<void> Function(Map<String, String>) save, {
     String submit = 'Save',
+    String cancel = 'Cancel',
     String? description,
     bool destructive = false,
   }) async {
@@ -444,7 +445,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
             onSubmit: (values) async {
               if (!accepts(generation) || sourceAuthority != authority) {
                 throw StateError(
-                  'The active workspace changed. Reopen this form.',
+                  'The active server changed. Reopen this form.',
                 );
               }
               try {
@@ -460,6 +461,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
               }
             },
             submitLabel: submit,
+            cancelLabel: cancel,
             description: description,
             destructive: destructive,
           ),
@@ -472,12 +474,14 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
     String description,
     Future<void> Function() save, {
     String submit = 'Confirm',
+    String cancel = 'Cancel',
     bool destructive = false,
   }) => form(
     title,
     [],
     (_) => save(),
     submit: submit,
+    cancel: cancel,
     description: description,
     destructive: destructive,
   );

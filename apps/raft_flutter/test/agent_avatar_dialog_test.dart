@@ -149,7 +149,7 @@ void main() {
       await t.tap(find.text('Cancel'));
       await t.pumpAndSettle();
       expect(find.text('Unsaved changes'), findsOneWidget);
-      await t.tap(find.text('Keep editing'));
+      await t.tap(find.text('Keep Editing'));
       await t.pumpAndSettle();
       expect(
         t
@@ -159,7 +159,7 @@ void main() {
       );
       await t.tap(find.text('Cancel'));
       await t.pumpAndSettle();
-      await t.tap(find.text('Discard'));
+      await t.tap(find.text('Discard Changes'));
       await t.pumpAndSettle();
       expect(w.writes, isEmpty);
       expect(find.text('Open'), findsOneWidget);
@@ -319,7 +319,7 @@ void main() {
         await t.pumpAndSettle();
         expect(find.byType(RaftAvatarDiscardConfirmation), findsOneWidget);
         expect(w.writes, isEmpty);
-        await t.tap(find.text('Keep editing'));
+        await t.tap(find.text('Keep Editing'));
         await t.pumpAndSettle();
         expect(
           t

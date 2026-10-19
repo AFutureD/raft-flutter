@@ -227,10 +227,7 @@ Future<void> verifySidebarFlow(
     final header = tester.widget<RaftSidebarSectionHeader>(customHeader);
     expect(header.label, '🧭 $edited');
     expect(
-      find.descendant(
-        of: customHeader,
-        matching: find.text('🧭 $edited'.toUpperCase()),
-      ),
+      find.descendant(of: customHeader, matching: find.text('🧭 $edited')),
       findsOneWidget,
     );
     if (!hidden) expect(sidebarDm, findsNothing);

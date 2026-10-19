@@ -18,7 +18,7 @@ String runtimeFormLoadErrorText(Object error) {
   logUserError(error, where: 'runtime form definition');
   return switch (code) {
     'builtin_catalog_capability_required' => 'This Computer is too old to verify Built-in models. Your saved selection is preserved; update Raft Computer before changing it.',
-    'builtin_catalog_unavailable' || 'builtin_catalog_stale' => 'Built-in models cannot be verified right now. Your saved selection is preserved; reconnect this Computer and retry.',
+    'builtin_catalog_unavailable' || 'builtin_catalog_stale' => 'Built-in models cannot be verified right now. Your saved selection is preserved; reconnect this computer and retry.',
     _ => 'Runtime configuration is unavailable. Refresh and try again.',
   };
 }
@@ -530,7 +530,7 @@ class _RuntimeFormDialogState extends State<RuntimeFormDialog> {
     description.text = widget.initialDescription ?? '';
     if (widget.onboarding) {
       name.text = 'Cindy';
-      description.text = 'Onboarding Assistant';
+      description.text = 'Onboarding agent';
     }
     if (widget.onboarding) {
       // The directory's computers paint at once; the read revalidates them.

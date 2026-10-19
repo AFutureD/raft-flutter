@@ -35,7 +35,7 @@ double _publicHeaderHeight(BuildContext context) =>
 /// `PublicServerPage` loading branch: `min-h-screen ... bg-layer-canvas-muted
 /// theme-brutal:bg-brutal-cream font-display font-bold`, the label centred.
 class RaftPublicServerLoading extends StatelessWidget {
-  const RaftPublicServerLoading({super.key, this.label = 'Loading…'});
+  const RaftPublicServerLoading({super.key, this.label = 'Loading server…'});
   final String label;
   @override
   Widget build(BuildContext context) {
@@ -142,14 +142,14 @@ class RaftPublicChannelSidebar extends StatelessWidget {
                         RaftSpace.x2,
                       ),
                       child: Text(
-                        raftText(context, label).toUpperCase(),
+                        raftText(context, label),
                         style: RaftTypography.inherited(
                           t,
                           size: 11,
                           line: 16.5,
                           weight: FontWeight.w700,
                           color: t.colors['foreground-hint'] ?? t.muted,
-                        ).copyWith(letterSpacing: 11 * .05),
+                        ),
                       ),
                     ),
                     for (final channel in channels)

@@ -51,12 +51,7 @@ void main() {
         tester.getSize(find.byKey(const Key('notification-center-surface'))),
         const Size(320, 288),
       );
-      expect(
-        find.text(
-          family == RaftFamily.brutal ? 'NOTIFICATIONS' : 'Notifications',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('all clear'), findsOneWidget);
       expect(find.text('No notifications right now'), findsOneWidget);
       expect(

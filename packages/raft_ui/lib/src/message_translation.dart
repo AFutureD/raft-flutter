@@ -308,10 +308,7 @@ class RaftMessageTranslationOriginal extends StatelessWidget {
     );
     final base = DefaultTextStyle.of(context).style;
     final labelSlot = recipe.translationOriginalLabel;
-    var labelText = label;
-    if (labelSlot.textTransform == 'uppercase') {
-      labelText = labelText.toUpperCase();
-    }
+    final labelText = label;
     final quoteText = quote
         .text(tokens, base: base)
         .copyWith(fontStyle: FontStyle.normal);

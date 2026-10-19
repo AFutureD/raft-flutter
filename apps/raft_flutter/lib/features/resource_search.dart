@@ -420,7 +420,7 @@ class ResourceSearchResults extends StatelessWidget {
     Widget slotText(String text, rui.RaftSlotStyle slot) {
       final base = slot.textStyle(rt);
       return Text(
-        slot.textTransform == 'uppercase' ? text.toUpperCase() : text,
+        text,
         style: base.copyWith(
           // Unset family/line-height inherit the page (font-sans, 1.5).
           fontFamily: base.fontFamily ?? t.bodyFont,
@@ -515,7 +515,6 @@ class ResourceSearchResults extends StatelessWidget {
           if (searchBeyondHistory(row['createdAt'] as String?, plan, now))
             raftText(context, 'Upgrade to view'),
         ],
-        uppercaseWarnings: {raftText(context, 'Archived')},
         avatar: sender.isEmpty ? null : _senderAvatar(row, sender),
         sender: sender,
         time: DateTime.tryParse('${row['createdAt']}') == null
@@ -727,7 +726,6 @@ class ResourceSearchResults extends StatelessWidget {
       label: raftText(context, label),
       appearance: RaftBadgeRecipeAppearance.soft,
       variant: RaftBadgeRecipeVariant.muted,
-      uppercase: true,
     );
   }
 

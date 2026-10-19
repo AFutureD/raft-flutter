@@ -37,7 +37,7 @@ class _AffordancesState extends State<_Affordances> {
                   onPressed: () => setState(() => result = 'Thread callback'),
                 ),
                 RaftMessageToolbarAction(
-                  label: 'Add reaction',
+                  label: 'Add Reaction',
                   icon: const RaftMessageAddReactionGlyph(),
                   onPressed: () =>
                       setState(() => result = 'Reaction picker callback'),

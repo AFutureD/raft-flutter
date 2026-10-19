@@ -137,20 +137,19 @@ class RaftRuntimeUsageSurface extends StatelessWidget {
                       style: ink.sans(14, 20, ink.strong, FontWeight.w900),
                     ),
                     Text(
-                      (data.version?.trim().isNotEmpty == true
-                              ? raftFormat(context, 'Version {version}', {
-                                  'version': data.version!.trim(),
-                                })
-                              : raftText(context, 'Version unavailable'))
-                          .toUpperCase(),
+                      data.version?.trim().isNotEmpty == true
+                          ? raftFormat(context, 'Version {version}', {
+                              'version': data.version!.trim(),
+                            })
+                          : raftText(context, 'Version unavailable'),
                       key: const ValueKey('runtime-usage-version'),
                       style: ink.eyebrow(ink.muted(.55)),
                     ),
                     Text(
                       raftText(
                         context,
-                        'Visible with Computer edit permission or to the person who attached this Computer',
-                      ).toUpperCase(),
+                        'Visible with computer edit permission or to the person who attached this computer',
+                      ),
                       style: ink.eyebrow(ink.muted(.45)),
                     ),
                   ],
@@ -249,7 +248,7 @@ class RaftRuntimeUsageSurface extends StatelessWidget {
             Text(
               raftText(
                 context,
-                'A bounded refresh was requested from this Computer. Provider credentials never leave it.',
+                'A bounded refresh was requested from this computer. Provider credentials never leave it.',
               ),
               style: ink.sans(12, 20, ink.muted(.55)),
             ),
@@ -342,8 +341,7 @@ class RaftRuntimeUsageSurface extends StatelessWidget {
       'unsupported' =>
         'Account usage is unavailable for this runtime or sign-in method.',
       'error' => 'Cached usage could not be read.',
-      'reauth_required' =>
-        'Sign in again on this Computer. Last-known percentages are hidden until the provider authenticates.',
+      'reauth_required' => 'Sign in again on this computer. Last-known percentages are hidden until the provider authenticates.',
       _ => null,
     };
     return Column(
@@ -382,7 +380,6 @@ class RaftRuntimeUsageSurface extends StatelessWidget {
               variant: account.health == 'ok'
                   ? RaftBadgeRecipeVariant.success
                   : RaftBadgeRecipeVariant.warning,
-              uppercase: true,
             ),
           ],
         ),
@@ -477,9 +474,8 @@ class _UsageInk {
         ),
       );
 
-  /// `text-[10px] font-bold uppercase tracking-wide`.
-  TextStyle eyebrow(Color color) =>
-      sans(10, 15, color, FontWeight.w700).copyWith(letterSpacing: .25);
+  /// `text-[10px] font-bold`.
+  TextStyle eyebrow(Color color) => sans(10, 15, color, FontWeight.w700);
 }
 
 /// Web RuntimeAccountUsageChip trigger + hover card: the runtime Badge as a

@@ -14,8 +14,8 @@ const Map<String, String> zhCatalogNetworkProxy = <String, String>{
   'Password (optional)': '密码（可选）',
   'Saved. Leave blank to keep it.': '已保存。留空则保持不变。',
   'No-proxy list': '不使用代理的地址',
-  'Addresses on this machine are never sent through the proxy. The password is stored in the secure storage of this device and sent only to the proxy.':
-      '本机地址不会经过代理。密码保存在此设备的安全存储中，只会发送给代理服务器。',
+  "Addresses on this device are never sent through the proxy. The password is stored in the secure storage of this device and sent only to the proxy.":
+      "本机地址不会经过代理。密码保存在此设备的安全存储中，只会发送给代理服务器。",
   'Current status': '当前状态',
   'Saved.': '已保存。',
   'Enter the proxy host.': '请输入代理主机。',

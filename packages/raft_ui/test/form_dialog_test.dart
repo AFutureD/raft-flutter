@@ -132,6 +132,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Custom failure block'), findsOneWidget);
     expect(find.textContaining('Plain failure'), findsNothing);
-    expect(find.text('Something went wrong'), findsNothing);
+    expect(find.text('Could not complete that. Try again.'), findsNothing);
   });
 }

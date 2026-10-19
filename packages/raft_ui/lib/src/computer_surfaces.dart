@@ -64,7 +64,7 @@ class RaftPanelHeaderIconTile extends StatelessWidget {
 }
 
 /// MachineDetailPanel "Detected Runtimes" chip: raft-ui Badge (solid,
-/// default variant, not uppercase) with the callsite fill — detected
+/// default variant) with the callsite fill — detected
 /// `bg-info-soft text-info-strong theme-brutal:bg-brutal-cyan
 /// theme-brutal:text-black`, otherwise `bg-fill-muted text-foreground-muted`.
 class RaftRuntimeChip extends StatelessWidget {
@@ -87,7 +87,6 @@ class RaftRuntimeChip extends StatelessWidget {
       theme: raftRecipeTheme(t),
       appearance: RaftBadgeRecipeAppearance.solid,
       variant: RaftBadgeRecipeVariant.default_,
-      uppercase: false,
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: rt,
     ).root;
@@ -230,10 +229,10 @@ class RaftOptionCard extends StatelessWidget {
 }
 
 /// Sidebar.tsx computers mode heading: `mb-1.5 flex items-center
-/// justify-between px-2`, label `text-xs font-bold uppercase
-/// text-foreground-strong tracking-widest theme-brutal:text-black` + count
+/// justify-between px-2`, label `text-xs font-bold
+/// text-foreground-strong theme-brutal:text-black` + count
 /// `text-foreground-placeholder font-mono normal-case tracking-normal
-/// theme-brutal:text-black/40`, and the size-6 "Add computer" icon button.
+/// theme-brutal:text-black/40`, and the size-6 "Add Computer" icon button.
 class RaftComputerSidebarHeading extends StatelessWidget {
   const RaftComputerSidebarHeading({
     super.key,
@@ -241,7 +240,7 @@ class RaftComputerSidebarHeading extends StatelessWidget {
     required this.count,
     this.onAdd,
     this.addKey,
-    this.addLabel = 'Add computer',
+    this.addLabel = 'Add Computer',
   });
   final String label;
   final int count;
@@ -259,7 +258,7 @@ class RaftComputerSidebarHeading extends StatelessWidget {
         line: 16,
         weight: FontWeight.w700,
         color: strong,
-      ).copyWith(letterSpacing: 1.2),
+      ),
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
@@ -271,13 +270,12 @@ class RaftComputerSidebarHeading extends StatelessWidget {
               child: Text.rich(
                 TextSpan(
                   children: [
-                    TextSpan(text: label.toUpperCase()),
+                    TextSpan(text: label),
                     const TextSpan(text: ' '),
                     TextSpan(
                       text: '$count',
                       style: TextStyle(
                         fontFamily: t.monoFont,
-                        letterSpacing: 0,
                         color: t.brutal
                             ? Colors.black.withValues(alpha: .4)
                             : t.colors['foreground-placeholder'],
@@ -623,7 +621,7 @@ enum RaftComputerDot { upgrade, online, offline }
 /// shadow-[0_0_0_1px_var(--primary-edge)] theme-brutal:bg-soft-signal
 /// theme-brutal:text-black theme-brutal:shadow-brutal-sm`; the disabled
 /// "coming soon" card is dashed and muted. Title `text-sm font-bold
-/// uppercase`, description `text-xs font-normal normal-case`.
+/// sentence case, description `text-xs font-normal normal-case`.
 class RaftMachineTypeOption extends StatelessWidget {
   const RaftMachineTypeOption({
     super.key,
@@ -719,7 +717,7 @@ class RaftMachineTypeOption extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     RaftCssText(
-                      title.toUpperCase(),
+                      title,
                       style: raftCssText.merge(
                         RaftTypography.body(
                           t,
@@ -798,7 +796,7 @@ class RaftComputerSidebarList extends StatelessWidget {
     this.errorText,
     this.onAdd,
     this.addKey,
-    this.addLabel = 'Add computer',
+    this.addLabel = 'Add Computer',
     this.listKey,
   });
   final String label, emptyText, addLabel;

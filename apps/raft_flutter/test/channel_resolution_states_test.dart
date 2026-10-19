@@ -172,13 +172,13 @@ void main() {
             expect(c.calls, contains('GET:/channels/gone'));
             expect(w.location.entityId, 'gone');
             // Identity pending: an explicit loading body and no page chrome.
-            expect(find.text('LOADING CHANNEL'), findsOneWidget);
+            expect(find.text('Loading channel'), findsOneWidget);
             expect(find.byType(RaftComposer), findsNothing);
             expect(find.byType(RaftChatView), findsNothing);
             expect(find.byKey(const Key('conversation-tabs')), findsNothing);
             expect(find.text('Start the conversation'), findsNothing);
-            expect(find.text('SELECT A CHANNEL'), findsNothing);
-            expect(find.text('Loading...'), findsNothing);
+            expect(find.text('Select a channel'), findsNothing);
+            expect(find.text('Loading thread…'), findsNothing);
           }
           if (resolves) {
             held.complete({
@@ -188,8 +188,8 @@ void main() {
               'joined': true,
             });
             await tester.pumpAndSettle();
-            expect(find.text('LOADING CHANNEL'), findsNothing);
-            expect(find.text('SELECT A CHANNEL'), findsNothing);
+            expect(find.text('Loading channel'), findsNothing);
+            expect(find.text('Select a channel'), findsNothing);
             expect(find.byType(RaftChatView), findsOneWidget);
             expect(find.byType(RaftComposer), findsOneWidget);
             expect(find.byKey(const Key('conversation-tabs')), findsOneWidget);
@@ -205,8 +205,8 @@ void main() {
             );
             await tester.pumpAndSettle();
             expect(w.missingConversationChannelId, 'gone');
-            expect(find.text('LOADING CHANNEL'), findsNothing);
-            expect(find.text('SELECT A CHANNEL'), findsOneWidget);
+            expect(find.text('Loading channel'), findsNothing);
+            expect(find.text('Select a channel'), findsOneWidget);
             expect(find.byType(RaftComposer), findsNothing);
             expect(find.byType(RaftChatView), findsNothing);
             expect(find.text('Start the conversation'), findsNothing);

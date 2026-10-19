@@ -189,7 +189,7 @@ final _states = <_State>[
   _State(
     'servers-none',
     prepare: (f) => f.servers.clear(),
-    expectText: 'CREATE YOUR FIRST SERVER',
+    expectText: 'Create your first server',
   ),
   _State(
     'servers-failed',
@@ -201,7 +201,7 @@ final _states = <_State>[
       await t.tap(find.text('+ Create New Server'));
       await t.pump();
     },
-    expectText: 'Create server',
+    expectText: 'Create Server',
   ),
   _State(
     'onboarding-profile',
@@ -284,7 +284,7 @@ void main() {
 
     for (final label in [
       'Restoring session…',
-      'Loading…',
+      'Loading server…',
       'Loading servers…',
       'Joining community…',
     ]) {

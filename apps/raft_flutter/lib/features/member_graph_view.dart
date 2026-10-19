@@ -276,13 +276,12 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
                 backKey: const ValueKey('member-graph-mobile-back'),
                 titleSuffix: Transform.translate(
                   offset: const Offset(0, -1),
-                  // `<Badge.Experimental>`: solid success variant, uppercase.
+                  // `<Badge.Experimental>`: solid success variant.
                   child: RaftRecipeBadge(
                     // Web `Badge.Experimental` is untranslated English.
                     'Experimental',
                     appearance: RaftBadgeRecipeAppearance.solid,
                     variant: RaftBadgeRecipeVariant.success,
-                    uppercase: true,
                   ),
                 ),
                 iconSlot: RaftPanelHeaderIconTile(

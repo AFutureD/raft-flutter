@@ -151,7 +151,7 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is RaftInteractive &&
-              widget.semanticLabel == 'Mark all read',
+              widget.semanticLabel == 'Mark All Read',
         ),
         findsOneWidget,
       );

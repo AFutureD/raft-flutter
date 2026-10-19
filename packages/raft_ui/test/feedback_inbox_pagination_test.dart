@@ -55,7 +55,7 @@ void main() {
               : [RaftFeedbackFilter.all];
           for (final filter in filters) {
             await pump(filter);
-            final button = find.widgetWithText(RaftButton, 'Load more');
+            final button = find.widgetWithText(RaftButton, 'Load More');
             // At large text sizes the action starts beyond the viewport;
             // scrolling builds it before pointer or keyboard interaction.
             await t.scrollUntilVisible(button, 200);
@@ -99,7 +99,7 @@ void main() {
 
             // A confirmed terminal empty result has no pagination action.
             await pump(filter, more: false);
-            expect(find.text('Load more'), findsNothing);
+            expect(find.text('Load More'), findsNothing);
             expect(find.byType(RaftFeedbackEmptyState), findsOneWidget);
             final terminal = t.state<ScrollableState>(find.byType(Scrollable));
             expect(

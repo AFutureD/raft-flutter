@@ -117,7 +117,7 @@ void main() {
       final menu = find.byType(RaftContextMenuContent);
       expect(menu, findsOneWidget);
       expect(tester.getTopLeft(menu), at);
-      expect(find.text('Copy link'), findsOneWidget);
+      expect(find.text('Copy Link'), findsOneWidget);
       expect(find.text('Copy Markdown'), findsOneWidget);
       expect(find.text('Remove from Saved'), findsOneWidget);
       await tester.tap(find.text('Remove from Saved'));

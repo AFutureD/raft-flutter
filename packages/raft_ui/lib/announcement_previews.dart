@@ -8,7 +8,7 @@ Widget announcementModalPreview() => RaftAnnouncementModal(
   title: "What's new in Raft",
   pages: const [
     RaftAnnouncementPage(
-      title: 'Workspace mode',
+      title: 'Server mode',
       body:
           'Open channels, threads and tasks side by side. Press `Cmd K` to '
           'jump anywhere.\n\n'

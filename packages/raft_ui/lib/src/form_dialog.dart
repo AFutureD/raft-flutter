@@ -50,6 +50,7 @@ class RaftFormDialog extends StatefulWidget {
     required this.fields,
     required this.onSubmit,
     this.submitLabel = 'Save',
+    this.cancelLabel = 'Cancel',
     this.description,
     this.destructive = false,
     this.extra,
@@ -57,6 +58,10 @@ class RaftFormDialog extends StatefulWidget {
     this.errorContent,
   });
   final String title, submitLabel;
+
+  /// The cancel button: a confirmation that takes something away says what
+  /// stays ("Keep Channel"); ordinary forms keep "Cancel".
+  final String cancelLabel;
 
   /// Rich content for a failed submit (a banner with details and a recovery
   /// action) in place of the plain error banner. Returning null for an error
@@ -200,13 +205,13 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
             label: label,
             child: ExcludeSemantics(
               child: Text(
-                label.toUpperCase(),
+                label,
                 style: RaftTypography.heading(
                   t,
                   size: 14,
                   line: 20,
                   weight: t.brutal ? FontWeight.w700 : FontWeight.w500,
-                ).copyWith(letterSpacing: .35),
+                ),
               ),
             ),
           ),
@@ -306,7 +311,7 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
 
   List<Widget> _actions() => [
     RaftTextButton(
-      label: 'Cancel',
+      label: widget.cancelLabel,
       variant: RaftControlVariant.outline,
       onPressed: busy ? null : () => Navigator.pop(context, false),
     ),
@@ -327,7 +332,6 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
       child: RaftFormFrame.sheetOf(context)
           ? RaftFormSheet(
               title: raftText(context, widget.title),
-              uppercase: false,
               onClose: busy ? null : () => Navigator.pop(context, false),
               body: _form(),
               footer: OverflowBar(

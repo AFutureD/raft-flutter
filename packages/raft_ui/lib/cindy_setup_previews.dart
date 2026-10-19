@@ -14,7 +14,7 @@ Widget cindySetupScreenPreview({
         fields: const RaftStableField(
           label: 'Runtime',
           required: true,
-          hint: 'The AI agent runtime your agents run on.',
+          hint: 'The runtime your agents run on.',
           child: Text('Select…'),
         ),
         onCreate: null,

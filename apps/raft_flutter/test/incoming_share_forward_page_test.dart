@@ -142,7 +142,7 @@ void main() {
           // Channels show the bare name (Web targetPickerLabel), DMs @name.
           expect(find.text('general'), findsOneWidget);
           expect(find.text('@Grok'), findsOneWidget);
-          expect(find.text('Not joined'.toUpperCase()), findsOneWidget);
+          expect(find.text('Not joined'), findsOneWidget);
           // No selection bar before a choice is made.
           expect(
             find.byKey(const Key('incoming-share-continue')),

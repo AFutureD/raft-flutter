@@ -85,7 +85,6 @@ class RaftCreateJointChannelDialogView extends StatelessWidget {
       color: t.brutal
           ? Colors.black.withValues(alpha: .6)
           : t.colors['foreground-muted'],
-      trackingEm: .025,
     );
     // Web `flex justify-end gap-3`; on a phone-width dialog the two buttons
     // wrap instead of overflowing (same layout whenever they fit).
@@ -195,10 +194,7 @@ class RaftCreateJointChannelDialogView extends StatelessWidget {
                             ),
                             Flexible(
                               child: Text(
-                                raftText(
-                                  context,
-                                  'Invite servers',
-                                ).toUpperCase(),
+                                raftText(context, 'Invite servers'),
                                 style: eyebrow,
                               ),
                             ),
@@ -312,10 +308,8 @@ class _InviteCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  raftFormat(context, 'Server invite {n}', {
-                    'n': index + 1,
-                  }).toUpperCase(),
-                  style: eyebrow.copyWith(letterSpacing: 0),
+                  raftFormat(context, 'Server invite {n}', {'n': index + 1}),
+                  style: eyebrow,
                 ),
               ),
               if (removable) ...[
@@ -343,7 +337,7 @@ class _InviteCard extends StatelessWidget {
             child: RaftSlugInput(
               key: ValueKey('joint-slug-$index'),
               controller: draft.slug,
-              hintText: 'partner-workspace',
+              hintText: 'partner-server',
               onChanged: (_) => onChanged(),
             ),
           ),

@@ -45,7 +45,7 @@ void main() {
                             ),
                             RaftSidebarSectionAction(
                               key: addKey,
-                              label: 'Create channel',
+                              label: 'Create Channel',
                               glyph: RaftGlyph.plus,
                               onPressed: () => added++,
                             ),
@@ -93,10 +93,10 @@ void main() {
             tester.widget<Text>(find.text('3')).style!.fontWeight,
             FontWeight.w700,
           );
-          final title = tester.widget<Text>(find.text('CHANNELS'));
+          final title = tester.widget<Text>(find.text('Channels'));
           expect(title.style!.fontSize, 12);
           expect(title.style!.fontWeight, FontWeight.w700);
-          expect(title.style!.letterSpacing, 1.2);
+          expect(title.style!.letterSpacing ?? 0, 0);
           expect(
             tester.widget<Text>(find.text('3')).style!.fontFamily,
             RaftSidebarSectionRecipe(
@@ -152,7 +152,7 @@ void main() {
       );
       expect(find.byType(RaftControl), findsNothing);
       expect(find.byType(AnimatedRotation), findsNothing);
-      expect(find.text('WORKSPACE'), findsOneWidget);
+      expect(find.text('Workspace'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

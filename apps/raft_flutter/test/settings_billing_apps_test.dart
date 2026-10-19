@@ -182,7 +182,7 @@ void main() {
       'Free plan: trial notice, features, usage and checkout summary',
       (t) async {
         await mount(t, _free());
-        expect(find.text('CURRENT PLAN'), findsOneWidget);
+        expect(find.text('Current Plan'), findsOneWidget);
         expect(find.text('Final Trial Period'), findsOneWidget);
         expect(
           find.textContaining('remains active through Jun 22, 2026'),
@@ -192,7 +192,7 @@ void main() {
         expect(find.text('Unlimited message history'), findsOneWidget);
         expect(find.text('180 MB / 500 MB this month'), findsOneWidget);
         expect(find.text('30 days'), findsOneWidget);
-        expect(find.text('UPGRADE TO PRO'), findsOneWidget);
+        expect(find.text('Upgrade to Pro'), findsNWidgets(2));
         expect(find.text(r'$105.60 / year'), findsOneWidget);
         expect(find.text(r'$120 / year'), findsOneWidget);
         expect(find.text('up to 1 Human'), findsOneWidget);
@@ -232,7 +232,7 @@ void main() {
       };
       await t.tap(find.byKey(const ValueKey('billing-upgrade')));
       await t.pumpAndSettle();
-      expect(find.text('CONFIRM PRO CHECKOUT'), findsOneWidget);
+      expect(find.text('Upgrade to Pro'), findsWidgets);
       expect(find.text(r'Total: $105.60 / year'), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('billing-confirm')));
       await t.pumpAndSettle();
@@ -267,7 +267,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('2.5 / 3 used'), findsOneWidget);
-      expect(find.text('MANAGE SEATS'), findsOneWidget);
+      expect(find.text('Manage Seats'), findsOneWidget);
       expect(find.text('Billing interval: Yearly'), findsOneWidget);
       expect(find.text(r'$316.80 / year'), findsWidgets);
       a.routes['POST /billing/portal'] = (_) => {
@@ -333,7 +333,7 @@ void main() {
       a.routes['POST /billing/cancel'] = (_) => {'ok': true};
       await t.tap(find.byKey(const ValueKey('billing-cancel')));
       await t.pumpAndSettle();
-      expect(find.text('CANCEL SUBSCRIPTION'), findsOneWidget);
+      expect(find.text('Cancel Subscription'), findsNWidgets(3));
       await t.tap(find.byKey(const ValueKey('billing-confirm')));
       await t.pumpAndSettle();
       expect(a.posts('/billing/cancel'), hasLength(1));
@@ -421,7 +421,7 @@ void main() {
     ) async {
       final (_, a, opened) = await mount(t, _pro(status: 'past_due'));
       expect(find.byKey(const ValueKey('billing-upgrade')), findsNothing);
-      expect(find.text('MANAGE SEATS'), findsOneWidget);
+      expect(find.text('Manage Seats'), findsOneWidget);
       a.routes['POST /billing/portal'] = (_) => {
         'url': 'https://billing.stripe.invalid/p',
       };
@@ -608,7 +608,7 @@ void main() {
       t,
     ) async {
       await mount(t);
-      expect(find.text('APPLICATIONS'), findsOneWidget);
+      expect(find.text('Applications'), findsOneWidget);
       expect(find.text('Third-party apps for this server'), findsOneWidget);
       // Private-shared listings stay out of the marketplace; Installed holds
       // the installed listing plus the server-local client.
@@ -657,7 +657,7 @@ void main() {
         find.byKey(const ValueKey('connected-app-detail')),
         findsOneWidget,
       );
-      expect(find.text('APP DETAIL'), findsOneWidget);
+      expect(find.text('App detail'), findsOneWidget);
       expect(find.text('example.com'), findsOneWidget);
       expect(find.text('Install to this server'), findsOneWidget);
       final before = a.calls
@@ -683,7 +683,7 @@ void main() {
       expect(find.text('This server'), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('connected-app-installed-github')));
       await t.pumpAndSettle();
-      expect(find.text('INSTALLED APP'), findsOneWidget);
+      expect(find.text('Installed app'), findsOneWidget);
       expect(find.text('No data access'), findsOneWidget);
       await t.tap(find.text('Close').last);
       await t.pumpAndSettle();
@@ -692,7 +692,7 @@ void main() {
       };
       await t.tap(find.byKey(const ValueKey('connected-app-action-github')));
       await t.pumpAndSettle();
-      expect(find.text('UNINSTALL GITHUB ISSUES?'), findsOneWidget);
+      expect(find.text('Uninstall GitHub Issues'), findsOneWidget);
       await t.tap(
         find.byKey(const ValueKey('connected-app-uninstall-confirm-button')),
       );

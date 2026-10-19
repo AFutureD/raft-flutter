@@ -228,7 +228,7 @@ class RaftSetupSurveyCard extends StatelessWidget {
   }
 }
 
-/// `font-mono text-[10px] font-bold uppercase tracking-wide` eyebrow, `mt-2
+/// `font-mono text-[10px] font-bold` eyebrow, `mt-2
 /// text-xl font-bold` title, `mt-1 text-xs leading-5` hint.
 class _StepHeading extends StatelessWidget {
   const _StepHeading({
@@ -245,13 +245,12 @@ class _StepHeading extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          eyebrow.toUpperCase(),
+          eyebrow,
           style: TextStyle(
             fontFamily: t.monoFont,
             fontSize: 10,
             height: 15 / 10,
             fontWeight: FontWeight.w700,
-            letterSpacing: .25,
             color: t.muted,
           ),
         ),
@@ -648,8 +647,8 @@ class _RaftSetupComputerCardState extends State<RaftSetupComputerCard> {
     final body = many
         ? "They're all set up already — setup continues as soon as any one of them comes online."
         : widget.recovering
-        ? "Your computer is already set up — it just isn't running. Start it and setup continues on its own."
-        : 'A computer is the machine your agents run on. Your server needs at least one online.';
+        ? "Your computer is already set up but isn't running. Start it and setup continues on its own."
+        : 'A computer is where your agents run. Your server needs at least one online.';
     final next = RaftButton(
       key: const Key('setup-computer-next'),
       label: widget.loading ? tr('Saving...') : tr('Next'),
@@ -868,14 +867,12 @@ TextStyle _mono(
   double line, {
   FontWeight weight = FontWeight.w700,
   Color? color,
-  double tracking = 0,
 }) => TextStyle(
   fontFamily: t.monoFont,
   fontSize: size,
   height: line / size,
   fontWeight: weight,
   color: color ?? t.strong,
-  letterSpacing: tracking,
   leadingDistribution: TextLeadingDistribution.even,
 );
 
@@ -912,8 +909,8 @@ class _GroupLabel extends StatelessWidget {
         TextSpan(
           children: [
             TextSpan(
-              text: label.toUpperCase(),
-              style: _mono(t, 10, 15, color: hint, tracking: 1),
+              text: label,
+              style: _mono(t, 10, 15, color: hint),
             ),
             if (note != null) const WidgetSpan(child: SizedBox(width: 8)),
             if (note != null)
@@ -1063,8 +1060,7 @@ class _RuntimeRow extends StatelessWidget {
                             : BorderRadius.circular(2),
                       ),
                       child: Text(
-                        (runtime.detected ? tr('Detected') : tr('Not detected'))
-                            .toUpperCase(),
+                        runtime.detected ? tr('Detected') : tr('Not detected'),
                         style: _mono(t, 9, 13.5, color: badgeColors.text),
                       ),
                     ),
@@ -1406,13 +1402,12 @@ class _RecoveryCard extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                (many
-                        ? tr('Start one of your computers')
-                        : raftFormat(context, 'Bring {computer} back online', {
-                            'computer': name,
-                          }))
-                    .toUpperCase(),
-                style: _mono(t, 10, 15, color: t.muted, tracking: .25),
+                many
+                    ? tr('Start one of your computers')
+                    : raftFormat(context, 'Bring {computer} back online', {
+                        'computer': name,
+                      }),
+                style: _mono(t, 10, 15, color: t.muted),
               ),
             ),
           ],
@@ -1428,7 +1423,7 @@ class _RecoveryCard extends StatelessWidget {
         if (legacyDaemon) ...[
           block(
             tr(
-              'This machine was connected with the retired standalone daemon. Install Raft Computer on it to bring it back:',
+              'This computer was connected with the retired standalone app. Install Raft Computer on it to bring it back:',
             ),
             const [],
           ),
@@ -1441,7 +1436,7 @@ class _RecoveryCard extends StatelessWidget {
                   )
                 : raftFormat(
                     context,
-                    "This computer is set up on /{server} but isn't connected right now. Run this on the machine to bring it back:",
+                    "This computer is set up on /{server} but isn't connected right now. Run this on that computer to bring it back:",
                     {'server': serverSlug ?? tr('your server')},
                   ),
             const [_RecoveryCommand('raft-computer start')],
@@ -1474,7 +1469,7 @@ class _RecoveryCard extends StatelessWidget {
               const SizedBox(width: 4),
               RaftAuthTextLink(
                 key: const Key('setup-computer-start-over'),
-                label: tr('Start over'),
+                label: tr('Start Over'),
                 onTap: onStartOver,
               ),
             ],

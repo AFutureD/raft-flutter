@@ -26,7 +26,7 @@ const Map<String, String> zhCatalogFollowersAttachments = <String, String>{
   "Video {filename}": "视频 {filename}",
   "{position} of {duration}": "{position} / {duration}",
   "{agent} follows from {server}. Switch to that server to remove them.":
-      "{agent} 从 {server} 关注此消息列。请切到该 Server 后移除。",
+      "{agent} 从 {server} 关注此消息列。请切到该服务器后移除。",
   "Removed {agent} from this thread's followers.": "已将 {agent} 移出此消息列的关注者。",
   "Restored {agent} as a follower.": "已恢复 {agent} 的关注。",
 };

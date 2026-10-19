@@ -257,7 +257,7 @@ void main() {
         await openTab('Chat');
         await t.pump();
         // First visit: a loading line, never fabricated zero counts.
-        expect(rich('Loading…'), findsOneWidget);
+        expect(rich('Loading profile…'), findsOneWidget);
         expect(rich('Channels'), findsNothing);
         await settle(t);
         expect(rich('general'), findsOneWidget);
@@ -269,7 +269,7 @@ void main() {
         await settle(t);
         await openTab('Chat');
         await t.pump();
-        expect(rich('Loading…'), findsNothing);
+        expect(rich('Loading profile…'), findsNothing);
         expect(rich('general'), findsOneWidget);
         expect(rich('carol'), findsOneWidget);
         expect(t.getRect(rich('general')), general);
@@ -294,7 +294,7 @@ void main() {
         await openTab('Chat');
         await t.pump();
         expect(rich('general'), findsNothing);
-        expect(rich('Loading…'), findsOneWidget);
+        expect(rich('Loading profile…'), findsOneWidget);
         await t.pumpWidget(const SizedBox());
         await t.pump(const Duration(seconds: 1));
         expect(t.takeException(), isNull);
@@ -332,7 +332,7 @@ void main() {
             t.tap(find.descendant(of: tabs, matching: rich(label)));
         await openTab('Reminders');
         await t.pump();
-        expect(rich('Loading…'), findsOneWidget);
+        expect(rich('Loading reminders…'), findsOneWidget);
         await settle(t);
         final standup = t.getRect(rich('Stand-up'));
 
@@ -340,13 +340,13 @@ void main() {
         await settle(t);
         await openTab('Reminders');
         await t.pump();
-        expect(rich('Loading…'), findsNothing);
+        expect(rich('Loading reminders…'), findsNothing);
         expect(t.getRect(rich('Stand-up')), standup);
         await settle(t);
         expect(held, hasLength(1));
         for (var i = 0; i < 3; i++) {
           await t.pump(const Duration(milliseconds: 16));
-          expect(rich('Loading…'), findsNothing);
+          expect(rich('Loading reminders…'), findsNothing);
           expect(t.getRect(rich('Stand-up')), standup);
         }
         await release(t, held.single, {
@@ -362,7 +362,7 @@ void main() {
         await openTab('Reminders');
         await t.pump();
         expect(rich('Stand-up'), findsNothing);
-        expect(rich('Loading…'), findsOneWidget);
+        expect(rich('Loading reminders…'), findsOneWidget);
         await t.pumpWidget(const SizedBox());
         await t.pump(const Duration(seconds: 1));
         expect(t.takeException(), isNull);
@@ -404,7 +404,7 @@ void main() {
             t.tap(find.descendant(of: tabs, matching: rich(label)));
         await openTab('Workspace');
         await t.pump();
-        expect(rich('Loading...'), findsOneWidget);
+        expect(rich('Loading files…'), findsOneWidget);
         await settle(t);
         await t.tap(rich('src'));
         await settle(t);
@@ -418,7 +418,7 @@ void main() {
         await openTab('Workspace');
         await t.pump();
         // First frame: same tree, same open folder, no Loading line.
-        expect(rich('Loading...'), findsNothing);
+        expect(rich('Loading files…'), findsNothing);
         expect(t.getRect(rich('src')), src);
         expect(t.getRect(rich('main.dart')), main);
         expect(t.getRect(rich('notes.md')), notes);
@@ -426,7 +426,7 @@ void main() {
         expect(held, hasLength(1));
         for (var i = 0; i < 3; i++) {
           await t.pump(const Duration(milliseconds: 16));
-          expect(rich('Loading...'), findsNothing);
+          expect(rich('Loading files…'), findsNothing);
           expect(t.getRect(rich('main.dart')), main);
         }
         await release(t, held.single, {
@@ -450,7 +450,7 @@ void main() {
         await t.pump();
         expect(rich('src'), findsNothing);
         expect(rich('main.dart'), findsNothing);
-        expect(rich('Loading...'), findsOneWidget);
+        expect(rich('Loading files…'), findsOneWidget);
         await t.pumpWidget(const SizedBox());
         await t.pump(const Duration(seconds: 1));
         expect(t.takeException(), isNull);

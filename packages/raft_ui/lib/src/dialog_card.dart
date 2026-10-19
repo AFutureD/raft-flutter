@@ -509,7 +509,7 @@ class RaftRecipeCard extends StatelessWidget {
 
 /// Web `DialogCard`: `Card w-full max-w-md p-6`; header `mb-4 flex
 /// items-center justify-between border-b-0 p-0` with a `CardTitle`
-/// `text-lg font-bold uppercase` and a [RaftCloseButton] (`X` 20).
+/// `text-lg font-bold` (sentence case) and a [RaftCloseButton] (`X` 20).
 ///
 /// In a presented form window on a phone ([showRaftForm], below 768) the card
 /// is the sheet: the title and close button pin to the top, [child] scrolls
@@ -626,7 +626,7 @@ class _RaftDialogCardState extends State<RaftDialogCard> {
               child: titleGlyph == null
                   ? Text(
                       // CardTitle has no `truncate`: a long title wraps.
-                      raftText(context, title).toUpperCase(),
+                      raftText(context, title),
                       style: titleStyle,
                     )
                   : Row(
@@ -635,7 +635,7 @@ class _RaftDialogCardState extends State<RaftDialogCard> {
                         RaftIcon(titleGlyph, size: 18, color: t.ink),
                         Expanded(
                           child: Text(
-                            raftText(context, title).toUpperCase(),
+                            raftText(context, title),
                             // The title wraps above the default text size.
                             maxLines: grows ? null : 1,
                             overflow: grows
@@ -715,8 +715,8 @@ class _RaftDialogCardState extends State<RaftDialogCard> {
 }
 
 /// Web `FormField` over raft-ui `Field`/`FieldLabel`/`LabelAsterisk`/
-/// `LabelOptional`: label `mb-1 block text-sm` (+ `uppercase tracking-wide`
-/// for [uppercase]), then [child], then an optional hint/error line.
+/// `LabelOptional`: label `mb-1 block text-sm`, then [child], then an optional
+/// hint/error line.
 class RaftProductFormField extends StatelessWidget {
   const RaftProductFormField({
     super.key,
@@ -724,7 +724,6 @@ class RaftProductFormField extends StatelessWidget {
     required this.child,
     this.required = false,
     this.optional = false,
-    this.uppercase = true,
     this.labelWeight,
     this.hint,
     this.error,
@@ -732,7 +731,7 @@ class RaftProductFormField extends StatelessWidget {
   });
   final String label;
   final Widget child;
-  final bool required, optional, uppercase;
+  final bool required, optional;
   final FontWeight? labelWeight;
   final String? hint, error;
 
@@ -757,7 +756,6 @@ class RaftProductFormField extends StatelessWidget {
       step: RaftTextSteps.sm,
       weight: labelWeight ?? labelBase.fontWeight ?? FontWeight.w700,
       color: labelBase.color,
-      trackingEm: uppercase ? .025 : 0,
     );
     final text = raftText(context, label);
     final sub = labelRecipe.sub.textStyle(tokens);
@@ -772,7 +770,7 @@ class RaftProductFormField extends StatelessWidget {
           child: Text.rich(
             TextSpan(
               children: [
-                TextSpan(text: uppercase ? text.toUpperCase() : text),
+                TextSpan(text: text),
                 if (required)
                   TextSpan(
                     text: ' *',
@@ -814,19 +812,17 @@ class RaftProductFormField extends StatelessWidget {
   }
 }
 
-/// Web `SectionEyebrow`: `text-xs font-bold uppercase text-foreground-muted
-/// tracking-widest` plus the call-site [padding]/[background]/[color].
+/// Web `SectionEyebrow`: `text-xs font-bold text-foreground-muted` (sentence
+/// case, decision 0002) plus the call-site [padding]/[background]/[color].
 class RaftDialogSectionEyebrow extends StatelessWidget {
   const RaftDialogSectionEyebrow(
     this.text, {
     super.key,
-    this.uppercase = true,
     this.padding = EdgeInsets.zero,
     this.background,
     this.color,
   });
   final String text;
-  final bool uppercase;
   final EdgeInsets padding;
   final Color? background, color;
   @override
@@ -838,7 +834,7 @@ class RaftDialogSectionEyebrow extends StatelessWidget {
       padding: padding,
       color: background,
       child: Text(
-        uppercase ? label.toUpperCase() : label,
+        label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: raftCssTextStyle(
@@ -846,7 +842,6 @@ class RaftDialogSectionEyebrow extends StatelessWidget {
           step: RaftTextSteps.xs,
           weight: FontWeight.w700,
           color: color ?? t.colors['foreground-muted'],
-          trackingEm: .1,
         ),
       ),
     );

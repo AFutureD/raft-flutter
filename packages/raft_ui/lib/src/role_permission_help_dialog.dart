@@ -15,12 +15,12 @@ const _humanRoles = [
   (
     'Owner',
     'Full server control.',
-    'Billing and ownership. Server settings. Admins and members. Channels, machines, and agents.',
+    'Billing and ownership. Server settings. Admins and members. Channels, computers, and agents.',
   ),
   (
     'Admin',
     'Operational server admin.',
-    'Server profile. Channels and channel members. Agents and machines. Invites, join links, and admin promotion.',
+    'Server profile. Channels and channel members. Agents and computers. Invites, join links, and admin promotion.',
   ),
   (
     'Member',
@@ -33,7 +33,7 @@ const _agentRoles = [
   (
     'Admin',
     'Operational server admin.',
-    'Server profile. Channels and channel members. No agents, machines, invites, join links, or role promotion yet.',
+    'Server profile. Channels and channel members. No agents, computers, invites, join links, or role promotion yet.',
   ),
   (
     'Member',

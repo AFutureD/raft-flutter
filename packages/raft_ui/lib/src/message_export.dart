@@ -128,7 +128,7 @@ class _RaftSelectionToolbarState extends State<RaftSelectionToolbar> {
       'count': widget.selected,
     });
     final canAct = widget.selected > 0 && !widget.busy;
-    final copyLabel = widget.copied ? 'Copied' : 'Copy link';
+    final copyLabel = widget.copied ? 'Copied' : 'Copy Link';
     final forward = widget.onForward != null;
     final copy = widget.onCopyLinks != null;
     final all = widget.onSelectAll != null;
@@ -222,8 +222,8 @@ class _RaftSelectionToolbarState extends State<RaftSelectionToolbar> {
                                       ? null
                                       : widget.onCopyLinks,
                                   compact: isCopy(compactLevel),
-                                  tooltip: raftText(context, 'Copy link'),
-                                  semanticLabel: raftText(context, 'Copy link'),
+                                  tooltip: raftText(context, 'Copy Link'),
+                                  semanticLabel: raftText(context, 'Copy Link'),
                                 ),
                               RaftDropdownMenu(
                                 label: raftText(
@@ -396,7 +396,7 @@ class RaftImageReview extends StatelessWidget {
               ),
               if (onSave != null)
                 RaftButton(
-                  label: 'Save image',
+                  label: 'Save Image',
                   icon: Icons.download_outlined,
                   busy: busy,
                   onPressed: onSave,

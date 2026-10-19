@@ -637,8 +637,8 @@ void main() {
       'New section…' || 'Rename / change icon…' => find.byKey(
         const ValueKey('sidebar-section-dialog'),
       ),
-      'Archive' ||
-      'Delete section' => find.byKey(const ValueKey('shell-dialog')),
+      'Archive Channel' ||
+      'Delete Section' => find.byKey(const ValueKey('shell-dialog')),
       _ => null,
     };
 
@@ -686,12 +686,12 @@ void main() {
     testWidgets('+ buttons open the Web dialog in place', (tester) async {
       await setup(tester);
       final before = w.location.uri;
-      await tester.tap(find.bySemanticsLabel('Create channel'));
+      await tester.tap(find.bySemanticsLabel('Create Channel'));
       await tester.pumpAndSettle();
       expect(find.byType(CreateChannelDialog), findsOneWidget);
       expect(w.location.uri, before);
       await dismiss(tester);
-      await tester.tap(find.bySemanticsLabel('Create joint channel'));
+      await tester.tap(find.bySemanticsLabel('Create Joint Channel'));
       await tester.pumpAndSettle();
       expect(find.byType(CreateJointChannelDialog), findsOneWidget);
       expect(w.location.uri, before);

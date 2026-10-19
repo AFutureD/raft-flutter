@@ -2570,7 +2570,7 @@ class _ResourceViewState extends State<ResourceView> {
                   ),
                 if (widget.section == 'tasks')
                   RaftTooltip(
-                    message: raftText(context, 'Create task'),
+                    message: raftText(context, 'Create Task'),
                     child: IconButton(
                       onPressed: w.server?.string('role') == 'guest'
                           ? null
@@ -2598,7 +2598,7 @@ class _ResourceViewState extends State<ResourceView> {
                       itemBuilder: (_) => [
                         PopupMenuItem(
                           value: 'read-all',
-                          child: Text(raftText(context, 'Mark all read')),
+                          child: Text(raftText(context, 'Mark All Read')),
                         ),
                         PopupMenuItem(
                           value: 'done',
@@ -2768,7 +2768,7 @@ class _ResourceViewState extends State<ResourceView> {
                         description: widget.section == 'saved'
                             ? raftText(
                                 context,
-                                'Save a message by selecting its bookmark icon.',
+                                'Save a message to find it here later.',
                               )
                             : raftText(context, activityEmptyDetail),
                         icon: (context, size, color) => RaftIcon(
@@ -2783,7 +2783,7 @@ class _ResourceViewState extends State<ResourceView> {
                       )
                     : RaftEmptyState(
                         title: widget.section == 'search'
-                            ? 'Search your workspace'
+                            ? 'Search your server'
                             : 'No ${widget.section}',
                         detail: widget.section == 'search'
                             ? 'Enter words to find messages.'
@@ -2878,7 +2878,7 @@ class _ResourceViewState extends State<ResourceView> {
                 ? savedSentinel()
                 : TextButton(
                     onPressed: () => load(append: true),
-                    child: Text(raftText(context, 'Load more')),
+                    child: Text(raftText(context, 'Load More')),
                   )
           : KeyedSubtree(
               key: listUpdates.keyOf(rowKey(shown[index])),
@@ -3537,7 +3537,7 @@ class _ResourceViewState extends State<ResourceView> {
           : null,
       markAllRead: (totalUnreadCount ?? 0) > 0 && activityScope.globalInbox
           ? RaftTextButton(
-              label: 'Mark all read',
+              label: 'Mark All Read',
               variant: RaftControlVariant.outline,
               visualHeight: 32,
               minimumTargetSize: 32,
@@ -3607,7 +3607,7 @@ class _ResourceViewState extends State<ResourceView> {
             const SizedBox(width: RaftResourceMetrics.activityToolbarGap),
             // Button sm outline `h-8 px-2 text-xs font-bold`.
             RaftInteractive(
-              semanticLabel: raftText(context, 'Mark all read'),
+              semanticLabel: raftText(context, 'Mark All Read'),
               onPressed: () => command(
                 'POST',
                 '/channels/inbox/read-all',
@@ -3630,7 +3630,7 @@ class _ResourceViewState extends State<ResourceView> {
                 padding: RaftResourceMetrics.activityToolbarActionInset,
                 alignment: Alignment.center,
                 child: RaftCssText(
-                  raftText(context, 'Mark all read'),
+                  raftText(context, 'Mark All Read'),
                   style: RaftResourceMetrics.activityToolbarActionLabel,
                   controlLabel: true,
                 ),
@@ -4055,7 +4055,7 @@ class _ResourceViewState extends State<ResourceView> {
         onDismiss: () => closeOwnedDialog(context, scope),
         entries: [
           RaftContextMenuContentItem(
-            label: raftText(context, 'Copy link'),
+            label: raftText(context, 'Copy Link'),
             glyph: RaftGlyph.link,
             onPressed: w.server?.string('slug').isEmpty != false
                 ? null
@@ -4426,7 +4426,7 @@ class _ResourceViewState extends State<ResourceView> {
                   SliverToBoxAdapter(
                     child: TextButton(
                       onPressed: () => load(append: true),
-                      child: Text(raftText(context, 'Load more')),
+                      child: Text(raftText(context, 'Load More')),
                     ),
                   ),
               ],
@@ -4828,7 +4828,7 @@ class _ResourceViewState extends State<ResourceView> {
         if (viewFilter == null && hasMore)
           TextButton(
             onPressed: () => load(append: true),
-            child: Text(raftText(context, 'Load more')),
+            child: Text(raftText(context, 'Load More')),
           ),
       ],
     );
@@ -5395,7 +5395,7 @@ class _ResourceViewState extends State<ResourceView> {
         context,
         filtered
             ? 'Try a different combination or clear the current selection.'
-            : 'Create one with the New Task button.',
+            : 'Create one with the Create Task button.',
       ),
       icon: (context, size, color) =>
           RaftIcon(RaftGlyph.checkSquare, size: size, color: color),
@@ -5588,8 +5588,8 @@ class _ResourceViewState extends State<ResourceView> {
       scope,
       form: true,
       (dialogContext) => RaftFormDialog(
-        title: 'Create task',
-        submitLabel: 'Create',
+        title: 'Create Task',
+        submitLabel: 'Create Task',
         fields: [
           RaftFormField(
             'channel',
@@ -5759,15 +5759,15 @@ class _ResourceViewState extends State<ResourceView> {
       final confirmed = await scopedDialog<bool>(
         scope,
         (context) => AlertDialog(
-          title: Text(raftText(context, 'Delete task?')),
+          title: Text(raftText(context, 'Delete Task')),
           content: Text('${task['title']}'),
           actions: [
             TextButton(
               onPressed: () => closeOwnedDialog(context, scope, false),
-              child: Text(raftText(context, 'Cancel')),
+              child: Text(raftText(context, 'Keep Task')),
             ),
             RaftButton(
-              label: 'Delete',
+              label: 'Delete Task',
               onPressed: () => closeOwnedDialog(context, scope, true),
             ),
           ],

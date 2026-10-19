@@ -50,7 +50,7 @@ class RaftNotificationSettingsCard extends StatelessWidget {
   final ValueChanged<bool>? onMutedChanged;
 
   /// `inline-flex shrink-0 border border-line-strong bg-primary-soft px-2 py-1
-  /// text-[10px] font-bold uppercase text-primary-strong theme-brutal:border-2
+  /// text-[10px] font-bold text-primary-strong theme-brutal:border-2
   /// theme-brutal:border-black theme-brutal:bg-soft-signal theme-brutal:text-black`.
   static Widget statusPill(BuildContext context, String label) {
     final t = RaftTokens.of(context);
@@ -64,7 +64,7 @@ class RaftNotificationSettingsCard extends StatelessWidget {
         ),
       ),
       child: Text(
-        raftText(context, label).toUpperCase(),
+        raftText(context, label),
         maxLines: 1,
         softWrap: false,
         // Web: `font-display` (Hanken Grotesk) at 10px bold, line-height 1.5.

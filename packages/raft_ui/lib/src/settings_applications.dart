@@ -41,43 +41,33 @@ enum RaftConnectedAppsTab { marketplace, installed, myApps }
 
 enum RaftConnectedAppsLayout { grid, list }
 
-/// A raft-ui `Badge` on an app row (`uppercase` unless noted).
+/// A raft-ui `Badge` on an app row.
 @immutable
 class RaftConnectedAppBadge {
-  const RaftConnectedAppBadge(
-    this.label, {
-    this.variant,
-    this.appearance,
-    this.uppercase = true,
-  });
+  const RaftConnectedAppBadge(this.label, {this.variant, this.appearance});
 
   /// ConnectedAppDistributionBadge / origin badges.
   const RaftConnectedAppBadge.success(String label)
     : this(label, variant: RaftBadgeRecipeVariant.success);
   const RaftConnectedAppBadge.warning(String label)
     : this(label, variant: RaftBadgeRecipeVariant.warning);
-  const RaftConnectedAppBadge.outline(String label, {bool uppercase = true})
-    : this(
-        label,
-        appearance: RaftBadgeRecipeAppearance.outline,
-        uppercase: uppercase,
-      );
+  const RaftConnectedAppBadge.outline(String label)
+    : this(label, appearance: RaftBadgeRecipeAppearance.outline);
   final String label;
   final RaftBadgeRecipeVariant? variant;
   final RaftBadgeRecipeAppearance? appearance;
-  final bool uppercase;
 }
 
 /// The marketplace card's trailing state.
 enum RaftMarketplaceAppState {
-  /// `Badge variant="success" uppercase` Installed.
+  /// `Badge variant="success"` Installed.
   installed,
 
   /// The `bg-accent-soft … btn-brutal-sm theme-brutal:bg-brutal-pink`
   /// Install pill (managers).
   install,
 
-  /// `Badge appearance="outline" uppercase` Available (read-only viewers).
+  /// `Badge appearance="outline"` Available (read-only viewers).
   available,
 }
 
@@ -250,7 +240,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
               if (loading) ...[
                 const SizedBox(width: 12),
                 Text(
-                  raftText(context, 'Loading...'),
+                  raftText(context, 'Loading apps…'),
                   style: RaftTypography.inherited(
                     t,
                     size: 12,
@@ -458,7 +448,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
             ? null
             : RaftSettingsRecipeButton(
                 key: const ValueKey('connected-apps-register'),
-                label: 'Register app',
+                label: 'Register App',
                 glyph: RaftGlyph.plus,
                 glyphSize: 14,
                 variant: RaftButtonRecipeVariant.accent,
@@ -865,7 +855,6 @@ class _Badge extends StatelessWidget {
     label: badge.label,
     variant: badge.variant,
     appearance: badge.appearance,
-    uppercase: badge.uppercase,
   );
 }
 
@@ -1624,7 +1613,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
       line: 15,
       weight: FontWeight.w700,
       color: text.faint,
-    ).copyWith(letterSpacing: 1);
+    );
     Widget column((String, List<String>, String) c) => Container(
       padding: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
@@ -1640,7 +1629,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(c.$1.toUpperCase(), style: columnLabel),
+          Text(c.$1, style: columnLabel),
           const SizedBox(height: 8),
           if (c.$2.isEmpty)
             // A `text-xs` inline span inside a block: the line box keeps the

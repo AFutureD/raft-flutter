@@ -349,7 +349,7 @@ void main() {
       expect(opens, 1);
       for (final text in [
         'Claude usage',
-        'VERSION 2.1.0',
+        'Version 2.1.0',
         'Max',
         'ada****@example.com',
         'ok',

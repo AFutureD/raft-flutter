@@ -2855,11 +2855,11 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "tr('Create joint channel')"
+     "needle": "tr('Create Joint Channel')"
     },
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "tr('Create channel')"
+     "needle": "tr('Create Channel')"
     }
    ],
    "justification": "",
@@ -3758,7 +3758,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/administration_view.dart",
-     "needle": "Product analytics for this workspace"
+     "needle": "Product analytics for this server"
     }
    ],
    "justification": "",
@@ -4542,7 +4542,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_view.dart",
-     "needle": "label: tr('Invite human')"
+     "needle": "label: tr('Invite Human')"
     }
    ],
    "justification": "",
@@ -4988,7 +4988,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/provider_views.dart",
-     "needle": "Detach deleted agent"
+     "needle": "Detach Deleted Agent"
     }
    ],
    "justification": "",
@@ -5481,7 +5481,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/provider_views.dart",
-     "needle": "Verify on a computer"
+     "needle": "Verify on Computer"
     }
    ],
    "justification": "",
@@ -5819,7 +5819,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/desktop_directory_view.dart",
-     "needle": "Create external agent"
+     "needle": "Create External Agent"
     }
    ],
    "justification": "Managed create covers computer/name/description/runtime/model/effort/mode/env/capacity/onboarding/action-card. Gaps: no last-used-config reuse (Web remembers runtime/model/computer per server), no random pixel avatar assigned on create, external create form has no 'Run on antiproton' hosted option, no channel auto-join create entry, legacy (non-v2) runtime fields incl. saved provider/built-in provider/Pi provider/local plugins absent from create.",
@@ -5960,7 +5960,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/agent_migration_view.dart",
-     "needle": "Cancel migration"
+     "needle": "Cancel Migration"
     }
    ],
    "justification": "",
@@ -6047,7 +6047,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
-     "needle": "Are you sure you want to stop"
+     "needle": "Stop Agent"
     }
    ],
    "justification": "Same as start: Members sidebar context-menu entry missing.",
@@ -6095,7 +6095,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/provider_views.dart",
-     "needle": "Verify on computer"
+     "needle": "Verify on Computer"
     }
    ],
    "justification": "",
@@ -6234,7 +6234,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
-     "needle": "Rotate computer key?"
+     "needle": "Rotate Computer Key"
     }
    ],
    "justification": "Marked covered because Flutter is a superset: Web has no user-facing rotate-key action (dead store method).",
@@ -6337,7 +6337,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
-     "needle": "Are you sure you want to delete"
+     "needle": "Delete Agent"
     },
     {
      "file": "apps/raft_flutter/lib/features/fleet_views.dart",
@@ -6389,7 +6389,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/agent_migration_view.dart",
-     "needle": "Move agent"
+     "needle": "Move Agent"
     }
    ],
    "justification": "Pro-plan upsell dialog missing (see POST /agents/:id/migrate).",
@@ -7608,7 +7608,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/desktop_directory_view.dart",
-     "needle": "Create external agent"
+     "needle": "Create External Agent"
     }
    ],
    "justification": "Handoff Session (take over a local coding session) is Electron-desktop-only on Web, tracked as ui:global-ui.desktop-handoff-local-session.",
@@ -7724,7 +7724,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/integrations_views.dart",
-     "needle": "Uninstall app"
+     "needle": "Uninstall App"
     },
     {
      "file": "apps/raft_flutter/lib/features/integrations_views.dart",
@@ -7748,7 +7748,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/mcp_views.dart",
-     "needle": "Delete server"
+     "needle": "Delete MCP Server"
     },
     {
      "file": "apps/raft_flutter/lib/features/mcp_views.dart",
@@ -8277,7 +8277,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/agent_apps_view.dart",
-     "needle": "Review permissions"
+     "needle": "Review Permissions"
     }
    ],
    "justification": "Equivalent options and gate. Scopes are entered as a comma-separated text field (prefilled with all requested scopes, validated as a subset) instead of Web per-scope checkboxes.",
@@ -8373,7 +8373,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/connected_app_editor.dart",
-     "needle": "Regenerate client secret"
+     "needle": "Regenerate Client Secret"
     }
    ],
    "justification": "",
@@ -8421,7 +8421,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/connected_app_editor.dart",
-     "needle": "Request offline"
+     "needle": "Request Offline Review"
     }
    ],
    "justification": "",
@@ -8469,7 +8469,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/agent_apps_view.dart",
-     "needle": "Revoke app access?"
+     "needle": "Revoke App Access"
     }
    ],
    "justification": "",
@@ -9582,7 +9582,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
-     "needle": "Delete task?"
+     "needle": "Delete Task"
     },
     {
      "file": "apps/raft_flutter/lib/features/resource_view.dart",
@@ -10498,7 +10498,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/channel_conversion_section.dart",
-     "needle": "'Cancel upload'"
+     "needle": "'Cancel Upload'"
     }
    ],
    "justification": "Only reachable from the Joint channel conversion section; no composer banner (Flutter has no direct-upload sessions of its own).",
@@ -10903,7 +10903,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/source_channel_files_view.dart",
-     "needle": "'Load more'"
+     "needle": "'Load More'"
     }
    ],
    "justification": "",
@@ -12248,7 +12248,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/account_connections_view.dart",
-     "needle": "Disconnect this sign-in account?"
+     "needle": "Disconnect Account"
     }
    ],
    "justification": "",
@@ -12737,7 +12737,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/account_settings.dart",
-     "needle": "Remove profile image"
+     "needle": "Remove Profile Image"
     }
    ],
    "justification": "Flutter superset action; recorded so it is not mistaken for a gap.",
@@ -13528,7 +13528,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/account_connections_view.dart",
-     "needle": "Set password by email"
+     "needle": "Set Password by Email"
     }
    ],
    "justification": "",
@@ -13744,7 +13744,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/server_setup_gate.dart",
-     "needle": "Start setup over?"
+     "needle": "Start Over"
     }
    ],
    "justification": "",
@@ -14268,7 +14268,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/joint_channel_views.dart",
-     "needle": "Disconnect workspace"
+     "needle": "Disconnect Server"
     }
    ],
    "justification": "Endpoint is called only from an unreachable management view; the settings drawer shows Delete instead.",
@@ -14292,7 +14292,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/joint_channel_views.dart",
-     "needle": "Resend invitations"
+     "needle": "Resend Invitations"
     }
    ],
    "justification": "Endpoint is called only from an unreachable management view; channel settings has no joint-server section.",
@@ -14316,7 +14316,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/joint_channel_views.dart",
-     "needle": "Invite workspace"
+     "needle": "Invite Server"
     }
    ],
    "justification": "Only creation-time invites are reachable (POST /channels jointInvites); inviting more servers later has no UI.",
@@ -14340,7 +14340,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/channel_conversion_section.dart",
-     "needle": "Cancel conversion"
+     "needle": "Cancel Conversion"
     }
    ],
    "justification": "",
@@ -14364,7 +14364,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/channel_conversion_section.dart",
-     "needle": "Retry conversion"
+     "needle": "Retry Conversion"
     }
    ],
    "justification": "",
@@ -14388,7 +14388,7 @@
     },
     {
      "file": "apps/raft_flutter/lib/features/joint_channel_views.dart",
-     "needle": "Accept joint channel invitation"
+     "needle": "Accept Invitation"
     },
     {
      "file": "apps/raft_flutter/lib/data/navigation_registry.dart",
@@ -14437,7 +14437,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/joint_channel_views.dart",
-     "needle": "Participating workspaces"
+     "needle": "Participating servers"
     }
    ],
    "justification": "",
@@ -14457,7 +14457,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/channel_conversion_section.dart",
-     "needle": "Cancel upload"
+     "needle": "Cancel Upload"
     }
    ],
    "justification": "",
@@ -14645,7 +14645,7 @@
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/public_server_view.dart",
-     "needle": "label: tr('Switch workspace')"
+     "needle": "label: tr('Switch server')"
     }
    ],
    "justification": "",

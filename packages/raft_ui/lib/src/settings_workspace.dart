@@ -337,7 +337,7 @@ class RaftProviderConnectionsFrame extends StatelessWidget {
             Text(
               raftText(
                 context,
-                'Store a provider credential once, then reuse the connection when creating or editing Agents. Credentials are encrypted and never shown again.',
+                'Store a provider credential once, then reuse the connection when creating or editing agents. Credentials are encrypted and never shown again.',
               ),
               style: text.bodyMuted.copyWith(color: muted),
             ),
@@ -648,7 +648,7 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
           action: widget.usage
               ? (widget.loading
                     ? Text(
-                        raftText(context, 'Loading…'),
+                        raftText(context, 'Loading usage…'),
                         style: RaftTypography.body(
                           t,
                           size: 12,
@@ -664,7 +664,7 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
               ? null
               : addButton(),
           detail: widget.usage
-              ? 'MCP servers this Agent has used. Enabled Server tools are available automatically.'
+              ? 'MCP servers this agent has used. Enabled server tools are available automatically.'
               : 'Configure the MCP catalog, credentials, and provider connections for this Raft Server.',
         ),
       ),
@@ -781,7 +781,7 @@ class _McpServerCard extends StatelessWidget {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
     final line = t.brutal ? Colors.black : t.colors['line-muted']!;
-    // `border px-1.5 py-0.5 text-[10px] font-bold uppercase`.
+    // `border px-1.5 py-0.5 text-[10px] font-bold`.
     Widget badge(String label, Color fill, {Color? color}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -789,7 +789,7 @@ class _McpServerCard extends StatelessWidget {
         border: Border.all(color: line),
       ),
       child: Text(
-        label.toUpperCase(),
+        label,
         style: RaftTypography.body(
           t,
           size: 10,
@@ -1151,7 +1151,7 @@ class _McpEmptyState extends StatelessWidget {
               raftText(
                 context,
                 usage
-                    ? 'Enabled MCP servers are available automatically and appear here after this Agent calls one.'
+                    ? 'Enabled MCP servers are available automatically and appear here after this agent calls one.'
                     : 'Add a Streamable HTTP server or start from a recommended integration.',
               ),
               textAlign: TextAlign.center,

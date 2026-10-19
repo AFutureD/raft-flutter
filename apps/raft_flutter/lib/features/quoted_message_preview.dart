@@ -142,8 +142,8 @@ class _QuotedMessagePermalinkPreviewState
             type == 'agent'
                 ? 'Agent'
                 : type == 'external_projection'
-                ? 'External user'
-                : 'User',
+                ? 'External person'
+                : 'Member',
           );
     final attachments = quotedAttachmentLabel(message.attachments);
     final created = message.createdAt;

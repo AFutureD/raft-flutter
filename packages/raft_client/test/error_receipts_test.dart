@@ -170,7 +170,7 @@ void main() {
             .having(
               (e) => e.message,
               'scope-safe message',
-              'The account or workspace changed. Please retry.',
+              'The account or server changed. Try again.',
             ),
       ),
     );

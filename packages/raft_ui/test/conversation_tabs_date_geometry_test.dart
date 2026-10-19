@@ -183,7 +183,7 @@ void main() {
           density: RaftDensity.desktop,
         );
         final rules = find.byType(Divider);
-        final label = find.text('TODAY');
+        final label = find.text('Today');
         expect(rules, findsNWidgets(2));
         final first = tester.getRect(rules.at(0));
         final second = tester.getRect(rules.at(1));

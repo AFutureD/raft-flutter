@@ -182,10 +182,10 @@ Future<void> showFleetRegistration(
     valid,
     form: true,
     (_) => RaftFormDialog(
-      title: computers ? 'Register computer' : 'Create external agent',
-      submitLabel: computers ? 'Register' : 'Create',
+      title: computers ? 'Register Computer' : 'Create External Agent',
+      submitLabel: computers ? 'Register Computer' : 'Create External Agent',
       description: computers
-          ? 'Register a computer, then use its one-time key to connect the Raft Computer service.'
+          ? 'Register a computer, then use its one-time key to connect Raft Computer.'
           : 'An external agent runs in a client you connect yourself.',
       fields: [
         const RaftFormField('name', 'Name', required: true),
@@ -392,9 +392,9 @@ class _FleetViewState extends State<FleetView> {
           context,
           widget.attentionOnly
               ? 'All computers are up to date and online.'
-              : 'Add a computer to run agents in this workspace.',
+              : 'Add a computer to run agents in this server.',
         ),
-        addLabel: raftText(context, 'Add computer'),
+        addLabel: raftText(context, 'Add Computer'),
         retryLabel: raftText(context, 'Retry'),
         onRetry: load,
         onAdd: state.loaded && w.can('registerMachines')
@@ -490,7 +490,7 @@ class _FleetViewState extends State<FleetView> {
               RaftButton(
                 label: raftText(
                   context,
-                  widget.computers ? 'Register computer' : 'Create agent',
+                  widget.computers ? 'Register Computer' : 'Create Agent',
                 ),
                 onPressed: create,
               ),
@@ -523,7 +523,7 @@ class _FleetViewState extends State<FleetView> {
                   context,
                   widget.computers ? 'No computers' : 'No agents',
                 ),
-                detail: 'Add one to this workspace.',
+                detail: 'Add one to this server.',
               )
             : ListView.builder(
                 key: const Key('fleet-directory'),
@@ -1020,6 +1020,8 @@ class _FleetDetailState extends State<FleetDetail> {
     String title,
     String detail,
     Future<void> Function() operation, {
+    required String submit,
+    String cancel = 'Cancel',
     bool destructive = false,
   }) async {
     if (!current) return;
@@ -1031,7 +1033,8 @@ class _FleetDetailState extends State<FleetDetail> {
         title: title,
         description: detail,
         fields: [],
-        submitLabel: destructive ? 'Delete' : 'Continue',
+        submitLabel: submit,
+        cancelLabel: cancel,
         destructive: destructive,
         onSubmit: (_) async {
           if (!current) throw const RaftApiException('Fleet access changed.');
@@ -1047,6 +1050,7 @@ class _FleetDetailState extends State<FleetDetail> {
     required String title,
     required String message,
     required String confirmLabel,
+    String cancelLabel = 'Cancel',
     required String loadingLabel,
     required RaftButtonRecipeVariant variant,
     required Future<void> Function() operation,
@@ -1061,6 +1065,7 @@ class _FleetDetailState extends State<FleetDetail> {
         title: title,
         message: message,
         confirmLabel: confirmLabel,
+        cancelLabel: cancelLabel,
         loadingLabel: loadingLabel,
         confirmVariant: variant,
         onConfirm: () async {
@@ -1082,11 +1087,12 @@ class _FleetDetailState extends State<FleetDetail> {
         message: raftFormat(
           context,
           external
-              ? 'Are you sure you want to delete "{name}"? This removes the Raft agent identity, credentials, and associated Raft data. It will not stop, uninstall, or clean up the external runtime, local profile, or harness.'
-              : 'Are you sure you want to delete "{name}"? This will remove all associated data and cannot be undone.',
+              ? 'Delete "{name}"? This removes the Raft agent identity, credentials, and associated Raft data. It will not stop, uninstall, or clean up the external runtime, local profile, or harness.'
+              : 'Delete "{name}"? This removes all associated data and cannot be undone.',
           {'name': name},
         ),
         confirmLabel: raftText(context, 'Delete Agent'),
+        cancelLabel: raftText(context, 'Keep Agent'),
         loadingLabel: raftText(context, 'Deleting…'),
         variant: RaftButtonRecipeVariant.danger,
         operation: () async {
@@ -1099,15 +1105,17 @@ class _FleetDetailState extends State<FleetDetail> {
       return;
     }
     await confirm(
-      widget.computers ? 'Delete computer?' : 'Delete agent?',
+      widget.computers ? 'Delete Computer' : 'Delete Agent',
       widget.computers
-          ? 'Disconnect this computer from the workspace. Its agents can no longer use this connection.'
+          ? 'Disconnect this computer from the server. Its agents can no longer use this connection.'
           : 'Delete this agent and stop its managed runtime. This cannot be undone.',
       () async {
         require(widget.computers ? 'removeMachines' : 'deleteAgents');
         await w.command('DELETE', base);
         removed = true;
       },
+      submit: widget.computers ? 'Delete Computer' : 'Delete Agent',
+      cancel: widget.computers ? 'Keep Computer' : 'Keep Agent',
       destructive: true,
     );
     if (removed) closeProfile();
@@ -1120,7 +1128,7 @@ class _FleetDetailState extends State<FleetDetail> {
     require(cap);
     if (widget.computers) {
       await confirm(
-        'Rotate computer key?',
+        'Rotate Computer Key',
         'The old key will stop working. Reconnect this computer using the new key.',
         () async {
           require(cap);
@@ -1134,6 +1142,8 @@ class _FleetDetailState extends State<FleetDetail> {
             );
           }
         },
+        submit: 'Rotate Key',
+        cancel: 'Keep Key',
       );
     } else {
       final result = await w.command(
@@ -1212,10 +1222,11 @@ class _FleetDetailState extends State<FleetDetail> {
         title: raftText(context, 'Stop Agent'),
         message: raftFormat(
           context,
-          'Are you sure you want to stop "{name}"? The agent will stop processing messages.',
+          'Stop "{name}"? The agent will stop processing messages.',
           {'name': nonEmptyOr(row['displayName'], row['name'])},
         ),
         confirmLabel: raftText(context, 'Stop Agent'),
+        cancelLabel: raftText(context, 'Keep Working'),
         loadingLabel: raftText(context, 'Stopping…'),
         variant: RaftButtonRecipeVariant.warning,
         operation: () async {
@@ -1230,8 +1241,10 @@ class _FleetDetailState extends State<FleetDetail> {
       );
       return;
     }
+    final commandLabel =
+        '${command[0].toUpperCase()}${command.substring(1)} ${widget.computers ? 'Computer' : 'Agent'}';
     await confirm(
-      '${command[0].toUpperCase()}${command.substring(1)} ${widget.computers ? 'computer' : 'agent'}?',
+      commandLabel,
       upgrading
           ? 'Upgrade this computer to $target. Active agent sessions may be interrupted.'
           : 'This action affects the selected runtime.',
@@ -1262,6 +1275,7 @@ class _FleetDetailState extends State<FleetDetail> {
           );
         }
       },
+      submit: commandLabel,
     );
   }
 
@@ -1285,6 +1299,7 @@ class _FleetDetailState extends State<FleetDetail> {
       title: confirm.title,
       message: confirm.message,
       confirmLabel: confirm.confirmLabel,
+      cancelLabel: confirm.cancelLabel,
       loadingLabel: confirm.loadingLabel,
       variant: confirm.variant,
       operation: () async {
@@ -1676,7 +1691,7 @@ class _FleetInspectionState extends State<FleetInspection> {
             child: ValueListenableBuilder<Object?>(
               valueListenable: content,
               builder: (_, data, _) => SelectableText(switch (data) {
-                _PendingFile() => raftText(context, 'Loading…'),
+                _PendingFile() => raftText(context, 'Loading file…'),
                 _FileReadFailed(:final message) => raftText(context, message),
                 Map() when data['binary'] == true =>
                   'Binary file · ${data['mimeType'] ?? ''} · ${data['size']} bytes',

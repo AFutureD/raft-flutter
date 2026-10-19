@@ -66,10 +66,8 @@ const Map<String, String> zhCatalogMessageHistory = <String, String>{
   "Some messages could not be refreshed. Saved messages are still available. Check your connection and try again.":
       "部分消息未能刷新。已保存的消息仍可使用。请检查网络后重试。",
   "The account changed. Close this dialog and try again.": "账号已更改。请关闭此对话框后重试。",
-  "Lower message history limit?": "调低消息历史容量？",
   "Older unused messages may be removed immediately and will need an internet connection to open again. Messages in use, draft references and conversations you keep are protected.":
       "较旧且未使用的消息可能立即从本机移除，再次查看时需要联网。正在使用的消息、草稿引用和已选择保留的会话不会被移除。",
-  "Lower limit": "调低容量",
   "Available disk space could not be checked. No full cleanup was run. Try again.":
       "无法检查磁盘可用空间，未执行整库整理。请重试。",
   "Full cleanup needs {needed} of free disk space; {available} is available. Free up device space and try again.":

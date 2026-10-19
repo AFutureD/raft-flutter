@@ -192,7 +192,7 @@ void main() {
               findsNothing,
             );
             expect(
-              find.descendant(of: root, matching: find.text('Loading...')),
+              find.descendant(of: root, matching: find.text('Loading thread…')),
               findsOneWidget,
             );
           }

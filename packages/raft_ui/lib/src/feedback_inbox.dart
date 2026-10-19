@@ -250,7 +250,7 @@ class RaftFeedbackInbox extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: RaftButton(
-                        label: 'Load more',
+                        label: 'Load More',
                         variant: RaftControlVariant.outline,
                         onPressed: onLoadMore,
                       ),

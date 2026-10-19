@@ -157,7 +157,7 @@ void main() {
         final service = _service(notes);
         addTearDown(service.dispose);
         await _mount(t, service, size: size, family: family);
-        expect(find.text('WHAT\'S NEW IN THIS UPDATE'), findsOneWidget);
+        expect(find.text("What's new in this update"), findsOneWidget);
         // Collapsed: the newest only, and the row says how many are folded.
         expect(find.text('Nine notes'), findsOneWidget);
         for (final text in ['Eight notes', 'Seven notes', 'Six notes']) {

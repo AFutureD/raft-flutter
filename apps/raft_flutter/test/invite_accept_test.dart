@@ -252,8 +252,8 @@ void main() {
         var goes = 0;
         for (final (status, message) in [
           (404, 'This invite link is invalid or has expired.'),
-          (429, 'Too many attempts. Please wait a minute and try again.'),
-          (500, 'Failed to load invite link. Please try again.'),
+          (429, 'Too many attempts. Wait a minute and try again.'),
+          (500, 'Failed to load invite link. Try again.'),
         ]) {
           await host(
             t,

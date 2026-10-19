@@ -333,7 +333,7 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
       children: [
         RaftBanner(
           status: RaftBannerRecipeStatus.success,
-          title: 'Computer connected successfully!',
+          title: 'Computer connected',
           description: '${m?.hostname ?? ''} — ${m?.os ?? 'Unknown OS'}',
         ),
         const SizedBox(height: 16),
@@ -490,8 +490,8 @@ class RaftComputerCommandGuide extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           windows
-              ? 'Install Raft Computer from PowerShell, then connect this Windows x64 machine to the server.'
-              : 'Install the Raft Computer CLI on this macOS or Linux machine, then connect it to this server.',
+              ? 'Install Raft Computer from PowerShell, then connect this Windows x64 computer to the server.'
+              : 'Install the Raft Computer CLI on this macOS or Linux computer, then connect it to this server.',
           style: note,
         ),
         const SizedBox(height: 8),

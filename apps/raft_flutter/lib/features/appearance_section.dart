@@ -163,10 +163,7 @@ class RaftAppearanceSection extends StatelessWidget {
               style: r.annotation,
             ),
             const SizedBox(height: 16),
-            Text(
-              raftText(context, 'Preview').toUpperCase(),
-              style: r.annotation,
-            ),
+            Text(raftText(context, 'Preview'), style: r.annotation),
             const SizedBox(height: 8),
             IgnorePointer(
               child: Semantics(

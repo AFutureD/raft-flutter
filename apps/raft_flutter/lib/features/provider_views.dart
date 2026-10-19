@@ -105,7 +105,7 @@ class _ProviderConnectionsState
       );
     }
     await form(
-      'Add provider connection',
+      'Add Provider Connection',
       [
         const RaftFormField('name', 'Connection name', required: true),
         RaftFormField(
@@ -157,7 +157,7 @@ class _ProviderConnectionsState
           );
         });
       },
-      submit: 'Add',
+      submit: 'Add Connection',
     );
   }
 
@@ -179,7 +179,7 @@ class _ProviderConnectionsState
 
   Future<void> rotate(Map<String, dynamic> connection) async {
     await form(
-      'Rotate provider credential',
+      'Rotate Credential',
       [
         const RaftFormField(
           'apiKey',
@@ -197,7 +197,7 @@ class _ProviderConnectionsState
       }),
       description:
           'The new credential replaces the existing one. Agents must use the new credential version.',
-      submit: 'Rotate',
+      submit: 'Rotate Credential',
     );
   }
 
@@ -225,7 +225,7 @@ class _ProviderConnectionsState
                       raftText(
                         context,
                         failure == null
-                            ? 'Loading…'
+                            ? 'Loading agents…'
                             : _loadFailure(
                                 failure,
                                 'Assigned Agents could not be loaded.',
@@ -242,7 +242,7 @@ class _ProviderConnectionsState
                       ),
                       trailing: a['deleted'] == true
                           ? RaftTooltip(
-                              message: 'Detach deleted agent',
+                              message: 'Detach Deleted Agent',
                               child: IconButton(
                                 icon: const RaftIcon(
                                   RaftGlyph.link2Off,
@@ -271,14 +271,15 @@ class _ProviderConnectionsState
     );
     if (detachId != null) {
       await confirm(
-        'Detach deleted agent?',
+        'Detach Deleted Agent',
         'Remove the assignment left by this deleted agent.',
         () => _web('The provider connection could not be updated.', () async {
           await w.client.delete(
             '/provider-connections/${connection['id']}/agents/$detachId',
           );
         }),
-        submit: 'Detach',
+        submit: 'Detach Agent',
+        cancel: 'Keep Assignment',
       );
     }
   }
@@ -306,7 +307,7 @@ class _ProviderConnectionsState
     if (candidates.isEmpty) {
       // Web `settings.providers.verifyNoComputers`.
       throw const RaftUserError(
-        'No online Computer with the Built-in runtime is connected.',
+        'No online computer with the Built-in runtime is connected.',
       );
     }
     List<String> models = [];
@@ -339,21 +340,21 @@ class _ProviderConnectionsState
             load: () => _verificationInputs(connection),
             builder: (dialogContext, inputs, failure) => inputs == null
                 ? RaftFormDialog(
-                    title: 'Verify on a computer',
+                    title: 'Verify on Computer',
                     fields: const [],
                     description: failure == null
-                        ? 'Loading…'
+                        ? 'Loading computers…'
                         : _loadFailure(
                             failure,
                             'Verification could not be started.',
                           ),
-                    submitLabel: 'Verify',
+                    submitLabel: 'Verify Connection',
                     onSubmit: (_) async => throw const RaftUserError(
                       'Verification could not be started.',
                     ),
                   )
                 : RaftFormDialog(
-                    title: 'Verify on a computer',
+                    title: 'Verify on Computer',
                     fields: [
                       RaftFormField(
                         'computerId',
@@ -377,7 +378,7 @@ class _ProviderConnectionsState
                       if (!accepts(generation) ||
                           sourceAuthority != authority) {
                         throw StateError(
-                          'The active workspace changed. Reopen this form.',
+                          'The active server changed. Reopen this form.',
                         );
                       }
                       try {
@@ -448,7 +449,7 @@ class _ProviderConnectionsState
                         );
                       }
                     },
-                    submitLabel: 'Verify',
+                    submitLabel: 'Verify Connection',
                     description:
                         'Run one canary request through the selected computer. This may incur the provider’s normal usage charges.',
                   ),
@@ -512,7 +513,7 @@ class _ProviderConnectionsState
                     Text(
                       raftText(
                         context,
-                        failure == null ? 'Loading…' : _loadFailure(failure),
+                        failure == null ? 'Loading verification history…' : _loadFailure(failure),
                       ),
                     )
                   else if (receipts.isEmpty)
@@ -605,7 +606,7 @@ class _ProviderConnectionsState
                               ),
                             ),
                             action(
-                              'Verify on computer',
+                              'Verify on Computer',
                               () => run(() => verify(connection)),
                             ),
                             action(

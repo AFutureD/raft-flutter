@@ -41,7 +41,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('STOP ALL AGENTS'), findsOneWidget);
+      expect(find.text('Stop Agents'), findsNWidgets(2));
       expect(
         find.text(
           'All running agents in #release will stop immediately. You can provide new guidance before resuming them.',
@@ -55,7 +55,7 @@ void main() {
       expect(_onPressed(tester, 'sos-stop'), isNull);
       stop.complete(null);
       await tester.pumpAndSettle();
-      expect(find.text('AGENTS STOPPED'), findsOneWidget);
+      expect(find.text('Agents Stopped'), findsOneWidget);
       expect(find.text('All agents have been stopped.'), findsOneWidget);
       // Resume requires non-blank guidance.
       expect(_onPressed(tester, 'sos-resume'), isNull);
@@ -101,7 +101,7 @@ void main() {
     );
     await tester.tap(_button('sos-stop'));
     await tester.pumpAndSettle();
-    expect(find.text('STOP ALL AGENTS'), findsOneWidget);
+    expect(find.text('Stop Agents'), findsNWidgets(2));
     expect(
       find.text('Agents could not be stopped. Try again.'),
       findsOneWidget,
@@ -169,12 +169,11 @@ void main() {
         ),
       ),
     );
-    expect(find.text('停止所有 AGENT'), findsOneWidget);
+    expect(find.text('停止 Agent'), findsNWidgets(2));
     expect(
       find.text('#release 中所有正在运行的 Agent 都会立即停止。恢复前，你可以提供新的指导。'),
       findsOneWidget,
     );
-    expect(find.text('停止'), findsOneWidget);
-    expect(find.text('取消'), findsOneWidget);
+    expect(find.text('继续工作'), findsOneWidget);
   });
 }

@@ -26,7 +26,7 @@ import 'markdown_autolink.dart';
 class RaftMessageSemanticsAction {
   const RaftMessageSemanticsAction(this.label, this.onInvoke);
 
-  /// Localized, stable action name ("Reply in thread", "Save message"...).
+  /// Localized, stable action name ("Reply in thread", "Save Message"...).
   final String label;
 
   /// Receives the row's context, e.g. as a popup anchor.

@@ -161,7 +161,7 @@ class RaftNotificationRecipe {
     line: tokens.brutal ? 16 : 20,
     weight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
     color: tokens.brutal ? tokens.strong.withValues(alpha: .6) : tokens.ink,
-  ).copyWith(letterSpacing: tokens.brutal ? 1.2 : 0);
+  );
   TextStyle get count => tokens.brutal
       ? RaftTypography.mono(
           tokens,
@@ -347,12 +347,7 @@ class _RaftNotificationCenterState extends State<RaftNotificationCenter> {
                               child: Semantics(
                                 header: true,
                                 child: Text(
-                                  t.brutal
-                                      ? raftText(
-                                          context,
-                                          widget.title,
-                                        ).toUpperCase()
-                                      : raftText(context, widget.title),
+                                  raftText(context, widget.title),
                                   style: r.title,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,

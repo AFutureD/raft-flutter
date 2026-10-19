@@ -181,7 +181,7 @@ void main() {
   );
 
   testWidgets(
-    'unsaved prompt: three actions, Save and close only when savable',
+    'unsaved prompt: three actions, Save and Close only when savable',
     (t) async {
       final taps = <String>[];
       await t.pumpWidget(
@@ -200,9 +200,9 @@ void main() {
             find.widgetWithText(RaftSettingsRecipeButton, label),
           )
           .onPressed!();
-      press('Keep editing');
-      press('Discard changes');
-      press('Save and close');
+      press('Keep Editing');
+      press('Discard Changes');
+      press('Save and Close');
       expect(taps, ['keep', 'discard', 'save']);
       await t.pumpWidget(
         _host(
@@ -213,7 +213,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Save and close'), findsNothing);
+      expect(find.text('Save and Close'), findsNothing);
     },
   );
 

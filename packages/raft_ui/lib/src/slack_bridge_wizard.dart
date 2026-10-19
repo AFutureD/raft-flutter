@@ -133,13 +133,12 @@ class RaftSlackWizardView extends StatelessWidget {
     double? line,
     FontWeight weight = FontWeight.w400,
     Color? color,
-    double tracking = 0,
   }) => RaftTypography.heading(
     t,
     size: size,
     line: line ?? size * 1.5,
     weight: weight,
-  ).copyWith(color: color ?? t.strong, letterSpacing: tracking);
+  ).copyWith(color: color ?? t.strong);
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +177,7 @@ class RaftSlackWizardView extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: RaftSettingsRecipeButton(
                 key: const ValueKey('slack-bridge-disconnect'),
-                label: 'Disconnect Slack workspace',
+                label: 'Disconnect Slack Workspace',
                 variant: RaftButtonRecipeVariant.danger,
                 size: RaftButtonRecipeSize.sm,
                 onPressed: busy ? null : onDisconnect,
@@ -330,7 +329,7 @@ class RaftSlackWizardView extends StatelessWidget {
           borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
         ),
         child: RaftCssText(
-          raftText(context, labels[i]).toUpperCase(),
+          raftText(context, labels[i]),
           textAlign: TextAlign.center,
           style: _text(
             t,
@@ -338,7 +337,6 @@ class RaftSlackWizardView extends StatelessWidget {
             line: 15,
             weight: FontWeight.w700,
             color: ink,
-            tracking: .25,
           ),
         ),
       );
@@ -798,7 +796,7 @@ class RaftSlackWizardView extends StatelessWidget {
                   'passed' => 'Passed',
                   'failed' => 'Failed',
                   _ => 'Unverified',
-                }).toUpperCase(),
+                }),
                 style: _text(t, size: 12, line: 16, color: s.strong),
               ),
             ],
@@ -1102,14 +1100,13 @@ class RaftSlackWizardView extends StatelessWidget {
                   spacing: 8,
                   children: [
                     RaftCssText(
-                      raftText(context, 'Selected channel pairs').toUpperCase(),
+                      raftText(context, 'Selected channel pairs'),
                       style: _text(
                         t,
                         size: 12,
                         line: 16,
                         weight: FontWeight.w700,
                         color: muted,
-                        tracking: .3,
                       ),
                     ),
                     if (canManage)
@@ -1193,14 +1190,14 @@ class RaftSlackWizardView extends StatelessWidget {
           spacing: 8,
           children: [
             RaftSettingsRecipeButton(
-              label: 'Cancel',
+              label: 'Stay Connected',
               variant: RaftButtonRecipeVariant.default_,
               size: RaftButtonRecipeSize.sm,
               onPressed: busy ? null : onDisconnectCancel,
             ),
             RaftSettingsRecipeButton(
               key: const ValueKey('slack-bridge-disconnect-confirm'),
-              label: 'Confirm disconnect',
+              label: 'Disconnect Slack Workspace',
               variant: RaftButtonRecipeVariant.danger,
               size: RaftButtonRecipeSize.sm,
               onPressed: busy ? null : onDisconnectConfirm,

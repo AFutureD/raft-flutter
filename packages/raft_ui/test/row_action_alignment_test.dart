@@ -141,14 +141,14 @@ void main() {
               family,
               dark,
               RaftSettingsActionCard(
-                title: 'Delete workspace',
+                title: 'Delete Workspace',
                 description: 'This cannot be undone.',
                 action: _button('Delete'),
               ),
             ),
           );
           expectVerticallyCentered(tester, [
-            _block('Delete workspace'),
+            _block('Delete Workspace'),
             find.byKey(_action),
           ], reason: 'RaftSettingsActionCard');
         },

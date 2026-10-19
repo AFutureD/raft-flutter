@@ -923,7 +923,7 @@ void registerCloseDialogTests(TestPart part) {
     expect(probe.isOpen(), isTrue);
     await t.tap(probe.x!.hitTestable().first);
     await frames(t, 20);
-    await t.tap(find.text('Discard'));
+    await t.tap(find.text('Discard Changes'));
     await frames(t, 20);
     expect(probe.isOpen(), isFalse);
   });

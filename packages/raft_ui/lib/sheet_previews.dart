@@ -28,7 +28,7 @@ class _SheetPreview extends StatelessWidget {
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Create channel',
+              'Create Channel',
               style: RaftTypography.heading(
                 t,
                 size: 18,

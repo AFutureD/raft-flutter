@@ -197,7 +197,7 @@ void main() {
           ),
         );
         // No pump after the first frame: the rows are already final.
-        expect(find.text('RECENT CONVERSATIONS'), findsOneWidget);
+        expect(find.text('Recent conversations'), findsOneWidget);
         final titles = [
           for (final w in t.widgetList<Text>(
             find.descendant(
@@ -299,7 +299,7 @@ void main() {
       await t.pump();
       await t.enterText(find.byType(TextField), 'design');
       await t.pump();
-      expect(find.text('RECENT CONVERSATIONS'), findsNothing);
+      expect(find.text('Recent conversations'), findsNothing);
       final order = t
           .widgetList<Widget>(
             find.byWidgetPredicate(

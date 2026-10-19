@@ -1,6 +1,6 @@
 // Web `member/InviteHumanDialog.tsx`: the "Invite Human" DialogCard (`max-w-lg`)
 // with the By email / By link segmented control, one row per invitee (email
-// Input + optional role Select + remove), "Add another", the join-link field
+// Input + optional role Select + remove), "Add Another", the join-link field
 // with its limits, and Cancel / Send invites. Presentation only: the app owns
 // requests, billing gates and navigation.
 import 'package:flutter/material.dart';
@@ -240,19 +240,17 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
     );
   }
 
-  /// `<label className="mb-1 block text-sm font-bold text-foreground-strong
-  /// uppercase tracking-wide">` (a bare label: no Field gap).
+  /// `<label className="mb-1 block text-sm font-bold text-foreground-strong">` (a bare label: no Field gap).
   Widget _fieldLabel(BuildContext context, RaftTokens t, String text) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Text(
-          raftText(context, text).toUpperCase(),
+          raftText(context, text),
           style: raftCssTextStyle(
             family: t.headingFont,
             step: RaftTextSteps.sm,
             weight: FontWeight.w700,
             color: t.colors['foreground-strong'],
-            trackingEm: .025,
           ),
         ),
       );
@@ -319,7 +317,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
             alignment: Alignment.centerLeft,
             child: RaftRecipeButton(
               key: const ValueKey('invite-add'),
-              label: raftText(context, 'Add another'),
+              label: raftText(context, 'Add Another'),
               glyph: RaftGlyph.plus,
               glyphSize: 14,
               variant: RaftButtonRecipeVariant.ghost,
@@ -442,7 +440,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                 key: const ValueKey('invite-link-revoke'),
                 onTap: widget.onRevokeLink,
                 child: Text(
-                  raftText(context, 'Revoke link'),
+                  raftText(context, 'Revoke Link'),
                   style: TextStyle(
                     fontFamily: t.headingFont,
                     fontSize: 12,

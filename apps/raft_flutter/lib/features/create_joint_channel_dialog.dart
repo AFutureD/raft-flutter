@@ -87,7 +87,7 @@ class CreateJointChannelDialog extends StatefulWidget {
       Map<String, dynamic>? data,
     ) async {
       if (!current()) {
-        throw StateError('Workspace access changed. Reopen this form.');
+        throw StateError('Server access changed. Reopen this form.');
       }
       return managementMap(await w.client.post(path, data: data));
     }

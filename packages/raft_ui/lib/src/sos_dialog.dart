@@ -133,9 +133,7 @@ class _RaftSosDialogState extends State<RaftSosDialog> {
     return Material(
       type: MaterialType.transparency,
       child: RaftDialogCard(
-        title: phase == RaftSosPhase.confirm
-            ? 'Stop All Agents'
-            : 'Agents Stopped',
+        title: phase == RaftSosPhase.confirm ? 'Stop Agents' : 'Agents Stopped',
         onClose: widget.onClose,
         maxWidth: 384, // max-w-sm
         // Pinned under the scrolling body at large text sizes.
@@ -143,14 +141,14 @@ class _RaftSosDialogState extends State<RaftSosDialog> {
             ? actions([
                 RaftButton(
                   key: const ValueKey('sos-cancel'),
-                  label: 'Cancel',
+                  label: 'Keep Working',
                   tone: RaftButtonRecipeVariant.outline,
                   size: RaftButtonRecipeSize.sm,
                   onPressed: widget.onClose,
                 ),
                 RaftButton(
                   key: const ValueKey('sos-stop'),
-                  label: stopping ? 'Stopping…' : 'Stop',
+                  label: stopping ? 'Stopping…' : 'Stop Agents',
                   tone: RaftButtonRecipeVariant.warning,
                   size: RaftButtonRecipeSize.sm,
                   onPressed: stopping ? null : stop,

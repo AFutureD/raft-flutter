@@ -160,8 +160,8 @@ void main() {
     'shows the setup state, the token inventory and the Hermes steps',
     (tester) async {
       final (_, client) = await _pump(tester);
-      expect(find.text('EXTERNAL SETUP'), findsOneWidget);
-      expect(find.text('CREDENTIAL MINTED'), findsOneWidget);
+      expect(find.text('External setup'), findsOneWidget);
+      expect(find.text('Credential minted'), findsOneWidget);
       expect(find.text('External · No Raft activity yet'), findsOneWidget);
       expect(
         client.calls.where((c) => c == 'GET /agents/ext-1/external-status'),
@@ -199,7 +199,7 @@ void main() {
           'credentialLastUsedAt': null,
         };
       await _pump(tester, client: client);
-      expect(find.text('WAITING FOR LOGIN'), findsOneWidget);
+      expect(find.text('Waiting for login'), findsOneWidget);
       expect(find.text('External · Setup required'), findsOneWidget);
     },
   );
@@ -213,7 +213,7 @@ void main() {
     // body-less 500 shows the fallback, never the exception text.
     expect(find.text('Failed to load external setup status'), findsOneWidget);
     expect(find.text('Status unavailable'), findsNothing);
-    expect(find.text('WAITING FOR LOGIN'), findsOneWidget);
+    expect(find.text('Waiting for login'), findsOneWidget);
   });
 
   testWidgets(
@@ -267,7 +267,7 @@ void main() {
       expect(
         copied.last,
         startsWith(
-          'Run these commands on the machine that will run this agent.',
+          'Run these commands on the computer that will run this agent.',
         ),
       );
       expect(copied.last, contains('npm i -g @botiverse/raft@latest'));

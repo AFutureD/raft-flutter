@@ -284,7 +284,7 @@ void main() {
       await t.pumpAndSettle();
     }
 
-    testWidgets('"Password updated!" hides itself after two seconds', (
+    testWidgets('"Password updated." hides itself after two seconds', (
       t,
     ) async {
       await open(t);
@@ -294,9 +294,9 @@ void main() {
       await t.tap(find.byKey(const ValueKey('account-password-submit')));
       await t.pump();
       await t.pump();
-      expect(find.text('Password updated!'), findsOneWidget);
+      expect(find.text('Password updated.'), findsOneWidget);
       await t.pump(const Duration(seconds: 3));
-      expect(find.text('Password updated!'), findsNothing);
+      expect(find.text('Password updated.'), findsNothing);
     });
 
     testWidgets('an incomplete form is reported live and ends when fixed', (
@@ -684,7 +684,7 @@ void main() {
       );
       await t.tap(find.byKey(confirm));
       await t.pumpAndSettle();
-      expect(find.text('Something went wrong'), findsOneWidget);
+      expect(find.text('Could not complete that. Try again.'), findsOneWidget);
       await t.tap(find.byKey(confirm));
       await t.pumpAndSettle();
       expect(find.text('rotated-secret'), findsOneWidget);

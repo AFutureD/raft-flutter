@@ -81,7 +81,7 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.text('Loading...'), findsNothing);
+        expect(find.text('Loading thread…'), findsNothing);
         expect(find.text('Message reply-2'), findsOneWidget);
         await tester.runAsync(() async {
           pending.complete({
@@ -94,7 +94,7 @@ void main() {
         });
         await tester.pump();
         // The revalidated window replaces the cached one in place.
-        expect(find.text('Loading...'), findsNothing);
+        expect(find.text('Loading thread…'), findsNothing);
         expect(w.messageDomain.state.threadLoading, false);
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(seconds: 5));

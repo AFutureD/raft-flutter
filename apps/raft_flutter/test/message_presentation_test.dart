@@ -347,7 +347,7 @@ void main() {
       );
       expect(
         find.text(
-          'This is a history copy. Only the source workspace can run this action.',
+          'This is a history copy. Only the source server can run this action.',
         ),
         findsOneWidget,
       );
@@ -397,7 +397,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('action-member-agent-a1')));
       await tester.pump();
-      await tester.tap(find.text('Create').last);
+      await tester.tap(find.text('Create Channel').last);
       await tester.pumpAndSettle();
       final create = a.calls.singleWhere(
         (r) => r.method == 'POST' && r.path == '/channels',
@@ -489,7 +489,7 @@ void main() {
       await tester.tap(find.text('Add Members').last);
       await tester.pumpAndSettle();
       // The Web dialog: title, target channel, one row per candidate.
-      expect(find.text('ADD MEMBERS'), findsOneWidget);
+      expect(find.text('Add Members'), findsNWidgets(2));
       expect(find.text('Agent'), findsOneWidget);
       expect(find.text('Human'), findsOneWidget);
       await tester.tap(
@@ -517,7 +517,7 @@ void main() {
         'addedHumanIds': ['u1'],
         'addedAgentIds': <String>[],
       });
-      expect(find.text('ADD MEMBERS'), findsNothing);
+      expect(find.text('Add Members'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

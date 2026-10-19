@@ -171,12 +171,27 @@ void main() {
   });
 
   group('provider dialogs open before their data arrives', () {
-    final cases = <(String, String, String)>[
-      ('Assigned agents', 'Agents using Provider fixture', 'agents'),
-      ('Verification history', 'Provider verification history', 'history'),
-      ('Verify on computer', 'Verify on a computer', 'verify'),
+    final cases = <(String, String, String, String)>[
+      (
+        'Assigned agents',
+        'Agents using Provider fixture',
+        'agents',
+        'Loading agents…',
+      ),
+      (
+        'Verification history',
+        'Provider verification history',
+        'history',
+        'Loading verification history…',
+      ),
+      (
+        'Verify on Computer',
+        'Verify on Computer',
+        'verify',
+        'Loading computers…',
+      ),
     ];
-    for (final (action, title, name) in cases) {
+    for (final (action, title, name, loading) in cases) {
       testWidgets(name, (t) async {
         final (w, api) = await _workspace(t);
         api.routes['POST /feature-flags/evaluate'] = (_) => {
@@ -222,8 +237,8 @@ void main() {
         await t.ensureVisible(find.text(action));
         await t.tap(find.text(action));
         await frames(t, 4);
-        expect(find.text(title), findsOneWidget);
-        expect(find.text('Loading…'), findsOneWidget);
+        expect(find.text(title), findsNWidgets(action == title ? 2 : 1));
+        expect(find.text(loading), findsOneWidget);
         // Closing never waits for the held request either.
         await t.tap(
           find.text('Close').evaluate().isNotEmpty
@@ -231,7 +246,7 @@ void main() {
               : find.byType(RaftCloseButton),
         );
         await frames(t, 20);
-        expect(find.text(title), findsNothing);
+        expect(find.text(title), findsNWidgets(action == title ? 1 : 0));
         api.hangAll = false;
       });
     }

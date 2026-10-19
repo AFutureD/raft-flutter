@@ -162,7 +162,7 @@ class _QaAdapter implements HttpClientAdapter {
       case 'GET /auth/me':
         if (_fx.me == 'pending') await _fx.hold();
         if (_fx.me == '401') {
-          throw _Status(401, {'error': 'Please sign in again.'});
+          throw _Status(401, {'error': 'Sign in again.'});
         }
         if (_fx.me == 'offline') throw _Net();
         return _user();
