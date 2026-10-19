@@ -9,6 +9,7 @@ import 'design_primitives.dart';
 import 'localization.dart';
 import 'mounted_avatar_recipe.dart';
 import 'popover_surface.dart';
+import 'text_scaling.dart' show RaftChrome;
 import 'theme.dart';
 
 /// Raft Design System "Working agents" (decision 0006): working agents are
@@ -256,22 +257,25 @@ class _RaftWorkingSummaryState extends State<RaftWorkingSummary> {
                     label: label,
                     selected: open,
                     onPressed: () => setOpen(!open),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RaftWorkingFaces(agents: agents),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${agents.length}',
-                          key: const Key('working-agent-count'),
-                          style: RaftTypography.mono(
-                            t,
-                            size: 12,
-                            line: 16,
-                            color: t.brutal ? Colors.black : t.strong,
+                    // The count is fixed chrome: bounded at 1.35x like badges.
+                    child: RaftChrome(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RaftWorkingFaces(agents: agents),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${agents.length}',
+                            key: const Key('working-agent-count'),
+                            style: RaftTypography.mono(
+                              t,
+                              size: 12,
+                              line: 16,
+                              color: t.brutal ? Colors.black : t.strong,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
           ),

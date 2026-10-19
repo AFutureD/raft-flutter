@@ -76,6 +76,7 @@ import 'package:raft_ui/toast_previews.dart';
 import 'package:raft_ui/typography_locale_previews.dart';
 import 'package:raft_ui/workspace_previews.dart';
 import 'package:raft_ui/workspace_shell_previews.dart';
+import 'package:raft_ui/working_agents_previews.dart';
 
 class AuditSurface {
   const AuditSurface(
@@ -305,6 +306,24 @@ final auditSurfaces = <AuditSurface>[
     representative: true,
   ),
   AuditSurface('dmHeaderPreview', 'DM header', dmHeaderPreview, Size(960, 160)),
+  AuditSurface(
+    'workingAgentsPhoneHomePreview',
+    'Working agents · phone Home',
+    workingAgentsPhoneHomePreview,
+    Size(390, 520),
+  ),
+  AuditSurface(
+    'workingAgentsChannelHeaderPreview',
+    'Working agents · channel header',
+    workingAgentsChannelHeaderPreview,
+    Size(390, 160),
+  ),
+  AuditSurface(
+    'workingAgentsDesktopPreview',
+    'Working agents · desktop',
+    workingAgentsDesktopPreview,
+    Size(960, 420),
+  ),
   AuditSurface(
     'channelSettingsPagePreview',
     'Mobile channel settings page',
