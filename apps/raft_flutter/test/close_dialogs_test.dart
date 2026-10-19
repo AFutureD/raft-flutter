@@ -37,6 +37,7 @@ import 'support/close_registry_dialogs.dart';
 import 'support/close_runner.dart';
 import 'support/close_support.dart';
 import 'support/close_surface.dart';
+import 'support/test_parts.dart';
 import 'flutter_test_config.dart' show leakDebt;
 
 /// The test font is wider than the shipped one, so dense dialogs report
@@ -348,7 +349,11 @@ Future<SurfaceProbe> fromProviders(
   );
 }
 
-void main() {
+/// Six files share this suite (`close_dialogs_part2_test.dart` ...), each
+/// registering a sixth of the surfaces.
+void main() => registerCloseDialogTests(TestPart(0, 6));
+
+void registerCloseDialogTests(TestPart part) {
   // Leak debt (dialog notifier): see docs/development.md, Leak tracking.
   // Flutter 3.47.6: a modal bottom sheet closed by a drag rebinds its animation
   // to a CurvedAnimation that nothing disposes (the composer's phone sheet).
@@ -853,8 +858,13 @@ void main() {
       (context, w) => unawaited(showWorkspaceMenuInvite(context, w)),
     ),
   };
-  registerCloseTests(dialogSurfaces, harness);
-  registerNoScrimTests(dialogSurfaces, harness);
+  final surfaces = [
+    for (final surface in dialogSurfaces)
+      if (part.claim()) surface,
+  ];
+  registerCloseTests(surfaces, harness);
+  registerNoScrimTests(surfaces, harness);
+  if (!part.first) return;
 
   // Web ConfirmDialog gates every close on the in-flight confirm.
   testWidgets('confirm dialog ignores Esc, Back and the X while it runs', (

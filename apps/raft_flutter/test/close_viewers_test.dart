@@ -37,6 +37,7 @@ import 'support/close_registry_viewers.dart';
 import 'support/close_runner.dart';
 import 'support/close_support.dart';
 import 'support/close_surface.dart';
+import 'support/test_parts.dart';
 import 'support/app_services_fixture.dart';
 
 class _Client extends RaftClient {
@@ -309,7 +310,11 @@ bool lightboxOpen() =>
 Offset emptyStage(Size size) =>
     Offset(size.width / 2 + 100, size.height / 2 + 100);
 
-void main() {
+/// Three files share this suite (`close_viewers_part2_test.dart` ...), each
+/// registering a third of the surfaces.
+void main() => registerCloseViewerTests(TestPart(0, 3));
+
+void registerCloseViewerTests(TestPart part) {
   final harness = <String, OpenSurface>{
     'task-modern-tasks-route': (t, size) async {
       await openTask(t, size, modernTask, tasksRoute: true);
@@ -718,7 +723,11 @@ void main() {
       );
     },
   };
-  registerCloseTests(viewerSurfaces, harness);
+  registerCloseTests([
+    for (final surface in viewerSurfaces)
+      if (part.claim()) surface,
+  ], harness);
+  if (!part.first) return;
 
   // Web ImageLightbox: only an *empty-stage* click closes - not a click on
   // the image and not a drag that ends on the empty stage.

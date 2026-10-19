@@ -36,6 +36,7 @@ import 'edge_to_edge_audit_test.dart'
 import 'incoming_share_review_test.dart' show PickerClient;
 import 'mobile_computer_navigation_test.dart' show loadComputerPageFonts;
 import 'flutter_test_config.dart' show leakDebt;
+import 'support/test_parts.dart';
 
 const _dpr = 2.625;
 const _size = Size(1081, 2402);
@@ -131,9 +132,8 @@ Future<void> checkTop(
     );
     final out = await recorder.endRecording().toImage(w, h);
     final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
-    File(
-      '${outDir(theme).path}/$name.png',
-    ).writeAsBytesSync(bytes!.buffer.asUint8List());
+    File('${outDir(theme).path}/$name.png')
+        .writeAsBytesSync(bytes!.buffer.asUint8List());
     image.dispose();
     out.dispose();
   });
@@ -514,7 +514,7 @@ Future<void> _expectPhoneStrip(WidgetTester t, String theme) async {
   );
 }
 
-void _wideTests() {
+void _wideTests(TestPart part) {
   const sizes = {
     'fold 816': Size(816, 920),
     'desktop 1280': Size(1280, 800),
@@ -522,6 +522,7 @@ void _wideTests() {
   };
   for (final theme in _themes) {
     for (final route in _wideRoutes.entries) {
+      if (!part.claim()) continue;
       testWidgets('statusbar wide route ${route.key} $theme', (t) async {
         try {
           await _mountAt(t, theme, const Size(816, 900), path: route.value);
@@ -536,6 +537,7 @@ void _wideTests() {
       });
     }
     for (final entry in sizes.entries) {
+      if (!part.claim()) continue;
       testWidgets('statusbar wide ${entry.key} $theme', (t) async {
         try {
           await _mountAt(t, theme, entry.value);
@@ -546,32 +548,36 @@ void _wideTests() {
       });
     }
 
-    testWidgets('statusbar resize across the breakpoint $theme', (t) async {
-      const wide = Size(816, 920), phone = Size(412, 915);
-      try {
-        await _mountAt(t, theme, wide);
-        await _expectColumnsContinue(t, theme);
-        await _resize(t, phone);
-        await _expectPhoneStrip(t, theme);
-        await _resize(t, wide);
-        await _expectColumnsContinue(t, theme);
-        await _resize(t, phone);
-        await _expectPhoneStrip(t, theme);
-        expect(t.takeException(), isNull);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
+    if (part.claim()) {
+      testWidgets('statusbar resize across the breakpoint $theme', (t) async {
+        const wide = Size(816, 920), phone = Size(412, 915);
+        try {
+          await _mountAt(t, theme, wide);
+          await _expectColumnsContinue(t, theme);
+          await _resize(t, phone);
+          await _expectPhoneStrip(t, theme);
+          await _resize(t, wide);
+          await _expectColumnsContinue(t, theme);
+          await _resize(t, phone);
+          await _expectPhoneStrip(t, theme);
+          expect(t.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
 
     // Just below the breakpoint stays the phone behaviour.
-    testWidgets('statusbar 767dp stays phone $theme', (t) async {
-      try {
-        await _mountAt(t, theme, const Size(767, 900));
-        await _expectPhoneStrip(t, theme);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
+    if (part.claim()) {
+      testWidgets('statusbar 767dp stays phone $theme', (t) async {
+        try {
+          await _mountAt(t, theme, const Size(767, 900));
+          await _expectPhoneStrip(t, theme);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
   }
 
   // Screenshot contact-sheet inputs (RAFT_WIDE_SHOTS=<dir>); no assertions.
@@ -598,12 +604,17 @@ void _wideTests() {
   }
 }
 
-void main() {
+/// Three files share this suite (`statusbar_audit_part2_test.dart` ...), each
+/// registering a third of the cases.
+void main() => registerStatusbarAuditTests(TestPart(0, 3));
+
+void registerStatusbarAuditTests(TestPart part) {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['ValueNotifier<bool>', '_NativePicture']);
-  _wideTests();
+  _wideTests(part);
   for (final theme in raftThemeMatrix(_themes, full: true)) {
     for (final p in pages) {
+      if (!part.claim()) continue;
       testWidgets('statusbar ${p.name} $theme', (t) async {
         try {
           final f = await _mount(t, theme, p.path, prepare: p.prepare);
@@ -660,6 +671,7 @@ void main() {
   };
   for (final theme in raftThemeMatrix(_themes, full: true)) {
     for (final entry in standalone.entries) {
+      if (!part.claim()) continue;
       testWidgets('statusbar ${entry.key} $theme', (t) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.android;
         try {

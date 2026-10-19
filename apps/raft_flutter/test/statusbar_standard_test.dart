@@ -29,6 +29,7 @@ import 'edge_to_edge_audit_test.dart' show richFixture, settle;
 import 'mobile_computer_navigation_test.dart' show loadComputerPageFonts;
 import 'statusbar_audit_test.dart' show Page, pages, withDirectory;
 import 'flutter_test_config.dart' show leakDebt;
+import 'support/test_parts.dart';
 
 const _dpr = 2.625;
 const _topDp = 40.0;
@@ -260,7 +261,11 @@ const _wideCoverPages = <Page>[
   ),
 ];
 
-void main() {
+/// Four files share this suite (`statusbar_standard_part2_test.dart` ...), each
+/// registering a fourth of the cases.
+void main() => registerStatusbarStandardTests(TestPart(0, 4));
+
+void registerStatusbarStandardTests(TestPart part) {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['ValueNotifier<bool>']);
   final shots = Platform.environment['RAFT_STATUSBAR_STANDARD_DIR'];
@@ -275,6 +280,7 @@ void main() {
     ];
     for (final theme in raftThemeMatrix(_themes, full: true)) {
       for (final p in routes) {
+        if (!part.claim()) continue;
         testWidgets('statusbar standard ${p.name} ${size.key} $theme', (
           t,
         ) async {
@@ -292,6 +298,7 @@ void main() {
   for (final size in _coverSizes.entries) {
     for (final theme in raftThemeMatrix(_themes, full: true)) {
       for (final p in _wideCoverPages) {
+        if (!part.claim()) continue;
         testWidgets('statusbar standard ${p.name} ${size.key} $theme', (
           t,
         ) async {

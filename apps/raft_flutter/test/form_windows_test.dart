@@ -20,6 +20,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'flutter_test_config.dart' show leakDebt;
 import 'message_presentation_test.dart' show MessageAdapter;
 import 'support/close_support.dart';
+import 'support/test_parts.dart';
 
 // Every floating window that edits or creates something is a form
 // (RaftPresentationPolicy.form): a bottom sheet below 768, a centered dialog
@@ -243,7 +244,11 @@ final _forms = <_Form>[
 
 const _phone = Size(390, 844), _desktop = Size(1000, 800);
 
-void main() {
+/// Two files share this suite (`form_windows_part2_test.dart`), each
+/// registering half of the forms.
+void main() => registerFormWindowTests(TestPart(0, 2));
+
+void registerFormWindowTests(TestPart part) {
   // Leak debt (report issue's transcript notifier) as in close_dialogs_test;
   // Flutter 3.47.6: a modal bottom sheet closed by a drag rebinds its
   // animation to a CurvedAnimation that nothing disposes.
@@ -280,7 +285,7 @@ void main() {
   final dialog = find.byType(RaftDialogFrame);
 
   for (final form in _forms) {
-    group(form.id, () {
+    part.group(form.id, () {
       testWidgets('is a sheet at 390 and a dialog at 1000', (t) async {
         await openForm(t, form, _phone);
         expect(sheet, findsOneWidget, reason: 'sheet at 390');
@@ -442,7 +447,7 @@ void main() {
       'create joint channel',
     }.contains(f.id),
   )) {
-    group('${form.id} guards unsaved input', () {
+    part.group('${form.id} guards unsaved input', () {
       Future<void> typeSomething(WidgetTester t) async {
         await t.enterText((form.field ?? _editable)(), 'unsaved words');
         await t.pump();

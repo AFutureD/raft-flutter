@@ -29,6 +29,7 @@ import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'flutter_test_config.dart' show leakDebt;
+import 'support/test_parts.dart';
 import 'solid_png.dart';
 import 'system_ui_calls.dart';
 
@@ -528,10 +529,37 @@ class _Frame {
 const _wide = Size(1280, 800);
 const _phone = Size(390, 844);
 
-void main() {
+/// Three files share this suite (`image_viewer_part2_test.dart` ...), each
+/// registering a third of the groups by weight.
+void main() => registerImageViewerTests(TestPart(0, 3));
+
+void registerImageViewerTests(TestPart part) {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['Image', 'ImageInfo', 'ImageStreamCompleterHandle']);
-  group('header actions per layout', () {
+  // Roughly a tenth of each group's lines: the big groups go to different files.
+  part.weigh(const {
+    'phone chrome': 70,
+    'Hero flight geometry': 63,
+    'pinch beats the page swipe': 30,
+    'immersive mode': 22,
+    'Share and More': 11,
+    'drag down to dismiss': 11,
+    'thumbnail strip': 12,
+    'swipe on phones': 11,
+    'keyboard map': 13,
+    'multi-image navigation': 8,
+    'loading and failure': 7,
+    'desktop header': 8,
+    'Hero': 6,
+    'download': 5,
+    'closing and page changes': 5,
+    'accessibility': 5,
+    'phone long-press menu': 6,
+    'header actions per layout': 5,
+    'reduced motion': 4,
+    'preloading': 2,
+  });
+  part.group('header actions per layout', () {
     testWidgets('wide: Download only (Web header), no Share, no menu', (
       tester,
     ) async {
@@ -579,7 +607,7 @@ void main() {
     });
   });
 
-  group('phone long-press menu', () {
+  part.group('phone long-press menu', () {
     testWidgets(
       'offers Save and Share; Save writes the original to the gallery',
       (tester) async {
@@ -642,7 +670,7 @@ void main() {
     });
   });
 
-  group('download', () {
+  part.group('download', () {
     testWidgets('saves the cached original under its name, no new request', (
       tester,
     ) async {
@@ -691,7 +719,7 @@ void main() {
     });
   });
 
-  group('multi-image navigation', () {
+  part.group('multi-image navigation', () {
     testWidgets('counter and thumbnail strip, no arrows, no wrap', (
       tester,
     ) async {
@@ -772,7 +800,7 @@ void main() {
     });
   });
 
-  group('loading and failure', () {
+  part.group('loading and failure', () {
     Finder chip() => find.byType(RaftTransferBar);
 
     testWidgets('the progress chip waits 300 ms and is not shown for a page '
@@ -839,7 +867,7 @@ void main() {
     });
   });
 
-  group('closing and page changes', () {
+  part.group('closing and page changes', () {
     testWidgets('desktop: closing fades out (reverse transition), then gone', (
       tester,
     ) async {
@@ -888,7 +916,7 @@ void main() {
     });
   });
 
-  group('thumbnail strip', () {
+  part.group('thumbnail strip', () {
     Rect thumb(WidgetTester tester, int i) =>
         tester.getRect(find.byKey(ValueKey('lightbox-thumbnail-$i')));
     double offset(WidgetTester tester) => tester
@@ -1009,7 +1037,7 @@ void main() {
     });
   });
 
-  group('swipe on phones', () {
+  part.group('swipe on phones', () {
     testWidgets('a horizontal swipe switches images; first and last stop', (
       tester,
     ) async {
@@ -1123,7 +1151,7 @@ void main() {
   // the gesture as soon as the second finger lands unless the page drag already
   // won. Real fingers never land together and never move symmetrically; each
   // case below lost to the page swipe (or the drag-down dismiss) before.
-  group('pinch beats the page swipe', () {
+  part.group('pinch beats the page swipe', () {
     // An Android phone: the framework's slop is the system touch slop (8 dp), so
     // a drag claims the gesture after 8 dp while the span of a pinch needs 18.
     void androidSlop(WidgetTester tester) {
@@ -1422,7 +1450,7 @@ void main() {
     });
   });
 
-  group('preloading', () {
+  part.group('preloading', () {
     testWidgets('signs only the shown image and one neighbour per side', (
       tester,
     ) async {
@@ -1440,7 +1468,7 @@ void main() {
     });
   });
 
-  group('phone chrome', () {
+  part.group('phone chrome', () {
     testWidgets('top bar: back, title, sender · time, counter, Share, More', (
       tester,
     ) async {
@@ -2142,7 +2170,7 @@ void main() {
     });
   });
 
-  group('desktop header', () {
+  part.group('desktop header', () {
     testWidgets('kind glyph, filename, sender · time · size, counter', (
       tester,
     ) async {
@@ -2219,7 +2247,7 @@ void main() {
     });
   });
 
-  group('Share and More', () {
+  part.group('Share and More', () {
     testWidgets('Share hands the original to the system sheet', (tester) async {
       final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
       await _open(tester, 0);
@@ -2331,7 +2359,7 @@ void main() {
     });
   });
 
-  group('immersive mode', () {
+  part.group('immersive mode', () {
     Offset below(WidgetTester tester) =>
         tester.getCenter(find.byKey(const ValueKey('viewer-stage'))) +
         const Offset(0, 250);
@@ -2553,7 +2581,7 @@ void main() {
     });
   });
 
-  group('drag down to dismiss', () {
+  part.group('drag down to dismiss', () {
     Future<TestGesture> dragStart(WidgetTester tester) async {
       final gesture = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
@@ -2664,7 +2692,7 @@ void main() {
     });
   });
 
-  group('Hero', () {
+  part.group('Hero', () {
     final shuttle = find.byKey(const ValueKey('media-hero-shuttle'));
 
     for (final (name, size) in [('phone', _phone), ('desktop', _wide)]) {
@@ -2723,7 +2751,7 @@ void main() {
     });
   });
 
-  group('Hero flight geometry', () {
+  part.group('Hero flight geometry', () {
     final shuttle = find.byKey(const ValueKey('media-hero-shuttle'));
     final picture = find.byKey(const ValueKey('media-hero-shuttle-picture'));
     final stagePicture = find.byKey(const ValueKey('attachment-image-img0'));
@@ -3352,7 +3380,7 @@ void main() {
     });
   });
 
-  group('reduced motion', () {
+  part.group('reduced motion', () {
     testWidgets('page changes snap on a phone', (tester) async {
       tester.platformDispatcher.accessibilityFeaturesTestValue =
           const FakeAccessibilityFeatures(disableAnimations: true);
@@ -3395,7 +3423,7 @@ void main() {
     });
   });
 
-  group('keyboard map', () {
+  part.group('keyboard map', () {
     Future<void> chord(
       WidgetTester tester,
       LogicalKeyboardKey modifier,
@@ -3527,7 +3555,7 @@ void main() {
     });
   });
 
-  group('accessibility', () {
+  part.group('accessibility', () {
     testWidgets('page label, selected strip item, zoom actions', (
       tester,
     ) async {
