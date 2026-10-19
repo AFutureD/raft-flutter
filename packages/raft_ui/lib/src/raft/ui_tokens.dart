@@ -26,6 +26,18 @@ class RaftUiColors {
   factory RaftUiColors.fromMap(bool dark, Map<String, Color> colors) =>
       RaftUiColors._(dark, colors);
 
+  /// Two sets of colours are the same when they are the same mode over the same
+  /// map. The map is built once per theme, so identity is the right test: a
+  /// contents comparison would walk 300 entries in every `build`.
+  @override
+  bool operator ==(Object other) =>
+      other is RaftUiColors &&
+      other.dark == dark &&
+      identical(other._colors, _colors);
+
+  @override
+  int get hashCode => Object.hash(dark, identityHashCode(_colors));
+
   final bool dark;
   final Map<String, Color> _colors;
 
@@ -92,9 +104,15 @@ Color raftChromeBlend(Color source, Color backdrop) {
   );
 }
 
+/// One [RaftUiColors] per tokens instance: `ui` is read in `build`, and a fresh
+/// object per read would make every `didUpdateWidget`/`shouldRepaint` compare as
+/// changed. An Expando keeps [RaftTokens] (an immutable ThemeExtension) free of
+/// mutable fields.
+final Expando<RaftUiColors> _uiCache = Expando<RaftUiColors>('RaftUiColors');
+
 /// 0.7.1 type styles and colours for the active mode.
 extension RaftTokensUi on RaftTokens {
-  RaftUiColors get ui => RaftUiColors.fromMap(dark, colors);
+  RaftUiColors get ui => _uiCache[this] ??= RaftUiColors.fromMap(dark, colors);
 
   /// A named style of the Raft type scale ([RaftTypeScale]) as a Flutter [TextStyle]:
   /// Space Grotesk (or Space Mono for [mono]), CSS half-leading, the scale's own weight and tracking unless

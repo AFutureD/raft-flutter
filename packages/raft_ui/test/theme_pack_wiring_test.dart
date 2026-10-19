@@ -90,6 +90,33 @@ void main() {
     expect(tokens.ui.stickerInk, tokens.colors['sticker-ink']);
   });
 
+  testWidgets('RaftTokens.ui is stable and compares by mode and colour map', (
+    tester,
+  ) async {
+    late RaftTokens tokens;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: Builder(
+          builder: (context) {
+            tokens = RaftTokens.of(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    // Read in build, so repeated reads must not hand out new objects: a widget
+    // comparing old and new colours would otherwise repaint every frame.
+    expect(identical(tokens.ui, tokens.ui), isTrue);
+    expect(tokens.ui, tokens.ui);
+    expect(tokens.ui.hashCode, tokens.ui.hashCode);
+    // Different mode over the same map is a different set of colours.
+    expect(
+      RaftUiColors.fromMap(true, tokens.colors),
+      isNot(RaftUiColors.fromMap(false, tokens.colors)),
+    );
+  });
+
   testWidgets('dark mode resolves its own values', (tester) async {
     final pack = RaftThemePack.parse(childPack(), origin: 'test');
     late RaftTokens tokens;
