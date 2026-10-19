@@ -394,6 +394,7 @@ const String raftThemePackJson = r'''{
         "radius.pill": 999,
         "radius.avatar": 4,
         "radius.rail": 0,
+        "radius.field": 6,
         "stroke.hairline": 1,
         "stroke.control": 1.5,
         "stroke.container": 1,
@@ -411,7 +412,13 @@ const String raftThemePackJson = r'''{
         "size.drawer": 380,
         "space.controlX": 12,
         "space.itemX": 10,
-        "space.inset.panel": 16
+        "space.inset.panel": 16,
+        "type.field.size": 16,
+        "type.field.line": 24,
+        "type.field.weight": 400,
+        "type.cardTitle.size": 16,
+        "type.cardTitle.line": 22,
+        "type.cardTitle.weight": 500
       },
       "type": {
         "hero": [
@@ -858,6 +865,7 @@ const String raftThemePackJson = r'''{
         "radius.pill": 999,
         "radius.avatar": 4,
         "radius.rail": 0,
+        "radius.field": 6,
         "stroke.hairline": 1,
         "stroke.control": 1.5,
         "stroke.container": 1,
@@ -875,7 +883,13 @@ const String raftThemePackJson = r'''{
         "size.drawer": 380,
         "space.controlX": 12,
         "space.itemX": 10,
-        "space.inset.panel": 16
+        "space.inset.panel": 16,
+        "type.field.size": 16,
+        "type.field.line": 24,
+        "type.field.weight": 400,
+        "type.cardTitle.size": 16,
+        "type.cardTitle.line": 22,
+        "type.cardTitle.weight": 500
       },
       "type": {
         "hero": [

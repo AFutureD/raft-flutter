@@ -7,6 +7,8 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
+  raft_theme:
+    path: ../raft_theme
   flutter_markdown_plus: ^1.0.12
   markdown: ^7.3.0
   mermaid_flutter: ^0.3.0

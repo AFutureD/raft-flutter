@@ -84,8 +84,15 @@ void main() {
       for (final control in [set.shadows.xs, set.shadows.sm, set.shadows.md]) {
         expect(control.layers, isEmpty, reason: '$id');
       }
-      expect(set.shadows.lg, same(float), reason: '$id');
-      expect(set.shadows.xl, same(float), reason: '$id');
+      // The pack builds its own shadow objects, so compare the layers rather
+      // than the instance: the values are what a theme can change.
+      String css(RaftShadow shadow) => [
+        for (final layer in shadow.layers)
+          '${layer.inset}|${layer.offset.dx},${layer.offset.dy}|'
+              '${layer.blur}|${layer.spread}|${layer.color.toARGB32()}',
+      ].join(',');
+      expect(css(set.shadows.lg), css(float), reason: '$id');
+      expect(css(set.shadows.xl), css(float), reason: '$id');
     }
   });
 

@@ -1,6 +1,8 @@
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
+import 'package:raft_theme/raft_theme.dart'
+    show RaftModeValues, RaftShadowSpec, builtInRaftTheme;
 
 import 'component_colors.g.dart';
 import 'metrics.g.dart';
@@ -57,15 +59,73 @@ class RaftTokenSet {
   final RaftThemeShadows shadows;
   final RaftThemeMetrics metrics;
 
-  static final RaftTokenSet light = _build(RaftThemeId.light);
-  static final RaftTokenSet dark = _build(RaftThemeId.dark);
+  static final RaftTokenSet light = of(RaftThemeId.light);
+  static final RaftTokenSet dark = of(RaftThemeId.dark);
 
-  static RaftTokenSet of(RaftThemeId id) => switch (id) {
-    RaftThemeId.light => light,
-    RaftThemeId.dark => dark,
-  };
+  static final Map<RaftThemeId, RaftTokenSet> _builtIn = {};
 
-  static RaftTokenSet _build(RaftThemeId id) {
+  /// The token set the app paints with: one mode of the built-in Raft theme,
+  /// resolved once per mode. [fromStatics] is the generated reference these
+  /// were checked against (`theme_pack_parity_test.dart`).
+  static RaftTokenSet of(RaftThemeId id) => _builtIn.putIfAbsent(
+    id,
+    () => RaftTokenSet.fromPack(
+      id,
+      mode: builtInRaftTheme.resolve(dark: id == RaftThemeId.dark),
+    ),
+  );
+
+  /// Every tier read from one mode of a theme pack instead of the generated
+  /// statics.
+  factory RaftTokenSet.fromPack(
+    RaftThemeId id, {
+    required RaftModeValues mode,
+  }) {
+    final colors = {...mode.colors, ...mode.palette};
+    RaftShadow shadow(String role) => RaftShadow([
+      for (final layer in mode.shadows[role] ?? const <RaftShadowSpec>[])
+        RaftCssShadow(
+          inset: layer.inset,
+          offset: layer.offset,
+          blur: layer.blur,
+          spread: layer.spread,
+          color: layer.color,
+        ),
+    ]);
+    double token(String name, double fallback) =>
+        mode.geometry[name] ?? fallback;
+    return RaftTokenSet._(
+      id,
+      RaftSemanticColors.fromCssMap(colors),
+      RaftProductColors.fromCssMap(colors),
+      RaftComponentColors.fromCssMap(colors),
+      RaftThemeShadows(
+        xs: shadow('xs'),
+        sm: shadow('sm'),
+        md: shadow('md'),
+        lg: shadow('lg'),
+        xl: shadow('xl'),
+      ),
+      RaftThemeMetrics(
+        fieldFontSize: token('type.field.size', 16),
+        fieldFontWeight: token('type.field.weight', 400),
+        fieldLineHeight: token('type.field.line', 24),
+        cardTitleFontSize: token('type.cardTitle.size', 16),
+        cardTitleFontWeight: token('type.cardTitle.weight', 500),
+        cardTitleLineHeight: token('type.cardTitle.line', 22),
+        headingFontStack: raftSansFontStack,
+        sansFontStack: raftSansFontStack,
+        monoFontStack: raftMonoFontStack,
+        headingFont: raftSansFontFamily,
+        sansFont: raftSansFontFamily,
+        monoFont: raftMonoFontFamily,
+      ),
+    );
+  }
+
+  /// The same tiers read from the generated raft-ui 0.7.1 statics. Kept as the
+  /// independent oracle the packs are compared against.
+  static RaftTokenSet fromStatics(RaftThemeId id) {
     final dark = id == RaftThemeId.dark;
     final tokens = dark ? RaftDark.colors : RaftLight.colors;
     final shadows = dark ? RaftDark.shadows : RaftLight.shadows;

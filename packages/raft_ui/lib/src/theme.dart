@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:raft_theme/raft_theme.dart';
 
 import 'control_typography.dart';
 import 'tokens/tokens.dart';
@@ -17,7 +18,8 @@ class RaftAppearance {
 RaftThemeId raftThemeId({bool dark = false}) =>
     dark ? RaftThemeId.dark : RaftThemeId.light;
 
-final Map<RaftThemeId, Map<String, Color>> _colorMaps = {};
+// No cache keyed by theme id: two themes can both be "light", and a cached map
+// would hand the second one the first one's colours.
 
 /// The CJK part of the design stack (raft-ui `fonts.css`): PingFang on Apple platforms, YaHei on Windows,
 /// Noto Sans SC elsewhere. Families a platform does not have are skipped by the engine.
@@ -32,16 +34,13 @@ const List<String> _raftCjkChain = [
 /// custom-property name without `--`: primitives (`color-brutal-yellow-400`),
 /// semantic (`foreground-muted`, `ink-8`), product aliases (`color-brutal-cyan`)
 /// and component roles (`button-default-fill`). Prefer the typed tiers.
-Map<String, Color> raftColorMap(RaftTokenSet set) => _colorMaps.putIfAbsent(
-  set.id,
-  () => Map.unmodifiable({
-    for (final e in RaftPrimitiveColors.byCssName.entries)
-      e.key.substring(2): e.value,
-    ...set.colors.toCssMap(),
-    ...set.product.toCssMap(),
-    ...set.components.toCssMap(),
-  }),
-);
+Map<String, Color> raftColorMap(RaftTokenSet set) => Map.unmodifiable({
+  for (final e in RaftPrimitiveColors.byCssName.entries)
+    e.key.substring(2): e.value,
+  ...set.colors.toCssMap(),
+  ...set.product.toCssMap(),
+  ...set.components.toCssMap(),
+});
 
 @immutable
 class RaftFontFamilies {
@@ -85,23 +84,48 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
     this.dark,
     this.colors, {
     RaftTokenSet? tokens,
+    RaftModeValues? mode,
     this.systemFonts = false,
     this.systemFontFamilies = const RaftFontFamilies(),
     this.textLocale,
-  }) : _tokens = tokens;
+  }) : _tokens = tokens,
+       _mode = mode;
 
-  /// The Raft light or dark tokens ([RaftTokenSet]).
+  /// The tokens of one mode of [pack] (the built-in Raft theme by default).
+  ///
+  /// Everything a theme can set is read from the pack: colours, shadows, the
+  /// six type metrics and the radii. The value has to equal what the generated
+  /// 0.7.1 statics resolve to for the Raft pack — `theme_pack_parity_test.dart`
+  /// proves it — so switching the source changes no pixel.
   factory RaftTokens.theme({
     bool dark = false,
+    RaftThemePack? pack,
     bool systemFonts = false,
     RaftFontFamilies systemFontFamilies = const RaftFontFamilies(),
     Locale? textLocale,
   }) {
-    final set = RaftTokenSet.of(raftThemeId(dark: dark));
+    final themePack = pack ?? builtInRaftTheme;
+    // A user pack extends the built-in one; resolve through that chain so the
+    // values it does not set come from Raft rather than from nothing.
+    final mode = themePack.resolve(
+      dark: dark,
+      base: themePack.extendsId == builtInRaftTheme.id
+          ? builtInRaftTheme
+          : null,
+    );
+    final id = raftThemeId(dark: dark);
+    // The built-in theme is the canonical instance the rest of the app compares
+    // against; any other pack is resolved fresh from its values.
+    final set = pack == null
+        ? RaftTokenSet.of(id)
+        : RaftTokenSet.fromPack(id, mode: mode);
     return RaftTokens(
       dark,
-      raftColorMap(set),
+      // The pack's own names (0.7.1 roles, palette) sit on top of the legacy
+      // compatibility view, so a reader of either vocabulary finds its key.
+      Map.unmodifiable({...raftColorMap(set), ...mode.colors, ...mode.palette}),
       tokens: set,
+      mode: mode,
       systemFonts: systemFonts,
       systemFontFamilies: systemFontFamilies,
       textLocale: textLocale,
@@ -115,6 +139,10 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
   final Locale? textLocale;
   final Map<String, Color> colors;
   final RaftTokenSet? _tokens;
+
+  /// The resolved pack values for this mode; null when the tokens were built
+  /// the old way (tests that construct a bare [RaftTokenSet]).
+  final RaftModeValues? _mode;
 
   /// Every generated tier for this theme.
   RaftTokenSet get tokenSet =>
@@ -182,9 +210,13 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
             'sans-serif',
           ],
         };
-  double get radius => 8;
-  double get fieldRadius => 6;
-  double get border => 1;
+
+  /// Radii and stroke widths come from the theme's numeric tokens, so a theme
+  /// that squares the corners reaches every control. The fallbacks are the
+  /// Raft values for a [RaftTokens] built without a pack (tests).
+  double get radius => _mode?.geometry['radius.control'] ?? 8;
+  double get fieldRadius => _mode?.geometry['radius.field'] ?? 6;
+  double get border => _mode?.geometry['stroke.container'] ?? 1;
 
   /// The hyperlink underline every underlined run shares (Web `underline
   /// decoration-2 underline-offset-2`; no theme overrides it, so Brutal and
@@ -226,13 +258,13 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
           this.dark,
           colors ?? this.colors,
           tokens: _tokens,
+          mode: _mode,
           systemFonts: systemFonts,
           systemFontFamilies: systemFontFamilies,
           textLocale: textLocale ?? this.textLocale,
         )
-      : RaftTokens(
-          dark,
-          colors ?? raftColorMap(RaftTokenSet.of(raftThemeId(dark: dark))),
+      : RaftTokens.theme(
+          dark: dark,
           systemFonts: systemFonts,
           systemFontFamilies: systemFontFamilies,
           textLocale: textLocale ?? this.textLocale,
@@ -400,6 +432,10 @@ FontWeight raftFontWeight(double weight) =>
 
 ThemeData raftTheme({
   bool dark = false,
+
+  /// The theme to paint with. Defaults to the built-in Raft pack, which is
+  /// identical to the look the app had before themes became data.
+  RaftThemePack? pack,
   bool systemFonts = false,
   RaftFontFamilies systemFontFamilies = const RaftFontFamilies(),
 
@@ -415,6 +451,7 @@ ThemeData raftTheme({
 }) {
   final t = RaftTokens.theme(
     dark: dark,
+    pack: pack,
     systemFonts: systemFonts,
     systemFontFamilies: systemFontFamilies,
     textLocale: textLocale,

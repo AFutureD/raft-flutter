@@ -150,11 +150,18 @@ GEOMETRY_RAFT = {
     'radius.sticker': 4, 'radius.chip': 6, 'radius.control': 8, 'radius.controlSmall': 8,
     'radius.container': 10, 'radius.dialog': 16, 'radius.sheet': 16, 'radius.tooltip': 6,
     'radius.item': 6, 'radius.pill': 999, 'radius.avatar': 4, 'radius.rail': 0,
+    # The legacy field shape (design_primitives.dart:411). 0.7.1's Input uses
+    # radius.control; this token keeps the older field recipe where it is.
+    'radius.field': 6,
     'stroke.hairline': 1, 'stroke.control': 1.5, 'stroke.container': 1, 'stroke.rule': 1,
     'size.control.sm': 32, 'size.control.md': 44, 'size.control.lg': 52,
     'size.control.onFrame': 36, 'size.field': 44, 'size.panelHeader': 56, 'size.rail': 56,
     'size.railGlyph': 16, 'size.navRow': 34, 'size.menuRow': 32, 'size.drawer': 380,
     'space.controlX': 12, 'space.itemX': 10, 'space.inset.panel': 16,
+    # The six type metrics raft-ui carries; they size the field and the card
+    # title, so they belong to the contract rather than to a constant.
+    'type.field.size': 16, 'type.field.line': 24, 'type.field.weight': 400,
+    'type.cardTitle.size': 16, 'type.cardTitle.line': 22, 'type.cardTitle.weight': 500,
 }
 
 OPTIONS_RAFT = {

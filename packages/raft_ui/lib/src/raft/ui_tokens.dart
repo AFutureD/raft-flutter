@@ -20,6 +20,12 @@ class RaftUiColors {
 
   static RaftUiColors of(bool dark) => dark ? darkMode : light;
 
+  /// The colours of one mode, read from a theme's own map rather than the
+  /// generated 0.7.1 statics. This is what lets a theme reach the ported core
+  /// components: they resolve their colours through [RaftTokens.ui].
+  factory RaftUiColors.fromMap(bool dark, Map<String, Color> colors) =>
+      RaftUiColors._(dark, colors);
+
   final bool dark;
   final Map<String, Color> _colors;
 
@@ -88,7 +94,7 @@ Color raftChromeBlend(Color source, Color backdrop) {
 
 /// 0.7.1 type styles and colours for the active mode.
 extension RaftTokensUi on RaftTokens {
-  RaftUiColors get ui => RaftUiColors.of(dark);
+  RaftUiColors get ui => RaftUiColors.fromMap(dark, colors);
 
   /// A named style of the Raft type scale ([RaftTypeScale]) as a Flutter [TextStyle]:
   /// Space Grotesk (or Space Mono for [mono]), CSS half-leading, the scale's own weight and tracking unless

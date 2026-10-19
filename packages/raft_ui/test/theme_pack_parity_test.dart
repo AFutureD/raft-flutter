@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,12 +13,7 @@ import 'package:raft_ui/raft_ui.dart';
 void main() {
   late RaftThemePack pack;
 
-  setUpAll(
-    () => pack = RaftThemePack.parse(
-      File('assets/themes/raft.theme.json').readAsStringSync(),
-      origin: 'raft',
-    ),
-  );
+  setUpAll(() => pack = builtInRaftTheme);
 
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';

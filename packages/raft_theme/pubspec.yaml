@@ -14,9 +14,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  # Only for the parity test: the pack must equal what raft_ui resolves.
-  raft_ui:
-    path: ../raft_ui
 
 flutter:
   assets:

@@ -473,7 +473,10 @@ Color _color(Object? value, String where, Map<String, Color> palette) {
     final reference = RegExp(r'^\{\s*palette[.\-]([^}]+)\s*\}$')
         .firstMatch(value.trim());
     if (reference != null) {
-      final name = 'palette-${reference.group(1)!.trim().replaceAll('.', '-')}';
+      final body = reference.group(1)!.trim().replaceAll('.', '-');
+      // `{palette.cream.100}` and `{palette.palette-cream-100}` both name the
+      // same entry; a pack may write either.
+      final name = body.startsWith('palette-') ? body : 'palette-$body';
       final color = palette[name];
       if (color == null) {
         throw RaftThemeException('unknown palette entry "$name"', where: where);
