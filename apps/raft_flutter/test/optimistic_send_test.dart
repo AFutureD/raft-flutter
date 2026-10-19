@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/workspace_messages.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/message_timeline.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -199,7 +200,7 @@ void main() {
 
         // First frame: the row, authored by the current user, and an empty editor.
         final pending = w.messageDomain.timeline().last;
-        expect(WorkspaceController.isPendingSend(pending), isTrue);
+        expect(WorkspaceMessages.isPendingSend(pending), isTrue);
         expect(pending.content, 'Hello optimistic');
         expect(pending.author, 'Alice');
         final key = 'message-${w.messageDomain.messageKey(pending)}';
@@ -228,7 +229,7 @@ void main() {
             () => w.messageDomain.messages.any((m) => m.id == 'sent-1'),
             unchanged,
           );
-          expect(WorkspaceController.isPendingSend(w.messageDomain.timeline().last), false);
+          expect(WorkspaceMessages.isPendingSend(w.messageDomain.timeline().last), false);
         }
         ack.complete((200, {'message': accepted}));
         await _frames(
@@ -242,7 +243,7 @@ void main() {
         }
         final confirmed = w.messageDomain.timeline().last;
         expect(confirmed.id, 'sent-1');
-        expect(WorkspaceController.isPendingSend(confirmed), isFalse);
+        expect(WorkspaceMessages.isPendingSend(confirmed), isFalse);
         expect(w.messageDomain.messageKey(confirmed), w.messageDomain.messageKey(pending));
         expect(w.messageDomain.timeline().map((m) => m.id), ['m1', 'm2', 'm3', 'sent-1']);
         expect(t.takeException(), isNull);
@@ -283,7 +284,7 @@ void main() {
         ]);
         final pending = {
           for (final row in w.messageDomain.timeline())
-            if (WorkspaceController.isPendingSend(row)) row.content: row,
+            if (WorkspaceMessages.isPendingSend(row)) row.content: row,
         };
         final aKey = w.messageDomain.messageKey(pending['Slow A']!);
         final cKey = w.messageDomain.messageKey(pending['Fast C']!);
@@ -383,7 +384,7 @@ void main() {
       await _tapSend(t);
       await t.pump();
       final pending = w.messageDomain.timeline().last;
-      expect(WorkspaceController.isPendingSend(pending), isTrue);
+      expect(WorkspaceMessages.isPendingSend(pending), isTrue);
       expect(paintedMessage(t, w.messageDomain.messageKey(pending)), isNotNull);
 
       await _frames(t, () => w.error != null);
@@ -480,7 +481,7 @@ void main() {
       await _tapSend(t);
       await t.pump();
       final pending = w.messageDomain.timeline().last;
-      expect(WorkspaceController.isPendingSend(pending), isTrue);
+      expect(WorkspaceMessages.isPendingSend(pending), isTrue);
       expect(w.uploads(), isEmpty);
       final card = find.descendant(
         of: find.byKey(ValueKey('message-${w.messageDomain.messageKey(pending)}')),
@@ -538,7 +539,7 @@ void main() {
       await _tapSend(t);
       await t.pump();
       final pending = w.messageDomain.timeline(thread: true).single;
-      expect(WorkspaceController.isPendingSend(pending), isTrue);
+      expect(WorkspaceMessages.isPendingSend(pending), isTrue);
       final key = w.messageDomain.messageKey(pending);
       final rect = paintedMessage(t, key);
       expect(rect, isNotNull);

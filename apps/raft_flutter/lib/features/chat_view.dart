@@ -1152,7 +1152,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
       final id = widget.thread ? w.threadChannelId : w.channel?.id;
       final presented = rows;
       for (final row in presented) {
-        if (!WorkspaceController.isPendingSend(row) &&
+        if (!WorkspaceMessages.isPendingSend(row) &&
             (row.json['reactions'] as List? ?? []).isNotEmpty) {
           w.hydrateReactionViewer(row);
         }
@@ -1939,7 +1939,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
         if (!raster(a) && !videos.contains(a) && !audios.contains(a)) a,
     ];
     if (images.isEmpty && videos.isEmpty && audios.isEmpty) return null;
-    final pending = WorkspaceController.isPendingSend(message);
+    final pending = WorkspaceMessages.isPendingSend(message);
     final messageId = pending ? null : message.id;
     Widget view(Map<String, dynamic> a) => sendStateAttachment(
       pending,
@@ -2712,7 +2712,7 @@ class _RaftChatViewState extends PhonePageState<RaftChatView> {
     // Optimistic rows share the final row's key and widget shape; only the
     // actions that need a server message id stay inert until it arrives.
     final key = _messages.messageKey(m);
-    final pending = WorkspaceController.isPendingSend(m);
+    final pending = WorkspaceMessages.isPendingSend(m);
     if (m.string('messageType') == 'system') {
       return RaftSystemMessage(
         key: ValueKey('message-$key'),

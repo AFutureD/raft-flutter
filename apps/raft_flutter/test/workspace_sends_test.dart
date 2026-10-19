@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/workspace_messages.dart';
 import 'package:raft_flutter/data/shared_draft_attachment.dart';
 
 typedef _Receipt = ({RaftMessage message, Map<String, dynamic> receipt});
@@ -164,7 +165,7 @@ void main() {
       expect(await futures.single, true);
       expect(root.messageDomain.timeline().single.id, 'accepted-1');
       expect(
-        WorkspaceController.isPendingSend(root.messageDomain.timeline().single),
+        WorkspaceMessages.isPendingSend(root.messageDomain.timeline().single),
         false,
       );
     },
@@ -242,7 +243,7 @@ void main() {
   );
 
   test('resolving a shared DM keeps the pending membership hold', () async {
-    root.channel = WorkspaceController.pendingDm(
+    root.channel = WorkspaceMessages.pendingDm(
       key: 'peer',
       serverId: 's1',
       name: 'Peer',

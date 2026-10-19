@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'platform/cache_hygiene.dart' show purgeAccountCaches;
 import 'data/device_preferences.dart';
 import 'data/workspace_controller.dart';
+import 'data/workspace_messages.dart';
 import 'data/user_error.dart';
 import 'data/workspace_cache.dart';
 import 'data/raft_location.dart';
@@ -499,7 +500,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               // A public channel the account has not joined: the joined row is
               // shown at once and the join runs in the background.
               final opened = cachedRow == null
-                  ? WorkspaceController.pendingDm(
+                  ? WorkspaceMessages.pendingDm(
                       key: target.key,
                       serverId: server.id,
                       name: target.label.replaceFirst('@', ''),
@@ -611,7 +612,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     required bool Function() valid,
   }) async {
     var scope = opened.id;
-    final pending = WorkspaceController.isPendingDm(opened);
+    final pending = WorkspaceMessages.isPendingDm(opened);
     bool stillHere() => valid() && c.user != null;
     void refuse(String notice) {
       if (stillHere()) w.blockShared(scope, notice);

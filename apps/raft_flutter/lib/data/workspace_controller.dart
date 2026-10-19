@@ -700,14 +700,6 @@ class WorkspaceController extends ChangeNotifier
     _editor.blockShared(scope, notice);
   }
 
-  /// A destination that does not exist on the server yet (a new DM): the
-  /// composer opens on this local row; [adoptResolvedDm] swaps in the real one.
-  static RaftChannel pendingDm({
-    required String key,
-    required String serverId,
-    required String name,
-  }) => WorkspaceMessages.pendingDm(key: key, serverId: serverId, name: name);
-  static bool isPendingDm(RaftChannel? c) => WorkspaceMessages.isPendingDm(c);
 
   /// The new DM exists now: its draft, staged files and hold move from the
   /// local row to [real], which takes its place in the lists and, when open,
@@ -844,8 +836,6 @@ class WorkspaceController extends ChangeNotifier
 
 
 
-  /// Whether [message] is an optimistic row still waiting for the server.
-  static bool isPendingSend(RaftMessage message) => WorkspaceMessages.isPendingSend(message);
 
   static bool _rateLimited(Object e) => e is RaftApiException && e.rateLimited;
 

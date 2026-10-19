@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/workspace_messages.dart';
 import 'package:raft_flutter/features/channel_members.dart';
 import 'package:raft_flutter/features/channel_settings.dart';
 import 'package:raft_flutter/features/joint_channel_views.dart';
@@ -497,7 +498,7 @@ void main() {
       unawaited(w.send('hello'));
       await _drain();
       final pending = w.messageDomain.timeline().where(
-        WorkspaceController.isPendingSend,
+        WorkspaceMessages.isPendingSend,
       );
       expect(pending, hasLength(1), reason: 'displayName=$displayName');
       expect(pending.single.json['senderName'], expected);

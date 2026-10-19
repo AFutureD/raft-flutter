@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_cache.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/workspace_messages.dart';
 import 'package:raft_flutter/data/channel_repository.dart';
 
 RaftChannel _row(String id, {String type = 'public'}) => RaftChannel({
@@ -233,7 +234,7 @@ void main() {
       () async {
         final f = _Fixture(), w = f.root;
         final selected = held == 'pending-dm'
-            ? WorkspaceController.pendingDm(
+            ? WorkspaceMessages.pendingDm(
                 key: 'peer',
                 serverId: 's1',
                 name: 'peer',

@@ -231,8 +231,8 @@
         "field._ResourcePagePreviewState.receipt": 1,
         "field._ResourcePagePreviewState.workspace": 1,
         "field._VisualPresentationStorage.values": 1,
-        "lines": 2763,
-        "tokens": 14949,
+        "lines": 2753,
+        "tokens": 14881,
         "field.WorkspaceController._presentation": 0,
         "field.WorkspaceController.reactions": 0
       },
@@ -1267,8 +1267,8 @@
     {
       "module": "app_root",
       "metric": "tokens",
-      "limit": 11947,
-      "reason": "PR #216: one navigator-wide native hover policy wrapper (+7 tokens, no new fields); approved by Cindy in 1759c092-c736-4932-b550-e8337263704f. Message caller cleanup: two generation reads now use the existing message-domain owner (parent 11943 to 11947); replacement limit approved by Cindy in 4f9dceed-51de-4792-b6e1-b236560fd23d.",
+      "limit": 11950,
+      "reason": "PR #216: one navigator-wide native hover policy wrapper (+7 tokens, no new fields); approved by Cindy in 1759c092-c736-4932-b550-e8337263704f. Message caller cleanup: two generation reads now use the existing message-domain owner (parent 11943 to 11947); replacement limit approved by Cindy in 4f9dceed-51de-4792-b6e1-b236560fd23d. Message static utility caller cleanup: one direct WorkspaceMessages import adds 3 tokens (11947 to 11950), with no new fields; approved by Cindy in 13bea60f-f64a-4b41-8c7d-877124d959ba. Existing expiry and revocation conditions remain in force.",
       "reviewer": "Cindy",
       "expires": "2026-10-30"
     },

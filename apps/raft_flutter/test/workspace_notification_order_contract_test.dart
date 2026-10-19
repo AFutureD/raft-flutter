@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_cache.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/workspace_messages.dart';
 
 Map<String, dynamic> _row(String id, String channel, int seq) => {
   'id': id,
@@ -319,7 +320,7 @@ void main() {
     'N05 pending DM adoption: draft, row, notification then selection',
     () async {
       final f = _Fixture(), w = f.w;
-      final pending = WorkspaceController.pendingDm(
+      final pending = WorkspaceMessages.pendingDm(
         key: 'peer',
         serverId: 'server',
         name: 'Peer',
