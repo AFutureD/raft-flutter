@@ -117,6 +117,7 @@ in `apps/raft_flutter`.
 | `sidebar-sort-menu` | popup | esc scrim sysback | esc scrim sysback | esc scrim sysback | layout/Sidebar.tsx:1540 (Esc) + pointerdown outside | ok |  |
 | `server-switcher` | popup | esc scrim sysback | esc scrim sysback | esc scrim sysback | ui/ServerSwitcherMenu.tsx:279-283 (mousedown outside + Esc) | ok |  |
 | `notification-center` | popup | esc scrim sysback | esc scrim sysback | esc scrim sysback | layout/NotificationTrigger.tsx:55-60 Base UI Popover: Esc, outside press | ok |  |
+| `working-now` | popup | esc scrim sysback | esc scrim sysback | esc scrim sysback | Raft Design System working-agents.md: Working now Popover opened from the summary: Esc, outside press, on a phone too | ok |  |
 | `thread-menu` | popup | esc scrim sysback | esc scrim sysback | esc scrim sysback | message/ThreadOverflowMenu.tsx:24 Base UI Menu: Esc, outside press | ok |  |
 | `message-context-menu` | popup | scrim sysback | scrim sysback | scrim sysback | message/MessageItem.tsx:5103-5109 DismissBackdrop (outside press), scroll/resize close | ok |  |
 | `toast` | toast | x | x | x | LocalizedToastProvider.tsx:35,61-69 ToastClose unless hasClose === false | fixed | RaftToastPortal renders the Web default toast (icon + close + action); close was ignored in the icon-less layout |

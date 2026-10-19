@@ -75,6 +75,16 @@ const popupSurfaces = <CloseSurface>[
     files: ['lib/features/system_notification_center.dart'],
   ),
   CloseSurface(
+    'working-now',
+    kind: SurfaceKind.popup,
+    web:
+        'Raft Design System working-agents.md: Working now Popover opened from the summary: Esc, outside press, on a phone too',
+    phone: {_esc, _scrim, _sys},
+    fold: {_esc, _scrim, _sys},
+    desktop: {_esc, _scrim, _sys},
+    files: ['../../packages/raft_ui/lib/src/working_agents.dart'],
+  ),
+  CloseSurface(
     'thread-menu',
     kind: SurfaceKind.popup,
     web: 'message/ThreadOverflowMenu.tsx:24 Base UI Menu: Esc, outside press',

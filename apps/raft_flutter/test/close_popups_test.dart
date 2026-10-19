@@ -258,6 +258,32 @@ void main() {
         scrim: Offset(size.width / 2, size.height - 6),
       );
     },
+    'working-now': (t, size) async {
+      await mountHost(
+        t,
+        size,
+        (_) => RaftWorkingSummary(
+          agents: const [
+            RaftWorkingAgent(
+              id: 'a',
+              name: 'Bugen',
+              text: 'Editing Flow.tsx · #25',
+              avatar: RaftAvatarContent(
+                name: 'Bugen',
+                kind: RaftAvatarContentKind.agent,
+                pixelKey: 'cat',
+              ),
+            ),
+          ],
+        ),
+      );
+      await t.tap(find.byKey(const Key('working-agents-summary')));
+      await frames(t, 20);
+      return SurfaceProbe(
+        isOpen: openWhile(find.byKey(const Key('working-now'))),
+        scrim: farPoint(size),
+      );
+    },
     'thread-menu': (t, size) async {
       final w = await mountShell(t, size, chat: true);
       await openThreadPanel(t, w);
