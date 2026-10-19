@@ -302,7 +302,7 @@ void main() {
       expect(boxOf(tester), first, reason: 'declared size: no layout change');
       expect(find.text('1:23'), findsOneWidget, reason: 'the length');
       expect(players.made, 0);
-      expect(w.playerSessions.created, 0);
+      expect(w.attachmentMedia.playerSessions.created, 0);
       await done(tester);
     },
     );
@@ -806,7 +806,7 @@ void main() {
       );
 
       // The card reads the frame again after it was cleared.
-      w.clearRebuildableMemory();
+      w.attachmentMedia.trimRebuildable();
       await tester.pumpWidget(host(card(w, noThumbnail, id: 'b')));
       await tester.pump(const Duration(milliseconds: 300));
       await pumpUntil(tester, () => probe.calls.length == 2);
@@ -914,7 +914,7 @@ void main() {
       }
       expect(find.byType(MediaBrowser), findsNothing);
           expect(players.single.disposed, isTrue);
-          expect(w.playerSessions.length, 0);
+          expect(w.attachmentMedia.playerSessions.length, 0);
           await tester.pumpWidget(const SizedBox());
       w.dispose();
       await client.dispose();

@@ -43,7 +43,7 @@ void main() {
       body: Align(
         alignment: Alignment.topLeft,
         child: ShapedImageGallery(
-          sessions: w.playerSessions,
+          sessions: w.attachmentMedia.playerSessions,
           images: [metadata],
           builder: (dimensions) => RaftAttachmentGallery(
             dimensions: dimensions,

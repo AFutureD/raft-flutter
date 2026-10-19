@@ -207,15 +207,15 @@ void main() {
       await tester.pumpWidget(view(w, _Files(png)));
       await waitPreview(tester);
       await tester.pumpWidget(const SizedBox());
-      await w.debugAttachmentUrls.resolve(
+      await w.attachmentMedia.debugUrls.resolve(
         'a',
         scope: 's',
         fetch: () async => {'url': 'https://storage.invalid/a?sig=1'},
       );
-      w.playerSessions.keepStill('v', decoded);
+      w.attachmentMedia.playerSessions.keepStill('v', decoded);
       expect(w.attachmentMedia.retainedImageCount, 1);
-      expect(w.debugAttachmentUrls.length, 1);
-      expect(w.playerSessions.stillCount, 1);
+      expect(w.attachmentMedia.debugUrls.length, 1);
+      expect(w.attachmentMedia.playerSessions.stillCount, 1);
 
       final remove = CacheClear.instance.installAppLayers(
         cache: cache,
@@ -244,8 +244,8 @@ void main() {
       expect(RaftImageBytes.instance.memoryEntries, 0);
       expect(images.currentSize, 0);
       expect(w.attachmentMedia.retainedImageCount, 0);
-      expect(w.debugAttachmentUrls.length, 0);
-      expect(w.playerSessions.stillCount, 0);
+      expect(w.attachmentMedia.debugUrls.length, 0);
+      expect(w.attachmentMedia.playerSessions.stillCount, 0);
       // Staging.
       expect(idlePreview.parent.existsSync(), isFalse);
       expect(idleShare.parent.existsSync(), isFalse);

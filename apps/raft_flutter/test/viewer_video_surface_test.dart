@@ -173,7 +173,7 @@ void main() {
       await tester.pump();
     }
     expect(fake.disposed, 1);
-    expect(w.playerSessions.length, 0);
+    expect(w.attachmentMedia.playerSessions.length, 0);
   }, variant: system,
   );
 
@@ -196,7 +196,7 @@ void main() {
       await tester.pump();
     }
     expect(fake.disposed, 2);
-    expect(w.playerSessions.length, 0);
+    expect(w.attachmentMedia.playerSessions.length, 0);
   }, variant: system);
 
   testWidgets('an audio attachment in the viewer plays the cached file, no picture', (
@@ -296,7 +296,7 @@ void main() {
         isEmpty,
         reason: 'a timeline card never opens a player',
       );
-      expect(w.playerSessions.created, 0);
+      expect(w.attachmentMedia.playerSessions.created, 0);
     await tester.tap(find.byKey(const Key('inline-video-poster-card')));
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -304,7 +304,7 @@ void main() {
     expect(find.byType(RaftVideoViewer), findsOneWidget);
     expect(fake.types, [VideoViewType.textureView,
       ], reason: 'only the viewer creates a playback session');
-    expect(w.playerSessions.created, 1);
+    expect(w.attachmentMedia.playerSessions.created, 1);
     // Close at once, mid-way and fully: the viewer releases its only hold.
     context.currentState!.pop();
     await tester.pump(const Duration(milliseconds: 40));
@@ -317,9 +317,9 @@ void main() {
         await tester.pump();
       }
       expect(fake.disposed, 1);
-      expect(w.playerSessions.length, 0);
+      expect(w.attachmentMedia.playerSessions.length, 0);
     await tester.pumpWidget(const SizedBox());
-    w.playerSessions.clear();
+    w.attachmentMedia.playerSessions.clear();
     await tester.pump(const Duration(milliseconds: 50));
   }, variant: system,
   );

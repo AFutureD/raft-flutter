@@ -65,7 +65,6 @@ import 'workspace_presentation.dart';
 import 'workspace_presentation_ports.dart';
 
 export 'attachment_media.dart' show WorkspaceAttachmentImageLease;
-import '../platform/attachment_player_sessions.dart';
 
 class WorkspaceController extends ChangeNotifier
     implements WorkspaceServiceAuthority, SessionScopeBinding, WorkspaceMessageHost, WorkspacePresentationSourcePort, WorkspaceReactionSourcePort {
@@ -316,7 +315,7 @@ class WorkspaceController extends ChangeNotifier
     if (presentationSource == null) {
       _removeCacheClear = CacheClear.instance.register(
         'workspace-memory',
-        clearRebuildableMemory,
+        attachmentMedia.trimRebuildable,
       );
     }
   }
@@ -338,14 +337,6 @@ class WorkspaceController extends ChangeNotifier
   WorkspaceMessageWindows get messageWindows => _messages.messageWindows;
 
 
-  /// "Clear cache": lets go of what this workspace keeps in memory and can
-  /// rebuild: decoded attachment pictures nobody shows, signed attachment URLs
-  /// already resolved, and the kept still pictures of videos. Pictures a
-  /// widget holds, requests in flight and playing or held players stay.
-  @visibleForTesting
-  void clearRebuildableMemory() {
-    attachmentMedia.trimRebuildable();
-  }
 
   /// Borrowed editor controllers project messages but never own the session,
   /// membership recovery, server selection, socket resume, or client teardown.
@@ -474,10 +465,6 @@ class WorkspaceController extends ChangeNotifier
   bool _retainsAttachmentByHistory(AttachmentImageKey key) =>
       attachmentRetentionIndex.retains(key);
 
-  /// Number of complete history scans used for attachment retention.
-  @visibleForTesting
-  int get debugRetainedAttachmentIndexBuilds =>
-      attachmentRetentionIndex.debugBuilds;
 
   /// Set by the host from its actual logical width before bootstrap. Home
   /// retains selection/drafts, but is not an open conversation/read surface.
@@ -1268,27 +1255,9 @@ class WorkspaceController extends ChangeNotifier
       presentationSource?.sharedQuery(path, query: query) ??
       apiGateway.query(path, query: query);
 
-  /// Compatibility facade; all presentations share [attachmentMedia].
-  PlayerSessions get playerSessions => attachmentMedia.playerSessions;
 
-  @visibleForTesting
-  AttachmentUrlCache get debugAttachmentUrls => attachmentMedia.debugUrls;
 
-  Future<String> attachmentUrl(
-    String id, {
-    String? disposition = 'inline',
-    String? channelId,
-    bool refresh = false,
-    bool coalesce = false,
-  }) => attachmentMedia.url(
-    id,
-    disposition: disposition,
-    channelId: channelId,
-    refresh: refresh,
-    coalesce: coalesce,
-  );
 
-  Future<bool> attachmentPreviewEnabled() => attachmentMedia.previewEnabled();
 
   /// Coalesce identical concurrent reads, retaining this facade's query
   /// override and giving each caller its own copy of the decoded response.

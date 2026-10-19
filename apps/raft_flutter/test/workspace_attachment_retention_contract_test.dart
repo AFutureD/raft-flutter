@@ -124,10 +124,10 @@ void main() {
     'unused media has no history scans, including empty synchronous peeks',
     () {
       final f = _Fixture();
-      expect(f.w.debugRetainedAttachmentIndexBuilds, 0);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, 0);
       expect(f.ready(f.key()), isFalse);
       f.w.notifyListeners();
-      expect(f.w.debugRetainedAttachmentIndexBuilds, 0);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, 0);
     },
   );
 
@@ -136,14 +136,14 @@ void main() {
     () async {
       final f = _Fixture();
       await f.load(f.key());
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       final checks = f.w.accessChecks;
       for (var i = 0; i < 4; i++) {
         f.w.notifyListeners();
         expect(f.ready(f.key()), isTrue);
       }
       expect(f.w.accessChecks, greaterThan(checks));
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
       expect(f.loads, 1);
     },
   );
@@ -153,13 +153,13 @@ void main() {
     () async {
       final f = _Fixture();
       await f.load(f.key());
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.w.channels[0] = _Fixture.row('other');
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
       f.w.notifyListeners();
       expect(f.ready(f.key()), isFalse);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans + 1);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans + 1);
     },
   );
 
@@ -168,12 +168,12 @@ void main() {
     () async {
       final f = _Fixture();
       await f.load(f.key());
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.w.dms = f.w.channels;
       f.w.channels = [];
       f.w.notifyListeners();
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
     },
   );
 
@@ -183,13 +183,13 @@ void main() {
       final f = _Fixture();
       f.w.channels.add(_Fixture.row('other'));
       await f.load(f.key());
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.w.channels = f.w.channels.reversed.toList();
       f.w.notifyListeners();
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans + 1);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans + 1);
       f.w.notifyListeners();
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans + 1);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans + 1);
     },
   );
 
@@ -198,16 +198,16 @@ void main() {
     () async {
       final f = _Fixture();
       await f.load(f.key());
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.w.denied.add('channel');
       f.w.notifyListeners();
       expect(f.ready(f.key()), isFalse);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans + 1);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans + 1);
       f.w.denied.clear();
       f.w.notifyListeners();
       await f.load(f.key());
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans + 2);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans + 2);
     },
   );
 
@@ -227,12 +227,12 @@ void main() {
       borrowed.channels = [_Fixture.row('other')];
       await f.load(f.key(), through: borrowed);
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, 1);
-      expect(borrowed.debugRetainedAttachmentIndexBuilds, 0);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, 1);
+      expect(borrowed.attachmentRetentionIndex.debugBuilds, 0);
       borrowed.notifyListeners();
       borrowed.dispose();
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, 1);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, 1);
     },
   );
 
@@ -247,9 +247,9 @@ void main() {
     expect(editor.attachmentMedia, isNot(same(f.w.attachmentMedia)));
     await f.load(f.key(), through: editor);
     expect(editor.attachmentMedia.retainedImageCount, 0);
-    expect(editor.debugRetainedAttachmentIndexBuilds, 1);
+    expect(editor.attachmentRetentionIndex.debugBuilds, 1);
     expect(f.ready(f.key()), isTrue);
-    expect(f.w.debugRetainedAttachmentIndexBuilds, 1);
+    expect(f.w.attachmentRetentionIndex.debugBuilds, 1);
   });
 
   test(
@@ -261,11 +261,11 @@ void main() {
       final key = f.key(channel: 'thread');
       await f.load(key);
       expect(f.ready(key), isTrue);
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.ingest('channel', 'host', '4');
       f.w.notifyListeners();
       expect(f.ready(key), isFalse);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
     },
   );
 
@@ -278,15 +278,15 @@ void main() {
       f.ingest('thread', 'reply', '4', attachments: [_metadata]);
       final key = f.key(channel: 'thread');
       await f.load(key);
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.ingest('channel', 'host', '5');
       f.w.notifyListeners();
       expect(f.ready(key), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
       f.ingest('channel', 'second', '6');
       f.w.notifyListeners();
       expect(f.ready(key), isFalse);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
     },
   );
 
@@ -295,7 +295,7 @@ void main() {
     f.ingest('orphan', 'reply', '2', attachments: [_metadata]);
     await f.load(f.key(channel: 'orphan'));
     expect(f.w.attachmentMedia.retainedImageCount, 0);
-    expect(f.w.debugRetainedAttachmentIndexBuilds, 1);
+    expect(f.w.attachmentRetentionIndex.debugBuilds, 1);
   });
 
   test(
@@ -309,12 +309,12 @@ void main() {
       expect(f.w.attachmentMedia.retainedImageCount, 2);
       expect(f.ready(f.key()), isTrue);
       expect(f.ready(f.key(metadata: next, rendition: 'thumbnail')), isTrue);
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.ingest('channel', 'host', '3');
       f.w.notifyListeners();
       expect(f.ready(f.key()), isFalse);
       expect(f.ready(f.key(metadata: next, rendition: 'thumbnail')), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
     },
   );
 
@@ -323,10 +323,10 @@ void main() {
     () async {
       final f = _Fixture();
       await f.load(f.key());
-      final scans = f.w.debugRetainedAttachmentIndexBuilds;
+      final scans = f.w.attachmentRetentionIndex.debugBuilds;
       f.ingest('not-admitted', 'other', '2');
       expect(f.ready(f.key()), isTrue);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, scans);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, scans);
     },
   );
 }

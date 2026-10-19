@@ -63,7 +63,7 @@ void main() {
         for (final id in ids.take(60)) {
           unawaited(
             w
-                .attachmentUrl(id, channelId: w.channel?.id, coalesce: true)
+                .attachmentMedia.url(id, channelId: w.channel?.id, coalesce: true)
                 .then((_) {}, onError: (Object _) {}),
           );
         }

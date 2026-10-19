@@ -159,7 +159,7 @@ class _Fixture {
       );
 
   PlayerHold player(WorkspaceController controller, _Player player) =>
-      controller.playerSessions.acquire(
+      controller.attachmentMedia.playerSessions.acquire(
         'video',
         scope: source.attachmentImageScope,
         channelId: 'channel',
@@ -198,19 +198,22 @@ void main() {
       expect(fromSource.lease.value, same(provider));
       fromSource.release();
       expect(f.loads, 1);
-      expect(borrowed.playerSessions, same(f.source.playerSessions));
+      expect(
+        borrowed.attachmentMedia.playerSessions,
+        same(f.source.attachmentMedia.playerSessions),
+      );
       final player = _Player();
       final hold = f.player(borrowed, player);
       await hold.ready;
-      await borrowed.attachmentUrl('image', channelId: 'channel');
-      await f.source.attachmentUrl('image', channelId: 'channel');
-      expect(await borrowed.attachmentPreviewEnabled(), isTrue);
-      expect(await f.source.attachmentPreviewEnabled(), isTrue);
+      await borrowed.attachmentMedia.url('image', channelId: 'channel');
+      await f.source.attachmentMedia.url('image', channelId: 'channel');
+      expect(await borrowed.attachmentMedia.previewEnabled(), isTrue);
+      expect(await f.source.attachmentMedia.previewEnabled(), isTrue);
       expect(f.client.calls, [
         '/attachments/image/url',
         '/messages/attachment-preview/enabled',
       ]);
-      expect(borrowed.debugAttachmentUrls, same(f.urls));
+      expect(borrowed.attachmentMedia.debugUrls, same(f.urls));
 
       borrowed.dispose();
       expect(CacheClear.instance.names, hooks);
@@ -235,7 +238,7 @@ void main() {
     final player = _Player();
     final hold = f.player(f.source, player);
     await hold.ready;
-    await f.source.attachmentUrl('image', channelId: 'channel');
+    await f.source.attachmentMedia.url('image', channelId: 'channel');
     final observations = <Object?>[];
     f.store.onPurge = (identity) {
       observations.add([identity, f.client.serverId, f.source.server?.id]);
@@ -273,7 +276,7 @@ void main() {
     final player = _Player();
     final hold = f.player(f.source, player);
     await hold.ready;
-    await f.source.attachmentUrl('image', channelId: 'channel');
+    await f.source.attachmentMedia.url('image', channelId: 'channel');
     expect(RaftMemoryRelease.instance.snapshot(), contains('attachmentImages'));
     expect(RaftMemoryRelease.instance.snapshot(), contains('playerSessions'));
     final order = <String>[];

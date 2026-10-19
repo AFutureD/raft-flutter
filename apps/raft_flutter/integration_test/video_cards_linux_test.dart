@@ -262,7 +262,7 @@ void main() {
       }
       // ignore: avoid_print
       print(
-        'VIDEO-CARDS-LINUX after ${clock.elapsedMilliseconds} ms: images=${find.byType(Image).evaluate().length} raw=${find.byType(RawImage).evaluate().length} cards=${find.byType(RaftVideoPosterCard).evaluate().length} sessions.failed=${w.playerSessions.frameFailed.length} shapes=${w.playerSessions.shapes.length} stored=${await tester.runAsync(() => store.entryCount(namespace: AttachmentCacheNamespace.attachments))}',
+        'VIDEO-CARDS-LINUX after ${clock.elapsedMilliseconds} ms: images=${find.byType(Image).evaluate().length} raw=${find.byType(RawImage).evaluate().length} cards=${find.byType(RaftVideoPosterCard).evaluate().length} sessions.failed=${w.attachmentMedia.playerSessions.frameFailed.length} shapes=${w.attachmentMedia.playerSessions.shapes.length} stored=${await tester.runAsync(() => store.entryCount(namespace: AttachmentCacheNamespace.attachments))}',
       );
       expect(
         poster('portrait'),
@@ -288,8 +288,8 @@ void main() {
       }
       expect(find.byType(RaftInlineVideo), findsNothing);
       expect(find.byType(RaftVideoPosterCard), findsNWidgets(2));
-      expect(w.playerSessions.created, 0);
-      expect(w.playerSessions.length, 0);
+      expect(w.attachmentMedia.playerSessions.created, 0);
+      expect(w.attachmentMedia.playerSessions.length, 0);
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('landscape')),
@@ -322,7 +322,7 @@ void main() {
             playback.playing &&
             playback.position > const Duration(seconds: 1);
       }, 'clicking the poster starts native playback without another Play');
-      expect(w.playerSessions.created, 1);
+      expect(w.attachmentMedia.playerSessions.created, 1);
       // Desktop gallery navigation follows the same route as actual arrow keys.
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await waitFor(() => browser.index == 0, 'previous video page');
@@ -336,7 +336,7 @@ void main() {
       await waitFor(
         () =>
             find.byType(MediaBrowser).evaluate().isEmpty &&
-            w.playerSessions.length == 0,
+            w.attachmentMedia.playerSessions.length == 0,
         'closing the real browser releases every native player',
       );
       expect(find.byType(RaftInlineVideo), findsNothing);

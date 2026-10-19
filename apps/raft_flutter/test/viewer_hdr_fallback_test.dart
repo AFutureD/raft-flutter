@@ -90,7 +90,7 @@ void main() {
       final base = Player(playing: true),
           native = Player(fail: true, native: true);
       final key = attachmentMediaKey({'id': 'a', 'filename': 'clip.mp4'});
-      final card = w.playerSessions.acquire(
+      final card = w.attachmentMedia.playerSessions.acquire(
         key,
         scope: w.attachmentImageScope,
         create: () => base,
@@ -135,7 +135,7 @@ void main() {
     final w = WorkspaceController(c);
     final base = Player(playing: true, level: 0), native = Player(native: true);
     final key = attachmentMediaKey({'id': 'a', 'filename': 'clip.mp4'});
-    final card = w.playerSessions.acquire(
+    final card = w.attachmentMedia.playerSessions.acquire(
       key,
       scope: w.attachmentImageScope,
       create: () => base,

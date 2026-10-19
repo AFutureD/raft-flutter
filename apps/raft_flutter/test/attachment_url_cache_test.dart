@@ -381,19 +381,19 @@ void main() {
         await client.dispose();
       });
       final urls = await Future.wait([
-        w.attachmentUrl('f1', channelId: 'c1'),
-        w.attachmentUrl('f1', channelId: 'c1'),
+        w.attachmentMedia.url('f1', channelId: 'c1'),
+        w.attachmentMedia.url('f1', channelId: 'c1'),
       ]);
       expect(urls.toSet().length, 1);
-      await w.attachmentUrl('f1', channelId: 'c1');
+      await w.attachmentMedia.url('f1', channelId: 'c1');
       expect(client.urlReads, 1);
       // A one-shot download link is never retained.
-      await w.attachmentUrl('f1', disposition: 'attachment', channelId: 'c1');
-      await w.attachmentUrl('f1', disposition: 'attachment', channelId: 'c1');
+      await w.attachmentMedia.url('f1', disposition: 'attachment', channelId: 'c1');
+      await w.attachmentMedia.url('f1', disposition: 'attachment', channelId: 'c1');
       expect(client.urlReads, 3);
       client.emit('channel:removed', {'channelId': 'c1'});
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      await w.attachmentUrl('f1', channelId: 'c1');
+      await w.attachmentMedia.url('f1', channelId: 'c1');
       expect(client.urlReads, 4, reason: 'revoked channel asks the server again');
       await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(client.batchReads, 0, reason: 'single reads only, no batch');
@@ -408,10 +408,10 @@ void main() {
         w.dispose();
         await client.dispose();
       });
-      await w.attachmentUrl('f1');
+      await w.attachmentMedia.url('f1');
       client.user = RaftRecord({'id': 'bob'});
       w.notifyListeners();
-      await w.attachmentUrl('f1');
+      await w.attachmentMedia.url('f1');
       expect(client.urlReads, 2);
     });
 
@@ -429,11 +429,11 @@ void main() {
       expect(client.batchReads + client.urlReads, 0);
       await Future.wait([
         for (final id in ['f1', 'f2', 'f3'])
-          w.attachmentUrl(id, channelId: 'c1', coalesce: true),
+          w.attachmentMedia.url(id, channelId: 'c1', coalesce: true),
       ]);
       expect(client.batchReads, 1);
       for (final id in ['f1', 'f2', 'f3']) {
-        await w.attachmentUrl(id, channelId: 'c1');
+        await w.attachmentMedia.url(id, channelId: 'c1');
       }
       expect(client.urlReads, 0, reason: 'opens reuse the signed URLs');
     });
@@ -447,8 +447,8 @@ void main() {
         w.dispose();
         await client.dispose();
       });
-      expect(await w.attachmentPreviewEnabled(), isTrue);
-      expect(await w.attachmentPreviewEnabled(), isTrue);
+      expect(await w.attachmentMedia.previewEnabled(), isTrue);
+      expect(await w.attachmentMedia.previewEnabled(), isTrue);
       expect(client.gateReads, 1);
     });
   });

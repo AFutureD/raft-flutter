@@ -122,7 +122,7 @@ class _Rig {
   final List<MediaItem> items;
   final List<_Player> made;
   final List<String> urlReads;
-  PlayerSessions get sessions => w.playerSessions;
+  PlayerSessions get sessions => w.attachmentMedia.playerSessions;
   MediaBrowserState get browser =>
       TestWidgetsFlutterBinding.instance.rootElement == null
       ? throw StateError('unmounted')

@@ -467,7 +467,7 @@ Future<void> withScrollSession(
     await tester.pump(const Duration(seconds: 1));
   }
   try {
-    (w as dynamic).playerSessions.clear();
+    (w as dynamic).attachmentMedia.playerSessions.clear();
   } on NoSuchMethodError {
     // The baseline has no player sessions.
   }

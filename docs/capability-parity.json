@@ -10697,7 +10697,7 @@
    "status": "covered",
    "webEntry": "attachmentPreviewGate load() before opening previews",
    "gate": "none",
-   "flutterEntry": "workspace_controller.dart attachmentPreviewEnabled() delegates to attachment_media.dart previewEnabled() (2-minute memory)",
+   "flutterEntry": "attachment_media.dart previewEnabled() via attachment_preview_gate.dart (2-minute memory)",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/data/attachment_media.dart",

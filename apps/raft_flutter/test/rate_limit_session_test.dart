@@ -470,7 +470,7 @@ void main() {
         reason: 'thumbnailed images are never signed ahead of an open',
       );
 
-      w.playerSessions.clear();
+      w.attachmentMedia.playerSessions.clear();
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 1));
     },

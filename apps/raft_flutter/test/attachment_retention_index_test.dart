@@ -94,7 +94,7 @@ void main() {
     () async {
       final f = _Fixture();
       final image = await f.retain();
-      final firstBuilds = f.w.debugRetainedAttachmentIndexBuilds;
+      final firstBuilds = f.w.attachmentRetentionIndex.debugBuilds;
       for (var i = 0; i < 20; i++) {
         f.w.section = i.isEven ? 'settings' : 'chat';
         f.w.notifyListeners();
@@ -107,7 +107,7 @@ void main() {
         ready.release();
       }
       expect(f.loads, 1);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, firstBuilds);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, firstBuilds);
     },
   );
 
@@ -116,13 +116,13 @@ void main() {
     () async {
       final f = _Fixture();
       await f.retain();
-      final firstBuilds = f.w.debugRetainedAttachmentIndexBuilds;
+      final firstBuilds = f.w.attachmentRetentionIndex.debugBuilds;
       f.w.channels = [
         RaftChannel({'id': 'channel', 'name': 'renamed', 'joined': true}),
       ];
       f.w.notifyListeners();
       expect(f.w.attachmentMedia.retainedImageCount, 1);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, firstBuilds);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, firstBuilds);
     },
   );
 
@@ -146,10 +146,10 @@ void main() {
     () async {
       final f = _Fixture();
       await f.retain();
-      final builds = f.w.debugRetainedAttachmentIndexBuilds;
+      final builds = f.w.attachmentRetentionIndex.debugBuilds;
       f.ingest({..._metadata, 'contentVersion': 'next'}, '2');
       f.w.notifyListeners();
-      expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, builds);
       expect(f.w.attachmentMedia.retainedImageCount, 0);
       expect(
         f.w.attachmentMedia.peekImage(f.imageKey, authorized: () => true),
@@ -217,7 +217,7 @@ void main() {
     () async {
       final f = _Fixture();
       final image = await f.retain();
-      final builds = f.w.debugRetainedAttachmentIndexBuilds;
+      final builds = f.w.attachmentRetentionIndex.debugBuilds;
       for (var i = 0; i < 20; i++) {
         f.w.messageDomain.ledger.ingest([
           {
@@ -238,7 +238,7 @@ void main() {
       }
       expect(f.loads, 1);
       expect(
-        f.w.debugRetainedAttachmentIndexBuilds,
+        f.w.attachmentRetentionIndex.debugBuilds,
         builds,
         reason: 'no attachment or admission changed in these arrivals',
       );
@@ -250,7 +250,7 @@ void main() {
     () async {
       final f = _Fixture();
       await f.retain();
-      final builds = f.w.debugRetainedAttachmentIndexBuilds;
+      final builds = f.w.attachmentRetentionIndex.debugBuilds;
       final extra = {..._metadata, 'id': 'extra'};
       f.w.messageDomain.ledger.ingest([
         {
@@ -281,7 +281,7 @@ void main() {
       expect(ready, isNotNull);
       ready!.release();
       expect(f.loads, 2);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, builds);
       final kept = f.w.attachmentMedia.peekImage(
         f.imageKey,
         authorized: () => true,
@@ -297,7 +297,7 @@ void main() {
       for (final history in [100, 2000]) {
         final f = _Fixture();
         final image = await f.retain();
-        final builds = f.w.debugRetainedAttachmentIndexBuilds;
+        final builds = f.w.attachmentRetentionIndex.debugBuilds;
         for (var i = 0; i < history; i++) {
           f.w.messageDomain.ledger.ingest([
             {
@@ -323,7 +323,7 @@ void main() {
         expect(caughtUp, isNotNull);
         expect(caughtUp!.lease.value, same(image));
         caughtUp.release();
-        expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
+        expect(f.w.attachmentRetentionIndex.debugBuilds, builds);
         final micros = <int>[];
         for (var i = 0; i < 21; i++) {
           final watch = Stopwatch()..start();
@@ -348,7 +348,7 @@ void main() {
         micros.sort();
         final median = micros[micros.length ~/ 2];
         expect(f.loads, 1);
-        expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
+        expect(f.w.attachmentRetentionIndex.debugBuilds, builds);
         expect(
           median,
           lessThan(1000),
@@ -363,7 +363,7 @@ void main() {
   test('an unread change window still retains images by rebuilding', () async {
     final f = _Fixture();
     final image = await f.retain();
-    final builds = f.w.debugRetainedAttachmentIndexBuilds;
+    final builds = f.w.attachmentRetentionIndex.debugBuilds;
     final limit = MessageLedger.incrementalChangeLimit;
     for (var i = 0; i < limit; i++) {
       f.w.messageDomain.ledger.ingest([
@@ -392,7 +392,7 @@ void main() {
     expect(kept, isNotNull);
     expect(kept!.lease.value, same(image));
     kept.release();
-    expect(f.w.debugRetainedAttachmentIndexBuilds, builds + 1);
+    expect(f.w.attachmentRetentionIndex.debugBuilds, builds + 1);
     final key = AttachmentImageKey.fromMetadata(
       scope: f.w.attachmentImageScope,
       channelId: 'channel',
@@ -414,7 +414,7 @@ void main() {
     expect(ready, isNotNull);
     ready!.release();
     expect(f.loads, 2);
-    expect(f.w.debugRetainedAttachmentIndexBuilds, builds + 1);
+    expect(f.w.attachmentRetentionIndex.debugBuilds, builds + 1);
   });
 
   test(
@@ -422,7 +422,7 @@ void main() {
     () async {
       final f = _Fixture();
       await f.retain();
-      final builds = f.w.debugRetainedAttachmentIndexBuilds;
+      final builds = f.w.attachmentRetentionIndex.debugBuilds;
       f.w.messageDomain.ledger.remove('channel', 'host');
       f.w.notifyListeners();
       expect(
@@ -430,7 +430,7 @@ void main() {
         isNull,
       );
       expect(f.w.attachmentMedia.retainedImageCount, 0);
-      expect(f.w.debugRetainedAttachmentIndexBuilds, builds);
+      expect(f.w.attachmentRetentionIndex.debugBuilds, builds);
     },
   );
 }

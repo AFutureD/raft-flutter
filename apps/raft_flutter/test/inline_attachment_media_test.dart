@@ -55,7 +55,7 @@ dynamic _mounted;
 Future<void> unmount(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
   // The sessions own the players; clearing them ends every player.
-  _mounted?.playerSessions.clear();
+  _mounted?.attachmentMedia.playerSessions.clear();
   for (var i = 0; i < 4; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }

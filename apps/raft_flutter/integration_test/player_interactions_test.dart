@@ -978,7 +978,7 @@ void main() {
     await openFromImageWithNoCards(tester, [_bA, _bP1, _bC, _bD, _bP2], 'Preview p1.jpg', 1);
     final idle = await lab.host(tester, 'meminfo:r3-idle');
     final state = browserOf(tester);
-    final createdBase = state.w.playerSessions.created;
+    final createdBase = state.w.attachmentMedia.playerSessions.created;
     final dwell = PageDwell(state);
     // R4: three flicks in a row, 1 -> 4: the two videos are only passed.
     for (var i = 0; i < 3; i++) {
@@ -993,7 +993,7 @@ void main() {
     dwell.stop();
     await tester.pump(const Duration(milliseconds: 100));
     final flicked = await lab.stats();
-    final created = state.w.playerSessions.created - createdBase;
+    final created = state.w.attachmentMedia.playerSessions.created - createdBase;
     report('browser-r4', {
       'dwellMs': dwell.report,
       'landscapeRequests': flicked.player('landscape.mp4'),
@@ -1022,9 +1022,9 @@ void main() {
     final rested = await lab.stats();
     final streams = rested.player('long.mp4');
     final mem = await lab.host(tester, 'meminfo:r3-resting');
-    report('browser-r3-rest', {'longRequests': streams, 'ranged': rested.ranged('long.mp4'), 'live': VideoPlayerAttachmentPlayer.debugLive, 'created': state.w.playerSessions.created - createdBase});
+    report('browser-r3-rest', {'longRequests': streams, 'ranged': rested.ranged('long.mp4'), 'live': VideoPlayerAttachmentPlayer.debugLive, 'created': state.w.attachmentMedia.playerSessions.created - createdBase});
     expect(streams, greaterThan(0), reason: 'resting did not prepare the page');
-    expect(state.w.playerSessions.created - createdBase, 1, reason: 'one player for the rested page');
+    expect(state.w.attachmentMedia.playerSessions.created - createdBase, 1, reason: 'one player for the rested page');
     expect(stageOf(tester, 3).player?.playback.playing, false, reason: 'paging started playback');
     expect(VideoPlayerAttachmentPlayer.debugLive, 1);
     // Away and back inside the grace: the same player, no request.
@@ -1175,7 +1175,7 @@ void main() {
     final clips = mixedMessage(12);
     await openFromImageWithNoCards(tester, clips, 'Preview m0.jpg', 0);
     final state = browserOf(tester);
-    final createdBase = state.w.playerSessions.created;
+    final createdBase = state.w.attachmentMedia.playerSessions.created;
     final dwell = PageDwell(state);
     for (var page = 1; page < 12; page++) {
       await landOn(tester, page);
@@ -1185,7 +1185,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     final stats = await lab.stats();
     final videos = clips.where((c) => c.mime.startsWith('video')).length;
-    final opens = state.w.playerSessions.created - createdBase;
+    final opens = state.w.attachmentMedia.playerSessions.created - createdBase;
     final refused = stats.log.where((e) => e['status'] == 429).length;
     report('browser-r10', {'videoPages': videos, 'playersCreated': opens, 'playerRequests': stats.log.where((e) => !'${e['ua']}'.startsWith('Dart') && '${e['file']}'.endsWith('.mp4')).length, 'refused429': refused, 'dwellMs': dwell.report});
     expect(opens, lessThanOrEqualTo(videos), reason: 'more players than settled videos');

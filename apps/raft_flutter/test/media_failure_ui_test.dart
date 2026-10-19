@@ -114,7 +114,7 @@ void main() {
   dynamic mounted;
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
-    mounted?.playerSessions.clear();
+    mounted?.attachmentMedia.playerSessions.clear();
     for (var i = 0; i < 4; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }

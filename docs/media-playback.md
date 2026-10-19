@@ -128,7 +128,7 @@ reopen. Now:
 | First frame | when the player has the first range (`moov` + first samples) | immediately when handed over |
 | Download | the card's Download action | the viewer's Download action; both still save to disk through the system picker |
 
-* **Sessions** (`platform/attachment_player_sessions.dart`, `WorkspaceController.playerSessions`): one player per
+* **Sessions** (`platform/attachment_player_sessions.dart`, `AttachmentMedia.playerSessions`): one player per
   attachment version, keyed `id|version`. Holders (a card, a viewer) `acquire` and `release`; the player is disposed the
   moment the last holder is gone, never by a widget's `dispose` alone, and nothing lingers (a viewer closed with no card
   frees its decoder at once). A viewer outlives a card that scrolled away; a card outlives the viewer it opened. At most
